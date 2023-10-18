@@ -1,0 +1,16 @@
+{
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.formatting.provider": "none",
+    "cSpell.words": [
+        "lblue",
+        "lcyan",
+        "lightcyan",
+        "lightgreen",
+        "lightpurple",
+        "lightred",
+        "lred",
+        "windll"
+    ]
+}
