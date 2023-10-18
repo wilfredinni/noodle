@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "noodle"
-version = "0.1.0"
+version = "0.0.3"
 description = ""
 authors = ["Carlos <carlos@pythoncheatsheet.org>"]
 readme = "README.md"
