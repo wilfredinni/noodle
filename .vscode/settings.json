@@ -12,5 +12,6 @@
         "lightred",
         "lred",
         "windll"
-    ]
+    ],
+    "editor.formatOnSave": true
 }
