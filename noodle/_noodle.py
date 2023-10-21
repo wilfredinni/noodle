@@ -2,7 +2,10 @@ from dataclasses import dataclass
 
 import black
 
-from noodle.hue import bg
+from .hue import bg, red, green, orange
+from .utils import create_box
+
+from .types import BoxTypes
 
 
 @dataclass
@@ -20,9 +23,10 @@ class Noodle:
         """
         print(self._output(object, line_length=line_length))
 
-    def block(self, object, line_length=50, margen_length=2):
+    def block(self, object, line_length=50, margen_length=2, type: BoxTypes = "info"):
         """
-        Formats the given object as a block of text with a colored background.
+        Formats the given object with Black as a block of text with a colored
+        background.
 
         Args:
             object: The object to format.
@@ -33,18 +37,19 @@ class Noodle:
         Returns:
             None
         """
-        margen = " " * margen_length
         output = f"\n{self._output(object, line_length=line_length)}"
-        box_length = max(output.split("\n"), key=len)
-
-        output = "\n".join(
-            [
-                f"{margen}{line}{' ' * (len(box_length) - len(line))}{margen}"
-                for line in output.split("\n")
-            ]
-        )
-        final_output = bg(f"\n{output}\n")
-        print(final_output)
+        final_output = create_box(output, margen_length)
+        match type:
+            case "info":
+                print(bg(final_output))
+            case "error":
+                print(bg(red(final_output)))
+            case "success":
+                print(bg(green(final_output)))
+            case "warning":
+                print(bg(orange(final_output)))
+            case _:
+                print(final_output)
 
     def _output(self, object, line_length=50):
         """
@@ -62,5 +67,6 @@ class Noodle:
             return object
 
         return black.format_str(
-            str(object), mode=black.FileMode(line_length=line_length)
+            str(object),
+            mode=black.FileMode(line_length=line_length),
         )
