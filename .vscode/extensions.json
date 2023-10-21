@@ -1,0 +1,16 @@
+{
+    "recommendations": [
+        "ms-python.black-formatter",
+        "streetsidesoftware.code-spell-checker",
+        "ms-python.flake8",
+        "visualstudioexptteam.vscodeintellicode",
+        "ms-python.isort",
+        "ms-toolsai.jupyter",
+        "yzhang.markdown-all-in-one",
+        "ms-python.mypy-type-checker",
+        "ms-python.vscode-pylance",
+        "ms-python.python",
+        "gruntfuggly.todo-tree",
+        "shardulm94.trailing-spaces"
+    ]
+}
