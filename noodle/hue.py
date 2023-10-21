@@ -6,8 +6,6 @@ if platform.system() == "Windows":
     kernel32 = ctypes.windll.kernel32
     kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
-print_mode = False
-
 COMMANDS = {
     # Labels
     "info": (33, "[!] "),
@@ -49,10 +47,7 @@ def _gen(string, prefix, key):
     colored = prefix if prefix else string
     not_colored = string if prefix else ""
     result = "\033[{}m{}\033[0m{}".format(key, colored, not_colored)
-    if print_mode:
-        print(result)
-    else:
-        return result
+    return result
 
 
 for key, val in COMMANDS.items():
