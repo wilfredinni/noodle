@@ -1,18 +1,18 @@
 [tool.poetry]
 name = "noodle"
-version = "0.0.3"
+version = "0.0.4"
 description = ""
 authors = ["Carlos <carlos@pythoncheatsheet.org>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+black = "^23.10.0"
 
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.25.2"
 flake8 = "^6.1.0"
-black = "^23.10.0"
 mypy = "^1.6.1"
 pytest = "^7.4.2"
 
