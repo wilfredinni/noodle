@@ -16,9 +16,13 @@ ipykernel = "^6.25.2"
 flake8 = "^6.1.0"
 mypy = "^1.6.1"
 
-[tool.poetry.group.tes.dependencies]
-pytest = "^7.4.4"
+[tool.poetry.group.test.dependencies]
 pytest-asyncio = "^0.23.3"
+pytest = "^7.4.4"
+textual-dev = "^1.4.0"
+
+[tool.poetry.scripts]
+noodle = "noodle.noodle:run"
 
 [build-system]
 requires = ["poetry-core"]
