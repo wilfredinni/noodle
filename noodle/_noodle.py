@@ -1,10 +1,5 @@
 from dataclasses import dataclass
 
-import black
-
-from .hue import bg, red, green, orange
-from .utils import create_box
-
 from .types import BoxTypes
 
 
@@ -37,19 +32,7 @@ class Noodle:
         Returns:
             None
         """
-        output = f"\n{self._output(object, line_length=line_length)}"
-        final_output = create_box(output, margen_length)
-        match type:
-            case "info":
-                print(bg(final_output))
-            case "error":
-                print(bg(red(final_output)))
-            case "success":
-                print(bg(green(final_output)))
-            case "warning":
-                print(bg(orange(final_output)))
-            case _:
-                print(final_output)
+        pass
 
     def _output(self, object, line_length=50):
         """
@@ -63,10 +46,4 @@ class Noodle:
             If the object is already a string, returns the object unchanged.
             Otherwise, returns the formatted string representation of the object.
         """
-        if isinstance(object, str):
-            return object
-
-        return black.format_str(
-            str(object),
-            mode=black.FileMode(line_length=line_length),
-        )
+        pass
