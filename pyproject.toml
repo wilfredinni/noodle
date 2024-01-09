@@ -6,7 +6,7 @@ authors = ["Carlos <carlos@pythoncheatsheet.org>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<4.0.0"
 black = "^23.10.0"
 textual = "^0.47.1"
 
