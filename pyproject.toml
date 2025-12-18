@@ -1,8 +1,7 @@
 [project]
-# TODO ⚡ Change the name, version, description, authors, and license of the project
-name = "django-starter-template"
-version = "0.4.1"
-description = "A comprehensive starting point for your new API with Django and DRF"
+name = "noodle"
+version = "0.0.1"
+description = "Next generation Budgeting App"
 authors = [{name = "Carlos", email = "carlos@pythoncheatsheet.org"}]
 license = {text = "MIT"}
 readme = "README.md"

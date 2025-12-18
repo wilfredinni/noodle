@@ -151,7 +151,6 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # TODO ⚡ Adjust the throttle rates for your API
     "DEFAULT_THROTTLE_RATES": {
         "user": "1000/day",
         "anon": "100/day",
@@ -159,11 +158,10 @@ REST_FRAMEWORK = {
     },
 }
 
-# TODO ⚡ Update the settings for the DRF Spectacular
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Django Starter Template",
-    "DESCRIPTION": "A comprehensive starting point for your new API with Django and DRF",
-    "VERSION": "0.1.0",
+    "TITLE": "Noodle API",
+    "DESCRIPTION": "Next generation Budgeting App API",
+    "VERSION": "0.0.1",
     "SERVE_INCLUDE_SCHEMA": False,
 }
 

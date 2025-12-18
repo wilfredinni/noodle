@@ -505,78 +505,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5a/19/0423c1a8adb10c9e246f3a0e661165a7851bb7f4253eb338624081343e76/django-seed-0.3.1.tar.gz", hash = "sha256:93e65d2c10449c464b83e9031be02763ec10e786aa064d649c4dd5ad06fa0eea", size = 18336, upload-time = "2021-10-08T16:30:29.522Z" }
 
 [[package]]
-name = "django-starter-template"
-version = "0.4.1"
-source = { editable = "." }
-dependencies = [
-    { name = "celery" },
-    { name = "django" },
-    { name = "django-celery-beat" },
-    { name = "django-celery-results" },
-    { name = "django-cors-headers" },
-    { name = "django-environ" },
-    { name = "django-extensions" },
-    { name = "django-filter" },
-    { name = "django-redis" },
-    { name = "django-rest-knox" },
-    { name = "django-seed" },
-    { name = "djangorestframework" },
-    { name = "drf-spectacular" },
-    { name = "faker" },
-    { name = "gunicorn" },
-    { name = "psycopg2-binary" },
-    { name = "python-json-logger" },
-    { name = "redis" },
-    { name = "sentry-sdk", extra = ["django"] },
-    { name = "whitenoise" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "django-debug-toolbar" },
-    { name = "ipykernel" },
-    { name = "mkdocs" },
-    { name = "mkdocs-material" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-django" },
-    { name = "pytest-mock" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "celery", specifier = ">=5.4.0" },
-    { name = "django", specifier = ">=5.1.2" },
-    { name = "django-celery-beat", specifier = ">=2.7.0" },
-    { name = "django-celery-results", specifier = ">=2.5.1" },
-    { name = "django-cors-headers", specifier = ">=4.5.0" },
-    { name = "django-debug-toolbar", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "django-environ", specifier = ">=0.12.0" },
-    { name = "django-extensions", specifier = ">=4.1" },
-    { name = "django-filter", specifier = ">=25.1" },
-    { name = "django-redis", specifier = ">=6.0.0" },
-    { name = "django-rest-knox", specifier = ">=5.0.2" },
-    { name = "django-seed", specifier = ">=0.3.1" },
-    { name = "djangorestframework", specifier = ">=3.15.2" },
-    { name = "drf-spectacular", specifier = ">=0.29.0" },
-    { name = "faker", specifier = ">=38.0.0" },
-    { name = "gunicorn", specifier = ">=23.0.0" },
-    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6.0" },
-    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.5.26" },
-    { name = "psycopg2-binary", specifier = ">=2.9.10" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-django", marker = "extra == 'dev'", specifier = ">=4.9.0" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
-    { name = "python-json-logger", specifier = ">=4.0.0" },
-    { name = "redis", specifier = ">=7.0.0" },
-    { name = "sentry-sdk", extras = ["django"], specifier = ">=2.17.0" },
-    { name = "whitenoise", specifier = ">=6.7.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "django-timezone-field"
 version = "7.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1009,6 +937,78 @@ sdist = { url = "https://files.pythonhosted.org/packages/83/f8/51569ac65d696c8ec
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/c4/c2971a3ba4c6103a3d10c4b0f24f461ddc027f0f09763220cf35ca1401b3/nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c", size = 5195, upload-time = "2024-01-21T14:25:17.223Z" },
 ]
+
+[[package]]
+name = "noodle"
+version = "0.0.1"
+source = { editable = "." }
+dependencies = [
+    { name = "celery" },
+    { name = "django" },
+    { name = "django-celery-beat" },
+    { name = "django-celery-results" },
+    { name = "django-cors-headers" },
+    { name = "django-environ" },
+    { name = "django-extensions" },
+    { name = "django-filter" },
+    { name = "django-redis" },
+    { name = "django-rest-knox" },
+    { name = "django-seed" },
+    { name = "djangorestframework" },
+    { name = "drf-spectacular" },
+    { name = "faker" },
+    { name = "gunicorn" },
+    { name = "psycopg2-binary" },
+    { name = "python-json-logger" },
+    { name = "redis" },
+    { name = "sentry-sdk", extra = ["django"] },
+    { name = "whitenoise" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "django-debug-toolbar" },
+    { name = "ipykernel" },
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-django" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "celery", specifier = ">=5.4.0" },
+    { name = "django", specifier = ">=5.1.2" },
+    { name = "django-celery-beat", specifier = ">=2.7.0" },
+    { name = "django-celery-results", specifier = ">=2.5.1" },
+    { name = "django-cors-headers", specifier = ">=4.5.0" },
+    { name = "django-debug-toolbar", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "django-environ", specifier = ">=0.12.0" },
+    { name = "django-extensions", specifier = ">=4.1" },
+    { name = "django-filter", specifier = ">=25.1" },
+    { name = "django-redis", specifier = ">=6.0.0" },
+    { name = "django-rest-knox", specifier = ">=5.0.2" },
+    { name = "django-seed", specifier = ">=0.3.1" },
+    { name = "djangorestframework", specifier = ">=3.15.2" },
+    { name = "drf-spectacular", specifier = ">=0.29.0" },
+    { name = "faker", specifier = ">=38.0.0" },
+    { name = "gunicorn", specifier = ">=23.0.0" },
+    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.5.26" },
+    { name = "psycopg2-binary", specifier = ">=2.9.10" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "pytest-django", marker = "extra == 'dev'", specifier = ">=4.9.0" },
+    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
+    { name = "python-json-logger", specifier = ">=4.0.0" },
+    { name = "redis", specifier = ">=7.0.0" },
+    { name = "sentry-sdk", extras = ["django"], specifier = ">=2.17.0" },
+    { name = "whitenoise", specifier = ">=6.7.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "packaging"
