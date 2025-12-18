@@ -1,27 +1,12 @@
-<div align="center">
-    <img src="https://raw.githubusercontent.com/wilfredinni/django-starter-template/refs/heads/main/static/logo.png" data-canonical-src="/logo.png" width="130" height="130" />
+# Noodle
 
-# Django starter template
+A budgeting App.
 
-A comprehensive and easy-to-use starting point for your new API with **Django** and **DRF**.
-
-[![Test Status](https://github.com/wilfredinni/django-starter-template/actions/workflows/test.yml/badge.svg)](https://github.com/wilfredinni/django-starter-template/actions/workflows/test.yml)
-[![CodeQL Status](https://github.com/wilfredinni/django-starter-template/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/wilfredinni/django-starter-template/actions/workflows/github-code-scanning/codeql)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/wilfredinni/django-starter-template?tab=MIT-1-ov-file#readme)
+[![Test Status](https://github.com/wilfredinni/noodle/actions/workflows/test.yml/badge.svg)](https://github.com/wilfredinni/noodle/actions/workflows/test.yml)
+[![CodeQL Status](https://github.com/wilfredinni/noodle/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/wilfredinni/noodle/actions/workflows/github-code-scanning/codeql)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/wilfredinni/noodle?tab=MIT-1-ov-file#readme)
 </div>
 
-
-## ✨ Key Features
-
-This template is packed with features to help you build amazing APIs:
-
--   **User Authentication:** Secure token-based authentication with `django-rest-knox`.
--   **Background Tasks:** Asynchronous task processing with `Celery` and `Redis`.
--   **API Documentation:** Automatic OpenAPI 3 schema generation with `drf-spectacular`.
--   **Centralized Logging:** Structured JSON logging for easy monitoring.
--   **Custom User Model:** Email-based authentication for a modern user experience.
--   **And much more!** Explore the documentation to discover all the features.
--   **AI Tools:** Useful prompts to enhance your development experience with GitHub Copilot, Gemini CLI agent, and Roo Code.
 
 ## Quick Start
 
@@ -33,7 +18,7 @@ This template is packed with features to help you build amazing APIs:
 
 ### Setup Steps
 
-1. Use [GitHub's template feature](https://github.com/new?template_name=django-starter-template&template_owner=wilfredinni) (recommended) or clone repository
+1. Pull the repository
 2. Start services: `make up` (or `docker compose up`)
 3. In another terminal, run migrations: `make migrate` (or `docker compose exec backend python manage.py migrate`)
 4. Create superuser: `make superuser` (or `docker compose exec backend python manage.py createsuperuser`)
@@ -53,9 +38,10 @@ uv sync --all-extras
 ```
 This installs dependencies locally so your IDE can provide code completion while your code runs in Docker.
 
-## 📖 Explore the Documentation
+## 📖 Explore how to work with this project
 
-This documentation is your guide to building amazing applications with the Django Starter Template. Use the navigation on the left to explore the different sections.
+This project has been initialized with the [Django Starter Template](https://github.com/wilfredinni/django-starter-template/) project
+
 
 -   **[Development](https://wilfredinni.github.io/django-starter-template/development):** Learn about the development workflow, including how to run tests, and use the scripts.
 -   **[AI Tools](https://wilfredinni.github.io/django-starter-template/ai_tools):** Explore useful prompts to enhance your development experience with GitHub Copilot.
