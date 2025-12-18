@@ -1,0 +1,14 @@
+node_modules
+frontend/.DS_Store
+frontend/dist
+frontend/dist-ssr
+frontend/*.local
+count.txt
+.env
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+todos.json
+mcp-todos.json
