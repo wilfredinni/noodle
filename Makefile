@@ -1,5 +1,5 @@
-.PHONY: help up down build rebuild shell migrate makemigrations test test-cov logs logs-worker logs-beat superuser seed clean prune ps docs docs-serve docs-build docs-deploy bump update-deps add-dep remove-dep
-
+.PHONY: help up down build rebuild shell migrate makemigrations test test-cov logs logs-worker logs-beat superuser seed clean prune ps update-deps add-dep remove-dep
+.DEFAULT_GOAL := help
 # Default target - show help
 help:
 	@echo "Django Starter Template - Docker Compose Commands"
@@ -26,15 +26,6 @@ help:
 	@echo "  logs            View backend logs (follow mode)"
 	@echo "  logs-worker     View Celery worker logs"
 	@echo "  logs-beat       View Celery beat logs"
-	@echo ""
-	@echo "Documentation:"
-	@echo "  docs            Serve documentation locally (alias for docs-serve)"
-	@echo "  docs-serve      Serve documentation with live reload"
-	@echo "  docs-build      Build documentation site"
-	@echo "  docs-deploy     Deploy documentation to GitHub Pages"
-	@echo ""
-	@echo "Version Management:"
-	@echo "  bump            Bump patch version in pyproject.toml and urls.py"
 	@echo ""
 	@echo "Dependency Management:"
 	@echo "  update-deps     Update all dependencies to latest allowed versions"
@@ -99,23 +90,6 @@ logs-beat:
 
 logs-all:
 	docker compose logs -f
-
-# Documentation
-docs: docs-serve
-
-docs-serve:
-	docker compose exec backend mkdocs serve -a 0.0.0.0:8001
-
-docs-build:
-	docker compose exec backend mkdocs build
-
-docs-deploy:
-	@echo "Note: Deployment requires local git credentials"
-	uv run --with mkdocs-material mkdocs gh-deploy
-
-# Version Management
-bump:
-	uv run python scripts/bump.py
 
 # Dependency Management
 update-deps:
