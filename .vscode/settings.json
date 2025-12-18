@@ -1,0 +1,73 @@
+{
+    "python.testing.pytestArgs": [
+        "apps"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "editor.tabSize": 4,
+    "editor.formatOnSave": true,
+    "flake8.args": [
+        "--max-line-length=90"
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "todo-tree.highlights.customHighlight": {
+        "BUG": {
+            "icon": "bug"
+        },
+        "HACK": {
+            "icon": "tools"
+        },
+        "FIXME": {
+            "icon": "flame",
+            "foreground": "#ffffff",
+            "background": "#ff0000"
+        },
+        "XXX": {
+            "icon": "x"
+        },
+        "[ ]": {
+            "icon": "issue-draft"
+        },
+        "[x]": {
+            "icon": "issue-closed"
+        }
+    },
+    "todo-tree.filtering.excludeGlobs": [
+        "**/.venv/*/**",
+        "**/README.md",
+    ],
+    "cSpell.words": [
+        "appname",
+        "asctime",
+        "asgi",
+        "autoretry",
+        "Browsable",
+        "corsheaders",
+        "createsuperuser",
+        "djangorestframework",
+        "gunicorn",
+        "ipykernel",
+        "ipynb",
+        "knox",
+        "levelname",
+        "logoutall",
+        "makemigrations",
+        "mkdocs",
+        "nostatic",
+        "psycopg",
+        "pycache",
+        "pytest",
+        "pythonjsonlogger",
+        "querysets",
+        "repr",
+        "runserver",
+        "softdelete",
+        "whitenoise",
+        "wrongpassword",
+        "wsgi"
+    ],
+    "editor.fontFamily": "'Fira Code', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'"
+}

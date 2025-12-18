@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Page Not Found</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+    <div
+        class="relative isolate flex min-h-screen flex-auto flex-col items-center justify-center overflow-hidden bg-gray-950 text-center">
+        <svg aria-hidden="true"
+            class="absolute left-1/2 top-[-10vh] -z-10 h-[120vh] w-[120vw] min-w-[60rem] -translate-x-1/2">
+            <defs>
+                <radialGradient id="gradient" cy="0%">
+                    <stop offset="0%" stopColor="rgba(56, 189, 248, 0.3)" />
+                    <stop offset="53.95%" stopColor="rgba(0, 71, 255, 0.09)" />
+                    <stop offset="100%" stopColor="rgba(10, 14, 23, 0)" />
+                </radialGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#gradient)" />
+        </svg>
+
+        <p class="font-display text-4xl/tight font-light text-white">404</p>
+        <h1 class="font-display mt-4 text-xl/8 font-semibold text-white">
+            Page not found
+        </h1>
+        <p class="mt-2 text-sm/6 text-gray-300">
+            Sorry, we couldn’t find the page you’re looking for.
+        </p>
+    </div>
+</body>
+
+</html>

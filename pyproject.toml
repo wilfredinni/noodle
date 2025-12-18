@@ -1,0 +1,50 @@
+[project]
+# TODO ⚡ Change the name, version, description, authors, and license of the project
+name = "django-starter-template"
+version = "0.4.1"
+description = "A comprehensive starting point for your new API with Django and DRF"
+authors = [{name = "Carlos", email = "carlos@pythoncheatsheet.org"}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=5.1.2",
+    "django-environ>=0.12.0",
+    "django-cors-headers>=4.5.0",
+    "djangorestframework>=3.15.2",
+    "psycopg2-binary>=2.9.10",
+    "whitenoise>=6.7.0",
+    "gunicorn>=23.0.0",
+    "django-rest-knox>=5.0.2",
+    "redis>=7.0.0",
+    "celery>=5.4.0",
+    "django-celery-beat>=2.7.0",
+    "django-celery-results>=2.5.1",
+    "sentry-sdk[django]>=2.17.0",
+    "django-redis>=6.0.0",
+    "drf-spectacular>=0.29.0",
+    "faker>=38.0.0",
+    "django-seed>=0.3.1",
+    "django-extensions>=4.1",
+    "django-filter>=25.1",
+    "python-json-logger>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "django-debug-toolbar>=6.0.0",
+    "pytest>=9.0.0",
+    "pytest-django>=4.9.0",
+    "ipykernel>=7.0.0",
+    "pytest-mock>=3.14.0",
+    "pytest-cov>=7.0.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.26",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["apps", "conf"]

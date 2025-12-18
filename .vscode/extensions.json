@@ -1,0 +1,14 @@
+{
+    "recommendations": [
+        "ms-python.black-formatter",
+        "tamasfe.even-better-toml",
+        "shardulm94.trailing-spaces",
+        "ms-python.isort",
+        "ms-python.flake8",
+        "ms-python.python",
+        "irongeek.vscode-env",
+        "gruntfuggly.todo-tree",
+        "ms-toolsai.jupyter",
+        "streetsidesoftware.code-spell-checker"
+    ]
+}

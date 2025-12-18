@@ -1,0 +1,46 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Django Starter Template</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="w-full bg-white flex h-screen items-center justify-center font-mono">
+  <div class="text-center px-4">
+    <img src="{% static 'logo.png' %}" alt="logo" class="w-28 h-28 md:w-32 md:h-32 mx-auto">
+    <div class="flex items-end justify-center">
+      <h1 class="text-4xl md:text-5xl font-bold text-zinc-950 mt-3">Django Starter Template</h1>
+    </div>
+    <p class="mt-2 text-xl text-zinc-800">
+      A comprehensive starting point for your new API with Django and DRF
+    </p>
+
+
+    <div class="my-4 gap-2 flex flex-wrap justify-center">
+      {% for button in buttons %}
+      <a href="{{ button.url }}" type="button"
+        class="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 hover:bg-zinc-50">
+        {{ button.title }}
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="mb-10 md:mb-16 text-sm font-bold text-zinc-800 flex flex-col">
+      <a href="https://github.com/wilfredinni/django-starter-template/releases/tag/{{version}}"
+        class="hover:underline">v.{{version}} Release Notes</a>
+    </div>
+
+
+    <a class="font-semibold text-base hover:underline text-zinc-950" href="{% url 'admin:index' %}">
+      Log in &#8594;
+    </a>
+
+  </div>
+</body>
+
+</html>
