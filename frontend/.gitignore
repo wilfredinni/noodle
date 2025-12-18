@@ -1,8 +1,8 @@
 node_modules
-frontend/.DS_Store
-frontend/dist
-frontend/dist-ssr
-frontend/*.local
+.DS_Store
+dist
+dist-ssr
+*.local
 count.txt
 .env
 .nitro
@@ -11,4 +11,3 @@ count.txt
 .output
 .vinxi
 todos.json
-mcp-todos.json

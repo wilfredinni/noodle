@@ -12,10 +12,9 @@
     "biome",
     "nitro",
     "start",
-    "mcp",
+    "compiler",
     "shadcn",
-    "table",
     "form",
-    "store"
+    "table"
   ]
 }

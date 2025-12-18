@@ -10,9 +10,7 @@ import {
   Network,
   SquareFunction,
   StickyNote,
-  Store,
   Table,
-  Webhook,
   X,
 } from 'lucide-react'
 
@@ -174,32 +172,6 @@ export default function Header() {
           )}
 
           <Link
-            to="/demo/mcp-todos"
-            onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-            activeProps={{
-              className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
-            }}
-          >
-            <Webhook size={20} />
-            <span className="font-medium">MCP</span>
-          </Link>
-
-          <Link
-            to="/demo/table"
-            onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
-            activeProps={{
-              className:
-                'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
-            }}
-          >
-            <Table size={20} />
-            <span className="font-medium">TanStack Table</span>
-          </Link>
-
-          <Link
             to="/demo/form/simple"
             onClick={() => setIsOpen(false)}
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
@@ -226,7 +198,7 @@ export default function Header() {
           </Link>
 
           <Link
-            to="/demo/store"
+            to="/demo/table"
             onClick={() => setIsOpen(false)}
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
             activeProps={{
@@ -234,8 +206,8 @@ export default function Header() {
                 'flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2',
             }}
           >
-            <Store size={20} />
-            <span className="font-medium">Store</span>
+            <Table size={20} />
+            <span className="font-medium">TanStack Table</span>
           </Link>
 
           {/* Demo Links End */}

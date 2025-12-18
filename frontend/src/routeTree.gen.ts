@@ -9,27 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as McpRouteImport } from './routes/mcp'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
-import { Route as DemoStoreRouteImport } from './routes/demo/store'
-import { Route as DemoMcpTodosRouteImport } from './routes/demo/mcp-todos'
 import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.server-funcs'
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo/start.api-request'
 import { Route as DemoFormSimpleRouteImport } from './routes/demo/form.simple'
 import { Route as DemoFormAddressRouteImport } from './routes/demo/form.address'
 import { Route as DemoApiNamesRouteImport } from './routes/demo/api.names'
-import { Route as DemoApiMcpTodosRouteImport } from './routes/demo/api.mcp-todos'
 import { Route as DemoStartSsrIndexRouteImport } from './routes/demo/start.ssr.index'
 import { Route as DemoStartSsrSpaModeRouteImport } from './routes/demo/start.ssr.spa-mode'
 import { Route as DemoStartSsrFullSsrRouteImport } from './routes/demo/start.ssr.full-ssr'
 import { Route as DemoStartSsrDataOnlyRouteImport } from './routes/demo/start.ssr.data-only'
 
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -38,16 +29,6 @@ const IndexRoute = IndexRouteImport.update({
 const DemoTableRoute = DemoTableRouteImport.update({
   id: '/demo/table',
   path: '/demo/table',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStoreRoute = DemoStoreRouteImport.update({
-  id: '/demo/store',
-  path: '/demo/store',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoMcpTodosRoute = DemoMcpTodosRouteImport.update({
-  id: '/demo/mcp-todos',
-  path: '/demo/mcp-todos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoStartServerFuncsRoute = DemoStartServerFuncsRouteImport.update({
@@ -75,11 +56,6 @@ const DemoApiNamesRoute = DemoApiNamesRouteImport.update({
   path: '/demo/api/names',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemoApiMcpTodosRoute = DemoApiMcpTodosRouteImport.update({
-  id: '/demo/api/mcp-todos',
-  path: '/demo/api/mcp-todos',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DemoStartSsrIndexRoute = DemoStartSsrIndexRouteImport.update({
   id: '/demo/start/ssr/',
   path: '/demo/start/ssr/',
@@ -103,11 +79,7 @@ const DemoStartSsrDataOnlyRoute = DemoStartSsrDataOnlyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/mcp': typeof McpRoute
-  '/demo/mcp-todos': typeof DemoMcpTodosRoute
-  '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
-  '/demo/api/mcp-todos': typeof DemoApiMcpTodosRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
@@ -120,11 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/mcp': typeof McpRoute
-  '/demo/mcp-todos': typeof DemoMcpTodosRoute
-  '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
-  '/demo/api/mcp-todos': typeof DemoApiMcpTodosRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
@@ -138,11 +106,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/mcp': typeof McpRoute
-  '/demo/mcp-todos': typeof DemoMcpTodosRoute
-  '/demo/store': typeof DemoStoreRoute
   '/demo/table': typeof DemoTableRoute
-  '/demo/api/mcp-todos': typeof DemoApiMcpTodosRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/form/address': typeof DemoFormAddressRoute
   '/demo/form/simple': typeof DemoFormSimpleRoute
@@ -157,11 +121,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/mcp'
-    | '/demo/mcp-todos'
-    | '/demo/store'
     | '/demo/table'
-    | '/demo/api/mcp-todos'
     | '/demo/api/names'
     | '/demo/form/address'
     | '/demo/form/simple'
@@ -174,11 +134,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/mcp'
-    | '/demo/mcp-todos'
-    | '/demo/store'
     | '/demo/table'
-    | '/demo/api/mcp-todos'
     | '/demo/api/names'
     | '/demo/form/address'
     | '/demo/form/simple'
@@ -191,11 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/mcp'
-    | '/demo/mcp-todos'
-    | '/demo/store'
     | '/demo/table'
-    | '/demo/api/mcp-todos'
     | '/demo/api/names'
     | '/demo/form/address'
     | '/demo/form/simple'
@@ -209,11 +161,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  McpRoute: typeof McpRoute
-  DemoMcpTodosRoute: typeof DemoMcpTodosRoute
-  DemoStoreRoute: typeof DemoStoreRoute
   DemoTableRoute: typeof DemoTableRoute
-  DemoApiMcpTodosRoute: typeof DemoApiMcpTodosRoute
   DemoApiNamesRoute: typeof DemoApiNamesRoute
   DemoFormAddressRoute: typeof DemoFormAddressRoute
   DemoFormSimpleRoute: typeof DemoFormSimpleRoute
@@ -227,13 +175,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -246,20 +187,6 @@ declare module '@tanstack/react-router' {
       path: '/demo/table'
       fullPath: '/demo/table'
       preLoaderRoute: typeof DemoTableRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/store': {
-      id: '/demo/store'
-      path: '/demo/store'
-      fullPath: '/demo/store'
-      preLoaderRoute: typeof DemoStoreRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/mcp-todos': {
-      id: '/demo/mcp-todos'
-      path: '/demo/mcp-todos'
-      fullPath: '/demo/mcp-todos'
-      preLoaderRoute: typeof DemoMcpTodosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo/start/server-funcs': {
@@ -297,13 +224,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoApiNamesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demo/api/mcp-todos': {
-      id: '/demo/api/mcp-todos'
-      path: '/demo/api/mcp-todos'
-      fullPath: '/demo/api/mcp-todos'
-      preLoaderRoute: typeof DemoApiMcpTodosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/demo/start/ssr/': {
       id: '/demo/start/ssr/'
       path: '/demo/start/ssr'
@@ -337,11 +257,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  McpRoute: McpRoute,
-  DemoMcpTodosRoute: DemoMcpTodosRoute,
-  DemoStoreRoute: DemoStoreRoute,
   DemoTableRoute: DemoTableRoute,
-  DemoApiMcpTodosRoute: DemoApiMcpTodosRoute,
   DemoApiNamesRoute: DemoApiNamesRoute,
   DemoFormAddressRoute: DemoFormAddressRoute,
   DemoFormSimpleRoute: DemoFormSimpleRoute,
