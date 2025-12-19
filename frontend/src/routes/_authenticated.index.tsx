@@ -1,21 +1,12 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { getCurrentUserFn, logoutFn } from "../lib/auth.server";
+import { createFileRoute } from "@tanstack/react-router";
+import { logoutFn } from "../lib/auth.server";
 
-export const Route = createFileRoute("/")({
-  loader: async () => {
-    const auth = await getCurrentUserFn();
-
-    if (!auth) {
-      throw redirect({ to: "/login" });
-    }
-
-    return { auth };
-  },
+export const Route = createFileRoute("/_authenticated/")({
   component: App,
 });
 
 function App() {
-  const { auth } = Route.useLoaderData();
+  const { auth } = Route.useRouteContext();
 
   const handleLogout = async () => {
     try {
