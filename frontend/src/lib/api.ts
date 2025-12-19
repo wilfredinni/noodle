@@ -18,14 +18,14 @@ export async function fetchAPI(
 ) {
   const { token, ...fetchOptions } = options;
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...fetchOptions.headers,
-  };
+  const headers = new Headers(fetchOptions.headers);
 
-  // Add Authorization header if token is provided
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   if (token) {
-    headers.Authorization = `Bearer ${token}`;
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
@@ -33,11 +33,8 @@ export async function fetchAPI(
     headers,
   });
 
-  // Auto-logout on 401 Unauthorized
   if (response.status === 401) {
-    // Perform logout
     await logoutFn();
-    // Throw error to notify caller
     throw new UnauthorizedError();
   }
 

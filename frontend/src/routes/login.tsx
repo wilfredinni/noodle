@@ -1,11 +1,23 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { loginFn } from "../lib/auth.server";
+import { loginFn, getCurrentUserFn } from "../lib/auth.server";
+
+const loginSearchSchema = z.object({
+  redirect: z.string().optional(),
+});
 
 export const Route = createFileRoute("/login")({
+  validateSearch: (search) => loginSearchSchema.parse(search),
+  beforeLoad: async ({ search }) => {
+    const auth = await getCurrentUserFn();
+    if (auth) {
+      throw redirect({ to: search.redirect || "/" });
+    }
+  },
   component: LoginPage,
 });
 
