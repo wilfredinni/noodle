@@ -1,0 +1,99 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { loginFn } from "../lib/auth.server";
+
+export const Route = createFileRoute("/login")({
+  component: LoginPage,
+});
+
+function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await loginFn({ data: { email, password } });
+
+      // If we get a result with an error, display it
+      if (result?.error) {
+        setError(result.error);
+        setLoading(false);
+      }
+    } catch (err) {
+      // Re-throw redirect Response so TanStack Router handles it
+      if (err instanceof Response && err.status === 307) {
+        window.location.href = "/";
+        return;
+      }
+      console.error("Login error:", err);
+      setError("An error occurred. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4">
+      <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-2xl">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-slate-900">Sign In</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Enter your credentials to access your account
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          <div>
+            <Label htmlFor="email" className="text-slate-900">
+              Email
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1"
+              placeholder="you@example.com"
+              disabled={loading}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="password" className="text-slate-900">
+              Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1"
+              placeholder="••••••••"
+              disabled={loading}
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-md bg-red-50 p-3">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? "Signing in..." : "Sign In"}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
