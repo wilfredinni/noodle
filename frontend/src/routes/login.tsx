@@ -34,17 +34,22 @@ function LoginPage() {
     setLoading(true);
     setError("");
 
-    // Client-side validation
-    if (!email.trim() || !password.trim()) {
-      setError("Email and password are required.");
-      setLoading(false);
-      return;
-    }
+    // Client-side validation using Zod
+    const loginSchema = z.object({
+      email: z
+        .string()
+        .min(1, "Email is required")
+        .email("Please enter a valid email address."),
+      password: z.string().min(1, "Password is required."),
+    });
 
-    // Simple email format check
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address.");
+    const validation = loginSchema.safeParse({ email, password });
+
+    if (!validation.success) {
+      // Access issues directly as 'errors' getter might be missing in some Zod versions
+      const firstError =
+        validation.error.issues?.[0]?.message ?? "Invalid email or password";
+      setError(firstError);
       setLoading(false);
       return;
     }
