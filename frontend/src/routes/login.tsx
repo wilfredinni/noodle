@@ -14,11 +14,37 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attemptCount, setAttemptCount] = useState(0);
+  const MAX_ATTEMPTS = 5;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Client-side validation
+    if (!email.trim() || !password.trim()) {
+      setError("Email and password are required.");
+      setLoading(false);
+      return;
+    }
+
+    // Simple email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address.");
+      setLoading(false);
+      return;
+    }
+
+    // Check attempt limit
+    if (attemptCount >= MAX_ATTEMPTS) {
+      setError(
+        "Too many failed attempts. Please wait a few minutes before trying again."
+      );
+      setLoading(false);
+      return;
+    }
 
     try {
       const result = await loginFn({ data: { email, password } });
@@ -26,6 +52,7 @@ function LoginPage() {
       // If we get a result with an error, display it
       if (result?.error) {
         setError(result.error);
+        setAttemptCount((prev) => prev + 1);
         setLoading(false);
       }
     } catch (err) {
@@ -35,7 +62,12 @@ function LoginPage() {
         return;
       }
       console.error("Login error:", err);
-      setError("An error occurred. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An error occurred. Please try again."
+      );
+      setAttemptCount((prev) => prev + 1);
       setLoading(false);
     }
   };
@@ -78,8 +110,9 @@ function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1"
               placeholder="••••••••"
-              disabled={loading}
+              disabled={loading || attemptCount >= MAX_ATTEMPTS}
               required
+              minLength={8}
             />
           </div>
 
@@ -89,7 +122,19 @@ function LoginPage() {
             </div>
           )}
 
-          <Button type="submit" disabled={loading} className="w-full">
+          {attemptCount > 0 && attemptCount < MAX_ATTEMPTS && (
+            <div className="rounded-md bg-yellow-50 p-3">
+              <p className="text-sm text-yellow-800">
+                Failed attempts: {attemptCount}/{MAX_ATTEMPTS}
+              </p>
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading || attemptCount >= MAX_ATTEMPTS}
+            className="w-full"
+          >
             {loading ? "Signing in..." : "Sign In"}
           </Button>
         </form>

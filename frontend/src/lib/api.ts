@@ -5,6 +5,13 @@ type FetchAPIOptions = RequestInit & {
   token?: string;
 };
 
+export class UnauthorizedError extends Error {
+  constructor(message = "Your session has expired. Please log in again.") {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
+
 export async function fetchAPI(
   endpoint: string,
   options: FetchAPIOptions = {}
@@ -28,8 +35,10 @@ export async function fetchAPI(
 
   // Auto-logout on 401 Unauthorized
   if (response.status === 401) {
+    // Perform logout
     await logoutFn();
-    return;
+    // Throw error to notify caller
+    throw new UnauthorizedError();
   }
 
   return response;

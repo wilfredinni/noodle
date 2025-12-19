@@ -5,7 +5,18 @@ import { useAppSession, isTokenExpired } from "./session";
 
 // Login server function
 export const loginFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { email: string; password: string }) => data)
+  .inputValidator((data: { email: string; password: string }) => {
+    // Basic validation
+    if (!data.email || !data.password) {
+      throw new Error("Email and password are required");
+    }
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error("Invalid email format");
+    }
+    return data;
+  })
   .handler(async ({ data }) => {
     const response = await fetch(`${API_URL}/auth/login/`, {
       method: "POST",
@@ -17,6 +28,15 @@ export const loginFn = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+
+      // Handle specific error cases
+      if (response.status === 429) {
+        return {
+          error: "Too many login attempts. Please try again later.",
+        };
+      }
+
+      // Generic error message to prevent user enumeration
       return {
         error:
           errorData.detail || "Unable to log in with provided credentials.",
@@ -24,6 +44,13 @@ export const loginFn = createServerFn({ method: "POST" })
     }
 
     const result = await response.json();
+
+    // Validate response structure
+    if (!result.token || !result.user || !result.expiry) {
+      return {
+        error: "Invalid response from server. Please try again.",
+      };
+    }
 
     // Store token, user, and expiry in session
     const session = await useAppSession();
