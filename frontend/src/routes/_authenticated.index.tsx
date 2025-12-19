@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { logoutFn } from "../lib/auth.server";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -7,14 +7,17 @@ export const Route = createFileRoute("/_authenticated/")({
 
 function App() {
   const { auth } = Route.useRouteContext();
+  const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await logoutFn();
     } catch (err) {
-      // Redirect Response - manually navigate
       if (err instanceof Response && err.status === 307) {
-        window.location.href = "/login";
+        const location = err.headers.get("Location");
+        if (location) {
+          await router.navigate({ to: location });
+        }
         return;
       }
     }
