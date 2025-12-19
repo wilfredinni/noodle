@@ -2,7 +2,7 @@ import { createFileRoute, redirect, Outlet } from "@tanstack/react-router";
 import { getCurrentUserFn } from "../lib/auth.server";
 
 export const Route = createFileRoute("/_authenticated")({
-  loader: async ({ location }) => {
+  beforeLoad: async ({ location }) => {
     const auth = await getCurrentUserFn();
 
     if (!auth) {
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { auth } = Route.useLoaderData();
+  const { auth } = Route.useRouteContext();
 
   return (
     <div>
