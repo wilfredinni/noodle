@@ -1,15 +1,13 @@
-# Django Starter Template - AI Development Guide
+# Noodle - Full Stack AI Development Guide
 
 ## Architecture Overview
 
-This is a **production-ready Django 5.1+ API template** with:
-- **Custom email-based authentication** using `django-rest-knox` (no username field)
-- **Async task processing** via Celery + Redis with automatic retry patterns
-- **Structured JSON logging** with request ID tracking and performance metrics
-- **Auto-generated OpenAPI docs** via `drf-spectacular`
-- **Ultra-fast dependency management** with `uv` (10-100x faster than pip/Poetry)
+This is a production-ready full-stack application consisting of:
+- **Backend**: Django 5.1+ API with Celery/Redis (Dockerized)
+- **Frontend**: React 19 + TanStack ecosystem (Vite/Bun)
+- **Auth**: Custom email-based authentication with Knox tokens
 
-## Key Development Patterns
+## Backend (Django) Guide
 
 ### Project Structure
 ```
@@ -19,191 +17,112 @@ apps/                    # Django apps (users, core)
 conf/                    # Django settings and configuration
 ```
 
-### Custom User Implementation
-- **No username field** - uses `CustomUser(AbstractUser)` with `email` as `USERNAME_FIELD`
-- Located in `apps/users/models.py` with `CustomUserManager`
-- All auth flows expect email-based authentication
-- Example: `CustomUser.objects.create_user(email="user@example.com", password="pass")`
+### Key Patterns
+- **User Model**: `CustomUser` (no username, email-based). Use `CustomUser.objects.create_user(email=...)`.
+- **Tasks**: Inherit `BaseTaskWithRetry` in `apps/core/tasks.py` for auto-retries.
+- **Logging**: Structured JSON logging with `RequestIDMiddleware`. Logs to `logs/app.log`.
+- **API Docs**: Use `@extend_schema()` on views. Docs at `/api/schema/swagger-ui/`.
+- **Dependency Management**: Uses `uv` for fast Python package management.
 
-### Celery Task Architecture
-```python
-# Use BaseTaskWithRetry for all background tasks in apps/{app}/tasks.py
-from apps.core.tasks import BaseTaskWithRetry
-from celery import shared_task
+### Critical Backend Commands
+- **Start Services**: `make up` (starts Django, Postgres, Redis, Celery)
+- **Run Migrations**: `make migrate` (or `docker compose exec backend python manage.py migrate`)
+- **Tests**: `make test` (runs `pytest`)
+- **Shell**: `make shell`
+- **Logs**: `make logs` (backend), `make logs-worker` (worker)
 
-@shared_task(bind=True, base=BaseTaskWithRetry)
-def your_task(self):
-    # Auto-retry up to 3 times with exponential backoff + jitter
-    # Catches Exception and KeyError by default
+*Note: Always run Django commands inside the container via `docker compose exec backend ...`*
+
+---
+
+## Frontend (React) Guide
+
+### Tech Stack
+- **Core**: React 19, Vite, TypeScript
+- **Router**: `@tanstack/react-router` (File-based routing in `src/routes`)
+- **Data**: `@tanstack/react-query` (Server state & caching)
+- **Forms**: `@tanstack/react-form` + Zod
+- **Styling**: Tailwind CSS v4, shadcn/ui (`src/components/ui`)
+- **Tooling**: Bun (Package Manager), Biome (Linting/Formatting)
+
+### Project Structure
 ```
-- Retry config: `max_retries=3`, `retry_backoff=5s`, `retry_jitter=True`
-- Celery Beat uses `django-celery-beat` (schedule tasks via Django admin)
-- Results stored in database via `django-celery-results`
-
-### Logging & Request Tracking
-- All requests get unique IDs via `RequestIDMiddleware` in `apps/core/middleware.py`
-- Thread-local storage tracks: `request_id`, `client_ip`, `path`, `user_id`, `response_time`, `status_code`
-- Use structured logging: `logger = logging.getLogger("django.security")` for auth events
-- Four separate log files with JSON formatting:
-  - `logs/app.log` - general application logs
-  - `logs/error.log` - ERROR level and above
-  - `logs/info.log` - INFO level events
-  - `logs/security.log` - authentication/authorization events
-- Custom filters: `RequestIDFilter` adds request context, `TimeLogFilter` requires response_time
-
-### API Development Standards
-- **Always use `@extend_schema()` decorators** from `drf-spectacular` for auto-documentation
-- See `apps/users/schema.py` for response schema examples
-- Implement rate limiting with custom throttle classes (inherit `SimpleRateThrottle`)
-  - Example: `UserLoginRateThrottle` in `apps/users/throttles.py` uses scope `"user_login"`
-  - Configure rates in settings: `REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']`
-- Authentication via Knox tokens with `Bearer` prefix (10-hour expiry default)
-- Return structured JSON responses - use DRF serializers, not raw dicts
-
-### Testing Patterns
-- Use `APITestCase` from `rest_framework.test` for view tests
-- Pattern: `self.client.force_authenticate(user=self.admin_user)` for authenticated requests
-- **Mock logging calls**: `with patch.object(logging.Logger, "info") as mock_logger:`
-- Test-specific settings in `conf/test_settings.py` (relaxed throttling, test RequestID middleware)
-- Run in container: `docker compose exec backend pytest` (uses `pytest.ini` config)
-
-## Essential Commands
-
-### Make Shortcuts (Recommended)
-```bash
-# Service Management
-make up              # Start all services (backend, db, redis, worker, beat)
-make down            # Stop all services
-make build           # Build Docker image
-make rebuild         # Rebuild and restart services
-make ps              # Show running containers
-
-# Django Management
-make migrate         # Run database migrations
-make makemigrations  # Create new migrations
-make superuser       # Create a superuser
-make seed            # Seed database (20 users + superuser)
-make shell           # Open Django shell
-
-# Testing and Debugging
-make test            # Run all tests
-make test-cov        # Run tests with coverage
-make test-html       # Run tests with HTML coverage report
-make logs            # View backend logs (follow mode)
-make logs-worker     # View Celery worker logs
-make logs-beat       # View Celery beat logs
-
-# Maintenance
-make clean           # Stop services and remove volumes
-make prune           # Remove unused Docker resources
+frontend/
+├── src/
+│   ├── routes/          # File-based routes (TanStack Router)
+│   ├── components/ui/   # shadcn/ui primitives
+│   ├── lib/
+│   │   ├── api.ts       # API client wrapper
+│   │   └── auth.server.ts # Auth utilities
+│   └── integrations/    # Query/Router setup
 ```
 
-### Docker Compose Workflow (Alternative)
-```bash
-# Start all services (backend, db, redis, worker, beat)
-docker compose up
+### Key Development Patterns
 
-# Backend management commands (always use docker compose exec)
-docker compose exec backend python manage.py migrate
-docker compose exec backend python manage.py makemigrations
-docker compose exec backend python manage.py createsuperuser
-docker compose exec backend python manage.py seed --users 20 --superuser --clean
-docker compose exec backend python manage.py shell
+#### 1. API Integration
+- **Client**: Use `fetchAPI` from `@/lib/api`.
+- **Behavior**: Automatically attaches `Authorization: Bearer <token>` and handles 401 redirects.
+- **Example**:
+  ```typescript
+  import { fetchAPI } from "@/lib/api";
+  
+  // Inside a Query function
+  const fetchUser = async () => {
+    const res = await fetchAPI("/users/me/");
+    return res.json();
+  };
+  ```
 
-# Testing and debugging
-docker compose exec backend pytest                    # Run all tests
-docker compose exec backend pytest --cov             # With coverage
-docker compose exec backend pytest apps/users/tests/ # Specific app
-docker compose logs -f backend  # View backend logs
-docker compose logs -f worker   # View Celery worker logs
-```
+#### 2. Routing & Data Loading
+- **File-based**: Create files in `src/routes`. `__root.tsx` is the layout.
+- **Loaders**: Use `loader` in route files to pre-fetch data via QueryClient.
+- **Pattern**:
+  ```tsx
+  export const Route = createFileRoute('/dashboard')({
+    loader: ({ context: { queryClient } }) => 
+      queryClient.ensureQueryData(dashboardQueryOptions),
+    component: Dashboard,
+  })
+  ```
 
-### Local IDE Support (Optional)
-```bash
-# Install dependencies locally for VS Code IntelliSense (code still runs in Docker)
-uv sync
-```
+#### 3. UI Components
+- **Location**: `src/components/ui/`
+- **Style**: Tailwind CSS v4 classes.
+- **Icons**: `lucide-react`.
+- **Modifying**: These are "copy-paste" components (shadcn). Edit directly if needed.
 
-### Database Seeding
-```bash
-# Using make (recommended)
-make seed
+### Frontend Commands (Run in `frontend/` dir)
+- **Install**: `bun install`
+- **Dev Server**: `bun dev` (Port 3000)
+- **Lint/Format**: `bun run check` (Biome)
+- **Test**: `bun test` (Vitest)
 
-# Custom management command in apps/core/management/commands/seed.py
-docker compose exec backend python manage.py seed --users 10 --superuser --clean
-```
+---
 
 ## Integration Points
 
-### Knox Authentication Flow
-- Token creation returns full user profile via `REST_KNOX['USER_SERIALIZER']`
-- Set to `"apps.users.serializers.UserProfileSerializer"` in settings
-- Tokens expire after 10 hours (`TOKEN_TTL`: `timedelta(hours=10)`)
-- Login throttled via `UserLoginRateThrottle` (scope: `"user_login"`)
+### Authentication Flow
+1. **Login**: Frontend sends credentials to `/api/auth/login/`.
+2. **Token**: Backend returns Knox token.
+3. **Storage**: Frontend stores token (likely in cookie/storage via `auth.server.ts`).
+4. **Requests**: `fetchAPI` attaches token to `Authorization` header.
 
-### Celery + Redis Configuration
-- Broker: `CELERY_BROKER_URL` (Redis connection string)
-- Results backend: `django-celery-results` (stores task outcomes in database)
-- Beat scheduler: `DatabaseScheduler` from `django-celery-beat`
-- Timezone: `America/Santiago` (configure in settings)
-- Worker waits for migrations via `scripts/wait-for-migrations.sh`
+### Environment Setup
+- **Backend**: `.env` file (loaded by docker-compose).
+- **Frontend**: `frontend/.env` (Vite loads `VITE_*` vars).
+- **API URL**: Configured in `frontend/src/lib/config.ts`.
 
-### Middleware Chain Order (Critical)
-```python
-# From conf/settings.py MIDDLEWARE list
-1. SecurityMiddleware
-2. WhiteNoiseMiddleware
-3. XFrameOptionsMiddleware
-4. SessionMiddleware
-5. CorsMiddleware
-6. CommonMiddleware
-7. CsrfViewMiddleware
-8. AuthenticationMiddleware
-9. RequestIDMiddleware (custom - adds request.id)
-10. MessagesMiddleware
-```
+## Common Workflows
 
-### Environment Variables Pattern
-- Settings use `django-environ` for `.env` file parsing
-- Database: `DATABASE_URL=postgres://user:pass@host:port/dbname`
-- Redis: `REDIS_URL=redis://redis:6379/0`
-- Security: `DJANGO_SECRET_KEY`, `ALLOWED_HOSTS` (comma-separated list)
-- Debugging: `DEBUG=True/False` (enables browsable API, debug toolbar)
+### Full Stack Startup
+1. **Backend**: Run `make up` in root.
+2. **Frontend**: Run `cd frontend && bun dev`.
+3. **Access**: Frontend at `http://localhost:3000`, API at `http://localhost:8000`.
 
-## File Naming Conventions
-- Tests: `apps/{app}/tests/test_{feature}_view.py`, `test_{model}_model.py`
-- Tasks: `apps/{app}/tasks.py` (auto-discovered by Celery)
-- URLs: App-level `apps/{app}/urls.py` included via `include()` in `conf/urls.py`
-- Serializers: `apps/{app}/serializers.py` (group by feature)
-- Custom throttles: `apps/{app}/throttles.py`
+### Database Management
+- **Seed Data**: `make seed` (Creates 20 users + superuser).
+- **Reset**: `make clean` then `make up`.
 
-## Critical Implementation Notes
-
-### Authentication & Users
-- **Never use username field** - it's set to `None` in `CustomUser` model
-- All user references must use `email` (e.g., `authenticate(email=email, password=password)`)
-- Password validation: minimum 8 chars by default (`MIN_PASSWORD_LENGTH` setting)
-- Security logging: `security_logger.info(f"User {user.email} logged in.")`
-
-### Docker & Command Execution
-- **Always use `docker compose exec backend`** for Django commands (not `docker exec` or local `python`)
-- Backend runs auto-migrations on startup: `sh -c "python manage.py migrate && python manage.py runserver"`
-- Worker/Beat wait for migrations via `wait-for-migrations.sh` script
-
-### API Documentation
-- Use `@extend_schema()` on all API views for OpenAPI schema generation
-- Define response schemas in `apps/{app}/schema.py` (see `users/schema.py` for examples)
-- Access docs at `/api/schema/swagger-ui/` and `/api/schema/redoc/`
-- Configure `SPECTACULAR_SETTINGS` in settings (title, description, version)
-
-### Code Quality Patterns
-- Inherit `BaseTaskWithRetry` for all Celery tasks (provides automatic retry logic)
-- Use `self.client.force_authenticate()` in tests (not manual token creation)
-- Mock logging calls in tests: `patch.object(logging.Logger, "info")`
-- Validate passwords with Django validators in serializers (see `CreateUserSerializer`)
-
-### Dependency Management
-- Dependencies defined in `pyproject.toml` (uv format)
-- Lock file: `uv.lock` (commit this to repo)
-- Dockerfile exports to `requirements.txt` via `uv export --no-hashes --all-extras`
-- Install system packages: modify `apt-get install` section in Dockerfile
+### Testing
+- **Backend**: `make test` (Pytest with coverage).
+- **Frontend**: `cd frontend && bun test` (Vitest).
