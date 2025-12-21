@@ -1,7 +1,6 @@
 from django.db import transaction
 from django.db.models import Sum, Case, When, F, Value, DecimalField
 from rest_framework import serializers
-from djmoney.contrib.django_rest_framework import MoneyField
 from dateutil.relativedelta import relativedelta
 
 from apps.finance.models import Account, Transaction, Category, Tag, InstallmentPlan
@@ -25,7 +24,7 @@ class TagSerializer(serializers.ModelSerializer):
 class AccountSerializer(serializers.ModelSerializer):
     current_balance = serializers.SerializerMethodField()
     # To expose currency properly if needed, or just CharField
-    currency = MoneyField(max_digits=14, decimal_places=2)
+    currency = serializers.CharField()
 
     class Meta:
         model = Account

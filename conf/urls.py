@@ -8,6 +8,7 @@ urlpatterns = [
     path("admin-panel/", admin.site.urls, name="admin"),
     path("auth/", include("apps.users.urls")),
     path("core/", include("apps.core.urls")),
+    path("finance/", include("apps.finance.urls")),
 ]
 
 if settings.DEBUG:

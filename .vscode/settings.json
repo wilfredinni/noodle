@@ -68,6 +68,7 @@
         "repr",
         "runserver",
         "softdelete",
+        "txns",
         "whitenoise",
         "wrongpassword",
         "wsgi"
