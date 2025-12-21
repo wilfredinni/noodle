@@ -9,9 +9,18 @@ from apps.finance.serializers import (
     TagSerializer,
     TransactionSerializer,
 )
+from apps.finance.schema import (
+    AccountExamples,
+    CategoryExamples,
+    TagExamples,
+    TransactionExamples,
+)
 
 
-@extend_schema(tags=["Finance"])
+@extend_schema(
+    tags=["Finance"],
+    examples=[AccountExamples.CREATE_REQUEST, AccountExamples.RESPONSE],
+)
 class AccountViewSet(viewsets.ModelViewSet):
     serializer_class = AccountSerializer
 
@@ -22,7 +31,10 @@ class AccountViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-@extend_schema(tags=["Finance"])
+@extend_schema(
+    tags=["Finance"],
+    examples=[CategoryExamples.CREATE_REQUEST, CategoryExamples.RESPONSE],
+)
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
 
@@ -33,7 +45,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-@extend_schema(tags=["Finance"])
+@extend_schema(
+    tags=["Finance"],
+    examples=[TagExamples.CREATE_REQUEST, TagExamples.RESPONSE],
+)
 class TagViewSet(viewsets.ModelViewSet):
     serializer_class = TagSerializer
 
@@ -44,7 +59,15 @@ class TagViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-@extend_schema(tags=["Finance"])
+@extend_schema(
+    tags=["Finance"],
+    examples=[
+        TransactionExamples.STANDARD_REQUEST,
+        TransactionExamples.TRANSFER_REQUEST,
+        TransactionExamples.INSTALLMENT_REQUEST,
+        TransactionExamples.RESPONSE,
+    ],
+)
 class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
     filterset_class = TransactionFilter
