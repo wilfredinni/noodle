@@ -23,7 +23,6 @@ class TagSerializer(serializers.ModelSerializer):
 
 class AccountSerializer(serializers.ModelSerializer):
     current_balance = serializers.SerializerMethodField()
-    # To expose currency properly if needed, or just CharField
     currency = serializers.CharField()
 
     class Meta:
@@ -41,21 +40,7 @@ class AccountSerializer(serializers.ModelSerializer):
         read_only_fields = ["user", "current_balance"]
 
     def get_current_balance(self, obj):
-        # Calculate balance: Income - Expense
-        # We filter by the account.
-        # Note: This is a simple calculation. For high volume, we might want to cache
-        # this or use a separate Balance model.
-
-        # We need to sum amounts. Since amount is a MoneyField, we can sum the decimal
-        # part assuming all transactions in the account are in the account's currency.
-        # If there are mixed currencies (e.g. transfer from another currency),
-        # we should convert, but for now we assume consistency or that the amount stored
-        # is in the account's currency (which is typical for banking apps).
-
         qs = obj.transactions.all()
-
-        # Aggregate
-        # We treat INCOME as positive, EXPENSE as negative.
         balance = qs.aggregate(
             balance=Sum(
                 Case(
@@ -83,21 +68,24 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
-    # Custom fields for polymorphic creation
     is_transfer = serializers.BooleanField(
-        write_only=True, required=False, default=False
+        write_only=True,
+        required=False,
+        default=False,
     )
     target_account_id = serializers.IntegerField(write_only=True, required=False)
     exchange_rate = serializers.DecimalField(
-        write_only=True, required=False, max_digits=10, decimal_places=6
+        write_only=True,
+        required=False,
+        max_digits=10,
+        decimal_places=6,
     )
-
     is_installment = serializers.BooleanField(
-        write_only=True, required=False, default=False
+        write_only=True,
+        required=False,
+        default=False,
     )
     total_installments = serializers.IntegerField(write_only=True, required=False)
-
-    # Nested serializers for read
     installment_plan = InstallmentPlanSerializer(read_only=True)
 
     class Meta:
@@ -116,7 +104,6 @@ class TransactionSerializer(serializers.ModelSerializer):
             "installment_number",
             "transfer_partner",
             "installment_plan",
-            # Write-only fields
             "is_transfer",
             "target_account_id",
             "exchange_rate",
@@ -145,10 +132,6 @@ class TransactionSerializer(serializers.ModelSerializer):
                     {"target_account_id": "Required for transfers."}
                 )
             if data.get("type") != Transaction.TransactionType.EXPENSE:
-                # Usually transfers start as an expense from source.
-                # But user might select 'Transfer' and we force it.
-                # Let's enforce type=EXPENSE for the source transaction in the logic,
-                # or validate it here.
                 pass
 
         if is_installment:
@@ -168,20 +151,17 @@ class TransactionSerializer(serializers.ModelSerializer):
         is_transfer = validated_data.pop("is_transfer", False)
         is_installment = validated_data.pop("is_installment", False)
 
-        # Extract extra fields
         target_account_id = validated_data.pop("target_account_id", None)
         exchange_rate = validated_data.pop("exchange_rate", None)
         total_installments = validated_data.pop("total_installments", None)
-
-        # Handle Tags (ManyToMany) - DRF handles this in create() usually, but since
-        # we might do custom creates...
-        # If we use ModelSerializer.create, it handles M2M.
-        # But we are overriding. We need to pop tags.
         tags = validated_data.pop("tags", [])
 
         if is_transfer:
             return self._create_transfer(
-                validated_data, target_account_id, exchange_rate, tags
+                validated_data,
+                target_account_id,
+                exchange_rate,
+                tags,
             )
         elif is_installment:
             return self._create_installment(validated_data, total_installments, tags)
@@ -191,8 +171,6 @@ class TransactionSerializer(serializers.ModelSerializer):
     def _create_standard(self, validated_data, tags):
         account = validated_data["account"]
         transaction_date = validated_data["transaction_date"]
-
-        # Calculate payment date
         validated_data["payment_date"] = calculate_payment_date(
             transaction_date, account
         )
@@ -204,18 +182,11 @@ class TransactionSerializer(serializers.ModelSerializer):
     def _create_transfer(self, validated_data, target_account_id, exchange_rate, tags):
         source_account = validated_data["account"]
         try:
-            # Should filter by user ideally
             target_account = Account.objects.get(id=target_account_id)
         except Account.DoesNotExist:
             raise serializers.ValidationError({"target_account_id": "Invalid account."})
 
-        # Validate currencies
         if source_account.currency != target_account.currency:
-            # For now, raise error as per instructions if no exchange rate logic is
-            # fully implemented
-            # Instructions: "If accounts have different currencies, require an explicit
-            # exchange_rate or converted amount (or raise a ValidationError for now)."
-            # We will just raise ValidationError for now to keep it simple and robust.
             raise serializers.ValidationError(
                 "Transfers between different currencies are not supported yet."
             )
@@ -260,25 +231,8 @@ class TransactionSerializer(serializers.ModelSerializer):
         amount = validated_data["amount"]
         description = validated_data["description"]
 
-        # 1. Create InstallmentPlan
-        # Total amount is the single transaction amount * installments?
-        # Or is the input amount the TOTAL amount?
-        # Usually in installments, you buy something for $1000, split in 10 of $100.
-        # Or you say "10 installments of $100".
-        # Let's assume the `amount` in the payload is the TOTAL amount, or the PER
-        # INSTALLMENT amount?
-        # "Transaction" usually represents a single record.
-        # If I say "Amount: 100, Installments: 3", is it 3x33.33 or 3x100?
-        # Given `Transaction` model has `amount`, and we are creating N transactions.
-        # If the user inputs "Amount: 1000", and "10 installments".
-        # It's safer to assume the user inputs the TOTAL purchase amount, and we split it.
-        # OR, the user inputs the monthly quota.
-        # Let's assume `amount` is the TOTAL amount for the plan, and we divide it.
-        # However, `TransactionSerializer` validates `amount`.
-        # Let's assume the `amount` passed is the TOTAL amount.
-
+        # We assume the `amount` passed is the TOTAL amount for the plan, so we divide it.
         installment_amount = amount / total_installments
-
         plan = InstallmentPlan.objects.create(
             description=description,
             total_amount=amount.amount,  # Decimal
@@ -287,10 +241,7 @@ class TransactionSerializer(serializers.ModelSerializer):
 
         transactions = []
         for i in range(total_installments):
-            # Calculate date: base_date + i months
             quota_date = base_date + relativedelta(months=i)
-
-            # Calculate payment date for this quota
             payment_date = calculate_payment_date(quota_date, account)
 
             txn_data = validated_data.copy()
@@ -300,11 +251,8 @@ class TransactionSerializer(serializers.ModelSerializer):
             txn_data["installment_number"] = i + 1
             txn_data["installment_plan"] = plan
 
-            # Create transaction
             txn = Transaction.objects.create(**txn_data)
             txn.tags.set(tags)
             transactions.append(txn)
 
-        # Return the first transaction or the plan?
-        # Serializer expects a Transaction instance. Return the first one.
         return transactions[0]

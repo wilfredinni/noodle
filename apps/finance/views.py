@@ -1,15 +1,15 @@
 from django.db import transaction
-from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema
+from rest_framework import viewsets
 
-from apps.finance.models import Account, Transaction, Category, Tag
+from apps.finance.filters import TransactionFilter
+from apps.finance.models import Account, Category, Tag, Transaction
 from apps.finance.serializers import (
     AccountSerializer,
-    TransactionSerializer,
     CategorySerializer,
     TagSerializer,
+    TransactionSerializer,
 )
-from apps.finance.filters import TransactionFilter
 
 
 @extend_schema(tags=["Finance"])
@@ -54,18 +54,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return Transaction.objects.filter(account__user=self.request.user)
 
     def perform_create(self, serializer):
-        # The serializer handles the complex creation logic including atomic blocks
         serializer.save()
 
     def perform_destroy(self, instance):
         with transaction.atomic():
             # If the transaction has a transfer_partner, delete the partner first
-            # (to prevent orphans).
             if instance.transfer_partner:
                 instance.transfer_partner.delete()
-
-            # If the transaction is part of an InstallmentPlan, allow deleting the
-            # specific installment.
-            # Default delete behavior works here.
 
             instance.delete()
