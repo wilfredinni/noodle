@@ -27,6 +27,7 @@ dependencies = [
     "django-extensions>=4.1",
     "django-filter>=25.1",
     "python-json-logger>=4.0.0",
+    "django-money>=3.5.4",
 ]
 
 [project.optional-dependencies]

@@ -197,3 +197,5 @@ cython_debug/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+custom.prompt.md
