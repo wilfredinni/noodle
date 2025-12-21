@@ -46,6 +46,15 @@ class Transaction(BaseModel):
         related_name="transactions",
     )
 
+    class Meta:
+        ordering = ["-payment_date", "-transaction_date"]
+        indexes = [
+            models.Index(fields=["account", "payment_date"]),
+            models.Index(fields=["payment_date"]),
+            models.Index(fields=["category"]),
+            models.Index(fields=["installment_plan"]),
+        ]
+
     def __str__(self):
         return f"{self.description} - {self.amount} on {self.transaction_date}"
 

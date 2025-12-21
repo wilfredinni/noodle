@@ -30,6 +30,7 @@ class Account(BaseModel):
     class Meta:
         unique_together = ("user", "name")
         ordering = ["name"]
+        indexes = [models.Index(fields=["user"])]
 
     def __str__(self):
         return f"{self.name} ({self.currency})"

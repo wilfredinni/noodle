@@ -15,6 +15,7 @@ class Category(BaseModel):
     class Meta:
         unique_together = ("user", "name")
         ordering = ["name"]
+        indexes = [models.Index(fields=["user"])]
 
     def __str__(self):
         return self.name
@@ -56,6 +57,7 @@ class Tag(BaseModel):
     class Meta:
         unique_together = ("user", "name")
         ordering = ["name"]
+        indexes = [models.Index(fields=["user"])]
 
     def __str__(self):
         return self.name
