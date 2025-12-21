@@ -1,9 +1,10 @@
-from django.db import transaction
-from django.db.models import Sum, Case, When, F, Value, DecimalField
-from rest_framework import serializers
 from dateutil.relativedelta import relativedelta
+from django.db import transaction
+from django.db.models import Case, DecimalField, F, Sum, Value, When
+from djmoney.money import Money
+from rest_framework import serializers
 
-from apps.finance.models import Account, Transaction, Category, Tag, InstallmentPlan
+from apps.finance.models import Account, Category, InstallmentPlan, Tag, Transaction
 from apps.finance.services import calculate_payment_date
 
 
@@ -231,21 +232,27 @@ class TransactionSerializer(serializers.ModelSerializer):
         amount = validated_data["amount"]
         description = validated_data["description"]
 
-        # We assume the `amount` passed is the TOTAL amount for the plan, so we divide it.
-        installment_amount = amount / total_installments
         plan = InstallmentPlan.objects.create(
             description=description,
-            total_amount=amount.amount,  # Decimal
+            total_amount=amount.amount,
             total_installments=total_installments,
         )
 
+        total_val = amount.amount
+        share = round(total_val / total_installments, 2)
+        remainder = total_val - (share * total_installments)
+
         transactions = []
         for i in range(total_installments):
+            current_amount = share
+            if i == total_installments - 1:
+                current_amount += remainder
+
             quota_date = base_date + relativedelta(months=i)
             payment_date = calculate_payment_date(quota_date, account)
 
             txn_data = validated_data.copy()
-            txn_data["amount"] = installment_amount
+            txn_data["amount"] = Money(current_amount, amount.currency)
             txn_data["transaction_date"] = quota_date
             txn_data["payment_date"] = payment_date
             txn_data["installment_number"] = i + 1

@@ -58,6 +58,18 @@ class Transaction(BaseModel):
     def __str__(self):
         return f"{self.description} - {self.amount} on {self.transaction_date}"
 
+    def delete(self, *args, **kwargs):
+        if self.transfer_partner:
+            partner = self.transfer_partner
+            self.transfer_partner = None
+            self.save()
+
+            partner.transfer_partner = None
+            partner.save()
+            partner.delete()
+
+        super().delete(*args, **kwargs)
+
 
 class InstallmentPlan(BaseModel):
     description = models.CharField(max_length=255)
