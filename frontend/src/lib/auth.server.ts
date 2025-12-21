@@ -67,6 +67,22 @@ export const loginFn = createServerFn({ method: "POST" })
 // Logout server function
 export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
   const session = await useAppSession();
+  const { token } = session.data;
+
+  if (token) {
+    try {
+      await fetch(`${API_URL}/auth/logout/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to logout from backend:", error);
+    }
+  }
+
   await session.clear();
   throw redirect({ to: "/login" });
 });
