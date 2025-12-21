@@ -1,4 +1,3 @@
-from django.db import transaction
 from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
 
@@ -55,11 +54,3 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
-
-    def perform_destroy(self, instance):
-        with transaction.atomic():
-            # If the transaction has a transfer_partner, delete the partner first
-            if instance.transfer_partner:
-                instance.transfer_partner.delete()
-
-            instance.delete()
