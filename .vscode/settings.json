@@ -48,6 +48,7 @@
         "corsheaders",
         "createsuperuser",
         "djangorestframework",
+        "djmoney",
         "gunicorn",
         "ipykernel",
         "ipynb",

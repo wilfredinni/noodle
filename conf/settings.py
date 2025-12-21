@@ -89,9 +89,11 @@ INSTALLED_APPS = [
     "django_celery_results",
     "drf_spectacular",
     "django_extensions",
+    "djmoney",
     # local apps
     "apps.users",
     "apps.core",
+    "apps.finance",
 ]
 
 MIDDLEWARE = [
