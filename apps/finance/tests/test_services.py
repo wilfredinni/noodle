@@ -1,5 +1,7 @@
-import pytest
 import datetime
+
+import pytest
+
 from apps.finance.models import Account
 from apps.finance.services import calculate_payment_date
 

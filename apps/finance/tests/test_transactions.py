@@ -1,10 +1,12 @@
-import pytest
-from rest_framework.test import APIClient
-from django.urls import reverse
-from apps.finance.models import Account, Transaction, InstallmentPlan
-from apps.users.models import CustomUser
 import datetime
 from decimal import Decimal
+
+import pytest
+from django.urls import reverse
+from rest_framework.test import APIClient
+
+from apps.finance.models import Account, InstallmentPlan, Transaction
+from apps.users.models import CustomUser
 
 
 @pytest.mark.django_db

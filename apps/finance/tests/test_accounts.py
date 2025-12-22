@@ -1,9 +1,11 @@
+from decimal import Decimal
+
 import pytest
-from rest_framework.test import APIClient
 from django.urls import reverse
+from rest_framework.test import APIClient
+
 from apps.finance.models import Account, Transaction
 from apps.users.models import CustomUser
-from decimal import Decimal
 
 
 @pytest.mark.django_db
