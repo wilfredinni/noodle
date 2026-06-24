@@ -43,6 +43,21 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   const raw = doc as RawRequest
 
+  const knownKeys = new Set([
+    "name",
+    "method",
+    "url",
+    "headers",
+    "params",
+    "body",
+    "auth",
+  ])
+  for (const key of Object.keys(raw)) {
+    if (!knownKeys.has(key)) {
+      throw new Error(`lang.parseRequest: unknown field "${key}"`)
+    }
+  }
+
   if (typeof raw.name !== "string") {
     throw new Error('lang.parseRequest: missing required field "name"')
   }
