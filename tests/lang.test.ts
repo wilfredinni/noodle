@@ -1,6 +1,5 @@
 import { describe, it, expect } from "bun:test"
 import { lang } from "../src/lang"
-import type { Request } from "../src/schema"
 
 describe("lang.parseRequest — required fields", () => {
   it("parses a minimal valid request (name, method, url)", () => {
