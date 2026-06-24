@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test"
+import type { Request } from "../src/schema"
 import { lang } from "../src/lang"
 
 describe("lang.parseRequest — required fields", () => {
@@ -171,5 +172,97 @@ describe("lang.parseRequest — env var preservation", () => {
     expect(req.headers.Authorization).toBe("Bearer {{token}}")
     expect(req.body).toBe('{"id": "{{id}}"}')
     expect(req.auth).toEqual({ type: "bearer", token: "{{token}}" })
+  })
+})
+
+function makeReq(over: Partial<Request> = {}): Request {
+  return {
+    id: "get-user",
+    name: "Get user",
+    method: "GET",
+    url: "https://api.example.com/users/1",
+    headers: {},
+    params: {},
+    auth: { type: "none" },
+    ...over,
+  }
+}
+
+describe("lang.serializeRequest — canonical output", () => {
+  it("emits name, method, url always (no other fields when all defaults)", () => {
+    const out = lang.serializeRequest(makeReq())
+    expect(out).toBe(
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\n",
+    )
+  })
+
+  it("emits headers when non-empty, omits empty params/body/auth", () => {
+    const out = lang.serializeRequest(
+      makeReq({ headers: { Accept: "application/json" } }),
+    )
+    expect(out).toBe(
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\nheaders:\n  Accept: application/json\n",
+    )
+  })
+
+  it("emits params when non-empty", () => {
+    const out = lang.serializeRequest(makeReq({ params: { verbose: "true" } }))
+    expect(out).toContain('params:\n  verbose: "true"\n')
+    expect(out).not.toContain("headers")
+    expect(out).not.toContain("body")
+    expect(out).not.toContain("auth")
+  })
+
+  it("emits body when defined", () => {
+    const out = lang.serializeRequest(makeReq({ body: '{"limit": 10}' }))
+    expect(out).toContain('body: \'{"limit": 10}\'\n')
+  })
+
+  it("emits bearer auth when set, omits none auth", () => {
+    const out = lang.serializeRequest(
+      makeReq({ auth: { type: "bearer", token: "abc123" } }),
+    )
+    expect(out).toContain("auth:\n  type: bearer\n  token: abc123\n")
+  })
+
+  it("emits basic auth when set", () => {
+    const out = lang.serializeRequest(
+      makeReq({ auth: { type: "basic", user: "foo", pass: "bar" } }),
+    )
+    expect(out).toContain("auth:\n  type: basic\n  user: foo\n  pass: bar\n")
+  })
+
+  it("does NOT emit id field", () => {
+    const out = lang.serializeRequest(makeReq({ id: "my-id" }))
+    expect(out).not.toContain("id:")
+  })
+
+  it("preserves {{var}} literals verbatim", () => {
+    const out = lang.serializeRequest(
+      makeReq({
+        url: "https://{{host}}/users",
+        headers: { Authorization: "Bearer {{token}}" },
+        auth: { type: "bearer", token: "{{token}}" },
+      }),
+    )
+    expect(out).toContain("https://{{host}}/users")
+    expect(out).toContain("Bearer {{token}}")
+    expect(out).toContain("token: {{token}}")
+  })
+})
+
+describe("lang.serializeRequest — canonical key order", () => {
+  it("emits keys in fixed order: name, method, url, headers, params, body, auth", () => {
+    const out = lang.serializeRequest(
+      makeReq({
+        headers: { Accept: "application/json" },
+        params: { verbose: "true" },
+        body: '{"limit": 10}',
+        auth: { type: "bearer", token: "abc123" },
+      }),
+    )
+    const lines = out.split("\n").filter((l) => l && !l.startsWith(" "))
+    const topKeys = lines.map((l) => l.split(":")[0])
+    expect(topKeys).toEqual(["name", "method", "url", "headers", "params", "body", "auth"])
   })
 })
