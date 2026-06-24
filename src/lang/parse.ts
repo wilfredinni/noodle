@@ -1,0 +1,125 @@
+import yaml from "js-yaml"
+import type { Auth, Method, Request } from "../schema"
+
+const METHODS: readonly Method[] = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS",
+]
+
+type RawAuth =
+  | { type: "none"; [k: string]: unknown }
+  | { type: "bearer"; token: string; [k: string]: unknown }
+  | { type: "basic"; user: string; pass: string; [k: string]: unknown }
+  | { type: string; [k: string]: unknown }
+
+interface RawRequest {
+  name?: unknown
+  method?: unknown
+  url?: unknown
+  headers?: unknown
+  params?: unknown
+  body?: unknown
+  auth?: RawAuth
+  [k: string]: unknown
+}
+
+export function parseRequest(id: string, yamlText: string): Request {
+  let doc: unknown
+  try {
+    doc = yaml.load(yamlText)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`lang.parseRequest: YAML syntax: ${msg}`, { cause: e })
+  }
+
+  if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {
+    throw new Error("lang.parseRequest: expected a YAML mapping at top level")
+  }
+
+  const raw = doc as RawRequest
+
+  if (typeof raw.name !== "string") {
+    throw new Error('lang.parseRequest: missing required field "name"')
+  }
+  if (typeof raw.method !== "string") {
+    throw new Error('lang.parseRequest: missing required field "method"')
+  }
+  if (typeof raw.url !== "string") {
+    throw new Error('lang.parseRequest: missing required field "url"')
+  }
+
+  const method = raw.method as Method
+  if (!METHODS.includes(method)) {
+    throw new Error(
+      `lang.parseRequest: invalid method "${raw.method}", expected one of GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS`,
+    )
+  }
+
+  const headers = parseStringMap(raw.headers, "headers")
+  const params = parseStringMap(raw.params, "params")
+
+  let body: string | undefined
+  if (raw.body !== undefined) {
+    if (typeof raw.body !== "string") {
+      throw new Error('lang.parseRequest: "body" must be a string')
+    }
+    body = raw.body
+  }
+
+  const auth = parseAuth(raw.auth)
+
+  return {
+    id,
+    name: raw.name,
+    method,
+    url: raw.url,
+    headers,
+    params,
+    body,
+    auth,
+  }
+}
+
+function parseStringMap(value: unknown, field: string): Record<string, string> {
+  if (value === undefined) return {}
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`lang.parseRequest: ${field} must be a map of string to string`)
+  }
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v !== "string") {
+      throw new Error(`lang.parseRequest: ${field} must be a map of string to string`)
+    }
+    out[k] = v
+  }
+  return out
+}
+
+function parseAuth(value: unknown): Auth {
+  if (value === undefined) return { type: "none" }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error('lang.parseRequest: "auth" must be a mapping')
+  }
+  const a = value as RawAuth
+  if (a.type === "none") return { type: "none" }
+  if (a.type === "bearer") {
+    if (typeof a.token !== "string") {
+      throw new Error('lang.parseRequest: auth.bearer requires "token"')
+    }
+    return { type: "bearer", token: a.token }
+  }
+  if (a.type === "basic") {
+    if (typeof a.user !== "string" || typeof a.pass !== "string") {
+      throw new Error('lang.parseRequest: auth.basic requires "user" and "pass"')
+    }
+    return { type: "basic", user: a.user, pass: a.pass }
+  }
+  throw new Error(
+    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|bearer|basic`,
+  )
+}
