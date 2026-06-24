@@ -1,5 +1,6 @@
 import type { Request } from "../schema"
 import { parseRequest } from "./parse"
+import { serializeRequest } from "./serialize"
 
 export interface Lang {
   parseRequest(id: string, yaml: string): Request
@@ -8,7 +9,5 @@ export interface Lang {
 
 export const lang: Lang = {
   parseRequest,
-  serializeRequest() {
-    throw new Error("lang.serializeRequest: not implemented")
-  },
+  serializeRequest,
 }

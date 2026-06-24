@@ -207,7 +207,7 @@ describe("lang.serializeRequest — canonical output", () => {
 
   it("emits params when non-empty", () => {
     const out = lang.serializeRequest(makeReq({ params: { verbose: "true" } }))
-    expect(out).toContain('params:\n  verbose: "true"\n')
+    expect(out).toContain("params:\n  verbose: 'true'\n")
     expect(out).not.toContain("headers")
     expect(out).not.toContain("body")
     expect(out).not.toContain("auth")
@@ -247,7 +247,7 @@ describe("lang.serializeRequest — canonical output", () => {
     )
     expect(out).toContain("https://{{host}}/users")
     expect(out).toContain("Bearer {{token}}")
-    expect(out).toContain("token: {{token}}")
+    expect(out).toContain("token: '{{token}}'")
   })
 })
 
