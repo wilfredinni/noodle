@@ -2,3 +2,4 @@ node_modules/
 dist/
 .bun/
 .DS_Store
+docs/
