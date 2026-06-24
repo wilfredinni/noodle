@@ -1,9 +1,8 @@
-import type { Collection, Request } from "../schema"
+import type { Request } from "../schema"
 
 export interface Lang {
-  parseRequest(yaml: string): Request
+  parseRequest(id: string, yaml: string): Request
   serializeRequest(req: Request): string
-  parseCollection(yaml: string): Collection
 }
 
 export const lang: Lang = {
@@ -12,8 +11,5 @@ export const lang: Lang = {
   },
   serializeRequest() {
     throw new Error("lang.serializeRequest: not implemented")
-  },
-  parseCollection() {
-    throw new Error("lang.parseCollection: not implemented")
   },
 }
