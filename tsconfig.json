@@ -6,7 +6,6 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "@opentui/react",
-    "types": ["bun-types"],
     "strict": true,
     "skipLibCheck": true
   }
