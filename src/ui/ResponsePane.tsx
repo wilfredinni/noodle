@@ -1,3 +1,5 @@
+import { useRef, useState } from "react"
+import { useKeyboard } from "@opentui/react"
 import type { SendState } from "./sendState"
 import {
   statusColor,
@@ -5,6 +7,12 @@ import {
   formatHeaders,
   formatBody,
 } from "./format"
+import { Tabs, type TabDef } from "./Tabs"
+
+const TAB_DEFS: TabDef[] = [
+  { id: "body", label: "Body" },
+  { id: "headers", label: "Headers" },
+]
 
 export function ResponsePane({
   state,
@@ -13,6 +21,21 @@ export function ResponsePane({
   state: SendState
   focused?: boolean
 }) {
+  const focusedRef = useRef(focused)
+  focusedRef.current = focused
+
+  const [activeTab, setActiveTab] = useState<"body" | "headers">("body")
+  const isDone = state.status === "done"
+
+  useKeyboard((key) => {
+    if (!focusedRef.current) return
+    if (!isDone) return
+    if (key.name === "left")
+      setActiveTab((prev) => (prev === "body" ? "headers" : "body"))
+    if (key.name === "right")
+      setActiveTab((prev) => (prev === "headers" ? "body" : "headers"))
+  })
+
   return (
     <box
       style={{
@@ -35,18 +58,27 @@ export function ResponsePane({
         <text fg="#c00">{state.error.message}</text>
       ) : (
         <>
-          <text fg={statusColor(state.response.status)}>
-            {formatStatusLine(state.response)}
-          </text>
-          {formatHeaders(state.response).map((line) => (
-            <text key={line} fg="#888">
-              {line}
-            </text>
-          ))}
-          {(() => {
-            const body = formatBody(state.response)
-            return body !== "" ? <text>{body}</text> : null
-          })()}
+          <Tabs tabs={TAB_DEFS} activeId={activeTab}>
+            {activeTab === "body" ? (
+              <>
+                <text fg={statusColor(state.response.status)}>
+                  {formatStatusLine(state.response)}
+                </text>
+                {(() => {
+                  const body = formatBody(state.response)
+                  return body !== "" ? <text>{body}</text> : null
+                })()}
+              </>
+            ) : (
+              <>
+                {formatHeaders(state.response).map((line) => (
+                  <text key={line} fg="#888">
+                    {line}
+                  </text>
+                ))}
+              </>
+            )}
+          </Tabs>
         </>
       )}
     </box>

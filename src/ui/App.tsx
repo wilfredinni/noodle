@@ -52,7 +52,7 @@ export function App({
   )
 
   const draft = useRequestDraft(selectedRequest)
-  const { editState, editValue, setEditValue, isActive } = useEditBrowse(
+  const { editState, editValue, setEditValue, isActive, activeTab } = useEditBrowse(
     draft.draft,
     draft,
     {
@@ -196,6 +196,7 @@ export function App({
               setEditValue={setEditValue}
               draft={draft}
               focused={focus === "request"}
+              activeTab={activeTab}
             />
             <ResponsePane
               state={responseState}
