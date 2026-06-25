@@ -9,6 +9,15 @@ describe("hintForFocus — sidebar", () => {
     expect(hint).toContain("send")
     expect(hint).toContain("save")
     expect(hint).toContain("Tab")
+    expect(hint).toContain("URL")
+  })
+})
+
+describe("hintForFocus — url", () => {
+  it("shows edit, Esc, Tab for URL pane", () => {
+    const hint = hintForFocus("url", "inactive")
+    expect(hint).toContain("edit")
+    expect(hint).toContain("Tab")
     expect(hint).toContain("Request")
   })
 })

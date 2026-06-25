@@ -1,4 +1,4 @@
-export type FieldKind = "url" | "headers" | "params" | "body"
+export type FieldKind = "url" | "headers" | "params" | "body" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export interface FieldCursor {
@@ -18,21 +18,25 @@ export interface SectionRowCount {
   params: number
 }
 
-const FIELD_ORDER: FieldKind[] = ["url", "headers", "params", "body"]
+const REQUEST_FIELDS: FieldKind[] = ["headers", "params", "body", "auth"]
 
 export function initialEditState(): EditState {
   return {
     mode: "inactive",
-    cursor: { field: "url", row: -1, addingRow: false },
+    cursor: { field: "headers", row: -1, addingRow: false },
     editingRow: -1,
   }
 }
 
-export function enterEditBrowse(prev: EditState): EditState {
+export function enterEditBrowse(
+  prev: EditState,
+  initialField: FieldKind = "headers",
+  counts: SectionRowCount = { headers: 0, params: 0 },
+): EditState {
   if (prev.mode !== "inactive") return prev
   return {
     mode: "browsing",
-    cursor: { field: "url", row: -1, addingRow: false },
+    cursor: cursorForField(initialField, counts),
     editingRow: -1,
   }
 }
@@ -42,15 +46,11 @@ export function exitEditBrowse(prev: EditState): EditState {
   return { ...prev, mode: "inactive" }
 }
 
-function fieldIndex(field: FieldKind): number {
-  return FIELD_ORDER.indexOf(field)
-}
-
 function cursorForField(
   field: FieldKind,
   counts: SectionRowCount,
 ): FieldCursor {
-  if (field === "url" || field === "body") {
+  if (field === "url" || field === "body" || field === "auth") {
     return { field, row: -1, addingRow: false }
   }
   const count = field === "headers" ? counts.headers : counts.params
@@ -66,9 +66,14 @@ export function moveFieldCursor(
   counts: SectionRowCount,
 ): EditState {
   if (prev.mode !== "browsing") return prev
-  const idx = fieldIndex(prev.cursor.field)
-  const nextIdx = (idx + delta + FIELD_ORDER.length) % FIELD_ORDER.length
-  const nextField = FIELD_ORDER[nextIdx]!
+  const currentField = prev.cursor.field
+  if (currentField === "url") return prev
+
+  const idx = REQUEST_FIELDS.indexOf(currentField)
+  if (idx === -1) return prev
+
+  const nextIdx = (idx + delta + REQUEST_FIELDS.length) % REQUEST_FIELDS.length
+  const nextField = REQUEST_FIELDS[nextIdx]!
   return {
     ...prev,
     cursor: cursorForField(nextField, counts),

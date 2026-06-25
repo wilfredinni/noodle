@@ -60,6 +60,7 @@ export function useEditBrowse(
     enabled?: () => boolean
     onEnterEditBrowse?: () => void
     blocked?: () => boolean
+    initialField?: () => FieldKind
   },
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
@@ -127,7 +128,8 @@ export function useEditBrowse(
 
     if (editState.mode === "inactive") {
       if (key.name === "e") {
-        setEditState((prev) => enterEditBrowse(prev))
+        const initField = opts?.initialField?.() ?? "headers"
+        setEditState((prev) => enterEditBrowse(prev, initField, counts))
         opts?.onEnterEditBrowse?.()
       }
       return
@@ -147,6 +149,7 @@ export function useEditBrowse(
       if (key.name === "escape") {
         setEditState((prev) => exitEditBrowse(prev))
       } else if (key.name === "e" || key.name === "return") {
+        if (editState.cursor.field === "auth") return
         const init = currentValueFor(
           draft,
           editState.cursor.field,
@@ -155,18 +158,14 @@ export function useEditBrowse(
         )
         setEditValue(init)
         setEditState((prev) => beginEditing(prev))
+      } else if (key.name === "left") {
+        setEditState((prev) => moveFieldCursor(prev, -1, counts))
+      } else if (key.name === "right") {
+        setEditState((prev) => moveFieldCursor(prev, +1, counts))
       } else if (key.name === "up") {
-        setEditState((prev) => {
-          const moved = moveRowCursor(prev, -1, counts)
-          if (moved === prev) return moveFieldCursor(prev, -1, counts)
-          return moved
-        })
+        setEditState((prev) => moveRowCursor(prev, -1, counts))
       } else if (key.name === "down") {
-        setEditState((prev) => {
-          const moved = moveRowCursor(prev, +1, counts)
-          if (moved === prev) return moveFieldCursor(prev, +1, counts)
-          return moved
-        })
+        setEditState((prev) => moveRowCursor(prev, +1, counts))
       } else if (key.name === "d") {
         onRevertField()
       } else if (key.name === "R" || (key.shift && key.name === "r")) {

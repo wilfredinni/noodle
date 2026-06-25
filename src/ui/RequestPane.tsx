@@ -1,13 +1,12 @@
 import { TextAttributes } from "@opentui/core"
 import type { Request } from "../schema"
 import {
-  methodColor,
   formatHeaders,
   formatParams,
   formatBody,
   formatAuth,
 } from "./formatRequest"
-import type { EditState, FieldKind } from "./editMode"
+import type { EditState } from "./editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 
 interface Props {
@@ -19,18 +18,6 @@ interface Props {
   focused?: boolean
 }
 
-function isFieldActive(editState: EditState, field: FieldKind): boolean {
-  return editState.mode !== "inactive" && editState.cursor.field === field
-}
-
-function labelActive(
-  editState: EditState,
-  field: FieldKind,
-): { fg: string; attributes?: number } {
-  if (!isFieldActive(editState, field)) return { fg: "#888" }
-  return { fg: "#000", attributes: TextAttributes.INVERSE }
-}
-
 export function RequestPane({
   request,
   editState,
@@ -39,7 +26,6 @@ export function RequestPane({
   draft,
   focused = false,
 }: Props) {
-  const methodFg = request ? methodColor(request.method) : ""
   const headers = request ? formatHeaders(request.headers) : []
   const params = request ? formatParams(request.params) : []
   const body = request ? formatBody(request.body) : ""
@@ -47,6 +33,15 @@ export function RequestPane({
   const title = `Request${draft.isDirty ? "*" : ""}`
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
+
+  const activeTab = editState.cursor.field === "url" ? "headers" : editState.cursor.field
+
+  const tabs = [
+    { id: "headers", label: "Headers" },
+    { id: "params", label: "Params" },
+    { id: "body", label: "Body" },
+    { id: "auth", label: "Auth" },
+  ] as const
 
   return (
     <box
@@ -62,174 +57,181 @@ export function RequestPane({
     >
       {request ? (
         <>
-          <text
-            fg={methodFg}
-            attributes={
-              browseActive && editState.cursor.field === "url"
-                ? TextAttributes.INVERSE
-                : 0
-            }
-          >
-            {request.method}{" "}
-          </text>
-          {inEdit && editState.cursor.field === "url" ? (
-            <input
-              value={editValue}
-              onInput={setEditValue}
-              backgroundColor="#222"
-              focusedBackgroundColor="#333"
-              textColor="#fff"
-              cursorColor="#0f0"
-              focused
-            />
-          ) : (
-            <text
-              fg={methodFg}
-              attributes={
-                browseActive && editState.cursor.field === "url"
-                  ? TextAttributes.INVERSE
-                  : 0
-              }
-            >
-              {request.url}
-            </text>
-          )}
-
-          <text {...labelActive(editState, "headers")}>Headers</text>
-          {headers.length === 0 &&
-          !(browseActive && editState.cursor.field === "headers") ? (
-            <text fg="#888">{"  (none)"}</text>
-          ) : (
-            <>
-              {headers.map((line, i) => {
-                const cursorHere =
-                  browseActive &&
-                  editState.cursor.field === "headers" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                const editingHere =
-                  inEdit &&
-                  editState.cursor.field === "headers" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                if (editingHere) {
-                  return (
-                    <input
-                      key={i}
-                      value={editValue}
-                      onInput={setEditValue}
-                      backgroundColor="#222"
-                      focusedBackgroundColor="#333"
-                      textColor="#fff"
-                      cursorColor="#0f0"
-                      focused
-                    />
-                  )
-                }
-                return (
-                  <text
-                    key={i}
-                    fg="#888"
-                    attributes={cursorHere ? TextAttributes.INVERSE : 0}
-                  >
-                    {"  " + line}
-                  </text>
-                )
-              })}
-              {browseActive && editState.cursor.field === "headers" && (
-                <text
-                  fg="#888"
-                  attributes={
-                    editState.cursor.addingRow ? TextAttributes.INVERSE : 0
-                  }
-                >
-                  {"  [+] add header"}
+          <box style={{ flexDirection: "row", gap: 2 }}>
+            {tabs.map((tab) => {
+              const isSelected = activeTab === tab.id
+              const fg = isSelected ? "#000" : "#888"
+              const attributes = isSelected ? TextAttributes.INVERSE : 0
+              return (
+                <text key={tab.id} fg={fg} attributes={attributes}>
+                  {`  ${tab.label}  `}
                 </text>
-              )}
-            </>
-          )}
+              )
+            })}
+          </box>
 
-          <text {...labelActive(editState, "params")}>Params</text>
-          {params.length === 0 &&
-          !(browseActive && editState.cursor.field === "params") ? (
-            <text fg="#888">{"  (none)"}</text>
-          ) : (
-            <>
-              {params.map((line, i) => {
-                const cursorHere =
-                  browseActive &&
-                  editState.cursor.field === "params" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                const editingHere =
-                  inEdit &&
-                  editState.cursor.field === "params" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                if (editingHere) {
-                  return (
-                    <input
-                      key={i}
-                      value={editValue}
-                      onInput={setEditValue}
-                      backgroundColor="#222"
-                      focusedBackgroundColor="#333"
-                      textColor="#fff"
-                      cursorColor="#0f0"
-                      focused
-                    />
-                  )
-                }
-                return (
+          <box style={{ flexDirection: "column", flexGrow: 1, paddingTop: 1, gap: 1 }}>
+            {activeTab === "headers" && (
+              <>
+                {headers.length === 0 &&
+                !(browseActive && editState.cursor.field === "headers") ? (
+                  <text fg="#888">{"  (none)"}</text>
+                ) : (
+                  <>
+                    {headers.map((line, i) => {
+                      const cursorHere =
+                        browseActive &&
+                        editState.cursor.field === "headers" &&
+                        !editState.cursor.addingRow &&
+                        editState.cursor.row === i
+                      const editingHere =
+                        inEdit &&
+                        editState.cursor.field === "headers" &&
+                        !editState.cursor.addingRow &&
+                        editState.cursor.row === i
+                      if (editingHere) {
+                        return (
+                          <input
+                            key={i}
+                            value={editValue}
+                            onInput={setEditValue}
+                            backgroundColor="#222"
+                            focusedBackgroundColor="#333"
+                            textColor="#fff"
+                            cursorColor="#0f0"
+                            focused
+                          />
+                        )
+                      }
+                      return (
+                        <text
+                          key={i}
+                          fg="#888"
+                          attributes={cursorHere ? TextAttributes.INVERSE : 0}
+                        >
+                          {"  " + line}
+                        </text>
+                      )
+                    })}
+                    {browseActive && editState.cursor.field === "headers" && (
+                      <text
+                        fg="#888"
+                        attributes={
+                          editState.cursor.addingRow ? TextAttributes.INVERSE : 0
+                        }
+                      >
+                        {"  [+] add header"}
+                      </text>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {activeTab === "params" && (
+              <>
+                {params.length === 0 &&
+                !(browseActive && editState.cursor.field === "params") ? (
+                  <text fg="#888">{"  (none)"}</text>
+                ) : (
+                  <>
+                    {params.map((line, i) => {
+                      const cursorHere =
+                        browseActive &&
+                        editState.cursor.field === "params" &&
+                        !editState.cursor.addingRow &&
+                        editState.cursor.row === i
+                      const editingHere =
+                        inEdit &&
+                        editState.cursor.field === "params" &&
+                        !editState.cursor.addingRow &&
+                        editState.cursor.row === i
+                      if (editingHere) {
+                        return (
+                          <input
+                            key={i}
+                            value={editValue}
+                            onInput={setEditValue}
+                            backgroundColor="#222"
+                            focusedBackgroundColor="#333"
+                            textColor="#fff"
+                            cursorColor="#0f0"
+                            focused
+                          />
+                        )
+                      }
+                      return (
+                        <text
+                          key={i}
+                          fg="#888"
+                          attributes={cursorHere ? TextAttributes.INVERSE : 0}
+                        >
+                          {"  " + line}
+                        </text>
+                      )
+                    })}
+                    {browseActive && editState.cursor.field === "params" && (
+                      <text
+                        fg="#888"
+                        attributes={
+                          editState.cursor.addingRow ? TextAttributes.INVERSE : 0
+                        }
+                      >
+                        {"  [+] add param"}
+                      </text>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {activeTab === "body" && (
+              <>
+                {inEdit && editState.cursor.field === "body" ? (
+                  <input
+                    value={editValue}
+                    onInput={setEditValue}
+                    backgroundColor="#222"
+                    focusedBackgroundColor="#333"
+                    textColor="#fff"
+                    cursorColor="#0f0"
+                    focused
+                  />
+                ) : body === "" ? (
+                  <text fg="#888">{"  (none)"}</text>
+                ) : (
                   <text
-                    key={i}
-                    fg="#888"
-                    attributes={cursorHere ? TextAttributes.INVERSE : 0}
+                    attributes={
+                      browseActive && editState.cursor.field === "body"
+                        ? TextAttributes.INVERSE
+                        : 0
+                    }
                   >
-                    {"  " + line}
+                    {body}
                   </text>
-                )
-              })}
-              {browseActive && editState.cursor.field === "params" && (
-                <text
-                  fg="#888"
-                  attributes={
-                    editState.cursor.addingRow ? TextAttributes.INVERSE : 0
-                  }
-                >
-                  {"  [+] add param"}
-                </text>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
 
-          <text {...labelActive(editState, "body")}>Body</text>
-          {inEdit && editState.cursor.field === "body" ? (
-            <input
-              value={editValue}
-              onInput={setEditValue}
-              backgroundColor="#222"
-              focusedBackgroundColor="#333"
-              textColor="#fff"
-              cursorColor="#0f0"
-              focused
-            />
-          ) : body === "" ? (
-            <text fg="#888">{"  (none)"}</text>
-          ) : (
-            <text
-              attributes={
-                browseActive && editState.cursor.field === "body"
-                  ? TextAttributes.INVERSE
-                  : 0
-              }
-            >
-              {body}
-            </text>
-          )}
+            {activeTab === "auth" && (
+              <>
+                {auth === "" ? (
+                  <text fg="#888">{"  (none)"}</text>
+                ) : (
+                  <text
+                    attributes={
+                      browseActive && editState.cursor.field === "auth"
+                        ? TextAttributes.INVERSE
+                        : 0
+                    }
+                  >
+                    {"  " + auth}
+                  </text>
+                )}
+              </>
+            )}
+          </box>
 
-          <text fg="#888">Auth</text>
-          <text fg="#888">{"  " + auth}</text>
           <text fg="#888">[s] Send</text>
         </>
       ) : (

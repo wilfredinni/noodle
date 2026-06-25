@@ -12,6 +12,7 @@ import { useEnvironments } from "./useEnvironments"
 import { filestore } from "../filestore"
 import { cycleFocus, hintForFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
+import { UrlPane } from "./UrlPane"
 
 type SaveState =
   | { kind: "idle" }
@@ -55,9 +56,16 @@ export function App({
     draft.draft,
     draft,
     {
-      enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
-      onEnterEditBrowse: () => setFocus("request"),
+      enabled: () =>
+        (focusRef.current === "request" || focusRef.current === "url") &&
+        !helpVisibleRef.current,
+      onEnterEditBrowse: () => {
+        if (focusRef.current === "sidebar") {
+          setFocus("request")
+        }
+      },
       blocked: () => helpVisibleRef.current,
+      initialField: () => (focusRef.current === "url" ? "url" : "headers"),
     },
   )
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
@@ -183,6 +191,13 @@ export function App({
             focused={focus === "sidebar"}
           />
           <box style={{ flexDirection: "column", flexGrow: 1 }}>
+            <UrlPane
+              request={draft.draft}
+              editState={editState}
+              editValue={editValue}
+              setEditValue={setEditValue}
+              focused={focus === "url"}
+            />
             <RequestPane
               request={draft.draft}
               editState={editState}

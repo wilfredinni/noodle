@@ -1,6 +1,6 @@
-export type Focus = "sidebar" | "request" | "response"
+export type Focus = "sidebar" | "url" | "request" | "response"
 
-const FOCUS_ORDER: Focus[] = ["sidebar", "request", "response"]
+const FOCUS_ORDER: Focus[] = ["sidebar", "url", "request", "response"]
 
 export function cycleFocus(current: Focus, delta: 1 | -1): Focus {
   const idx = FOCUS_ORDER.indexOf(current)
@@ -13,11 +13,20 @@ export function hintForFocus(
   mode: "inactive" | "browsing" | "editing",
 ): string {
   if (focus === "sidebar") {
-    return "[↑/↓] select · [e] edit · [s] send · [w] save · [Tab] → Request"
+    return "[↑/↓] select · [e] edit · [s] send · [w] save · [Tab] → URL"
+  }
+  if (focus === "url") {
+    if (mode === "browsing") {
+      return "[e/Enter] edit · [Esc] back · [Tab] → Request"
+    }
+    if (mode === "editing") {
+      return "[Enter] commit · [Esc] cancel"
+    }
+    return "[e] enter edit · [Tab] → Request"
   }
   if (focus === "request") {
     if (mode === "browsing") {
-      return "[↑/↓/Enter] edit · [d] revert · [R] revert all · [Esc] back · [Tab] → Response"
+      return "[←/→] tabs · [↑/↓/Enter] edit · [d] revert · [R] revert all · [Esc] back · [Tab] → Response"
     }
     if (mode === "editing") {
       return "[Enter] commit · [Esc] cancel"

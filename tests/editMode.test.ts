@@ -14,21 +14,26 @@ import {
 const inactive: EditState = initialEditState()
 
 describe("initialEditState", () => {
-  it("starts inactive with url cursor", () => {
+  it("starts inactive with headers cursor", () => {
     expect(initialEditState()).toEqual({
       mode: "inactive",
-      cursor: { field: "url", row: -1, addingRow: false },
+      cursor: { field: "headers", row: -1, addingRow: false },
       editingRow: -1,
     })
   })
 })
 
 describe("enterEditBrowse", () => {
-  it("inactive → browsing at url", () => {
-    const s = enterEditBrowse(inactive)
+  it("inactive → browsing at headers by default", () => {
+    const s = enterEditBrowse(inactive, "headers", { headers: 2, params: 1 })
+    expect(s.mode).toBe("browsing")
+    expect(s.cursor).toEqual({ field: "headers", row: 0, addingRow: false })
+    expect(s.editingRow).toBe(-1)
+  })
+  it("inactive → browsing at url when specified", () => {
+    const s = enterEditBrowse(inactive, "url")
     expect(s.mode).toBe("browsing")
     expect(s.cursor).toEqual({ field: "url", row: -1, addingRow: false })
-    expect(s.editingRow).toBe(-1)
   })
   it("no-op from browsing", () => {
     const browsing = enterEditBrowse(inactive)
@@ -56,12 +61,10 @@ describe("exitEditBrowse", () => {
 })
 
 describe("moveFieldCursor", () => {
-  it("+1 walks url → headers → params → body → url", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
+  it("+1 walks headers → params → body → auth → headers", () => {
+    let s = enterEditBrowse(inactive, "headers", { headers: 2, params: 1 })
+    // starts at headers
     expect(s.cursor.field).toBe("headers")
-    expect(s.cursor.row).toBe(0)
-    expect(s.cursor.addingRow).toBe(false)
     s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("params")
     expect(s.cursor.row).toBe(0)
@@ -69,23 +72,30 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.field).toBe("body")
     expect(s.cursor.row).toBe(-1)
     s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
-    expect(s.cursor.field).toBe("url")
+    expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(-1)
+    s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
+    expect(s.cursor.field).toBe("headers")
   })
-  it("-1 walks url → body → params → headers → url", () => {
-    let s = enterEditBrowse(inactive)
+  it("-1 walks headers → auth → body → params → headers", () => {
+    let s = enterEditBrowse(inactive, "headers", { headers: 2, params: 1 })
+    s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
+    expect(s.cursor.field).toBe("auth")
     s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("body")
     s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("params")
     s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("headers")
-    s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
-    expect(s.cursor.field).toBe("url")
+  })
+  it("url field is a no-op when calling moveFieldCursor", () => {
+    const s = enterEditBrowse(inactive, "url")
+    const before = s
+    expect(moveFieldCursor(s, +1, { headers: 2, params: 1 })).toBe(before)
   })
   it("entering empty headers lands on [+] (addingRow true, row -1)", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 0, params: 0 })
+    let s = enterEditBrowse(inactive, "params", { headers: 0, params: 0 })
+    s = moveFieldCursor(s, -1, { headers: 0, params: 0 })
     expect(s.cursor.field).toBe("headers")
     expect(s.cursor.addingRow).toBe(true)
     expect(s.cursor.row).toBe(-1)
@@ -100,9 +110,7 @@ describe("moveFieldCursor", () => {
 
 describe("moveRowCursor", () => {
   it("walks rows 0 → 1 → [+] → wraps to 0 within headers", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 2, params: 0 })
-    expect(s.cursor.row).toBe(0)
+    let s = enterEditBrowse(inactive, "headers", { headers: 2, params: 0 })
     s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(1)
     s = moveRowCursor(s, +1, { headers: 2, params: 0 })
@@ -113,8 +121,7 @@ describe("moveRowCursor", () => {
     expect(s.cursor.addingRow).toBe(false)
   })
   it("walks up: 0 → [+] → 1 → 0", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 2, params: 0 })
+    let s = enterEditBrowse(inactive, "headers", { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(0)
     s = moveRowCursor(s, -1, { headers: 2, params: 0 })
     expect(s.cursor.addingRow).toBe(true)
@@ -124,9 +131,7 @@ describe("moveRowCursor", () => {
     expect(s.cursor.row).toBe(0)
   })
   it("single-row section toggles 0 ↔ [+]", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 1, params: 0 })
-    expect(s.cursor.row).toBe(0)
+    let s = enterEditBrowse(inactive, "headers", { headers: 1, params: 0 })
     s = moveRowCursor(s, +1, { headers: 1, params: 0 })
     expect(s.cursor.addingRow).toBe(true)
     s = moveRowCursor(s, +1, { headers: 1, params: 0 })
@@ -134,26 +139,23 @@ describe("moveRowCursor", () => {
     expect(s.cursor.addingRow).toBe(false)
   })
   it("empty section is a no-op (stuck on [+])", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 0, params: 0 })
+    const s = enterEditBrowse(inactive, "params", { headers: 0, params: 0 })
     const before = s
     expect(moveRowCursor(s, +1, { headers: 0, params: 0 })).toBe(before)
     expect(moveRowCursor(s, -1, { headers: 0, params: 0 })).toBe(before)
   })
-  it("scalar field (url/body) is a no-op", () => {
-    const browsing = enterEditBrowse(inactive)
-    expect(moveRowCursor(browsing, +1, { headers: 2, params: 1 })).toBe(
-      browsing,
+  it("scalar field (url/body/auth) is a no-op", () => {
+    const browsingBody = enterEditBrowse(inactive, "body")
+    expect(moveRowCursor(browsingBody, +1, { headers: 2, params: 1 })).toBe(
+      browsingBody,
     )
-    let s = moveFieldCursor(browsing, +1, { headers: 2, params: 1 })
-    s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
-    s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
-    expect(s.cursor.field).toBe("body")
-    expect(moveRowCursor(s, +1, { headers: 2, params: 1 })).toBe(s)
+    const browsingAuth = enterEditBrowse(inactive, "auth")
+    expect(moveRowCursor(browsingAuth, +1, { headers: 2, params: 1 })).toBe(
+      browsingAuth,
+    )
   })
   it("no-op when editing", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 2, params: 0 })
+    const s = enterEditBrowse(inactive)
     const editing = beginEditing(s)
     expect(moveRowCursor(editing, +1, { headers: 2, params: 0 })).toBe(editing)
   })
@@ -161,8 +163,7 @@ describe("moveRowCursor", () => {
 
 describe("beginEditing", () => {
   it("browsing → editing, captures editingRow for header row", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 2, params: 0 })
+    let s = enterEditBrowse(inactive, "headers", { headers: 2, params: 0 })
     s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(1)
     const e = beginEditing(s)
@@ -170,14 +171,14 @@ describe("beginEditing", () => {
     expect(e.editingRow).toBe(1)
   })
   it("browsing → editing, editingRow -1 for url scalar", () => {
-    const browsing = enterEditBrowse(inactive)
+    const browsing = enterEditBrowse(inactive, "url")
     const e = beginEditing(browsing)
     expect(e.mode).toBe("editing")
     expect(e.editingRow).toBe(-1)
   })
   it("browsing → editing on [+] line keeps editingRow -1 (caller adds row)", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 0, params: 0 })
+    let s = enterEditBrowse(inactive, "headers", { headers: 2, params: 0 })
+    s = moveRowCursor(s, -1, { headers: 2, params: 0 })
     expect(s.cursor.addingRow).toBe(true)
     const e = beginEditing(s)
     expect(e.mode).toBe("editing")
@@ -208,8 +209,8 @@ describe("commitEditing", () => {
 
 describe("cancelEditing", () => {
   it("editing → browsing, editingRow reset to -1, cursor preserved", () => {
-    let s = enterEditBrowse(inactive)
-    s = moveFieldCursor(s, +1, { headers: 2, params: 0 })
+    let s = enterEditBrowse(inactive, "headers", { headers: 2, params: 0 })
+    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     const editing = beginEditing(s)
     const cancelled = cancelEditing(editing)
     expect(cancelled.mode).toBe("browsing")
