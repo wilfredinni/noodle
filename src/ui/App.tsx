@@ -69,7 +69,7 @@ export function App({
         />
         <box style={{ flexDirection: "column", flexGrow: 1 }}>
           <RequestPane
-            request={selectedRequest}
+            request={draft.draft}
             editState={editState}
             editValue={editValue}
             setEditValue={setEditValue}
