@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { methodColor, formatHeaders } from "../src/ui/formatRequest"
+import { methodColor, formatHeaders, formatParams } from "../src/ui/formatRequest"
 
 describe("methodColor", () => {
   it("GET → green", () => {
@@ -45,6 +45,28 @@ describe("formatHeaders", () => {
       "content-type: application/json",
       "x-a: 1",
       "x-b: 2",
+    ])
+  })
+})
+
+describe("formatParams", () => {
+  it("returns empty array when no params", () => {
+    expect(formatParams({})).toEqual([])
+  })
+  it("renders single param as 'Key: Value'", () => {
+    expect(formatParams({ verbose: "true" })).toEqual(["verbose: true"])
+  })
+  it("sorts multiple params alphabetically by key", () => {
+    expect(
+      formatParams({
+        "z-last": "3",
+        "a-first": "1",
+        "m-middle": "2",
+      }),
+    ).toEqual([
+      "a-first: 1",
+      "m-middle: 2",
+      "z-last: 3",
     ])
   })
 })

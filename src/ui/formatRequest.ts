@@ -12,3 +12,9 @@ export function formatHeaders(headers: Record<string, string>): string[] {
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   return entries.map(([k, v]) => `${k}: ${v}`)
 }
+
+export function formatParams(params: Record<string, string>): string[] {
+  const entries = Object.entries(params)
+  entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return entries.map(([k, v]) => `${k}: ${v}`)
+}
