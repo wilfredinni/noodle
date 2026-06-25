@@ -1,12 +1,6 @@
 import { getHelpSections } from "./helpTexts"
 
-export function HelpOverlay({
-  visible,
-  onDismiss,
-}: {
-  visible: boolean
-  onDismiss: () => void
-}) {
+export function HelpOverlay({ visible }: { visible: boolean }) {
   if (!visible) return null
 
   const sections = getHelpSections()
@@ -31,14 +25,13 @@ export function HelpOverlay({
         title="▸ Keybindings"
       >
         {sections.map((section) => (
-          <box
-            key={section.title}
-            style={{ flexDirection: "column" }}
-          >
+          <box key={section.title} style={{ flexDirection: "column" }}>
             <text fg="#61dafb">{section.title}</text>
             {section.keys.map((k, i) => (
               <text key={i}>
-                {k.key}{"  "}{k.description}
+                {k.key}
+                {"  "}
+                {k.description}
               </text>
             ))}
           </box>

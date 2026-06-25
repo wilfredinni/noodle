@@ -165,7 +165,7 @@ export function App({
       }}
     >
       {helpVisible ? (
-        <HelpOverlay visible onDismiss={() => setHelpVisible(false)} />
+        <HelpOverlay visible />
       ) : (
         <box style={{ flexDirection: "row", flexGrow: 1 }}>
           <Sidebar
@@ -184,7 +184,10 @@ export function App({
               draft={draft}
               focused={focus === "request"}
             />
-            <ResponsePane state={responseState} focused={focus === "response"} />
+            <ResponsePane
+              state={responseState}
+              focused={focus === "response"}
+            />
           </box>
         </box>
       )}
