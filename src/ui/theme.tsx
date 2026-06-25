@@ -65,14 +65,19 @@ export function ThemePickerOverlay({
         {THEMES.map((t, i) => {
           const isSelected = i === previewIndex
           return (
-            <text
+            <box
               key={t.name}
-              fg={isSelected ? "#1a1a1a" : theme.text}
-              bg={isSelected ? theme.primary : undefined}
+              paddingLeft={1}
+              paddingRight={1}
+              backgroundColor={isSelected ? theme.primary : undefined}
             >
-              {isSelected ? "▸ " : "  "}
-              {t.name}
-            </text>
+              <text
+                fg={isSelected ? "#1a1a1a" : theme.text}
+              >
+                {isSelected ? "▸ " : "  "}
+                {t.name}
+              </text>
+            </box>
           )
         })}
         <text fg={theme.textMuted}>
