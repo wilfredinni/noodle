@@ -4,7 +4,7 @@ A terminal REST client. Inspect, send, and iterate on HTTP requests from YAML fi
 
 ## Status
 
-Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields. See [Roadmap](#roadmap-to-v1).
+Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields and runtime environment switching. See [Roadmap](#roadmap-to-v1).
 
 ## Quick start
 
@@ -16,7 +16,7 @@ bun run dev -- --collection ./collections --env development
 Flags:
 
 - `--collection <dir>` — collection directory to load (default `./collections`)
-- `--env <name>` — environment name; loads `environments/<name>.yml` (optional)
+- `--env <name>` — initial environment; loads `environments/<name>.yml` (optional; cycle at runtime with `[`/`]`)
 - `-h, --help`
 
 Requests are `.yml` files, one per request:
@@ -46,6 +46,7 @@ vars:
 - **Filestore** — `loadCollection(dir)` walks a folder of `.yml` files into a `Collection`. `saveRequest(dir, req)` writes one back.
 - **Request execution** — `executor.send(req, env?)` via Bun fetch. `substitute(req, env)` replaces `{{var}}` in url/headers/params/body/auth before fetch. Returns a `Response` for any HTTP status; throws only on transport errors (with `{ cause }`).
 - **Environment loading** — `env.loadEnvironment(dir, name)` reads `environments/<name>.yml`, strict-validated (name, vars, unknown keys rejected; non-string values coerced). Path-traversal-safe.
+- **Environment switching** — footer shows active env name; `[`/`]` cycles all loaded envs at runtime (scanned from `environments/*.yml` at startup). `--env` flag sets the initial env; omitted starts with no env.
 - **CLI args** — `--collection`, `--env`, `--help`.
 - **OpenAPI 3.0 importer** — `openApiImporter.import(spec)` converts an OpenAPI 3.0 spec (JSON or YAML) into a `Collection`, emitting `{{var}}` placeholders for path/query/header params and auth (bearer/basic).
 - **Request pane** — renders full request detail: method (color-coded by verb), url, sorted headers, sorted params, pretty-printed JSON body, and masked auth. Inline editing for url, headers, params, and body via edit-browse mode (`e` to enter, `↑/↓` to navigate fields, `e/Enter` to edit, `Enter` to commit, `Esc` to cancel).
@@ -65,9 +66,9 @@ v1 = a **usable terminal UI**: you can browse a collection, see a request's full
 
 Edit url, headers, params, and body in-place before send via an edit-browse mode (`e` to enter, `↑/↓` to navigate fields, `e/Enter` to edit, `Enter` to commit, `Esc` to cancel). Body is single-line raw input; multiline deferred. Edits are session-local and preserved per request across sidebar switches.
 
-### 3. Environment indicator + runtime switching
+### 3. Environment indicator + runtime switching ✅
 
-Show the active env name in the footer/header. Add a keybind to cycle loaded envs without restarting (loads all `environments/*.yml`, picks by name). Today env is CLI-only (`--env`); v1 exposes it in the UI.
+Footer shows the active env name. `[`/`]` cycles all `environments/*.yml` files at runtime without restarting. `--env` sets the initial env; omitted starts with no env.
 
 ### 4. Save request changes back to disk
 
@@ -105,5 +106,5 @@ src/
 └─ ui/            # React components + hooks (Sidebar, RequestPane, ResponsePane, App)
 collections/      # sample request .yml files
 environments/     # sample env .yml files
-tests/            # bun:test suites (317 tests)
+tests/            # bun:test suites (329 tests)
 ```
