@@ -26,7 +26,10 @@ export function getHelpSections(): HelpSection[] {
     {
       title: "EDITING",
       keys: [
-        { key: "[e / Enter]", description: "Edit focused field · request browse" },
+        {
+          key: "[e / Enter]",
+          description: "Edit focused field · request browse",
+        },
         { key: "[Enter]", description: "Commit edit" },
         { key: "[Esc]", description: "Cancel edit / exit browse" },
         { key: "[d]", description: "Revert field" },
