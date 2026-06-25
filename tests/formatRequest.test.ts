@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { methodColor } from "../src/ui/formatRequest"
+import { methodColor, formatHeaders } from "../src/ui/formatRequest"
 
 describe("methodColor", () => {
   it("GET → green", () => {
@@ -22,5 +22,29 @@ describe("methodColor", () => {
   })
   it("OPTIONS → dim", () => {
     expect(methodColor("OPTIONS")).toBe("#888")
+  })
+})
+
+describe("formatHeaders", () => {
+  it("returns empty array when no headers", () => {
+    expect(formatHeaders({})).toEqual([])
+  })
+  it("renders single header as 'Key: Value'", () => {
+    expect(formatHeaders({ "content-type": "application/json" })).toEqual([
+      "content-type: application/json",
+    ])
+  })
+  it("sorts multiple headers alphabetically by key", () => {
+    expect(
+      formatHeaders({
+        "x-b": "2",
+        "content-type": "application/json",
+        "x-a": "1",
+      }),
+    ).toEqual([
+      "content-type: application/json",
+      "x-a: 1",
+      "x-b: 2",
+    ])
   })
 })
