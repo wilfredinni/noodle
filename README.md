@@ -1,6 +1,6 @@
 # noodle
 
-A terminal REST client, built with [OpenTUI](https://github.com/obra/opentui) (React binding). Inspect, send, and iterate on HTTP requests from YAML files on disk — inspired by [Bruno](https://github.com/usebruno/bruno).
+A terminal REST client. Inspect, send, and iterate on HTTP requests from YAML files on disk — inspired by [Bruno](https://github.com/usebruno/bruno).
 
 ## Status
 
