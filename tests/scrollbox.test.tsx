@@ -1,9 +1,13 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
+import { createRoot } from "@opentui/react"
+import { createTestRenderer } from "@opentui/core/testing"
 import { Sidebar } from "../src/ui/Sidebar"
 import { RequestPane } from "../src/ui/RequestPane"
+import { ResponsePane } from "../src/ui/ResponsePane"
 import { initialEditState } from "../src/ui/editMode"
 import type { Auth, Request, Collection } from "../src/schema"
+import type { SendState } from "../src/ui/sendState"
 import type { UseRequestDraftResult } from "../src/ui/useRequestDraft"
 
 function makeRequest(i: number): Request {
@@ -16,6 +20,45 @@ function makeRequest(i: number): Request {
     params: {},
   }
 }
+
+describe("ResponsePane scrollbox", () => {
+  it("renders with large response body without overflowing", async () => {
+    const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 80,
+      height: 12,
+    })
+    const root = createRoot(renderer)
+
+    const longBody = JSON.stringify(
+      {
+        data: Array.from({ length: 100 }, (_, i) => ({
+          id: i,
+          name: `item-${i}`,
+        })),
+      },
+      null,
+      2,
+    )
+
+    const state = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "application/json" },
+        body: longBody,
+        timeMs: 0,
+      },
+    } satisfies SendState
+
+    root.render(<ResponsePane state={state} focused={true} />)
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).not.toBe("")
+    renderer.destroy()
+  })
+})
 
 describe("RequestPane scrollbox", () => {
   it("renders with many headers without overflowing", async () => {

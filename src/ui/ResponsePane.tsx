@@ -59,25 +59,27 @@ export function ResponsePane({
       ) : (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            {activeTab === "body" ? (
-              <>
-                <text fg={statusColor(state.response.status)}>
-                  {formatStatusLine(state.response)}
-                </text>
-                {(() => {
-                  const body = formatBody(state.response)
-                  return body !== "" ? <text>{body}</text> : null
-                })()}
-              </>
-            ) : (
-              <>
-                {formatHeaders(state.response).map((line) => (
-                  <text key={line} fg="#888">
-                    {line}
+            <scrollbox scrollY stickyScroll style={{ flexGrow: 1 }}>
+              {activeTab === "body" ? (
+                <>
+                  <text fg={statusColor(state.response.status)}>
+                    {formatStatusLine(state.response)}
                   </text>
-                ))}
-              </>
-            )}
+                  {(() => {
+                    const body = formatBody(state.response)
+                    return body !== "" ? <text>{body}</text> : null
+                  })()}
+                </>
+              ) : (
+                <>
+                  {formatHeaders(state.response).map((line) => (
+                    <text key={line} fg="#888">
+                      {line}
+                    </text>
+                  ))}
+                </>
+              )}
+            </scrollbox>
           </Tabs>
         </>
       )}
