@@ -266,3 +266,56 @@ describe("lang.serializeRequest — canonical key order", () => {
     expect(topKeys).toEqual(["name", "method", "url", "headers", "params", "body", "auth"])
   })
 })
+
+describe("lang — semantic round-trip", () => {
+  it("parse → serialize → parse yields equal Request (same id)", () => {
+    const original: Request = {
+      id: "create-post",
+      name: "Create post",
+      method: "POST",
+      url: "https://{{host}}/posts",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer {{token}}",
+      },
+      params: { draft: "true" },
+      body: '{"title": "hello", "body": "world"}',
+      auth: { type: "bearer", token: "{{token}}" },
+    }
+
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+
+    expect(reparsed).toEqual(original)
+  })
+
+  it("round-trip preserves minimal request (defaults reapplied)", () => {
+    const original: Request = {
+      id: "ping",
+      name: "Ping",
+      method: "GET",
+      url: "https://example.com",
+      headers: {},
+      params: {},
+      auth: { type: "none" },
+    }
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+    expect(reparsed).toEqual(original)
+  })
+
+  it("round-trip preserves basic auth", () => {
+    const original: Request = {
+      id: "basic-req",
+      name: "Basic req",
+      method: "DELETE",
+      url: "https://example.com/item/1",
+      headers: {},
+      params: {},
+      auth: { type: "basic", user: "foo", pass: "bar" },
+    }
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+    expect(reparsed).toEqual(original)
+  })
+})
