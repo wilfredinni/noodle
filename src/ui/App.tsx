@@ -13,6 +13,8 @@ import { useEnvironments } from "./useEnvironments"
 import { filestore } from "../filestore"
 import { cycleFocus, hintForFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
+import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
+import { PaneBorder } from "./theme"
 
 type SaveState =
   | { kind: "idle" }
@@ -23,17 +25,24 @@ type SaveState =
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
 
-export function App({
+function AppInner({
   collectionDir,
   environmentsDir,
   envList,
   initialEnvName,
+  themeSelectingRef,
+  previewIndexRef,
+  blockedRef,
 }: {
   collectionDir: string
   environmentsDir: string
   envList: string[]
   initialEnvName?: string
+  themeSelectingRef: React.MutableRefObject<boolean>
+  previewIndexRef: React.MutableRefObject<number | null>
+  blockedRef: React.MutableRefObject<boolean>
 }) {
+  const theme = useTheme()
   const { collection, loading, error } = useCollection(collectionDir)
   const requests = collection?.requests ?? []
 
@@ -58,18 +67,24 @@ export function App({
     {
       enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
       onEnterEditBrowse: () => setFocus("request"),
-      blocked: () => helpVisibleRef.current,
+      blocked: () => helpVisibleRef.current || themeSelectingRef.current,
     },
   )
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
   const isActiveRef = useRef(isActive)
   isActiveRef.current = isActive
 
+  blockedRef.current = helpVisible || isActive
+
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
   const { state: responseState } = useResponse(
     draft.draft,
     envState.activeEnv,
-    () => helpVisibleRef.current || focusRef.current === "urlbar" || isActiveRef.current,
+    () =>
+      helpVisibleRef.current ||
+      focusRef.current === "urlbar" ||
+      isActiveRef.current ||
+      themeSelectingRef.current,
   )
 
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
@@ -91,9 +106,9 @@ export function App({
   }, [])
 
   useKeyboard((key) => {
-    // help toggle — blocked while editing (isActive)
+    // help toggle — blocked while editing or theme selecting
     if (key.name === "?") {
-      if (isActive) return
+      if (isActive || themeSelectingRef.current) return
       setHelpVisible((prev) => !prev)
       return
     }
@@ -102,6 +117,7 @@ export function App({
       if (key.name === "escape") setHelpVisible(false)
       return
     }
+    if (themeSelectingRef.current) return
     if (key.name === "tab" && !isActive) {
       setFocus((prev) => cycleFocus(prev, key.shift ? -1 : 1))
       return
@@ -165,33 +181,39 @@ export function App({
     }
   })
 
+  const pickerOpen = themeSelectingRef.current
+
   return (
     <box
       style={{
         flexDirection: "column",
         width: "100%",
         height: "100%",
-        border: true,
+        backgroundColor: theme.background,
       }}
+      border={[...PaneBorder.border]}
+      customBorderChars={PaneBorder.customBorderChars}
     >
       {helpVisible ? (
         <HelpOverlay visible />
+      ) : pickerOpen ? (
+        <ThemePickerOverlay previewIndex={previewIndexRef.current} />
       ) : (
         <box style={{ flexDirection: "row", flexGrow: 1 }}>
-            <Sidebar
-              collection={collection}
-              loading={loading}
-              error={error}
-              selectedIndex={selectedIndex}
-              focused={focus === "sidebar"}
+          <Sidebar
+            collection={collection}
+            loading={loading}
+            error={error}
+            selectedIndex={selectedIndex}
+            focused={focus === "sidebar"}
+          />
+          <box style={{ flexDirection: "column", flexGrow: 1 }}>
+            <UrlBar
+              method={draft.draft?.method ?? ""}
+              url={draft.draft?.url ?? ""}
+              setUrl={draft.setUrl}
+              focused={focus === "urlbar"}
             />
-            <box style={{ flexDirection: "column", flexGrow: 1 }}>
-              <UrlBar
-                method={draft.draft?.method ?? ""}
-                url={draft.draft?.url ?? ""}
-                setUrl={draft.setUrl}
-                focused={focus === "urlbar"}
-              />
             <RequestPane
               request={draft.draft}
               editState={editState}
@@ -208,17 +230,53 @@ export function App({
           </box>
         </box>
       )}
-      <text fg="#666">
+      <text fg={theme.textMuted}>
         {helpVisible
           ? "[?/Esc] dismiss help"
-          : saveState.kind === "confirming"
-            ? `Save changes to ${draft.draft?.id ?? "?"}.yml? [y/N]`
-            : saveState.kind === "success"
-              ? saveState.message
-              : saveState.kind === "error"
+          : pickerOpen
+            ? "[↑/↓] navigate  [Enter] choose  [Esc] cancel"
+            : saveState.kind === "confirming"
+              ? `Save changes to ${draft.draft?.id ?? "?"}.yml? [y/N]`
+              : saveState.kind === "success"
                 ? saveState.message
-                : `${hintForFocus(focus, editState.mode)} · env: ${envState.indicatorLabel}`}
+                : saveState.kind === "error"
+                  ? saveState.message
+                  : `${hintForFocus(focus, editState.mode)} · env: ${envState.indicatorLabel}`}
       </text>
     </box>
+  )
+}
+
+export function App({
+  collectionDir,
+  environmentsDir,
+  envList,
+  initialEnvName,
+}: {
+  collectionDir: string
+  environmentsDir: string
+  envList: string[]
+  initialEnvName?: string
+}) {
+  const isSelectingRef = useRef(false)
+  const previewIndexRef = useRef<number | null>(null)
+  const blockedRef = useRef(false)
+
+  return (
+    <ThemeProvider
+      isSelectingRef={isSelectingRef}
+      previewIndexRef={previewIndexRef}
+      blocking={() => blockedRef.current}
+    >
+      <AppInner
+        collectionDir={collectionDir}
+        environmentsDir={environmentsDir}
+        envList={envList}
+        initialEnvName={initialEnvName}
+        themeSelectingRef={isSelectingRef}
+        previewIndexRef={previewIndexRef}
+        blockedRef={blockedRef}
+      />
+    </ThemeProvider>
   )
 }

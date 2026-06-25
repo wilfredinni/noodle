@@ -89,15 +89,12 @@ export function ThemePickerOverlay({
   return (
     <box
       style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
         flexDirection: "column",
+        flexGrow: 1,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.6)",
+        width: "100%",
+        height: "100%",
       }}
     >
       <box
@@ -109,7 +106,6 @@ export function ThemePickerOverlay({
           gap: 1,
         }}
         title={`▸ Themes`}
-        titleColor={theme.primary}
       >
         <scrollbox ref={scrollRef} scrollY style={{ flexDirection: "column" }}>
           {THEMES.map((t, i) => {
