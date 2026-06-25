@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA, TextAttributes } from "@opentui/core"
 import { Tabs } from "../../src/ui/Tabs"
+import { ThemeProvider } from "../../src/ui/theme"
 
 describe("Tabs", () => {
   it("renders all tab labels", async () => {
@@ -85,17 +86,23 @@ describe("Tabs", () => {
     expect(frame).not.toContain("▸")
   })
 
-  it("active tab has #007aff background and white text instead of INVERSE", async () => {
+  it("active tab has theme primary background and contrast text instead of INVERSE", async () => {
     const { renderOnce, captureSpans } = await testRender(
-      <Tabs
-        tabs={[
-          { id: "a", label: "Tab A" },
-          { id: "b", label: "Tab B" },
-        ]}
-        activeId="a"
+      <ThemeProvider
+        isSelectingRef={{ current: false }}
+        previewIndexRef={{ current: null }}
+        blocking={() => false}
       >
-        <text>content</text>
-      </Tabs>,
+        <Tabs
+          tabs={[
+            { id: "a", label: "Tab A" },
+            { id: "b", label: "Tab B" },
+          ]}
+          activeId="a"
+        >
+          <text>content</text>
+        </Tabs>
+      </ThemeProvider>,
       { width: 60, height: 10 },
     )
     await renderOnce()
@@ -105,12 +112,12 @@ describe("Tabs", () => {
 
     const activeSpan = allSpans.find(s => s.text.includes("Tab A"))
     expect(activeSpan).toBeDefined()
-    expect(activeSpan!.bg.equals(RGBA.fromInts(0, 122, 255))).toBe(true)
-    expect(activeSpan!.fg.equals(RGBA.fromInts(255, 255, 255))).toBe(true)
+    expect(activeSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(true)
+    expect(activeSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
     expect(activeSpan!.attributes & TextAttributes.INVERSE).toBe(0)
 
     const inactiveSpan = allSpans.find(s => s.text.includes("Tab B"))
     expect(inactiveSpan).toBeDefined()
-    expect(inactiveSpan!.bg.equals(RGBA.fromInts(0, 122, 255))).toBe(false)
+    expect(inactiveSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
   })
 })
