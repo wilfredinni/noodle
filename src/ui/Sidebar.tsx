@@ -63,7 +63,11 @@ export function Sidebar({
           {collection.requests.map((r, i) => (
             <box key={r.id} id={`req-${i}`} style={{ flexDirection: "row" }}>
               <text
-                fg={i === selectedIndex ? contrastOnPrimary(theme) : methodColor(r.method, theme)}
+                fg={
+                  i === selectedIndex
+                    ? contrastOnPrimary(theme)
+                    : methodColor(r.method, theme)
+                }
                 bg={i === selectedIndex ? theme.primary : undefined}
               >
                 {shortMethod(r.method).padEnd(7)}

@@ -57,9 +57,9 @@ describe("ResponsePane scrollbox", () => {
     expect(frame).not.toBe("")
 
     // scrollbox clips: only some of 100 items visible
-    const bodyLines = frame.split("\n").filter((l: string) =>
-      l.includes("item-"),
-    )
+    const bodyLines = frame
+      .split("\n")
+      .filter((l: string) => l.includes("item-"))
     expect(bodyLines.length).toBeGreaterThan(0)
     expect(bodyLines.length).toBeLessThan(100)
 
@@ -119,9 +119,9 @@ describe("RequestPane scrollbox", () => {
     expect(frame).not.toBe("")
 
     // scrollbox clips: only some of 30 headers visible
-    const headerLines = frame.split("\n").filter((l: string) =>
-      l.includes("X-Header-"),
-    )
+    const headerLines = frame
+      .split("\n")
+      .filter((l: string) => l.includes("X-Header-"))
     expect(headerLines.length).toBeGreaterThan(0)
     expect(headerLines.length).toBeLessThan(30)
 
@@ -129,10 +129,10 @@ describe("RequestPane scrollbox", () => {
     expect(frame).toMatch(/[▀▄▌]/)
   })
 
-  it("browse cursor has #007aff background and white text instead of INVERSE", async () => {
+  it("browse cursor has primary background and contrast text instead of INVERSE", async () => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "Authorization": "Bearer token",
+      Authorization: "Bearer token",
     }
 
     const request = {
@@ -188,19 +188,23 @@ describe("RequestPane scrollbox", () => {
     await renderOnce()
 
     const frame = captureSpans()
-    const allSpans = frame.lines.flatMap(l => l.spans)
+    const allSpans = frame.lines.flatMap((l) => l.spans)
 
     // Headers are sorted alphabetically: Authorization before Content-Type
     // Row 0 = Authorization (highlighted, opencode primary bg), Row 1 = Content-Type (not highlighted)
     const highlightedSpan = allSpans.find(
-      s => s.text.includes("Authorization") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
+      (s) =>
+        s.text.includes("Authorization") &&
+        s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(highlightedSpan).toBeDefined()
     expect(highlightedSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
     expect(highlightedSpan!.attributes & TextAttributes.INVERSE).toBe(0)
 
     const nonHighlightedSpan = allSpans.find(
-      s => s.text.includes("Content-Type") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
+      (s) =>
+        s.text.includes("Content-Type") &&
+        s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(nonHighlightedSpan).toBeUndefined()
   })
@@ -226,13 +230,13 @@ describe("Sidebar scrollbox", () => {
     const frame = captureCharFrame()
     expect(frame).not.toBe("")
 
-    const lines = frame.split("\n").filter(l => l.trim() !== "")
+    const lines = frame.split("\n").filter((l) => l.trim() !== "")
     expect(lines.length).toBeLessThan(50)
 
     expect(frame).toContain("Request number 5")
   })
 
-  it("selected request has #007aff background and white text instead of INVERSE", async () => {
+  it("selected request has primary background and contrast text instead of INVERSE", async () => {
     const requests = Array.from({ length: 5 }, (_, i) => makeRequest(i))
     const collection: Collection = { id: "test", name: "Test", requests }
 
@@ -255,11 +259,12 @@ describe("Sidebar scrollbox", () => {
     await renderOnce()
 
     const frame = captureSpans()
-    const allSpans = frame.lines.flatMap(l => l.spans)
+    const allSpans = frame.lines.flatMap((l) => l.spans)
 
     // Find the method span for the selected request
     const selectedMethodSpan = allSpans.find(
-      s => s.text.includes("GET") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
+      (s) =>
+        s.text.includes("GET") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(selectedMethodSpan).toBeDefined()
     expect(selectedMethodSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
@@ -267,7 +272,9 @@ describe("Sidebar scrollbox", () => {
 
     // Find the name span for the selected request
     const selectedNameSpan = allSpans.find(
-      s => s.text.includes("Request number 2") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
+      (s) =>
+        s.text.includes("Request number 2") &&
+        s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(selectedNameSpan).toBeDefined()
     expect(selectedNameSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
@@ -275,7 +282,9 @@ describe("Sidebar scrollbox", () => {
 
     // Unselected item should not have the theme primary background
     const unselectedSpan = allSpans.find(
-      s => s.text.includes("Request number 0") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
+      (s) =>
+        s.text.includes("Request number 0") &&
+        s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(unselectedSpan).toBeUndefined()
   })
@@ -318,7 +327,12 @@ describe("App layout stability", () => {
     }
 
     const longBody = JSON.stringify(
-      { data: Array.from({ length: 100 }, (_, i) => ({ id: i, name: `item-${i}` })) },
+      {
+        data: Array.from({ length: 100 }, (_, i) => ({
+          id: i,
+          name: `item-${i}`,
+        })),
+      },
       null,
       2,
     )

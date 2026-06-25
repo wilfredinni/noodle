@@ -3,7 +3,8 @@ import type { Theme } from "./theme"
 
 export function methodColor(method: Method, theme: Theme): string {
   if (method === "GET") return theme.success
-  if (method === "POST" || method === "PUT" || method === "PATCH") return theme.warning
+  if (method === "POST" || method === "PUT" || method === "PATCH")
+    return theme.warning
   if (method === "DELETE") return theme.error
   return theme.textMuted
 }

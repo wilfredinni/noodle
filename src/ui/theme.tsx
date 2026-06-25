@@ -1,9 +1,16 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { useKeyboard } from "@opentui/react"
-import { THEMES, contrastOnPrimary, PaneBorder, type Theme } from "./theme-data"
+import { THEMES } from "./theme-data"
+import type { Theme } from "./theme-data"
 
-export { THEMES, contrastOnPrimary, PaneBorder, opencodeTheme, catppuccinTheme } from "./theme-data"
+export {
+  THEMES,
+  contrastOnPrimary,
+  PaneBorder,
+  opencodeTheme,
+  catppuccinTheme,
+} from "./theme-data"
 export type { Theme, CustomBorderChars } from "./theme-data"
 
 const ThemeContext = createContext<Theme>(THEMES[0]!)
@@ -45,9 +52,7 @@ export function ThemeProvider({
         return
       }
       if (key.name === "down") {
-        setPreviewIndex(
-          (prev) => ((prev ?? activeIndex) + 1) % THEMES.length,
-        )
+        setPreviewIndex((prev) => ((prev ?? activeIndex) + 1) % THEMES.length)
         return
       }
       if (key.name === "return") {
@@ -78,7 +83,9 @@ export function ThemePickerOverlay({
   previewIndex: number | null
 }) {
   const theme = useTheme()
-  const scrollRef = useRef<import("@opentui/core").ScrollBoxRenderable | null>(null)
+  const scrollRef = useRef<import("@opentui/core").ScrollBoxRenderable | null>(
+    null,
+  )
 
   useEffect(() => {
     if (previewIndex !== null && previewIndex >= 0) {

@@ -38,14 +38,10 @@ export function ResponsePane({
       setActiveTab((prev) => (prev === "body" ? "headers" : "body"))
     else if (key.name === "right")
       setActiveTab((prev) => (prev === "headers" ? "body" : "headers"))
-    else if (key.name === "down")
-      scrollRef.current?.scrollBy(1)
-    else if (key.name === "up")
-      scrollRef.current?.scrollBy(-1)
-    else if (key.name === "pagedown")
-      scrollRef.current?.scrollBy(1, "viewport")
-    else if (key.name === "pageup")
-      scrollRef.current?.scrollBy(-1, "viewport")
+    else if (key.name === "down") scrollRef.current?.scrollBy(1)
+    else if (key.name === "up") scrollRef.current?.scrollBy(-1)
+    else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
+    else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
   })
 
   function responseBorderColor(): string {
@@ -83,7 +79,12 @@ export function ResponsePane({
       ) : (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            <scrollbox ref={scrollRef} scrollY stickyScroll style={{ flexGrow: 1 }}>
+            <scrollbox
+              ref={scrollRef}
+              scrollY
+              stickyScroll
+              style={{ flexGrow: 1 }}
+            >
               {activeTab === "body" ? (
                 <>
                   <text fg={statusColor(state.response.status, theme)}>
@@ -91,7 +92,9 @@ export function ResponsePane({
                   </text>
                   {(() => {
                     const body = formatBody(state.response)
-                    return body !== "" ? <text fg={theme.text}>{body}</text> : null
+                    return body !== "" ? (
+                      <text fg={theme.text}>{body}</text>
+                    ) : null
                   })()}
                 </>
               ) : (

@@ -14,14 +14,19 @@ export function hintForFocus(
 ): string {
   const picker = " · [t] pick theme"
   if (focus === "sidebar") {
-    return "[↑/↓] select · [e] edit · [s] send · [w] save · [Tab] → URL Bar" + picker
+    return (
+      "[↑/↓] select · [e] edit · [s] send · [w] save · [Tab] → URL Bar" + picker
+    )
   }
   if (focus === "urlbar") {
     return "[Tab] → Request" + picker
   }
   if (focus === "request") {
     if (mode === "browsing") {
-      return "[↑/↓/Enter] edit · [d] revert · [R] revert all · [Esc] back · [Tab] → Response" + picker
+      return (
+        "[↑/↓/Enter] edit · [d] revert · [R] revert all · [Esc] back · [Tab] → Response" +
+        picker
+      )
     }
     if (mode === "editing") {
       return "[Enter] commit · [Esc] cancel"

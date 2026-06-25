@@ -86,7 +86,7 @@ describe("Tabs", () => {
     expect(frame).not.toContain("▸")
   })
 
-  it("active tab has theme primary background and contrast text instead of INVERSE", async () => {
+  it("active tab has primary background and contrast text instead of INVERSE", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider
         isSelectingRef={{ current: false }}
@@ -108,15 +108,15 @@ describe("Tabs", () => {
     await renderOnce()
 
     const frame = captureSpans()
-    const allSpans = frame.lines.flatMap(l => l.spans)
+    const allSpans = frame.lines.flatMap((l) => l.spans)
 
-    const activeSpan = allSpans.find(s => s.text.includes("Tab A"))
+    const activeSpan = allSpans.find((s) => s.text.includes("Tab A"))
     expect(activeSpan).toBeDefined()
     expect(activeSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(true)
     expect(activeSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
     expect(activeSpan!.attributes & TextAttributes.INVERSE).toBe(0)
 
-    const inactiveSpan = allSpans.find(s => s.text.includes("Tab B"))
+    const inactiveSpan = allSpans.find((s) => s.text.includes("Tab B"))
     expect(inactiveSpan).toBeDefined()
     expect(inactiveSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
   })

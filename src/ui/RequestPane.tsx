@@ -50,7 +50,9 @@ export function RequestPane({
     const { field, row, addingRow } = editState.cursor
     if (field === "headers" || field === "params") {
       const prefix = field === "headers" ? "hdr" : "prm"
-      scrollRef.current?.scrollChildIntoView(addingRow ? `${prefix}-add` : `${prefix}-${row}`)
+      scrollRef.current?.scrollChildIntoView(
+        addingRow ? `${prefix}-add` : `${prefix}-${row}`,
+      )
     } else {
       scrollRef.current?.scrollChildIntoView(`${field}-field`)
     }
@@ -109,7 +111,11 @@ export function RequestPane({
                 />
               )}
               {activeTab === "auth" && (
-                <AuthSection request={request} editState={editState} theme={theme} />
+                <AuthSection
+                  request={request}
+                  editState={editState}
+                  theme={theme}
+                />
               )}
             </scrollbox>
           </Tabs>
@@ -187,7 +193,11 @@ function HeadersSection({
           {browseActive && editState.cursor.field === "headers" && (
             <text
               id="hdr-add"
-              fg={editState.cursor.addingRow ? contrastOnPrimary(theme) : theme.textMuted}
+              fg={
+                editState.cursor.addingRow
+                  ? contrastOnPrimary(theme)
+                  : theme.textMuted
+              }
               bg={editState.cursor.addingRow ? theme.primary : undefined}
             >
               {"  [+] add header"}
@@ -264,7 +274,11 @@ function ParamsSection({
           {browseActive && editState.cursor.field === "params" && (
             <text
               id="prm-add"
-              fg={editState.cursor.addingRow ? contrastOnPrimary(theme) : theme.textMuted}
+              fg={
+                editState.cursor.addingRow
+                  ? contrastOnPrimary(theme)
+                  : theme.textMuted
+              }
               bg={editState.cursor.addingRow ? theme.primary : undefined}
             >
               {"  [+] add param"}
@@ -308,7 +322,9 @@ function BodySection({
           focused
         />
       ) : body === "" ? (
-        <text id="body-field" fg={theme.textMuted}>{"  (none)"}</text>
+        <text id="body-field" fg={theme.textMuted}>
+          {"  (none)"}
+        </text>
       ) : (
         <text
           id="body-field"
@@ -340,7 +356,8 @@ function AuthSection({
   theme: Theme
 }) {
   const auth = formatAuth(request.auth)
-  const isActive = editState.mode === "browsing" && editState.cursor.field === "auth"
+  const isActive =
+    editState.mode === "browsing" && editState.cursor.field === "auth"
   return (
     <text
       id="auth-field"

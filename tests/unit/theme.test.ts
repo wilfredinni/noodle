@@ -16,14 +16,29 @@ describe("THEMES", () => {
 
   it("every theme has all 16 required tokens", () => {
     const requiredKeys = [
-      "name", "primary", "secondary", "accent", "error", "warning",
-      "success", "info", "text", "textMuted", "background",
-      "backgroundPanel", "backgroundElement", "border", "borderActive", "borderSubtle",
+      "name",
+      "primary",
+      "secondary",
+      "accent",
+      "error",
+      "warning",
+      "success",
+      "info",
+      "text",
+      "textMuted",
+      "background",
+      "backgroundPanel",
+      "backgroundElement",
+      "border",
+      "borderActive",
+      "borderSubtle",
     ]
     for (const theme of THEMES) {
       for (const key of requiredKeys) {
         expect(theme).toHaveProperty(key)
-        expect(typeof (theme as Record<string, unknown>)[key]).toBe("string")
+        expect(typeof (theme as unknown as Record<string, unknown>)[key]).toBe(
+          "string",
+        )
       }
     }
   })
