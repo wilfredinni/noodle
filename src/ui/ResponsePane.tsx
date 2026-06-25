@@ -9,6 +9,7 @@ import {
   formatBody,
 } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
+import { useTheme } from "./theme"
 
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
@@ -22,6 +23,7 @@ export function ResponsePane({
   state: SendState
   focused?: boolean
 }) {
+  const theme = useTheme()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
 
@@ -46,46 +48,56 @@ export function ResponsePane({
       scrollRef.current?.scrollBy(-1, "viewport")
   })
 
+  function responseBorderColor(): string {
+    if (state.status === "idle" || state.status === "sending") return theme.info
+    if (state.status === "error") return theme.error
+    const s = state.response.status
+    if (s >= 200 && s <= 299) return theme.success
+    if (s >= 300 && s <= 399) return theme.warning
+    return theme.error
+  }
+
   return (
     <box
       style={{
-        border: true,
-        borderColor: focused ? "#61dafb" : undefined,
         flexGrow: 1,
         flexDirection: "column",
         padding: 1,
         gap: 1,
         flexBasis: 0,
         minHeight: 0,
+        backgroundColor: theme.backgroundPanel,
       }}
-      title={focused ? "▸ Response" : "Response"}
     >
+      <text fg={focused ? responseBorderColor() : theme.textMuted}>
+        {focused ? "▸ Response" : "Response"}
+      </text>
       {state.status === "idle" ? (
-        <text fg="#888">(no response yet)</text>
+        <text fg={theme.textMuted}>(no response yet)</text>
       ) : state.status === "sending" ? (
-        <text fg="#888">
+        <text fg={theme.textMuted}>
           Sending {state.request.method} {state.request.url}…
         </text>
       ) : state.status === "error" ? (
-        <text fg="#c00">{state.error.message}</text>
+        <text fg={theme.error}>{state.error.message}</text>
       ) : (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
             <scrollbox ref={scrollRef} scrollY stickyScroll style={{ flexGrow: 1 }}>
               {activeTab === "body" ? (
                 <>
-                  <text fg={statusColor(state.response.status)}>
+                  <text fg={statusColor(state.response.status, theme)}>
                     {formatStatusLine(state.response)}
                   </text>
                   {(() => {
                     const body = formatBody(state.response)
-                    return body !== "" ? <text>{body}</text> : null
+                    return body !== "" ? <text fg={theme.text}>{body}</text> : null
                   })()}
                 </>
               ) : (
                 <>
                   {formatHeaders(state.response).map((line) => (
-                    <text key={line} fg="#888">
+                    <text key={line} fg={theme.textMuted}>
                       {line}
                     </text>
                   ))}

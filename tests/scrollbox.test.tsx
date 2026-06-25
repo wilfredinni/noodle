@@ -1,14 +1,16 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA, TextAttributes } from "@opentui/core"
+import type { Collection } from "../src/schema"
+import type { Request } from "../src/schema"
 import { Sidebar } from "../src/ui/Sidebar"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ResponsePane } from "../src/ui/ResponsePane"
+import type { SendState } from "../src/ui/sendState"
 import { initialEditState } from "../src/ui/editMode"
 import type { EditState } from "../src/ui/editMode"
-import type { Request, Collection } from "../src/schema"
-import type { SendState } from "../src/ui/sendState"
 import type { UseRequestDraftResult } from "../src/ui/useRequestDraft"
+import { ThemeProvider } from "../src/ui/theme"
 
 function makeRequest(i: number): Request {
   return {
@@ -166,15 +168,21 @@ describe("RequestPane scrollbox", () => {
     }
 
     const { renderOnce, captureSpans } = await testRender(
-      <RequestPane
-        request={request}
-        editState={editState}
-        editValue=""
-        setEditValue={() => {}}
-        draft={draft}
-        focused={true}
-        activeTab="headers"
-      />,
+      <ThemeProvider
+        isSelectingRef={{ current: false }}
+        previewIndexRef={{ current: null }}
+        blocking={() => false}
+      >
+        <RequestPane
+          request={request}
+          editState={editState}
+          editValue=""
+          setEditValue={() => {}}
+          draft={draft}
+          focused={true}
+          activeTab="headers"
+        />
+      </ThemeProvider>,
       { width: 80, height: 12 },
     )
     await renderOnce()
@@ -183,16 +191,16 @@ describe("RequestPane scrollbox", () => {
     const allSpans = frame.lines.flatMap(l => l.spans)
 
     // Headers are sorted alphabetically: Authorization before Content-Type
-    // Row 0 = Authorization (highlighted), Row 1 = Content-Type (not highlighted)
+    // Row 0 = Authorization (highlighted, opencode primary bg), Row 1 = Content-Type (not highlighted)
     const highlightedSpan = allSpans.find(
-      s => s.text.includes("Authorization") && s.bg.equals(RGBA.fromInts(0, 122, 255)),
+      s => s.text.includes("Authorization") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(highlightedSpan).toBeDefined()
-    expect(highlightedSpan!.fg.equals(RGBA.fromInts(255, 255, 255))).toBe(true)
+    expect(highlightedSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
     expect(highlightedSpan!.attributes & TextAttributes.INVERSE).toBe(0)
 
     const nonHighlightedSpan = allSpans.find(
-      s => s.text.includes("Content-Type") && s.bg.equals(RGBA.fromInts(0, 122, 255)),
+      s => s.text.includes("Content-Type") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(nonHighlightedSpan).toBeUndefined()
   })
@@ -229,13 +237,19 @@ describe("Sidebar scrollbox", () => {
     const collection: Collection = { id: "test", name: "Test", requests }
 
     const { renderOnce, captureSpans } = await testRender(
-      <Sidebar
-        collection={collection}
-        loading={false}
-        error={null}
-        selectedIndex={2}
-        focused={true}
-      />,
+      <ThemeProvider
+        isSelectingRef={{ current: false }}
+        previewIndexRef={{ current: null }}
+        blocking={() => false}
+      >
+        <Sidebar
+          collection={collection}
+          loading={false}
+          error={null}
+          selectedIndex={2}
+          focused={true}
+        />
+      </ThemeProvider>,
       { width: 80, height: 24 },
     )
     await renderOnce()
@@ -245,23 +259,23 @@ describe("Sidebar scrollbox", () => {
 
     // Find the method span for the selected request
     const selectedMethodSpan = allSpans.find(
-      s => s.text.includes("GET") && s.bg.equals(RGBA.fromInts(0, 122, 255)),
+      s => s.text.includes("GET") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(selectedMethodSpan).toBeDefined()
-    expect(selectedMethodSpan!.fg.equals(RGBA.fromInts(255, 255, 255))).toBe(true)
+    expect(selectedMethodSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
     expect(selectedMethodSpan!.attributes & TextAttributes.INVERSE).toBe(0)
 
     // Find the name span for the selected request
     const selectedNameSpan = allSpans.find(
-      s => s.text.includes("Request number 2") && s.bg.equals(RGBA.fromInts(0, 122, 255)),
+      s => s.text.includes("Request number 2") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(selectedNameSpan).toBeDefined()
-    expect(selectedNameSpan!.fg.equals(RGBA.fromInts(255, 255, 255))).toBe(true)
+    expect(selectedNameSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
     expect(selectedNameSpan!.attributes & TextAttributes.INVERSE).toBe(0)
 
-    // Unselected item should not have the blue background
+    // Unselected item should not have the theme primary background
     const unselectedSpan = allSpans.find(
-      s => s.text.includes("Request number 0") && s.bg.equals(RGBA.fromInts(0, 122, 255)),
+      s => s.text.includes("Request number 0") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
     expect(unselectedSpan).toBeUndefined()
   })

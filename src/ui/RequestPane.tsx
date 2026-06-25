@@ -10,6 +10,8 @@ import {
 import type { EditState, FieldKind } from "./editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { Tabs, type TabDef } from "./Tabs"
+import { useTheme, contrastOnPrimary } from "./theme"
+import type { Theme } from "./theme"
 
 interface Props {
   request: Request | null
@@ -37,6 +39,7 @@ export function RequestPane({
   focused = false,
   activeTab,
 }: Props) {
+  const theme = useTheme()
   const title = `Request${draft.isDirty ? "*" : ""}`
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
@@ -56,17 +59,18 @@ export function RequestPane({
   return (
     <box
       style={{
-        border: true,
-        borderColor: focused ? "#61dafb" : undefined,
         flexGrow: 1,
         flexDirection: "column",
         padding: 1,
         gap: 1,
         flexBasis: 0,
         minHeight: 0,
+        backgroundColor: theme.backgroundPanel,
       }}
-      title={focused ? `▸ ${title}` : title}
     >
+      <text fg={focused ? theme.accent : theme.textMuted}>
+        {focused ? `▸ ${title}` : title}
+      </text>
       {request ? (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
@@ -79,6 +83,7 @@ export function RequestPane({
                   setEditValue={setEditValue}
                   inEdit={inEdit}
                   browseActive={browseActive}
+                  theme={theme}
                 />
               )}
               {activeTab === "params" && (
@@ -89,6 +94,7 @@ export function RequestPane({
                   setEditValue={setEditValue}
                   inEdit={inEdit}
                   browseActive={browseActive}
+                  theme={theme}
                 />
               )}
               {activeTab === "body" && (
@@ -99,17 +105,18 @@ export function RequestPane({
                   setEditValue={setEditValue}
                   inEdit={inEdit}
                   browseActive={browseActive}
+                  theme={theme}
                 />
               )}
               {activeTab === "auth" && (
-                <AuthSection request={request} editState={editState} />
+                <AuthSection request={request} editState={editState} theme={theme} />
               )}
             </scrollbox>
           </Tabs>
-          <text fg="#888">[s] Send</text>
+          <text fg={theme.textMuted}>[s] Send</text>
         </>
       ) : (
-        <text fg="#888">(no request selected)</text>
+        <text fg={theme.textMuted}>(no request selected)</text>
       )}
     </box>
   )
@@ -122,6 +129,7 @@ function HeadersSection({
   setEditValue,
   inEdit,
   browseActive,
+  theme,
 }: {
   request: Request
   editState: EditState
@@ -129,13 +137,14 @@ function HeadersSection({
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
+  theme: Theme
 }) {
   const headers = formatHeaders(request.headers)
   return (
     <>
       {headers.length === 0 &&
       !(browseActive && editState.cursor.field === "headers") ? (
-        <text fg="#888">{"  (none)"}</text>
+        <text fg={theme.textMuted}>{"  (none)"}</text>
       ) : (
         <>
           {headers.map((line, i) => {
@@ -156,10 +165,10 @@ function HeadersSection({
                   id={`hdr-${i}`}
                   value={editValue}
                   onInput={setEditValue}
-                  backgroundColor="#222"
-                  focusedBackgroundColor="#333"
-                  textColor="#fff"
-                  cursorColor="#0f0"
+                  backgroundColor={theme.backgroundElement}
+                  focusedBackgroundColor={theme.borderSubtle}
+                  textColor={theme.text}
+                  cursorColor={theme.primary}
                   focused
                 />
               )
@@ -168,8 +177,8 @@ function HeadersSection({
               <text
                 key={i}
                 id={`hdr-${i}`}
-                fg={cursorHere ? "#fff" : "#888"}
-                bg={cursorHere ? "#007aff" : undefined}
+                fg={cursorHere ? contrastOnPrimary(theme) : theme.textMuted}
+                bg={cursorHere ? theme.primary : undefined}
               >
                 {"  " + line}
               </text>
@@ -178,8 +187,8 @@ function HeadersSection({
           {browseActive && editState.cursor.field === "headers" && (
             <text
               id="hdr-add"
-              fg={editState.cursor.addingRow ? "#fff" : "#888"}
-              bg={editState.cursor.addingRow ? "#007aff" : undefined}
+              fg={editState.cursor.addingRow ? contrastOnPrimary(theme) : theme.textMuted}
+              bg={editState.cursor.addingRow ? theme.primary : undefined}
             >
               {"  [+] add header"}
             </text>
@@ -197,6 +206,7 @@ function ParamsSection({
   setEditValue,
   inEdit,
   browseActive,
+  theme,
 }: {
   request: Request
   editState: EditState
@@ -204,13 +214,14 @@ function ParamsSection({
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
+  theme: Theme
 }) {
   const params = formatParams(request.params)
   return (
     <>
       {params.length === 0 &&
       !(browseActive && editState.cursor.field === "params") ? (
-        <text fg="#888">{"  (none)"}</text>
+        <text fg={theme.textMuted}>{"  (none)"}</text>
       ) : (
         <>
           {params.map((line, i) => {
@@ -231,10 +242,10 @@ function ParamsSection({
                   id={`prm-${i}`}
                   value={editValue}
                   onInput={setEditValue}
-                  backgroundColor="#222"
-                  focusedBackgroundColor="#333"
-                  textColor="#fff"
-                  cursorColor="#0f0"
+                  backgroundColor={theme.backgroundElement}
+                  focusedBackgroundColor={theme.borderSubtle}
+                  textColor={theme.text}
+                  cursorColor={theme.primary}
                   focused
                 />
               )
@@ -243,8 +254,8 @@ function ParamsSection({
               <text
                 key={i}
                 id={`prm-${i}`}
-                fg={cursorHere ? "#fff" : "#888"}
-                bg={cursorHere ? "#007aff" : undefined}
+                fg={cursorHere ? contrastOnPrimary(theme) : theme.textMuted}
+                bg={cursorHere ? theme.primary : undefined}
               >
                 {"  " + line}
               </text>
@@ -253,8 +264,8 @@ function ParamsSection({
           {browseActive && editState.cursor.field === "params" && (
             <text
               id="prm-add"
-              fg={editState.cursor.addingRow ? "#fff" : "#888"}
-              bg={editState.cursor.addingRow ? "#007aff" : undefined}
+              fg={editState.cursor.addingRow ? contrastOnPrimary(theme) : theme.textMuted}
+              bg={editState.cursor.addingRow ? theme.primary : undefined}
             >
               {"  [+] add param"}
             </text>
@@ -272,6 +283,7 @@ function BodySection({
   setEditValue,
   inEdit,
   browseActive,
+  theme,
 }: {
   request: Request
   editState: EditState
@@ -279,6 +291,7 @@ function BodySection({
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
+  theme: Theme
 }) {
   const body = formatBody(request.body)
   return (
@@ -288,25 +301,25 @@ function BodySection({
           id="body-field"
           value={editValue}
           onInput={setEditValue}
-          backgroundColor="#222"
-          focusedBackgroundColor="#333"
-          textColor="#fff"
-          cursorColor="#0f0"
+          backgroundColor={theme.backgroundElement}
+          focusedBackgroundColor={theme.borderSubtle}
+          textColor={theme.text}
+          cursorColor={theme.primary}
           focused
         />
       ) : body === "" ? (
-        <text id="body-field" fg="#888">{"  (none)"}</text>
+        <text id="body-field" fg={theme.textMuted}>{"  (none)"}</text>
       ) : (
         <text
           id="body-field"
           fg={
             browseActive && editState.cursor.field === "body"
-              ? "#fff"
-              : undefined
+              ? contrastOnPrimary(theme)
+              : theme.text
           }
           bg={
             browseActive && editState.cursor.field === "body"
-              ? "#007aff"
+              ? theme.primary
               : undefined
           }
         >
@@ -320,17 +333,19 @@ function BodySection({
 function AuthSection({
   request,
   editState,
+  theme,
 }: {
   request: Request
   editState: EditState
+  theme: Theme
 }) {
   const auth = formatAuth(request.auth)
   const isActive = editState.mode === "browsing" && editState.cursor.field === "auth"
   return (
     <text
       id="auth-field"
-      fg={isActive ? "#fff" : "#888"}
-      bg={isActive ? "#007aff" : undefined}
+      fg={isActive ? contrastOnPrimary(theme) : theme.textMuted}
+      bg={isActive ? theme.primary : undefined}
     >
       {"  " + auth}
     </text>

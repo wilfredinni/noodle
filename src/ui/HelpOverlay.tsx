@@ -1,6 +1,9 @@
 import { getHelpSections } from "./helpTexts"
+import { useTheme } from "./theme"
 
 export function HelpOverlay({ visible }: { visible: boolean }) {
+  const theme = useTheme()
+
   if (!visible) return null
 
   const sections = getHelpSections()
@@ -17,7 +20,7 @@ export function HelpOverlay({ visible }: { visible: boolean }) {
       <box
         style={{
           border: true,
-          borderColor: "#61dafb",
+          borderColor: theme.primary,
           flexDirection: "column",
           padding: 1,
           gap: 1,
@@ -26,9 +29,9 @@ export function HelpOverlay({ visible }: { visible: boolean }) {
       >
         {sections.map((section) => (
           <box key={section.title} style={{ flexDirection: "column" }}>
-            <text fg="#61dafb">{section.title}</text>
+            <text fg={theme.primary}>{section.title}</text>
             {section.keys.map((k, i) => (
-              <text key={i}>
+              <text key={i} fg={theme.text}>
                 {k.key}
                 {"  "}
                 {k.description}

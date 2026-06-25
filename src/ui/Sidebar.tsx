@@ -2,6 +2,8 @@ import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import type { Collection } from "../schema"
 import { methodColor } from "./formatRequest"
+import { useTheme } from "./theme"
+import { contrastOnPrimary } from "./theme"
 
 function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
@@ -20,6 +22,7 @@ export function Sidebar({
   selectedIndex: number
   focused?: boolean
 }) {
+  const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   useEffect(() => {
@@ -31,32 +34,43 @@ export function Sidebar({
   return (
     <box
       style={{
-        border: true,
-        borderColor: focused ? "#61dafb" : undefined,
         width: 25,
         flexDirection: "column",
+        backgroundColor: theme.backgroundPanel,
       }}
-      title={focused ? "▸ Requests" : "Requests"}
     >
+      <text fg={focused ? theme.primary : theme.textMuted}>
+        {focused ? "▸ Requests" : "Requests"}
+      </text>
       {loading ? (
-        <text fg="#888">Loading…</text>
+        <text fg={theme.textMuted}>Loading…</text>
       ) : error ? (
-        <text fg="#888">Error: {error.message}</text>
+        <text fg={theme.textMuted}>Error: {error.message}</text>
       ) : !collection || collection.requests.length === 0 ? (
-        <text fg="#888">(empty)</text>
+        <text fg={theme.textMuted}>(empty)</text>
       ) : (
-        <scrollbox ref={scrollRef} scrollY style={{ flexGrow: 1 }}>
+        <scrollbox
+          ref={scrollRef}
+          scrollY
+          style={{ flexGrow: 1 }}
+          verticalScrollbarOptions={{
+            trackOptions: {
+              backgroundColor: theme.background,
+              foregroundColor: theme.borderActive,
+            },
+          }}
+        >
           {collection.requests.map((r, i) => (
             <box key={r.id} id={`req-${i}`} style={{ flexDirection: "row" }}>
               <text
-                fg={i === selectedIndex ? "#fff" : methodColor(r.method)}
-                bg={i === selectedIndex ? "#007aff" : undefined}
+                fg={i === selectedIndex ? contrastOnPrimary(theme) : methodColor(r.method, theme)}
+                bg={i === selectedIndex ? theme.primary : undefined}
               >
                 {shortMethod(r.method).padEnd(7)}
               </text>
               <text
-                fg={i === selectedIndex ? "#fff" : undefined}
-                bg={i === selectedIndex ? "#007aff" : undefined}
+                fg={i === selectedIndex ? contrastOnPrimary(theme) : theme.text}
+                bg={i === selectedIndex ? theme.primary : undefined}
               >
                 {r.name}
               </text>

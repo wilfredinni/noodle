@@ -1,4 +1,5 @@
 import { methodColor } from "./formatRequest"
+import { useTheme } from "./theme"
 import type { Method } from "../schema"
 
 export function UrlBar({
@@ -12,36 +13,39 @@ export function UrlBar({
   setUrl: (url: string) => void
   focused?: boolean
 }) {
+  const theme = useTheme()
+
   return (
     <box
       style={{
-        border: true,
-        borderColor: focused ? "#61dafb" : undefined,
         flexDirection: "column",
         padding: 1,
+        backgroundColor: theme.backgroundPanel,
       }}
-      title={focused ? "▸ URL" : "URL"}
     >
+      <text fg={focused ? theme.secondary : theme.textMuted}>
+        {focused ? "▸ URL" : "URL"}
+      </text>
       {!url ? (
-        <text fg="#fff">(no request selected)</text>
+        <text fg={theme.text}>(no request selected)</text>
       ) : focused ? (
         <box style={{ flexDirection: "row" }}>
-          <text fg={methodColor(method as Method)}>{method}</text>
+          <text fg={methodColor(method as Method, theme)}>{method}</text>
           <text> </text>
           <input
             value={url}
             onInput={setUrl}
-            backgroundColor="#222"
-            focusedBackgroundColor="#333"
-            textColor="#fff"
-            cursorColor="#0f0"
+            backgroundColor={theme.backgroundElement}
+            focusedBackgroundColor={theme.borderSubtle}
+            textColor={theme.text}
+            cursorColor={theme.primary}
             focused
           />
         </box>
       ) : (
         <box style={{ flexDirection: "row" }}>
-          <text fg={methodColor(method as Method)}>{method}</text>
-          <text fg="#fff"> {url}</text>
+          <text fg={methodColor(method as Method, theme)}>{method}</text>
+          <text fg={theme.text}> {url}</text>
         </box>
       )}
     </box>
