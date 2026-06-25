@@ -178,22 +178,23 @@ export function App({
       {helpVisible ? (
         <HelpOverlay visible />
       ) : (
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
-          <Sidebar
-            collection={collection}
-            loading={loading}
-            error={error}
-            selectedIndex={selectedIndex}
-            focused={focus === "sidebar"}
-          />
-          <box style={{ flexDirection: "column", flexGrow: 1 }}>
-            <Brand />
-            <UrlBar
-              method={draft.draft?.method ?? ""}
-              url={draft.draft?.url ?? ""}
-              setUrl={draft.setUrl}
-              focused={focus === "urlbar"}
+        <>
+          <Brand />
+          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+            <Sidebar
+              collection={collection}
+              loading={loading}
+              error={error}
+              selectedIndex={selectedIndex}
+              focused={focus === "sidebar"}
             />
+            <box style={{ flexDirection: "column", flexGrow: 1 }}>
+              <UrlBar
+                method={draft.draft?.method ?? ""}
+                url={draft.draft?.url ?? ""}
+                setUrl={draft.setUrl}
+                focused={focus === "urlbar"}
+              />
             <RequestPane
               request={draft.draft}
               editState={editState}
@@ -209,6 +210,7 @@ export function App({
             />
           </box>
         </box>
+      </>
       )}
       <text fg="#666">
         {helpVisible
