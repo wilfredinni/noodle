@@ -21,7 +21,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
     if (arg === "--collection") {
       const next = argv[i + 1]
-      if (next === undefined || next.startsWith("-")) {
+      if (next === undefined || next === "" || next.startsWith("-")) {
         throw new Error("args: --collection requires a value")
       }
       collectionDir = next
@@ -40,8 +40,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
     if (arg === "--env") {
       const next = argv[i + 1]
-      if (next === undefined || next.startsWith("-")) {
-        throw new Error("args: --env requires a non-empty value")
+      if (next === undefined || next === "" || next.startsWith("-")) {
+        throw new Error("args: --env requires a value")
       }
       envName = next
       i++
@@ -51,7 +51,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (arg.startsWith("--env=")) {
       const value = arg.slice("--env=".length)
       if (value === "") {
-        throw new Error("args: --env requires a non-empty value")
+        throw new Error("args: --env requires a value")
       }
       envName = value
       continue

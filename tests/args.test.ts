@@ -65,6 +65,9 @@ describe("parseArgs", () => {
   it("throws when --env= has empty value", () => {
     expect(() => parseArgs(["--env="])).toThrow("args:")
   })
+  it("throws when --env has empty value (space form)", () => {
+    expect(() => parseArgs(["--env", ""])).toThrow("args:")
+  })
   it("last --env wins when repeated", () => {
     expect(
       parseArgs(["--env", "a", "--env", "b"]).envName,
