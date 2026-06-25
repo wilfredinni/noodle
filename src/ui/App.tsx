@@ -100,6 +100,7 @@ export function App({
             .saveRequest(collectionDir, req)
             .then(() => {
               if (!mountedRef.current) return
+              if (selectedRequest?.id !== requestId) return
               draft.markSaved()
               clearSaveTimer()
               setSaveState({
