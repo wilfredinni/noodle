@@ -14,10 +14,12 @@ function clampBase(prev: number, len: number): number {
 
 export function useSidebarSelection(
   requests: Request[],
+  enabled: () => boolean = () => true,
 ): UseSidebarSelectionResult {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   useKeyboard((key) => {
+    if (!enabled()) return
     const len = requests.length
     if (key.name === "up") {
       setSelectedIndex((prev) => nextIndex(clampBase(prev, len), len, -1))
