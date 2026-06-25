@@ -14,6 +14,8 @@ export function useCollection(dir: string): UseCollectionResult {
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
+    setLoading(true)
+    setError(null)
     let cancelled = false
 
     filestore
