@@ -5,6 +5,7 @@ import {
   formatHeaders,
   formatParams,
   formatBody,
+  formatAuth,
 } from "../src/ui/formatRequest"
 
 function makeReq(over: Partial<Request> = {}): Request {
@@ -104,5 +105,24 @@ describe("formatBody", () => {
   })
   it("stable round-trip for already-formatted JSON", () => {
     expect(formatBody('{\n  "a": 1\n}')).toBe('{\n  "a": 1\n}')
+  })
+})
+
+describe("formatAuth", () => {
+  it("returns (none) for undefined auth", () => {
+    expect(formatAuth(makeReq().auth)).toBe("(none)")
+  })
+  it("returns (none) for type none", () => {
+    expect(formatAuth({ type: "none" })).toBe("(none)")
+  })
+  it("masks bearer token with fixed dots", () => {
+    expect(formatAuth({ type: "bearer", token: "secret-token-abc" })).toBe(
+      "bearer: \u2022\u2022\u2022\u2022",
+    )
+  })
+  it("masks basic pass, shows user in cleartext", () => {
+    expect(formatAuth({ type: "basic", user: "alice", pass: "hunter2" })).toBe(
+      "basic: alice:\u2022\u2022\u2022\u2022",
+    )
   })
 })

@@ -1,4 +1,4 @@
-import type { Method } from "../schema"
+import type { Auth, Method } from "../schema"
 
 export function methodColor(method: Method): string {
   if (method === "GET") return "#080"
@@ -26,4 +26,10 @@ export function formatBody(body?: string): string {
   } catch {
     return body
   }
+}
+
+export function formatAuth(auth?: Auth): string {
+  if (auth === undefined || auth.type === "none") return "(none)"
+  if (auth.type === "bearer") return "bearer: \u2022\u2022\u2022\u2022"
+  return `basic: ${auth.user}:\u2022\u2022\u2022\u2022`
 }
