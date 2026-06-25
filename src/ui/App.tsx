@@ -11,6 +11,7 @@ import { useEditBrowse } from "./useEditBrowse"
 import { useEnvironments } from "./useEnvironments"
 import { filestore } from "../filestore"
 import { cycleFocus, hintForFocus, type Focus } from "./focus"
+import { HelpOverlay } from "./HelpOverlay"
 
 type SaveState =
   | { kind: "idle" }
@@ -38,6 +39,8 @@ export function App({
   const [focus, setFocus] = useState<Focus>("sidebar")
   const focusRef = useRef(focus)
   focusRef.current = focus
+
+  const [helpVisible, setHelpVisible] = useState(false)
 
   const sidebarEnabledRef = useRef(true)
   const { selectedIndex, selectedRequest } = useSidebarSelection(
@@ -78,6 +81,17 @@ export function App({
   }, [])
 
   useKeyboard((key) => {
+    // help toggle — blocked while editing (isActive)
+    if (key.name === "?") {
+      if (isActive) return
+      setHelpVisible((prev) => !prev)
+      return
+    }
+    // help visible blocks all keys except ? (handled above) and escape
+    if (helpVisible) {
+      if (key.name === "escape") setHelpVisible(false)
+      return
+    }
     if (key.name === "tab" && !isActive) {
       setFocus((prev) => cycleFocus(prev, key.shift ? -1 : 1))
       return
@@ -150,34 +164,40 @@ export function App({
         border: true,
       }}
     >
-      <box style={{ flexDirection: "row", flexGrow: 1 }}>
-        <Sidebar
-          collection={collection}
-          loading={loading}
-          error={error}
-          selectedIndex={selectedIndex}
-          focused={focus === "sidebar"}
-        />
-        <box style={{ flexDirection: "column", flexGrow: 1 }}>
-          <RequestPane
-            request={draft.draft}
-            editState={editState}
-            editValue={editValue}
-            setEditValue={setEditValue}
-            draft={draft}
-            focused={focus === "request"}
+      {helpVisible ? (
+        <HelpOverlay visible onDismiss={() => setHelpVisible(false)} />
+      ) : (
+        <box style={{ flexDirection: "row", flexGrow: 1 }}>
+          <Sidebar
+            collection={collection}
+            loading={loading}
+            error={error}
+            selectedIndex={selectedIndex}
+            focused={focus === "sidebar"}
           />
-          <ResponsePane state={responseState} focused={focus === "response"} />
+          <box style={{ flexDirection: "column", flexGrow: 1 }}>
+            <RequestPane
+              request={draft.draft}
+              editState={editState}
+              editValue={editValue}
+              setEditValue={setEditValue}
+              draft={draft}
+              focused={focus === "request"}
+            />
+            <ResponsePane state={responseState} focused={focus === "response"} />
+          </box>
         </box>
-      </box>
+      )}
       <text fg="#666">
-        {saveState.kind === "confirming"
-          ? `Save changes to ${draft.draft?.id ?? "?"}.yml? [y/N]`
-          : saveState.kind === "success"
-            ? saveState.message
-            : saveState.kind === "error"
+        {helpVisible
+          ? "[?/Esc] dismiss help"
+          : saveState.kind === "confirming"
+            ? `Save changes to ${draft.draft?.id ?? "?"}.yml? [y/N]`
+            : saveState.kind === "success"
               ? saveState.message
-              : `${hintForFocus(focus, editState.mode)} · env: ${envState.indicatorLabel}`}
+              : saveState.kind === "error"
+                ? saveState.message
+                : `${hintForFocus(focus, editState.mode)} · env: ${envState.indicatorLabel}`}
       </text>
     </box>
   )
