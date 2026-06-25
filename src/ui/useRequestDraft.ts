@@ -1,3 +1,4 @@
+import { useCallback, useMemo, useState } from "react"
 import type { Request, Auth, Method } from "../schema"
 import type { FieldKind } from "./editMode"
 
@@ -195,3 +196,116 @@ export function applyDraft(
 }
 
 export type { Method, Request }
+
+export interface UseRequestDraftResult {
+  draft: Request | null
+  isDirty: boolean
+  setUrl: (url: string) => void
+  setBody: (body: string) => void
+  setHeaderRow: (index: number, key: string, value: string) => void
+  addHeaderRow: (key: string, value: string) => void
+  removeHeaderRow: (index: number) => void
+  setParamRow: (index: number, key: string, value: string) => void
+  addParamRow: (key: string, value: string) => void
+  removeParamRow: (index: number) => void
+  revertField: (field: FieldKind, row?: number) => void
+  revertAll: () => void
+}
+
+export function useRequestDraft(
+  selectedRequest: Request | null,
+): UseRequestDraftResult {
+  const [map, setMap] = useState<Map<string, Request>>(new Map())
+
+  const apply = useCallback(
+    (op: DraftOp) => {
+      setMap((prev) => {
+        if (!selectedRequest) return prev
+        return applyDraft(prev, selectedRequest.id, selectedRequest, op)
+      })
+    },
+    [selectedRequest],
+  )
+
+  const setUrl = useCallback(
+    (url: string) => apply({ kind: "setUrl", url }),
+    [apply],
+  )
+  const setBody = useCallback(
+    (body: string) => apply({ kind: "setBody", body }),
+    [apply],
+  )
+  const setHeaderRow = useCallback(
+    (index: number, key: string, value: string) =>
+      apply({ kind: "setHeaderRow", index, key, value }),
+    [apply],
+  )
+  const addHeaderRow = useCallback(
+    (key: string, value: string) => apply({ kind: "addHeaderRow", key, value }),
+    [apply],
+  )
+  const removeHeaderRow = useCallback(
+    (index: number) => apply({ kind: "removeHeaderRow", index }),
+    [apply],
+  )
+  const setParamRow = useCallback(
+    (index: number, key: string, value: string) =>
+      apply({ kind: "setParamRow", index, key, value }),
+    [apply],
+  )
+  const addParamRow = useCallback(
+    (key: string, value: string) => apply({ kind: "addParamRow", key, value }),
+    [apply],
+  )
+  const removeParamRow = useCallback(
+    (index: number) => apply({ kind: "removeParamRow", index }),
+    [apply],
+  )
+  const revertField = useCallback(
+    (field: FieldKind, row?: number) =>
+      apply({ kind: "revertField", field, row }),
+    [apply],
+  )
+  const revertAll = useCallback(() => apply({ kind: "revertAll" }), [apply])
+
+  const draft = selectedRequest
+    ? (map.get(selectedRequest.id) ?? selectedRequest)
+    : null
+  const isDirty = selectedRequest
+    ? !requestEquals(
+        map.get(selectedRequest.id) ?? selectedRequest,
+        selectedRequest,
+      )
+    : false
+
+  return useMemo(
+    () => ({
+      draft,
+      isDirty,
+      setUrl,
+      setBody,
+      setHeaderRow,
+      addHeaderRow,
+      removeHeaderRow,
+      setParamRow,
+      addParamRow,
+      removeParamRow,
+      revertField,
+      revertAll,
+    }),
+    [
+      draft,
+      isDirty,
+      setUrl,
+      setBody,
+      setHeaderRow,
+      addHeaderRow,
+      removeHeaderRow,
+      setParamRow,
+      addParamRow,
+      removeParamRow,
+      revertField,
+      revertAll,
+    ],
+  )
+}
