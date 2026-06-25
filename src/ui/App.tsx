@@ -3,9 +3,12 @@ import type { Environment } from "../schema"
 import { Sidebar } from "./Sidebar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
+import { useState } from "react"
 import { useCollection } from "./useCollection"
 import { useSidebarSelection } from "./useSidebarSelection"
 import { useResponse } from "./useResponse"
+import { useRequestDraft } from "./useRequestDraft"
+import { initialEditState } from "./editMode"
 
 export function App({
   collectionDir,
@@ -24,6 +27,9 @@ export function App({
   const requests = collection?.requests ?? []
   const { selectedIndex, selectedRequest } = useSidebarSelection(requests)
   const { state: responseState } = useResponse(selectedRequest, env)
+  const draft = useRequestDraft(selectedRequest)
+  const editState = initialEditState()
+  const [editValue, setEditValue] = useState("")
 
   return (
     <box
@@ -42,7 +48,13 @@ export function App({
           selectedIndex={selectedIndex}
         />
         <box style={{ flexDirection: "column", flexGrow: 1 }}>
-          <RequestPane request={selectedRequest} />
+          <RequestPane
+            request={selectedRequest}
+            editState={editState}
+            editValue={editValue}
+            setEditValue={setEditValue}
+            draft={draft}
+          />
           <ResponsePane state={responseState} />
         </box>
       </box>

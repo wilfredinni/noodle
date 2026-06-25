@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { Request } from "../schema"
 import {
   methodColor,
@@ -6,13 +7,45 @@ import {
   formatBody,
   formatAuth,
 } from "./formatRequest"
+import type { EditState, FieldKind } from "./editMode"
+import type { UseRequestDraftResult } from "./useRequestDraft"
 
-export function RequestPane({ request }: { request: Request | null }) {
-  const methodFg = request ? methodColor(request.method) : ("" as string)
+interface Props {
+  request: Request | null
+  editState: EditState
+  editValue: string
+  setEditValue: (v: string) => void
+  draft: UseRequestDraftResult
+}
+
+function isFieldActive(editState: EditState, field: FieldKind): boolean {
+  return editState.mode !== "inactive" && editState.cursor.field === field
+}
+
+function labelActive(
+  editState: EditState,
+  field: FieldKind,
+): { fg: string; bg?: string } {
+  if (!isFieldActive(editState, field)) return { fg: "#888" }
+  return { fg: "#000", bg: "#fff" }
+}
+
+export function RequestPane({
+  request,
+  editState,
+  editValue,
+  setEditValue,
+  draft,
+}: Props) {
+  const methodFg = request ? methodColor(request.method) : ""
   const headers = request ? formatHeaders(request.headers) : []
   const params = request ? formatParams(request.params) : []
   const body = request ? formatBody(request.body) : ""
   const auth = request ? formatAuth(request.auth) : ""
+  const title = `Request${draft.isDirty ? "*" : ""}`
+  const inEdit = editState.mode === "editing"
+  const browseActive = editState.mode === "browsing"
+
   return (
     <box
       style={{
@@ -22,39 +55,154 @@ export function RequestPane({ request }: { request: Request | null }) {
         padding: 1,
         gap: 1,
       }}
-      title="Request"
+      title={title}
     >
       {request ? (
         <>
-          <text fg={methodFg}>
-            {request.method} {request.url}
-          </text>
-          <text fg="#888">Headers</text>
-          {headers.length === 0 ? (
+          {inEdit && editState.cursor.field === "url" ? (
+            <input
+              value={editValue}
+              onInput={setEditValue}
+              backgroundColor="#222"
+              focusedBackgroundColor="#333"
+              textColor="#fff"
+              cursorColor="#0f0"
+            />
+          ) : (
+            <text
+              fg={methodFg}
+              attributes={
+                browseActive && editState.cursor.field === "url"
+                  ? TextAttributes.INVERSE
+                  : 0
+              }
+            >
+              {request.method} {request.url}
+            </text>
+          )}
+
+          <text {...labelActive(editState, "headers")}>Headers</text>
+          {headers.length === 0 &&
+          !(browseActive && editState.cursor.field === "headers") ? (
             <text fg="#888">{"  (none)"}</text>
           ) : (
-            headers.map((line) => (
-              <text key={line} fg="#888">
-                {"  " + line}
-              </text>
-            ))
+            <>
+              {headers.map((line, i) => {
+                const cursorHere =
+                  browseActive &&
+                  editState.cursor.field === "headers" &&
+                  !editState.cursor.addingRow &&
+                  editState.cursor.row === i
+                const editingHere =
+                  inEdit &&
+                  editState.cursor.field === "headers" &&
+                  !editState.cursor.addingRow &&
+                  editState.cursor.row === i
+                if (editingHere) {
+                  return (
+                    <input
+                      key={i}
+                      value={editValue}
+                      onInput={setEditValue}
+                      backgroundColor="#222"
+                      focusedBackgroundColor="#333"
+                      textColor="#fff"
+                      cursorColor="#0f0"
+                    />
+                  )
+                }
+                return (
+                  <text
+                    key={i}
+                    fg="#888"
+                    attributes={cursorHere ? TextAttributes.INVERSE : 0}
+                  >
+                    {"  " + line}
+                  </text>
+                )
+              })}
+              {browseActive && editState.cursor.field === "headers" && (
+                <text
+                  fg="#888"
+                  attributes={
+                    editState.cursor.addingRow ? TextAttributes.INVERSE : 0
+                  }
+                >
+                  {"  [+] add header"}
+                </text>
+              )}
+            </>
           )}
-          <text fg="#888">Params</text>
-          {params.length === 0 ? (
+
+          <text {...labelActive(editState, "params")}>Params</text>
+          {params.length === 0 &&
+          !(browseActive && editState.cursor.field === "params") ? (
             <text fg="#888">{"  (none)"}</text>
           ) : (
-            params.map((line) => (
-              <text key={line} fg="#888">
-                {"  " + line}
-              </text>
-            ))
+            <>
+              {params.map((line, i) => {
+                const cursorHere =
+                  browseActive &&
+                  editState.cursor.field === "params" &&
+                  !editState.cursor.addingRow &&
+                  editState.cursor.row === i
+                const editingHere =
+                  inEdit &&
+                  editState.cursor.field === "params" &&
+                  !editState.cursor.addingRow &&
+                  editState.cursor.row === i
+                if (editingHere) {
+                  return (
+                    <input
+                      key={i}
+                      value={editValue}
+                      onInput={setEditValue}
+                      backgroundColor="#222"
+                      focusedBackgroundColor="#333"
+                      textColor="#fff"
+                      cursorColor="#0f0"
+                    />
+                  )
+                }
+                return (
+                  <text
+                    key={i}
+                    fg="#888"
+                    attributes={cursorHere ? TextAttributes.INVERSE : 0}
+                  >
+                    {"  " + line}
+                  </text>
+                )
+              })}
+              {browseActive && editState.cursor.field === "params" && (
+                <text
+                  fg="#888"
+                  attributes={
+                    editState.cursor.addingRow ? TextAttributes.INVERSE : 0
+                  }
+                >
+                  {"  [+] add param"}
+                </text>
+              )}
+            </>
           )}
-          <text fg="#888">Body</text>
-          {body === "" ? (
+
+          <text {...labelActive(editState, "body")}>Body</text>
+          {inEdit && editState.cursor.field === "body" ? (
+            <input
+              value={editValue}
+              onInput={setEditValue}
+              backgroundColor="#222"
+              focusedBackgroundColor="#333"
+              textColor="#fff"
+              cursorColor="#0f0"
+            />
+          ) : body === "" ? (
             <text fg="#888">{"  (none)"}</text>
           ) : (
             <text>{body}</text>
           )}
+
           <text fg="#888">Auth</text>
           <text fg="#888">{"  " + auth}</text>
           <text fg="#888">[s] Send</text>
