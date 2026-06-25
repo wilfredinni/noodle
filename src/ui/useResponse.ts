@@ -12,10 +12,12 @@ export interface UseResponseResult {
 export function useResponse(
   selectedRequest: Request | null,
   env?: Environment | null,
+  blocked?: () => boolean,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
 
   useKeyboard((key) => {
+    if (blocked?.()) return
     if (key.name !== "s") return
     const req = selectedRequest
     if (req === null) return

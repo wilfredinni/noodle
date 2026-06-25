@@ -59,6 +59,7 @@ export function useEditBrowse(
   opts?: {
     enabled?: () => boolean
     onEnterEditBrowse?: () => void
+    blocked?: () => boolean
   },
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
@@ -121,6 +122,7 @@ export function useEditBrowse(
   }, [editState, draftMutators])
 
   useKeyboard((key) => {
+    if (opts?.blocked?.()) return
     const enabled = opts?.enabled ?? (() => true)
 
     if (editState.mode === "inactive") {

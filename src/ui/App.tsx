@@ -41,11 +41,13 @@ export function App({
   focusRef.current = focus
 
   const [helpVisible, setHelpVisible] = useState(false)
+  const helpVisibleRef = useRef(false)
+  helpVisibleRef.current = helpVisible
 
   const sidebarEnabledRef = useRef(true)
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
-    () => sidebarEnabledRef.current,
+    () => sidebarEnabledRef.current && !helpVisibleRef.current,
   )
 
   const draft = useRequestDraft(selectedRequest)
@@ -53,14 +55,19 @@ export function App({
     draft.draft,
     draft,
     {
-      enabled: () => focusRef.current === "request",
+      enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
       onEnterEditBrowse: () => setFocus("request"),
+      blocked: () => helpVisibleRef.current,
     },
   )
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
 
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
-  const { state: responseState } = useResponse(draft.draft, envState.activeEnv)
+  const { state: responseState } = useResponse(
+    draft.draft,
+    envState.activeEnv,
+    () => helpVisibleRef.current,
+  )
 
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
