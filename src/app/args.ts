@@ -1,5 +1,6 @@
 export interface ParsedArgs {
   collectionDir: string
+  envName?: string
   help: boolean
 }
 
@@ -7,6 +8,7 @@ const DEFAULT_COLLECTION_DIR = "./collections"
 
 export function parseArgs(argv: string[]): ParsedArgs {
   let collectionDir: string | undefined
+  let envName: string | undefined
   let help = false
 
   for (let i = 0; i < argv.length; i++) {
@@ -36,6 +38,25 @@ export function parseArgs(argv: string[]): ParsedArgs {
       continue
     }
 
+    if (arg === "--env") {
+      const next = argv[i + 1]
+      if (next === undefined || next.startsWith("-")) {
+        throw new Error("args: --env requires a non-empty value")
+      }
+      envName = next
+      i++
+      continue
+    }
+
+    if (arg.startsWith("--env=")) {
+      const value = arg.slice("--env=".length)
+      if (value === "") {
+        throw new Error("args: --env requires a non-empty value")
+      }
+      envName = value
+      continue
+    }
+
     if (arg.startsWith("-")) {
       throw new Error(`args: unknown flag "${arg}"`)
     }
@@ -43,5 +64,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     throw new Error(`args: unexpected positional argument "${arg}"`)
   }
 
-  return { collectionDir: collectionDir ?? DEFAULT_COLLECTION_DIR, help }
+  return {
+    collectionDir: collectionDir ?? DEFAULT_COLLECTION_DIR,
+    envName,
+    help,
+  }
 }

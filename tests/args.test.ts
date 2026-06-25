@@ -47,4 +47,27 @@ describe("parseArgs", () => {
     expect(result.help).toBe(true)
     expect(result.collectionDir).toBe("./foo")
   })
+  it("parses --env <name> (space form)", () => {
+    expect(parseArgs(["--env", "development"]).envName).toBe("development")
+  })
+  it("parses --env=<name> (equals form)", () => {
+    expect(parseArgs(["--env=development"]).envName).toBe("development")
+  })
+  it("defaults envName to undefined when no --env", () => {
+    expect(parseArgs([]).envName).toBeUndefined()
+  })
+  it("throws when --env has no value (last arg)", () => {
+    expect(() => parseArgs(["--env"])).toThrow("args:")
+  })
+  it("throws when --env is followed by another flag", () => {
+    expect(() => parseArgs(["--env", "--help"])).toThrow("args:")
+  })
+  it("throws when --env= has empty value", () => {
+    expect(() => parseArgs(["--env="])).toThrow("args:")
+  })
+  it("last --env wins when repeated", () => {
+    expect(
+      parseArgs(["--env", "a", "--env", "b"]).envName,
+    ).toBe("b")
+  })
 })
