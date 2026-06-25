@@ -18,7 +18,7 @@ export function Tabs({
   children: ReactNode
 }) {
   return (
-    <box style={{ flexDirection: "column", gap: 1 }}>
+    <box style={{ flexDirection: "column", gap: 1, flexGrow: 1 }}>
       <box style={{ flexDirection: "row", gap: 1 }}>
         {tabs.map((tab) => {
           const isActive = tab.id === activeId
