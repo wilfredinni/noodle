@@ -16,7 +16,7 @@ function ShareButton({ chatId }: { chatId: string }) {
   const searchParams = useSearchParams()
 
   const handleShare = () => {
-    const ref = searchParams.get('ref')
+    const ref = searchParams.get("ref")
     shareChat(chatId, { ref })
   }
 
@@ -30,7 +30,7 @@ function ShareButton({ chatId }: { chatId: string }) {
 function ShareButton({ chatId }: { chatId: string }) {
   const handleShare = () => {
     const params = new URLSearchParams(window.location.search)
-    const ref = params.get('ref')
+    const ref = params.get("ref")
     shareChat(chatId, { ref })
   }
 

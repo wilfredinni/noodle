@@ -21,7 +21,7 @@ function UserProfile({ user, theme }) {
   const Avatar = () => (
     <img
       src={user.avatarUrl}
-      className={theme === 'dark' ? 'avatar-dark' : 'avatar-light'}
+      className={theme === "dark" ? "avatar-dark" : "avatar-light"}
     />
   )
 
@@ -51,7 +51,7 @@ function Avatar({ src, theme }: { src: string; theme: string }) {
   return (
     <img
       src={src}
-      className={theme === 'dark' ? 'avatar-dark' : 'avatar-light'}
+      className={theme === "dark" ? "avatar-dark" : "avatar-light"}
     />
   )
 }
@@ -76,6 +76,7 @@ function UserProfile({ user, theme }) {
 ```
 
 **Symptoms of this bug:**
+
 - Input fields lose focus on every keystroke
 - Animations restart unexpectedly
 - `useEffect` cleanup/setup runs on every parent render

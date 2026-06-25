@@ -14,20 +14,20 @@ Return early when result is determined to skip unnecessary processing.
 ```typescript
 function validateUsers(users: User[]) {
   let hasError = false
-  let errorMessage = ''
-  
+  let errorMessage = ""
+
   for (const user of users) {
     if (!user.email) {
       hasError = true
-      errorMessage = 'Email required'
+      errorMessage = "Email required"
     }
     if (!user.name) {
       hasError = true
-      errorMessage = 'Name required'
+      errorMessage = "Name required"
     }
     // Continues checking all users even after error found
   }
-  
+
   return hasError ? { valid: false, error: errorMessage } : { valid: true }
 }
 ```
@@ -38,10 +38,10 @@ function validateUsers(users: User[]) {
 function validateUsers(users: User[]) {
   for (const user of users) {
     if (!user.email) {
-      return { valid: false, error: 'Email required' }
+      return { valid: false, error: "Email required" }
     }
     if (!user.name) {
-      return { valid: false, error: 'Name required' }
+      return { valid: false, error: "Name required" }
     }
   }
 

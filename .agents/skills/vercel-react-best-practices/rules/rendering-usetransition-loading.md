@@ -13,7 +13,7 @@ Use `useTransition` instead of manual `useState` for loading states. This provid
 
 ```tsx
 function SearchResults() {
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState("")
   const [results, setResults] = useState([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -38,16 +38,16 @@ function SearchResults() {
 **Correct (useTransition with built-in pending state):**
 
 ```tsx
-import { useTransition, useState } from 'react'
+import { useTransition, useState } from "react"
 
 function SearchResults() {
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState("")
   const [results, setResults] = useState([])
   const [isPending, startTransition] = useTransition()
 
   const handleSearch = (value: string) => {
     setQuery(value) // Update input immediately
-    
+
     startTransition(async () => {
       // Fetch and update results
       const data = await fetchResults(value)

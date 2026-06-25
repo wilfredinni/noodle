@@ -19,8 +19,8 @@ function useKeyboardShortcut(key: string, callback: () => void) {
         callback()
       }
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
   }, [key, callback])
 }
 ```
@@ -30,7 +30,7 @@ When using the `useKeyboardShortcut` hook multiple times, each instance will reg
 **Correct (N instances = 1 listener):**
 
 ```tsx
-import useSWRSubscription from 'swr/subscription'
+import useSWRSubscription from "swr/subscription"
 
 // Module-level Map to track callbacks per key
 const keyCallbacks = new Map<string, Set<() => void>>()
@@ -54,21 +54,25 @@ function useKeyboardShortcut(key: string, callback: () => void) {
     }
   }, [key, callback])
 
-  useSWRSubscription('global-keydown', () => {
+  useSWRSubscription("global-keydown", () => {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey && keyCallbacks.has(e.key)) {
-        keyCallbacks.get(e.key)!.forEach(cb => cb())
+        keyCallbacks.get(e.key)!.forEach((cb) => cb())
       }
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
   })
 }
 
 function Profile() {
   // Multiple shortcuts will share the same listener
-  useKeyboardShortcut('p', () => { /* ... */ }) 
-  useKeyboardShortcut('k', () => { /* ... */ })
+  useKeyboardShortcut("p", () => {
+    /* ... */
+  })
+  useKeyboardShortcut("k", () => {
+    /* ... */
+  })
   // ...
 }
 ```
