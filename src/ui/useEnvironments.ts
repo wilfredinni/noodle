@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Environment } from "../schema"
 import { env } from "../env"
 import { nextIndex } from "./selection"
@@ -23,6 +23,7 @@ export function useEnvironments(
   )
   const [activeEnv, setActiveEnv] = useState<Environment | null>(null)
   const [error, setError] = useState<Error | null>(null)
+  const genRef = useRef(0)
 
   useEffect(() => {
     if (initialName === undefined) return
@@ -57,15 +58,19 @@ export function useEnvironments(
       )
       const target = candidate < 0 ? 0 : candidate
       const name = envList[target]
+      genRef.current += 1
+      const gen = genRef.current
       setError(null)
       setActiveIndex(target)
       env
         .loadEnvironment(dir, name)
         .then((loaded) => {
+          if (gen !== genRef.current) return
           setActiveEnv(loaded)
           setError(null)
         })
         .catch((e: unknown) => {
+          if (gen !== genRef.current) return
           const err = e instanceof Error ? e : new Error(String(e))
           setError(err)
           setActiveEnv(null)
