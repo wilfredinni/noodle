@@ -1,4 +1,5 @@
 import type { Collection, Request } from "../schema"
+import { loadCollection } from "./load"
 
 export interface Filestore {
   loadCollection(dir: string): Promise<Collection>
@@ -6,9 +7,7 @@ export interface Filestore {
 }
 
 export const filestore: Filestore = {
-  async loadCollection() {
-    throw new Error("filestore.loadCollection: not implemented")
-  },
+  loadCollection,
   async saveRequest() {
     throw new Error("filestore.saveRequest: not implemented")
   },
