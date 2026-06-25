@@ -10,6 +10,7 @@ import { useRequestDraft } from "./useRequestDraft"
 import { useEditBrowse } from "./useEditBrowse"
 import { useEnvironments } from "./useEnvironments"
 import { filestore } from "../filestore"
+import { cycleFocus, hintForFocus, type Focus } from "./focus"
 
 type SaveState =
   | { kind: "idle" }
@@ -19,16 +20,6 @@ type SaveState =
 
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
-
-function hintFor(mode: "inactive" | "browsing" | "editing"): string {
-  if (mode === "browsing") {
-    return "[↑/↓] move · [e/Enter] edit field · [d] revert field · [R] revert all · [Esc] back · [s] send"
-  }
-  if (mode === "editing") {
-    return "[Enter] commit · [Esc] cancel"
-  }
-  return "[↑/↓] select · [e] edit · [s] send · [w] save · [/] env · [Ctrl+C] quit"
-}
 
 export function App({
   collectionDir,
@@ -44,6 +35,10 @@ export function App({
   const { collection, loading, error } = useCollection(collectionDir)
   const requests = collection?.requests ?? []
 
+  const [focus, setFocus] = useState<Focus>("sidebar")
+  const focusRef = useRef(focus)
+  focusRef.current = focus
+
   const sidebarEnabledRef = useRef(true)
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
@@ -54,8 +49,12 @@ export function App({
   const { editState, editValue, setEditValue, isActive } = useEditBrowse(
     draft.draft,
     draft,
+    {
+      enabled: () => focusRef.current === "request",
+      onEnterEditBrowse: () => setFocus("request"),
+    },
   )
-  sidebarEnabledRef.current = !isActive
+  sidebarEnabledRef.current = !isActive && focus === "sidebar"
 
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
   const { state: responseState } = useResponse(draft.draft, envState.activeEnv)
@@ -80,7 +79,8 @@ export function App({
 
   useKeyboard((key) => {
     if (key.name === "tab" && !isActive) {
-      // focus cycle placeholder (roadmap #5)
+      setFocus((prev) => cycleFocus(prev, key.shift ? -1 : 1))
+      return
     }
     if (!isActive) {
       // env cycle
@@ -156,6 +156,7 @@ export function App({
           loading={loading}
           error={error}
           selectedIndex={selectedIndex}
+          focused={focus === "sidebar"}
         />
         <box style={{ flexDirection: "column", flexGrow: 1 }}>
           <RequestPane
@@ -164,8 +165,9 @@ export function App({
             editValue={editValue}
             setEditValue={setEditValue}
             draft={draft}
+            focused={focus === "request"}
           />
-          <ResponsePane state={responseState} />
+          <ResponsePane state={responseState} focused={focus === "response"} />
         </box>
       </box>
       <text fg="#666">
@@ -175,7 +177,7 @@ export function App({
             ? saveState.message
             : saveState.kind === "error"
               ? saveState.message
-              : `${hintFor(editState.mode)} · env: ${envState.indicatorLabel}`}
+              : `${hintForFocus(focus, editState.mode)} · env: ${envState.indicatorLabel}`}
       </text>
     </box>
   )
