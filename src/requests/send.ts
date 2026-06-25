@@ -4,11 +4,19 @@ import { substitute } from "./substitute"
 export async function send(req: Request, env?: Environment): Promise<Response> {
   const substituted = env !== undefined ? substitute(req, env) : req
 
-  const u = new URL(substituted.url)
-  for (const [k, v] of Object.entries(substituted.params)) {
-    u.searchParams.append(k, v)
+  let finalUrl: string
+  try {
+    const u = new URL(substituted.url)
+    for (const [k, v] of Object.entries(substituted.params)) {
+      u.searchParams.append(k, v)
+    }
+    finalUrl = u.toString()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`requests.send: invalid url "${substituted.url}": ${msg}`, {
+      cause: e,
+    })
   }
-  const finalUrl = u.toString()
 
   const headers = new Headers(substituted.headers)
   const ah = authHeader(substituted.auth)
@@ -23,8 +31,23 @@ export async function send(req: Request, env?: Environment): Promise<Response> {
   }
 
   const start = performance.now()
-  const res = await fetch(finalUrl, init)
-  const body = await res.text()
+  let res: globalThis.Response
+  try {
+    res = await fetch(finalUrl, init)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`requests.send: fetch failed: ${msg}`, { cause: e })
+  }
+
+  let body: string
+  try {
+    body = await res.text()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`requests.send: failed to read response body: ${msg}`, {
+      cause: e,
+    })
+  }
 
   return {
     status: res.status,

@@ -325,3 +325,96 @@ describe("send — auth header", () => {
     expect(headers.get("Authorization")).toBe("Bearer from-auth")
   })
 })
+
+describe("send — error handling", () => {
+  it("wraps malformed URL with prefixed error", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await expect(executor.send(makeReq({ url: "not-a-url" }))).rejects.toThrow(
+      /^requests\.send: invalid url "not-a-url":/,
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("wraps fetch transport failure with prefixed error", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("connect ECONNREFUSED"))
+    await expect(executor.send(makeReq({}))).rejects.toThrow(
+      "requests.send: fetch failed: connect ECONNREFUSED",
+    )
+  })
+
+  it("attaches cause on fetch transport failure", async () => {
+    const original = new TypeError("connect ECONNREFUSED")
+    fetchMock.mockRejectedValueOnce(original)
+    let caught: unknown
+    try {
+      await executor.send(makeReq({}))
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toBe(
+      "requests.send: fetch failed: connect ECONNREFUSED",
+    )
+    expect((caught as Error).cause).toBe(original)
+  })
+
+  it("wraps response body read failure with prefixed error", async () => {
+    fetchMock.mockResolvedValueOnce({
+      status: 200,
+      statusText: "OK",
+      headers: new Headers(),
+      text: () => Promise.reject(new Error("stream aborted")),
+    } as unknown as globalThis.Response)
+    await expect(executor.send(makeReq({}))).rejects.toThrow(
+      /^requests\.send: failed to read response body:/,
+    )
+  })
+
+  it("attaches cause on body read failure", async () => {
+    const original = new Error("stream aborted")
+    fetchMock.mockResolvedValueOnce({
+      status: 200,
+      statusText: "OK",
+      headers: new Headers(),
+      text: () => Promise.reject(original),
+    } as unknown as globalThis.Response)
+    let caught: unknown
+    try {
+      await executor.send(makeReq({}))
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toBe(
+      "requests.send: failed to read response body: stream aborted",
+    )
+    expect((caught as Error).cause).toBe(original)
+  })
+
+  it("propagates substitute errors with prefix intact (no wrapping)", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await expect(
+      executor.send(makeReq({ url: "https://{{host}}/x" }), makeEnv({})),
+    ).rejects.toThrow('requests.substitute: unresolved variable "host" in url')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("attaches cause on malformed URL", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    let caught: unknown
+    try {
+      await executor.send(makeReq({ url: "not-a-url" }))
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(Error)
+    // Bun's new URL("not-a-url") throws TypeError with a message like "Invalid URL"
+    // The exact message varies across Bun versions, so check the prefix + cause
+    expect(
+      (caught as Error).message.startsWith(
+        'requests.send: invalid url "not-a-url"',
+      ),
+    ).toBe(true)
+    expect((caught as Error).cause).toBeInstanceOf(TypeError)
+  })
+})
