@@ -9,7 +9,7 @@ export function Brand() {
     >
       <ascii-font
         text="noodle"
-        font="slick"
+        font="tiny"
         color="#61dafb"
       />
     </box>
