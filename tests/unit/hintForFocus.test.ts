@@ -61,6 +61,24 @@ describe("hintForFocus — response", () => {
   })
 })
 
+describe("hintForFocus — theme picker hint", () => {
+  it("sidebar hint includes [t] pick theme", () => {
+    expect(hintForFocus("sidebar", "inactive")).toContain("[t] pick theme")
+  })
+
+  it("urlbar hint includes [t] pick theme", () => {
+    expect(hintForFocus("urlbar", "inactive")).toContain("[t] pick theme")
+  })
+
+  it("request hint includes [t] pick theme", () => {
+    expect(hintForFocus("request", "inactive")).toContain("[t] pick theme")
+  })
+
+  it("response hint includes [t] pick theme", () => {
+    expect(hintForFocus("response", "inactive")).toContain("[t] pick theme")
+  })
+})
+
 describe("hintForFocus — sidebar is mode-independent", () => {
   it("same hint for all modes when sidebar focused", () => {
     const a = hintForFocus("sidebar", "inactive")
