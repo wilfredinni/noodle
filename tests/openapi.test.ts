@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { parseSpec, mapCollection, internals } from "../src/converters/openapi"
+import { parseSpec, mapCollection } from "../src/converters/openapi"
 import type { Normalized } from "../src/converters/openapi"
 
 describe("parseSpec — string/object dispatch + validation", () => {
@@ -143,64 +143,117 @@ describe("mapCollection — Collection metadata", () => {
   })
 })
 
-describe("mapCollection URL helpers (internals — temporary)", () => {
-  it("urlTemplateToVar replaces {name} with {{name}}", () => {
-    expect(internals.urlTemplateToVar("/users/{id}")).toBe("/users/{{id}}")
-    expect(internals.urlTemplateToVar("https://{host}/v1/{path}")).toBe(
-      "https://{{host}}/v1/{{path}}",
+describe("mapCollection — operations & methods", () => {
+  it("produces one Request per non-trace operation", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/users": {
+            get: { operationId: "listUsers" },
+            post: { operationId: "createUser" },
+            trace: {},
+          },
+          "/items/{id}": {
+            get: { summary: "Get an item" },
+          },
+        },
+      }),
     )
+    expect(c.requests).toHaveLength(3)
+    expect(c.requests.map((r) => r.method)).toEqual(["GET", "POST", "GET"])
   })
 
-  it("urlTemplateToVar leaves strings without braces alone", () => {
-    expect(internals.urlTemplateToVar("https://example.com/v1")).toBe(
-      "https://example.com/v1",
+  it("uses deterministic method order (METHOD_KEYS) regardless of spec key order", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: { operationId: "postX" },
+            get: { operationId: "getX" },
+          },
+        },
+      }),
     )
+    expect(c.requests.map((r) => r.method)).toEqual(["GET", "POST"])
   })
 
-  it("baseUrl returns first server url (template-substituted)", () => {
-    const n = makeNormalized({ servers: [{ url: "https://{host}/v1" }] })
-    expect(internals.baseUrl(n)).toBe("https://{{host}}/v1")
-  })
-
-  it("baseUrl returns / when servers is missing", () => {
-    const n = makeNormalized({ servers: undefined })
-    expect(internals.baseUrl(n)).toBe("/")
-  })
-
-  it("baseUrl returns / when servers is an empty array", () => {
-    const n = makeNormalized({ servers: [] })
-    expect(internals.baseUrl(n)).toBe("/")
-  })
-
-  it("baseUrl returns / when servers[0].url is empty string", () => {
-    const n = makeNormalized({ servers: [{ url: "" }] })
-    expect(internals.baseUrl(n)).toBe("/")
-  })
-
-  it("baseUrl returns / when servers[0].url is not a string", () => {
-    const n = makeNormalized({ servers: [{ url: 123 }] })
-    expect(internals.baseUrl(n)).toBe("/")
-  })
-
-  it("baseUrl returns / when servers[0] is not an object", () => {
-    const n = makeNormalized({ servers: ["https://x.com"] })
-    expect(internals.baseUrl(n)).toBe("/")
-  })
-
-  it("joinUrl merges base and path without doubling slashes", () => {
-    expect(internals.joinUrl("https://x.com/v1", "/users")).toBe(
-      "https://x.com/v1/users",
+  it("skips pathItem that is not a mapping", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": "not a mapping",
+          "/y": { get: { operationId: "getY" } },
+        },
+      }),
     )
-    expect(internals.joinUrl("https://x.com/v1/", "/users")).toBe(
-      "https://x.com/v1/users",
-    )
-    expect(internals.joinUrl("/", "/users")).toBe("/users")
-    expect(internals.joinUrl("/", "/users/{{id}}")).toBe("/users/{{id}}")
+    expect(c.requests).toHaveLength(1)
+    expect(c.requests[0].name).toBe("getY")
   })
 
-  it("joinUrl prepends / when path doesn't start with one", () => {
-    expect(internals.joinUrl("https://x.com", "users")).toBe(
-      "https://x.com/users",
+  it("skips an op value that is not a mapping", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: "not a mapping",
+            post: { operationId: "postX" },
+          },
+        },
+      }),
     )
+    expect(c.requests).toHaveLength(1)
+    expect(c.requests[0].method).toBe("POST")
+  })
+
+  it("ignores non-method keys at the pathItem level (parameters, summary)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            parameters: [],
+            summary: "path summary",
+            get: { operationId: "getX" },
+          },
+        },
+      }),
+    )
+    expect(c.requests).toHaveLength(1)
+  })
+
+  it("builds the url from base + path with var substitution", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [{ url: "https://api.example.com/v1" }],
+        paths: {
+          "/users/{id}": { get: { operationId: "getUser" } },
+        },
+      }),
+    )
+    expect(c.requests[0].url).toBe("https://api.example.com/v1/users/{{id}}")
+  })
+
+  it("builds a path-only url when servers is missing", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: undefined,
+        paths: {
+          "/users/{id}": { get: { operationId: "getUser" } },
+        },
+      }),
+    )
+    expect(c.requests[0].url).toBe("/users/{{id}}")
+  })
+
+  it("initializes headers, params as empty and body as undefined and auth as none", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    const r = c.requests[0]
+    expect(r.headers).toEqual({})
+    expect(r.params).toEqual({})
+    expect(r.body).toBeUndefined()
+    expect(r.auth).toEqual({ type: "none" })
   })
 })
