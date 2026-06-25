@@ -1,3 +1,5 @@
+import { TextAttributes } from "@opentui/core"
+
 export function Brand() {
   return (
     <box
@@ -7,11 +9,7 @@ export function Brand() {
         paddingX: 1,
       }}
     >
-      <ascii-font
-        text="noodle"
-        font="tiny"
-        color="#61dafb"
-      />
+      <text fg="#61dafb" attributes={TextAttributes.BOLD}>noodle</text>
     </box>
   )
 }
