@@ -4,7 +4,7 @@ A terminal REST client. Inspect, send, and iterate on HTTP requests from YAML fi
 
 ## Status
 
-Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields and runtime environment switching. See [Roadmap](#roadmap-to-v1).
+Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields, runtime environment switching, and persisting edits to disk. See [Roadmap](#roadmap-to-v1).
 
 ## Quick start
 
@@ -52,7 +52,8 @@ vars:
 - **Request pane** — renders full request detail: method (color-coded by verb), url, sorted headers, sorted params, pretty-printed JSON body, and masked auth. Inline editing for url, headers, params, and body via edit-browse mode (`e` to enter, `↑/↓` to navigate fields, `e/Enter` to edit, `Enter` to commit, `Esc` to cancel).
 - **Sidebar** — lists requests from the loaded collection, arrow-key navigation, selection highlight.
 - **Response pane** — renders idle / sending / done / error states. Done state shows status line (color-coded), sorted headers, and pretty-printed JSON body.
-- **Send trigger** — press `s` to send the active (possibly edited) request with the current env. Edits are session-local until saved.
+- **Send trigger** — press `s` to send the active (possibly edited) request with the current env.
+- **Save to disk** — press `w` (inactive mode) to persist the current draft to its `.yml` file; confirms overwrite with `[y/N]`. Draft dirty state (`*` in title) clears on successful save.
 
 ## Roadmap to v1
 
@@ -70,9 +71,9 @@ Edit url, headers, params, and body in-place before send via an edit-browse mode
 
 Footer shows the active env name. `[`/`]` cycles all `environments/*.yml` files at runtime without restarting. `--env` sets the initial env; omitted starts with no env.
 
-### 4. Save request changes back to disk
+### 4. Save request changes back to disk ✅
 
-Wire `filestore.saveRequest(dir, req)` to a keybind (e.g. `w`) so edited requests persist to their `.yml` file. Confirms overwrite.
+`w` to persist the current draft to its `.yml` file. Confirms with `[y/N]`. Footer flashes success/error feedback. Dirty `*` clears on successful save.
 
 ### 5. Focus management between panes
 
@@ -106,5 +107,5 @@ src/
 └─ ui/            # React components + hooks (Sidebar, RequestPane, ResponsePane, App)
 collections/      # sample request .yml files
 environments/     # sample env .yml files
-tests/            # bun:test suites (329 tests)
+tests/            # bun:test suites (333 tests)
 ```
