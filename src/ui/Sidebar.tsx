@@ -6,16 +6,23 @@ export function Sidebar({
   loading,
   error,
   selectedIndex,
+  focused = false,
 }: {
   collection: Collection | null
   loading: boolean
   error: Error | null
   selectedIndex: number
+  focused?: boolean
 }) {
   return (
     <box
-      style={{ border: true, width: 25, flexDirection: "column" }}
-      title="Requests"
+      style={{
+        border: true,
+        borderColor: focused ? "#61dafb" : undefined,
+        width: 25,
+        flexDirection: "column",
+      }}
+      title={focused ? "▸ Requests" : "Requests"}
     >
       {loading ? (
         <text fg="#888">Loading…</text>
