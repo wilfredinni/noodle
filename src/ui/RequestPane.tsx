@@ -17,7 +17,7 @@ export function RequestPane({ request }: { request: Request | null }) {
           <text>
             {request.method} {request.url}
           </text>
-          <text fg="#888">[Send]</text>
+          <text fg="#888">[s] Send</text>
         </>
       ) : (
         <text fg="#888">(no request selected)</text>
