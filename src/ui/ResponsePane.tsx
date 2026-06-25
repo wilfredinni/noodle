@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
+import { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
 import {
   statusColor,
@@ -26,14 +27,23 @@ export function ResponsePane({
 
   const [activeTab, setActiveTab] = useState<"body" | "headers">("body")
   const isDone = state.status === "done"
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (!isDone) return
     if (key.name === "left")
       setActiveTab((prev) => (prev === "body" ? "headers" : "body"))
-    if (key.name === "right")
+    else if (key.name === "right")
       setActiveTab((prev) => (prev === "headers" ? "body" : "headers"))
+    else if (key.name === "down")
+      scrollRef.current?.scrollBy(1)
+    else if (key.name === "up")
+      scrollRef.current?.scrollBy(-1)
+    else if (key.name === "pagedown")
+      scrollRef.current?.scrollBy(1, "viewport")
+    else if (key.name === "pageup")
+      scrollRef.current?.scrollBy(-1, "viewport")
   })
 
   return (
@@ -61,7 +71,7 @@ export function ResponsePane({
       ) : (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            <scrollbox scrollY stickyScroll style={{ flexGrow: 1 }}>
+            <scrollbox ref={scrollRef} scrollY stickyScroll style={{ flexGrow: 1 }}>
               {activeTab === "body" ? (
                 <>
                   <text fg={statusColor(state.response.status)}>
