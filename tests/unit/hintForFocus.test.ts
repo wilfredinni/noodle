@@ -50,8 +50,13 @@ describe("hintForFocus — request editing", () => {
 })
 
 describe("hintForFocus — response", () => {
-  it("shows Tab to Sidebar", () => {
+  it("shows Tab → Sidebar and scroll keys (↑/↓/PgUp/PgDn)", () => {
     const hint = hintForFocus("response", "inactive")
+    expect(hint).toContain("↑")
+    expect(hint).toContain("↓")
+    expect(hint).toContain("PgUp")
+    expect(hint).toContain("PgDn")
+    expect(hint).toContain("Tab")
     expect(hint).toContain("Sidebar")
   })
 })

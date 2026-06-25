@@ -28,5 +28,5 @@ export function hintForFocus(
     return "[e] enter edit · [s] send · [w] save · [Tab] → Response"
   }
   // focus === "response"
-  return "[Tab] → Sidebar"
+  return "[↑/↓/PgUp/PgDn] scroll · [Tab] → Sidebar"
 }
