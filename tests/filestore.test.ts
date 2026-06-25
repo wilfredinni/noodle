@@ -17,11 +17,10 @@ afterEach(async () => {
 })
 
 describe("filestore.loadCollection — directory state", () => {
-  it("throws on missing directory", async () => {
+  it("returns empty Collection for missing directory (lazy init)", async () => {
     const missing = join(dir, "does-not-exist")
-    await expect(filestore.loadCollection(missing)).rejects.toThrow(
-      `filestore.loadCollection: directory not found "${missing}"`,
-    )
+    const col = await filestore.loadCollection(missing)
+    expect(col).toEqual({ id: "does-not-exist", name: "does-not-exist", requests: [] })
   })
 
   it("returns empty Collection when dir has no .yml files", async () => {
@@ -194,5 +193,47 @@ describe("filestore.saveRequest — id validation", () => {
     await filestore.saveRequest(dir, makeReq({ id: "My.Request v2" }))
     const content = await readFile(join(dir, "My.Request v2.yml"), "utf8")
     expect(content).toContain("name: X")
+  })
+})
+
+describe("filestore — integration round-trip", () => {
+  it("save then load returns the same Collection (identity from folder)", async () => {
+    const collectionDir = join(dir, "my-api")
+    const a = makeReq({
+      id: "get-user",
+      name: "Get user",
+      method: "GET",
+      url: "https://api.example.com/users/1",
+      headers: { Accept: "application/json" },
+    })
+    const b = makeReq({
+      id: "create-post",
+      name: "Create post",
+      method: "POST",
+      url: "https://api.example.com/posts",
+      body: '{"title": "hi"}',
+      auth: { type: "bearer", token: "tok" },
+    })
+    await filestore.saveRequest(collectionDir, a)
+    await filestore.saveRequest(collectionDir, b)
+
+    const col = await filestore.loadCollection(collectionDir)
+    expect(col.id).toBe("my-api")
+    expect(col.name).toBe("my-api")
+    expect(col.requests.map((r) => r.id)).toEqual(["create-post", "get-user"])
+    expect(col.requests[0]).toEqual(b)
+    expect(col.requests[1]).toEqual(a)
+  })
+
+  it("load on lazy-created dir yields sorted requests only after save", async () => {
+    const fresh = join(dir, "lazy")
+    const before = await filestore.loadCollection(fresh)
+    expect(before).toEqual({ id: "lazy", name: "lazy", requests: [] })
+
+    await filestore.saveRequest(fresh, makeReq({ id: "z" }))
+    await filestore.saveRequest(fresh, makeReq({ id: "a" }))
+
+    const after = await filestore.loadCollection(fresh)
+    expect(after.requests.map((r) => r.id)).toEqual(["a", "z"])
   })
 })
