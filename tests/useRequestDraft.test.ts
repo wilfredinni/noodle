@@ -1,0 +1,298 @@
+import { describe, it, expect } from "bun:test"
+import { parseRow, requestEquals, applyDraft } from "../src/ui/useRequestDraft"
+import type { Request } from "../src/schema"
+
+function makeReq(over: Partial<Request> = {}): Request {
+  return {
+    id: "r1",
+    name: "Test",
+    method: "GET",
+    url: "https://example.com",
+    headers: {},
+    params: {},
+    ...over,
+  }
+}
+
+describe("parseRow", () => {
+  it("splits on first colon", () => {
+    expect(parseRow("Content-Type: application/json")).toEqual({
+      key: "Content-Type",
+      value: "application/json",
+    })
+  })
+  it("trims key and value", () => {
+    expect(parseRow("  Content-Type :   application/json  ")).toEqual({
+      key: "Content-Type",
+      value: "application/json",
+    })
+  })
+  it("no colon → key only, empty value", () => {
+    expect(parseRow("X-Custom-Header")).toEqual({
+      key: "X-Custom-Header",
+      value: "",
+    })
+  })
+  it("value contains colons (split on first only)", () => {
+    expect(parseRow("X-Time: 12:30:00")).toEqual({
+      key: "X-Time",
+      value: "12:30:00",
+    })
+  })
+  it("empty input → empty key, empty value (caller treats as delete)", () => {
+    expect(parseRow("")).toEqual({ key: "", value: "" })
+    expect(parseRow("   ")).toEqual({ key: "", value: "" })
+  })
+})
+
+describe("requestEquals", () => {
+  it("equal requests → true", () => {
+    const a = makeReq()
+    expect(requestEquals(a, a)).toBe(true)
+  })
+  it("differing url → false", () => {
+    expect(
+      requestEquals(
+        makeReq({ url: "https://a.com" }),
+        makeReq({ url: "https://b.com" }),
+      ),
+    ).toBe(false)
+  })
+  it("differing body → false", () => {
+    expect(requestEquals(makeReq({ body: "x" }), makeReq({ body: "y" }))).toBe(
+      false,
+    )
+  })
+  it("body undefined vs empty string → not equal (semantically distinct)", () => {
+    expect(
+      requestEquals(makeReq({ body: undefined }), makeReq({ body: "" })),
+    ).toBe(false)
+  })
+  it("differing method → false", () => {
+    expect(
+      requestEquals(makeReq({ method: "GET" }), makeReq({ method: "POST" })),
+    ).toBe(false)
+  })
+  it("differing headers → false", () => {
+    const a = makeReq({ headers: { A: "1" } })
+    const b = makeReq({ headers: { A: "2" } })
+    expect(requestEquals(a, b)).toBe(false)
+  })
+  it("same headers different insertion order → true (deep record compare)", () => {
+    const a = makeReq({ headers: { A: "1", B: "2" } })
+    const b = makeReq({ headers: { B: "2", A: "1" } })
+    expect(requestEquals(a, b)).toBe(true)
+  })
+  it("differing params → false", () => {
+    expect(
+      requestEquals(
+        makeReq({ params: { q: "1" } }),
+        makeReq({ params: { q: "2" } }),
+      ),
+    ).toBe(false)
+  })
+  it("differing auth → false", () => {
+    const a = makeReq({ auth: { type: "none" } })
+    const b = makeReq({ auth: { type: "bearer", token: "t" } })
+    expect(requestEquals(a, b)).toBe(false)
+  })
+  it("both auth undefined → true", () => {
+    expect(requestEquals(makeReq(), makeReq())).toBe(true)
+  })
+  it("name/id differences → still equal (only url/method/headers/params/body/auth compared)", () => {
+    const a = makeReq({ id: "r1", name: "A" })
+    const b = makeReq({ id: "r2", name: "B" })
+    expect(requestEquals(a, b)).toBe(true)
+  })
+})
+
+describe("applyDraft", () => {
+  it("setUrl updates url, leaves rest", () => {
+    const original = makeReq({ url: "https://a.com" })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setUrl",
+      url: "https://b.com",
+    })
+    const draft = next.get("r1")!
+    expect(draft.url).toBe("https://b.com")
+    expect(draft.method).toBe(original.method)
+    expect(draft.headers).toEqual(original.headers)
+  })
+  it("setBody updates body", () => {
+    const original = makeReq({ body: "x" })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setBody", body: "y" })
+    expect(next.get("r1")!.body).toBe("y")
+  })
+  it("setBody empty string is a real edit (kept in map)", () => {
+    const original = makeReq({ body: "x" })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setBody", body: "" })
+    expect(next.has("r1")).toBe(true)
+    expect(next.get("r1")!.body).toBe("")
+  })
+  it("setHeaderRow replaces i-th entry by sorted index", () => {
+    const original = makeReq({ headers: { B: "2", A: "1" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setHeaderRow",
+      index: 0,
+      key: "A",
+      value: "1-modified",
+    })
+    expect(next.get("r1")!.headers).toEqual({ B: "2", A: "1-modified" })
+  })
+  it("setHeaderRow with empty key removes the row", () => {
+    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setHeaderRow",
+      index: 0,
+      key: "",
+      value: "",
+    })
+    expect(next.get("r1")!.headers).toEqual({ B: "2" })
+  })
+  it("setHeaderRow with duplicate key overwrites existing entry", () => {
+    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setHeaderRow",
+      index: 0,
+      key: "B",
+      value: "2-modified",
+    })
+    expect(next.get("r1")!.headers).toEqual({ B: "2-modified" })
+  })
+  it("addHeaderRow appends", () => {
+    const original = makeReq({ headers: { A: "1" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "addHeaderRow",
+      key: "B",
+      value: "2",
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: "1", B: "2" })
+  })
+  it("removeHeaderRow deletes by sorted index", () => {
+    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "removeHeaderRow",
+      index: 0,
+    })
+    expect(next.get("r1")!.headers).toEqual({ B: "2" })
+  })
+  it("removeHeaderRow on last row leaves empty record", () => {
+    const original = makeReq({ headers: { A: "1" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "removeHeaderRow",
+      index: 0,
+    })
+    expect(next.get("r1")!.headers).toEqual({})
+  })
+  it("setParamRow / addParamRow / removeParamRow mirror headers", () => {
+    const original = makeReq({ params: { q: "1" } })
+    const map = new Map<string, Request>()
+    let next = applyDraft(map, "r1", original, {
+      kind: "setParamRow",
+      index: 0,
+      key: "q",
+      value: "2",
+    })
+    expect(next.get("r1")!.params).toEqual({ q: "2" })
+    next = applyDraft(next, "r1", original, {
+      kind: "addParamRow",
+      key: "p",
+      value: "3",
+    })
+    expect(next.get("r1")!.params).toEqual({ q: "2", p: "3" })
+    next = applyDraft(next, "r1", original, {
+      kind: "removeParamRow",
+      index: 0,
+    })
+    expect(next.get("r1")!.params).toEqual({ q: "2" })
+  })
+  it("revertField url restores url from original", () => {
+    const original = makeReq({ url: "https://orig.com" })
+    const map = new Map<string, Request>([
+      ["r1", { ...original, url: "https://edited.com" }],
+    ])
+    const next = applyDraft(map, "r1", original, {
+      kind: "revertField",
+      field: "url",
+    })
+    expect(next.get("r1")!.url).toBe("https://orig.com")
+  })
+  it("revertField body restores body from original", () => {
+    const original = makeReq({ body: "orig" })
+    const map = new Map<string, Request>([
+      ["r1", { ...original, body: "edited" }],
+    ])
+    const next = applyDraft(map, "r1", original, {
+      kind: "revertField",
+      field: "body",
+    })
+    expect(next.get("r1")!.body).toBe("orig")
+  })
+  it("revertField headers row i restores that row from original", () => {
+    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const map = new Map<string, Request>([
+      ["r1", { ...original, headers: { A: "1-edited", B: "2" } }],
+    ])
+    const next = applyDraft(map, "r1", original, {
+      kind: "revertField",
+      field: "headers",
+      row: 0,
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: "1", B: "2" })
+  })
+  it("revertField headers row i removes row if original had fewer rows (added row)", () => {
+    const original = makeReq({ headers: { A: "1" } })
+    const map = new Map<string, Request>([
+      ["r1", { ...original, headers: { A: "1", B: "2" } }],
+    ])
+    const next = applyDraft(map, "r1", original, {
+      kind: "revertField",
+      field: "headers",
+      row: 1,
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: "1" })
+  })
+  it("revertAll drops the map entry", () => {
+    const original = makeReq()
+    const map = new Map<string, Request>([
+      ["r1", { ...original, url: "edited" }],
+    ])
+    const next = applyDraft(map, "r1", original, { kind: "revertAll" })
+    expect(next.has("r1")).toBe(false)
+  })
+  it("applyDraft never mutates input map or original", () => {
+    const original = makeReq({ url: "https://a.com" })
+    const map = new Map<string, Request>()
+    const frozenOriginal = JSON.parse(JSON.stringify(original)) as Request
+    applyDraft(map, "r1", original, { kind: "setUrl", url: "https://b.com" })
+    expect(map.has("r1")).toBe(false)
+    expect(requestEquals(original, frozenOriginal)).toBe(true)
+  })
+  it("per-id preservation: editing id A does not leak into id B", () => {
+    const a = makeReq({ id: "a", url: "https://a.com" })
+    const b = makeReq({ id: "b", url: "https://b.com" })
+    let map = new Map<string, Request>()
+    map = applyDraft(map, "a", a, {
+      kind: "setUrl",
+      url: "https://a-edited.com",
+    })
+    map = applyDraft(map, "b", b, {
+      kind: "setUrl",
+      url: "https://b-edited.com",
+    })
+    expect(map.get("a")!.url).toBe("https://a-edited.com")
+    expect(map.get("b")!.url).toBe("https://b-edited.com")
+    map = applyDraft(map, "a", a, { kind: "revertAll" })
+    expect(map.has("a")).toBe(false)
+    expect(map.get("b")!.url).toBe("https://b-edited.com")
+  })
+})
