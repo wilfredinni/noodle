@@ -13,4 +13,4 @@ export const openApiImporter: OpenApiImporter = {
 }
 
 export { parseSpec } from "./parse"
-export { mapCollection } from "./map"
+export { mapCollection, type Normalized } from "./map"

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test"
-import { parseSpec } from "../src/converters/openapi"
+import { parseSpec, mapCollection } from "../src/converters/openapi"
+import type { Normalized } from "../src/converters/openapi"
 
 describe("parseSpec — string/object dispatch + validation", () => {
   it("passes an object input through unchanged (no re-parse)", () => {
@@ -90,5 +91,54 @@ describe("parseSpec — string/object dispatch + validation", () => {
   it("accepts empty paths (returns Normalized with empty paths map)", () => {
     const n = parseSpec({ openapi: "3.0.0", paths: {} } as object)
     expect(n.paths).toEqual({})
+  })
+})
+
+function makeNormalized(over: Partial<Normalized> = {}): Normalized {
+  return {
+    openapi: "3.0.0",
+    info: { title: "Test API" },
+    servers: [{ url: "https://api.example.com" }],
+    paths: {},
+    security: [],
+    components: { securitySchemes: {} },
+    ...over,
+  } as Normalized
+}
+
+describe("mapCollection — Collection metadata", () => {
+  it("derives name and id from info.title", () => {
+    const c = mapCollection(makeNormalized({ info: { title: "My Cool API!" } }))
+    expect(c.name).toBe("My Cool API!")
+    expect(c.id).toBe("my-cool-api")
+  })
+
+  it("falls back when info.title is empty string", () => {
+    const c = mapCollection(makeNormalized({ info: { title: "" } }))
+    expect(c.name).toBe("openapi-import")
+    expect(c.id).toBe("openapi-import")
+  })
+
+  it("falls back when info is missing entirely", () => {
+    const c = mapCollection(makeNormalized({ info: undefined }))
+    expect(c.name).toBe("openapi-import")
+    expect(c.id).toBe("openapi-import")
+  })
+
+  it("falls back when info.title is not a string", () => {
+    const c = mapCollection(makeNormalized({ info: { title: 42 } }))
+    expect(c.name).toBe("openapi-import")
+    expect(c.id).toBe("openapi-import")
+  })
+
+  it("falls back when title is all punctuation (slug empty)", () => {
+    const c = mapCollection(makeNormalized({ info: { title: "!!!" } }))
+    expect(c.name).toBe("!!!")
+    expect(c.id).toBe("openapi-import")
+  })
+
+  it("returns an empty requests array when paths is empty", () => {
+    const c = mapCollection(makeNormalized())
+    expect(c.requests).toEqual([])
   })
 })
