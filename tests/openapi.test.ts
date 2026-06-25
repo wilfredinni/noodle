@@ -257,3 +257,104 @@ describe("mapCollection — operations & methods", () => {
     expect(r.auth).toEqual({ type: "none" })
   })
 })
+
+describe("mapCollection — name derivation and id dedupe", () => {
+  it("uses operationId for name when present", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: { "/x": { get: { operationId: "getX", summary: "ignored" } } },
+      }),
+    )
+    expect(c.requests[0].name).toBe("getX")
+  })
+
+  it("falls back to summary when operationId is missing", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: { "/x": { get: { summary: "Get the X" } } },
+      }),
+    )
+    expect(c.requests[0].name).toBe("Get the X")
+  })
+
+  it("falls back to METHOD path when operationId and summary are missing", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: { "/x/{id}": { get: {} } },
+      }),
+    )
+    expect(c.requests[0].name).toBe("GET /x/{id}")
+  })
+
+  it("ignores non-string operationId", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: { "/x": { get: { operationId: 123, summary: "Get X" } } },
+      }),
+    )
+    expect(c.requests[0].name).toBe("Get X")
+  })
+
+  it("ignores empty-string operationId", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: { "/x": { get: { operationId: "", summary: "Get X" } } },
+      }),
+    )
+    expect(c.requests[0].name).toBe("Get X")
+  })
+
+  it("ignores non-string summary", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: { "/x": { get: { summary: 42 } } },
+      }),
+    )
+    expect(c.requests[0].name).toBe("GET /x")
+  })
+
+  it("derives id from method+path slug with braces stripped", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/users/{id}/items/{itemId}": { get: { operationId: "getItem" } },
+        },
+      }),
+    )
+    expect(c.requests[0].id).toBe("get-users-id-items-itemid")
+  })
+
+  it("dedupes identical ids with -2 suffix when two paths lowercased collide", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/USERS": {
+            get: { operationId: "listUsersUpper" },
+            post: { operationId: "createUserUpper" },
+          },
+          "/users": {
+            get: { operationId: "listUsersLower" },
+          },
+        },
+      }),
+    )
+    const ids = c.requests.map((r) => r.id)
+    expect(ids).toContain("get-users")
+    expect(ids).toContain("get-users-2")
+    expect(ids).toContain("post-users")
+  })
+
+  it("dedupes to -3 for a third collision", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/USERS": { get: { operationId: "a" } },
+          "/users": { get: { operationId: "b" } },
+          "/Users": { get: { operationId: "c" } },
+        },
+      }),
+    )
+    const ids = c.requests.map((r) => r.id).sort()
+    expect(ids).toEqual(["get-users", "get-users-2", "get-users-3"])
+  })
+})
