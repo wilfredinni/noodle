@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react"
+import { createContext, useContext, useRef, useEffect } from "react"
 import type { ReactNode } from "react"
 import { THEMES } from "./theme-data"
 import type { Theme } from "./theme-data"
@@ -42,6 +42,15 @@ export function ThemePickerOverlay({
   previewIndex: number | null
 }) {
   const theme = useTheme()
+  const scrollRef = useRef<import("@opentui/core").ScrollBoxRenderable | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (previewIndex !== null && previewIndex >= 0) {
+      scrollRef.current?.scrollChildIntoView(`theme-${previewIndex}`)
+    }
+  }, [previewIndex])
 
   return (
     <box
@@ -62,24 +71,29 @@ export function ThemePickerOverlay({
         }}
         title="▸ Themes"
       >
-        {THEMES.map((t, i) => {
-          const isSelected = i === previewIndex
-          return (
-            <box
-              key={t.name}
-              paddingLeft={1}
-              paddingRight={1}
-              backgroundColor={isSelected ? theme.primary : undefined}
-            >
-              <text
-                fg={isSelected ? "#1a1a1a" : theme.text}
+        <scrollbox
+          ref={scrollRef}
+          scrollY
+          style={{ flexDirection: "column", gap: 1 }}
+        >
+          {THEMES.map((t, i) => {
+            const isSelected = i === previewIndex
+            return (
+              <box
+                key={t.name}
+                id={`theme-${i}`}
+                paddingLeft={1}
+                paddingRight={1}
+                backgroundColor={isSelected ? theme.primary : undefined}
               >
-                {isSelected ? "▸ " : "  "}
-                {t.name}
-              </text>
-            </box>
-          )
-        })}
+                <text fg={isSelected ? "#1a1a1a" : theme.text}>
+                  {isSelected ? "▸ " : "  "}
+                  {t.name}
+                </text>
+              </box>
+            )
+          })}
+        </scrollbox>
         <text fg={theme.textMuted}>
           {"[↑/↓] navigate  [Enter] choose  [Esc] cancel"}
         </text>
