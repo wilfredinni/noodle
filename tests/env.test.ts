@@ -26,3 +26,11 @@ describe("loadEnvironment — happy path", () => {
     expect(environment.vars).toEqual({ host: "localhost:3000", token: "abc123" })
   })
 })
+
+describe("loadEnvironment — file errors", () => {
+  it("throws prefixed error when file is missing", async () => {
+    await expect(env.loadEnvironment(dir, "nope")).rejects.toThrow(
+      `env.load: environment file not found: ${join(dir, "nope.yml")}`,
+    )
+  })
+})
