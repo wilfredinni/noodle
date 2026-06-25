@@ -16,6 +16,7 @@ interface Props {
   editValue: string
   setEditValue: (v: string) => void
   draft: UseRequestDraftResult
+  focused?: boolean
 }
 
 function isFieldActive(editState: EditState, field: FieldKind): boolean {
@@ -36,6 +37,7 @@ export function RequestPane({
   editValue,
   setEditValue,
   draft,
+  focused = false,
 }: Props) {
   const methodFg = request ? methodColor(request.method) : ""
   const headers = request ? formatHeaders(request.headers) : []
@@ -50,12 +52,13 @@ export function RequestPane({
     <box
       style={{
         border: true,
+        borderColor: focused ? "#61dafb" : undefined,
         flexGrow: 1,
         flexDirection: "column",
         padding: 1,
         gap: 1,
       }}
-      title={title}
+      title={focused ? `▸ ${title}` : title}
     >
       {request ? (
         <>
