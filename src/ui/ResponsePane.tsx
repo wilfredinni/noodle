@@ -6,17 +6,24 @@ import {
   formatBody,
 } from "./format"
 
-export function ResponsePane({ state }: { state: SendState }) {
+export function ResponsePane({
+  state,
+  focused = false,
+}: {
+  state: SendState
+  focused?: boolean
+}) {
   return (
     <box
       style={{
         border: true,
+        borderColor: focused ? "#61dafb" : undefined,
         flexGrow: 1,
         flexDirection: "column",
         padding: 1,
         gap: 1,
       }}
-      title="Response"
+      title={focused ? "▸ Response" : "Response"}
     >
       {state.status === "idle" ? (
         <text fg="#888">(no response yet)</text>
