@@ -1,6 +1,5 @@
 import { useRef } from "react"
 import { useKeyboard } from "@opentui/react"
-import type { Environment } from "../schema"
 import { Sidebar } from "./Sidebar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
@@ -9,6 +8,7 @@ import { useSidebarSelection } from "./useSidebarSelection"
 import { useResponse } from "./useResponse"
 import { useRequestDraft } from "./useRequestDraft"
 import { useEditBrowse } from "./useEditBrowse"
+import { useEnvironments } from "./useEnvironments"
 
 function hintFor(mode: "inactive" | "browsing" | "editing"): string {
   if (mode === "browsing") {
@@ -17,15 +17,19 @@ function hintFor(mode: "inactive" | "browsing" | "editing"): string {
   if (mode === "editing") {
     return "[Enter] commit · [Esc] cancel"
   }
-  return "[↑/↓] select · [e] edit · [s] send · [Ctrl+C] quit"
+  return "[↑/↓] select · [e] edit · [s] send · [/] env · [Ctrl+C] quit"
 }
 
 export function App({
   collectionDir,
-  env,
+  environmentsDir,
+  envList,
+  initialEnvName,
 }: {
   collectionDir: string
-  env?: Environment
+  environmentsDir: string
+  envList: string[]
+  initialEnvName?: string
 }) {
   const { collection, loading, error } = useCollection(collectionDir)
   const requests = collection?.requests ?? []
@@ -43,11 +47,16 @@ export function App({
   )
   sidebarEnabledRef.current = !isActive
 
-  const { state: responseState } = useResponse(draft.draft, env)
+  const envState = useEnvironments(environmentsDir, envList, initialEnvName)
+  const { state: responseState } = useResponse(draft.draft, envState.activeEnv)
 
   useKeyboard((key) => {
     if (key.name === "tab" && !isActive) {
       // focus cycle placeholder (roadmap #5)
+    }
+    if (!isActive && envState.names.length > 0) {
+      if (key.name === "[") envState.cycle(-1)
+      else if (key.name === "]") envState.cycle(+1)
     }
   })
 
@@ -78,7 +87,9 @@ export function App({
           <ResponsePane state={responseState} />
         </box>
       </box>
-      <text fg="#666">{hintFor(editState.mode)}</text>
+      <text fg="#666">
+        {hintFor(editState.mode)} · env: {envState.indicatorLabel}
+      </text>
     </box>
   )
 }

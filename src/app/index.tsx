@@ -3,7 +3,6 @@ import { createRoot } from "@opentui/react"
 import { App } from "../ui/App"
 import { parseArgs, type ParsedArgs } from "./args"
 import { env } from "../env"
-import type { Environment } from "../schema"
 
 const ENVIRONMENTS_DIR = "./environments"
 
@@ -28,18 +27,14 @@ if (args.help) {
   process.exit(0)
 }
 
-let envData: Environment | undefined
-if (args.envName !== undefined) {
-  try {
-    envData = await env.loadEnvironment(ENVIRONMENTS_DIR, args.envName)
-  } catch (e) {
-    const reason = e instanceof Error ? e.message : String(e)
-    process.stderr.write(`error: ${reason}\n`)
-    process.exit(1)
-  }
-}
+const envList = await env.listEnvironments(ENVIRONMENTS_DIR)
 
 const renderer = await createCliRenderer({ exitOnCtrlC: true })
 createRoot(renderer).render(
-  <App collectionDir={args.collectionDir} env={envData} />,
+  <App
+    collectionDir={args.collectionDir}
+    environmentsDir={ENVIRONMENTS_DIR}
+    envList={envList}
+    initialEnvName={args.envName}
+  />,
 )
