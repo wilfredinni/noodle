@@ -55,39 +55,41 @@ export function RequestPane({
       {request ? (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            {activeTab === "headers" && (
-              <HeadersSection
-                request={request}
-                editState={editState}
-                editValue={editValue}
-                setEditValue={setEditValue}
-                inEdit={inEdit}
-                browseActive={browseActive}
-              />
-            )}
-            {activeTab === "params" && (
-              <ParamsSection
-                request={request}
-                editState={editState}
-                editValue={editValue}
-                setEditValue={setEditValue}
-                inEdit={inEdit}
-                browseActive={browseActive}
-              />
-            )}
-            {activeTab === "body" && (
-              <BodySection
-                request={request}
-                editState={editState}
-                editValue={editValue}
-                setEditValue={setEditValue}
-                inEdit={inEdit}
-                browseActive={browseActive}
-              />
-            )}
-            {activeTab === "auth" && (
-              <AuthSection request={request} editState={editState} />
-            )}
+            <scrollbox scrollY style={{ flexGrow: 1 }}>
+              {activeTab === "headers" && (
+                <HeadersSection
+                  request={request}
+                  editState={editState}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                />
+              )}
+              {activeTab === "params" && (
+                <ParamsSection
+                  request={request}
+                  editState={editState}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                />
+              )}
+              {activeTab === "body" && (
+                <BodySection
+                  request={request}
+                  editState={editState}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                />
+              )}
+              {activeTab === "auth" && (
+                <AuthSection request={request} editState={editState} />
+              )}
+            </scrollbox>
           </Tabs>
           <text fg="#888">[s] Send</text>
         </>
