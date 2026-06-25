@@ -20,3 +20,6 @@ export {
 } from "./format"
 export { getHelpSections } from "./helpTexts"
 export type { HelpKey, HelpSection } from "./helpTexts"
+export { ThemeProvider, useTheme, ThemePickerOverlay } from "./theme"
+export type { Theme } from "./theme"
+export { THEMES, contrastOnPrimary, PaneBorder } from "./theme"
