@@ -103,4 +103,9 @@ describe("immutability", () => {
     finishSend(sending, makeReq(), makeRes())
     expect(sending.status).toBe("sending")
   })
+  it("failSend does not mutate input state", () => {
+    const sending: SendState = { status: "sending", request: makeReq() }
+    failSend(sending, makeReq(), new Error("boom"))
+    expect(sending.status).toBe("sending")
+  })
 })
