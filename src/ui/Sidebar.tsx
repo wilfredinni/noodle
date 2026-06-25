@@ -1,4 +1,4 @@
-import { TextAttributes, ScrollBoxRenderable } from "@opentui/core"
+import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import type { Collection } from "../schema"
 import { methodColor } from "./formatRequest"
@@ -49,13 +49,14 @@ export function Sidebar({
           {collection.requests.map((r, i) => (
             <box key={r.id} id={`req-${i}`} style={{ flexDirection: "row" }}>
               <text
-                fg={methodColor(r.method)}
-                attributes={i === selectedIndex ? TextAttributes.INVERSE : 0}
+                fg={i === selectedIndex ? "#fff" : methodColor(r.method)}
+                bg={i === selectedIndex ? "#007aff" : undefined}
               >
                 {shortMethod(r.method).padEnd(7)}
               </text>
               <text
-                attributes={i === selectedIndex ? TextAttributes.INVERSE : 0}
+                fg={i === selectedIndex ? "#fff" : undefined}
+                bg={i === selectedIndex ? "#007aff" : undefined}
               >
                 {r.name}
               </text>

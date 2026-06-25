@@ -1,4 +1,3 @@
-import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 
 export type TabDef = {
@@ -26,8 +25,8 @@ export function Tabs({
           return (
             <text
               key={tab.id}
-              attributes={isActive ? TextAttributes.INVERSE : 0}
-              fg={isActive ? undefined : "#888"}
+              fg={isActive ? "#fff" : "#888"}
+              bg={isActive ? "#007aff" : undefined}
             >
               {label}
             </text>

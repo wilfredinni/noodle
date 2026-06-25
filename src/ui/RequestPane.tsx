@@ -1,4 +1,4 @@
-import { TextAttributes, ScrollBoxRenderable } from "@opentui/core"
+import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import type { Request } from "../schema"
 import {
@@ -168,8 +168,8 @@ function HeadersSection({
               <text
                 key={i}
                 id={`hdr-${i}`}
-                fg="#888"
-                attributes={cursorHere ? TextAttributes.INVERSE : 0}
+                fg={cursorHere ? "#fff" : "#888"}
+                bg={cursorHere ? "#007aff" : undefined}
               >
                 {"  " + line}
               </text>
@@ -178,10 +178,8 @@ function HeadersSection({
           {browseActive && editState.cursor.field === "headers" && (
             <text
               id="hdr-add"
-              fg="#888"
-              attributes={
-                editState.cursor.addingRow ? TextAttributes.INVERSE : 0
-              }
+              fg={editState.cursor.addingRow ? "#fff" : "#888"}
+              bg={editState.cursor.addingRow ? "#007aff" : undefined}
             >
               {"  [+] add header"}
             </text>
@@ -245,8 +243,8 @@ function ParamsSection({
               <text
                 key={i}
                 id={`prm-${i}`}
-                fg="#888"
-                attributes={cursorHere ? TextAttributes.INVERSE : 0}
+                fg={cursorHere ? "#fff" : "#888"}
+                bg={cursorHere ? "#007aff" : undefined}
               >
                 {"  " + line}
               </text>
@@ -255,10 +253,8 @@ function ParamsSection({
           {browseActive && editState.cursor.field === "params" && (
             <text
               id="prm-add"
-              fg="#888"
-              attributes={
-                editState.cursor.addingRow ? TextAttributes.INVERSE : 0
-              }
+              fg={editState.cursor.addingRow ? "#fff" : "#888"}
+              bg={editState.cursor.addingRow ? "#007aff" : undefined}
             >
               {"  [+] add param"}
             </text>
@@ -303,10 +299,15 @@ function BodySection({
       ) : (
         <text
           id="body-field"
-          attributes={
+          fg={
             browseActive && editState.cursor.field === "body"
-              ? TextAttributes.INVERSE
-              : 0
+              ? "#fff"
+              : undefined
+          }
+          bg={
+            browseActive && editState.cursor.field === "body"
+              ? "#007aff"
+              : undefined
           }
         >
           {body}
@@ -328,8 +329,8 @@ function AuthSection({
   return (
     <text
       id="auth-field"
-      fg="#888"
-      attributes={isActive ? TextAttributes.INVERSE : 0}
+      fg={isActive ? "#fff" : "#888"}
+      bg={isActive ? "#007aff" : undefined}
     >
       {"  " + auth}
     </text>

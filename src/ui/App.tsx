@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { Sidebar } from "./Sidebar"
-import { Brand } from "./Brand"
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
@@ -178,9 +177,7 @@ export function App({
       {helpVisible ? (
         <HelpOverlay visible />
       ) : (
-        <>
-          <Brand />
-          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+        <box style={{ flexDirection: "row", flexGrow: 1 }}>
             <Sidebar
               collection={collection}
               loading={loading}
@@ -210,7 +207,6 @@ export function App({
             />
           </box>
         </box>
-      </>
       )}
       <text fg="#666">
         {helpVisible
