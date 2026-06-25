@@ -49,6 +49,8 @@ export function RequestPane({
         flexDirection: "column",
         padding: 1,
         gap: 1,
+        flexBasis: 0,
+        minHeight: 0,
       }}
       title={focused ? `▸ ${title}` : title}
     >

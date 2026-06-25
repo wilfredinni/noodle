@@ -4,7 +4,7 @@ import { Sidebar } from "../src/ui/Sidebar"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ResponsePane } from "../src/ui/ResponsePane"
 import { initialEditState } from "../src/ui/editMode"
-import type { Auth, Request, Collection } from "../src/schema"
+import type { Request, Collection } from "../src/schema"
 import type { SendState } from "../src/ui/sendState"
 import type { UseRequestDraftResult } from "../src/ui/useRequestDraft"
 
@@ -79,7 +79,6 @@ describe("RequestPane scrollbox", () => {
       headers: manyHeaders,
       params: {} as Record<string, string>,
       body: "" as string | undefined,
-      auth: null as Auth | null,
     }
 
     const draft: UseRequestDraftResult = {
@@ -151,5 +150,96 @@ describe("Sidebar scrollbox", () => {
     expect(lines.length).toBeLessThan(50)
 
     expect(frame).toContain("Request number 5")
+  })
+})
+
+describe("App layout stability", () => {
+  it("renders all three panes together without overflow", async () => {
+    const requests = Array.from({ length: 50 }, (_, i) => makeRequest(i))
+    const collection: Collection = { id: "test", name: "Test", requests }
+
+    const manyHeaders: Record<string, string> = {}
+    for (let i = 0; i < 30; i++) {
+      manyHeaders[`X-Header-${i}`] = `value-${i}`
+    }
+
+    const request = {
+      id: "req-0",
+      name: "Request 0",
+      method: "GET" as const,
+      url: "http://example.com",
+      headers: manyHeaders,
+      params: {} as Record<string, string>,
+      body: "" as string | undefined,
+    }
+
+    const draft: UseRequestDraftResult = {
+      draft: request,
+      isDirty: false,
+      setUrl: () => {},
+      setBody: () => {},
+      addHeaderRow: () => {},
+      setHeaderRow: () => {},
+      removeHeaderRow: () => {},
+      addParamRow: () => {},
+      setParamRow: () => {},
+      removeParamRow: () => {},
+      revertField: () => {},
+      revertAll: () => {},
+      markSaved: () => {},
+    }
+
+    const longBody = JSON.stringify(
+      { data: Array.from({ length: 100 }, (_, i) => ({ id: i, name: `item-${i}` })) },
+      null,
+      2,
+    )
+    const responseState = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "application/json" },
+        body: longBody,
+        timeMs: 0,
+      },
+    } satisfies SendState
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <box style={{ width: "100%", height: "100%", flexDirection: "column" }}>
+        <box style={{ flexDirection: "row", flexGrow: 1 }}>
+          <Sidebar
+            collection={collection}
+            loading={false}
+            error={null}
+            selectedIndex={3}
+            focused={false}
+          />
+          <box style={{ flexDirection: "column", flexGrow: 1 }}>
+            <RequestPane
+              request={request}
+              editState={initialEditState()}
+              editValue=""
+              setEditValue={() => {}}
+              draft={draft}
+              focused={false}
+              activeTab="headers"
+            />
+            <ResponsePane state={responseState} focused={false} />
+          </box>
+        </box>
+      </box>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).not.toBe("")
+
+    // All three panes contribute content
+    expect(frame).toContain("Request")
+    expect(frame).toContain("Response")
+    expect(frame).toContain("X-Header-")
+    expect(frame).toContain("item-")
   })
 })

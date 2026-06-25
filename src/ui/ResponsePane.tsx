@@ -45,6 +45,8 @@ export function ResponsePane({
         flexDirection: "column",
         padding: 1,
         gap: 1,
+        flexBasis: 0,
+        minHeight: 0,
       }}
       title={focused ? "▸ Response" : "Response"}
     >
