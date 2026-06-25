@@ -1,4 +1,5 @@
-import { TextAttributes } from "@opentui/core"
+import { TextAttributes, ScrollBoxRenderable } from "@opentui/core"
+import { useEffect, useRef } from "react"
 import type { Request } from "../schema"
 import {
   formatHeaders,
@@ -39,6 +40,18 @@ export function RequestPane({
   const title = `Request${draft.isDirty ? "*" : ""}`
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  useEffect(() => {
+    if (editState.mode !== "browsing") return
+    const { field, row, addingRow } = editState.cursor
+    if (field === "headers" || field === "params") {
+      const prefix = field === "headers" ? "hdr" : "prm"
+      scrollRef.current?.scrollChildIntoView(addingRow ? `${prefix}-add` : `${prefix}-${row}`)
+    } else {
+      scrollRef.current?.scrollChildIntoView(`${field}-field`)
+    }
+  }, [editState.cursor])
 
   return (
     <box
@@ -57,7 +70,7 @@ export function RequestPane({
       {request ? (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            <scrollbox scrollY style={{ flexGrow: 1 }}>
+            <scrollbox ref={scrollRef} scrollY style={{ flexGrow: 1 }}>
               {activeTab === "headers" && (
                 <HeadersSection
                   request={request}
@@ -140,6 +153,7 @@ function HeadersSection({
               return (
                 <input
                   key={i}
+                  id={`hdr-${i}`}
                   value={editValue}
                   onInput={setEditValue}
                   backgroundColor="#222"
@@ -153,6 +167,7 @@ function HeadersSection({
             return (
               <text
                 key={i}
+                id={`hdr-${i}`}
                 fg="#888"
                 attributes={cursorHere ? TextAttributes.INVERSE : 0}
               >
@@ -162,6 +177,7 @@ function HeadersSection({
           })}
           {browseActive && editState.cursor.field === "headers" && (
             <text
+              id="hdr-add"
               fg="#888"
               attributes={
                 editState.cursor.addingRow ? TextAttributes.INVERSE : 0
@@ -214,6 +230,7 @@ function ParamsSection({
               return (
                 <input
                   key={i}
+                  id={`prm-${i}`}
                   value={editValue}
                   onInput={setEditValue}
                   backgroundColor="#222"
@@ -227,6 +244,7 @@ function ParamsSection({
             return (
               <text
                 key={i}
+                id={`prm-${i}`}
                 fg="#888"
                 attributes={cursorHere ? TextAttributes.INVERSE : 0}
               >
@@ -236,6 +254,7 @@ function ParamsSection({
           })}
           {browseActive && editState.cursor.field === "params" && (
             <text
+              id="prm-add"
               fg="#888"
               attributes={
                 editState.cursor.addingRow ? TextAttributes.INVERSE : 0
@@ -270,6 +289,7 @@ function BodySection({
     <>
       {inEdit && editState.cursor.field === "body" ? (
         <input
+          id="body-field"
           value={editValue}
           onInput={setEditValue}
           backgroundColor="#222"
@@ -279,9 +299,10 @@ function BodySection({
           focused
         />
       ) : body === "" ? (
-        <text fg="#888">{"  (none)"}</text>
+        <text id="body-field" fg="#888">{"  (none)"}</text>
       ) : (
         <text
+          id="body-field"
           attributes={
             browseActive && editState.cursor.field === "body"
               ? TextAttributes.INVERSE
@@ -306,6 +327,7 @@ function AuthSection({
   const isActive = editState.mode === "browsing" && editState.cursor.field === "auth"
   return (
     <text
+      id="auth-field"
       fg="#888"
       attributes={isActive ? TextAttributes.INVERSE : 0}
     >

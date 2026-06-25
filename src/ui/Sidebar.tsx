@@ -1,5 +1,5 @@
 import { TextAttributes, ScrollBoxRenderable } from "@opentui/core"
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import type { Collection } from "../schema"
 import { methodColor } from "./formatRequest"
 
@@ -21,6 +21,12 @@ export function Sidebar({
   focused?: boolean
 }) {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  useEffect(() => {
+    if (selectedIndex >= 0) {
+      scrollRef.current?.scrollChildIntoView(`req-${selectedIndex}`)
+    }
+  }, [selectedIndex])
 
   return (
     <box
