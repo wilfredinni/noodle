@@ -1,5 +1,23 @@
 import { describe, it, expect } from "bun:test"
-import { methodColor, formatHeaders, formatParams } from "../src/ui/formatRequest"
+import type { Request } from "../src/schema"
+import {
+  methodColor,
+  formatHeaders,
+  formatParams,
+  formatBody,
+} from "../src/ui/formatRequest"
+
+function makeReq(over: Partial<Request> = {}): Request {
+  return {
+    id: "r1",
+    name: "Test",
+    method: "GET",
+    url: "https://example.com",
+    headers: {},
+    params: {},
+    ...over,
+  }
+}
 
 describe("methodColor", () => {
   it("GET → green", () => {
@@ -68,5 +86,23 @@ describe("formatParams", () => {
       "m-middle: 2",
       "z-last: 3",
     ])
+  })
+})
+
+describe("formatBody", () => {
+  it("returns empty string for undefined body", () => {
+    expect(formatBody(makeReq().body)).toBe("")
+  })
+  it("returns empty string for empty body", () => {
+    expect(formatBody("")).toBe("")
+  })
+  it("pretty-prints valid compact JSON (2-space indent)", () => {
+    expect(formatBody('{"b":1,"a":2}')).toBe('{\n  "b": 1,\n  "a": 2\n}')
+  })
+  it("returns raw body when JSON.parse fails", () => {
+    expect(formatBody("not json {")).toBe("not json {")
+  })
+  it("stable round-trip for already-formatted JSON", () => {
+    expect(formatBody('{\n  "a": 1\n}')).toBe('{\n  "a": 1\n}')
   })
 })

@@ -18,3 +18,12 @@ export function formatParams(params: Record<string, string>): string[] {
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   return entries.map(([k, v]) => `${k}: ${v}`)
 }
+
+export function formatBody(body?: string): string {
+  if (body === undefined || body === "") return ""
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2)
+  } catch {
+    return body
+  }
+}
