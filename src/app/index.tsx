@@ -27,7 +27,26 @@ if (args.help) {
   process.exit(0)
 }
 
-const envList = await env.listEnvironments(ENVIRONMENTS_DIR)
+let envList: string[]
+try {
+  envList = await env.listEnvironments(ENVIRONMENTS_DIR)
+} catch (e) {
+  const reason = e instanceof Error ? e.message : String(e)
+  process.stderr.write(`error: ${reason}\n`)
+  process.exit(1)
+}
+
+let initialEnvName: string | undefined
+if (args.envName !== undefined) {
+  if (!envList.includes(args.envName)) {
+    const available = envList.length > 0 ? envList.join(", ") : "(none)"
+    process.stderr.write(
+      `error: environment "${args.envName}" not found.\nAvailable envs: ${available}\n`,
+    )
+    process.exit(1)
+  }
+  initialEnvName = args.envName
+}
 
 const renderer = await createCliRenderer({ exitOnCtrlC: true })
 createRoot(renderer).render(
@@ -35,6 +54,6 @@ createRoot(renderer).render(
     collectionDir={args.collectionDir}
     environmentsDir={ENVIRONMENTS_DIR}
     envList={envList}
-    initialEnvName={args.envName}
+    initialEnvName={initialEnvName}
   />,
 )
