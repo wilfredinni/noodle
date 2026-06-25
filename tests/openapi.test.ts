@@ -359,6 +359,182 @@ describe("mapCollection — name derivation and id dedupe", () => {
   })
 })
 
+describe("mapCollection — auth resolution", () => {
+  const bearer = { type: "http", scheme: "bearer" }
+  const basic = { type: "http", scheme: "basic" }
+  const apiKeyHeader = { type: "apiKey", in: "header", name: "X-Api-Key" }
+  const oauth2 = { type: "oauth2", flows: {} }
+  const oidc = { type: "openIdConnect", openIdConnectUrl: "https://x" }
+
+  it("maps http+bearer to Auth=bearer with {{TOKEN}}", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { bearerAuth: bearer } },
+        security: [{ bearerAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+  })
+
+  it("maps http+basic to Auth=basic with {{USER}} {{PASS}}", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { basicAuth: basic } },
+        security: [{ basicAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({
+      type: "basic",
+      user: "{{USER}}",
+      pass: "{{PASS}}",
+    })
+  })
+
+  it("maps apiKey scheme to none", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { key: apiKeyHeader } },
+        security: [{ key: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "none" })
+  })
+
+  it("maps oauth2 to none", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { oauth: oauth2 } },
+        security: [{ oauth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "none" })
+  })
+
+  it("maps openIdConnect to none", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { oidc: oidc } },
+        security: [{ oidc: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "none" })
+  })
+
+  it("op.security overrides global security", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: {
+          securitySchemes: { bearerAuth: bearer, basicAuth: basic },
+        },
+        security: [{ bearerAuth: [] }],
+        paths: {
+          "/x": { get: { operationId: "getX", security: [{ basicAuth: [] }] } },
+        },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({
+      type: "basic",
+      user: "{{USER}}",
+      pass: "{{PASS}}",
+    })
+  })
+
+  it("op inherits global security when no op.security", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { bearerAuth: bearer } },
+        security: [{ bearerAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+  })
+
+  it("op.security: [] (empty array) means no auth required", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { bearerAuth: bearer } },
+        security: [{ bearerAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX", security: [] } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "none" })
+  })
+
+  it("falls to none when security requirement references an unknown scheme", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: {} },
+        security: [{ missingScheme: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "none" })
+  })
+
+  it("falls to none when securitySchemes is missing entirely", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: undefined,
+        security: [{ bearerAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "none" })
+  })
+
+  it("tries the next requirement when prior requirement has no usable scheme", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: {
+          securitySchemes: { key: apiKeyHeader, bearerAuth: bearer },
+        },
+        security: [{ key: [] }, { bearerAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+  })
+
+  it("falls to none when no security anywhere", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { bearerAuth: bearer } },
+        security: undefined,
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "none" })
+  })
+
+  it("skips a security requirement that is not a mapping", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { bearerAuth: bearer } },
+        security: ["not a mapping", { bearerAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+  })
+
+  it("skips security requirement entries whose scheme name is not a string", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: { securitySchemes: { bearerAuth: bearer } },
+        security: [{ 123: [] }, { bearerAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+  })
+})
+
 describe("mapCollection — parameters", () => {
   it("translates in:query params to params as {{name}} placeholders", () => {
     const c = mapCollection(

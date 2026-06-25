@@ -1,4 +1,4 @@
-import type { Collection, Method, Request } from "../../schema"
+import type { Auth, Collection, Method, Request } from "../../schema"
 
 export interface Normalized {
   openapi: string
@@ -57,6 +57,51 @@ function collectParams(
     for (const p of opParams) consider(p)
   }
   return list
+}
+
+function lookupScheme(
+  n: Normalized,
+  name: string,
+): Record<string, unknown> | null {
+  const comp = n.components
+  if (!isMapping(comp)) return null
+  const schemes = (comp as Record<string, unknown>).securitySchemes
+  if (!isMapping(schemes)) return null
+  const s = (schemes as Record<string, unknown>)[name]
+  return isMapping(s) ? s : null
+}
+
+function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
+  const type = scheme.type
+  const schemeName = scheme.scheme
+  if (type === "http" && schemeName === "bearer") {
+    return { type: "bearer", token: "{{TOKEN}}" }
+  }
+  if (type === "http" && schemeName === "basic") {
+    return { type: "basic", user: "{{USER}}", pass: "{{PASS}}" }
+  }
+  return null
+}
+
+function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
+  const opSec = op.security
+  const security = Array.isArray(opSec)
+    ? opSec
+    : Array.isArray(n.security)
+      ? n.security
+      : []
+  for (const req of security) {
+    if (!isMapping(req)) continue
+    const entries = Object.entries(req)
+    for (const [schemeName] of entries) {
+      if (typeof schemeName !== "string") continue
+      const scheme = lookupScheme(n, schemeName)
+      if (!scheme) continue
+      const auth = schemeToAuth(scheme)
+      if (auth !== null) return auth
+    }
+  }
+  return { type: "none" }
 }
 
 function slugify(s: string): string {
@@ -159,7 +204,7 @@ export function mapCollection(n: Normalized): Collection {
         headers,
         params,
         body: undefined,
-        auth: { type: "none" },
+        auth: resolveAuth(op, n),
       })
     }
   }
