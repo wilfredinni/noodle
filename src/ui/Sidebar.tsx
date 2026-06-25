@@ -1,13 +1,16 @@
+import { TextAttributes } from "@opentui/core"
 import type { Collection } from "../schema"
 
 export function Sidebar({
   collection,
   loading,
   error,
+  selectedIndex,
 }: {
   collection: Collection | null
   loading: boolean
   error: Error | null
+  selectedIndex: number
 }) {
   return (
     <box
@@ -22,8 +25,11 @@ export function Sidebar({
         <text fg="#888">(empty)</text>
       ) : (
         <>
-          {collection.requests.map((r) => (
-            <text key={r.id}>
+          {collection.requests.map((r, i) => (
+            <text
+              key={r.id}
+              attributes={i === selectedIndex ? TextAttributes.INVERSE : 0}
+            >
               {r.method} {r.name}
             </text>
           ))}

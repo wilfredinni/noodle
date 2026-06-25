@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
 import { useCollection } from "./useCollection"
+import { useSidebarSelection } from "./useSidebarSelection"
 
 export function App({ collectionDir }: { collectionDir: string }) {
   useKeyboard((key) => {
@@ -12,6 +13,8 @@ export function App({ collectionDir }: { collectionDir: string }) {
   })
 
   const { collection, loading, error } = useCollection(collectionDir)
+  const requests = collection?.requests ?? []
+  const { selectedIndex, selectedRequest } = useSidebarSelection(requests)
 
   return (
     <box
@@ -23,13 +26,18 @@ export function App({ collectionDir }: { collectionDir: string }) {
       }}
     >
       <box style={{ flexDirection: "row", flexGrow: 1 }}>
-        <Sidebar collection={collection} loading={loading} error={error} />
+        <Sidebar
+          collection={collection}
+          loading={loading}
+          error={error}
+          selectedIndex={selectedIndex}
+        />
         <box style={{ flexDirection: "column", flexGrow: 1 }}>
-          <RequestPane />
+          <RequestPane request={selectedRequest} />
           <ResponsePane />
         </box>
       </box>
-      <text fg="#666">[Tab] focus · [Ctrl+C] quit</text>
+      <text fg="#666">[↑/↓] select · [Tab] focus · [Ctrl+C] quit</text>
     </box>
   )
 }

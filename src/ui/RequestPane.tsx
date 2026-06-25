@@ -1,4 +1,6 @@
-export function RequestPane() {
+import type { Request } from "../schema"
+
+export function RequestPane({ request }: { request: Request | null }) {
   return (
     <box
       style={{
@@ -10,8 +12,16 @@ export function RequestPane() {
       }}
       title="Request"
     >
-      <text>GET https://httpbin.org/get</text>
-      <text fg="#888">[Send]</text>
+      {request ? (
+        <>
+          <text>
+            {request.method} {request.url}
+          </text>
+          <text fg="#888">[Send]</text>
+        </>
+      ) : (
+        <text fg="#888">(no request selected)</text>
+      )}
     </box>
   )
 }
