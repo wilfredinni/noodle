@@ -271,3 +271,57 @@ describe("send — env handling", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.example.com/x")
   })
 })
+
+describe("send — auth header", () => {
+  it("adds no Authorization header for none auth", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ auth: { type: "none" } }))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    expect(headers.get("Authorization")).toBeNull()
+  })
+
+  it("adds no Authorization header when auth undefined", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    const req = makeReq()
+    delete (req as { auth?: Request["auth"] }).auth
+    await executor.send(req)
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    expect(headers.get("Authorization")).toBeNull()
+  })
+
+  it("adds Authorization: Bearer <token> for bearer auth", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ auth: { type: "bearer", token: "abc123" } }))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    expect(headers.get("Authorization")).toBe("Bearer abc123")
+  })
+
+  it("adds Authorization: Basic <base64(user:pass)> for basic auth", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({ auth: { type: "basic", user: "foo", pass: "bar" } }),
+    )
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    const auth = headers.get("Authorization") ?? ""
+    expect(auth.startsWith("Basic ")).toBe(true)
+    const decoded = Buffer.from(auth.slice(6), "base64").toString("utf8")
+    expect(decoded).toBe("foo:bar")
+  })
+
+  it("auth header overwrites user-set Authorization on collision", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({
+        headers: { Authorization: "Token user-set" },
+        auth: { type: "bearer", token: "from-auth" },
+      }),
+    )
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    expect(headers.get("Authorization")).toBe("Bearer from-auth")
+  })
+})
