@@ -25,6 +25,7 @@ export function useEnvironments(
   const [error, setError] = useState<Error | null>(null)
   const genRef = useRef(0)
 
+  // Mount-only effect: initialName/dir/envList are stable for App's lifetime.
   useEffect(() => {
     if (initialName === undefined) return
     const idx = envList.indexOf(initialName)
@@ -56,12 +57,11 @@ export function useEnvironments(
         envList.length,
         delta,
       )
-      const target = candidate < 0 ? 0 : candidate
-      const name = envList[target]
+      const name = envList[candidate]
       genRef.current += 1
       const gen = genRef.current
       setError(null)
-      setActiveIndex(target)
+      setActiveIndex(candidate)
       env
         .loadEnvironment(dir, name)
         .then((loaded) => {
@@ -74,9 +74,6 @@ export function useEnvironments(
           const err = e instanceof Error ? e : new Error(String(e))
           setError(err)
           setActiveEnv(null)
-          if (activeEnv !== null) {
-            setActiveIndex(prevIndex < 0 ? -1 : prevIndex)
-          }
         })
     },
     [dir, envList, activeIndex, activeEnv],
