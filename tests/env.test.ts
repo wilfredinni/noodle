@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { loadEnvironment } from "../src/env"
+import { env } from "../src/env"
 
 let dir: string
 
@@ -21,8 +21,8 @@ describe("loadEnvironment — happy path", () => {
       "name: development\nvars:\n  host: localhost:3000\n  token: abc123\n",
       "utf8",
     )
-    const env = await loadEnvironment(dir, "development")
-    expect(env.name).toBe("development")
-    expect(env.vars).toEqual({ host: "localhost:3000", token: "abc123" })
+    const environment = await env.loadEnvironment(dir, "development")
+    expect(environment.name).toBe("development")
+    expect(environment.vars).toEqual({ host: "localhost:3000", token: "abc123" })
   })
 })
