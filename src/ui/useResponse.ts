@@ -11,7 +11,7 @@ export interface UseResponseResult {
 
 export function useResponse(
   selectedRequest: Request | null,
-  env?: Environment,
+  env?: Environment | null,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
 
@@ -22,7 +22,7 @@ export function useResponse(
 
     setState((prev) => {
       if (prev.status === "sending") return prev
-      void runSend(req, env, setState)
+      void runSend(req, env ?? undefined, setState)
       return startSend(prev, req)
     })
   })
