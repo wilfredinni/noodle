@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { filestore } from "../src/filestore"
@@ -101,5 +101,98 @@ describe("filestore.loadCollection — file selection and order", () => {
     const col = await filestore.loadCollection(dir + "/")
     expect(col.id).toBe(basename(dir))
     expect(col.name).toBe(basename(dir))
+  })
+})
+
+describe("filestore.saveRequest — writes", () => {
+  it("writes <dir>/<id>.yml with serialized YAML content", async () => {
+    await mkdir(join(dir, "sub"), { recursive: true })
+    const req = makeReq({ id: "ping", name: "Ping", url: "https://x" })
+    await filestore.saveRequest(join(dir, "sub"), req)
+    const content = await readFile(join(dir, "sub", "ping.yml"), "utf8")
+    expect(content).toContain("name: Ping")
+    expect(content).toContain("method: GET")
+    expect(content).toContain("url: https://x")
+  })
+
+  it("creates dir (and parents) if missing", async () => {
+    const target = join(dir, "a", "b", "c")
+    const req = makeReq({ id: "x" })
+    await filestore.saveRequest(target, req)
+    const content = await readFile(join(target, "x.yml"), "utf8")
+    expect(content).toContain("name: X")
+  })
+
+  it("overwrites an existing file with new content", async () => {
+    const req1 = makeReq({ id: "x", name: "Old" })
+    await filestore.saveRequest(dir, req1)
+    const req2 = makeReq({ id: "x", name: "New" })
+    await filestore.saveRequest(dir, req2)
+    const content = await readFile(join(dir, "x.yml"), "utf8")
+    expect(content).toContain("name: New")
+    expect(content).not.toContain("name: Old")
+  })
+
+  it("written file round-trips through lang.parseRequest", async () => {
+    const req = makeReq({
+      id: "post-thing",
+      name: "Post thing",
+      method: "POST",
+      url: "https://api.example.com/items",
+      headers: { "Content-Type": "application/json" },
+      body: '{"a": 1}',
+      auth: { type: "bearer", token: "t" },
+    })
+    await filestore.saveRequest(dir, req)
+    const { lang } = await import("../src/lang")
+    const content = await readFile(join(dir, "post-thing.yml"), "utf8")
+    const reparsed = lang.parseRequest("post-thing", content)
+    expect(reparsed).toEqual(req)
+  })
+})
+
+describe("filestore.saveRequest — id validation", () => {
+  it("rejects empty id", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "" })),
+    ).rejects.toThrow("filestore.saveRequest: missing or invalid id")
+  })
+
+  it("rejects undefined id (treated as empty)", async () => {
+    const req = makeReq()
+    delete (req as { id?: string }).id
+    await expect(filestore.saveRequest(dir, req)).rejects.toThrow(
+      "filestore.saveRequest: missing or invalid id",
+    )
+  })
+
+  it("rejects id with forward slash", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "../evil" })),
+    ).rejects.toThrow(
+      'filestore.saveRequest: id must not contain path separators or ".."',
+    )
+  })
+
+  it("rejects id with backslash", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "a\\b" })),
+    ).rejects.toThrow(
+      'filestore.saveRequest: id must not contain path separators or ".."',
+    )
+  })
+
+  it("rejects id containing .. substring", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "a..b" })),
+    ).rejects.toThrow(
+      'filestore.saveRequest: id must not contain path separators or ".."',
+    )
+  })
+
+  it("accepts ids with spaces, dots, capitals", async () => {
+    await filestore.saveRequest(dir, makeReq({ id: "My.Request v2" }))
+    const content = await readFile(join(dir, "My.Request v2.yml"), "utf8")
+    expect(content).toContain("name: X")
   })
 })
