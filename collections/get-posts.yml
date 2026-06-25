@@ -1,0 +1,3 @@
+name: Get Posts
+method: GET
+url: https://jsonplaceholder.typicode.com/posts

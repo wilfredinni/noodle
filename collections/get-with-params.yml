@@ -1,0 +1,6 @@
+name: Get with Params
+method: GET
+url: https://jsonplaceholder.typicode.com/posts
+params:
+  userId: "1"
+  _limit: "3"

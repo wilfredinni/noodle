@@ -1,0 +1,6 @@
+name: Bearer Auth
+method: GET
+url: https://httpbin.org/bearer
+auth:
+  type: bearer
+  token: "{{api_token}}"

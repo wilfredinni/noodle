@@ -1,0 +1,7 @@
+name: Basic Auth
+method: GET
+url: https://httpbin.org/basic-auth/user/pass
+auth:
+  type: basic
+  user: user
+  pass: pass
