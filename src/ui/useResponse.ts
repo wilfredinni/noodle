@@ -21,10 +21,9 @@ export function useResponse(
 
     setState((prev) => {
       if (prev.status === "sending") return prev
+      void runSend(req, setState)
       return startSend(prev, req)
     })
-
-    void runSend(req, setState)
   })
 
   return { state }
