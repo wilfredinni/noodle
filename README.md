@@ -4,7 +4,7 @@ A terminal REST client. Inspect, send, and iterate on HTTP requests from YAML fi
 
 ## Status
 
-Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields, runtime environment switching, and persisting edits to disk. See [Roadmap](#roadmap-to-v1).
+Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields, runtime environment switching, persisting edits to disk, and pane focus cycling. See [Roadmap](#roadmap-to-v1).
 
 ## Quick start
 
@@ -54,6 +54,7 @@ vars:
 - **Response pane** — renders idle / sending / done / error states. Done state shows status line (color-coded), sorted headers, and pretty-printed JSON body.
 - **Send trigger** — press `s` to send the active (possibly edited) request with the current env.
 - **Save to disk** — press `w` (inactive mode) to persist the current draft to its `.yml` file; confirms overwrite with `[y/N]`. Draft dirty state (`*` in title) clears on successful save.
+- **Focus management** — Tab/Shift+Tab cycles focus between Sidebar, Request Pane, and Response Pane. Focused pane gets a cyan border and `▸` title prefix. Each pane's keyboard handlers are gated on focus; global keys (`s`, `w`, `[`/`]`) always work. Footer shows per-pane hints.
 
 ## Roadmap to v1
 
@@ -75,9 +76,9 @@ Footer shows the active env name. `[`/`]` cycles all `environments/*.yml` files 
 
 `w` to persist the current draft to its `.yml` file. Confirms with `[y/N]`. Footer flashes success/error feedback. Dirty `*` clears on successful save.
 
-### 5. Focus management between panes
+### 5. Focus management between panes ✅
 
-`Tab` currently a no-op placeholder. Implement real focus cycling: Sidebar → Request pane → Response pane. Focused pane receives edit/key input.
+`Tab`/`Shift+Tab` cycles focus between Sidebar, Request Pane, and Response Pane (wrap-around). Focused pane gets a cyan border and `▸` title prefix. Per-pane footer hints. Global keys (`s`, `w`, `[`/`]`) always work. `e` from any pane enters edit-browse and shifts focus to request.
 
 ### 6. Help overlay
 
