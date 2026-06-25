@@ -103,12 +103,16 @@ export function parseRequest(id: string, yamlText: string): Request {
 function parseStringMap(value: unknown, field: string): Record<string, string> {
   if (value === undefined) return {}
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`lang.parseRequest: ${field} must be a map of string to string`)
+    throw new Error(
+      `lang.parseRequest: ${field} must be a map of string to string`,
+    )
   }
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     if (typeof v !== "string") {
-      throw new Error(`lang.parseRequest: ${field} must be a map of string to string`)
+      throw new Error(
+        `lang.parseRequest: ${field} must be a map of string to string`,
+      )
     }
     out[k] = v
   }
@@ -130,7 +134,9 @@ function parseAuth(value: unknown): Auth {
   }
   if (a.type === "basic") {
     if (typeof a.user !== "string" || typeof a.pass !== "string") {
-      throw new Error('lang.parseRequest: auth.basic requires "user" and "pass"')
+      throw new Error(
+        'lang.parseRequest: auth.basic requires "user" and "pass"',
+      )
     }
     return { type: "basic", user: a.user, pass: a.pass }
   }

@@ -12,7 +12,12 @@ export function App() {
 
   return (
     <box
-      style={{ flexDirection: "column", width: "100%", height: "100%", border: true }}
+      style={{
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        border: true,
+      }}
     >
       <box style={{ flexDirection: "row", flexGrow: 1 }}>
         <Sidebar />

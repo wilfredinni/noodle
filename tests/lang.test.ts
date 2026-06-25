@@ -120,14 +120,19 @@ describe("lang.parseRequest — strictness", () => {
 
   it("throws on YAML syntax error with wrapped message", () => {
     const yaml = `name: Foo\n  : : :\n`
-    expect(() => lang.parseRequest("x", yaml)).toThrow(/lang\.parseRequest: YAML syntax:/)
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      /lang\.parseRequest: YAML syntax:/,
+    )
   })
 })
 
 describe("lang.parseRequest — auth variants", () => {
   it("parses bearer auth", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: bearer\n  token: abc123\n`
-    expect(lang.parseRequest("x", yaml).auth).toEqual({ type: "bearer", token: "abc123" })
+    expect(lang.parseRequest("x", yaml).auth).toEqual({
+      type: "bearer",
+      token: "abc123",
+    })
   })
 
   it("parses basic auth", () => {
@@ -215,7 +220,7 @@ describe("lang.serializeRequest — canonical output", () => {
 
   it("emits body when defined", () => {
     const out = lang.serializeRequest(makeReq({ body: '{"limit": 10}' }))
-    expect(out).toContain('body: \'{"limit": 10}\'\n')
+    expect(out).toContain("body: '{\"limit\": 10}'\n")
   })
 
   it("emits bearer auth when set, omits none auth", () => {
@@ -263,7 +268,15 @@ describe("lang.serializeRequest — canonical key order", () => {
     )
     const lines = out.split("\n").filter((l) => l && !l.startsWith(" "))
     const topKeys = lines.map((l) => l.split(":")[0])
-    expect(topKeys).toEqual(["name", "method", "url", "headers", "params", "body", "auth"])
+    expect(topKeys).toEqual([
+      "name",
+      "method",
+      "url",
+      "headers",
+      "params",
+      "body",
+      "auth",
+    ])
   })
 })
 
