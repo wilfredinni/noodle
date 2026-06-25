@@ -17,3 +17,5 @@ export {
   formatHeaders,
   formatBody,
 } from "./format"
+export { getHelpSections } from "./helpTexts"
+export type { HelpKey, HelpSection } from "./helpTexts"
