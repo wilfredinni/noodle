@@ -217,7 +217,9 @@ export function useRequestDraft(
   selectedRequest: Request | null,
 ): UseRequestDraftResult {
   const [map, setMap] = useState<Map<string, Request>>(new Map())
-  const [originalMap, setOriginalMap] = useState<Map<string, Request>>(new Map())
+  const [originalMap, setOriginalMap] = useState<Map<string, Request>>(
+    new Map(),
+  )
 
   useEffect(() => {
     if (!selectedRequest) return
@@ -285,7 +287,8 @@ export function useRequestDraft(
 
   const markSaved = useCallback(() => {
     if (!selectedRequest) return
-    const currentDraft = mapRef.current.get(selectedRequest.id) ?? selectedRequest
+    const currentDraft =
+      mapRef.current.get(selectedRequest.id) ?? selectedRequest
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(selectedRequest.id, { ...currentDraft })
