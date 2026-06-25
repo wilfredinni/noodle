@@ -40,4 +40,6 @@ if (args.envName !== undefined) {
 }
 
 const renderer = await createCliRenderer({ exitOnCtrlC: true })
-createRoot(renderer).render(<App collectionDir={args.collectionDir} env={envData} />)
+createRoot(renderer).render(
+  <App collectionDir={args.collectionDir} env={envData} />,
+)

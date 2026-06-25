@@ -69,8 +69,6 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--env", ""])).toThrow("args:")
   })
   it("last --env wins when repeated", () => {
-    expect(
-      parseArgs(["--env", "a", "--env", "b"]).envName,
-    ).toBe("b")
+    expect(parseArgs(["--env", "a", "--env", "b"]).envName).toBe("b")
   })
 })

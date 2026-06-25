@@ -41,7 +41,9 @@ describe("loadEnvironment — file errors", () => {
 describe("loadEnvironment — validation", () => {
   it("throws on malformed YAML", async () => {
     await writeFile(join(dir, "bad.yml"), "name: : :\n", "utf8")
-    await expect(env.loadEnvironment(dir, "bad")).rejects.toThrow("env.load: YAML syntax:")
+    await expect(env.loadEnvironment(dir, "bad")).rejects.toThrow(
+      "env.load: YAML syntax:",
+    )
   })
 
   it("throws when top-level is a scalar", async () => {
