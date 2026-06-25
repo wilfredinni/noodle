@@ -4,7 +4,7 @@ A terminal REST client. Inspect, send, and iterate on HTTP requests from YAML fi
 
 ## Status
 
-Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields, runtime environment switching, persisting edits to disk, and pane focus cycling. See [Roadmap](#roadmap-to-v1).
+v1 feature-complete. Terminal REST client with full request lifecycle: browse, edit, send, save. Keybinding reference (`?`) and Tab-cycle focus between panes. See [Roadmap](#roadmap-to-v1).
 
 ## Quick start
 
@@ -55,6 +55,7 @@ vars:
 - **Send trigger** — press `s` to send the active (possibly edited) request with the current env.
 - **Save to disk** — press `w` (inactive mode) to persist the current draft to its `.yml` file; confirms overwrite with `[y/N]`. Draft dirty state (`*` in title) clears on successful save.
 - **Focus management** — Tab/Shift+Tab cycles focus between Sidebar, Request Pane, and Response Pane. Focused pane gets a cyan border and `▸` title prefix. Each pane's keyboard handlers are gated on focus; global keys (`s`, `w`, `[`/`]`) always work. Footer shows per-pane hints.
+- **Help overlay** — `?` toggles a centered keybinding cheatsheet (action-grouped: Navigation, Editing, Actions, System). `?` or `Esc` dismisses. Blocked while editing in text inputs.
 
 ## Roadmap to v1
 
@@ -80,9 +81,9 @@ Footer shows the active env name. `[`/`]` cycles all `environments/*.yml` files 
 
 `Tab`/`Shift+Tab` cycles focus between Sidebar, Request Pane, and Response Pane (wrap-around). Focused pane gets a cyan border and `▸` title prefix. Per-pane footer hints. Global keys (`s`, `w`, `[`/`]`) always work. `e` from any pane enters edit-browse and shifts focus to request.
 
-### 6. Help overlay
+### 6. Help overlay ✅
 
-`?` toggles a keybinding cheatsheet overlay. Lists all keys grouped by pane.
+`?` toggles a keybinding cheatsheet overlay. Lists all keys grouped by action (Navigation, Editing, Actions, System). `Esc` or `?` again dismisses.
 
 ### Deferred past v1
 
@@ -108,5 +109,5 @@ src/
 └─ ui/            # React components + hooks (Sidebar, RequestPane, ResponsePane, App)
 collections/      # sample request .yml files
 environments/     # sample env .yml files
-tests/            # bun:test suites (333 tests)
+tests/            # bun:test suites (356 tests)
 ```
