@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test"
 import type { Environment, Request } from "../src/schema"
-import { substitute } from "../src/requests/substitute"
+import { substitute, executor } from "../src/requests"
 
 let fetchMock: ReturnType<typeof mock>
 let originalFetch: typeof globalThis.fetch
@@ -139,5 +139,135 @@ describe("substitute — pure {{var}} replacement", () => {
     const req = makeReq({ url: "https://example.com/{{ path }}" })
     const out = substitute(req, makeEnv({ path: "x" }))
     expect(out.url).toBe("https://example.com/{{ path }}")
+  })
+})
+
+function fakeResponse(opts: {
+  status?: number
+  statusText?: string
+  headers?: Record<string, string>
+  body?: string
+}): globalThis.Response {
+  return {
+    status: opts.status ?? 200,
+    statusText: opts.statusText ?? "OK",
+    headers: new Headers(opts.headers ?? {}),
+    text: () => Promise.resolve(opts.body ?? ""),
+  } as unknown as globalThis.Response
+}
+
+describe("send — URL and query params", () => {
+  it("merges params into URL as query string", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ params: { verbose: "true" } }))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?verbose=true")
+  })
+
+  it("appends params to existing query string", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({ url: "https://example.com/?a=1", params: { b: "2" } }),
+    )
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?a=1&b=2")
+  })
+
+  it("leaves URL unchanged when params empty", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({}))
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/")
+  })
+})
+
+describe("send — method, body, headers", () => {
+  it("passes method to fetch init", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ method: "POST" }))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.method).toBe("POST")
+  })
+
+  it("passes body to fetch init when defined", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ method: "POST", body: '{"a":1}' }))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.body).toBe('{"a":1}')
+  })
+
+  it("passes body undefined to fetch init when no body", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({}))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.body).toBeUndefined()
+  })
+
+  it("passes user headers to fetch init", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ headers: { Accept: "application/json" } }))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    expect(headers.get("Accept")).toBe("application/json")
+  })
+})
+
+describe("send — response mapping", () => {
+  it("maps status, statusText, headers, body, timeMs", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse({
+        status: 201,
+        statusText: "Created",
+        headers: { "Content-Type": "application/json" },
+        body: '{"ok":1}',
+      }),
+    )
+    const res = await executor.send(makeReq({}))
+    expect(res.status).toBe(201)
+    expect(res.statusText).toBe("Created")
+    expect(res.headers["content-type"]).toBe("application/json")
+    expect(res.body).toBe('{"ok":1}')
+    expect(typeof res.timeMs).toBe("number")
+    expect(res.timeMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it("lowercases response header keys", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse({ headers: { "Content-Type": "text/plain" } }),
+    )
+    const res = await executor.send(makeReq({}))
+    expect(Object.keys(res.headers)).toEqual(["content-type"])
+  })
+
+  it("returns Response for 4xx (does not throw)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse({ status: 404, body: "not found" }),
+    )
+    const res = await executor.send(makeReq({}))
+    expect(res.status).toBe(404)
+    expect(res.body).toBe("not found")
+  })
+
+  it("returns Response for 5xx (does not throw)", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({ status: 500, body: "boom" }))
+    const res = await executor.send(makeReq({}))
+    expect(res.status).toBe(500)
+  })
+})
+
+describe("send — env handling", () => {
+  it("passes {{var}} literals through to fetch when no env provided", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ body: '{"id": "{{id}}"}' }))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.body).toBe('{"id": "{{id}}"}')
+  })
+
+  it("substitutes {{var}} from env before fetch", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({ url: "https://{{host}}/x" }),
+      makeEnv({ host: "api.example.com" }),
+    )
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.example.com/x")
   })
 })

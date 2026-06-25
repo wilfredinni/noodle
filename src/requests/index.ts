@@ -1,4 +1,5 @@
 import type { Environment, Request, Response } from "../schema"
+import { send } from "./send"
 import { substitute } from "./substitute"
 
 export interface RequestExecutor {
@@ -6,9 +7,7 @@ export interface RequestExecutor {
 }
 
 export const executor: RequestExecutor = {
-  async send() {
-    throw new Error("requests.send: not implemented")
-  },
+  send,
 }
 
-export { substitute }
+export { substitute, send }
