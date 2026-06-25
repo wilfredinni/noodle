@@ -1,4 +1,5 @@
-import { TextAttributes } from "@opentui/core"
+import { TextAttributes, ScrollBoxRenderable } from "@opentui/core"
+import { useRef } from "react"
 import type { Collection } from "../schema"
 import { methodColor } from "./formatRequest"
 
@@ -19,6 +20,8 @@ export function Sidebar({
   selectedIndex: number
   focused?: boolean
 }) {
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
   return (
     <box
       style={{
@@ -36,9 +39,9 @@ export function Sidebar({
       ) : !collection || collection.requests.length === 0 ? (
         <text fg="#888">(empty)</text>
       ) : (
-        <>
+        <scrollbox ref={scrollRef} scrollY style={{ flexGrow: 1 }}>
           {collection.requests.map((r, i) => (
-            <box key={r.id} style={{ flexDirection: "row" }}>
+            <box key={r.id} id={`req-${i}`} style={{ flexDirection: "row" }}>
               <text
                 fg={methodColor(r.method)}
                 attributes={i === selectedIndex ? TextAttributes.INVERSE : 0}
@@ -52,7 +55,7 @@ export function Sidebar({
               </text>
             </box>
           ))}
-        </>
+        </scrollbox>
       )}
     </box>
   )
