@@ -60,11 +60,7 @@ describe("formatHeaders", () => {
         "content-type": "application/json",
         "x-a": "1",
       }),
-    ).toEqual([
-      "content-type: application/json",
-      "x-a: 1",
-      "x-b: 2",
-    ])
+    ).toEqual(["content-type: application/json", "x-a: 1", "x-b: 2"])
   })
 })
 
@@ -82,11 +78,7 @@ describe("formatParams", () => {
         "a-first": "1",
         "m-middle": "2",
       }),
-    ).toEqual([
-      "a-first: 1",
-      "m-middle: 2",
-      "z-last: 3",
-    ])
+    ).toEqual(["a-first: 1", "m-middle: 2", "z-last: 3"])
   })
 })
 
