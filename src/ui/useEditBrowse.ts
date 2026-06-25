@@ -56,6 +56,10 @@ export interface UseEditBrowseResult {
 export function useEditBrowse(
   draft: Request | null,
   draftMutators: UseRequestDraftResult,
+  opts?: {
+    enabled?: () => boolean
+    onEnterEditBrowse?: () => void
+  },
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
   const [editValue, setEditValue] = useState("")
@@ -117,12 +121,18 @@ export function useEditBrowse(
   }, [editState, draftMutators])
 
   useKeyboard((key) => {
+    const enabled = opts?.enabled ?? (() => true)
+
     if (editState.mode === "inactive") {
       if (key.name === "e") {
         setEditState((prev) => enterEditBrowse(prev))
+        opts?.onEnterEditBrowse?.()
       }
       return
     }
+
+    if (!enabled()) return
+
     if (editState.mode === "editing") {
       if (key.name === "return") {
         onCommit()
