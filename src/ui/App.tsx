@@ -63,15 +63,12 @@ function AppInner({
   )
 
   const draft = useRequestDraft(selectedRequest)
-  const { editState, editValue, setEditValue, isActive, activeTab } = useEditBrowse(
-    draft.draft,
-    draft,
-    {
+  const { editState, editValue, setEditValue, isActive, activeTab } =
+    useEditBrowse(draft.draft, draft, {
       enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
       onEnterEditBrowse: () => setFocus("request"),
       blocked: () => helpVisibleRef.current || previewIndex !== null,
-    },
-  )
+    })
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
   const isActiveRef = useRef(isActive)
   isActiveRef.current = isActive
@@ -124,15 +121,11 @@ function AppInner({
         return
       }
       if (key.name === "up") {
-        setPreviewIndex(
-          ((previewIndex - 1 + THEMES.length) % THEMES.length),
-        )
+        setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
         return
       }
       if (key.name === "down") {
-        setPreviewIndex(
-          ((previewIndex + 1) % THEMES.length),
-        )
+        setPreviewIndex((previewIndex + 1) % THEMES.length)
         return
       }
       if (key.name === "return") {
@@ -289,10 +282,7 @@ export function App({
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
   return (
-    <ThemeProvider
-      activeIndex={activeIndex}
-      previewIndex={previewIndex}
-    >
+    <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
       <AppInner
         collectionDir={collectionDir}
         environmentsDir={environmentsDir}
