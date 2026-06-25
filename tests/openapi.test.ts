@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { parseSpec, mapCollection } from "../src/converters/openapi"
+import { parseSpec, mapCollection, internals } from "../src/converters/openapi"
 import type { Normalized } from "../src/converters/openapi"
 
 describe("parseSpec — string/object dispatch + validation", () => {
@@ -140,5 +140,67 @@ describe("mapCollection — Collection metadata", () => {
   it("returns an empty requests array when paths is empty", () => {
     const c = mapCollection(makeNormalized())
     expect(c.requests).toEqual([])
+  })
+})
+
+describe("mapCollection URL helpers (internals — temporary)", () => {
+  it("urlTemplateToVar replaces {name} with {{name}}", () => {
+    expect(internals.urlTemplateToVar("/users/{id}")).toBe("/users/{{id}}")
+    expect(internals.urlTemplateToVar("https://{host}/v1/{path}")).toBe(
+      "https://{{host}}/v1/{{path}}",
+    )
+  })
+
+  it("urlTemplateToVar leaves strings without braces alone", () => {
+    expect(internals.urlTemplateToVar("https://example.com/v1")).toBe(
+      "https://example.com/v1",
+    )
+  })
+
+  it("baseUrl returns first server url (template-substituted)", () => {
+    const n = makeNormalized({ servers: [{ url: "https://{host}/v1" }] })
+    expect(internals.baseUrl(n)).toBe("https://{{host}}/v1")
+  })
+
+  it("baseUrl returns / when servers is missing", () => {
+    const n = makeNormalized({ servers: undefined })
+    expect(internals.baseUrl(n)).toBe("/")
+  })
+
+  it("baseUrl returns / when servers is an empty array", () => {
+    const n = makeNormalized({ servers: [] })
+    expect(internals.baseUrl(n)).toBe("/")
+  })
+
+  it("baseUrl returns / when servers[0].url is empty string", () => {
+    const n = makeNormalized({ servers: [{ url: "" }] })
+    expect(internals.baseUrl(n)).toBe("/")
+  })
+
+  it("baseUrl returns / when servers[0].url is not a string", () => {
+    const n = makeNormalized({ servers: [{ url: 123 }] })
+    expect(internals.baseUrl(n)).toBe("/")
+  })
+
+  it("baseUrl returns / when servers[0] is not an object", () => {
+    const n = makeNormalized({ servers: ["https://x.com"] })
+    expect(internals.baseUrl(n)).toBe("/")
+  })
+
+  it("joinUrl merges base and path without doubling slashes", () => {
+    expect(internals.joinUrl("https://x.com/v1", "/users")).toBe(
+      "https://x.com/v1/users",
+    )
+    expect(internals.joinUrl("https://x.com/v1/", "/users")).toBe(
+      "https://x.com/v1/users",
+    )
+    expect(internals.joinUrl("/", "/users")).toBe("/users")
+    expect(internals.joinUrl("/", "/users/{{id}}")).toBe("/users/{{id}}")
+  })
+
+  it("joinUrl prepends / when path doesn't start with one", () => {
+    expect(internals.joinUrl("https://x.com", "users")).toBe(
+      "https://x.com/users",
+    )
   })
 })

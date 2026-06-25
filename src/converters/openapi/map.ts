@@ -24,6 +24,30 @@ function collectionName(n: Normalized): string {
   return typeof t === "string" && t !== "" ? t : FALLBACK_ID
 }
 
+function urlTemplateToVar(s: string): string {
+  return s.replace(/\{(\w+)\}/g, "{{$1}}")
+}
+
+function baseUrl(n: Normalized): string {
+  const servers = n.servers
+  if (!Array.isArray(servers) || servers.length === 0) return "/"
+  const first = servers[0] as { url?: unknown } | null | undefined
+  if (typeof first?.url !== "string" || first.url === "") return "/"
+  return urlTemplateToVar(first.url)
+}
+
+function joinUrl(base: string, path: string): string {
+  const b = base.replace(/\/+$/, "")
+  const p = path.startsWith("/") ? path : `/${path}`
+  return `${b}${p}`
+}
+
+export const internals = {
+  urlTemplateToVar,
+  baseUrl,
+  joinUrl,
+}
+
 export function mapCollection(n: Normalized): Collection {
   const name = collectionName(n)
   const id = slugify(name) || FALLBACK_ID
