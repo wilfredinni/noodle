@@ -4,7 +4,7 @@ A terminal REST client. Inspect, send, and iterate on HTTP requests from YAML fi
 
 ## Status
 
-Pre-v1. Core request lifecycle works end-to-end; the UI is read-only and minimal. See [Roadmap](#roadmap-to-v1).
+Pre-v1. Core request lifecycle works end-to-end; the UI supports inline editing of request fields. See [Roadmap](#roadmap-to-v1).
 
 ## Quick start
 
@@ -48,22 +48,22 @@ vars:
 - **Environment loading** — `env.loadEnvironment(dir, name)` reads `environments/<name>.yml`, strict-validated (name, vars, unknown keys rejected; non-string values coerced). Path-traversal-safe.
 - **CLI args** — `--collection`, `--env`, `--help`.
 - **OpenAPI 3.0 importer** — `openApiImporter.import(spec)` converts an OpenAPI 3.0 spec (JSON or YAML) into a `Collection`, emitting `{{var}}` placeholders for path/query/header params and auth (bearer/basic).
+- **Request pane** — renders full request detail: method (color-coded by verb), url, sorted headers, sorted params, pretty-printed JSON body, and masked auth. Inline editing for url, headers, params, and body via edit-browse mode (`e` to enter, `↑/↓` to navigate fields, `e/Enter` to edit, `Enter` to commit, `Esc` to cancel).
 - **Sidebar** — lists requests from the loaded collection, arrow-key navigation, selection highlight.
-- **Request pane** — shows `METHOD URL` of the selected request and a `[s] Send` hint.
 - **Response pane** — renders idle / sending / done / error states. Done state shows status line (color-coded), sorted headers, and pretty-printed JSON body.
-- **Send trigger** — press `s` to send the selected request with the active env.
+- **Send trigger** — press `s` to send the active (possibly edited) request with the current env. Edits are session-local until saved.
 
 ## Roadmap to v1
 
 v1 = a **usable terminal UI**: you can browse a collection, see a request's full detail, edit it inline, send it with an environment, and save changes back to disk.
 
-### 1. Full request detail view
+### 1. Full request detail view ✅
 
-`RequestPane` currently shows only `METHOD URL`. Render the full request: method, url, headers (sorted), params, body, and auth. Read-only first; editable next.
+`RequestPane` renders the full request: method (color-coded), url, sorted headers, sorted params, pretty-printed body, and masked auth. Read-only foundation for editing.
 
-### 2. Inline editing of request fields
+### 2. Inline editing of request fields ✅
 
-Edit url, headers, params, and body in-place before send. Body editor should handle JSON pretty-printing and raw text. Edits are session-local until saved.
+Edit url, headers, params, and body in-place before send via an edit-browse mode (`e` to enter, `↑/↓` to navigate fields, `e/Enter` to edit, `Enter` to commit, `Esc` to cancel). Body is single-line raw input; multiline deferred. Edits are session-local and preserved per request across sidebar switches.
 
 ### 3. Environment indicator + runtime switching
 
@@ -105,5 +105,5 @@ src/
 └─ ui/            # React components + hooks (Sidebar, RequestPane, ResponsePane, App)
 collections/      # sample request .yml files
 environments/     # sample env .yml files
-tests/            # bun:test suites (236 tests)
+tests/            # bun:test suites (317 tests)
 ```
