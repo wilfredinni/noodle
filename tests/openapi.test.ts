@@ -775,3 +775,100 @@ describe("mapCollection — parameters", () => {
     expect(Object.keys(c.requests[0].params)).toEqual(["dup"])
   })
 })
+
+describe("mapCollection — end-to-end integration", () => {
+  it("converts a representative v3.0 spec to a Collection", () => {
+    const spec = {
+      openapi: "3.0.3",
+      info: { title: "Pet Store API" },
+      servers: [{ url: "https://{host}/v1" }],
+      components: {
+        securitySchemes: {
+          bearerAuth: { type: "http", scheme: "bearer" },
+          basicAuth: { type: "http", scheme: "basic" },
+          apiKey: { type: "apiKey", in: "header", name: "X-Key" },
+        },
+      },
+      security: [{ bearerAuth: [] }],
+      paths: {
+        "/pets/{petId}": {
+          parameters: [{ name: "petId", in: "path" }],
+          get: {
+            operationId: "getPet",
+            parameters: [
+              { name: "verbose", in: "query" },
+              { name: "X-Trace", in: "header" },
+            ],
+          },
+          delete: {
+            summary: "Delete a pet",
+            security: [{ basicAuth: [] }],
+          },
+          trace: {},
+        },
+        "/pets": {
+          get: {
+            operationId: "listPets",
+            parameters: [{ name: "limit", in: "query" }],
+          },
+          post: {
+            operationId: "createPet",
+            security: [],
+          },
+        },
+      },
+    }
+
+    const c = mapCollection(parseSpec(spec))
+
+    expect(c.id).toBe("pet-store-api")
+    expect(c.name).toBe("Pet Store API")
+
+    const methods = c.requests.map((r) => r.method)
+    expect(methods).toEqual(["GET", "DELETE", "GET", "POST"])
+
+    const getPet = c.requests[0]
+    expect(getPet.id).toBe("get-pets-petid")
+    expect(getPet.name).toBe("getPet")
+    expect(getPet.method).toBe("GET")
+    expect(getPet.url).toBe("https://{{host}}/v1/pets/{{petId}}")
+    expect(getPet.params).toEqual({ verbose: "{{verbose}}" })
+    expect(getPet.headers).toEqual({ "X-Trace": "{{X-Trace}}" })
+    expect(getPet.body).toBeUndefined()
+    expect(getPet.auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+
+    const deletePet = c.requests[1]
+    expect(deletePet.name).toBe("Delete a pet")
+    expect(deletePet.method).toBe("DELETE")
+    expect(deletePet.auth).toEqual({
+      type: "basic",
+      user: "{{USER}}",
+      pass: "{{PASS}}",
+    })
+
+    const listPets = c.requests[2]
+    expect(listPets.id).toBe("get-pets")
+    expect(listPets.params).toEqual({ limit: "{{limit}}" })
+    expect(listPets.auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+
+    const createPet = c.requests[3]
+    expect(createPet.id).toBe("post-pets")
+    expect(createPet.auth).toEqual({ type: "none" })
+  })
+
+  it("accepts the integration spec as a YAML string", () => {
+    const yamlText = `
+openapi: "3.0.3"
+info:
+  title: YAML API!
+paths:
+  /x:
+    get:
+      operationId: getX
+`
+    const c = mapCollection(parseSpec(yamlText))
+    expect(c.id).toBe("yaml-api")
+    expect(c.name).toBe("YAML API!")
+    expect(c.requests[0].id).toBe("get-x")
+  })
+})
