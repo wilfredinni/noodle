@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { useKeyboard } from "@opentui/react"
 import { THEMES, contrastOnPrimary, PaneBorder, type Theme } from "./theme-data"
 
-export { THEMES, contrastOnPrimary, PaneBorder } from "./theme-data"
+export { THEMES, contrastOnPrimary, PaneBorder, opencodeTheme, catppuccinTheme } from "./theme-data"
 export type { Theme, CustomBorderChars } from "./theme-data"
 
 const ThemeContext = createContext<Theme>(THEMES[0]!)

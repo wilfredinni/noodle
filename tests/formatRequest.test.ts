@@ -7,6 +7,7 @@ import {
   formatBody,
   formatAuth,
 } from "../src/ui/formatRequest"
+import { opencodeTheme, catppuccinTheme } from "../src/ui/theme"
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -21,26 +22,34 @@ function makeReq(over: Partial<Request> = {}): Request {
 }
 
 describe("methodColor", () => {
-  it("GET → green", () => {
-    expect(methodColor("GET")).toBe("#080")
+  const theme = opencodeTheme
+
+  it("GET → success", () => {
+    expect(methodColor("GET", theme)).toBe("#7fd88f")
   })
-  it("POST → yellow", () => {
-    expect(methodColor("POST")).toBe("#880")
+  it("POST → warning", () => {
+    expect(methodColor("POST", theme)).toBe("#f5a742")
   })
-  it("PUT → yellow", () => {
-    expect(methodColor("PUT")).toBe("#880")
+  it("PUT → warning", () => {
+    expect(methodColor("PUT", theme)).toBe("#f5a742")
   })
-  it("PATCH → yellow", () => {
-    expect(methodColor("PATCH")).toBe("#880")
+  it("PATCH → warning", () => {
+    expect(methodColor("PATCH", theme)).toBe("#f5a742")
   })
-  it("DELETE → red", () => {
-    expect(methodColor("DELETE")).toBe("#c00")
+  it("DELETE → error", () => {
+    expect(methodColor("DELETE", theme)).toBe("#e06c75")
   })
-  it("HEAD → dim", () => {
-    expect(methodColor("HEAD")).toBe("#888")
+  it("HEAD → textMuted", () => {
+    expect(methodColor("HEAD", theme)).toBe("#808080")
   })
-  it("OPTIONS → dim", () => {
-    expect(methodColor("OPTIONS")).toBe("#888")
+  it("OPTIONS → textMuted", () => {
+    expect(methodColor("OPTIONS", theme)).toBe("#808080")
+  })
+})
+
+describe("methodColor with catppuccin", () => {
+  it("GET uses catppuccin success", () => {
+    expect(methodColor("GET", catppuccinTheme)).toBe("#a6e3a1")
   })
 })
 
