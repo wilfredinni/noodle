@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { Sidebar } from "./Sidebar"
 import { RequestPane } from "./RequestPane"
@@ -64,6 +64,13 @@ export function App({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
 
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
   const clearSaveTimer = useCallback(() => {
     if (saveTimerRef.current !== null) {
       clearTimeout(saveTimerRef.current)
@@ -84,23 +91,27 @@ export function App({
       // save confirm prompt
       if (saveState.kind === "confirming") {
         if (key.name === "y") {
-          if (!draft.draft || savingRef.current) return
+          const req = draft.draft
+          if (!req || savingRef.current) return
           savingRef.current = true
+          const requestId = req.id
           setSaveState({ kind: "idle" })
           filestore
-            .saveRequest(collectionDir, draft.draft)
+            .saveRequest(collectionDir, req)
             .then(() => {
+              if (!mountedRef.current) return
               draft.markSaved()
               clearSaveTimer()
               setSaveState({
                 kind: "success",
-                message: `Saved ${draft.draft!.id}.yml`,
+                message: `Saved ${requestId}.yml`,
               })
               saveTimerRef.current = setTimeout(() => {
                 setSaveState({ kind: "idle" })
               }, SAVE_SUCCESS_MS)
             })
             .catch((e: unknown) => {
+              if (!mountedRef.current) return
               const msg = e instanceof Error ? e.message : String(e)
               clearSaveTimer()
               setSaveState({
