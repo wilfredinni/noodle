@@ -17,10 +17,11 @@ afterEach(async () => {
 })
 
 describe("filestore.loadCollection — directory state", () => {
-  it("returns empty Collection for missing directory (lazy init)", async () => {
+  it("throws on missing directory", async () => {
     const missing = join(dir, "does-not-exist")
-    const col = await filestore.loadCollection(missing)
-    expect(col).toEqual({ id: "does-not-exist", name: "does-not-exist", requests: [] })
+    await expect(filestore.loadCollection(missing)).rejects.toThrow(
+      `filestore.loadCollection: directory not found "${missing}"`,
+    )
   })
 
   it("returns empty Collection when dir has no .yml files", async () => {
@@ -227,13 +228,19 @@ describe("filestore — integration round-trip", () => {
 
   it("load on lazy-created dir yields sorted requests only after save", async () => {
     const fresh = join(dir, "lazy")
-    const before = await filestore.loadCollection(fresh)
-    expect(before).toEqual({ id: "lazy", name: "lazy", requests: [] })
+    // Verify dir doesn't exist yet → load should throw
+    await expect(filestore.loadCollection(fresh)).rejects.toThrow(
+      `filestore.loadCollection: directory not found "${fresh}"`,
+    )
 
+    // Save creates the directory
     await filestore.saveRequest(fresh, makeReq({ id: "z" }))
     await filestore.saveRequest(fresh, makeReq({ id: "a" }))
 
+    // Now load should work and return sorted requests
     const after = await filestore.loadCollection(fresh)
+    expect(after.id).toBe("lazy")
+    expect(after.name).toBe("lazy")
     expect(after.requests.map((r) => r.id)).toEqual(["a", "z"])
   })
 })

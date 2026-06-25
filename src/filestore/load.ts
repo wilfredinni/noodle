@@ -10,8 +10,7 @@ export async function loadCollection(dir: string): Promise<Collection> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if ((e as NodeJS.ErrnoException).code === "ENOENT") {
-      const id = basename(dir)
-      return { id, name: id, requests: [] }
+      throw new Error(`filestore.loadCollection: directory not found "${dir}"`, { cause: e })
     }
     throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
   }
