@@ -161,6 +161,15 @@ describe("loadEnvironment — validation", () => {
     )
   })
 
+  it("throws on path traversal in name", async () => {
+    await expect(env.loadEnvironment(dir, "../secrets")).rejects.toThrow(
+      "env.load: invalid environment name",
+    )
+    await expect(env.loadEnvironment(dir, "a/../b")).rejects.toThrow(
+      "env.load: invalid environment name",
+    )
+  })
+
   it("decouples name field from filename", async () => {
     await writeFile(
       join(dir, "dev.yml"),

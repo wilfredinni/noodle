@@ -7,6 +7,9 @@ export async function loadEnvironment(
   dir: string,
   name: string,
 ): Promise<Environment> {
+  if (name.includes("..") || name.includes("/") || name.includes("\\")) {
+    throw new Error("env.load: invalid environment name")
+  }
   const filePath = join(dir, `${name}.yml`)
   let content: string
   try {
