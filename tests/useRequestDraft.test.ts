@@ -215,17 +215,6 @@ describe("applyDraft", () => {
     })
     expect(next.get("r1")!.params).toEqual({ q: "2" })
   })
-  it("revertField url restores url from original", () => {
-    const original = makeReq({ url: "https://orig.com" })
-    const map = new Map<string, Request>([
-      ["r1", { ...original, url: "https://edited.com" }],
-    ])
-    const next = applyDraft(map, "r1", original, {
-      kind: "revertField",
-      field: "url",
-    })
-    expect(next.get("r1")!.url).toBe("https://orig.com")
-  })
   it("revertField body restores body from original", () => {
     const original = makeReq({ body: "orig" })
     const map = new Map<string, Request>([

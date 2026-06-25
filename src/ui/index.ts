@@ -1,5 +1,6 @@
 export { App } from "./App"
 export { Sidebar } from "./Sidebar"
+export { UrlBar } from "./UrlBar"
 export { RequestPane } from "./RequestPane"
 export { ResponsePane } from "./ResponsePane"
 export { useCollection } from "./useCollection"

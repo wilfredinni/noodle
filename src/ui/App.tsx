@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { Sidebar } from "./Sidebar"
+import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
 import { useCollection } from "./useCollection"
@@ -183,6 +184,11 @@ export function App({
             focused={focus === "sidebar"}
           />
           <box style={{ flexDirection: "column", flexGrow: 1 }}>
+            <UrlBar
+              url={draft.draft?.url ?? ""}
+              setUrl={draft.setUrl}
+              focused={focus === "urlbar"}
+            />
             <RequestPane
               request={draft.draft}
               editState={editState}

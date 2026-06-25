@@ -32,7 +32,6 @@ function currentValueFor(
   addingRow: boolean,
 ): string {
   if (!draft) return ""
-  if (field === "url") return draft.url
   if (field === "body") return draft.body ?? ""
   if (field === "headers" || field === "params") {
     if (addingRow) return ""
@@ -71,9 +70,7 @@ export function useEditBrowse(
     if (editState.mode !== "editing") return
     const { field } = editState.cursor
     const addingRow = editState.cursor.addingRow
-    if (field === "url") {
-      draftMutators.setUrl(editValue)
-    } else if (field === "body") {
+    if (field === "body") {
       draftMutators.setBody(editValue)
     } else if (field === "headers" || field === "params") {
       const parsed = parseRow(editValue)
@@ -112,7 +109,7 @@ export function useEditBrowse(
   const onRevertField = useCallback(() => {
     if (editState.mode !== "browsing") return
     const { field, addingRow, row } = editState.cursor
-    if (field === "url" || field === "body") {
+    if (field === "body") {
       draftMutators.revertField(field)
     } else if (field === "headers" || field === "params") {
       if (addingRow) return

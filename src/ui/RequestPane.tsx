@@ -62,39 +62,7 @@ export function RequestPane({
     >
       {request ? (
         <>
-          <text
-            fg={methodFg}
-            attributes={
-              browseActive && editState.cursor.field === "url"
-                ? TextAttributes.INVERSE
-                : 0
-            }
-          >
-            {request.method}{" "}
-          </text>
-          {inEdit && editState.cursor.field === "url" ? (
-            <input
-              value={editValue}
-              onInput={setEditValue}
-              backgroundColor="#222"
-              focusedBackgroundColor="#333"
-              textColor="#fff"
-              cursorColor="#0f0"
-              focused
-            />
-          ) : (
-            <text
-              fg={methodFg}
-              attributes={
-                browseActive && editState.cursor.field === "url"
-                  ? TextAttributes.INVERSE
-                  : 0
-              }
-            >
-              {request.url}
-            </text>
-          )}
-
+          <text fg={methodFg}>{request.method}</text>
           <text {...labelActive(editState, "headers")}>Headers</text>
           {headers.length === 0 &&
           !(browseActive && editState.cursor.field === "headers") ? (
