@@ -1,7 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import type { Request } from "../schema"
 import {
-  methodColor,
   formatHeaders,
   formatParams,
   formatBody,
@@ -37,7 +36,6 @@ export function RequestPane({
   focused = false,
   activeTab,
 }: Props) {
-  const methodFg = request ? methodColor(request.method) : ""
   const title = `Request${draft.isDirty ? "*" : ""}`
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
@@ -56,7 +54,6 @@ export function RequestPane({
     >
       {request ? (
         <>
-          <text fg={methodFg}>{request.method}</text>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
             {activeTab === "headers" && (
               <HeadersSection

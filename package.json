@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run src/app/index.tsx",
+    "dev": "bun --watch src/app/index.tsx",
     "test": "bun test",
     "lint": "eslint .",
     "format": "prettier --write .",

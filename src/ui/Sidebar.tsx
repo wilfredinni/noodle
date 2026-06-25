@@ -1,5 +1,10 @@
 import { TextAttributes } from "@opentui/core"
 import type { Collection } from "../schema"
+import { methodColor } from "./formatRequest"
+
+function shortMethod(m: string): string {
+  return m === "DELETE" ? "DEL" : m
+}
 
 export function Sidebar({
   collection,
@@ -33,12 +38,19 @@ export function Sidebar({
       ) : (
         <>
           {collection.requests.map((r, i) => (
-            <text
-              key={r.id}
-              attributes={i === selectedIndex ? TextAttributes.INVERSE : 0}
-            >
-              {r.method} {r.name}
-            </text>
+            <box key={r.id} style={{ flexDirection: "row" }}>
+              <text
+                fg={methodColor(r.method)}
+                attributes={i === selectedIndex ? TextAttributes.INVERSE : 0}
+              >
+                {shortMethod(r.method).padEnd(7)}
+              </text>
+              <text
+                attributes={i === selectedIndex ? TextAttributes.INVERSE : 0}
+              >
+                {r.name}
+              </text>
+            </box>
           ))}
         </>
       )}

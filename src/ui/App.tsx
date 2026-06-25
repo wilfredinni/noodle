@@ -187,6 +187,7 @@ export function App({
           />
           <box style={{ flexDirection: "column", flexGrow: 1 }}>
             <UrlBar
+              method={draft.draft?.method ?? ""}
               url={draft.draft?.url ?? ""}
               setUrl={draft.setUrl}
               focused={focus === "urlbar"}

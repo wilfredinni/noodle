@@ -1,8 +1,13 @@
+import { methodColor } from "./formatRequest"
+import type { Method } from "../schema"
+
 export function UrlBar({
+  method,
   url,
   setUrl,
   focused = false,
 }: {
+  method: string
   url: string
   setUrl: (url: string) => void
   focused?: boolean
@@ -17,18 +22,27 @@ export function UrlBar({
       }}
       title={focused ? "▸ URL" : "URL"}
     >
-      {focused ? (
-        <input
-          value={url}
-          onInput={setUrl}
-          backgroundColor="#222"
-          focusedBackgroundColor="#333"
-          textColor="#fff"
-          cursorColor="#0f0"
-          focused
-        />
+      {!url ? (
+        <text fg="#fff">(no request selected)</text>
+      ) : focused ? (
+        <box style={{ flexDirection: "row" }}>
+          <text fg={methodColor(method as Method)}>{method}</text>
+          <text> </text>
+          <input
+            value={url}
+            onInput={setUrl}
+            backgroundColor="#222"
+            focusedBackgroundColor="#333"
+            textColor="#fff"
+            cursorColor="#0f0"
+            focused
+          />
+        </box>
       ) : (
-        <text fg="#fff">{url || "(no request selected)"}</text>
+        <box style={{ flexDirection: "row" }}>
+          <text fg={methodColor(method as Method)}>{method}</text>
+          <text fg="#fff"> {url}</text>
+        </box>
       )}
     </box>
   )
