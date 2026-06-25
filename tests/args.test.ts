@@ -36,4 +36,15 @@ describe("parseArgs", () => {
       parseArgs(["--collection", "./a", "--collection", "./b"]).collectionDir,
     ).toBe("./b")
   })
+  it("throws when --collection= has empty value", () => {
+    expect(() => parseArgs(["--collection="])).toThrow("args:")
+  })
+  it("throws on unexpected positional argument", () => {
+    expect(() => parseArgs(["foo.txt"])).toThrow("args:")
+  })
+  it("combines --help with --collection", () => {
+    const result = parseArgs(["-h", "--collection", "./foo"])
+    expect(result.help).toBe(true)
+    expect(result.collectionDir).toBe("./foo")
+  })
 })
