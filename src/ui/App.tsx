@@ -1,4 +1,5 @@
 import { useKeyboard } from "@opentui/react"
+import type { Environment } from "../schema"
 import { Sidebar } from "./Sidebar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
@@ -6,7 +7,13 @@ import { useCollection } from "./useCollection"
 import { useSidebarSelection } from "./useSidebarSelection"
 import { useResponse } from "./useResponse"
 
-export function App({ collectionDir }: { collectionDir: string }) {
+export function App({
+  collectionDir,
+  env,
+}: {
+  collectionDir: string
+  env?: Environment
+}) {
   useKeyboard((key) => {
     if (key.name === "tab") {
       // focus cycle placeholder
@@ -16,7 +23,7 @@ export function App({ collectionDir }: { collectionDir: string }) {
   const { collection, loading, error } = useCollection(collectionDir)
   const requests = collection?.requests ?? []
   const { selectedIndex, selectedRequest } = useSidebarSelection(requests)
-  const { state: responseState } = useResponse(selectedRequest)
+  const { state: responseState } = useResponse(selectedRequest, env)
 
   return (
     <box

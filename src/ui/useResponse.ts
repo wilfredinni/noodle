@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeyboard } from "@opentui/react"
-import type { Request } from "../schema"
+import type { Environment, Request } from "../schema"
 import { executor } from "../requests"
 import { startSend, finishSend, failSend, type SendState } from "./sendState"
 
@@ -11,6 +11,7 @@ export interface UseResponseResult {
 
 export function useResponse(
   selectedRequest: Request | null,
+  env?: Environment,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
 
@@ -21,7 +22,7 @@ export function useResponse(
 
     setState((prev) => {
       if (prev.status === "sending") return prev
-      void runSend(req, setState)
+      void runSend(req, env, setState)
       return startSend(prev, req)
     })
   })
@@ -31,10 +32,11 @@ export function useResponse(
 
 async function runSend(
   req: Request,
+  env: Environment | undefined,
   setState: Dispatch<SetStateAction<SendState>>,
 ): Promise<void> {
   try {
-    const res = await executor.send(req)
+    const res = await executor.send(req, env)
     setState((prev) => finishSend(prev, req, res))
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e))
