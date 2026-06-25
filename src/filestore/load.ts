@@ -10,14 +10,19 @@ export async function loadCollection(dir: string): Promise<Collection> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if ((e as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`filestore.loadCollection: directory not found "${dir}"`, { cause: e })
+      throw new Error(
+        `filestore.loadCollection: directory not found "${dir}"`,
+        { cause: e },
+      )
     }
     throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
   }
 
   const id = basename(dir)
   const names = entries
-    .filter((e) => e.isFile() && !e.name.startsWith(".") && e.name.endsWith(".yml"))
+    .filter(
+      (e) => e.isFile() && !e.name.startsWith(".") && e.name.endsWith(".yml"),
+    )
     .map((e) => e.name)
     .sort()
 

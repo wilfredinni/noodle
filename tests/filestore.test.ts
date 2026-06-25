@@ -5,7 +5,6 @@ import { basename, join } from "node:path"
 import { filestore } from "../src/filestore"
 import type { Request } from "../src/schema"
 
-
 let dir: string
 
 beforeEach(async () => {
