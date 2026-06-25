@@ -62,12 +62,14 @@ export function App({
     },
   )
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
+  const isActiveRef = useRef(isActive)
+  isActiveRef.current = isActive
 
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
   const { state: responseState } = useResponse(
     draft.draft,
     envState.activeEnv,
-    () => helpVisibleRef.current,
+    () => helpVisibleRef.current || focusRef.current === "urlbar" || isActiveRef.current,
   )
 
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
