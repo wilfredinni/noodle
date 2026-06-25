@@ -25,9 +25,9 @@ function isFieldActive(editState: EditState, field: FieldKind): boolean {
 function labelActive(
   editState: EditState,
   field: FieldKind,
-): { fg: string; bg?: string } {
+): { fg: string; attributes?: number } {
   if (!isFieldActive(editState, field)) return { fg: "#888" }
-  return { fg: "#000", bg: "#fff" }
+  return { fg: "#000", attributes: TextAttributes.INVERSE }
 }
 
 export function RequestPane({
@@ -59,6 +59,16 @@ export function RequestPane({
     >
       {request ? (
         <>
+          <text
+            fg={methodFg}
+            attributes={
+              browseActive && editState.cursor.field === "url"
+                ? TextAttributes.INVERSE
+                : 0
+            }
+          >
+            {request.method}{" "}
+          </text>
           {inEdit && editState.cursor.field === "url" ? (
             <input
               value={editValue}
@@ -67,6 +77,7 @@ export function RequestPane({
               focusedBackgroundColor="#333"
               textColor="#fff"
               cursorColor="#0f0"
+              focused
             />
           ) : (
             <text
@@ -77,7 +88,7 @@ export function RequestPane({
                   : 0
               }
             >
-              {request.method} {request.url}
+              {request.url}
             </text>
           )}
 
@@ -108,6 +119,7 @@ export function RequestPane({
                       focusedBackgroundColor="#333"
                       textColor="#fff"
                       cursorColor="#0f0"
+                      focused
                     />
                   )
                 }
@@ -161,6 +173,7 @@ export function RequestPane({
                       focusedBackgroundColor="#333"
                       textColor="#fff"
                       cursorColor="#0f0"
+                      focused
                     />
                   )
                 }
@@ -196,11 +209,20 @@ export function RequestPane({
               focusedBackgroundColor="#333"
               textColor="#fff"
               cursorColor="#0f0"
+              focused
             />
           ) : body === "" ? (
             <text fg="#888">{"  (none)"}</text>
           ) : (
-            <text>{body}</text>
+            <text
+              attributes={
+                browseActive && editState.cursor.field === "body"
+                  ? TextAttributes.INVERSE
+                  : 0
+              }
+            >
+              {body}
+            </text>
           )}
 
           <text fg="#888">Auth</text>
