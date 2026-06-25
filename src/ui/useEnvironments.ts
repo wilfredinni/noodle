@@ -76,7 +76,7 @@ export function useEnvironments(
           setActiveEnv(null)
         })
     },
-    [dir, envList, activeIndex, activeEnv],
+    [dir, envList, activeIndex],
   )
 
   const indicatorLabel = useMemo(
