@@ -1,0 +1,94 @@
+import { describe, it, expect } from "bun:test"
+import { parseSpec } from "../src/converters/openapi"
+
+describe("parseSpec — string/object dispatch + validation", () => {
+  it("passes an object input through unchanged (no re-parse)", () => {
+    const spec = { openapi: "3.0.0", paths: {} }
+    const n = parseSpec(spec)
+    expect(n.openapi).toBe("3.0.0")
+    expect(n.paths).toEqual({})
+  })
+
+  it("parses a JSON string", () => {
+    const text = JSON.stringify({ openapi: "3.0.0", paths: { "/x": {} } })
+    const n = parseSpec(text)
+    expect(n.openapi).toBe("3.0.0")
+    expect(Object.keys(n.paths)).toEqual(["/x"])
+  })
+
+  it("parses a YAML string (JSON.parse fails, YAML superset succeeds)", () => {
+    const text = 'openapi: "3.0.0"\npaths: {}\n'
+    const n = parseSpec(text)
+    expect(n.openapi).toBe("3.0.0")
+    expect(n.paths).toEqual({})
+  })
+
+  it("throws on a string that is neither valid JSON nor valid YAML", () => {
+    const text = ": : :"
+    let err: Error | undefined
+    try {
+      parseSpec(text)
+    } catch (e) {
+      err = e as Error
+    }
+    expect(err).toBeInstanceOf(Error)
+    expect(err?.message).toContain(
+      "converters.openapi.import: failed to parse spec (not valid JSON or YAML):",
+    )
+    expect(err?.cause).toBeDefined()
+  })
+
+  it("throws when parsed root is an array", () => {
+    const text = JSON.stringify([{ openapi: "3.0.0", paths: {} }])
+    expect(() => parseSpec(text)).toThrow(
+      "converters.openapi.import: spec root must be a mapping",
+    )
+  })
+
+  it("throws when parsed root is a primitive", () => {
+    expect(() => parseSpec('"hello"')).toThrow(
+      "converters.openapi.import: spec root must be a mapping",
+    )
+  })
+
+  it("throws when openapi field is missing", () => {
+    expect(() => parseSpec({ paths: {} } as object)).toThrow(
+      'converters.openapi.import: missing "openapi" field',
+    )
+  })
+
+  it("throws when openapi field is not a string", () => {
+    expect(() => parseSpec({ openapi: 3.0, paths: {} } as object)).toThrow(
+      'converters.openapi.import: missing "openapi" field',
+    )
+  })
+
+  it("throws on openapi 2.0", () => {
+    expect(() => parseSpec({ openapi: "2.0", paths: {} } as object)).toThrow(
+      'converters.openapi.import: unsupported openapi version "2.0", expected 3.0.x',
+    )
+  })
+
+  it("throws on openapi 3.1.0", () => {
+    expect(() => parseSpec({ openapi: "3.1.0", paths: {} } as object)).toThrow(
+      'converters.openapi.import: unsupported openapi version "3.1.0", expected 3.0.x',
+    )
+  })
+
+  it("throws when paths is missing", () => {
+    expect(() => parseSpec({ openapi: "3.0.0" } as object)).toThrow(
+      'converters.openapi.import: missing or invalid "paths"',
+    )
+  })
+
+  it("throws when paths is an array", () => {
+    expect(() => parseSpec({ openapi: "3.0.0", paths: [] } as object)).toThrow(
+      'converters.openapi.import: missing or invalid "paths"',
+    )
+  })
+
+  it("accepts empty paths (returns Normalized with empty paths map)", () => {
+    const n = parseSpec({ openapi: "3.0.0", paths: {} } as object)
+    expect(n.paths).toEqual({})
+  })
+})
