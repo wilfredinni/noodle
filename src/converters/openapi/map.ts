@@ -31,6 +31,34 @@ const METHOD_UPPER: Record<string, Method> = {
   options: "OPTIONS",
 }
 
+function isMapping(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v)
+}
+
+function collectParams(
+  pathItemParams: unknown,
+  opParams: unknown,
+): { name: string; in: string }[] {
+  const list: { name: string; in: string }[] = []
+  const allowedIn = new Set(["path", "query", "header", "cookie"])
+  const consider = (p: unknown) => {
+    if (!isMapping(p)) return
+    const pName = p.name
+    const inV = p.in
+    if (typeof pName !== "string" || pName === "") return
+    if (typeof inV !== "string") return
+    if (!allowedIn.has(inV)) return
+    list.push({ name: pName, in: inV })
+  }
+  if (Array.isArray(pathItemParams)) {
+    for (const p of pathItemParams) consider(p)
+  }
+  if (Array.isArray(opParams)) {
+    for (const p of opParams) consider(p)
+  }
+  return list
+}
+
 function slugify(s: string): string {
   return s
     .toLowerCase()
@@ -115,13 +143,21 @@ export function mapCollection(n: Normalized): Collection {
       seenIds.set(rawId, count + 1)
       const reqId = count === 0 ? rawId : `${rawId}-${count + 1}`
 
+      const collected = collectParams(pi.parameters, op.parameters)
+      const headers: Record<string, string> = {}
+      const params: Record<string, string> = {}
+      for (const p of collected) {
+        if (p.in === "query") params[p.name] = `{{${p.name}}}`
+        else if (p.in === "header") headers[p.name] = `{{${p.name}}}`
+      }
+
       requests.push({
         id: reqId,
         name: reqName,
         method,
         url,
-        headers: {},
-        params: {},
+        headers,
+        params,
         body: undefined,
         auth: { type: "none" },
       })

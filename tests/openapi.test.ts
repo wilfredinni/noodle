@@ -358,3 +358,244 @@ describe("mapCollection — name derivation and id dedupe", () => {
     expect(ids).toEqual(["get-users", "get-users-2", "get-users-3"])
   })
 })
+
+describe("mapCollection — parameters", () => {
+  it("translates in:query params to params as {{name}} placeholders", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/search": {
+            get: {
+              operationId: "search",
+              parameters: [
+                { name: "q", in: "query" },
+                { name: "limit", in: "query" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ q: "{{q}}", limit: "{{limit}}" })
+  })
+
+  it("translates in:header params to headers as {{name}} placeholders", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: [{ name: "X-Custom", in: "header" }],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].headers).toEqual({ "X-Custom": "{{X-Custom}}" })
+  })
+
+  it("ignores in:cookie params", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: [{ name: "session", in: "cookie" }],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].headers).toEqual({})
+    expect(c.requests[0].params).toEqual({})
+  })
+
+  it("does not duplicate path params (in:path is a no-op; already in url)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [],
+        paths: {
+          "/users/{id}/items/{itemId}": {
+            get: {
+              operationId: "getItem",
+              parameters: [
+                { name: "id", in: "path" },
+                { name: "itemId", in: "path" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({})
+    expect(c.requests[0].headers).toEqual({})
+    expect(c.requests[0].url).toBe("/users/{{id}}/items/{{itemId}}")
+  })
+
+  it("skips a param with missing name", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: [{ in: "query" }, { name: "good", in: "query" }],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+  })
+
+  it("skips a param with non-string name", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: [
+                { name: 42, in: "query" },
+                { name: "good", in: "query" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+  })
+
+  it("skips a param with invalid in", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: [
+                { name: "bad", in: "formData" },
+                { name: "good", in: "query" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+  })
+
+  it("skips a param that is not a mapping", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: ["not a mapping", { name: "good", in: "query" }],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+  })
+
+  it("skips a param with empty-string name", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: [
+                { name: "", in: "query" },
+                { name: "good", in: "query" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+  })
+
+  it("applies pathItem-level parameters to all ops in that pathItem", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            parameters: [{ name: "shared", in: "query" }],
+            get: { operationId: "getX" },
+            post: { operationId: "postX" },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ shared: "{{shared}}" })
+    expect(c.requests[1].params).toEqual({ shared: "{{shared}}" })
+  })
+
+  it("op-level params override pathItem-level params by name+in", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            parameters: [{ name: "shared", in: "query" }],
+            get: {
+              operationId: "getX",
+              parameters: [
+                { name: "shared", in: "query" },
+                { name: "extra", in: "query" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({
+      shared: "{{shared}}",
+      extra: "{{extra}}",
+    })
+  })
+
+  it("op-level param does NOT override pathItem-level when in differs (different slot)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            parameters: [{ name: "alpha", in: "query" }],
+            get: {
+              operationId: "getX",
+              parameters: [{ name: "alpha", in: "header" }],
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].params).toEqual({ alpha: "{{alpha}}" })
+    expect(c.requests[0].headers).toEqual({ alpha: "{{alpha}}" })
+  })
+
+  it("uses the last param when name+in is duplicated within the same list", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            get: {
+              operationId: "getX",
+              parameters: [
+                { name: "dup", in: "query" },
+                { name: "dup", in: "query" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(Object.keys(c.requests[0].params)).toEqual(["dup"])
+  })
+})
