@@ -19,7 +19,6 @@ const METHOD_KEYS = [
   "delete",
   "head",
   "options",
-  "trace",
 ] as const
 
 const METHOD_UPPER: Record<string, Method> = {
@@ -102,7 +101,6 @@ export function mapCollection(n: Normalized): Collection {
     const pi = pathItem as Record<string, unknown>
     for (const methodKey of METHOD_KEYS) {
       if (!(methodKey in pi)) continue
-      if (methodKey === "trace") continue
       const opVal = pi[methodKey]
       if (typeof opVal !== "object" || opVal === null || Array.isArray(opVal))
         continue
