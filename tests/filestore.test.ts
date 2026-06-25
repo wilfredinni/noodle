@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { filestore } from "../src/filestore"
 import type { Request } from "../src/schema"
 
@@ -99,6 +99,7 @@ describe("filestore.loadCollection — file selection and order", () => {
   it("collapses trailing slash in dir basename", async () => {
     await writeFile(join(dir, "x.yml"), yamlTmpl(makeReq()))
     const col = await filestore.loadCollection(dir + "/")
-    expect(col.id).toBe(col.name)
+    expect(col.id).toBe(basename(dir))
+    expect(col.name).toBe(basename(dir))
   })
 })

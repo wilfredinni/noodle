@@ -17,7 +17,7 @@ export async function loadCollection(dir: string): Promise<Collection> {
 
   const id = basename(dir)
   const names = entries
-    .filter((e) => e.isFile() && e.name.endsWith(".yml"))
+    .filter((e) => e.isFile() && !e.name.startsWith(".") && e.name.endsWith(".yml"))
     .map((e) => e.name)
     .sort()
 
