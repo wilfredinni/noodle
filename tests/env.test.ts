@@ -41,7 +41,7 @@ describe("loadEnvironment — file errors", () => {
 describe("loadEnvironment — validation", () => {
   it("throws on malformed YAML", async () => {
     await writeFile(join(dir, "bad.yml"), "name: : :\n", "utf8")
-    await expect(env.loadEnvironment(dir, "bad")).rejects.toThrow("env.load:")
+    await expect(env.loadEnvironment(dir, "bad")).rejects.toThrow("env.load: YAML syntax:")
   })
 
   it("throws when top-level is a scalar", async () => {
@@ -82,6 +82,13 @@ describe("loadEnvironment — validation", () => {
   it("throws when vars is missing", async () => {
     await writeFile(join(dir, "nv.yml"), "name: dev\n", "utf8")
     await expect(env.loadEnvironment(dir, "nv")).rejects.toThrow(
+      'env.load: missing "vars"',
+    )
+  })
+
+  it("throws when vars is null", async () => {
+    await writeFile(join(dir, "vn.yml"), "name: dev\nvars:\n", "utf8")
+    await expect(env.loadEnvironment(dir, "vn")).rejects.toThrow(
       'env.load: missing "vars"',
     )
   })
