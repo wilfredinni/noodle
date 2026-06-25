@@ -9,7 +9,13 @@ import {
 export function ResponsePane({ state }: { state: SendState }) {
   return (
     <box
-      style={{ border: true, flexGrow: 1, flexDirection: "column", padding: 1 }}
+      style={{
+        border: true,
+        flexGrow: 1,
+        flexDirection: "column",
+        padding: 1,
+        gap: 1,
+      }}
       title="Response"
     >
       {state.status === "idle" ? (
@@ -30,9 +36,10 @@ export function ResponsePane({ state }: { state: SendState }) {
               {line}
             </text>
           ))}
-          {formatBody(state.response) !== "" ? (
-            <text>{formatBody(state.response)}</text>
-          ) : null}
+          {(() => {
+            const body = formatBody(state.response)
+            return body !== "" ? <text>{body}</text> : null
+          })()}
         </>
       )}
     </box>
