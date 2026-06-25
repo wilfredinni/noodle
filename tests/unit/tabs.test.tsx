@@ -88,11 +88,7 @@ describe("Tabs", () => {
 
   it("active tab has primary background and contrast text instead of INVERSE", async () => {
     const { renderOnce, captureSpans } = await testRender(
-      <ThemeProvider
-        isSelectingRef={{ current: false }}
-        previewIndexRef={{ current: null }}
-        blocking={() => false}
-      >
+      <ThemeProvider activeIndex={0} previewIndex={null}>
         <Tabs
           tabs={[
             { id: "a", label: "Tab A" },

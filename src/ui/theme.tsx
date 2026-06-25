@@ -1,6 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { createContext, useContext, useEffect, useRef } from "react"
 import type { ReactNode } from "react"
-import { useKeyboard } from "@opentui/react"
 import { THEMES } from "./theme-data"
 import type { Theme } from "./theme-data"
 
@@ -21,53 +20,13 @@ export function useTheme(): Theme {
 
 export function ThemeProvider({
   children,
-  isSelectingRef,
-  previewIndexRef,
-  blocking,
+  activeIndex,
+  previewIndex,
 }: {
   children: ReactNode
-  isSelectingRef: React.MutableRefObject<boolean>
-  previewIndexRef: React.MutableRefObject<number | null>
-  blocking: () => boolean
+  activeIndex: number
+  previewIndex: number | null
 }) {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
-
-  useEffect(() => {
-    isSelectingRef.current = previewIndex !== null
-    previewIndexRef.current = previewIndex
-  })
-
-  useKeyboard((key) => {
-    if (blocking()) return
-    if (previewIndex !== null) {
-      if (key.name === "escape") {
-        setPreviewIndex(null)
-        return
-      }
-      if (key.name === "up") {
-        setPreviewIndex(
-          (prev) => ((prev ?? activeIndex) - 1 + THEMES.length) % THEMES.length,
-        )
-        return
-      }
-      if (key.name === "down") {
-        setPreviewIndex((prev) => ((prev ?? activeIndex) + 1) % THEMES.length)
-        return
-      }
-      if (key.name === "return") {
-        setActiveIndex(previewIndex)
-        setPreviewIndex(null)
-        return
-      }
-      setPreviewIndex(null)
-      return
-    }
-    if (key.name === "t") {
-      setPreviewIndex(activeIndex)
-    }
-  })
-
   const activeTheme = THEMES[previewIndex ?? activeIndex]!
 
   return (

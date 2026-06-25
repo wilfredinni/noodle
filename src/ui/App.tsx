@@ -14,7 +14,7 @@ import { filestore } from "../filestore"
 import { cycleFocus, hintForFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
-import { PaneBorder } from "./theme"
+import { PaneBorder, THEMES } from "./theme"
 
 type SaveState =
   | { kind: "idle" }
@@ -30,17 +30,19 @@ function AppInner({
   environmentsDir,
   envList,
   initialEnvName,
-  themeSelectingRef,
-  previewIndexRef,
-  blockedRef,
+  activeIndex,
+  previewIndex,
+  setActiveIndex,
+  setPreviewIndex,
 }: {
   collectionDir: string
   environmentsDir: string
   envList: string[]
   initialEnvName?: string
-  themeSelectingRef: React.MutableRefObject<boolean>
-  previewIndexRef: React.MutableRefObject<number | null>
-  blockedRef: React.MutableRefObject<boolean>
+  activeIndex: number
+  previewIndex: number | null
+  setActiveIndex: (n: number) => void
+  setPreviewIndex: (n: number | null) => void
 }) {
   const theme = useTheme()
   const { collection, loading, error } = useCollection(collectionDir)
@@ -61,17 +63,18 @@ function AppInner({
   )
 
   const draft = useRequestDraft(selectedRequest)
-  const { editState, editValue, setEditValue, isActive, activeTab } =
-    useEditBrowse(draft.draft, draft, {
+  const { editState, editValue, setEditValue, isActive, activeTab } = useEditBrowse(
+    draft.draft,
+    draft,
+    {
       enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
       onEnterEditBrowse: () => setFocus("request"),
-      blocked: () => helpVisibleRef.current || themeSelectingRef.current,
-    })
+      blocked: () => helpVisibleRef.current || previewIndex !== null,
+    },
+  )
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
   const isActiveRef = useRef(isActive)
   isActiveRef.current = isActive
-
-  blockedRef.current = helpVisible || isActive
 
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
   const { state: responseState } = useResponse(
@@ -81,7 +84,7 @@ function AppInner({
       helpVisibleRef.current ||
       focusRef.current === "urlbar" ||
       isActiveRef.current ||
-      themeSelectingRef.current,
+      previewIndex !== null,
   )
 
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
@@ -103,9 +106,9 @@ function AppInner({
   }, [])
 
   useKeyboard((key) => {
-    // help toggle — blocked while editing or theme selecting
+    // help toggle — blocked while editing
     if (key.name === "?") {
-      if (isActive || themeSelectingRef.current) return
+      if (isActive) return
       setHelpVisible((prev) => !prev)
       return
     }
@@ -114,9 +117,38 @@ function AppInner({
       if (key.name === "escape") setHelpVisible(false)
       return
     }
-    if (themeSelectingRef.current) return
+    // theme picker keys
+    if (previewIndex !== null) {
+      if (key.name === "escape") {
+        setPreviewIndex(null)
+        return
+      }
+      if (key.name === "up") {
+        setPreviewIndex(
+          ((previewIndex - 1 + THEMES.length) % THEMES.length),
+        )
+        return
+      }
+      if (key.name === "down") {
+        setPreviewIndex(
+          ((previewIndex + 1) % THEMES.length),
+        )
+        return
+      }
+      if (key.name === "return") {
+        setActiveIndex(previewIndex)
+        setPreviewIndex(null)
+        return
+      }
+      setPreviewIndex(null)
+      return
+    }
     if (key.name === "tab" && !isActive) {
       setFocus((prev) => cycleFocus(prev, key.shift ? -1 : 1))
+      return
+    }
+    if (key.name === "t" && !isActive) {
+      setPreviewIndex(activeIndex)
       return
     }
     if (!isActive) {
@@ -178,8 +210,6 @@ function AppInner({
     }
   })
 
-  const pickerOpen = themeSelectingRef.current
-
   return (
     <box
       style={{
@@ -193,8 +223,8 @@ function AppInner({
     >
       {helpVisible ? (
         <HelpOverlay visible />
-      ) : pickerOpen ? (
-        <ThemePickerOverlay previewIndex={previewIndexRef.current} />
+      ) : previewIndex !== null ? (
+        <ThemePickerOverlay previewIndex={previewIndex} />
       ) : (
         <box style={{ flexDirection: "row", flexGrow: 1 }}>
           <Sidebar
@@ -230,7 +260,7 @@ function AppInner({
       <text fg={theme.textMuted}>
         {helpVisible
           ? "[?/Esc] dismiss help"
-          : pickerOpen
+          : previewIndex !== null
             ? "[↑/↓] navigate  [Enter] choose  [Esc] cancel"
             : saveState.kind === "confirming"
               ? `Save changes to ${draft.draft?.id ?? "?"}.yml? [y/N]`
@@ -255,24 +285,23 @@ export function App({
   envList: string[]
   initialEnvName?: string
 }) {
-  const isSelectingRef = useRef(false)
-  const previewIndexRef = useRef<number | null>(null)
-  const blockedRef = useRef(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
   return (
     <ThemeProvider
-      isSelectingRef={isSelectingRef}
-      previewIndexRef={previewIndexRef}
-      blocking={() => blockedRef.current}
+      activeIndex={activeIndex}
+      previewIndex={previewIndex}
     >
       <AppInner
         collectionDir={collectionDir}
         environmentsDir={environmentsDir}
         envList={envList}
         initialEnvName={initialEnvName}
-        themeSelectingRef={isSelectingRef}
-        previewIndexRef={previewIndexRef}
-        blockedRef={blockedRef}
+        activeIndex={activeIndex}
+        previewIndex={previewIndex}
+        setActiveIndex={setActiveIndex}
+        setPreviewIndex={setPreviewIndex}
       />
     </ThemeProvider>
   )

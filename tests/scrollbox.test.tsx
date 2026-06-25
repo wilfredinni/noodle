@@ -168,11 +168,7 @@ describe("RequestPane scrollbox", () => {
     }
 
     const { renderOnce, captureSpans } = await testRender(
-      <ThemeProvider
-        isSelectingRef={{ current: false }}
-        previewIndexRef={{ current: null }}
-        blocking={() => false}
-      >
+      <ThemeProvider activeIndex={0} previewIndex={null}>
         <RequestPane
           request={request}
           editState={editState}
@@ -241,11 +237,7 @@ describe("Sidebar scrollbox", () => {
     const collection: Collection = { id: "test", name: "Test", requests }
 
     const { renderOnce, captureSpans } = await testRender(
-      <ThemeProvider
-        isSelectingRef={{ current: false }}
-        previewIndexRef={{ current: null }}
-        blocking={() => false}
-      >
+      <ThemeProvider activeIndex={0} previewIndex={null}>
         <Sidebar
           collection={collection}
           loading={false}
