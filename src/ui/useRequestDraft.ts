@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Request, Auth, Method } from "../schema"
 import type { FieldKind } from "./editMode"
 
@@ -210,12 +210,24 @@ export interface UseRequestDraftResult {
   removeParamRow: (index: number) => void
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
+  markSaved: () => void
 }
 
 export function useRequestDraft(
   selectedRequest: Request | null,
 ): UseRequestDraftResult {
   const [map, setMap] = useState<Map<string, Request>>(new Map())
+  const [originalMap, setOriginalMap] = useState<Map<string, Request>>(new Map())
+
+  useEffect(() => {
+    if (!selectedRequest) return
+    setOriginalMap((prev) => {
+      if (prev.has(selectedRequest.id)) return prev
+      const next = new Map(prev)
+      next.set(selectedRequest.id, selectedRequest)
+      return next
+    })
+  }, [selectedRequest])
 
   const apply = useCallback(
     (op: DraftOp) => {
@@ -268,13 +280,26 @@ export function useRequestDraft(
   )
   const revertAll = useCallback(() => apply({ kind: "revertAll" }), [apply])
 
+  const mapRef = useRef(map)
+  mapRef.current = map
+
+  const markSaved = useCallback(() => {
+    if (!selectedRequest) return
+    const currentDraft = mapRef.current.get(selectedRequest.id) ?? selectedRequest
+    setOriginalMap((prev) => {
+      const next = new Map(prev)
+      next.set(selectedRequest.id, { ...currentDraft })
+      return next
+    })
+  }, [selectedRequest])
+
   const draft = selectedRequest
     ? (map.get(selectedRequest.id) ?? selectedRequest)
     : null
   const isDirty = selectedRequest
     ? !requestEquals(
         map.get(selectedRequest.id) ?? selectedRequest,
-        selectedRequest,
+        originalMap.get(selectedRequest.id) ?? selectedRequest,
       )
     : false
 
@@ -292,6 +317,7 @@ export function useRequestDraft(
       removeParamRow,
       revertField,
       revertAll,
+      markSaved,
     }),
     [
       draft,
@@ -306,6 +332,7 @@ export function useRequestDraft(
       removeParamRow,
       revertField,
       revertAll,
+      markSaved,
     ],
   )
 }

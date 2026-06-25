@@ -296,3 +296,33 @@ describe("applyDraft", () => {
     expect(map.get("b")!.url).toBe("https://b-edited.com")
   })
 })
+
+describe("isDirty with originalMap", () => {
+  it("returns false when draft equals originalMap entry", () => {
+    const original = makeReq({ url: "https://a.com" })
+    const originalMap = new Map([["r1", original]])
+    const draft = { ...original }
+    expect(requestEquals(draft, originalMap.get("r1")!)).toBe(true)
+  })
+  it("returns true when draft differs from originalMap entry", () => {
+    const original = makeReq({ url: "https://a.com" })
+    const originalMap = new Map([["r1", original]])
+    const draft = { ...original, url: "https://b.com" }
+    expect(requestEquals(draft, originalMap.get("r1")!)).toBe(false)
+  })
+  it("remains dirty after editing when originalMap has saved version", () => {
+    const selectedRequest = makeReq({ url: "https://a.com" })
+    const savedCopy = { ...selectedRequest, url: "https://b.com" }
+    const originalMap = new Map([["r1", savedCopy]])
+    const draft = { ...savedCopy, url: "https://c.com" }
+    // draft differs from savedCopy (originalMap entry) → dirty
+    expect(requestEquals(draft, originalMap.get("r1")!)).toBe(false)
+  })
+  it("falls back to selectedRequest when id not in originalMap", () => {
+    const selectedRequest = makeReq()
+    const originalMap = new Map<string, Request>()
+    const draft = { ...selectedRequest }
+    const saved = originalMap.get("r1") ?? selectedRequest
+    expect(requestEquals(draft, saved)).toBe(true)
+  })
+})
