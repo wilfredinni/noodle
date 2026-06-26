@@ -47,15 +47,17 @@ export function UrlBar({
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
           <text fg={methodColor(method as Method, theme)}>{method}</text>
           {focused ? (
-            <input
-              value={url}
-              onInput={setUrl}
-              backgroundColor={theme.backgroundElement}
-              focusedBackgroundColor={theme.borderSubtle}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-              focused
-            />
+            <box style={{ flexGrow: 1 }}>
+              <input
+                value={url}
+                onInput={setUrl}
+                backgroundColor={theme.backgroundElement}
+                focusedBackgroundColor={theme.borderSubtle}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+                focused
+              />
+            </box>
           ) : (
             <box
               style={{

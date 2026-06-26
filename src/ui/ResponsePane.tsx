@@ -90,7 +90,7 @@ export function ResponsePane({
       titleAlignment="left"
     >
       {state.status === "idle" ? (
-        <text fg={theme.textMuted}>Press [s] to send</text>
+        <text fg={theme.textMuted}>Send a request to see the response</text>
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
           <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
