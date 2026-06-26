@@ -61,7 +61,9 @@ function AppInner({
 
   const [focus, setFocus] = useState<Focus>("sidebar")
   const [helpVisible, setHelpVisible] = useState(false)
-  const [layout, setLayout] = useState<"stacked" | "side-by-side">(initialLayout)
+  const [layout, setLayout] = useState<"stacked" | "side-by-side">(
+    initialLayout,
+  )
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const [confirmSelection, setConfirmSelection] = useState(0)
 
@@ -109,7 +111,13 @@ function AppInner({
     }
   }, [focus, eb])
 
-  const envState = useEnvironments(environmentsDir, envList, initialEnvName, lastEnv, onEnvChange)
+  const envState = useEnvironments(
+    environmentsDir,
+    envList,
+    initialEnvName,
+    lastEnv,
+    onEnvChange,
+  )
   const { state: responseState, trySend } = useResponse(
     draft.draft,
     envState.activeEnv,
@@ -213,11 +221,12 @@ function AppInner({
       },
       {
         name: "layout.toggle",
-        run: () => setLayout((prev) => {
-          const next = prev === "stacked" ? "side-by-side" : "stacked"
-          onLayoutChange(next)
-          return next
-        }),
+        run: () =>
+          setLayout((prev) => {
+            const next = prev === "stacked" ? "side-by-side" : "stacked"
+            onLayoutChange(next)
+            return next
+          }),
       },
       {
         name: "focus.prev",
@@ -476,7 +485,14 @@ function AppInner({
               sending={responseState.status === "sending"}
             />
             {layout === "side-by-side" ? (
-              <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
+              <box
+                style={{
+                  flexDirection: "row",
+                  flexGrow: 1,
+                  gap: 1,
+                  minHeight: 0,
+                }}
+              >
                 <RequestPane
                   request={draft.draft}
                   editState={eb.editState}
@@ -553,18 +569,27 @@ export function App({
   const [activeIndex, setActiveIndex] = useState(config.theme)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
-  const handleThemeChange = useCallback((index: number) => {
-    setActiveIndex(index)
-    updateConfig({ theme: index })
-  }, [updateConfig])
+  const handleThemeChange = useCallback(
+    (index: number) => {
+      setActiveIndex(index)
+      updateConfig({ theme: index })
+    },
+    [updateConfig],
+  )
 
-  const handleLayoutChange = useCallback((layout: "stacked" | "side-by-side") => {
-    updateConfig({ layout })
-  }, [updateConfig])
+  const handleLayoutChange = useCallback(
+    (layout: "stacked" | "side-by-side") => {
+      updateConfig({ layout })
+    },
+    [updateConfig],
+  )
 
-  const handleEnvChange = useCallback((name: string | null) => {
-    updateConfig({ lastEnv: name })
-  }, [updateConfig])
+  const handleEnvChange = useCallback(
+    (name: string | null) => {
+      updateConfig({ lastEnv: name })
+    },
+    [updateConfig],
+  )
 
   return (
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
