@@ -395,11 +395,8 @@ function BodySection({
   return (
     <box
       id="body-field"
-      border={[...LeftBar.border]}
-      customBorderChars={LeftBar.customBorderChars}
-      borderColor={isBodyActive ? theme.primary : theme.borderSubtle}
       style={{
-        backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
+        backgroundColor: isBodyActive ? theme.backgroundPanel : undefined,
       }}
     >
       {bodyJsonValid
