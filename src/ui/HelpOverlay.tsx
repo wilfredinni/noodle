@@ -1,3 +1,4 @@
+import { RGBA } from "@opentui/core"
 import { getHelpSections } from "./helpTexts"
 import { useTheme } from "./theme"
 
@@ -11,34 +12,55 @@ export function HelpOverlay({ visible }: { visible: boolean }) {
   return (
     <box
       style={{
-        flexDirection: "column",
-        flexGrow: 1,
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
         alignItems: "center",
         justifyContent: "center",
+        backgroundColor: RGBA.fromInts(0, 0, 0, 150),
+        flexDirection: "column",
       }}
     >
       <box
         style={{
-          border: true,
-          borderColor: theme.primary,
+          width: 48,
+          backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
-          padding: 1,
           gap: 1,
+          padding: 1,
         }}
-        title="▸ Keybindings"
       >
-        {sections.map((section) => (
-          <box key={section.title} style={{ flexDirection: "column" }}>
-            <text fg={theme.primary}>{section.title}</text>
-            {section.keys.map((k, i) => (
-              <text key={i} fg={theme.text}>
-                {k.key}
-                {"  "}
-                {k.description}
-              </text>
-            ))}
-          </box>
-        ))}
+        <box
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            paddingLeft: 4,
+            paddingRight: 4,
+          }}
+        >
+          <text fg={theme.text}>Keybindings</text>
+          <text fg={theme.textMuted}>esc</text>
+        </box>
+        <box style={{ flexDirection: "column", gap: 1 }}>
+          {sections.map((section) => (
+            <box key={section.title} style={{ flexDirection: "column" }}>
+              <box style={{ paddingLeft: 4, paddingRight: 4 }}>
+                <text fg={theme.primary}>{section.title}</text>
+              </box>
+              {section.keys.map((k, i) => (
+                <box key={i} style={{ paddingLeft: 4, paddingRight: 4 }}>
+                  <text fg={theme.text}>
+                    {k.key}
+                    {"  "}
+                    {k.description}
+                  </text>
+                </box>
+              ))}
+            </box>
+          ))}
+        </box>
       </box>
     </box>
   )
