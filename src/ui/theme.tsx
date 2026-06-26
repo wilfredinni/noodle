@@ -13,6 +13,10 @@ export {
   nordTheme,
   tokyonightTheme,
   gruvboxTheme,
+  ayuTheme,
+  monokaiTheme,
+  solarizedTheme,
+  onedarkTheme,
 } from "./theme-data"
 export type { Theme } from "./theme-data"
 export { PaneBorder, FullBorder, LeftBar } from "./borders"

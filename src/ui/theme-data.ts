@@ -131,6 +131,82 @@ export const gruvboxTheme: Theme = {
   borderSubtle: "#504945",
 }
 
+export const ayuTheme: Theme = {
+  name: "ayu",
+  primary: "#59c2ff",
+  secondary: "#d2a6ff",
+  accent: "#e6b450",
+  error: "#d95757",
+  warning: "#e6b673",
+  success: "#7fd962",
+  info: "#39bae6",
+  text: "#bfbdb6",
+  textMuted: "#565b66",
+  background: "#0b0e14",
+  backgroundPanel: "#0f131a",
+  backgroundElement: "#0d1017",
+  border: "#6c7380",
+  borderActive: "#6c7380",
+  borderSubtle: "#11151c",
+}
+
+export const monokaiTheme: Theme = {
+  name: "monokai",
+  primary: "#66d9ef",
+  secondary: "#ae81ff",
+  accent: "#a6e22e",
+  error: "#f92672",
+  warning: "#e6db74",
+  success: "#a6e22e",
+  info: "#fd971f",
+  text: "#f8f8f2",
+  textMuted: "#75715e",
+  background: "#272822",
+  backgroundPanel: "#1e1f1c",
+  backgroundElement: "#3e3d32",
+  border: "#3e3d32",
+  borderActive: "#66d9ef",
+  borderSubtle: "#1e1f1c",
+}
+
+export const solarizedTheme: Theme = {
+  name: "solarized",
+  primary: "#268bd2",
+  secondary: "#6c71c4",
+  accent: "#2aa198",
+  error: "#dc322f",
+  warning: "#b58900",
+  success: "#859900",
+  info: "#cb4b16",
+  text: "#839496",
+  textMuted: "#586e75",
+  background: "#002b36",
+  backgroundPanel: "#073642",
+  backgroundElement: "#073642",
+  border: "#073642",
+  borderActive: "#586e75",
+  borderSubtle: "#073642",
+}
+
+export const onedarkTheme: Theme = {
+  name: "onedark",
+  primary: "#61afef",
+  secondary: "#c678dd",
+  accent: "#56b6c2",
+  error: "#e06c75",
+  warning: "#e5c07b",
+  success: "#98c379",
+  info: "#d19a66",
+  text: "#abb2bf",
+  textMuted: "#5c6370",
+  background: "#282c34",
+  backgroundPanel: "#21252b",
+  backgroundElement: "#353b45",
+  border: "#393f4a",
+  borderActive: "#61afef",
+  borderSubtle: "#2c313a",
+}
+
 export const THEMES: Theme[] = [
   opencodeTheme,
   catppuccinTheme,
@@ -138,6 +214,10 @@ export const THEMES: Theme[] = [
   nordTheme,
   tokyonightTheme,
   gruvboxTheme,
+  ayuTheme,
+  monokaiTheme,
+  solarizedTheme,
+  onedarkTheme,
 ]
 
 export function contrastOnPrimary(_theme: Theme): string {
