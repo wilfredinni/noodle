@@ -18,12 +18,7 @@ import { ConfirmOverlay } from "./ConfirmOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import type { Keybinds } from "./keybind"
-
-type SaveState =
-  | { kind: "idle" }
-  | { kind: "confirming"; requestId: string }
-  | { kind: "success"; message: string }
-  | { kind: "error"; message: string }
+import type { SaveState } from "./saveState"
 
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
