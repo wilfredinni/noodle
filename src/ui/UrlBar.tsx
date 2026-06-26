@@ -1,5 +1,6 @@
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
+import { FullBorder } from "./borders"
 import type { Method } from "../schema"
 
 export function UrlBar({
@@ -20,11 +21,16 @@ export function UrlBar({
       style={{
         flexDirection: "column",
         padding: 1,
+        gap: 1,
         backgroundColor: theme.backgroundPanel,
+        flexShrink: 0,
       }}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
+      borderColor={focused ? theme.accent : theme.borderSubtle}
     >
-      <text fg={focused ? theme.secondary : theme.textMuted}>
-        {focused ? "▸ URL" : "URL"}
+      <text fg={focused ? theme.accent : theme.textMuted}>
+        {focused ? "URL [e] edit  [Tab] next" : "URL"}
       </text>
       {!url ? (
         <text fg={theme.text}>(no request selected)</text>
