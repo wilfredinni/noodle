@@ -14,7 +14,7 @@ export function statusBarText(
   return {
     left: `[${kb.help_toggle}] help`,
     center: envLabel ? `● ${envLabel}` : "(no env)",
-    right: `[${kb.request_send}] send  [${kb.request_save}] save  [${kb.theme_picker}] theme`,
+    right: `[${kb.request_send}] send  [${kb.request_save}] save  [${kb.theme_picker}] theme  [${kb.layout_toggle}] layout`,
   }
 }
 

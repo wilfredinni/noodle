@@ -9,14 +9,14 @@ describe("statusBarText", () => {
     const result = statusBarText("prod", defaults)
     expect(result.left).toBe("[?] help")
     expect(result.center).toBe("● prod")
-    expect(result.right).toBe("[s] send  [w] save  [t] theme")
+    expect(result.right).toBe("[s] send  [w] save  [t] theme  [l] layout")
   })
 
   it("reflects custom keybinds", () => {
     const custom = { ...defaults, request_send: "ctrl+s", help_toggle: "f1" }
     const result = statusBarText("dev", custom)
     expect(result.left).toBe("[f1] help")
-    expect(result.right).toBe("[ctrl+s] send  [w] save  [t] theme")
+    expect(result.right).toBe("[ctrl+s] send  [w] save  [t] theme  [l] layout")
   })
 
   it("shows (no env) when env is empty string", () => {

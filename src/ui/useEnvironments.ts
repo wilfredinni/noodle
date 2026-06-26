@@ -17,22 +17,26 @@ export function useEnvironments(
   dir: string,
   envList: string[],
   initialName?: string,
+  lastEnv?: string | null,
+  onEnvChange?: (name: string | null) => void,
 ): UseEnvironmentsResult {
-  const [activeIndex, setActiveIndex] = useState<number>(() =>
-    initialName !== undefined ? envList.indexOf(initialName) : -1,
-  )
+  const [activeIndex, setActiveIndex] = useState<number>(() => {
+    if (initialName !== undefined) return envList.indexOf(initialName)
+    if (lastEnv !== undefined && lastEnv !== null) return envList.indexOf(lastEnv)
+    return -1
+  })
   const [activeEnv, setActiveEnv] = useState<Environment | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const genRef = useRef(0)
 
-  // Mount-only effect: initialName/dir/envList are stable for App's lifetime.
+  // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {
-    if (initialName === undefined) return
-    const idx = envList.indexOf(initialName)
-    if (idx < 0) return
+    const target = initialName ?? lastEnv ?? undefined
+    if (target === undefined) return
+    if (!envList.includes(target)) return
     let cancelled = false
     env
-      .loadEnvironment(dir, initialName)
+      .loadEnvironment(dir, target)
       .then((loaded) => {
         if (cancelled) return
         setActiveEnv(loaded)
@@ -68,6 +72,7 @@ export function useEnvironments(
           if (gen !== genRef.current) return
           setActiveEnv(loaded)
           setError(null)
+          onEnvChange?.(name)
         })
         .catch((e: unknown) => {
           if (gen !== genRef.current) return
@@ -76,7 +81,7 @@ export function useEnvironments(
           setActiveEnv(null)
         })
     },
-    [dir, envList, activeIndex],
+    [dir, envList, activeIndex, onEnvChange],
   )
 
   const indicatorLabel = useMemo(

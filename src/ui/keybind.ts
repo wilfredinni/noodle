@@ -26,6 +26,7 @@ export const Definitions = {
 
   focus_next: keybind("tab", "Next pane", true),
   focus_prev: keybind("shift+tab", "Previous pane", true),
+  layout_toggle: keybind("l", "Toggle layout (stacked/side-by-side)"),
   request_edit: keybind("return", "Enter edit-browse (request pane)", true),
   browse_up: keybind("up", "Cursor up (browse)", true),
   browse_down: keybind("down", "Cursor down (browse)", true),
@@ -42,6 +43,7 @@ export type KeybindName = keyof typeof Definitions
 export const CommandMap = {
   request_send: "request.send",
   request_save: "request.save",
+  layout_toggle: "layout.toggle",
   request_edit: "request.edit-enter",
   env_prev: "env.prev",
   env_next: "env.next",

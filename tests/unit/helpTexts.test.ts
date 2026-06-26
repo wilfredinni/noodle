@@ -53,7 +53,7 @@ describe("getHelpSections", () => {
     expect(keys).toContain("[R]")
   })
 
-  it("ACTIONS section shows s, w, [, ]", () => {
+  it("ACTIONS section shows s, w, [, ], layout", () => {
     const sections = getHelpSections(defaults)
     const act = sections.find((s) => s.title === "ACTIONS")!
     const keys = act.keys.map((k) => k.key)
@@ -61,6 +61,7 @@ describe("getHelpSections", () => {
     expect(keys).toContain("[w]")
     expect(keys).toContain("[[ ]")
     expect(keys).toContain("[] ]")
+    expect(keys).toContain("[l]")
   })
 
   it("SYSTEM section contains Ctrl+C and ?", () => {
