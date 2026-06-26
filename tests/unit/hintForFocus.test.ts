@@ -5,31 +5,42 @@ describe("hintForFocus — sidebar", () => {
   it("when sidebar focused (any mode)", () => {
     const hint = hintForFocus("sidebar", "inactive")
     expect(hint).toContain("select")
-    expect(hint).toContain("edit")
     expect(hint).toContain("send")
     expect(hint).toContain("save")
     expect(hint).toContain("Tab")
-    expect(hint).toContain("Request")
+    expect(hint).not.toContain("edit")
+    expect(hint).not.toContain("URL Bar")
+  })
+})
+
+describe("hintForFocus — urlbar", () => {
+  it("shows Tab, edit, send, save", () => {
+    const hint = hintForFocus("urlbar", "inactive")
+    expect(hint).toContain("Tab")
+    expect(hint).toContain("edit")
+    expect(hint).toContain("send")
+    expect(hint).toContain("save")
   })
 })
 
 describe("hintForFocus — request inactive", () => {
-  it("shows enter edit, send, save, Tab", () => {
+  it("shows edit, send, save, Tab", () => {
     const hint = hintForFocus("request", "inactive")
-    expect(hint).toContain("enter edit")
+    expect(hint).toContain("edit")
     expect(hint).toContain("send")
     expect(hint).toContain("save")
-    expect(hint).toContain("Response")
+    expect(hint).toContain("Tab")
+    expect(hint).toContain("next")
   })
 })
 
 describe("hintForFocus — request browsing", () => {
-  it("shows edit, revert, Esc, Tab", () => {
+  it("shows edit, Esc, revert", () => {
     const hint = hintForFocus("request", "browsing")
     expect(hint).toContain("edit")
-    expect(hint).toContain("revert")
     expect(hint).toContain("Esc")
-    expect(hint).toContain("Response")
+    expect(hint).toContain("revert")
+    expect(hint).not.toContain("Response")
   })
 })
 
@@ -42,9 +53,15 @@ describe("hintForFocus — request editing", () => {
 })
 
 describe("hintForFocus — response", () => {
-  it("shows Tab to Sidebar", () => {
+  it("shows Tab next and scroll keys (↑/↓/PgUp/PgDn)", () => {
     const hint = hintForFocus("response", "inactive")
-    expect(hint).toContain("Sidebar")
+    expect(hint).toContain("↑")
+    expect(hint).toContain("↓")
+    expect(hint).toContain("PgUp")
+    expect(hint).toContain("PgDn")
+    expect(hint).toContain("Tab")
+    expect(hint).toContain("next")
+    expect(hint).not.toContain("Sidebar")
   })
 })
 

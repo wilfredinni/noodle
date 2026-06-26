@@ -1,10 +1,11 @@
 import type { Response } from "../schema"
+import type { Theme } from "./theme"
 
-export function statusColor(status: number): string {
-  if (status >= 200 && status <= 299) return "#080"
-  if (status >= 300 && status <= 399) return "#880"
-  if (status >= 400 && status <= 599) return "#c00"
-  return "#888"
+export function statusColor(status: number, theme: Theme): string {
+  if (status >= 200 && status <= 299) return theme.success
+  if (status >= 300 && status <= 399) return theme.info
+  if (status >= 400 && status <= 599) return theme.error
+  return theme.textMuted
 }
 
 export function formatStatusLine(res: Response): string {

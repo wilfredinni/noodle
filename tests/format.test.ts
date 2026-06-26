@@ -6,6 +6,8 @@ import {
   formatHeaders,
   formatBody,
 } from "../src/ui/format"
+import { opencodeTheme, catppuccinTheme } from "../src/ui/theme"
+import type { Theme } from "../src/ui/theme"
 
 function makeRes(over: Partial<Response> = {}): Response {
   return {
@@ -19,31 +21,42 @@ function makeRes(over: Partial<Response> = {}): Response {
 }
 
 describe("statusColor", () => {
-  it("2xx → green", () => {
-    expect(statusColor(200)).toBe("#080")
-    expect(statusColor(204)).toBe("#080")
-    expect(statusColor(299)).toBe("#080")
+  const theme: Theme = opencodeTheme
+
+  it("2xx → success", () => {
+    expect(statusColor(200, theme)).toBe("#7fd88f")
+    expect(statusColor(204, theme)).toBe("#7fd88f")
+    expect(statusColor(299, theme)).toBe("#7fd88f")
   })
-  it("3xx → yellow", () => {
-    expect(statusColor(300)).toBe("#880")
-    expect(statusColor(304)).toBe("#880")
-    expect(statusColor(399)).toBe("#880")
+  it("3xx → info", () => {
+    expect(statusColor(300, theme)).toBe("#56b6c2")
+    expect(statusColor(304, theme)).toBe("#56b6c2")
+    expect(statusColor(399, theme)).toBe("#56b6c2")
   })
-  it("4xx → red", () => {
-    expect(statusColor(400)).toBe("#c00")
-    expect(statusColor(404)).toBe("#c00")
-    expect(statusColor(499)).toBe("#c00")
+  it("4xx → error", () => {
+    expect(statusColor(400, theme)).toBe("#e06c75")
+    expect(statusColor(404, theme)).toBe("#e06c75")
+    expect(statusColor(499, theme)).toBe("#e06c75")
   })
-  it("5xx → red", () => {
-    expect(statusColor(500)).toBe("#c00")
-    expect(statusColor(503)).toBe("#c00")
-    expect(statusColor(599)).toBe("#c00")
+  it("5xx → error", () => {
+    expect(statusColor(500, theme)).toBe("#e06c75")
+    expect(statusColor(503, theme)).toBe("#e06c75")
+    expect(statusColor(599, theme)).toBe("#e06c75")
   })
-  it("out of range → muted", () => {
-    expect(statusColor(100)).toBe("#888")
-    expect(statusColor(199)).toBe("#888")
-    expect(statusColor(600)).toBe("#888")
-    expect(statusColor(0)).toBe("#888")
+  it("out of range → textMuted", () => {
+    expect(statusColor(100, theme)).toBe("#808080")
+    expect(statusColor(199, theme)).toBe("#808080")
+    expect(statusColor(600, theme)).toBe("#808080")
+    expect(statusColor(0, theme)).toBe("#808080")
+  })
+})
+
+describe("statusColor with catppuccin", () => {
+  it("2xx uses catppuccin success color", () => {
+    expect(statusColor(200, catppuccinTheme)).toBe("#a6e3a1")
+  })
+  it("4xx uses catppuccin error color", () => {
+    expect(statusColor(404, catppuccinTheme)).toBe("#f38ba8")
   })
 })
 

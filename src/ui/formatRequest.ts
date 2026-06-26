@@ -1,10 +1,12 @@
 import type { Auth, Method } from "../schema"
+import type { Theme } from "./theme"
 
-export function methodColor(method: Method): string {
-  if (method === "GET") return "#080"
-  if (method === "POST" || method === "PUT" || method === "PATCH") return "#880"
-  if (method === "DELETE") return "#c00"
-  return "#888"
+export function methodColor(method: Method, theme: Theme): string {
+  if (method === "GET") return theme.success
+  if (method === "POST" || method === "PUT" || method === "PATCH")
+    return theme.warning
+  if (method === "DELETE") return theme.error
+  return theme.textMuted
 }
 
 export function formatHeaders(headers: Record<string, string>): string[] {

@@ -181,8 +181,7 @@ export function applyDraft(
       draft.params = removeRow(current.params, op.index)
       break
     case "revertField": {
-      if (op.field === "url") draft.url = original.url
-      else if (op.field === "body") draft.body = original.body
+      if (op.field === "body") draft.body = original.body
       else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {

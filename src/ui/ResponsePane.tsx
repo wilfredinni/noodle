@@ -1,10 +1,23 @@
+import { useEffect, useRef, useState } from "react"
+import { useKeyboard } from "@opentui/react"
+import { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
 import {
-  statusColor,
   formatStatusLine,
   formatHeaders,
   formatBody,
 } from "./format"
+import { Tabs, type TabDef } from "./Tabs"
+import { useTheme } from "./theme"
+import { FullBorder, LeftBar } from "./borders"
+import { highlightJson } from "./syntax"
+
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+const TAB_DEFS: TabDef[] = [
+  { id: "body", label: "Body" },
+  { id: "headers", label: "Headers" },
+]
 
 export function ResponsePane({
   state,
@@ -13,40 +26,133 @@ export function ResponsePane({
   state: SendState
   focused?: boolean
 }) {
+  const theme = useTheme()
+  const focusedRef = useRef(focused)
+  focusedRef.current = focused
+
+  const [activeTab, setActiveTab] = useState<"body" | "headers">("body")
+  const [spinnerIdx, setSpinnerIdx] = useState(0)
+  const isDone = state.status === "done"
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  useKeyboard((key) => {
+    if (!focusedRef.current) return
+    if (!isDone) return
+    if (key.name === "left")
+      setActiveTab((prev) => (prev === "body" ? "headers" : "body"))
+    else if (key.name === "right")
+      setActiveTab((prev) => (prev === "headers" ? "body" : "headers"))
+    else if (key.name === "down") scrollRef.current?.scrollBy(1)
+    else if (key.name === "up") scrollRef.current?.scrollBy(-1)
+    else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
+    else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
+  })
+
+  // Spinner animation tick
+  useEffect(() => {
+    if (state.status !== "sending") return
+    const id = setInterval(() => {
+      setSpinnerIdx((i) => (i + 1) % SPINNER_FRAMES.length)
+    }, 80)
+    return () => clearInterval(id)
+  }, [state.status])
+
+  const borderColor = focused ? theme.primary : theme.borderSubtle
+
   return (
     <box
       style={{
-        border: true,
-        borderColor: focused ? "#61dafb" : undefined,
         flexGrow: 1,
         flexDirection: "column",
-        padding: 1,
+        paddingTop: 0,
+        paddingBottom: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
         gap: 1,
+        flexBasis: 0,
+        minHeight: 0,
+        backgroundColor: theme.backgroundPanel,
       }}
-      title={focused ? "▸ Response" : "Response"}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
+      borderColor={borderColor}
+      title="Response"
+      titleColor={focused ? theme.primary : theme.textMuted}
+      titleAlignment="left"
+      bottomTitle={
+        state.status === "done"
+          ? ` ${formatStatusLine(state.response)} `
+          : undefined
+      }
+      bottomTitleAlignment="right"
     >
       {state.status === "idle" ? (
-        <text fg="#888">(no response yet)</text>
+        <text fg={theme.textMuted}>Send a request to see the response</text>
       ) : state.status === "sending" ? (
-        <text fg="#888">
-          Sending {state.request.method} {state.request.url}…
-        </text>
+        <box style={{ flexDirection: "row", gap: 1 }}>
+          <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
+          <text fg={theme.textMuted}>
+            Sending {state.request.method} {state.request.url}...
+          </text>
+        </box>
       ) : state.status === "error" ? (
-        <text fg="#c00">{state.error.message}</text>
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={theme.error}
+        >
+          <text fg={theme.error}> {state.error.message}</text>
+        </box>
       ) : (
         <>
-          <text fg={statusColor(state.response.status)}>
-            {formatStatusLine(state.response)}
-          </text>
-          {formatHeaders(state.response).map((line) => (
-            <text key={line} fg="#888">
-              {line}
-            </text>
-          ))}
-          {(() => {
-            const body = formatBody(state.response)
-            return body !== "" ? <text>{body}</text> : null
-          })()}
+          <Tabs tabs={TAB_DEFS} activeId={activeTab}>
+            <scrollbox
+              ref={scrollRef}
+              scrollY
+              stickyScroll
+              style={{ flexGrow: 1 }}
+            >
+              {activeTab === "body" ? (
+                <>
+                  {(() => {
+                    const body = formatBody(state.response)
+                    return body !== "" ? (
+                      <box
+                        border={[...LeftBar.border]}
+                        customBorderChars={LeftBar.customBorderChars}
+                        borderColor={theme.borderSubtle}
+                      >
+                        {highlightJson(body, theme).map((parts, li) =>
+                          parts.length === 0 ? null : (
+                            <text key={li}>
+                              {parts.map((p, pi) => (
+                                <span key={pi} fg={p.fg}>
+                                  {p.text}
+                                </span>
+                              ))}
+                            </text>
+                          ),
+                        )}
+                      </box>
+                    ) : null
+                  })()}
+                </>
+              ) : (
+                <>
+                  {formatHeaders(state.response).map((line) => (
+                    <box
+                      key={line}
+                      border={[...LeftBar.border]}
+                      customBorderChars={LeftBar.customBorderChars}
+                      borderColor={theme.borderSubtle}
+                    >
+                      <text fg={theme.textMuted}>{" " + line}</text>
+                    </box>
+                  ))}
+                </>
+              )}
+            </scrollbox>
+          </Tabs>
         </>
       )}
     </box>

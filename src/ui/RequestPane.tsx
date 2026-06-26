@@ -1,7 +1,7 @@
-import { TextAttributes } from "@opentui/core"
+import { ScrollBoxRenderable } from "@opentui/core"
+import { useEffect, useRef } from "react"
 import type { Request } from "../schema"
 import {
-  methodColor,
   formatHeaders,
   formatParams,
   formatBody,
@@ -9,6 +9,11 @@ import {
 } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
+import { Tabs, type TabDef } from "./Tabs"
+import { useTheme } from "./theme"
+import type { Theme } from "./theme"
+import { FullBorder, LeftBar } from "./borders"
+import { highlightJson } from "./syntax"
 
 interface Props {
   request: Request | null
@@ -17,19 +22,15 @@ interface Props {
   setEditValue: (v: string) => void
   draft: UseRequestDraftResult
   focused?: boolean
+  activeTab: FieldKind
 }
 
-function isFieldActive(editState: EditState, field: FieldKind): boolean {
-  return editState.mode !== "inactive" && editState.cursor.field === field
-}
-
-function labelActive(
-  editState: EditState,
-  field: FieldKind,
-): { fg: string; attributes?: number } {
-  if (!isFieldActive(editState, field)) return { fg: "#888" }
-  return { fg: "#000", attributes: TextAttributes.INVERSE }
-}
+const TAB_DEFS: TabDef[] = [
+  { id: "headers", label: "Headers" },
+  { id: "params", label: "Params" },
+  { id: "body", label: "Body" },
+  { id: "auth", label: "Auth" },
+]
 
 export function RequestPane({
   request,
@@ -38,203 +39,428 @@ export function RequestPane({
   setEditValue,
   draft,
   focused = false,
+  activeTab,
 }: Props) {
-  const methodFg = request ? methodColor(request.method) : ""
-  const headers = request ? formatHeaders(request.headers) : []
-  const params = request ? formatParams(request.params) : []
-  const body = request ? formatBody(request.body) : ""
-  const auth = request ? formatAuth(request.auth) : ""
+  const theme = useTheme()
   const title = `Request${draft.isDirty ? "*" : ""}`
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  useEffect(() => {
+    if (editState.mode !== "browsing") return
+    const { field, row, addingRow } = editState.cursor
+    if (field === "headers" || field === "params") {
+      const prefix = field === "headers" ? "hdr" : "prm"
+      scrollRef.current?.scrollChildIntoView(
+        addingRow ? `${prefix}-add` : `${prefix}-${row}`,
+      )
+    } else {
+      scrollRef.current?.scrollChildIntoView(`${field}-field`)
+    }
+  }, [editState.cursor])
 
   return (
     <box
       style={{
-        border: true,
-        borderColor: focused ? "#61dafb" : undefined,
         flexGrow: 1,
         flexDirection: "column",
-        padding: 1,
+        paddingTop: 0,
+        paddingBottom: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
         gap: 1,
+        flexBasis: 0,
+        minHeight: 0,
+        backgroundColor: theme.backgroundPanel,
       }}
-      title={focused ? `▸ ${title}` : title}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
+      borderColor={focused ? theme.primary : theme.borderSubtle}
+      title={focused ? `${title} [e] edit  [Tab] next` : title}
+      titleColor={focused ? theme.primary : theme.textMuted}
+      titleAlignment="left"
     >
       {request ? (
         <>
-          <text
-            fg={methodFg}
-            attributes={
-              browseActive && editState.cursor.field === "url"
-                ? TextAttributes.INVERSE
-                : 0
-            }
-          >
-            {request.method}{" "}
-          </text>
-          {inEdit && editState.cursor.field === "url" ? (
-            <input
-              value={editValue}
-              onInput={setEditValue}
-              backgroundColor="#222"
-              focusedBackgroundColor="#333"
-              textColor="#fff"
-              cursorColor="#0f0"
-              focused
-            />
-          ) : (
-            <text
-              fg={methodFg}
-              attributes={
-                browseActive && editState.cursor.field === "url"
-                  ? TextAttributes.INVERSE
-                  : 0
-              }
-            >
-              {request.url}
-            </text>
-          )}
-
-          <text {...labelActive(editState, "headers")}>Headers</text>
-          {headers.length === 0 &&
-          !(browseActive && editState.cursor.field === "headers") ? (
-            <text fg="#888">{"  (none)"}</text>
-          ) : (
-            <>
-              {headers.map((line, i) => {
-                const cursorHere =
-                  browseActive &&
-                  editState.cursor.field === "headers" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                const editingHere =
-                  inEdit &&
-                  editState.cursor.field === "headers" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                if (editingHere) {
-                  return (
-                    <input
-                      key={i}
-                      value={editValue}
-                      onInput={setEditValue}
-                      backgroundColor="#222"
-                      focusedBackgroundColor="#333"
-                      textColor="#fff"
-                      cursorColor="#0f0"
-                      focused
-                    />
-                  )
-                }
-                return (
-                  <text
-                    key={i}
-                    fg="#888"
-                    attributes={cursorHere ? TextAttributes.INVERSE : 0}
-                  >
-                    {"  " + line}
-                  </text>
-                )
-              })}
-              {browseActive && editState.cursor.field === "headers" && (
-                <text
-                  fg="#888"
-                  attributes={
-                    editState.cursor.addingRow ? TextAttributes.INVERSE : 0
-                  }
-                >
-                  {"  [+] add header"}
-                </text>
+          <Tabs tabs={TAB_DEFS} activeId={activeTab}>
+            <scrollbox ref={scrollRef} scrollY style={{ flexGrow: 1 }}>
+              {activeTab === "headers" && (
+                <HeadersSection
+                  request={request}
+                  editState={editState}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                  theme={theme}
+                />
               )}
-            </>
-          )}
-
-          <text {...labelActive(editState, "params")}>Params</text>
-          {params.length === 0 &&
-          !(browseActive && editState.cursor.field === "params") ? (
-            <text fg="#888">{"  (none)"}</text>
-          ) : (
-            <>
-              {params.map((line, i) => {
-                const cursorHere =
-                  browseActive &&
-                  editState.cursor.field === "params" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                const editingHere =
-                  inEdit &&
-                  editState.cursor.field === "params" &&
-                  !editState.cursor.addingRow &&
-                  editState.cursor.row === i
-                if (editingHere) {
-                  return (
-                    <input
-                      key={i}
-                      value={editValue}
-                      onInput={setEditValue}
-                      backgroundColor="#222"
-                      focusedBackgroundColor="#333"
-                      textColor="#fff"
-                      cursorColor="#0f0"
-                      focused
-                    />
-                  )
-                }
-                return (
-                  <text
-                    key={i}
-                    fg="#888"
-                    attributes={cursorHere ? TextAttributes.INVERSE : 0}
-                  >
-                    {"  " + line}
-                  </text>
-                )
-              })}
-              {browseActive && editState.cursor.field === "params" && (
-                <text
-                  fg="#888"
-                  attributes={
-                    editState.cursor.addingRow ? TextAttributes.INVERSE : 0
-                  }
-                >
-                  {"  [+] add param"}
-                </text>
+              {activeTab === "params" && (
+                <ParamsSection
+                  request={request}
+                  editState={editState}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                  theme={theme}
+                />
               )}
-            </>
-          )}
-
-          <text {...labelActive(editState, "body")}>Body</text>
-          {inEdit && editState.cursor.field === "body" ? (
-            <input
-              value={editValue}
-              onInput={setEditValue}
-              backgroundColor="#222"
-              focusedBackgroundColor="#333"
-              textColor="#fff"
-              cursorColor="#0f0"
-              focused
-            />
-          ) : body === "" ? (
-            <text fg="#888">{"  (none)"}</text>
-          ) : (
-            <text
-              attributes={
-                browseActive && editState.cursor.field === "body"
-                  ? TextAttributes.INVERSE
-                  : 0
-              }
-            >
-              {body}
-            </text>
-          )}
-
-          <text fg="#888">Auth</text>
-          <text fg="#888">{"  " + auth}</text>
-          <text fg="#888">[s] Send</text>
+              {activeTab === "body" && (
+                <BodySection
+                  request={request}
+                  editState={editState}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                  theme={theme}
+                />
+              )}
+              {activeTab === "auth" && (
+                <AuthSection
+                  request={request}
+                  editState={editState}
+                  theme={theme}
+                />
+              )}
+            </scrollbox>
+          </Tabs>
         </>
       ) : (
-        <text fg="#888">(no request selected)</text>
+        <text fg={theme.textMuted}>(no request selected)</text>
       )}
+    </box>
+  )
+}
+
+function HeadersSection({
+  request,
+  editState,
+  editValue,
+  setEditValue,
+  inEdit,
+  browseActive,
+  theme,
+}: {
+  request: Request
+  editState: EditState
+  editValue: string
+  setEditValue: (v: string) => void
+  inEdit: boolean
+  browseActive: boolean
+  theme: Theme
+}) {
+  const headers = formatHeaders(request.headers)
+  return (
+    <>
+      {headers.length === 0 &&
+      !(
+        editState.mode !== "inactive" &&
+        editState.cursor.field === "headers"
+      ) ? (
+        <text fg={theme.textMuted}> (none)</text>
+      ) : (
+        <>
+          {headers.map((line, i) => {
+            const cursorHere =
+              browseActive &&
+              editState.cursor.field === "headers" &&
+              !editState.cursor.addingRow &&
+              editState.cursor.row === i
+            const editingHere =
+              inEdit &&
+              editState.cursor.field === "headers" &&
+              !editState.cursor.addingRow &&
+              editState.cursor.row === i
+            if (editingHere) {
+              return (
+                <input
+                  key={i}
+                  id={`hdr-${i}`}
+                  value={editValue}
+                  onInput={setEditValue}
+                  backgroundColor={theme.backgroundElement}
+                  focusedBackgroundColor={theme.borderSubtle}
+                  textColor={theme.text}
+                  cursorColor={theme.primary}
+                  focused
+                />
+              )
+            }
+            return (
+              <box
+                key={i}
+                id={`hdr-${i}`}
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={cursorHere ? theme.primary : theme.borderSubtle}
+                style={{
+                  backgroundColor: cursorHere
+                    ? theme.backgroundElement
+                    : undefined,
+                }}
+              >
+                <text fg={cursorHere ? theme.text : theme.textMuted}>
+                  {" " + line}
+                </text>
+              </box>
+            )
+          })}
+          {inEdit &&
+          editState.cursor.field === "headers" &&
+          editState.cursor.addingRow ? (
+            <input
+              id="hdr-add"
+              value={editValue}
+              onInput={setEditValue}
+              backgroundColor={theme.backgroundElement}
+              focusedBackgroundColor={theme.borderSubtle}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          ) : (
+            browseActive &&
+            editState.cursor.field === "headers" && (
+              <box
+                id="hdr-add"
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={
+                  editState.cursor.addingRow
+                    ? theme.primary
+                    : theme.borderSubtle
+                }
+                style={{
+                  backgroundColor: editState.cursor.addingRow
+                    ? theme.backgroundElement
+                    : undefined,
+                }}
+              >
+                <text
+                  fg={
+                    editState.cursor.addingRow ? theme.text : theme.textMuted
+                  }
+                >
+                  {" [+] add header"}
+                </text>
+              </box>
+            )
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
+function ParamsSection({
+  request,
+  editState,
+  editValue,
+  setEditValue,
+  inEdit,
+  browseActive,
+  theme,
+}: {
+  request: Request
+  editState: EditState
+  editValue: string
+  setEditValue: (v: string) => void
+  inEdit: boolean
+  browseActive: boolean
+  theme: Theme
+}) {
+  const params = formatParams(request.params)
+  return (
+    <>
+      {params.length === 0 &&
+      !(
+        editState.mode !== "inactive" &&
+        editState.cursor.field === "params"
+      ) ? (
+        <text fg={theme.textMuted}> (none)</text>
+      ) : (
+        <>
+          {params.map((line, i) => {
+            const cursorHere =
+              browseActive &&
+              editState.cursor.field === "params" &&
+              !editState.cursor.addingRow &&
+              editState.cursor.row === i
+            const editingHere =
+              inEdit &&
+              editState.cursor.field === "params" &&
+              !editState.cursor.addingRow &&
+              editState.cursor.row === i
+            if (editingHere) {
+              return (
+                <input
+                  key={i}
+                  id={`prm-${i}`}
+                  value={editValue}
+                  onInput={setEditValue}
+                  backgroundColor={theme.backgroundElement}
+                  focusedBackgroundColor={theme.borderSubtle}
+                  textColor={theme.text}
+                  cursorColor={theme.primary}
+                  focused
+                />
+              )
+            }
+            return (
+              <box
+                key={i}
+                id={`prm-${i}`}
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={cursorHere ? theme.primary : theme.borderSubtle}
+                style={{
+                  backgroundColor: cursorHere
+                    ? theme.backgroundElement
+                    : undefined,
+                }}
+              >
+                <text fg={cursorHere ? theme.text : theme.textMuted}>
+                  {" " + line}
+                </text>
+              </box>
+            )
+          })}
+          {inEdit &&
+          editState.cursor.field === "params" &&
+          editState.cursor.addingRow ? (
+            <input
+              id="prm-add"
+              value={editValue}
+              onInput={setEditValue}
+              backgroundColor={theme.backgroundElement}
+              focusedBackgroundColor={theme.borderSubtle}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          ) : (
+            browseActive &&
+            editState.cursor.field === "params" && (
+              <box
+                id="prm-add"
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={
+                  editState.cursor.addingRow
+                    ? theme.primary
+                    : theme.borderSubtle
+                }
+                style={{
+                  backgroundColor: editState.cursor.addingRow
+                    ? theme.backgroundElement
+                    : undefined,
+                }}
+              >
+                <text
+                  fg={
+                    editState.cursor.addingRow ? theme.text : theme.textMuted
+                  }
+                >
+                  {" [+] add param"}
+                </text>
+              </box>
+            )
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
+function BodySection({
+  request,
+  editState,
+  editValue,
+  setEditValue,
+  inEdit,
+  browseActive,
+  theme,
+}: {
+  request: Request
+  editState: EditState
+  editValue: string
+  setEditValue: (v: string) => void
+  inEdit: boolean
+  browseActive: boolean
+  theme: Theme
+}) {
+  const body = formatBody(request.body)
+  const isBodyActive = browseActive && editState.cursor.field === "body"
+  return (
+    <>
+      {inEdit && editState.cursor.field === "body" ? (
+        <input
+          id="body-field"
+          value={editValue}
+          onInput={setEditValue}
+          backgroundColor={theme.backgroundElement}
+          focusedBackgroundColor={theme.borderSubtle}
+          textColor={theme.text}
+          cursorColor={theme.primary}
+          focused
+        />
+      ) : body === "" ? (
+        <text id="body-field" fg={theme.textMuted}>
+          (none)
+        </text>
+      ) : (
+        <box
+          id="body-field"
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={isBodyActive ? theme.primary : theme.borderSubtle}
+          style={{
+            backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
+          }}
+        >
+          {highlightJson(body, theme).map((parts, li) =>
+            parts.length === 0 ? null : (
+              <text key={li}>
+                {parts.map((p, pi) => (
+                  <span key={pi} fg={p.fg}>
+                    {p.text}
+                  </span>
+                ))}
+              </text>
+            ),
+          )}
+        </box>
+      )}
+    </>
+  )
+}
+
+function AuthSection({
+  request,
+  editState,
+  theme,
+}: {
+  request: Request
+  editState: EditState
+  theme: Theme
+}) {
+  const auth = formatAuth(request.auth)
+  const isActive =
+    editState.mode === "browsing" && editState.cursor.field === "auth"
+  return (
+    <box
+      id="auth-field"
+      border={[...LeftBar.border]}
+      customBorderChars={LeftBar.customBorderChars}
+      borderColor={isActive ? theme.primary : theme.borderSubtle}
+      style={{
+        backgroundColor: isActive ? theme.backgroundElement : undefined,
+      }}
+    >
+      <text fg={isActive ? theme.text : theme.textMuted}>{" " + auth}</text>
     </box>
   )
 }

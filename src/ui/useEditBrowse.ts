@@ -17,6 +17,8 @@ import {
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { parseRow } from "./useRequestDraft"
 
+const FIELD_ORDER: FieldKind[] = ["headers", "params", "body", "auth"]
+
 function rowCount(req: Request | null): SectionRowCount {
   if (!req) return { headers: 0, params: 0 }
   return {
@@ -32,7 +34,6 @@ function currentValueFor(
   addingRow: boolean,
 ): string {
   if (!draft) return ""
-  if (field === "url") return draft.url
   if (field === "body") return draft.body ?? ""
   if (field === "headers" || field === "params") {
     if (addingRow) return ""
@@ -46,11 +47,18 @@ function currentValueFor(
   return ""
 }
 
+function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
+  const idx = FIELD_ORDER.indexOf(current)
+  const next = (idx + delta + FIELD_ORDER.length) % FIELD_ORDER.length
+  return FIELD_ORDER[next]!
+}
+
 export interface UseEditBrowseResult {
   editState: EditState
   editValue: string
   setEditValue: (v: string) => void
   isActive: boolean
+  activeTab: FieldKind
 }
 
 export function useEditBrowse(
@@ -64,16 +72,18 @@ export function useEditBrowse(
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
   const [editValue, setEditValue] = useState("")
+  const [inactiveTab, setInactiveTab] = useState<FieldKind>("headers")
 
   const counts = rowCount(draft)
+
+  const activeTab =
+    editState.mode !== "inactive" ? editState.cursor.field : inactiveTab
 
   const onCommit = useCallback(() => {
     if (editState.mode !== "editing") return
     const { field } = editState.cursor
     const addingRow = editState.cursor.addingRow
-    if (field === "url") {
-      draftMutators.setUrl(editValue)
-    } else if (field === "body") {
+    if (field === "body") {
       draftMutators.setBody(editValue)
     } else if (field === "headers" || field === "params") {
       const parsed = parseRow(editValue)
@@ -112,7 +122,7 @@ export function useEditBrowse(
   const onRevertField = useCallback(() => {
     if (editState.mode !== "browsing") return
     const { field, addingRow, row } = editState.cursor
-    if (field === "url" || field === "body") {
+    if (field === "body") {
       draftMutators.revertField(field)
     } else if (field === "headers" || field === "params") {
       if (addingRow) return
@@ -127,8 +137,12 @@ export function useEditBrowse(
 
     if (editState.mode === "inactive") {
       if (key.name === "e") {
-        setEditState((prev) => enterEditBrowse(prev))
+        setEditState((prev) => enterEditBrowse(prev, counts))
         opts?.onEnterEditBrowse?.()
+      } else if (key.name === "left" && enabled()) {
+        setInactiveTab((prev) => cycleField(prev, -1))
+      } else if (key.name === "right" && enabled()) {
+        setInactiveTab((prev) => cycleField(prev, +1))
       }
       return
     }
@@ -156,17 +170,13 @@ export function useEditBrowse(
         setEditValue(init)
         setEditState((prev) => beginEditing(prev))
       } else if (key.name === "up") {
-        setEditState((prev) => {
-          const moved = moveRowCursor(prev, -1, counts)
-          if (moved === prev) return moveFieldCursor(prev, -1, counts)
-          return moved
-        })
+        setEditState((prev) => moveRowCursor(prev, -1, counts))
       } else if (key.name === "down") {
-        setEditState((prev) => {
-          const moved = moveRowCursor(prev, +1, counts)
-          if (moved === prev) return moveFieldCursor(prev, +1, counts)
-          return moved
-        })
+        setEditState((prev) => moveRowCursor(prev, +1, counts))
+      } else if (key.name === "left") {
+        setEditState((prev) => moveFieldCursor(prev, -1, counts))
+      } else if (key.name === "right") {
+        setEditState((prev) => moveFieldCursor(prev, +1, counts))
       } else if (key.name === "d") {
         onRevertField()
       } else if (key.name === "R" || (key.shift && key.name === "r")) {
@@ -181,7 +191,8 @@ export function useEditBrowse(
       editValue,
       setEditValue,
       isActive: editState.mode !== "inactive",
+      activeTab,
     }),
-    [editState, editValue],
+    [editState, editValue, activeTab],
   )
 }

@@ -1,4 +1,4 @@
-export type FieldKind = "url" | "headers" | "params" | "body"
+export type FieldKind = "headers" | "params" | "body" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export interface FieldCursor {
@@ -18,21 +18,28 @@ export interface SectionRowCount {
   params: number
 }
 
-const FIELD_ORDER: FieldKind[] = ["url", "headers", "params", "body"]
+const FIELD_ORDER: FieldKind[] = ["headers", "params", "body", "auth"]
 
 export function initialEditState(): EditState {
   return {
     mode: "inactive",
-    cursor: { field: "url", row: -1, addingRow: false },
+    cursor: { field: "headers", row: -1, addingRow: false },
     editingRow: -1,
   }
 }
 
-export function enterEditBrowse(prev: EditState): EditState {
+export function enterEditBrowse(
+  prev: EditState,
+  counts: SectionRowCount = { headers: 0, params: 0 },
+): EditState {
   if (prev.mode !== "inactive") return prev
   return {
     mode: "browsing",
-    cursor: { field: "url", row: -1, addingRow: false },
+    cursor: {
+      field: "headers",
+      row: -1,
+      addingRow: counts.headers === 0,
+    },
     editingRow: -1,
   }
 }
@@ -50,7 +57,7 @@ function cursorForField(
   field: FieldKind,
   counts: SectionRowCount,
 ): FieldCursor {
-  if (field === "url" || field === "body") {
+  if (field === "body" || field === "auth") {
     return { field, row: -1, addingRow: false }
   }
   const count = field === "headers" ? counts.headers : counts.params
@@ -106,6 +113,7 @@ export function moveRowCursor(
 
 export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
+  if (prev.cursor.field === "auth") return prev
   return {
     ...prev,
     mode: "editing",
