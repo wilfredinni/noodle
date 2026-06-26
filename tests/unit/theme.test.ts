@@ -6,77 +6,33 @@ describe("THEMES", () => {
     expect(THEMES).toHaveLength(18)
   })
 
-  it("first theme is named opencode", () => {
-    expect(THEMES[0]!.name).toBe("opencode")
-  })
+  const expected = [
+    "aura",
+    "ayu",
+    "carbonfox",
+    "catppuccin",
+    "catppuccin-frappe",
+    "dracula",
+    "everforest",
+    "gruvbox",
+    "kanagawa",
+    "material",
+    "monokai",
+    "nord",
+    "onedark",
+    "opencode",
+    "rosepine",
+    "solarized",
+    "synthwave84",
+    "tokyonight",
+  ]
 
-  it("second theme is named catppuccin", () => {
-    expect(THEMES[1]!.name).toBe("catppuccin")
-  })
-
-  it("third theme is named dracula", () => {
-    expect(THEMES[2]!.name).toBe("dracula")
-  })
-
-  it("fourth theme is named nord", () => {
-    expect(THEMES[3]!.name).toBe("nord")
-  })
-
-  it("fifth theme is named tokyonight", () => {
-    expect(THEMES[4]!.name).toBe("tokyonight")
-  })
-
-  it("sixth theme is named gruvbox", () => {
-    expect(THEMES[5]!.name).toBe("gruvbox")
-  })
-
-  it("seventh theme is named ayu", () => {
-    expect(THEMES[6]!.name).toBe("ayu")
-  })
-
-  it("eighth theme is named monokai", () => {
-    expect(THEMES[7]!.name).toBe("monokai")
-  })
-
-  it("ninth theme is named solarized", () => {
-    expect(THEMES[8]!.name).toBe("solarized")
-  })
-
-  it("tenth theme is named onedark", () => {
-    expect(THEMES[9]!.name).toBe("onedark")
-  })
-
-  it("eleventh theme is named aura", () => {
-    expect(THEMES[10]!.name).toBe("aura")
-  })
-
-  it("twelfth theme is named everforest", () => {
-    expect(THEMES[11]!.name).toBe("everforest")
-  })
-
-  it("thirteenth theme is named kanagawa", () => {
-    expect(THEMES[12]!.name).toBe("kanagawa")
-  })
-
-  it("fourteenth theme is named rosepine", () => {
-    expect(THEMES[13]!.name).toBe("rosepine")
-  })
-
-  it("fifteenth theme is named material", () => {
-    expect(THEMES[14]!.name).toBe("material")
-  })
-
-  it("sixteenth theme is named carbonfox", () => {
-    expect(THEMES[15]!.name).toBe("carbonfox")
-  })
-
-  it("seventeenth theme is named synthwave84", () => {
-    expect(THEMES[16]!.name).toBe("synthwave84")
-  })
-
-  it("eighteenth theme is named catppuccin-frappe", () => {
-    expect(THEMES[17]!.name).toBe("catppuccin-frappe")
-  })
+  for (let i = 0; i < expected.length; i++) {
+    const nth = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth"]
+    it(`${nth[i]!} theme is named ${expected[i]}`, () => {
+      expect(THEMES[i]!.name).toBe(expected[i])
+    })
+  }
 
   it("every theme has all 16 required tokens", () => {
     const requiredKeys = [
