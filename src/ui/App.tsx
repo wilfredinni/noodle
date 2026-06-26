@@ -214,48 +214,49 @@ function AppInner({
       border={[...PaneBorder.border]}
       customBorderChars={PaneBorder.customBorderChars}
     >
-      {helpVisible ? (
-        <HelpOverlay visible />
-      ) : previewIndex !== null ? (
-        <ThemePickerOverlay previewIndex={previewIndex} />
-      ) : (
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
-          <Sidebar
-            collection={collection}
-            loading={loading}
-            error={error}
-            selectedIndex={selectedIndex}
-            focused={focus === "sidebar"}
-          />
-          <box style={{ flexDirection: "column", flexGrow: 1 }}>
-            <UrlBar
-              method={draft.draft?.method ?? ""}
-              url={draft.draft?.url ?? ""}
-              setUrl={draft.setUrl}
-              focused={focus === "urlbar"}
+      <box style={{ flexDirection: "column", flexGrow: 1, position: "relative" }}>
+        {helpVisible ? (
+          <HelpOverlay visible />
+        ) : (
+          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+            <Sidebar
+              collection={collection}
+              loading={loading}
+              error={error}
+              selectedIndex={selectedIndex}
+              focused={focus === "sidebar"}
             />
-            <RequestPane
-              request={draft.draft}
-              editState={editState}
-              editValue={editValue}
-              setEditValue={setEditValue}
-              draft={draft}
-              focused={focus === "request"}
-              activeTab={activeTab}
-            />
-            <ResponsePane
-              state={responseState}
-              focused={focus === "response"}
-            />
+            <box style={{ flexDirection: "column", flexGrow: 1 }}>
+              <UrlBar
+                method={draft.draft?.method ?? ""}
+                url={draft.draft?.url ?? ""}
+                setUrl={draft.setUrl}
+                focused={focus === "urlbar"}
+              />
+              <RequestPane
+                request={draft.draft}
+                editState={editState}
+                editValue={editValue}
+                setEditValue={setEditValue}
+                draft={draft}
+                focused={focus === "request"}
+                activeTab={activeTab}
+              />
+              <ResponsePane
+                state={responseState}
+                focused={focus === "response"}
+              />
+            </box>
           </box>
-        </box>
-      )}
+        )}
+        {previewIndex !== null && (
+          <ThemePickerOverlay activeIndex={activeIndex} previewIndex={previewIndex} />
+        )}
+      </box>
       <text fg={theme.textMuted}>
         {helpVisible
           ? "[?/Esc] dismiss help"
-          : previewIndex !== null
-            ? "[↑/↓] navigate  [Enter] choose  [Esc] cancel"
-            : saveState.kind === "confirming"
+          : saveState.kind === "confirming"
               ? `Save changes to ${draft.draft?.id ?? "?"}.yml? [y/N]`
               : saveState.kind === "success"
                 ? saveState.message

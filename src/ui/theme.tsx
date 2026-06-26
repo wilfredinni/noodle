@@ -1,5 +1,6 @@
-import { createContext, useContext, useRef, useEffect } from "react"
+import { createContext, useContext } from "react"
 import type { ReactNode } from "react"
+import { RGBA } from "@opentui/core"
 import { THEMES } from "./theme-data"
 import type { Theme } from "./theme-data"
 
@@ -37,66 +38,67 @@ export function ThemeProvider({
 }
 
 export function ThemePickerOverlay({
+  activeIndex,
   previewIndex,
 }: {
+  activeIndex: number
   previewIndex: number | null
 }) {
   const theme = useTheme()
-  const scrollRef = useRef<import("@opentui/core").ScrollBoxRenderable | null>(
-    null,
-  )
-
-  useEffect(() => {
-    if (previewIndex !== null && previewIndex >= 0) {
-      scrollRef.current?.scrollChildIntoView(`theme-${previewIndex}`)
-    }
-  }, [previewIndex])
 
   return (
     <box
       style={{
-        flexDirection: "column",
-        flexGrow: 1,
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
         alignItems: "center",
         justifyContent: "center",
+        backgroundColor: RGBA.fromInts(0, 0, 0, 150),
+        flexDirection: "column",
       }}
     >
       <box
         style={{
-          border: true,
-          borderColor: theme.primary,
+          width: 40,
+          backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
-          padding: 1,
           gap: 1,
+          paddingBottom: 1,
         }}
-        title="▸ Themes"
       >
-        <scrollbox
-          ref={scrollRef}
-          scrollY
-          style={{ flexDirection: "column", gap: 1 }}
+        <box
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            paddingLeft: 4,
+            paddingRight: 4,
+          }}
         >
+          <text fg={theme.text}>Themes</text>
+          <text fg={theme.textMuted}>esc</text>
+        </box>
+        <box style={{ flexDirection: "column" }}>
           {THEMES.map((t, i) => {
             const isSelected = i === previewIndex
             return (
               <box
                 key={t.name}
-                id={`theme-${i}`}
-                paddingLeft={1}
-                paddingRight={1}
-                backgroundColor={isSelected ? theme.primary : undefined}
+                style={{
+                  paddingLeft: 4,
+                  paddingRight: 4,
+                  backgroundColor: isSelected ? theme.primary : undefined,
+                }}
               >
                 <text fg={isSelected ? "#1a1a1a" : theme.text}>
-                  {isSelected ? "▸ " : "  "}
                   {t.name}
                 </text>
               </box>
             )
           })}
-        </scrollbox>
-        <text fg={theme.textMuted}>
-          {"[↑/↓] navigate  [Enter] choose  [Esc] cancel"}
-        </text>
+        </box>
       </box>
     </box>
   )
