@@ -13,13 +13,14 @@ import { useEnvironments } from "./useEnvironments"
 import { filestore } from "../filestore"
 import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
+import { ConfirmOverlay } from "./ConfirmOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { THEMES } from "./theme"
 import { StatusBar } from "./StatusBar"
 
 type SaveState =
   | { kind: "idle" }
-  | { kind: "confirming" }
+  | { kind: "confirming"; requestId: string }
   | { kind: "success"; message: string }
   | { kind: "error"; message: string }
 
@@ -57,6 +58,8 @@ function AppInner({
   const helpVisibleRef = useRef(false)
   helpVisibleRef.current = helpVisible
 
+  const confirmingRef = useRef(false)
+
   const previewIndexRef = useRef(previewIndex)
   previewIndexRef.current = previewIndex
 
@@ -66,6 +69,7 @@ function AppInner({
     () =>
       sidebarEnabledRef.current &&
       !helpVisibleRef.current &&
+      !confirmingRef.current &&
       previewIndexRef.current === null,
   )
 
@@ -74,7 +78,8 @@ function AppInner({
     useEditBrowse(draft.draft, draft, {
       enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
       onEnterEditBrowse: () => setFocus("request"),
-      blocked: () => helpVisibleRef.current || previewIndex !== null,
+      blocked: () =>
+        helpVisibleRef.current || confirmingRef.current || previewIndex !== null,
     })
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
   const isActiveRef = useRef(isActive)
@@ -86,12 +91,15 @@ function AppInner({
     envState.activeEnv,
     () =>
       helpVisibleRef.current ||
+      confirmingRef.current ||
       focusRef.current === "urlbar" ||
       isActiveRef.current ||
       previewIndex !== null,
   )
 
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
+  confirmingRef.current = saveState.kind === "confirming"
+  const [confirmSelection, setConfirmSelection] = useState(0)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
 
@@ -109,7 +117,73 @@ function AppInner({
     }
   }, [])
 
+  const doSave = useCallback(() => {
+    const req = draft.draft
+    if (!req || savingRef.current) return
+    savingRef.current = true
+    const requestId = req.id
+    setSaveState({ kind: "idle" })
+    filestore
+      .saveRequest(collectionDir, req)
+      .then(() => {
+        if (!mountedRef.current) return
+        if (selectedRequest?.id !== requestId) return
+        draft.markSaved()
+        clearSaveTimer()
+        setSaveState({
+          kind: "success",
+          message: `Saved ${requestId}.yml`,
+        })
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, SAVE_SUCCESS_MS)
+      })
+      .catch((e: unknown) => {
+        if (!mountedRef.current) return
+        const msg = e instanceof Error ? e.message : String(e)
+        clearSaveTimer()
+        setSaveState({
+          kind: "error",
+          message: `Error: ${msg}`,
+        })
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, SAVE_ERROR_MS)
+      })
+      .finally(() => {
+        savingRef.current = false
+      })
+  }, [
+    draft.draft,
+    draft.markSaved,
+    selectedRequest,
+    collectionDir,
+    clearSaveTimer,
+    setSaveState,
+  ])
+
   useKeyboard((key) => {
+    // save confirm blocks everything except confirm keys
+    if (saveState.kind === "confirming") {
+      if (
+        key.name === "y" ||
+        (key.name === "return" && confirmSelection === 0)
+      ) {
+        doSave()
+      } else if (
+        key.name === "n" ||
+        key.name === "escape" ||
+        (key.name === "return" && confirmSelection === 1)
+      ) {
+        setSaveState({ kind: "idle" })
+      } else if (key.name === "left" || key.name === "up") {
+        setConfirmSelection(0)
+      } else if (key.name === "right" || key.name === "down") {
+        setConfirmSelection(1)
+      }
+      return
+    }
+
     // help toggle — blocked while editing
     if (key.name === "?") {
       if (isActive) return
@@ -157,54 +231,12 @@ function AppInner({
         if (key.name === "[") envState.cycle(-1)
         else if (key.name === "]") envState.cycle(+1)
       }
-      // save confirm prompt
-      if (saveState.kind === "confirming") {
-        if (key.name === "y") {
-          const req = draft.draft
-          if (!req || savingRef.current) return
-          savingRef.current = true
-          const requestId = req.id
-          setSaveState({ kind: "idle" })
-          filestore
-            .saveRequest(collectionDir, req)
-            .then(() => {
-              if (!mountedRef.current) return
-              if (selectedRequest?.id !== requestId) return
-              draft.markSaved()
-              clearSaveTimer()
-              setSaveState({
-                kind: "success",
-                message: `Saved ${requestId}.yml`,
-              })
-              saveTimerRef.current = setTimeout(() => {
-                setSaveState({ kind: "idle" })
-              }, SAVE_SUCCESS_MS)
-            })
-            .catch((e: unknown) => {
-              if (!mountedRef.current) return
-              const msg = e instanceof Error ? e.message : String(e)
-              clearSaveTimer()
-              setSaveState({
-                kind: "error",
-                message: `Error: ${msg}`,
-              })
-              saveTimerRef.current = setTimeout(() => {
-                setSaveState({ kind: "idle" })
-              }, SAVE_ERROR_MS)
-            })
-            .finally(() => {
-              savingRef.current = false
-            })
-        } else {
-          setSaveState({ kind: "idle" })
-        }
-        return
-      }
       // w keybind: trigger save confirmation
       if (key.name === "w" && !savingRef.current) {
         if (draft.draft && draft.isDirty) {
           clearSaveTimer()
-          setSaveState({ kind: "confirming" })
+          setConfirmSelection(0)
+          setSaveState({ kind: "confirming", requestId: draft.draft.id })
         }
       }
     }
@@ -269,6 +301,13 @@ function AppInner({
           </box>
         </box>
         {helpVisible && <HelpOverlay visible />}
+        {saveState.kind === "confirming" && (
+          <ConfirmOverlay
+            visible
+            message={`Save changes to ${saveState.requestId}?`}
+            selectedIndex={confirmSelection}
+          />
+        )}
         {previewIndex !== null && (
           <ThemePickerOverlay
             activeIndex={activeIndex}
