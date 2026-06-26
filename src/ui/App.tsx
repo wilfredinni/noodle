@@ -56,10 +56,13 @@ function AppInner({
   const helpVisibleRef = useRef(false)
   helpVisibleRef.current = helpVisible
 
+  const previewIndexRef = useRef(previewIndex)
+  previewIndexRef.current = previewIndex
+
   const sidebarEnabledRef = useRef(true)
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
-    () => sidebarEnabledRef.current && !helpVisibleRef.current,
+    () => sidebarEnabledRef.current && !helpVisibleRef.current && previewIndexRef.current === null,
   )
 
   const draft = useRequestDraft(selectedRequest)
