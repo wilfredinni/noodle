@@ -361,6 +361,7 @@ function BodySection({
         fg={theme.textMuted}
         bg={theme.backgroundPanel}
         style={{ flexGrow: 1 }}
+        width="100%"
       >
         <textarea
           ref={textareaRef}
@@ -368,8 +369,8 @@ function BodySection({
           initialValue={initialValue}
           onContentChange={handleContentChange}
           keyBindings={[{ name: "return", shift: true, action: "newline" }]}
-          backgroundColor={theme.backgroundElement}
-          focusedBackgroundColor={theme.backgroundElement}
+          backgroundColor={theme.backgroundPanel}
+          focusedBackgroundColor={theme.backgroundPanel}
           textColor={theme.text}
           cursorColor={theme.primary}
           focused
