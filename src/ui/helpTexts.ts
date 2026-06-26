@@ -18,8 +18,8 @@ export function getHelpSections(): HelpSection[] {
         { key: "[Tab]", description: "Next pane" },
         { key: "[Shift+Tab]", description: "Previous pane" },
         {
-          key: "[e]",
-          description: "Enter request edit-browse · sidebar / request",
+          key: "[Enter]",
+          description: "Enter request edit-browse · request pane",
         },
       ],
     },
@@ -27,7 +27,7 @@ export function getHelpSections(): HelpSection[] {
       title: "EDITING",
       keys: [
         {
-          key: "[e / Enter]",
+          key: "[Enter]",
           description: "Edit focused field · request browse",
         },
         { key: "[Enter]", description: "Commit edit" },

@@ -67,4 +67,12 @@ describe("getHelpSections", () => {
     expect(keys).toContain("[Ctrl+C]")
     expect(keys).toContain("[?]")
   })
+
+  it("NAVIGATION section does not contain [e] (removed)", () => {
+    const sections = getHelpSections()
+    const nav = sections.find((s) => s.title === "NAVIGATION")!
+    const keys = nav.keys.map((k) => k.key)
+    expect(keys).not.toContain("[e]")
+    expect(keys).toContain("[Enter]")
+  })
 })
