@@ -40,6 +40,7 @@ function AppInner({
   previewIndex,
   setActiveIndex,
   setPreviewIndex,
+  onThemeChange,
   keybinds,
   initialLayout,
   onLayoutChange,
@@ -54,6 +55,7 @@ function AppInner({
   previewIndex: number | null
   setActiveIndex: (n: number) => void
   setPreviewIndex: (n: number | null) => void
+  onThemeChange: (index: number) => void
   keybinds: Keybinds
   initialLayout: "stacked" | "side-by-side"
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
@@ -442,7 +444,7 @@ function AppInner({
         } else if (name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setActiveIndex(previewIndex)
+          onThemeChange(previewIndex)
           setPreviewIndex(null)
         } else {
           ctx.event.preventDefault()
@@ -614,8 +616,9 @@ export function App({
         initialEnvName={initialEnvName}
         activeIndex={activeIndex}
         previewIndex={previewIndex}
-        setActiveIndex={handleThemeChange}
+        setActiveIndex={setActiveIndex}
         setPreviewIndex={setPreviewIndex}
+        onThemeChange={handleThemeChange}
         keybinds={keybinds}
         initialLayout={config.layout}
         onLayoutChange={handleLayoutChange}
