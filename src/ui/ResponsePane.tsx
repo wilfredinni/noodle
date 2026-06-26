@@ -90,7 +90,7 @@ export function ResponsePane({
             justifyContent: "center",
           }}
         >
-          <ascii-font text="noodle" font="tiny" color="#383838" />
+          <ascii-font text="noodle" font="tiny" color={theme.borderSubtle} />
         </box>
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
