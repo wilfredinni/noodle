@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { THEMES, contrastOnPrimary, PaneBorder } from "../../src/ui/theme"
+import { THEMES, contrastOnPrimary } from "../../src/ui/theme"
 
 describe("THEMES", () => {
   it("has exactly 2 themes", () => {
@@ -71,20 +71,3 @@ describe("contrastOnPrimary", () => {
   })
 })
 
-describe("PaneBorder", () => {
-  it("uses thick vertical border chars", () => {
-    expect(PaneBorder.customBorderChars.vertical).toBe("┃")
-    expect(PaneBorder.customBorderChars.horizontal).toBe(" ")
-  })
-
-  it("has left and right borders only", () => {
-    expect(PaneBorder.border).toEqual(["left", "right"])
-  })
-
-  it("has empty corner characters", () => {
-    expect(PaneBorder.customBorderChars.topLeft).toBe("")
-    expect(PaneBorder.customBorderChars.bottomLeft).toBe("")
-    expect(PaneBorder.customBorderChars.topRight).toBe("")
-    expect(PaneBorder.customBorderChars.bottomRight).toBe("")
-  })
-})

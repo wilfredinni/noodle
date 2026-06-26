@@ -61,33 +61,5 @@ export function contrastOnPrimary(_theme: Theme): string {
   return "#1a1a1a"
 }
 
-export interface CustomBorderChars {
-  topLeft: string
-  bottomLeft: string
-  vertical: string
-  topRight: string
-  bottomRight: string
-  horizontal: string
-  bottomT: string
-  topT: string
-  cross: string
-  leftT: string
-  rightT: string
-}
-
-export const PaneBorder = {
-  border: ["left", "right"] as const,
-  customBorderChars: {
-    topLeft: "",
-    bottomLeft: "",
-    vertical: "┃",
-    topRight: "",
-    bottomRight: "",
-    horizontal: " ",
-    bottomT: "",
-    topT: "",
-    cross: "",
-    leftT: "",
-    rightT: "",
-  },
-}
+export { PaneBorder, FullBorder, LeftBar } from "./borders"
+export type { CustomBorderChars, BorderPreset } from "./borders"

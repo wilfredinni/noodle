@@ -7,11 +7,12 @@ import type { Theme } from "./theme-data"
 export {
   THEMES,
   contrastOnPrimary,
-  PaneBorder,
   opencodeTheme,
   catppuccinTheme,
 } from "./theme-data"
-export type { Theme, CustomBorderChars } from "./theme-data"
+export type { Theme } from "./theme-data"
+export { PaneBorder, FullBorder, LeftBar } from "./borders"
+export type { CustomBorderChars, BorderPreset } from "./borders"
 
 const ThemeContext = createContext<Theme>(THEMES[0]!)
 
