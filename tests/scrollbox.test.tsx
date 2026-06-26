@@ -229,14 +229,17 @@ describe("Sidebar scrollbox", () => {
     const lines = frame.split("\n").filter((l) => l.trim() !== "")
     expect(lines.length).toBeLessThan(50)
 
-    expect(frame).toContain("Request number 5")
+    // Text wraps due to border+padding; check wrapped parts individually
+    expect(frame).toContain("Request")
+    expect(frame).toContain("number")
+    expect(frame).toContain("5")
   })
 
-  it("selected request has primary background and contrast text instead of INVERSE", async () => {
+  it("selected request has LeftBar border and no INVERSE instead of primary background", async () => {
     const requests = Array.from({ length: 5 }, (_, i) => makeRequest(i))
     const collection: Collection = { id: "test", name: "Test", requests }
 
-    const { renderOnce, captureSpans } = await testRender(
+    const { renderOnce, captureCharFrame, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <Sidebar
           collection={collection}
@@ -250,35 +253,22 @@ describe("Sidebar scrollbox", () => {
     )
     await renderOnce()
 
-    const frame = captureSpans()
-    const allSpans = frame.lines.flatMap((l) => l.spans)
+    // Verify LeftBar border character is present for selected item
+    const charFrame = captureCharFrame()
+    expect(charFrame).toContain("┃")
 
-    // Find the method span for the selected request
-    const selectedMethodSpan = allSpans.find(
-      (s) =>
-        s.text.includes("GET") && s.bg.equals(RGBA.fromInts(250, 178, 131)),
-    )
-    expect(selectedMethodSpan).toBeDefined()
-    expect(selectedMethodSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
-    expect(selectedMethodSpan!.attributes & TextAttributes.INVERSE).toBe(0)
+    // Verify no span uses INVERSE
+    const spanFrame = captureSpans()
+    const allSpans = spanFrame.lines.flatMap((l) => l.spans)
+    for (const s of allSpans) {
+      expect(s.attributes & TextAttributes.INVERSE).toBe(0)
+    }
 
-    // Find the name span for the selected request
-    const selectedNameSpan = allSpans.find(
-      (s) =>
-        s.text.includes("Request number 2") &&
-        s.bg.equals(RGBA.fromInts(250, 178, 131)),
+    // Verify no span has primary background
+    const spanWithPrimaryBg = allSpans.find((s) =>
+      s.bg.equals(RGBA.fromInts(250, 178, 131)),
     )
-    expect(selectedNameSpan).toBeDefined()
-    expect(selectedNameSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
-    expect(selectedNameSpan!.attributes & TextAttributes.INVERSE).toBe(0)
-
-    // Unselected item should not have the theme primary background
-    const unselectedSpan = allSpans.find(
-      (s) =>
-        s.text.includes("Request number 0") &&
-        s.bg.equals(RGBA.fromInts(250, 178, 131)),
-    )
-    expect(unselectedSpan).toBeUndefined()
+    expect(spanWithPrimaryBg).toBeUndefined()
   })
 })
 

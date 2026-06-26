@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react"
 import type { Collection } from "../schema"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
-import { contrastOnPrimary } from "./theme"
+import { FullBorder, LeftBar } from "./borders"
 
 function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
@@ -36,14 +36,20 @@ export function Sidebar({
       style={{
         width: 25,
         flexDirection: "column",
+        flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
+        padding: 1,
+        gap: 1,
       }}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
+      borderColor={focused ? theme.primary : theme.borderSubtle}
     >
       <text fg={focused ? theme.primary : theme.textMuted}>
-        {focused ? "▸ Requests" : "Requests"}
+        {focused ? "Requests [↑↓]  [e] edit" : "Requests"}
       </text>
       {loading ? (
-        <text fg={theme.textMuted}>Loading…</text>
+        <text fg={theme.textMuted}>Loading...</text>
       ) : error ? (
         <text fg={theme.textMuted}>Error: {error.message}</text>
       ) : !collection || collection.requests.length === 0 ? (
@@ -60,26 +66,29 @@ export function Sidebar({
             },
           }}
         >
-          {collection.requests.map((r, i) => (
-            <box key={r.id} id={`req-${i}`} style={{ flexDirection: "row" }}>
-              <text
-                fg={
-                  i === selectedIndex
-                    ? contrastOnPrimary(theme)
-                    : methodColor(r.method, theme)
-                }
-                bg={i === selectedIndex ? theme.primary : undefined}
+          {collection.requests.map((r, i) => {
+            const isSelected = i === selectedIndex
+            return (
+              <box
+                key={r.id}
+                id={`req-${i}`}
+                style={{
+                  flexDirection: "row",
+                  backgroundColor: isSelected ? theme.backgroundElement : undefined,
+                }}
+                border={isSelected ? [...LeftBar.border] : undefined}
+                customBorderChars={isSelected ? LeftBar.customBorderChars : undefined}
+                borderColor={isSelected ? theme.primary : undefined}
               >
-                {shortMethod(r.method).padEnd(7)}
-              </text>
-              <text
-                fg={i === selectedIndex ? contrastOnPrimary(theme) : theme.text}
-                bg={i === selectedIndex ? theme.primary : undefined}
-              >
-                {r.name}
-              </text>
-            </box>
-          ))}
+                <text fg={methodColor(r.method, theme)}>
+                  {shortMethod(r.method).padEnd(7)}
+                </text>
+                <text fg={theme.text}>
+                  {r.name}
+                </text>
+              </box>
+            )
+          })}
         </scrollbox>
       )}
     </box>
