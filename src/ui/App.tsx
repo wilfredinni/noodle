@@ -179,10 +179,26 @@ function AppInner({
     commands: [
       {
         name: "focus.next",
+        enabled: () => {
+          const e = ebRef.current
+          if (e.editState.mode === "editing") {
+            const f = e.editState.cursor.field
+            if (f === "headers" || f === "params") return false
+          }
+          return true
+        },
         run: () => setFocus((prev) => cycleFocus(prev, 1)),
       },
       {
         name: "focus.prev",
+        enabled: () => {
+          const e = ebRef.current
+          if (e.editState.mode === "editing") {
+            const f = e.editState.cursor.field
+            if (f === "headers" || f === "params") return false
+          }
+          return true
+        },
         run: () => setFocus((prev) => cycleFocus(prev, -1)),
       },
     ],
@@ -287,10 +303,12 @@ function AppInner({
     commands: [
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
+      { name: "edit.tab", run: () => ebRef.current.browseTab() },
     ],
     bindings: [
       { key: "return", cmd: "edit.commit" },
       { key: "escape", cmd: "edit.cancel" },
+      { key: "tab", cmd: "edit.tab" },
     ],
   }))
 
