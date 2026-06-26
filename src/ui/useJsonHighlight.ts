@@ -51,6 +51,17 @@ export function parseJsonError(
       line = (before.match(/\n/g) ?? []).length
       const lastNewline = before.lastIndexOf("\n")
       column = lastNewline === -1 ? pos : pos - lastNewline - 1
+    } else {
+      const tokenMatch = /Unexpected token ['"](.+?)['"]/.exec(message)
+      if (tokenMatch) {
+        const pos = content.indexOf(tokenMatch[1]!)
+        if (pos !== -1) {
+          const before = content.slice(0, pos)
+          line = (before.match(/\n/g) ?? []).length
+          const lastNewline = before.lastIndexOf("\n")
+          column = lastNewline === -1 ? pos : pos - lastNewline - 1
+        }
+      }
     }
     return { valid: false, error: { message, line, column } }
   }
