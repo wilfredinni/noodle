@@ -323,6 +323,7 @@ describe("App.tsx layer mirror", () => {
     let browseEnter = false
     let editCommit = false
     let editCancel = false
+    let browseTabCalled = false
 
     // Always-on layer
     keymap.registerLayer({
@@ -393,10 +394,17 @@ describe("App.tsx layer mirror", () => {
             editCancel = true
           },
         },
+        {
+          name: "edit.tab",
+          run: () => {
+            browseTabCalled = true
+          },
+        },
       ],
       bindings: [
         { key: "return", cmd: "edit.commit" },
         { key: "escape", cmd: "edit.cancel" },
+        { key: "tab", cmd: "edit.tab" },
       ],
     })
 
@@ -438,6 +446,14 @@ describe("App.tsx layer mirror", () => {
     // Mode: edit → Enter dispatches edit.commit
     host.press("return")
     expect(editCommit).toBe(true)
+
+    // Mode: edit → Tab dispatches edit.tab (browseTab)
+    editCancel = false
+    browseTabCalled = false
+    keymap.setData("app.mode", "edit")
+    host.press("tab")
+    expect(browseTabCalled).toBe(true)
+    expect(editCancel).toBe(false)
 
     // Overlay blocks base layer
     keymap.setData("app.mode", "base")
