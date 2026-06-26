@@ -5,6 +5,7 @@ import type { SaveState } from "./saveState"
 import { methodColor } from "./formatRequest"
 import { statusColor } from "./format"
 import type { Method } from "../schema"
+import { Badge } from "./Badge"
 
 export interface StatusBarSections {
   left: string
@@ -138,6 +139,12 @@ export function StatusBar(input: {
     centerColor = theme.textMuted
   }
 
+  const isLeftBadge = sendStatus === "done" || sendStatus === "error"
+  const leftParts = sections.left.split(" · ")
+  const isCenterFlash = sk === "success" || sk === "error"
+  const isCenterEmpty =
+    input.envLabel === "" || input.envLabel === "(no env)"
+
   return (
     <box
       style={{
@@ -149,9 +156,41 @@ export function StatusBar(input: {
         paddingRight: 1,
       }}
     >
-      <text fg={leftColor}>{sections.left}</text>
-      <text fg={centerColor}>{sections.center}</text>
-      <text fg={theme.textMuted}>{sections.right}</text>
+      <box style={{ flexDirection: "row" }}>
+        {isLeftBadge && leftParts[0] !== "" ? (
+          <>
+            <Badge bg={leftColor} fg={theme.background}>
+              {leftParts[0]}
+            </Badge>
+            {leftParts[1] ? (
+              <Badge bg={theme.info} fg={theme.background}>
+                {leftParts[1]}
+              </Badge>
+            ) : null}
+            {leftParts[2] ? (
+              <Badge bg={theme.backgroundElement} fg={theme.text}>
+                {leftParts[2]}
+              </Badge>
+            ) : null}
+          </>
+        ) : (
+          <text fg={leftColor}>{sections.left}</text>
+        )}
+      </box>
+      {isCenterFlash ? (
+        <Badge bg={theme.primary} fg={theme.background}>
+          {sections.center}
+        </Badge>
+      ) : isCenterEmpty ? (
+        <text fg={theme.textMuted}>{sections.center}</text>
+      ) : (
+        <Badge bg={theme.backgroundElement} fg={centerColor}>
+          {sections.center}
+        </Badge>
+      )}
+      <Badge bg={theme.backgroundElement} fg={theme.textMuted}>
+        {sections.right}
+      </Badge>
     </box>
   )
 }
