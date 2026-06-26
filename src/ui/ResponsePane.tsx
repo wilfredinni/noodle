@@ -83,7 +83,15 @@ export function ResponsePane({
       bottomTitleAlignment="right"
     >
       {state.status === "idle" ? (
-        <text fg={theme.textMuted}>Send a request to see the response</text>
+        <box
+          style={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ascii-font text="noodle" font="tiny" color="#383838" />
+        </box>
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
           <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
