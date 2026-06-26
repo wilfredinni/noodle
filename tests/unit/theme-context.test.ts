@@ -1,6 +1,9 @@
 import { describe, it, expect } from "bun:test"
 import { THEMES } from "../../src/ui/theme"
 
+const opencode = THEMES.findIndex((t) => t.name === "opencode")
+const catppuccin = THEMES.findIndex((t) => t.name === "catppuccin")
+
 interface ThemeState {
   activeIndex: number
   previewIndex: number | null
@@ -30,22 +33,22 @@ function getActiveTheme(state: ThemeState) {
 }
 
 describe("theme state machine", () => {
-  it("starts with opencode theme (index 0) and no preview", () => {
-    const state: ThemeState = { activeIndex: 0, previewIndex: null }
+  it("starts with opencode theme and no preview", () => {
+    const state: ThemeState = { activeIndex: opencode, previewIndex: null }
     expect(getActiveTheme(state).name).toBe("opencode")
   })
 
   it("openPicker sets preview to activeIndex", () => {
-    const state: ThemeState = { activeIndex: 0, previewIndex: null }
+    const state: ThemeState = { activeIndex: opencode, previewIndex: null }
     const next = openPicker(state)
-    expect(next.previewIndex).toBe(0)
-    expect(next.activeIndex).toBe(0)
+    expect(next.previewIndex).toBe(opencode)
+    expect(next.activeIndex).toBe(opencode)
   })
 
-  it("openPicker when activeIndex is 1 sets preview to 1", () => {
-    const state: ThemeState = { activeIndex: 1, previewIndex: null }
+  it("openPicker when activeIndex is catppuccin sets preview to catppuccin", () => {
+    const state: ThemeState = { activeIndex: catppuccin, previewIndex: null }
     const next = openPicker(state)
-    expect(next.previewIndex).toBe(1)
+    expect(next.previewIndex).toBe(catppuccin)
   })
 
   it("navigatePreview down wraps to last theme", () => {
@@ -55,52 +58,52 @@ describe("theme state machine", () => {
   })
 
   it("navigatePreview up wraps to first theme", () => {
-    const state: ThemeState = { activeIndex: 1, previewIndex: 1 }
+    const state: ThemeState = { activeIndex: catppuccin, previewIndex: catppuccin }
     const next = navigatePreview(state, 1)
-    expect(next.previewIndex).toBe(2)
+    expect(next.previewIndex).toBe(catppuccin + 1)
   })
 
   it("navigatePreview is no-op when picker is closed", () => {
-    const state: ThemeState = { activeIndex: 0, previewIndex: null }
+    const state: ThemeState = { activeIndex: opencode, previewIndex: null }
     const next = navigatePreview(state, 1)
     expect(next.previewIndex).toBeNull()
   })
 
   it("commitPreview moves preview to active and clears preview", () => {
-    const state: ThemeState = { activeIndex: 0, previewIndex: 1 }
+    const state: ThemeState = { activeIndex: opencode, previewIndex: catppuccin }
     const next = commitPreview(state)
-    expect(next.activeIndex).toBe(1)
+    expect(next.activeIndex).toBe(catppuccin)
     expect(next.previewIndex).toBeNull()
   })
 
   it("commitPreview is no-op when picker is closed", () => {
-    const state: ThemeState = { activeIndex: 0, previewIndex: null }
+    const state: ThemeState = { activeIndex: opencode, previewIndex: null }
     const next = commitPreview(state)
-    expect(next.activeIndex).toBe(0)
+    expect(next.activeIndex).toBe(opencode)
     expect(next.previewIndex).toBeNull()
   })
 
   it("cancelPreview clears preview, keeps active unchanged", () => {
-    const state: ThemeState = { activeIndex: 0, previewIndex: 1 }
+    const state: ThemeState = { activeIndex: opencode, previewIndex: catppuccin }
     const next = cancelPreview(state)
-    expect(next.activeIndex).toBe(0)
+    expect(next.activeIndex).toBe(opencode)
     expect(next.previewIndex).toBeNull()
   })
 
   it("cancelPreview when already closed is a no-op", () => {
-    const state: ThemeState = { activeIndex: 1, previewIndex: null }
+    const state: ThemeState = { activeIndex: catppuccin, previewIndex: null }
     const next = cancelPreview(state)
-    expect(next.activeIndex).toBe(1)
+    expect(next.activeIndex).toBe(catppuccin)
     expect(next.previewIndex).toBeNull()
   })
 
   it("getActiveTheme returns preview theme when picker is open", () => {
-    const state: ThemeState = { activeIndex: 0, previewIndex: 1 }
+    const state: ThemeState = { activeIndex: opencode, previewIndex: catppuccin }
     expect(getActiveTheme(state).name).toBe("catppuccin")
   })
 
   it("getActiveTheme returns committed theme when picker is closed", () => {
-    const state: ThemeState = { activeIndex: 1, previewIndex: null }
+    const state: ThemeState = { activeIndex: catppuccin, previewIndex: null }
     expect(getActiveTheme(state).name).toBe("catppuccin")
   })
 })

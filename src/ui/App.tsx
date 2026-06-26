@@ -16,7 +16,6 @@ import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
-import { THEMES } from "./theme"
 import { StatusBar } from "./StatusBar"
 import type { Keybinds } from "./keybind"
 
@@ -420,41 +419,6 @@ function AppInner({
     return dispose
   }, [saveState.kind, confirmSelection, doSave, keymap])
 
-  // ── Overlay: Theme Picker ──────────────────────────────────────────
-  useEffect(() => {
-    if (previewIndex === null) return
-    const dispose = keymap.intercept(
-      "key",
-      (ctx) => {
-        const name = ctx.event.name
-        if (name === "escape") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex(null)
-        } else if (name === "up") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
-        } else if (name === "down") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex((previewIndex + 1) % THEMES.length)
-        } else if (name === "return") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          onThemeChange(previewIndex)
-          setPreviewIndex(null)
-        } else {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex(null)
-        }
-      },
-      { priority: 100 },
-    )
-    return dispose
-  }, [previewIndex, onThemeChange, setPreviewIndex, keymap])
-
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {
     if (!helpVisible) return
@@ -567,6 +531,8 @@ function AppInner({
           <ThemePickerOverlay
             activeIndex={activeIndex}
             previewIndex={previewIndex}
+            setPreviewIndex={setPreviewIndex}
+            onThemeChange={onThemeChange}
           />
         )}
       </box>
