@@ -227,6 +227,40 @@ describe("keymap dispatch", () => {
     cleanup()
   })
 
+  it("l dispatches layout.toggle without mode gating (always-on)", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      commands: [
+        {
+          name: "layout.toggle",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "l", cmd: "layout.toggle" }],
+    })
+
+    host.press("l")
+    expect(called).toBe(true)
+
+    // works regardless of mode
+    called = false
+    keymap.setData("app.mode", "browse")
+    host.press("l")
+    expect(called).toBe(true)
+
+    // works regardless of overlay
+    called = false
+    keymap.setData("app.overlay", "help")
+    host.press("l")
+    expect(called).toBe(true)
+
+    cleanup()
+  })
+
   it("return dispatches request.edit-enter when focus is request", () => {
     const { keymap, host, cleanup } = setup()
     keymap.setData("app.focus", "request")
@@ -326,14 +360,22 @@ describe("App.tsx layer mirror", () => {
     let browseTabCalled: boolean
 
     // Always-on layer
+    let layoutCalled = false
     keymap.registerLayer({
       commands: [
         { name: "focus.next", run: () => {} },
         { name: "focus.prev", run: () => {} },
+        {
+          name: "layout.toggle",
+          run: () => {
+            layoutCalled = true
+          },
+        },
       ],
       bindings: [
         { key: "tab", cmd: "focus.next" },
         { key: "shift+tab", cmd: "focus.prev" },
+        { key: "l", cmd: "layout.toggle" },
       ],
     })
 
@@ -461,6 +503,10 @@ describe("App.tsx layer mirror", () => {
     keymap.setData("app.focus", "sidebar")
     host.press("s")
     expect(sendCalled).toBe(false)
+
+    // l dispatches layout.toggle regardless of mode/overlay (always-on)
+    host.press("l")
+    expect(layoutCalled).toBe(true)
 
     cleanup()
   })

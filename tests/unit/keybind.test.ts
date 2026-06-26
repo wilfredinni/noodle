@@ -50,6 +50,11 @@ describe("bindingDefaults", () => {
       expect((defaults as Record<string, string>)[name]).toBe(def.default)
     }
   })
+
+  it("includes layout_toggle with default key l", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.layout_toggle).toBe("l")
+  })
 })
 
 describe("CommandMap", () => {
