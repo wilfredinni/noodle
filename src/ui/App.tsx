@@ -64,14 +64,13 @@ function AppInner({
   }, [focus, keymap])
 
   useEffect(() => {
-    const overlay =
-      helpVisible
-        ? "help"
-        : previewIndex !== null
-          ? "theme"
-          : saveState.kind === "confirming"
-            ? "confirm"
-            : "none"
+    const overlay = helpVisible
+      ? "help"
+      : previewIndex !== null
+        ? "theme"
+        : saveState.kind === "confirming"
+          ? "confirm"
+          : "none"
     keymap.setData("app.overlay", overlay)
   }, [helpVisible, previewIndex, saveState.kind, keymap])
 
@@ -298,74 +297,86 @@ function AppInner({
   // ── Overlay: Save Confirm ──────────────────────────────────────────
   useEffect(() => {
     if (saveState.kind !== "confirming") return
-    const dispose = keymap.intercept("key", (ctx) => {
-      const name = ctx.event.name
-      if (name === "y" || (name === "return" && confirmSelection === 0)) {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        doSave()
-      } else if (
-        name === "n" ||
-        name === "escape" ||
-        (name === "return" && confirmSelection === 1)
-      ) {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setSaveState({ kind: "idle" })
-      } else if (name === "left" || name === "up") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setConfirmSelection(0)
-      } else if (name === "right" || name === "down") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setConfirmSelection(1)
-      }
-    }, { priority: 100 })
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || (name === "return" && confirmSelection === 0)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          doSave()
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && confirmSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setSaveState({ kind: "idle" })
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setConfirmSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
     return dispose
   }, [saveState.kind, confirmSelection, doSave, keymap])
 
   // ── Overlay: Theme Picker ──────────────────────────────────────────
   useEffect(() => {
     if (previewIndex === null) return
-    const dispose = keymap.intercept("key", (ctx) => {
-      const name = ctx.event.name
-      if (name === "escape") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex(null)
-      } else if (name === "up") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
-      } else if (name === "down") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex((previewIndex + 1) % THEMES.length)
-      } else if (name === "return") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setActiveIndex(previewIndex)
-        setPreviewIndex(null)
-      } else {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex(null)
-      }
-    }, { priority: 100 })
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex(null)
+        } else if (name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
+        } else if (name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex((previewIndex + 1) % THEMES.length)
+        } else if (name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setActiveIndex(previewIndex)
+          setPreviewIndex(null)
+        } else {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex(null)
+        }
+      },
+      { priority: 100 },
+    )
     return dispose
   }, [previewIndex, setActiveIndex, setPreviewIndex, keymap])
 
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {
     if (!helpVisible) return
-    const dispose = keymap.intercept("key", (ctx) => {
-      if (ctx.event.name === "escape") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setHelpVisible(false)
-      }
-    }, { priority: 100 })
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setHelpVisible(false)
+        }
+      },
+      { priority: 100 },
+    )
     return dispose
   }, [helpVisible, keymap])
 
@@ -416,7 +427,9 @@ function AppInner({
             <RequestPane
               request={draft.draft}
               editState={eb.editState}
+              editKey={eb.editKey}
               editValue={eb.editValue}
+              setEditKey={eb.setEditKey}
               setEditValue={eb.setEditValue}
               draft={draft}
               focused={focus === "request"}

@@ -1,12 +1,7 @@
 import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import type { Request } from "../schema"
-import {
-  formatHeaders,
-  formatParams,
-  formatBody,
-  formatAuth,
-} from "./formatRequest"
+import { formatBody, formatAuth } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { Tabs, type TabDef } from "./Tabs"
@@ -18,7 +13,9 @@ import { highlightJson } from "./syntax"
 interface Props {
   request: Request | null
   editState: EditState
+  editKey: string
   editValue: string
+  setEditKey: (v: string) => void
   setEditValue: (v: string) => void
   draft: UseRequestDraftResult
   focused?: boolean
@@ -35,7 +32,9 @@ const TAB_DEFS: TabDef[] = [
 export function RequestPane({
   request,
   editState,
+  editKey,
   editValue,
+  setEditKey,
   setEditValue,
   draft,
   focused = false,
@@ -90,23 +89,27 @@ export function RequestPane({
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
             >
               {activeTab === "headers" && (
-                <HeadersSection
+                <KeyValueSection
+                  kind="headers"
                   request={request}
                   editState={editState}
+                  editKey={editKey}
                   editValue={editValue}
+                  setEditKey={setEditKey}
                   setEditValue={setEditValue}
-                  inEdit={inEdit}
                   browseActive={browseActive}
                   theme={theme}
                 />
               )}
               {activeTab === "params" && (
-                <ParamsSection
+                <KeyValueSection
+                  kind="params"
                   request={request}
                   editState={editState}
+                  editKey={editKey}
                   editValue={editValue}
+                  setEditKey={setEditKey}
                   setEditValue={setEditValue}
-                  inEdit={inEdit}
                   browseActive={browseActive}
                   theme={theme}
                 />
@@ -139,242 +142,165 @@ export function RequestPane({
   )
 }
 
-function HeadersSection({
-  request,
-  editState,
-  editValue,
-  setEditValue,
-  inEdit,
-  browseActive,
-  theme,
-}: {
+interface KeyValueSectionProps {
+  kind: "headers" | "params"
   request: Request
   editState: EditState
+  editKey: string
   editValue: string
+  setEditKey: (v: string) => void
   setEditValue: (v: string) => void
-  inEdit: boolean
   browseActive: boolean
   theme: Theme
-}) {
-  const headers = formatHeaders(request.headers)
-  return (
-    <>
-      {headers.length === 0 &&
-      !(
-        editState.mode !== "inactive" &&
-        editState.cursor.field === "headers"
-      ) ? (
-        <text fg={theme.textMuted}> (none)</text>
-      ) : (
-        <>
-          {headers.map((line, i) => {
-            const cursorHere =
-              browseActive &&
-              editState.cursor.field === "headers" &&
-              !editState.cursor.addingRow &&
-              editState.cursor.row === i
-            const editingHere =
-              inEdit &&
-              editState.cursor.field === "headers" &&
-              !editState.cursor.addingRow &&
-              editState.cursor.row === i
-            if (editingHere) {
-              return (
-                <input
-                  key={i}
-                  id={`hdr-${i}`}
-                  value={editValue}
-                  onInput={setEditValue}
-                  backgroundColor={theme.backgroundElement}
-                  focusedBackgroundColor={theme.borderSubtle}
-                  textColor={theme.text}
-                  cursorColor={theme.primary}
-                  focused
-                />
-              )
-            }
-            return (
-              <box
-                key={i}
-                id={`hdr-${i}`}
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={cursorHere ? theme.primary : theme.borderSubtle}
-                style={{
-                  backgroundColor: cursorHere
-                    ? theme.backgroundElement
-                    : undefined,
-                }}
-              >
-                <text fg={cursorHere ? theme.text : theme.textMuted}>
-                  {" " + line}
-                </text>
-              </box>
-            )
-          })}
-          {inEdit &&
-          editState.cursor.field === "headers" &&
-          editState.cursor.addingRow ? (
-            <input
-              id="hdr-add"
-              value={editValue}
-              onInput={setEditValue}
-              backgroundColor={theme.backgroundElement}
-              focusedBackgroundColor={theme.borderSubtle}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-              focused
-            />
-          ) : (
-            browseActive &&
-            editState.cursor.field === "headers" && (
-              <box
-                id="hdr-add"
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={
-                  editState.cursor.addingRow
-                    ? theme.primary
-                    : theme.borderSubtle
-                }
-                style={{
-                  backgroundColor: editState.cursor.addingRow
-                    ? theme.backgroundElement
-                    : undefined,
-                }}
-              >
-                <text
-                  fg={
-                    editState.cursor.addingRow ? theme.text : theme.textMuted
-                  }
-                >
-                  {" [+] add header"}
-                </text>
-              </box>
-            )
-          )}
-        </>
-      )}
-    </>
-  )
 }
 
-function ParamsSection({
+function KeyValueSection({
+  kind,
   request,
   editState,
+  editKey,
   editValue,
+  setEditKey,
   setEditValue,
-  inEdit,
   browseActive,
   theme,
-}: {
-  request: Request
-  editState: EditState
-  editValue: string
-  setEditValue: (v: string) => void
-  inEdit: boolean
-  browseActive: boolean
-  theme: Theme
-}) {
-  const params = formatParams(request.params)
+}: KeyValueSectionProps) {
+  const rec = kind === "headers" ? request.headers : request.params
+  const rows = Object.entries(rec).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  )
+  const inEdit = editState.mode === "editing"
+  const cursorHere = editState.cursor.field === kind
+  const editingRow =
+    inEdit && cursorHere && !editState.cursor.addingRow
+      ? editState.cursor.row
+      : -1
+  const editingAdd = inEdit && cursorHere && editState.cursor.addingRow
+
+  if (rows.length === 0 && editState.mode === "inactive") {
+    return <text fg={theme.textMuted}> (none)</text>
+  }
+
   return (
     <>
-      {params.length === 0 &&
-      !(
-        editState.mode !== "inactive" &&
-        editState.cursor.field === "params"
-      ) ? (
-        <text fg={theme.textMuted}> (none)</text>
-      ) : (
-        <>
-          {params.map((line, i) => {
-            const cursorHere =
-              browseActive &&
-              editState.cursor.field === "params" &&
-              !editState.cursor.addingRow &&
-              editState.cursor.row === i
-            const editingHere =
-              inEdit &&
-              editState.cursor.field === "params" &&
-              !editState.cursor.addingRow &&
-              editState.cursor.row === i
-            if (editingHere) {
-              return (
-                <input
-                  key={i}
-                  id={`prm-${i}`}
-                  value={editValue}
-                  onInput={setEditValue}
-                  backgroundColor={theme.backgroundElement}
-                  focusedBackgroundColor={theme.borderSubtle}
-                  textColor={theme.text}
-                  cursorColor={theme.primary}
-                  focused
-                />
-              )
+      {rows.map(([k, v], i) => {
+        const isEditingThisRow = editingRow === i
+        const cursorOnThisRow =
+          browseActive &&
+          cursorHere &&
+          !editState.cursor.addingRow &&
+          editState.cursor.row === i
+
+        return (
+          <box
+            key={i}
+            id={`${kind === "headers" ? "hdr" : "prm"}-${i}`}
+            border={[...LeftBar.border]}
+            customBorderChars={LeftBar.customBorderChars}
+            borderColor={
+              cursorOnThisRow || isEditingThisRow
+                ? theme.primary
+                : theme.borderSubtle
             }
-            return (
-              <box
-                key={i}
-                id={`prm-${i}`}
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={cursorHere ? theme.primary : theme.borderSubtle}
-                style={{
-                  backgroundColor: cursorHere
-                    ? theme.backgroundElement
-                    : undefined,
-                }}
-              >
-                <text fg={cursorHere ? theme.text : theme.textMuted}>
-                  {" " + line}
-                </text>
-              </box>
-            )
-          })}
-          {inEdit &&
-          editState.cursor.field === "params" &&
-          editState.cursor.addingRow ? (
+            style={{
+              flexDirection: "row",
+              gap: 0,
+              backgroundColor:
+                cursorOnThisRow || isEditingThisRow
+                  ? theme.backgroundElement
+                  : undefined,
+            }}
+          >
+            <text fg={theme.textMuted}> </text>
             <input
-              id="prm-add"
-              value={editValue}
-              onInput={setEditValue}
-              backgroundColor={theme.backgroundElement}
+              value={isEditingThisRow ? editKey : k}
+              onInput={isEditingThisRow ? setEditKey : undefined}
+              focused={isEditingThisRow && editState.cursor.subfield === "key"}
+              backgroundColor={
+                isEditingThisRow ? theme.backgroundElement : undefined
+              }
               focusedBackgroundColor={theme.borderSubtle}
-              textColor={theme.text}
+              textColor={
+                isEditingThisRow || cursorOnThisRow
+                  ? theme.text
+                  : theme.textMuted
+              }
               cursorColor={theme.primary}
-              focused
+              style={{ flexGrow: 3 }}
             />
-          ) : (
-            browseActive &&
-            editState.cursor.field === "params" && (
-              <box
-                id="prm-add"
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={
-                  editState.cursor.addingRow
-                    ? theme.primary
-                    : theme.borderSubtle
-                }
-                style={{
-                  backgroundColor: editState.cursor.addingRow
-                    ? theme.backgroundElement
-                    : undefined,
-                }}
-              >
-                <text
-                  fg={
-                    editState.cursor.addingRow ? theme.text : theme.textMuted
-                  }
-                >
-                  {" [+] add param"}
-                </text>
-              </box>
-            )
-          )}
-        </>
-      )}
+            <text fg={theme.textMuted}>: </text>
+            <input
+              value={isEditingThisRow ? editValue : v}
+              onInput={isEditingThisRow ? setEditValue : undefined}
+              focused={
+                isEditingThisRow && editState.cursor.subfield === "value"
+              }
+              backgroundColor={
+                isEditingThisRow ? theme.backgroundElement : undefined
+              }
+              focusedBackgroundColor={theme.borderSubtle}
+              textColor={
+                isEditingThisRow || cursorOnThisRow
+                  ? theme.text
+                  : theme.textMuted
+              }
+              cursorColor={theme.primary}
+              style={{ flexGrow: 7 }}
+            />
+          </box>
+        )
+      })}
+      <box
+        id={`${kind === "headers" ? "hdr" : "prm"}-add`}
+        border={[...LeftBar.border]}
+        customBorderChars={LeftBar.customBorderChars}
+        borderColor={
+          cursorHere && editState.cursor.addingRow
+            ? theme.primary
+            : theme.borderSubtle
+        }
+        style={{
+          flexDirection: "row",
+          gap: 0,
+          backgroundColor:
+            cursorHere && editState.cursor.addingRow
+              ? theme.backgroundElement
+              : undefined,
+        }}
+      >
+        <text fg={theme.textMuted}> </text>
+        <input
+          value={editingAdd ? editKey : ""}
+          placeholder="Key"
+          onInput={editingAdd ? setEditKey : undefined}
+          focused={editingAdd && editState.cursor.subfield === "key"}
+          backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+          focusedBackgroundColor={theme.borderSubtle}
+          textColor={
+            editingAdd || (cursorHere && editState.cursor.addingRow)
+              ? theme.text
+              : theme.textMuted
+          }
+          cursorColor={theme.primary}
+          style={{ flexGrow: 3 }}
+        />
+        <text fg={theme.textMuted}>: </text>
+        <input
+          value={editingAdd ? editValue : ""}
+          placeholder="Value"
+          onInput={editingAdd ? setEditValue : undefined}
+          focused={editingAdd && editState.cursor.subfield === "value"}
+          backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+          focusedBackgroundColor={theme.borderSubtle}
+          textColor={
+            editingAdd || (cursorHere && editState.cursor.addingRow)
+              ? theme.text
+              : theme.textMuted
+          }
+          cursorColor={theme.primary}
+          style={{ flexGrow: 7 }}
+        />
+      </box>
     </>
   )
 }

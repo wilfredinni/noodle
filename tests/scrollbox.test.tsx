@@ -105,7 +105,9 @@ describe("RequestPane scrollbox", () => {
       <RequestPane
         request={request}
         editState={initialEditState()}
+        editKey=""
         editValue=""
+        setEditKey={() => {}}
         setEditValue={() => {}}
         draft={draft}
         focused={true}
@@ -172,7 +174,9 @@ describe("RequestPane scrollbox", () => {
         <RequestPane
           request={request}
           editState={editState}
+          editKey=""
           editValue=""
+          setEditKey={() => {}}
           setEditValue={() => {}}
           draft={draft}
           focused={true}
@@ -336,7 +340,9 @@ describe("App layout stability", () => {
             <RequestPane
               request={request}
               editState={initialEditState()}
+              editKey=""
               editValue=""
+              setEditKey={() => {}}
               setEditValue={() => {}}
               draft={draft}
               focused={false}
