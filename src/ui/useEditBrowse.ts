@@ -9,12 +9,12 @@ import {
   beginEditing,
   commitEditing,
   cancelEditing,
+  toggleSubfield,
   type EditState,
   type SectionRowCount,
   type FieldKind,
 } from "./editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
-import { parseRow } from "./useRequestDraft"
 
 const FIELD_ORDER: FieldKind[] = ["headers", "params", "body", "auth"]
 
@@ -46,6 +46,25 @@ function currentValueFor(
   return ""
 }
 
+function currentKeyValueFor(
+  draft: Request | null,
+  field: FieldKind,
+  row: number,
+  addingRow: boolean,
+): { key: string; value: string } {
+  if (!draft) return { key: "", value: "" }
+  if (addingRow) return { key: "", value: "" }
+  if (field === "headers" || field === "params") {
+    const rec = field === "headers" ? draft.headers : draft.params
+    const entries = Object.entries(rec).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    )
+    const entry = entries[row]
+    return entry ? { key: entry[0], value: entry[1] } : { key: "", value: "" }
+  }
+  return { key: "", value: "" }
+}
+
 function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
   const idx = FIELD_ORDER.indexOf(current)
   const next = (idx + delta + FIELD_ORDER.length) % FIELD_ORDER.length
@@ -56,6 +75,8 @@ export interface UseEditBrowseResult {
   editState: EditState
   editValue: string
   setEditValue: (v: string) => void
+  editKey: string
+  setEditKey: (v: string) => void
   isActive: boolean
   activeTab: FieldKind
   enterBrowse: () => void
@@ -64,9 +85,11 @@ export interface UseEditBrowseResult {
   browseDown: () => void
   browseLeft: () => void
   browseRight: () => void
+  enterAndEdit: () => void
   enterEdit: () => void
   commitEdit: () => void
   cancelEdit: () => void
+  browseTab: () => void
   revertField: () => void
   revertAll: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
@@ -78,6 +101,7 @@ export function useEditBrowse(
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
   const [editValue, setEditValue] = useState("")
+  const [editKey, setEditKey] = useState("")
   const [inactiveTab, setInactiveTab] = useState<FieldKind>("headers")
 
   const draftRef = useRef(draft)
@@ -89,16 +113,46 @@ export function useEditBrowse(
   const editValueRef = useRef(editValue)
   editValueRef.current = editValue
 
+  const editKeyRef = useRef(editKey)
+  editKeyRef.current = editKey
+
   const activeTab =
     editState.mode !== "inactive" ? editState.cursor.field : inactiveTab
 
   const enterBrowse = useCallback(() => {
     const c = rowCount(draftRef.current)
+    const tab = activeTab
     setEditState((prev) => {
       if (prev.mode !== "inactive") return prev
-      return enterEditBrowse(prev, c)
+      return enterEditBrowse(prev, c, tab)
     })
-  }, [])
+  }, [activeTab])
+
+  const enterAndEdit = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    const currentDraft = draftRef.current
+    const tab = activeTab
+    const state = editStateRef.current
+    if (state.mode !== "inactive") return
+
+    const browsed = enterEditBrowse(state, c, tab)
+    if (browsed.cursor.field === "auth") {
+      setEditState(browsed)
+      return
+    }
+
+    const { field, row, addingRow } = browsed.cursor
+    if (field === "body") {
+      const init = currentValueFor(currentDraft, field, row, addingRow)
+      setEditValue(init)
+    } else if (field === "headers" || field === "params") {
+      const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
+      setEditKey(kv.key)
+      setEditValue(kv.value)
+    }
+
+    setEditState(beginEditing(browsed))
+  }, [activeTab])
 
   const exitBrowse = useCallback(() => {
     setEditState((prev) => {
@@ -127,7 +181,9 @@ export function useEditBrowse(
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
-      return moveFieldCursor(prev, -1, c)
+      const next = moveFieldCursor(prev, -1, c)
+      setInactiveTab(next.cursor.field)
+      return next
     })
   }, [])
 
@@ -135,7 +191,9 @@ export function useEditBrowse(
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
-      return moveFieldCursor(prev, +1, c)
+      const next = moveFieldCursor(prev, +1, c)
+      setInactiveTab(next.cursor.field)
+      return next
     })
   }, [])
 
@@ -143,13 +201,15 @@ export function useEditBrowse(
     const state = editStateRef.current
     if (state.mode !== "browsing") return
     const currentDraft = draftRef.current
-    const init = currentValueFor(
-      currentDraft,
-      state.cursor.field,
-      state.cursor.row,
-      state.cursor.addingRow,
-    )
-    setEditValue(init)
+    const { field, row, addingRow } = state.cursor
+    if (field === "body") {
+      const init = currentValueFor(currentDraft, field, row, addingRow)
+      setEditValue(init)
+    } else if (field === "headers" || field === "params") {
+      const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
+      setEditKey(kv.key)
+      setEditValue(kv.value)
+    }
     setEditState((prev) => beginEditing(prev))
   }, [])
 
@@ -162,37 +222,33 @@ export function useEditBrowse(
     if (field === "body") {
       draftMutators.setBody(val)
     } else if (field === "headers" || field === "params") {
-      const parsed = parseRow(val)
-      if (parsed.key === "") {
+      const key = editKeyRef.current.trim()
+      const value = editValueRef.current.trim()
+      if (key === "") {
         if (!addingRow && state.cursor.row >= 0) {
           if (field === "headers")
             draftMutators.removeHeaderRow(state.cursor.row)
           else draftMutators.removeParamRow(state.cursor.row)
         }
       } else if (addingRow) {
-        if (field === "headers")
-          draftMutators.addHeaderRow(parsed.key, parsed.value)
-        else draftMutators.addParamRow(parsed.key, parsed.value)
+        if (field === "headers") draftMutators.addHeaderRow(key, value)
+        else draftMutators.addParamRow(key, value)
       } else {
         if (field === "headers")
-          draftMutators.setHeaderRow(
-            state.cursor.row,
-            parsed.key,
-            parsed.value,
-          )
-        else
-          draftMutators.setParamRow(
-            state.cursor.row,
-            parsed.key,
-            parsed.value,
-          )
+          draftMutators.setHeaderRow(state.cursor.row, key, value)
+        else draftMutators.setParamRow(state.cursor.row, key, value)
       }
     }
     setEditState((prev) => commitEditing(prev))
   }, [draftMutators])
 
   const cancelEdit = useCallback(() => {
+    setEditKey("")
     setEditState((prev) => cancelEditing(prev))
+  }, [])
+
+  const browseTab = useCallback(() => {
+    setEditState((prev) => toggleSubfield(prev))
   }, [])
 
   const revertFieldHandler = useCallback(() => {
@@ -221,6 +277,8 @@ export function useEditBrowse(
       editState,
       editValue,
       setEditValue,
+      editKey,
+      setEditKey,
       isActive: editState.mode !== "inactive",
       activeTab,
       enterBrowse,
@@ -229,9 +287,11 @@ export function useEditBrowse(
       browseDown,
       browseLeft,
       browseRight,
+      enterAndEdit,
       enterEdit,
       commitEdit,
       cancelEdit,
+      browseTab,
       revertField: revertFieldHandler,
       revertAll: revertAllHandler,
       cycleInactiveTab,
@@ -239,6 +299,7 @@ export function useEditBrowse(
     [
       editState,
       editValue,
+      editKey,
       activeTab,
       enterBrowse,
       exitBrowse,
@@ -246,9 +307,11 @@ export function useEditBrowse(
       browseDown,
       browseLeft,
       browseRight,
+      enterAndEdit,
       enterEdit,
       commitEdit,
       cancelEdit,
+      browseTab,
       revertFieldHandler,
       revertAllHandler,
       cycleInactiveTab,

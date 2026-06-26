@@ -105,7 +105,9 @@ describe("RequestPane scrollbox", () => {
       <RequestPane
         request={request}
         editState={initialEditState()}
+        editKey=""
         editValue=""
+        setEditKey={() => {}}
         setEditValue={() => {}}
         draft={draft}
         focused={true}
@@ -172,7 +174,9 @@ describe("RequestPane scrollbox", () => {
         <RequestPane
           request={request}
           editState={editState}
+          editKey=""
           editValue=""
+          setEditKey={() => {}}
           setEditValue={() => {}}
           draft={draft}
           focused={true}
@@ -336,7 +340,9 @@ describe("App layout stability", () => {
             <RequestPane
               request={request}
               editState={initialEditState()}
+              editKey=""
               editValue=""
+              setEditKey={() => {}}
               setEditValue={() => {}}
               draft={draft}
               focused={false}
@@ -356,7 +362,7 @@ describe("App layout stability", () => {
     // All three panes contribute content
     expect(frame).toContain("Request")
     expect(frame).toContain("Response")
-    expect(frame).toContain("X-Header-")
+    expect(frame).toContain("Header-0")
     expect(frame).toContain("item-")
   })
 })

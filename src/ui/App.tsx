@@ -64,14 +64,13 @@ function AppInner({
   }, [focus, keymap])
 
   useEffect(() => {
-    const overlay =
-      helpVisible
-        ? "help"
-        : previewIndex !== null
-          ? "theme"
-          : saveState.kind === "confirming"
-            ? "confirm"
-            : "none"
+    const overlay = helpVisible
+      ? "help"
+      : previewIndex !== null
+        ? "theme"
+        : saveState.kind === "confirming"
+          ? "confirm"
+          : "none"
     keymap.setData("app.overlay", overlay)
   }, [helpVisible, previewIndex, saveState.kind, keymap])
 
@@ -92,6 +91,17 @@ function AppInner({
           : "base"
     keymap.setData("app.mode", mode)
   }, [eb.editState.mode, keymap])
+
+  useEffect(() => {
+    if (focus !== "request") {
+      const state = eb.editState
+      if (state.mode === "editing") {
+        eb.cancelEdit()
+      } else if (state.mode === "browsing") {
+        eb.exitBrowse()
+      }
+    }
+  }, [focus, eb])
 
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
   const { state: responseState, trySend } = useResponse(
@@ -180,10 +190,26 @@ function AppInner({
     commands: [
       {
         name: "focus.next",
+        enabled: () => {
+          const e = ebRef.current
+          if (e.editState.mode === "editing") {
+            const f = e.editState.cursor.field
+            if (f === "headers" || f === "params") return false
+          }
+          return true
+        },
         run: () => setFocus((prev) => cycleFocus(prev, 1)),
       },
       {
         name: "focus.prev",
+        enabled: () => {
+          const e = ebRef.current
+          if (e.editState.mode === "editing") {
+            const f = e.editState.cursor.field
+            if (f === "headers" || f === "params") return false
+          }
+          return true
+        },
         run: () => setFocus((prev) => cycleFocus(prev, -1)),
       },
     ],
@@ -241,9 +267,19 @@ function AppInner({
         name: "request.edit-enter",
         enabled: () => keymap.getData("app.focus") === "request",
         run: () => {
-          ebRef.current.enterBrowse()
+          ebRef.current.enterAndEdit()
           setFocus("request")
         },
+      },
+      {
+        name: "request.tab-prev",
+        enabled: () => keymap.getData("app.focus") === "request",
+        run: () => ebRef.current.cycleInactiveTab(-1),
+      },
+      {
+        name: "request.tab-next",
+        enabled: () => keymap.getData("app.focus") === "request",
+        run: () => ebRef.current.cycleInactiveTab(1),
       },
     ],
     bindings: [
@@ -254,6 +290,8 @@ function AppInner({
       { key: "?", cmd: "app.help" },
       { key: "t", cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
+      { key: "left", cmd: "request.tab-prev" },
+      { key: "right", cmd: "request.tab-next" },
     ],
   }))
 
@@ -269,6 +307,24 @@ function AppInner({
       { name: "browse.escape", run: () => ebRef.current.exitBrowse() },
       { name: "browse.delete", run: () => ebRef.current.revertField() },
       { name: "browse.revert-all", run: () => ebRef.current.revertAll() },
+      {
+        name: "browse.send",
+        run: () => trySendRef.current?.(),
+      },
+      {
+        name: "browse.save",
+        run: () => {
+          const d = draftRef.current
+          if (!savingRef.current && d.draft && d.isDirty) {
+            clearSaveTimer()
+            setConfirmSelection(0)
+            setSaveState({
+              kind: "confirming",
+              requestId: d.draft.id,
+            })
+          }
+        },
+      },
     ],
     bindings: [
       { key: "up", cmd: "browse.up" },
@@ -279,6 +335,8 @@ function AppInner({
       { key: "escape", cmd: "browse.escape" },
       { key: "d", cmd: "browse.delete" },
       { key: "R", cmd: "browse.revert-all" },
+      { key: "s", cmd: "browse.send" },
+      { key: "w", cmd: "browse.save" },
     ],
   }))
 
@@ -288,84 +346,98 @@ function AppInner({
     commands: [
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
+      { name: "edit.tab", run: () => ebRef.current.browseTab() },
     ],
     bindings: [
       { key: "return", cmd: "edit.commit" },
       { key: "escape", cmd: "edit.cancel" },
+      { key: "tab", cmd: "edit.tab" },
     ],
   }))
 
   // ── Overlay: Save Confirm ──────────────────────────────────────────
   useEffect(() => {
     if (saveState.kind !== "confirming") return
-    const dispose = keymap.intercept("key", (ctx) => {
-      const name = ctx.event.name
-      if (name === "y" || (name === "return" && confirmSelection === 0)) {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        doSave()
-      } else if (
-        name === "n" ||
-        name === "escape" ||
-        (name === "return" && confirmSelection === 1)
-      ) {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setSaveState({ kind: "idle" })
-      } else if (name === "left" || name === "up") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setConfirmSelection(0)
-      } else if (name === "right" || name === "down") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setConfirmSelection(1)
-      }
-    }, { priority: 100 })
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || (name === "return" && confirmSelection === 0)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          doSave()
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && confirmSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setSaveState({ kind: "idle" })
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setConfirmSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
     return dispose
   }, [saveState.kind, confirmSelection, doSave, keymap])
 
   // ── Overlay: Theme Picker ──────────────────────────────────────────
   useEffect(() => {
     if (previewIndex === null) return
-    const dispose = keymap.intercept("key", (ctx) => {
-      const name = ctx.event.name
-      if (name === "escape") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex(null)
-      } else if (name === "up") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
-      } else if (name === "down") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex((previewIndex + 1) % THEMES.length)
-      } else if (name === "return") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setActiveIndex(previewIndex)
-        setPreviewIndex(null)
-      } else {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setPreviewIndex(null)
-      }
-    }, { priority: 100 })
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex(null)
+        } else if (name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
+        } else if (name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex((previewIndex + 1) % THEMES.length)
+        } else if (name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setActiveIndex(previewIndex)
+          setPreviewIndex(null)
+        } else {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setPreviewIndex(null)
+        }
+      },
+      { priority: 100 },
+    )
     return dispose
   }, [previewIndex, setActiveIndex, setPreviewIndex, keymap])
 
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {
     if (!helpVisible) return
-    const dispose = keymap.intercept("key", (ctx) => {
-      if (ctx.event.name === "escape") {
-        ctx.event.preventDefault()
-        ctx.event.stopPropagation()
-        setHelpVisible(false)
-      }
-    }, { priority: 100 })
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setHelpVisible(false)
+        }
+      },
+      { priority: 100 },
+    )
     return dispose
   }, [helpVisible, keymap])
 
@@ -416,7 +488,9 @@ function AppInner({
             <RequestPane
               request={draft.draft}
               editState={eb.editState}
+              editKey={eb.editKey}
               editValue={eb.editValue}
+              setEditKey={eb.setEditKey}
               setEditValue={eb.setEditValue}
               draft={draft}
               focused={focus === "request"}
