@@ -260,6 +260,16 @@ function AppInner({
           setFocus("request")
         },
       },
+      {
+        name: "request.tab-prev",
+        enabled: () => keymap.getData("app.focus") === "request",
+        run: () => ebRef.current.cycleInactiveTab(-1),
+      },
+      {
+        name: "request.tab-next",
+        enabled: () => keymap.getData("app.focus") === "request",
+        run: () => ebRef.current.cycleInactiveTab(1),
+      },
     ],
     bindings: [
       { key: "s", cmd: "request.send" },
@@ -269,6 +279,8 @@ function AppInner({
       { key: "?", cmd: "app.help" },
       { key: "t", cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
+      { key: "left", cmd: "request.tab-prev" },
+      { key: "right", cmd: "request.tab-next" },
     ],
   }))
 
