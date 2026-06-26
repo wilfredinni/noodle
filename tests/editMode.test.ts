@@ -8,6 +8,7 @@ import {
   beginEditing,
   commitEditing,
   cancelEditing,
+  toggleSubfield,
   type EditState,
 } from "../src/ui/editMode"
 
@@ -196,6 +197,31 @@ describe("beginEditing", () => {
     const editing = beginEditing(enterEditBrowse(inactive, { headers: 2, params: 0 }))
     expect(beginEditing(editing)).toBe(editing)
   })
+
+  it("sets subfield to 'key' for headers row", () => {
+    let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
+    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
+    const e = beginEditing(s)
+    expect(e.cursor.subfield).toBe("key")
+  })
+
+  it("sets subfield to 'key' for params row", () => {
+    let s = enterEditBrowse(inactive, { headers: 0, params: 2 })
+    s = moveFieldCursor(s, +1, { headers: 0, params: 2 })
+    s = moveRowCursor(s, +1, { headers: 0, params: 2 })
+    expect(s.cursor.field).toBe("params")
+    const e = beginEditing(s)
+    expect(e.cursor.subfield).toBe("key")
+  })
+
+  it("does not set subfield for body (scalar)", () => {
+    let s = enterEditBrowse(inactive, { headers: 0, params: 0 })
+    s = moveFieldCursor(s, +1, { headers: 0, params: 0 })
+    s = moveFieldCursor(s, +1, { headers: 0, params: 0 })
+    expect(s.cursor.field).toBe("body")
+    const e = beginEditing(s)
+    expect(e.cursor.subfield).toBeUndefined()
+  })
 })
 
 describe("commitEditing", () => {
@@ -209,6 +235,15 @@ describe("commitEditing", () => {
     expect(commitEditing(inactive)).toBe(inactive)
     const browsing = enterEditBrowse(inactive, { headers: 2, params: 0 })
     expect(commitEditing(browsing)).toBe(browsing)
+  })
+
+  it("clears subfield after commit", () => {
+    let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
+    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
+    const editing = beginEditing(s)
+    expect(editing.cursor.subfield).toBe("key")
+    const committed = commitEditing(editing)
+    expect(committed.cursor.subfield).toBeUndefined()
   })
 })
 
@@ -224,5 +259,58 @@ describe("cancelEditing", () => {
   })
   it("no-op when not editing", () => {
     expect(cancelEditing(inactive)).toBe(inactive)
+  })
+
+  it("clears subfield after cancel", () => {
+    let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
+    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
+    const editing = beginEditing(s)
+    const cancelled = cancelEditing(editing)
+    expect(cancelled.cursor.subfield).toBeUndefined()
+  })
+})
+
+describe("toggleSubfield", () => {
+  it("toggles key → value in edit mode for headers", () => {
+    let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
+    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
+    const editing = beginEditing(s)
+    expect(editing.cursor.subfield).toBe("key")
+    const toggled = toggleSubfield(editing)
+    expect(toggled.cursor.subfield).toBe("value")
+    const back = toggleSubfield(toggled)
+    expect(back.cursor.subfield).toBe("key")
+  })
+
+  it("toggles key → value for params", () => {
+    let s = enterEditBrowse(inactive, { headers: 0, params: 1 })
+    expect(s.cursor.field).toBe("headers")
+    s = moveFieldCursor(s, +1, { headers: 0, params: 1 })
+    expect(s.cursor.field).toBe("params")
+    const editing = beginEditing(s)
+    expect(editing.cursor.subfield).toBe("key")
+    expect(toggleSubfield(editing).cursor.subfield).toBe("value")
+  })
+
+  it("no-op when not in edit mode", () => {
+    const browsing = enterEditBrowse(inactive, { headers: 2, params: 0 })
+    expect(toggleSubfield(browsing)).toBe(browsing)
+  })
+
+  it("no-op for body field (no subfield)", () => {
+    let s = enterEditBrowse(inactive, { headers: 0, params: 0 })
+    s = moveFieldCursor(s, +1, { headers: 0, params: 0 })
+    s = moveFieldCursor(s, +1, { headers: 0, params: 0 })
+    expect(s.cursor.field).toBe("body")
+    const editing = beginEditing(s)
+    expect(editing.cursor.subfield).toBeUndefined()
+    expect(toggleSubfield(editing)).toBe(editing)
+  })
+
+  it("no-op for auth field (cannot enter edit)", () => {
+    let s = enterEditBrowse(inactive, { headers: 0, params: 0 })
+    s = moveFieldCursor(s, -1, { headers: 0, params: 0 })
+    expect(s.cursor.field).toBe("auth")
+    expect(toggleSubfield(s)).toBe(s)
   })
 })
