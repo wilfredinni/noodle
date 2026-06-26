@@ -547,7 +547,15 @@ function AppInner({
           />
         )}
       </box>
-      <StatusBar envLabel={envState.indicatorLabel} keybinds={keybinds} />
+      <StatusBar
+        method={draft.draft?.method ?? ""}
+        url={draft.draft?.url ?? ""}
+        isDirty={draft.isDirty}
+        sendState={responseState}
+        envLabel={envState.indicatorLabel}
+        saveState={saveState}
+        kb={keybinds}
+      />
     </box>
   )
 }

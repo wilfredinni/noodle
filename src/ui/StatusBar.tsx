@@ -1,5 +1,10 @@
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
+import type { SendState } from "./sendState"
+import type { SaveState } from "./saveState"
+import { methodColor } from "./formatRequest"
+import { statusColor } from "./format"
+import type { Method } from "../schema"
 
 export interface StatusBarSections {
   left: string
@@ -7,26 +12,131 @@ export interface StatusBarSections {
   right: string
 }
 
-export function statusBarText(
-  envLabel: string,
-  kb: Keybinds,
-): StatusBarSections {
-  return {
-    left: `[${kb.help_toggle}] help`,
-    center: envLabel ? `● ${envLabel}` : "(no env)",
-    right: `[${kb.request_send}] send  [${kb.request_save}] save  [${kb.theme_picker}] theme  [${kb.layout_toggle}] layout`,
+function urlPath(url: string): string {
+  if (url === "") return ""
+  try {
+    return new URL(url).pathname || url
+  } catch {
+    return url
   }
 }
 
-export function StatusBar({
-  envLabel,
-  keybinds,
-}: {
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
+
+function footerStatusLine(
+  status: number,
+  statusText: string,
+  timeMs: number,
+  bodyLen: number,
+): string {
+  const ms = Math.round(timeMs)
+  const size = formatSize(bodyLen)
+  if (statusText === "") return `${status} · ${ms}ms · ${size}`
+  return `${status} ${statusText} · ${ms}ms · ${size}`
+}
+
+export function statusBarText(input: {
+  method: string
+  url: string
+  isDirty: boolean
+  sendState: SendState
   envLabel: string
-  keybinds: Keybinds
+  saveState: SaveState
+  kb: Keybinds
+  spinnerFrame?: string
+}): StatusBarSections {
+  const {
+    method,
+    url,
+    isDirty,
+    sendState,
+    envLabel,
+    saveState,
+    kb,
+    spinnerFrame = "⠋",
+  } = input
+
+  // ── LEFT: request/response status ──────────────────
+  let left: string
+  const sendStatus = sendState.status
+
+  if (sendStatus === "sending") {
+    const path = urlPath(sendState.request.url)
+    left = `${spinnerFrame} ${sendState.request.method} ${path}...`
+  } else if (sendStatus === "done") {
+    const res = sendState.response
+    const bodyLen = new TextEncoder().encode(res.body).length
+    left = footerStatusLine(res.status, res.statusText, res.timeMs, bodyLen)
+  } else if (sendStatus === "error") {
+    left = `✗ ${sendState.error.message}`
+  } else {
+    // idle
+    if (method === "" && url === "") {
+      left = ""
+    } else {
+      const path = urlPath(url)
+      left = `${method} ${path}`
+    }
+  }
+
+  // ── CENTER: env + dirty + save flash ───────────────
+  let center: string
+  if (saveState.kind === "success") {
+    center = `✓ ${saveState.message}`
+  } else if (saveState.kind === "error") {
+    center = `✗ ${saveState.message}`
+  } else if (envLabel === "" || envLabel === "(no env)") {
+    center = "(no env)"
+  } else {
+    center = isDirty ? `● ${envLabel} •` : `● ${envLabel}`
+  }
+
+  // ── RIGHT: global hints ────────────────────────────
+  const right = `[${kb.help_toggle}] help · [${kb.focus_next}] focus`
+
+  return { left, center, right }
+}
+
+export function StatusBar(input: {
+  method: string
+  url: string
+  isDirty: boolean
+  sendState: SendState
+  envLabel: string
+  saveState: SaveState
+  kb: Keybinds
+  spinnerFrame?: string
 }) {
   const theme = useTheme()
-  const sections = statusBarText(envLabel, keybinds)
+  const sections = statusBarText(input)
+  const sendStatus = input.sendState.status
+
+  // Determine LEFT color
+  let leftColor = theme.textMuted
+  if (sendStatus === "done") {
+    leftColor = statusColor(input.sendState.response.status, theme)
+  } else if (sendStatus === "error") {
+    leftColor = theme.error
+  } else if (sendStatus === "sending") {
+    leftColor = theme.info
+  } else if (input.method !== "") {
+    leftColor = methodColor(input.method as Method, theme)
+  }
+
+  // Determine CENTER color
+  let centerColor = theme.info
+  const sk = input.saveState.kind
+  if (sk === "success") {
+    centerColor = theme.success
+  } else if (sk === "error") {
+    centerColor = theme.error
+  } else if (input.envLabel === "" || input.envLabel === "(no env)") {
+    centerColor = theme.textMuted
+  }
 
   return (
     <box
@@ -38,8 +148,8 @@ export function StatusBar({
         paddingRight: 1,
       }}
     >
-      <text fg={theme.textMuted}>{sections.left}</text>
-      <text fg={theme.info}>{sections.center}</text>
+      <text fg={leftColor}>{sections.left}</text>
+      <text fg={centerColor}>{sections.center}</text>
       <text fg={theme.textMuted}>{sections.right}</text>
     </box>
   )

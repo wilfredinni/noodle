@@ -1,8 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { statusBarText } from "../../src/ui/StatusBar"
 import { bindingDefaults } from "../../src/ui/keybind"
-import type { SendState } from "../../src/ui/sendState"
-import type { SaveState } from "../../src/ui/saveState"
 
 const defaults = bindingDefaults()
 
