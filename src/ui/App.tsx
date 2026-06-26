@@ -37,6 +37,7 @@ function AppInner({
   previewIndex,
   setActiveIndex,
   setPreviewIndex,
+  keybinds,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -46,6 +47,7 @@ function AppInner({
   previewIndex: number | null
   setActiveIndex: (n: number) => void
   setPreviewIndex: (n: number | null) => void
+  keybinds: Keybinds
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -425,7 +427,7 @@ function AppInner({
             />
           </box>
         </box>
-        {helpVisible && <HelpOverlay visible />}
+        {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
         {saveState.kind === "confirming" && (
           <ConfirmOverlay
             visible
@@ -450,7 +452,7 @@ export function App({
   environmentsDir,
   envList,
   initialEnvName,
-  keybinds: _keybinds,
+  keybinds: keybinds,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -472,6 +474,7 @@ export function App({
         previewIndex={previewIndex}
         setActiveIndex={setActiveIndex}
         setPreviewIndex={setPreviewIndex}
+        keybinds={keybinds}
       />
     </ThemeProvider>
   )

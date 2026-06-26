@@ -86,10 +86,10 @@ export function parseOverrides(overrides: Record<string, unknown>): Keybinds {
   return result as Keybinds
 }
 
-export function bindingDefaults(): Record<string, string> {
-  const result: Record<string, string> = {}
+export function bindingDefaults(): Keybinds {
+  const result = {} as Record<string, string>
   for (const [name, def] of Object.entries(Definitions)) {
     result[name] = def.default
   }
-  return result
+  return result as Keybinds
 }

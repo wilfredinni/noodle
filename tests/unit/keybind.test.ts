@@ -47,7 +47,7 @@ describe("bindingDefaults", () => {
   it("returns all defaults", () => {
     const defaults = bindingDefaults()
     for (const [name, def] of Object.entries(Definitions)) {
-      expect(defaults[name]).toBe(def.default)
+      expect((defaults as Record<string, string>)[name]).toBe(def.default)
     }
   })
 })
