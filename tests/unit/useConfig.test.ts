@@ -68,6 +68,19 @@ describe("saveConfig", () => {
     expect(yaml.load(raw)).toEqual({ theme: 1, layout: "side-by-side", last_env: "prod" })
   })
 
+  it("round-trips save→load", () => {
+    const input: NoodleConfig = { theme: 1, layout: "side-by-side", lastEnv: "staging" }
+    saveConfig(dir, input)
+    const result = loadConfig(dir)
+    expect(result).toEqual(input)
+  })
+
+  it("writes and reads back null lastEnv", () => {
+    saveConfig(dir, { theme: 2, layout: "stacked", lastEnv: null })
+    const result = loadConfig(dir)
+    expect(result).toEqual({ theme: 2, layout: "stacked", lastEnv: null })
+  })
+
   it("creates directory if missing", async () => {
     const deepDir = join(dir, "sub", "dir")
     saveConfig(deepDir, DEFAULTS)
