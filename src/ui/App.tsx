@@ -10,6 +10,7 @@ import { useResponse } from "./useResponse"
 import { useRequestDraft } from "./useRequestDraft"
 import { useEditBrowse } from "./useEditBrowse"
 import { useEnvironments } from "./useEnvironments"
+import { useConfig } from "./useConfig"
 import { filestore } from "../filestore"
 import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
@@ -28,6 +29,8 @@ type SaveState =
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
 
+const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
+
 function AppInner({
   collectionDir,
   environmentsDir,
@@ -38,6 +41,10 @@ function AppInner({
   setActiveIndex,
   setPreviewIndex,
   keybinds,
+  initialLayout,
+  onLayoutChange,
+  onEnvChange,
+  lastEnv,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -48,6 +55,10 @@ function AppInner({
   setActiveIndex: (n: number) => void
   setPreviewIndex: (n: number | null) => void
   keybinds: Keybinds
+  initialLayout: "stacked" | "side-by-side"
+  onLayoutChange: (layout: "stacked" | "side-by-side") => void
+  onEnvChange: (name: string | null) => void
+  lastEnv: string | null
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -56,7 +67,7 @@ function AppInner({
 
   const [focus, setFocus] = useState<Focus>("sidebar")
   const [helpVisible, setHelpVisible] = useState(false)
-  const [layout, setLayout] = useState<"stacked" | "side-by-side">("stacked")
+  const [layout, setLayout] = useState<"stacked" | "side-by-side">(initialLayout)
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const [confirmSelection, setConfirmSelection] = useState(0)
 
@@ -104,7 +115,7 @@ function AppInner({
     }
   }, [focus, eb])
 
-  const envState = useEnvironments(environmentsDir, envList, initialEnvName)
+  const envState = useEnvironments(environmentsDir, envList, initialEnvName, lastEnv, onEnvChange)
   const { state: responseState, trySend } = useResponse(
     draft.draft,
     envState.activeEnv,
@@ -208,7 +219,11 @@ function AppInner({
       },
       {
         name: "layout.toggle",
-        run: () => setLayout((prev) => (prev === "stacked" ? "side-by-side" : "stacked")),
+        run: () => setLayout((prev) => {
+          const next = prev === "stacked" ? "side-by-side" : "stacked"
+          onLayoutChange(next)
+          return next
+        }),
       },
       {
         name: "focus.prev",
@@ -573,8 +588,22 @@ export function App({
   initialEnvName?: string
   keybinds: Keybinds
 }) {
-  const [activeIndex, setActiveIndex] = useState(0)
+  const { config, updateConfig } = useConfig(CONFIG_DIR)
+  const [activeIndex, setActiveIndex] = useState(config.theme)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+
+  const handleThemeChange = useCallback((index: number) => {
+    setActiveIndex(index)
+    updateConfig({ theme: index })
+  }, [updateConfig])
+
+  const handleLayoutChange = useCallback((layout: "stacked" | "side-by-side") => {
+    updateConfig({ layout })
+  }, [updateConfig])
+
+  const handleEnvChange = useCallback((name: string | null) => {
+    updateConfig({ lastEnv: name })
+  }, [updateConfig])
 
   return (
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
@@ -585,9 +614,13 @@ export function App({
         initialEnvName={initialEnvName}
         activeIndex={activeIndex}
         previewIndex={previewIndex}
-        setActiveIndex={setActiveIndex}
+        setActiveIndex={handleThemeChange}
         setPreviewIndex={setPreviewIndex}
         keybinds={keybinds}
+        initialLayout={config.layout}
+        onLayoutChange={handleLayoutChange}
+        onEnvChange={handleEnvChange}
+        lastEnv={config.lastEnv}
       />
     </ThemeProvider>
   )
