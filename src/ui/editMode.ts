@@ -32,15 +32,12 @@ export function initialEditState(): EditState {
 export function enterEditBrowse(
   prev: EditState,
   counts: SectionRowCount = { headers: 0, params: 0 },
+  startField: FieldKind = "headers",
 ): EditState {
   if (prev.mode !== "inactive") return prev
   return {
     mode: "browsing",
-    cursor: {
-      field: "headers",
-      row: -1,
-      addingRow: counts.headers === 0,
-    },
+    cursor: cursorForField(startField, counts),
     editingRow: -1,
   }
 }

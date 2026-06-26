@@ -28,7 +28,13 @@ describe("enterEditBrowse", () => {
   it("inactive → browsing at headers", () => {
     const s = enterEditBrowse(inactive, { headers: 2, params: 0 })
     expect(s.mode).toBe("browsing")
-    expect(s.cursor).toEqual({ field: "headers", row: -1, addingRow: false })
+    expect(s.cursor).toEqual({ field: "headers", row: 0, addingRow: false })
+    expect(s.editingRow).toBe(-1)
+  })
+  it("inactive → browsing at explicit start field", () => {
+    const s = enterEditBrowse(inactive, { headers: 2, params: 3 }, "params")
+    expect(s.mode).toBe("browsing")
+    expect(s.cursor).toEqual({ field: "params", row: 0, addingRow: false })
     expect(s.editingRow).toBe(-1)
   })
   it("no-op from browsing", () => {
@@ -106,10 +112,8 @@ describe("moveFieldCursor", () => {
 })
 
 describe("moveRowCursor", () => {
-  it("walks rows -1 → 0 → 1 → [+] → wraps to 0 within headers", () => {
+  it("walks rows 0 → 1 → [+] → 0 → 1 within headers", () => {
     let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
-    expect(s.cursor.row).toBe(-1)
-    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(0)
     s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(1)
@@ -119,10 +123,12 @@ describe("moveRowCursor", () => {
     s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(0)
     expect(s.cursor.addingRow).toBe(false)
+    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
+    expect(s.cursor.row).toBe(1)
   })
-  it("walks up: -1 → [+] → 1 → 0", () => {
+  it("walks up: 0 → [+] → 1 → 0", () => {
     let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
-    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.row).toBe(0)
     s = moveRowCursor(s, -1, { headers: 2, params: 0 })
     expect(s.cursor.addingRow).toBe(true)
     s = moveRowCursor(s, -1, { headers: 2, params: 0 })
@@ -130,10 +136,8 @@ describe("moveRowCursor", () => {
     s = moveRowCursor(s, -1, { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(0)
   })
-  it("single-row section toggles -1 → 0 → [+] → 0", () => {
+  it("single-row section toggles 0 → [+] → 0", () => {
     let s = enterEditBrowse(inactive, { headers: 1, params: 0 })
-    expect(s.cursor.row).toBe(-1)
-    s = moveRowCursor(s, +1, { headers: 1, params: 0 })
     expect(s.cursor.row).toBe(0)
     s = moveRowCursor(s, +1, { headers: 1, params: 0 })
     expect(s.cursor.addingRow).toBe(true)
@@ -165,7 +169,6 @@ describe("moveRowCursor", () => {
 describe("beginEditing", () => {
   it("browsing → editing, captures editingRow for header row", () => {
     let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
-    s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     s = moveRowCursor(s, +1, { headers: 2, params: 0 })
     expect(s.cursor.row).toBe(1)
     const e = beginEditing(s)

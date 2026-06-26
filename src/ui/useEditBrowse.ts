@@ -120,11 +120,12 @@ export function useEditBrowse(
 
   const enterBrowse = useCallback(() => {
     const c = rowCount(draftRef.current)
+    const tab = activeTab
     setEditState((prev) => {
       if (prev.mode !== "inactive") return prev
-      return enterEditBrowse(prev, c)
+      return enterEditBrowse(prev, c, tab)
     })
-  }, [])
+  }, [activeTab])
 
   const exitBrowse = useCallback(() => {
     setEditState((prev) => {
@@ -153,7 +154,9 @@ export function useEditBrowse(
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
-      return moveFieldCursor(prev, -1, c)
+      const next = moveFieldCursor(prev, -1, c)
+      setInactiveTab(next.cursor.field)
+      return next
     })
   }, [])
 
@@ -161,7 +164,9 @@ export function useEditBrowse(
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
-      return moveFieldCursor(prev, +1, c)
+      const next = moveFieldCursor(prev, +1, c)
+      setInactiveTab(next.cursor.field)
+      return next
     })
   }, [])
 
