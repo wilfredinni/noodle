@@ -396,6 +396,7 @@ function AppInner({
             error={error}
             selectedIndex={selectedIndex}
             focused={focus === "sidebar"}
+            keybinds={keybinds}
           />
           <box
             style={{
@@ -442,7 +443,7 @@ function AppInner({
           />
         )}
       </box>
-      <StatusBar envLabel={envState.indicatorLabel} />
+      <StatusBar envLabel={envState.indicatorLabel} keybinds={keybinds} />
     </box>
   )
 }

@@ -1,4 +1,5 @@
 import { useTheme } from "./theme"
+import type { Keybinds } from "./keybind"
 
 export interface StatusBarSections {
   left: string
@@ -6,17 +7,26 @@ export interface StatusBarSections {
   right: string
 }
 
-export function statusBarText(envLabel: string): StatusBarSections {
+export function statusBarText(
+  envLabel: string,
+  kb: Keybinds,
+): StatusBarSections {
   return {
-    left: "[?] help",
+    left: `[${kb.help_toggle}] help`,
     center: envLabel ? `● ${envLabel}` : "(no env)",
-    right: "[s] send  [w] save  [t] theme",
+    right: `[${kb.request_send}] send  [${kb.request_save}] save  [${kb.theme_picker}] theme`,
   }
 }
 
-export function StatusBar({ envLabel }: { envLabel: string }) {
+export function StatusBar({
+  envLabel,
+  keybinds,
+}: {
+  envLabel: string
+  keybinds: Keybinds
+}) {
   const theme = useTheme()
-  const sections = statusBarText(envLabel)
+  const sections = statusBarText(envLabel, keybinds)
 
   return (
     <box
