@@ -251,6 +251,7 @@ function AppInner({
               url={draft.draft?.url ?? ""}
               setUrl={draft.setUrl}
               focused={focus === "urlbar"}
+              sending={responseState.status === "sending"}
             />
             <RequestPane
               request={draft.draft}

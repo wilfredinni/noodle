@@ -123,7 +123,6 @@ export function RequestPane({
               )}
             </scrollbox>
           </Tabs>
-          <text fg={theme.textMuted}>[s] Send</text>
         </>
       ) : (
         <text fg={theme.textMuted}>(no request selected)</text>
