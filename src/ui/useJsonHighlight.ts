@@ -34,7 +34,7 @@ function styleIdForFg(fg: string, theme: Theme, style: SyntaxStyle): number {
   return style.getStyleId("json.text") ?? 0
 }
 
-function parseJsonError(
+export function parseJsonError(
   content: string,
 ): { valid: true } | { valid: false; error: NonNullable<JsonValidation["error"]> } {
   try {
@@ -91,6 +91,8 @@ function applyHighlightsAndValidate(
     prevErrorLine.current = null
   }
   onValidation({ valid: true })
+
+  if (content.length > 100_000) return
 
   const tokens = highlightJsonTokens(content, theme)
   if (tokens.length === 0) return

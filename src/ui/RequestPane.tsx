@@ -354,8 +354,8 @@ function BodySection({
             id="body-field"
             initialValue={initialValue}
             onContentChange={handleContentChange}
-            backgroundColor={theme.backgroundPanel}
-            focusedBackgroundColor={theme.backgroundPanel}
+            backgroundColor={theme.backgroundElement}
+            focusedBackgroundColor={theme.backgroundElement}
             textColor={theme.text}
             cursorColor={theme.primary}
             focused
