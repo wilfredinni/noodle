@@ -8,8 +8,7 @@ import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
-import { highlightJson } from "./syntax"
-import { useJsonHighlight } from "./useJsonHighlight"
+import { useJsonHighlight, highlightTextarea } from "./useJsonHighlight"
 
 interface Props {
   request: Request | null
@@ -326,7 +325,7 @@ function BodySection({
   editValue,
   setEditValue,
   inEdit,
-  browseActive,
+  browseActive: _browseActive,
   theme,
 }: {
   request: Request
@@ -338,11 +337,10 @@ function BodySection({
   theme: Theme
 }) {
   const body = formatBody(request.body)
-  const isBodyActive = browseActive && editState.cursor.field === "body"
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
-  const { validation, handleContentChange } = useJsonHighlight(
+  const { handleContentChange } = useJsonHighlight(
     textareaRef,
     lineNumberRef,
     theme,
@@ -350,6 +348,14 @@ function BodySection({
   )
 
   const editingBody = inEdit && editState.cursor.field === "body"
+
+  useEffect(() => {
+    if (editingBody) return
+    const ta = textareaRef.current
+    if (ta && body !== "") {
+      highlightTextarea(ta, body, theme)
+    }
+  }, [editingBody, body, theme])
 
   if (editingBody) {
     const initialValue = formatBody(editValue)
@@ -387,34 +393,23 @@ function BodySection({
     )
   }
 
-  const bodyJsonValid = (() => {
-    if (!request.body) return false
-    try { JSON.parse(request.body); return true } catch { return false }
-  })()
-
   return (
-    <box
-      id="body-field"
-      style={{
-        backgroundColor: isBodyActive ? theme.backgroundPanel : undefined,
-      }}
+    <line-number
+      minWidth={3}
+      paddingRight={1}
+      fg={theme.textMuted}
+      bg={theme.backgroundPanel}
+      style={{ flexGrow: 1 }}
+      width="100%"
     >
-      {bodyJsonValid
-        ? highlightJson(body, theme).map((parts, li) =>
-            parts.length === 0 ? null : (
-              <text key={li}>
-                {parts.map((p, pi) => (
-                  <span key={pi} fg={p.fg}>
-                    {p.text}
-                  </span>
-                ))}
-              </text>
-            ),
-          )
-        : (
-          <text fg={theme.text}>{body}</text>
-        )}
-    </box>
+      <textarea
+        ref={textareaRef}
+        id="body-field"
+        initialValue={body}
+        backgroundColor={theme.backgroundPanel}
+        textColor={theme.text}
+      />
+    </line-number>
   )
 }
 

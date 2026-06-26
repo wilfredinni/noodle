@@ -25,6 +25,36 @@ function styleIdForFg(fg: string, theme: Theme, style: SyntaxStyle): number {
   return style.getStyleId("json.text") ?? 0
 }
 
+export function highlightTextarea(
+  textarea: TextareaRenderable,
+  content: string,
+  theme: Theme,
+): void {
+  try {
+    JSON.parse(content)
+  } catch {
+    return
+  }
+  if (content.length > 100_000) return
+  const style = createJsonSyntaxStyle(theme)
+  try {
+    textarea.clearAllHighlights()
+    textarea.syntaxStyle = style
+    const tokens = highlightJsonTokens(content, theme)
+    for (const token of tokens) {
+      const styleId = styleIdForFg(token.fg, theme, style)
+      textarea.addHighlightByCharRange({
+        start: token.offset,
+        end: token.offset + token.text.length,
+        styleId,
+        priority: 1,
+      })
+    }
+  } catch {
+    // highlight failed
+  }
+}
+
 export interface JsonValidation {
   valid: boolean
 }
@@ -41,15 +71,6 @@ export function useJsonHighlight(
   handleContentChange: () => void
 } {
   const timeoutRef = useRef<Timer | null>(null)
-  const syntaxStyleRef = useRef<SyntaxStyle | null>(null)
-
-  if (!syntaxStyleRef.current) {
-    try {
-      syntaxStyleRef.current = createJsonSyntaxStyle(theme)
-    } catch {
-      // SyntaxStyle creation failed, no highlights
-    }
-  }
 
   const handleContentChange = useCallback(() => {
     const textarea = textareaRef.current
@@ -59,40 +80,13 @@ export function useJsonHighlight(
     timeoutRef.current = setTimeout(() => {
       const content = textarea.plainText
       setEditValue(content)
-
-      const style = syntaxStyleRef.current
-      if (!style || content.length > 100_000) return
-
-      try {
-        JSON.parse(content)
-      } catch {
-        return
-      }
-
-      try {
-        textarea.clearAllHighlights()
-        textarea.syntaxStyle = style
-        const tokens = highlightJsonTokens(content, theme)
-        for (const token of tokens) {
-          const styleId = styleIdForFg(token.fg, theme, style)
-          textarea.addHighlightByCharRange({
-            start: token.offset,
-            end: token.offset + token.text.length,
-            styleId,
-            priority: 1,
-          })
-        }
-      } catch {
-        // highlight failed, editor remains usable
-      }
+      highlightTextarea(textarea, content, theme)
     }, DEBOUNCE_MS)
   }, [textareaRef, theme, setEditValue])
 
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      syntaxStyleRef.current?.destroy()
-      syntaxStyleRef.current = null
     }
   }, [])
 
