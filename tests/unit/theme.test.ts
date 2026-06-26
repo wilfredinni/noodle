@@ -2,8 +2,8 @@ import { describe, it, expect } from "bun:test"
 import { THEMES, contrastOnPrimary } from "../../src/ui/theme"
 
 describe("THEMES", () => {
-  it("has exactly 10 themes", () => {
-    expect(THEMES).toHaveLength(10)
+  it("has exactly 14 themes", () => {
+    expect(THEMES).toHaveLength(14)
   })
 
   it("first theme is named opencode", () => {
@@ -44,6 +44,22 @@ describe("THEMES", () => {
 
   it("tenth theme is named onedark", () => {
     expect(THEMES[9]!.name).toBe("onedark")
+  })
+
+  it("eleventh theme is named aura", () => {
+    expect(THEMES[10]!.name).toBe("aura")
+  })
+
+  it("twelfth theme is named everforest", () => {
+    expect(THEMES[11]!.name).toBe("everforest")
+  })
+
+  it("thirteenth theme is named kanagawa", () => {
+    expect(THEMES[12]!.name).toBe("kanagawa")
+  })
+
+  it("fourteenth theme is named rosepine", () => {
+    expect(THEMES[13]!.name).toBe("rosepine")
   })
 
   it("every theme has all 16 required tokens", () => {

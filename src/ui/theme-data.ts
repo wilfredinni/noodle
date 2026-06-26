@@ -207,6 +207,82 @@ export const onedarkTheme: Theme = {
   borderSubtle: "#2c313a",
 }
 
+export const auraTheme: Theme = {
+  name: "aura",
+  primary: "#a277ff",
+  secondary: "#f694ff",
+  accent: "#a277ff",
+  error: "#ff6767",
+  warning: "#ffca85",
+  success: "#61ffca",
+  info: "#a277ff",
+  text: "#edecee",
+  textMuted: "#6d6d6d",
+  background: "#0f0f0f",
+  backgroundPanel: "#15141b",
+  backgroundElement: "#15141b",
+  border: "#2d2d2d",
+  borderActive: "#6d6d6d",
+  borderSubtle: "#2d2d2d",
+}
+
+export const everforestTheme: Theme = {
+  name: "everforest",
+  primary: "#a7c080",
+  secondary: "#7fbbb3",
+  accent: "#d699b6",
+  error: "#e67e80",
+  warning: "#e69875",
+  success: "#a7c080",
+  info: "#83c092",
+  text: "#d3c6aa",
+  textMuted: "#7a8478",
+  background: "#2d353b",
+  backgroundPanel: "#333c43",
+  backgroundElement: "#343f44",
+  border: "#859289",
+  borderActive: "#9da9a0",
+  borderSubtle: "#7a8478",
+}
+
+export const kanagawaTheme: Theme = {
+  name: "kanagawa",
+  primary: "#7e9cd8",
+  secondary: "#957fb8",
+  accent: "#d27e99",
+  error: "#e82424",
+  warning: "#d7a657",
+  success: "#98bb6c",
+  info: "#76946a",
+  text: "#dcd7ba",
+  textMuted: "#727169",
+  background: "#1f1f28",
+  backgroundPanel: "#2a2a37",
+  backgroundElement: "#363646",
+  border: "#54546d",
+  borderActive: "#c38d9d",
+  borderSubtle: "#363646",
+}
+
+export const rosepineTheme: Theme = {
+  name: "rosepine",
+  primary: "#9ccfd8",
+  secondary: "#c4a7e7",
+  accent: "#ebbcba",
+  error: "#eb6f92",
+  warning: "#f6c177",
+  success: "#31748f",
+  info: "#9ccfd8",
+  text: "#e0def4",
+  textMuted: "#6e6a86",
+  background: "#191724",
+  backgroundPanel: "#1f1d2e",
+  backgroundElement: "#26233a",
+  border: "#403d52",
+  borderActive: "#9ccfd8",
+  borderSubtle: "#21202e",
+}
+
 export const THEMES: Theme[] = [
   opencodeTheme,
   catppuccinTheme,
@@ -218,6 +294,10 @@ export const THEMES: Theme[] = [
   monokaiTheme,
   solarizedTheme,
   onedarkTheme,
+  auraTheme,
+  everforestTheme,
+  kanagawaTheme,
+  rosepineTheme,
 ]
 
 export function contrastOnPrimary(_theme: Theme): string {

@@ -17,6 +17,10 @@ export {
   monokaiTheme,
   solarizedTheme,
   onedarkTheme,
+  auraTheme,
+  everforestTheme,
+  kanagawaTheme,
+  rosepineTheme,
 } from "./theme-data"
 export type { Theme } from "./theme-data"
 export { PaneBorder, FullBorder, LeftBar } from "./borders"
