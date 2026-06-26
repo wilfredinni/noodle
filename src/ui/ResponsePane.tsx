@@ -11,6 +11,7 @@ import {
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
+import { highlightJson } from "./syntax"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -133,7 +134,17 @@ export function ResponsePane({
                         customBorderChars={LeftBar.customBorderChars}
                         borderColor={theme.borderSubtle}
                       >
-                        <text fg={theme.text}>{body}</text>
+                        {highlightJson(body, theme).map((parts, li) =>
+                          parts.length === 0 ? null : (
+                            <text key={li}>
+                              {parts.map((p, pi) => (
+                                <span key={pi} fg={p.fg}>
+                                  {p.text}
+                                </span>
+                              ))}
+                            </text>
+                          ),
+                        )}
                       </box>
                     ) : null
                   })()}

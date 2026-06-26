@@ -44,7 +44,7 @@ export function UrlBar({
       {!url ? (
         <text fg={theme.text}>(no request selected)</text>
       ) : (
-        <box style={{ flexDirection: "row", gap: 1, paddingX: 1  }}>
+        <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
           <text fg={methodColor(method as Method, theme)}>{method}</text>
           {focused ? (
             <input

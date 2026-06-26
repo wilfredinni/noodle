@@ -13,6 +13,7 @@ import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
+import { highlightJson } from "./syntax"
 
 interface Props {
   request: Request | null
@@ -371,7 +372,17 @@ function BodySection({
             backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
           }}
         >
-          <text fg={isBodyActive ? theme.text : theme.text}>{body}</text>
+          {highlightJson(body, theme).map((parts, li) =>
+            parts.length === 0 ? null : (
+              <text key={li}>
+                {parts.map((p, pi) => (
+                  <span key={pi} fg={p.fg}>
+                    {p.text}
+                  </span>
+                ))}
+              </text>
+            ),
+          )}
         </box>
       )}
     </>
