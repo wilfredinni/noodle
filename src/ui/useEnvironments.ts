@@ -29,9 +29,9 @@ export function useEnvironments(
   const [error, setError] = useState<Error | null>(null)
   const genRef = useRef(0)
 
-  // Mount-only effect: initialName/dir/envList are stable for App's lifetime.
+  // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {
-    const target = initialName ?? (lastEnv ?? undefined)
+    const target = initialName ?? lastEnv ?? undefined
     if (target === undefined) return
     if (!envList.includes(target)) return
     let cancelled = false
@@ -81,7 +81,7 @@ export function useEnvironments(
           setActiveEnv(null)
         })
     },
-    [dir, envList, activeIndex],
+    [dir, envList, activeIndex, onEnvChange],
   )
 
   const indicatorLabel = useMemo(
