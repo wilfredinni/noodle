@@ -12,27 +12,22 @@ export function hintForFocus(
   focus: Focus,
   mode: "inactive" | "browsing" | "editing",
 ): string {
-  const picker = " · [t] pick theme"
   if (focus === "sidebar") {
-    return (
-      "[↑/↓] select · [e] edit · [s] send · [w] save · [Tab] → URL Bar" + picker
-    )
+    return "[↑/↓] select · [s] send · [w] save · [Tab] next"
   }
   if (focus === "urlbar") {
-    return "[Tab] → Request" + picker
+    return "[Tab] next · [e] edit · [s] send · [w] save"
   }
   if (focus === "request") {
+    if (mode === "inactive") {
+      return "[e] edit · [s] send · [w] save · [Tab] next"
+    }
     if (mode === "browsing") {
-      return (
-        "[↑/↓/Enter] edit · [d] revert · [R] revert all · [Esc] back · [Tab] → Response" +
-        picker
-      )
+      return "[↑/↓/Enter] edit · [Esc] back · [d] revert"
     }
-    if (mode === "editing") {
-      return "[Enter] commit · [Esc] cancel"
-    }
-    return "[e] enter edit · [s] send · [w] save · [Tab] → Response" + picker
+    // editing
+    return "[Enter] commit · [Esc] cancel"
   }
-  // focus === "response"
-  return "[↑/↓/PgUp/PgDn] scroll · [Tab] → Sidebar" + picker
+  // response
+  return "[↑/↓/PgUp/PgDn] scroll · [Tab] next"
 }

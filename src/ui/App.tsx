@@ -14,7 +14,8 @@ import { filestore } from "../filestore"
 import { cycleFocus, hintForFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
-import { PaneBorder, THEMES } from "./theme"
+import { THEMES } from "./theme"
+import { StatusBar } from "./StatusBar"
 
 type SaveState =
   | { kind: "idle" }
@@ -214,11 +215,9 @@ function AppInner({
         height: "100%",
         backgroundColor: theme.background,
       }}
-      border={[...PaneBorder.border]}
-      customBorderChars={PaneBorder.customBorderChars}
     >
-      <box style={{ flexDirection: "column", flexGrow: 1, position: "relative" }}>
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
+      <box style={{ flexDirection: "column", flexGrow: 1, padding: 1, gap: 1, position: "relative" }}>
+        <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
           <Sidebar
             collection={collection}
             loading={loading}
@@ -226,7 +225,7 @@ function AppInner({
             selectedIndex={selectedIndex}
             focused={focus === "sidebar"}
           />
-          <box style={{ flexDirection: "column", flexGrow: 1 }}>
+          <box style={{ flexDirection: "column", flexGrow: 1, gap: 1, minHeight: 0 }}>
             <UrlBar
               method={draft.draft?.method ?? ""}
               url={draft.draft?.url ?? ""}
@@ -253,17 +252,7 @@ function AppInner({
           <ThemePickerOverlay activeIndex={activeIndex} previewIndex={previewIndex} />
         )}
       </box>
-      <text fg={theme.textMuted}>
-        {helpVisible
-          ? "[?/Esc] dismiss help"
-          : saveState.kind === "confirming"
-              ? `Save changes to ${draft.draft?.id ?? "?"}.yml? [y/N]`
-              : saveState.kind === "success"
-                ? saveState.message
-                : saveState.kind === "error"
-                  ? saveState.message
-                  : `${hintForFocus(focus, editState.mode)} · env: ${envState.indicatorLabel}`}
-      </text>
+      <StatusBar envLabel={envState.indicatorLabel} />
     </box>
   )
 }
