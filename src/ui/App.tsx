@@ -198,7 +198,12 @@ function AppInner({
           }
           return true
         },
-        run: () => setFocus((prev) => cycleFocus(prev, 1)),
+        run: () =>
+          setFocus((prev) => {
+            const next = cycleFocus(prev, 1)
+            if (next === "request") ebRef.current.enterBrowse()
+            return next
+          }),
       },
       {
         name: "focus.prev",
@@ -210,7 +215,12 @@ function AppInner({
           }
           return true
         },
-        run: () => setFocus((prev) => cycleFocus(prev, -1)),
+        run: () =>
+          setFocus((prev) => {
+            const next = cycleFocus(prev, -1)
+            if (next === "request") ebRef.current.enterBrowse()
+            return next
+          }),
       },
     ],
     bindings: [

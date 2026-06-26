@@ -60,7 +60,7 @@ export function requestEquals(a: Request, b: Request): boolean {
 }
 
 function sortedEntries(rec: Record<string, string>): [string, string][] {
-  return Object.entries(rec).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return Object.entries(rec)
 }
 
 function replaceRow(

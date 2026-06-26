@@ -167,9 +167,7 @@ function KeyValueSection({
   theme,
 }: KeyValueSectionProps) {
   const rec = kind === "headers" ? request.headers : request.params
-  const rows = Object.entries(rec).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
-  )
+  const rows = Object.entries(rec)
   const inEdit = editState.mode === "editing"
   const cursorHere = editState.cursor.field === kind
   const editingRow =

@@ -37,9 +37,7 @@ function currentValueFor(
   if (field === "headers" || field === "params") {
     if (addingRow) return ""
     const rec = field === "headers" ? draft.headers : draft.params
-    const entries = Object.entries(rec).sort(([a], [b]) =>
-      a < b ? -1 : a > b ? 1 : 0,
-    )
+    const entries = Object.entries(rec)
     const entry = entries[row]
     return entry ? `${entry[0]}: ${entry[1]}` : ""
   }
@@ -56,9 +54,7 @@ function currentKeyValueFor(
   if (addingRow) return { key: "", value: "" }
   if (field === "headers" || field === "params") {
     const rec = field === "headers" ? draft.headers : draft.params
-    const entries = Object.entries(rec).sort(([a], [b]) =>
-      a < b ? -1 : a > b ? 1 : 0,
-    )
+    const entries = Object.entries(rec)
     const entry = entries[row]
     return entry ? { key: entry[0], value: entry[1] } : { key: "", value: "" }
   }

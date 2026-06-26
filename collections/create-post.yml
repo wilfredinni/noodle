@@ -5,6 +5,8 @@ headers:
   Content-Type: application/json
   sdfs: sdfsdf
   sdfsdf: ssdfsdw
+  hola: mundosdfsdfsdf
+  tests: sdfsdf
 body: |-
   {
     "title": "foo",

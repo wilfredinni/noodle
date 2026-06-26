@@ -132,12 +132,23 @@ describe("applyDraft", () => {
     expect(next.has("r1")).toBe(true)
     expect(next.get("r1")!.body).toBe("")
   })
-  it("setHeaderRow replaces i-th entry by sorted index", () => {
+  it("setHeaderRow replaces i-th entry by insertion order", () => {
     const original = makeReq({ headers: { B: "2", A: "1" } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "setHeaderRow",
       index: 0,
+      key: "B",
+      value: "2-modified",
+    })
+    expect(next.get("r1")!.headers).toEqual({ B: "2-modified", A: "1" })
+  })
+  it("setHeaderRow replaces i-th entry (second row)", () => {
+    const original = makeReq({ headers: { B: "2", A: "1" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setHeaderRow",
+      index: 1,
       key: "A",
       value: "1-modified",
     })
@@ -213,7 +224,7 @@ describe("applyDraft", () => {
       kind: "removeParamRow",
       index: 0,
     })
-    expect(next.get("r1")!.params).toEqual({ q: "2" })
+    expect(next.get("r1")!.params).toEqual({ p: "3" })
   })
   it("revertField body restores body from original", () => {
     const original = makeReq({ body: "orig" })
