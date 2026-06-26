@@ -1,4 +1,4 @@
-import { ScrollBoxRenderable } from "@opentui/core"
+import type { ScrollBoxRenderable, TextareaRenderable, LineNumberRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import type { Request } from "../schema"
 import { formatBody, formatAuth } from "./formatRequest"
@@ -8,7 +8,8 @@ import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
-import { highlightJson } from "./syntax"
+import { useJsonHighlight } from "./useJsonHighlight"
+import { JsonBodyViewer } from "./JsonBodyViewer"
 
 interface Props {
   request: Request | null
@@ -166,9 +167,21 @@ function KeyValueSection({
   theme,
 }: KeyValueSectionProps) {
   const rec = kind === "headers" ? request.headers : request.params
-  const rows = Object.entries(rec).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
+  const rows = Object.entries(rec)
+
+  const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
+  const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
+  const stripeR = Math.round(
+    (((panelNum >> 16) & 0xff) + ((elemNum >> 16) & 0xff)) / 2,
   )
+  const stripeG = Math.round(
+    (((panelNum >> 8) & 0xff) + ((elemNum >> 8) & 0xff)) / 2,
+  )
+  const stripeB = Math.round(
+    ((panelNum & 0xff) + (elemNum & 0xff)) / 2,
+  )
+  const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
+
   const inEdit = editState.mode === "editing"
   const cursorHere = editState.cursor.field === kind
   const editingRow =
@@ -177,70 +190,137 @@ function KeyValueSection({
       : -1
   const editingAdd = inEdit && cursorHere && editState.cursor.addingRow
 
-  if (rows.length === 0 && editState.mode === "inactive") {
-    return <text fg={theme.textMuted}> (none)</text>
-  }
-
   return (
-    <>
-      {rows.map(([k, v], i) => {
-        const isEditingThisRow = editingRow === i
-        const cursorOnThisRow =
-          browseActive &&
-          cursorHere &&
-          !editState.cursor.addingRow &&
-          editState.cursor.row === i
+    <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
+      {rows.length === 0 && editState.mode === "inactive" ? (
+        <box
+          id={`${kind === "headers" ? "hdr" : "prm"}-add`}
+          style={{
+            flexDirection: "row",
+            gap: 0,
+          }}
+        >
+          <input
+            value=""
+            placeholder="Key"
+            textColor={theme.textMuted}
+            cursorColor={theme.primary}
+            style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+          />
+          <input
+            value=""
+            placeholder="Value"
+            textColor={theme.textMuted}
+            cursorColor={theme.primary}
+            style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+          />
+        </box>
+      ) : (
+        <>
+          {rows.map(([k, v], i) => {
+            const isEditingThisRow = editingRow === i
+            const cursorOnThisRow =
+              browseActive &&
+              cursorHere &&
+              !editState.cursor.addingRow &&
+              editState.cursor.row === i
+            const dimmed = inEdit && !isEditingThisRow
 
-        return (
+            return (
+              <box
+                key={i}
+                id={`${kind === "headers" ? "hdr" : "prm"}-${i}`}
+                style={{
+                  flexDirection: "row",
+                  gap: 0,
+                  backgroundColor:
+                    cursorOnThisRow || isEditingThisRow
+                      ? theme.backgroundElement
+                      : i % 2 !== 0
+                        ? stripeBg
+                        : undefined,
+                }}
+              >
+                <input
+                  value={isEditingThisRow ? editKey : k}
+                  placeholder="Key"
+                  onInput={isEditingThisRow ? setEditKey : undefined}
+                  focused={
+                    isEditingThisRow && editState.cursor.subfield === "key"
+                  }
+                  backgroundColor={
+                    isEditingThisRow ? theme.backgroundElement : undefined
+                  }
+                  focusedBackgroundColor={theme.borderSubtle}
+                  textColor={dimmed ? theme.textMuted : theme.text}
+                  cursorColor={theme.primary}
+                  style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+                />
+                <input
+                  value={isEditingThisRow ? editValue : v}
+                  placeholder="Value"
+                  onInput={isEditingThisRow ? setEditValue : undefined}
+                  focused={
+                    isEditingThisRow && editState.cursor.subfield === "value"
+                  }
+                  backgroundColor={
+                    isEditingThisRow ? theme.backgroundElement : undefined
+                  }
+                  focusedBackgroundColor={theme.borderSubtle}
+                  textColor={
+                    dimmed
+                      ? theme.textMuted
+                      : cursorOnThisRow || isEditingThisRow
+                        ? theme.text
+                        : theme.textMuted
+                  }
+                  cursorColor={theme.primary}
+                  style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+                />
+              </box>
+            )
+          })}
           <box
-            key={i}
-            id={`${kind === "headers" ? "hdr" : "prm"}-${i}`}
-            border={[...LeftBar.border]}
-            customBorderChars={LeftBar.customBorderChars}
-            borderColor={
-              cursorOnThisRow || isEditingThisRow
-                ? theme.primary
-                : theme.borderSubtle
-            }
+            id={`${kind === "headers" ? "hdr" : "prm"}-add`}
             style={{
               flexDirection: "row",
               gap: 0,
               backgroundColor:
-                cursorOnThisRow || isEditingThisRow
+                cursorHere && editState.cursor.addingRow
                   ? theme.backgroundElement
                   : undefined,
             }}
           >
-            <text fg={theme.textMuted}> </text>
             <input
-              value={isEditingThisRow ? editKey : k}
-              onInput={isEditingThisRow ? setEditKey : undefined}
-              focused={isEditingThisRow && editState.cursor.subfield === "key"}
+              value={editingAdd ? editKey : ""}
+              placeholder="Key"
+              onInput={editingAdd ? setEditKey : undefined}
+              focused={editingAdd && editState.cursor.subfield === "key"}
               backgroundColor={
-                isEditingThisRow ? theme.backgroundElement : undefined
+                editingAdd ? theme.backgroundElement : undefined
               }
               focusedBackgroundColor={theme.borderSubtle}
               textColor={
-                isEditingThisRow || cursorOnThisRow
+                editingAdd || (cursorHere && editState.cursor.addingRow)
                   ? theme.text
                   : theme.textMuted
               }
               cursorColor={theme.primary}
               style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
             />
-            <text fg={theme.textMuted}>: </text>
             <input
-              value={isEditingThisRow ? editValue : v}
-              onInput={isEditingThisRow ? setEditValue : undefined}
+              value={editingAdd ? editValue : ""}
+              placeholder="Value"
+              onInput={editingAdd ? setEditValue : undefined}
               focused={
-                isEditingThisRow && editState.cursor.subfield === "value"
+                editingAdd && editState.cursor.subfield === "value"
               }
               backgroundColor={
-                isEditingThisRow ? theme.backgroundElement : undefined
+                editingAdd ? theme.backgroundElement : undefined
               }
               focusedBackgroundColor={theme.borderSubtle}
               textColor={
-                isEditingThisRow || cursorOnThisRow
+                editingAdd || (cursorHere && editState.cursor.addingRow)
                   ? theme.text
                   : theme.textMuted
               }
@@ -248,60 +328,9 @@ function KeyValueSection({
               style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
             />
           </box>
-        )
-      })}
-      <box
-        id={`${kind === "headers" ? "hdr" : "prm"}-add`}
-        border={[...LeftBar.border]}
-        customBorderChars={LeftBar.customBorderChars}
-        borderColor={
-          cursorHere && editState.cursor.addingRow
-            ? theme.primary
-            : theme.borderSubtle
-        }
-        style={{
-          flexDirection: "row",
-          gap: 0,
-          backgroundColor:
-            cursorHere && editState.cursor.addingRow
-              ? theme.backgroundElement
-              : undefined,
-        }}
-      >
-        <text fg={theme.textMuted}> </text>
-        <input
-          value={editingAdd ? editKey : ""}
-          placeholder="Key"
-          onInput={editingAdd ? setEditKey : undefined}
-          focused={editingAdd && editState.cursor.subfield === "key"}
-          backgroundColor={editingAdd ? theme.backgroundElement : undefined}
-          focusedBackgroundColor={theme.borderSubtle}
-          textColor={
-            editingAdd || (cursorHere && editState.cursor.addingRow)
-              ? theme.text
-              : theme.textMuted
-          }
-          cursorColor={theme.primary}
-          style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
-        />
-        <text fg={theme.textMuted}>: </text>
-        <input
-          value={editingAdd ? editValue : ""}
-          placeholder="Value"
-          onInput={editingAdd ? setEditValue : undefined}
-          focused={editingAdd && editState.cursor.subfield === "value"}
-          backgroundColor={editingAdd ? theme.backgroundElement : undefined}
-          focusedBackgroundColor={theme.borderSubtle}
-          textColor={
-            editingAdd || (cursorHere && editState.cursor.addingRow)
-              ? theme.text
-              : theme.textMuted
-          }
-          cursorColor={theme.primary}
-          style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
-        />
-      </box>
-    </>
+        </>
+      )}
+    </box>
   )
 }
 
@@ -311,7 +340,7 @@ function BodySection({
   editValue,
   setEditValue,
   inEdit,
-  browseActive,
+  browseActive: _browseActive,
   theme,
 }: {
   request: Request
@@ -323,49 +352,55 @@ function BodySection({
   theme: Theme
 }) {
   const body = formatBody(request.body)
-  const isBodyActive = browseActive && editState.cursor.field === "body"
-  return (
-    <>
-      {inEdit && editState.cursor.field === "body" ? (
-        <input
+  const textareaRef = useRef<TextareaRenderable | null>(null)
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+
+  const { handleContentChange } = useJsonHighlight(
+    textareaRef,
+    lineNumberRef,
+    theme,
+    setEditValue,
+  )
+
+  const editingBody = inEdit && editState.cursor.field === "body"
+
+  if (editingBody) {
+    const initialValue = formatBody(editValue)
+    return (
+      <line-number
+        ref={lineNumberRef}
+        minWidth={3}
+        paddingRight={1}
+        fg={theme.textMuted}
+        bg={theme.backgroundPanel}
+        style={{ flexGrow: 1 }}
+        width="100%"
+      >
+        <textarea
+          ref={textareaRef}
           id="body-field"
-          value={editValue}
-          onInput={setEditValue}
-          backgroundColor={theme.backgroundElement}
-          focusedBackgroundColor={theme.borderSubtle}
+          initialValue={initialValue}
+          onContentChange={handleContentChange}
+          keyBindings={[{ name: "return", shift: true, action: "newline" }]}
+          backgroundColor={theme.backgroundPanel}
+          focusedBackgroundColor={theme.backgroundPanel}
           textColor={theme.text}
           cursorColor={theme.primary}
           focused
         />
-      ) : body === "" ? (
-        <text id="body-field" fg={theme.textMuted}>
-          (none)
-        </text>
-      ) : (
-        <box
-          id="body-field"
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={isBodyActive ? theme.primary : theme.borderSubtle}
-          style={{
-            backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
-          }}
-        >
-          {highlightJson(body, theme).map((parts, li) =>
-            parts.length === 0 ? null : (
-              <text key={li}>
-                {parts.map((p, pi) => (
-                  <span key={pi} fg={p.fg}>
-                    {p.text}
-                  </span>
-                ))}
-              </text>
-            ),
-          )}
-        </box>
-      )}
-    </>
-  )
+      </line-number>
+    )
+  }
+
+  if (body === "") {
+    return (
+      <text id="body-field" fg={theme.textMuted}>
+        (none)
+      </text>
+    )
+  }
+
+  return <JsonBodyViewer body={body} theme={theme} id="body-field" />
 }
 
 function AuthSection({

@@ -60,7 +60,7 @@ export function requestEquals(a: Request, b: Request): boolean {
 }
 
 function sortedEntries(rec: Record<string, string>): [string, string][] {
-  return Object.entries(rec).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return Object.entries(rec)
 }
 
 function replaceRow(
@@ -70,17 +70,17 @@ function replaceRow(
   value: string,
 ): Record<string, string> {
   const entries = sortedEntries(rec)
-  const target = entries[index]
-  if (!target) return rec
-  const without = entries.filter((_, i) => i !== index)
+  if (!entries[index]) return rec
   const out: Record<string, string> = {}
-  let inserted = false
-  for (const [k, v] of without) out[k] = v
-  if (key !== "") {
-    out[key] = value
-    inserted = true
+  for (let i = 0; i < entries.length; i++) {
+    const [k, v] = entries[i]!
+    if (i === index) {
+      if (key !== "") out[key] = value
+    } else if (k !== key) {
+      out[k] = v
+    }
   }
-  return inserted ? out : out
+  return out
 }
 
 function addRow(

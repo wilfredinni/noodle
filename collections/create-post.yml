@@ -3,5 +3,14 @@ method: POST
 url: https://jsonplaceholder.typicode.com/posts
 headers:
   Content-Type: application/json
-  test: test
-body: '{"title":"foo","body":"bar","userId":1}'
+  sdfs: sdfsdf
+  sdfsdf: ssdfsdw
+  hola: mundosdfsdfsdf
+  tests: sdfsdf
+  sdfsd: sdf
+body: |-
+  {
+    "title": "foo",
+    "body": "bar",
+    "userId": 1
+  }

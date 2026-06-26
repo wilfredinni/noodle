@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
-import { ScrollBoxRenderable } from "@opentui/core"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
 import { formatStatusLine, formatHeaders, formatBody } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
-import { highlightJson } from "./syntax"
+import { JsonBodyViewer } from "./JsonBodyViewer"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -108,30 +108,13 @@ export function ResponsePane({
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
             >
               {activeTab === "body" ? (
-                <>
-                  {(() => {
-                    const body = formatBody(state.response)
-                    return body !== "" ? (
-                      <box
-                        border={[...LeftBar.border]}
-                        customBorderChars={LeftBar.customBorderChars}
-                        borderColor={theme.borderSubtle}
-                      >
-                        {highlightJson(body, theme).map((parts, li) =>
-                          parts.length === 0 ? null : (
-                            <text key={li}>
-                              {parts.map((p, pi) => (
-                                <span key={pi} fg={p.fg}>
-                                  {p.text}
-                                </span>
-                              ))}
-                            </text>
-                          ),
-                        )}
-                      </box>
-                    ) : null
-                  })()}
-                </>
+                (() => {
+                  const body = formatBody(state.response)
+                  if (body === "") return null
+                  return (
+                    <JsonBodyViewer body={body} theme={theme} />
+                  )
+                })()
               ) : (
                 <>
                   {formatHeaders(state.response).map((line) => (

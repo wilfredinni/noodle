@@ -131,7 +131,7 @@ describe("RequestPane scrollbox", () => {
     expect(frame).toMatch(/[▀▄▌]/)
   })
 
-  it("browse cursor highlights header row with LeftBar border instead of primary background", async () => {
+  it("browse cursor highlights header row with background highlight", async () => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: "Bearer token",
@@ -187,9 +187,10 @@ describe("RequestPane scrollbox", () => {
     )
     await renderOnce()
 
-    // LeftBar border character present (from box-wrapped rows)
+    // No LeftBar ┃ and no header labels (removed)
     const charFrame = captureCharFrame()
-    expect(charFrame).toContain("┃")
+    expect(charFrame).toContain("Authorization")
+    expect(charFrame).toContain("Bearer token")
 
     // Authorization (highlighted row) text span has no INVERSE and no primary bg
     const spanFrame = captureSpans()
@@ -197,7 +198,7 @@ describe("RequestPane scrollbox", () => {
     const authSpan = allSpans.find((s) => s.text.includes("Authorization"))
     expect(authSpan).toBeDefined()
     expect(authSpan!.attributes & TextAttributes.INVERSE).toBe(0)
-    // LeftBar border replaces old primary background style
+    // No primary background on active row (uses backgroundElement instead)
     expect(authSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
   })
 })
