@@ -171,14 +171,12 @@ export function ThemePickerOverlay({
                   key={t.name}
                   style={{
                     flexDirection: "row",
-                    paddingLeft: isCurrent ? 1 : 3,
+                    justifyContent: "space-between",
+                    paddingLeft: 3,
                     paddingRight: 3,
                     backgroundColor: isSelected ? theme.primary : undefined,
                   }}
                 >
-                  {isCurrent && (
-                    <text fg={isSelected ? "#1a1a1a" : theme.primary}>● </text>
-                  )}
                   <text
                     fg={
                       isSelected
@@ -190,6 +188,9 @@ export function ThemePickerOverlay({
                   >
                     {t.name}
                   </text>
+                  {isCurrent && (
+                    <text fg={isSelected ? "#1a1a1a" : theme.primary}>●</text>
+                  )}
                 </box>
               )
             })}
