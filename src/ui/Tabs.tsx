@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useTheme, contrastOnPrimary } from "./theme"
+import { useTheme } from "./theme"
 
 export type TabDef = {
   id: string
@@ -17,19 +17,31 @@ export function Tabs({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", gap: 1, flexGrow: 1 }}>
-      <box style={{ flexDirection: "row", gap: 1 }}>
+    <box style={{ flexDirection: "column", flexGrow: 1, gap: 0 }}>
+      <box
+        style={{
+          flexDirection: "row",
+          gap: 2,
+          backgroundColor: theme.backgroundPanel,
+        }}
+      >
         {tabs.map((tab) => {
           const isActive = tab.id === activeId
-          const label = tab.label
           return (
-            <text
+            <box
               key={tab.id}
-              fg={isActive ? contrastOnPrimary(theme) : theme.textMuted}
-              bg={isActive ? theme.primary : undefined}
+              style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}
             >
-              {label}
-            </text>
+              <text fg={isActive ? theme.primary : theme.textMuted}>
+                {isActive ? "▸ " : "  "}
+                {tab.label}
+              </text>
+              {isActive ? (
+                <box border={["bottom"]} borderColor={theme.primary} />
+              ) : (
+                <text> </text>
+              )}
+            </box>
           )
         })}
       </box>
