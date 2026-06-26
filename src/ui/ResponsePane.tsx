@@ -109,8 +109,7 @@ export function ResponsePane({
             <scrollbox
               ref={scrollRef}
               scrollY
-              stickyScroll
-              style={{ flexGrow: 1 }}
+              style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
             >
               {activeTab === "body" ? (
                 <>
