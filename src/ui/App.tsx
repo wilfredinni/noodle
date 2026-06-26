@@ -92,6 +92,17 @@ function AppInner({
     keymap.setData("app.mode", mode)
   }, [eb.editState.mode, keymap])
 
+  useEffect(() => {
+    if (focus !== "request") {
+      const state = eb.editState
+      if (state.mode === "editing") {
+        eb.cancelEdit()
+      } else if (state.mode === "browsing") {
+        eb.exitBrowse()
+      }
+    }
+  }, [focus, eb])
+
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
   const { state: responseState, trySend } = useResponse(
     draft.draft,
