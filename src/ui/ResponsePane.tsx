@@ -64,7 +64,10 @@ export function ResponsePane({
       style={{
         flexGrow: 1,
         flexDirection: "column",
-        padding: 1,
+        paddingTop: 0,
+        paddingBottom: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
         gap: 1,
         flexBasis: 0,
         minHeight: 0,
