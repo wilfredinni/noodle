@@ -137,7 +137,7 @@ export function useEditBrowse(
 
     if (editState.mode === "inactive") {
       if (key.name === "e") {
-        setEditState((prev) => enterEditBrowse(prev))
+        setEditState((prev) => enterEditBrowse(prev, counts))
         opts?.onEnterEditBrowse?.()
       } else if (key.name === "left" && enabled()) {
         setInactiveTab((prev) => cycleField(prev, -1))

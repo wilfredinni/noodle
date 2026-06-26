@@ -28,11 +28,18 @@ export function initialEditState(): EditState {
   }
 }
 
-export function enterEditBrowse(prev: EditState): EditState {
+export function enterEditBrowse(
+  prev: EditState,
+  counts: SectionRowCount = { headers: 0, params: 0 },
+): EditState {
   if (prev.mode !== "inactive") return prev
   return {
     mode: "browsing",
-    cursor: { field: "headers", row: -1, addingRow: false },
+    cursor: {
+      field: "headers",
+      row: -1,
+      addingRow: counts.headers === 0,
+    },
     editingRow: -1,
   }
 }

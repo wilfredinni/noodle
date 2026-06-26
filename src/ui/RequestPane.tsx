@@ -156,7 +156,10 @@ function HeadersSection({
   return (
     <>
       {headers.length === 0 &&
-      !(browseActive && editState.cursor.field === "headers") ? (
+      !(
+        editState.mode !== "inactive" &&
+        editState.cursor.field === "headers"
+      ) ? (
         <text fg={theme.textMuted}> (none)</text>
       ) : (
         <>
@@ -205,26 +208,46 @@ function HeadersSection({
               </box>
             )
           })}
-          {browseActive && editState.cursor.field === "headers" && (
-            <box
+          {inEdit &&
+          editState.cursor.field === "headers" &&
+          editState.cursor.addingRow ? (
+            <input
               id="hdr-add"
-              border={[...LeftBar.border]}
-              customBorderChars={LeftBar.customBorderChars}
-              borderColor={
-                editState.cursor.addingRow ? theme.primary : theme.borderSubtle
-              }
-              style={{
-                backgroundColor: editState.cursor.addingRow
-                  ? theme.backgroundElement
-                  : undefined,
-              }}
-            >
-              <text
-                fg={editState.cursor.addingRow ? theme.text : theme.textMuted}
+              value={editValue}
+              onInput={setEditValue}
+              backgroundColor={theme.backgroundElement}
+              focusedBackgroundColor={theme.borderSubtle}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          ) : (
+            browseActive &&
+            editState.cursor.field === "headers" && (
+              <box
+                id="hdr-add"
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={
+                  editState.cursor.addingRow
+                    ? theme.primary
+                    : theme.borderSubtle
+                }
+                style={{
+                  backgroundColor: editState.cursor.addingRow
+                    ? theme.backgroundElement
+                    : undefined,
+                }}
               >
-                {" [+] add header"}
-              </text>
-            </box>
+                <text
+                  fg={
+                    editState.cursor.addingRow ? theme.text : theme.textMuted
+                  }
+                >
+                  {" [+] add header"}
+                </text>
+              </box>
+            )
           )}
         </>
       )}
@@ -253,7 +276,10 @@ function ParamsSection({
   return (
     <>
       {params.length === 0 &&
-      !(browseActive && editState.cursor.field === "params") ? (
+      !(
+        editState.mode !== "inactive" &&
+        editState.cursor.field === "params"
+      ) ? (
         <text fg={theme.textMuted}> (none)</text>
       ) : (
         <>
@@ -302,26 +328,46 @@ function ParamsSection({
               </box>
             )
           })}
-          {browseActive && editState.cursor.field === "params" && (
-            <box
+          {inEdit &&
+          editState.cursor.field === "params" &&
+          editState.cursor.addingRow ? (
+            <input
               id="prm-add"
-              border={[...LeftBar.border]}
-              customBorderChars={LeftBar.customBorderChars}
-              borderColor={
-                editState.cursor.addingRow ? theme.primary : theme.borderSubtle
-              }
-              style={{
-                backgroundColor: editState.cursor.addingRow
-                  ? theme.backgroundElement
-                  : undefined,
-              }}
-            >
-              <text
-                fg={editState.cursor.addingRow ? theme.text : theme.textMuted}
+              value={editValue}
+              onInput={setEditValue}
+              backgroundColor={theme.backgroundElement}
+              focusedBackgroundColor={theme.borderSubtle}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          ) : (
+            browseActive &&
+            editState.cursor.field === "params" && (
+              <box
+                id="prm-add"
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={
+                  editState.cursor.addingRow
+                    ? theme.primary
+                    : theme.borderSubtle
+                }
+                style={{
+                  backgroundColor: editState.cursor.addingRow
+                    ? theme.backgroundElement
+                    : undefined,
+                }}
               >
-                {" [+] add param"}
-              </text>
-            </box>
+                <text
+                  fg={
+                    editState.cursor.addingRow ? theme.text : theme.textMuted
+                  }
+                >
+                  {" [+] add param"}
+                </text>
+              </box>
+            )
           )}
         </>
       )}
