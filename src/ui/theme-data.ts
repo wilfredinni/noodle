@@ -283,6 +283,82 @@ export const rosepineTheme: Theme = {
   borderSubtle: "#21202e",
 }
 
+export const materialTheme: Theme = {
+  name: "material",
+  primary: "#82aaff",
+  secondary: "#c792ea",
+  accent: "#89ddff",
+  error: "#f07178",
+  warning: "#ffcb6b",
+  success: "#c3e88d",
+  info: "#ffcb6b",
+  text: "#eeffff",
+  textMuted: "#546e7a",
+  background: "#263238",
+  backgroundPanel: "#1e272c",
+  backgroundElement: "#37474f",
+  border: "#37474f",
+  borderActive: "#82aaff",
+  borderSubtle: "#1e272c",
+}
+
+export const carbonfoxTheme: Theme = {
+  name: "carbonfox",
+  primary: "#33b1ff",
+  secondary: "#78a9ff",
+  accent: "#ff7eb6",
+  error: "#ee5396",
+  warning: "#f1c21b",
+  success: "#25be6a",
+  info: "#78a9ff",
+  text: "#f2f4f8",
+  textMuted: "#7d848f",
+  background: "#161616",
+  backgroundPanel: "#1a1a1a",
+  backgroundElement: "#1e1e1e",
+  border: "#303030",
+  borderActive: "#33b1ff",
+  borderSubtle: "#262626",
+}
+
+export const synthwave84Theme: Theme = {
+  name: "synthwave84",
+  primary: "#36f9f6",
+  secondary: "#ff7edb",
+  accent: "#b084eb",
+  error: "#fe4450",
+  warning: "#fede5d",
+  success: "#72f1b8",
+  info: "#ff8b39",
+  text: "#ffffff",
+  textMuted: "#848bbd",
+  background: "#262335",
+  backgroundPanel: "#1e1a29",
+  backgroundElement: "#2a2139",
+  border: "#495495",
+  borderActive: "#36f9f6",
+  borderSubtle: "#241b2f",
+}
+
+export const catppuccinFrappeTheme: Theme = {
+  name: "catppuccin-frappe",
+  primary: "#8da4e2",
+  secondary: "#ca9ee6",
+  accent: "#f4b8e4",
+  error: "#e78284",
+  warning: "#e5c890",
+  success: "#a6d189",
+  info: "#81c8be",
+  text: "#c6d0f5",
+  textMuted: "#949cb8",
+  background: "#303446",
+  backgroundPanel: "#292c3c",
+  backgroundElement: "#232634",
+  border: "#414559",
+  borderActive: "#51576d",
+  borderSubtle: "#626880",
+}
+
 export const THEMES: Theme[] = [
   opencodeTheme,
   catppuccinTheme,
@@ -298,6 +374,10 @@ export const THEMES: Theme[] = [
   everforestTheme,
   kanagawaTheme,
   rosepineTheme,
+  materialTheme,
+  carbonfoxTheme,
+  synthwave84Theme,
+  catppuccinFrappeTheme,
 ]
 
 export function contrastOnPrimary(_theme: Theme): string {

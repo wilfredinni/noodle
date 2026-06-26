@@ -21,6 +21,10 @@ export {
   everforestTheme,
   kanagawaTheme,
   rosepineTheme,
+  materialTheme,
+  carbonfoxTheme,
+  synthwave84Theme,
+  catppuccinFrappeTheme,
 } from "./theme-data"
 export type { Theme } from "./theme-data"
 export { PaneBorder, FullBorder, LeftBar } from "./borders"
