@@ -9,12 +9,10 @@ export type TabDef = {
 export function Tabs({
   tabs,
   activeId,
-  focused = false,
   children,
 }: {
   tabs: TabDef[]
   activeId: string
-  focused?: boolean
   children: ReactNode
 }) {
   const theme = useTheme()

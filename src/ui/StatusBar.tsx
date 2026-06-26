@@ -14,11 +14,7 @@ export function statusBarText(envLabel: string): StatusBarSections {
   }
 }
 
-export function StatusBar({
-  envLabel,
-}: {
-  envLabel: string
-}) {
+export function StatusBar({ envLabel }: { envLabel: string }) {
   const theme = useTheme()
   const sections = statusBarText(envLabel)
 
@@ -29,7 +25,7 @@ export function StatusBar({
         justifyContent: "space-between",
         flexShrink: 0,
         paddingLeft: 1,
-      paddingRight: 1,
+        paddingRight: 1,
       }}
     >
       <text fg={theme.textMuted}>{sections.left}</text>

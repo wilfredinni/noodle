@@ -70,4 +70,3 @@ describe("contrastOnPrimary", () => {
     expect(result).toBe("#1a1a1a")
   })
 })
-

@@ -74,18 +74,20 @@ export function Sidebar({
                 id={`req-${i}`}
                 style={{
                   flexDirection: "row",
-                  backgroundColor: isSelected ? theme.backgroundElement : undefined,
+                  backgroundColor: isSelected
+                    ? theme.backgroundElement
+                    : undefined,
                 }}
                 border={isSelected ? [...LeftBar.border] : undefined}
-                customBorderChars={isSelected ? LeftBar.customBorderChars : undefined}
+                customBorderChars={
+                  isSelected ? LeftBar.customBorderChars : undefined
+                }
                 borderColor={isSelected ? theme.primary : undefined}
               >
                 <text fg={methodColor(r.method, theme)}>
                   {shortMethod(r.method).padEnd(7)}
                 </text>
-                <text fg={theme.text}>
-                  {r.name}
-                </text>
+                <text fg={theme.text}>{r.name}</text>
               </box>
             )
           })}

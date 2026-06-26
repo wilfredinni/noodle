@@ -190,9 +190,7 @@ describe("RequestPane scrollbox", () => {
     // Authorization (highlighted row) text span has no INVERSE and no primary bg
     const spanFrame = captureSpans()
     const allSpans = spanFrame.lines.flatMap((l) => l.spans)
-    const authSpan = allSpans.find((s) =>
-      s.text.includes("Authorization"),
-    )
+    const authSpan = allSpans.find((s) => s.text.includes("Authorization"))
     expect(authSpan).toBeDefined()
     expect(authSpan!.attributes & TextAttributes.INVERSE).toBe(0)
     // LeftBar border replaces old primary background style

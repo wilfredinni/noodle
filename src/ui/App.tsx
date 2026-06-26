@@ -11,7 +11,7 @@ import { useRequestDraft } from "./useRequestDraft"
 import { useEditBrowse } from "./useEditBrowse"
 import { useEnvironments } from "./useEnvironments"
 import { filestore } from "../filestore"
-import { cycleFocus, hintForFocus, type Focus } from "./focus"
+import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { THEMES } from "./theme"
@@ -63,7 +63,10 @@ function AppInner({
   const sidebarEnabledRef = useRef(true)
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
-    () => sidebarEnabledRef.current && !helpVisibleRef.current && previewIndexRef.current === null,
+    () =>
+      sidebarEnabledRef.current &&
+      !helpVisibleRef.current &&
+      previewIndexRef.current === null,
   )
 
   const draft = useRequestDraft(selectedRequest)
@@ -216,8 +219,18 @@ function AppInner({
         backgroundColor: theme.background,
       }}
     >
-      <box style={{ flexDirection: "column", flexGrow: 1, padding: 1, gap: 1, position: "relative" }}>
-        <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
+      <box
+        style={{
+          flexDirection: "column",
+          flexGrow: 1,
+          padding: 1,
+          gap: 1,
+          position: "relative",
+        }}
+      >
+        <box
+          style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
+        >
           <Sidebar
             collection={collection}
             loading={loading}
@@ -225,7 +238,14 @@ function AppInner({
             selectedIndex={selectedIndex}
             focused={focus === "sidebar"}
           />
-          <box style={{ flexDirection: "column", flexGrow: 1, gap: 1, minHeight: 0 }}>
+          <box
+            style={{
+              flexDirection: "column",
+              flexGrow: 1,
+              gap: 1,
+              minHeight: 0,
+            }}
+          >
             <UrlBar
               method={draft.draft?.method ?? ""}
               url={draft.draft?.url ?? ""}
@@ -249,7 +269,10 @@ function AppInner({
         </box>
         {helpVisible && <HelpOverlay visible />}
         {previewIndex !== null && (
-          <ThemePickerOverlay activeIndex={activeIndex} previewIndex={previewIndex} />
+          <ThemePickerOverlay
+            activeIndex={activeIndex}
+            previewIndex={previewIndex}
+          />
         )}
       </box>
       <StatusBar envLabel={envState.indicatorLabel} />

@@ -54,7 +54,6 @@ describe("Tabs", () => {
           { id: "b", label: "Tab B" },
         ]}
         activeId="a"
-        focused
       >
         <text>content</text>
       </Tabs>,

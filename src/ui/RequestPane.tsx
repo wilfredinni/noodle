@@ -75,9 +75,7 @@ export function RequestPane({
       borderColor={focused ? theme.secondary : theme.borderSubtle}
     >
       <text fg={focused ? theme.secondary : theme.textMuted}>
-        {focused
-          ? `${title} [e] edit  [Tab] next`
-          : title}
+        {focused ? `${title} [e] edit  [Tab] next` : title}
       </text>
       {request ? (
         <>
@@ -156,7 +154,7 @@ function HeadersSection({
     <>
       {headers.length === 0 &&
       !(browseActive && editState.cursor.field === "headers") ? (
-        <text fg={theme.textMuted}>  (none)</text>
+        <text fg={theme.textMuted}> (none)</text>
       ) : (
         <>
           {headers.map((line, i) => {
@@ -193,12 +191,12 @@ function HeadersSection({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={cursorHere ? theme.primary : theme.borderSubtle}
                 style={{
-                  backgroundColor: cursorHere ? theme.backgroundElement : undefined,
+                  backgroundColor: cursorHere
+                    ? theme.backgroundElement
+                    : undefined,
                 }}
               >
-                <text
-                  fg={cursorHere ? theme.text : theme.textMuted}
-                >
+                <text fg={cursorHere ? theme.text : theme.textMuted}>
                   {" " + line}
                 </text>
               </box>
@@ -219,11 +217,7 @@ function HeadersSection({
               }}
             >
               <text
-                fg={
-                  editState.cursor.addingRow
-                    ? theme.text
-                    : theme.textMuted
-                }
+                fg={editState.cursor.addingRow ? theme.text : theme.textMuted}
               >
                 {" [+] add header"}
               </text>
@@ -257,7 +251,7 @@ function ParamsSection({
     <>
       {params.length === 0 &&
       !(browseActive && editState.cursor.field === "params") ? (
-        <text fg={theme.textMuted}>  (none)</text>
+        <text fg={theme.textMuted}> (none)</text>
       ) : (
         <>
           {params.map((line, i) => {
@@ -294,12 +288,12 @@ function ParamsSection({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={cursorHere ? theme.primary : theme.borderSubtle}
                 style={{
-                  backgroundColor: cursorHere ? theme.backgroundElement : undefined,
+                  backgroundColor: cursorHere
+                    ? theme.backgroundElement
+                    : undefined,
                 }}
               >
-                <text
-                  fg={cursorHere ? theme.text : theme.textMuted}
-                >
+                <text fg={cursorHere ? theme.text : theme.textMuted}>
                   {" " + line}
                 </text>
               </box>
@@ -320,11 +314,7 @@ function ParamsSection({
               }}
             >
               <text
-                fg={
-                  editState.cursor.addingRow
-                    ? theme.text
-                    : theme.textMuted
-                }
+                fg={editState.cursor.addingRow ? theme.text : theme.textMuted}
               >
                 {" [+] add param"}
               </text>
@@ -370,7 +360,7 @@ function BodySection({
         />
       ) : body === "" ? (
         <text id="body-field" fg={theme.textMuted}>
-           (none)
+          (none)
         </text>
       ) : (
         <box
@@ -382,11 +372,7 @@ function BodySection({
             backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
           }}
         >
-          <text
-            fg={isBodyActive ? theme.text : theme.text}
-          >
-            {body}
-          </text>
+          <text fg={isBodyActive ? theme.text : theme.text}>{body}</text>
         </box>
       )}
     </>
@@ -415,11 +401,7 @@ function AuthSection({
         backgroundColor: isActive ? theme.backgroundElement : undefined,
       }}
     >
-      <text
-        fg={isActive ? theme.text : theme.textMuted}
-      >
-        {" " + auth}
-      </text>
+      <text fg={isActive ? theme.text : theme.textMuted}>{" " + auth}</text>
     </box>
   )
 }
