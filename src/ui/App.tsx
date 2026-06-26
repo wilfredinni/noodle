@@ -56,6 +56,7 @@ function AppInner({
 
   const [focus, setFocus] = useState<Focus>("sidebar")
   const [helpVisible, setHelpVisible] = useState(false)
+  const [layout, setLayout] = useState<"stacked" | "side-by-side">("stacked")
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const [confirmSelection, setConfirmSelection] = useState(0)
 
@@ -206,6 +207,10 @@ function AppInner({
           }),
       },
       {
+        name: "layout.toggle",
+        run: () => setLayout((prev) => (prev === "stacked" ? "side-by-side" : "stacked")),
+      },
+      {
         name: "focus.prev",
         enabled: () => {
           const e = ebRef.current
@@ -226,6 +231,7 @@ function AppInner({
     bindings: [
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
+      { key: "l", cmd: "layout.toggle" },
     ],
   }))
 
@@ -495,21 +501,43 @@ function AppInner({
               focused={focus === "urlbar"}
               sending={responseState.status === "sending"}
             />
-            <RequestPane
-              request={draft.draft}
-              editState={eb.editState}
-              editKey={eb.editKey}
-              editValue={eb.editValue}
-              setEditKey={eb.setEditKey}
-              setEditValue={eb.setEditValue}
-              draft={draft}
-              focused={focus === "request"}
-              activeTab={eb.activeTab}
-            />
-            <ResponsePane
-              state={responseState}
-              focused={focus === "response"}
-            />
+            {layout === "side-by-side" ? (
+              <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
+                <RequestPane
+                  request={draft.draft}
+                  editState={eb.editState}
+                  editKey={eb.editKey}
+                  editValue={eb.editValue}
+                  setEditKey={eb.setEditKey}
+                  setEditValue={eb.setEditValue}
+                  draft={draft}
+                  focused={focus === "request"}
+                  activeTab={eb.activeTab}
+                />
+                <ResponsePane
+                  state={responseState}
+                  focused={focus === "response"}
+                />
+              </box>
+            ) : (
+              <>
+                <RequestPane
+                  request={draft.draft}
+                  editState={eb.editState}
+                  editKey={eb.editKey}
+                  editValue={eb.editValue}
+                  setEditKey={eb.setEditKey}
+                  setEditValue={eb.setEditValue}
+                  draft={draft}
+                  focused={focus === "request"}
+                  activeTab={eb.activeTab}
+                />
+                <ResponsePane
+                  state={responseState}
+                  focused={focus === "response"}
+                />
+              </>
+            )}
           </box>
         </box>
         {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
