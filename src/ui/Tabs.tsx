@@ -30,10 +30,13 @@ export function Tabs({
           return (
             <box
               key={tab.id}
-              style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}
+              style={{
+                flexDirection: "column",
+                paddingLeft: 1,
+                paddingRight: 1,
+              }}
             >
               <text fg={isActive ? theme.primary : theme.textMuted}>
-                {isActive ? "▸ " : "  "}
                 {tab.label}
               </text>
               {isActive ? (
