@@ -85,6 +85,7 @@ export interface UseEditBrowseResult {
   browseDown: () => void
   browseLeft: () => void
   browseRight: () => void
+  enterAndEdit: () => void
   enterEdit: () => void
   commitEdit: () => void
   cancelEdit: () => void
@@ -125,6 +126,32 @@ export function useEditBrowse(
       if (prev.mode !== "inactive") return prev
       return enterEditBrowse(prev, c, tab)
     })
+  }, [activeTab])
+
+  const enterAndEdit = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    const currentDraft = draftRef.current
+    const tab = activeTab
+    const state = editStateRef.current
+    if (state.mode !== "inactive") return
+
+    const browsed = enterEditBrowse(state, c, tab)
+    if (browsed.cursor.field === "auth") {
+      setEditState(browsed)
+      return
+    }
+
+    const { field, row, addingRow } = browsed.cursor
+    if (field === "body") {
+      const init = currentValueFor(currentDraft, field, row, addingRow)
+      setEditValue(init)
+    } else if (field === "headers" || field === "params") {
+      const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
+      setEditKey(kv.key)
+      setEditValue(kv.value)
+    }
+
+    setEditState(beginEditing(browsed))
   }, [activeTab])
 
   const exitBrowse = useCallback(() => {
@@ -260,6 +287,7 @@ export function useEditBrowse(
       browseDown,
       browseLeft,
       browseRight,
+      enterAndEdit,
       enterEdit,
       commitEdit,
       cancelEdit,
@@ -279,6 +307,7 @@ export function useEditBrowse(
       browseDown,
       browseLeft,
       browseRight,
+      enterAndEdit,
       enterEdit,
       commitEdit,
       cancelEdit,
