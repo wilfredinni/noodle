@@ -97,6 +97,21 @@ function AppInner({
     envState.activeEnv,
   )
 
+  const trySendRef = useRef(trySend)
+  trySendRef.current = trySend
+
+  const envStateRef = useRef(envState)
+  envStateRef.current = envState
+
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+
+  const activeIndexRef = useRef(activeIndex)
+  activeIndexRef.current = activeIndex
+
+  const ebRef = useRef(eb)
+  ebRef.current = eb
+
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
   const mountedRef = useRef(true)
@@ -185,45 +200,46 @@ function AppInner({
       {
         name: "request.send",
         enabled: () => keymap.getData("app.focus") !== "urlbar",
-        run: () => trySend(),
+        run: () => trySendRef.current?.(),
       },
       {
         name: "request.save",
         run: () => {
-          if (!savingRef.current && draft.draft && draft.isDirty) {
+          const d = draftRef.current
+          if (!savingRef.current && d.draft && d.isDirty) {
             clearSaveTimer()
             setConfirmSelection(0)
             setSaveState({
               kind: "confirming",
-              requestId: draft.draft.id,
+              requestId: d.draft.id,
             })
           }
         },
       },
       {
         name: "env.prev",
-        run: () => envState.cycle(-1),
+        run: () => envStateRef.current.cycle(-1),
       },
       {
         name: "env.next",
-        run: () => envState.cycle(1),
+        run: () => envStateRef.current.cycle(1),
       },
       {
         name: "app.help",
         run: () => {
-          if (eb.editState.mode !== "inactive") return
+          if (ebRef.current.editState.mode !== "inactive") return
           setHelpVisible((prev) => !prev)
         },
       },
       {
         name: "app.theme",
-        run: () => setPreviewIndex(activeIndex),
+        run: () => setPreviewIndex(activeIndexRef.current),
       },
       {
         name: "request.edit-enter",
         enabled: () => keymap.getData("app.focus") === "request",
         run: () => {
-          eb.enterBrowse()
+          ebRef.current.enterBrowse()
           setFocus("request")
         },
       },
@@ -243,14 +259,14 @@ function AppInner({
   useBindings(() => ({
     enabled: () => keymap.getData("app.mode") === "browse",
     commands: [
-      { name: "browse.up", run: () => eb.browseUp() },
-      { name: "browse.down", run: () => eb.browseDown() },
-      { name: "browse.left", run: () => eb.browseLeft() },
-      { name: "browse.right", run: () => eb.browseRight() },
-      { name: "browse.enter", run: () => eb.enterEdit() },
-      { name: "browse.escape", run: () => eb.exitBrowse() },
-      { name: "browse.delete", run: () => eb.revertField() },
-      { name: "browse.revert-all", run: () => eb.revertAll() },
+      { name: "browse.up", run: () => ebRef.current.browseUp() },
+      { name: "browse.down", run: () => ebRef.current.browseDown() },
+      { name: "browse.left", run: () => ebRef.current.browseLeft() },
+      { name: "browse.right", run: () => ebRef.current.browseRight() },
+      { name: "browse.enter", run: () => ebRef.current.enterEdit() },
+      { name: "browse.escape", run: () => ebRef.current.exitBrowse() },
+      { name: "browse.delete", run: () => ebRef.current.revertField() },
+      { name: "browse.revert-all", run: () => ebRef.current.revertAll() },
     ],
     bindings: [
       { key: "up", cmd: "browse.up" },
@@ -268,8 +284,8 @@ function AppInner({
   useBindings(() => ({
     enabled: () => keymap.getData("app.mode") === "edit",
     commands: [
-      { name: "edit.commit", run: () => eb.commitEdit() },
-      { name: "edit.cancel", run: () => eb.cancelEdit() },
+      { name: "edit.commit", run: () => ebRef.current.commitEdit() },
+      { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
     ],
     bindings: [
       { key: "return", cmd: "edit.commit" },

@@ -6,7 +6,7 @@ import {
 } from "@opentui/keymap/addons"
 
 function setup() {
-  const { keymap, host, diagnostics, cleanup } = createTestKeymap()
+  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
   const disposeEnabled = registerEnabledFields(keymap)
   const disposeKeys = registerDefaultKeys(keymap)
   keymap.setData("app.mode", "base")
@@ -15,18 +15,17 @@ function setup() {
   return {
     keymap,
     host,
-    diagnostics,
     cleanup: () => {
       disposeEnabled()
       disposeKeys()
-      cleanup()
+      hostCleanup()
     },
   }
 }
 
 describe("keymap dispatch", () => {
   it("dispatches request.send when s is pressed", () => {
-    const { keymap, host, diagnostics, cleanup } = setup()
+    const { keymap, host, cleanup } = setup()
     let called = false
 
     keymap.registerLayer({
