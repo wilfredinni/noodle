@@ -84,12 +84,6 @@ function AppInner({
   const { state: responseState } = useResponse(
     draft.draft,
     envState.activeEnv,
-    () =>
-      helpVisibleRef.current ||
-      confirmingRef.current ||
-      focusRef.current === "urlbar" ||
-      isActiveRef.current ||
-      previewIndex !== null,
   )
 
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })

@@ -1,35 +1,31 @@
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
-import { useKeyboard } from "@opentui/react"
 import type { Environment, Request } from "../schema"
 import { executor } from "../requests"
 import { startSend, finishSend, failSend, type SendState } from "./sendState"
 
 export interface UseResponseResult {
   state: SendState
+  trySend: () => void
 }
 
 export function useResponse(
   selectedRequest: Request | null,
   env?: Environment | null,
-  blocked?: () => boolean,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
 
-  useKeyboard((key) => {
-    if (blocked?.()) return
-    if (key.name !== "s") return
+  const trySend = useCallback(() => {
     const req = selectedRequest
     if (req === null) return
-
     setState((prev) => {
       if (prev.status === "sending") return prev
       void runSend(req, env ?? undefined, setState)
       return startSend(prev, req)
     })
-  })
+  }, [selectedRequest, env])
 
-  return { state }
+  return { state, trySend }
 }
 
 async function runSend(
