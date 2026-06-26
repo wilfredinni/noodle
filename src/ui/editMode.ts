@@ -5,6 +5,7 @@ export interface FieldCursor {
   field: FieldKind
   row: number
   addingRow: boolean
+  subfield?: "key" | "value"
 }
 
 export interface EditState {
@@ -67,6 +68,18 @@ function cursorForField(
   return { field, row: 0, addingRow: false }
 }
 
+export function toggleSubfield(prev: EditState): EditState {
+  if (prev.mode !== "editing") return prev
+  const { field } = prev.cursor
+  if (field !== "headers" && field !== "params") return prev
+  const current = prev.cursor.subfield ?? "key"
+  const next: "key" | "value" = current === "key" ? "value" : "key"
+  return {
+    ...prev,
+    cursor: { ...prev.cursor, subfield: next },
+  }
+}
+
 export function moveFieldCursor(
   prev: EditState,
   delta: 1 | -1,
@@ -114,19 +127,34 @@ export function moveRowCursor(
 export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
   if (prev.cursor.field === "auth") return prev
+  const subfield: "key" | "value" | undefined =
+    prev.cursor.field === "headers" || prev.cursor.field === "params"
+      ? "key"
+      : undefined
   return {
     ...prev,
     mode: "editing",
     editingRow: prev.cursor.addingRow ? -1 : prev.cursor.row,
+    cursor: { ...prev.cursor, subfield },
   }
 }
 
 export function commitEditing(prev: EditState): EditState {
   if (prev.mode !== "editing") return prev
-  return { ...prev, mode: "browsing", editingRow: -1 }
+  return {
+    ...prev,
+    mode: "browsing",
+    editingRow: -1,
+    cursor: { ...prev.cursor, subfield: undefined },
+  }
 }
 
 export function cancelEditing(prev: EditState): EditState {
   if (prev.mode !== "editing") return prev
-  return { ...prev, mode: "browsing", editingRow: -1 }
+  return {
+    ...prev,
+    mode: "browsing",
+    editingRow: -1,
+    cursor: { ...prev.cursor, subfield: undefined },
+  }
 }
