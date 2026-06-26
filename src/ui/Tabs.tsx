@@ -21,7 +21,7 @@ export function Tabs({
       <box
         style={{
           flexDirection: "row",
-          gap: 2,
+          gap: 0,
           backgroundColor: theme.backgroundPanel,
         }}
       >
@@ -32,21 +32,24 @@ export function Tabs({
               key={tab.id}
               style={{
                 flexDirection: "column",
-                paddingLeft: 1,
-                paddingRight: 1,
               }}
             >
-              <text fg={isActive ? theme.primary : theme.textMuted}>
-                {tab.label}
-              </text>
-              {isActive ? (
-                <box border={["bottom"]} borderColor={theme.primary} />
-              ) : (
-                <text> </text>
-              )}
+              <box style={{ paddingLeft: 1, paddingRight: 1 }}>
+                <text fg={isActive ? theme.primary : theme.textMuted}>
+                  {tab.label}
+                </text>
+              </box>
+              <box
+                border={["bottom"]}
+                borderColor={isActive ? theme.primary : theme.borderSubtle}
+              />
             </box>
           )
         })}
+        <box style={{ flexDirection: "column", flexGrow: 1 }}>
+          <text> </text>
+          <box border={["bottom"]} borderColor={theme.borderSubtle} />
+        </box>
       </box>
       {children}
     </box>

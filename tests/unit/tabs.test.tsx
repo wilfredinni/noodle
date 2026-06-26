@@ -46,7 +46,7 @@ describe("Tabs", () => {
     expect(frame).toContain("content for b")
   })
 
-  it("shows ▸ prefix on active tab", async () => {
+  it("does not show ▸ prefix on any tab", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <Tabs
         tabs={[
@@ -62,7 +62,7 @@ describe("Tabs", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).toContain("▸")
+    expect(frame).not.toContain("▸")
   })
 
   it("active tab has primary foreground and no background highlight", async () => {
@@ -85,7 +85,7 @@ describe("Tabs", () => {
     const frame = captureSpans()
     const allSpans = frame.lines.flatMap((l) => l.spans)
 
-    const activeSpan = allSpans.find((s) => s.text.includes("▸ Tab A"))
+    const activeSpan = allSpans.find((s) => s.text.includes("Tab A"))
     expect(activeSpan).toBeDefined()
     // active tab text should be primary color (opencode: #fab283)
     expect(activeSpan!.fg.equals(RGBA.fromInts(250, 178, 131))).toBe(true)
