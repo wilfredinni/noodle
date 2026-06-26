@@ -226,7 +226,7 @@ function KeyValueSection({
                   : theme.textMuted
               }
               cursorColor={theme.primary}
-              style={{ flexGrow: 3 }}
+              style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
             />
             <text fg={theme.textMuted}>: </text>
             <input
@@ -245,7 +245,7 @@ function KeyValueSection({
                   : theme.textMuted
               }
               cursorColor={theme.primary}
-              style={{ flexGrow: 7 }}
+              style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
             />
           </box>
         )
@@ -282,7 +282,7 @@ function KeyValueSection({
               : theme.textMuted
           }
           cursorColor={theme.primary}
-          style={{ flexGrow: 3 }}
+          style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
         />
         <text fg={theme.textMuted}>: </text>
         <input
@@ -298,7 +298,7 @@ function KeyValueSection({
               : theme.textMuted
           }
           cursorColor={theme.primary}
-          style={{ flexGrow: 7 }}
+          style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
         />
       </box>
     </>

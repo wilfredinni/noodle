@@ -307,6 +307,24 @@ function AppInner({
       { name: "browse.escape", run: () => ebRef.current.exitBrowse() },
       { name: "browse.delete", run: () => ebRef.current.revertField() },
       { name: "browse.revert-all", run: () => ebRef.current.revertAll() },
+      {
+        name: "browse.send",
+        run: () => trySendRef.current?.(),
+      },
+      {
+        name: "browse.save",
+        run: () => {
+          const d = draftRef.current
+          if (!savingRef.current && d.draft && d.isDirty) {
+            clearSaveTimer()
+            setConfirmSelection(0)
+            setSaveState({
+              kind: "confirming",
+              requestId: d.draft.id,
+            })
+          }
+        },
+      },
     ],
     bindings: [
       { key: "up", cmd: "browse.up" },
@@ -317,6 +335,8 @@ function AppInner({
       { key: "escape", cmd: "browse.escape" },
       { key: "d", cmd: "browse.delete" },
       { key: "R", cmd: "browse.revert-all" },
+      { key: "s", cmd: "browse.send" },
+      { key: "w", cmd: "browse.save" },
     ],
   }))
 
@@ -327,11 +347,31 @@ function AppInner({
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
       { name: "edit.tab", run: () => ebRef.current.browseTab() },
+      {
+        name: "edit.send",
+        run: () => trySendRef.current?.(),
+      },
+      {
+        name: "edit.save",
+        run: () => {
+          const d = draftRef.current
+          if (!savingRef.current && d.draft && d.isDirty) {
+            clearSaveTimer()
+            setConfirmSelection(0)
+            setSaveState({
+              kind: "confirming",
+              requestId: d.draft.id,
+            })
+          }
+        },
+      },
     ],
     bindings: [
       { key: "return", cmd: "edit.commit" },
       { key: "escape", cmd: "edit.cancel" },
       { key: "tab", cmd: "edit.tab" },
+      { key: "s", cmd: "edit.send" },
+      { key: "w", cmd: "edit.save" },
     ],
   }))
 

@@ -362,7 +362,7 @@ describe("App layout stability", () => {
     // All three panes contribute content
     expect(frame).toContain("Request")
     expect(frame).toContain("Response")
-    expect(frame).toContain("X-Header-")
+    expect(frame).toContain("Header-0")
     expect(frame).toContain("item-")
   })
 })
