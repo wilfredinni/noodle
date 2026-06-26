@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
-import { RGBA, TextAttributes } from "@opentui/core"
+import { RGBA } from "@opentui/core"
 import { Tabs } from "../../src/ui/Tabs"
 import { ThemeProvider } from "../../src/ui/theme"
 
@@ -46,7 +46,7 @@ describe("Tabs", () => {
     expect(frame).toContain("content for b")
   })
 
-  it("does not show ▸ prefix on any tab", async () => {
+  it("shows ▸ prefix on active tab", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <Tabs
         tabs={[
@@ -62,10 +62,10 @@ describe("Tabs", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).not.toContain("▸")
+    expect(frame).toContain("▸")
   })
 
-  it("active tab has primary background and contrast text instead of INVERSE", async () => {
+  it("active tab has primary foreground and no background highlight", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <Tabs
@@ -85,14 +85,16 @@ describe("Tabs", () => {
     const frame = captureSpans()
     const allSpans = frame.lines.flatMap((l) => l.spans)
 
-    const activeSpan = allSpans.find((s) => s.text.includes("Tab A"))
+    const activeSpan = allSpans.find((s) => s.text.includes("▸ Tab A"))
     expect(activeSpan).toBeDefined()
-    expect(activeSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(true)
-    expect(activeSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
-    expect(activeSpan!.attributes & TextAttributes.INVERSE).toBe(0)
+    // active tab text should be primary color (opencode: #fab283)
+    expect(activeSpan!.fg.equals(RGBA.fromInts(250, 178, 131))).toBe(true)
+    // active tab should NOT have primary-colored background
+    expect(activeSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
 
     const inactiveSpan = allSpans.find((s) => s.text.includes("Tab B"))
     expect(inactiveSpan).toBeDefined()
-    expect(inactiveSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
+    // inactive tab should be muted
+    expect(inactiveSpan!.fg.equals(RGBA.fromInts(128, 128, 128))).toBe(true)
   })
 })
