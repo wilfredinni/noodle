@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
@@ -10,6 +10,9 @@ import {
 } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
+import { FullBorder, LeftBar } from "./borders"
+
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
@@ -28,6 +31,7 @@ export function ResponsePane({
   focusedRef.current = focused
 
   const [activeTab, setActiveTab] = useState<"body" | "headers">("body")
+  const [spinnerIdx, setSpinnerIdx] = useState(0)
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
@@ -44,6 +48,15 @@ export function ResponsePane({
     else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
   })
 
+  // Spinner animation tick
+  useEffect(() => {
+    if (state.status !== "sending") return
+    const id = setInterval(() => {
+      setSpinnerIdx((i) => (i + 1) % SPINNER_FRAMES.length)
+    }, 80)
+    return () => clearInterval(id)
+  }, [state.status])
+
   function responseBorderColor(): string {
     if (state.status === "idle" || state.status === "sending") return theme.info
     if (state.status === "error") return theme.error
@@ -52,6 +65,19 @@ export function ResponsePane({
     if (s >= 300 && s <= 399) return theme.warning
     return theme.error
   }
+
+  function responseLeftBarColor(): string {
+    if (state.status === "error") return theme.error
+    if (state.status === "done") {
+      const s = state.response.status
+      if (s >= 200 && s <= 299) return theme.success
+      if (s >= 300 && s <= 399) return theme.warning
+      return theme.error
+    }
+    return theme.borderSubtle
+  }
+
+  const borderColor = focused ? responseBorderColor() : theme.borderSubtle
 
   return (
     <box
@@ -64,18 +90,30 @@ export function ResponsePane({
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,
       }}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
+      borderColor={borderColor}
     >
       <text fg={focused ? responseBorderColor() : theme.textMuted}>
-        {focused ? "▸ Response" : "Response"}
+        {focused ? "Response [Tab] tabs  [↑↓] scroll" : "Response"}
       </text>
       {state.status === "idle" ? (
-        <text fg={theme.textMuted}>(no response yet)</text>
+        <text fg={theme.textMuted}>Press [s] to send</text>
       ) : state.status === "sending" ? (
-        <text fg={theme.textMuted}>
-          Sending {state.request.method} {state.request.url}…
-        </text>
+        <box style={{ flexDirection: "row", gap: 1 }}>
+          <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
+          <text fg={theme.textMuted}>
+            Sending {state.request.method} {state.request.url}...
+          </text>
+        </box>
       ) : state.status === "error" ? (
-        <text fg={theme.error}>{state.error.message}</text>
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={theme.error}
+        >
+          <text fg={theme.error}> {state.error.message}</text>
+        </box>
       ) : (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
@@ -87,22 +125,39 @@ export function ResponsePane({
             >
               {activeTab === "body" ? (
                 <>
-                  <text fg={statusColor(state.response.status, theme)}>
-                    {formatStatusLine(state.response)}
-                  </text>
+                  <box
+                    border={[...LeftBar.border]}
+                    customBorderChars={LeftBar.customBorderChars}
+                    borderColor={responseLeftBarColor()}
+                  >
+                    <text fg={statusColor(state.response.status, theme)}>
+                      {" " + formatStatusLine(state.response)}
+                    </text>
+                  </box>
                   {(() => {
                     const body = formatBody(state.response)
                     return body !== "" ? (
-                      <text fg={theme.text}>{body}</text>
+                      <box
+                        border={[...LeftBar.border]}
+                        customBorderChars={LeftBar.customBorderChars}
+                        borderColor={theme.borderSubtle}
+                      >
+                        <text fg={theme.text}>{body}</text>
+                      </box>
                     ) : null
                   })()}
                 </>
               ) : (
                 <>
                   {formatHeaders(state.response).map((line) => (
-                    <text key={line} fg={theme.textMuted}>
-                      {line}
-                    </text>
+                    <box
+                      key={line}
+                      border={[...LeftBar.border]}
+                      customBorderChars={LeftBar.customBorderChars}
+                      borderColor={theme.borderSubtle}
+                    >
+                      <text fg={theme.textMuted}>{" " + line}</text>
+                    </box>
                   ))}
                 </>
               )}
