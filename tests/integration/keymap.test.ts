@@ -323,7 +323,7 @@ describe("App.tsx layer mirror", () => {
     let browseEnter = false
     let editCommit = false
     let editCancel = false
-    let browseTabCalled = false
+    let browseTabCalled: boolean
 
     // Always-on layer
     keymap.registerLayer({
