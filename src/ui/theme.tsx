@@ -146,7 +146,7 @@ export function ThemePickerOverlay({
           <text fg={theme.text}>Themes</text>
           <text fg={theme.textMuted}>esc</text>
         </box>
-        <box paddingLeft={1} paddingRight={1}>
+        <box paddingLeft={4} paddingRight={4}>
           <input
             ref={inputRef}
             value={search}
@@ -172,8 +172,8 @@ export function ThemePickerOverlay({
                   style={{
                     flexDirection: "row",
                     justifyContent: "space-between",
-                    paddingLeft: 3,
-                    paddingRight: 3,
+                    paddingLeft: 4,
+                    paddingRight: 4,
                     backgroundColor: isSelected ? theme.primary : undefined,
                   }}
                 >
@@ -195,7 +195,7 @@ export function ThemePickerOverlay({
               )
             })}
             {filtered.length === 0 && (
-              <box paddingLeft={3}>
+              <box paddingLeft={4}>
                 <text fg={theme.textMuted}>No themes found</text>
               </box>
             )}
