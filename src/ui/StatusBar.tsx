@@ -145,6 +145,16 @@ export function StatusBar(input: {
   const isCenterEmpty =
     input.envLabel === "" || input.envLabel === "(no env)"
 
+  const spaceIdx = sections.left.indexOf(" ")
+  const leftMethod =
+    sendStatus === "idle" && spaceIdx > -1
+      ? sections.left.slice(0, spaceIdx)
+      : ""
+  const leftPath =
+    sendStatus === "idle" && spaceIdx > -1
+      ? sections.left.slice(spaceIdx + 1)
+      : ""
+
   return (
     <box
       style={{
@@ -173,6 +183,17 @@ export function StatusBar(input: {
               </Badge>
             ) : null}
           </>
+        ) : leftMethod !== "" ? (
+          <>
+            <Badge bg={leftColor} fg={theme.background}>
+              {leftMethod}
+            </Badge>
+            <Badge bg={theme.backgroundElement} fg={theme.text}>
+              {leftPath}
+            </Badge>
+          </>
+        ) : sections.left !== "" ? (
+          <text fg={leftColor}>{sections.left}</text>
         ) : (
           <text fg={leftColor}>{sections.left}</text>
         )}
