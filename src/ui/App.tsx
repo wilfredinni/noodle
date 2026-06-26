@@ -453,7 +453,9 @@ function AppInner({
         style={{
           flexDirection: "column",
           flexGrow: 1,
-          padding: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
           gap: 1,
           position: "relative",
         }}
