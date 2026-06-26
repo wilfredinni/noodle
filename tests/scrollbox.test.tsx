@@ -129,7 +129,7 @@ describe("RequestPane scrollbox", () => {
     expect(frame).toMatch(/[▀▄▌]/)
   })
 
-  it("browse cursor has primary background and contrast text instead of INVERSE", async () => {
+  it("browse cursor highlights header row with LeftBar border instead of primary background", async () => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: "Bearer token",
@@ -167,7 +167,7 @@ describe("RequestPane scrollbox", () => {
       editingRow: -1,
     }
 
-    const { renderOnce, captureSpans } = await testRender(
+    const { renderOnce, captureCharFrame, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <RequestPane
           request={request}
@@ -183,26 +183,20 @@ describe("RequestPane scrollbox", () => {
     )
     await renderOnce()
 
-    const frame = captureSpans()
-    const allSpans = frame.lines.flatMap((l) => l.spans)
+    // LeftBar border character present (from box-wrapped rows)
+    const charFrame = captureCharFrame()
+    expect(charFrame).toContain("┃")
 
-    // Headers are sorted alphabetically: Authorization before Content-Type
-    // Row 0 = Authorization (highlighted, opencode primary bg), Row 1 = Content-Type (not highlighted)
-    const highlightedSpan = allSpans.find(
-      (s) =>
-        s.text.includes("Authorization") &&
-        s.bg.equals(RGBA.fromInts(250, 178, 131)),
+    // Authorization (highlighted row) text span has no INVERSE and no primary bg
+    const spanFrame = captureSpans()
+    const allSpans = spanFrame.lines.flatMap((l) => l.spans)
+    const authSpan = allSpans.find((s) =>
+      s.text.includes("Authorization"),
     )
-    expect(highlightedSpan).toBeDefined()
-    expect(highlightedSpan!.fg.equals(RGBA.fromInts(26, 26, 26))).toBe(true)
-    expect(highlightedSpan!.attributes & TextAttributes.INVERSE).toBe(0)
-
-    const nonHighlightedSpan = allSpans.find(
-      (s) =>
-        s.text.includes("Content-Type") &&
-        s.bg.equals(RGBA.fromInts(250, 178, 131)),
-    )
-    expect(nonHighlightedSpan).toBeUndefined()
+    expect(authSpan).toBeDefined()
+    expect(authSpan!.attributes & TextAttributes.INVERSE).toBe(0)
+    // LeftBar border replaces old primary background style
+    expect(authSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
   })
 })
 

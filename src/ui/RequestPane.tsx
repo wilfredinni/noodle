@@ -10,8 +10,9 @@ import {
 import type { EditState, FieldKind } from "./editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { Tabs, type TabDef } from "./Tabs"
-import { useTheme, contrastOnPrimary } from "./theme"
+import { useTheme } from "./theme"
 import type { Theme } from "./theme"
+import { FullBorder, LeftBar } from "./borders"
 
 interface Props {
   request: Request | null
@@ -69,9 +70,14 @@ export function RequestPane({
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,
       }}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
+      borderColor={focused ? theme.secondary : theme.borderSubtle}
     >
-      <text fg={focused ? theme.accent : theme.textMuted}>
-        {focused ? `▸ ${title}` : title}
+      <text fg={focused ? theme.secondary : theme.textMuted}>
+        {focused
+          ? `${title} [e] edit  [Tab] next`
+          : title}
       </text>
       {request ? (
         <>
@@ -150,7 +156,7 @@ function HeadersSection({
     <>
       {headers.length === 0 &&
       !(browseActive && editState.cursor.field === "headers") ? (
-        <text fg={theme.textMuted}>{"  (none)"}</text>
+        <text fg={theme.textMuted}>  (none)</text>
       ) : (
         <>
           {headers.map((line, i) => {
@@ -180,28 +186,48 @@ function HeadersSection({
               )
             }
             return (
-              <text
+              <box
                 key={i}
                 id={`hdr-${i}`}
-                fg={cursorHere ? contrastOnPrimary(theme) : theme.textMuted}
-                bg={cursorHere ? theme.primary : undefined}
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={cursorHere ? theme.primary : theme.borderSubtle}
+                style={{
+                  backgroundColor: cursorHere ? theme.backgroundElement : undefined,
+                }}
               >
-                {"  " + line}
-              </text>
+                <text
+                  fg={cursorHere ? theme.text : theme.textMuted}
+                >
+                  {" " + line}
+                </text>
+              </box>
             )
           })}
           {browseActive && editState.cursor.field === "headers" && (
-            <text
+            <box
               id="hdr-add"
-              fg={
-                editState.cursor.addingRow
-                  ? contrastOnPrimary(theme)
-                  : theme.textMuted
+              border={[...LeftBar.border]}
+              customBorderChars={LeftBar.customBorderChars}
+              borderColor={
+                editState.cursor.addingRow ? theme.primary : theme.borderSubtle
               }
-              bg={editState.cursor.addingRow ? theme.primary : undefined}
+              style={{
+                backgroundColor: editState.cursor.addingRow
+                  ? theme.backgroundElement
+                  : undefined,
+              }}
             >
-              {"  [+] add header"}
-            </text>
+              <text
+                fg={
+                  editState.cursor.addingRow
+                    ? theme.text
+                    : theme.textMuted
+                }
+              >
+                {" [+] add header"}
+              </text>
+            </box>
           )}
         </>
       )}
@@ -231,7 +257,7 @@ function ParamsSection({
     <>
       {params.length === 0 &&
       !(browseActive && editState.cursor.field === "params") ? (
-        <text fg={theme.textMuted}>{"  (none)"}</text>
+        <text fg={theme.textMuted}>  (none)</text>
       ) : (
         <>
           {params.map((line, i) => {
@@ -261,28 +287,48 @@ function ParamsSection({
               )
             }
             return (
-              <text
+              <box
                 key={i}
                 id={`prm-${i}`}
-                fg={cursorHere ? contrastOnPrimary(theme) : theme.textMuted}
-                bg={cursorHere ? theme.primary : undefined}
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={cursorHere ? theme.primary : theme.borderSubtle}
+                style={{
+                  backgroundColor: cursorHere ? theme.backgroundElement : undefined,
+                }}
               >
-                {"  " + line}
-              </text>
+                <text
+                  fg={cursorHere ? theme.text : theme.textMuted}
+                >
+                  {" " + line}
+                </text>
+              </box>
             )
           })}
           {browseActive && editState.cursor.field === "params" && (
-            <text
+            <box
               id="prm-add"
-              fg={
-                editState.cursor.addingRow
-                  ? contrastOnPrimary(theme)
-                  : theme.textMuted
+              border={[...LeftBar.border]}
+              customBorderChars={LeftBar.customBorderChars}
+              borderColor={
+                editState.cursor.addingRow ? theme.primary : theme.borderSubtle
               }
-              bg={editState.cursor.addingRow ? theme.primary : undefined}
+              style={{
+                backgroundColor: editState.cursor.addingRow
+                  ? theme.backgroundElement
+                  : undefined,
+              }}
             >
-              {"  [+] add param"}
-            </text>
+              <text
+                fg={
+                  editState.cursor.addingRow
+                    ? theme.text
+                    : theme.textMuted
+                }
+              >
+                {" [+] add param"}
+              </text>
+            </box>
           )}
         </>
       )}
@@ -308,6 +354,7 @@ function BodySection({
   theme: Theme
 }) {
   const body = formatBody(request.body)
+  const isBodyActive = browseActive && editState.cursor.field === "body"
   return (
     <>
       {inEdit && editState.cursor.field === "body" ? (
@@ -323,24 +370,24 @@ function BodySection({
         />
       ) : body === "" ? (
         <text id="body-field" fg={theme.textMuted}>
-          {"  (none)"}
+           (none)
         </text>
       ) : (
-        <text
+        <box
           id="body-field"
-          fg={
-            browseActive && editState.cursor.field === "body"
-              ? contrastOnPrimary(theme)
-              : theme.text
-          }
-          bg={
-            browseActive && editState.cursor.field === "body"
-              ? theme.primary
-              : undefined
-          }
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={isBodyActive ? theme.primary : theme.borderSubtle}
+          style={{
+            backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
+          }}
         >
-          {body}
-        </text>
+          <text
+            fg={isBodyActive ? theme.text : theme.text}
+          >
+            {body}
+          </text>
+        </box>
       )}
     </>
   )
@@ -359,12 +406,20 @@ function AuthSection({
   const isActive =
     editState.mode === "browsing" && editState.cursor.field === "auth"
   return (
-    <text
+    <box
       id="auth-field"
-      fg={isActive ? contrastOnPrimary(theme) : theme.textMuted}
-      bg={isActive ? theme.primary : undefined}
+      border={[...LeftBar.border]}
+      customBorderChars={LeftBar.customBorderChars}
+      borderColor={isActive ? theme.primary : theme.borderSubtle}
+      style={{
+        backgroundColor: isActive ? theme.backgroundElement : undefined,
+      }}
     >
-      {"  " + auth}
-    </text>
+      <text
+        fg={isActive ? theme.text : theme.textMuted}
+      >
+        {" " + auth}
+      </text>
+    </box>
   )
 }
