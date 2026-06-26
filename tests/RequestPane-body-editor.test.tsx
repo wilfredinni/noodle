@@ -4,7 +4,6 @@ import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
 import type { Request } from "../src/schema"
 import type { UseRequestDraftResult } from "../src/ui/useRequestDraft"
-import { parseJsonError } from "../src/ui/useJsonHighlight"
 
 const testRequest: Request = {
   id: "test",
@@ -159,15 +158,7 @@ describe("BodySection — edit mode", () => {
     expect(frame).toContain("(none)")
   })
 
-  it("shows error bar when editing invalid JSON", async () => {
-    // Verify parseJsonError detects invalid JSON (drives the ✗ error bar)
-    const result = parseJsonError("{{invalid")
-    expect(result.valid).toBe(false)
-    if (!result.valid) {
-      expect(result.error.message.length).toBeGreaterThan(0)
-    }
-
-    // Verify ✗ error prefix exists in rendered output when body is invalid
+  it("renders raw content when editing non-JSON body", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <box width={80} height={20}>
@@ -175,7 +166,7 @@ describe("BodySection — edit mode", () => {
             request={testRequest}
             editState={editStateEditing}
             editKey=""
-            editValue="invalid json content"
+            editValue="raw text content"
             setEditKey={() => {}}
             setEditValue={() => {}}
             draft={noopDraft}
@@ -188,9 +179,6 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    // The textarea shows raw body content when it can't be parsed as JSON
-    expect(frame).toContain("invalid json content")
-    // Error bar (line sign ✗) is rendered by applyHighlightsAndValidate
-    // via the debounced onContentChange callback (tested at the pure level above)
+    expect(frame).toContain("raw text content")
   })
 })

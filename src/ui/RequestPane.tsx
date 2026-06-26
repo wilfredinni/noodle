@@ -84,56 +84,70 @@ export function RequestPane({
       {request ? (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            <scrollbox
-              ref={scrollRef}
-              scrollY
-              style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
-            >
-              {activeTab === "headers" && (
-                <KeyValueSection
-                  kind="headers"
-                  request={request}
-                  editState={editState}
-                  editKey={editKey}
-                  editValue={editValue}
-                  setEditKey={setEditKey}
-                  setEditValue={setEditValue}
-                  browseActive={browseActive}
-                  theme={theme}
-                />
-              )}
-              {activeTab === "params" && (
-                <KeyValueSection
-                  kind="params"
-                  request={request}
-                  editState={editState}
-                  editKey={editKey}
-                  editValue={editValue}
-                  setEditKey={setEditKey}
-                  setEditValue={setEditValue}
-                  browseActive={browseActive}
-                  theme={theme}
-                />
-              )}
-              {activeTab === "body" && (
-                <BodySection
-                  request={request}
-                  editState={editState}
-                  editValue={editValue}
-                  setEditValue={setEditValue}
-                  inEdit={inEdit}
-                  browseActive={browseActive}
-                  theme={theme}
-                />
-              )}
-              {activeTab === "auth" && (
-                <AuthSection
-                  request={request}
-                  editState={editState}
-                  theme={theme}
-                />
-              )}
-            </scrollbox>
+            {activeTab === "body" &&
+            editState.mode === "editing" &&
+            editState.cursor.field === "body" ? (
+              <BodySection
+                request={request}
+                editState={editState}
+                editValue={editValue}
+                setEditValue={setEditValue}
+                inEdit={inEdit}
+                browseActive={browseActive}
+                theme={theme}
+              />
+            ) : (
+              <scrollbox
+                ref={scrollRef}
+                scrollY
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
+                {activeTab === "headers" && (
+                  <KeyValueSection
+                    kind="headers"
+                    request={request}
+                    editState={editState}
+                    editKey={editKey}
+                    editValue={editValue}
+                    setEditKey={setEditKey}
+                    setEditValue={setEditValue}
+                    browseActive={browseActive}
+                    theme={theme}
+                  />
+                )}
+                {activeTab === "params" && (
+                  <KeyValueSection
+                    kind="params"
+                    request={request}
+                    editState={editState}
+                    editKey={editKey}
+                    editValue={editValue}
+                    setEditKey={setEditKey}
+                    setEditValue={setEditValue}
+                    browseActive={browseActive}
+                    theme={theme}
+                  />
+                )}
+                {activeTab === "body" && (
+                  <BodySection
+                    request={request}
+                    editState={editState}
+                    editValue={editValue}
+                    setEditValue={setEditValue}
+                    inEdit={inEdit}
+                    browseActive={browseActive}
+                    theme={theme}
+                  />
+                )}
+                {activeTab === "auth" && (
+                  <AuthSection
+                    request={request}
+                    editState={editState}
+                    theme={theme}
+                  />
+                )}
+              </scrollbox>
+            )}
           </Tabs>
         </>
       ) : (
@@ -326,11 +340,11 @@ function BodySection({
   const body = formatBody(request.body)
   const isBodyActive = browseActive && editState.cursor.field === "body"
   const textareaRef = useRef<TextareaRenderable | null>(null)
-  const lineNumberDummy = useRef<LineNumberRenderable | null>(null)
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
   const { validation, handleContentChange } = useJsonHighlight(
     textareaRef,
-    lineNumberDummy,
+    lineNumberRef,
     theme,
     setEditValue,
   )
@@ -339,30 +353,28 @@ function BodySection({
 
   if (editingBody) {
     const initialValue = formatBody(editValue)
-    const textareaKeyBindings = [
-      { name: "return", shift: true, action: "newline" as const },
-    ]
     return (
-      <>
+      <line-number
+        ref={lineNumberRef}
+        minWidth={3}
+        paddingRight={1}
+        fg={theme.textMuted}
+        bg={theme.backgroundPanel}
+        style={{ flexGrow: 1 }}
+      >
         <textarea
           ref={textareaRef}
           id="body-field"
           initialValue={initialValue}
           onContentChange={handleContentChange}
-          keyBindings={textareaKeyBindings}
+          keyBindings={[{ name: "return", shift: true, action: "newline" }]}
           backgroundColor={theme.backgroundElement}
           focusedBackgroundColor={theme.backgroundElement}
           textColor={theme.text}
           cursorColor={theme.primary}
           focused
-          style={{ flexGrow: 1 }}
         />
-        {!validation.valid && validation.error && (
-          <text fg={theme.error}>
-            {"✗ " + validation.error.message}
-          </text>
-        )}
-      </>
+      </line-number>
     )
   }
 
