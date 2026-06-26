@@ -23,7 +23,7 @@ export function Tabs({
       <box style={{ flexDirection: "row", gap: 1 }}>
         {tabs.map((tab) => {
           const isActive = tab.id === activeId
-          const label = isActive && focused ? `▸ ${tab.label}` : tab.label
+          const label = tab.label
           return (
             <text
               key={tab.id}

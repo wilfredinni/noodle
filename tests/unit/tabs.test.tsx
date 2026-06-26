@@ -46,7 +46,7 @@ describe("Tabs", () => {
     expect(frame).toContain("content for b")
   })
 
-  it("shows focus prefix on active tab when focused", async () => {
+  it("does not show ▸ prefix on any tab", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <Tabs
         tabs={[
@@ -55,26 +55,6 @@ describe("Tabs", () => {
         ]}
         activeId="a"
         focused
-      >
-        <text>content</text>
-      </Tabs>,
-      { width: 60, height: 10 },
-    )
-    await renderOnce()
-
-    const frame = captureCharFrame()
-    expect(frame).toContain("▸ Tab A")
-  })
-
-  it("does not show focus prefix when not focused", async () => {
-    const { renderOnce, captureCharFrame } = await testRender(
-      <Tabs
-        tabs={[
-          { id: "a", label: "Tab A" },
-          { id: "b", label: "Tab B" },
-        ]}
-        activeId="a"
-        focused={false}
       >
         <text>content</text>
       </Tabs>,
