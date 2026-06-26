@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react"
 import type { ReactNode } from "react"
-import { RGBA } from "@opentui/core"
+import { RGBA, TextAttributes } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { THEMES } from "./theme-data"
 import type { Theme } from "./theme-data"
@@ -135,30 +135,27 @@ export function ThemePickerOverlay({
           padding: 1,
         }}
       >
-        <box
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            paddingLeft: 4,
-            paddingRight: 4,
-          }}
-        >
-          <text fg={theme.text}>Themes</text>
-          <text fg={theme.textMuted}>esc</text>
-        </box>
         <box paddingLeft={4} paddingRight={4}>
-          <input
-            ref={inputRef}
-            value={search}
-            onInput={(e: string) => setSearch(e)}
-            placeholder="Search themes..."
-            placeholderColor={theme.textMuted}
-            focusedBackgroundColor={theme.backgroundElement}
-            cursorColor={theme.primary}
-            focusedTextColor={theme.text}
-          />
+          <box flexDirection="row" justifyContent="space-between">
+            <text fg={theme.text}>Themes</text>
+            <text fg={theme.textMuted}>esc</text>
+          </box>
+          <box paddingTop={1}>
+            <input
+              ref={inputRef}
+              value={search}
+              onInput={(e: string) => setSearch(e)}
+              placeholder="Search themes..."
+              placeholderColor={theme.textMuted}
+              focusedBackgroundColor={theme.backgroundPanel}
+              cursorColor={theme.primary}
+              focusedTextColor={theme.textMuted}
+            />
+          </box>
         </box>
         <scrollbox
+          paddingLeft={1}
+          paddingRight={1}
           maxHeight={16}
           scrollbarOptions={{ visible: false }}
         >
@@ -171,12 +168,15 @@ export function ThemePickerOverlay({
                   key={t.name}
                   style={{
                     flexDirection: "row",
-                    justifyContent: "space-between",
-                    paddingLeft: 4,
-                    paddingRight: 4,
+                    paddingLeft: isCurrent ? 1 : 3,
+                    paddingRight: 3,
+                    gap: 1,
                     backgroundColor: isSelected ? theme.primary : undefined,
                   }}
                 >
+                  {isCurrent && (
+                    <text fg={isSelected ? "#1a1a1a" : theme.primary}>●</text>
+                  )}
                   <text
                     fg={
                       isSelected
@@ -185,18 +185,16 @@ export function ThemePickerOverlay({
                           ? theme.primary
                           : theme.text
                     }
+                    attributes={isSelected ? TextAttributes.BOLD : undefined}
                   >
                     {t.name}
                   </text>
-                  {isCurrent && (
-                    <text fg={isSelected ? "#1a1a1a" : theme.primary}>●</text>
-                  )}
                 </box>
               )
             })}
             {filtered.length === 0 && (
-              <box paddingLeft={4}>
-                <text fg={theme.textMuted}>No themes found</text>
+              <box paddingLeft={3} paddingTop={1}>
+                <text fg={theme.textMuted}>No results found</text>
               </box>
             )}
           </box>
