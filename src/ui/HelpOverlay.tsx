@@ -25,7 +25,7 @@ export function HelpOverlay({ visible }: { visible: boolean }) {
     >
       <box
         style={{
-          width: 48,
+          width: 60,
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
           gap: 1,
