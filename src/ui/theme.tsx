@@ -66,6 +66,7 @@ export function ThemePickerOverlay({
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
           gap: 1,
+          paddingTop: 1,
           paddingBottom: 1,
         }}
       >
