@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from "react"
 import type { ReactNode } from "react"
 import { RGBA, TextAttributes } from "@opentui/core"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { THEMES } from "./theme-data"
 import type { Theme } from "./theme-data"
@@ -69,6 +70,7 @@ export function ThemePickerOverlay({
   const theme = useTheme()
   const keymap = useKeymap()
   const [search, setSearch] = useState("")
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useCallback((r: unknown) => {
     const input = r as { focus: () => void } | null
     if (input) setTimeout(() => input.focus(), 1)
@@ -80,6 +82,10 @@ export function ThemePickerOverlay({
     ),
     [search],
   )
+
+  useEffect(() => {
+    scrollRef.current?.scrollChildIntoView(`theme-${previewIndex}`)
+  }, [previewIndex])
 
   useEffect(() => {
     const dispose = keymap.intercept(
@@ -154,6 +160,8 @@ export function ThemePickerOverlay({
           </box>
         </box>
         <scrollbox
+          ref={scrollRef}
+          scrollY
           paddingLeft={1}
           paddingRight={1}
           maxHeight={16}
@@ -166,6 +174,7 @@ export function ThemePickerOverlay({
               return (
                 <box
                   key={t.name}
+                  id={`theme-${i}`}
                   style={{
                     flexDirection: "row",
                     paddingLeft: isCurrent ? 1 : 3,
