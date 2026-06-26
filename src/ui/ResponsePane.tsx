@@ -2,11 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
-import {
-  formatStatusLine,
-  formatHeaders,
-  formatBody,
-} from "./format"
+import { formatStatusLine, formatHeaders, formatBody } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"

@@ -199,14 +199,12 @@ export function useEditBrowse(
           else draftMutators.removeParamRow(state.cursor.row)
         }
       } else if (addingRow) {
-        if (field === "headers")
-          draftMutators.addHeaderRow(key, value)
+        if (field === "headers") draftMutators.addHeaderRow(key, value)
         else draftMutators.addParamRow(key, value)
       } else {
         if (field === "headers")
           draftMutators.setHeaderRow(state.cursor.row, key, value)
-        else
-          draftMutators.setParamRow(state.cursor.row, key, value)
+        else draftMutators.setParamRow(state.cursor.row, key, value)
       }
     }
     setEditState((prev) => commitEditing(prev))

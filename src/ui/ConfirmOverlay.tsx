@@ -60,11 +60,7 @@ export function ConfirmOverlay({
               paddingBottom: 0,
             }}
           >
-            <text
-              fg={
-                selectedIndex === 0 ? theme.background : theme.textMuted
-              }
-            >
+            <text fg={selectedIndex === 0 ? theme.background : theme.textMuted}>
               [y] Confirm
             </text>
           </box>
@@ -78,11 +74,7 @@ export function ConfirmOverlay({
               paddingBottom: 0,
             }}
           >
-            <text
-              fg={
-                selectedIndex === 1 ? theme.background : theme.textMuted
-              }
-            >
+            <text fg={selectedIndex === 1 ? theme.background : theme.textMuted}>
               [n] Cancel
             </text>
           </box>
