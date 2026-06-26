@@ -1,4 +1,4 @@
-import { ScrollBoxRenderable } from "@opentui/core"
+import type { ScrollBoxRenderable, TextareaRenderable, LineNumberRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import type { Request } from "../schema"
 import { formatBody, formatAuth } from "./formatRequest"
@@ -9,6 +9,7 @@ import { useTheme } from "./theme"
 import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { highlightJson } from "./syntax"
+import { useJsonHighlight } from "./useJsonHighlight"
 
 interface Props {
   request: Request | null
@@ -324,47 +325,82 @@ function BodySection({
 }) {
   const body = formatBody(request.body)
   const isBodyActive = browseActive && editState.cursor.field === "body"
-  return (
-    <>
-      {inEdit && editState.cursor.field === "body" ? (
-        <input
-          id="body-field"
-          value={editValue}
-          onInput={setEditValue}
-          backgroundColor={theme.backgroundElement}
-          focusedBackgroundColor={theme.borderSubtle}
-          textColor={theme.text}
-          cursorColor={theme.primary}
-          focused
-        />
-      ) : body === "" ? (
-        <text id="body-field" fg={theme.textMuted}>
-          (none)
-        </text>
-      ) : (
-        <box
-          id="body-field"
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={isBodyActive ? theme.primary : theme.borderSubtle}
-          style={{
-            backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
-          }}
+  const textareaRef = useRef<TextareaRenderable | null>(null)
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+
+  const { validation, handleContentChange } = useJsonHighlight(
+    textareaRef,
+    lineNumberRef,
+    theme,
+    setEditValue,
+  )
+
+  const editingBody = inEdit && editState.cursor.field === "body"
+
+  if (editingBody) {
+    const initialValue = formatBody(editValue)
+    return (
+      <>
+        <line-number
+          ref={lineNumberRef}
+          minWidth={3}
+          paddingRight={1}
+          fg={theme.textMuted}
+          bg={theme.backgroundPanel}
+          style={{ flexGrow: 1 }}
         >
-          {highlightJson(body, theme).map((parts, li) =>
-            parts.length === 0 ? null : (
-              <text key={li}>
-                {parts.map((p, pi) => (
-                  <span key={pi} fg={p.fg}>
-                    {p.text}
-                  </span>
-                ))}
-              </text>
-            ),
-          )}
-        </box>
+          <textarea
+            ref={textareaRef}
+            id="body-field"
+            initialValue={initialValue}
+            onContentChange={handleContentChange}
+            backgroundColor={theme.backgroundPanel}
+            focusedBackgroundColor={theme.backgroundPanel}
+            textColor={theme.text}
+            cursorColor={theme.primary}
+            focused
+            style={{ flexGrow: 1 }}
+          />
+        </line-number>
+        {!validation.valid && validation.error && (
+          <text fg={theme.error}>
+            {"✗ " + validation.error.message}
+          </text>
+        )}
+      </>
+    )
+  }
+
+  if (body === "") {
+    return (
+      <text id="body-field" fg={theme.textMuted}>
+        (none)
+      </text>
+    )
+  }
+
+  return (
+    <box
+      id="body-field"
+      border={[...LeftBar.border]}
+      customBorderChars={LeftBar.customBorderChars}
+      borderColor={isBodyActive ? theme.primary : theme.borderSubtle}
+      style={{
+        backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
+      }}
+    >
+      {highlightJson(body, theme).map((parts, li) =>
+        parts.length === 0 ? null : (
+          <text key={li}>
+            {parts.map((p, pi) => (
+              <span key={pi} fg={p.fg}>
+                {p.text}
+              </span>
+            ))}
+          </text>
+        ),
       )}
-    </>
+    </box>
   )
 }
 
