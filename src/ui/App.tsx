@@ -267,7 +267,7 @@ function AppInner({
         name: "request.edit-enter",
         enabled: () => keymap.getData("app.focus") === "request",
         run: () => {
-          ebRef.current.enterAndEdit()
+          ebRef.current.enterBrowse()
           setFocus("request")
         },
       },
