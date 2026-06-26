@@ -1,5 +1,5 @@
-import type { ScrollBoxRenderable, TextareaRenderable, LineNumberRenderable } from "@opentui/core"
-import { useEffect, useRef } from "react"
+import type { ScrollBoxRenderable, TextareaRenderable, LineNumberRenderable, KeyBinding } from "@opentui/core"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { Request } from "../schema"
 import { formatBody, formatAuth } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
@@ -326,34 +326,68 @@ function BodySection({
   const body = formatBody(request.body)
   const isBodyActive = browseActive && editState.cursor.field === "body"
   const textareaRef = useRef<TextareaRenderable | null>(null)
-  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const lineNumberDummy = useRef<LineNumberRenderable | null>(null)
+  const [lineCount, setLineCount] = useState(1)
 
   const { validation, handleContentChange } = useJsonHighlight(
     textareaRef,
-    lineNumberRef,
+    lineNumberDummy,
     theme,
     setEditValue,
   )
 
   const editingBody = inEdit && editState.cursor.field === "body"
 
+  const handleContentChangeWithLines = useCallback(() => {
+    handleContentChange()
+    const textarea = textareaRef.current
+    if (textarea) {
+      setLineCount(textarea.plainText.split("\n").length)
+    }
+  }, [handleContentChange])
+
+  useEffect(() => {
+    if (editingBody && textareaRef.current) {
+      setLineCount(textareaRef.current.plainText.split("\n").length)
+    }
+  }, [editingBody])
+
   if (editingBody) {
     const initialValue = formatBody(editValue)
+    const errorLine = !validation.valid && validation.error
+      ? validation.error.line
+      : -1
+    const textareaKeyBindings: KeyBinding[] = [
+      { name: "return", shift: true, action: "newline" },
+    ]
     return (
       <>
-        <line-number
-          ref={lineNumberRef}
-          minWidth={3}
-          paddingRight={1}
-          fg={theme.textMuted}
-          bg={theme.backgroundPanel}
-          style={{ flexGrow: 1 }}
+        <box
+          style={{ flexDirection: "row", flexGrow: 1, flexBasis: 0, minHeight: 0 }}
         >
+          <box
+            style={{
+              flexDirection: "column",
+              width: 4,
+              paddingRight: 1,
+              backgroundColor: theme.backgroundPanel,
+            }}
+          >
+            {Array.from({ length: lineCount }, (_, i) => (
+              <text
+                key={i}
+                fg={i === errorLine ? theme.error : theme.textMuted}
+              >
+                {String(i + 1).padStart(3, " ")}
+              </text>
+            ))}
+          </box>
           <textarea
             ref={textareaRef}
             id="body-field"
             initialValue={initialValue}
-            onContentChange={handleContentChange}
+            onContentChange={handleContentChangeWithLines}
+            keyBindings={textareaKeyBindings}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.backgroundElement}
             textColor={theme.text}
@@ -361,7 +395,7 @@ function BodySection({
             focused
             style={{ flexGrow: 1 }}
           />
-        </line-number>
+        </box>
         {!validation.valid && validation.error && (
           <text fg={theme.error}>
             {"✗ " + validation.error.message}
@@ -379,6 +413,11 @@ function BodySection({
     )
   }
 
+  const bodyJsonValid = (() => {
+    if (!request.body) return false
+    try { JSON.parse(request.body); return true } catch { return false }
+  })()
+
   return (
     <box
       id="body-field"
@@ -389,17 +428,21 @@ function BodySection({
         backgroundColor: isBodyActive ? theme.backgroundElement : undefined,
       }}
     >
-      {highlightJson(body, theme).map((parts, li) =>
-        parts.length === 0 ? null : (
-          <text key={li}>
-            {parts.map((p, pi) => (
-              <span key={pi} fg={p.fg}>
-                {p.text}
-              </span>
-            ))}
-          </text>
-        ),
-      )}
+      {bodyJsonValid
+        ? highlightJson(body, theme).map((parts, li) =>
+            parts.length === 0 ? null : (
+              <text key={li}>
+                {parts.map((p, pi) => (
+                  <span key={pi} fg={p.fg}>
+                    {p.text}
+                  </span>
+                ))}
+              </text>
+            ),
+          )
+        : (
+          <text fg={theme.text}>{body}</text>
+        )}
     </box>
   )
 }

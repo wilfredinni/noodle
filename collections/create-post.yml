@@ -3,4 +3,9 @@ method: POST
 url: https://jsonplaceholder.typicode.com/posts
 headers:
   Content-Type: application/json
-body: '{"title":"foo","body":"bar","userId":1}'
+body: |-
+  {
+    "title": "foo",
+    "body": "bar",
+    "userId": 1
+  }

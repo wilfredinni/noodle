@@ -77,7 +77,7 @@ describe("BodySection — edit mode", () => {
     expect(frame).toContain("hello")
   })
 
-  it("renders line numbers in edit mode", async () => {
+  it("renders formatted JSON content in textarea", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <box width={80} height={20}>
@@ -98,8 +98,9 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    // Line numbers should be present (body is multi-line formatted JSON)
-    expect(frame).toContain("1")
+    // Textarea renders the formatted JSON from formatBody
+    expect(frame).toContain("name")
+    expect(frame).toContain("42")
   })
 
   it("renders browse view unchanged when not editing body", async () => {
