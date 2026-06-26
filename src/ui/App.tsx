@@ -75,12 +75,7 @@ function AppInner({
 
   const draft = useRequestDraft(selectedRequest)
   const { editState, editValue, setEditValue, isActive, activeTab } =
-    useEditBrowse(draft.draft, draft, {
-      enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
-      onEnterEditBrowse: () => setFocus("request"),
-      blocked: () =>
-        helpVisibleRef.current || confirmingRef.current || previewIndex !== null,
-    })
+    useEditBrowse(draft.draft, draft)
   sidebarEnabledRef.current = !isActive && focus === "sidebar"
   const isActiveRef = useRef(isActive)
   isActiveRef.current = isActive
