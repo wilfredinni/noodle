@@ -168,6 +168,20 @@ function KeyValueSection({
 }: KeyValueSectionProps) {
   const rec = kind === "headers" ? request.headers : request.params
   const rows = Object.entries(rec)
+
+  const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
+  const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
+  const stripeR = Math.round(
+    (((panelNum >> 16) & 0xff) + ((elemNum >> 16) & 0xff)) / 2,
+  )
+  const stripeG = Math.round(
+    (((panelNum >> 8) & 0xff) + ((elemNum >> 8) & 0xff)) / 2,
+  )
+  const stripeB = Math.round(
+    ((panelNum & 0xff) + (elemNum & 0xff)) / 2,
+  )
+  const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
+
   const inEdit = editState.mode === "editing"
   const cursorHere = editState.cursor.field === kind
   const editingRow =
@@ -222,7 +236,9 @@ function KeyValueSection({
                   backgroundColor:
                     cursorOnThisRow || isEditingThisRow
                       ? theme.backgroundElement
-                      : undefined,
+                      : i % 2 !== 0
+                        ? stripeBg
+                        : undefined,
                 }}
               >
                 <input
