@@ -143,8 +143,8 @@ export function StatusBar(input: {
       style={{
         flexDirection: "row",
         justifyContent: "space-between",
-        alignItems: "center",
         flexShrink: 0,
+        paddingY: 1,
         paddingLeft: 1,
         paddingRight: 1,
       }}
