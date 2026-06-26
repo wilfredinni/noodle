@@ -119,9 +119,7 @@ export function ResponsePane({
                 (() => {
                   const body = formatBody(state.response)
                   if (body === "") return null
-                  return (
-                    <JsonBodyViewer body={body} theme={theme} />
-                  )
+                  return <JsonBodyViewer body={body} theme={theme} />
                 })()
               ) : (
                 <>
