@@ -75,7 +75,6 @@ export function ResponsePane({
       title="Response"
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
-            
     >
       {state.status === "idle" ? (
         <box

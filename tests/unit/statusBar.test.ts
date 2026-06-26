@@ -4,7 +4,12 @@ import { bindingDefaults } from "../../src/ui/keybind"
 
 const defaults = bindingDefaults()
 
-function res(status: number, statusText: string, timeMs: number, bodyLen: number) {
+function res(
+  status: number,
+  statusText: string,
+  timeMs: number,
+  bodyLen: number,
+) {
   return {
     status,
     statusText,
@@ -116,7 +121,10 @@ describe("statusBarText", () => {
       method: "GET",
       url: "/error",
       isDirty: false,
-      sendState: { status: "done", response: res(500, "Internal Server Error", 120, 5000) },
+      sendState: {
+        status: "done",
+        response: res(500, "Internal Server Error", 120, 5000),
+      },
       envLabel: "dev",
       saveState: { kind: "idle" },
       kb: defaults,
