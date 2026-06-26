@@ -38,7 +38,7 @@ export function Sidebar({
   return (
     <box
       style={{
-        width: 25,
+        width: 38,
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
@@ -90,7 +90,7 @@ export function Sidebar({
                   {shortMethod(r.method).padEnd(7)}
                 </text>
                 <text fg={theme.text} wrapMode="none">
-                  {truncName(r.name, 12)}
+                  {truncName(r.name, 20)}
                 </text>
               </box>
             )
