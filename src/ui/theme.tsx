@@ -9,6 +9,10 @@ export {
   contrastOnPrimary,
   opencodeTheme,
   catppuccinTheme,
+  draculaTheme,
+  nordTheme,
+  tokyonightTheme,
+  gruvboxTheme,
 } from "./theme-data"
 export type { Theme } from "./theme-data"
 export { PaneBorder, FullBorder, LeftBar } from "./borders"

@@ -51,13 +51,13 @@ describe("theme state machine", () => {
   it("navigatePreview down wraps to last theme", () => {
     const state: ThemeState = { activeIndex: 0, previewIndex: 0 }
     const next = navigatePreview(state, -1)
-    expect(next.previewIndex).toBe(1)
+    expect(next.previewIndex).toBe(THEMES.length - 1)
   })
 
   it("navigatePreview up wraps to first theme", () => {
     const state: ThemeState = { activeIndex: 1, previewIndex: 1 }
     const next = navigatePreview(state, 1)
-    expect(next.previewIndex).toBe(0)
+    expect(next.previewIndex).toBe(2)
   })
 
   it("navigatePreview is no-op when picker is closed", () => {

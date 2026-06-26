@@ -2,8 +2,8 @@ import { describe, it, expect } from "bun:test"
 import { THEMES, contrastOnPrimary } from "../../src/ui/theme"
 
 describe("THEMES", () => {
-  it("has exactly 2 themes", () => {
-    expect(THEMES).toHaveLength(2)
+  it("has exactly 6 themes", () => {
+    expect(THEMES).toHaveLength(6)
   })
 
   it("first theme is named opencode", () => {
@@ -12,6 +12,22 @@ describe("THEMES", () => {
 
   it("second theme is named catppuccin", () => {
     expect(THEMES[1]!.name).toBe("catppuccin")
+  })
+
+  it("third theme is named dracula", () => {
+    expect(THEMES[2]!.name).toBe("dracula")
+  })
+
+  it("fourth theme is named nord", () => {
+    expect(THEMES[3]!.name).toBe("nord")
+  })
+
+  it("fifth theme is named tokyonight", () => {
+    expect(THEMES[4]!.name).toBe("tokyonight")
+  })
+
+  it("sixth theme is named gruvbox", () => {
+    expect(THEMES[5]!.name).toBe("gruvbox")
   })
 
   it("every theme has all 16 required tokens", () => {
@@ -60,13 +76,11 @@ describe("THEMES", () => {
 })
 
 describe("contrastOnPrimary", () => {
-  it("returns dark text for opencode primary", () => {
-    const result = contrastOnPrimary(THEMES[0]!)
-    expect(result).toBe("#1a1a1a")
-  })
-
-  it("returns dark text for catppuccin primary", () => {
-    const result = contrastOnPrimary(THEMES[1]!)
-    expect(result).toBe("#1a1a1a")
-  })
+  for (let i = 0; i < THEMES.length; i++) {
+    const theme = THEMES[i]!
+    it(`returns dark text for ${theme.name} primary`, () => {
+      const result = contrastOnPrimary(theme)
+      expect(result).toBe("#1a1a1a")
+    })
+  }
 })
