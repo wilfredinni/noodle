@@ -65,20 +65,31 @@ function applyHighlightsAndValidate(
   onValidation: (v: JsonValidation) => void,
   prevErrorLine: { current: number | null },
 ): void {
-  textarea.clearAllHighlights()
-
   const result = parseJsonError(content)
   if (!result.valid) {
+    try {
+      textarea.clearAllHighlights()
+    } catch {
+      // highlight clear failed, continue
+    }
     if (prevErrorLine.current !== null && lineNumber) {
-      lineNumber.clearLineSign(prevErrorLine.current)
-      lineNumber.clearLineColor(prevErrorLine.current)
+      try {
+        lineNumber.clearLineSign(prevErrorLine.current)
+        lineNumber.clearLineColor(prevErrorLine.current)
+      } catch {
+        // line decoration clear failed, continue
+      }
     }
     if (lineNumber) {
-      lineNumber.setLineSign(result.error.line, {
-        before: "✗",
-        beforeColor: theme.error,
-      })
-      lineNumber.setLineColor(result.error.line, { content: theme.error })
+      try {
+        lineNumber.setLineSign(result.error.line, {
+          before: "✗",
+          beforeColor: theme.error,
+        })
+        lineNumber.setLineColor(result.error.line, { content: theme.error })
+      } catch {
+        // line decoration set failed, continue
+      }
     }
     prevErrorLine.current = result.error.line
     onValidation({ valid: false, error: result.error })
@@ -86,8 +97,12 @@ function applyHighlightsAndValidate(
   }
 
   if (prevErrorLine.current !== null && lineNumber) {
-    lineNumber.clearLineSign(prevErrorLine.current)
-    lineNumber.clearLineColor(prevErrorLine.current)
+    try {
+      lineNumber.clearLineSign(prevErrorLine.current)
+      lineNumber.clearLineColor(prevErrorLine.current)
+    } catch {
+      // line decoration clear failed, continue
+    }
     prevErrorLine.current = null
   }
   onValidation({ valid: true })
@@ -97,15 +112,20 @@ function applyHighlightsAndValidate(
   const tokens = highlightJsonTokens(content, theme)
   if (tokens.length === 0) return
 
-  textarea.syntaxStyle = syntaxStyle
-  for (const token of tokens) {
-    const styleId = styleIdForFg(token.fg, theme, syntaxStyle)
-    textarea.addHighlightByCharRange({
-      start: token.offset,
-      end: token.offset + token.text.length,
-      styleId,
-      priority: 1,
-    })
+  try {
+    textarea.clearAllHighlights()
+    textarea.syntaxStyle = syntaxStyle
+    for (const token of tokens) {
+      const styleId = styleIdForFg(token.fg, theme, syntaxStyle)
+      textarea.addHighlightByCharRange({
+        start: token.offset,
+        end: token.offset + token.text.length,
+        styleId,
+        priority: 1,
+      })
+    }
+  } catch {
+    // highlight application failed, textarea remains editable
   }
 }
 
@@ -133,15 +153,15 @@ export function useJsonHighlight(
     const textarea = textareaRef.current
     if (!textarea) return
 
-    const content = textarea.plainText
-    setEditValue(content)
+    setEditValue(textarea.plainText)
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => {
+      const currentContent = textarea.plainText
       applyHighlightsAndValidate(
         textarea,
         lineNumberRef.current,
-        content,
+        currentContent,
         theme,
         syntaxStyleRef.current!,
         setValidation,
