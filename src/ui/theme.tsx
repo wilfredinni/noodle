@@ -62,12 +62,11 @@ export function ThemePickerOverlay({
     >
       <box
         style={{
-          width: 40,
+          width: 48,
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
           gap: 1,
-          paddingTop: 1,
-          paddingBottom: 1,
+          padding: 1,
         }}
       >
         <box
@@ -83,17 +82,30 @@ export function ThemePickerOverlay({
         </box>
         <box style={{ flexDirection: "column" }}>
           {THEMES.map((t, i) => {
+            const isCurrent = i === activeIndex
             const isSelected = i === previewIndex
             return (
               <box
                 key={t.name}
                 style={{
-                  paddingLeft: 4,
-                  paddingRight: 4,
+                  flexDirection: "row",
+                  paddingLeft: isCurrent ? 1 : 3,
+                  paddingRight: 3,
                   backgroundColor: isSelected ? theme.primary : undefined,
                 }}
               >
-                <text fg={isSelected ? "#1a1a1a" : theme.text}>
+                {isCurrent && (
+                  <text fg={isSelected ? "#1a1a1a" : theme.primary}>● </text>
+                )}
+                <text
+                  fg={
+                    isSelected
+                      ? "#1a1a1a"
+                      : isCurrent
+                        ? theme.primary
+                        : theme.text
+                  }
+                >
                   {t.name}
                 </text>
               </box>
