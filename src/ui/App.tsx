@@ -38,7 +38,6 @@ function AppInner({
   initialEnvName,
   activeIndex,
   previewIndex,
-  setActiveIndex,
   setPreviewIndex,
   onThemeChange,
   keybinds,
@@ -53,7 +52,6 @@ function AppInner({
   initialEnvName?: string
   activeIndex: number
   previewIndex: number | null
-  setActiveIndex: (n: number) => void
   setPreviewIndex: (n: number | null) => void
   onThemeChange: (index: number) => void
   keybinds: Keybinds
@@ -455,7 +453,7 @@ function AppInner({
       { priority: 100 },
     )
     return dispose
-  }, [previewIndex, setActiveIndex, setPreviewIndex, keymap])
+  }, [previewIndex, onThemeChange, setPreviewIndex, keymap])
 
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {
@@ -616,7 +614,6 @@ export function App({
         initialEnvName={initialEnvName}
         activeIndex={activeIndex}
         previewIndex={previewIndex}
-        setActiveIndex={setActiveIndex}
         setPreviewIndex={setPreviewIndex}
         onThemeChange={handleThemeChange}
         keybinds={keybinds}
