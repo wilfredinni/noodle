@@ -27,6 +27,20 @@ export {
   carbonfoxTheme,
   synthwave84Theme,
   catppuccinFrappeTheme,
+  catppuccinMacchiatoTheme,
+  cobalt2Theme,
+  cursorTheme,
+  flexokiTheme,
+  githubTheme,
+  matrixTheme,
+  mercuryTheme,
+  nightowlTheme,
+  orngTheme,
+  osakaJadeTheme,
+  palenightTheme,
+  vercelTheme,
+  vesperTheme,
+  zenburnTheme,
 } from "./theme-data"
 export type { Theme } from "./theme-data"
 export { PaneBorder, FullBorder, LeftBar } from "./borders"

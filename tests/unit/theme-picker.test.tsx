@@ -3,8 +3,8 @@ import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { registerEnabledFields, registerDefaultKeys } from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
+import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemePickerOverlay, ThemeProvider } from "../../src/ui/theme"
-import { THEMES } from "../../src/ui/theme"
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()
@@ -14,7 +14,7 @@ function setupKeymap() {
   keymap.setData("app.focus", "sidebar")
   keymap.setData("app.overlay", "none")
   return {
-    keymap,
+    keymap: keymap as unknown as KeymapProviderProps["keymap"],
     cleanup: () => {
       disposeEnabled()
       disposeKeys()
@@ -42,7 +42,7 @@ describe("ThemePickerOverlay", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("aura")
-    expect(frame).toContain("solarized")
+    expect(frame).toContain("matrix")
     cleanup()
   })
 
