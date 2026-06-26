@@ -227,6 +227,7 @@ function KeyValueSection({
               >
                 <input
                   value={isEditingThisRow ? editKey : k}
+                  placeholder="Key"
                   onInput={isEditingThisRow ? setEditKey : undefined}
                   focused={
                     isEditingThisRow && editState.cursor.subfield === "key"
@@ -241,6 +242,7 @@ function KeyValueSection({
                 />
                 <input
                   value={isEditingThisRow ? editValue : v}
+                  placeholder="Value"
                   onInput={isEditingThisRow ? setEditValue : undefined}
                   focused={
                     isEditingThisRow && editState.cursor.subfield === "value"
@@ -275,6 +277,7 @@ function KeyValueSection({
           >
             <input
               value={editingAdd ? editKey : ""}
+              placeholder="Key"
               onInput={editingAdd ? setEditKey : undefined}
               focused={editingAdd && editState.cursor.subfield === "key"}
               backgroundColor={
@@ -291,6 +294,7 @@ function KeyValueSection({
             />
             <input
               value={editingAdd ? editValue : ""}
+              placeholder="Value"
               onInput={editingAdd ? setEditValue : undefined}
               focused={
                 editingAdd && editState.cursor.subfield === "value"
