@@ -221,10 +221,11 @@ describe("Sidebar scrollbox", () => {
     const lines = frame.split("\n").filter((l) => l.trim() !== "")
     expect(lines.length).toBeLessThan(50)
 
-    // Text wraps due to border+padding; check wrapped parts individually
-    expect(frame).toContain("Request")
-    expect(frame).toContain("number")
-    expect(frame).toContain("5")
+    // Text truncated to fit sidebar width; check truncated form present
+    expect(frame).toContain("Request num\u2026")
+    // Should render many entries without crashing
+    const count = (frame.match(/Request num\u2026/g) || []).length
+    expect(count).toBeGreaterThan(10)
   })
 
   it("selected request has LeftBar border and no INVERSE instead of primary background", async () => {

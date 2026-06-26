@@ -9,6 +9,10 @@ function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
 }
 
+function truncName(name: string, max: number): string {
+  return name.length <= max ? name : name.slice(0, max - 1) + "\u2026"
+}
+
 export function Sidebar({
   collection,
   loading,
@@ -46,7 +50,7 @@ export function Sidebar({
       borderColor={focused ? theme.primary : theme.borderSubtle}
     >
       <text fg={focused ? theme.primary : theme.textMuted}>
-        {focused ? "Requests [↑↓]  [e] edit" : "Requests"}
+        {focused ? "Requests" : "Requests"}
       </text>
       {loading ? (
         <text fg={theme.textMuted}>Loading...</text>
@@ -78,21 +82,22 @@ export function Sidebar({
                     ? theme.backgroundElement
                     : undefined,
                 }}
-                border={isSelected ? [...LeftBar.border] : undefined}
-                customBorderChars={
-                  isSelected ? LeftBar.customBorderChars : undefined
-                }
-                borderColor={isSelected ? theme.primary : undefined}
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={isSelected ? theme.primary : theme.backgroundPanel}
               >
                 <text fg={methodColor(r.method, theme)}>
                   {shortMethod(r.method).padEnd(7)}
                 </text>
-                <text fg={theme.text}>{r.name}</text>
+                <text fg={theme.text} wrapMode="none">
+                  {truncName(r.name, 12)}
+                </text>
               </box>
             )
           })}
         </scrollbox>
       )}
+      {focused && <text fg={theme.textMuted}>[↑↓] select [e] edit</text>}
     </box>
   )
 }
