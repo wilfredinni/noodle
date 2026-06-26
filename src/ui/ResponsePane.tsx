@@ -3,7 +3,6 @@ import { useKeyboard } from "@opentui/react"
 import { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
 import {
-  statusColor,
   formatStatusLine,
   formatHeaders,
   formatBody,
@@ -58,17 +57,6 @@ export function ResponsePane({
     return () => clearInterval(id)
   }, [state.status])
 
-  function responseLeftBarColor(): string {
-    if (state.status === "error") return theme.error
-    if (state.status === "done") {
-      const s = state.response.status
-      if (s >= 200 && s <= 299) return theme.success
-      if (s >= 300 && s <= 399) return theme.warning
-      return theme.error
-    }
-    return theme.borderSubtle
-  }
-
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   return (
@@ -85,9 +73,15 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
-      title={focused ? "Response [Tab] tabs  [↑↓] scroll" : "Response"}
+      title="Response"
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
+      bottomTitle={
+        state.status === "done"
+          ? ` ${formatStatusLine(state.response)} `
+          : undefined
+      }
+      bottomTitleAlignment="right"
     >
       {state.status === "idle" ? (
         <text fg={theme.textMuted}>Send a request to see the response</text>
@@ -117,15 +111,6 @@ export function ResponsePane({
             >
               {activeTab === "body" ? (
                 <>
-                  <box
-                    border={[...LeftBar.border]}
-                    customBorderChars={LeftBar.customBorderChars}
-                    borderColor={responseLeftBarColor()}
-                  >
-                    <text fg={statusColor(state.response.status, theme)}>
-                      {" " + formatStatusLine(state.response)}
-                    </text>
-                  </box>
                   {(() => {
                     const body = formatBody(state.response)
                     return body !== "" ? (
