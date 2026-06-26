@@ -16,14 +16,14 @@ export function hintForFocus(
     return "[↑/↓] select · [s] send · [w] save · [Tab] next"
   }
   if (focus === "urlbar") {
-    return "[Tab] next · [e] edit · [s] send · [w] save"
+    return "[Tab] next · [s] send · [w] save"
   }
   if (focus === "request") {
     if (mode === "inactive") {
-      return "[e] edit · [s] send · [w] save · [Tab] next"
+      return "[Enter] edit · [s] send · [w] save · [Tab] next"
     }
     if (mode === "browsing") {
-      return "[↑/↓/Enter] edit · [Esc] back · [d] revert"
+      return "[↑/↓/Enter] edit · [Esc] back · [d] revert · [R] revert all"
     }
     // editing
     return "[Enter] commit · [Esc] cancel"
