@@ -15,7 +15,7 @@ import { ThemeProvider } from "../src/ui/theme"
 function makeRequest(i: number): Request {
   return {
     id: `req-${i}`,
-    name: `Request number ${i}`,
+    name: `Very long request name to truncate ${i}`,
     method: i % 2 === 0 ? "GET" : "POST",
     url: `http://example.com/${i}`,
     headers: {},
@@ -222,9 +222,9 @@ describe("Sidebar scrollbox", () => {
     expect(lines.length).toBeLessThan(50)
 
     // Text truncated to fit sidebar width; check truncated form present
-    expect(frame).toContain("Request num\u2026")
+    expect(frame).toContain("Very long request n\u2026")
     // Should render many entries without crashing
-    const count = (frame.match(/Request num\u2026/g) || []).length
+    const count = (frame.match(/Very long request n\u2026/g) || []).length
     expect(count).toBeGreaterThan(10)
   })
 
