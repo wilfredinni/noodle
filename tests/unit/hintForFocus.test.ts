@@ -14,33 +14,35 @@ describe("hintForFocus — sidebar", () => {
 })
 
 describe("hintForFocus — urlbar", () => {
-  it("shows Tab, edit, send, save", () => {
+  it("shows Tab, send, save (no edit)", () => {
     const hint = hintForFocus("urlbar", "inactive")
     expect(hint).toContain("Tab")
-    expect(hint).toContain("edit")
     expect(hint).toContain("send")
     expect(hint).toContain("save")
+    expect(hint).not.toContain("edit")
   })
 })
 
 describe("hintForFocus — request inactive", () => {
-  it("shows edit, send, save, Tab", () => {
+  it("shows Enter edit, send, save, Tab", () => {
     const hint = hintForFocus("request", "inactive")
+    expect(hint).toContain("Enter")
     expect(hint).toContain("edit")
     expect(hint).toContain("send")
     expect(hint).toContain("save")
     expect(hint).toContain("Tab")
-    expect(hint).toContain("next")
   })
 })
 
 describe("hintForFocus — request browsing", () => {
-  it("shows edit, Esc, revert", () => {
+  it("shows UP/DOWN/Enter edit, Esc, revert, R", () => {
     const hint = hintForFocus("request", "browsing")
-    expect(hint).toContain("edit")
+    expect(hint).toContain("↑")
+    expect(hint).toContain("↓")
+    expect(hint).toContain("Enter")
     expect(hint).toContain("Esc")
     expect(hint).toContain("revert")
-    expect(hint).not.toContain("Response")
+    expect(hint).toContain("R")
   })
 })
 

@@ -1,13 +1,20 @@
 import { RGBA } from "@opentui/core"
 import { getHelpSections } from "./helpTexts"
 import { useTheme } from "./theme"
+import type { Keybinds } from "./keybind"
 
-export function HelpOverlay({ visible }: { visible: boolean }) {
+export function HelpOverlay({
+  visible,
+  keybinds,
+}: {
+  visible: boolean
+  keybinds: Keybinds
+}) {
   const theme = useTheme()
 
   if (!visible) return null
 
-  const sections = getHelpSections()
+  const sections = getHelpSections(keybinds)
 
   return (
     <box

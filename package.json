@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@opentui/core": "^0.4.2",
+    "@opentui/keymap": "^0.4.2",
     "@opentui/react": "^0.4.2",
     "js-yaml": "^4.1.0",
     "react": "^19.2.7"

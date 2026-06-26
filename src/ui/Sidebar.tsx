@@ -4,6 +4,7 @@ import type { Collection } from "../schema"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
+import type { Keybinds } from "./keybind"
 
 function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
@@ -19,12 +20,14 @@ export function Sidebar({
   error,
   selectedIndex,
   focused = false,
+  keybinds,
 }: {
   collection: Collection | null
   loading: boolean
   error: Error | null
   selectedIndex: number
   focused?: boolean
+  keybinds?: Keybinds
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -97,7 +100,11 @@ export function Sidebar({
           })}
         </scrollbox>
       )}
-      {focused && <text fg={theme.textMuted}>[↑↓] select [e] edit</text>}
+      {focused && keybinds && (
+        <text fg={theme.textMuted}>
+          [↑↓] select [{keybinds.request_edit}] edit
+        </text>
+      )}
     </box>
   )
 }

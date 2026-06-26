@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
-import { useKeyboard } from "@opentui/react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import type { Request } from "../schema"
 import {
   initialEditState,
@@ -59,39 +58,116 @@ export interface UseEditBrowseResult {
   setEditValue: (v: string) => void
   isActive: boolean
   activeTab: FieldKind
+  enterBrowse: () => void
+  exitBrowse: () => void
+  browseUp: () => void
+  browseDown: () => void
+  browseLeft: () => void
+  browseRight: () => void
+  enterEdit: () => void
+  commitEdit: () => void
+  cancelEdit: () => void
+  revertField: () => void
+  revertAll: () => void
+  cycleInactiveTab: (delta: 1 | -1) => void
 }
 
 export function useEditBrowse(
   draft: Request | null,
   draftMutators: UseRequestDraftResult,
-  opts?: {
-    enabled?: () => boolean
-    onEnterEditBrowse?: () => void
-    blocked?: () => boolean
-  },
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
   const [editValue, setEditValue] = useState("")
   const [inactiveTab, setInactiveTab] = useState<FieldKind>("headers")
 
-  const counts = rowCount(draft)
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+
+  const editStateRef = useRef(editState)
+  editStateRef.current = editState
+
+  const editValueRef = useRef(editValue)
+  editValueRef.current = editValue
 
   const activeTab =
     editState.mode !== "inactive" ? editState.cursor.field : inactiveTab
 
-  const onCommit = useCallback(() => {
-    if (editState.mode !== "editing") return
-    const { field } = editState.cursor
-    const addingRow = editState.cursor.addingRow
+  const enterBrowse = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "inactive") return prev
+      return enterEditBrowse(prev, c)
+    })
+  }, [])
+
+  const exitBrowse = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return exitEditBrowse(prev)
+    })
+  }, [])
+
+  const browseUp = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return moveRowCursor(prev, -1, c)
+    })
+  }, [])
+
+  const browseDown = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return moveRowCursor(prev, +1, c)
+    })
+  }, [])
+
+  const browseLeft = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return moveFieldCursor(prev, -1, c)
+    })
+  }, [])
+
+  const browseRight = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return moveFieldCursor(prev, +1, c)
+    })
+  }, [])
+
+  const enterEdit = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "browsing") return
+    const currentDraft = draftRef.current
+    const init = currentValueFor(
+      currentDraft,
+      state.cursor.field,
+      state.cursor.row,
+      state.cursor.addingRow,
+    )
+    setEditValue(init)
+    setEditState((prev) => beginEditing(prev))
+  }, [])
+
+  const commitEdit = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "editing") return
+    const { field } = state.cursor
+    const addingRow = state.cursor.addingRow
+    const val = editValueRef.current
     if (field === "body") {
-      draftMutators.setBody(editValue)
+      draftMutators.setBody(val)
     } else if (field === "headers" || field === "params") {
-      const parsed = parseRow(editValue)
+      const parsed = parseRow(val)
       if (parsed.key === "") {
-        if (!addingRow && editState.cursor.row >= 0) {
+        if (!addingRow && state.cursor.row >= 0) {
           if (field === "headers")
-            draftMutators.removeHeaderRow(editState.cursor.row)
-          else draftMutators.removeParamRow(editState.cursor.row)
+            draftMutators.removeHeaderRow(state.cursor.row)
+          else draftMutators.removeParamRow(state.cursor.row)
         }
       } else if (addingRow) {
         if (field === "headers")
@@ -100,28 +176,29 @@ export function useEditBrowse(
       } else {
         if (field === "headers")
           draftMutators.setHeaderRow(
-            editState.cursor.row,
+            state.cursor.row,
             parsed.key,
             parsed.value,
           )
         else
           draftMutators.setParamRow(
-            editState.cursor.row,
+            state.cursor.row,
             parsed.key,
             parsed.value,
           )
       }
     }
     setEditState((prev) => commitEditing(prev))
-  }, [editState, editValue, draftMutators])
+  }, [draftMutators])
 
-  const onCancel = useCallback(() => {
+  const cancelEdit = useCallback(() => {
     setEditState((prev) => cancelEditing(prev))
   }, [])
 
-  const onRevertField = useCallback(() => {
-    if (editState.mode !== "browsing") return
-    const { field, addingRow, row } = editState.cursor
+  const revertFieldHandler = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "browsing") return
+    const { field, addingRow, row } = state.cursor
     if (field === "body") {
       draftMutators.revertField(field)
     } else if (field === "headers" || field === "params") {
@@ -129,61 +206,15 @@ export function useEditBrowse(
       if (field === "headers") draftMutators.removeHeaderRow(row)
       else draftMutators.removeParamRow(row)
     }
-  }, [editState, draftMutators])
+  }, [draftMutators])
 
-  useKeyboard((key) => {
-    if (opts?.blocked?.()) return
-    const enabled = opts?.enabled ?? (() => true)
+  const revertAllHandler = useCallback(() => {
+    draftMutators.revertAll()
+  }, [draftMutators])
 
-    if (editState.mode === "inactive") {
-      if (key.name === "e") {
-        setEditState((prev) => enterEditBrowse(prev, counts))
-        opts?.onEnterEditBrowse?.()
-      } else if (key.name === "left" && enabled()) {
-        setInactiveTab((prev) => cycleField(prev, -1))
-      } else if (key.name === "right" && enabled()) {
-        setInactiveTab((prev) => cycleField(prev, +1))
-      }
-      return
-    }
-
-    if (!enabled()) return
-
-    if (editState.mode === "editing") {
-      if (key.name === "return") {
-        onCommit()
-      } else if (key.name === "escape") {
-        onCancel()
-      }
-      return
-    }
-    if (editState.mode === "browsing") {
-      if (key.name === "escape") {
-        setEditState((prev) => exitEditBrowse(prev))
-      } else if (key.name === "e" || key.name === "return") {
-        const init = currentValueFor(
-          draft,
-          editState.cursor.field,
-          editState.cursor.row,
-          editState.cursor.addingRow,
-        )
-        setEditValue(init)
-        setEditState((prev) => beginEditing(prev))
-      } else if (key.name === "up") {
-        setEditState((prev) => moveRowCursor(prev, -1, counts))
-      } else if (key.name === "down") {
-        setEditState((prev) => moveRowCursor(prev, +1, counts))
-      } else if (key.name === "left") {
-        setEditState((prev) => moveFieldCursor(prev, -1, counts))
-      } else if (key.name === "right") {
-        setEditState((prev) => moveFieldCursor(prev, +1, counts))
-      } else if (key.name === "d") {
-        onRevertField()
-      } else if (key.name === "R" || (key.shift && key.name === "r")) {
-        draftMutators.revertAll()
-      }
-    }
-  })
+  const cycleInactiveTab = useCallback((delta: 1 | -1) => {
+    setInactiveTab((prev) => cycleField(prev, delta))
+  }, [])
 
   return useMemo(
     () => ({
@@ -192,7 +223,35 @@ export function useEditBrowse(
       setEditValue,
       isActive: editState.mode !== "inactive",
       activeTab,
+      enterBrowse,
+      exitBrowse,
+      browseUp,
+      browseDown,
+      browseLeft,
+      browseRight,
+      enterEdit,
+      commitEdit,
+      cancelEdit,
+      revertField: revertFieldHandler,
+      revertAll: revertAllHandler,
+      cycleInactiveTab,
     }),
-    [editState, editValue, activeTab],
+    [
+      editState,
+      editValue,
+      activeTab,
+      enterBrowse,
+      exitBrowse,
+      browseUp,
+      browseDown,
+      browseLeft,
+      browseRight,
+      enterEdit,
+      commitEdit,
+      cancelEdit,
+      revertFieldHandler,
+      revertAllHandler,
+      cycleInactiveTab,
+    ],
   )
 }

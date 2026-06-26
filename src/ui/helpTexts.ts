@@ -1,3 +1,5 @@
+import type { Keybinds } from "./keybind"
+
 export interface HelpKey {
   key: string
   description: string
@@ -8,18 +10,22 @@ export interface HelpSection {
   keys: HelpKey[]
 }
 
-export function getHelpSections(): HelpSection[] {
+function bracket(v: string): string {
+  return `[${v}]`
+}
+
+export function getHelpSections(keybinds: Keybinds): HelpSection[] {
   return [
     {
       title: "NAVIGATION",
       keys: [
         { key: "[↑/↓]", description: "Select request · sidebar" },
         { key: "[↑/↓]", description: "Move cursor (browse) · request" },
-        { key: "[Tab]", description: "Next pane" },
-        { key: "[Shift+Tab]", description: "Previous pane" },
+        { key: bracket(keybinds.focus_next), description: "Next pane" },
+        { key: bracket(keybinds.focus_prev), description: "Previous pane" },
         {
-          key: "[e]",
-          description: "Enter request edit-browse · sidebar / request",
+          key: bracket(keybinds.request_edit),
+          description: "Enter request edit-browse · request pane",
         },
       ],
     },
@@ -27,20 +33,26 @@ export function getHelpSections(): HelpSection[] {
       title: "EDITING",
       keys: [
         {
-          key: "[e / Enter]",
+          key: bracket(keybinds.browse_enter),
           description: "Edit focused field · request browse",
         },
-        { key: "[Enter]", description: "Commit edit" },
-        { key: "[Esc]", description: "Cancel edit / exit browse" },
-        { key: "[d]", description: "Revert field" },
-        { key: "[R]", description: "Revert all fields" },
+        { key: bracket(keybinds.edit_commit), description: "Commit edit" },
+        {
+          key: bracket(keybinds.browse_escape),
+          description: "Cancel edit / exit browse",
+        },
+        { key: bracket(keybinds.browse_delete), description: "Revert field" },
+        {
+          key: bracket(keybinds.browse_revert_all),
+          description: "Revert all fields",
+        },
       ],
     },
     {
       title: "ACTIONS",
       keys: [
-        { key: "[s]", description: "Send request" },
-        { key: "[w]", description: "Save to disk" },
+        { key: bracket(keybinds.request_send), description: "Send request" },
+        { key: bracket(keybinds.request_save), description: "Save to disk" },
         { key: "[[ ]", description: "Previous environment" },
         { key: "[] ]", description: "Next environment" },
       ],
@@ -49,7 +61,7 @@ export function getHelpSections(): HelpSection[] {
       title: "SYSTEM",
       keys: [
         { key: "[Ctrl+C]", description: "Quit" },
-        { key: "[?]", description: "Toggle help" },
+        { key: bracket(keybinds.help_toggle), description: "Toggle help" },
       ],
     },
   ]

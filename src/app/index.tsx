@@ -1,8 +1,13 @@
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
+import { KeymapProvider } from "@opentui/keymap/react"
 import { App } from "../ui/App"
 import { parseArgs, type ParsedArgs } from "./args"
 import { env } from "../env"
+import { createNoodleKeymap } from "../ui/useKeymap"
+import { parseOverrides } from "../ui/keybind"
+import * as yaml from "js-yaml"
+import { readFileSync } from "node:fs"
 
 const ENVIRONMENTS_DIR = "./environments"
 
@@ -48,12 +53,28 @@ if (args.envName !== undefined) {
   initialEnvName = args.envName
 }
 
+const KEYBINDS_PATH = `${process.env.HOME ?? "~"}/.config/noodle/keybinds.yml`
+let keybindsConfig: Record<string, unknown> = {}
+try {
+  const raw = readFileSync(KEYBINDS_PATH, "utf-8")
+  keybindsConfig = yaml.load(raw) as Record<string, unknown>
+} catch {
+  // file doesn't exist or invalid — use defaults silently
+}
+
+const keybinds = parseOverrides(keybindsConfig)
+
 const renderer = await createCliRenderer({ exitOnCtrlC: true })
+const keymap = createNoodleKeymap(renderer)
+
 createRoot(renderer).render(
-  <App
-    collectionDir={args.collectionDir}
-    environmentsDir={ENVIRONMENTS_DIR}
-    envList={envList}
-    initialEnvName={initialEnvName}
-  />,
+  <KeymapProvider keymap={keymap}>
+    <App
+      collectionDir={args.collectionDir}
+      environmentsDir={ENVIRONMENTS_DIR}
+      envList={envList}
+      initialEnvName={initialEnvName}
+      keybinds={keybinds}
+    />
+  </KeymapProvider>,
 )

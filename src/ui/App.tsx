@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useKeyboard } from "@opentui/react"
+import { useKeymap, useBindings } from "@opentui/keymap/react"
 import { Sidebar } from "./Sidebar"
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
@@ -17,6 +17,7 @@ import { ConfirmOverlay } from "./ConfirmOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { THEMES } from "./theme"
 import { StatusBar } from "./StatusBar"
+import type { Keybinds } from "./keybind"
 
 type SaveState =
   | { kind: "idle" }
@@ -36,6 +37,7 @@ function AppInner({
   previewIndex,
   setActiveIndex,
   setPreviewIndex,
+  keybinds,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -45,65 +47,77 @@ function AppInner({
   previewIndex: number | null
   setActiveIndex: (n: number) => void
   setPreviewIndex: (n: number | null) => void
+  keybinds: Keybinds
 }) {
   const theme = useTheme()
+  const keymap = useKeymap()
   const { collection, loading, error } = useCollection(collectionDir)
   const requests = collection?.requests ?? []
 
   const [focus, setFocus] = useState<Focus>("sidebar")
-  const focusRef = useRef(focus)
-  focusRef.current = focus
-
   const [helpVisible, setHelpVisible] = useState(false)
-  const helpVisibleRef = useRef(false)
-  helpVisibleRef.current = helpVisible
+  const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
+  const [confirmSelection, setConfirmSelection] = useState(0)
 
-  const confirmingRef = useRef(false)
+  useEffect(() => {
+    keymap.setData("app.focus", focus)
+  }, [focus, keymap])
 
-  const previewIndexRef = useRef(previewIndex)
-  previewIndexRef.current = previewIndex
+  useEffect(() => {
+    const overlay =
+      helpVisible
+        ? "help"
+        : previewIndex !== null
+          ? "theme"
+          : saveState.kind === "confirming"
+            ? "confirm"
+            : "none"
+    keymap.setData("app.overlay", overlay)
+  }, [helpVisible, previewIndex, saveState.kind, keymap])
 
-  const sidebarEnabledRef = useRef(true)
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
-    () =>
-      sidebarEnabledRef.current &&
-      !helpVisibleRef.current &&
-      !confirmingRef.current &&
-      previewIndexRef.current === null,
+    () => true,
   )
 
   const draft = useRequestDraft(selectedRequest)
-  const { editState, editValue, setEditValue, isActive, activeTab } =
-    useEditBrowse(draft.draft, draft, {
-      enabled: () => focusRef.current === "request" && !helpVisibleRef.current,
-      onEnterEditBrowse: () => setFocus("request"),
-      blocked: () =>
-        helpVisibleRef.current || confirmingRef.current || previewIndex !== null,
-    })
-  sidebarEnabledRef.current = !isActive && focus === "sidebar"
-  const isActiveRef = useRef(isActive)
-  isActiveRef.current = isActive
+  const eb = useEditBrowse(draft.draft, draft)
+
+  useEffect(() => {
+    const mode =
+      eb.editState.mode === "browsing"
+        ? "browse"
+        : eb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    keymap.setData("app.mode", mode)
+  }, [eb.editState.mode, keymap])
 
   const envState = useEnvironments(environmentsDir, envList, initialEnvName)
-  const { state: responseState } = useResponse(
+  const { state: responseState, trySend } = useResponse(
     draft.draft,
     envState.activeEnv,
-    () =>
-      helpVisibleRef.current ||
-      confirmingRef.current ||
-      focusRef.current === "urlbar" ||
-      isActiveRef.current ||
-      previewIndex !== null,
   )
 
-  const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
-  confirmingRef.current = saveState.kind === "confirming"
-  const [confirmSelection, setConfirmSelection] = useState(0)
+  const trySendRef = useRef(trySend)
+  trySendRef.current = trySend
+
+  const envStateRef = useRef(envState)
+  envStateRef.current = envState
+
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+
+  const activeIndexRef = useRef(activeIndex)
+  activeIndexRef.current = activeIndex
+
+  const ebRef = useRef(eb)
+  ebRef.current = eb
+
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
-
   const mountedRef = useRef(true)
+
   useEffect(() => {
     return () => {
       mountedRef.current = false
@@ -159,88 +173,201 @@ function AppInner({
     selectedRequest,
     collectionDir,
     clearSaveTimer,
-    setSaveState,
   ])
 
-  useKeyboard((key) => {
-    // save confirm blocks everything except confirm keys
-    if (saveState.kind === "confirming") {
-      if (
-        key.name === "y" ||
-        (key.name === "return" && confirmSelection === 0)
-      ) {
+  // ── Keymap: Always-On Layer ───────────────────────────────────────
+  useBindings(() => ({
+    commands: [
+      {
+        name: "focus.next",
+        run: () => setFocus((prev) => cycleFocus(prev, 1)),
+      },
+      {
+        name: "focus.prev",
+        run: () => setFocus((prev) => cycleFocus(prev, -1)),
+      },
+    ],
+    bindings: [
+      { key: "tab", cmd: "focus.next" },
+      { key: "shift+tab", cmd: "focus.prev" },
+    ],
+  }))
+
+  // ── Keymap: Base Layer ─────────────────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.mode") === "base" &&
+      keymap.getData("app.overlay") === "none",
+    commands: [
+      {
+        name: "request.send",
+        enabled: () => keymap.getData("app.focus") !== "urlbar",
+        run: () => trySendRef.current?.(),
+      },
+      {
+        name: "request.save",
+        run: () => {
+          const d = draftRef.current
+          if (!savingRef.current && d.draft && d.isDirty) {
+            clearSaveTimer()
+            setConfirmSelection(0)
+            setSaveState({
+              kind: "confirming",
+              requestId: d.draft.id,
+            })
+          }
+        },
+      },
+      {
+        name: "env.prev",
+        run: () => envStateRef.current.cycle(-1),
+      },
+      {
+        name: "env.next",
+        run: () => envStateRef.current.cycle(1),
+      },
+      {
+        name: "app.help",
+        run: () => {
+          if (ebRef.current.editState.mode !== "inactive") return
+          setHelpVisible((prev) => !prev)
+        },
+      },
+      {
+        name: "app.theme",
+        run: () => setPreviewIndex(activeIndexRef.current),
+      },
+      {
+        name: "request.edit-enter",
+        enabled: () => keymap.getData("app.focus") === "request",
+        run: () => {
+          ebRef.current.enterBrowse()
+          setFocus("request")
+        },
+      },
+    ],
+    bindings: [
+      { key: "s", cmd: "request.send" },
+      { key: "w", cmd: "request.save" },
+      { key: "[", cmd: "env.prev" },
+      { key: "]", cmd: "env.next" },
+      { key: "?", cmd: "app.help" },
+      { key: "t", cmd: "app.theme" },
+      { key: "return", cmd: "request.edit-enter" },
+    ],
+  }))
+
+  // ── Keymap: Browse Layer ───────────────────────────────────────────
+  useBindings(() => ({
+    enabled: () => keymap.getData("app.mode") === "browse",
+    commands: [
+      { name: "browse.up", run: () => ebRef.current.browseUp() },
+      { name: "browse.down", run: () => ebRef.current.browseDown() },
+      { name: "browse.left", run: () => ebRef.current.browseLeft() },
+      { name: "browse.right", run: () => ebRef.current.browseRight() },
+      { name: "browse.enter", run: () => ebRef.current.enterEdit() },
+      { name: "browse.escape", run: () => ebRef.current.exitBrowse() },
+      { name: "browse.delete", run: () => ebRef.current.revertField() },
+      { name: "browse.revert-all", run: () => ebRef.current.revertAll() },
+    ],
+    bindings: [
+      { key: "up", cmd: "browse.up" },
+      { key: "down", cmd: "browse.down" },
+      { key: "left", cmd: "browse.left" },
+      { key: "right", cmd: "browse.right" },
+      { key: "return", cmd: "browse.enter" },
+      { key: "escape", cmd: "browse.escape" },
+      { key: "d", cmd: "browse.delete" },
+      { key: "R", cmd: "browse.revert-all" },
+    ],
+  }))
+
+  // ── Keymap: Edit Layer ─────────────────────────────────────────────
+  useBindings(() => ({
+    enabled: () => keymap.getData("app.mode") === "edit",
+    commands: [
+      { name: "edit.commit", run: () => ebRef.current.commitEdit() },
+      { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
+    ],
+    bindings: [
+      { key: "return", cmd: "edit.commit" },
+      { key: "escape", cmd: "edit.cancel" },
+    ],
+  }))
+
+  // ── Overlay: Save Confirm ──────────────────────────────────────────
+  useEffect(() => {
+    if (saveState.kind !== "confirming") return
+    const dispose = keymap.intercept("key", (ctx) => {
+      const name = ctx.event.name
+      if (name === "y" || (name === "return" && confirmSelection === 0)) {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         doSave()
       } else if (
-        key.name === "n" ||
-        key.name === "escape" ||
-        (key.name === "return" && confirmSelection === 1)
+        name === "n" ||
+        name === "escape" ||
+        (name === "return" && confirmSelection === 1)
       ) {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         setSaveState({ kind: "idle" })
-      } else if (key.name === "left" || key.name === "up") {
+      } else if (name === "left" || name === "up") {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         setConfirmSelection(0)
-      } else if (key.name === "right" || key.name === "down") {
+      } else if (name === "right" || name === "down") {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         setConfirmSelection(1)
       }
-      return
-    }
+    }, { priority: 100 })
+    return dispose
+  }, [saveState.kind, confirmSelection, doSave, keymap])
 
-    // help toggle — blocked while editing
-    if (key.name === "?") {
-      if (isActive) return
-      setHelpVisible((prev) => !prev)
-      return
-    }
-    // help visible blocks all keys except ? (handled above) and escape
-    if (helpVisible) {
-      if (key.name === "escape") setHelpVisible(false)
-      return
-    }
-    // theme picker keys
-    if (previewIndex !== null) {
-      if (key.name === "escape") {
+  // ── Overlay: Theme Picker ──────────────────────────────────────────
+  useEffect(() => {
+    if (previewIndex === null) return
+    const dispose = keymap.intercept("key", (ctx) => {
+      const name = ctx.event.name
+      if (name === "escape") {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         setPreviewIndex(null)
-        return
-      }
-      if (key.name === "up") {
+      } else if (name === "up") {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
-        return
-      }
-      if (key.name === "down") {
+      } else if (name === "down") {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         setPreviewIndex((previewIndex + 1) % THEMES.length)
-        return
-      }
-      if (key.name === "return") {
+      } else if (name === "return") {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
         setActiveIndex(previewIndex)
         setPreviewIndex(null)
-        return
+      } else {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
+        setPreviewIndex(null)
       }
-      setPreviewIndex(null)
-      return
-    }
-    if (key.name === "tab" && !isActive) {
-      setFocus((prev) => cycleFocus(prev, key.shift ? -1 : 1))
-      return
-    }
-    if (key.name === "t" && !isActive) {
-      setPreviewIndex(activeIndex)
-      return
-    }
-    if (!isActive) {
-      // env cycle
-      if (envState.names.length > 0) {
-        if (key.name === "[") envState.cycle(-1)
-        else if (key.name === "]") envState.cycle(+1)
+    }, { priority: 100 })
+    return dispose
+  }, [previewIndex, setActiveIndex, setPreviewIndex, keymap])
+
+  // ── Overlay: Help ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!helpVisible) return
+    const dispose = keymap.intercept("key", (ctx) => {
+      if (ctx.event.name === "escape") {
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
+        setHelpVisible(false)
       }
-      // w keybind: trigger save confirmation
-      if (key.name === "w" && !savingRef.current) {
-        if (draft.draft && draft.isDirty) {
-          clearSaveTimer()
-          setConfirmSelection(0)
-          setSaveState({ kind: "confirming", requestId: draft.draft.id })
-        }
-      }
-    }
-  })
+    }, { priority: 100 })
+    return dispose
+  }, [helpVisible, keymap])
 
   return (
     <box
@@ -269,6 +396,7 @@ function AppInner({
             error={error}
             selectedIndex={selectedIndex}
             focused={focus === "sidebar"}
+            keybinds={keybinds}
           />
           <box
             style={{
@@ -287,12 +415,12 @@ function AppInner({
             />
             <RequestPane
               request={draft.draft}
-              editState={editState}
-              editValue={editValue}
-              setEditValue={setEditValue}
+              editState={eb.editState}
+              editValue={eb.editValue}
+              setEditValue={eb.setEditValue}
               draft={draft}
               focused={focus === "request"}
-              activeTab={activeTab}
+              activeTab={eb.activeTab}
             />
             <ResponsePane
               state={responseState}
@@ -300,7 +428,7 @@ function AppInner({
             />
           </box>
         </box>
-        {helpVisible && <HelpOverlay visible />}
+        {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
         {saveState.kind === "confirming" && (
           <ConfirmOverlay
             visible
@@ -315,7 +443,7 @@ function AppInner({
           />
         )}
       </box>
-      <StatusBar envLabel={envState.indicatorLabel} />
+      <StatusBar envLabel={envState.indicatorLabel} keybinds={keybinds} />
     </box>
   )
 }
@@ -325,11 +453,13 @@ export function App({
   environmentsDir,
   envList,
   initialEnvName,
+  keybinds: keybinds,
 }: {
   collectionDir: string
   environmentsDir: string
   envList: string[]
   initialEnvName?: string
+  keybinds: Keybinds
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
@@ -345,6 +475,7 @@ export function App({
         previewIndex={previewIndex}
         setActiveIndex={setActiveIndex}
         setPreviewIndex={setPreviewIndex}
+        keybinds={keybinds}
       />
     </ThemeProvider>
   )
