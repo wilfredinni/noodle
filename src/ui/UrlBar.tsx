@@ -20,18 +20,18 @@ export function UrlBar({
     <box
       style={{
         flexDirection: "column",
+        flexShrink: 0,
         padding: 1,
         gap: 1,
         backgroundColor: theme.backgroundPanel,
-        flexShrink: 0,
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
-      borderColor={focused ? theme.accent : theme.borderSubtle}
+      borderColor={focused ? theme.primary : theme.borderSubtle}
+      title="URL"
+      titleColor={focused ? theme.primary : theme.textMuted}
+      titleAlignment="left"
     >
-      <text fg={focused ? theme.accent : theme.textMuted}>
-        {focused ? "URL [e] edit  [Tab] next" : "URL"}
-      </text>
       {!url ? (
         <text fg={theme.text}>(no request selected)</text>
       ) : focused ? (

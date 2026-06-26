@@ -72,11 +72,11 @@ export function RequestPane({
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
-      borderColor={focused ? theme.secondary : theme.borderSubtle}
+      borderColor={focused ? theme.primary : theme.borderSubtle}
+      title={focused ? `${title} [e] edit  [Tab] next` : title}
+      titleColor={focused ? theme.primary : theme.textMuted}
+      titleAlignment="left"
     >
-      <text fg={focused ? theme.secondary : theme.textMuted}>
-        {focused ? `${title} [e] edit  [Tab] next` : title}
-      </text>
       {request ? (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>

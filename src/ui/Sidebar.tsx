@@ -48,10 +48,10 @@ export function Sidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
+      title="Requests"
+      titleColor={focused ? theme.primary : theme.textMuted}
+      titleAlignment="left"
     >
-      <text fg={focused ? theme.primary : theme.textMuted}>
-        {focused ? "Requests" : "Requests"}
-      </text>
       {loading ? (
         <text fg={theme.textMuted}>Loading...</text>
       ) : error ? (

@@ -57,15 +57,6 @@ export function ResponsePane({
     return () => clearInterval(id)
   }, [state.status])
 
-  function responseBorderColor(): string {
-    if (state.status === "idle" || state.status === "sending") return theme.info
-    if (state.status === "error") return theme.error
-    const s = state.response.status
-    if (s >= 200 && s <= 299) return theme.success
-    if (s >= 300 && s <= 399) return theme.warning
-    return theme.error
-  }
-
   function responseLeftBarColor(): string {
     if (state.status === "error") return theme.error
     if (state.status === "done") {
@@ -77,7 +68,7 @@ export function ResponsePane({
     return theme.borderSubtle
   }
 
-  const borderColor = focused ? responseBorderColor() : theme.borderSubtle
+  const borderColor = focused ? theme.primary : theme.borderSubtle
 
   return (
     <box
@@ -93,10 +84,10 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
+      title={focused ? "Response [Tab] tabs  [↑↓] scroll" : "Response"}
+      titleColor={focused ? theme.primary : theme.textMuted}
+      titleAlignment="left"
     >
-      <text fg={focused ? responseBorderColor() : theme.textMuted}>
-        {focused ? "Response [Tab] tabs  [↑↓] scroll" : "Response"}
-      </text>
       {state.status === "idle" ? (
         <text fg={theme.textMuted}>Press [s] to send</text>
       ) : state.status === "sending" ? (
