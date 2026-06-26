@@ -17,11 +17,12 @@ export function Tabs({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", flexGrow: 1, gap: 0 }}>
+    <box style={{ flexDirection: "column", flexGrow: 1, gap: 0, minHeight: 0 }}>
       <box
         style={{
           flexDirection: "row",
           gap: 0,
+          flexShrink: 0,
           backgroundColor: theme.backgroundPanel,
         }}
       >

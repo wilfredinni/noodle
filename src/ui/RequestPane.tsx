@@ -84,7 +84,11 @@ export function RequestPane({
       {request ? (
         <>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            <scrollbox ref={scrollRef} scrollY style={{ flexGrow: 1 }}>
+            <scrollbox
+              ref={scrollRef}
+              scrollY
+              style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+            >
               {activeTab === "headers" && (
                 <HeadersSection
                   request={request}

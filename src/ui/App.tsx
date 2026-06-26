@@ -77,7 +77,7 @@ function AppInner({
 
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
-    () => true,
+    () => focus === "sidebar",
   )
 
   const draft = useRequestDraft(selectedRequest)
