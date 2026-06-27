@@ -84,6 +84,7 @@ export function Sidebar({
                 id={`req-${i}`}
                 style={{
                   flexDirection: "row",
+                  justifyContent: "space-between",
                   backgroundColor: isSelected
                     ? theme.backgroundElement
                     : undefined,
@@ -92,13 +93,15 @@ export function Sidebar({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
               >
-                {isDirty && <text fg={theme.warning}>• </text>}
-                <text fg={methodColor(r.method, theme)}>
-                  {shortMethod(r.method).padEnd(7)}
-                </text>
-                <text fg={theme.text} wrapMode="none">
-                  {truncName(r.name, 20)}
-                </text>
+                <box style={{ flexDirection: "row" }}>
+                  <text fg={methodColor(r.method, theme)}>
+                    {shortMethod(r.method).padEnd(7)}
+                  </text>
+                  <text fg={theme.text} wrapMode="none">
+                    {truncName(r.name, 20)}
+                  </text>
+                </box>
+                {isDirty && <text fg={theme.warning}>•</text>}
               </box>
             )
           })}
