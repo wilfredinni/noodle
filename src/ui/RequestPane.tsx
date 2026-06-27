@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react"
 import type { Request } from "../schema"
 import { formatBody, formatAuth } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
-import type { UseRequestDraftResult } from "./useRequestDraft"
+
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import type { Theme } from "./theme"
@@ -18,7 +18,6 @@ interface Props {
   editValue: string
   setEditKey: (v: string) => void
   setEditValue: (v: string) => void
-  draft: UseRequestDraftResult
   focused?: boolean
   activeTab: FieldKind
 }
@@ -37,12 +36,11 @@ export function RequestPane({
   editValue,
   setEditKey,
   setEditValue,
-  draft,
   focused = false,
   activeTab,
 }: Props) {
   const theme = useTheme()
-  const title = `Request${draft.isDirty ? "*" : ""}`
+  const title = "Request"
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)

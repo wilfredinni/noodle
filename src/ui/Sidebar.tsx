@@ -21,6 +21,7 @@ export function Sidebar({
   selectedIndex,
   focused = false,
   keybinds,
+  dirtyRequestIds,
 }: {
   collection: Collection | null
   loading: boolean
@@ -28,6 +29,7 @@ export function Sidebar({
   selectedIndex: number
   focused?: boolean
   keybinds?: Keybinds
+  dirtyRequestIds?: Set<string>
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -75,6 +77,7 @@ export function Sidebar({
         >
           {collection.requests.map((r, i) => {
             const isSelected = i === selectedIndex
+            const isDirty = dirtyRequestIds?.has(r.id)
             return (
               <box
                 key={r.id}
@@ -89,6 +92,7 @@ export function Sidebar({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
               >
+                {isDirty && <text fg={theme.primary}>● </text>}
                 <text fg={methodColor(r.method, theme)}>
                   {shortMethod(r.method).padEnd(7)}
                 </text>

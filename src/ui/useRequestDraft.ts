@@ -231,6 +231,7 @@ export type { Method, Request }
 export interface UseRequestDraftResult {
   draft: Request | null
   isDirty: boolean
+  dirtyRequestIds: Set<string>
   setUrl: (url: string) => void
   setBody: (body: string) => void
   setHeaderRow: (index: number, key: string, value: string) => void
@@ -347,10 +348,23 @@ export function useRequestDraft(
       )
     : false
 
+  const dirtyRequestIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const [id, draft] of map) {
+      const original = originalMap.get(id)
+      if (!original) continue
+      if (!requestEquals(draft, original)) {
+        ids.add(id)
+      }
+    }
+    return ids
+  }, [map, originalMap])
+
   return useMemo(
     () => ({
       draft,
       isDirty,
+      dirtyRequestIds,
       setUrl,
       setBody,
       setHeaderRow,
@@ -368,6 +382,7 @@ export function useRequestDraft(
     [
       draft,
       isDirty,
+      dirtyRequestIds,
       setUrl,
       setBody,
       setHeaderRow,

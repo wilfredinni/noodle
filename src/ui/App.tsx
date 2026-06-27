@@ -513,6 +513,7 @@ function AppInner({
             selectedIndex={selectedIndex}
             focused={focus === "sidebar"}
             keybinds={keybinds}
+            dirtyRequestIds={draft.dirtyRequestIds}
           />
           <box
             style={{
@@ -545,7 +546,6 @@ function AppInner({
                   editValue={eb.editValue}
                   setEditKey={eb.setEditKey}
                   setEditValue={eb.setEditValue}
-                  draft={draft}
                   focused={focus === "request"}
                   activeTab={eb.activeTab}
                 />
@@ -563,7 +563,6 @@ function AppInner({
                   editValue={eb.editValue}
                   setEditKey={eb.setEditKey}
                   setEditValue={eb.setEditValue}
-                  draft={draft}
                   focused={focus === "request"}
                   activeTab={eb.activeTab}
                 />
