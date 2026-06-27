@@ -16,12 +16,15 @@ export function useEnvironments(
   dir: string,
   envList: string[],
   initialName?: string,
-  lastEnv?: string | null,
+  settingsEnv?: string,
   onEnvChange?: (name: string | null) => void,
 ): UseEnvironmentsResult {
   const [activeIndex, setActiveIndex] = useState<number>(() => {
+    // Priority: CLI --env > settings.yml environment > first env in list
     if (initialName !== undefined) return envList.indexOf(initialName)
-    if (lastEnv !== undefined && lastEnv !== null) return envList.indexOf(lastEnv)
+    if (settingsEnv !== undefined && envList.includes(settingsEnv))
+      return envList.indexOf(settingsEnv)
+    if (envList.length > 0) return 0
     return -1
   })
   const [activeEnv, setActiveEnv] = useState<Environment | null>(null)
@@ -30,9 +33,14 @@ export function useEnvironments(
 
   // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {
-    const target = initialName ?? lastEnv ?? undefined
+    const target =
+      initialName ??
+      (settingsEnv !== undefined && envList.includes(settingsEnv)
+        ? settingsEnv
+        : envList.length > 0
+          ? envList[0]
+          : undefined)
     if (target === undefined) return
-    if (!envList.includes(target)) return
     let cancelled = false
     env
       .loadEnvironment(dir, target)
