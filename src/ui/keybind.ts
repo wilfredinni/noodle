@@ -15,20 +15,20 @@ function keybind(
 }
 
 export const Definitions = {
-  request_send: keybind("s", "Send request"),
-  request_save: keybind("w", "Save request to disk"),
-  env_prev: keybind("[", "Previous environment"),
-  env_next: keybind("]", "Next environment"),
-  help_toggle: keybind("?", "Toggle help overlay"),
-  theme_picker: keybind("t", "Open theme picker"),
-  browse_delete: keybind("d", "Revert field"),
-  browse_revert_all: keybind("R", "Revert all fields"),
-  browse_toggle: keybind("x", "Toggle header/param"),
+  request_send: keybind("ctrl+return", "Send request"),
+  request_save: keybind("ctrl+s", "Save request to disk"),
+  env_prev: keybind("ctrl+[", "Previous environment"),
+  env_next: keybind("ctrl+]", "Next environment"),
+  help_toggle: keybind("f1", "Toggle help overlay"),
+  theme_picker: keybind("ctrl+t", "Open theme picker"),
+  browse_delete: keybind("ctrl+d", "Revert field"),
+  browse_revert_all: keybind("ctrl+r", "Revert all fields"),
+  browse_toggle: keybind("ctrl+x", "Toggle header/param"),
 
   focus_next: keybind("tab", "Next pane", true),
   focus_prev: keybind("shift+tab", "Previous pane", true),
-  layout_toggle: keybind("l", "Toggle layout (stacked/side-by-side)"),
-  request_edit_yaml: keybind("e", "Edit request YAML (sidebar)"),
+  layout_toggle: keybind("ctrl+l", "Toggle layout (stacked/side-by-side)"),
+  request_edit_yaml: keybind("ctrl+e", "Edit request YAML"),
   request_edit: keybind("return", "Enter edit-browse (request pane)", true),
   browse_up: keybind("up", "Cursor up (browse)", true),
   browse_down: keybind("down", "Cursor down (browse)", true),
@@ -98,4 +98,8 @@ export function bindingDefaults(): Keybinds {
     result[name] = def.default
   }
   return result as Keybinds
+}
+
+export function displayKey(key: string): string {
+  return key.replace(/^ctrl\+/, "^")
 }

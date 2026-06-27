@@ -100,11 +100,6 @@ export function Sidebar({
           })}
         </scrollbox>
       )}
-      {focused && keybinds && (
-        <text fg={theme.textMuted}>
-          [{keybinds.request_edit_yaml}] edit yaml
-        </text>
-      )}
     </box>
   )
 }

@@ -59,6 +59,8 @@ function AppInner({
   const theme = useTheme()
   const keymap = useKeymap()
   const [focus, setFocus] = useState<Focus>("sidebar")
+  const focusRef = useRef(focus)
+  focusRef.current = focus
   const [helpVisible, setHelpVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
@@ -70,7 +72,8 @@ function AppInner({
     visible: boolean
     filePath: string
     requestName: string
-  }>({ visible: false, filePath: "", requestName: "" })
+    returnFocus: Focus
+  }>({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
 
   const { collection, loading, error } = useCollection(
     collectionDir,
@@ -131,13 +134,16 @@ function AppInner({
     lastEnv,
     onEnvChange,
   )
-  const { state: responseState, trySend } = useResponse(
+  const { state: responseState, trySend, cancelSend } = useResponse(
     draft.draft,
     envState.activeEnv,
   )
 
   const trySendRef = useRef(trySend)
   trySendRef.current = trySend
+
+  const cancelSendRef = useRef(cancelSend)
+  cancelSendRef.current = cancelSend
 
   const envStateRef = useRef(envState)
   envStateRef.current = envState
@@ -218,6 +224,9 @@ function AppInner({
     clearSaveTimer,
   ])
 
+  const doSaveRef = useRef(doSave)
+  doSaveRef.current = doSave
+
   // ── Keymap: Always-On Layer ───────────────────────────────────────
   useBindings(() => ({
     commands: [
@@ -264,11 +273,26 @@ function AppInner({
             return next
           }),
       },
+      {
+        name: "app.help",
+        run: () => setHelpVisible((prev) => !prev),
+      },
+      {
+        name: "request.edit-yaml",
+        run: () => {
+          const req = collectionRef.current?.requests[selectedIndexRef.current]
+          if (!req || !collectionDir) return
+          const filePath = join(collectionDir, `${req.id}.yml`)
+          setYamlEditor({ visible: true, filePath, requestName: req.name, returnFocus: focusRef.current })
+        },
+      },
     ],
     bindings: [
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
-      { key: "l", cmd: "layout.toggle" },
+      { key: keybinds.layout_toggle, cmd: "layout.toggle" },
+      { key: keybinds.help_toggle, cmd: "app.help" },
+      { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
     ],
   }))
 
@@ -280,7 +304,6 @@ function AppInner({
     commands: [
       {
         name: "request.send",
-        enabled: () => keymap.getData("app.focus") !== "urlbar",
         run: () => trySendRef.current?.(),
       },
       {
@@ -288,12 +311,7 @@ function AppInner({
         run: () => {
           const d = draftRef.current
           if (!savingRef.current && d.draft && d.isDirty) {
-            clearSaveTimer()
-            setConfirmSelection(0)
-            setSaveState({
-              kind: "confirming",
-              requestId: d.draft.id,
-            })
+            doSaveRef.current()
           }
         },
       },
@@ -304,13 +322,6 @@ function AppInner({
       {
         name: "env.next",
         run: () => envStateRef.current.cycle(1),
-      },
-      {
-        name: "app.help",
-        run: () => {
-          if (ebRef.current.editState.mode !== "inactive") return
-          setHelpVisible((prev) => !prev)
-        },
       },
       {
         name: "app.theme",
@@ -334,28 +345,16 @@ function AppInner({
         enabled: () => keymap.getData("app.focus") === "request",
         run: () => ebRef.current.cycleInactiveTab(1),
       },
-      {
-        name: "request.edit-yaml",
-        enabled: () => keymap.getData("app.focus") === "sidebar",
-        run: () => {
-          const req = collectionRef.current?.requests[selectedIndexRef.current]
-          if (!req || !collectionDir) return
-          const filePath = join(collectionDir, `${req.id}.yml`)
-          setYamlEditor({ visible: true, filePath, requestName: req.name })
-        },
-      },
     ],
     bindings: [
-      { key: "s", cmd: "request.send" },
-      { key: "w", cmd: "request.save" },
-      { key: "[", cmd: "env.prev" },
-      { key: "]", cmd: "env.next" },
-      { key: "?", cmd: "app.help" },
-      { key: "t", cmd: "app.theme" },
+      { key: keybinds.request_send, cmd: "request.send" },
+      { key: keybinds.request_save, cmd: "request.save" },
+      { key: keybinds.env_prev, cmd: "env.prev" },
+      { key: keybinds.env_next, cmd: "env.next" },
+      { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },
-      { key: "e", cmd: "request.edit-yaml" },
     ],
   }))
 
@@ -384,12 +383,7 @@ function AppInner({
         run: () => {
           const d = draftRef.current
           if (!savingRef.current && d.draft && d.isDirty) {
-            clearSaveTimer()
-            setConfirmSelection(0)
-            setSaveState({
-              kind: "confirming",
-              requestId: d.draft.id,
-            })
+            doSaveRef.current()
           }
         },
       },
@@ -401,11 +395,11 @@ function AppInner({
       { key: "right", cmd: "browse.right" },
       { key: "return", cmd: "browse.enter" },
       { key: "escape", cmd: "browse.escape" },
-      { key: "d", cmd: "browse.delete" },
-      { key: "R", cmd: "browse.revert-all" },
-      { key: "x", cmd: "browse.toggle" },
-      { key: "s", cmd: "browse.send" },
-      { key: "w", cmd: "browse.save" },
+      { key: keybinds.browse_delete, cmd: "browse.delete" },
+      { key: keybinds.browse_revert_all, cmd: "browse.revert-all" },
+      { key: keybinds.browse_toggle, cmd: "browse.toggle" },
+      { key: keybinds.request_send, cmd: "browse.send" },
+      { key: keybinds.request_save, cmd: "browse.save" },
     ],
   }))
 
@@ -423,6 +417,20 @@ function AppInner({
       { key: "tab", cmd: "edit.tab" },
     ],
   }))
+
+  // ── Cancel send on ESC ──────────────────────────────────────────────
+  useEffect(() => {
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name === "escape" && ctx.event.eventType === "press") {
+          cancelSendRef.current()
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [keymap])
 
   // ── Overlay: Save Confirm ──────────────────────────────────────────
   useEffect(() => {
@@ -590,8 +598,8 @@ function AppInner({
             requestName={yamlEditor.requestName}
             onSaved={() => {
               setCollectionReloadToken((n) => n + 1)
-              setYamlEditor({ visible: false, filePath: "", requestName: "" })
-              setFocus("sidebar")
+              setYamlEditor({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+              setFocus(yamlEditor.returnFocus)
               setSaveState({
                 kind: "success",
                 message: `Saved ${yamlEditor.filePath.split("/").pop() ?? ""}`,
@@ -602,8 +610,8 @@ function AppInner({
               }, SAVE_SUCCESS_MS)
             }}
             onClose={() => {
-              setYamlEditor({ visible: false, filePath: "", requestName: "" })
-              setFocus("sidebar")
+              setYamlEditor({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+              setFocus(yamlEditor.returnFocus)
             }}
           />
         )}

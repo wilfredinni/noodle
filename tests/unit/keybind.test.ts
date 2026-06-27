@@ -10,16 +10,17 @@ import type { KeybindName } from "../../src/ui/keybind"
 describe("parseOverrides", () => {
   it("returns defaults when overrides is empty", () => {
     const result = parseOverrides({})
-    expect(result.request_send).toBe("s")
-    expect(result.request_save).toBe("w")
-    expect(result.help_toggle).toBe("?")
+    expect(result.request_send).toBe("ctrl+return")
+    expect(result.request_save).toBe("ctrl+s")
+    expect(result.help_toggle).toBe("f1")
+    expect(result.theme_picker).toBe("ctrl+t")
   })
 
   it("applies custom keys for configurable bindings", () => {
     const result = parseOverrides({ request_send: "ctrl+s", help_toggle: "f1" })
     expect(result.request_send).toBe("ctrl+s")
     expect(result.help_toggle).toBe("f1")
-    expect(result.request_save).toBe("w")
+    expect(result.request_save).toBe("ctrl+s")
   })
 
   it("ignores fixed key overrides (uses default)", () => {
@@ -51,9 +52,9 @@ describe("bindingDefaults", () => {
     }
   })
 
-  it("includes layout_toggle with default key l", () => {
+  it("includes layout_toggle with default key ctrl+l", () => {
     const defaults = bindingDefaults()
-    expect(defaults.layout_toggle).toBe("l")
+    expect(defaults.layout_toggle).toBe("ctrl+l")
   })
 })
 

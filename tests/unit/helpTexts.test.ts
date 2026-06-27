@@ -43,40 +43,41 @@ describe("getHelpSections", () => {
     expect(keys).toContain("shift+tab")
   })
 
-  it("EDITING section shows return, escape, d, R", () => {
+  it("EDITING section shows return, escape, ^d, ^x, ^r, ^e", () => {
     const sections = getHelpSections(defaults)
     const edit = sections.find((s) => s.title === "Editing")!
     const keys = edit.keys.map((k) => k.key)
     expect(keys).toContain("return")
     expect(keys).toContain("escape")
-    expect(keys).toContain("d")
-    expect(keys).toContain("R")
+    expect(keys).toContain("^d")
+    expect(keys).toContain("^x")
+    expect(keys).toContain("^r")
+    expect(keys).toContain("^e")
   })
 
-  it("ACTIONS section shows s, w, [, ], l", () => {
+  it("ACTIONS section shows ^return, ^s, ^[, ^l, ^]", () => {
     const sections = getHelpSections(defaults)
     const act = sections.find((s) => s.title === "Actions")!
     const keys = act.keys.map((k) => k.key)
-    expect(keys).toContain("s")
-    expect(keys).toContain("w")
-    expect(keys).toContain("[")
-    expect(keys).toContain("]")
-    expect(keys).toContain("l")
+    expect(keys).toContain("^return")
+    expect(keys).toContain("^s")
+    expect(keys).toContain("^[")
+    expect(keys).toContain("^l")
+    expect(keys).toContain("^]")
   })
 
-  it("SYSTEM section contains ^c and ?", () => {
+  it("SYSTEM section contains ^c and f1", () => {
     const sections = getHelpSections(defaults)
     const sys = sections.find((s) => s.title === "System")!
     const keys = sys.keys.map((k) => k.key)
     expect(keys).toContain("^c")
-    expect(keys).toContain("?")
+    expect(keys).toContain("f1")
   })
 
-  it("NAVIGATION section contains e for YAML edit", () => {
+  it("NAVIGATION section contains return for edit-enter", () => {
     const sections = getHelpSections(defaults)
     const nav = sections.find((s) => s.title === "Navigation")!
     const keys = nav.keys.map((k) => k.key)
-    expect(keys).toContain("e")
     expect(keys).toContain("return")
   })
 
@@ -85,7 +86,7 @@ describe("getHelpSections", () => {
     const sections = getHelpSections(custom)
     const act = sections.find((s) => s.title === "Actions")!
     const keys = act.keys.map((k) => k.key)
-    expect(keys).toContain("ctrl+s")
+    expect(keys).toContain("^s")
 
     const sys = sections.find((s) => s.title === "System")!
     const sysKeys = sys.keys.map((k) => k.key)

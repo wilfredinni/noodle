@@ -1,4 +1,5 @@
 import type { Keybinds } from "./keybind"
+import { displayKey } from "./keybind"
 
 export interface HelpKey {
   key: string
@@ -23,15 +24,15 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: keybinds.request_edit,
           description: "Enter request edit-browse · request pane",
         },
-        {
-          key: keybinds.request_edit_yaml,
-          description: "Edit request YAML (sidebar)",
-        },
       ],
     },
     {
       title: "Editing",
       keys: [
+        {
+          key: displayKey(keybinds.request_edit_yaml),
+          description: "Edit request YAML",
+        },
         {
           key: keybinds.browse_enter,
           description: "Edit focused field · request browse",
@@ -41,13 +42,13 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: keybinds.browse_escape,
           description: "Cancel edit / exit browse",
         },
-        { key: keybinds.browse_delete, description: "Revert field" },
+        { key: displayKey(keybinds.browse_delete), description: "Revert field" },
         {
-          key: keybinds.browse_toggle,
+          key: displayKey(keybinds.browse_toggle),
           description: "Toggle header/param enabled",
         },
         {
-          key: keybinds.browse_revert_all,
+          key: displayKey(keybinds.browse_revert_all),
           description: "Revert all fields",
         },
       ],
@@ -55,11 +56,11 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
     {
       title: "Actions",
       keys: [
-        { key: keybinds.request_send, description: "Send request" },
-        { key: keybinds.request_save, description: "Save to disk" },
-        { key: keybinds.layout_toggle, description: "Toggle layout" },
-        { key: "[", description: "Previous environment" },
-        { key: "]", description: "Next environment" },
+        { key: displayKey(keybinds.request_send), description: "Send request" },
+        { key: displayKey(keybinds.request_save), description: "Save to disk" },
+        { key: displayKey(keybinds.layout_toggle), description: "Toggle layout" },
+        { key: displayKey(keybinds.env_prev), description: "Previous environment" },
+        { key: displayKey(keybinds.env_next), description: "Next environment" },
       ],
     },
     {
@@ -67,6 +68,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       keys: [
         { key: "^c", description: "Quit" },
         { key: keybinds.help_toggle, description: "Toggle help" },
+        { key: displayKey(keybinds.theme_picker), description: "Open theme picker" },
       ],
     },
   ]
