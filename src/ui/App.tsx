@@ -97,7 +97,7 @@ function AppInner({
 
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
-    () => focus === "sidebar",
+    () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
   )
 
   const draft = useRequestDraft(selectedRequest)
