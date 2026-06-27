@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
-import { filestore } from "../src/filestore"
+import { filestore, loadSettings, saveSettings } from "../src/filestore"
 import type { Request } from "../src/schema"
 
 let dir: string
@@ -86,6 +86,13 @@ describe("filestore.loadCollection — file selection and order", () => {
     await mkdir(join(dir, "sub.yml"))
     const col = await filestore.loadCollection(dir)
     expect(col.requests.map((r) => r.id)).toEqual(["real"])
+  })
+
+  it("skips settings.yml (not a request)", async () => {
+    await writeFile(join(dir, "get.yml"), yamlTmpl(makeReq({ name: "Get" })))
+    await writeFile(join(dir, "settings.yml"), "environment: dev\n")
+    const col = await filestore.loadCollection(dir)
+    expect(col.requests.map((r) => r.id)).toEqual(["get"])
   })
 
   it("wraps lang parse failures with filename and lang message", async () => {
@@ -241,5 +248,81 @@ describe("filestore — integration round-trip", () => {
     expect(after.id).toBe("lazy")
     expect(after.name).toBe("lazy")
     expect(after.requests.map((r) => r.id)).toEqual(["a", "z"])
+  })
+})
+
+describe("filestore.loadSettings", () => {
+  it("returns empty object when settings.yml does not exist", async () => {
+    const result = await loadSettings(dir)
+    expect(result).toEqual({})
+  })
+
+  it("reads environment from settings.yml", async () => {
+    await writeFile(join(dir, "settings.yml"), "environment: staging\n", "utf8")
+    const result = await loadSettings(dir)
+    expect(result).toEqual({ environment: "staging" })
+  })
+
+  it("returns empty for invalid YAML in settings.yml", async () => {
+    await writeFile(join(dir, "settings.yml"), "{ broken: : : ", "utf8")
+    const result = await loadSettings(dir)
+    expect(result).toEqual({})
+  })
+
+  it("returns empty for empty settings.yml", async () => {
+    await writeFile(join(dir, "settings.yml"), "", "utf8")
+    const result = await loadSettings(dir)
+    expect(result).toEqual({})
+  })
+
+  it("returns empty when environment key is not a string", async () => {
+    await writeFile(join(dir, "settings.yml"), "environment: 42\n", "utf8")
+    const result = await loadSettings(dir)
+    expect(result).toEqual({})
+  })
+
+  it("ignores unknown keys in settings.yml", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "environment: dev\nunknown_key: foo\n",
+      "utf8",
+    )
+    const result = await loadSettings(dir)
+    expect(result).toEqual({ environment: "dev" })
+  })
+})
+
+describe("filestore.saveSettings", () => {
+  it("writes environment to settings.yml", async () => {
+    await saveSettings(dir, { environment: "production" })
+    const content = await readFile(join(dir, "settings.yml"), "utf8")
+    expect(content).toContain("environment: production")
+  })
+
+  it("round-trips saveSettings -> loadSettings", async () => {
+    await saveSettings(dir, { environment: "staging" })
+    const result = await loadSettings(dir)
+    expect(result).toEqual({ environment: "staging" })
+  })
+
+  it("writes minimal file when environment is undefined", async () => {
+    await saveSettings(dir, {})
+    const content = await readFile(join(dir, "settings.yml"), "utf8")
+    expect(content).toBe("{}\n")
+  })
+
+  it("creates directory if missing", async () => {
+    const target = join(dir, "nested", "path")
+    await saveSettings(target, { environment: "dev" })
+    const content = await readFile(join(target, "settings.yml"), "utf8")
+    expect(content).toContain("environment: dev")
+  })
+
+  it("overwrites existing settings.yml", async () => {
+    await writeFile(join(dir, "settings.yml"), "environment: old\n", "utf8")
+    await saveSettings(dir, { environment: "new" })
+    const content = await readFile(join(dir, "settings.yml"), "utf8")
+    expect(content).toContain("environment: new")
+    expect(content).not.toContain("old")
   })
 })
