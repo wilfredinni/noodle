@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { join } from "node:path"
 import { useKeymap, useBindings } from "@opentui/keymap/react"
 import { Sidebar } from "./Sidebar"
 import { UrlBar } from "./UrlBar"
@@ -146,6 +147,12 @@ function AppInner({
 
   const ebRef = useRef(eb)
   ebRef.current = eb
+
+  const collectionRef = useRef(collection)
+  collectionRef.current = collection
+
+  const selectedIndexRef = useRef(selectedIndex)
+  selectedIndexRef.current = selectedIndex
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
@@ -328,9 +335,10 @@ function AppInner({
         name: "request.edit-yaml",
         enabled: () => keymap.getData("app.focus") === "sidebar",
         run: () => {
-          const req = collection?.requests[selectedIndex]
+          const req =
+            collectionRef.current?.requests[selectedIndexRef.current]
           if (!req || !collectionDir) return
-          const filePath = `${collectionDir}/${req.id}.yml`
+          const filePath = join(collectionDir, `${req.id}.yml`)
           setYamlEditor({ visible: true, filePath, requestName: req.name })
         },
       },
