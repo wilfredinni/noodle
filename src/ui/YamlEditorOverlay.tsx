@@ -133,8 +133,8 @@ export function YamlEditorOverlay({
           height: "80%",
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
-          padding: 1,
-          gap: 0,
+          padding: 2,
+          gap: 1,
           overflow: "hidden",
         }}
       >
@@ -144,6 +144,7 @@ export function YamlEditorOverlay({
             justifyContent: "space-between",
             flexShrink: 0,
             paddingBottom: 1,
+            paddingX: 2,
           }}
         >
           <text fg={theme.primary}>Edit: {requestName}.yml</text>
@@ -160,6 +161,7 @@ export function YamlEditorOverlay({
             <text fg={theme.error}>Error: {readError}</text>
           </box>
         ) : content !== null ? (
+          <box style={{ height: "100%", minHeight: 0, paddingLeft: 1, paddingRight: 1, flexGrow: 1 }}>
           <line-number
             ref={lineNumberRef}
             minWidth={3}
@@ -180,6 +182,7 @@ export function YamlEditorOverlay({
               focused
             />
           </line-number>
+          </box>
         ) : (
           <text fg={theme.textMuted}>Loading...</text>
         )}
@@ -189,18 +192,16 @@ export function YamlEditorOverlay({
         style={{
           width: 70,
           flexDirection: "row",
-          justifyContent: "space-between",
           flexShrink: 0,
           backgroundColor: theme.backgroundPanel,
-          paddingLeft: 1,
-          paddingRight: 1,
-          paddingBottom: 1,
+          padding: 2,
         }}
       >
         <box
           style={{
             flexDirection: "row",
             justifyContent: "flex-end",
+            paddingX: 2,
             flexGrow: 1,
             gap: 1,
           }}
