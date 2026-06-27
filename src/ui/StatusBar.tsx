@@ -114,13 +114,6 @@ export function StatusBar(input: {
   const sections = statusBarText(input)
   const sendStatus = input.sendState.status
 
-  let leftColor = theme.textMuted
-  if (sendStatus === "error") {
-    leftColor = theme.error
-  } else if (sendStatus === "sending") {
-    leftColor = theme.info
-  }
-
   const sk = input.saveState.kind
 
   const rightSegments = sections.right.split(" · ").map((seg) => {
@@ -165,8 +158,6 @@ export function StatusBar(input: {
           <Badge bg={theme.primary} fg={theme.background}>
             {saveFlash}
           </Badge>
-        ) : sendStatus === "sending" ? (
-          <text fg={leftColor}>{sections.left}</text>
         ) : sendStatus === "error" ? (
           <Badge bg={theme.error} fg={theme.background}>
             ✗ {input.sendState.error.message}
