@@ -85,16 +85,25 @@ describe("Tabs", () => {
     const frame = captureSpans()
     const allSpans = frame.lines.flatMap((l) => l.spans)
 
+    const { THEMES } = await import("../../src/ui/theme")
+    const primaryRgba = RGBA.fromInts(
+      Number.parseInt(THEMES[0]!.primary.slice(1, 3), 16),
+      Number.parseInt(THEMES[0]!.primary.slice(3, 5), 16),
+      Number.parseInt(THEMES[0]!.primary.slice(5, 7), 16),
+    )
+    const mutedRgba = RGBA.fromInts(
+      Number.parseInt(THEMES[0]!.textMuted.slice(1, 3), 16),
+      Number.parseInt(THEMES[0]!.textMuted.slice(3, 5), 16),
+      Number.parseInt(THEMES[0]!.textMuted.slice(5, 7), 16),
+    )
+
     const activeSpan = allSpans.find((s) => s.text.includes("Tab A"))
     expect(activeSpan).toBeDefined()
-    // active tab text should be primary color (opencode: #fab283)
-    expect(activeSpan!.fg.equals(RGBA.fromInts(250, 178, 131))).toBe(true)
-    // active tab should NOT have primary-colored background
-    expect(activeSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
+    expect(activeSpan!.fg.equals(primaryRgba)).toBe(true)
+    expect(activeSpan!.bg.equals(primaryRgba)).toBe(false)
 
     const inactiveSpan = allSpans.find((s) => s.text.includes("Tab B"))
     expect(inactiveSpan).toBeDefined()
-    // inactive tab should be muted
-    expect(inactiveSpan!.fg.equals(RGBA.fromInts(128, 128, 128))).toBe(true)
+    expect(inactiveSpan!.fg.equals(mutedRgba)).toBe(true)
   })
 })

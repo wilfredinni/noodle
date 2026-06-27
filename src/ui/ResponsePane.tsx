@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
-import { formatStatusLine, formatHeaders, formatBody } from "./format"
+import { formatHeaders, formatBody } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
@@ -75,12 +75,6 @@ export function ResponsePane({
       title="Response"
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
-      bottomTitle={
-        state.status === "done"
-          ? ` ${formatStatusLine(state.response)} `
-          : undefined
-      }
-      bottomTitleAlignment="right"
     >
       {state.status === "idle" ? (
         <box
@@ -90,7 +84,7 @@ export function ResponsePane({
             justifyContent: "center",
           }}
         >
-          <ascii-font text="noodle" font="tiny" color="#383838" />
+          <ascii-font text="noodle" font="tiny" color={theme.borderSubtle} />
         </box>
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
@@ -119,9 +113,7 @@ export function ResponsePane({
                 (() => {
                   const body = formatBody(state.response)
                   if (body === "") return null
-                  return (
-                    <JsonBodyViewer body={body} theme={theme} />
-                  )
+                  return <JsonBodyViewer body={body} theme={theme} />
                 })()
               ) : (
                 <>

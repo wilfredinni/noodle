@@ -12,10 +12,10 @@ describe("getHelpSections", () => {
 
   it("section titles are NAVIGATION, EDITING, ACTIONS, SYSTEM", () => {
     const sections = getHelpSections(defaults)
-    expect(sections[0]!.title).toBe("NAVIGATION")
-    expect(sections[1]!.title).toBe("EDITING")
-    expect(sections[2]!.title).toBe("ACTIONS")
-    expect(sections[3]!.title).toBe("SYSTEM")
+    expect(sections[0]!.title).toBe("Navigation")
+    expect(sections[1]!.title).toBe("Editing")
+    expect(sections[2]!.title).toBe("Actions")
+    expect(sections[3]!.title).toBe("System")
   })
 
   it("each section has at least 1 key entry", () => {
@@ -35,60 +35,60 @@ describe("getHelpSections", () => {
     }
   })
 
-  it("NAVIGATION section shows Tab and Shift+Tab", () => {
+  it("NAVIGATION section shows tab and shift+tab", () => {
     const sections = getHelpSections(defaults)
-    const nav = sections.find((s) => s.title === "NAVIGATION")!
+    const nav = sections.find((s) => s.title === "Navigation")!
     const keys = nav.keys.map((k) => k.key)
-    expect(keys).toContain("[tab]")
-    expect(keys).toContain("[shift+tab]")
+    expect(keys).toContain("tab")
+    expect(keys).toContain("shift+tab")
   })
 
-  it("EDITING section shows enter, escape, d, R", () => {
+  it("EDITING section shows return, escape, d, R", () => {
     const sections = getHelpSections(defaults)
-    const edit = sections.find((s) => s.title === "EDITING")!
+    const edit = sections.find((s) => s.title === "Editing")!
     const keys = edit.keys.map((k) => k.key)
-    expect(keys).toContain("[return]")
-    expect(keys).toContain("[escape]")
-    expect(keys).toContain("[d]")
-    expect(keys).toContain("[R]")
+    expect(keys).toContain("return")
+    expect(keys).toContain("escape")
+    expect(keys).toContain("d")
+    expect(keys).toContain("R")
   })
 
-  it("ACTIONS section shows s, w, [, ], layout", () => {
+  it("ACTIONS section shows s, w, [, ], l", () => {
     const sections = getHelpSections(defaults)
-    const act = sections.find((s) => s.title === "ACTIONS")!
+    const act = sections.find((s) => s.title === "Actions")!
     const keys = act.keys.map((k) => k.key)
-    expect(keys).toContain("[s]")
-    expect(keys).toContain("[w]")
-    expect(keys).toContain("[[ ]")
-    expect(keys).toContain("[] ]")
-    expect(keys).toContain("[l]")
+    expect(keys).toContain("s")
+    expect(keys).toContain("w")
+    expect(keys).toContain("[")
+    expect(keys).toContain("]")
+    expect(keys).toContain("l")
   })
 
-  it("SYSTEM section contains Ctrl+C and ?", () => {
+  it("SYSTEM section contains ^c and ?", () => {
     const sections = getHelpSections(defaults)
-    const sys = sections.find((s) => s.title === "SYSTEM")!
+    const sys = sections.find((s) => s.title === "System")!
     const keys = sys.keys.map((k) => k.key)
-    expect(keys).toContain("[Ctrl+C]")
-    expect(keys).toContain("[?]")
+    expect(keys).toContain("^c")
+    expect(keys).toContain("?")
   })
 
-  it("NAVIGATION section does not contain [e]", () => {
+  it("NAVIGATION section does not contain e", () => {
     const sections = getHelpSections(defaults)
-    const nav = sections.find((s) => s.title === "NAVIGATION")!
+    const nav = sections.find((s) => s.title === "Navigation")!
     const keys = nav.keys.map((k) => k.key)
-    expect(keys).not.toContain("[e]")
-    expect(keys).toContain("[return]")
+    expect(keys).not.toContain("e")
+    expect(keys).toContain("return")
   })
 
   it("reflects custom keybinds", () => {
     const custom = { ...defaults, request_send: "ctrl+s", help_toggle: "f1" }
     const sections = getHelpSections(custom)
-    const act = sections.find((s) => s.title === "ACTIONS")!
+    const act = sections.find((s) => s.title === "Actions")!
     const keys = act.keys.map((k) => k.key)
-    expect(keys).toContain("[ctrl+s]")
+    expect(keys).toContain("ctrl+s")
 
-    const sys = sections.find((s) => s.title === "SYSTEM")!
+    const sys = sections.find((s) => s.title === "System")!
     const sysKeys = sys.keys.map((k) => k.key)
-    expect(sysKeys).toContain("[f1]")
+    expect(sysKeys).toContain("f1")
   })
 })

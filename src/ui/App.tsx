@@ -16,15 +16,9 @@ import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
-import { THEMES } from "./theme"
 import { StatusBar } from "./StatusBar"
 import type { Keybinds } from "./keybind"
-
-type SaveState =
-  | { kind: "idle" }
-  | { kind: "confirming"; requestId: string }
-  | { kind: "success"; message: string }
-  | { kind: "error"; message: string }
+import type { SaveState } from "./saveState"
 
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
@@ -67,7 +61,9 @@ function AppInner({
 
   const [focus, setFocus] = useState<Focus>("sidebar")
   const [helpVisible, setHelpVisible] = useState(false)
-  const [layout, setLayout] = useState<"stacked" | "side-by-side">(initialLayout)
+  const [layout, setLayout] = useState<"stacked" | "side-by-side">(
+    initialLayout,
+  )
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const [confirmSelection, setConfirmSelection] = useState(0)
 
@@ -115,7 +111,13 @@ function AppInner({
     }
   }, [focus, eb])
 
-  const envState = useEnvironments(environmentsDir, envList, initialEnvName, lastEnv, onEnvChange)
+  const envState = useEnvironments(
+    environmentsDir,
+    envList,
+    initialEnvName,
+    lastEnv,
+    onEnvChange,
+  )
   const { state: responseState, trySend } = useResponse(
     draft.draft,
     envState.activeEnv,
@@ -219,11 +221,12 @@ function AppInner({
       },
       {
         name: "layout.toggle",
-        run: () => setLayout((prev) => {
-          const next = prev === "stacked" ? "side-by-side" : "stacked"
-          onLayoutChange(next)
-          return next
-        }),
+        run: () =>
+          setLayout((prev) => {
+            const next = prev === "stacked" ? "side-by-side" : "stacked"
+            onLayoutChange(next)
+            return next
+          }),
       },
       {
         name: "focus.prev",
@@ -420,41 +423,6 @@ function AppInner({
     return dispose
   }, [saveState.kind, confirmSelection, doSave, keymap])
 
-  // ── Overlay: Theme Picker ──────────────────────────────────────────
-  useEffect(() => {
-    if (previewIndex === null) return
-    const dispose = keymap.intercept(
-      "key",
-      (ctx) => {
-        const name = ctx.event.name
-        if (name === "escape") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex(null)
-        } else if (name === "up") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex((previewIndex - 1 + THEMES.length) % THEMES.length)
-        } else if (name === "down") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex((previewIndex + 1) % THEMES.length)
-        } else if (name === "return") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          onThemeChange(previewIndex)
-          setPreviewIndex(null)
-        } else {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex(null)
-        }
-      },
-      { priority: 100 },
-    )
-    return dispose
-  }, [previewIndex, onThemeChange, setPreviewIndex, keymap])
-
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {
     if (!helpVisible) return
@@ -485,7 +453,9 @@ function AppInner({
         style={{
           flexDirection: "column",
           flexGrow: 1,
-          padding: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
           gap: 1,
           position: "relative",
         }}
@@ -517,7 +487,14 @@ function AppInner({
               sending={responseState.status === "sending"}
             />
             {layout === "side-by-side" ? (
-              <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
+              <box
+                style={{
+                  flexDirection: "row",
+                  flexGrow: 1,
+                  gap: 1,
+                  minHeight: 0,
+                }}
+              >
                 <RequestPane
                   request={draft.draft}
                   editState={eb.editState}
@@ -567,10 +544,20 @@ function AppInner({
           <ThemePickerOverlay
             activeIndex={activeIndex}
             previewIndex={previewIndex}
+            setPreviewIndex={setPreviewIndex}
+            onThemeChange={onThemeChange}
           />
         )}
       </box>
-      <StatusBar envLabel={envState.indicatorLabel} keybinds={keybinds} />
+      <StatusBar
+        method={draft.draft?.method ?? ""}
+        url={draft.draft?.url ?? ""}
+        isDirty={draft.isDirty}
+        sendState={responseState}
+        envLabel={envState.indicatorLabel}
+        saveState={saveState}
+        kb={keybinds}
+      />
     </box>
   )
 }
@@ -592,18 +579,27 @@ export function App({
   const [activeIndex, setActiveIndex] = useState(config.theme)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
-  const handleThemeChange = useCallback((index: number) => {
-    setActiveIndex(index)
-    updateConfig({ theme: index })
-  }, [updateConfig])
+  const handleThemeChange = useCallback(
+    (index: number) => {
+      setActiveIndex(index)
+      updateConfig({ theme: index })
+    },
+    [updateConfig],
+  )
 
-  const handleLayoutChange = useCallback((layout: "stacked" | "side-by-side") => {
-    updateConfig({ layout })
-  }, [updateConfig])
+  const handleLayoutChange = useCallback(
+    (layout: "stacked" | "side-by-side") => {
+      updateConfig({ layout })
+    },
+    [updateConfig],
+  )
 
-  const handleEnvChange = useCallback((name: string | null) => {
-    updateConfig({ lastEnv: name })
-  }, [updateConfig])
+  const handleEnvChange = useCallback(
+    (name: string | null) => {
+      updateConfig({ lastEnv: name })
+    },
+    [updateConfig],
+  )
 
   return (
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Badge } from "./Badge"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
@@ -45,7 +46,12 @@ export function UrlBar({
         <text fg={theme.text}>(no request selected)</text>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
-          <text fg={methodColor(method as Method, theme)}>{method}</text>
+          <Badge
+            bg={methodColor(method as Method, theme)}
+            fg={theme.background}
+          >
+            {method === "DELETE" ? "DEL" : method}
+          </Badge>
           {focused ? (
             <box style={{ flexGrow: 1 }}>
               <input
@@ -55,6 +61,7 @@ export function UrlBar({
                 focusedBackgroundColor={theme.borderSubtle}
                 textColor={theme.text}
                 cursorColor={theme.primary}
+                paddingX={1}
                 focused
               />
             </box>

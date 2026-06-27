@@ -2,17 +2,51 @@ import { describe, it, expect } from "bun:test"
 import { THEMES, contrastOnPrimary } from "../../src/ui/theme"
 
 describe("THEMES", () => {
-  it("has exactly 2 themes", () => {
-    expect(THEMES).toHaveLength(2)
+  it("has exactly 32 themes", () => {
+    expect(THEMES).toHaveLength(32)
   })
 
-  it("first theme is named opencode", () => {
-    expect(THEMES[0]!.name).toBe("opencode")
-  })
+  const expected = [
+    "aura",
+    "ayu",
+    "carbonfox",
+    "catppuccin",
+    "catppuccin-frappe",
+    "catppuccin-macchiato",
+    "cobalt2",
+    "cursor",
+    "dracula",
+    "everforest",
+    "flexoki",
+    "github",
+    "gruvbox",
+    "kanagawa",
+    "material",
+    "matrix",
+    "mercury",
+    "monokai",
+    "nightowl",
+    "nord",
+    "onedark",
+    "opencode",
+    "orng",
+    "osaka-jade",
+    "palenight",
+    "rosepine",
+    "solarized",
+    "synthwave84",
+    "tokyonight",
+    "vercel",
+    "vesper",
+    "zenburn",
+  ]
 
-  it("second theme is named catppuccin", () => {
-    expect(THEMES[1]!.name).toBe("catppuccin")
-  })
+  const nth = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth", "twenty-first", "twenty-second", "twenty-third", "twenty-fourth", "twenty-fifth", "twenty-sixth", "twenty-seventh", "twenty-eighth", "twenty-ninth", "thirtieth", "thirty-first", "thirty-second"]
+  for (let i = 0; i < expected.length; i++) {
+    it(`${nth[i]!} theme is named ${expected[i]}`, () => {
+      expect(THEMES[i]!.name).toBe(expected[i])
+    })
+  }
 
   it("every theme has all 16 required tokens", () => {
     const requiredKeys = [
@@ -60,13 +94,11 @@ describe("THEMES", () => {
 })
 
 describe("contrastOnPrimary", () => {
-  it("returns dark text for opencode primary", () => {
-    const result = contrastOnPrimary(THEMES[0]!)
-    expect(result).toBe("#1a1a1a")
-  })
-
-  it("returns dark text for catppuccin primary", () => {
-    const result = contrastOnPrimary(THEMES[1]!)
-    expect(result).toBe("#1a1a1a")
-  })
+  for (let i = 0; i < THEMES.length; i++) {
+    const theme = THEMES[i]!
+    it(`returns dark text for ${theme.name} primary`, () => {
+      const result = contrastOnPrimary(theme)
+      expect(result).toBe("#1a1a1a")
+    })
+  }
 })
