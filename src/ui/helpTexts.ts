@@ -43,6 +43,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
         { key: keybinds.browse_delete, description: "Revert field" },
         {
+          key: keybinds.browse_toggle,
+          description: "Toggle header/param enabled",
+        },
+        {
           key: keybinds.browse_revert_all,
           description: "Revert all fields",
         },

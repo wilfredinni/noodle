@@ -372,6 +372,10 @@ function AppInner({
       { name: "browse.delete", run: () => ebRef.current.revertField() },
       { name: "browse.revert-all", run: () => ebRef.current.revertAll() },
       {
+        name: "browse.toggle",
+        run: () => ebRef.current.toggleRow(),
+      },
+      {
         name: "browse.send",
         run: () => trySendRef.current?.(),
       },
@@ -399,6 +403,7 @@ function AppInner({
       { key: "escape", cmd: "browse.escape" },
       { key: "d", cmd: "browse.delete" },
       { key: "R", cmd: "browse.revert-all" },
+      { key: "x", cmd: "browse.toggle" },
       { key: "s", cmd: "browse.send" },
       { key: "w", cmd: "browse.save" },
     ],

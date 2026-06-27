@@ -1,4 +1,4 @@
-import type { Auth, Method } from "../schema"
+import type { Auth, KvEntry, Method } from "../schema"
 import type { Theme } from "./theme"
 
 export function methodColor(method: Method, theme: Theme): string {
@@ -9,16 +9,16 @@ export function methodColor(method: Method, theme: Theme): string {
   return theme.textMuted
 }
 
-export function formatHeaders(headers: Record<string, string>): string[] {
+export function formatHeaders(headers: Record<string, KvEntry>): string[] {
   const entries = Object.entries(headers)
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return entries.map(([k, v]) => `${k}: ${v}`)
+  return entries.map(([k, v]) => `${k}: ${v.value}`)
 }
 
-export function formatParams(params: Record<string, string>): string[] {
+export function formatParams(params: Record<string, KvEntry>): string[] {
   const entries = Object.entries(params)
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return entries.map(([k, v]) => `${k}: ${v}`)
+  return entries.map(([k, v]) => `${k}: ${v.value}`)
 }
 
 export function formatBody(body?: string): string {

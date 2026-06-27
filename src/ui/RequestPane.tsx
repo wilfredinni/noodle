@@ -217,14 +217,14 @@ function KeyValueSection({
         </box>
       ) : (
         <>
-          {rows.map(([k, v], i) => {
+          {rows.map(([k, entry], i) => {
             const isEditingThisRow = editingRow === i
             const cursorOnThisRow =
               browseActive &&
               cursorHere &&
               !editState.cursor.addingRow &&
               editState.cursor.row === i
-            const dimmed = inEdit && !isEditingThisRow
+            const dimmed = (inEdit && !isEditingThisRow) || !entry.enabled
 
             return (
               <box
@@ -241,6 +241,9 @@ function KeyValueSection({
                         : undefined,
                 }}
               >
+                <text fg={entry.enabled ? theme.primary : theme.textMuted}>
+                  {entry.enabled ? "[x] " : "[ ] "}
+                </text>
                 <input
                   value={isEditingThisRow ? editKey : k}
                   placeholder="Key"
@@ -257,7 +260,7 @@ function KeyValueSection({
                   style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
                 />
                 <input
-                  value={isEditingThisRow ? editValue : v}
+                  value={isEditingThisRow ? editValue : entry.value}
                   placeholder="Value"
                   onInput={isEditingThisRow ? setEditValue : undefined}
                   focused={

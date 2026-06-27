@@ -39,7 +39,7 @@ function currentValueFor(
     const rec = field === "headers" ? draft.headers : draft.params
     const entries = Object.entries(rec)
     const entry = entries[row]
-    return entry ? `${entry[0]}: ${entry[1]}` : ""
+    return entry ? `${entry[0]}: ${entry[1].value}` : ""
   }
   return ""
 }
@@ -56,7 +56,7 @@ function currentKeyValueFor(
     const rec = field === "headers" ? draft.headers : draft.params
     const entries = Object.entries(rec)
     const entry = entries[row]
-    return entry ? { key: entry[0], value: entry[1] } : { key: "", value: "" }
+    return entry ? { key: entry[0], value: entry[1].value } : { key: "", value: "" }
   }
   return { key: "", value: "" }
 }
@@ -88,6 +88,7 @@ export interface UseEditBrowseResult {
   browseTab: () => void
   revertField: () => void
   revertAll: () => void
+  toggleRow: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
 }
 
@@ -264,6 +265,15 @@ export function useEditBrowse(
     draftMutators.revertAll()
   }, [draftMutators])
 
+  const toggleRow = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "browsing") return
+    const { field, addingRow, row } = state.cursor
+    if (addingRow) return
+    if (field === "headers") draftMutators.toggleHeaderRow(row)
+    else if (field === "params") draftMutators.toggleParamRow(row)
+  }, [draftMutators])
+
   const cycleInactiveTab = useCallback((delta: 1 | -1) => {
     setInactiveTab((prev) => cycleField(prev, delta))
   }, [])
@@ -290,6 +300,7 @@ export function useEditBrowse(
       browseTab,
       revertField: revertFieldHandler,
       revertAll: revertAllHandler,
+      toggleRow,
       cycleInactiveTab,
     }),
     [
@@ -310,6 +321,7 @@ export function useEditBrowse(
       browseTab,
       revertFieldHandler,
       revertAllHandler,
+      toggleRow,
       cycleInactiveTab,
     ],
   )
