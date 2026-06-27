@@ -47,3 +47,7 @@ export interface Environment {
   vars: Record<string, string>
   color?: string
 }
+
+export interface CollectionSettings {
+  environment?: string
+}
