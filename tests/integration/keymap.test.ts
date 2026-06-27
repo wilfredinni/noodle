@@ -240,22 +240,22 @@ describe("keymap dispatch", () => {
           },
         },
       ],
-      bindings: [{ key: "l", cmd: "layout.toggle" }],
+      bindings: [{ key: "ctrl+l", cmd: "layout.toggle" }],
     })
 
-    host.press("l")
+    host.press("l", { ctrl: true })
     expect(called).toBe(true)
 
     // works regardless of mode
     called = false
     keymap.setData("app.mode", "browse")
-    host.press("l")
+    host.press("l", { ctrl: true })
     expect(called).toBe(true)
 
     // works regardless of overlay
     called = false
     keymap.setData("app.overlay", "help")
-    host.press("l")
+    host.press("l", { ctrl: true })
     expect(called).toBe(true)
 
     cleanup()
@@ -375,7 +375,7 @@ describe("App.tsx layer mirror", () => {
       bindings: [
         { key: "tab", cmd: "focus.next" },
         { key: "shift+tab", cmd: "focus.prev" },
-        { key: "l", cmd: "layout.toggle" },
+        { key: "ctrl+l", cmd: "layout.toggle" },
       ],
     })
 
@@ -505,7 +505,7 @@ describe("App.tsx layer mirror", () => {
     expect(sendCalled).toBe(false)
 
     // l dispatches layout.toggle regardless of mode/overlay (always-on)
-    host.press("l")
+    host.press("l", { ctrl: true })
     expect(layoutCalled).toBe(true)
 
     cleanup()
@@ -519,11 +519,11 @@ describe("help keybinding (? always-on)", () => {
 
     keymap.registerLayer({
       commands: [{ name: "app.help", run: () => { called = true } }],
-      bindings: [{ key: "?", cmd: "app.help" }],
+      bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
     keymap.setData("app.mode", "base")
-    host.press("?")
+    host.press("f1")
     expect(called).toBe(true)
     cleanup()
   })
@@ -534,11 +534,11 @@ describe("help keybinding (? always-on)", () => {
 
     keymap.registerLayer({
       commands: [{ name: "app.help", run: () => { called = true } }],
-      bindings: [{ key: "?", cmd: "app.help" }],
+      bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
     keymap.setData("app.mode", "browse")
-    host.press("?")
+    host.press("f1")
     expect(called).toBe(true)
     cleanup()
   })
@@ -549,11 +549,11 @@ describe("help keybinding (? always-on)", () => {
 
     keymap.registerLayer({
       commands: [{ name: "app.help", run: () => { called = true } }],
-      bindings: [{ key: "?", cmd: "app.help" }],
+      bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
     keymap.setData("app.mode", "edit")
-    host.press("?")
+    host.press("f1")
     expect(called).toBe(true)
     cleanup()
   })
@@ -564,12 +564,12 @@ describe("help keybinding (? always-on)", () => {
 
     keymap.registerLayer({
       commands: [{ name: "app.help", run: () => { called = true } }],
-      bindings: [{ key: "?", cmd: "app.help" }],
+      bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
     keymap.setData("app.mode", "base")
     keymap.setData("app.overlay", "help")
-    host.press("?")
+    host.press("f1")
     expect(called).toBe(true)
     cleanup()
   })

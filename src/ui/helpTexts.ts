@@ -58,7 +58,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       keys: [
         { key: keybinds.request_send, description: "Send request" },
         { key: displayKey(keybinds.request_save), description: "Save to disk" },
-        { key: keybinds.layout_toggle, description: "Toggle layout" },
+        { key: displayKey(keybinds.layout_toggle), description: "Toggle layout" },
         { key: "[", description: "Previous environment" },
         { key: "]", description: "Next environment" },
       ],

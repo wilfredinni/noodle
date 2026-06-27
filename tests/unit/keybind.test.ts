@@ -51,9 +51,9 @@ describe("bindingDefaults", () => {
     }
   })
 
-  it("includes layout_toggle with default key l", () => {
+  it("includes layout_toggle with default key ctrl+l", () => {
     const defaults = bindingDefaults()
-    expect(defaults.layout_toggle).toBe("l")
+    expect(defaults.layout_toggle).toBe("ctrl+l")
   })
 })
 

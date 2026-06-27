@@ -27,7 +27,7 @@ export const Definitions = {
 
   focus_next: keybind("tab", "Next pane", true),
   focus_prev: keybind("shift+tab", "Previous pane", true),
-  layout_toggle: keybind("l", "Toggle layout (stacked/side-by-side)"),
+  layout_toggle: keybind("ctrl+l", "Toggle layout (stacked/side-by-side)"),
   request_edit_yaml: keybind("e", "Edit request YAML (sidebar)"),
   request_edit: keybind("return", "Enter edit-browse (request pane)", true),
   browse_up: keybind("up", "Cursor up (browse)", true),

@@ -275,7 +275,7 @@ function AppInner({
     bindings: [
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
-      { key: "l", cmd: "layout.toggle" },
+      { key: "ctrl+l", cmd: "layout.toggle" },
       { key: "f1", cmd: "app.help" },
     ],
   }))

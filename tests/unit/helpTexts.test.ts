@@ -61,7 +61,7 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^s")
     expect(keys).toContain("[")
     expect(keys).toContain("]")
-    expect(keys).toContain("l")
+    expect(keys).toContain("^l")
   })
 
   it("SYSTEM section contains ^c and f1", () => {
