@@ -3,8 +3,9 @@ import { Badge } from "./Badge"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
-import type { Method, KvEntry } from "../schema"
+import type { Method, KvEntry, Environment } from "../schema"
 import { buildDisplayUrl } from "./urlParams"
+import { VarText } from "./VarText"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -16,6 +17,7 @@ export function UrlBar({
   onDefocus,
   focused = false,
   sending = false,
+  activeEnv,
 }: {
   method: string
   url: string
@@ -24,6 +26,7 @@ export function UrlBar({
   onDefocus: (rawUrl: string) => void
   focused?: boolean
   sending?: boolean
+  activeEnv?: Environment | null
 }) {
   const theme = useTheme()
   const [spinnerIdx, setSpinnerIdx] = useState(0)
@@ -105,7 +108,7 @@ export function UrlBar({
                 flexGrow: 1,
               }}
             >
-              <text fg={theme.text}> {displayUrl}</text>
+              <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
             </box>
           )}
           <box

@@ -1,6 +1,10 @@
-import type { ScrollBoxRenderable, TextareaRenderable, LineNumberRenderable } from "@opentui/core"
+import type {
+  ScrollBoxRenderable,
+  TextareaRenderable,
+  LineNumberRenderable,
+} from "@opentui/core"
 import { useEffect, useMemo, useRef } from "react"
-import type { Request } from "../schema"
+import type { Request, Environment } from "../schema"
 import { formatBody, formatAuth } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 
@@ -10,6 +14,8 @@ import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { useJsonHighlight } from "./useJsonHighlight"
 import { JsonBodyViewer } from "./JsonBodyViewer"
+import { VarText } from "./VarText"
+import { varSummaryColor } from "./envHighlight"
 
 interface Props {
   request: Request | null
@@ -20,6 +26,7 @@ interface Props {
   setEditValue: (v: string) => void
   focused?: boolean
   activeTab: FieldKind
+  activeEnv?: Environment | null
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -38,6 +45,7 @@ export function RequestPane({
   setEditValue,
   focused = false,
   activeTab,
+  activeEnv,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -128,6 +136,7 @@ export function RequestPane({
                   setEditValue={setEditValue}
                   browseActive={browseActive}
                   theme={theme}
+                  activeEnv={activeEnv}
                 />
               )}
               {activeTab === "params" && (
@@ -141,6 +150,7 @@ export function RequestPane({
                   setEditValue={setEditValue}
                   browseActive={browseActive}
                   theme={theme}
+                  activeEnv={activeEnv}
                 />
               )}
               {activeTab === "body" && (
@@ -152,6 +162,7 @@ export function RequestPane({
                   inEdit={inEdit}
                   browseActive={browseActive}
                   theme={theme}
+                  activeEnv={activeEnv}
                 />
               )}
               {activeTab === "auth" && (
@@ -159,6 +170,7 @@ export function RequestPane({
                   request={request}
                   editState={editState}
                   theme={theme}
+                  activeEnv={activeEnv}
                 />
               )}
             </scrollbox>
@@ -181,6 +193,7 @@ interface KeyValueSectionProps {
   setEditValue: (v: string) => void
   browseActive: boolean
   theme: Theme
+  activeEnv?: Environment | null
 }
 
 function KeyValueSection({
@@ -193,6 +206,7 @@ function KeyValueSection({
   setEditValue,
   browseActive,
   theme,
+  activeEnv,
 }: KeyValueSectionProps) {
   const rec = kind === "headers" ? request.headers : request.params
   const rows = Object.entries(rec)
@@ -205,9 +219,7 @@ function KeyValueSection({
   const stripeG = Math.round(
     (((panelNum >> 8) & 0xff) + ((elemNum >> 8) & 0xff)) / 2,
   )
-  const stripeB = Math.round(
-    ((panelNum & 0xff) + (elemNum & 0xff)) / 2,
-  )
+  const stripeB = Math.round(((panelNum & 0xff) + (elemNum & 0xff)) / 2)
   const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
 
   const inEdit = editState.mode === "editing"
@@ -284,7 +296,16 @@ function KeyValueSection({
                     isEditingThisRow ? theme.backgroundElement : undefined
                   }
                   focusedBackgroundColor={theme.borderSubtle}
-                  textColor={dimmed ? theme.textMuted : theme.text}
+                  textColor={
+                    isEditingThisRow
+                      ? theme.text
+                      : varSummaryColor(
+                          k,
+                          activeEnv ?? null,
+                          theme,
+                          dimmed ? theme.textMuted : theme.text,
+                        )
+                  }
                   cursorColor={theme.primary}
                   style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
                 />
@@ -300,11 +321,18 @@ function KeyValueSection({
                   }
                   focusedBackgroundColor={theme.borderSubtle}
                   textColor={
-                    dimmed
-                      ? theme.textMuted
-                      : cursorOnThisRow || isEditingThisRow
-                        ? theme.text
-                        : theme.textMuted
+                    isEditingThisRow
+                      ? theme.text
+                      : varSummaryColor(
+                          entry.value,
+                          activeEnv ?? null,
+                          theme,
+                          dimmed
+                            ? theme.textMuted
+                            : cursorOnThisRow
+                              ? theme.text
+                              : theme.textMuted,
+                        )
                   }
                   cursorColor={theme.primary}
                   style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
@@ -329,9 +357,7 @@ function KeyValueSection({
               placeholder="Key"
               onInput={editingAdd ? setEditKey : undefined}
               focused={editingAdd && editState.cursor.subfield === "key"}
-              backgroundColor={
-                editingAdd ? theme.backgroundElement : undefined
-              }
+              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
               focusedBackgroundColor={theme.borderSubtle}
               textColor={
                 editingAdd || (cursorHere && editState.cursor.addingRow)
@@ -345,12 +371,8 @@ function KeyValueSection({
               value={editingAdd ? editValue : ""}
               placeholder="Value"
               onInput={editingAdd ? setEditValue : undefined}
-              focused={
-                editingAdd && editState.cursor.subfield === "value"
-              }
-              backgroundColor={
-                editingAdd ? theme.backgroundElement : undefined
-              }
+              focused={editingAdd && editState.cursor.subfield === "value"}
+              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
               focusedBackgroundColor={theme.borderSubtle}
               textColor={
                 editingAdd || (cursorHere && editState.cursor.addingRow)
@@ -375,6 +397,7 @@ function BodySection({
   inEdit,
   browseActive: _browseActive,
   theme,
+  activeEnv,
 }: {
   request: Request
   editState: EditState
@@ -383,6 +406,7 @@ function BodySection({
   inEdit: boolean
   browseActive: boolean
   theme: Theme
+  activeEnv?: Environment | null
 }) {
   const body = formatBody(request.body)
   const textareaRef = useRef<TextareaRenderable | null>(null)
@@ -433,17 +457,26 @@ function BodySection({
     )
   }
 
-  return <JsonBodyViewer body={body} theme={theme} id="body-field" />
+  return (
+    <JsonBodyViewer
+      body={body}
+      theme={theme}
+      id="body-field"
+      activeEnv={activeEnv ?? null}
+    />
+  )
 }
 
 function AuthSection({
   request,
   editState,
   theme,
+  activeEnv,
 }: {
   request: Request
   editState: EditState
   theme: Theme
+  activeEnv?: Environment | null
 }) {
   const auth = formatAuth(request.auth)
   const isActive =
@@ -458,7 +491,11 @@ function AuthSection({
         backgroundColor: isActive ? theme.backgroundElement : undefined,
       }}
     >
-      <text fg={isActive ? theme.text : theme.textMuted}>{" " + auth}</text>
+      <VarText
+        text={` ${auth}`}
+        env={activeEnv ?? null}
+        baseColor={isActive ? theme.text : theme.textMuted}
+      />
     </box>
   )
 }

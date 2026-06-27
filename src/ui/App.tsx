@@ -541,6 +541,7 @@ function AppInner({
               onDefocus={draft.syncUrlParams}
               focused={focus === "urlbar"}
               sending={responseState.status === "sending"}
+              activeEnv={envState.activeEnv}
             />
             {layout === "side-by-side" ? (
               <box
@@ -560,6 +561,7 @@ function AppInner({
                   setEditValue={eb.setEditValue}
                   focused={focus === "request"}
                   activeTab={eb.activeTab}
+                  activeEnv={envState.activeEnv}
                 />
                 <ResponsePane
                   state={responseState}
@@ -577,6 +579,7 @@ function AppInner({
                   setEditValue={eb.setEditValue}
                   focused={focus === "request"}
                   activeTab={eb.activeTab}
+                  activeEnv={envState.activeEnv}
                 />
                 <ResponsePane
                   state={responseState}

@@ -3,6 +3,7 @@ import { SyntaxStyle } from "@opentui/core"
 import type { TextareaRenderable, LineNumberRenderable } from "@opentui/core"
 import type { Theme } from "./theme-data"
 import { highlightJsonTokens } from "./syntax"
+import type { Environment } from "../schema"
 
 function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
   return SyntaxStyle.fromStyles({
@@ -13,6 +14,8 @@ function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
     "json.null": { fg: theme.info },
     "json.bracket": { fg: theme.textMuted },
     "json.text": { fg: theme.text },
+    "env.resolved": { fg: theme.primary },
+    "env.missing": { fg: theme.error },
   })
 }
 
@@ -29,29 +32,46 @@ export function highlightTextarea(
   textarea: TextareaRenderable,
   content: string,
   theme: Theme,
+  env?: Environment | null,
 ): void {
+  const style = createJsonSyntaxStyle(theme)
+  textarea.clearAllHighlights()
+  textarea.syntaxStyle = style
+
   try {
     JSON.parse(content)
-  } catch {
-    return
-  }
-  if (content.length > 100_000) return
-  const style = createJsonSyntaxStyle(theme)
-  try {
-    textarea.clearAllHighlights()
-    textarea.syntaxStyle = style
-    const tokens = highlightJsonTokens(content, theme)
-    for (const token of tokens) {
-      const styleId = styleIdForFg(token.fg, theme, style)
-      textarea.addHighlightByCharRange({
-        start: token.offset,
-        end: token.offset + token.text.length,
-        styleId,
-        priority: 1,
-      })
+    if (content.length <= 100_000) {
+      const tokens = highlightJsonTokens(content, theme)
+      for (const token of tokens) {
+        const styleId = styleIdForFg(token.fg, theme, style)
+        textarea.addHighlightByCharRange({
+          start: token.offset,
+          end: token.offset + token.text.length,
+          styleId,
+          priority: 1,
+        })
+      }
     }
   } catch {
-    // highlight failed
+    // not valid JSON — still add $var highlights below
+  }
+
+  if (env) {
+    const varRe = /\$\w+/g
+    let match: RegExpExecArray | null
+    while ((match = varRe.exec(content)) !== null) {
+      const varName = match[0].slice(1)
+      const exists = varName in env.vars
+      const styleId = exists
+        ? style.getStyleId("env.resolved")!
+        : style.getStyleId("env.missing")!
+      textarea.addHighlightByCharRange({
+        start: match.index,
+        end: match.index + match[0].length,
+        styleId,
+        priority: 2,
+      })
+    }
   }
 }
 
