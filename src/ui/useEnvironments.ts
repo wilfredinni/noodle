@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Environment } from "../schema"
 import { env } from "../env"
-import { nextIndex } from "./selection"
 import { envIndicatorLabel } from "./envIndicator"
 
 export interface UseEnvironmentsResult {
@@ -56,11 +55,9 @@ export function useEnvironments(
     (delta: number) => {
       if (envList.length === 0) return
       const prevIndex = activeIndex
-      const candidate = nextIndex(
-        prevIndex < 0 ? -1 : prevIndex,
-        envList.length,
-        delta,
-      )
+      let candidate = activeIndex < 0 ? 0 : activeIndex + delta
+      if (candidate >= envList.length) candidate = 0
+      if (candidate < 0) candidate = envList.length - 1
       const name = envList[candidate]
       genRef.current += 1
       const gen = genRef.current

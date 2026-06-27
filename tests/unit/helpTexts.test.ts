@@ -55,7 +55,7 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^e")
   })
 
-  it("ACTIONS section shows ^return, ^s, ^[, ^l, ^]", () => {
+  it("ACTIONS section shows ^return, ^s, ^[, ^l, ^.", () => {
     const sections = getHelpSections(defaults)
     const act = sections.find((s) => s.title === "Actions")!
     const keys = act.keys.map((k) => k.key)
@@ -63,7 +63,7 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^s")
     expect(keys).toContain("^[")
     expect(keys).toContain("^l")
-    expect(keys).toContain("^]")
+    expect(keys).toContain("^.")
   })
 
   it("SYSTEM section contains ^c and f1", () => {
