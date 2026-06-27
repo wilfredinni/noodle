@@ -129,7 +129,7 @@ export function YamlEditorOverlay({
     >
       <box
         style={{
-          width: 70,
+          width: 90,
           height: "80%",
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
