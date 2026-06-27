@@ -1,9 +1,13 @@
-import { TextareaRenderable, RGBA, type BoxRenderable } from "@opentui/core"
+import {
+  RGBA,
+  type TextareaRenderable,
+  type LineNumberRenderable,
+} from "@opentui/core"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "./theme"
-import { useRenderer } from "./RendererContext"
+import { highlightYaml } from "./yamlSyntax"
 
 export interface YamlEditorOverlayProps {
   visible: boolean
@@ -21,10 +25,10 @@ export function YamlEditorOverlay({
   onClose,
 }: YamlEditorOverlayProps) {
   const theme = useTheme()
-  const renderer = useRenderer()
   const keymap = useKeymap()
-  const containerRef = useRef<BoxRenderable | null>(null)
   const textareaRef = useRef<TextareaRenderable | null>(null)
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const [content, setContent] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const mountedRef = useRef(true)
@@ -35,59 +39,44 @@ export function YamlEditorOverlay({
     }
   }, [])
 
-  // Mount TextareaRenderable when overlay opens
   useEffect(() => {
-    if (!visible) return
-    let cancelled = false
+    if (!visible) {
+      setContent(null)
+      return
+    }
     setReadError(null)
     setSaveError(null)
 
     readFile(filePath, "utf8")
-      .then((content) => {
-        if (cancelled || !mountedRef.current) return
-        const container = containerRef.current
-        if (!container) return
-
-        const textarea = new TextareaRenderable(renderer, {
-          width: "100%",
-          height: "100%",
-          initialValue: content,
-          wrapMode: "word",
-          backgroundColor: theme.backgroundPanel,
-          textColor: theme.text,
-          cursorColor: theme.primary,
-        })
-
-        textareaRef.current = textarea
-        container.add(textarea)
-        renderer.requestRender()
-        textarea.focus()
+      .then((v) => {
+        if (mountedRef.current) setContent(v)
       })
       .catch((e) => {
-        if (cancelled || !mountedRef.current) return
-        setReadError(e instanceof Error ? e.message : String(e))
+        if (mountedRef.current)
+          setReadError(e instanceof Error ? e.message : String(e))
       })
+  }, [visible, filePath])
 
-    return () => {
-      cancelled = true
-      const textarea = textareaRef.current
-      if (textarea) {
-        try {
-          textarea.destroy()
-        } catch {
-          /* already destroyed */
-        }
-      }
-      textareaRef.current = null
+  useEffect(() => {
+    if (content !== null && textareaRef.current) {
+      highlightYaml(textareaRef.current, content, theme)
     }
-  }, [visible, filePath, renderer, theme])
+  }, [content, theme])
+
+  const handleContentChange = useCallback(() => {
+    const ta = textareaRef.current
+    if (ta) {
+      const text = ta.plainText
+      setContent(text)
+      highlightYaml(ta, text, theme)
+    }
+  }, [theme])
 
   const handleSave = useCallback(() => {
     const textarea = textareaRef.current
     if (!textarea) return
     setSaveError(null)
-    const content = textarea.plainText
-    writeFile(filePath, content, "utf8")
+    writeFile(filePath, textarea.plainText, "utf8")
       .then(() => {
         if (!mountedRef.current) return
         onSaved()
@@ -102,7 +91,6 @@ export function YamlEditorOverlay({
     onClose()
   }, [onClose])
 
-  // Key intercept inside the overlay itself
   useEffect(() => {
     if (!visible) return
     const dispose = keymap.intercept(
@@ -157,7 +145,7 @@ export function YamlEditorOverlay({
           }}
         >
           <text fg={theme.primary}>Edit: {requestName}.yml</text>
-          <text fg={theme.textMuted}>esc close</text>
+          <text fg={theme.textMuted}>esc</text>
         </box>
         {readError ? (
           <box
@@ -169,8 +157,29 @@ export function YamlEditorOverlay({
           >
             <text fg={theme.error}>Error: {readError}</text>
           </box>
+        ) : content !== null ? (
+          <line-number
+            ref={lineNumberRef}
+            minWidth={3}
+            paddingRight={1}
+            fg={theme.textMuted}
+            bg={theme.backgroundPanel}
+            style={{ flexGrow: 1 }}
+            width="100%"
+          >
+            <textarea
+              ref={textareaRef}
+              initialValue={content}
+              onContentChange={handleContentChange}
+              backgroundColor={theme.backgroundPanel}
+              focusedBackgroundColor={theme.backgroundPanel}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          </line-number>
         ) : (
-          <box ref={containerRef} style={{ flexGrow: 1, minHeight: 0 }} />
+          <text fg={theme.textMuted}>Loading...</text>
         )}
         {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
         <box
