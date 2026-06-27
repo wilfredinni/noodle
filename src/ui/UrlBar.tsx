@@ -61,6 +61,7 @@ export function UrlBar({
                 focusedBackgroundColor={theme.borderSubtle}
                 textColor={theme.text}
                 cursorColor={theme.primary}
+                paddingX={1}
                 focused
               />
             </box>
