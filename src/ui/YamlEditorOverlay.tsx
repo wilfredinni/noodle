@@ -197,13 +197,19 @@ export function YamlEditorOverlay({
           paddingBottom: 1,
         }}
       >
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
+        <box
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            flexGrow: 1,
+            gap: 1,
+          }}
+        >
           <text fg={theme.primary}>^S</text>
-          <text fg={theme.textMuted}> save</text>
-        </box>
-        <box style={{ flexDirection: "row" }}>
+          <text fg={theme.textMuted}>save</text>
+          <text fg={theme.textMuted}> · </text>
           <text fg={theme.primary}>esc</text>
-          <text fg={theme.textMuted}> close</text>
+          <text fg={theme.textMuted}>close</text>
         </box>
       </box>
     </box>
