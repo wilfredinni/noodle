@@ -35,7 +35,9 @@ export function useEnvironments(
   useEffect(() => {
     const target =
       initialName !== undefined
-        ? (envList.includes(initialName) ? initialName : undefined)
+        ? envList.includes(initialName)
+          ? initialName
+          : undefined
         : settingsEnv !== undefined && envList.includes(settingsEnv)
           ? settingsEnv
           : envList.length > 0

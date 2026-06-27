@@ -49,11 +49,7 @@ export async function saveSettings(
   }
 
   try {
-    await writeFile(
-      join(dir, "settings.yml"),
-      yaml.dump(data),
-      "utf8",
-    )
+    await writeFile(join(dir, "settings.yml"), yaml.dump(data), "utf8")
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveSettings: ${msg}`, { cause: e })

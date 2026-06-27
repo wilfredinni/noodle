@@ -4,7 +4,12 @@ import { join } from "node:path"
 import { tmpdir } from "node:os"
 import * as yaml from "js-yaml"
 
-import { loadConfig, saveConfig, type NoodleConfig, CONFIG_FILE_NAME } from "../../src/ui/useConfig"
+import {
+  loadConfig,
+  saveConfig,
+  type NoodleConfig,
+  CONFIG_FILE_NAME,
+} from "../../src/ui/useConfig"
 
 const DEFAULTS: NoodleConfig = { theme: 0, layout: "stacked" }
 
@@ -26,7 +31,11 @@ describe("loadConfig", () => {
   })
 
   it("reads valid YAML file", async () => {
-    await writeFile(join(dir, CONFIG_FILE_NAME), yaml.dump({ theme: 1, layout: "side-by-side" }), "utf8")
+    await writeFile(
+      join(dir, CONFIG_FILE_NAME),
+      yaml.dump({ theme: 1, layout: "side-by-side" }),
+      "utf8",
+    )
     const result = loadConfig(dir)
     expect(result).toEqual({ theme: 1, layout: "side-by-side" })
   })
