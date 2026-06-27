@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test"
+import { describe, it, expect, mock } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { registerEnabledFields, registerDefaultKeys } from "@opentui/keymap/addons"

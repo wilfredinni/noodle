@@ -1,13 +1,18 @@
 import type { Auth, Environment, KvEntry, Request, Response } from "../schema"
 import { substitute } from "./substitute"
+import type { SubstitutedRequest } from "./substitute"
 
 export async function send(req: Request, env?: Environment): Promise<Response> {
   const substituted = env !== undefined ? substitute(req, env) : req
 
   const headers: Record<string, string> =
-    substituted === req ? filterKv(req.headers) : substituted.headers
+    substituted === req
+      ? filterKv(req.headers)
+      : (substituted as SubstitutedRequest).headers
   const params: Record<string, string> =
-    substituted === req ? filterKv(req.params) : substituted.params
+    substituted === req
+      ? filterKv(req.params)
+      : (substituted as SubstitutedRequest).params
 
   let finalUrl: string
   try {

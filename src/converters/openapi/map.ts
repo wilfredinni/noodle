@@ -1,4 +1,4 @@
-import type { Auth, Collection, Method, Request } from "../../schema"
+import type { Auth, Collection, KvEntry, Method, Request } from "../../schema"
 
 export interface Normalized {
   openapi: string
@@ -189,11 +189,13 @@ export function mapCollection(n: Normalized): Collection {
       const reqId = count === 0 ? rawId : `${rawId}-${count + 1}`
 
       const collected = collectParams(pi.parameters, op.parameters)
-      const headers: Record<string, string> = {}
-      const params: Record<string, string> = {}
+      const headers: Record<string, KvEntry> = {}
+      const params: Record<string, KvEntry> = {}
       for (const p of collected) {
-        if (p.in === "query") params[p.name] = `{{${p.name}}}`
-        else if (p.in === "header") headers[p.name] = `{{${p.name}}}`
+        if (p.in === "query")
+          params[p.name] = { value: `{{${p.name}}}`, enabled: true }
+        else if (p.in === "header")
+          headers[p.name] = { value: `{{${p.name}}}`, enabled: true }
       }
 
       requests.push({

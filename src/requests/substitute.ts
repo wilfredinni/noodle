@@ -2,7 +2,15 @@ import type { Auth, Environment, Request } from "../schema"
 
 const VAR_RE = /\{\{(\w+)\}\}/g
 
-export function substitute(req: Request, env: Environment): Request {
+export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
+  headers: Record<string, string>
+  params: Record<string, string>
+}
+
+export function substitute(
+  req: Request,
+  env: Environment,
+): SubstitutedRequest {
   const resolve = (s: string, field: string): string =>
     s.replace(VAR_RE, (_, name) => {
       if (!(name in env.vars)) {

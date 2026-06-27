@@ -83,7 +83,7 @@ function findFirstColon(s: string): number {
 }
 
 function tokenizeInline(raw: string, theme: Theme): Span[] {
-  let s = raw
+  const s = raw
 
   // Leading colon + space for key:
   if (s.startsWith(": ")) {

@@ -552,7 +552,10 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ q: "{{q}}", limit: "{{limit}}" })
+    expect(c.requests[0].params).toEqual({
+      q: { value: "{{q}}", enabled: true },
+      limit: { value: "{{limit}}", enabled: true },
+    })
   })
 
   it("translates in:header params to headers as {{name}} placeholders", () => {
@@ -568,7 +571,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].headers).toEqual({ "X-Custom": "{{X-Custom}}" })
+    expect(c.requests[0].headers).toEqual({
+      "X-Custom": { value: "{{X-Custom}}", enabled: true },
+    })
   })
 
   it("ignores in:cookie params", () => {
@@ -623,7 +628,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+    expect(c.requests[0].params).toEqual({
+      good: { value: "{{good}}", enabled: true },
+    })
   })
 
   it("skips a param with non-string name", () => {
@@ -642,7 +649,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+    expect(c.requests[0].params).toEqual({
+      good: { value: "{{good}}", enabled: true },
+    })
   })
 
   it("skips a param with invalid in", () => {
@@ -661,7 +670,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+    expect(c.requests[0].params).toEqual({
+      good: { value: "{{good}}", enabled: true },
+    })
   })
 
   it("skips a param that is not a mapping", () => {
@@ -677,7 +688,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+    expect(c.requests[0].params).toEqual({
+      good: { value: "{{good}}", enabled: true },
+    })
   })
 
   it("skips a param with empty-string name", () => {
@@ -696,7 +709,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ good: "{{good}}" })
+    expect(c.requests[0].params).toEqual({
+      good: { value: "{{good}}", enabled: true },
+    })
   })
 
   it("applies pathItem-level parameters to all ops in that pathItem", () => {
@@ -711,8 +726,12 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ shared: "{{shared}}" })
-    expect(c.requests[1].params).toEqual({ shared: "{{shared}}" })
+    expect(c.requests[0].params).toEqual({
+      shared: { value: "{{shared}}", enabled: true },
+    })
+    expect(c.requests[1].params).toEqual({
+      shared: { value: "{{shared}}", enabled: true },
+    })
   })
 
   it("op-level params override pathItem-level params by name+in", () => {
@@ -733,8 +752,8 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      shared: "{{shared}}",
-      extra: "{{extra}}",
+      shared: { value: "{{shared}}", enabled: true },
+      extra: { value: "{{extra}}", enabled: true },
     })
   })
 
@@ -752,8 +771,12 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({ alpha: "{{alpha}}" })
-    expect(c.requests[0].headers).toEqual({ alpha: "{{alpha}}" })
+    expect(c.requests[0].params).toEqual({
+      alpha: { value: "{{alpha}}", enabled: true },
+    })
+    expect(c.requests[0].headers).toEqual({
+      alpha: { value: "{{alpha}}", enabled: true },
+    })
   })
 
   it("uses the last param when name+in is duplicated within the same list", () => {
@@ -832,8 +855,12 @@ describe("mapCollection — end-to-end integration", () => {
     expect(getPet.name).toBe("getPet")
     expect(getPet.method).toBe("GET")
     expect(getPet.url).toBe("https://{{host}}/v1/pets/{{petId}}")
-    expect(getPet.params).toEqual({ verbose: "{{verbose}}" })
-    expect(getPet.headers).toEqual({ "X-Trace": "{{X-Trace}}" })
+    expect(getPet.params).toEqual({
+      verbose: { value: "{{verbose}}", enabled: true },
+    })
+    expect(getPet.headers).toEqual({
+      "X-Trace": { value: "{{X-Trace}}", enabled: true },
+    })
     expect(getPet.body).toBeUndefined()
     expect(getPet.auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
 
@@ -848,7 +875,9 @@ describe("mapCollection — end-to-end integration", () => {
 
     const listPets = c.requests[2]
     expect(listPets.id).toBe("get-pets")
-    expect(listPets.params).toEqual({ limit: "{{limit}}" })
+    expect(listPets.params).toEqual({
+      limit: { value: "{{limit}}", enabled: true },
+    })
     expect(listPets.auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
 
     const createPet = c.requests[3]
