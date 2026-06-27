@@ -3,9 +3,6 @@ import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
-import { methodColor } from "./formatRequest"
-import { statusColor } from "./format"
-import type { Method } from "../schema"
 import { Badge } from "./Badge"
 
 export interface StatusBarSections {
@@ -117,50 +114,33 @@ export function StatusBar(input: {
   const sections = statusBarText(input)
   const sendStatus = input.sendState.status
 
-  // Determine LEFT color
-  let leftColor = theme.textMuted
-  if (sendStatus === "done") {
-    leftColor = statusColor(input.sendState.response.status, theme)
-  } else if (sendStatus === "error") {
-    leftColor = theme.error
-  } else if (sendStatus === "sending") {
-    leftColor = theme.info
-  } else if (input.method !== "") {
-    leftColor = methodColor(input.method as Method, theme)
-  }
-
-  // Determine CENTER color
-  let centerColor = theme.info
   const sk = input.saveState.kind
-  if (sk === "success") {
-    centerColor = theme.success
-  } else if (sk === "error") {
-    centerColor = theme.error
-  } else if (input.envLabel === "" || input.envLabel === "(no env)") {
-    centerColor = theme.textMuted
-  }
-
-  const isLeftBadge = sendStatus === "done" || sendStatus === "error"
-  const leftParts = sections.left.split(" · ")
-  const isCenterFlash = sk === "success" || sk === "error"
-  const isCenterEmpty =
-    input.envLabel === "" || input.envLabel === "(no env)"
-
-  const spaceIdx = sections.left.indexOf(" ")
-  const leftMethod =
-    sendStatus === "idle" && spaceIdx > -1
-      ? sections.left.slice(0, spaceIdx)
-      : ""
-  const leftPath =
-    sendStatus === "idle" && spaceIdx > -1
-      ? sections.left.slice(spaceIdx + 1)
-      : ""
 
   const rightSegments = sections.right.split(" · ").map((seg) => {
     const s = seg.replace(/[[\]]/g, "")
     const sp = s.indexOf(" ")
     return sp > -1 ? { key: s.slice(0, sp), word: s.slice(sp + 1) } : { key: s, word: "" }
   })
+
+  const envText =
+    input.envLabel === "" || input.envLabel === "(no env)"
+      ? "no env"
+      : input.isDirty
+        ? `● ${input.envLabel} •`
+        : `● ${input.envLabel}`
+
+  const envFg = input.envLabel.includes("(load failed")
+    ? theme.error
+    : input.envLabel === "" || input.envLabel === "(no env)"
+      ? theme.textMuted
+      : theme.info
+
+  const saveFlash =
+    sk === "success"
+      ? `✓ ${input.saveState.message}`
+      : sk === "error"
+        ? `✗ ${input.saveState.message}`
+        : null
 
   return (
     <box
@@ -174,48 +154,20 @@ export function StatusBar(input: {
       }}
     >
       <box style={{ flexDirection: "row" }}>
-        {isLeftBadge && leftParts[0] !== "" ? (
-          <>
-            <Badge bg={leftColor} fg={theme.background}>
-              {leftParts[0]}
-            </Badge>
-            {leftParts[1] ? (
-              <Badge bg={theme.info} fg={theme.background}>
-                {leftParts[1]}
-              </Badge>
-            ) : null}
-            {leftParts[2] ? (
-              <Badge bg={theme.backgroundElement} fg={theme.text}>
-                {leftParts[2]}
-              </Badge>
-            ) : null}
-          </>
-        ) : leftMethod !== "" ? (
-          <>
-            <Badge bg={leftColor} fg={theme.background}>
-              {leftMethod}
-            </Badge>
-            <Badge bg={theme.backgroundElement} fg={theme.text}>
-              {leftPath}
-            </Badge>
-          </>
-        ) : sections.left !== "" ? (
-          <text fg={leftColor}>{sections.left}</text>
+        {saveFlash ? (
+          <Badge bg={theme.primary} fg={theme.background}>
+            {saveFlash}
+          </Badge>
+        ) : sendStatus === "error" ? (
+          <Badge bg={theme.error} fg={theme.background}>
+            ✗ {input.sendState.error.message}
+          </Badge>
         ) : (
-          <text fg={leftColor}>{sections.left}</text>
+          <Badge bg={theme.backgroundElement} fg={envFg}>
+            {envText}
+          </Badge>
         )}
       </box>
-      {isCenterFlash ? (
-        <Badge bg={theme.primary} fg={theme.background}>
-          {sections.center}
-        </Badge>
-      ) : isCenterEmpty ? (
-        <text fg={theme.textMuted}>{sections.center}</text>
-      ) : (
-        <Badge bg={theme.backgroundElement} fg={centerColor}>
-          {sections.center}
-        </Badge>
-      )}
       <box style={{ flexDirection: "row" }}>
         {rightSegments.map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>

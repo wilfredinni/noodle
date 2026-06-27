@@ -8,7 +8,7 @@ import { ResponsePane } from "../src/ui/ResponsePane"
 import type { SendState } from "../src/ui/sendState"
 import { initialEditState } from "../src/ui/editMode"
 import type { EditState } from "../src/ui/editMode"
-import type { UseRequestDraftResult } from "../src/ui/useRequestDraft"
+
 import { ThemeProvider } from "../src/ui/theme"
 
 function makeRequest(i: number): Request {
@@ -84,24 +84,6 @@ describe("RequestPane scrollbox", () => {
       body: "" as string | undefined,
     }
 
-    const draft: UseRequestDraftResult = {
-      draft: request,
-      isDirty: false,
-      setUrl: () => {},
-      setBody: () => {},
-      addHeaderRow: () => {},
-      setHeaderRow: () => {},
-      removeHeaderRow: () => {},
-      toggleHeaderRow: () => {},
-      addParamRow: () => {},
-      setParamRow: () => {},
-      removeParamRow: () => {},
-      toggleParamRow: () => {},
-      revertField: () => {},
-      revertAll: () => {},
-      markSaved: () => {},
-    }
-
     const { renderOnce, captureCharFrame } = await testRender(
       <RequestPane
         request={request}
@@ -110,7 +92,6 @@ describe("RequestPane scrollbox", () => {
         editValue=""
         setEditKey={() => {}}
         setEditValue={() => {}}
-        draft={draft}
         focused={true}
         activeTab="headers"
       />,
@@ -148,24 +129,6 @@ describe("RequestPane scrollbox", () => {
       body: "" as string | undefined,
     }
 
-    const draft: UseRequestDraftResult = {
-      draft: request,
-      isDirty: false,
-      setUrl: () => {},
-      setBody: () => {},
-      addHeaderRow: () => {},
-      setHeaderRow: () => {},
-      removeHeaderRow: () => {},
-      toggleHeaderRow: () => {},
-      addParamRow: () => {},
-      setParamRow: () => {},
-      removeParamRow: () => {},
-      toggleParamRow: () => {},
-      revertField: () => {},
-      revertAll: () => {},
-      markSaved: () => {},
-    }
-
     const editState: EditState = {
       mode: "browsing",
       cursor: { field: "headers", row: 0, addingRow: false },
@@ -181,7 +144,6 @@ describe("RequestPane scrollbox", () => {
           editValue=""
           setEditKey={() => {}}
           setEditValue={() => {}}
-          draft={draft}
           focused={true}
           activeTab="headers"
         />
@@ -293,24 +255,6 @@ describe("App layout stability", () => {
       body: "" as string | undefined,
     }
 
-    const draft: UseRequestDraftResult = {
-      draft: request,
-      isDirty: false,
-      setUrl: () => {},
-      setBody: () => {},
-      addHeaderRow: () => {},
-      setHeaderRow: () => {},
-      removeHeaderRow: () => {},
-      toggleHeaderRow: () => {},
-      addParamRow: () => {},
-      setParamRow: () => {},
-      removeParamRow: () => {},
-      toggleParamRow: () => {},
-      revertField: () => {},
-      revertAll: () => {},
-      markSaved: () => {},
-    }
-
     const longBody = JSON.stringify(
       {
         data: Array.from({ length: 100 }, (_, i) => ({
@@ -350,7 +294,7 @@ describe("App layout stability", () => {
               editValue=""
               setEditKey={() => {}}
               setEditValue={() => {}}
-              draft={draft}
+  
               focused={false}
               activeTab="headers"
             />

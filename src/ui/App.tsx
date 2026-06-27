@@ -360,7 +360,7 @@ function AppInner({
 
   // ── Keymap: Browse Layer ───────────────────────────────────────────
   useBindings(() => ({
-    enabled: () => keymap.getData("app.mode") === "browse",
+    enabled: () => keymap.getData("app.mode") === "browse" && keymap.getData("app.overlay") === "none",
     commands: [
       { name: "browse.up", run: () => ebRef.current.browseUp() },
       { name: "browse.down", run: () => ebRef.current.browseDown() },
@@ -405,7 +405,7 @@ function AppInner({
 
   // ── Keymap: Edit Layer ─────────────────────────────────────────────
   useBindings(() => ({
-    enabled: () => keymap.getData("app.mode") === "edit",
+    enabled: () => keymap.getData("app.mode") === "edit" && keymap.getData("app.overlay") === "none",
     commands: [
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
@@ -513,6 +513,7 @@ function AppInner({
             selectedIndex={selectedIndex}
             focused={focus === "sidebar"}
             keybinds={keybinds}
+            dirtyRequestIds={draft.dirtyRequestIds}
           />
           <box
             style={{
@@ -545,7 +546,6 @@ function AppInner({
                   editValue={eb.editValue}
                   setEditKey={eb.setEditKey}
                   setEditValue={eb.setEditValue}
-                  draft={draft}
                   focused={focus === "request"}
                   activeTab={eb.activeTab}
                 />
@@ -563,7 +563,6 @@ function AppInner({
                   editValue={eb.editValue}
                   setEditKey={eb.setEditKey}
                   setEditValue={eb.setEditValue}
-                  draft={draft}
                   focused={focus === "request"}
                   activeTab={eb.activeTab}
                 />

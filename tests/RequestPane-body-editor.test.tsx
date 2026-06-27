@@ -3,7 +3,7 @@ import { testRender } from "@opentui/react/test-utils"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
 import type { Request } from "../src/schema"
-import type { UseRequestDraftResult } from "../src/ui/useRequestDraft"
+
 
 const testRequest: Request = {
   id: "test",
@@ -33,23 +33,6 @@ const editStateBrowse = {
   editingRow: -1,
 }
 
-const noopDraft: UseRequestDraftResult = {
-  draft: testRequest,
-  isDirty: false,
-  setUrl: () => {},
-  setBody: () => {},
-  setHeaderRow: () => {},
-  addHeaderRow: () => {},
-  removeHeaderRow: () => {},
-  toggleHeaderRow: () => {},
-  setParamRow: () => {},
-  addParamRow: () => {},
-  removeParamRow: () => {},
-  toggleParamRow: () => {},
-  revertField: () => {},
-  revertAll: () => {},
-  markSaved: () => {},
-}
 
 describe("BodySection — edit mode", () => {
   it("renders body content in edit mode", async () => {
@@ -63,7 +46,7 @@ describe("BodySection — edit mode", () => {
             editValue={testRequest.body!}
             setEditKey={() => {}}
             setEditValue={() => {}}
-            draft={noopDraft}
+
             focused={true}
             activeTab="body"
           />
@@ -89,7 +72,7 @@ describe("BodySection — edit mode", () => {
             editValue={testRequest.body!}
             setEditKey={() => {}}
             setEditValue={() => {}}
-            draft={noopDraft}
+
             focused={true}
             activeTab="body"
           />
@@ -115,7 +98,7 @@ describe("BodySection — edit mode", () => {
             editValue=""
             setEditKey={() => {}}
             setEditValue={() => {}}
-            draft={noopDraft}
+
             focused={true}
             activeTab="body"
           />
@@ -147,7 +130,7 @@ describe("BodySection — edit mode", () => {
             editValue=""
             setEditKey={() => {}}
             setEditValue={() => {}}
-            draft={noopDraft}
+
             focused={false}
             activeTab="body"
           />
@@ -171,7 +154,7 @@ describe("BodySection — edit mode", () => {
             editValue="raw text content"
             setEditKey={() => {}}
             setEditValue={() => {}}
-            draft={noopDraft}
+
             focused={true}
             activeTab="body"
           />

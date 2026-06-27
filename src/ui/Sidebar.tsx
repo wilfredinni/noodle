@@ -21,6 +21,7 @@ export function Sidebar({
   selectedIndex,
   focused = false,
   keybinds,
+  dirtyRequestIds,
 }: {
   collection: Collection | null
   loading: boolean
@@ -28,6 +29,7 @@ export function Sidebar({
   selectedIndex: number
   focused?: boolean
   keybinds?: Keybinds
+  dirtyRequestIds?: Set<string>
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -75,12 +77,14 @@ export function Sidebar({
         >
           {collection.requests.map((r, i) => {
             const isSelected = i === selectedIndex
+            const isDirty = dirtyRequestIds?.has(r.id)
             return (
               <box
                 key={r.id}
                 id={`req-${i}`}
                 style={{
                   flexDirection: "row",
+                  justifyContent: "space-between",
                   backgroundColor: isSelected
                     ? theme.backgroundElement
                     : undefined,
@@ -89,12 +93,15 @@ export function Sidebar({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
               >
-                <text fg={methodColor(r.method, theme)}>
-                  {shortMethod(r.method).padEnd(7)}
-                </text>
-                <text fg={theme.text} wrapMode="none">
-                  {truncName(r.name, 20)}
-                </text>
+                <box style={{ flexDirection: "row" }}>
+                  <text fg={methodColor(r.method, theme)}>
+                    {shortMethod(r.method).padEnd(7)}
+                  </text>
+                  <text fg={theme.text} wrapMode="none">
+                    {truncName(r.name, 20)}
+                  </text>
+                </box>
+                {isDirty && <text fg={theme.warning}>●</text>}
               </box>
             )
           })}
