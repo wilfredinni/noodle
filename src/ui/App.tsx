@@ -671,7 +671,7 @@ export function App({
     (name: string | null) => {
       const envName = name ?? undefined
       setSettingsEnv(envName)
-      saveSettings(collectionDir, { environment: envName })
+      saveSettings(collectionDir, { environment: envName }).catch(() => {})
     },
     [collectionDir],
   )
