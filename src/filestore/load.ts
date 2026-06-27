@@ -1,7 +1,8 @@
 import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
+import * as yaml from "js-yaml"
 import { lang } from "../lang"
-import type { Collection } from "../schema"
+import type { Collection, CollectionSettings } from "../schema"
 
 export async function loadCollection(dir: string): Promise<Collection> {
   let entries
@@ -21,7 +22,11 @@ export async function loadCollection(dir: string): Promise<Collection> {
   const id = basename(dir)
   const names = entries
     .filter(
-      (e) => e.isFile() && !e.name.startsWith(".") && e.name.endsWith(".yml"),
+      (e) =>
+        e.isFile() &&
+        !e.name.startsWith(".") &&
+        e.name.endsWith(".yml") &&
+        e.name !== "settings.yml",
     )
     .map((e) => e.name)
     .sort()
@@ -48,4 +53,29 @@ export async function loadCollection(dir: string): Promise<Collection> {
   }
 
   return { id, name: id, requests }
+}
+
+export async function loadSettings(dir: string): Promise<CollectionSettings> {
+  const filePath = join(dir, "settings.yml")
+  let raw: string
+  try {
+    raw = await readFile(filePath, "utf8")
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return {}
+    }
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`filestore.loadSettings: ${msg}`, { cause: e })
+  }
+  try {
+    const data = yaml.load(raw)
+    if (!data || typeof data !== "object") return {}
+    const obj = data as Record<string, unknown>
+    return {
+      environment:
+        typeof obj.environment === "string" ? obj.environment : undefined,
+    }
+  } catch {
+    return {}
+  }
 }
