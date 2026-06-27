@@ -129,7 +129,7 @@ export function YamlEditorOverlay({
     >
       <box
         style={{
-          width: 70,
+          width: 90,
           height: "80%",
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
@@ -198,7 +198,7 @@ export function YamlEditorOverlay({
       </box>
       <box
         style={{
-          width: 70,
+          width: 90,
           flexDirection: "row",
           flexShrink: 0,
           backgroundColor: theme.backgroundPanel,

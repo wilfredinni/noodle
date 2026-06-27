@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Request, Auth, Method, KvEntry } from "../schema"
 import type { FieldKind } from "./editMode"
+import { parseUrlAndParams } from "./urlParams"
 
 export type DraftOp =
   | { kind: "setUrl"; url: string }
@@ -13,6 +14,7 @@ export type DraftOp =
   | { kind: "addParamRow"; key: string; value: string }
   | { kind: "removeParamRow"; index: number }
   | { kind: "toggleParamRow"; index: number }
+  | { kind: "syncUrlParams"; rawUrl: string }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
 
@@ -173,6 +175,12 @@ export function applyDraft(
     case "setUrl":
       draft.url = op.url
       break
+    case "syncUrlParams": {
+      const parsed = parseUrlAndParams(op.rawUrl)
+      draft.url = parsed.baseUrl
+      draft.params = parsed.params
+      break
+    }
     case "setBody":
       draft.body = op.body
       break
@@ -233,6 +241,7 @@ export interface UseRequestDraftResult {
   isDirty: boolean
   dirtyRequestIds: Set<string>
   setUrl: (url: string) => void
+  syncUrlParams: (rawUrl: string) => void
   setBody: (body: string) => void
   setHeaderRow: (index: number, key: string, value: string) => void
   addHeaderRow: (key: string, value: string) => void
@@ -277,6 +286,10 @@ export function useRequestDraft(
 
   const setUrl = useCallback(
     (url: string) => apply({ kind: "setUrl", url }),
+    [apply],
+  )
+  const syncUrlParams = useCallback(
+    (rawUrl: string) => apply({ kind: "syncUrlParams", rawUrl }),
     [apply],
   )
   const setBody = useCallback(
@@ -366,6 +379,7 @@ export function useRequestDraft(
       isDirty,
       dirtyRequestIds,
       setUrl,
+      syncUrlParams,
       setBody,
       setHeaderRow,
       addHeaderRow,
@@ -384,6 +398,7 @@ export function useRequestDraft(
       isDirty,
       dirtyRequestIds,
       setUrl,
+      syncUrlParams,
       setBody,
       setHeaderRow,
       addHeaderRow,

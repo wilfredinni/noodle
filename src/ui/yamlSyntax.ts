@@ -115,7 +115,7 @@ function tokenizeInline(raw: string, theme: Theme): Span[] {
   if (space) parts.push({ text: space, fg: theme.text })
 
   if (trimmed === "") {
-    if (comment) parts.push({ text: comment.trim(), fg: theme.textMuted })
+    if (comment) parts.push({ text: comment, fg: theme.textMuted })
     return parts
   }
 
@@ -132,7 +132,7 @@ function tokenizeInline(raw: string, theme: Theme): Span[] {
     parts.push({ text: trimmed, fg: theme.text })
   }
 
-  if (comment) parts.push({ text: " " + comment.trim(), fg: theme.textMuted })
+  if (comment) parts.push({ text: comment, fg: theme.textMuted })
 
   return parts
 }
@@ -190,8 +190,6 @@ export function highlightYaml(
         offset += span.text.length
       }
     }
-    if (i < lines.length - 1) {
-      offset += 1 // newline
-    }
+    // newline has no character position in addHighlightByCharRange
   }
 }

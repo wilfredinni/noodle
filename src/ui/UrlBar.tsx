@@ -1,27 +1,34 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Badge } from "./Badge"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
-import type { Method } from "../schema"
+import type { Method, KvEntry } from "../schema"
+import { buildDisplayUrl } from "./urlParams"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 export function UrlBar({
   method,
   url,
+  params,
   setUrl,
+  onDefocus,
   focused = false,
   sending = false,
 }: {
   method: string
   url: string
+  params: Record<string, KvEntry>
   setUrl: (url: string) => void
+  onDefocus: (rawUrl: string) => void
   focused?: boolean
   sending?: boolean
 }) {
   const theme = useTheme()
   const [spinnerIdx, setSpinnerIdx] = useState(0)
+  const [inputValue, setInputValue] = useState(url)
+  const prevFocused = useRef(focused)
 
   useEffect(() => {
     if (!sending) return
@@ -30,6 +37,32 @@ export function UrlBar({
     }, 80)
     return () => clearInterval(id)
   }, [sending])
+
+  useEffect(() => {
+    if (focused && !prevFocused.current) {
+      setInputValue(buildDisplayUrl(url, params))
+    }
+    if (!focused && prevFocused.current) {
+      onDefocus(inputValue)
+    }
+    prevFocused.current = focused
+  }, [focused])
+
+  useEffect(() => {
+    if (!focused) {
+      setInputValue(url)
+    }
+  }, [url, focused])
+
+  const handleInput = useCallback(
+    (val: string) => {
+      setInputValue(val)
+      setUrl(val)
+    },
+    [setUrl],
+  )
+
+  const displayUrl = buildDisplayUrl(url, params)
 
   return (
     <box
@@ -42,7 +75,7 @@ export function UrlBar({
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
     >
-      {!url ? (
+      {!displayUrl ? (
         <text fg={theme.text}>(no request selected)</text>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
@@ -55,8 +88,8 @@ export function UrlBar({
           {focused ? (
             <box style={{ flexGrow: 1 }}>
               <input
-                value={url}
-                onInput={setUrl}
+                value={inputValue}
+                onInput={handleInput}
                 backgroundColor={theme.backgroundElement}
                 focusedBackgroundColor={theme.borderSubtle}
                 textColor={theme.text}
@@ -72,7 +105,7 @@ export function UrlBar({
                 flexGrow: 1,
               }}
             >
-              <text fg={theme.text}> {url}</text>
+              <text fg={theme.text}> {displayUrl}</text>
             </box>
           )}
           <box

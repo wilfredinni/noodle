@@ -375,6 +375,125 @@ describe("applyDraft", () => {
   })
 })
 
+describe("syncUrlParams", () => {
+  it("sets url to base URL and params from query string", () => {
+    const original = makeReq({ url: "https://example.com/posts", params: {} })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com/posts?userId=1&limit=10",
+    })
+    expect(next.get("r1")!.url).toBe("https://example.com/posts")
+    expect(next.get("r1")!.params).toEqual({
+      userId: { value: "1", enabled: true },
+      limit: { value: "10", enabled: true },
+    })
+  })
+
+  it("replaces existing params with those from URL query", () => {
+    const original = makeReq({
+      url: "https://example.com/posts",
+      params: {
+        old: { value: "x", enabled: true },
+        stale: { value: "y", enabled: true },
+      },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com/posts?new=z",
+    })
+    expect(next.get("r1")!.url).toBe("https://example.com/posts")
+    expect(next.get("r1")!.params).toEqual({
+      new: { value: "z", enabled: true },
+    })
+  })
+
+  it("clears params when URL has no query string", () => {
+    const original = makeReq({
+      url: "https://example.com/old?x=1",
+      params: { y: { value: "2", enabled: true } },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com/clean",
+    })
+    expect(next.get("r1")!.url).toBe("https://example.com/clean")
+    expect(next.get("r1")!.params).toEqual({})
+  })
+
+  it("preserves other draft fields unchanged", () => {
+    const original = makeReq({
+      url: "https://example.com/posts",
+      method: "POST",
+      body: "hello",
+      headers: { "Content-Type": { value: "application/json", enabled: true } },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com/posts?key=val",
+    })
+    expect(next.get("r1")!.method).toBe("POST")
+    expect(next.get("r1")!.body).toBe("hello")
+    expect(next.get("r1")!.headers).toEqual({
+      "Content-Type": { value: "application/json", enabled: true },
+    })
+  })
+
+  it("handles single query param", () => {
+    const original = makeReq({ url: "https://example.com", params: {} })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com?q=hello",
+    })
+    expect(next.get("r1")!.url).toBe("https://example.com")
+    expect(next.get("r1")!.params).toEqual({
+      q: { value: "hello", enabled: true },
+    })
+  })
+
+  it("handles URL with existing query and explicit params (both replaced)", () => {
+    const original = makeReq({
+      url: "https://example.com/api?old=1",
+      params: { manual: { value: "2", enabled: true } },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com/api?v=3",
+    })
+    expect(next.get("r1")!.url).toBe("https://example.com/api")
+    expect(next.get("r1")!.params).toEqual({
+      v: { value: "3", enabled: true },
+    })
+  })
+
+  it("never mutates input map", () => {
+    const original = makeReq({ url: "https://example.com", params: {} })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com?x=1",
+    })
+    expect(next).not.toBe(map)
+    expect(map.size).toBe(0)
+  })
+
+  it("never mutates original request", () => {
+    const original = makeReq({ url: "https://example.com", params: {} })
+    const originalCopy = { ...original, params: { ...original.params } }
+    const map = new Map<string, Request>()
+    applyDraft(map, "r1", original, {
+      kind: "syncUrlParams",
+      rawUrl: "https://example.com?x=1",
+    })
+    expect(original).toEqual(originalCopy)
+  })
+})
+
 describe("isDirty with originalMap", () => {
   it("returns false when draft equals originalMap entry", () => {
     const original = makeReq({ url: "https://a.com" })

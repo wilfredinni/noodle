@@ -526,7 +526,9 @@ function AppInner({
             <UrlBar
               method={draft.draft?.method ?? ""}
               url={draft.draft?.url ?? ""}
+              params={draft.draft?.params ?? {}}
               setUrl={draft.setUrl}
+              onDefocus={draft.syncUrlParams}
               focused={focus === "urlbar"}
               sending={responseState.status === "sending"}
             />
