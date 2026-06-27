@@ -7,10 +7,12 @@ export function JsonBodyViewer({
   body,
   theme,
   id,
+  readOnly = false,
 }: {
   body: string
   theme: Theme
   id?: string
+  readOnly?: boolean
 }) {
   const ref = useRef<TextareaRenderable | null>(null)
 
@@ -18,8 +20,11 @@ export function JsonBodyViewer({
     const ta = ref.current
     if (ta) {
       highlightTextarea(ta, body, theme)
+      if (readOnly) {
+        ta.focusable = false
+      }
     }
-  }, [body, theme])
+  }, [body, theme, readOnly])
 
   return (
     <line-number
