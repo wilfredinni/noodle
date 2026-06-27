@@ -75,8 +75,8 @@ export function parseRequest(id: string, yamlText: string): Request {
     )
   }
 
-  const headers = parseStringMap(raw.headers, "headers")
-  const params = parseStringMap(raw.params, "params")
+  const headers = parseKvMap(raw.headers, "headers")
+  const params = parseKvMap(raw.params, "params")
 
   let body: string | undefined
   if (raw.body !== undefined) {
@@ -100,21 +100,31 @@ export function parseRequest(id: string, yamlText: string): Request {
   }
 }
 
-function parseStringMap(value: unknown, field: string): Record<string, string> {
+function parseKvMap(value: unknown, field: string): Record<string, import("../schema").KvEntry> {
   if (value === undefined) return {}
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(
-      `lang.parseRequest: ${field} must be a map of string to string`,
+      `lang.parseRequest: ${field} must be a map`,
     )
   }
-  const out: Record<string, string> = {}
+  const out: Record<string, import("../schema").KvEntry> = {}
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof v !== "string") {
+    if (typeof v === "string") {
+      out[k] = { value: v, enabled: true }
+    } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
+      const obj = v as Record<string, unknown>
+      if (typeof obj.value !== "string") {
+        throw new Error(
+          `lang.parseRequest: ${field}.${k} must have string "value"`,
+        )
+      }
+      const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
+      out[k] = { value: obj.value, enabled }
+    } else {
       throw new Error(
-        `lang.parseRequest: ${field} must be a map of string to string`,
+        `lang.parseRequest: ${field}.${k} must be a string or {value, enabled} object`,
       )
     }
-    out[k] = v
   }
   return out
 }

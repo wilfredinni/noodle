@@ -69,8 +69,8 @@ describe("lang.parseRequest — defaults", () => {
   it("parses provided headers, params, body", () => {
     const yaml = `name: Foo\nmethod: POST\nurl: https://example.com\nheaders:\n  Accept: application/json\nparams:\n  verbose: "true"\nbody: '{"limit": 10}'\n`
     const req = lang.parseRequest("x", yaml)
-    expect(req.headers).toEqual({ Accept: "application/json" })
-    expect(req.params).toEqual({ verbose: "true" })
+    expect(req.headers).toEqual({ Accept: { value: "application/json", enabled: true } })
+    expect(req.params).toEqual({ verbose: { value: "true", enabled: true } })
     expect(req.body).toBe('{"limit": 10}')
   })
 })
@@ -97,17 +97,17 @@ describe("lang.parseRequest — strictness", () => {
     )
   })
 
-  it("throws on non-string-map headers (value not string)", () => {
+  it("throws on non-string/non-object header value", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nheaders:\n  X: 123\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
-      "lang.parseRequest: headers must be a map of string to string",
+      "lang.parseRequest: headers.X must be a string or {value, enabled} object",
     )
   })
 
-  it("throws on non-string-map headers (not a mapping)", () => {
+  it("throws on non-mapping headers", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nheaders: 123\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
-      "lang.parseRequest: headers must be a map of string to string",
+      "lang.parseRequest: headers must be a map",
     )
   })
 
@@ -122,6 +122,33 @@ describe("lang.parseRequest — strictness", () => {
     const yaml = `name: Foo\n  : : :\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
       /lang\.parseRequest: YAML syntax:/,
+    )
+  })
+})
+
+describe("lang.parseRequest — KvEntry parsing", () => {
+  it("parses headers with explicit enabled flag", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nheaders:\n  X-Debug: { value: "true", enabled: false }\n  Accept: application/json\n`
+    const req = lang.parseRequest("x", yaml)
+    expect(req.headers).toEqual({
+      "X-Debug": { value: "true", enabled: false },
+      Accept: { value: "application/json", enabled: true },
+    })
+  })
+
+  it("parses params with explicit enabled flag", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nparams:\n  debug: { value: "1", enabled: false }\n  verbose: "true"\n`
+    const req = lang.parseRequest("x", yaml)
+    expect(req.params).toEqual({
+      debug: { value: "1", enabled: false },
+      verbose: { value: "true", enabled: true },
+    })
+  })
+
+  it("throws on header value object missing 'value'", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nheaders:\n  X: { enabled: false }\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: headers.X must have string "value"',
     )
   })
 })
@@ -174,7 +201,7 @@ describe("lang.parseRequest — env var preservation", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://{{host}}/users/{{id}}\nheaders:\n  Authorization: "Bearer {{token}}"\nbody: '{"id": "{{id}}"}'\nauth:\n  type: bearer\n  token: "{{token}}"\n`
     const req = lang.parseRequest("x", yaml)
     expect(req.url).toBe("https://{{host}}/users/{{id}}")
-    expect(req.headers.Authorization).toBe("Bearer {{token}}")
+    expect(req.headers.Authorization).toEqual({ value: "Bearer {{token}}", enabled: true })
     expect(req.body).toBe('{"id": "{{id}}"}')
     expect(req.auth).toEqual({ type: "bearer", token: "{{token}}" })
   })
@@ -203,7 +230,7 @@ describe("lang.serializeRequest — canonical output", () => {
 
   it("emits headers when non-empty, omits empty params/body/auth", () => {
     const out = lang.serializeRequest(
-      makeReq({ headers: { Accept: "application/json" } }),
+      makeReq({ headers: { Accept: { value: "application/json", enabled: true } } }),
     )
     expect(out).toBe(
       "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\nheaders:\n  Accept: application/json\n",
@@ -211,7 +238,7 @@ describe("lang.serializeRequest — canonical output", () => {
   })
 
   it("emits params when non-empty", () => {
-    const out = lang.serializeRequest(makeReq({ params: { verbose: "true" } }))
+    const out = lang.serializeRequest(makeReq({ params: { verbose: { value: "true", enabled: true } } }))
     expect(out).toContain("params:\n  verbose: 'true'\n")
     expect(out).not.toContain("headers")
     expect(out).not.toContain("body")
@@ -246,7 +273,7 @@ describe("lang.serializeRequest — canonical output", () => {
     const out = lang.serializeRequest(
       makeReq({
         url: "https://{{host}}/users",
-        headers: { Authorization: "Bearer {{token}}" },
+        headers: { Authorization: { value: "Bearer {{token}}", enabled: true } },
         auth: { type: "bearer", token: "{{token}}" },
       }),
     )
@@ -260,8 +287,8 @@ describe("lang.serializeRequest — canonical key order", () => {
   it("emits keys in fixed order: name, method, url, headers, params, body, auth", () => {
     const out = lang.serializeRequest(
       makeReq({
-        headers: { Accept: "application/json" },
-        params: { verbose: "true" },
+        headers: { Accept: { value: "application/json", enabled: true } },
+        params: { verbose: { value: "true", enabled: true } },
         body: '{"limit": 10}',
         auth: { type: "bearer", token: "abc123" },
       }),
@@ -288,10 +315,10 @@ describe("lang — semantic round-trip", () => {
       method: "POST",
       url: "https://{{host}}/posts",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer {{token}}",
+        "Content-Type": { value: "application/json", enabled: true },
+        Authorization: { value: "Bearer {{token}}", enabled: true },
       },
-      params: { draft: "true" },
+      params: { draft: { value: "true", enabled: true } },
       body: '{"title": "hello", "body": "world"}',
       auth: { type: "bearer", token: "{{token}}" },
     }
