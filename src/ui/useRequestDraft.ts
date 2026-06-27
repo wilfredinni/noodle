@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Request, Auth, Method } from "../schema"
+import type { Request, Auth, Method, KvEntry } from "../schema"
 import type { FieldKind } from "./editMode"
 
 export type DraftOp =
@@ -8,9 +8,11 @@ export type DraftOp =
   | { kind: "setHeaderRow"; index: number; key: string; value: string }
   | { kind: "addHeaderRow"; key: string; value: string }
   | { kind: "removeHeaderRow"; index: number }
+  | { kind: "toggleHeaderRow"; index: number }
   | { kind: "setParamRow"; index: number; key: string; value: string }
   | { kind: "addParamRow"; key: string; value: string }
   | { kind: "removeParamRow"; index: number }
+  | { kind: "toggleParamRow"; index: number }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
 
@@ -25,14 +27,19 @@ export function parseRow(input: string): { key: string; value: string } {
 }
 
 function recordsEqual(
-  a: Record<string, string>,
-  b: Record<string, string>,
+  a: Record<string, KvEntry>,
+  b: Record<string, KvEntry>,
 ): boolean {
   const ae = Object.entries(a).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
   const be = Object.entries(b).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
   if (ae.length !== be.length) return false
   for (let i = 0; i < ae.length; i++) {
-    if (ae[i]![0] !== be[i]![0] || ae[i]![1] !== be[i]![1]) return false
+    if (
+      ae[i]![0] !== be[i]![0] ||
+      ae[i]![1].value !== be[i]![1].value ||
+      ae[i]![1].enabled !== be[i]![1].enabled
+    )
+      return false
   }
   return true
 }
@@ -59,74 +66,93 @@ export function requestEquals(a: Request, b: Request): boolean {
   return true
 }
 
-function sortedEntries(rec: Record<string, string>): [string, string][] {
+function sortedEntries(rec: Record<string, KvEntry>): [string, KvEntry][] {
   return Object.entries(rec)
 }
 
 function replaceRow(
-  rec: Record<string, string>,
+  rec: Record<string, KvEntry>,
   index: number,
   key: string,
   value: string,
-): Record<string, string> {
+): Record<string, KvEntry> {
   const entries = sortedEntries(rec)
   if (!entries[index]) return rec
-  const out: Record<string, string> = {}
+  const out: Record<string, KvEntry> = {}
   for (let i = 0; i < entries.length; i++) {
-    const [k, v] = entries[i]!
+    const [k, entry] = entries[i]!
     if (i === index) {
-      if (key !== "") out[key] = value
+      if (key !== "") out[key] = { value, enabled: entry.enabled }
     } else if (k !== key) {
-      out[k] = v
+      out[k] = entry
     }
   }
   return out
 }
 
 function addRow(
-  rec: Record<string, string>,
+  rec: Record<string, KvEntry>,
   key: string,
   value: string,
-): Record<string, string> {
+): Record<string, KvEntry> {
   if (key === "") return rec
-  return { ...rec, [key]: value }
+  return { ...rec, [key]: { value, enabled: true } }
 }
 
 function removeRow(
-  rec: Record<string, string>,
+  rec: Record<string, KvEntry>,
   index: number,
-): Record<string, string> {
+): Record<string, KvEntry> {
   const entries = sortedEntries(rec)
   const target = entries[index]
   if (!target) return rec
-  const out: Record<string, string> = {}
+  const out: Record<string, KvEntry> = {}
   for (const [k, v] of entries) if (k !== target[0]) out[k] = v
   return out
 }
 
 function revertRow(
-  rec: Record<string, string>,
-  originalRec: Record<string, string>,
+  rec: Record<string, KvEntry>,
+  originalRec: Record<string, KvEntry>,
   index: number,
-): Record<string, string> {
+): Record<string, KvEntry> {
   const origEntries = sortedEntries(originalRec)
   const curEntries = sortedEntries(rec)
   if (index >= origEntries.length) {
     return removeRow(rec, index)
   }
-  const [origKey, origValue] = origEntries[index]!
-  const out: Record<string, string> = {}
+  const [origKey, origEntry] = origEntries[index]!
+  const out: Record<string, KvEntry> = {}
   let placed = false
   for (let i = 0; i < curEntries.length; i++) {
     if (i === index) {
-      out[origKey] = origValue
+      out[origKey] = origEntry
       placed = true
     } else {
       const [k, v] = curEntries[i]!
       out[k] = v
     }
   }
-  if (!placed) out[origKey] = origValue
+  if (!placed) out[origKey] = origEntry
+  return out
+}
+
+function toggleRow(
+  rec: Record<string, KvEntry>,
+  index: number,
+): Record<string, KvEntry> {
+  const entries = sortedEntries(rec)
+  const target = entries[index]
+  if (!target) return rec
+  const [k] = target
+  const out: Record<string, KvEntry> = {}
+  for (const [key, v] of entries) {
+    if (key === k) {
+      out[key] = { value: v.value, enabled: !v.enabled }
+    } else {
+      out[key] = v
+    }
+  }
   return out
 }
 
@@ -165,6 +191,9 @@ export function applyDraft(
     case "removeHeaderRow":
       draft.headers = removeRow(current.headers, op.index)
       break
+    case "toggleHeaderRow":
+      draft.headers = toggleRow(current.headers, op.index)
+      break
     case "setParamRow": {
       const { key, value } = op
       if (key === "") {
@@ -179,6 +208,9 @@ export function applyDraft(
       break
     case "removeParamRow":
       draft.params = removeRow(current.params, op.index)
+      break
+    case "toggleParamRow":
+      draft.params = toggleRow(current.params, op.index)
       break
     case "revertField": {
       if (op.field === "body") draft.body = original.body
@@ -204,9 +236,11 @@ export interface UseRequestDraftResult {
   setHeaderRow: (index: number, key: string, value: string) => void
   addHeaderRow: (key: string, value: string) => void
   removeHeaderRow: (index: number) => void
+  toggleHeaderRow: (index: number) => void
   setParamRow: (index: number, key: string, value: string) => void
   addParamRow: (key: string, value: string) => void
   removeParamRow: (index: number) => void
+  toggleParamRow: (index: number) => void
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
   markSaved: () => void
@@ -261,6 +295,10 @@ export function useRequestDraft(
     (index: number) => apply({ kind: "removeHeaderRow", index }),
     [apply],
   )
+  const toggleHeaderRow = useCallback(
+    (index: number) => apply({ kind: "toggleHeaderRow", index }),
+    [apply],
+  )
   const setParamRow = useCallback(
     (index: number, key: string, value: string) =>
       apply({ kind: "setParamRow", index, key, value }),
@@ -272,6 +310,10 @@ export function useRequestDraft(
   )
   const removeParamRow = useCallback(
     (index: number) => apply({ kind: "removeParamRow", index }),
+    [apply],
+  )
+  const toggleParamRow = useCallback(
+    (index: number) => apply({ kind: "toggleParamRow", index }),
     [apply],
   )
   const revertField = useCallback(
@@ -314,9 +356,11 @@ export function useRequestDraft(
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,
+      toggleHeaderRow,
       setParamRow,
       addParamRow,
       removeParamRow,
+      toggleParamRow,
       revertField,
       revertAll,
       markSaved,
@@ -329,9 +373,11 @@ export function useRequestDraft(
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,
+      toggleHeaderRow,
       setParamRow,
       addParamRow,
       removeParamRow,
+      toggleParamRow,
       revertField,
       revertAll,
       markSaved,

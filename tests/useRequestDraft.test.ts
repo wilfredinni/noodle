@@ -74,20 +74,20 @@ describe("requestEquals", () => {
     ).toBe(false)
   })
   it("differing headers → false", () => {
-    const a = makeReq({ headers: { A: "1" } })
-    const b = makeReq({ headers: { A: "2" } })
+    const a = makeReq({ headers: { A: { value: "1", enabled: true } } })
+    const b = makeReq({ headers: { A: { value: "2", enabled: true } } })
     expect(requestEquals(a, b)).toBe(false)
   })
   it("same headers different insertion order → true (deep record compare)", () => {
-    const a = makeReq({ headers: { A: "1", B: "2" } })
-    const b = makeReq({ headers: { B: "2", A: "1" } })
+    const a = makeReq({ headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: true } } })
+    const b = makeReq({ headers: { B: { value: "2", enabled: true }, A: { value: "1", enabled: true } } })
     expect(requestEquals(a, b)).toBe(true)
   })
   it("differing params → false", () => {
     expect(
       requestEquals(
-        makeReq({ params: { q: "1" } }),
-        makeReq({ params: { q: "2" } }),
+        makeReq({ params: { q: { value: "1", enabled: true } } }),
+        makeReq({ params: { q: { value: "2", enabled: true } } }),
       ),
     ).toBe(false)
   })
@@ -133,7 +133,7 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.body).toBe("")
   })
   it("setHeaderRow replaces i-th entry by insertion order", () => {
-    const original = makeReq({ headers: { B: "2", A: "1" } })
+    const original = makeReq({ headers: { B: { value: "2", enabled: true }, A: { value: "1", enabled: true } } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "setHeaderRow",
@@ -141,10 +141,10 @@ describe("applyDraft", () => {
       key: "B",
       value: "2-modified",
     })
-    expect(next.get("r1")!.headers).toEqual({ B: "2-modified", A: "1" })
+    expect(next.get("r1")!.headers).toEqual({ B: { value: "2-modified", enabled: true }, A: { value: "1", enabled: true } })
   })
   it("setHeaderRow replaces i-th entry (second row)", () => {
-    const original = makeReq({ headers: { B: "2", A: "1" } })
+    const original = makeReq({ headers: { B: { value: "2", enabled: true }, A: { value: "1", enabled: true } } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "setHeaderRow",
@@ -152,10 +152,10 @@ describe("applyDraft", () => {
       key: "A",
       value: "1-modified",
     })
-    expect(next.get("r1")!.headers).toEqual({ B: "2", A: "1-modified" })
+    expect(next.get("r1")!.headers).toEqual({ B: { value: "2", enabled: true }, A: { value: "1-modified", enabled: true } })
   })
   it("setHeaderRow with empty key removes the row", () => {
-    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const original = makeReq({ headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: true } } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "setHeaderRow",
@@ -163,10 +163,10 @@ describe("applyDraft", () => {
       key: "",
       value: "",
     })
-    expect(next.get("r1")!.headers).toEqual({ B: "2" })
+    expect(next.get("r1")!.headers).toEqual({ B: { value: "2", enabled: true } })
   })
   it("setHeaderRow with duplicate key overwrites existing entry", () => {
-    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const original = makeReq({ headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: true } } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "setHeaderRow",
@@ -174,29 +174,29 @@ describe("applyDraft", () => {
       key: "B",
       value: "2-modified",
     })
-    expect(next.get("r1")!.headers).toEqual({ B: "2-modified" })
+    expect(next.get("r1")!.headers).toEqual({ B: { value: "2-modified", enabled: true } })
   })
   it("addHeaderRow appends", () => {
-    const original = makeReq({ headers: { A: "1" } })
+    const original = makeReq({ headers: { A: { value: "1", enabled: true } } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "addHeaderRow",
       key: "B",
       value: "2",
     })
-    expect(next.get("r1")!.headers).toEqual({ A: "1", B: "2" })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "1", enabled: true }, B: { value: "2", enabled: true } })
   })
   it("removeHeaderRow deletes by sorted index", () => {
-    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const original = makeReq({ headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: true } } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "removeHeaderRow",
       index: 0,
     })
-    expect(next.get("r1")!.headers).toEqual({ B: "2" })
+    expect(next.get("r1")!.headers).toEqual({ B: { value: "2", enabled: true } })
   })
   it("removeHeaderRow on last row leaves empty record", () => {
-    const original = makeReq({ headers: { A: "1" } })
+    const original = makeReq({ headers: { A: { value: "1", enabled: true } } })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "removeHeaderRow",
@@ -205,7 +205,7 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.headers).toEqual({})
   })
   it("setParamRow / addParamRow / removeParamRow mirror headers", () => {
-    const original = makeReq({ params: { q: "1" } })
+    const original = makeReq({ params: { q: { value: "1", enabled: true } } })
     const map = new Map<string, Request>()
     let next = applyDraft(map, "r1", original, {
       kind: "setParamRow",
@@ -213,18 +213,18 @@ describe("applyDraft", () => {
       key: "q",
       value: "2",
     })
-    expect(next.get("r1")!.params).toEqual({ q: "2" })
+    expect(next.get("r1")!.params).toEqual({ q: { value: "2", enabled: true } })
     next = applyDraft(next, "r1", original, {
       kind: "addParamRow",
       key: "p",
       value: "3",
     })
-    expect(next.get("r1")!.params).toEqual({ q: "2", p: "3" })
+    expect(next.get("r1")!.params).toEqual({ q: { value: "2", enabled: true }, p: { value: "3", enabled: true } })
     next = applyDraft(next, "r1", original, {
       kind: "removeParamRow",
       index: 0,
     })
-    expect(next.get("r1")!.params).toEqual({ p: "3" })
+    expect(next.get("r1")!.params).toEqual({ p: { value: "3", enabled: true } })
   })
   it("revertField body restores body from original", () => {
     const original = makeReq({ body: "orig" })
@@ -238,28 +238,28 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.body).toBe("orig")
   })
   it("revertField headers row i restores that row from original", () => {
-    const original = makeReq({ headers: { A: "1", B: "2" } })
+    const original = makeReq({ headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: true } } })
     const map = new Map<string, Request>([
-      ["r1", { ...original, headers: { A: "1-edited", B: "2" } }],
+      ["r1", { ...original, headers: { A: { value: "1-edited", enabled: true }, B: { value: "2", enabled: true } } }],
     ])
     const next = applyDraft(map, "r1", original, {
       kind: "revertField",
       field: "headers",
       row: 0,
     })
-    expect(next.get("r1")!.headers).toEqual({ A: "1", B: "2" })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "1", enabled: true }, B: { value: "2", enabled: true } })
   })
   it("revertField headers row i removes row if original had fewer rows (added row)", () => {
-    const original = makeReq({ headers: { A: "1" } })
+    const original = makeReq({ headers: { A: { value: "1", enabled: true } } })
     const map = new Map<string, Request>([
-      ["r1", { ...original, headers: { A: "1", B: "2" } }],
+      ["r1", { ...original, headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: true } } }],
     ])
     const next = applyDraft(map, "r1", original, {
       kind: "revertField",
       field: "headers",
       row: 1,
     })
-    expect(next.get("r1")!.headers).toEqual({ A: "1" })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "1", enabled: true } })
   })
   it("revertAll drops the map entry", () => {
     const original = makeReq()
@@ -294,6 +294,84 @@ describe("applyDraft", () => {
     map = applyDraft(map, "a", a, { kind: "revertAll" })
     expect(map.has("a")).toBe(false)
     expect(map.get("b")!.url).toBe("https://b-edited.com")
+  })
+  it("toggleHeaderRow flips enabled from true to false", () => {
+    const original = makeReq({ headers: { A: { value: "1", enabled: true } } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "toggleHeaderRow",
+      index: 0,
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "1", enabled: false } })
+  })
+  it("toggleHeaderRow flips enabled from false to true", () => {
+    const original = makeReq({ headers: { A: { value: "1", enabled: false } } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "toggleHeaderRow",
+      index: 0,
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "1", enabled: true } })
+  })
+  it("toggleParamRow flips enabled", () => {
+    const original = makeReq({ params: { q: { value: "search", enabled: true } } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "toggleParamRow",
+      index: 0,
+    })
+    expect(next.get("r1")!.params).toEqual({ q: { value: "search", enabled: false } })
+  })
+  it("toggle on out-of-range index is no-op", () => {
+    const original = makeReq({ headers: { A: { value: "1", enabled: true } } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "toggleHeaderRow",
+      index: 99,
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "1", enabled: true } })
+  })
+  it("setHeaderRow preserves existing enabled state", () => {
+    const original = makeReq({ headers: { A: { value: "1", enabled: false } } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setHeaderRow",
+      index: 0,
+      key: "A",
+      value: "modified",
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "modified", enabled: false } })
+  })
+  it("addHeaderRow defaults to enabled: true", () => {
+    const original = makeReq({ headers: {} })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "addHeaderRow",
+      key: "X-New",
+      value: "v",
+    })
+    expect(next.get("r1")!.headers).toEqual({ "X-New": { value: "v", enabled: true } })
+  })
+  it("removeHeaderRow still works with KvEntry", () => {
+    const original = makeReq({ headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: false } } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "removeHeaderRow",
+      index: 0,
+    })
+    expect(next.get("r1")!.headers).toEqual({ B: { value: "2", enabled: false } })
+  })
+  it("revertField headers row i restores original enabled state", () => {
+    const original = makeReq({ headers: { A: { value: "1", enabled: true }, B: { value: "2", enabled: false } } })
+    const map = new Map<string, Request>([
+      ["r1", { ...original, headers: { A: { value: "1-edited", enabled: false }, B: { value: "2", enabled: false } } }],
+    ])
+    const next = applyDraft(map, "r1", original, {
+      kind: "revertField",
+      field: "headers",
+      row: 0,
+    })
+    expect(next.get("r1")!.headers).toEqual({ A: { value: "1", enabled: true }, B: { value: "2", enabled: false } })
   })
 })
 
