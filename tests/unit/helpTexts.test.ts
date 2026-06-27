@@ -43,14 +43,15 @@ describe("getHelpSections", () => {
     expect(keys).toContain("shift+tab")
   })
 
-  it("EDITING section shows return, escape, d, R", () => {
+  it("EDITING section shows return, escape, ^d, ^x, ^r", () => {
     const sections = getHelpSections(defaults)
     const edit = sections.find((s) => s.title === "Editing")!
     const keys = edit.keys.map((k) => k.key)
     expect(keys).toContain("return")
     expect(keys).toContain("escape")
-    expect(keys).toContain("d")
-    expect(keys).toContain("R")
+    expect(keys).toContain("^d")
+    expect(keys).toContain("^x")
+    expect(keys).toContain("^r")
   })
 
   it("ACTIONS section shows ^return, ^s, ^[, ^l, ^]", () => {

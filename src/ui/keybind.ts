@@ -21,9 +21,9 @@ export const Definitions = {
   env_next: keybind("ctrl+]", "Next environment"),
   help_toggle: keybind("f1", "Toggle help overlay"),
   theme_picker: keybind("t", "Open theme picker"),
-  browse_delete: keybind("d", "Revert field"),
-  browse_revert_all: keybind("R", "Revert all fields"),
-  browse_toggle: keybind("x", "Toggle header/param"),
+  browse_delete: keybind("ctrl+d", "Revert field"),
+  browse_revert_all: keybind("ctrl+r", "Revert all fields"),
+  browse_toggle: keybind("ctrl+x", "Toggle header/param"),
 
   focus_next: keybind("tab", "Next pane", true),
   focus_prev: keybind("shift+tab", "Previous pane", true),
