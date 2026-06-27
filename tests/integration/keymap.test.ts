@@ -24,7 +24,7 @@ function setup() {
 }
 
 describe("keymap dispatch", () => {
-  it("dispatches request.send when s is pressed", () => {
+  it("dispatches request.send when ctrl+return is pressed", () => {
     const { keymap, host, cleanup } = setup()
     let called = false
 
@@ -40,10 +40,10 @@ describe("keymap dispatch", () => {
           },
         },
       ],
-      bindings: [{ key: "s", cmd: "request.send" }],
+      bindings: [{ key: "ctrl+return", cmd: "request.send" }],
     })
 
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(called).toBe(true)
     cleanup()
   })
@@ -63,10 +63,10 @@ describe("keymap dispatch", () => {
           },
         },
       ],
-      bindings: [{ key: "s", cmd: "request.send" }],
+      bindings: [{ key: "ctrl+return", cmd: "request.send" }],
     })
 
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(called).toBe(false)
     cleanup()
   })
@@ -87,10 +87,10 @@ describe("keymap dispatch", () => {
           },
         },
       ],
-      bindings: [{ key: "s", cmd: "request.send" }],
+      bindings: [{ key: "ctrl+return", cmd: "request.send" }],
     })
 
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(called).toBe(false)
     cleanup()
   })
@@ -112,10 +112,10 @@ describe("keymap dispatch", () => {
           },
         },
       ],
-      bindings: [{ key: "s", cmd: "request.send" }],
+      bindings: [{ key: "ctrl+return", cmd: "request.send" }],
     })
 
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(called).toBe(false)
     cleanup()
   })
@@ -327,13 +327,13 @@ describe("keymap dispatch", () => {
           },
         },
       ],
-      bindings: [{ key: "s", cmd: "request.send" }],
+      bindings: [{ key: "ctrl+return", cmd: "request.send" }],
     })
 
     keymap.intercept(
       "key",
       (ctx) => {
-        if (ctx.event.name === "s") {
+        if (ctx.event.name === "return" && ctx.event.ctrl) {
           interceptCalled = true
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
@@ -342,7 +342,7 @@ describe("keymap dispatch", () => {
       { priority: 100 },
     )
 
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(interceptCalled).toBe(true)
     expect(layerCalled).toBe(false)
     cleanup()
@@ -401,7 +401,7 @@ describe("App.tsx layer mirror", () => {
         },
       ],
       bindings: [
-        { key: "s", cmd: "request.send" },
+        { key: "ctrl+return", cmd: "request.send" },
         { key: "return", cmd: "request.edit-enter" },
       ],
     })
@@ -452,13 +452,13 @@ describe("App.tsx layer mirror", () => {
 
     // s in sidebar → send
     keymap.setData("app.focus", "sidebar")
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(sendCalled).toBe(true)
     sendCalled = false
 
     // s in urlbar → does NOT send (command disabled)
     keymap.setData("app.focus", "urlbar")
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(sendCalled).toBe(false)
 
     // Enter in request → edit-enter
@@ -501,7 +501,7 @@ describe("App.tsx layer mirror", () => {
     keymap.setData("app.mode", "base")
     keymap.setData("app.overlay", "help")
     keymap.setData("app.focus", "sidebar")
-    host.press("s")
+    host.press("return", { ctrl: true })
     expect(sendCalled).toBe(false)
 
     // l dispatches layout.toggle regardless of mode/overlay (always-on)

@@ -342,10 +342,10 @@ function AppInner({
       },
     ],
     bindings: [
-      { key: "s", cmd: "request.send" },
+      { key: "ctrl+return", cmd: "request.send" },
       { key: "ctrl+s", cmd: "request.save" },
-      { key: "[", cmd: "env.prev" },
-      { key: "]", cmd: "env.next" },
+      { key: "ctrl+[", cmd: "env.prev" },
+      { key: "ctrl+]", cmd: "env.next" },
       { key: "t", cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
@@ -394,7 +394,7 @@ function AppInner({
       { key: "d", cmd: "browse.delete" },
       { key: "R", cmd: "browse.revert-all" },
       { key: "x", cmd: "browse.toggle" },
-      { key: "s", cmd: "browse.send" },
+      { key: "ctrl+return", cmd: "browse.send" },
       { key: "ctrl+s", cmd: "browse.save" },
     ],
   }))

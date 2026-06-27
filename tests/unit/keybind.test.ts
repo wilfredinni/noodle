@@ -10,7 +10,7 @@ import type { KeybindName } from "../../src/ui/keybind"
 describe("parseOverrides", () => {
   it("returns defaults when overrides is empty", () => {
     const result = parseOverrides({})
-    expect(result.request_send).toBe("s")
+    expect(result.request_send).toBe("ctrl+return")
     expect(result.request_save).toBe("ctrl+s")
     expect(result.help_toggle).toBe("f1")
   })

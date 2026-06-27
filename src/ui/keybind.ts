@@ -15,10 +15,10 @@ function keybind(
 }
 
 export const Definitions = {
-  request_send: keybind("s", "Send request"),
+  request_send: keybind("ctrl+return", "Send request"),
   request_save: keybind("ctrl+s", "Save request to disk"),
-  env_prev: keybind("[", "Previous environment"),
-  env_next: keybind("]", "Next environment"),
+  env_prev: keybind("ctrl+[", "Previous environment"),
+  env_next: keybind("ctrl+]", "Next environment"),
   help_toggle: keybind("f1", "Toggle help overlay"),
   theme_picker: keybind("t", "Open theme picker"),
   browse_delete: keybind("d", "Revert field"),
