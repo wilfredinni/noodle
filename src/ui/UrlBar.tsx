@@ -81,8 +81,7 @@ export function UrlBar({
               backgroundColor: sending
                 ? theme.backgroundElement
                 : theme.primary,
-              paddingLeft: 1,
-              paddingRight: 1,
+              paddingX: 2,
             }}
           >
             <text fg={sending ? theme.textMuted : theme.background}>
