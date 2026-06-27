@@ -97,7 +97,7 @@ export function statusBarText(input: {
   }
 
   // ── RIGHT: global hints ────────────────────────────
-  const right = `[${kb.help_toggle}] help · [${kb.focus_next}] focus`
+  const right = `[${kb.request_send}] send · [${kb.focus_next}] focus · [${kb.help_toggle}] help · [^c] quit`
 
   return { left, center, right }
 }
@@ -155,6 +155,12 @@ export function StatusBar(input: {
       ? sections.left.slice(spaceIdx + 1)
       : ""
 
+  const rightSegments = sections.right.split(" · ").map((seg) => {
+    const s = seg.replace(/[[\]]/g, "")
+    const sp = s.indexOf(" ")
+    return sp > -1 ? { key: s.slice(0, sp), word: s.slice(sp + 1) } : { key: s, word: "" }
+  })
+
   return (
     <box
       style={{
@@ -209,9 +215,15 @@ export function StatusBar(input: {
           {sections.center}
         </Badge>
       )}
-      <Badge bg={theme.backgroundElement} fg={theme.textMuted}>
-        {sections.right}
-      </Badge>
+      <box style={{ flexDirection: "row" }}>
+        {rightSegments.map((seg, i) => (
+          <box key={i} style={{ flexDirection: "row" }}>
+            {i > 0 ? <text fg={theme.textMuted}> · </text> : null}
+            <text fg={theme.primary}>{seg.key}</text>
+            <text fg={theme.textMuted}> {seg.word}</text>
+          </box>
+        ))}
+      </box>
     </box>
   )
 }
