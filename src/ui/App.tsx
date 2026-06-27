@@ -267,11 +267,16 @@ function AppInner({
             return next
           }),
       },
+      {
+        name: "app.help",
+        run: () => setHelpVisible((prev) => !prev),
+      },
     ],
     bindings: [
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
       { key: "l", cmd: "layout.toggle" },
+      { key: "?", cmd: "app.help" },
     ],
   }))
 
@@ -302,13 +307,6 @@ function AppInner({
       {
         name: "env.next",
         run: () => envStateRef.current.cycle(1),
-      },
-      {
-        name: "app.help",
-        run: () => {
-          if (ebRef.current.editState.mode !== "inactive") return
-          setHelpVisible((prev) => !prev)
-        },
       },
       {
         name: "app.theme",
@@ -348,7 +346,6 @@ function AppInner({
       { key: "w", cmd: "request.save" },
       { key: "[", cmd: "env.prev" },
       { key: "]", cmd: "env.next" },
-      { key: "?", cmd: "app.help" },
       { key: "t", cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },

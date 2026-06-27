@@ -511,3 +511,66 @@ describe("App.tsx layer mirror", () => {
     cleanup()
   })
 })
+
+describe("help keybinding (? always-on)", () => {
+  it("dispatches app.help in base mode", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      commands: [{ name: "app.help", run: () => { called = true } }],
+      bindings: [{ key: "?", cmd: "app.help" }],
+    })
+
+    keymap.setData("app.mode", "base")
+    host.press("?")
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches app.help in browse mode", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      commands: [{ name: "app.help", run: () => { called = true } }],
+      bindings: [{ key: "?", cmd: "app.help" }],
+    })
+
+    keymap.setData("app.mode", "browse")
+    host.press("?")
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches app.help in edit mode", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      commands: [{ name: "app.help", run: () => { called = true } }],
+      bindings: [{ key: "?", cmd: "app.help" }],
+    })
+
+    keymap.setData("app.mode", "edit")
+    host.press("?")
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches app.help regardless of overlay (always-on)", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      commands: [{ name: "app.help", run: () => { called = true } }],
+      bindings: [{ key: "?", cmd: "app.help" }],
+    })
+
+    keymap.setData("app.mode", "base")
+    keymap.setData("app.overlay", "help")
+    host.press("?")
+    expect(called).toBe(true)
+    cleanup()
+  })
+})
