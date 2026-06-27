@@ -1,5 +1,6 @@
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
+import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
 import { methodColor } from "./formatRequest"
@@ -97,7 +98,7 @@ export function statusBarText(input: {
   }
 
   // ── RIGHT: global hints ────────────────────────────
-  const right = `[${kb.request_send}] send · [${kb.focus_next}] focus · [${kb.help_toggle}] help · [^c] quit`
+  const right = `[${kb.request_send}] send · [${displayKey(kb.request_save)}] save · [${kb.focus_next}] focus · [${kb.help_toggle}] help · [^c] quit`
 
   return { left, center, right }
 }

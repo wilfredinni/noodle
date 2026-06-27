@@ -99,3 +99,7 @@ export function bindingDefaults(): Keybinds {
   }
   return result as Keybinds
 }
+
+export function displayKey(key: string): string {
+  return key.replace(/^ctrl\+/, "^")
+}

@@ -1,4 +1,5 @@
 import type { Keybinds } from "./keybind"
+import { displayKey } from "./keybind"
 
 export interface HelpKey {
   key: string
@@ -56,7 +57,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       title: "Actions",
       keys: [
         { key: keybinds.request_send, description: "Send request" },
-        { key: keybinds.request_save, description: "Save to disk" },
+        { key: displayKey(keybinds.request_save), description: "Save to disk" },
         { key: keybinds.layout_toggle, description: "Toggle layout" },
         { key: "[", description: "Previous environment" },
         { key: "]", description: "Next environment" },
