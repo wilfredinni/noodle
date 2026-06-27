@@ -21,7 +21,7 @@ describe("highlightJsonTokens", () => {
     expect(tokens[0]!.offset).toBe(0)
     expect(tokens[1]!.fg).toBe(opencodeTheme.textMuted)
     expect(tokens[1]!.text).toBe("}")
-    expect(tokens[1]!.offset).toBe(2)
+    expect(tokens[1]!.offset).toBe(1)
   })
 
   it("highlights key:value lines with secondary for key and success for string value", () => {
@@ -60,12 +60,12 @@ describe("highlightJsonTokens", () => {
     const tokens = highlightJsonTokens(body, opencodeTheme)
     expect(tokens[0]!.offset).toBe(0)
     expect(tokens[0]!.text).toBe("{")
-    expect(tokens[1]!.offset).toBe(2)
+    expect(tokens[1]!.offset).toBe(1)
     expect(tokens[1]!.text).toBe("  ")
-    expect(tokens[2]!.offset).toBe(4)
-    expect(tokens[3]!.offset).toBe(9)
+    expect(tokens[2]!.offset).toBe(3)
+    expect(tokens[3]!.offset).toBe(8)
     expect(tokens[3]!.text).toBe("1")
-    expect(tokens[4]!.offset).toBe(11)
+    expect(tokens[4]!.offset).toBe(9)
     expect(tokens[4]!.text).toBe("}")
   })
 

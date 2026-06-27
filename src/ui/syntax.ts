@@ -97,9 +97,7 @@ export function highlightJsonTokens(
         offset += part.text.length
       }
     }
-    if (i < lines.length - 1) {
-      offset += 1
-    }
+    // newline has no character position in addHighlightByCharRange
   }
 
   return tokens
