@@ -301,7 +301,6 @@ function AppInner({
     commands: [
       {
         name: "request.send",
-        enabled: () => keymap.getData("app.focus") !== "urlbar",
         run: () => trySendRef.current?.(),
       },
       {
