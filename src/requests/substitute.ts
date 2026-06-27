@@ -15,12 +15,14 @@ export function substitute(req: Request, env: Environment): Request {
 
   const headers: Record<string, string> = {}
   for (const [k, v] of Object.entries(req.headers)) {
-    headers[k] = resolve(v, `headers.${k}`)
+    if (!v.enabled) continue
+    headers[k] = resolve(v.value, `headers.${k}`)
   }
 
   const params: Record<string, string> = {}
   for (const [k, v] of Object.entries(req.params)) {
-    params[k] = resolve(v, `params.${k}`)
+    if (!v.enabled) continue
+    params[k] = resolve(v.value, `params.${k}`)
   }
 
   const auth =

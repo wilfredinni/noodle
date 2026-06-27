@@ -40,15 +40,14 @@ describe("substitute — pure {{var}} replacement", () => {
   })
 
   it("substitutes {{x}} in header values (not keys)", () => {
-    const req = makeReq({ headers: { Authorization: "Bearer {{token}}" } })
+    const req = makeReq({ headers: { Authorization: { value: "Bearer {{token}}", enabled: true } } })
     const out = substitute(req, makeEnv({ token: "abc123" }))
     expect(out.headers.Authorization).toBe("Bearer abc123")
-    // key unchanged
     expect(Object.keys(out.headers)).toEqual(["Authorization"])
   })
 
   it("substitutes {{x}} in param values (not keys)", () => {
-    const req = makeReq({ params: { verbose: "{{flag}}" } })
+    const req = makeReq({ params: { verbose: { value: "{{flag}}", enabled: true } } })
     const out = substitute(req, makeEnv({ flag: "true" }))
     expect(out.params.verbose).toBe("true")
     expect(Object.keys(out.params)).toEqual(["verbose"])
@@ -102,7 +101,7 @@ describe("substitute — pure {{var}} replacement", () => {
   })
 
   it("throws on unresolved variable in header value (field name included)", () => {
-    const req = makeReq({ headers: { Authorization: "Bearer {{token}}" } })
+    const req = makeReq({ headers: { Authorization: { value: "Bearer {{token}}", enabled: true } } })
     expect(() => substitute(req, makeEnv({}))).toThrow(
       'requests.substitute: unresolved variable "token" in headers.Authorization',
     )
@@ -116,7 +115,7 @@ describe("substitute — pure {{var}} replacement", () => {
   })
 
   it("does not mutate the input request", () => {
-    const req = makeReq({ url: "https://{{host}}/x", headers: { A: "{{v}}" } })
+    const req = makeReq({ url: "https://{{host}}/x", headers: { A: { value: "{{v}}", enabled: true } } })
     const original = JSON.parse(JSON.stringify(req))
     substitute(req, makeEnv({ host: "h", v: "1" }))
     expect(req).toEqual(original)
@@ -140,6 +139,55 @@ describe("substitute — pure {{var}} replacement", () => {
     const out = substitute(req, makeEnv({ path: "x" }))
     expect(out.url).toBe("https://example.com/{{ path }}")
   })
+
+  it("skips disabled header entries", () => {
+    const req = makeReq({
+      headers: {
+        Accept: { value: "application/json", enabled: true },
+        "X-Debug": { value: "{{debug}}", enabled: false },
+      },
+    })
+    const out = substitute(req, makeEnv({ debug: "should-not-resolve" }))
+    expect(Object.keys(out.headers)).toEqual(["Accept"])
+    expect(out.headers.Accept).toBe("application/json")
+  })
+
+  it("skips disabled param entries", () => {
+    const req = makeReq({
+      params: {
+        verbose: { value: "true", enabled: true },
+        debug: { value: "{{flag}}", enabled: false },
+      },
+    })
+    const out = substitute(req, makeEnv({ flag: "should-not-resolve" }))
+    expect(Object.keys(out.params)).toEqual(["verbose"])
+    expect(out.params.verbose).toBe("true")
+  })
+
+  it("disabled entries are skipped before var resolution (no error on unresolved)", () => {
+    const req = makeReq({
+      headers: {
+        "X-Disabled": { value: "{{missing}}", enabled: false },
+      },
+    })
+    const out = substitute(req, makeEnv({}))
+    expect(Object.keys(out.headers)).toEqual([])
+  })
+
+  it("all entries disabled produces empty headers/params", () => {
+    const req = makeReq({
+      headers: {
+        A: { value: "1", enabled: false },
+        B: { value: "2", enabled: false },
+      },
+      params: {
+        x: { value: "3", enabled: false },
+      },
+    })
+    const out = substitute(req, makeEnv({}))
+    expect(out.headers).toEqual({})
+    expect(out.params).toEqual({})
+  })
 })
 
 function fakeResponse(opts: {
@@ -159,7 +207,7 @@ function fakeResponse(opts: {
 describe("send — URL and query params", () => {
   it("merges params into URL as query string", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
-    await executor.send(makeReq({ params: { verbose: "true" } }))
+    await executor.send(makeReq({ params: { verbose: { value: "true", enabled: true } } }))
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?verbose=true")
   })
@@ -167,7 +215,7 @@ describe("send — URL and query params", () => {
   it("appends params to existing query string", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await executor.send(
-      makeReq({ url: "https://example.com/?a=1", params: { b: "2" } }),
+      makeReq({ url: "https://example.com/?a=1", params: { b: { value: "2", enabled: true } } }),
     )
     expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?a=1&b=2")
   })
@@ -176,6 +224,19 @@ describe("send — URL and query params", () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await executor.send(makeReq({}))
     expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/")
+  })
+
+  it("disabled param is not added to URL query string", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({
+        params: {
+          verbose: { value: "true", enabled: true },
+          debug: { value: "1", enabled: false },
+        },
+      }),
+    )
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?verbose=true")
   })
 })
 
@@ -203,10 +264,26 @@ describe("send — method, body, headers", () => {
 
   it("passes user headers to fetch init", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
-    await executor.send(makeReq({ headers: { Accept: "application/json" } }))
+    await executor.send(makeReq({ headers: { Accept: { value: "application/json", enabled: true } } }))
     const init = fetchMock.mock.calls[0][1] as RequestInit
     const headers = init.headers as Headers
     expect(headers.get("Accept")).toBe("application/json")
+  })
+
+  it("disabled header is not sent to fetch", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({
+        headers: {
+          Accept: { value: "application/json", enabled: true },
+          "X-Debug": { value: "true", enabled: false },
+        },
+      }),
+    )
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    expect(headers.get("Accept")).toBe("application/json")
+    expect(headers.get("X-Debug")).toBeNull()
   })
 })
 
@@ -316,7 +393,7 @@ describe("send — auth header", () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await executor.send(
       makeReq({
-        headers: { Authorization: "Token user-set" },
+        headers: { Authorization: { value: "Token user-set", enabled: true } },
         auth: { type: "bearer", token: "from-auth" },
       }),
     )

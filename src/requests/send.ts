@@ -1,13 +1,18 @@
-import type { Auth, Environment, Request, Response } from "../schema"
+import type { Auth, Environment, KvEntry, Request, Response } from "../schema"
 import { substitute } from "./substitute"
 
 export async function send(req: Request, env?: Environment): Promise<Response> {
   const substituted = env !== undefined ? substitute(req, env) : req
 
+  const headers: Record<string, string> =
+    substituted === req ? filterKv(req.headers) : substituted.headers
+  const params: Record<string, string> =
+    substituted === req ? filterKv(req.params) : substituted.params
+
   let finalUrl: string
   try {
     const u = new URL(substituted.url)
-    for (const [k, v] of Object.entries(substituted.params)) {
+    for (const [k, v] of Object.entries(params)) {
       u.searchParams.append(k, v)
     }
     finalUrl = u.toString()
@@ -18,15 +23,15 @@ export async function send(req: Request, env?: Environment): Promise<Response> {
     })
   }
 
-  const headers = new Headers(substituted.headers)
+  const headersInst = new Headers(headers)
   const ah = authHeader(substituted.auth)
   if (ah) {
-    headers.set(ah.name, ah.value)
+    headersInst.set(ah.name, ah.value)
   }
 
   const init: RequestInit = {
     method: substituted.method,
-    headers,
+    headers: headersInst,
     body: substituted.body,
   }
 
@@ -75,4 +80,12 @@ function authHeader(
   }
   const encoded = Buffer.from(`${auth.user}:${auth.pass}`).toString("base64")
   return { name: "Authorization", value: `Basic ${encoded}` }
+}
+
+function filterKv(entries: Record<string, KvEntry>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(entries)) {
+    if (v.enabled) out[k] = v.value
+  }
+  return out
 }
