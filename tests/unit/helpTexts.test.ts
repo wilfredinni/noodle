@@ -15,7 +15,7 @@ describe("getHelpSections", () => {
     expect(sections[0]!.title).toBe("Navigation")
     expect(sections[1]!.title).toBe("Editing")
     expect(sections[2]!.title).toBe("Actions")
-    expect(sections[3]!.title).toBe("SYSTEM")
+    expect(sections[3]!.title).toBe("System")
   })
 
   it("each section has at least 1 key entry", () => {
@@ -66,7 +66,7 @@ describe("getHelpSections", () => {
 
   it("SYSTEM section contains ^c and ?", () => {
     const sections = getHelpSections(defaults)
-    const sys = sections.find((s) => s.title === "SYSTEM")!
+    const sys = sections.find((s) => s.title === "System")!
     const keys = sys.keys.map((k) => k.key)
     expect(keys).toContain("^c")
     expect(keys).toContain("?")
@@ -87,7 +87,7 @@ describe("getHelpSections", () => {
     const keys = act.keys.map((k) => k.key)
     expect(keys).toContain("ctrl+s")
 
-    const sys = sections.find((s) => s.title === "SYSTEM")!
+    const sys = sections.find((s) => s.title === "System")!
     const sysKeys = sys.keys.map((k) => k.key)
     expect(sysKeys).toContain("f1")
   })
