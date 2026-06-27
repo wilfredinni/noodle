@@ -1,6 +1,6 @@
 name: Create Post
 method: POST
-url: https://jsonplaceholder.typicode.com/posts
+url: $base_url/posts
 headers:
   Content-Type: application/json
   x-api-key: { value: skdjfksdfksjdfj876s8d7f6s8d7fs99, enabled: false }

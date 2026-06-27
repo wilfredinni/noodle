@@ -1,6 +1,0 @@
-name: staging
-vars:
-  host: staging.example.com
-  token: staging-token-456
-  user: staginguser
-  pass: stagingpass

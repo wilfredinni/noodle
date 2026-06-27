@@ -229,7 +229,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests[0].url).toBe("https://api.example.com/v1/users/{{id}}")
+    expect(c.requests[0].url).toBe("https://api.example.com/v1/users/$id")
   })
 
   it("builds a path-only url when servers is missing", () => {
@@ -241,7 +241,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests[0].url).toBe("/users/{{id}}")
+    expect(c.requests[0].url).toBe("/users/$id")
   })
 
   it("initializes headers, params as empty and body as undefined and auth as none", () => {
@@ -366,7 +366,7 @@ describe("mapCollection — auth resolution", () => {
   const oauth2 = { type: "oauth2", flows: {} }
   const oidc = { type: "openIdConnect", openIdConnectUrl: "https://x" }
 
-  it("maps http+bearer to Auth=bearer with {{TOKEN}}", () => {
+  it("maps http+bearer to Auth=bearer with $TOKEN", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { bearerAuth: bearer } },
@@ -374,10 +374,10 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
-  it("maps http+basic to Auth=basic with {{USER}} {{PASS}}", () => {
+  it("maps http+basic to Auth=basic with $USER $PASS", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { basicAuth: basic } },
@@ -387,8 +387,8 @@ describe("mapCollection — auth resolution", () => {
     )
     expect(c.requests[0].auth).toEqual({
       type: "basic",
-      user: "{{USER}}",
-      pass: "{{PASS}}",
+      user: "$USER",
+      pass: "$PASS",
     })
   })
 
@@ -439,8 +439,8 @@ describe("mapCollection — auth resolution", () => {
     )
     expect(c.requests[0].auth).toEqual({
       type: "basic",
-      user: "{{USER}}",
-      pass: "{{PASS}}",
+      user: "$USER",
+      pass: "$PASS",
     })
   })
 
@@ -452,7 +452,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
   it("op.security: [] (empty array) means no auth required", () => {
@@ -498,7 +498,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
   it("falls to none when no security anywhere", () => {
@@ -520,7 +520,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
   it("skips security requirement entries whose scheme name is not a string", () => {
@@ -531,12 +531,12 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 })
 
 describe("mapCollection — parameters", () => {
-  it("translates in:query params to params as {{name}} placeholders", () => {
+  it("translates in:query params to params as $name placeholders", () => {
     const c = mapCollection(
       makeNormalized({
         paths: {
@@ -553,12 +553,12 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      q: { value: "{{q}}", enabled: true },
-      limit: { value: "{{limit}}", enabled: true },
+      q: { value: "$q", enabled: true },
+      limit: { value: "$limit", enabled: true },
     })
   })
 
-  it("translates in:header params to headers as {{name}} placeholders", () => {
+  it("translates in:header params to headers as $name placeholders", () => {
     const c = mapCollection(
       makeNormalized({
         paths: {
@@ -572,7 +572,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].headers).toEqual({
-      "X-Custom": { value: "{{X-Custom}}", enabled: true },
+      "X-Custom": { value: "$X-Custom", enabled: true },
     })
   })
 
@@ -612,7 +612,7 @@ describe("mapCollection — parameters", () => {
     )
     expect(c.requests[0].params).toEqual({})
     expect(c.requests[0].headers).toEqual({})
-    expect(c.requests[0].url).toBe("/users/{{id}}/items/{{itemId}}")
+    expect(c.requests[0].url).toBe("/users/$id/items/$itemId")
   })
 
   it("skips a param with missing name", () => {
@@ -629,7 +629,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      good: { value: "{{good}}", enabled: true },
+      good: { value: "$good", enabled: true },
     })
   })
 
@@ -650,7 +650,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      good: { value: "{{good}}", enabled: true },
+      good: { value: "$good", enabled: true },
     })
   })
 
@@ -671,7 +671,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      good: { value: "{{good}}", enabled: true },
+      good: { value: "$good", enabled: true },
     })
   })
 
@@ -689,7 +689,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      good: { value: "{{good}}", enabled: true },
+      good: { value: "$good", enabled: true },
     })
   })
 
@@ -710,7 +710,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      good: { value: "{{good}}", enabled: true },
+      good: { value: "$good", enabled: true },
     })
   })
 
@@ -727,10 +727,10 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      shared: { value: "{{shared}}", enabled: true },
+      shared: { value: "$shared", enabled: true },
     })
     expect(c.requests[1].params).toEqual({
-      shared: { value: "{{shared}}", enabled: true },
+      shared: { value: "$shared", enabled: true },
     })
   })
 
@@ -752,8 +752,8 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      shared: { value: "{{shared}}", enabled: true },
-      extra: { value: "{{extra}}", enabled: true },
+      shared: { value: "$shared", enabled: true },
+      extra: { value: "$extra", enabled: true },
     })
   })
 
@@ -772,10 +772,10 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(c.requests[0].params).toEqual({
-      alpha: { value: "{{alpha}}", enabled: true },
+      alpha: { value: "$alpha", enabled: true },
     })
     expect(c.requests[0].headers).toEqual({
-      alpha: { value: "{{alpha}}", enabled: true },
+      alpha: { value: "$alpha", enabled: true },
     })
   })
 
@@ -854,31 +854,31 @@ describe("mapCollection — end-to-end integration", () => {
     expect(getPet.id).toBe("get-pets-petid")
     expect(getPet.name).toBe("getPet")
     expect(getPet.method).toBe("GET")
-    expect(getPet.url).toBe("https://{{host}}/v1/pets/{{petId}}")
+    expect(getPet.url).toBe("https://$host/v1/pets/$petId")
     expect(getPet.params).toEqual({
-      verbose: { value: "{{verbose}}", enabled: true },
+      verbose: { value: "$verbose", enabled: true },
     })
     expect(getPet.headers).toEqual({
-      "X-Trace": { value: "{{X-Trace}}", enabled: true },
+      "X-Trace": { value: "$X-Trace", enabled: true },
     })
     expect(getPet.body).toBeUndefined()
-    expect(getPet.auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+    expect(getPet.auth).toEqual({ type: "bearer", token: "$TOKEN" })
 
     const deletePet = c.requests[1]
     expect(deletePet.name).toBe("Delete a pet")
     expect(deletePet.method).toBe("DELETE")
     expect(deletePet.auth).toEqual({
       type: "basic",
-      user: "{{USER}}",
-      pass: "{{PASS}}",
+      user: "$USER",
+      pass: "$PASS",
     })
 
     const listPets = c.requests[2]
     expect(listPets.id).toBe("get-pets")
     expect(listPets.params).toEqual({
-      limit: { value: "{{limit}}", enabled: true },
+      limit: { value: "$limit", enabled: true },
     })
-    expect(listPets.auth).toEqual({ type: "bearer", token: "{{TOKEN}}" })
+    expect(listPets.auth).toEqual({ type: "bearer", token: "$TOKEN" })
 
     const createPet = c.requests[3]
     expect(createPet.id).toBe("post-pets")

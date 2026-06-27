@@ -7,16 +7,15 @@ import { parseArgs, type ParsedArgs } from "./args"
 import { env } from "../env"
 import { createNoodleKeymap } from "../ui/useKeymap"
 import { parseOverrides } from "../ui/keybind"
+import { join } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
-
-const ENVIRONMENTS_DIR = "./environments"
 
 const USAGE = `Usage: bun run dev [--collection <dir>] [--env <name>] [--help]
 
 Options:
   --collection <dir>   collection directory to load (default: ./collections)
-  --env <name>         environment name (loads environments/<name>.yml)
+  --env <name>         environment name (loads <collection>/environments/<name>.env)
   -h, --help           show this help and exit
 `
 
@@ -33,9 +32,11 @@ if (args.help) {
   process.exit(0)
 }
 
+const environmentsDir = join(args.collectionDir, "environments")
+
 let envList: string[]
 try {
-  envList = await env.listEnvironments(ENVIRONMENTS_DIR)
+  envList = await env.listEnvironments(environmentsDir)
 } catch (e) {
   const reason = e instanceof Error ? e.message : String(e)
   process.stderr.write(`error: ${reason}\n`)
@@ -73,7 +74,7 @@ createRoot(renderer).render(
     <RendererProvider renderer={renderer}>
       <App
         collectionDir={args.collectionDir}
-        environmentsDir={ENVIRONMENTS_DIR}
+        environmentsDir={environmentsDir}
         envList={envList}
         initialEnvName={initialEnvName}
         keybinds={keybinds}

@@ -81,12 +81,12 @@ describe("buildDisplayUrl", () => {
     expect(result).toBe("just-a-string?x=1")
   })
 
-  it("preserves {{var}} literals in params", () => {
+  it("preserves $var literals in params", () => {
     const params: Record<string, KvEntry> = {
-      token: { value: "{{API_KEY}}", enabled: true },
+      token: { value: "$API_KEY", enabled: true },
     }
     expect(buildDisplayUrl("https://example.com/data", params)).toBe(
-      "https://example.com/data?token=%7B%7BAPI_KEY%7D%7D",
+      "https://example.com/data?token=%24API_KEY",
     )
   })
 
@@ -197,23 +197,23 @@ describe("parseUrlAndParams", () => {
     expect(params).toEqual({})
   })
 
-  it("preserves {{var}} literals in query params", () => {
+  it("preserves $var literals in query params", () => {
     const { baseUrl, params } = parseUrlAndParams(
-      "https://example.com?token=%7B%7BAPI_KEY%7D%7D",
+      "https://example.com?token=%24API_KEY",
     )
     expect(baseUrl).toBe("https://example.com")
     expect(params).toEqual({
-      token: { value: "{{API_KEY}}", enabled: true },
+      token: { value: "$API_KEY", enabled: true },
     })
   })
 
-  it("preserves {{var}} literals in unencoded query", () => {
+  it("preserves $var literals in unencoded query", () => {
     const { baseUrl, params } = parseUrlAndParams(
-      "https://example.com?token={{API_KEY}}",
+      "https://example.com?token=$API_KEY",
     )
     expect(baseUrl).toBe("https://example.com")
     expect(params).toEqual({
-      token: { value: "{{API_KEY}}", enabled: true },
+      token: { value: "$API_KEY", enabled: true },
     })
   })
 })

@@ -197,13 +197,13 @@ describe("lang.parseRequest — auth variants", () => {
 })
 
 describe("lang.parseRequest — env var preservation", () => {
-  it("preserves {{var}} literals verbatim in url, headers, body, auth.token", () => {
-    const yaml = `name: Foo\nmethod: GET\nurl: https://{{host}}/users/{{id}}\nheaders:\n  Authorization: "Bearer {{token}}"\nbody: '{"id": "{{id}}"}'\nauth:\n  type: bearer\n  token: "{{token}}"\n`
+  it("preserves $var literals verbatim in url, headers, body, auth.token", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://$host/users/$id\nheaders:\n  Authorization: "Bearer $token"\nbody: '{"id": "$id"}'\nauth:\n  type: bearer\n  token: "$token"\n`
     const req = lang.parseRequest("x", yaml)
-    expect(req.url).toBe("https://{{host}}/users/{{id}}")
-    expect(req.headers.Authorization).toEqual({ value: "Bearer {{token}}", enabled: true })
-    expect(req.body).toBe('{"id": "{{id}}"}')
-    expect(req.auth).toEqual({ type: "bearer", token: "{{token}}" })
+    expect(req.url).toBe("https://$host/users/$id")
+    expect(req.headers.Authorization).toEqual({ value: "Bearer $token", enabled: true })
+    expect(req.body).toBe('{"id": "$id"}')
+    expect(req.auth).toEqual({ type: "bearer", token: "$token" })
   })
 })
 
@@ -269,17 +269,17 @@ describe("lang.serializeRequest — canonical output", () => {
     expect(out).not.toContain("id:")
   })
 
-  it("preserves {{var}} literals verbatim", () => {
+  it("preserves $var literals verbatim", () => {
     const out = lang.serializeRequest(
       makeReq({
-        url: "https://{{host}}/users",
-        headers: { Authorization: { value: "Bearer {{token}}", enabled: true } },
-        auth: { type: "bearer", token: "{{token}}" },
+        url: "https://$host/users",
+        headers: { Authorization: { value: "Bearer $token", enabled: true } },
+        auth: { type: "bearer", token: "$token" },
       }),
     )
-    expect(out).toContain("https://{{host}}/users")
-    expect(out).toContain("Bearer {{token}}")
-    expect(out).toContain("token: '{{token}}'")
+    expect(out).toContain("https://$host/users")
+    expect(out).toContain("Bearer $token")
+    expect(out).toContain("token: $token")
   })
 })
 
@@ -341,14 +341,14 @@ describe("lang — semantic round-trip", () => {
       id: "create-post",
       name: "Create post",
       method: "POST",
-      url: "https://{{host}}/posts",
+      url: "https://$host/posts",
       headers: {
         "Content-Type": { value: "application/json", enabled: true },
-        Authorization: { value: "Bearer {{token}}", enabled: true },
+        Authorization: { value: "Bearer $token", enabled: true },
       },
       params: { draft: { value: "true", enabled: true } },
       body: '{"title": "hello", "body": "world"}',
-      auth: { type: "bearer", token: "{{token}}" },
+      auth: { type: "bearer", token: "$token" },
     }
 
     const yaml = lang.serializeRequest(original)

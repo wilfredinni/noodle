@@ -75,10 +75,10 @@ function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
   const type = scheme.type
   const schemeName = scheme.scheme
   if (type === "http" && schemeName === "bearer") {
-    return { type: "bearer", token: "{{TOKEN}}" }
+    return { type: "bearer", token: "$TOKEN" }
   }
   if (type === "http" && schemeName === "basic") {
-    return { type: "basic", user: "{{USER}}", pass: "{{PASS}}" }
+    return { type: "basic", user: "$USER", pass: "$PASS" }
   }
   return null
 }
@@ -118,7 +118,7 @@ function collectionName(n: Normalized): string {
 }
 
 function urlTemplateToVar(s: string): string {
-  return s.replace(/\{(\w+)\}/g, "{{$1}}")
+  return s.replace(/\{(\w+)\}/g, "$$$1")
 }
 
 function baseUrl(n: Normalized): string {
@@ -193,9 +193,9 @@ export function mapCollection(n: Normalized): Collection {
       const params: Record<string, KvEntry> = {}
       for (const p of collected) {
         if (p.in === "query")
-          params[p.name] = { value: `{{${p.name}}}`, enabled: true }
+          params[p.name] = { value: `$${p.name}`, enabled: true }
         else if (p.in === "header")
-          headers[p.name] = { value: `{{${p.name}}}`, enabled: true }
+          headers[p.name] = { value: `$${p.name}`, enabled: true }
       }
 
       requests.push({

@@ -1,6 +1,0 @@
-name: development
-vars:
-  host: localhost:3000
-  token: dev-token-123
-  user: devuser
-  pass: devpass

@@ -6,7 +6,7 @@ const TIPS = [
   "cycle environments with {^[} and {^]}",
   "cycle focus between panes with {Tab} / {Shift+Tab}",
   "open the keybinding cheatsheet overlay with {F1}",
-  "variables use {{var}} syntax — defined in environment files",
+  "variables use $var syntax — defined in environment files",
   "enter request browse mode with {Enter} in the request pane",
   "edit a field — press {Enter} on any header, param, or body in browse mode",
   "toggle header or param on/off with {^X} in browse mode",
