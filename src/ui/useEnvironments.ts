@@ -34,12 +34,13 @@ export function useEnvironments(
   // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {
     const target =
-      initialName ??
-      (settingsEnv !== undefined && envList.includes(settingsEnv)
-        ? settingsEnv
-        : envList.length > 0
-          ? envList[0]
-          : undefined)
+      initialName !== undefined
+        ? (envList.includes(initialName) ? initialName : undefined)
+        : settingsEnv !== undefined && envList.includes(settingsEnv)
+          ? settingsEnv
+          : envList.length > 0
+            ? envList[0]
+            : undefined
     if (target === undefined) return
     let cancelled = false
     env
