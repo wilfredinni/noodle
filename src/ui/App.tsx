@@ -218,6 +218,9 @@ function AppInner({
     clearSaveTimer,
   ])
 
+  const doSaveRef = useRef(doSave)
+  doSaveRef.current = doSave
+
   // ── Keymap: Always-On Layer ───────────────────────────────────────
   useBindings(() => ({
     commands: [
@@ -288,12 +291,7 @@ function AppInner({
         run: () => {
           const d = draftRef.current
           if (!savingRef.current && d.draft && d.isDirty) {
-            clearSaveTimer()
-            setConfirmSelection(0)
-            setSaveState({
-              kind: "confirming",
-              requestId: d.draft.id,
-            })
+            doSaveRef.current()
           }
         },
       },
@@ -384,12 +382,7 @@ function AppInner({
         run: () => {
           const d = draftRef.current
           if (!savingRef.current && d.draft && d.isDirty) {
-            clearSaveTimer()
-            setConfirmSelection(0)
-            setSaveState({
-              kind: "confirming",
-              requestId: d.draft.id,
-            })
+            doSaveRef.current()
           }
         },
       },
