@@ -495,3 +495,27 @@ describe("send — error handling", () => {
     expect((caught as Error).cause).toBeInstanceOf(TypeError)
   })
 })
+
+describe("send — abort signal", () => {
+  it("passes signal to fetch", async () => {
+    const controller = new AbortController()
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({}), undefined, controller.signal)
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.signal).toBe(controller.signal)
+  })
+
+  it("throws AbortError when signal is aborted before fetch completes", async () => {
+    const controller = new AbortController()
+    controller.abort()
+    fetchMock.mockRejectedValueOnce(new DOMException("aborted", "AbortError"))
+    let caught: unknown
+    try {
+      await executor.send(makeReq({}), undefined, controller.signal)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toMatch(/fetch failed/)
+  })
+})

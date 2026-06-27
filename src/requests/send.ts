@@ -2,7 +2,11 @@ import type { Auth, Environment, KvEntry, Request, Response } from "../schema"
 import { substitute } from "./substitute"
 import type { SubstitutedRequest } from "./substitute"
 
-export async function send(req: Request, env?: Environment): Promise<Response> {
+export async function send(
+  req: Request,
+  env?: Environment,
+  signal?: AbortSignal,
+): Promise<Response> {
   const substituted = env !== undefined ? substitute(req, env) : req
 
   const headers: Record<string, string> =
@@ -38,6 +42,7 @@ export async function send(req: Request, env?: Environment): Promise<Response> {
     method: substituted.method,
     headers: headersInst,
     body: substituted.body,
+    signal,
   }
 
   const start = performance.now()

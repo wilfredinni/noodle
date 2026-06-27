@@ -134,13 +134,16 @@ function AppInner({
     lastEnv,
     onEnvChange,
   )
-  const { state: responseState, trySend } = useResponse(
+  const { state: responseState, trySend, cancelSend } = useResponse(
     draft.draft,
     envState.activeEnv,
   )
 
   const trySendRef = useRef(trySend)
   trySendRef.current = trySend
+
+  const cancelSendRef = useRef(cancelSend)
+  cancelSendRef.current = cancelSend
 
   const envStateRef = useRef(envState)
   envStateRef.current = envState
@@ -414,6 +417,20 @@ function AppInner({
       { key: "tab", cmd: "edit.tab" },
     ],
   }))
+
+  // ── Cancel send on ESC ──────────────────────────────────────────────
+  useEffect(() => {
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name === "escape" && ctx.event.eventType === "press") {
+          cancelSendRef.current()
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [keymap])
 
   // ── Overlay: Save Confirm ──────────────────────────────────────────
   useEffect(() => {

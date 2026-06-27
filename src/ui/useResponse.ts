@@ -11,6 +11,7 @@ type CachedResult =
 export interface UseResponseResult {
   state: SendState
   trySend: () => void
+  cancelSend: () => void
 }
 
 export function useResponse(
@@ -19,6 +20,7 @@ export function useResponse(
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!selectedRequest) {
@@ -42,27 +44,41 @@ export function useResponse(
     if (req === null) return
     setState((prev) => {
       if (prev.status === "sending") return prev
-      void runSend(req, env ?? undefined, setState, cacheRef)
+      const controller = new AbortController()
+      abortRef.current = controller
+      void runSend(req, env ?? undefined, controller.signal, setState, cacheRef, abortRef)
       return startSend(prev, req)
     })
   }, [selectedRequest, env])
 
-  return { state, trySend }
+  const cancelSend = useCallback(() => {
+    abortRef.current?.abort()
+  }, [])
+
+  return { state, trySend, cancelSend }
 }
 
 async function runSend(
   req: Request,
   env: Environment | undefined,
+  signal: AbortSignal,
   setState: Dispatch<SetStateAction<SendState>>,
   cacheRef: React.MutableRefObject<Map<string, CachedResult>>,
+  abortRef: React.MutableRefObject<AbortController | null>,
 ): Promise<void> {
   try {
-    const res = await executor.send(req, env)
+    const res = await executor.send(req, env, signal)
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))
   } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      setState({ status: "idle" })
+      return
+    }
     const err = e instanceof Error ? e : new Error(String(e))
     cacheRef.current.set(req.id, { status: "error", request: req, error: err })
     setState((prev) => failSend(prev, req, err))
+  } finally {
+    abortRef.current = null
   }
 }
