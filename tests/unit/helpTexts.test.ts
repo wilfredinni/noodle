@@ -73,11 +73,11 @@ describe("getHelpSections", () => {
     expect(keys).toContain("f1")
   })
 
-  it("NAVIGATION section contains e for YAML edit", () => {
+  it("NAVIGATION section contains ^e for YAML edit", () => {
     const sections = getHelpSections(defaults)
     const nav = sections.find((s) => s.title === "Navigation")!
     const keys = nav.keys.map((k) => k.key)
-    expect(keys).toContain("e")
+    expect(keys).toContain("^e")
     expect(keys).toContain("return")
   })
 

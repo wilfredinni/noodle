@@ -59,6 +59,8 @@ function AppInner({
   const theme = useTheme()
   const keymap = useKeymap()
   const [focus, setFocus] = useState<Focus>("sidebar")
+  const focusRef = useRef(focus)
+  focusRef.current = focus
   const [helpVisible, setHelpVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
@@ -70,7 +72,8 @@ function AppInner({
     visible: boolean
     filePath: string
     requestName: string
-  }>({ visible: false, filePath: "", requestName: "" })
+    returnFocus: Focus
+  }>({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
 
   const { collection, loading, error } = useCollection(
     collectionDir,
@@ -271,12 +274,22 @@ function AppInner({
         name: "app.help",
         run: () => setHelpVisible((prev) => !prev),
       },
+      {
+        name: "request.edit-yaml",
+        run: () => {
+          const req = collectionRef.current?.requests[selectedIndexRef.current]
+          if (!req || !collectionDir) return
+          const filePath = join(collectionDir, `${req.id}.yml`)
+          setYamlEditor({ visible: true, filePath, requestName: req.name, returnFocus: focusRef.current })
+        },
+      },
     ],
     bindings: [
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
       { key: "ctrl+l", cmd: "layout.toggle" },
       { key: "f1", cmd: "app.help" },
+      { key: "ctrl+e", cmd: "request.edit-yaml" },
     ],
   }))
 
@@ -330,16 +343,6 @@ function AppInner({
         enabled: () => keymap.getData("app.focus") === "request",
         run: () => ebRef.current.cycleInactiveTab(1),
       },
-      {
-        name: "request.edit-yaml",
-        enabled: () => keymap.getData("app.focus") === "sidebar",
-        run: () => {
-          const req = collectionRef.current?.requests[selectedIndexRef.current]
-          if (!req || !collectionDir) return
-          const filePath = join(collectionDir, `${req.id}.yml`)
-          setYamlEditor({ visible: true, filePath, requestName: req.name })
-        },
-      },
     ],
     bindings: [
       { key: "ctrl+return", cmd: "request.send" },
@@ -350,7 +353,7 @@ function AppInner({
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },
-      { key: "e", cmd: "request.edit-yaml" },
+      { key: "ctrl+e", cmd: "request.edit-yaml" },
     ],
   }))
 
@@ -580,8 +583,8 @@ function AppInner({
             requestName={yamlEditor.requestName}
             onSaved={() => {
               setCollectionReloadToken((n) => n + 1)
-              setYamlEditor({ visible: false, filePath: "", requestName: "" })
-              setFocus("sidebar")
+              setYamlEditor({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+              setFocus(yamlEditor.returnFocus)
               setSaveState({
                 kind: "success",
                 message: `Saved ${yamlEditor.filePath.split("/").pop() ?? ""}`,
@@ -592,8 +595,8 @@ function AppInner({
               }, SAVE_SUCCESS_MS)
             }}
             onClose={() => {
-              setYamlEditor({ visible: false, filePath: "", requestName: "" })
-              setFocus("sidebar")
+              setYamlEditor({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+              setFocus(yamlEditor.returnFocus)
             }}
           />
         )}

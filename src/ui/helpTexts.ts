@@ -25,7 +25,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           description: "Enter request edit-browse · request pane",
         },
         {
-          key: keybinds.request_edit_yaml,
+          key: displayKey(keybinds.request_edit_yaml),
           description: "Edit request YAML (sidebar)",
         },
       ],
