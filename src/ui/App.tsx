@@ -72,7 +72,10 @@ function AppInner({
     requestName: string
   }>({ visible: false, filePath: "", requestName: "" })
 
-  const { collection, loading, error } = useCollection(collectionDir, collectionReloadToken)
+  const { collection, loading, error } = useCollection(
+    collectionDir,
+    collectionReloadToken,
+  )
   const requests = collection?.requests ?? []
 
   useEffect(() => {
@@ -335,8 +338,7 @@ function AppInner({
         name: "request.edit-yaml",
         enabled: () => keymap.getData("app.focus") === "sidebar",
         run: () => {
-          const req =
-            collectionRef.current?.requests[selectedIndexRef.current]
+          const req = collectionRef.current?.requests[selectedIndexRef.current]
           if (!req || !collectionDir) return
           const filePath = join(collectionDir, `${req.id}.yml`)
           setYamlEditor({ visible: true, filePath, requestName: req.name })

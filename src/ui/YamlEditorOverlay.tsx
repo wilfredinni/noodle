@@ -172,9 +172,7 @@ export function YamlEditorOverlay({
         ) : (
           <box ref={containerRef} style={{ flexGrow: 1, minHeight: 0 }} />
         )}
-        {saveError && (
-          <text fg={theme.error}>Save error: {saveError}</text>
-        )}
+        {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
         <box
           style={{
             flexDirection: "row",
