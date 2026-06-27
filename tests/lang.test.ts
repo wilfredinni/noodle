@@ -307,6 +307,34 @@ describe("lang.serializeRequest — canonical key order", () => {
   })
 })
 
+describe("lang.serializeRequest — disabled entries", () => {
+  it("serializes disabled header as {value, enabled: false} flow mapping", () => {
+    const out = lang.serializeRequest(
+      makeReq({
+        headers: {
+          Accept: { value: "application/json", enabled: true },
+          "X-Debug": { value: "true", enabled: false },
+        },
+      }),
+    )
+    expect(out).toContain("Accept: application/json")
+    expect(out).toContain("X-Debug: { value: 'true', enabled: false }")
+  })
+
+  it("serializes disabled param as {value, enabled: false} flow mapping", () => {
+    const out = lang.serializeRequest(
+      makeReq({
+        params: {
+          verbose: { value: "true", enabled: true },
+          debug: { value: "1", enabled: false },
+        },
+      }),
+    )
+    expect(out).toContain("verbose: 'true'")
+    expect(out).toContain("debug: { value: '1', enabled: false }")
+  })
+})
+
 describe("lang — semantic round-trip", () => {
   it("parse → serialize → parse yields equal Request (same id)", () => {
     const original: Request = {
@@ -353,6 +381,24 @@ describe("lang — semantic round-trip", () => {
       headers: {},
       params: {},
       auth: { type: "basic", user: "foo", pass: "bar" },
+    }
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+    expect(reparsed).toEqual(original)
+  })
+
+  it("round-trip preserves disabled entries", () => {
+    const original: Request = {
+      id: "rtt",
+      name: "RTT",
+      method: "GET",
+      url: "https://example.com",
+      headers: {
+        Accept: { value: "application/json", enabled: true },
+        "X-Debug": { value: "true", enabled: false },
+      },
+      params: {},
+      auth: { type: "none" },
     }
     const yaml = lang.serializeRequest(original)
     const reparsed = lang.parseRequest(original.id, yaml)

@@ -1,27 +1,54 @@
 import yaml from "js-yaml"
 import type { Auth, Request } from "../schema"
 
-export function serializeRequest(req: Request): string {
-  const obj: Record<string, unknown> = {}
+function yamlVal(val: string): string {
+  return yaml.dump(val, { lineWidth: 0 }).trim()
+}
 
-  obj.name = req.name
-  obj.method = req.method
-  obj.url = req.url
+export function serializeRequest(req: Request): string {
+  let out = ""
+
+  out += `name: ${yamlVal(req.name)}\n`
+  out += `method: ${yamlVal(req.method)}\n`
+  out += `url: ${yamlVal(req.url)}\n`
 
   if (Object.keys(req.headers).length > 0) {
-    obj.headers = req.headers
-  }
-  if (Object.keys(req.params).length > 0) {
-    obj.params = req.params
-  }
-  if (req.body !== undefined) {
-    obj.body = req.body
-  }
-  if (req.auth && req.auth.type !== "none") {
-    obj.auth = authToObj(req.auth)
+    out += "headers:\n"
+    for (const [k, v] of Object.entries(req.headers)) {
+      const val = yamlVal(v.value)
+      if (v.enabled) {
+        out += `  ${k}: ${val}\n`
+      } else {
+        out += `  ${k}: { value: ${val}, enabled: false }\n`
+      }
+    }
   }
 
-  return yaml.dump(obj, { lineWidth: 0 })
+  if (Object.keys(req.params).length > 0) {
+    out += "params:\n"
+    for (const [k, v] of Object.entries(req.params)) {
+      const val = yamlVal(v.value)
+      if (v.enabled) {
+        out += `  ${k}: ${val}\n`
+      } else {
+        out += `  ${k}: { value: ${val}, enabled: false }\n`
+      }
+    }
+  }
+
+  if (req.body !== undefined) {
+    out += `body: ${yamlVal(req.body)}\n`
+  }
+
+  if (req.auth && req.auth.type !== "none") {
+    const authObj = authToObj(req.auth)
+    out += "auth:\n"
+    for (const [k, v] of Object.entries(authObj)) {
+      out += `  ${k}: ${yaml.dump(v, { lineWidth: 0 }).trim()}\n`
+    }
+  }
+
+  return out
 }
 
 function authToObj(auth: Auth): Record<string, unknown> {
