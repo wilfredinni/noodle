@@ -1,5 +1,5 @@
 import type { ScrollBoxRenderable, TextareaRenderable, LineNumberRenderable } from "@opentui/core"
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import type { Request } from "../schema"
 import { formatBody, formatAuth } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
@@ -22,7 +22,7 @@ interface Props {
   activeTab: FieldKind
 }
 
-const TAB_DEFS: TabDef[] = [
+const BASE_TAB_DEFS: TabDef[] = [
   { id: "headers", label: "Headers" },
   { id: "params", label: "Params" },
   { id: "body", label: "Body" },
@@ -58,6 +58,36 @@ export function RequestPane({
     }
   }, [editState.cursor])
 
+  const tabs = useMemo(() => {
+    if (!request) return BASE_TAB_DEFS
+    const headerActive = Object.values(request.headers).some((e) => e.enabled)
+    const paramActive = Object.values(request.params).some((e) => e.enabled)
+    const hasBody = request.body !== undefined && request.body !== ""
+    const hasAuth =
+      request.auth?.type !== undefined && request.auth.type !== "none"
+    return BASE_TAB_DEFS.map((tab) => {
+      if (tab.id === "headers") {
+        return {
+          ...tab,
+          label: headerActive ? "Headers \u2022" : "Headers",
+        }
+      }
+      if (tab.id === "params") {
+        return {
+          ...tab,
+          label: paramActive ? "Params \u2022" : "Params",
+        }
+      }
+      if (tab.id === "body") {
+        return { ...tab, label: hasBody ? "Body \u2022" : "Body" }
+      }
+      if (tab.id === "auth") {
+        return { ...tab, label: hasAuth ? "Auth \u2022" : "Auth" }
+      }
+      return tab
+    })
+  }, [request])
+
   return (
     <box
       style={{
@@ -81,7 +111,7 @@ export function RequestPane({
     >
       {request ? (
         <>
-          <Tabs tabs={TAB_DEFS} activeId={activeTab}>
+          <Tabs tabs={tabs} activeId={activeTab}>
             <scrollbox
               ref={scrollRef}
               scrollY
