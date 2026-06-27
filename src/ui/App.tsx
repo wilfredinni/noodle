@@ -15,6 +15,7 @@ import { filestore } from "../filestore"
 import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
+import { YamlEditorOverlay } from "./YamlEditorOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import type { Keybinds } from "./keybind"
@@ -56,9 +57,6 @@ function AppInner({
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
-  const { collection, loading, error } = useCollection(collectionDir)
-  const requests = collection?.requests ?? []
-
   const [focus, setFocus] = useState<Focus>("sidebar")
   const [helpVisible, setHelpVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
@@ -66,6 +64,15 @@ function AppInner({
   )
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const [confirmSelection, setConfirmSelection] = useState(0)
+  const [collectionReloadToken, setCollectionReloadToken] = useState(0)
+  const [yamlEditor, setYamlEditor] = useState<{
+    visible: boolean
+    filePath: string
+    requestName: string
+  }>({ visible: false, filePath: "", requestName: "" })
+
+  const { collection, loading, error } = useCollection(collectionDir, collectionReloadToken)
+  const requests = collection?.requests ?? []
 
   useEffect(() => {
     keymap.setData("app.focus", focus)
@@ -78,9 +85,11 @@ function AppInner({
         ? "theme"
         : saveState.kind === "confirming"
           ? "confirm"
-          : "none"
+          : yamlEditor.visible
+            ? "yaml-editor"
+            : "none"
     keymap.setData("app.overlay", overlay)
-  }, [helpVisible, previewIndex, saveState.kind, keymap])
+  }, [helpVisible, previewIndex, saveState.kind, yamlEditor.visible, keymap])
 
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
@@ -315,6 +324,16 @@ function AppInner({
         enabled: () => keymap.getData("app.focus") === "request",
         run: () => ebRef.current.cycleInactiveTab(1),
       },
+      {
+        name: "request.edit-yaml",
+        enabled: () => keymap.getData("app.focus") === "sidebar",
+        run: () => {
+          const req = collection?.requests[selectedIndex]
+          if (!req || !collectionDir) return
+          const filePath = `${collectionDir}/${req.id}.yml`
+          setYamlEditor({ visible: true, filePath, requestName: req.name })
+        },
+      },
     ],
     bindings: [
       { key: "s", cmd: "request.send" },
@@ -326,6 +345,7 @@ function AppInner({
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },
+      { key: "e", cmd: "request.edit-yaml" },
     ],
   }))
 
@@ -546,6 +566,22 @@ function AppInner({
             previewIndex={previewIndex}
             setPreviewIndex={setPreviewIndex}
             onThemeChange={onThemeChange}
+          />
+        )}
+        {yamlEditor.visible && (
+          <YamlEditorOverlay
+            visible
+            filePath={yamlEditor.filePath}
+            requestName={yamlEditor.requestName}
+            onSaved={() => {
+              setCollectionReloadToken((n) => n + 1)
+              setYamlEditor({ visible: false, filePath: "", requestName: "" })
+              setFocus("sidebar")
+            }}
+            onClose={() => {
+              setYamlEditor({ visible: false, filePath: "", requestName: "" })
+              setFocus("sidebar")
+            }}
           />
         )}
       </box>
