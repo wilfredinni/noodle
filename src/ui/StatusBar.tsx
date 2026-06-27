@@ -106,6 +106,7 @@ export function StatusBar(input: {
   isDirty: boolean
   sendState: SendState
   envLabel: string
+  envColor?: string
   saveState: SaveState
   kb: Keybinds
   spinnerFrame?: string
@@ -133,7 +134,9 @@ export function StatusBar(input: {
     ? theme.error
     : input.envLabel === "" || input.envLabel === "(no env)"
       ? theme.textMuted
-      : theme.info
+      : input.envColor !== undefined
+        ? (theme as unknown as Record<string, string>)[input.envColor] ?? theme.info
+        : theme.info
 
   const saveFlash =
     sk === "success"

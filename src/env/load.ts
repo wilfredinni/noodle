@@ -2,6 +2,24 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { Environment } from "../schema"
 
+const VALID_COLORS = new Set([
+  "primary",
+  "secondary",
+  "accent",
+  "error",
+  "warning",
+  "success",
+  "info",
+  "text",
+  "textMuted",
+  "background",
+  "backgroundPanel",
+  "backgroundElement",
+  "border",
+  "borderActive",
+  "borderSubtle",
+])
+
 export async function loadEnvironment(
   dir: string,
   name: string,
@@ -24,6 +42,7 @@ export async function loadEnvironment(
   }
 
   const vars: Record<string, string> = {}
+  let color: string | undefined
   const lines = content.split("\n")
 
   for (const raw of lines) {
@@ -40,8 +59,17 @@ export async function loadEnvironment(
     if (key === "") {
       throw new Error("env.load: var name must not be empty")
     }
+    if (key === "_color") {
+      if (!VALID_COLORS.has(value)) {
+        throw new Error(
+          `env.load: unknown _color "${value}", expected one of ${[...VALID_COLORS].join("|")}`,
+        )
+      }
+      color = value
+      continue
+    }
     vars[key] = value
   }
 
-  return { name, vars }
+  return { name, vars, color }
 }

@@ -45,4 +45,5 @@ export interface Response {
 export interface Environment {
   name: string
   vars: Record<string, string>
+  color?: string
 }

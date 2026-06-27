@@ -623,6 +623,7 @@ function AppInner({
         isDirty={draft.isDirty}
         sendState={responseState}
         envLabel={envState.indicatorLabel}
+        envColor={envState.activeEnv?.color}
         saveState={saveState}
         kb={keybinds}
       />
