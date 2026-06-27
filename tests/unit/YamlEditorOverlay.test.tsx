@@ -47,7 +47,7 @@ describe("YamlEditorOverlay", () => {
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 80, height: 30 },
+      { width: 100, height: 30 },
     )
     await renderOnce()
     await new Promise((r) => setTimeout(r, 20))
@@ -72,7 +72,7 @@ describe("YamlEditorOverlay", () => {
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 80, height: 30 },
+      { width: 100, height: 30 },
     )
     await renderOnce()
     await new Promise((r) => setTimeout(r, 20))
@@ -100,7 +100,7 @@ describe("YamlEditorOverlay", () => {
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 80, height: 30 },
+      { width: 100, height: 30 },
     )
     await renderOnce()
     const frame = captureCharFrame()
@@ -122,7 +122,7 @@ describe("YamlEditorOverlay", () => {
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 80, height: 30 },
+      { width: 100, height: 30 },
     )
     await renderOnce()
     const frame = captureCharFrame()
@@ -144,7 +144,7 @@ describe("YamlEditorOverlay", () => {
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 80, height: 30 },
+      { width: 100, height: 30 },
     )
     await renderOnce()
     await new Promise((r) => setTimeout(r, 20))
