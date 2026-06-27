@@ -8,6 +8,7 @@ import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { Badge } from "./Badge"
+import { Tips } from "./Tips"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -84,15 +85,7 @@ export function ResponsePane({
       titleAlignment="left"
     >
       {state.status === "idle" ? (
-        <box
-          style={{
-            flexGrow: 1,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <ascii-font text="noodle" font="tiny" color={theme.borderSubtle} />
-        </box>
+        <Tips />
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
           <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
