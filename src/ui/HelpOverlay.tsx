@@ -54,15 +54,14 @@ export function HelpOverlay({
           {sections.map((section) => (
             <box key={section.title} style={{ flexDirection: "column" }}>
               <box style={{ paddingLeft: 4, paddingRight: 4 }}>
-                <text fg={theme.primary}>{section.title}</text>
+                <text fg={theme.text}>{section.title}</text>
               </box>
               {section.keys.map((k, i) => (
-                <box key={i} style={{ paddingLeft: 4, paddingRight: 4 }}>
-                  <text fg={theme.text}>
-                    {k.key}
-                    {"  "}
-                    {k.description}
+                <box key={i} style={{ paddingLeft: 4, paddingRight: 4, flexDirection: "row" }}>
+                  <text fg={theme.primary}>
+                    {k.key.padEnd(11)}
                   </text>
+                  <text fg={theme.textMuted}>{k.description}</text>
                 </box>
               ))}
             </box>
