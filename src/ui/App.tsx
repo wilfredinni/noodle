@@ -12,7 +12,7 @@ import { useRequestDraft } from "./useRequestDraft"
 import { useEditBrowse } from "./useEditBrowse"
 import { useEnvironments } from "./useEnvironments"
 import { useConfig } from "./useConfig"
-import { filestore, loadSettings, saveSettings } from "../filestore"
+import { filestore, saveSettings } from "../filestore"
 import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
@@ -636,22 +636,18 @@ export function App({
   environmentsDir,
   envList,
   initialEnvName,
+  settingsEnv: initialSettingsEnv,
   keybinds: keybinds,
 }: {
   collectionDir: string
   environmentsDir: string
   envList: string[]
   initialEnvName?: string
+  settingsEnv?: string
   keybinds: Keybinds
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
-  const [settingsEnv, setSettingsEnv] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    loadSettings(collectionDir).then((s) => {
-      setSettingsEnv(s.environment)
-    })
-  }, [collectionDir])
+  const [settingsEnv, setSettingsEnv] = useState<string | undefined>(initialSettingsEnv)
 
   const [activeIndex, setActiveIndex] = useState(config.theme)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)

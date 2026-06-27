@@ -5,6 +5,7 @@ import { RendererProvider } from "../ui/RendererContext"
 import { App } from "../ui/App"
 import { parseArgs, type ParsedArgs } from "./args"
 import { env } from "../env"
+import { loadSettings } from "../filestore"
 import { createNoodleKeymap } from "../ui/useKeymap"
 import { parseOverrides } from "../ui/keybind"
 import { join } from "node:path"
@@ -55,6 +56,14 @@ if (args.envName !== undefined) {
   initialEnvName = args.envName
 }
 
+let settingsEnv: string | undefined
+try {
+  const settings = await loadSettings(args.collectionDir)
+  settingsEnv = settings.environment
+} catch {
+  // settings.yml missing or invalid — ignore, use defaults
+}
+
 const KEYBINDS_PATH = `${process.env.HOME ?? "~"}/.config/noodle/keybinds.yml`
 let keybindsConfig: Record<string, unknown> = {}
 try {
@@ -77,6 +86,7 @@ createRoot(renderer).render(
         environmentsDir={environmentsDir}
         envList={envList}
         initialEnvName={initialEnvName}
+        settingsEnv={settingsEnv}
         keybinds={keybinds}
       />
     </RendererProvider>
