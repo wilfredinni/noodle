@@ -13,6 +13,7 @@ describe("parseOverrides", () => {
     expect(result.request_send).toBe("ctrl+return")
     expect(result.request_save).toBe("ctrl+s")
     expect(result.help_toggle).toBe("f1")
+    expect(result.theme_picker).toBe("ctrl+t")
   })
 
   it("applies custom keys for configurable bindings", () => {

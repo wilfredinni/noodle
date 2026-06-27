@@ -26,7 +26,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
         {
           key: displayKey(keybinds.request_edit_yaml),
-          description: "Edit request YAML (sidebar)",
+          description: "Edit request YAML",
         },
       ],
     },
@@ -68,6 +68,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       keys: [
         { key: "^c", description: "Quit" },
         { key: keybinds.help_toggle, description: "Toggle help" },
+        { key: displayKey(keybinds.theme_picker), description: "Open theme picker" },
       ],
     },
   ]

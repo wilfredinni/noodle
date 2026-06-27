@@ -348,7 +348,7 @@ function AppInner({
       { key: "ctrl+s", cmd: "request.save" },
       { key: "ctrl+[", cmd: "env.prev" },
       { key: "ctrl+]", cmd: "env.next" },
-      { key: "t", cmd: "app.theme" },
+      { key: "ctrl+t", cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },
