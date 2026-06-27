@@ -54,7 +54,6 @@ export function useEnvironments(
   const cycle = useCallback(
     (delta: number) => {
       if (envList.length === 0) return
-      const prevIndex = activeIndex
       let candidate = activeIndex < 0 ? 0 : activeIndex + delta
       if (candidate >= envList.length) candidate = 0
       if (candidate < 0) candidate = envList.length - 1

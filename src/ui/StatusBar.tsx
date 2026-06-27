@@ -113,7 +113,6 @@ export function StatusBar(input: {
 }) {
   const theme = useTheme()
   const sections = statusBarText(input)
-  const sendStatus = input.sendState.status
 
   const sk = input.saveState.kind
 
@@ -160,10 +159,6 @@ export function StatusBar(input: {
         {saveFlash ? (
           <Badge bg={theme.primary} fg={theme.background}>
             {saveFlash}
-          </Badge>
-        ) : sendStatus === "error" ? (
-          <Badge bg={theme.error} fg={theme.background}>
-            ✗ {input.sendState.error.message}
           </Badge>
         ) : (
           <Badge bg={theme.backgroundElement} fg={envFg}>
