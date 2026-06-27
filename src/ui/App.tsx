@@ -276,7 +276,7 @@ function AppInner({
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
       { key: "l", cmd: "layout.toggle" },
-      { key: "?", cmd: "app.help" },
+      { key: "f1", cmd: "app.help" },
     ],
   }))
 

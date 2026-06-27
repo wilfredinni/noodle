@@ -285,7 +285,7 @@ describe("statusBarText", () => {
       kb: defaults,
       spinnerFrame: "⠋",
     })
-    expect(r.right).toBe("[s] send · [^s] save · [tab] focus · [?] help · [^c] quit")
+    expect(r.right).toBe("[s] send · [^s] save · [tab] focus · [f1] help · [^c] quit")
   })
 
   it("right reflects custom keybinds for help_toggle", () => {

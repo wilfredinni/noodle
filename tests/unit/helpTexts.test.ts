@@ -64,12 +64,12 @@ describe("getHelpSections", () => {
     expect(keys).toContain("l")
   })
 
-  it("SYSTEM section contains ^c and ?", () => {
+  it("SYSTEM section contains ^c and f1", () => {
     const sections = getHelpSections(defaults)
     const sys = sections.find((s) => s.title === "System")!
     const keys = sys.keys.map((k) => k.key)
     expect(keys).toContain("^c")
-    expect(keys).toContain("?")
+    expect(keys).toContain("f1")
   })
 
   it("NAVIGATION section contains e for YAML edit", () => {

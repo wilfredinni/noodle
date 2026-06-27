@@ -12,7 +12,7 @@ describe("parseOverrides", () => {
     const result = parseOverrides({})
     expect(result.request_send).toBe("s")
     expect(result.request_save).toBe("ctrl+s")
-    expect(result.help_toggle).toBe("?")
+    expect(result.help_toggle).toBe("f1")
   })
 
   it("applies custom keys for configurable bindings", () => {
