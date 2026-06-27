@@ -24,15 +24,15 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: keybinds.request_edit,
           description: "Enter request edit-browse · request pane",
         },
-        {
-          key: displayKey(keybinds.request_edit_yaml),
-          description: "Edit request YAML",
-        },
       ],
     },
     {
       title: "Editing",
       keys: [
+        {
+          key: displayKey(keybinds.request_edit_yaml),
+          description: "Edit request YAML",
+        },
         {
           key: keybinds.browse_enter,
           description: "Edit focused field · request browse",
