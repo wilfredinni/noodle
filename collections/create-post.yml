@@ -3,7 +3,7 @@ method: POST
 url: $base_url/posts
 headers:
   Content-Type: application/json
-  x-api-key: { value: skdjfksdfksjdfj876s8d7f6s8d7fs99, enabled: false }
+  x-api-key: skdjfksdfksjdfj876s8d7f6s8d7fs99
 body: |-
   {
     "title": "foo",
