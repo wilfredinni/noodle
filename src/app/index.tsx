@@ -1,6 +1,7 @@
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
+import { RendererProvider } from "../ui/RendererContext"
 import { App } from "../ui/App"
 import { parseArgs, type ParsedArgs } from "./args"
 import { env } from "../env"
@@ -69,12 +70,14 @@ const keymap = createNoodleKeymap(renderer)
 
 createRoot(renderer).render(
   <KeymapProvider keymap={keymap}>
-    <App
-      collectionDir={args.collectionDir}
-      environmentsDir={ENVIRONMENTS_DIR}
-      envList={envList}
-      initialEnvName={initialEnvName}
-      keybinds={keybinds}
-    />
+    <RendererProvider renderer={renderer}>
+      <App
+        collectionDir={args.collectionDir}
+        environmentsDir={ENVIRONMENTS_DIR}
+        envList={envList}
+        initialEnvName={initialEnvName}
+        keybinds={keybinds}
+      />
+    </RendererProvider>
   </KeymapProvider>,
 )

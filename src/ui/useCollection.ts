@@ -8,7 +8,10 @@ export interface UseCollectionResult {
   error: Error | null
 }
 
-export function useCollection(dir: string): UseCollectionResult {
+export function useCollection(
+  dir: string,
+  reloadToken = 0,
+): UseCollectionResult {
   const [collection, setCollection] = useState<Collection | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -36,7 +39,7 @@ export function useCollection(dir: string): UseCollectionResult {
     return () => {
       cancelled = true
     }
-  }, [dir])
+  }, [dir, reloadToken])
 
   return { collection, loading, error }
 }

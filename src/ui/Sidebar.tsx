@@ -102,7 +102,7 @@ export function Sidebar({
       )}
       {focused && keybinds && (
         <text fg={theme.textMuted}>
-          [↑↓] select [{keybinds.request_edit}] edit
+          [{keybinds.request_edit_yaml}] edit yaml
         </text>
       )}
     </box>
