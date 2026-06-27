@@ -200,6 +200,7 @@ function KeyValueSection({
             gap: 0,
           }}
         >
+          <text fg={theme.textMuted}>[ ] </text>
           <input
             value=""
             placeholder="Key"
@@ -294,6 +295,7 @@ function KeyValueSection({
                   : undefined,
             }}
           >
+            <text fg={theme.textMuted}>[ ] </text>
             <input
               value={editingAdd ? editKey : ""}
               placeholder="Key"
