@@ -28,7 +28,7 @@ interface TipPart {
   isKey: boolean
 }
 
-function parseTip(tip: string): TipPart[] {
+export function parseTip(tip: string): TipPart[] {
   const parts: TipPart[] = []
   const re = /\{\{(.+?)\}\}|\{(.+?)\}/g
   let lastEnd = 0
