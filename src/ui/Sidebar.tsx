@@ -101,7 +101,7 @@ export function Sidebar({
                     {truncName(r.name, 20)}
                   </text>
                 </box>
-                {isDirty && <text fg={theme.warning}>•</text>}
+                {isDirty && <text fg={theme.warning}>●</text>}
               </box>
             )
           })}
