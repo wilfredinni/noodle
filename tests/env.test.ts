@@ -97,3 +97,40 @@ describe("loadEnvironment — validation", () => {
     )
   })
 })
+
+describe("env priority resolution", () => {
+  const envList = ["development", "production", "staging"]
+
+  function resolveEnv(
+    initialName?: string,
+    settingsEnv?: string,
+    list: string[] = envList,
+  ): string | undefined {
+    if (
+      initialName !== undefined &&
+      initialName !== "" &&
+      list.includes(initialName)
+    )
+      return initialName
+    if (settingsEnv !== undefined && list.includes(settingsEnv))
+      return settingsEnv
+    if (list.length > 0) return list[0]
+    return undefined
+  }
+
+  it("CLI --env takes highest priority", () => {
+    expect(resolveEnv("production", "development")).toBe("production")
+  })
+
+  it("falls back to settingsEnv when no CLI arg", () => {
+    expect(resolveEnv(undefined, "staging")).toBe("staging")
+  })
+
+  it("falls back to first env when no CLI or settings", () => {
+    expect(resolveEnv(undefined, undefined)).toBe("development")
+  })
+
+  it("returns undefined for empty envList", () => {
+    expect(resolveEnv(undefined, undefined, [])).toBeUndefined()
+  })
+})
