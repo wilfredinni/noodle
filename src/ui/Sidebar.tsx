@@ -92,7 +92,7 @@ export function Sidebar({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
               >
-                {isDirty && <text fg={theme.primary}>● </text>}
+                {isDirty && <text fg={theme.warning}>• </text>}
                 <text fg={methodColor(r.method, theme)}>
                   {shortMethod(r.method).padEnd(7)}
                 </text>
