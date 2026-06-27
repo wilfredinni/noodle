@@ -3,7 +3,7 @@ import { useTheme } from "./theme"
 const TIPS = [
   "send the request with {^↩} — works from any pane",
   "save the current request to disk with {^S}",
-  "cycle environments with {^[} and {^]}",
+  "cycle environments with {^.}",
   "cycle focus between panes with {Tab} / {Shift+Tab}",
   "open the keybinding cheatsheet overlay with {F1}",
   "variables use $var syntax — defined in environment files",

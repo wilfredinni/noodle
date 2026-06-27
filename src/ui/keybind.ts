@@ -18,7 +18,7 @@ export const Definitions = {
   request_send: keybind("ctrl+return", "Send request"),
   request_save: keybind("ctrl+s", "Save request to disk"),
   env_prev: keybind("ctrl+[", "Previous environment"),
-  env_next: keybind("ctrl+]", "Next environment"),
+  env_next: keybind("ctrl+.", "Next environment"),
   help_toggle: keybind("f1", "Toggle help overlay"),
   theme_picker: keybind("ctrl+t", "Open theme picker"),
   browse_delete: keybind("ctrl+d", "Revert field"),
