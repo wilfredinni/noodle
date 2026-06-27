@@ -106,13 +106,13 @@ export function StatusBar(input: {
   isDirty: boolean
   sendState: SendState
   envLabel: string
+  envColor?: string
   saveState: SaveState
   kb: Keybinds
   spinnerFrame?: string
 }) {
   const theme = useTheme()
   const sections = statusBarText(input)
-  const sendStatus = input.sendState.status
 
   const sk = input.saveState.kind
 
@@ -133,7 +133,9 @@ export function StatusBar(input: {
     ? theme.error
     : input.envLabel === "" || input.envLabel === "(no env)"
       ? theme.textMuted
-      : theme.info
+      : input.envColor !== undefined
+        ? (theme as unknown as Record<string, string>)[input.envColor] ?? theme.info
+        : theme.info
 
   const saveFlash =
     sk === "success"
@@ -157,10 +159,6 @@ export function StatusBar(input: {
         {saveFlash ? (
           <Badge bg={theme.primary} fg={theme.background}>
             {saveFlash}
-          </Badge>
-        ) : sendStatus === "error" ? (
-          <Badge bg={theme.error} fg={theme.background}>
-            ✗ {input.sendState.error.message}
           </Badge>
         ) : (
           <Badge bg={theme.backgroundElement} fg={envFg}>

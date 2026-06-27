@@ -13,7 +13,7 @@ export async function listEnvironments(dir: string): Promise<string[]> {
   }
   const names: string[] = []
   for (const entry of entries) {
-    if (!entry.endsWith(".yml")) continue
+    if (!entry.endsWith(".env")) continue
     let isFile = false
     try {
       const s = await stat(join(dir, entry))
@@ -21,7 +21,7 @@ export async function listEnvironments(dir: string): Promise<string[]> {
     } catch {
       // isFile stays false
     }
-    if (isFile) names.push(entry.slice(0, -".yml".length))
+    if (isFile) names.push(entry.slice(0, -".env".length))
   }
   names.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
   return names

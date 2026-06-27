@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Environment } from "../schema"
 import { env } from "../env"
-import { nextIndex } from "./selection"
 import { envIndicatorLabel } from "./envIndicator"
 
 export interface UseEnvironmentsResult {
@@ -17,12 +16,15 @@ export function useEnvironments(
   dir: string,
   envList: string[],
   initialName?: string,
-  lastEnv?: string | null,
+  settingsEnv?: string,
   onEnvChange?: (name: string | null) => void,
 ): UseEnvironmentsResult {
   const [activeIndex, setActiveIndex] = useState<number>(() => {
+    // Priority: CLI --env > settings.yml environment > first env in list
     if (initialName !== undefined) return envList.indexOf(initialName)
-    if (lastEnv !== undefined && lastEnv !== null) return envList.indexOf(lastEnv)
+    if (settingsEnv !== undefined && envList.includes(settingsEnv))
+      return envList.indexOf(settingsEnv)
+    if (envList.length > 0) return 0
     return -1
   })
   const [activeEnv, setActiveEnv] = useState<Environment | null>(null)
@@ -31,9 +33,17 @@ export function useEnvironments(
 
   // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {
-    const target = initialName ?? lastEnv ?? undefined
+    const target =
+      initialName !== undefined
+        ? envList.includes(initialName)
+          ? initialName
+          : undefined
+        : settingsEnv !== undefined && envList.includes(settingsEnv)
+          ? settingsEnv
+          : envList.length > 0
+            ? envList[0]
+            : undefined
     if (target === undefined) return
-    if (!envList.includes(target)) return
     let cancelled = false
     env
       .loadEnvironment(dir, target)
@@ -55,12 +65,9 @@ export function useEnvironments(
   const cycle = useCallback(
     (delta: number) => {
       if (envList.length === 0) return
-      const prevIndex = activeIndex
-      const candidate = nextIndex(
-        prevIndex < 0 ? -1 : prevIndex,
-        envList.length,
-        delta,
-      )
+      let candidate = activeIndex < 0 ? 0 : activeIndex + delta
+      if (candidate >= envList.length) candidate = 0
+      if (candidate < 0) candidate = envList.length - 1
       const name = envList[candidate]
       genRef.current += 1
       const gen = genRef.current

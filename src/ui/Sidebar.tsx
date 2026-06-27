@@ -20,7 +20,7 @@ export function Sidebar({
   error,
   selectedIndex,
   focused = false,
-  keybinds,
+  keybinds: _keybinds,
   dirtyRequestIds,
 }: {
   collection: Collection | null

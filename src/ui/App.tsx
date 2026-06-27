@@ -12,7 +12,7 @@ import { useRequestDraft } from "./useRequestDraft"
 import { useEditBrowse } from "./useEditBrowse"
 import { useEnvironments } from "./useEnvironments"
 import { useConfig } from "./useConfig"
-import { filestore } from "../filestore"
+import { filestore, saveSettings } from "../filestore"
 import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
@@ -40,7 +40,7 @@ function AppInner({
   initialLayout,
   onLayoutChange,
   onEnvChange,
-  lastEnv,
+  settingsEnv,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -54,7 +54,7 @@ function AppInner({
   initialLayout: "stacked" | "side-by-side"
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   onEnvChange: (name: string | null) => void
-  lastEnv: string | null
+  settingsEnv?: string
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -131,13 +131,14 @@ function AppInner({
     environmentsDir,
     envList,
     initialEnvName,
-    lastEnv,
+    settingsEnv,
     onEnvChange,
   )
-  const { state: responseState, trySend, cancelSend } = useResponse(
-    draft.draft,
-    envState.activeEnv,
-  )
+  const {
+    state: responseState,
+    trySend,
+    cancelSend,
+  } = useResponse(draft.draft, envState.activeEnv)
 
   const trySendRef = useRef(trySend)
   trySendRef.current = trySend
@@ -283,7 +284,12 @@ function AppInner({
           const req = collectionRef.current?.requests[selectedIndexRef.current]
           if (!req || !collectionDir) return
           const filePath = join(collectionDir, `${req.id}.yml`)
-          setYamlEditor({ visible: true, filePath, requestName: req.name, returnFocus: focusRef.current })
+          setYamlEditor({
+            visible: true,
+            filePath,
+            requestName: req.name,
+            returnFocus: focusRef.current,
+          })
         },
       },
     ],
@@ -360,7 +366,9 @@ function AppInner({
 
   // ── Keymap: Browse Layer ───────────────────────────────────────────
   useBindings(() => ({
-    enabled: () => keymap.getData("app.mode") === "browse" && keymap.getData("app.overlay") === "none",
+    enabled: () =>
+      keymap.getData("app.mode") === "browse" &&
+      keymap.getData("app.overlay") === "none",
     commands: [
       { name: "browse.up", run: () => ebRef.current.browseUp() },
       { name: "browse.down", run: () => ebRef.current.browseDown() },
@@ -405,7 +413,9 @@ function AppInner({
 
   // ── Keymap: Edit Layer ─────────────────────────────────────────────
   useBindings(() => ({
-    enabled: () => keymap.getData("app.mode") === "edit" && keymap.getData("app.overlay") === "none",
+    enabled: () =>
+      keymap.getData("app.mode") === "edit" &&
+      keymap.getData("app.overlay") === "none",
     commands: [
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
@@ -599,7 +609,12 @@ function AppInner({
             requestName={yamlEditor.requestName}
             onSaved={() => {
               setCollectionReloadToken((n) => n + 1)
-              setYamlEditor({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+              setYamlEditor({
+                visible: false,
+                filePath: "",
+                requestName: "",
+                returnFocus: "sidebar",
+              })
               setFocus(yamlEditor.returnFocus)
               setSaveState({
                 kind: "success",
@@ -611,7 +626,12 @@ function AppInner({
               }, SAVE_SUCCESS_MS)
             }}
             onClose={() => {
-              setYamlEditor({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+              setYamlEditor({
+                visible: false,
+                filePath: "",
+                requestName: "",
+                returnFocus: "sidebar",
+              })
               setFocus(yamlEditor.returnFocus)
             }}
           />
@@ -623,6 +643,7 @@ function AppInner({
         isDirty={draft.isDirty}
         sendState={responseState}
         envLabel={envState.indicatorLabel}
+        envColor={envState.activeEnv?.color}
         saveState={saveState}
         kb={keybinds}
       />
@@ -635,15 +656,21 @@ export function App({
   environmentsDir,
   envList,
   initialEnvName,
+  settingsEnv: initialSettingsEnv,
   keybinds: keybinds,
 }: {
   collectionDir: string
   environmentsDir: string
   envList: string[]
   initialEnvName?: string
+  settingsEnv?: string
   keybinds: Keybinds
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
+  const [settingsEnv, setSettingsEnv] = useState<string | undefined>(
+    initialSettingsEnv,
+  )
+
   const [activeIndex, setActiveIndex] = useState(config.theme)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
@@ -664,9 +691,11 @@ export function App({
 
   const handleEnvChange = useCallback(
     (name: string | null) => {
-      updateConfig({ lastEnv: name })
+      const envName = name ?? undefined
+      setSettingsEnv(envName)
+      saveSettings(collectionDir, { environment: envName }).catch(() => {})
     },
-    [updateConfig],
+    [collectionDir],
   )
 
   return (
@@ -684,7 +713,7 @@ export function App({
         initialLayout={config.layout}
         onLayoutChange={handleLayoutChange}
         onEnvChange={handleEnvChange}
-        lastEnv={config.lastEnv}
+        settingsEnv={settingsEnv}
       />
     </ThemeProvider>
   )

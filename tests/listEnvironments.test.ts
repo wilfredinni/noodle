@@ -25,25 +25,25 @@ describe("listEnvironments", () => {
     await expect(env.listEnvironments(dir)).resolves.toEqual([])
   })
 
-  it("lists .yml files sorted alphabetically, stripped of extension", async () => {
-    await writeFile(join(dir, "zebra.yml"), "name: z\nvars:\n  x: y\n", "utf8")
-    await writeFile(join(dir, "alpha.yml"), "name: a\nvars:\n  x: y\n", "utf8")
-    await writeFile(join(dir, "mid.yml"), "name: m\nvars:\n  x: y\n", "utf8")
+  it("lists .env files sorted alphabetically, stripped of extension", async () => {
+    await writeFile(join(dir, "zebra.env"), "z=zebra\n", "utf8")
+    await writeFile(join(dir, "alpha.env"), "a=alpha\n", "utf8")
+    await writeFile(join(dir, "mid.env"), "m=mid\n", "utf8")
     const out = await env.listEnvironments(dir)
     expect(out).toEqual(["alpha", "mid", "zebra"])
   })
 
-  it("ignores .yaml and non-yml files", async () => {
-    await writeFile(join(dir, "a.yml"), "name: a\nvars:\n  x: y\n", "utf8")
-    await writeFile(join(dir, "b.yaml"), "name: b\nvars:\n  x: y\n", "utf8")
+  it("ignores .yml and non-env files", async () => {
+    await writeFile(join(dir, "a.env"), "x=y\n", "utf8")
+    await writeFile(join(dir, "b.yml"), "name: b\nvars:\n  x: y\n", "utf8")
     await writeFile(join(dir, "c.txt"), "hello", "utf8")
     const out = await env.listEnvironments(dir)
     expect(out).toEqual(["a"])
   })
 
   it("ignores subdirectories", async () => {
-    await writeFile(join(dir, "a.yml"), "name: a\nvars:\n  x: y\n", "utf8")
-    await mkdir(join(dir, "subdir.yml"))
+    await writeFile(join(dir, "a.env"), "x=y\n", "utf8")
+    await mkdir(join(dir, "subdir.env"))
     const out = await env.listEnvironments(dir)
     expect(out).toEqual(["a"])
   })

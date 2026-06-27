@@ -32,90 +32,90 @@ function makeEnv(vars: Record<string, string> = {}): Environment {
   return { name: "test", vars }
 }
 
-describe("substitute — pure {{var}} replacement", () => {
-  it("substitutes {{x}} in url", () => {
-    const req = makeReq({ url: "https://{{host}}/users" })
+describe("substitute — pure $var replacement", () => {
+  it("substitutes $x in url", () => {
+    const req = makeReq({ url: "https://$host/users" })
     const out = substitute(req, makeEnv({ host: "api.example.com" }))
     expect(out.url).toBe("https://api.example.com/users")
   })
 
-  it("substitutes {{x}} in header values (not keys)", () => {
-    const req = makeReq({ headers: { Authorization: { value: "Bearer {{token}}", enabled: true } } })
+  it("substitutes $x in header values (not keys)", () => {
+    const req = makeReq({ headers: { Authorization: { value: "Bearer $token", enabled: true } } })
     const out = substitute(req, makeEnv({ token: "abc123" }))
     expect(out.headers.Authorization).toBe("Bearer abc123")
     expect(Object.keys(out.headers)).toEqual(["Authorization"])
   })
 
-  it("substitutes {{x}} in param values (not keys)", () => {
-    const req = makeReq({ params: { verbose: { value: "{{flag}}", enabled: true } } })
+  it("substitutes $x in param values (not keys)", () => {
+    const req = makeReq({ params: { verbose: { value: "$flag", enabled: true } } })
     const out = substitute(req, makeEnv({ flag: "true" }))
     expect(out.params.verbose).toBe("true")
     expect(Object.keys(out.params)).toEqual(["verbose"])
   })
 
-  it("substitutes {{x}} in body", () => {
-    const req = makeReq({ body: '{"id": "{{id}}"}' })
+  it("substitutes $x in body", () => {
+    const req = makeReq({ body: '{"id": "$id"}' })
     const out = substitute(req, makeEnv({ id: "42" }))
     expect(out.body).toBe('{"id": "42"}')
   })
 
-  it("substitutes {{x}} in bearer auth token", () => {
-    const req = makeReq({ auth: { type: "bearer", token: "{{token}}" } })
+  it("substitutes $x in bearer auth token", () => {
+    const req = makeReq({ auth: { type: "bearer", token: "$token" } })
     const out = substitute(req, makeEnv({ token: "secret" }))
     expect(out.auth).toEqual({ type: "bearer", token: "secret" })
   })
 
-  it("substitutes {{x}} in basic auth user and pass", () => {
+  it("substitutes $x in basic auth user and pass", () => {
     const req = makeReq({
-      auth: { type: "basic", user: "{{u}}", pass: "{{p}}" },
+      auth: { type: "basic", user: "$u", pass: "$p" },
     })
     const out = substitute(req, makeEnv({ u: "foo", p: "bar" }))
     expect(out.auth).toEqual({ type: "basic", user: "foo", pass: "bar" })
   })
 
   it("leaves id, name, method untouched", () => {
-    const req = makeReq({ id: "my-id", name: "{{name}}", method: "POST" })
+    const req = makeReq({ id: "my-id", name: "$name", method: "POST" })
     const out = substitute(req, makeEnv({ name: "should-not-apply" }))
     expect(out.id).toBe("my-id")
-    expect(out.name).toBe("{{name}}")
+    expect(out.name).toBe("$name")
     expect(out.method).toBe("POST")
   })
 
-  it("resolves adjacent {{x}}{{y}} in one field", () => {
-    const req = makeReq({ url: "https://{{a}}{{b}}/x" })
+  it("resolves adjacent $a$b in one field", () => {
+    const req = makeReq({ url: "https://$a$b/x" })
     const out = substitute(req, makeEnv({ a: "host", b: ":8080" }))
     expect(out.url).toBe("https://host:8080/x")
   })
 
   it("empty string env var substitutes to empty string (not an error)", () => {
-    const req = makeReq({ url: "https://{{x}}/y" })
+    const req = makeReq({ url: "https://$x/y" })
     const out = substitute(req, makeEnv({ x: "" }))
     expect(out.url).toBe("https:///y")
   })
 
   it("throws on unresolved variable in url", () => {
-    const req = makeReq({ url: "https://{{host}}/x" })
+    const req = makeReq({ url: "https://$host/x" })
     expect(() => substitute(req, makeEnv({}))).toThrow(
       'requests.substitute: unresolved variable "host" in url',
     )
   })
 
   it("throws on unresolved variable in header value (field name included)", () => {
-    const req = makeReq({ headers: { Authorization: { value: "Bearer {{token}}", enabled: true } } })
+    const req = makeReq({ headers: { Authorization: { value: "Bearer $token", enabled: true } } })
     expect(() => substitute(req, makeEnv({}))).toThrow(
       'requests.substitute: unresolved variable "token" in headers.Authorization',
     )
   })
 
   it("throws on unresolved variable in auth.token", () => {
-    const req = makeReq({ auth: { type: "bearer", token: "{{token}}" } })
+    const req = makeReq({ auth: { type: "bearer", token: "$token" } })
     expect(() => substitute(req, makeEnv({}))).toThrow(
       'requests.substitute: unresolved variable "token" in auth.token',
     )
   })
 
   it("does not mutate the input request", () => {
-    const req = makeReq({ url: "https://{{host}}/x", headers: { A: { value: "{{v}}", enabled: true } } })
+    const req = makeReq({ url: "https://$host/x", headers: { A: { value: "$v", enabled: true } } })
     const original = JSON.parse(JSON.stringify(req))
     substitute(req, makeEnv({ host: "h", v: "1" }))
     expect(req).toEqual(original)
@@ -134,17 +134,17 @@ describe("substitute — pure {{var}} replacement", () => {
     expect(out.body).toBeUndefined()
   })
 
-  it("{{ var }} (whitespace inside braces) passes through verbatim", () => {
-    const req = makeReq({ url: "https://example.com/{{ path }}" })
+  it("$ var (whitespace after $) passes through verbatim", () => {
+    const req = makeReq({ url: "https://example.com/$ path" })
     const out = substitute(req, makeEnv({ path: "x" }))
-    expect(out.url).toBe("https://example.com/{{ path }}")
+    expect(out.url).toBe("https://example.com/$ path")
   })
 
   it("skips disabled header entries", () => {
     const req = makeReq({
       headers: {
         Accept: { value: "application/json", enabled: true },
-        "X-Debug": { value: "{{debug}}", enabled: false },
+        "X-Debug": { value: "$debug", enabled: false },
       },
     })
     const out = substitute(req, makeEnv({ debug: "should-not-resolve" }))
@@ -156,7 +156,7 @@ describe("substitute — pure {{var}} replacement", () => {
     const req = makeReq({
       params: {
         verbose: { value: "true", enabled: true },
-        debug: { value: "{{flag}}", enabled: false },
+        debug: { value: "$flag", enabled: false },
       },
     })
     const out = substitute(req, makeEnv({ flag: "should-not-resolve" }))
@@ -167,7 +167,7 @@ describe("substitute — pure {{var}} replacement", () => {
   it("disabled entries are skipped before var resolution (no error on unresolved)", () => {
     const req = makeReq({
       headers: {
-        "X-Disabled": { value: "{{missing}}", enabled: false },
+        "X-Disabled": { value: "$missing", enabled: false },
       },
     })
     const out = substitute(req, makeEnv({}))
@@ -331,18 +331,18 @@ describe("send — response mapping", () => {
 })
 
 describe("send — env handling", () => {
-  it("passes {{var}} literals through to fetch when no env provided", async () => {
+  it("passes $var literals through to fetch when no env provided", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
-    await executor.send(makeReq({ body: '{"id": "{{id}}"}' }))
+    await executor.send(makeReq({ body: '{"id": "$id"}' }))
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const init = fetchMock.mock.calls[0][1] as RequestInit
-    expect(init.body).toBe('{"id": "{{id}}"}')
+    expect(init.body).toBe('{"id": "$id"}')
   })
 
-  it("substitutes {{var}} from env before fetch", async () => {
+  it("substitutes $var from env before fetch", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await executor.send(
-      makeReq({ url: "https://{{host}}/x" }),
+      makeReq({ url: "https://$host/x" }),
       makeEnv({ host: "api.example.com" }),
     )
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.example.com/x")
@@ -471,7 +471,7 @@ describe("send — error handling", () => {
   it("propagates substitute errors with prefix intact (no wrapping)", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await expect(
-      executor.send(makeReq({ url: "https://{{host}}/x" }), makeEnv({})),
+      executor.send(makeReq({ url: "https://$host/x" }), makeEnv({})),
     ).rejects.toThrow('requests.substitute: unresolved variable "host" in url')
     expect(fetchMock).not.toHaveBeenCalled()
   })

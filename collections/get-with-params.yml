@@ -1,6 +1,6 @@
 name: Get with Params
 method: GET
-url: https://jsonplaceholder.typicode.com/posts
+url: $base_url/posts
 params:
   userId: '1'
   _limit: { value: '8', enabled: false }

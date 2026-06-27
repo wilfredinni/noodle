@@ -1,6 +1,6 @@
 import type { Auth, Environment, Request } from "../schema"
 
-const VAR_RE = /\{\{(\w+)\}\}/g
+const VAR_RE = /\$(\w+)/g
 
 export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
   headers: Record<string, string>

@@ -3,10 +3,10 @@ import { useTheme } from "./theme"
 const TIPS = [
   "send the request with {^↩} — works from any pane",
   "save the current request to disk with {^S}",
-  "cycle environments with {^[} and {^]}",
+  "cycle environments with {^.}",
   "cycle focus between panes with {Tab} / {Shift+Tab}",
   "open the keybinding cheatsheet overlay with {F1}",
-  "variables use {{var}} syntax — defined in environment files",
+  "variables use $var syntax — defined in environment files",
   "enter request browse mode with {Enter} in the request pane",
   "edit a field — press {Enter} on any header, param, or body in browse mode",
   "toggle header or param on/off with {^X} in browse mode",

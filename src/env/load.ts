@@ -1,7 +1,24 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import yaml from "js-yaml"
 import type { Environment } from "../schema"
+
+const VALID_COLORS = new Set([
+  "primary",
+  "secondary",
+  "accent",
+  "error",
+  "warning",
+  "success",
+  "info",
+  "text",
+  "textMuted",
+  "background",
+  "backgroundPanel",
+  "backgroundElement",
+  "border",
+  "borderActive",
+  "borderSubtle",
+])
 
 export async function loadEnvironment(
   dir: string,
@@ -10,7 +27,7 @@ export async function loadEnvironment(
   if (name.includes("..") || name.includes("/") || name.includes("\\")) {
     throw new Error("env.load: invalid environment name")
   }
-  const filePath = join(dir, `${name}.yml`)
+  const filePath = join(dir, `${name}.env`)
   let content: string
   try {
     content = await readFile(filePath, "utf8")
@@ -24,45 +41,35 @@ export async function loadEnvironment(
     throw new Error(`env.load: ${msg}`, { cause: e })
   }
 
-  let doc: unknown
-  try {
-    doc = yaml.load(content)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    throw new Error(`env.load: YAML syntax: ${msg}`, { cause: e })
-  }
-
-  if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {
-    throw new Error("env.load: expected a YAML mapping at top level")
-  }
-
-  const raw = doc as Record<string, unknown>
-
-  if (typeof raw.name !== "string" || raw.name === "") {
-    throw new Error('env.load: "name" must be a non-empty string')
-  }
-
-  if (raw.vars === undefined || raw.vars === null) {
-    throw new Error('env.load: missing "vars"')
-  }
-  if (typeof raw.vars !== "object" || Array.isArray(raw.vars)) {
-    throw new Error('env.load: "vars" must be a mapping')
-  }
-
-  const knownKeys = new Set(["name", "vars"])
-  for (const key of Object.keys(raw)) {
-    if (!knownKeys.has(key)) {
-      throw new Error(`env.load: unknown key "${key}"`)
-    }
-  }
-
   const vars: Record<string, string> = {}
-  for (const [k, v] of Object.entries(raw.vars as Record<string, unknown>)) {
-    if (k === "") {
+  let color: string | undefined
+  const lines = content.split("\n")
+
+  for (const raw of lines) {
+    const trimmed = raw.trim()
+    if (trimmed === "" || trimmed.startsWith("#")) continue
+    const eq = trimmed.indexOf("=")
+    if (eq === -1) {
+      throw new Error(
+        `env.load: invalid line (expected KEY=value): "${trimmed}"`,
+      )
+    }
+    const key = trimmed.slice(0, eq).trimEnd()
+    const value = trimmed.slice(eq + 1)
+    if (key === "") {
       throw new Error("env.load: var name must not be empty")
     }
-    vars[k] = String(v)
+    if (key === "_color") {
+      if (!VALID_COLORS.has(value)) {
+        throw new Error(
+          `env.load: unknown _color "${value}", expected one of ${[...VALID_COLORS].join("|")}`,
+        )
+      }
+      color = value
+      continue
+    }
+    vars[key] = value
   }
 
-  return { name: raw.name, vars }
+  return { name, vars, color }
 }

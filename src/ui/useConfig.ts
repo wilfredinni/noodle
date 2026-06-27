@@ -9,13 +9,11 @@ export const CONFIG_FILE_NAME = "config.yml"
 export interface NoodleConfig {
   theme: number
   layout: "stacked" | "side-by-side"
-  lastEnv: string | null
 }
 
 const DEFAULTS: NoodleConfig = {
   theme: 0,
   layout: "stacked",
-  lastEnv: null,
 }
 
 export function loadConfig(configDir: string): NoodleConfig {
@@ -27,7 +25,6 @@ export function loadConfig(configDir: string): NoodleConfig {
     return {
       theme: typeof obj.theme === "number" ? obj.theme : DEFAULTS.theme,
       layout: obj.layout === "side-by-side" ? "side-by-side" : DEFAULTS.layout,
-      lastEnv: typeof obj.last_env === "string" ? obj.last_env : DEFAULTS.lastEnv,
     }
   } catch {
     return { ...DEFAULTS }
@@ -39,7 +36,6 @@ export function saveConfig(configDir: string, config: NoodleConfig): void {
   const data = {
     theme: config.theme,
     layout: config.layout,
-    last_env: config.lastEnv ?? null,
   }
   writeFileSync(join(configDir, CONFIG_FILE_NAME), yaml.dump(data), "utf8")
 }
