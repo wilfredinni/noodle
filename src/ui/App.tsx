@@ -287,9 +287,9 @@ function AppInner({
     bindings: [
       { key: "tab", cmd: "focus.next" },
       { key: "shift+tab", cmd: "focus.prev" },
-      { key: "ctrl+l", cmd: "layout.toggle" },
-      { key: "f1", cmd: "app.help" },
-      { key: "ctrl+e", cmd: "request.edit-yaml" },
+      { key: keybinds.layout_toggle, cmd: "layout.toggle" },
+      { key: keybinds.help_toggle, cmd: "app.help" },
+      { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
     ],
   }))
 
@@ -344,15 +344,14 @@ function AppInner({
       },
     ],
     bindings: [
-      { key: "ctrl+return", cmd: "request.send" },
-      { key: "ctrl+s", cmd: "request.save" },
-      { key: "ctrl+[", cmd: "env.prev" },
-      { key: "ctrl+]", cmd: "env.next" },
-      { key: "ctrl+t", cmd: "app.theme" },
+      { key: keybinds.request_send, cmd: "request.send" },
+      { key: keybinds.request_save, cmd: "request.save" },
+      { key: keybinds.env_prev, cmd: "env.prev" },
+      { key: keybinds.env_next, cmd: "env.next" },
+      { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },
-      { key: "ctrl+e", cmd: "request.edit-yaml" },
     ],
   }))
 
@@ -393,11 +392,11 @@ function AppInner({
       { key: "right", cmd: "browse.right" },
       { key: "return", cmd: "browse.enter" },
       { key: "escape", cmd: "browse.escape" },
-      { key: "ctrl+d", cmd: "browse.delete" },
-      { key: "ctrl+r", cmd: "browse.revert-all" },
-      { key: "ctrl+x", cmd: "browse.toggle" },
-      { key: "ctrl+return", cmd: "browse.send" },
-      { key: "ctrl+s", cmd: "browse.save" },
+      { key: keybinds.browse_delete, cmd: "browse.delete" },
+      { key: keybinds.browse_revert_all, cmd: "browse.revert-all" },
+      { key: keybinds.browse_toggle, cmd: "browse.toggle" },
+      { key: keybinds.request_send, cmd: "browse.send" },
+      { key: keybinds.request_save, cmd: "browse.save" },
     ],
   }))
 
