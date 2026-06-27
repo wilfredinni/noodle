@@ -360,7 +360,7 @@ function AppInner({
 
   // ── Keymap: Browse Layer ───────────────────────────────────────────
   useBindings(() => ({
-    enabled: () => keymap.getData("app.mode") === "browse",
+    enabled: () => keymap.getData("app.mode") === "browse" && keymap.getData("app.overlay") === "none",
     commands: [
       { name: "browse.up", run: () => ebRef.current.browseUp() },
       { name: "browse.down", run: () => ebRef.current.browseDown() },
@@ -405,7 +405,7 @@ function AppInner({
 
   // ── Keymap: Edit Layer ─────────────────────────────────────────────
   useBindings(() => ({
-    enabled: () => keymap.getData("app.mode") === "edit",
+    enabled: () => keymap.getData("app.mode") === "edit" && keymap.getData("app.overlay") === "none",
     commands: [
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },

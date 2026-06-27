@@ -261,6 +261,44 @@ describe("keymap dispatch", () => {
     cleanup()
   })
 
+  it("browse layer does not dispatch when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.mode", "browse")
+    keymap.setData("app.overlay", "yaml-editor")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "browse" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [{ name: "browse.enter", run: () => { called = true } }],
+      bindings: [{ key: "return", cmd: "browse.enter" }],
+    })
+
+    host.press("return")
+    expect(called).toBe(false)
+    cleanup()
+  })
+
+  it("edit layer does not dispatch when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.mode", "edit")
+    keymap.setData("app.overlay", "yaml-editor")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "edit" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [{ name: "edit.commit", run: () => { called = true } }],
+      bindings: [{ key: "return", cmd: "edit.commit" }],
+    })
+
+    host.press("return")
+    expect(called).toBe(false)
+    cleanup()
+  })
+
   it("return dispatches request.edit-enter when focus is request", () => {
     const { keymap, host, cleanup } = setup()
     keymap.setData("app.focus", "request")
@@ -408,7 +446,9 @@ describe("App.tsx layer mirror", () => {
 
     // Browse layer
     keymap.registerLayer({
-      enabled: () => keymap.getData("app.mode") === "browse",
+      enabled: () =>
+        keymap.getData("app.mode") === "browse" &&
+        keymap.getData("app.overlay") === "none",
       commands: [
         {
           name: "browse.enter",
@@ -422,7 +462,9 @@ describe("App.tsx layer mirror", () => {
 
     // Edit layer
     keymap.registerLayer({
-      enabled: () => keymap.getData("app.mode") === "edit",
+      enabled: () =>
+        keymap.getData("app.mode") === "edit" &&
+        keymap.getData("app.overlay") === "none",
       commands: [
         {
           name: "edit.commit",
@@ -503,6 +545,19 @@ describe("App.tsx layer mirror", () => {
     keymap.setData("app.focus", "sidebar")
     host.press("return", { ctrl: true })
     expect(sendCalled).toBe(false)
+
+    // Overlay blocks browse layer
+    browseEnter = false
+    keymap.setData("app.mode", "browse")
+    keymap.setData("app.overlay", "yaml-editor")
+    host.press("return")
+    expect(browseEnter).toBe(false)
+
+    // Overlay blocks edit layer
+    editCommit = false
+    keymap.setData("app.mode", "edit")
+    host.press("return")
+    expect(editCommit).toBe(false)
 
     // l dispatches layout.toggle regardless of mode/overlay (always-on)
     host.press("l", { ctrl: true })
