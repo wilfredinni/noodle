@@ -16,7 +16,7 @@ function keybind(
 
 export const Definitions = {
   request_send: keybind("s", "Send request"),
-  request_save: keybind("w", "Save request to disk"),
+  request_save: keybind("ctrl+s", "Save request to disk"),
   env_prev: keybind("[", "Previous environment"),
   env_next: keybind("]", "Next environment"),
   help_toggle: keybind("?", "Toggle help overlay"),

@@ -343,7 +343,7 @@ function AppInner({
     ],
     bindings: [
       { key: "s", cmd: "request.send" },
-      { key: "w", cmd: "request.save" },
+      { key: "ctrl+s", cmd: "request.save" },
       { key: "[", cmd: "env.prev" },
       { key: "]", cmd: "env.next" },
       { key: "t", cmd: "app.theme" },
@@ -395,7 +395,7 @@ function AppInner({
       { key: "R", cmd: "browse.revert-all" },
       { key: "x", cmd: "browse.toggle" },
       { key: "s", cmd: "browse.send" },
-      { key: "w", cmd: "browse.save" },
+      { key: "ctrl+s", cmd: "browse.save" },
     ],
   }))
 

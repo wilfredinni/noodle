@@ -11,7 +11,7 @@ describe("parseOverrides", () => {
   it("returns defaults when overrides is empty", () => {
     const result = parseOverrides({})
     expect(result.request_send).toBe("s")
-    expect(result.request_save).toBe("w")
+    expect(result.request_save).toBe("ctrl+s")
     expect(result.help_toggle).toBe("?")
   })
 
@@ -19,7 +19,7 @@ describe("parseOverrides", () => {
     const result = parseOverrides({ request_send: "ctrl+s", help_toggle: "f1" })
     expect(result.request_send).toBe("ctrl+s")
     expect(result.help_toggle).toBe("f1")
-    expect(result.request_save).toBe("w")
+    expect(result.request_save).toBe("ctrl+s")
   })
 
   it("ignores fixed key overrides (uses default)", () => {
