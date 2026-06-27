@@ -60,6 +60,7 @@ export function YamlEditorOverlay({
 
         textareaRef.current = textarea
         container.add(textarea)
+        renderer.requestRender()
         textarea.focus()
       })
       .catch((e) => {
@@ -84,6 +85,7 @@ export function YamlEditorOverlay({
   const handleSave = useCallback(() => {
     const textarea = textareaRef.current
     if (!textarea) return
+    setSaveError(null)
     const content = textarea.plainText
     writeFile(filePath, content, "utf8")
       .then(() => {
