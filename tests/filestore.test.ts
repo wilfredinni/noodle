@@ -138,7 +138,7 @@ describe("filestore.saveRequest — writes", () => {
       name: "Post thing",
       method: "POST",
       url: "https://api.example.com/items",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": { value: "application/json", enabled: true } },
       body: '{"a": 1}',
       auth: { type: "bearer", token: "t" },
     })
@@ -204,7 +204,7 @@ describe("filestore — integration round-trip", () => {
       name: "Get user",
       method: "GET",
       url: "https://api.example.com/users/1",
-      headers: { Accept: "application/json" },
+      headers: { Accept: { value: "application/json", enabled: true } },
     })
     const b = makeReq({
       id: "create-post",

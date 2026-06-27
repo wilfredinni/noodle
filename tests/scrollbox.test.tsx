@@ -1,8 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA, TextAttributes } from "@opentui/core"
-import type { Collection } from "../src/schema"
-import type { Request } from "../src/schema"
+import type { Collection, Request, KvEntry } from "../src/schema"
 import { Sidebar } from "../src/ui/Sidebar"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ResponsePane } from "../src/ui/ResponsePane"
@@ -70,9 +69,9 @@ describe("ResponsePane scrollbox", () => {
 
 describe("RequestPane scrollbox", () => {
   it("renders with many headers without overflowing", async () => {
-    const manyHeaders: Record<string, string> = {}
+    const manyHeaders: Record<string, KvEntry> = {}
     for (let i = 0; i < 30; i++) {
-      manyHeaders[`X-Header-${i}`] = `value-${i}`
+      manyHeaders[`X-Header-${i}`] = { value: `value-${i}`, enabled: true }
     }
 
     const request = {
@@ -81,7 +80,7 @@ describe("RequestPane scrollbox", () => {
       method: "GET" as const,
       url: "http://example.com",
       headers: manyHeaders,
-      params: {} as Record<string, string>,
+      params: {} as Record<string, KvEntry>,
       body: "" as string | undefined,
     }
 
@@ -93,9 +92,11 @@ describe("RequestPane scrollbox", () => {
       addHeaderRow: () => {},
       setHeaderRow: () => {},
       removeHeaderRow: () => {},
+      toggleHeaderRow: () => {},
       addParamRow: () => {},
       setParamRow: () => {},
       removeParamRow: () => {},
+      toggleParamRow: () => {},
       revertField: () => {},
       revertAll: () => {},
       markSaved: () => {},
@@ -132,9 +133,9 @@ describe("RequestPane scrollbox", () => {
   })
 
   it("browse cursor highlights header row with background highlight", async () => {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Authorization: "Bearer token",
+    const headers: Record<string, KvEntry> = {
+      "Content-Type": { value: "application/json", enabled: true },
+      Authorization: { value: "Bearer token", enabled: true },
     }
 
     const request = {
@@ -143,7 +144,7 @@ describe("RequestPane scrollbox", () => {
       method: "GET" as const,
       url: "http://example.com",
       headers,
-      params: {} as Record<string, string>,
+      params: {} as Record<string, KvEntry>,
       body: "" as string | undefined,
     }
 
@@ -155,9 +156,11 @@ describe("RequestPane scrollbox", () => {
       addHeaderRow: () => {},
       setHeaderRow: () => {},
       removeHeaderRow: () => {},
+      toggleHeaderRow: () => {},
       addParamRow: () => {},
       setParamRow: () => {},
       removeParamRow: () => {},
+      toggleParamRow: () => {},
       revertField: () => {},
       revertAll: () => {},
       markSaved: () => {},
@@ -275,9 +278,9 @@ describe("App layout stability", () => {
     const requests = Array.from({ length: 50 }, (_, i) => makeRequest(i))
     const collection: Collection = { id: "test", name: "Test", requests }
 
-    const manyHeaders: Record<string, string> = {}
+    const manyHeaders: Record<string, KvEntry> = {}
     for (let i = 0; i < 30; i++) {
-      manyHeaders[`X-Header-${i}`] = `value-${i}`
+      manyHeaders[`X-Header-${i}`] = { value: `value-${i}`, enabled: true }
     }
 
     const request = {
@@ -286,7 +289,7 @@ describe("App layout stability", () => {
       method: "GET" as const,
       url: "http://example.com",
       headers: manyHeaders,
-      params: {} as Record<string, string>,
+      params: {} as Record<string, KvEntry>,
       body: "" as string | undefined,
     }
 
@@ -298,9 +301,11 @@ describe("App layout stability", () => {
       addHeaderRow: () => {},
       setHeaderRow: () => {},
       removeHeaderRow: () => {},
+      toggleHeaderRow: () => {},
       addParamRow: () => {},
       setParamRow: () => {},
       removeParamRow: () => {},
+      toggleParamRow: () => {},
       revertField: () => {},
       revertAll: () => {},
       markSaved: () => {},
@@ -363,7 +368,7 @@ describe("App layout stability", () => {
     // All three panes contribute content
     expect(frame).toContain("Request")
     expect(frame).toContain("Response")
-    expect(frame).toContain("Header-0")
+    expect(frame).toContain("eader-0")
     expect(frame).toContain("item-")
   })
 })

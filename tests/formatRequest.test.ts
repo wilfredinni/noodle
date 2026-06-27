@@ -58,16 +58,18 @@ describe("formatHeaders", () => {
     expect(formatHeaders({})).toEqual([])
   })
   it("renders single header as 'Key: Value'", () => {
-    expect(formatHeaders({ "content-type": "application/json" })).toEqual([
-      "content-type: application/json",
-    ])
+    expect(
+      formatHeaders({
+        "content-type": { value: "application/json", enabled: true },
+      }),
+    ).toEqual(["content-type: application/json"])
   })
   it("sorts multiple headers alphabetically by key", () => {
     expect(
       formatHeaders({
-        "x-b": "2",
-        "content-type": "application/json",
-        "x-a": "1",
+        "x-b": { value: "2", enabled: true },
+        "content-type": { value: "application/json", enabled: true },
+        "x-a": { value: "1", enabled: true },
       }),
     ).toEqual(["content-type: application/json", "x-a: 1", "x-b: 2"])
   })
@@ -78,14 +80,16 @@ describe("formatParams", () => {
     expect(formatParams({})).toEqual([])
   })
   it("renders single param as 'Key: Value'", () => {
-    expect(formatParams({ verbose: "true" })).toEqual(["verbose: true"])
+    expect(
+      formatParams({ verbose: { value: "true", enabled: true } }),
+    ).toEqual(["verbose: true"])
   })
   it("sorts multiple params alphabetically by key", () => {
     expect(
       formatParams({
-        "z-last": "3",
-        "a-first": "1",
-        "m-middle": "2",
+        "z-last": { value: "3", enabled: true },
+        "a-first": { value: "1", enabled: true },
+        "m-middle": { value: "2", enabled: true },
       }),
     ).toEqual(["a-first: 1", "m-middle: 2", "z-last: 3"])
   })

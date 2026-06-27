@@ -7,6 +7,11 @@ export type Method =
   | "HEAD"
   | "OPTIONS"
 
+export interface KvEntry {
+  value: string
+  enabled: boolean
+}
+
 export type Auth =
   | { type: "none" }
   | { type: "bearer"; token: string }
@@ -17,8 +22,8 @@ export interface Request {
   name: string
   method: Method
   url: string
-  headers: Record<string, string>
-  params: Record<string, string>
+  headers: Record<string, KvEntry>
+  params: Record<string, KvEntry>
   body?: string
   auth?: Auth
 }

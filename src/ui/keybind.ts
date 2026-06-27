@@ -23,6 +23,7 @@ export const Definitions = {
   theme_picker: keybind("t", "Open theme picker"),
   browse_delete: keybind("d", "Revert field"),
   browse_revert_all: keybind("R", "Revert all fields"),
+  browse_toggle: keybind("x", "Toggle header/param"),
 
   focus_next: keybind("tab", "Next pane", true),
   focus_prev: keybind("shift+tab", "Previous pane", true),
@@ -61,6 +62,7 @@ export const CommandMap = {
   browse_escape: "browse.escape",
   browse_delete: "browse.delete",
   browse_revert_all: "browse.revert-all",
+  browse_toggle: "browse.toggle",
   edit_commit: "edit.commit",
   edit_cancel: "edit.cancel",
 } satisfies BindingCommandMap
