@@ -12,7 +12,7 @@ import { useRequestDraft } from "./useRequestDraft"
 import { useEditBrowse } from "./useEditBrowse"
 import { useEnvironments } from "./useEnvironments"
 import { useConfig } from "./useConfig"
-import { filestore } from "../filestore"
+import { filestore, loadSettings, saveSettings } from "../filestore"
 import { cycleFocus, type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
@@ -40,7 +40,7 @@ function AppInner({
   initialLayout,
   onLayoutChange,
   onEnvChange,
-  lastEnv,
+  settingsEnv,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -54,7 +54,7 @@ function AppInner({
   initialLayout: "stacked" | "side-by-side"
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   onEnvChange: (name: string | null) => void
-  lastEnv: string | null
+  settingsEnv?: string
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -131,7 +131,7 @@ function AppInner({
     environmentsDir,
     envList,
     initialEnvName,
-    lastEnv,
+    settingsEnv,
     onEnvChange,
   )
   const { state: responseState, trySend, cancelSend } = useResponse(
@@ -645,6 +645,14 @@ export function App({
   keybinds: Keybinds
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
+  const [settingsEnv, setSettingsEnv] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    loadSettings(collectionDir).then((s) => {
+      setSettingsEnv(s.environment)
+    })
+  }, [collectionDir])
+
   const [activeIndex, setActiveIndex] = useState(config.theme)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
@@ -665,9 +673,11 @@ export function App({
 
   const handleEnvChange = useCallback(
     (name: string | null) => {
-      updateConfig({ lastEnv: name })
+      const envName = name ?? undefined
+      setSettingsEnv(envName)
+      saveSettings(collectionDir, { environment: envName })
     },
-    [updateConfig],
+    [collectionDir],
   )
 
   return (
@@ -685,7 +695,7 @@ export function App({
         initialLayout={config.layout}
         onLayoutChange={handleLayoutChange}
         onEnvChange={handleEnvChange}
-        lastEnv={config.lastEnv}
+        settingsEnv={settingsEnv}
       />
     </ThemeProvider>
   )
