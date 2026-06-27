@@ -2,13 +2,20 @@ import { useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
-import { formatHeaders, formatBody } from "./format"
+import { formatHeaders, formatBody, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
+import { Badge } from "./Badge"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
 
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
@@ -103,7 +110,30 @@ export function ResponsePane({
         </box>
       ) : (
         <>
-          <Tabs tabs={TAB_DEFS} activeId={activeTab}>
+          <Tabs
+            tabs={TAB_DEFS}
+            activeId={activeTab}
+            rightChildren={
+              <box style={{ flexDirection: "row", gap: 0 }}>
+                <Badge
+                  bg={statusColor(state.response.status, theme)}
+                  fg={theme.background}
+                >
+                  {state.response.statusText !== ""
+                    ? `${state.response.status} ${state.response.statusText}`
+                    : `${state.response.status}`}
+                </Badge>
+                <Badge bg={theme.info} fg={theme.background}>
+                  {Math.round(state.response.timeMs)}ms
+                </Badge>
+                <Badge bg={theme.backgroundElement} fg={theme.text}>
+                  {formatSize(
+                    new TextEncoder().encode(state.response.body).length
+                  )}
+                </Badge>
+              </box>
+            }
+          >
             <scrollbox
               ref={scrollRef}
               scrollY

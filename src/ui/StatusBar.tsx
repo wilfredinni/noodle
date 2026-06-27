@@ -140,7 +140,7 @@ export function StatusBar(input: {
     centerColor = theme.textMuted
   }
 
-  const isLeftBadge = sendStatus === "done" || sendStatus === "error"
+  const isLeftBadge = sendStatus === "error"
   const leftParts = sections.left.split(" · ")
   const isCenterFlash = sk === "success" || sk === "error"
   const isCenterEmpty =
@@ -174,7 +174,7 @@ export function StatusBar(input: {
       }}
     >
       <box style={{ flexDirection: "row" }}>
-        {isLeftBadge && leftParts[0] !== "" ? (
+        {sendStatus === "done" ? null : isLeftBadge && leftParts[0] !== "" ? (
           <>
             <Badge bg={leftColor} fg={theme.background}>
               {leftParts[0]}

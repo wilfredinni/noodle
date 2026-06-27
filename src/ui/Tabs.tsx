@@ -10,10 +10,12 @@ export function Tabs({
   tabs,
   activeId,
   children,
+  rightChildren,
 }: {
   tabs: TabDef[]
   activeId: string
   children: ReactNode
+  rightChildren?: ReactNode
 }) {
   const theme = useTheme()
   return (
@@ -48,7 +50,14 @@ export function Tabs({
           )
         })}
         <box style={{ flexDirection: "column", flexGrow: 1 }}>
-          <text> </text>
+          <box
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+            }}
+          >
+            {rightChildren ? rightChildren : <text> </text>}
+          </box>
           <box border={["bottom"]} borderColor={theme.borderSubtle} />
         </box>
       </box>
