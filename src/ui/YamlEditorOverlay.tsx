@@ -130,17 +130,19 @@ export function YamlEditorOverlay({
       <box
         style={{
           width: 70,
-          height: "85%",
+          height: "80%",
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
           padding: 1,
           gap: 0,
+          overflow: "hidden",
         }}
       >
         <box
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
+            flexShrink: 0,
             paddingBottom: 1,
           }}
         >
@@ -164,7 +166,7 @@ export function YamlEditorOverlay({
             paddingRight={1}
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
-            style={{ flexGrow: 1 }}
+            style={{ height: "100%", minHeight: 0 }}
             width="100%"
           >
             <textarea
@@ -182,36 +184,26 @@ export function YamlEditorOverlay({
           <text fg={theme.textMuted}>Loading...</text>
         )}
         {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
-        <box
-          style={{
-            flexDirection: "row",
-            gap: 2,
-            justifyContent: "center",
-            paddingTop: 1,
-          }}
-        >
-          <box
-            style={{
-              backgroundColor: theme.primary,
-              paddingLeft: 2,
-              paddingRight: 2,
-              paddingTop: 0,
-              paddingBottom: 0,
-            }}
-          >
-            <text fg={theme.background}>Save (^S)</text>
-          </box>
-          <box
-            style={{
-              backgroundColor: theme.backgroundElement,
-              paddingLeft: 2,
-              paddingRight: 2,
-              paddingTop: 0,
-              paddingBottom: 0,
-            }}
-          >
-            <text fg={theme.textMuted}>Cancel (esc)</text>
-          </box>
+      </box>
+      <box
+        style={{
+          width: 70,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          flexShrink: 0,
+          backgroundColor: theme.backgroundPanel,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingBottom: 1,
+        }}
+      >
+        <box style={{ flexDirection: "row", flexGrow: 1 }}>
+          <text fg={theme.primary}>^S</text>
+          <text fg={theme.textMuted}> save</text>
+        </box>
+        <box style={{ flexDirection: "row" }}>
+          <text fg={theme.primary}>esc</text>
+          <text fg={theme.textMuted}> close</text>
         </box>
       </box>
     </box>
