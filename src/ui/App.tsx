@@ -587,6 +587,14 @@ function AppInner({
               setCollectionReloadToken((n) => n + 1)
               setYamlEditor({ visible: false, filePath: "", requestName: "" })
               setFocus("sidebar")
+              setSaveState({
+                kind: "success",
+                message: `Saved ${yamlEditor.filePath.split("/").pop() ?? ""}`,
+              })
+              clearSaveTimer()
+              saveTimerRef.current = setTimeout(() => {
+                setSaveState({ kind: "idle" })
+              }, SAVE_SUCCESS_MS)
             }}
             onClose={() => {
               setYamlEditor({ visible: false, filePath: "", requestName: "" })

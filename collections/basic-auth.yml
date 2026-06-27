@@ -1,6 +1,8 @@
 name: Basic Auth
 method: GET
 url: https://httpbin.org/basic-auth/user/pass
+headers:
+  test: test
 auth:
   type: basic
   user: user
