@@ -10,7 +10,7 @@ export interface ConfirmOverlayProps {
 export function ConfirmOverlay({
   visible,
   message,
-  selectedIndex,
+  selectedIndex: _selectedIndex,
 }: ConfirmOverlayProps) {
   const theme = useTheme()
 
@@ -49,35 +49,19 @@ export function ConfirmOverlay({
           <text fg={theme.textMuted}>esc</text>
         </box>
         <text fg={theme.text}>{message}</text>
-        <box style={{ flexDirection: "row", gap: 2, justifyContent: "center" }}>
-          <box
-            style={{
-              backgroundColor:
-                selectedIndex === 0 ? theme.primary : theme.backgroundElement,
-              paddingLeft: 2,
-              paddingRight: 2,
-              paddingTop: 0,
-              paddingBottom: 0,
-            }}
-          >
-            <text fg={selectedIndex === 0 ? theme.background : theme.textMuted}>
-              [y] Confirm
-            </text>
-          </box>
-          <box
-            style={{
-              backgroundColor:
-                selectedIndex === 1 ? theme.primary : theme.backgroundElement,
-              paddingLeft: 2,
-              paddingRight: 2,
-              paddingTop: 0,
-              paddingBottom: 0,
-            }}
-          >
-            <text fg={selectedIndex === 1 ? theme.background : theme.textMuted}>
-              [n] Cancel
-            </text>
-          </box>
+        <box
+          style={{
+            flexDirection: "row",
+            alignSelf: "flex-end",
+            gap: 1,
+            paddingRight: 1,
+          }}
+        >
+          <text fg={theme.primary}>Y</text>
+          <text fg={theme.textMuted}>Confirm</text>
+          <text fg={theme.textMuted}> · </text>
+          <text fg={theme.primary}>N</text>
+          <text fg={theme.textMuted}>Cancel</text>
         </box>
       </box>
     </box>

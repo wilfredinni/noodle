@@ -147,7 +147,7 @@ export function YamlEditorOverlay({
             paddingX: 2,
           }}
         >
-          <text fg={theme.primary}>Edit: {requestName}.yml</text>
+          <text fg={theme.primary}>{requestName}.yml</text>
           <text fg={theme.textMuted}>esc</text>
         </box>
         {readError ? (
@@ -161,27 +161,35 @@ export function YamlEditorOverlay({
             <text fg={theme.error}>Error: {readError}</text>
           </box>
         ) : content !== null ? (
-          <box style={{ height: "100%", minHeight: 0, paddingLeft: 1, paddingRight: 1, flexGrow: 1 }}>
-          <line-number
-            ref={lineNumberRef}
-            minWidth={3}
-            paddingRight={1}
-            fg={theme.textMuted}
-            bg={theme.backgroundPanel}
-            style={{ height: "100%", minHeight: 0 }}
-            width="100%"
+          <box
+            style={{
+              height: "100%",
+              minHeight: 0,
+              paddingLeft: 1,
+              paddingRight: 1,
+              flexGrow: 1,
+            }}
           >
-            <textarea
-              ref={textareaRef}
-              initialValue={content}
-              onContentChange={handleContentChange}
-              backgroundColor={theme.backgroundPanel}
-              focusedBackgroundColor={theme.backgroundPanel}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-              focused
-            />
-          </line-number>
+            <line-number
+              ref={lineNumberRef}
+              minWidth={3}
+              paddingRight={1}
+              fg={theme.textMuted}
+              bg={theme.backgroundPanel}
+              style={{ height: "100%", minHeight: 0 }}
+              width="100%"
+            >
+              <textarea
+                ref={textareaRef}
+                initialValue={content}
+                onContentChange={handleContentChange}
+                backgroundColor={theme.backgroundPanel}
+                focusedBackgroundColor={theme.backgroundPanel}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+                focused
+              />
+            </line-number>
           </box>
         ) : (
           <text fg={theme.textMuted}>Loading...</text>
