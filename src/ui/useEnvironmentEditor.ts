@@ -73,9 +73,10 @@ function envToVarRows(
   return rows
 }
 
-function varRowsToEnv(
-  rows: VarRow[],
-): { vars: Record<string, string>; disabledVars: Record<string, string> } {
+function varRowsToEnv(rows: VarRow[]): {
+  vars: Record<string, string>
+  disabledVars: Record<string, string>
+} {
   const vars: Record<string, string> = {}
   const disabledVars: Record<string, string> = {}
   for (const row of rows) {
@@ -123,7 +124,7 @@ export function useEnvironmentEditor({
   environmentsDir,
   envNames,
   activeEnvName,
-  onEnvsChanged: _onEnvsChanged,
+  onEnvsChanged,
   onActiveEnvChanged,
 }: UseEnvironmentEditorProps): UseEnvironmentEditorResult {
   const [open, setOpen] = useState(false)
@@ -142,6 +143,8 @@ export function useEnvironmentEditor({
   originalRef.current = original
   const selectedEnvNameRef = useRef(selectedEnvName)
   selectedEnvNameRef.current = selectedEnvName
+  const onEnvsChangedRef = useRef(onEnvsChanged)
+  onEnvsChangedRef.current = onEnvsChanged
 
   const loadEnv = useCallback(
     async (name: string) => {
@@ -277,7 +280,12 @@ export function useEnvironmentEditor({
   const addVar = useCallback(() => {
     const prev = draftRef.current
     if (!prev) return
-    const newRow: VarRow = { id: nextVarId++, key: "", value: "", enabled: true }
+    const newRow: VarRow = {
+      id: nextVarId++,
+      key: "",
+      value: "",
+      enabled: true,
+    }
     setDraft({ ...prev, varRows: [...prev.varRows, newRow] })
     setSelectedRowIndex(prev.varRows.length)
     setEditingField("key")
@@ -326,14 +334,16 @@ export function useEnvironmentEditor({
       setSelectedEnvName(curDraft.name)
       if (oldName) {
         setLocalNames((prev) =>
-          prev.filter((n) => n !== oldName).concat(curDraft.name).sort(),
+          prev
+            .filter((n) => n !== oldName)
+            .concat(curDraft.name)
+            .sort(),
         )
       }
 
-      if (
-        activeEnvName === curDraft.name ||
-        activeEnvName === oldName
-      ) {
+      onEnvsChangedRef.current?.()
+
+      if (activeEnvName === curDraft.name || activeEnvName === oldName) {
         onActiveEnvChanged(curDraft.name)
       }
     } catch (e: unknown) {
@@ -356,6 +366,7 @@ export function useEnvironmentEditor({
         onActiveEnvChanged(remaining[0] ?? "")
       }
       setLocalNames((prev) => prev.filter((n) => n !== name))
+      onEnvsChangedRef.current?.()
       closeEditor()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -375,6 +386,7 @@ export function useEnvironmentEditor({
         await env.cloneEnvironment(environmentsDir, name, targetName)
         const updatedNames = [...localNames, targetName].sort()
         setLocalNames(updatedNames)
+        onEnvsChangedRef.current?.()
         setSelectedEnvName(targetName)
         await loadEnv(targetName)
       } catch (e: unknown) {
