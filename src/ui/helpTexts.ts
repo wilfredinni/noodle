@@ -71,5 +71,14 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         { key: displayKey(keybinds.theme_picker), description: "Open theme picker" },
       ],
     },
+    {
+      title: "Env Editor",
+      keys: [
+        { key: displayKey(keybinds.env_save), description: "Save environment" },
+        { key: displayKey(keybinds.env_new), description: "Create new environment" },
+        { key: displayKey(keybinds.env_clone), description: "Clone environment" },
+        { key: displayKey(keybinds.env_delete), description: "Delete environment" },
+      ],
+    },
   ]
 }

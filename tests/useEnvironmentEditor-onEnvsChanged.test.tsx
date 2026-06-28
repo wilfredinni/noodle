@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { useEffect, useRef } from "react"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ThemeProvider } from "../src/ui/theme"
@@ -91,6 +91,31 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     expect(spy).toHaveBeenCalledTimes(1)
   })
 
+  it("delete env removes file from disk", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 30))
+
+    const filePath = join(dir, "alpha.env")
+    const before = await readFile(filePath, "utf8").then(() => true).catch(() => false)
+    expect(before).toBe(true)
+
+    await ref.current!.deleteEnv()
+    await new Promise((r) => setTimeout(r, 30))
+
+    const after = await readFile(filePath, "utf8").then(() => true).catch(() => false)
+    expect(after).toBe(false)
+  })
+
   it("calls onEnvsChanged after save with rename", async () => {
     const spy = mock(() => {})
     const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
@@ -135,6 +160,43 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     ref.current!.setColor("warning")
     await ref.current!.save()
     expect(dataSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it("rejects rename to an existing env name", async () => {
+    const spy = mock(() => {})
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+
+    // snapshot original beta content before test
+    const betaBefore = await readFile(join(dir, "beta.env"), "utf8")
+
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={spy} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 30))
+
+    // Rename "alpha" -> "beta" (beta already exists)
+    ref.current!.setName("beta")
+    await ref.current!.save()
+    // flush React state update from setError
+    await new Promise((r) => setTimeout(r, 10))
+    await renderOnce()
+
+    const editor = ref.current!
+    expect(editor.error).not.toBeNull()
+    expect(editor.error).toContain("already exists")
+
+    // onEnvsChanged must NOT be called (save didn't succeed)
+    expect(spy).not.toHaveBeenCalled()
+
+    // beta file on disk must be unchanged
+    const betaAfter = await readFile(join(dir, "beta.env"), "utf8")
+    expect(betaAfter).toBe(betaBefore)
   })
 
   it("adds new name to envNames when saving a brand new env", async () => {

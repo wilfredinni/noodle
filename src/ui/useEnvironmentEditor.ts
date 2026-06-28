@@ -151,6 +151,8 @@ export function useEnvironmentEditor({
   onEnvDataChangedRef.current = onEnvDataChanged
   const onActiveEnvChangedRef = useRef(onActiveEnvChanged)
   onActiveEnvChangedRef.current = onActiveEnvChanged
+  const localNamesRef = useRef(localNames)
+  localNamesRef.current = localNames
 
   const loadEnv = useCallback(
     async (name: string) => {
@@ -330,15 +332,20 @@ export function useEnvironmentEditor({
       return
     }
 
+    const oldName =
+      curOriginal && curOriginal.name !== curDraft.name
+        ? curOriginal.name
+        : null
+    if (oldName && localNamesRef.current.includes(curDraft.name)) {
+      setError(`An environment named "${curDraft.name}" already exists`)
+      return
+    }
+
     setSaving(true)
     setError(null)
 
     try {
       const { vars, disabledVars } = varRowsToEnv(curDraft.varRows)
-      const oldName =
-        curOriginal && curOriginal.name !== curDraft.name
-          ? curOriginal.name
-          : null
 
       await env.saveEnvironment(environmentsDir, {
         name: curDraft.name,

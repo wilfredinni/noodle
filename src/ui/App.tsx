@@ -513,6 +513,53 @@ function AppInner({
     ],
   }))
 
+  // ── Keymap: Env Editor Layer ────────────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.view") === "env-editor" &&
+      keymap.getData("app.overlay") === "none",
+    commands: [
+      {
+        name: "env.save",
+        run: () => envEditorRef.current.save(),
+      },
+      {
+        name: "env.new",
+        run: () => {
+          envEditorRef.current.openEditor()
+          setFocus("env-header")
+        },
+      },
+      {
+        name: "env.clone",
+        enabled: () => envEditorRef.current.selectedEnvName !== null,
+        run: () => {
+          const ee = envEditorRef.current
+          if (ee.selectedEnvName) {
+            ee.cloneEnv(`${ee.selectedEnvName} - Copy`)
+          }
+        },
+      },
+      {
+        name: "env.delete",
+        enabled: () => envEditorRef.current.selectedEnvName !== null,
+        run: () => {
+          const ee = envEditorRef.current
+          if (ee.selectedEnvName) {
+            setEnvDeletePending(ee.selectedEnvName)
+            setDeleteConfirmSelection(0)
+          }
+        },
+      },
+    ],
+    bindings: [
+      { key: keybinds.env_save, cmd: "env.save" },
+      { key: keybinds.env_new, cmd: "env.new" },
+      { key: keybinds.env_clone, cmd: "env.clone" },
+      { key: keybinds.env_delete, cmd: "env.delete" },
+    ],
+  }))
+
   // ── Cancel send on ESC ──────────────────────────────────────────────
   useEffect(() => {
     const dispose = keymap.intercept(
@@ -636,35 +683,6 @@ function AppInner({
       (ctx) => {
         const e = ctx.event
         const ee = envEditorRef.current
-
-        // Global env-editor commands — work from any pane
-        if (e.name === "s" && e.ctrl) {
-          e.preventDefault()
-          e.stopPropagation()
-          ee.save()
-          return
-        }
-        if (e.name === "n" && e.ctrl) {
-          e.preventDefault()
-          e.stopPropagation()
-          ee.openEditor()
-          setFocus("env-header")
-          return
-        }
-        if (e.name === "k" && e.ctrl && ee.selectedEnvName) {
-          e.preventDefault()
-          e.stopPropagation()
-          const target = `${ee.selectedEnvName} - Copy`
-          ee.cloneEnv(target)
-          return
-        }
-        if (e.name === "w" && e.ctrl && ee.selectedEnvName) {
-          e.preventDefault()
-          e.stopPropagation()
-          setEnvDeletePending(ee.selectedEnvName)
-          setDeleteConfirmSelection(0)
-          return
-        }
 
         const f = focusRef.current
 
