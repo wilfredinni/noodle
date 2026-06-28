@@ -684,11 +684,6 @@ function AppInner({
     return dispose
   }, [view, keymap])
 
-  const envColors: Record<string, string | undefined> = {}
-  if (envState.activeEnv) {
-    envColors[envState.activeEnv.name] = envState.activeEnv.color
-  }
-
   return (
     <box
       style={{
@@ -792,9 +787,9 @@ function AppInner({
           >
             <EnvSidebar
               envNames={envEditor.envNames}
-              envColors={envColors}
               selectedEnvName={envEditor.selectedEnvName}
               activeEnvName={envState.activeEnv?.name}
+              dirty={envEditor.dirty}
               onSelectEnv={envEditor.selectEnv}
               onCreate={() => {
                 envEditor.openEditor()

@@ -5,9 +5,9 @@ import { useEffect, useRef } from "react"
 
 export function EnvSidebar({
   envNames,
-  envColors,
   selectedEnvName,
   activeEnvName,
+  dirty,
   onSelectEnv: _onSelectEnv,
   onCreate: _onCreate,
   onClone: _onClone,
@@ -15,9 +15,9 @@ export function EnvSidebar({
   focused,
 }: {
   envNames: string[]
-  envColors: Record<string, string | undefined>
   selectedEnvName: string | null
   activeEnvName: string | undefined
+  dirty: boolean
   onSelectEnv: (name: string) => void
   onCreate: () => void
   onClone: () => void
@@ -69,29 +69,28 @@ export function EnvSidebar({
           {envNames.map((name, i) => {
             const isSelected = name === selectedEnvName
             const isActive = name === activeEnvName
-            const colorValue =
-              envColors[name] !== undefined
-                ? ((theme as unknown as Record<string, string>)[
-                    envColors[name]!
-                  ] ?? theme.info)
-                : theme.info
+            const isDirty = isSelected && dirty
             return (
               <box
                 key={name}
                 id={`env-${i}`}
                 style={{
                   flexDirection: "row",
+                  justifyContent: "space-between",
                   backgroundColor: isSelected
                     ? theme.backgroundElement
                     : undefined,
                 }}
               >
-                <text fg={isActive ? colorValue : theme.textMuted}>
-                  {isActive ? "● " : "  "}
-                </text>
-                <text fg={isActive ? theme.text : theme.textMuted}>
-                  {name}
-                </text>
+                <box style={{ flexDirection: "row" }}>
+                  <text fg={theme.textMuted}>
+                    {isActive ? "✓ " : "  "}
+                  </text>
+                  <text fg={isActive ? theme.text : theme.textMuted}>
+                    {name}
+                  </text>
+                </box>
+                {isDirty && <text fg={theme.warning}>●</text>}
               </box>
             )
           })}

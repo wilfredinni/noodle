@@ -6,7 +6,7 @@ export function EnvEditorPane({
   draft,
   selectedRowIndex,
   editingField,
-  dirty,
+  dirty: _dirty,
   saving,
   error,
   onNameChange,
@@ -202,20 +202,12 @@ export function EnvEditorPane({
           [+ Add Variable]
         </text>
         <box style={{ flexGrow: 1 }} />
-        <text
-          fg={
-            draft.varRows.length === 0
-              ? theme.textMuted
-              : dirty
-                ? theme.warning
-                : theme.success
-          }
-        >
+        <text fg={error ? theme.error : theme.textMuted}>
           {saving
             ? "Saving..."
             : error
               ? `Error: ${error}`
-              : `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}${dirty ? " · modified" : ""}`}
+              : `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`}
         </text>
       </box>
     </box>
