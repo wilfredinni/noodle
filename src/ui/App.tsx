@@ -594,6 +594,7 @@ function AppInner({
         )}
         {previewIndex !== null && (
           <ThemePickerOverlay
+            visible
             activeIndex={activeIndex}
             previewIndex={previewIndex}
             setPreviewIndex={setPreviewIndex}

@@ -1,6 +1,6 @@
-import { RGBA } from "@opentui/core"
 import { getHelpSections } from "./helpTexts"
 import { useTheme } from "./theme"
+import { Overlay } from "./Overlay"
 import type { Keybinds } from "./keybind"
 
 export function HelpOverlay({
@@ -11,34 +11,10 @@ export function HelpOverlay({
   keybinds: Keybinds
 }) {
   const theme = useTheme()
-
-  if (!visible) return null
-
   const sections = getHelpSections(keybinds)
 
   return (
-    <box
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: "100%",
-        height: "100%",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: RGBA.fromInts(0, 0, 0, 150),
-        flexDirection: "column",
-      }}
-    >
-      <box
-        style={{
-          width: 60,
-          backgroundColor: theme.backgroundPanel,
-          flexDirection: "column",
-          gap: 1,
-          padding: 1,
-        }}
-      >
+    <Overlay visible={visible} width={60} gap={1} padding={1}>
         <box
           style={{
             flexDirection: "row",
@@ -67,7 +43,6 @@ export function HelpOverlay({
             </box>
           ))}
         </box>
-      </box>
-    </box>
+    </Overlay>
   )
 }

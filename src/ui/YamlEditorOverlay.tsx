@@ -1,5 +1,4 @@
 import {
-  RGBA,
   type TextareaRenderable,
   type LineNumberRenderable,
 } from "@opentui/core"
@@ -7,6 +6,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "./theme"
+import { Overlay } from "./Overlay"
 import { highlightYaml } from "./yamlSyntax"
 
 export interface YamlEditorOverlayProps {
@@ -114,30 +114,7 @@ export function YamlEditorOverlay({
   if (!visible) return null
 
   return (
-    <box
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: "100%",
-        height: "100%",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: RGBA.fromInts(0, 0, 0, 150),
-        flexDirection: "column",
-      }}
-    >
-      <box
-        style={{
-          width: 90,
-          height: "80%",
-          backgroundColor: theme.backgroundPanel,
-          flexDirection: "column",
-          padding: 2,
-          gap: 1,
-          overflow: "hidden",
-        }}
-      >
+    <Overlay visible={visible} width={90} height="80%" padding={2} gap={1} overflow="hidden">
         <box
           style={{
             flexDirection: "row",
@@ -195,32 +172,28 @@ export function YamlEditorOverlay({
           <text fg={theme.textMuted}>Loading...</text>
         )}
         {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
-      </box>
-      <box
-        style={{
-          width: 90,
-          flexDirection: "row",
-          flexShrink: 0,
-          backgroundColor: theme.backgroundPanel,
-          padding: 2,
-        }}
-      >
         <box
           style={{
             flexDirection: "row",
-            justifyContent: "flex-end",
-            paddingX: 2,
-            flexGrow: 1,
-            gap: 1,
+            flexShrink: 0,
           }}
         >
-          <text fg={theme.primary}>^S</text>
-          <text fg={theme.textMuted}>save</text>
-          <text fg={theme.textMuted}> · </text>
-          <text fg={theme.primary}>esc</text>
-          <text fg={theme.textMuted}>close</text>
+          <box
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              paddingX: 2,
+              flexGrow: 1,
+              gap: 1,
+            }}
+          >
+            <text fg={theme.primary}>^S</text>
+            <text fg={theme.textMuted}>save</text>
+            <text fg={theme.textMuted}> · </text>
+            <text fg={theme.primary}>esc</text>
+            <text fg={theme.textMuted}>close</text>
+          </box>
         </box>
-      </box>
-    </box>
+    </Overlay>
   )
 }
