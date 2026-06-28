@@ -1,17 +1,39 @@
-export type Focus = "sidebar" | "urlbar" | "request" | "response"
+export type Focus =
+  | "sidebar"
+  | "urlbar"
+  | "request"
+  | "response"
+  | "env-sidebar"
+  | "env-vars"
 
-const FOCUS_ORDER: Focus[] = ["sidebar", "urlbar", "request", "response"]
+const MAIN_FOCUS_ORDER: Focus[] = ["sidebar", "urlbar", "request", "response"]
+const ENV_FOCUS_ORDER: Focus[] = ["env-sidebar", "env-vars"]
 
-export function cycleFocus(current: Focus, delta: 1 | -1): Focus {
-  const idx = FOCUS_ORDER.indexOf(current)
-  const next = (idx + delta + FOCUS_ORDER.length) % FOCUS_ORDER.length
-  return FOCUS_ORDER[next]!
+export function cycleFocus(
+  current: Focus,
+  delta: 1 | -1,
+  view: string = "main",
+): Focus {
+  const order = view === "env-editor" ? ENV_FOCUS_ORDER : MAIN_FOCUS_ORDER
+  const idx = order.indexOf(current)
+  const next = (idx + delta + order.length) % order.length
+  return order[next]!
 }
 
 export function hintForFocus(
   focus: Focus,
   mode: "inactive" | "browsing" | "editing",
+  view: string = "main",
 ): string {
+  if (view === "env-editor") {
+    if (focus === "env-sidebar") {
+      return "[↑/↓] select · [N] new · [C] clone · [D] delete · [Tab] next"
+    }
+    if (focus === "env-vars") {
+      return "[↑/↓] select · [Enter] edit · [Space] toggle · [a] add · [d] delete · [Tab] next"
+    }
+    return "[Tab] next · [^S] save · [Esc] back"
+  }
   if (focus === "sidebar") {
     return "[↑/↓] select · [s] send · [w] save · [Tab] next"
   }

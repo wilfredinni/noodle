@@ -19,6 +19,10 @@ import { ConfirmOverlay } from "./ConfirmOverlay"
 import { YamlEditorOverlay } from "./YamlEditorOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
+import { EnvSidebar } from "./EnvSidebar"
+import { EnvEditorPane } from "./EnvEditorPane"
+import { useEnvironmentEditor } from "./useEnvironmentEditor"
+import { env } from "../env"
 import type { Keybinds } from "./keybind"
 import type { SaveState } from "./saveState"
 
@@ -30,7 +34,7 @@ const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 function AppInner({
   collectionDir,
   environmentsDir,
-  envList,
+  envNames,
   initialEnvName,
   activeIndex,
   previewIndex,
@@ -40,11 +44,12 @@ function AppInner({
   initialLayout,
   onLayoutChange,
   onEnvChange,
+  onEnvListChanged,
   settingsEnv,
 }: {
   collectionDir: string
   environmentsDir: string
-  envList: string[]
+  envNames: string[]
   initialEnvName?: string
   activeIndex: number
   previewIndex: number | null
@@ -54,6 +59,7 @@ function AppInner({
   initialLayout: "stacked" | "side-by-side"
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   onEnvChange: (name: string | null) => void
+  onEnvListChanged: () => Promise<void>
   settingsEnv?: string
 }) {
   const theme = useTheme()
@@ -61,6 +67,9 @@ function AppInner({
   const [focus, setFocus] = useState<Focus>("sidebar")
   const focusRef = useRef(focus)
   focusRef.current = focus
+  const [view, setView] = useState<"main" | "env-editor">("main")
+  const viewRef = useRef(view)
+  viewRef.current = view
   const [helpVisible, setHelpVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
@@ -117,6 +126,10 @@ function AppInner({
   }, [eb.editState.mode, keymap])
 
   useEffect(() => {
+    keymap.setData("app.view", view)
+  }, [view, keymap])
+
+  useEffect(() => {
     if (focus !== "request") {
       const state = eb.editState
       if (state.mode === "editing") {
@@ -129,7 +142,7 @@ function AppInner({
 
   const envState = useEnvironments(
     environmentsDir,
-    envList,
+    envNames,
     initialEnvName,
     settingsEnv,
     onEnvChange,
@@ -148,6 +161,22 @@ function AppInner({
 
   const envStateRef = useRef(envState)
   envStateRef.current = envState
+
+  const envEditor = useEnvironmentEditor({
+    environmentsDir,
+    envNames,
+    activeEnvName: envState.activeEnv?.name,
+    onEnvsChanged: onEnvListChanged,
+    onActiveEnvChanged: (name: string) => {
+      if (name === "") {
+        onEnvChange(null)
+      } else {
+        onEnvChange(name)
+      }
+    },
+  })
+  const envEditorRef = useRef(envEditor)
+  envEditorRef.current = envEditor
 
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -243,8 +272,8 @@ function AppInner({
         },
         run: () =>
           setFocus((prev) => {
-            const next = cycleFocus(prev, 1)
-            if (next === "request") ebRef.current.enterBrowse()
+            const next = cycleFocus(prev, 1, viewRef.current)
+            if (next === "request" && viewRef.current === "main") ebRef.current.enterBrowse()
             return next
           }),
       },
@@ -269,8 +298,8 @@ function AppInner({
         },
         run: () =>
           setFocus((prev) => {
-            const next = cycleFocus(prev, -1)
-            if (next === "request") ebRef.current.enterBrowse()
+            const next = cycleFocus(prev, -1, viewRef.current)
+            if (next === "request" && viewRef.current === "main") ebRef.current.enterBrowse()
             return next
           }),
       },
@@ -306,8 +335,19 @@ function AppInner({
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "base" &&
-      keymap.getData("app.overlay") === "none",
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
     commands: [
+      {
+        name: "env.editor-open",
+        enabled: () => keymap.getData("app.focus") === "sidebar",
+        run: () => {
+          const name = envStateRef.current.activeEnv?.name
+          envEditorRef.current.openEditor(name)
+          setView("env-editor")
+          setFocus("env-sidebar")
+        },
+      },
       {
         name: "request.send",
         run: () => trySendRef.current?.(),
@@ -352,6 +392,7 @@ function AppInner({
       { key: keybinds.request_send, cmd: "request.send" },
       { key: keybinds.request_save, cmd: "request.save" },
       { key: keybinds.env_cycle, cmd: "env.cycle" },
+      { key: keybinds.env_editor, cmd: "env.editor-open" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
@@ -363,7 +404,8 @@ function AppInner({
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "browse" &&
-      keymap.getData("app.overlay") === "none",
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
     commands: [
       { name: "browse.up", run: () => ebRef.current.browseUp() },
       { name: "browse.down", run: () => ebRef.current.browseDown() },
@@ -410,7 +452,8 @@ function AppInner({
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "edit" &&
-      keymap.getData("app.overlay") === "none",
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
     commands: [
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
@@ -488,6 +531,164 @@ function AppInner({
     return dispose
   }, [helpVisible, keymap])
 
+  // ── Env Editor Mode ───────────────────────────────────────────────
+  useEffect(() => {
+    if (view !== "env-editor" || keymap.getData("app.overlay") !== "none")
+      return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const ee = envEditorRef.current
+
+        if (e.name === "escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.closeEditor()
+          setView("main")
+          setFocus("sidebar")
+          return
+        }
+
+        if (e.name === "s" && e.ctrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.save()
+          return
+        }
+
+        const f = focusRef.current
+
+        if (f === "env-sidebar") {
+          if (e.name === "up" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            const idx = ee.selectedEnvName
+              ? names.indexOf(ee.selectedEnvName)
+              : -1
+            const prev = idx > 0 ? idx - 1 : names.length - 1
+            if (names[prev]) ee.selectEnv(names[prev]!)
+            return
+          }
+          if (e.name === "down" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            const idx = ee.selectedEnvName
+              ? names.indexOf(ee.selectedEnvName)
+              : -1
+            const next = idx < names.length - 1 ? idx + 1 : 0
+            if (names[next]) ee.selectEnv(names[next]!)
+            return
+          }
+          if (e.name === "n") {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.openEditor()
+            setFocus("env-vars")
+            return
+          }
+          if (e.name === "c" && ee.selectedEnvName) {
+            e.preventDefault()
+            e.stopPropagation()
+            const target = `${ee.selectedEnvName} - Copy`
+            ee.cloneEnv(target)
+            return
+          }
+          if (e.name === "D" && ee.selectedEnvName) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.deleteEnv()
+            return
+          }
+        }
+
+        if (f === "env-vars") {
+          if (e.name === "up" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const prev = Math.max(0, ee.selectedRowIndex - 1)
+            ee.selectRow(prev)
+            return
+          }
+          if (e.name === "down" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const rows = ee.draft?.varRows.length ?? 0
+            const next = Math.min(rows - 1, ee.selectedRowIndex + 1)
+            ee.selectRow(next)
+            return
+          }
+          if (e.name === "return") {
+            e.preventDefault()
+            e.stopPropagation()
+            if (ee.editingField === null) {
+              ee.editField("key")
+            } else if (ee.editingField === "key") {
+              ee.editField("value")
+            } else {
+              const next = ee.selectedRowIndex + 1
+              const rows = ee.draft?.varRows.length ?? 0
+              if (next < rows) {
+                ee.selectRow(next)
+                ee.editField("key")
+              } else {
+                ee.editField(null)
+                ee.addVar()
+              }
+            }
+            return
+          }
+          if (e.name === "tab" && !e.shift) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (ee.editingField === null) {
+              ee.editField("key")
+            } else if (ee.editingField === "key") {
+              ee.editField("value")
+            } else {
+              const next = ee.selectedRowIndex + 1
+              const rows = ee.draft?.varRows.length ?? 0
+              if (next < rows) {
+                ee.selectRow(next)
+                ee.editField("key")
+              } else {
+                setFocus((prev) => cycleFocus(prev, 1, "env-editor"))
+              }
+            }
+            return
+          }
+          if (e.name === "space" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.toggleVar(ee.selectedRowIndex)
+            return
+          }
+          if (e.name === "d" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.deleteVar(ee.selectedRowIndex)
+            return
+          }
+          if (e.name === "a") {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.addVar()
+            return
+          }
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [view, keymap])
+
+  const envColors: Record<string, string | undefined> = {}
+  if (envState.activeEnv) {
+    envColors[envState.activeEnv.name] = envState.activeEnv.color
+  }
+
   return (
     <box
       style={{
@@ -508,82 +709,125 @@ function AppInner({
           position: "relative",
         }}
       >
-        <box
-          style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
-        >
-          <Sidebar
-            collection={collection}
-            loading={loading}
-            error={error}
-            selectedIndex={selectedIndex}
-            focused={focus === "sidebar"}
-            keybinds={keybinds}
-            dirtyRequestIds={draft.dirtyRequestIds}
-          />
+        {view === "main" ? (
           <box
-            style={{
-              flexDirection: "column",
-              flexGrow: 1,
-              gap: 1,
-              minHeight: 0,
-            }}
+            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
           >
-            <UrlBar
-              method={draft.draft?.method ?? ""}
-              url={draft.draft?.url ?? ""}
-              params={draft.draft?.params ?? {}}
-              setUrl={draft.setUrl}
-              onDefocus={draft.syncUrlParams}
-              focused={focus === "urlbar"}
-              sending={responseState.status === "sending"}
-              activeEnv={envState.activeEnv}
+            <Sidebar
+              collection={collection}
+              loading={loading}
+              error={error}
+              selectedIndex={selectedIndex}
+              focused={focus === "sidebar"}
+              keybinds={keybinds}
+              dirtyRequestIds={draft.dirtyRequestIds}
             />
-            {layout === "side-by-side" ? (
-              <box
-                style={{
-                  flexDirection: "row",
-                  flexGrow: 1,
-                  gap: 1,
-                  minHeight: 0,
-                }}
-              >
-                <RequestPane
-                  request={draft.draft}
-                  editState={eb.editState}
-                  editKey={eb.editKey}
-                  editValue={eb.editValue}
-                  setEditKey={eb.setEditKey}
-                  setEditValue={eb.setEditValue}
-                  focused={focus === "request"}
-                  activeTab={eb.activeTab}
-                  activeEnv={envState.activeEnv}
-                />
-                <ResponsePane
-                  state={responseState}
-                  focused={focus === "response"}
-                />
-              </box>
-            ) : (
-              <>
-                <RequestPane
-                  request={draft.draft}
-                  editState={eb.editState}
-                  editKey={eb.editKey}
-                  editValue={eb.editValue}
-                  setEditKey={eb.setEditKey}
-                  setEditValue={eb.setEditValue}
-                  focused={focus === "request"}
-                  activeTab={eb.activeTab}
-                  activeEnv={envState.activeEnv}
-                />
-                <ResponsePane
-                  state={responseState}
-                  focused={focus === "response"}
-                />
-              </>
-            )}
+            <box
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                gap: 1,
+                minHeight: 0,
+              }}
+            >
+              <UrlBar
+                method={draft.draft?.method ?? ""}
+                url={draft.draft?.url ?? ""}
+                params={draft.draft?.params ?? {}}
+                setUrl={draft.setUrl}
+                onDefocus={draft.syncUrlParams}
+                focused={focus === "urlbar"}
+                sending={responseState.status === "sending"}
+                activeEnv={envState.activeEnv}
+              />
+              {layout === "side-by-side" ? (
+                <box
+                  style={{
+                    flexDirection: "row",
+                    flexGrow: 1,
+                    gap: 1,
+                    minHeight: 0,
+                  }}
+                >
+                  <RequestPane
+                    request={draft.draft}
+                    editState={eb.editState}
+                    editKey={eb.editKey}
+                    editValue={eb.editValue}
+                    setEditKey={eb.setEditKey}
+                    setEditValue={eb.setEditValue}
+                    focused={focus === "request"}
+                    activeTab={eb.activeTab}
+                    activeEnv={envState.activeEnv}
+                  />
+                  <ResponsePane
+                    state={responseState}
+                    focused={focus === "response"}
+                  />
+                </box>
+              ) : (
+                <>
+                  <RequestPane
+                    request={draft.draft}
+                    editState={eb.editState}
+                    editKey={eb.editKey}
+                    editValue={eb.editValue}
+                    setEditKey={eb.setEditKey}
+                    setEditValue={eb.setEditValue}
+                    focused={focus === "request"}
+                    activeTab={eb.activeTab}
+                    activeEnv={envState.activeEnv}
+                  />
+                  <ResponsePane
+                    state={responseState}
+                    focused={focus === "response"}
+                  />
+                </>
+              )}
+            </box>
           </box>
-        </box>
+        ) : (
+          <box
+            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
+          >
+            <EnvSidebar
+              envNames={envEditor.envNames}
+              envColors={envColors}
+              selectedEnvName={envEditor.selectedEnvName}
+              activeEnvName={envState.activeEnv?.name}
+              onSelectEnv={envEditor.selectEnv}
+              onCreate={() => {
+                envEditor.openEditor()
+                setFocus("env-vars")
+              }}
+              onClone={() => {
+                if (envEditor.selectedEnvName) {
+                  const target = `${envEditor.selectedEnvName} - Copy`
+                  envEditor.cloneEnv(target)
+                }
+              }}
+              onDelete={() => envEditor.deleteEnv()}
+              focused={focus === "env-sidebar"}
+            />
+            <EnvEditorPane
+              draft={envEditor.draft}
+              selectedRowIndex={envEditor.selectedRowIndex}
+              editingField={envEditor.editingField}
+              dirty={envEditor.dirty}
+              saving={envEditor.saving}
+              error={envEditor.error}
+              onNameChange={envEditor.setName}
+              onColorChange={envEditor.setColor}
+              onSelectRow={envEditor.selectRow}
+              onUpdateVarKey={envEditor.updateVarKey}
+              onUpdateVarValue={envEditor.updateVarValue}
+              onToggleVar={envEditor.toggleVar}
+              onDeleteVar={envEditor.deleteVar}
+              onAddVar={envEditor.addVar}
+              focused={focus === "env-vars"}
+            />
+          </box>
+        )}
         {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
         {saveState.kind === "confirming" && (
           <ConfirmOverlay
@@ -645,6 +889,7 @@ function AppInner({
         envColor={envState.activeEnv?.color}
         saveState={saveState}
         kb={keybinds}
+        view={view}
       />
     </box>
   )
@@ -653,7 +898,7 @@ function AppInner({
 export function App({
   collectionDir,
   environmentsDir,
-  envList,
+  envList: initialEnvList,
   initialEnvName,
   settingsEnv: initialSettingsEnv,
   keybinds: keybinds,
@@ -688,6 +933,13 @@ export function App({
     [updateConfig],
   )
 
+  const [envNames, setEnvNames] = useState<string[]>(initialEnvList)
+
+  const handleEnvListChanged = useCallback(async () => {
+    const names = await env.listEnvironments(environmentsDir)
+    setEnvNames(names)
+  }, [environmentsDir])
+
   const handleEnvChange = useCallback(
     (name: string | null) => {
       const envName = name ?? undefined
@@ -702,7 +954,7 @@ export function App({
       <AppInner
         collectionDir={collectionDir}
         environmentsDir={environmentsDir}
-        envList={envList}
+        envNames={envNames}
         initialEnvName={initialEnvName}
         activeIndex={activeIndex}
         previewIndex={previewIndex}
@@ -712,6 +964,7 @@ export function App({
         initialLayout={config.layout}
         onLayoutChange={handleLayoutChange}
         onEnvChange={handleEnvChange}
+        onEnvListChanged={handleEnvListChanged}
         settingsEnv={settingsEnv}
       />
     </ThemeProvider>

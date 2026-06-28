@@ -1,24 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { Environment } from "../schema"
-
-const VALID_COLORS = new Set([
-  "primary",
-  "secondary",
-  "accent",
-  "error",
-  "warning",
-  "success",
-  "info",
-  "text",
-  "textMuted",
-  "background",
-  "backgroundPanel",
-  "backgroundElement",
-  "border",
-  "borderActive",
-  "borderSubtle",
-])
+import { VALID_COLORS } from "./constants"
 
 export async function loadEnvironment(
   dir: string,
@@ -42,12 +25,23 @@ export async function loadEnvironment(
   }
 
   const vars: Record<string, string> = {}
+  const disabledVars: Record<string, string> = {}
   let color: string | undefined
   const lines = content.split("\n")
 
   for (const raw of lines) {
     const trimmed = raw.trim()
-    if (trimmed === "" || trimmed.startsWith("#")) continue
+    if (trimmed === "") continue
+    if (trimmed.startsWith("#")) {
+      const afterHash = trimmed.slice(1).trimStart()
+      const eq = afterHash.indexOf("=")
+      if (eq === -1) continue
+      const key = afterHash.slice(0, eq).trimEnd()
+      if (key === "") continue
+      if (key === "_color") continue
+      disabledVars[key] = afterHash.slice(eq + 1)
+      continue
+    }
     const eq = trimmed.indexOf("=")
     if (eq === -1) {
       throw new Error(
@@ -71,5 +65,10 @@ export async function loadEnvironment(
     vars[key] = value
   }
 
-  return { name, vars, color }
+  return {
+    name,
+    vars,
+    color,
+    disabledVars: Object.keys(disabledVars).length > 0 ? disabledVars : undefined,
+  }
 }
