@@ -82,14 +82,9 @@ export function EnvSidebar({
                     : undefined,
                 }}
               >
-                <box style={{ flexDirection: "row" }}>
-                  <text fg={theme.textMuted}>
-                    {isActive ? "✓ " : "  "}
-                  </text>
-                  <text fg={isActive ? theme.text : theme.textMuted}>
-                    {name}
-                  </text>
-                </box>
+                <text fg={isActive ? theme.text : theme.textMuted}>
+                  {name}
+                </text>
                 {isDirty && <text fg={theme.warning}>●</text>}
               </box>
             )
