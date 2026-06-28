@@ -149,23 +149,29 @@ export function useEnvironmentEditor({
   onEnvsChangedRef.current = onEnvsChanged
   const onEnvDataChangedRef = useRef(onEnvDataChanged)
   onEnvDataChangedRef.current = onEnvDataChanged
+  const onActiveEnvChangedRef = useRef(onActiveEnvChanged)
+  onActiveEnvChangedRef.current = onActiveEnvChanged
 
   const loadEnv = useCallback(
     async (name: string) => {
       try {
         const loaded = await env.loadEnvironment(environmentsDir, name)
         const rows = envToVarRows(loaded.vars, loaded.disabledVars ?? {})
-        setDraft({
+        const nextDraft = {
           name: loaded.name,
           color: loaded.color,
           varRows: rows,
-        })
-        setOriginal({
+        }
+        const nextOriginal = {
           name: loaded.name,
           color: loaded.color,
           vars: { ...loaded.vars },
           disabledVars: { ...(loaded.disabledVars ?? {}) },
-        })
+        }
+        draftRef.current = nextDraft
+        setDraft(nextDraft)
+        originalRef.current = nextOriginal
+        setOriginal(nextOriginal)
         setSelectedEnvName(name)
         setSelectedRowIndex(-1)
         setEditingField(null)
@@ -182,6 +188,8 @@ export function useEnvironmentEditor({
     async (name?: string) => {
       setOpen(true)
       setError(null)
+      draftRef.current = null
+      originalRef.current = null
       setDraft(null)
       setOriginal(null)
       setSelectedRowIndex(-1)
@@ -190,7 +198,10 @@ export function useEnvironmentEditor({
       if (name) {
         await loadEnv(name)
       } else {
-        setDraft({ name: "", color: undefined, varRows: [] })
+        const blank = { name: "", color: undefined, varRows: [] as VarRow[] }
+        draftRef.current = blank
+        setDraft(blank)
+        originalRef.current = null
         setOriginal(null)
         setSelectedEnvName(null)
         setSelectedRowIndex(-1)
@@ -201,6 +212,8 @@ export function useEnvironmentEditor({
 
   const closeEditor = useCallback(() => {
     setOpen(false)
+    draftRef.current = null
+    originalRef.current = null
     setDraft(null)
     setOriginal(null)
     setSelectedEnvName(null)
@@ -219,11 +232,19 @@ export function useEnvironmentEditor({
   )
 
   const setName = useCallback((name: string) => {
-    setDraft((prev) => (prev ? { ...prev, name } : prev))
+    const prev = draftRef.current
+    if (!prev) return
+    const next = { ...prev, name }
+    draftRef.current = next
+    setDraft(next)
   }, [])
 
   const setColor = useCallback((color: string | undefined) => {
-    setDraft((prev) => (prev ? { ...prev, color } : prev))
+    const prev = draftRef.current
+    if (!prev) return
+    const next = { ...prev, color }
+    draftRef.current = next
+    setDraft(next)
   }, [])
 
   const selectRow = useCallback((index: number) => {
@@ -236,43 +257,47 @@ export function useEnvironmentEditor({
   }, [])
 
   const updateVarKey = useCallback((index: number, key: string) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      const rows = [...prev.varRows]
-      if (index >= 0 && index < rows.length) {
-        rows[index] = { ...rows[index]!, key }
-      }
-      return { ...prev, varRows: rows }
-    })
+    const prev = draftRef.current
+    if (!prev) return
+    const rows = [...prev.varRows]
+    if (index >= 0 && index < rows.length) {
+      rows[index] = { ...rows[index]!, key }
+    }
+    const next = { ...prev, varRows: rows }
+    draftRef.current = next
+    setDraft(next)
   }, [])
 
   const updateVarValue = useCallback((index: number, value: string) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      const rows = [...prev.varRows]
-      if (index >= 0 && index < rows.length) {
-        rows[index] = { ...rows[index]!, value }
-      }
-      return { ...prev, varRows: rows }
-    })
+    const prev = draftRef.current
+    if (!prev) return
+    const rows = [...prev.varRows]
+    if (index >= 0 && index < rows.length) {
+      rows[index] = { ...rows[index]!, value }
+    }
+    const next = { ...prev, varRows: rows }
+    draftRef.current = next
+    setDraft(next)
   }, [])
 
   const toggleVar = useCallback((index: number) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      const rows = [...prev.varRows]
-      if (index >= 0 && index < rows.length) {
-        rows[index] = { ...rows[index]!, enabled: !rows[index]!.enabled }
-      }
-      return { ...prev, varRows: rows }
-    })
+    const prev = draftRef.current
+    if (!prev) return
+    const rows = [...prev.varRows]
+    if (index >= 0 && index < rows.length) {
+      rows[index] = { ...rows[index]!, enabled: !rows[index]!.enabled }
+    }
+    const next = { ...prev, varRows: rows }
+    draftRef.current = next
+    setDraft(next)
   }, [])
 
   const deleteVar = useCallback((index: number) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      return { ...prev, varRows: prev.varRows.filter((_, i) => i !== index) }
-    })
+    const prev = draftRef.current
+    if (!prev) return
+    const next = { ...prev, varRows: prev.varRows.filter((_, i) => i !== index) }
+    draftRef.current = next
+    setDraft(next)
     setSelectedRowIndex((prev) => {
       if (prev > index) return prev - 1
       if (prev === index) return Math.max(0, index - 1)
@@ -289,7 +314,9 @@ export function useEnvironmentEditor({
       value: "",
       enabled: true,
     }
-    setDraft({ ...prev, varRows: [...prev.varRows, newRow] })
+    const next = { ...prev, varRows: [...prev.varRows, newRow] }
+    draftRef.current = next
+    setDraft(next)
     setSelectedRowIndex(prev.varRows.length)
     setEditingField("key")
   }, [])
@@ -328,12 +355,14 @@ export function useEnvironmentEditor({
         }
       }
 
-      setOriginal({
+      const nextOriginal = {
         name: curDraft.name,
         color: curDraft.color,
         vars,
         disabledVars,
-      })
+      }
+      originalRef.current = nextOriginal
+      setOriginal(nextOriginal)
       setSelectedEnvName(curDraft.name)
       if (oldName) {
         setLocalNames((prev) =>
@@ -349,7 +378,7 @@ export function useEnvironmentEditor({
       onEnvsChangedRef.current?.()
 
       if (activeEnvName === curDraft.name || activeEnvName === oldName) {
-        onActiveEnvChanged(curDraft.name)
+        onActiveEnvChangedRef.current?.(curDraft.name)
         onEnvDataChangedRef.current?.()
       }
     } catch (e: unknown) {
@@ -369,7 +398,7 @@ export function useEnvironmentEditor({
       await env.deleteEnvironment(environmentsDir, name)
       if (activeEnvName === name) {
         const remaining = localNames.filter((n) => n !== name)
-        onActiveEnvChanged(remaining[0] ?? "")
+        onActiveEnvChangedRef.current?.(remaining[0] ?? "")
       }
       setLocalNames((prev) => prev.filter((n) => n !== name))
       onEnvsChangedRef.current?.()
@@ -380,7 +409,7 @@ export function useEnvironmentEditor({
     } finally {
       setSaving(false)
     }
-  }, [environmentsDir, activeEnvName, onActiveEnvChanged, closeEditor])
+  }, [environmentsDir, activeEnvName, onActiveEnvChanged, closeEditor, localNames])
 
   const cloneEnvAction = useCallback(
     async (targetName: string) => {

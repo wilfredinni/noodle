@@ -136,4 +136,52 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     await ref.current!.save()
     expect(dataSpy).toHaveBeenCalledTimes(1)
   })
+
+  it("adds new name to envNames when saving a brand new env", async () => {
+    const spy = mock(() => {})
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={spy} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 30))
+
+    // Close current editor, open new blank one
+    ref.current!.closeEditor()
+    await new Promise((r) => setTimeout(r, 10))
+    await renderOnce()
+
+    ref.current!.openEditor() // no name = blank draft (sync in else branch)
+    await new Promise((r) => setTimeout(r, 10))
+    await renderOnce()
+
+    ref.current!.setName("new-env")
+    await renderOnce()
+
+    ref.current!.addVar()
+    await renderOnce()
+
+    ref.current!.updateVarKey(0, "key")
+    ref.current!.updateVarValue(0, "value")
+    await renderOnce()
+
+    console.log("draft before save:", JSON.stringify(ref.current!.draft))
+    console.log("dirty:", ref.current!.dirty)
+
+    await ref.current!.save()
+    // flush setLocalNames state update
+    await new Promise((r) => setTimeout(r, 10))
+    await renderOnce()
+
+    const editor = ref.current!
+    expect(editor.error).toBeNull()
+    expect(spy).toHaveBeenCalled()
+    expect(editor.envNames).toContain("new-env")
+  })
 })
