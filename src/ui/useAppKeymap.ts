@@ -1,6 +1,6 @@
 import { useBindings, useKeymap } from "@opentui/keymap/react"
 import { join } from "node:path"
-import type { MutableRefObject } from "react"
+import type { RefObject } from "react"
 import { cycleFocus, type Focus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
@@ -10,18 +10,18 @@ import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 
 export interface UseAppKeymapRefs {
-  ebRef: MutableRefObject<UseEditBrowseResult>
-  draftRef: MutableRefObject<UseRequestDraftResult>
-  envStateRef: MutableRefObject<UseEnvironmentsResult>
-  envEditorRef: MutableRefObject<UseEnvironmentEditorResult>
-  collectionRef: MutableRefObject<Collection | null>
-  selectedIndexRef: MutableRefObject<number>
-  trySendRef: MutableRefObject<(() => void) | undefined>
-  doSaveRef: MutableRefObject<() => void>
-  focusRef: MutableRefObject<Focus>
-  viewRef: MutableRefObject<"main" | "env-editor">
-  activeIndexRef: MutableRefObject<number>
-  savingRef: MutableRefObject<boolean>
+  ebRef: RefObject<UseEditBrowseResult>
+  draftRef: RefObject<UseRequestDraftResult>
+  envStateRef: RefObject<UseEnvironmentsResult>
+  envEditorRef: RefObject<UseEnvironmentEditorResult>
+  collectionRef: RefObject<Collection | null>
+  selectedIndexRef: RefObject<number>
+  trySendRef: RefObject<(() => void) | undefined>
+  doSaveRef: RefObject<() => void>
+  focusRef: RefObject<Focus>
+  viewRef: RefObject<"main" | "env-editor">
+  activeIndexRef: RefObject<number>
+  savingRef: RefObject<boolean>
 }
 
 export interface UseAppKeymapSetters {

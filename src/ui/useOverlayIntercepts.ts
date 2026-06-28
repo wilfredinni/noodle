@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import type { MutableRefObject } from "react"
+import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { SaveState } from "./saveState"
 import type { Focus } from "./focus"
@@ -7,29 +7,29 @@ import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "./EnvHeaderPane"
 
 export function useOverlayIntercepts(opts: {
-  cancelSendRef: MutableRefObject<() => void>
+  cancelSendRef: RefObject<() => void>
   saveState: SaveState
   confirmSelection: number
   setConfirmSelection: (n: number) => void
   setSaveState: (s: SaveState) => void
   doSave: () => void
   envDeletePending: string | null
-  envDeletePendingRef: MutableRefObject<string | null>
+  envDeletePendingRef: RefObject<string | null>
   setEnvDeletePending: (s: string | null) => void
   deleteConfirmSelection: number
   setDeleteConfirmSelection: (n: number) => void
-  envEditorRef: MutableRefObject<UseEnvironmentEditorResult>
+  envEditorRef: RefObject<UseEnvironmentEditorResult>
   clearSaveTimer: () => void
-  saveTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
+  saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
   helpVisible: boolean
   setHelpVisible: (v: boolean) => void
   view: "main" | "env-editor"
   setView: (v: "main" | "env-editor") => void
-  focusRef: MutableRefObject<Focus>
+  focusRef: RefObject<Focus>
   setFocus: (f: Focus) => void
-  envHeaderRef: MutableRefObject<EnvHeaderPaneHandle | null>
-  headerFieldRef: MutableRefObject<"name" | "color">
-  colorPickerOpenRef: MutableRefObject<boolean>
+  envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
+  headerFieldRef: RefObject<"name" | "color">
+  colorPickerOpenRef: RefObject<boolean>
   setColorPickerOpen: (v: boolean) => void
 }): void {
   const keymap = useKeymap()

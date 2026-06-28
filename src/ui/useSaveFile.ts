@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { Dispatch, SetStateAction, MutableRefObject } from "react"
+import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { Request } from "../schema"
 import type { SaveState } from "./saveState"
 import { filestore } from "../filestore"
@@ -12,8 +12,8 @@ export interface UseSaveFileResult {
   setSaveState: Dispatch<SetStateAction<SaveState>>
   doSave: () => void
   clearSaveTimer: () => void
-  savingRef: MutableRefObject<boolean>
-  saveTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
+  savingRef: RefObject<boolean>
+  saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
 }
 
 export function useSaveFile(
