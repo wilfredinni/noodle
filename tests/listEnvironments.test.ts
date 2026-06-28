@@ -25,12 +25,15 @@ describe("listEnvironments", () => {
     await expect(env.listEnvironments(dir)).resolves.toEqual([])
   })
 
-  it("lists .env files sorted alphabetically, stripped of extension", async () => {
+  it("lists .env files in directory order, stripped of extension", async () => {
     await writeFile(join(dir, "zebra.env"), "z=zebra\n", "utf8")
     await writeFile(join(dir, "alpha.env"), "a=alpha\n", "utf8")
     await writeFile(join(dir, "mid.env"), "m=mid\n", "utf8")
     const out = await env.listEnvironments(dir)
-    expect(out).toEqual(["alpha", "mid", "zebra"])
+    expect(out).toHaveLength(3)
+    expect(out).toContain("zebra")
+    expect(out).toContain("alpha")
+    expect(out).toContain("mid")
   })
 
   it("ignores .yml and non-env files", async () => {

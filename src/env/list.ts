@@ -23,6 +23,5 @@ export async function listEnvironments(dir: string): Promise<string[]> {
     }
     if (isFile) names.push(entry.slice(0, -".env".length))
   }
-  names.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
   return names
 }

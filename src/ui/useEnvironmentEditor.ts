@@ -334,10 +334,7 @@ export function useEnvironmentEditor({
       setSelectedEnvName(curDraft.name)
       if (oldName) {
         setLocalNames((prev) =>
-          prev
-            .filter((n) => n !== oldName)
-            .concat(curDraft.name)
-            .sort(),
+          prev.map((n) => (n === oldName ? curDraft.name : n)),
         )
       }
 
@@ -384,7 +381,7 @@ export function useEnvironmentEditor({
       setError(null)
       try {
         await env.cloneEnvironment(environmentsDir, name, targetName)
-        const updatedNames = [...localNames, targetName].sort()
+        const updatedNames = [...localNames, targetName]
         setLocalNames(updatedNames)
         onEnvsChangedRef.current?.()
         setSelectedEnvName(targetName)
