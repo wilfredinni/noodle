@@ -5,7 +5,7 @@ import { mkdtemp, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ThemeProvider } from "../src/ui/theme"
-import { useEnvironmentEditor } from "../src/ui/useEnvironmentEditor"
+import { useEnvironmentEditor } from "../src/hooks/useEnvironmentEditor"
 import { env } from "../src/env"
 
 let dir: string

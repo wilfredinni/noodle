@@ -9,7 +9,7 @@ import {
   saveConfig,
   type NoodleConfig,
   CONFIG_FILE_NAME,
-} from "../../src/ui/useConfig"
+} from "../../src/hooks/useConfig"
 
 const DEFAULTS: NoodleConfig = { theme: 0, layout: "stacked" }
 

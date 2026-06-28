@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import type { Environment, Request, Response } from "../schema"
 import { executor } from "../requests"
-import { startSend, finishSend, failSend, type SendState } from "./sendState"
+import { startSend, finishSend, failSend, type SendState } from "../ui/sendState"
 
 type CachedResult =
   | { status: "done"; response: Response }
@@ -63,8 +63,8 @@ async function runSend(
   env: Environment | undefined,
   signal: AbortSignal,
   setState: Dispatch<SetStateAction<SendState>>,
-  cacheRef: React.MutableRefObject<Map<string, CachedResult>>,
-  abortRef: React.MutableRefObject<AbortController | null>,
+  cacheRef: React.RefObject<Map<string, CachedResult>>,
+  abortRef: React.RefObject<AbortController | null>,
 ): Promise<void> {
   try {
     const res = await executor.send(req, env, signal)

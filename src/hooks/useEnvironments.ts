@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Environment } from "../schema"
 import { env } from "../env"
-import { envIndicatorLabel } from "./envIndicator"
+import { envIndicatorLabel } from "../ui/envIndicator"
 
 export interface UseEnvironmentsResult {
   names: string[]

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { Request } from "../schema"
-import { nextIndex } from "./selection"
+import { nextIndex } from "../ui/selection"
 
 export interface UseSidebarSelectionResult {
   selectedIndex: number

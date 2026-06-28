@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { parseRow, requestEquals, applyDraft } from "../src/ui/useRequestDraft"
+import { parseRow, requestEquals, applyDraft } from "../src/hooks/useRequestDraft"
 import type { Request } from "../src/schema"
 
 function makeReq(over: Partial<Request> = {}): Request {

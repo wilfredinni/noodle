@@ -13,7 +13,7 @@ import {
   type EditState,
   type SectionRowCount,
   type FieldKind,
-} from "./editMode"
+} from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 
 const FIELD_ORDER: FieldKind[] = ["headers", "params", "body", "auth"]
