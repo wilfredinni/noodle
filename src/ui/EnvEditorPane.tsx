@@ -6,33 +6,25 @@ export function EnvEditorPane({
   draft,
   selectedRowIndex,
   editingField,
-  dirty: _dirty,
   saving,
   error,
-  onNameChange,
-  onColorChange,
   onSelectRow: _onSelectRow,
   onUpdateVarKey,
   onUpdateVarValue,
   onToggleVar: _onToggleVar,
   onDeleteVar: _onDeleteVar,
-  onAddVar: __onAddVar,
   focused: _focused,
 }: {
   draft: EnvDraft | null
   selectedRowIndex: number
   editingField: "key" | "value" | null
-  dirty: boolean
   saving: boolean
   error: string | null
-  onNameChange: (name: string) => void
-  onColorChange: (color: string | undefined) => void
   onSelectRow: (index: number) => void
   onUpdateVarKey: (index: number, key: string) => void
   onUpdateVarValue: (index: number, value: string) => void
   onToggleVar: (index: number) => void
   onDeleteVar: (index: number) => void
-  onAddVar: () => void
   focused: boolean
 }) {
   const theme = useTheme()
@@ -71,11 +63,6 @@ export function EnvEditorPane({
 
   const rows = draft.varRows
   const activeCount = rows.filter((r) => r.enabled).length
-  const colorValue =
-    draft.color !== undefined
-      ? ((theme as unknown as Record<string, string>)[draft.color] ??
-          theme.textMuted)
-      : theme.textMuted
 
   return (
     <box
@@ -93,29 +80,6 @@ export function EnvEditorPane({
       titleColor={_focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
     >
-      <box style={{ flexDirection: "column", gap: 0 }}>
-        <box style={{ flexDirection: "row", gap: 1 }}>
-          <input
-            value={draft.name}
-            placeholder="Environment name"
-            onInput={onNameChange}
-            textColor={theme.text}
-            cursorColor={theme.primary}
-            style={{ flexGrow: 1 }}
-          />
-          <input
-            value={draft.color ?? ""}
-            placeholder="Color"
-            onInput={(v) => onColorChange(v || undefined)}
-            textColor={colorValue}
-            cursorColor={theme.primary}
-            style={{ width: 18 }}
-          />
-        </box>
-      </box>
-      <text fg={theme.textMuted}>
-        ── Variables ─────────────────────────────
-      </text>
       <scrollbox
         scrollY
         style={{ flexGrow: 1, minHeight: 0 }}

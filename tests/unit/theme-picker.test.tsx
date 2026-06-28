@@ -30,6 +30,7 @@ describe("ThemePickerOverlay", () => {
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <ThemePickerOverlay
+            visible
             activeIndex={0}
             previewIndex={0}
             setPreviewIndex={() => {}}
@@ -52,6 +53,7 @@ describe("ThemePickerOverlay", () => {
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <ThemePickerOverlay
+            visible
             activeIndex={0}
             previewIndex={0}
             setPreviewIndex={() => {}}
@@ -74,6 +76,7 @@ describe("ThemePickerOverlay", () => {
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <ThemePickerOverlay
+            visible
             activeIndex={0}
             previewIndex={0}
             setPreviewIndex={() => {}}
@@ -95,6 +98,7 @@ describe("ThemePickerOverlay", () => {
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={0}>
           <ThemePickerOverlay
+            visible
             activeIndex={0}
             previewIndex={0}
             setPreviewIndex={() => {}}

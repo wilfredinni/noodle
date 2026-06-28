@@ -4,10 +4,11 @@ export type Focus =
   | "request"
   | "response"
   | "env-sidebar"
+  | "env-header"
   | "env-vars"
 
 const MAIN_FOCUS_ORDER: Focus[] = ["sidebar", "urlbar", "request", "response"]
-const ENV_FOCUS_ORDER: Focus[] = ["env-sidebar", "env-vars"]
+const ENV_FOCUS_ORDER: Focus[] = ["env-sidebar", "env-header", "env-vars"]
 
 export function cycleFocus(
   current: Focus,
@@ -28,6 +29,9 @@ export function hintForFocus(
   if (view === "env-editor") {
     if (focus === "env-sidebar") {
       return "[↑/↓] select · [N] new · [C] clone · [d] delete · [Tab] next"
+    }
+    if (focus === "env-header") {
+      return "[Tab] next · [^S] save · [Esc] back"
     }
     if (focus === "env-vars") {
       return "[↑/↓] navigate · [Enter] edit · [^x] toggle · [^d] delete · [Esc] cancel"

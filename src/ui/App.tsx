@@ -20,6 +20,7 @@ import { YamlEditorOverlay } from "./YamlEditorOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
+import { EnvHeaderPane } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 import { useEnvironmentEditor } from "./useEnvironmentEditor"
 import { env } from "../env"
@@ -827,23 +828,35 @@ function AppInner({
               onDelete={() => envEditor.deleteEnv()}
               focused={focus === "env-sidebar"}
             />
-            <EnvEditorPane
-              draft={envEditor.draft}
-              selectedRowIndex={envEditor.selectedRowIndex}
-              editingField={envEditor.editingField}
-              dirty={envEditor.dirty}
-              saving={envEditor.saving}
-              error={envEditor.error}
-              onNameChange={envEditor.setName}
-              onColorChange={envEditor.setColor}
-              onSelectRow={envEditor.selectRow}
-              onUpdateVarKey={envEditor.updateVarKey}
-              onUpdateVarValue={envEditor.updateVarValue}
-              onToggleVar={envEditor.toggleVar}
-              onDeleteVar={envEditor.deleteVar}
-              onAddVar={envEditor.addVar}
-              focused={focus === "env-vars"}
-            />
+            <box
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                gap: 1,
+                minHeight: 0,
+              }}
+            >
+              <EnvHeaderPane
+                name={envEditor.draft?.name ?? ""}
+                color={envEditor.draft?.color}
+                onNameChange={envEditor.setName}
+                onColorChange={envEditor.setColor}
+                focused={focus === "env-header"}
+              />
+              <EnvEditorPane
+                draft={envEditor.draft}
+                selectedRowIndex={envEditor.selectedRowIndex}
+                editingField={envEditor.editingField}
+                saving={envEditor.saving}
+                error={envEditor.error}
+                onSelectRow={envEditor.selectRow}
+                onUpdateVarKey={envEditor.updateVarKey}
+                onUpdateVarValue={envEditor.updateVarValue}
+                onToggleVar={envEditor.toggleVar}
+                onDeleteVar={envEditor.deleteVar}
+                focused={focus === "env-vars"}
+              />
+            </box>
           </box>
         )}
         {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
