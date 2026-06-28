@@ -29,6 +29,7 @@ export interface UseEnvironmentEditorProps {
   activeEnvName: string | undefined
   onEnvsChanged: () => void
   onActiveEnvChanged: (name: string) => void
+  onEnvDataChanged?: () => void
 }
 
 export interface UseEnvironmentEditorResult {
@@ -126,6 +127,7 @@ export function useEnvironmentEditor({
   activeEnvName,
   onEnvsChanged,
   onActiveEnvChanged,
+  onEnvDataChanged,
 }: UseEnvironmentEditorProps): UseEnvironmentEditorResult {
   const [open, setOpen] = useState(false)
   const [localNames, setLocalNames] = useState(envNames)
@@ -145,6 +147,8 @@ export function useEnvironmentEditor({
   selectedEnvNameRef.current = selectedEnvName
   const onEnvsChangedRef = useRef(onEnvsChanged)
   onEnvsChangedRef.current = onEnvsChanged
+  const onEnvDataChangedRef = useRef(onEnvDataChanged)
+  onEnvDataChangedRef.current = onEnvDataChanged
 
   const loadEnv = useCallback(
     async (name: string) => {
@@ -342,6 +346,7 @@ export function useEnvironmentEditor({
 
       if (activeEnvName === curDraft.name || activeEnvName === oldName) {
         onActiveEnvChanged(curDraft.name)
+        onEnvDataChangedRef.current?.()
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)

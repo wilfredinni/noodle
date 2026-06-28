@@ -11,10 +11,12 @@ import { env } from "../src/env"
 let dir: string
 
 function Harness({
-  onChanged,
+  onEnvsChanged: onChanged,
+  onEnvDataChanged,
   editorRef,
 }: {
-  onChanged: () => void
+  onEnvsChanged: () => void
+  onEnvDataChanged?: () => void
   editorRef: { current: ReturnType<typeof useEnvironmentEditor> | null }
 }) {
   const editor = useEnvironmentEditor({
@@ -23,6 +25,7 @@ function Harness({
     activeEnvName: "alpha",
     onEnvsChanged: onChanged,
     onActiveEnvChanged: () => {},
+    onEnvDataChanged,
   })
 
   editorRef.current = editor
@@ -58,7 +61,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
 
     const { renderOnce } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Harness onChanged={spy} editorRef={ref} />
+        <Harness onEnvsChanged={spy} editorRef={ref} />
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
@@ -77,7 +80,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
 
     const { renderOnce } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Harness onChanged={spy} editorRef={ref} />
+        <Harness onEnvsChanged={spy} editorRef={ref} />
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
@@ -96,7 +99,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
 
     const { renderOnce } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Harness onChanged={spy} editorRef={ref} />
+        <Harness onEnvsChanged={spy} editorRef={ref} />
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
@@ -107,5 +110,30 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     ref.current!.setName("alpha-renamed")
     await ref.current!.save()
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it("calls onEnvDataChanged after save with same name (color edit)", async () => {
+    const dataSpy = mock(() => {})
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness
+          onEnvsChanged={() => {}}
+          onEnvDataChanged={dataSpy}
+          editorRef={ref}
+        />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 30))
+
+    // Edit without changing name (simulates color/vars edit)
+    ref.current!.setColor("warning")
+    await ref.current!.save()
+    expect(dataSpy).toHaveBeenCalledTimes(1)
   })
 })

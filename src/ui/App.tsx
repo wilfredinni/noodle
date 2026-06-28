@@ -178,6 +178,9 @@ function AppInner({
         onEnvChange(name)
       }
     },
+    onEnvDataChanged: () => {
+      envStateRef.current.reloadActiveEnv().catch(() => {})
+    },
   })
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
@@ -286,7 +289,8 @@ function AppInner({
         run: () =>
           setFocus((prev) => {
             const next = cycleFocus(prev, 1, viewRef.current)
-            if (next === "request" && viewRef.current === "main") ebRef.current.enterBrowse()
+            if (next === "request" && viewRef.current === "main")
+              ebRef.current.enterBrowse()
             return next
           }),
       },
@@ -312,7 +316,8 @@ function AppInner({
         run: () =>
           setFocus((prev) => {
             const next = cycleFocus(prev, -1, viewRef.current)
-            if (next === "request" && viewRef.current === "main") ebRef.current.enterBrowse()
+            if (next === "request" && viewRef.current === "main")
+              ebRef.current.enterBrowse()
             return next
           }),
       },
@@ -729,7 +734,12 @@ function AppInner({
           }
 
           // Ctrl+D delete row (like headers/params browse_delete)
-          if (e.name === "d" && e.ctrl && !inEdit && ee.selectedRowIndex < rows) {
+          if (
+            e.name === "d" &&
+            e.ctrl &&
+            !inEdit &&
+            ee.selectedRowIndex < rows
+          ) {
             e.preventDefault()
             e.stopPropagation()
             ee.deleteVar(ee.selectedRowIndex)
@@ -737,7 +747,12 @@ function AppInner({
           }
 
           // Ctrl+X toggle enabled (like headers/params browse_toggle)
-          if (e.name === "x" && e.ctrl && !inEdit && ee.selectedRowIndex < rows) {
+          if (
+            e.name === "x" &&
+            e.ctrl &&
+            !inEdit &&
+            ee.selectedRowIndex < rows
+          ) {
             e.preventDefault()
             e.stopPropagation()
             ee.toggleVar(ee.selectedRowIndex)
