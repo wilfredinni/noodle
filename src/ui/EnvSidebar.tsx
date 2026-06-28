@@ -2,11 +2,13 @@ import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
+import { VALID_COLORS } from "../env/constants"
 
 export function EnvSidebar({
   envNames,
   selectedEnvName,
   activeEnvName: _activeEnvName,
+  envColors,
   dirty,
   onSelectEnv: _onSelectEnv,
   onCreate: _onCreate,
@@ -17,6 +19,7 @@ export function EnvSidebar({
   envNames: string[]
   selectedEnvName: string | null
   activeEnvName: string | undefined
+  envColors?: Record<string, string | undefined>
   dirty: boolean
   onSelectEnv: (name: string) => void
   onCreate: () => void
@@ -70,6 +73,13 @@ export function EnvSidebar({
           {envNames.map((name, i) => {
             const isSelected = name === selectedEnvName
             const isDirty = isSelected && dirty
+            const colorKey = envColors?.[name]
+            const colorHex =
+              colorKey !== undefined
+                ? ((VALID_COLORS.has(colorKey)
+                    ? (theme as unknown as Record<string, string>)[colorKey]
+                    : undefined) ?? theme.textMuted)
+                : undefined
             return (
               <box
                 key={name}
@@ -85,7 +95,10 @@ export function EnvSidebar({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
               >
-                <text fg={theme.text}>{name}</text>
+                <box style={{ flexDirection: "row" }}>
+                  {colorHex && <text fg={colorHex}>● </text>}
+                  <text fg={theme.text}>{name}</text>
+                </box>
                 {isDirty && <text fg={theme.warning}>●</text>}
               </box>
             )

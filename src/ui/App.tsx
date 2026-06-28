@@ -23,7 +23,7 @@ import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 import { useEnvironmentEditor } from "./useEnvironmentEditor"
-import { env } from "../env"
+import { listEnvironmentsWithColors } from "../env/listWithColors"
 import { VALID_COLORS } from "../env/constants"
 import { PickerOverlay, type PickerItem } from "./PickerOverlay"
 import type { Keybinds } from "./keybind"
@@ -38,6 +38,7 @@ function AppInner({
   collectionDir,
   environmentsDir,
   envNames,
+  envColors,
   initialEnvName,
   activeIndex,
   previewIndex,
@@ -53,6 +54,7 @@ function AppInner({
   collectionDir: string
   environmentsDir: string
   envNames: string[]
+  envColors: Record<string, string | undefined>
   initialEnvName?: string
   activeIndex: number
   previewIndex: number | null
@@ -968,6 +970,7 @@ function AppInner({
               envNames={envEditor.envNames}
               selectedEnvName={envEditor.selectedEnvName}
               activeEnvName={envState.activeEnv?.name}
+              envColors={envColors}
               dirty={envEditor.dirty}
               onSelectEnv={envEditor.selectEnv}
               onCreate={() => {
@@ -1146,10 +1149,22 @@ export function App({
   )
 
   const [envNames, setEnvNames] = useState<string[]>(initialEnvList)
+  const [envColors, setEnvColors] = useState<Record<string, string | undefined>>({})
+
+  useEffect(() => {
+    listEnvironmentsWithColors(environmentsDir).then((items) => {
+      const colors: Record<string, string | undefined> = {}
+      for (const item of items) colors[item.name] = item.color
+      setEnvColors(colors)
+    })
+  }, [environmentsDir])
 
   const handleEnvListChanged = useCallback(async () => {
-    const names = await env.listEnvironments(environmentsDir)
-    setEnvNames(names)
+    const items = await listEnvironmentsWithColors(environmentsDir)
+    setEnvNames(items.map((i) => i.name))
+    const colors: Record<string, string | undefined> = {}
+    for (const item of items) colors[item.name] = item.color
+    setEnvColors(colors)
   }, [environmentsDir])
 
   const handleEnvChange = useCallback(
@@ -1167,6 +1182,7 @@ export function App({
         collectionDir={collectionDir}
         environmentsDir={environmentsDir}
         envNames={envNames}
+        envColors={envColors}
         initialEnvName={initialEnvName}
         activeIndex={activeIndex}
         previewIndex={previewIndex}

@@ -339,6 +339,11 @@ export function useEnvironmentEditor({
         setLocalNames((prev) =>
           prev.map((n) => (n === oldName ? curDraft.name : n)),
         )
+      } else {
+        setLocalNames((prev) => {
+          if (prev.includes(curDraft.name)) return prev
+          return [...prev, curDraft.name]
+        })
       }
 
       onEnvsChangedRef.current?.()
