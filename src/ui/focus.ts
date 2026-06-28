@@ -27,7 +27,7 @@ export function hintForFocus(
 ): string {
   if (view === "env-editor") {
     if (focus === "env-sidebar") {
-      return "[↑/↓] select · [N] new · [C] clone · [D] delete · [Tab] next"
+      return "[↑/↓] select · [N] new · [C] clone · [d] delete · [Tab] next"
     }
     if (focus === "env-vars") {
       return "[↑/↓] select · [Enter] edit · [Space] toggle · [a] add · [d] delete · [Tab] next"

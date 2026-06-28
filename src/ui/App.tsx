@@ -596,7 +596,7 @@ function AppInner({
             ee.cloneEnv(target)
             return
           }
-          if (e.name === "D" && ee.selectedEnvName) {
+          if (e.name === "d" && ee.selectedEnvName) {
             e.preventDefault()
             e.stopPropagation()
             ee.deleteEnv()
