@@ -322,11 +322,7 @@ function AppInner({
         },
       },
       {
-        name: "env.prev",
-        run: () => envStateRef.current.cycle(-1),
-      },
-      {
-        name: "env.next",
+        name: "env.cycle",
         run: () => envStateRef.current.cycle(1),
       },
       {
@@ -355,8 +351,7 @@ function AppInner({
     bindings: [
       { key: keybinds.request_send, cmd: "request.send" },
       { key: keybinds.request_save, cmd: "request.save" },
-      { key: keybinds.env_prev, cmd: "env.prev" },
-      { key: keybinds.env_next, cmd: "env.next" },
+      { key: keybinds.env_cycle, cmd: "env.cycle" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
