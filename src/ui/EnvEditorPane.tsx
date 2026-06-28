@@ -62,8 +62,6 @@ export function EnvEditorPane({
   const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
 
   const rows = draft.varRows
-  const activeCount = rows.filter((r) => r.enabled).length
-
   return (
     <box
       style={{
@@ -185,16 +183,10 @@ export function EnvEditorPane({
           />
         </box>
       </scrollbox>
-      <box style={{ flexDirection: "row", gap: 1 }}>
-        <box style={{ flexGrow: 1 }} />
-        <text fg={error ? theme.error : theme.textMuted}>
-          {saving
-            ? "Saving..."
-            : error
-              ? `Error: ${error}`
-              : `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`}
-        </text>
-      </box>
+      {error && (
+        <text fg={theme.error}>Error: {error}</text>
+      )}
+      {saving && <text fg={theme.info}>Saving...</text>}
     </box>
   )
 }

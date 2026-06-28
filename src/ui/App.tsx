@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { join } from "node:path"
 import { useKeymap, useBindings } from "@opentui/keymap/react"
 import { Sidebar } from "./Sidebar"
@@ -182,6 +182,13 @@ function AppInner({
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
   const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
+
+  const envStats = useMemo(() => {
+    if (!envEditor.draft) return ""
+    const rows = envEditor.draft.varRows
+    const activeCount = rows.filter((r) => r.enabled).length
+    return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
+  }, [envEditor.draft])
   const headerFieldRef = useRef<"name" | "color">("name")
 
   const draftRef = useRef(draft)
@@ -966,6 +973,7 @@ function AppInner({
         saveState={saveState}
         kb={keybinds}
         view={view}
+        envStats={envStats}
       />
     </box>
   )

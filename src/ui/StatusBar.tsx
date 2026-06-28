@@ -111,6 +111,7 @@ export function StatusBar(input: {
   kb: Keybinds
   spinnerFrame?: string
   view?: "main" | "env-editor"
+  envStats?: string
 }) {
   const theme = useTheme()
   const sections = statusBarText(input)
@@ -171,7 +172,7 @@ export function StatusBar(input: {
           </Badge>
         ) : isEnvEditor ? (
           <Badge bg={theme.backgroundElement} fg={theme.info}>
-            Env Editor
+            {input.envStats || "Env Editor"}
           </Badge>
         ) : (
           <Badge bg={theme.backgroundElement} fg={envFg}>
