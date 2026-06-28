@@ -16,7 +16,7 @@ export function EnvEditorPane({
   onUpdateVarValue,
   onToggleVar: _onToggleVar,
   onDeleteVar: _onDeleteVar,
-  onAddVar: _onAddVar,
+  onAddVar: __onAddVar,
   focused: _focused,
 }: {
   draft: EnvDraft | null
@@ -190,17 +190,38 @@ export function EnvEditorPane({
                 cursorColor={theme.primary}
                 style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
               />
-              <text fg={theme.error}>
-                {" "}[x]{" "}
-              </text>
             </box>
           )
         })}
+        <box
+          key="add"
+          style={{
+            flexDirection: "row",
+            gap: 0,
+            backgroundColor:
+              selectedRowIndex === rows.length && editingField === null
+                ? theme.backgroundElement
+                : undefined,
+          }}
+        >
+          <text fg={theme.textMuted}>[ ] </text>
+          <input
+            value=""
+            placeholder="Key"
+            textColor={theme.textMuted}
+            cursorColor={theme.primary}
+            style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+          />
+          <input
+            value=""
+            placeholder="Value"
+            textColor={theme.textMuted}
+            cursorColor={theme.primary}
+            style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+          />
+        </box>
       </scrollbox>
       <box style={{ flexDirection: "row", gap: 1 }}>
-        <text fg={theme.primary}>
-          [+ Add Variable]
-        </text>
         <box style={{ flexGrow: 1 }} />
         <text fg={error ? theme.error : theme.textMuted}>
           {saving

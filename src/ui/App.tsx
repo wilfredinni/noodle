@@ -541,15 +541,6 @@ function AppInner({
         const e = ctx.event
         const ee = envEditorRef.current
 
-        if (e.name === "escape") {
-          e.preventDefault()
-          e.stopPropagation()
-          ee.closeEditor()
-          setView("main")
-          setFocus("sidebar")
-          return
-        }
-
         if (e.name === "s" && e.ctrl) {
           e.preventDefault()
           e.stopPropagation()
@@ -605,78 +596,110 @@ function AppInner({
         }
 
         if (f === "env-vars") {
-          if (e.name === "up" && ee.editingField === null) {
+          const inEdit = ee.editingField !== null
+          const rows = ee.draft?.varRows.length ?? 0
+
+          // Up/Down navigate rows. ↓ on last row → highlight placeholder.
+          // ↓ on placeholder → add row + start editing.
+          if (e.name === "up" && !inEdit) {
             e.preventDefault()
             e.stopPropagation()
             const prev = Math.max(0, ee.selectedRowIndex - 1)
             ee.selectRow(prev)
             return
           }
-          if (e.name === "down" && ee.editingField === null) {
+          if (e.name === "down" && !inEdit) {
             e.preventDefault()
             e.stopPropagation()
-            const rows = ee.draft?.varRows.length ?? 0
-            const next = Math.min(rows - 1, ee.selectedRowIndex + 1)
-            ee.selectRow(next)
+            if (ee.selectedRowIndex >= rows - 1) {
+              if (ee.selectedRowIndex >= rows) {
+                ee.addVar()
+              } else {
+                ee.selectRow(rows)
+              }
+            } else {
+              ee.selectRow(ee.selectedRowIndex + 1)
+            }
             return
           }
+
+          // Enter: cycle editing. On placeholder → add + edit.
           if (e.name === "return") {
             e.preventDefault()
             e.stopPropagation()
+            if (ee.selectedRowIndex >= rows) {
+              ee.addVar()
+              return
+            }
             if (ee.editingField === null) {
               ee.editField("key")
             } else if (ee.editingField === "key") {
               ee.editField("value")
             } else {
               const next = ee.selectedRowIndex + 1
-              const rows = ee.draft?.varRows.length ?? 0
               if (next < rows) {
                 ee.selectRow(next)
                 ee.editField("key")
               } else {
                 ee.editField(null)
-                ee.addVar()
               }
             }
             return
           }
-          if (e.name === "tab" && !e.shift) {
+
+          // Tab switch subfield during edit (like headers/params edit.tab)
+          if (e.name === "tab" && !e.shift && inEdit) {
             e.preventDefault()
             e.stopPropagation()
-            if (ee.editingField === null) {
-              ee.editField("key")
-            } else if (ee.editingField === "key") {
+            if (ee.editingField === "key") {
               ee.editField("value")
             } else {
-              const next = ee.selectedRowIndex + 1
-              const rows = ee.draft?.varRows.length ?? 0
-              if (next < rows) {
-                ee.selectRow(next)
-                ee.editField("key")
-              } else {
-                setFocus((prev) => cycleFocus(prev, 1, "env-editor"))
-              }
+              ee.editField("key")
             }
             return
           }
-          if (e.name === "x" && e.ctrl && ee.editingField === null) {
-            e.preventDefault()
-            e.stopPropagation()
-            ee.toggleVar(ee.selectedRowIndex)
-            return
+
+          // Esc: cancel edit OR leave placeholder back to last row
+          if (e.name === "escape") {
+            if (inEdit) {
+              e.preventDefault()
+              e.stopPropagation()
+              ee.editField(null)
+              return
+            }
+            if (ee.selectedRowIndex >= rows) {
+              e.preventDefault()
+              e.stopPropagation()
+              ee.selectRow(Math.max(0, rows - 1))
+              return
+            }
           }
-          if (e.name === "d" && e.ctrl && ee.editingField === null) {
+
+          // Ctrl+D delete row (like headers/params browse_delete)
+          if (e.name === "d" && e.ctrl && !inEdit && ee.selectedRowIndex < rows) {
             e.preventDefault()
             e.stopPropagation()
             ee.deleteVar(ee.selectedRowIndex)
             return
           }
-          if (e.name === "a") {
+
+          // Ctrl+X toggle enabled (like headers/params browse_toggle)
+          if (e.name === "x" && e.ctrl && !inEdit && ee.selectedRowIndex < rows) {
             e.preventDefault()
             e.stopPropagation()
-            ee.addVar()
+            ee.toggleVar(ee.selectedRowIndex)
             return
           }
+        }
+
+        // View-level Esc: close editor (only when no sub-state consumed it)
+        if (e.name === "escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.closeEditor()
+          setView("main")
+          setFocus("sidebar")
+          return
         }
       },
       { priority: 100 },
