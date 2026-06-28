@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import type { Environment, Request, Response } from "../schema"
 import { executor } from "../requests"
-import { startSend, finishSend, failSend, type SendState } from "./sendState"
+import { startSend, finishSend, failSend, type SendState } from "../ui/sendState"
 
 type CachedResult =
   | { status: "done"; response: Response }

@@ -1,6 +1,6 @@
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
-import type { EnvDraft } from "./useEnvironmentEditor"
+import type { EnvDraft } from "../hooks/useEnvironmentEditor"
 
 export function EnvEditorPane({
   draft,

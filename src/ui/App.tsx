@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { AppInner } from "./AppInner"
-import { useConfig } from "./useConfig"
+import { useConfig } from "../hooks/useConfig"
 import { listEnvironmentsWithColors } from "../env/listWithColors"
 import { ThemeProvider } from "./theme"
 import { saveSettings } from "../filestore"

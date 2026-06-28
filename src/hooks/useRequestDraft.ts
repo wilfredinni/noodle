@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Request, Auth, Method, KvEntry } from "../schema"
-import type { FieldKind } from "./editMode"
-import { parseUrlAndParams } from "./urlParams"
+import type { FieldKind } from "../ui/editMode"
+import { parseUrlAndParams } from "../ui/urlParams"
 
 export type DraftOp =
   | { kind: "setUrl"; url: string }

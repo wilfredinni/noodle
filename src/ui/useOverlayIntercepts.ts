@@ -3,7 +3,7 @@ import type { MutableRefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { SaveState } from "./saveState"
 import type { Focus } from "./focus"
-import type { UseEnvironmentEditorResult } from "./useEnvironmentEditor"
+import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "./EnvHeaderPane"
 
 export function useOverlayIntercepts(opts: {
