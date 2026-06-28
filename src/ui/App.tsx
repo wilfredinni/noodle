@@ -25,129 +25,14 @@ import { EnvEditorPane } from "./EnvEditorPane"
 import { useEnvironmentEditor } from "./useEnvironmentEditor"
 import { env } from "../env"
 import { VALID_COLORS } from "../env/constants"
-import { Overlay } from "./Overlay"
+import { PickerOverlay, type PickerItem } from "./PickerOverlay"
 import type { Keybinds } from "./keybind"
 import type { SaveState } from "./saveState"
-import type { SelectOption } from "@opentui/core"
-import type { ScrollBoxRenderable } from "@opentui/core"
-import { TextAttributes } from "@opentui/core"
 
 const SAVE_SUCCESS_MS = 2000
 const SAVE_ERROR_MS = 3000
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
-
-function ColorPickerOverlay({
-  visible,
-  colorOptions,
-  activeIndex,
-  onSelect,
-  onClose,
-}: {
-  visible: boolean
-  colorOptions: SelectOption[]
-  activeIndex: number
-  onSelect: (value: string | undefined) => void
-  onClose: () => void
-}) {
-  const theme = useTheme()
-  const keymap = useKeymap()
-  const [previewIndex, setPreviewIndex] = useState(activeIndex)
-  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-
-  useEffect(() => {
-    setPreviewIndex(activeIndex)
-  }, [activeIndex, visible])
-
-  useEffect(() => {
-    scrollRef.current?.scrollChildIntoView(`color-${previewIndex}`)
-  }, [previewIndex])
-
-  useEffect(() => {
-    const dispose = keymap.intercept(
-      "key",
-      (ctx) => {
-        const name = ctx.event.name
-        if (name === "escape") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          onClose()
-        } else if (name === "up") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex((p) => Math.max(0, p - 1))
-        } else if (name === "down") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setPreviewIndex((p) => Math.min(colorOptions.length - 1, p + 1))
-        } else if (name === "return") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          const opt = colorOptions[previewIndex]
-          if (opt !== undefined) onSelect(opt.value)
-        }
-      },
-      { priority: 100 },
-    )
-    return dispose
-  }, [colorOptions, previewIndex, onSelect, onClose, keymap])
-
-  return (
-    <Overlay visible={visible} width={30} gap={1} padding={1}>
-      <box paddingLeft={1} paddingRight={1}>
-        <box flexDirection="row" justifyContent="space-between">
-          <text fg={theme.text}>Color</text>
-          <text fg={theme.textMuted}>esc</text>
-        </box>
-      </box>
-      <scrollbox
-        ref={scrollRef}
-        scrollY
-        paddingLeft={1}
-        paddingRight={1}
-        maxHeight={16}
-        scrollbarOptions={{ visible: false }}
-      >
-        <box style={{ flexDirection: "column" }}>
-          {colorOptions.map((opt, i) => {
-            const isActive = i === activeIndex
-            const isSelected = i === previewIndex
-            return (
-              <box
-                key={i}
-                id={`color-${i}`}
-                style={{
-                  flexDirection: "row",
-                  height: 1,
-                  paddingLeft: isActive ? 1 : 3,
-                  paddingRight: 3,
-                  gap: 1,
-                  backgroundColor: isSelected ? theme.primary : undefined,
-                }}
-              >
-                {isActive && (
-                  <text fg={isSelected ? "#1a1a1a" : theme.primary}>●</text>
-                )}
-                <text
-                  fg={
-                    isSelected
-                      ? "#1a1a1a"
-                      : isActive
-                        ? theme.primary
-                        : theme.text
-                  }
-                  attributes={isSelected ? TextAttributes.BOLD : undefined}
-                >
-                  {opt.name}
-                </text>
-              </box>
-            )
-          })}
-        </box>
-      </scrollbox>
-    </Overlay>
-  )
-}
 
 function AppInner({
   collectionDir,
@@ -316,22 +201,20 @@ function AppInner({
     return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
   }, [envEditor.draft])
 
-  const colorOptions = useMemo(() => {
+  const colorItems = useMemo(() => {
     const t = theme as unknown as Record<string, string>
     return [
-      { name: "(none)", description: "", value: undefined },
+      { id: "none", label: "(none)", value: undefined },
       ...Array.from(VALID_COLORS).map((c) => ({
-        name: c,
-        description: t[c] ?? theme.textMuted,
+        id: c,
+        label: c,
         value: c,
+        indicatorColor: t[c] ?? theme.textMuted,
       })),
-    ] satisfies SelectOption[]
+    ] satisfies PickerItem[]
   }, [theme])
 
-  const colorSelectedIndex =
-    envEditor.draft?.color !== undefined
-      ? colorOptions.findIndex((o) => o.value === envEditor.draft?.color)
-      : 0
+  const activeColorId = envEditor.draft?.color ?? "none"
   const headerFieldRef = useRef<"name" | "color">("name")
 
   const draftRef = useRef(draft)
@@ -1074,12 +957,13 @@ function AppInner({
         )}
         {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
         {colorPickerOpen && (
-          <ColorPickerOverlay
+          <PickerOverlay
             visible
-            colorOptions={colorOptions}
-            activeIndex={colorSelectedIndex}
-            onSelect={(v) => {
-              envEditor.setColor(v)
+            title="Color"
+            items={colorItems}
+            activeId={activeColorId}
+            onSelect={(item) => {
+              envEditor.setColor(item.value as string | undefined)
               setColorPickerOpen(false)
             }}
             onClose={() => setColorPickerOpen(false)}
