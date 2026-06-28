@@ -55,7 +55,7 @@ export function TimelineEntry({
   const hasError = entry.error !== undefined
 
   const prefix = isExpanded ? "▾" : "▸"
-  const rowBg = isSelected ? theme.backgroundSelected : "default"
+  const rowBg = isSelected ? theme.backgroundElement : "default"
   const rowFg = isSelected ? theme.text : theme.textMuted
 
   return (
@@ -185,60 +185,69 @@ export function TimelineEntry({
             </box>
           ) : (
             <box style={{ flexDirection: "column", gap: 0 }}>
-              {hasResponse ? (
-                <>
+              {(() => {
+                const r = entry.response
+                if (r) {
+                  return (
+                    <>
+                      <box
+                        border={[...LeftBar.border]}
+                        customBorderChars={LeftBar.customBorderChars}
+                        borderColor={theme.borderSubtle}
+                      >
+                        <text fg={theme.text}>
+                          {" "}
+                          {formatStatusLine(r)}
+                        </text>
+                      </box>
+                      {formatHeaders(r).map((h) => (
+                        <box
+                          key={h}
+                          border={[...LeftBar.border]}
+                          customBorderChars={LeftBar.customBorderChars}
+                          borderColor={theme.borderSubtle}
+                        >
+                          <text fg={theme.textMuted}> {h}</text>
+                        </box>
+                      ))}
+                      {r.body && (
+                        <box
+                          border={[...LeftBar.border]}
+                          customBorderChars={LeftBar.customBorderChars}
+                          borderColor={theme.borderSubtle}
+                        >
+                          <text fg={theme.text}>
+                            {" "}
+                            {r.body.length > 2000
+                              ? r.body.slice(0, 2000) + "..."
+                              : r.body}
+                          </text>
+                        </box>
+                      )}
+                    </>
+                  )
+                }
+                if (entry.error) {
+                  return (
+                    <box
+                      border={[...LeftBar.border]}
+                      customBorderChars={LeftBar.customBorderChars}
+                      borderColor={theme.error}
+                    >
+                      <text fg={theme.error}> {entry.error.message}</text>
+                    </box>
+                  )
+                }
+                return (
                   <box
                     border={[...LeftBar.border]}
                     customBorderChars={LeftBar.customBorderChars}
                     borderColor={theme.borderSubtle}
                   >
-                    <text fg={theme.text}>
-                      {" "}
-                      {formatStatusLine(entry.response)}
-                    </text>
+                    <text fg={theme.textMuted}> No response</text>
                   </box>
-                  {formatHeaders(entry.response).map((h) => (
-                    <box
-                      key={h}
-                      border={[...LeftBar.border]}
-                      customBorderChars={LeftBar.customBorderChars}
-                      borderColor={theme.borderSubtle}
-                    >
-                      <text fg={theme.textMuted}> {h}</text>
-                    </box>
-                  ))}
-                  {entry.response.body && (
-                    <box
-                      border={[...LeftBar.border]}
-                      customBorderChars={LeftBar.customBorderChars}
-                      borderColor={theme.borderSubtle}
-                    >
-                      <text fg={theme.text}>
-                        {" "}
-                        {entry.response.body.length > 2000
-                          ? entry.response.body.slice(0, 2000) + "..."
-                          : entry.response.body}
-                      </text>
-                    </box>
-                  )}
-                </>
-              ) : hasError ? (
-                <box
-                  border={[...LeftBar.border]}
-                  customBorderChars={LeftBar.customBorderChars}
-                  borderColor={theme.error}
-                >
-                  <text fg={theme.error}> {entry.error!.message}</text>
-                </box>
-              ) : (
-                <box
-                  border={[...LeftBar.border]}
-                  customBorderChars={LeftBar.customBorderChars}
-                  borderColor={theme.borderSubtle}
-                >
-                  <text fg={theme.textMuted}> No response</text>
-                </box>
-              )}
+                )
+              })()}
             </box>
           )}
         </box>

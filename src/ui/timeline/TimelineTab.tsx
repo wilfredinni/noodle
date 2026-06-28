@@ -35,17 +35,11 @@ export function TimelineTab({
     if (entries.length === 0) return
 
     if (key.name === "up") {
-      setSelectedIdx((prev) => {
-        const next = prev <= 0 ? entries.length - 1 : prev - 1
-        scrollRef.current?.scrollIntoView(next as unknown as never)
-        return next
-      })
+      setSelectedIdx((prev) => (prev <= 0 ? entries.length - 1 : prev - 1))
+      scrollRef.current?.scrollBy(-1)
     } else if (key.name === "down") {
-      setSelectedIdx((prev) => {
-        const next = prev >= entries.length - 1 ? 0 : prev + 1
-        scrollRef.current?.scrollIntoView(next as unknown as never)
-        return next
-      })
+      setSelectedIdx((prev) => (prev >= entries.length - 1 ? 0 : prev + 1))
+      scrollRef.current?.scrollBy(1)
     } else if (key.name === "return") {
       setExpandedIdx((prev) => (prev === selectedIdx ? null : selectedIdx))
     } else if (key.name === "left") {

@@ -1,6 +1,43 @@
-import type { TimelineEntry } from "../../schema"
+import type { Response, TimelineEntry } from "../../schema"
+import type { Request } from "../../schema"
 import type { Theme } from "../theme"
 import { statusColor } from "../format"
+import type { SendCompleteResult } from "../../hooks/useResponse"
+
+export function buildTimelineEntry(
+  req: Request,
+  result: SendCompleteResult,
+  envName?: string,
+): TimelineEntry {
+  return {
+    timestamp: Date.now(),
+    envName,
+    request: {
+      id: req.id,
+      name: req.name,
+      method: req.method,
+      url: req.url,
+      headers: { ...req.headers },
+      params: { ...req.params },
+      body: req.body,
+      auth: req.auth ? { ...req.auth } : undefined,
+    },
+    response:
+      result.status === "done"
+        ? {
+            status: result.response.status,
+            statusText: result.response.statusText,
+            headers: { ...result.response.headers },
+            body: result.response.body,
+            timeMs: result.response.timeMs,
+          }
+        : undefined,
+    error:
+      result.status === "error"
+        ? { message: result.error.message }
+        : undefined,
+  }
+}
 
 export function relativeTime(ts: number): string {
   const diff = Date.now() - ts

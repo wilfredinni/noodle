@@ -8,6 +8,10 @@ type CachedResult =
   | { status: "done"; response: Response }
   | { status: "error"; request: Request; error: Error }
 
+export type SendCompleteResult =
+  | { status: "done"; response: Response }
+  | { status: "error"; request: Request; error: Error }
+
 export interface UseResponseResult {
   state: SendState
   trySend: () => void
@@ -17,6 +21,7 @@ export interface UseResponseResult {
 export function useResponse(
   selectedRequest: Request | null,
   env?: Environment | null,
+  onComplete?: (req: Request, result: SendCompleteResult) => void,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
@@ -39,6 +44,9 @@ export function useResponse(
     }
   }, [selectedRequest?.id])
 
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
+
   const trySend = useCallback(() => {
     const req = selectedRequest
     if (req === null) return
@@ -46,7 +54,7 @@ export function useResponse(
       if (prev.status === "sending") return prev
       const controller = new AbortController()
       abortRef.current = controller
-      void runSend(req, env ?? undefined, controller.signal, setState, cacheRef, abortRef)
+      void runSend(req, env ?? undefined, controller.signal, setState, cacheRef, abortRef, onCompleteRef)
       return startSend(prev, req)
     })
   }, [selectedRequest, env])
@@ -65,11 +73,13 @@ async function runSend(
   setState: Dispatch<SetStateAction<SendState>>,
   cacheRef: React.RefObject<Map<string, CachedResult>>,
   abortRef: React.RefObject<AbortController | null>,
+  onCompleteRef: React.RefObject<((req: Request, result: SendCompleteResult) => void) | undefined>,
 ): Promise<void> {
   try {
     const res = await executor.send(req, env, signal)
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))
+    onCompleteRef.current?.(req, { status: "done", response: res })
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
       setState({ status: "idle" })
@@ -78,6 +88,7 @@ async function runSend(
     const err = e instanceof Error ? e : new Error(String(e))
     cacheRef.current.set(req.id, { status: "error", request: req, error: err })
     setState((prev) => failSend(prev, req, err))
+    onCompleteRef.current?.(req, { status: "error", request: req, error: err })
   } finally {
     abortRef.current = null
   }
