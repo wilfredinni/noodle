@@ -187,9 +187,8 @@ export function useEnvironmentEditor({
       setSelectedRowIndex(-1)
       setEditingField(null)
 
-      const target = name ?? activeEnvName ?? localNames[0]
-      if (target) {
-        await loadEnv(target)
+      if (name) {
+        await loadEnv(name)
       } else {
         setDraft({ name: "", color: undefined, varRows: [] })
         setOriginal(null)

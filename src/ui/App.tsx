@@ -642,6 +642,13 @@ function AppInner({
           ee.save()
           return
         }
+        if (e.name === "n" && e.ctrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.openEditor()
+          setFocus("env-header")
+          return
+        }
         if (e.name === "k" && e.ctrl && ee.selectedEnvName) {
           e.preventDefault()
           e.stopPropagation()
@@ -680,13 +687,6 @@ function AppInner({
               : -1
             const next = idx < names.length - 1 ? idx + 1 : 0
             if (names[next]) ee.selectEnv(names[next]!)
-            return
-          }
-          if (e.name === "n") {
-            e.preventDefault()
-            e.stopPropagation()
-            ee.openEditor()
-            setFocus("env-vars")
             return
           }
         }
@@ -765,9 +765,14 @@ function AppInner({
           }
 
           // Enter: cycle editing. On placeholder → add + edit.
+          // On empty list → add first row.
           if (e.name === "return") {
             e.preventDefault()
             e.stopPropagation()
+            if (rows === 0) {
+              ee.addVar()
+              return
+            }
             if (ee.selectedRowIndex >= rows) {
               ee.addVar()
               return
