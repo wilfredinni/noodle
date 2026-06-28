@@ -123,10 +123,11 @@ export function useEnvironmentEditor({
   environmentsDir,
   envNames,
   activeEnvName,
-  onEnvsChanged,
+  onEnvsChanged: _onEnvsChanged,
   onActiveEnvChanged,
 }: UseEnvironmentEditorProps): UseEnvironmentEditorResult {
   const [open, setOpen] = useState(false)
+  const [localNames, setLocalNames] = useState(envNames)
   const [selectedEnvName, setSelectedEnvName] = useState<string | null>(null)
   const [draft, setDraft] = useState<EnvDraft | null>(null)
   const [original, setOriginal] = useState<OriginalEnv | null>(null)
@@ -179,7 +180,7 @@ export function useEnvironmentEditor({
       setSelectedRowIndex(-1)
       setEditingField(null)
 
-      const target = name ?? activeEnvName ?? envNames[0]
+      const target = name ?? activeEnvName ?? localNames[0]
       if (target) {
         await loadEnv(target)
       } else {
@@ -323,8 +324,12 @@ export function useEnvironmentEditor({
         disabledVars,
       })
       setSelectedEnvName(curDraft.name)
+      if (oldName) {
+        setLocalNames((prev) =>
+          prev.filter((n) => n !== oldName).concat(curDraft.name).sort(),
+        )
+      }
 
-      onEnvsChanged()
       if (
         activeEnvName === curDraft.name ||
         activeEnvName === oldName
@@ -337,7 +342,7 @@ export function useEnvironmentEditor({
     } finally {
       setSaving(false)
     }
-  }, [environmentsDir, onEnvsChanged, activeEnvName, onActiveEnvChanged])
+  }, [environmentsDir, activeEnvName, onActiveEnvChanged])
 
   const deleteEnvAction = useCallback(async () => {
     const name = selectedEnvNameRef.current
@@ -347,10 +352,10 @@ export function useEnvironmentEditor({
     try {
       await env.deleteEnvironment(environmentsDir, name)
       if (activeEnvName === name) {
-        const remaining = envNames.filter((n) => n !== name)
+        const remaining = localNames.filter((n) => n !== name)
         onActiveEnvChanged(remaining[0] ?? "")
       }
-      onEnvsChanged()
+      setLocalNames((prev) => prev.filter((n) => n !== name))
       closeEditor()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -358,7 +363,7 @@ export function useEnvironmentEditor({
     } finally {
       setSaving(false)
     }
-  }, [environmentsDir, activeEnvName, envNames, onActiveEnvChanged, onEnvsChanged, closeEditor])
+  }, [environmentsDir, activeEnvName, onActiveEnvChanged, closeEditor])
 
   const cloneEnvAction = useCallback(
     async (targetName: string) => {
@@ -368,8 +373,10 @@ export function useEnvironmentEditor({
       setError(null)
       try {
         await env.cloneEnvironment(environmentsDir, name, targetName)
-        onEnvsChanged()
-        await selectEnv(targetName)
+        const updatedNames = [...localNames, targetName].sort()
+        setLocalNames(updatedNames)
+        setSelectedEnvName(targetName)
+        await loadEnv(targetName)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         setError(msg)
@@ -377,7 +384,7 @@ export function useEnvironmentEditor({
         setSaving(false)
       }
     },
-    [environmentsDir, onEnvsChanged, selectEnv],
+    [environmentsDir, localNames, loadEnv],
   )
 
   const dirty = dirtyChanged(
@@ -389,7 +396,7 @@ export function useEnvironmentEditor({
 
   return {
     open,
-    envNames,
+    envNames: localNames,
     selectedEnvName,
     draft,
     dirty,
