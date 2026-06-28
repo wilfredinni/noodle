@@ -1,5 +1,5 @@
-import { RGBA } from "@opentui/core"
 import { useTheme } from "./theme"
+import { Overlay } from "./Overlay"
 
 export interface ConfirmOverlayProps {
   visible: boolean
@@ -14,31 +14,8 @@ export function ConfirmOverlay({
 }: ConfirmOverlayProps) {
   const theme = useTheme()
 
-  if (!visible) return null
-
   return (
-    <box
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: "100%",
-        height: "100%",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: RGBA.fromInts(0, 0, 0, 150),
-        flexDirection: "column",
-      }}
-    >
-      <box
-        style={{
-          width: 50,
-          backgroundColor: theme.backgroundPanel,
-          flexDirection: "column",
-          gap: 1,
-          padding: 2,
-        }}
-      >
+    <Overlay visible={visible} width={50} gap={1} padding={2}>
         <box
           style={{
             flexDirection: "row",
@@ -63,7 +40,6 @@ export function ConfirmOverlay({
           <text fg={theme.primary}>N</text>
           <text fg={theme.textMuted}>Cancel</text>
         </box>
-      </box>
-    </box>
+    </Overlay>
   )
 }

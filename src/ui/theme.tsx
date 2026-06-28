@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from "react"
 import type { ReactNode } from "react"
-import { RGBA, TextAttributes } from "@opentui/core"
+import { TextAttributes } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
+import { Overlay } from "./Overlay"
 import { THEMES } from "./theme-data"
 import type { Theme } from "./theme-data"
 
@@ -71,11 +72,13 @@ export function ThemeProvider({
 }
 
 export function ThemePickerOverlay({
+  visible,
   activeIndex,
   previewIndex,
   setPreviewIndex,
   onThemeChange,
 }: {
+  visible: boolean
   activeIndex: number
   previewIndex: number
   setPreviewIndex: (n: number | null) => void
@@ -133,28 +136,7 @@ export function ThemePickerOverlay({
   }, [filtered, previewIndex, setPreviewIndex, onThemeChange, keymap])
 
   return (
-    <box
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: "100%",
-        height: "100%",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: RGBA.fromInts(0, 0, 0, 150),
-        flexDirection: "column",
-      }}
-    >
-      <box
-        style={{
-          width: 48,
-          backgroundColor: theme.backgroundPanel,
-          flexDirection: "column",
-          gap: 1,
-          padding: 1,
-        }}
-      >
+    <Overlay visible={visible} width={48} gap={1} padding={1}>
         <box paddingLeft={4} paddingRight={4}>
           <box flexDirection="row" justifyContent="space-between">
             <text fg={theme.text}>Themes</text>
@@ -222,7 +204,6 @@ export function ThemePickerOverlay({
             )}
           </box>
         </scrollbox>
-      </box>
-    </box>
+    </Overlay>
   )
 }
