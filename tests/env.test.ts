@@ -98,6 +98,36 @@ describe("loadEnvironment — validation", () => {
   })
 })
 
+describe("loadEnvironment — disabled vars", () => {
+  it("loads # KEY=value as disabled vars", async () => {
+    await writeFile(
+      join(dir, "dev.env"),
+      "active=yes\n# hidden=old_value\nvisible=here\n# comment line\n",
+      "utf8",
+    )
+    const result = await env.loadEnvironment(dir, "dev")
+    expect(result.vars).toEqual({ active: "yes", visible: "here" })
+    expect(result.disabledVars).toEqual({ hidden: "old_value" })
+  })
+
+  it("round-trips vars and disabled vars", async () => {
+    await env.saveEnvironment(dir, {
+      name: "rt",
+      vars: { x: "1", y: "2" },
+      disabledVars: { z: "3" },
+    })
+    const loaded = await env.loadEnvironment(dir, "rt")
+    expect(loaded.vars).toEqual({ x: "1", y: "2" })
+    expect(loaded.disabledVars).toEqual({ z: "3" })
+  })
+
+  it("handles env without disabled vars", async () => {
+    await writeFile(join(dir, "simple.env"), "a=b\n", "utf8")
+    const result = await env.loadEnvironment(dir, "simple")
+    expect(result.disabledVars).toBeUndefined()
+  })
+})
+
 describe("env priority resolution", () => {
   const envList = ["development", "production", "staging"]
 

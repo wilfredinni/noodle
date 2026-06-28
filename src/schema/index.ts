@@ -46,6 +46,7 @@ export interface Environment {
   name: string
   vars: Record<string, string>
   color?: string
+  disabledVars?: Record<string, string>
 }
 
 export interface CollectionSettings {

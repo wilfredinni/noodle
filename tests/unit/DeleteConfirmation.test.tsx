@@ -4,7 +4,8 @@ import { createTestKeymap } from "@opentui/keymap/testing"
 import { registerEnabledFields, registerDefaultKeys } from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
-import { ThemePickerOverlay, ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider } from "../../src/ui/theme"
+import { ConfirmOverlay } from "../../src/ui/ConfirmOverlay"
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()
@@ -23,94 +24,89 @@ function setupKeymap() {
   }
 }
 
-describe("ThemePickerOverlay", () => {
-  it("renders all themes when search is empty", async () => {
+describe("Delete confirmation", () => {
+  it("ConfirmOverlay shows delete environment message", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ThemePickerOverlay
+          <ConfirmOverlay
             visible
-            activeIndex={0}
-            previewIndex={0}
-            setPreviewIndex={() => {}}
-            onThemeChange={() => {}}
+            message='Delete environment "staging"?'
+            selectedIndex={0}
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 60, height: 30 },
+      { width: 60, height: 10 },
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("aura")
-    expect(frame).toContain("matrix")
+    expect(frame).toContain("Delete environment")
+    expect(frame).toContain("staging")
+    expect(frame).toContain("Confirm")
+    expect(frame).toContain("Y")
+    expect(frame).toContain("N")
     cleanup()
   })
 
-  it("shows header with title and esc hint", async () => {
+  it("ConfirmOverlay returns null when visible is false", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ThemePickerOverlay
-            visible
-            activeIndex={0}
-            previewIndex={0}
-            setPreviewIndex={() => {}}
-            onThemeChange={() => {}}
+          <ConfirmOverlay
+            visible={false}
+            message='Delete environment "staging"?'
+            selectedIndex={0}
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 60, height: 30 },
+      { width: 60, height: 10 },
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("Themes")
+    expect(frame).not.toContain("Delete environment")
+    cleanup()
+  })
+
+  it("ConfirmOverlay shows Y and N with labels", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ConfirmOverlay
+            visible
+            message="Delete?"
+            selectedIndex={0}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 10 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Confirm")
+    expect(frame).toContain("Cancel")
+    cleanup()
+  })
+
+  it("renders esc hint", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ConfirmOverlay
+            visible
+            message="Delete?"
+            selectedIndex={0}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 10 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
     expect(frame).toContain("esc")
-    cleanup()
-  })
-
-  it("shows search input with placeholder", async () => {
-    const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ThemePickerOverlay
-            visible
-            activeIndex={0}
-            previewIndex={0}
-            setPreviewIndex={() => {}}
-            onThemeChange={() => {}}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 60, height: 30 },
-    )
-    await renderOnce()
-    const frame = captureCharFrame()
-    expect(frame).toContain("Search themes")
-    cleanup()
-  })
-
-  it("shows the dot indicator for the active theme", async () => {
-    const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={0}>
-          <ThemePickerOverlay
-            visible
-            activeIndex={0}
-            previewIndex={0}
-            setPreviewIndex={() => {}}
-            onThemeChange={() => {}}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 60, height: 30 },
-    )
-    await renderOnce()
-    const frame = captureCharFrame()
-    expect(frame).toContain("\u25cf")
     cleanup()
   })
 })

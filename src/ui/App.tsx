@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { join } from "node:path"
 import { useKeymap, useBindings } from "@opentui/keymap/react"
 import { Sidebar } from "./Sidebar"
@@ -19,6 +19,13 @@ import { ConfirmOverlay } from "./ConfirmOverlay"
 import { YamlEditorOverlay } from "./YamlEditorOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
+import { EnvSidebar } from "./EnvSidebar"
+import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
+import { EnvEditorPane } from "./EnvEditorPane"
+import { useEnvironmentEditor } from "./useEnvironmentEditor"
+import { listEnvironmentsWithColors } from "../env/listWithColors"
+import { VALID_COLORS } from "../env/constants"
+import { PickerOverlay, type PickerItem } from "./PickerOverlay"
 import type { Keybinds } from "./keybind"
 import type { SaveState } from "./saveState"
 
@@ -30,7 +37,8 @@ const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 function AppInner({
   collectionDir,
   environmentsDir,
-  envList,
+  envNames,
+  envColors,
   initialEnvName,
   activeIndex,
   previewIndex,
@@ -40,11 +48,13 @@ function AppInner({
   initialLayout,
   onLayoutChange,
   onEnvChange,
+  onEnvListChanged,
   settingsEnv,
 }: {
   collectionDir: string
   environmentsDir: string
-  envList: string[]
+  envNames: string[]
+  envColors: Record<string, string | undefined>
   initialEnvName?: string
   activeIndex: number
   previewIndex: number | null
@@ -54,6 +64,7 @@ function AppInner({
   initialLayout: "stacked" | "side-by-side"
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   onEnvChange: (name: string | null) => void
+  onEnvListChanged: () => Promise<void>
   settingsEnv?: string
 }) {
   const theme = useTheme()
@@ -61,6 +72,9 @@ function AppInner({
   const [focus, setFocus] = useState<Focus>("sidebar")
   const focusRef = useRef(focus)
   focusRef.current = focus
+  const [view, setView] = useState<"main" | "env-editor">("main")
+  const viewRef = useRef(view)
+  viewRef.current = view
   const [helpVisible, setHelpVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
@@ -74,6 +88,16 @@ function AppInner({
     requestName: string
     returnFocus: Focus
   }>({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
+  const colorPickerOpenRef = useRef(false)
+  const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
+  const envDeletePendingRef = useRef(envDeletePending)
+  useEffect(() => { envDeletePendingRef.current = envDeletePending }, [envDeletePending])
+  const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
+
+  useEffect(() => {
+    colorPickerOpenRef.current = colorPickerOpen
+  }, [colorPickerOpen])
 
   const { collection, loading, error } = useCollection(
     collectionDir,
@@ -83,6 +107,9 @@ function AppInner({
 
   useEffect(() => {
     keymap.setData("app.focus", focus)
+    if (focus === "env-header") {
+      headerFieldRef.current = "name"
+    }
   }, [focus, keymap])
 
   useEffect(() => {
@@ -117,6 +144,10 @@ function AppInner({
   }, [eb.editState.mode, keymap])
 
   useEffect(() => {
+    keymap.setData("app.view", view)
+  }, [view, keymap])
+
+  useEffect(() => {
     if (focus !== "request") {
       const state = eb.editState
       if (state.mode === "editing") {
@@ -129,7 +160,7 @@ function AppInner({
 
   const envState = useEnvironments(
     environmentsDir,
-    envList,
+    envNames,
     initialEnvName,
     settingsEnv,
     onEnvChange,
@@ -148,6 +179,49 @@ function AppInner({
 
   const envStateRef = useRef(envState)
   envStateRef.current = envState
+
+  const envEditor = useEnvironmentEditor({
+    environmentsDir,
+    envNames,
+    activeEnvName: envState.activeEnv?.name,
+    onEnvsChanged: onEnvListChanged,
+    onActiveEnvChanged: (name: string) => {
+      if (name === "") {
+        onEnvChange(null)
+      } else {
+        onEnvChange(name)
+      }
+    },
+    onEnvDataChanged: () => {
+      envStateRef.current.reloadActiveEnv().catch(() => {})
+    },
+  })
+  const envEditorRef = useRef(envEditor)
+  envEditorRef.current = envEditor
+  const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
+
+  const envStats = useMemo(() => {
+    if (!envEditor.draft) return ""
+    const rows = envEditor.draft.varRows
+    const activeCount = rows.filter((r) => r.enabled).length
+    return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
+  }, [envEditor.draft])
+
+  const colorItems = useMemo(() => {
+    const t = theme as unknown as Record<string, string>
+    return [
+      { id: "none", label: "(none)", value: undefined },
+      ...Array.from(VALID_COLORS).map((c) => ({
+        id: c,
+        label: c,
+        value: c,
+        indicatorColor: t[c] ?? theme.textMuted,
+      })),
+    ] satisfies PickerItem[]
+  }, [theme])
+
+  const activeColorId = envEditor.draft?.color ?? "none"
+  const headerFieldRef = useRef<"name" | "color">("name")
 
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -243,8 +317,9 @@ function AppInner({
         },
         run: () =>
           setFocus((prev) => {
-            const next = cycleFocus(prev, 1)
-            if (next === "request") ebRef.current.enterBrowse()
+            const next = cycleFocus(prev, 1, viewRef.current)
+            if (next === "request" && viewRef.current === "main")
+              ebRef.current.enterBrowse()
             return next
           }),
       },
@@ -269,8 +344,9 @@ function AppInner({
         },
         run: () =>
           setFocus((prev) => {
-            const next = cycleFocus(prev, -1)
-            if (next === "request") ebRef.current.enterBrowse()
+            const next = cycleFocus(prev, -1, viewRef.current)
+            if (next === "request" && viewRef.current === "main")
+              ebRef.current.enterBrowse()
             return next
           }),
       },
@@ -306,8 +382,19 @@ function AppInner({
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "base" &&
-      keymap.getData("app.overlay") === "none",
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
     commands: [
+      {
+        name: "env.editor-open",
+        enabled: () => keymap.getData("app.focus") === "sidebar",
+        run: () => {
+          const name = envStateRef.current.activeEnv?.name
+          envEditorRef.current.openEditor(name)
+          setView("env-editor")
+          setFocus("env-sidebar")
+        },
+      },
       {
         name: "request.send",
         run: () => trySendRef.current?.(),
@@ -352,6 +439,7 @@ function AppInner({
       { key: keybinds.request_send, cmd: "request.send" },
       { key: keybinds.request_save, cmd: "request.save" },
       { key: keybinds.env_cycle, cmd: "env.cycle" },
+      { key: keybinds.env_editor, cmd: "env.editor-open" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
@@ -363,7 +451,8 @@ function AppInner({
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "browse" &&
-      keymap.getData("app.overlay") === "none",
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
     commands: [
       { name: "browse.up", run: () => ebRef.current.browseUp() },
       { name: "browse.down", run: () => ebRef.current.browseDown() },
@@ -410,7 +499,8 @@ function AppInner({
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "edit" &&
-      keymap.getData("app.overlay") === "none",
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
     commands: [
       { name: "edit.commit", run: () => ebRef.current.commitEdit() },
       { name: "edit.cancel", run: () => ebRef.current.cancelEdit() },
@@ -471,6 +561,55 @@ function AppInner({
     return dispose
   }, [saveState.kind, confirmSelection, doSave, keymap])
 
+  // ── Overlay: Delete env confirmation ──────────────────────────────
+  useEffect(() => {
+    if (!envDeletePending) return
+    const ee = envEditorRef.current
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || (name === "return" && deleteConfirmSelection === 0)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          const envName = envDeletePending
+          if (!envName) return
+          setEnvDeletePending(null)
+          ee.deleteEnv()
+            .then(() => {
+              clearSaveTimer()
+              setSaveState({ kind: "success", message: `Deleted ${envName}` })
+              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), SAVE_SUCCESS_MS)
+            })
+            .catch((e: unknown) => {
+              const msg = e instanceof Error ? e.message : String(e)
+              clearSaveTimer()
+              setSaveState({ kind: "error", message: msg })
+              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), SAVE_SUCCESS_MS)
+            })
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && deleteConfirmSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setEnvDeletePending(null)
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setDeleteConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setDeleteConfirmSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [envDeletePending, deleteConfirmSelection, keymap])
+
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {
     if (!helpVisible) return
@@ -487,6 +626,244 @@ function AppInner({
     )
     return dispose
   }, [helpVisible, keymap])
+
+  // ── Env Editor Mode ───────────────────────────────────────────────
+  useEffect(() => {
+    if (view !== "env-editor" || keymap.getData("app.overlay") !== "none")
+      return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const ee = envEditorRef.current
+
+        // Global env-editor commands — work from any pane
+        if (e.name === "s" && e.ctrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.save()
+          return
+        }
+        if (e.name === "n" && e.ctrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.openEditor()
+          setFocus("env-header")
+          return
+        }
+        if (e.name === "k" && e.ctrl && ee.selectedEnvName) {
+          e.preventDefault()
+          e.stopPropagation()
+          const target = `${ee.selectedEnvName} - Copy`
+          ee.cloneEnv(target)
+          return
+        }
+        if (e.name === "w" && e.ctrl && ee.selectedEnvName) {
+          e.preventDefault()
+          e.stopPropagation()
+          setEnvDeletePending(ee.selectedEnvName)
+          setDeleteConfirmSelection(0)
+          return
+        }
+
+        const f = focusRef.current
+
+        if (f === "env-sidebar") {
+          if (e.name === "up" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            const idx = ee.selectedEnvName
+              ? names.indexOf(ee.selectedEnvName)
+              : -1
+            const prev = idx > 0 ? idx - 1 : names.length - 1
+            if (names[prev]) ee.selectEnv(names[prev]!)
+            return
+          }
+          if (e.name === "down" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            const idx = ee.selectedEnvName
+              ? names.indexOf(ee.selectedEnvName)
+              : -1
+            const next = idx < names.length - 1 ? idx + 1 : 0
+            if (names[next]) ee.selectEnv(names[next]!)
+            return
+          }
+        }
+
+        if (f === "env-header") {
+          if (e.name === "tab" && !e.shift) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "name") {
+              headerFieldRef.current = "color"
+              envHeaderRef.current?.focusColor()
+            } else {
+              headerFieldRef.current = "name"
+              setFocus("env-vars")
+            }
+            return
+          }
+          if (e.name === "tab" && e.shift) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "color") {
+              headerFieldRef.current = "name"
+              envHeaderRef.current?.focusName()
+            } else {
+              headerFieldRef.current = "color"
+              setFocus("env-sidebar")
+            }
+            return
+          }
+          if (e.name === "return") {
+            if (colorPickerOpenRef.current) {
+              return
+            }
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "name") {
+              headerFieldRef.current = "color"
+            }
+            setColorPickerOpen(true)
+            return
+          }
+          if (e.name === "escape" && colorPickerOpenRef.current) {
+            e.preventDefault()
+            e.stopPropagation()
+            setColorPickerOpen(false)
+            return
+          }
+        }
+
+        if (f === "env-vars") {
+          const inEdit = ee.editingField !== null
+          const rows = ee.draft?.varRows.length ?? 0
+
+          // Up/Down navigate rows. ↓ on last row → highlight placeholder.
+          // ↓ on placeholder → add row + start editing.
+          if (e.name === "up" && !inEdit) {
+            e.preventDefault()
+            e.stopPropagation()
+            const prev = Math.max(0, ee.selectedRowIndex - 1)
+            ee.selectRow(prev)
+            return
+          }
+          if (e.name === "down" && !inEdit) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (ee.selectedRowIndex >= rows - 1) {
+              if (ee.selectedRowIndex >= rows) {
+                ee.addVar()
+              } else {
+                ee.selectRow(rows)
+              }
+            } else {
+              ee.selectRow(ee.selectedRowIndex + 1)
+            }
+            return
+          }
+
+          // Enter: cycle editing. On placeholder → add + edit.
+          // On empty list → add first row.
+          if (e.name === "return") {
+            e.preventDefault()
+            e.stopPropagation()
+            if (rows === 0) {
+              ee.addVar()
+              return
+            }
+            if (ee.selectedRowIndex >= rows) {
+              ee.addVar()
+              return
+            }
+            if (ee.editingField === null) {
+              ee.editField("key")
+            } else if (ee.editingField === "key") {
+              ee.editField("value")
+            } else {
+              const next = ee.selectedRowIndex + 1
+              if (next < rows) {
+                ee.selectRow(next)
+                ee.editField("key")
+              } else {
+                ee.editField(null)
+              }
+            }
+            return
+          }
+
+          // Tab switch subfield during edit (like headers/params edit.tab)
+          if (e.name === "tab" && !e.shift && inEdit) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (ee.editingField === "key") {
+              ee.editField("value")
+            } else {
+              ee.editField("key")
+            }
+            return
+          }
+
+          // Esc: cancel edit OR leave placeholder back to last row
+          if (e.name === "escape") {
+            if (inEdit) {
+              e.preventDefault()
+              e.stopPropagation()
+              ee.editField(null)
+              return
+            }
+            if (ee.selectedRowIndex >= rows) {
+              e.preventDefault()
+              e.stopPropagation()
+              ee.selectRow(Math.max(0, rows - 1))
+              return
+            }
+          }
+
+          // Ctrl+D delete row (like headers/params browse_delete)
+          if (
+            e.name === "d" &&
+            e.ctrl &&
+            !inEdit &&
+            ee.selectedRowIndex < rows
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.deleteVar(ee.selectedRowIndex)
+            return
+          }
+
+          // Ctrl+X toggle enabled (like headers/params browse_toggle)
+          if (
+            e.name === "x" &&
+            e.ctrl &&
+            !inEdit &&
+            ee.selectedRowIndex < rows
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.toggleVar(ee.selectedRowIndex)
+            return
+          }
+        }
+
+        // View-level Esc: close editor (only when no sub-state consumed it)
+        if (e.name === "escape" && envDeletePendingRef.current === null) {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.closeEditor()
+          setView("main")
+          setFocus("sidebar")
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [view, keymap])
 
   return (
     <box
@@ -508,88 +885,169 @@ function AppInner({
           position: "relative",
         }}
       >
-        <box
-          style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
-        >
-          <Sidebar
-            collection={collection}
-            loading={loading}
-            error={error}
-            selectedIndex={selectedIndex}
-            focused={focus === "sidebar"}
-            keybinds={keybinds}
-            dirtyRequestIds={draft.dirtyRequestIds}
-          />
+        {view === "main" ? (
           <box
-            style={{
-              flexDirection: "column",
-              flexGrow: 1,
-              gap: 1,
-              minHeight: 0,
-            }}
+            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
           >
-            <UrlBar
-              method={draft.draft?.method ?? ""}
-              url={draft.draft?.url ?? ""}
-              params={draft.draft?.params ?? {}}
-              setUrl={draft.setUrl}
-              onDefocus={draft.syncUrlParams}
-              focused={focus === "urlbar"}
-              sending={responseState.status === "sending"}
-              activeEnv={envState.activeEnv}
+            <Sidebar
+              collection={collection}
+              loading={loading}
+              error={error}
+              selectedIndex={selectedIndex}
+              focused={focus === "sidebar"}
+              keybinds={keybinds}
+              dirtyRequestIds={draft.dirtyRequestIds}
             />
-            {layout === "side-by-side" ? (
-              <box
-                style={{
-                  flexDirection: "row",
-                  flexGrow: 1,
-                  gap: 1,
-                  minHeight: 0,
-                }}
-              >
-                <RequestPane
-                  request={draft.draft}
-                  editState={eb.editState}
-                  editKey={eb.editKey}
-                  editValue={eb.editValue}
-                  setEditKey={eb.setEditKey}
-                  setEditValue={eb.setEditValue}
-                  focused={focus === "request"}
-                  activeTab={eb.activeTab}
-                  activeEnv={envState.activeEnv}
-                />
-                <ResponsePane
-                  state={responseState}
-                  focused={focus === "response"}
-                />
-              </box>
-            ) : (
-              <>
-                <RequestPane
-                  request={draft.draft}
-                  editState={eb.editState}
-                  editKey={eb.editKey}
-                  editValue={eb.editValue}
-                  setEditKey={eb.setEditKey}
-                  setEditValue={eb.setEditValue}
-                  focused={focus === "request"}
-                  activeTab={eb.activeTab}
-                  activeEnv={envState.activeEnv}
-                />
-                <ResponsePane
-                  state={responseState}
-                  focused={focus === "response"}
-                />
-              </>
-            )}
+            <box
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                gap: 1,
+                minHeight: 0,
+              }}
+            >
+              <UrlBar
+                method={draft.draft?.method ?? ""}
+                url={draft.draft?.url ?? ""}
+                params={draft.draft?.params ?? {}}
+                setUrl={draft.setUrl}
+                onDefocus={draft.syncUrlParams}
+                focused={focus === "urlbar"}
+                sending={responseState.status === "sending"}
+                activeEnv={envState.activeEnv}
+              />
+              {layout === "side-by-side" ? (
+                <box
+                  style={{
+                    flexDirection: "row",
+                    flexGrow: 1,
+                    gap: 1,
+                    minHeight: 0,
+                  }}
+                >
+                  <RequestPane
+                    request={draft.draft}
+                    editState={eb.editState}
+                    editKey={eb.editKey}
+                    editValue={eb.editValue}
+                    setEditKey={eb.setEditKey}
+                    setEditValue={eb.setEditValue}
+                    focused={focus === "request"}
+                    activeTab={eb.activeTab}
+                    activeEnv={envState.activeEnv}
+                  />
+                  <ResponsePane
+                    state={responseState}
+                    focused={focus === "response"}
+                  />
+                </box>
+              ) : (
+                <>
+                  <RequestPane
+                    request={draft.draft}
+                    editState={eb.editState}
+                    editKey={eb.editKey}
+                    editValue={eb.editValue}
+                    setEditKey={eb.setEditKey}
+                    setEditValue={eb.setEditValue}
+                    focused={focus === "request"}
+                    activeTab={eb.activeTab}
+                    activeEnv={envState.activeEnv}
+                  />
+                  <ResponsePane
+                    state={responseState}
+                    focused={focus === "response"}
+                  />
+                </>
+              )}
+            </box>
           </box>
-        </box>
+        ) : (
+          <box
+            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
+          >
+            <EnvSidebar
+              envNames={envEditor.envNames}
+              selectedEnvName={envEditor.selectedEnvName}
+              activeEnvName={envState.activeEnv?.name}
+              envColors={envColors}
+              dirty={envEditor.dirty}
+              onSelectEnv={envEditor.selectEnv}
+              onCreate={() => {
+                envEditor.openEditor()
+                setFocus("env-vars")
+              }}
+              onClone={() => {
+                if (envEditor.selectedEnvName) {
+                  const target = `${envEditor.selectedEnvName} - Copy`
+                  envEditor.cloneEnv(target)
+                }
+              }}
+              onDelete={() => {
+                if (envEditor.selectedEnvName) {
+                  setEnvDeletePending(envEditor.selectedEnvName)
+                  setDeleteConfirmSelection(0)
+                }
+              }}
+              focused={focus === "env-sidebar"}
+            />
+            <box
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                gap: 1,
+                minHeight: 0,
+              }}
+            >
+              <EnvHeaderPane
+                ref={envHeaderRef}
+                name={envEditor.draft?.name ?? ""}
+                color={envEditor.draft?.color}
+                onNameChange={envEditor.setName}
+                focused={focus === "env-header"}
+              />
+              <EnvEditorPane
+                draft={envEditor.draft}
+                selectedRowIndex={envEditor.selectedRowIndex}
+                editingField={envEditor.editingField}
+                saving={envEditor.saving}
+                error={envEditor.error}
+                onSelectRow={envEditor.selectRow}
+                onUpdateVarKey={envEditor.updateVarKey}
+                onUpdateVarValue={envEditor.updateVarValue}
+                onToggleVar={envEditor.toggleVar}
+                onDeleteVar={envEditor.deleteVar}
+                focused={focus === "env-vars"}
+              />
+            </box>
+          </box>
+        )}
         {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
+        {colorPickerOpen && (
+          <PickerOverlay
+            visible
+            title="Color"
+            items={colorItems}
+            activeId={activeColorId}
+            onSelect={(item) => {
+              envEditor.setColor(item.value as string | undefined)
+              setColorPickerOpen(false)
+            }}
+            onClose={() => setColorPickerOpen(false)}
+          />
+        )}
         {saveState.kind === "confirming" && (
           <ConfirmOverlay
             visible
             message={`Save changes to ${saveState.requestId}?`}
             selectedIndex={confirmSelection}
+          />
+        )}
+        {envDeletePending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Delete environment "${envDeletePending}"?`}
+            selectedIndex={deleteConfirmSelection}
           />
         )}
         {previewIndex !== null && (
@@ -645,6 +1103,8 @@ function AppInner({
         envColor={envState.activeEnv?.color}
         saveState={saveState}
         kb={keybinds}
+        view={view}
+        envStats={envStats}
       />
     </box>
   )
@@ -653,7 +1113,7 @@ function AppInner({
 export function App({
   collectionDir,
   environmentsDir,
-  envList,
+  envList: initialEnvList,
   initialEnvName,
   settingsEnv: initialSettingsEnv,
   keybinds: keybinds,
@@ -688,6 +1148,25 @@ export function App({
     [updateConfig],
   )
 
+  const [envNames, setEnvNames] = useState<string[]>(initialEnvList)
+  const [envColors, setEnvColors] = useState<Record<string, string | undefined>>({})
+
+  useEffect(() => {
+    listEnvironmentsWithColors(environmentsDir).then((items) => {
+      const colors: Record<string, string | undefined> = {}
+      for (const item of items) colors[item.name] = item.color
+      setEnvColors(colors)
+    })
+  }, [environmentsDir])
+
+  const handleEnvListChanged = useCallback(async () => {
+    const items = await listEnvironmentsWithColors(environmentsDir)
+    setEnvNames(items.map((i) => i.name))
+    const colors: Record<string, string | undefined> = {}
+    for (const item of items) colors[item.name] = item.color
+    setEnvColors(colors)
+  }, [environmentsDir])
+
   const handleEnvChange = useCallback(
     (name: string | null) => {
       const envName = name ?? undefined
@@ -702,7 +1181,8 @@ export function App({
       <AppInner
         collectionDir={collectionDir}
         environmentsDir={environmentsDir}
-        envList={envList}
+        envNames={envNames}
+        envColors={envColors}
         initialEnvName={initialEnvName}
         activeIndex={activeIndex}
         previewIndex={previewIndex}
@@ -712,6 +1192,7 @@ export function App({
         initialLayout={config.layout}
         onLayoutChange={handleLayoutChange}
         onEnvChange={handleEnvChange}
+        onEnvListChanged={handleEnvListChanged}
         settingsEnv={settingsEnv}
       />
     </ThemeProvider>

@@ -10,6 +10,7 @@ export interface UseEnvironmentsResult {
   error: Error | null
   indicatorLabel: string
   cycle: (delta: number) => void
+  reloadActiveEnv: () => Promise<void>
 }
 
 export function useEnvironments(
@@ -91,6 +92,24 @@ export function useEnvironments(
     [dir, envList, activeIndex, onEnvChange],
   )
 
+  const reloadActiveEnv = useCallback(async () => {
+    if (activeIndex < 0 || !envList[activeIndex]) return
+    genRef.current += 1
+    const gen = genRef.current
+    const name = envList[activeIndex]
+    try {
+      const loaded = await env.loadEnvironment(dir, name)
+      if (gen !== genRef.current) return
+      setActiveEnv(loaded)
+      setError(null)
+    } catch (e: unknown) {
+      if (gen !== genRef.current) return
+      const err = e instanceof Error ? e : new Error(String(e))
+      setError(err)
+      setActiveEnv(null)
+    }
+  }, [dir, envList, activeIndex])
+
   const indicatorLabel = useMemo(
     () => envIndicatorLabel(envList, activeIndex, activeEnv, error),
     [envList, activeIndex, activeEnv, error],
@@ -103,5 +122,6 @@ export function useEnvironments(
     error,
     indicatorLabel,
     cycle,
+    reloadActiveEnv,
   }
 }

@@ -110,6 +110,8 @@ export function StatusBar(input: {
   saveState: SaveState
   kb: Keybinds
   spinnerFrame?: string
+  view?: "main" | "env-editor"
+  envStats?: string
 }) {
   const theme = useTheme()
   const sections = statusBarText(input)
@@ -144,6 +146,14 @@ export function StatusBar(input: {
         ? `✗ ${input.saveState.message}`
         : null
 
+  const isEnvEditor = input.view === "env-editor"
+  const envEditorSegments = [
+    { key: "Esc", word: "back" },
+    { key: "^S", word: "save" },
+    { key: "^K", word: "clone" },
+    { key: "^W", word: "delete env" },
+  ]
+
   return (
     <box
       style={{
@@ -160,6 +170,10 @@ export function StatusBar(input: {
           <Badge bg={theme.primary} fg={theme.background}>
             {saveFlash}
           </Badge>
+        ) : isEnvEditor ? (
+          <Badge bg={theme.backgroundElement} fg={theme.info}>
+            {input.envStats || "Env Editor"}
+          </Badge>
         ) : (
           <Badge bg={theme.backgroundElement} fg={envFg}>
             {envText}
@@ -167,7 +181,7 @@ export function StatusBar(input: {
         )}
       </box>
       <box style={{ flexDirection: "row" }}>
-        {rightSegments.map((seg, i) => (
+        {(isEnvEditor ? envEditorSegments : rightSegments).map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>
             {i > 0 ? <text fg={theme.textMuted}> · </text> : null}
             <text fg={theme.primary}>{seg.key}</text>
