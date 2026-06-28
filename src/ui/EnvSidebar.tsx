@@ -58,6 +58,7 @@ export function EnvSidebar({
         <scrollbox
           ref={scrollRef}
           scrollY
+          key={envNames.join("|")}
           style={{ flexGrow: 1 }}
           verticalScrollbarOptions={{
             trackOptions: {
@@ -82,16 +83,13 @@ export function EnvSidebar({
                     : undefined,
                 }}
               >
-                <text fg={isActive ? theme.text : theme.textMuted}>
-                  {name}
-                </text>
+                <text fg={isActive ? theme.text : theme.textMuted}>{name}</text>
                 {isDirty && <text fg={theme.warning}>●</text>}
               </box>
             )
           })}
         </scrollbox>
       )}
-
     </box>
   )
 }
