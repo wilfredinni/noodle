@@ -6,7 +6,7 @@ export interface OverlayProps {
   visible: boolean
   width: number
   children: ReactNode
-  height?: number | string
+  height?: number | `auto` | `${number}%`
   padding?: number
   gap?: number
   overflow?: "hidden" | "visible"
