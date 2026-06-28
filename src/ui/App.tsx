@@ -88,6 +88,10 @@ function AppInner({
   }>({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const colorPickerOpenRef = useRef(false)
+  const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
+  const envDeletePendingRef = useRef(envDeletePending)
+  useEffect(() => { envDeletePendingRef.current = envDeletePending }, [envDeletePending])
+  const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
 
   useEffect(() => {
     colorPickerOpenRef.current = colorPickerOpen
@@ -555,6 +559,55 @@ function AppInner({
     return dispose
   }, [saveState.kind, confirmSelection, doSave, keymap])
 
+  // ── Overlay: Delete env confirmation ──────────────────────────────
+  useEffect(() => {
+    if (!envDeletePending) return
+    const ee = envEditorRef.current
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || (name === "return" && deleteConfirmSelection === 0)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          const envName = envDeletePending
+          if (!envName) return
+          setEnvDeletePending(null)
+          ee.deleteEnv()
+            .then(() => {
+              clearSaveTimer()
+              setSaveState({ kind: "success", message: `Deleted ${envName}` })
+              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), SAVE_SUCCESS_MS)
+            })
+            .catch((e: unknown) => {
+              const msg = e instanceof Error ? e.message : String(e)
+              clearSaveTimer()
+              setSaveState({ kind: "error", message: msg })
+              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), SAVE_SUCCESS_MS)
+            })
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && deleteConfirmSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setEnvDeletePending(null)
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setDeleteConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setDeleteConfirmSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [envDeletePending, deleteConfirmSelection, keymap])
+
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {
     if (!helpVisible) return
@@ -599,7 +652,8 @@ function AppInner({
         if (e.name === "w" && e.ctrl && ee.selectedEnvName) {
           e.preventDefault()
           e.stopPropagation()
-          ee.deleteEnv()
+          setEnvDeletePending(ee.selectedEnvName)
+          setDeleteConfirmSelection(0)
           return
         }
 
@@ -790,7 +844,7 @@ function AppInner({
         }
 
         // View-level Esc: close editor (only when no sub-state consumed it)
-        if (e.name === "escape") {
+        if (e.name === "escape" && envDeletePendingRef.current === null) {
           e.preventDefault()
           e.stopPropagation()
           ee.closeEditor()
@@ -921,7 +975,12 @@ function AppInner({
                   envEditor.cloneEnv(target)
                 }
               }}
-              onDelete={() => envEditor.deleteEnv()}
+              onDelete={() => {
+                if (envEditor.selectedEnvName) {
+                  setEnvDeletePending(envEditor.selectedEnvName)
+                  setDeleteConfirmSelection(0)
+                }
+              }}
               focused={focus === "env-sidebar"}
             />
             <box
@@ -974,6 +1033,13 @@ function AppInner({
             visible
             message={`Save changes to ${saveState.requestId}?`}
             selectedIndex={confirmSelection}
+          />
+        )}
+        {envDeletePending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Delete environment "${envDeletePending}"?`}
+            selectedIndex={deleteConfirmSelection}
           />
         )}
         {previewIndex !== null && (
