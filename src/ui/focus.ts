@@ -30,7 +30,7 @@ export function hintForFocus(
       return "[↑/↓] select · [N] new · [C] clone · [d] delete · [Tab] next"
     }
     if (focus === "env-vars") {
-      return "[↑/↓] select · [Enter] edit · [Space] toggle · [a] add · [d] delete · [Tab] next"
+      return "[↑/↓] select · [Enter] edit · [^x] toggle · [a] add · [^d] delete var · [Tab] next"
     }
     return "[Tab] next · [^S] save · [Esc] back"
   }

@@ -659,13 +659,13 @@ function AppInner({
             }
             return
           }
-          if (e.name === "space" && ee.editingField === null) {
+          if (e.name === "x" && e.ctrl && ee.editingField === null) {
             e.preventDefault()
             e.stopPropagation()
             ee.toggleVar(ee.selectedRowIndex)
             return
           }
-          if (e.name === "d" && ee.editingField === null) {
+          if (e.name === "d" && e.ctrl && ee.editingField === null) {
             e.preventDefault()
             e.stopPropagation()
             ee.deleteVar(ee.selectedRowIndex)
