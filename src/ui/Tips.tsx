@@ -1,9 +1,10 @@
+import { useMemo, useState } from "react"
 import { useTheme } from "./theme"
 
 const TIPS = [
   "send the request with {^↩} — works from any pane",
   "save the current request to disk with {^S}",
-  "cycle environments with {^.}",
+  "cycle environments with {^N}",
   "cycle focus between panes with {Tab} / {Shift+Tab}",
   "open the keybinding cheatsheet overlay with {F1}",
   "variables use $var syntax — defined in environment files",
@@ -53,8 +54,8 @@ export function parseTip(tip: string): TipPart[] {
 export function Tips() {
   const theme = useTheme()
 
-  const tip = TIPS[Math.floor(Math.random() * TIPS.length)] ?? TIPS[0]
-  const parts = parseTip(tip)
+  const [tip] = useState(() => TIPS[Math.floor(Math.random() * TIPS.length)] ?? TIPS[0])
+  const parts = useMemo(() => parseTip(tip), [tip])
 
   return (
     <box
