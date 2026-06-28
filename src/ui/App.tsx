@@ -554,10 +554,24 @@ function AppInner({
         const e = ctx.event
         const ee = envEditorRef.current
 
+        // Global env-editor commands — work from any pane
         if (e.name === "s" && e.ctrl) {
           e.preventDefault()
           e.stopPropagation()
           ee.save()
+          return
+        }
+        if (e.name === "k" && e.ctrl && ee.selectedEnvName) {
+          e.preventDefault()
+          e.stopPropagation()
+          const target = `${ee.selectedEnvName} - Copy`
+          ee.cloneEnv(target)
+          return
+        }
+        if (e.name === "w" && e.ctrl && ee.selectedEnvName) {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.deleteEnv()
           return
         }
 
@@ -591,19 +605,6 @@ function AppInner({
             e.stopPropagation()
             ee.openEditor()
             setFocus("env-vars")
-            return
-          }
-          if (e.name === "c" && ee.selectedEnvName) {
-            e.preventDefault()
-            e.stopPropagation()
-            const target = `${ee.selectedEnvName} - Copy`
-            ee.cloneEnv(target)
-            return
-          }
-          if (e.name === "d" && ee.selectedEnvName) {
-            e.preventDefault()
-            e.stopPropagation()
-            ee.deleteEnv()
             return
           }
         }

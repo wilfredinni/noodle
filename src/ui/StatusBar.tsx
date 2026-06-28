@@ -150,8 +150,8 @@ export function StatusBar(input: {
   const envEditorSegments = [
     { key: "Esc", word: "back" },
     { key: "^S", word: "save" },
-    { key: "Tab", word: "focus" },
-    { key: "↑/↓", word: "navigate" },
+    { key: "^K", word: "clone" },
+    { key: "^W", word: "delete env" },
   ]
 
   return (

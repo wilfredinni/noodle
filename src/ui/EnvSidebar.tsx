@@ -91,23 +91,7 @@ export function EnvSidebar({
           })}
         </scrollbox>
       )}
-      <box style={{ flexDirection: "column", gap: 0 }}>
-        <text fg={theme.primary}>[N] + New</text>
-        <text
-          fg={
-            selectedEnvName ? theme.primary : theme.textMuted
-          }
-        >
-          [C] Clone
-        </text>
-        <text
-          fg={
-            selectedEnvName ? theme.error : theme.textMuted
-          }
-        >
-          [D] Delete
-        </text>
-      </box>
+
     </box>
   )
 }

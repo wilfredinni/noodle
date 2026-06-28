@@ -28,13 +28,13 @@ export function hintForFocus(
 ): string {
   if (view === "env-editor") {
     if (focus === "env-sidebar") {
-      return "[↑/↓] select · [N] new · [C] clone · [d] delete · [Tab] next"
+      return "[↑/↓] select · [N] new · [^W] delete · [^K] clone · [Tab] next"
     }
     if (focus === "env-header") {
-      return "[Tab] next · [^S] save · [Esc] back"
+      return "[Tab] · [Enter] toggle field · [^S] save · [^K] clone · [^W] delete env"
     }
     if (focus === "env-vars") {
-      return "[↑/↓] navigate · [Enter] edit · [^x] toggle · [^d] delete · [Esc] cancel"
+      return "[↑/↓] navigate · [Enter] edit · [^x] toggle · [^d] delete · [^K] clone · [^W] delete env"
     }
     return "[Tab] next · [^S] save · [Esc] back"
   }
