@@ -20,14 +20,10 @@ export function TimelineTab({
 
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
-  const [activeSubTab, setActiveSubTab] = useState<"request" | "response">(
-    "request",
-  )
 
   useEffect(() => {
     setSelectedIdx(0)
     setExpandedIdx(null)
-    setActiveSubTab("request")
   }, [entries.length])
 
   useKeyboard((key) => {
@@ -42,14 +38,6 @@ export function TimelineTab({
       scrollRef.current?.scrollBy(1)
     } else if (key.name === "return") {
       setExpandedIdx((prev) => (prev === selectedIdx ? null : selectedIdx))
-    } else if (key.name === "left") {
-      if (expandedIdx === selectedIdx && activeSubTab === "response") {
-        setActiveSubTab("request")
-      }
-    } else if (key.name === "right") {
-      if (expandedIdx === selectedIdx && activeSubTab === "request") {
-        setActiveSubTab("response")
-      }
     }
   })
 
@@ -73,7 +61,6 @@ export function TimelineTab({
           entry={entry}
           isSelected={idx === selectedIdx}
           isExpanded={idx === expandedIdx}
-          activeSubTab={activeSubTab}
         />
       ))}
     </scrollbox>

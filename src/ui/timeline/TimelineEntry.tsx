@@ -1,8 +1,7 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
 import { LeftBar } from "../borders"
-import { formatHeaders, statusColor, formatStatusLine } from "../format"
-import { Badge } from "../Badge"
+import { formatHeaders, formatStatusLine } from "../format"
 import {
   entryMethod,
   entryStatus,
@@ -11,6 +10,7 @@ import {
   relativeTime,
   truncateUrl,
 } from "./formatTimeline"
+import { methodColor } from "../formatRequest"
 
 function formatRequestHeaders(entry: TimelineEntryType): string[] {
   const lines: string[] = []
@@ -42,19 +42,17 @@ export function TimelineEntry({
   entry,
   isSelected,
   isExpanded,
-  activeSubTab,
 }: {
   entry: TimelineEntryType
   isSelected: boolean
   isExpanded: boolean
-  activeSubTab: "request" | "response"
 }) {
   const theme = useTheme()
   const status = entryStatus(entry)
   const hasError = entry.error !== undefined
 
   const prefix = isExpanded ? "▾" : "▸"
-  const rowBg = isSelected ? theme.backgroundElement : "default"
+  const rowBg = isSelected ? theme.backgroundElement : undefined
   const rowFg = isSelected ? theme.text : theme.textMuted
 
   return (
@@ -68,30 +66,15 @@ export function TimelineEntry({
         }}
       >
         <text fg={rowFg}>{prefix} </text>
-        <Badge
-          bg={statusColor(
-            entryMethod(entry) === "GET"
-              ? 200
-              : entryMethod(entry) === "POST"
-                ? 201
-                : entryMethod(entry) === "DELETE"
-                  ? 204
-                  : 200,
-            theme,
-          )}
-          fg={theme.background}
-        >
-          {entryMethod(entry)}
-        </Badge>
+        <text fg={methodColor(entryMethod(entry), theme)}>
+          {entryMethod(entry).padEnd(7)}
+        </text>
         {status !== null ? (
-          <Badge
-            bg={entryStatusFg(status, theme)}
-            fg={status === 0 ? theme.background : theme.background}
-          >
-            {status === 0 ? "ERR" : `${status}`}
-          </Badge>
+          <text fg={entryStatusFg(status, theme)}>
+            {status === 0 ? "ERR " : `${status} `}
+          </text>
         ) : (
-          <text fg={theme.textMuted}> --- </text>
+          <text fg={theme.textMuted}>--- </text>
         )}
         <text fg={theme.text} style={{ flexGrow: 1 }}>
           {truncateUrl(formatRequestUrl(entry), 50)}
@@ -111,84 +94,99 @@ export function TimelineEntry({
             gap: 0,
           }}
         >
-          <box style={{ flexDirection: "row", gap: 1, paddingLeft: 1 }}>
-            <text
-              fg={
-                activeSubTab === "request" ? theme.primary : theme.textMuted
-              }
-            >
-              Request
-            </text>
-            <text fg={theme.textMuted}>|</text>
-            <text
-              fg={
-                activeSubTab === "response" ? theme.primary : theme.textMuted
-              }
-            >
-              Response
-            </text>
+          <box
+            border={["bottom"]}
+            borderColor={theme.borderSubtle}
+            style={{ paddingLeft: 1 }}
+          >
+            <text fg={theme.text}>Request</text>
           </box>
-
-          {activeSubTab === "request" ? (
-            <box style={{ flexDirection: "column", gap: 0 }}>
+          <box style={{ flexDirection: "column", gap: 0 }}>
+            <box
+              border={[...LeftBar.border]}
+              customBorderChars={LeftBar.customBorderChars}
+              borderColor={theme.borderSubtle}
+            >
+              <text fg={theme.text}>
+                {" "}
+                {entryMethod(entry)} {formatRequestUrl(entry)}
+              </text>
+            </box>
+            {authSummary(entry.request.auth) && (
               <box
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={theme.borderSubtle}
               >
-                <text fg={theme.text}>
+                <text fg={theme.textMuted}>
                   {" "}
-                  {entryMethod(entry)} {formatRequestUrl(entry)}
+                  {authSummary(entry.request.auth)}
                 </text>
               </box>
-              {authSummary(entry.request.auth) && (
-                <box
-                  border={[...LeftBar.border]}
-                  customBorderChars={LeftBar.customBorderChars}
-                  borderColor={theme.borderSubtle}
-                >
-                  <text fg={theme.textMuted}>
-                    {" "}
-                    {authSummary(entry.request.auth)}
-                  </text>
-                </box>
-              )}
-              {formatRequestHeaders(entry).map((h) => (
-                <box
-                  key={h}
-                  border={[...LeftBar.border]}
-                  customBorderChars={LeftBar.customBorderChars}
-                  borderColor={theme.borderSubtle}
-                >
-                  <text fg={theme.textMuted}> {h}</text>
-                </box>
-              ))}
-              {entry.request.body && (
-                <box
-                  border={[...LeftBar.border]}
-                  customBorderChars={LeftBar.customBorderChars}
-                  borderColor={theme.borderSubtle}
-                >
-                  <text fg={theme.text}> {entry.request.body}</text>
-                </box>
-              )}
-              {entry.envName && (
-                <box
-                  border={[...LeftBar.border]}
-                  customBorderChars={LeftBar.customBorderChars}
-                  borderColor={theme.borderSubtle}
-                >
-                  <text fg={theme.info}> env: {entry.envName}</text>
-                </box>
-              )}
-            </box>
-          ) : (
-            <box style={{ flexDirection: "column", gap: 0 }}>
-              {(() => {
-                const r = entry.response
-                if (r) {
-                  return (
-                    <>
+            )}
+            {formatRequestHeaders(entry).map((h) => (
+              <box
+                key={h}
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={theme.borderSubtle}
+              >
+                <text fg={theme.textMuted}> {h}</text>
+              </box>
+            ))}
+            {entry.request.body && (
+              <box
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={theme.borderSubtle}
+              >
+                <text fg={theme.text}> {entry.request.body}</text>
+              </box>
+            )}
+            {entry.envName && (
+              <box
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={theme.borderSubtle}
+              >
+                <text fg={theme.info}> env: {entry.envName}</text>
+              </box>
+            )}
+          </box>
+          <box
+            border={["bottom"]}
+            borderColor={theme.borderSubtle}
+            style={{ paddingLeft: 1 }}
+          >
+            <text fg={theme.text}>Response</text>
+          </box>
+          <box style={{ flexDirection: "column", gap: 0 }}>
+            {(() => {
+              const r = entry.response
+              if (r) {
+                return (
+                  <>
+                    <box
+                      border={[...LeftBar.border]}
+                      customBorderChars={LeftBar.customBorderChars}
+                      borderColor={theme.borderSubtle}
+                    >
+                      <text fg={theme.text}>
+                        {" "}
+                        {formatStatusLine(r)}
+                      </text>
+                    </box>
+                    {formatHeaders(r).map((h) => (
+                      <box
+                        key={h}
+                        border={[...LeftBar.border]}
+                        customBorderChars={LeftBar.customBorderChars}
+                        borderColor={theme.borderSubtle}
+                      >
+                        <text fg={theme.textMuted}> {h}</text>
+                      </box>
+                    ))}
+                    {r.body && (
                       <box
                         border={[...LeftBar.border]}
                         customBorderChars={LeftBar.customBorderChars}
@@ -196,59 +194,37 @@ export function TimelineEntry({
                       >
                         <text fg={theme.text}>
                           {" "}
-                          {formatStatusLine(r)}
+                          {r.body.length > 2000
+                            ? r.body.slice(0, 2000) + "..."
+                            : r.body}
                         </text>
                       </box>
-                      {formatHeaders(r).map((h) => (
-                        <box
-                          key={h}
-                          border={[...LeftBar.border]}
-                          customBorderChars={LeftBar.customBorderChars}
-                          borderColor={theme.borderSubtle}
-                        >
-                          <text fg={theme.textMuted}> {h}</text>
-                        </box>
-                      ))}
-                      {r.body && (
-                        <box
-                          border={[...LeftBar.border]}
-                          customBorderChars={LeftBar.customBorderChars}
-                          borderColor={theme.borderSubtle}
-                        >
-                          <text fg={theme.text}>
-                            {" "}
-                            {r.body.length > 2000
-                              ? r.body.slice(0, 2000) + "..."
-                              : r.body}
-                          </text>
-                        </box>
-                      )}
-                    </>
-                  )
-                }
-                if (entry.error) {
-                  return (
-                    <box
-                      border={[...LeftBar.border]}
-                      customBorderChars={LeftBar.customBorderChars}
-                      borderColor={theme.error}
-                    >
-                      <text fg={theme.error}> {entry.error.message}</text>
-                    </box>
-                  )
-                }
+                    )}
+                  </>
+                )
+              }
+              if (entry.error) {
                 return (
                   <box
                     border={[...LeftBar.border]}
                     customBorderChars={LeftBar.customBorderChars}
-                    borderColor={theme.borderSubtle}
+                    borderColor={theme.error}
                   >
-                    <text fg={theme.textMuted}> No response</text>
+                    <text fg={theme.error}> {entry.error.message}</text>
                   </box>
                 )
-              })()}
-            </box>
-          )}
+              }
+              return (
+                <box
+                  border={[...LeftBar.border]}
+                  customBorderChars={LeftBar.customBorderChars}
+                  borderColor={theme.borderSubtle}
+                >
+                  <text fg={theme.textMuted}> No response</text>
+                </box>
+              )
+            })()}
+          </box>
         </box>
       )}
     </box>

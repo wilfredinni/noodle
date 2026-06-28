@@ -47,7 +47,6 @@ export function ResponsePane({
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (!isDone) return
-    if (activeTab === "timeline") return
     if (key.name === "left")
       setActiveTab((prev) => {
         const ids = ["body", "headers", "timeline"] as const
@@ -60,6 +59,7 @@ export function ResponsePane({
         const idx = ids.indexOf(prev)
         return ids[(idx + 1) % ids.length]
       })
+    else if (activeTab === "timeline") return
     else if (key.name === "down") scrollRef.current?.scrollBy(1)
     else if (key.name === "up") scrollRef.current?.scrollBy(-1)
     else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")

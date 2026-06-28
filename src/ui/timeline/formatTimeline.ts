@@ -1,4 +1,4 @@
-import type { TimelineEntry } from "../../schema"
+import type { TimelineEntry, Method } from "../../schema"
 import type { Request } from "../../schema"
 import type { Theme } from "../theme"
 import { statusColor } from "../format"
@@ -57,7 +57,7 @@ export function truncateUrl(url: string, max = 60): string {
   return url.slice(0, max - 3) + "..."
 }
 
-export function entryMethod(entry: TimelineEntry): string {
+export function entryMethod(entry: TimelineEntry): Method {
   return entry.request.method
 }
 
