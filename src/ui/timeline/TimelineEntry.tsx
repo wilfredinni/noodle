@@ -38,10 +38,12 @@ function authSummary(
 }
 
 export function TimelineEntry({
+  id,
   entry,
   isSelected,
   isExpanded,
 }: {
+  id?: string
   entry: TimelineEntryType
   isSelected: boolean
   isExpanded: boolean
@@ -62,7 +64,7 @@ export function TimelineEntry({
   const reltimeStr = relativeTime(entry.timestamp)
 
   return (
-    <box style={{ flexDirection: "column", backgroundColor: rowBg }}>
+    <box id={id} style={{ flexDirection: "column", backgroundColor: rowBg }}>
       <box
         style={{
           flexDirection: "row",

@@ -31,11 +31,17 @@ export function TimelineTab({
     if (entries.length === 0) return
 
     if (key.name === "up") {
-      setSelectedIdx((prev) => (prev <= 0 ? entries.length - 1 : prev - 1))
-      scrollRef.current?.scrollBy(-1)
+      setSelectedIdx((prev) => {
+        const next = prev <= 0 ? entries.length - 1 : prev - 1
+        scrollRef.current?.scrollChildIntoView(`tl-${next}`)
+        return next
+      })
     } else if (key.name === "down") {
-      setSelectedIdx((prev) => (prev >= entries.length - 1 ? 0 : prev + 1))
-      scrollRef.current?.scrollBy(1)
+      setSelectedIdx((prev) => {
+        const next = prev >= entries.length - 1 ? 0 : prev + 1
+        scrollRef.current?.scrollChildIntoView(`tl-${next}`)
+        return next
+      })
     } else if (key.name === "return") {
       setExpandedIdx((prev) => (prev === selectedIdx ? null : selectedIdx))
     }
@@ -58,6 +64,7 @@ export function TimelineTab({
       {entries.map((entry, idx) => (
         <TimelineEntry
           key={`${entry.timestamp}-${idx}`}
+          id={`tl-${idx}`}
           entry={entry}
           isSelected={idx === selectedIdx}
           isExpanded={idx === expandedIdx}
