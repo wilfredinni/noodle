@@ -1,0 +1,398 @@
+import { useEffect } from "react"
+import type { MutableRefObject } from "react"
+import { useKeymap } from "@opentui/keymap/react"
+import type { SaveState } from "./saveState"
+import type { Focus } from "./focus"
+import type { UseEnvironmentEditorResult } from "./useEnvironmentEditor"
+import type { EnvHeaderPaneHandle } from "./EnvHeaderPane"
+
+export function useOverlayIntercepts(opts: {
+  cancelSendRef: MutableRefObject<() => void>
+  saveState: SaveState
+  confirmSelection: number
+  setConfirmSelection: (n: number) => void
+  setSaveState: (s: SaveState) => void
+  doSave: () => void
+  envDeletePending: string | null
+  envDeletePendingRef: MutableRefObject<string | null>
+  setEnvDeletePending: (s: string | null) => void
+  deleteConfirmSelection: number
+  setDeleteConfirmSelection: (n: number) => void
+  envEditorRef: MutableRefObject<UseEnvironmentEditorResult>
+  clearSaveTimer: () => void
+  saveTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
+  helpVisible: boolean
+  setHelpVisible: (v: boolean) => void
+  view: "main" | "env-editor"
+  setView: (v: "main" | "env-editor") => void
+  focusRef: MutableRefObject<Focus>
+  setFocus: (f: Focus) => void
+  envHeaderRef: MutableRefObject<EnvHeaderPaneHandle | null>
+  headerFieldRef: MutableRefObject<"name" | "color">
+  colorPickerOpenRef: MutableRefObject<boolean>
+  setColorPickerOpen: (v: boolean) => void
+}): void {
+  const keymap = useKeymap()
+  const {
+    cancelSendRef,
+    saveState,
+    confirmSelection,
+    setConfirmSelection,
+    setSaveState,
+    doSave,
+    envDeletePending,
+    envDeletePendingRef,
+    setEnvDeletePending,
+    deleteConfirmSelection,
+    setDeleteConfirmSelection,
+    envEditorRef,
+    clearSaveTimer,
+    saveTimerRef,
+    helpVisible,
+    setHelpVisible,
+    view,
+    setView,
+    focusRef,
+    setFocus,
+    envHeaderRef,
+    headerFieldRef,
+    colorPickerOpenRef,
+    setColorPickerOpen,
+  } = opts
+
+  // ── Cancel send on ESC ──────────────────────────────────────────────
+  useEffect(() => {
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name === "escape" && ctx.event.eventType === "press") {
+          cancelSendRef.current()
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [keymap, cancelSendRef])
+
+  // ── Overlay: Save Confirm ──────────────────────────────────────────
+  useEffect(() => {
+    if (saveState.kind !== "confirming") return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || (name === "return" && confirmSelection === 0)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          doSave()
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && confirmSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setSaveState({ kind: "idle" })
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setConfirmSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [saveState.kind, confirmSelection, doSave, keymap, setConfirmSelection, setSaveState])
+
+  // ── Overlay: Delete env confirmation ──────────────────────────────
+  useEffect(() => {
+    if (!envDeletePending) return
+    const ee = envEditorRef.current
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || (name === "return" && deleteConfirmSelection === 0)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          const envName = envDeletePending
+          if (!envName) return
+          setEnvDeletePending(null)
+          ee.deleteEnv()
+            .then(() => {
+              clearSaveTimer()
+              setSaveState({ kind: "success", message: `Deleted ${envName}` })
+              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+            })
+            .catch((e: unknown) => {
+              const msg = e instanceof Error ? e.message : String(e)
+              clearSaveTimer()
+              setSaveState({ kind: "error", message: msg })
+              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+            })
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && deleteConfirmSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setEnvDeletePending(null)
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setDeleteConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setDeleteConfirmSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    envDeletePending,
+    deleteConfirmSelection,
+    keymap,
+    setEnvDeletePending,
+    setDeleteConfirmSelection,
+    setSaveState,
+    clearSaveTimer,
+    saveTimerRef,
+    envEditorRef,
+  ])
+
+  // ── Overlay: Help ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!helpVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setHelpVisible(false)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [helpVisible, keymap, setHelpVisible])
+
+  // ── Env Editor Mode ───────────────────────────────────────────────
+  useEffect(() => {
+    if (view !== "env-editor" || keymap.getData("app.overlay") !== "none")
+      return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const ee = envEditorRef.current
+
+        const f = focusRef.current
+
+        if (f === "env-sidebar") {
+          if (e.name === "up" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            const idx = ee.selectedEnvName
+              ? names.indexOf(ee.selectedEnvName)
+              : -1
+            const prev = idx > 0 ? idx - 1 : names.length - 1
+            if (names[prev]) ee.selectEnv(names[prev]!)
+            return
+          }
+          if (e.name === "down" && ee.editingField === null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            const idx = ee.selectedEnvName
+              ? names.indexOf(ee.selectedEnvName)
+              : -1
+            const next = idx < names.length - 1 ? idx + 1 : 0
+            if (names[next]) ee.selectEnv(names[next]!)
+            return
+          }
+        }
+
+        if (f === "env-header") {
+          if (e.name === "tab" && !e.shift) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "name") {
+              headerFieldRef.current = "color"
+              envHeaderRef.current?.focusColor()
+            } else {
+              headerFieldRef.current = "name"
+              setFocus("env-vars")
+            }
+            return
+          }
+          if (e.name === "tab" && e.shift) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "color") {
+              headerFieldRef.current = "name"
+              envHeaderRef.current?.focusName()
+            } else {
+              headerFieldRef.current = "color"
+              setFocus("env-sidebar")
+            }
+            return
+          }
+          if (e.name === "return") {
+            if (colorPickerOpenRef.current) {
+              return
+            }
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "name") {
+              headerFieldRef.current = "color"
+            }
+            setColorPickerOpen(true)
+            return
+          }
+          if (e.name === "escape" && colorPickerOpenRef.current) {
+            e.preventDefault()
+            e.stopPropagation()
+            setColorPickerOpen(false)
+            return
+          }
+        }
+
+        if (f === "env-vars") {
+          const inEdit = ee.editingField !== null
+          const rows = ee.draft?.varRows.length ?? 0
+
+          if (e.name === "up" && !inEdit) {
+            e.preventDefault()
+            e.stopPropagation()
+            const prev = Math.max(0, ee.selectedRowIndex - 1)
+            ee.selectRow(prev)
+            return
+          }
+          if (e.name === "down" && !inEdit) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (ee.selectedRowIndex >= rows - 1) {
+              if (ee.selectedRowIndex >= rows) {
+                ee.addVar()
+              } else {
+                ee.selectRow(rows)
+              }
+            } else {
+              ee.selectRow(ee.selectedRowIndex + 1)
+            }
+            return
+          }
+
+          if (e.name === "return") {
+            e.preventDefault()
+            e.stopPropagation()
+            if (rows === 0) {
+              ee.addVar()
+              return
+            }
+            if (ee.selectedRowIndex >= rows) {
+              ee.addVar()
+              return
+            }
+            if (ee.editingField === null) {
+              ee.editField("key")
+            } else if (ee.editingField === "key") {
+              ee.editField("value")
+            } else {
+              const next = ee.selectedRowIndex + 1
+              if (next < rows) {
+                ee.selectRow(next)
+                ee.editField("key")
+              } else {
+                ee.editField(null)
+              }
+            }
+            return
+          }
+
+          if (e.name === "tab" && !e.shift && inEdit) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (ee.editingField === "key") {
+              ee.editField("value")
+            } else {
+              ee.editField("key")
+            }
+            return
+          }
+
+          if (e.name === "escape") {
+            if (inEdit) {
+              e.preventDefault()
+              e.stopPropagation()
+              ee.editField(null)
+              return
+            }
+            if (ee.selectedRowIndex >= rows) {
+              e.preventDefault()
+              e.stopPropagation()
+              ee.selectRow(Math.max(0, rows - 1))
+              return
+            }
+          }
+
+          if (
+            e.name === "d" &&
+            e.ctrl &&
+            !inEdit &&
+            ee.selectedRowIndex < rows
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.deleteVar(ee.selectedRowIndex)
+            return
+          }
+
+          if (
+            e.name === "x" &&
+            e.ctrl &&
+            !inEdit &&
+            ee.selectedRowIndex < rows
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.toggleVar(ee.selectedRowIndex)
+            return
+          }
+        }
+
+        if (e.name === "escape" && envDeletePendingRef.current === null) {
+          e.preventDefault()
+          e.stopPropagation()
+          ee.closeEditor()
+          setView("main")
+          setFocus("sidebar")
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    view,
+    keymap,
+    focusRef,
+    envEditorRef,
+    envHeaderRef,
+    headerFieldRef,
+    setFocus,
+    setColorPickerOpen,
+    colorPickerOpenRef,
+    envDeletePendingRef,
+    setView,
+  ])
+}

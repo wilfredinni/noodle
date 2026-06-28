@@ -1,0 +1,558 @@
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { Dispatch, SetStateAction } from "react"
+import { useKeymap } from "@opentui/keymap/react"
+import { Sidebar } from "./Sidebar"
+import { UrlBar } from "./UrlBar"
+import { RequestPane } from "./RequestPane"
+import { ResponsePane } from "./ResponsePane"
+import { useCollection } from "./useCollection"
+import { useSidebarSelection } from "./useSidebarSelection"
+import { useResponse } from "./useResponse"
+import { useRequestDraft } from "./useRequestDraft"
+import { useEditBrowse } from "./useEditBrowse"
+import { useEnvironments } from "./useEnvironments"
+import { useEnvironmentEditor } from "./useEnvironmentEditor"
+import { type Focus } from "./focus"
+import { HelpOverlay } from "./HelpOverlay"
+import { ConfirmOverlay } from "./ConfirmOverlay"
+import { YamlEditorOverlay } from "./YamlEditorOverlay"
+import { ThemePickerOverlay, useTheme } from "./theme"
+import { StatusBar } from "./StatusBar"
+import { EnvSidebar } from "./EnvSidebar"
+import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
+import { EnvEditorPane } from "./EnvEditorPane"
+import { VALID_COLORS } from "../env/constants"
+import { PickerOverlay, type PickerItem } from "./PickerOverlay"
+import type { Keybinds } from "./keybind"
+import { useSaveFile } from "./useSaveFile"
+import { useAppKeymap } from "./useAppKeymap"
+import { useOverlayIntercepts } from "./useOverlayIntercepts"
+
+export function AppInner({
+  collectionDir,
+  environmentsDir,
+  envNames,
+  envColors,
+  initialEnvName,
+  activeIndex,
+  previewIndex,
+  setPreviewIndex: setPreviewIndexProp,
+  onThemeChange,
+  keybinds,
+  initialLayout,
+  onLayoutChange,
+  onEnvChange,
+  onEnvListChanged,
+  settingsEnv,
+}: {
+  collectionDir: string
+  environmentsDir: string
+  envNames: string[]
+  envColors: Record<string, string | undefined>
+  initialEnvName?: string
+  activeIndex: number
+  previewIndex: number | null
+  setPreviewIndex: Dispatch<SetStateAction<number | null>>
+  onThemeChange: (index: number) => void
+  keybinds: Keybinds
+  initialLayout: "stacked" | "side-by-side"
+  onLayoutChange: (layout: "stacked" | "side-by-side") => void
+  onEnvChange: (name: string | null) => void
+  onEnvListChanged: () => Promise<void>
+  settingsEnv?: string
+}) {
+  const keymap = useKeymap()
+  const theme = useTheme()
+
+  // ── State ───────────────────────────────────────────────────────────
+  const [focus, setFocus] = useState<Focus>("sidebar")
+  const focusRef = useRef(focus)
+  focusRef.current = focus
+  const [view, setView] = useState<"main" | "env-editor">("main")
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const [helpVisible, setHelpVisible] = useState(false)
+  const [layout, setLayout] = useState<"stacked" | "side-by-side">(
+    initialLayout,
+  )
+  const [confirmSelection, setConfirmSelection] = useState(0)
+  const [collectionReloadToken, setCollectionReloadToken] = useState(0)
+  const [yamlEditor, setYamlEditor] = useState<{
+    visible: boolean
+    filePath: string
+    requestName: string
+    returnFocus: Focus
+  }>({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
+  const colorPickerOpenRef = useRef(false)
+  useEffect(() => { colorPickerOpenRef.current = colorPickerOpen }, [colorPickerOpen])
+  const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
+  const envDeletePendingRef = useRef(envDeletePending)
+  useEffect(() => { envDeletePendingRef.current = envDeletePending }, [envDeletePending])
+  const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
+  const headerFieldRef = useRef<"name" | "color">("name")
+
+  // ── Collection ──────────────────────────────────────────────────────
+  const { collection, loading, error } = useCollection(
+    collectionDir,
+    collectionReloadToken,
+  )
+  const requests = collection?.requests ?? []
+
+  // ── Sidebar selection + request draft + edit-browse ─────────────────
+  const { selectedIndex, selectedRequest } = useSidebarSelection(
+    requests,
+    () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+  )
+
+  const draft = useRequestDraft(selectedRequest)
+  const eb = useEditBrowse(draft.draft, draft)
+
+  // ── Save logic (provides saveState needed by keymap.setData below) ──
+  const {
+    saveState,
+    setSaveState,
+    doSave,
+    clearSaveTimer,
+    savingRef,
+    saveTimerRef,
+  } = useSaveFile(collectionDir, draft.draft, selectedRequest?.id, draft.markSaved)
+
+  const doSaveRef = useRef(doSave)
+  doSaveRef.current = doSave
+
+  // ── keymap.setData effects ─────────────────────────────────────────
+  useEffect(() => {
+    keymap.setData("app.focus", focus)
+    if (focus === "env-header") {
+      headerFieldRef.current = "name"
+    }
+  }, [focus, keymap])
+
+  useEffect(() => {
+    const overlay = helpVisible
+      ? "help"
+      : previewIndex !== null
+        ? "theme"
+        : saveState.kind === "confirming"
+          ? "confirm"
+          : yamlEditor.visible
+            ? "yaml-editor"
+            : "none"
+    keymap.setData("app.overlay", overlay)
+  }, [helpVisible, previewIndex, saveState.kind, yamlEditor.visible, keymap])
+
+  useEffect(() => {
+    keymap.setData("app.view", view)
+  }, [view, keymap])
+
+  useEffect(() => {
+    const mode =
+      eb.editState.mode === "browsing"
+        ? "browse"
+        : eb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    keymap.setData("app.mode", mode)
+  }, [eb.editState.mode, keymap])
+
+  useEffect(() => {
+    if (focus !== "request") {
+      const state = eb.editState
+      if (state.mode === "editing") {
+        eb.cancelEdit()
+      } else if (state.mode === "browsing") {
+        eb.exitBrowse()
+      }
+    }
+  }, [focus, eb])
+
+  // ── Environments + response ────────────────────────────────────────
+  const envState = useEnvironments(
+    environmentsDir,
+    envNames,
+    initialEnvName,
+    settingsEnv,
+    onEnvChange,
+  )
+  const {
+    state: responseState,
+    trySend,
+    cancelSend,
+  } = useResponse(draft.draft, envState.activeEnv)
+
+  const envEditor = useEnvironmentEditor({
+    environmentsDir,
+    envNames,
+    activeEnvName: envState.activeEnv?.name,
+    onEnvsChanged: onEnvListChanged,
+    onActiveEnvChanged: (name: string) => {
+      if (name === "") {
+        onEnvChange(null)
+      } else {
+        onEnvChange(name)
+      }
+    },
+    onEnvDataChanged: () => {
+      envStateRef.current.reloadActiveEnv().catch(() => {})
+    },
+  })
+
+  // ── Refs for keymap/intercepts ─────────────────────────────────────
+  const trySendRef = useRef(trySend)
+  trySendRef.current = trySend
+
+  const cancelSendRef = useRef(cancelSend)
+  cancelSendRef.current = cancelSend
+
+  const envStateRef = useRef(envState)
+  envStateRef.current = envState
+
+  const envEditorRef = useRef(envEditor)
+  envEditorRef.current = envEditor
+
+  const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
+
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+
+  const activeIndexRef = useRef(activeIndex)
+  activeIndexRef.current = activeIndex
+
+  const ebRef = useRef(eb)
+  ebRef.current = eb
+
+  const collectionRef = useRef(collection)
+  collectionRef.current = collection
+
+  const selectedIndexRef = useRef(selectedIndex)
+  selectedIndexRef.current = selectedIndex
+
+  // ── Keymap layers ──────────────────────────────────────────────────
+  useAppKeymap(
+    keybinds,
+    {
+      ebRef,
+      draftRef,
+      envStateRef,
+      envEditorRef,
+      collectionRef,
+      selectedIndexRef,
+      trySendRef,
+      doSaveRef,
+      focusRef,
+      viewRef,
+      activeIndexRef,
+      savingRef,
+    },
+    {
+      setFocus,
+      setHelpVisible,
+      setLayout,
+      setView,
+      setYamlEditor,
+      setCollectionReloadToken,
+      setPreviewIndex: setPreviewIndexProp,
+      setEnvDeletePending,
+      setDeleteConfirmSelection,
+      onLayoutChange,
+    },
+    collectionDir,
+  )
+
+  // ── Overlay intercepts ────────────────────────────────────────────
+  useOverlayIntercepts({
+    cancelSendRef,
+    saveState,
+    confirmSelection,
+    setConfirmSelection,
+    setSaveState,
+    doSave,
+    envDeletePending,
+    envDeletePendingRef,
+    setEnvDeletePending,
+    deleteConfirmSelection,
+    setDeleteConfirmSelection,
+    envEditorRef,
+    clearSaveTimer,
+    saveTimerRef,
+    helpVisible,
+    setHelpVisible,
+    view,
+    setView,
+    focusRef,
+    setFocus,
+    envHeaderRef,
+    headerFieldRef,
+    colorPickerOpenRef,
+    setColorPickerOpen,
+  })
+
+  // ── Derived values for render ─────────────────────────────────────
+  const envStats = useMemo(() => {
+    if (!envEditor.draft) return ""
+    const rows = envEditor.draft.varRows
+    const activeCount = rows.filter((r) => r.enabled).length
+    return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
+  }, [envEditor.draft])
+
+  const colorItems = useMemo(() => {
+    const t = theme as unknown as Record<string, string>
+    return [
+      { id: "none", label: "(none)", value: undefined },
+      ...Array.from(VALID_COLORS).map((c) => ({
+        id: c,
+        label: c,
+        value: c,
+        indicatorColor: t[c] ?? theme.textMuted,
+      })),
+    ] satisfies PickerItem[]
+  }, [theme])
+
+  const activeColorId = envEditor.draft?.color ?? "none"
+
+  // ── Render ─────────────────────────────────────────────────────────
+  return (
+    <box
+      style={{
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        backgroundColor: theme.background,
+      }}
+    >
+      <box
+        style={{
+          flexDirection: "column",
+          flexGrow: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+          gap: 1,
+          position: "relative",
+        }}
+      >
+        {view === "main" ? (
+          <box
+            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
+          >
+            <Sidebar
+              collection={collection}
+              loading={loading}
+              error={error}
+              selectedIndex={selectedIndex}
+              focused={focus === "sidebar"}
+              keybinds={keybinds}
+              dirtyRequestIds={draft.dirtyRequestIds}
+            />
+            <box
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                gap: 1,
+                minHeight: 0,
+              }}
+            >
+              <UrlBar
+                method={draft.draft?.method ?? ""}
+                url={draft.draft?.url ?? ""}
+                params={draft.draft?.params ?? {}}
+                setUrl={draft.setUrl}
+                onDefocus={draft.syncUrlParams}
+                focused={focus === "urlbar"}
+                sending={responseState.status === "sending"}
+                activeEnv={envState.activeEnv}
+              />
+              {layout === "side-by-side" ? (
+                <box
+                  style={{
+                    flexDirection: "row",
+                    flexGrow: 1,
+                    gap: 1,
+                    minHeight: 0,
+                  }}
+                >
+                  <RequestPane
+                    request={draft.draft}
+                    editState={eb.editState}
+                    editKey={eb.editKey}
+                    editValue={eb.editValue}
+                    setEditKey={eb.setEditKey}
+                    setEditValue={eb.setEditValue}
+                    focused={focus === "request"}
+                    activeTab={eb.activeTab}
+                    activeEnv={envState.activeEnv}
+                  />
+                  <ResponsePane
+                    state={responseState}
+                    focused={focus === "response"}
+                  />
+                </box>
+              ) : (
+                <>
+                  <RequestPane
+                    request={draft.draft}
+                    editState={eb.editState}
+                    editKey={eb.editKey}
+                    editValue={eb.editValue}
+                    setEditKey={eb.setEditKey}
+                    setEditValue={eb.setEditValue}
+                    focused={focus === "request"}
+                    activeTab={eb.activeTab}
+                    activeEnv={envState.activeEnv}
+                  />
+                  <ResponsePane
+                    state={responseState}
+                    focused={focus === "response"}
+                  />
+                </>
+              )}
+            </box>
+          </box>
+        ) : (
+          <box
+            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
+          >
+            <EnvSidebar
+              envNames={envEditor.envNames}
+              selectedEnvName={envEditor.selectedEnvName}
+              activeEnvName={envState.activeEnv?.name}
+              envColors={envColors}
+              dirty={envEditor.dirty}
+              onSelectEnv={envEditor.selectEnv}
+              onCreate={() => {
+                envEditor.openEditor()
+                setFocus("env-vars")
+              }}
+              onClone={() => {
+                if (envEditor.selectedEnvName) {
+                  const target = `${envEditor.selectedEnvName} - Copy`
+                  envEditor.cloneEnv(target)
+                }
+              }}
+              onDelete={() => {
+                if (envEditor.selectedEnvName) {
+                  setEnvDeletePending(envEditor.selectedEnvName)
+                  setDeleteConfirmSelection(0)
+                }
+              }}
+              focused={focus === "env-sidebar"}
+            />
+            <box
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                gap: 1,
+                minHeight: 0,
+              }}
+            >
+              <EnvHeaderPane
+                ref={envHeaderRef}
+                name={envEditor.draft?.name ?? ""}
+                color={envEditor.draft?.color}
+                onNameChange={envEditor.setName}
+                focused={focus === "env-header"}
+              />
+              <EnvEditorPane
+                draft={envEditor.draft}
+                selectedRowIndex={envEditor.selectedRowIndex}
+                editingField={envEditor.editingField}
+                saving={envEditor.saving}
+                error={envEditor.error}
+                onSelectRow={envEditor.selectRow}
+                onUpdateVarKey={envEditor.updateVarKey}
+                onUpdateVarValue={envEditor.updateVarValue}
+                onToggleVar={envEditor.toggleVar}
+                onDeleteVar={envEditor.deleteVar}
+                focused={focus === "env-vars"}
+              />
+            </box>
+          </box>
+        )}
+        {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
+        {colorPickerOpen && (
+          <PickerOverlay
+            visible
+            title="Color"
+            items={colorItems}
+            activeId={activeColorId}
+            onSelect={(item) => {
+              envEditor.setColor(item.value as string | undefined)
+              setColorPickerOpen(false)
+            }}
+            onClose={() => setColorPickerOpen(false)}
+          />
+        )}
+        {saveState.kind === "confirming" && (
+          <ConfirmOverlay
+            visible
+            message={`Save changes to ${saveState.requestId}?`}
+            selectedIndex={confirmSelection}
+          />
+        )}
+        {envDeletePending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Delete environment "${envDeletePending}"?`}
+            selectedIndex={deleteConfirmSelection}
+          />
+        )}
+        {previewIndex !== null && (
+          <ThemePickerOverlay
+            visible
+            activeIndex={activeIndex}
+            previewIndex={previewIndex}
+            setPreviewIndex={setPreviewIndexProp}
+            onThemeChange={onThemeChange}
+          />
+        )}
+        {yamlEditor.visible && (
+          <YamlEditorOverlay
+            visible
+            filePath={yamlEditor.filePath}
+            requestName={yamlEditor.requestName}
+            onSaved={() => {
+              setCollectionReloadToken((n) => n + 1)
+              setYamlEditor({
+                visible: false,
+                filePath: "",
+                requestName: "",
+                returnFocus: "sidebar",
+              })
+              setFocus(yamlEditor.returnFocus)
+              setSaveState({
+                kind: "success",
+                message: `Saved ${yamlEditor.filePath.split("/").pop() ?? ""}`,
+              })
+              clearSaveTimer()
+              saveTimerRef.current = setTimeout(() => {
+                setSaveState({ kind: "idle" })
+              }, 2000)
+            }}
+            onClose={() => {
+              setYamlEditor({
+                visible: false,
+                filePath: "",
+                requestName: "",
+                returnFocus: "sidebar",
+              })
+              setFocus(yamlEditor.returnFocus)
+            }}
+          />
+        )}
+      </box>
+      <StatusBar
+        method={draft.draft?.method ?? ""}
+        url={draft.draft?.url ?? ""}
+        isDirty={draft.isDirty}
+        sendState={responseState}
+        envLabel={envState.indicatorLabel}
+        envColor={envState.activeEnv?.color}
+        saveState={saveState}
+        kb={keybinds}
+        view={view}
+        envStats={envStats}
+      />
+    </box>
+  )
+}
