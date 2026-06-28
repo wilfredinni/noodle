@@ -1,4 +1,4 @@
-import type { Response, TimelineEntry } from "../../schema"
+import type { TimelineEntry } from "../../schema"
 import type { Request } from "../../schema"
 import type { Theme } from "../theme"
 import { statusColor } from "../format"

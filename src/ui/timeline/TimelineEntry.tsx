@@ -1,7 +1,7 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
 import { LeftBar } from "../borders"
-import { formatHeaders, formatBody, statusColor, formatStatusLine } from "../format"
+import { formatHeaders, statusColor, formatStatusLine } from "../format"
 import { Badge } from "../Badge"
 import {
   entryMethod,
@@ -51,7 +51,6 @@ export function TimelineEntry({
 }) {
   const theme = useTheme()
   const status = entryStatus(entry)
-  const hasResponse = entry.response !== undefined
   const hasError = entry.error !== undefined
 
   const prefix = isExpanded ? "▾" : "▸"
