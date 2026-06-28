@@ -20,7 +20,7 @@ import { YamlEditorOverlay } from "./YamlEditorOverlay"
 import { ThemeProvider, ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
-import { EnvHeaderPane } from "./EnvHeaderPane"
+import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 import { useEnvironmentEditor } from "./useEnvironmentEditor"
 import { env } from "../env"
@@ -93,6 +93,9 @@ function AppInner({
 
   useEffect(() => {
     keymap.setData("app.focus", focus)
+    if (focus === "env-header") {
+      headerFieldRef.current = "name"
+    }
   }, [focus, keymap])
 
   useEffect(() => {
@@ -178,6 +181,8 @@ function AppInner({
   })
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
+  const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
+  const headerFieldRef = useRef<"name" | "color">("name")
 
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -596,6 +601,45 @@ function AppInner({
           }
         }
 
+        if (f === "env-header") {
+          if (e.name === "tab" && !e.shift) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "name") {
+              headerFieldRef.current = "color"
+              envHeaderRef.current?.focusColor()
+            } else {
+              headerFieldRef.current = "name"
+              setFocus("env-vars")
+            }
+            return
+          }
+          if (e.name === "tab" && e.shift) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "color") {
+              headerFieldRef.current = "name"
+              envHeaderRef.current?.focusName()
+            } else {
+              headerFieldRef.current = "color"
+              setFocus("env-sidebar")
+            }
+            return
+          }
+          if (e.name === "return") {
+            e.preventDefault()
+            e.stopPropagation()
+            if (headerFieldRef.current === "name") {
+              headerFieldRef.current = "color"
+              envHeaderRef.current?.focusColor()
+            } else {
+              headerFieldRef.current = "name"
+              envHeaderRef.current?.focusName()
+            }
+            return
+          }
+        }
+
         if (f === "env-vars") {
           const inEdit = ee.editingField !== null
           const rows = ee.draft?.varRows.length ?? 0
@@ -837,6 +881,7 @@ function AppInner({
               }}
             >
               <EnvHeaderPane
+                ref={envHeaderRef}
                 name={envEditor.draft?.name ?? ""}
                 color={envEditor.draft?.color}
                 onNameChange={envEditor.setName}
