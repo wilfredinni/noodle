@@ -38,7 +38,7 @@ export function EnvSidebar({
   return (
     <box
       style={{
-        width: 30,
+        width: 38,
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
