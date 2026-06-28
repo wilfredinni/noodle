@@ -1,4 +1,5 @@
 import { useTheme } from "./theme"
+import { FullBorder } from "./borders"
 import type { EnvDraft } from "./useEnvironmentEditor"
 
 export function EnvEditorPane({
@@ -38,7 +39,20 @@ export function EnvEditorPane({
 
   if (!draft) {
     return (
-      <box style={{ flexDirection: "column", flexGrow: 1, padding: 1 }}>
+      <box
+        style={{
+          flexDirection: "column",
+          flexGrow: 1,
+          padding: 1,
+          backgroundColor: theme.backgroundPanel,
+        }}
+        border={[...FullBorder.border]}
+        customBorderChars={FullBorder.customBorderChars}
+        borderColor={theme.borderSubtle}
+        title="Variables"
+        titleColor={theme.textMuted}
+        titleAlignment="left"
+      >
         <text fg={theme.textMuted}>Select an environment to edit</text>
       </box>
     )
@@ -70,7 +84,14 @@ export function EnvEditorPane({
         flexGrow: 1,
         padding: 1,
         gap: 1,
+        backgroundColor: theme.backgroundPanel,
       }}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
+      borderColor={_focused ? theme.primary : theme.borderSubtle}
+      title="Variables"
+      titleColor={_focused ? theme.primary : theme.textMuted}
+      titleAlignment="left"
     >
       <box style={{ flexDirection: "column", gap: 0 }}>
         <box style={{ flexDirection: "row", gap: 1 }}>
