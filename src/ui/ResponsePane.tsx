@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
+import type { TimelineEntry } from "../schema"
 import { formatHeaders, formatBody, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
@@ -9,6 +10,7 @@ import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { Badge } from "./Badge"
 import { Tips } from "./Tips"
+import { TimelineTab } from "./timeline/TimelineTab"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -21,20 +23,23 @@ function formatSize(bytes: number): string {
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
   { id: "headers", label: "Headers" },
+  { id: "timeline", label: "Timeline" },
 ]
 
 export function ResponsePane({
   state,
   focused = false,
+  timelineEntries,
 }: {
   state: SendState
   focused?: boolean
+  timelineEntries?: TimelineEntry[]
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
 
-  const [activeTab, setActiveTab] = useState<"body" | "headers">("body")
+  const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">("body")
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -42,10 +47,19 @@ export function ResponsePane({
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (!isDone) return
+    if (activeTab === "timeline") return
     if (key.name === "left")
-      setActiveTab((prev) => (prev === "body" ? "headers" : "body"))
+      setActiveTab((prev) => {
+        const ids = ["body", "headers", "timeline"] as const
+        const idx = ids.indexOf(prev)
+        return ids[(idx - 1 + ids.length) % ids.length]
+      })
     else if (key.name === "right")
-      setActiveTab((prev) => (prev === "headers" ? "body" : "headers"))
+      setActiveTab((prev) => {
+        const ids = ["body", "headers", "timeline"] as const
+        const idx = ids.indexOf(prev)
+        return ids[(idx + 1) % ids.length]
+      })
     else if (key.name === "down") scrollRef.current?.scrollBy(1)
     else if (key.name === "up") scrollRef.current?.scrollBy(-1)
     else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
@@ -127,32 +141,39 @@ export function ResponsePane({
               </box>
             }
           >
-            <scrollbox
-              ref={scrollRef}
-              scrollY
-              style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
-            >
-              {activeTab === "body" ? (
-                (() => {
-                  const body = formatBody(state.response)
-                  if (body === "") return null
-                  return <JsonBodyViewer body={body} theme={theme} readOnly />
-                })()
-              ) : (
-                <>
-                  {formatHeaders(state.response).map((line) => (
-                    <box
-                      key={line}
-                      border={[...LeftBar.border]}
-                      customBorderChars={LeftBar.customBorderChars}
-                      borderColor={theme.borderSubtle}
-                    >
-                      <text fg={theme.textMuted}>{" " + line}</text>
-                    </box>
-                  ))}
-                </>
-              )}
-            </scrollbox>
+            {activeTab === "timeline" ? (
+              <TimelineTab
+                entries={timelineEntries ?? []}
+                focused={focused}
+              />
+            ) : (
+              <scrollbox
+                ref={scrollRef}
+                scrollY
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
+                {activeTab === "body" ? (
+                  (() => {
+                    const body = formatBody(state.response)
+                    if (body === "") return null
+                    return <JsonBodyViewer body={body} theme={theme} readOnly />
+                  })()
+                ) : (
+                  <>
+                    {formatHeaders(state.response).map((line) => (
+                      <box
+                        key={line}
+                        border={[...LeftBar.border]}
+                        customBorderChars={LeftBar.customBorderChars}
+                        borderColor={theme.borderSubtle}
+                      >
+                        <text fg={theme.textMuted}>{" " + line}</text>
+                      </box>
+                    ))}
+                  </>
+                )}
+              </scrollbox>
+            )}
           </Tabs>
         </>
       )}
