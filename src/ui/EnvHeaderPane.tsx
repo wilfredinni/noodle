@@ -1,6 +1,7 @@
-import { useEffect, useImperativeHandle, useRef, forwardRef } from "react"
+import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
+import type { BoxRenderable, InputRenderable } from "@opentui/core"
 
 export interface EnvHeaderPaneHandle {
   focusName: () => void
@@ -11,24 +12,35 @@ export const EnvHeaderPane = forwardRef<EnvHeaderPaneHandle, {
   name: string
   color: string | undefined
   onNameChange: (name: string) => void
-  onColorChange: (color: string | undefined) => void
   focused: boolean
 }>(function EnvHeaderPane({
   name,
   color,
   onNameChange,
-  onColorChange,
   focused,
 }, ref) {
   const theme = useTheme()
-  const nameRef = useRef<{ focus: () => void } | null>(null)
-  const colorRef = useRef<{ focus: () => void } | null>(null)
+  const nameRef = useRef<InputRenderable | null>(null)
+  const colorRef = useRef<BoxRenderable | null>(null)
   const prevFocused = useRef(false)
+  const [colorFocused, setColorFocused] = useState(false)
 
   useImperativeHandle(ref, () => ({
-    focusName: () => nameRef.current?.focus(),
-    focusColor: () => colorRef.current?.focus(),
+    focusName: () => {
+      setColorFocused(false)
+      colorRef.current?.blur()
+      nameRef.current?.focus()
+    },
+    focusColor: () => {
+      setColorFocused(true)
+      nameRef.current?.blur()
+      colorRef.current?.focus()
+    },
   }))
+
+  useEffect(() => {
+    if (!focused) setColorFocused(false)
+  }, [focused])
 
   useEffect(() => {
     if (focused && !prevFocused.current) {
@@ -41,6 +53,8 @@ export const EnvHeaderPane = forwardRef<EnvHeaderPaneHandle, {
     color !== undefined
       ? ((theme as unknown as Record<string, string>)[color] ?? theme.textMuted)
       : theme.textMuted
+
+  const colorBg = colorFocused ? theme.borderSubtle : theme.backgroundElement
 
   return (
     <box
@@ -69,17 +83,17 @@ export const EnvHeaderPane = forwardRef<EnvHeaderPaneHandle, {
         cursorColor={theme.primary}
         style={{ flexGrow: 1 }}
       />
-      <input
+      <box
         ref={colorRef}
-        value={color ?? ""}
-        placeholder="Color"
-        onInput={(v) => onColorChange(v || undefined)}
-        focused={false}
-        backgroundColor={theme.backgroundElement}
-        textColor={colorValue}
-        cursorColor={theme.primary}
-        style={{ width: 18 }}
-      />
+        style={{
+          height: 1,
+          backgroundColor: colorBg,
+          paddingLeft: 1,
+          paddingRight: 1,
+        }}
+      >
+        <text fg={colorValue}>Color: {color ?? "(none)"}</text>
+      </box>
     </box>
   )
 })
