@@ -1,12 +1,11 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
 import { LeftBar } from "../borders"
-import { formatHeaders, formatStatusLine } from "../format"
+import { formatHeaders, formatStatusLine, statusColor } from "../format"
 import {
   entryMethod,
   entryStatus,
   entryTiming,
-  entryStatusFg,
   relativeTime,
   truncateUrl,
 } from "./formatTimeline"
@@ -55,34 +54,39 @@ export function TimelineEntry({
   const rowBg = isSelected ? theme.backgroundElement : undefined
   const rowFg = isSelected ? theme.text : theme.textMuted
 
+  const method = entryMethod(entry)
+  const methodStr = method.padEnd(5)
+  const statusStr = status !== null ? (status === 0 ? "ERR " : `${status} `) : "--- "
+  const urlStr = formatRequestUrl(entry)
+  const timingStr = hasError ? "ERR" : entryTiming(entry)
+  const reltimeStr = relativeTime(entry.timestamp)
+
   return (
     <box style={{ flexDirection: "column", backgroundColor: rowBg }}>
       <box
         style={{
           flexDirection: "row",
-          gap: 1,
+          justifyContent: "space-between",
           paddingLeft: 1,
           paddingRight: 1,
+          overflow: "hidden",
         }}
       >
-        <text fg={rowFg}>{prefix} </text>
-        <text fg={methodColor(entryMethod(entry), theme)}>
-          {entryMethod(entry).padEnd(7)}
+        <text wrapMode="none" style={{ flexShrink: 1, minWidth: 0 }}>
+          <span fg={rowFg}>{prefix} </span>
+          <span fg={methodColor(method, theme)}>{methodStr}</span>
+          {status !== null ? (
+            <span fg={statusColor(status, theme)}>{statusStr}</span>
+          ) : (
+            <span fg={theme.textMuted}>{statusStr}</span>
+          )}
+          <span fg={theme.text}>{truncateUrl(urlStr, 30)}</span>
         </text>
-        {status !== null ? (
-          <text fg={entryStatusFg(status, theme)}>
-            {status === 0 ? "ERR " : `${status} `}
-          </text>
-        ) : (
-          <text fg={theme.textMuted}>--- </text>
-        )}
-        <text fg={theme.text} style={{ flexGrow: 1 }}>
-          {truncateUrl(formatRequestUrl(entry), 50)}
+        <text>
+          <span fg={hasError ? theme.error : theme.textMuted}>
+            {timingStr + " " + reltimeStr}
+          </span>
         </text>
-        <text fg={hasError ? theme.error : theme.textMuted}>
-          {entryTiming(entry)}
-        </text>
-        <text fg={theme.textMuted}>{relativeTime(entry.timestamp)}</text>
       </box>
 
       {isExpanded && (

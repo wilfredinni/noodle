@@ -1,7 +1,5 @@
 import type { TimelineEntry, Method } from "../../schema"
 import type { Request } from "../../schema"
-import type { Theme } from "../theme"
-import { statusColor } from "../format"
 import type { SendCompleteResult } from "../../hooks/useResponse"
 
 export function buildTimelineEntry(
@@ -71,12 +69,6 @@ export function entryTiming(entry: TimelineEntry): string {
   if (entry.response) return `${Math.round(entry.response.timeMs)}ms`
   if (entry.error) return "ERR"
   return "-"
-}
-
-export function entryStatusFg(status: number | null, theme: Theme): string {
-  if (status === null) return theme.textMuted
-  if (status === 0) return theme.error
-  return statusColor(status, theme)
 }
 
 export function entryIsError(entry: TimelineEntry): boolean {
