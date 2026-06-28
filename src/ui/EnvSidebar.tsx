@@ -1,12 +1,12 @@
 import { useTheme } from "./theme"
-import { FullBorder } from "./borders"
+import { FullBorder, LeftBar } from "./borders"
 import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 
 export function EnvSidebar({
   envNames,
   selectedEnvName,
-  activeEnvName,
+  activeEnvName: _activeEnvName,
   dirty,
   onSelectEnv: _onSelectEnv,
   onCreate: _onCreate,
@@ -69,7 +69,6 @@ export function EnvSidebar({
         >
           {envNames.map((name, i) => {
             const isSelected = name === selectedEnvName
-            const isActive = name === activeEnvName
             const isDirty = isSelected && dirty
             return (
               <box
@@ -82,8 +81,11 @@ export function EnvSidebar({
                     ? theme.backgroundElement
                     : undefined,
                 }}
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={isSelected ? theme.primary : theme.backgroundPanel}
               >
-                <text fg={isActive ? theme.text : theme.textMuted}>{name}</text>
+                <text fg={theme.text}>{name}</text>
                 {isDirty && <text fg={theme.warning}>●</text>}
               </box>
             )
