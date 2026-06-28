@@ -149,9 +149,10 @@ export function StatusBar(input: {
   const isEnvEditor = input.view === "env-editor"
   const envEditorSegments = [
     { key: "Esc", word: "back" },
-    { key: "^S", word: "save" },
-    { key: "^K", word: "clone" },
-    { key: "^W", word: "delete env" },
+    { key: displayKey(input.kb.env_new), word: "new" },
+    { key: displayKey(input.kb.env_save), word: "save" },
+    { key: displayKey(input.kb.env_clone), word: "clone" },
+    { key: displayKey(input.kb.env_delete), word: "delete" },
   ]
 
   return (

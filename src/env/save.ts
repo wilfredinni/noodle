@@ -1,5 +1,6 @@
-import { writeFile } from "node:fs/promises"
+import { writeFile, rename } from "node:fs/promises"
 import { join } from "node:path"
+import { randomUUID } from "node:crypto"
 import type { Environment } from "../schema"
 import { VALID_COLORS } from "./constants"
 
@@ -42,5 +43,13 @@ export async function saveEnvironment(
   lines.push("")
 
   const filePath = join(dir, `${env.name}.env`)
-  await writeFile(filePath, lines.join("\n"), "utf8")
+  const tmpPath = join(dir, `.${env.name}.${randomUUID()}.tmp`)
+  await writeFile(tmpPath, lines.join("\n"), "utf8")
+  try {
+    await rename(tmpPath, filePath)
+  } catch (e) {
+    // Best-effort cleanup — if rename fails, tmp file may persist but
+    // original is left intact. Next save will succeed (tmp name is unique).
+    throw new Error("env.save: rename failed", { cause: e })
+  }
 }

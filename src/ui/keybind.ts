@@ -38,6 +38,11 @@ export const Definitions = {
   browse_escape: keybind("escape", "Exit browse", true),
   edit_commit: keybind("return", "Commit edit", true),
   edit_cancel: keybind("escape", "Cancel edit", true),
+
+  env_save: keybind("ctrl+s", "Save environment"),
+  env_new: keybind("ctrl+n", "Create new environment"),
+  env_clone: keybind("ctrl+k", "Clone environment"),
+  env_delete: keybind("ctrl+w", "Delete environment"),
 } satisfies Record<string, KeybindDefinition>
 
 export type KeybindName = keyof typeof Definitions
@@ -65,6 +70,10 @@ export const CommandMap = {
   browse_toggle: "browse.toggle",
   edit_commit: "edit.commit",
   edit_cancel: "edit.cancel",
+  env_save: "env.save",
+  env_new: "env.new",
+  env_clone: "env.clone",
+  env_delete: "env.delete",
 } satisfies BindingCommandMap
 
 const AllNames = new Set(Object.keys(Definitions))

@@ -629,3 +629,156 @@ describe("help keybinding (? always-on)", () => {
     cleanup()
   })
 })
+
+describe("env-editor layer", () => {
+  it("dispatches env.save when ctrl+s pressed in env-editor view", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.view") === "env-editor" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        { name: "env.save", run: () => { called = true } },
+      ],
+      bindings: [{ key: "ctrl+s", cmd: "env.save" }],
+    })
+
+    host.press("s", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches env.new when ctrl+n pressed in env-editor view", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.view") === "env-editor" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        { name: "env.new", run: () => { called = true } },
+      ],
+      bindings: [{ key: "ctrl+n", cmd: "env.new" }],
+    })
+
+    host.press("n", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches env.clone when ctrl+k pressed in env-editor view", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.view") === "env-editor" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        { name: "env.clone", run: () => { called = true } },
+      ],
+      bindings: [{ key: "ctrl+k", cmd: "env.clone" }],
+    })
+
+    host.press("k", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches env.delete when ctrl+w pressed in env-editor view", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.view") === "env-editor" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        { name: "env.delete", run: () => { called = true } },
+      ],
+      bindings: [{ key: "ctrl+w", cmd: "env.delete" }],
+    })
+
+    host.press("w", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("does not dispatch env.save when view is main (no env-editor layer)", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.view") === "env-editor" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        { name: "env.save", run: () => { called = true } },
+      ],
+      bindings: [{ key: "ctrl+s", cmd: "env.save" }],
+    })
+
+    host.press("s", { ctrl: true })
+    expect(called).toBe(false)
+    cleanup()
+  })
+
+  it("does not dispatch env.save when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.overlay", "help")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.view") === "env-editor" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        { name: "env.save", run: () => { called = true } },
+      ],
+      bindings: [{ key: "ctrl+s", cmd: "env.save" }],
+    })
+
+    host.press("s", { ctrl: true })
+    expect(called).toBe(false)
+    cleanup()
+  })
+
+  it("does not dispatch env.clone when command has enabled() returning false", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.view") === "env-editor" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        {
+          name: "env.clone",
+          enabled: () => false, // e.g. no selectedEnvName
+          run: () => { called = true },
+        },
+      ],
+      bindings: [{ key: "ctrl+k", cmd: "env.clone" }],
+    })
+
+    host.press("k", { ctrl: true })
+    expect(called).toBe(false)
+    cleanup()
+  })
+})

@@ -2,6 +2,8 @@ import { getHelpSections } from "./helpTexts"
 import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
 import type { Keybinds } from "./keybind"
+import type { ScrollBoxRenderable } from "@opentui/core"
+import { useRef } from "react"
 
 export function HelpOverlay({
   visible,
@@ -12,28 +14,42 @@ export function HelpOverlay({
 }) {
   const theme = useTheme()
   const sections = getHelpSections(keybinds)
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   return (
     <Overlay visible={visible} width={60} gap={1} padding={1}>
-        <box
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            paddingLeft: 4,
-            paddingRight: 4,
-          }}
-        >
-          <text fg={theme.text}>Keybindings</text>
-          <text fg={theme.textMuted}>esc</text>
-        </box>
+      <box
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingLeft: 4,
+          paddingRight: 4,
+        }}
+      >
+        <text fg={theme.text}>Keybindings</text>
+        <text fg={theme.textMuted}>esc</text>
+      </box>
+      <scrollbox
+        ref={scrollRef}
+        scrollY
+        focused={visible}
+        maxHeight={20}
+        style={{ flexGrow: 1 }}
+        verticalScrollbarOptions={{
+          trackOptions: {
+            backgroundColor: theme.background,
+            foregroundColor: theme.borderActive,
+          },
+        }}
+      >
         <box style={{ flexDirection: "column", gap: 1 }}>
           {sections.map((section) => (
             <box key={section.title} style={{ flexDirection: "column" }}>
-              <box style={{ paddingLeft: 4, paddingRight: 4 }}>
+              <box paddingLeft={4} paddingRight={4}>
                 <text fg={theme.text}>{section.title}</text>
               </box>
               {section.keys.map((k, i) => (
-                <box key={i} style={{ paddingLeft: 4, paddingRight: 4, flexDirection: "row" }}>
+                <box key={i} paddingLeft={4} paddingRight={4} style={{ flexDirection: "row" }}>
                   <text fg={theme.primary}>
                     {k.key.padEnd(11)}
                   </text>
@@ -43,6 +59,7 @@ export function HelpOverlay({
             </box>
           ))}
         </box>
+      </scrollbox>
     </Overlay>
   )
 }
