@@ -63,8 +63,6 @@ describe("ResponsePane scrollbox", () => {
     expect(bodyLines.length).toBeGreaterThan(0)
     expect(bodyLines.length).toBeLessThan(100)
 
-    // scroll indicator present (proves overflow rendering)
-    expect(frame).toMatch(/[▀▄▌]/)
   })
 })
 

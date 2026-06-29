@@ -132,6 +132,7 @@ export function ResponsePane({
               <scrollbox
                 ref={scrollRef}
                 scrollY
+                scrollbarOptions={{ visible: false }}
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
                 {activeTab === "body" ? (

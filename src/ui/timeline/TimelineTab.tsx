@@ -35,7 +35,7 @@ export function TimelineTab({
         setTimeout(measure, 10)
         return
       }
-      const w = box.width - 1
+      const w = box.width
       if (w !== containerWidthRef.current) {
         containerWidthRef.current = w
         setContainerWidth(w)
@@ -93,6 +93,7 @@ export function TimelineTab({
     <scrollbox
       ref={scrollRef}
       scrollY
+      scrollbarOptions={{ visible: false }}
       style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
     >
       {entries.map((entry, idx) => (
