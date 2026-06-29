@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeyboard, useTerminalDimensions } from "@opentui/react"
+import { useKeymap } from "@opentui/keymap/react"
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
 import { TimelineEntry } from "./TimelineEntry"
@@ -12,6 +13,7 @@ export function TimelineTab({
   focused: boolean
 }) {
   const theme = useTheme()
+  const keymap = useKeymap()
   const { width: termWidth } = useTerminalDimensions()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
@@ -51,6 +53,7 @@ export function TimelineTab({
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (entries.length === 0) return
+    if (keymap.getData("app.overlay") !== "none") return
 
     if (expandedIdx === selectedIdx && expandedIdx !== null) {
       if (key.name === "up") {
