@@ -145,7 +145,6 @@ export function ResponsePane({
                           colors={[
                             statusColor(state.response.status, theme),
                             theme.primary,
-                            theme.secondary,
                           ]}
                           fg={theme.background}
                         >
