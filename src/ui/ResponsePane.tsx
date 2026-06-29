@@ -77,6 +77,11 @@ export function ResponsePane({
 
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
+  const responseHeaders = isDone ? formatHeaders(state.response) : []
+  const maxKeyLen = responseHeaders.length > 0
+    ? Math.max(...responseHeaders.map((h) => h.key.length))
+    : 0
+
   return (
     <box
       style={{
@@ -159,18 +164,25 @@ export function ResponsePane({
                     return <JsonBodyViewer body={body} theme={theme} readOnly />
                   })()
                 ) : (
-                  <>
-                    {formatHeaders(state.response).map((line) => (
-                      <box
-                        key={line}
-                        border={[...LeftBar.border]}
-                        customBorderChars={LeftBar.customBorderChars}
-                        borderColor={theme.borderSubtle}
-                      >
-                        <text fg={theme.textMuted}>{" " + line}</text>
-                      </box>
-                    ))}
-                  </>
+                  responseHeaders.map(({ key, value }, i) => {
+                    if (i < responseHeaders.length - 1) {
+                      return (
+                        <box key={key} border={["bottom"]} borderColor={theme.borderSubtle} style={{ flexDirection: "row" }}>
+                          <text fg={theme.textMuted} style={{ minWidth: maxKeyLen + 1, paddingLeft: 1 }}>
+                            {key.padEnd(maxKeyLen)}
+                          </text>
+                          <text fg={theme.textMuted} wrapMode="none" style={{ flexShrink: 1, minWidth: 5 }}>
+                            : {value}
+                          </text>
+                        </box>
+                      )
+                    }
+                    return (
+                      <text key={key} fg={theme.textMuted} wrapMode="none" style={{ paddingLeft: 1 }}>
+                        {key.padEnd(maxKeyLen)} : {value}
+                      </text>
+                    )
+                  })
                 )}
               </scrollbox>
             )}

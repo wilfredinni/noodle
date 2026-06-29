@@ -163,8 +163,8 @@ export function TimelineEntry({
                       {" "}
                       {formatStatusLine(r) + " · " + formatSize(r.size)}
                     </text>
-                    {formatHeaders(r).map((h) => (
-                      <text key={h} fg={theme.textMuted}> {h}</text>
+                    {formatHeaders(r).map(({ key, value }) => (
+                      <text key={key} fg={theme.textMuted}> {key}: {value}</text>
                     ))}
                     {r.body && (
                       <text fg={theme.text}>

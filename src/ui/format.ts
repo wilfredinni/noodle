@@ -20,10 +20,15 @@ export function formatStatusLine(res: Response): string {
   return `HTTP ${res.status} ${res.statusText} · ${ms}ms`
 }
 
-export function formatHeaders(res: Response): string[] {
+export interface HeaderEntry {
+  key: string
+  value: string
+}
+
+export function formatHeaders(res: Response): HeaderEntry[] {
   const entries = Object.entries(res.headers)
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return entries.map(([k, v]) => `${k}: ${v}`)
+  return entries.map(([key, value]) => ({ key, value }))
 }
 
 export function formatBody(res: Response): string {
