@@ -167,7 +167,7 @@ export function ResponsePane({
                   responseHeaders.map(({ key, value }, i) => {
                     if (i < responseHeaders.length - 1) {
                       return (
-                        <box key={key} border={["bottom"]} borderColor={theme.borderSubtle} style={{ flexDirection: "row" }}>
+                        <box key={key} border={["bottom"]} borderColor={theme.borderDimmest} style={{ flexDirection: "row" }}>
                           <text fg={theme.textMuted} style={{ minWidth: maxKeyLen + 1, paddingLeft: 1 }}>
                             {key.padEnd(maxKeyLen)}
                           </text>
