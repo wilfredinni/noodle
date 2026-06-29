@@ -86,7 +86,7 @@ describe("buildDisplayUrl", () => {
       token: { value: "$API_KEY", enabled: true },
     }
     expect(buildDisplayUrl("https://example.com/data", params)).toBe(
-      "https://example.com/data?token=%24API_KEY",
+      "https://example.com/data?token=$API_KEY",
     )
   })
 
