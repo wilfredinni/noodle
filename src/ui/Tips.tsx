@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useTheme } from "./theme"
+import { CenterText } from "./CenterText"
 
 const TIPS = [
   "send the request with {^↩} — works from any pane",
@@ -55,7 +56,11 @@ export function Tips() {
   const theme = useTheme()
 
   const [tip] = useState(() => TIPS[Math.floor(Math.random() * TIPS.length)] ?? TIPS[0])
-  const parts = useMemo(() => parseTip(tip), [tip])
+  const parts = parseTip(tip)
+  const segments = [
+    { text: "● Tip", color: theme.secondary },
+    ...parts.map((p) => ({ text: p.text, color: p.isKey ? theme.primary : theme.textMuted })),
+  ]
 
   return (
     <box
@@ -68,20 +73,7 @@ export function Tips() {
         paddingRight: 4,
       }}
     >
-      <box
-        style={{
-          flexDirection: "row",
-          gap: 0,
-          flexShrink: 0,
-        }}
-      >
-        <text fg={theme.secondary}>● Tip </text>
-        {parts.map((part, i) => (
-          <text key={i} fg={part.isKey ? theme.primary : theme.textMuted}>
-            {part.text}
-          </text>
-        ))}
-      </box>
+      <CenterText segments={segments} />
     </box>
   )
 }
