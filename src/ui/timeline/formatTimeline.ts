@@ -6,6 +6,7 @@ export function buildTimelineEntry(
   req: Request,
   result: SendCompleteResult,
   envName?: string,
+  resolvedUrl?: string,
 ): TimelineEntry {
   return {
     timestamp: Date.now(),
@@ -14,7 +15,7 @@ export function buildTimelineEntry(
       id: req.id,
       name: req.name,
       method: req.method,
-      url: req.url,
+      url: resolvedUrl ?? req.url,
       headers: { ...req.headers },
       params: { ...req.params },
       body: req.body,

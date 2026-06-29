@@ -31,6 +31,7 @@ import { useAppKeymap } from "./useAppKeymap"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
+import { substitute } from "../requests"
 
 export function AppInner({
   collectionDir,
@@ -188,7 +189,18 @@ export function AppInner({
 
   const onCompleteRef = useRef((_req: NoodleRequest, _result: SendCompleteResult) => {})
   onCompleteRef.current = (req: NoodleRequest, result: SendCompleteResult) => {
-    timelineAppendRef.current(buildTimelineEntry(req, result, envNameRef.current))
+    let resolvedUrl: string | undefined
+    const activeEnv = envStateRef.current.activeEnv
+    if (activeEnv) {
+      try {
+        resolvedUrl = substitute(req, activeEnv).url
+      } catch {
+        resolvedUrl = undefined
+      }
+    }
+    timelineAppendRef.current(
+      buildTimelineEntry(req, result, envNameRef.current, resolvedUrl),
+    )
   }
 
   const {

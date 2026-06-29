@@ -188,6 +188,33 @@ describe("buildTimelineEntry", () => {
     expect(entry.envName).toBe("dev")
   })
 
+  it("uses resolvedUrl when provided", () => {
+    const req = {
+      id: "req-3",
+      name: "Env",
+      method: "GET" as const,
+      url: "https://api.example.com/$base/path",
+      headers: {},
+      params: {},
+      body: undefined,
+      auth: undefined,
+    }
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 5,
+      },
+      request: req,
+      envName: "dev",
+    }
+    const entry = buildTimelineEntry(req, result, "dev", "https://api.example.com/v1/path")
+    expect(entry.request.url).toBe("https://api.example.com/v1/path")
+  })
+
   it("builds error entry", () => {
     const req = {
       id: "req-2",
