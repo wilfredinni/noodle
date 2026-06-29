@@ -87,11 +87,8 @@ export function ResponsePane({
       style={{
         flexGrow: 1,
         flexDirection: "column",
-        paddingTop: 0,
-        paddingBottom: 1,
         paddingLeft: 1,
         paddingRight: 1,
-        gap: 1,
         flexBasis: 0,
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,
@@ -121,7 +118,7 @@ export function ResponsePane({
           <text fg={theme.error}> {state.error.message}</text>
         </box>
       ) : (
-        <>
+        <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
           <Tabs
             tabs={TAB_DEFS}
             activeId={activeTab}
@@ -139,19 +136,6 @@ export function ResponsePane({
               >
                 {activeTab === "body" ? (
                   <box style={{ flexDirection: "column", gap: 1 }}>
-                    {state.response.statusText !== "" && (
-                      <box style={{ flexDirection: "row" }}>
-                        <GradientBadge
-                          colors={[
-                            statusColor(state.response.status, theme),
-                            theme.primary,
-                          ]}
-                          fg={theme.background}
-                        >
-                          {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""} • ${Math.round(state.response.timeMs)}ms • ${formatSize(new TextEncoder().encode(state.response.body).length)}`}
-                        </GradientBadge>
-                      </box>
-                    )}
                     {(() => {
                       const body = formatBody(state.response)
                       if (body === "") return (
@@ -184,7 +168,17 @@ export function ResponsePane({
               </scrollbox>
             )}
           </Tabs>
-        </>
+          {state.response.statusText !== "" && (
+            <box style={{ flexDirection: "row", justifyContent: "flex-end", flexShrink: 0, paddingTop: 1, paddingRight: 1 }}>
+              <GradientBadge
+                colors={[statusColor(state.response.status, theme), theme.primary]}
+                fg={theme.background}
+              >
+                {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""} • ${Math.round(state.response.timeMs)}ms • ${formatSize(new TextEncoder().encode(state.response.body).length)}`}
+              </GradientBadge>
+            </box>
+          )}
+        </box>
       )}
     </box>
   )
