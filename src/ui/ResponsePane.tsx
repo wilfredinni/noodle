@@ -141,7 +141,7 @@ export function ResponsePane({
                       if (body === "") return (
                         <text fg={theme.textMuted}>(no body)</text>
                       )
-                      return <JsonBodyViewer body={body} theme={theme} readOnly />
+                      return <JsonBodyViewer key={body} body={body} theme={theme} readOnly />
                     })()}
                   </box>
                 ) : (
