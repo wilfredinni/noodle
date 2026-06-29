@@ -1,3 +1,4 @@
 name: Delete Post
 method: DELETE
 url: $base_url/posts/$post_id
+timeout: 0

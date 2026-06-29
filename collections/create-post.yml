@@ -1,6 +1,7 @@
 name: Create Post
 method: POST
 url: $base_url/posts
+timeout: 0
 headers:
   Content-Type: application/json
   x-api-key: $x_api_key

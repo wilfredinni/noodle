@@ -105,7 +105,11 @@ function makeEntry(over: Partial<TimelineEntry> = {}): TimelineEntry {
 describe("entryMethod", () => {
   it("returns method from entry", () => {
     expect(entryMethod(makeEntry())).toBe("GET")
-    expect(entryMethod(makeEntry({ request: { ...makeEntry().request, method: "POST" } }))).toBe("POST")
+    expect(
+      entryMethod(
+        makeEntry({ request: { ...makeEntry().request, method: "POST" } }),
+      ),
+    ).toBe("POST")
   })
 })
 
@@ -116,10 +120,32 @@ describe("entryStatus", () => {
 
   it("returns status code from response", () => {
     expect(
-      entryStatus(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10, size: 0 } }))
+      entryStatus(
+        makeEntry({
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "",
+            timeMs: 10,
+            size: 0,
+          },
+        }),
+      ),
     ).toBe(200)
     expect(
-      entryStatus(makeEntry({ response: { status: 404, statusText: "Not Found", headers: {}, body: "", timeMs: 10, size: 0 } }))
+      entryStatus(
+        makeEntry({
+          response: {
+            status: 404,
+            statusText: "Not Found",
+            headers: {},
+            body: "",
+            timeMs: 10,
+            size: 0,
+          },
+        }),
+      ),
     ).toBe(404)
   })
 
@@ -131,12 +157,25 @@ describe("entryStatus", () => {
 describe("entryTiming", () => {
   it("returns ms from response", () => {
     expect(
-      entryTiming(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 150, size: 0 } }))
+      entryTiming(
+        makeEntry({
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "",
+            timeMs: 150,
+            size: 0,
+          },
+        }),
+      ),
     ).toBe("150ms")
   })
 
   it("returns ERR for error entries", () => {
-    expect(entryTiming(makeEntry({ error: { message: "timeout" } }))).toBe("ERR")
+    expect(entryTiming(makeEntry({ error: { message: "timeout" } }))).toBe(
+      "ERR",
+    )
   })
 
   it('returns "-" when no response', () => {
@@ -152,14 +191,38 @@ describe("entryIsError", () => {
   it("returns false when no error", () => {
     expect(entryIsError(makeEntry())).toBe(false)
     expect(
-      entryIsError(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10, size: 0 } }))
+      entryIsError(
+        makeEntry({
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "",
+            timeMs: 10,
+            size: 0,
+          },
+        }),
+      ),
     ).toBe(false)
   })
 })
 
 describe("entrySize", () => {
   it("returns size from response", () => {
-    expect(entrySize(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10, size: 42 } }))).toBe(42)
+    expect(
+      entrySize(
+        makeEntry({
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "",
+            timeMs: 10,
+            size: 42,
+          },
+        }),
+      ),
+    ).toBe(42)
   })
 
   it("returns null when no response", () => {
@@ -182,6 +245,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body: '{"key":"val"}',
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,
@@ -214,6 +278,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body: undefined,
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,
@@ -227,7 +292,12 @@ describe("buildTimelineEntry", () => {
       request: req,
       envName: "dev",
     }
-    const entry = buildTimelineEntry(req, result, "dev", "https://api.example.com/v1/path")
+    const entry = buildTimelineEntry(
+      req,
+      result,
+      "dev",
+      "https://api.example.com/v1/path",
+    )
     expect(entry.request.url).toBe("https://api.example.com/v1/path")
   })
 
@@ -241,6 +311,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body: undefined,
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "error" as const,
@@ -265,6 +336,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body: longBody,
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,
@@ -294,6 +366,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body: undefined,
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,
@@ -324,6 +397,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body,
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,
@@ -352,6 +426,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body,
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,
@@ -379,6 +454,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body: "",
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,
@@ -408,6 +484,7 @@ describe("buildTimelineEntry", () => {
       params: {},
       body: undefined,
       auth: undefined,
+      timeout: 0,
     }
     const result = {
       status: "done" as const,

@@ -22,6 +22,7 @@ export interface Request {
   name: string
   method: Method
   url: string
+  timeout: number
   headers: Record<string, KvEntry>
   params: Record<string, KvEntry>
   body?: string

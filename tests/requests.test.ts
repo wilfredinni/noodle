@@ -23,6 +23,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     url: "https://example.com",
     headers: {},
     params: {},
+    timeout: 0,
     auth: { type: "none" },
     ...over,
   }
@@ -40,14 +41,18 @@ describe("substitute — pure $var replacement", () => {
   })
 
   it("substitutes $x in header values (not keys)", () => {
-    const req = makeReq({ headers: { Authorization: { value: "Bearer $token", enabled: true } } })
+    const req = makeReq({
+      headers: { Authorization: { value: "Bearer $token", enabled: true } },
+    })
     const out = substitute(req, makeEnv({ token: "abc123" }))
     expect(out.headers.Authorization).toBe("Bearer abc123")
     expect(Object.keys(out.headers)).toEqual(["Authorization"])
   })
 
   it("substitutes $x in param values (not keys)", () => {
-    const req = makeReq({ params: { verbose: { value: "$flag", enabled: true } } })
+    const req = makeReq({
+      params: { verbose: { value: "$flag", enabled: true } },
+    })
     const out = substitute(req, makeEnv({ flag: "true" }))
     expect(out.params.verbose).toBe("true")
     expect(Object.keys(out.params)).toEqual(["verbose"])
@@ -101,7 +106,9 @@ describe("substitute — pure $var replacement", () => {
   })
 
   it("throws on unresolved variable in header value (field name included)", () => {
-    const req = makeReq({ headers: { Authorization: { value: "Bearer $token", enabled: true } } })
+    const req = makeReq({
+      headers: { Authorization: { value: "Bearer $token", enabled: true } },
+    })
     expect(() => substitute(req, makeEnv({}))).toThrow(
       'requests.substitute: unresolved variable "token" in headers.Authorization',
     )
@@ -115,7 +122,10 @@ describe("substitute — pure $var replacement", () => {
   })
 
   it("does not mutate the input request", () => {
-    const req = makeReq({ url: "https://$host/x", headers: { A: { value: "$v", enabled: true } } })
+    const req = makeReq({
+      url: "https://$host/x",
+      headers: { A: { value: "$v", enabled: true } },
+    })
     const original = JSON.parse(JSON.stringify(req))
     substitute(req, makeEnv({ host: "h", v: "1" }))
     expect(req).toEqual(original)
@@ -207,7 +217,9 @@ function fakeResponse(opts: {
 describe("send — URL and query params", () => {
   it("merges params into URL as query string", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
-    await executor.send(makeReq({ params: { verbose: { value: "true", enabled: true } } }))
+    await executor.send(
+      makeReq({ params: { verbose: { value: "true", enabled: true } } }),
+    )
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?verbose=true")
   })
@@ -215,7 +227,10 @@ describe("send — URL and query params", () => {
   it("appends params to existing query string", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await executor.send(
-      makeReq({ url: "https://example.com/?a=1", params: { b: { value: "2", enabled: true } } }),
+      makeReq({
+        url: "https://example.com/?a=1",
+        params: { b: { value: "2", enabled: true } },
+      }),
     )
     expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?a=1&b=2")
   })
@@ -264,7 +279,11 @@ describe("send — method, body, headers", () => {
 
   it("passes user headers to fetch init", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
-    await executor.send(makeReq({ headers: { Accept: { value: "application/json", enabled: true } } }))
+    await executor.send(
+      makeReq({
+        headers: { Accept: { value: "application/json", enabled: true } },
+      }),
+    )
     const init = fetchMock.mock.calls[0][1] as RequestInit
     const headers = init.headers as Headers
     expect(headers.get("Accept")).toBe("application/json")

@@ -3,7 +3,7 @@ import type {
   TextareaRenderable,
   LineNumberRenderable,
 } from "@opentui/core"
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import type { Request, Environment } from "../schema"
 import { formatBody, formatAuth } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
@@ -34,6 +34,7 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "params", label: "Params" },
   { id: "body", label: "Body" },
   { id: "auth", label: "Auth" },
+  { id: "settings", label: "Settings" },
 ]
 
 export function RequestPane({
@@ -73,6 +74,7 @@ export function RequestPane({
     const hasBody = request.body !== undefined && request.body !== ""
     const hasAuth =
       request.auth?.type !== undefined && request.auth.type !== "none"
+    const hasTimeout = request.timeout > 0
     return BASE_TAB_DEFS.map((tab) => {
       if (tab.id === "headers") {
         return {
@@ -91,6 +93,9 @@ export function RequestPane({
       }
       if (tab.id === "auth") {
         return { ...tab, label: hasAuth ? "Auth \u2022" : "Auth" }
+      }
+      if (tab.id === "settings") {
+        return { ...tab, label: hasTimeout ? "Settings \u2022" : "Settings" }
       }
       return tab
     })
@@ -169,6 +174,18 @@ export function RequestPane({
                 <AuthSection
                   request={request}
                   editState={editState}
+                  theme={theme}
+                  activeEnv={activeEnv}
+                />
+              )}
+              {activeTab === "settings" && (
+                <SettingsSection
+                  request={request}
+                  editState={editState}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
                   theme={theme}
                   activeEnv={activeEnv}
                 />
@@ -290,6 +307,72 @@ function AuthSection({
         env={activeEnv ?? null}
         baseColor={isActive ? theme.text : theme.textMuted}
       />
+    </box>
+  )
+}
+
+function SettingsSection({
+  request,
+  editState,
+  editValue: _editValue,
+  setEditValue,
+  inEdit,
+  browseActive,
+  theme,
+  activeEnv,
+}: {
+  request: Request
+  editState: EditState
+  editValue: string
+  setEditValue: (v: string) => void
+  inEdit: boolean
+  browseActive: boolean
+  theme: Theme
+  activeEnv?: Environment | null
+}) {
+  const textareaRef = useRef<TextareaRenderable | null>(null)
+  const editingSettings = inEdit && editState.cursor.field === "settings"
+  const isActive = browseActive && editState.cursor.field === "settings"
+  const timeout = request.timeout
+
+  const handleContentChange = useCallback(() => {
+    const ta = textareaRef.current
+    if (ta) setEditValue(ta.plainText)
+  }, [setEditValue])
+
+  return (
+    <box
+      id="settings-field"
+      border={[...LeftBar.border]}
+      customBorderChars={LeftBar.customBorderChars}
+      borderColor={isActive || editingSettings ? theme.primary : theme.borderSubtle}
+      style={{
+        flexDirection: editingSettings ? "row" : undefined,
+        gap: editingSettings ? 1 : undefined,
+        backgroundColor: isActive ? theme.backgroundElement : undefined,
+      }}
+    >
+      {editingSettings ? (
+        <>
+          <text fg={theme.textMuted}>Timeout (ms): </text>
+          <textarea
+            ref={textareaRef}
+            initialValue={timeout > 0 ? String(timeout) : ""}
+            onContentChange={handleContentChange}
+            backgroundColor={theme.backgroundPanel}
+            focusedBackgroundColor={theme.backgroundPanel}
+            textColor={theme.text}
+            cursorColor={theme.primary}
+            focused
+          />
+        </>
+      ) : (
+        <VarText
+          text={`Timeout (ms): ${timeout}ms`}
+          env={activeEnv ?? null}
+          baseColor={isActive ? theme.text : theme.textMuted}
+        />
+      )}
     </box>
   )
 }

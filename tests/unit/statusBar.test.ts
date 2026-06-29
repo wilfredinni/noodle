@@ -78,6 +78,7 @@ describe("statusBarText", () => {
           url: "/items/1",
           headers: {},
           params: {},
+          timeout: 0,
         },
       },
       envLabel: "dev",
@@ -147,6 +148,7 @@ describe("statusBarText", () => {
           url: "/users",
           headers: {},
           params: {},
+          timeout: 0,
         },
         error: new Error("Connection refused"),
       },
@@ -285,7 +287,9 @@ describe("statusBarText", () => {
       kb: defaults,
       spinnerFrame: "⠋",
     })
-    expect(r.right).toBe("[^return] send · [^s] save · [^l] layout · [tab] focus · [f1] help · [^c] quit")
+    expect(r.right).toBe(
+      "[^return] send · [^s] save · [^l] layout · [tab] focus · [f1] help · [^c] quit",
+    )
   })
 
   it("right reflects custom keybinds for help_toggle", () => {
@@ -300,7 +304,9 @@ describe("statusBarText", () => {
       kb: custom,
       spinnerFrame: "⠋",
     })
-    expect(r.right).toBe("[^return] send · [^s] save · [^l] layout · [tab] focus · [f1] help · [^c] quit")
+    expect(r.right).toBe(
+      "[^return] send · [^s] save · [^l] layout · [tab] focus · [f1] help · [^c] quit",
+    )
   })
 
   it("each section is a string", () => {

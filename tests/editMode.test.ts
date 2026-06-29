@@ -67,7 +67,7 @@ describe("exitEditBrowse", () => {
 })
 
 describe("moveFieldCursor", () => {
-  it("+1 walks headers → params → body → auth → headers", () => {
+  it("+1 walks headers → params → body → auth → settings → headers", () => {
     let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
     s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("params")
@@ -79,11 +79,16 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(-1)
     s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
+    expect(s.cursor.field).toBe("settings")
+    expect(s.cursor.row).toBe(-1)
+    s = moveFieldCursor(s, +1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("headers")
     expect(s.cursor.row).toBe(0)
   })
-  it("-1 walks headers → auth → body → params → headers", () => {
+  it("-1 walks headers → settings → auth → body → params → headers", () => {
     let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
+    s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
+    expect(s.cursor.field).toBe("settings")
     s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("auth")
     s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
@@ -187,6 +192,7 @@ describe("beginEditing", () => {
   })
   it("no-op for auth (browse-only field)", () => {
     let s = enterEditBrowse(inactive, { headers: 2, params: 0 })
+    s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
     s = moveFieldCursor(s, -1, { headers: 2, params: 1 })
     expect(s.cursor.field).toBe("auth")
     expect(beginEditing(s)).toBe(s)
@@ -322,6 +328,7 @@ describe("toggleSubfield", () => {
 
   it("no-op for auth field (cannot enter edit)", () => {
     let s = enterEditBrowse(inactive, { headers: 0, params: 0 })
+    s = moveFieldCursor(s, -1, { headers: 0, params: 0 })
     s = moveFieldCursor(s, -1, { headers: 0, params: 0 })
     expect(s.cursor.field).toBe("auth")
     expect(toggleSubfield(s)).toBe(s)

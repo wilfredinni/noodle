@@ -38,11 +38,19 @@ export async function send(
     headersInst.set(ah.name, ah.value)
   }
 
+  let effectiveSignal = signal
+  if (req.timeout > 0) {
+    const timeoutSignal = AbortSignal.timeout(req.timeout)
+    effectiveSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal
+  }
+
   const init: RequestInit = {
     method: substituted.method,
     headers: headersInst,
     body: substituted.body,
-    signal,
+    signal: effectiveSignal,
   }
 
   const start = performance.now()

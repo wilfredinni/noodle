@@ -1,6 +1,7 @@
 name: Bearer Auth
 method: GET
 url: https://httpbin.org/bearer
+timeout: 0
 auth:
   type: bearer
   token: $api_token

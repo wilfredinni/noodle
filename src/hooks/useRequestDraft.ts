@@ -15,6 +15,7 @@ export type DraftOp =
   | { kind: "removeParamRow"; index: number }
   | { kind: "toggleParamRow"; index: number }
   | { kind: "syncUrlParams"; rawUrl: string }
+  | { kind: "setTimeout"; timeout: number }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
 
@@ -61,6 +62,7 @@ function authEqual(a: Auth | undefined, b: Auth | undefined): boolean {
 export function requestEquals(a: Request, b: Request): boolean {
   if (a.url !== b.url) return false
   if (a.method !== b.method) return false
+  if (a.timeout !== b.timeout) return false
   if (a.body !== b.body) return false
   if (!recordsEqual(a.headers, b.headers)) return false
   if (!recordsEqual(a.params, b.params)) return false
@@ -220,8 +222,12 @@ export function applyDraft(
     case "toggleParamRow":
       draft.params = toggleRow(current.params, op.index)
       break
+    case "setTimeout":
+      draft.timeout = op.timeout
+      break
     case "revertField": {
       if (op.field === "body") draft.body = original.body
+      else if (op.field === "settings") draft.timeout = original.timeout
       else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {
@@ -251,6 +257,7 @@ export interface UseRequestDraftResult {
   addParamRow: (key: string, value: string) => void
   removeParamRow: (index: number) => void
   toggleParamRow: (index: number) => void
+  setTimeout: (timeout: number) => void
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
   markSaved: () => void
@@ -294,6 +301,10 @@ export function useRequestDraft(
   )
   const setBody = useCallback(
     (body: string) => apply({ kind: "setBody", body }),
+    [apply],
+  )
+  const setTimeoutCb = useCallback(
+    (timeout: number) => apply({ kind: "setTimeout", timeout }),
     [apply],
   )
   const setHeaderRow = useCallback(
@@ -381,6 +392,7 @@ export function useRequestDraft(
       setUrl,
       syncUrlParams,
       setBody,
+      setTimeout: setTimeoutCb,
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,
@@ -400,6 +412,7 @@ export function useRequestDraft(
       setUrl,
       syncUrlParams,
       setBody,
+      setTimeoutCb,
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,
