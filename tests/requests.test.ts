@@ -538,3 +538,38 @@ describe("send — abort signal", () => {
     expect((caught as Error).message).toMatch(/fetch failed/)
   })
 })
+
+describe("send — timeout signal", () => {
+  it("creates timeout AbortSignal when timeout > 0, no caller signal", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ timeout: 5000 }))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+    expect(init.signal!.aborted).toBe(false)
+  })
+
+  it("combines signals when timeout > 0 and caller signal present", async () => {
+    const controller = new AbortController()
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ timeout: 5000 }), undefined, controller.signal)
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+    expect(init.signal).not.toBe(controller.signal)
+    expect(init.signal!.aborted).toBe(false)
+  })
+
+  it("passes caller signal directly when timeout === 0", async () => {
+    const controller = new AbortController()
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ timeout: 0 }), undefined, controller.signal)
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.signal).toBe(controller.signal)
+  })
+
+  it("no signal when timeout === 0 and no caller signal", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(makeReq({ timeout: 0 }))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.signal).toBeUndefined()
+  })
+})

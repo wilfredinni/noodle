@@ -114,6 +114,16 @@ describe("requestEquals", () => {
   it("both auth undefined → true", () => {
     expect(requestEquals(makeReq(), makeReq())).toBe(true)
   })
+  it("same timeout → true", () => {
+    expect(
+      requestEquals(makeReq({ timeout: 5000 }), makeReq({ timeout: 5000 })),
+    ).toBe(true)
+  })
+  it("differing timeout → false", () => {
+    expect(
+      requestEquals(makeReq({ timeout: 0 }), makeReq({ timeout: 10000 })),
+    ).toBe(false)
+  })
   it("name/id differences → still equal (only url/method/headers/params/body/auth compared)", () => {
     const a = makeReq({ id: "r1", name: "A" })
     const b = makeReq({ id: "r2", name: "B" })
@@ -146,6 +156,15 @@ describe("applyDraft", () => {
     const next = applyDraft(map, "r1", original, { kind: "setBody", body: "" })
     expect(next.has("r1")).toBe(true)
     expect(next.get("r1")!.body).toBe("")
+  })
+  it("setTimeout updates timeout on draft", () => {
+    const original = makeReq({ timeout: 0 })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setTimeout",
+      timeout: 30000,
+    })
+    expect(next.get("r1")!.timeout).toBe(30000)
   })
   it("setHeaderRow replaces i-th entry by insertion order", () => {
     const original = makeReq({
@@ -294,6 +313,17 @@ describe("applyDraft", () => {
       field: "body",
     })
     expect(next.get("r1")!.body).toBe("orig")
+  })
+  it("revertField settings restores timeout from original", () => {
+    const original = makeReq({ timeout: 5000 })
+    const map = new Map<string, Request>([
+      ["r1", { ...original, timeout: 30000 }],
+    ])
+    const next = applyDraft(map, "r1", original, {
+      kind: "revertField",
+      field: "settings",
+    })
+    expect(next.get("r1")!.timeout).toBe(5000)
   })
   it("revertField headers row i restores that row from original", () => {
     const original = makeReq({
