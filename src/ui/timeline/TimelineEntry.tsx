@@ -10,6 +10,10 @@ import {
 } from "./formatTimeline"
 import { methodColor } from "../formatRequest"
 
+function shortMethod(m: string): string {
+  return m === "DELETE" ? "DEL" : m
+}
+
 function formatRequestHeaders(entry: TimelineEntryType): string[] {
   const lines: string[] = []
   for (const [k, v] of Object.entries(entry.request.headers)) {
@@ -58,7 +62,7 @@ export function TimelineEntry({
   const rowFg = isSelected ? theme.text : theme.textMuted
 
   const method = entryMethod(entry)
-  const methodStr = method.padEnd(5)
+  const methodStr = (method === "PATCH" ? shortMethod(method).padEnd(7) : shortMethod(method).padEnd(5))
   const statusStr = status !== null ? (status === 0 ? "ERR " : `${status} `) : "--- "
   const urlStr = formatRequestUrl(entry)
   const timingStr = hasError ? "ERR" : entryTiming(entry)
@@ -128,7 +132,7 @@ export function TimelineEntry({
           <box style={{ flexDirection: "column", gap: 0, paddingLeft: 2 }}>
             <text fg={theme.text}>
               {" "}
-              {entryMethod(entry)} {formatRequestUrl(entry)}
+              {shortMethod(entryMethod(entry))} {formatRequestUrl(entry)}
             </text>
             {authSummary(entry.request.auth) && (
               <text fg={theme.textMuted}>
