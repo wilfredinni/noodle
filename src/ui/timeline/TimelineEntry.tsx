@@ -1,6 +1,5 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
-import { LeftBar } from "../borders"
 import { formatHeaders, formatStatusLine, statusColor } from "../format"
 import {
   entryMethod,
@@ -72,7 +71,7 @@ export function TimelineEntry({
     : 999
 
   return (
-    <box id={id} style={{ flexDirection: "column", backgroundColor: rowBg }}>
+    <box id={id} style={{ flexDirection: "column", backgroundColor: rowBg, overflow: "hidden" }}>
       <box
         style={{
           flexDirection: "row",
@@ -126,56 +125,25 @@ export function TimelineEntry({
           >
             <text fg={theme.text}>Request</text>
           </box>
-          <box style={{ flexDirection: "column", gap: 0 }}>
-            <box
-              border={[...LeftBar.border]}
-              customBorderChars={LeftBar.customBorderChars}
-              borderColor={theme.borderSubtle}
-            >
-              <text fg={theme.text}>
-                {" "}
-                {entryMethod(entry)} {formatRequestUrl(entry)}
-              </text>
-            </box>
+          <box style={{ flexDirection: "column", gap: 0, paddingLeft: 2 }}>
+            <text fg={theme.text}>
+              {" "}
+              {entryMethod(entry)} {formatRequestUrl(entry)}
+            </text>
             {authSummary(entry.request.auth) && (
-              <box
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={theme.borderSubtle}
-              >
-                <text fg={theme.textMuted}>
-                  {" "}
-                  {authSummary(entry.request.auth)}
-                </text>
-              </box>
+              <text fg={theme.textMuted}>
+                {" "}
+                {authSummary(entry.request.auth)}
+              </text>
             )}
             {formatRequestHeaders(entry).map((h) => (
-              <box
-                key={h}
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={theme.borderSubtle}
-              >
-                <text fg={theme.textMuted}> {h}</text>
-              </box>
+              <text key={h} fg={theme.textMuted}> {h}</text>
             ))}
             {entry.request.body && (
-              <box
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={theme.borderSubtle}
-              >
-                <text fg={theme.text}> {entry.request.body}</text>
-              </box>
+              <text fg={theme.text}> {entry.request.body}</text>
             )}
             {entry.envName && (
-              <box
-                border={[...LeftBar.border]}
-                customBorderChars={LeftBar.customBorderChars}
-                borderColor={theme.borderSubtle}
-              >
-                <text fg={theme.info}> env: {entry.envName}</text>
-              </box>
+              <text fg={theme.info}> env: {entry.envName}</text>
             )}
           </box>
           <box
@@ -185,68 +153,37 @@ export function TimelineEntry({
           >
             <text fg={theme.text}>Response</text>
           </box>
-          <box style={{ flexDirection: "column", gap: 0 }}>
+          <box style={{ flexDirection: "column", gap: 0, paddingLeft: 2 }}>
             {(() => {
               const r = entry.response
               if (r) {
                 return (
                   <>
-                    <box
-                      border={[...LeftBar.border]}
-                      customBorderChars={LeftBar.customBorderChars}
-                      borderColor={theme.borderSubtle}
-                    >
-                      <text fg={theme.text}>
-                        {" "}
-                        {formatStatusLine(r)}
-                      </text>
-                    </box>
+                    <text fg={theme.text}>
+                      {" "}
+                      {formatStatusLine(r)}
+                    </text>
                     {formatHeaders(r).map((h) => (
-                      <box
-                        key={h}
-                        border={[...LeftBar.border]}
-                        customBorderChars={LeftBar.customBorderChars}
-                        borderColor={theme.borderSubtle}
-                      >
-                        <text fg={theme.textMuted}> {h}</text>
-                      </box>
+                      <text key={h} fg={theme.textMuted}> {h}</text>
                     ))}
                     {r.body && (
-                      <box
-                        border={[...LeftBar.border]}
-                        customBorderChars={LeftBar.customBorderChars}
-                        borderColor={theme.borderSubtle}
-                      >
-                        <text fg={theme.text}>
-                          {" "}
-                          {r.body.length > 2000
-                            ? r.body.slice(0, 2000) + "..."
-                            : r.body}
-                        </text>
-                      </box>
+                      <text fg={theme.text}>
+                        {" "}
+                        {r.body.length > 2000
+                          ? r.body.slice(0, 2000) + "..."
+                          : r.body}
+                      </text>
                     )}
                   </>
                 )
               }
               if (entry.error) {
                 return (
-                  <box
-                    border={[...LeftBar.border]}
-                    customBorderChars={LeftBar.customBorderChars}
-                    borderColor={theme.error}
-                  >
-                    <text fg={theme.error}> {entry.error.message}</text>
-                  </box>
+                  <text fg={theme.error}> {entry.error.message}</text>
                 )
               }
               return (
-                <box
-                  border={[...LeftBar.border]}
-                  customBorderChars={LeftBar.customBorderChars}
-                  borderColor={theme.borderSubtle}
-                >
-                  <text fg={theme.textMuted}> No response</text>
-                </box>
+                <text fg={theme.textMuted}> No response</text>
               )
             })()}
           </box>
