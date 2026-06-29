@@ -54,7 +54,7 @@ export function useTimeline(
       if (!collectionDir || !requestId) return
       await saveTimelineEntry(collectionDir, requestId, entry, maxEntries)
       setEntries((prev) => {
-        const next = [...prev, entry]
+        const next = [entry, ...prev]
         if (next.length > maxEntries) next.splice(0, next.length - maxEntries)
         return next
       })

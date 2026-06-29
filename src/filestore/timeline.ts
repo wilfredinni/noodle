@@ -38,10 +38,10 @@ export async function saveTimelineEntry(
   await mkdir(dir, { recursive: true })
 
   const current = await loadTimeline(colDir, reqId)
-  current.push(entry)
+  current.unshift(entry)
 
   if (current.length > maxEntries) {
-    current.splice(0, current.length - maxEntries)
+    current.length = maxEntries
   }
 
   const yamlText = yaml.dump(current)
