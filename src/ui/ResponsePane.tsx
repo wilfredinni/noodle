@@ -8,7 +8,7 @@ import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
-import { Badge } from "./Badge"
+import { GradientBadge } from "./GradientBadge"
 import { Tips } from "./Tips"
 import { TimelineTab } from "./timeline/TimelineTab"
 
@@ -141,9 +141,16 @@ export function ResponsePane({
                   <box style={{ flexDirection: "column", gap: 1 }}>
                     {state.response.statusText !== "" && (
                       <box style={{ flexDirection: "row" }}>
-                        <Badge bg={statusColor(state.response.status, theme)} fg={theme.background}>
-                          {state.response.status} {state.response.statusText} • {Math.round(state.response.timeMs)}ms • {formatSize(new TextEncoder().encode(state.response.body).length)}
-                        </Badge>
+                        <GradientBadge
+                          colors={[
+                            statusColor(state.response.status, theme),
+                            theme.primary,
+                            theme.secondary,
+                          ]}
+                          fg={theme.background}
+                        >
+                          {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""} • ${Math.round(state.response.timeMs)}ms • ${formatSize(new TextEncoder().encode(state.response.body).length)}`}
+                        </GradientBadge>
                       </box>
                     )}
                     {(() => {
