@@ -42,11 +42,13 @@ export function TimelineEntry({
   entry,
   isSelected,
   isExpanded,
+  containerWidth,
 }: {
   id?: string
   entry: TimelineEntryType
   isSelected: boolean
   isExpanded: boolean
+  containerWidth: number
 }) {
   const theme = useTheme()
   const status = entryStatus(entry)
@@ -63,6 +65,12 @@ export function TimelineEntry({
   const timingStr = hasError ? "ERR" : entryTiming(entry)
   const reltimeStr = relativeTime(entry.timestamp)
 
+  const ROW_PADDING = 2
+  const FIXED_ELEMENTS = 22
+  const urlMaxLength = containerWidth > 0
+    ? Math.max(10, containerWidth - ROW_PADDING - FIXED_ELEMENTS)
+    : 999
+
   return (
     <box id={id} style={{ flexDirection: "column", backgroundColor: rowBg }}>
       <box
@@ -74,20 +82,31 @@ export function TimelineEntry({
           overflow: "hidden",
         }}
       >
-        <text wrapMode="none" style={{ flexShrink: 1, minWidth: 0 }}>
-          <span fg={rowFg}>{prefix} </span>
-          <span fg={methodColor(method, theme)}>{methodStr}</span>
+        <box
+          style={{
+            flexDirection: "row",
+            flexShrink: 1,
+            minWidth: 0,
+            overflow: "hidden",
+          }}
+        >
+          <text fg={rowFg}>{prefix} </text>
+          <text fg={methodColor(method, theme)}>{methodStr}</text>
           {status !== null ? (
-            <span fg={statusColor(status, theme)}>{statusStr}</span>
+            <text fg={statusColor(status, theme)}>{statusStr}</text>
           ) : (
-            <span fg={theme.textMuted}>{statusStr}</span>
+            <text fg={theme.textMuted}>{statusStr}</text>
           )}
-          <span fg={theme.text}>{truncateUrl(urlStr, 30)}</span>
-        </text>
-        <text>
-          <span fg={hasError ? theme.error : theme.textMuted}>
-            {timingStr + " " + reltimeStr}
-          </span>
+          <text
+            fg={theme.text}
+            wrapMode="none"
+            style={{ flexShrink: 1, minWidth: 10 }}
+          >
+            {truncateUrl(urlStr, urlMaxLength)}
+          </text>
+        </box>
+        <text fg={hasError ? theme.error : theme.textMuted}>
+          {timingStr + " " + reltimeStr}
         </text>
       </box>
 

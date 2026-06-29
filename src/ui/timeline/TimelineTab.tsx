@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useKeyboard } from "@opentui/react"
+import { useKeyboard, useTerminalDimensions } from "@opentui/react"
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
 import { TimelineEntry } from "./TimelineEntry"
@@ -12,6 +12,7 @@ export function TimelineTab({
   focused: boolean
 }) {
   const theme = useTheme()
+  const { width: termWidth } = useTerminalDimensions()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
   const scrollRef = useRef<import("@opentui/core").ScrollBoxRenderable | null>(
@@ -20,6 +21,27 @@ export function TimelineTab({
 
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+  const containerWidthRef = useRef(0)
+
+  useEffect(() => {
+    let active = true
+    const measure = () => {
+      if (!active) return
+      const box = scrollRef.current
+      if (!box || !box.width || box.width <= 0) {
+        setTimeout(measure, 10)
+        return
+      }
+      const w = box.width - 1
+      if (w !== containerWidthRef.current) {
+        containerWidthRef.current = w
+        setContainerWidth(w)
+      }
+    }
+    setTimeout(measure, 0)
+    return () => { active = false }
+  }, [termWidth])
 
   useEffect(() => {
     setSelectedIdx(0)
@@ -68,6 +90,7 @@ export function TimelineTab({
           entry={entry}
           isSelected={idx === selectedIdx}
           isExpanded={idx === expandedIdx}
+          containerWidth={containerWidth}
         />
       ))}
     </scrollbox>
