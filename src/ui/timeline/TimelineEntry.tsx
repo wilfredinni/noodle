@@ -69,7 +69,7 @@ export function TimelineEntry({
   const reltimeStr = relativeTime(entry.timestamp)
 
   const ROW_PADDING = 2
-  const FIXED_ELEMENTS = 22
+  const FIXED_ELEMENTS = 24
   const urlMaxLength = containerWidth > 0
     ? Math.max(10, containerWidth - ROW_PADDING - FIXED_ELEMENTS)
     : 999

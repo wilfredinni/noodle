@@ -125,26 +125,6 @@ export function ResponsePane({
           <Tabs
             tabs={TAB_DEFS}
             activeId={activeTab}
-            rightChildren={
-              <box style={{ flexDirection: "row", gap: 0 }}>
-                <Badge
-                  bg={statusColor(state.response.status, theme)}
-                  fg={theme.background}
-                >
-                  {state.response.statusText !== ""
-                    ? `${state.response.status} ${state.response.statusText}`
-                    : `${state.response.status}`}
-                </Badge>
-                <Badge bg={theme.info} fg={theme.background}>
-                  {Math.round(state.response.timeMs)}ms
-                </Badge>
-                <Badge bg={theme.backgroundElement} fg={theme.text}>
-                  {formatSize(
-                    new TextEncoder().encode(state.response.body).length
-                  )}
-                </Badge>
-              </box>
-            }
           >
             {activeTab === "timeline" ? (
               <TimelineTab
@@ -158,11 +138,28 @@ export function ResponsePane({
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
                 {activeTab === "body" ? (
-                  (() => {
-                    const body = formatBody(state.response)
-                    if (body === "") return null
-                    return <JsonBodyViewer body={body} theme={theme} readOnly />
-                  })()
+                  <box style={{ flexDirection: "column", gap: 1 }}>
+                    {state.response.statusText !== "" && (
+                      <box style={{ flexDirection: "row", gap: 0, paddingLeft: 1 }}>
+                        <Badge bg={statusColor(state.response.status, theme)} fg={theme.background}>
+                          {state.response.status} {state.response.statusText}
+                        </Badge>
+                        <Badge bg={theme.info} fg={theme.background}>
+                          {Math.round(state.response.timeMs)}ms
+                        </Badge>
+                        <Badge bg={theme.backgroundElement} fg={theme.text}>
+                          {formatSize(new TextEncoder().encode(state.response.body).length)}
+                        </Badge>
+                      </box>
+                    )}
+                    {(() => {
+                      const body = formatBody(state.response)
+                      if (body === "") return (
+                        <text fg={theme.textMuted}>(no body)</text>
+                      )
+                      return <JsonBodyViewer body={body} theme={theme} readOnly />
+                    })()}
+                  </box>
                 ) : (
                   responseHeaders.map(({ key, value }, i) => {
                     if (i < responseHeaders.length - 1) {
