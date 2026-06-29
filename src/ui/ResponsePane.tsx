@@ -140,15 +140,9 @@ export function ResponsePane({
                 {activeTab === "body" ? (
                   <box style={{ flexDirection: "column", gap: 1 }}>
                     {state.response.statusText !== "" && (
-                      <box style={{ flexDirection: "row", gap: 0, paddingLeft: 1 }}>
+                      <box style={{ flexDirection: "row" }}>
                         <Badge bg={statusColor(state.response.status, theme)} fg={theme.background}>
-                          {state.response.status} {state.response.statusText}
-                        </Badge>
-                        <Badge bg={theme.info} fg={theme.background}>
-                          {Math.round(state.response.timeMs)}ms
-                        </Badge>
-                        <Badge bg={theme.backgroundElement} fg={theme.text}>
-                          {formatSize(new TextEncoder().encode(state.response.body).length)}
+                          {state.response.status} {state.response.statusText} • {Math.round(state.response.timeMs)}ms • {formatSize(new TextEncoder().encode(state.response.body).length)}
                         </Badge>
                       </box>
                     )}
