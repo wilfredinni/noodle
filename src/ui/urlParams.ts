@@ -7,13 +7,13 @@ export function buildDisplayUrl(
   if (!url) return url
 
   let baseUrl: string
-  const existingParams = new URLSearchParams()
+  const existingParams: Array<[string, string]> = []
 
   try {
     const u = new URL(url)
     baseUrl = normBaseUrl(u.origin, u.pathname)
     u.searchParams.forEach((v, k) => {
-      existingParams.set(k, v)
+      existingParams.push([k, v])
     })
   } catch {
     const questionIdx = url.indexOf("?")
@@ -21,7 +21,7 @@ export function buildDisplayUrl(
       baseUrl = url.slice(0, questionIdx)
       try {
         const sp = new URLSearchParams(url.slice(questionIdx + 1))
-        sp.forEach((v, k) => existingParams.set(k, v))
+        sp.forEach((v, k) => existingParams.push([k, v]))
       } catch {
         return url
       }
@@ -30,21 +30,29 @@ export function buildDisplayUrl(
     }
   }
 
-  const merged = new URLSearchParams()
+  const merged: Array<[string, string]> = []
 
-  for (const [k, v] of existingParams.entries()) {
+  for (const [k, v] of existingParams) {
     if (!(k in params)) {
-      merged.set(k, v)
+      merged.push([k, v])
     }
   }
 
   for (const [k, entry] of Object.entries(params)) {
     if (!entry.enabled) continue
-    merged.set(k, entry.value)
+    merged.push([k, entry.value])
   }
 
-  const qs = merged.toString()
-  return qs ? `${baseUrl}?${qs}` : baseUrl
+  if (merged.length === 0) return baseUrl
+
+  const qs = merged
+    .map(([k, v]) => `${encQuery(k)}=${encQuery(v)}`)
+    .join("&")
+  return `${baseUrl}?${qs}`
+}
+
+function encQuery(s: string): string {
+  return s.replace(/[&#]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
 }
 
 export function parseUrlAndParams(raw: string): {

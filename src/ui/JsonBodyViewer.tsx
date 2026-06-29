@@ -31,7 +31,7 @@ export function JsonBodyViewer({
 
   return (
     <line-number
-      minWidth={3}
+      minWidth={5}
       paddingRight={1}
       fg={theme.textMuted}
       bg={theme.backgroundPanel}

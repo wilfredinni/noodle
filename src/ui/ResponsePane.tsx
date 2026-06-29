@@ -8,7 +8,7 @@ import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
-import { Badge } from "./Badge"
+import { GradientBadge } from "./GradientBadge"
 import { Tips } from "./Tips"
 import { TimelineTab } from "./timeline/TimelineTab"
 
@@ -87,11 +87,8 @@ export function ResponsePane({
       style={{
         flexGrow: 1,
         flexDirection: "column",
-        paddingTop: 0,
-        paddingBottom: 1,
         paddingLeft: 1,
         paddingRight: 1,
-        gap: 1,
         flexBasis: 0,
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,
@@ -121,30 +118,10 @@ export function ResponsePane({
           <text fg={theme.error}> {state.error.message}</text>
         </box>
       ) : (
-        <>
+        <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
           <Tabs
             tabs={TAB_DEFS}
             activeId={activeTab}
-            rightChildren={
-              <box style={{ flexDirection: "row", gap: 0 }}>
-                <Badge
-                  bg={statusColor(state.response.status, theme)}
-                  fg={theme.background}
-                >
-                  {state.response.statusText !== ""
-                    ? `${state.response.status} ${state.response.statusText}`
-                    : `${state.response.status}`}
-                </Badge>
-                <Badge bg={theme.info} fg={theme.background}>
-                  {Math.round(state.response.timeMs)}ms
-                </Badge>
-                <Badge bg={theme.backgroundElement} fg={theme.text}>
-                  {formatSize(
-                    new TextEncoder().encode(state.response.body).length
-                  )}
-                </Badge>
-              </box>
-            }
           >
             {activeTab === "timeline" ? (
               <TimelineTab
@@ -155,14 +132,19 @@ export function ResponsePane({
               <scrollbox
                 ref={scrollRef}
                 scrollY
+                scrollbarOptions={{ visible: false }}
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
                 {activeTab === "body" ? (
-                  (() => {
-                    const body = formatBody(state.response)
-                    if (body === "") return null
-                    return <JsonBodyViewer body={body} theme={theme} readOnly />
-                  })()
+                  <box style={{ flexDirection: "column", gap: 1 }}>
+                    {(() => {
+                      const body = formatBody(state.response)
+                      if (body === "") return (
+                        <text fg={theme.textMuted}>(no body)</text>
+                      )
+                      return <JsonBodyViewer key={body} body={body} theme={theme} readOnly />
+                    })()}
+                  </box>
                 ) : (
                   responseHeaders.map(({ key, value }, i) => {
                     if (i < responseHeaders.length - 1) {
@@ -187,7 +169,17 @@ export function ResponsePane({
               </scrollbox>
             )}
           </Tabs>
-        </>
+          {state.response.statusText !== "" && (
+            <box style={{ flexDirection: "row", justifyContent: "flex-end", flexShrink: 0, paddingTop: 1, paddingRight: 1 }}>
+              <GradientBadge
+                colors={[statusColor(state.response.status, theme), theme.primary]}
+                fg={theme.background}
+              >
+                {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""} • ${Math.round(state.response.timeMs)}ms • ${formatSize(new TextEncoder().encode(state.response.body).length)}`}
+              </GradientBadge>
+            </box>
+          )}
+        </box>
       )}
     </box>
   )
