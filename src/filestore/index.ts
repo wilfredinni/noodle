@@ -1,8 +1,14 @@
 import type { Collection, CollectionSettings, Request } from "../schema"
 import { loadCollection, loadSettings } from "./load"
 import { saveRequest, saveSettings } from "./save"
+import {
+  loadTimeline,
+  saveTimelineEntry,
+  clearTimelineForRequest,
+  clearAllTimeline,
+} from "./timeline"
 
-export { loadSettings, saveSettings }
+export { loadSettings, saveSettings, loadTimeline, saveTimelineEntry, clearTimelineForRequest, clearAllTimeline }
 export type { CollectionSettings }
 
 export interface Filestore {

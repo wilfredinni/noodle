@@ -49,6 +49,32 @@ export interface Environment {
   disabledVars?: Record<string, string>
 }
 
+export interface TimelineEntry {
+  timestamp: number
+  envName?: string
+  request: {
+    id: string
+    name: string
+    method: Method
+    url: string
+    headers: Record<string, KvEntry>
+    params: Record<string, KvEntry>
+    body?: string
+    auth?: Auth
+  }
+  response?: {
+    status: number
+    statusText: string
+    headers: Record<string, string>
+    body: string
+    timeMs: number
+    size: number
+  }
+  error?: {
+    message: string
+  }
+}
+
 export interface CollectionSettings {
   environment?: string
 }

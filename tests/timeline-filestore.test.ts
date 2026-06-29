@@ -1,0 +1,189 @@
+import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import { mkdtemp, rm, readFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import {
+  loadTimeline,
+  saveTimelineEntry,
+  clearTimelineForRequest,
+} from "../src/filestore/timeline"
+import type { TimelineEntry } from "../src/schema"
+
+let dir: string
+
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), "noodle-tl-"))
+})
+
+afterEach(async () => {
+  await rm(dir, { recursive: true, force: true })
+})
+
+function makeEntry(over: Partial<TimelineEntry> = {}): TimelineEntry {
+  return {
+    timestamp: Date.now(),
+    request: {
+      id: "req-1",
+      name: "test",
+      method: "GET",
+      url: "https://example.com",
+      headers: {},
+      params: {},
+    },
+    ...over,
+  }
+}
+
+describe("loadTimeline", () => {
+  it("returns empty array when no timeline file exists", async () => {
+    const result = await loadTimeline(dir, "req-1")
+    expect(result).toEqual([])
+  })
+
+  it("returns entries from existing timeline file", async () => {
+    const entry = makeEntry({ timestamp: 1000 })
+    await saveTimelineEntry(dir, "req-id", entry)
+    const result = await loadTimeline(dir, "req-id")
+    expect(result).toHaveLength(1)
+    expect(result[0].timestamp).toBe(1000)
+    expect(result[0].request.method).toBe("GET")
+  })
+
+  it("returns multiple entries in newest-first order", async () => {
+    await saveTimelineEntry(dir, "req-id", makeEntry({ timestamp: 100 }))
+    await saveTimelineEntry(dir, "req-id", makeEntry({ timestamp: 200 }))
+    await saveTimelineEntry(dir, "req-id", makeEntry({ timestamp: 300 }))
+    const result = await loadTimeline(dir, "req-id")
+    expect(result.map((e) => e.timestamp)).toEqual([300, 200, 100])
+  })
+
+  it("returns empty array for unparseable YAML", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises")
+    const { join } = await import("node:path")
+    await mkdir(join(dir, ".timeline"), { recursive: true })
+    await writeFile(join(dir, ".timeline", "bad.yml"), "{: invalid", "utf8")
+    const result = await loadTimeline(dir, "bad")
+    expect(result).toEqual([])
+  })
+})
+
+describe("saveTimelineEntry", () => {
+  it("creates .timeline dir and writes YAML file", async () => {
+    const entry = makeEntry({ timestamp: 42 })
+    await saveTimelineEntry(dir, "req-a", entry)
+    const filePath = join(dir, ".timeline", "req-a.yml")
+    const content = await readFile(filePath, "utf8")
+    expect(content).toContain("timestamp: 42")
+    expect(content).toContain("method: GET")
+  })
+
+  it("appends new entry as first in list (newest first)", async () => {
+    await saveTimelineEntry(dir, "req-1", makeEntry({ timestamp: 1 }))
+    await saveTimelineEntry(dir, "req-1", makeEntry({ timestamp: 2 }))
+    const result = await loadTimeline(dir, "req-1")
+    expect(result).toHaveLength(2)
+    expect(result[0].timestamp).toBe(2)
+    expect(result[1].timestamp).toBe(1)
+  })
+
+  it("caps entries at maxEntries", async () => {
+    for (let i = 0; i < 10; i++) {
+      await saveTimelineEntry(dir, "req-cap", makeEntry({ timestamp: i }), 3)
+    }
+    const result = await loadTimeline(dir, "req-cap")
+    expect(result).toHaveLength(3)
+    expect(result[0].timestamp).toBe(9)
+    expect(result[1].timestamp).toBe(8)
+    expect(result[2].timestamp).toBe(7)
+  })
+
+  it("uses default max of 50 when not specified", async () => {
+    for (let i = 0; i < 60; i++) {
+      await saveTimelineEntry(dir, "req-cap50", makeEntry({ timestamp: i }))
+    }
+    const result = await loadTimeline(dir, "req-cap50")
+    expect(result).toHaveLength(50)
+    expect(result[0].timestamp).toBe(59)
+    expect(result[49].timestamp).toBe(10)
+  })
+
+  it("persists full entry data including response and error", async () => {
+    const entry = makeEntry({
+      timestamp: 500,
+      envName: "dev",
+      request: {
+        id: "full",
+        name: "Full test",
+        method: "POST",
+        url: "https://api.example.com/data",
+        headers: { "content-type": { value: "application/json", enabled: true } },
+        params: { q: { value: "test", enabled: true } },
+        body: '{"key":"val"}',
+        auth: { type: "bearer", token: "tok" },
+      },
+      response: {
+        status: 201,
+        statusText: "Created",
+        headers: { "x-request-id": "abc" },
+        body: '{"id":1}',
+        timeMs: 42,
+        size: 11,
+      },
+    })
+    await saveTimelineEntry(dir, "full", entry)
+    const result = await loadTimeline(dir, "full")
+    expect(result).toHaveLength(1)
+    expect(result[0].envName).toBe("dev")
+    expect(result[0].response?.status).toBe(201)
+    expect(result[0].response?.timeMs).toBe(42)
+    expect(result[0].response?.body).toBe('{"id":1}')
+    expect(result[0].request.auth).toEqual({ type: "bearer", token: "tok" })
+  })
+
+  it("persists error entry", async () => {
+    const entry = makeEntry({
+      timestamp: 999,
+      error: { message: "Connection refused" },
+    })
+    await saveTimelineEntry(dir, "err", entry)
+    const result = await loadTimeline(dir, "err")
+    expect(result).toHaveLength(1)
+    expect(result[0].error?.message).toBe("Connection refused")
+    expect(result[0].response).toBeUndefined()
+  })
+
+  it("isolates entries per request id", async () => {
+    await saveTimelineEntry(dir, "req-a", makeEntry({ timestamp: 1 }))
+    await saveTimelineEntry(dir, "req-b", makeEntry({ timestamp: 2 }))
+    const a = await loadTimeline(dir, "req-a")
+    const b = await loadTimeline(dir, "req-b")
+    expect(a).toHaveLength(1)
+    expect(a[0].timestamp).toBe(1)
+    expect(b).toHaveLength(1)
+    expect(b[0].timestamp).toBe(2)
+  })
+})
+
+describe("clearTimelineForRequest", () => {
+  it("clears entries leaving empty array in YAML", async () => {
+    await saveTimelineEntry(dir, "req-clr", makeEntry({ timestamp: 1 }))
+    await saveTimelineEntry(dir, "req-clr", makeEntry({ timestamp: 2 }))
+    await clearTimelineForRequest(dir, "req-clr")
+    const result = await loadTimeline(dir, "req-clr")
+    expect(result).toEqual([])
+  })
+
+  it("does not affect other request timelines", async () => {
+    await saveTimelineEntry(dir, "keep", makeEntry({ timestamp: 1 }))
+    await saveTimelineEntry(dir, "clear", makeEntry({ timestamp: 2 }))
+    await clearTimelineForRequest(dir, "clear")
+    const keep = await loadTimeline(dir, "keep")
+    expect(keep).toHaveLength(1)
+  })
+
+  it("no-op when no timeline file exists", async () => {
+    await clearTimelineForRequest(dir, "nonexistent")
+    const result = await loadTimeline(dir, "nonexistent")
+    expect(result).toEqual([])
+  })
+})

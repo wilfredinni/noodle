@@ -8,6 +8,8 @@ import { ResponsePane } from "./ResponsePane"
 import { useCollection } from "../hooks/useCollection"
 import { useSidebarSelection } from "../hooks/useSidebarSelection"
 import { useResponse } from "../hooks/useResponse"
+import type { SendCompleteResult } from "../hooks/useResponse"
+import type { Request as NoodleRequest } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
@@ -27,6 +29,9 @@ import type { Keybinds } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
+import { useTimeline } from "./timeline/useTimeline"
+import { buildTimelineEntry } from "./timeline/formatTimeline"
+import { substitute } from "../requests"
 
 export function AppInner({
   collectionDir,
@@ -175,11 +180,34 @@ export function AppInner({
     settingsEnv,
     onEnvChange,
   )
+  const envNameRef = useRef(envState.activeEnv?.name)
+  useEffect(() => { envNameRef.current = envState.activeEnv?.name }, [envState.activeEnv?.name])
+
+  const timeline = useTimeline(collectionDir, selectedRequest?.id)
+  const timelineAppendRef = useRef(timeline.appendEntry)
+  timelineAppendRef.current = timeline.appendEntry
+
+  const onCompleteRef = useRef((_req: NoodleRequest, _result: SendCompleteResult) => {})
+  onCompleteRef.current = (req: NoodleRequest, result: SendCompleteResult) => {
+    let resolvedUrl: string | undefined
+    const activeEnv = envStateRef.current.activeEnv
+    if (activeEnv) {
+      try {
+        resolvedUrl = substitute(req, activeEnv).url
+      } catch {
+        resolvedUrl = undefined
+      }
+    }
+    timelineAppendRef.current(
+      buildTimelineEntry(req, result, envNameRef.current, resolvedUrl),
+    )
+  }
+
   const {
     state: responseState,
     trySend,
     cancelSend,
-  } = useResponse(draft.draft, envState.activeEnv)
+  } = useResponse(draft.draft, envState.activeEnv, onCompleteRef.current)
 
   const envEditor = useEnvironmentEditor({
     environmentsDir,
@@ -386,6 +414,7 @@ export function AppInner({
                   <ResponsePane
                     state={responseState}
                     focused={focus === "response"}
+                    timelineEntries={timeline.entries}
                   />
                 </box>
               ) : (
@@ -404,6 +433,7 @@ export function AppInner({
                   <ResponsePane
                     state={responseState}
                     focused={focus === "response"}
+                    timelineEntries={timeline.entries}
                   />
                 </>
               )}
