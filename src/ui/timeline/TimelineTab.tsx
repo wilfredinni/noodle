@@ -52,19 +52,28 @@ export function TimelineTab({
     if (!focusedRef.current) return
     if (entries.length === 0) return
 
-    if (key.name === "up") {
-      setSelectedIdx((prev) => {
-        const next = prev <= 0 ? entries.length - 1 : prev - 1
-        scrollRef.current?.scrollChildIntoView(`tl-${next}`)
-        return next
-      })
-    } else if (key.name === "down") {
-      setSelectedIdx((prev) => {
-        const next = prev >= entries.length - 1 ? 0 : prev + 1
-        scrollRef.current?.scrollChildIntoView(`tl-${next}`)
-        return next
-      })
-    } else if (key.name === "return") {
+    if (expandedIdx === selectedIdx && expandedIdx !== null) {
+      if (key.name === "up") {
+        scrollRef.current?.scrollBy(-1)
+      } else if (key.name === "down") {
+        scrollRef.current?.scrollBy(1)
+      }
+    } else {
+      if (key.name === "up") {
+        setSelectedIdx((prev) => {
+          const next = prev <= 0 ? entries.length - 1 : prev - 1
+          scrollRef.current?.scrollChildIntoView(`tl-${next}`)
+          return next
+        })
+      } else if (key.name === "down") {
+        setSelectedIdx((prev) => {
+          const next = prev >= entries.length - 1 ? 0 : prev + 1
+          scrollRef.current?.scrollChildIntoView(`tl-${next}`)
+          return next
+        })
+      }
+    }
+    if (key.name === "return") {
       setExpandedIdx((prev) => (prev === selectedIdx ? null : selectedIdx))
     }
   })
