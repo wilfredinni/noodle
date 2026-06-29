@@ -32,6 +32,7 @@ export function UrlBar({
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [inputValue, setInputValue] = useState(url)
   const prevFocused = useRef(focused)
+  const initDisplayRef = useRef("")
 
   useEffect(() => {
     if (!sending) return
@@ -43,10 +44,15 @@ export function UrlBar({
 
   useEffect(() => {
     if (focused && !prevFocused.current) {
-      setInputValue(buildDisplayUrl(url, params))
+      const displayUrl = buildDisplayUrl(url, params)
+      setInputValue(displayUrl)
+      initDisplayRef.current = displayUrl
     }
     if (!focused && prevFocused.current) {
-      onDefocus(inputValue)
+      const displayUrl = buildDisplayUrl(url, params)
+      if (inputValue !== displayUrl) {
+        onDefocus(inputValue)
+      }
     }
     prevFocused.current = focused
   }, [focused])
@@ -60,6 +66,7 @@ export function UrlBar({
   const handleInput = useCallback(
     (val: string) => {
       setInputValue(val)
+      if (val === initDisplayRef.current) return
       setUrl(val)
     },
     [setUrl],
