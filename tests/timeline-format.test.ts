@@ -237,4 +237,145 @@ describe("buildTimelineEntry", () => {
     expect(entry.error!.message).toBe("Network error")
     expect(entry.response).toBeUndefined()
   })
+
+  it("truncates request body longer than 10_000 chars", () => {
+    const longBody = "x".repeat(15_000)
+    const req = {
+      id: "req-trunc",
+      name: "Trunc",
+      method: "POST" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: {},
+      body: longBody,
+      auth: undefined,
+    }
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 10,
+      },
+      request: req,
+      envName: undefined,
+    }
+    const entry = buildTimelineEntry(req, result)
+    expect(entry.request.body?.length).toBe(10_000)
+    expect(entry.request.body).toBe("x".repeat(10_000))
+  })
+
+  it("truncates response body longer than 10_000 chars", () => {
+    const longBody = "y".repeat(20_000)
+    const req = {
+      id: "req-resp-trunc",
+      name: "RespTrunc",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: {},
+      body: undefined,
+      auth: undefined,
+    }
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: longBody,
+        timeMs: 10,
+      },
+      request: req,
+      envName: undefined,
+    }
+    const entry = buildTimelineEntry(req, result)
+    expect(entry.response?.body.length).toBe(10_000)
+    expect(entry.response?.body).toBe("y".repeat(10_000))
+  })
+
+  it("keeps short body unchanged", () => {
+    const body = '{"key":"val"}'
+    const req = {
+      id: "req-short",
+      name: "Short",
+      method: "POST" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: {},
+      body,
+      auth: undefined,
+    }
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 201,
+        statusText: "Created",
+        headers: {},
+        body: "",
+        timeMs: 5,
+      },
+      request: req,
+      envName: undefined,
+    }
+    const entry = buildTimelineEntry(req, result)
+    expect(entry.request.body).toBe(body)
+  })
+
+  it("keeps empty body as empty string", () => {
+    const req = {
+      id: "req-empty",
+      name: "Empty",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: {},
+      body: "",
+      auth: undefined,
+    }
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 204,
+        statusText: "No Content",
+        headers: {},
+        body: "",
+        timeMs: 3,
+      },
+      request: req,
+      envName: undefined,
+    }
+    const entry = buildTimelineEntry(req, result)
+    expect(entry.request.body).toBe("")
+    expect(entry.response?.body).toBe("")
+  })
+
+  it("keeps undefined body as undefined", () => {
+    const req = {
+      id: "req-no-body",
+      name: "NoBody",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: {},
+      body: undefined,
+      auth: undefined,
+    }
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      },
+      request: req,
+      envName: undefined,
+    }
+    const entry = buildTimelineEntry(req, result)
+    expect(entry.request.body).toBeUndefined()
+  })
 })

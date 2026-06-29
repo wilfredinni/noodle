@@ -24,7 +24,7 @@ export async function loadTimeline(
     return data as TimelineEntry[]
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return []
-    throw e
+    return []
   }
 }
 

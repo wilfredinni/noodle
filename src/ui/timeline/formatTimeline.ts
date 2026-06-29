@@ -2,6 +2,17 @@ import type { TimelineEntry, Method } from "../../schema"
 import type { Request } from "../../schema"
 import type { SendCompleteResult } from "../../hooks/useResponse"
 
+const MAX_BODY_LENGTH = 10_000
+
+function truncateBody(body: string | undefined): string | undefined {
+  if (body === undefined || body === "") return body
+  return body.length <= MAX_BODY_LENGTH ? body : body.slice(0, MAX_BODY_LENGTH)
+}
+
+function truncateBodyString(body: string): string {
+  return body.length <= MAX_BODY_LENGTH ? body : body.slice(0, MAX_BODY_LENGTH)
+}
+
 export function buildTimelineEntry(
   req: Request,
   result: SendCompleteResult,
@@ -18,7 +29,7 @@ export function buildTimelineEntry(
       url: resolvedUrl ?? req.url,
       headers: { ...req.headers },
       params: { ...req.params },
-      body: req.body,
+      body: truncateBody(req.body),
       auth: req.auth ? { ...req.auth } : undefined,
     },
     response:
@@ -27,7 +38,7 @@ export function buildTimelineEntry(
             status: result.response.status,
             statusText: result.response.statusText,
             headers: { ...result.response.headers },
-            body: result.response.body,
+            body: truncateBodyString(result.response.body),
             timeMs: result.response.timeMs,
           }
         : undefined,
