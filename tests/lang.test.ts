@@ -11,6 +11,7 @@ describe("lang.parseRequest — required fields", () => {
       name: "Get user",
       method: "GET",
       url: "https://api.example.com/users/1",
+      timeout: 0,
       headers: {},
       params: {},
       auth: { type: "none" },
@@ -69,7 +70,9 @@ describe("lang.parseRequest — defaults", () => {
   it("parses provided headers, params, body", () => {
     const yaml = `name: Foo\nmethod: POST\nurl: https://example.com\nheaders:\n  Accept: application/json\nparams:\n  verbose: "true"\nbody: '{"limit": 10}'\n`
     const req = lang.parseRequest("x", yaml)
-    expect(req.headers).toEqual({ Accept: { value: "application/json", enabled: true } })
+    expect(req.headers).toEqual({
+      Accept: { value: "application/json", enabled: true },
+    })
     expect(req.params).toEqual({ verbose: { value: "true", enabled: true } })
     expect(req.body).toBe('{"limit": 10}')
   })
@@ -201,7 +204,10 @@ describe("lang.parseRequest — env var preservation", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://$host/users/$id\nheaders:\n  Authorization: "Bearer $token"\nbody: '{"id": "$id"}'\nauth:\n  type: bearer\n  token: "$token"\n`
     const req = lang.parseRequest("x", yaml)
     expect(req.url).toBe("https://$host/users/$id")
-    expect(req.headers.Authorization).toEqual({ value: "Bearer $token", enabled: true })
+    expect(req.headers.Authorization).toEqual({
+      value: "Bearer $token",
+      enabled: true,
+    })
     expect(req.body).toBe('{"id": "$id"}')
     expect(req.auth).toEqual({ type: "bearer", token: "$token" })
   })
@@ -215,6 +221,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     url: "https://api.example.com/users/1",
     headers: {},
     params: {},
+    timeout: 0,
     auth: { type: "none" },
     ...over,
   }
@@ -224,21 +231,25 @@ describe("lang.serializeRequest — canonical output", () => {
   it("emits name, method, url always (no other fields when all defaults)", () => {
     const out = lang.serializeRequest(makeReq())
     expect(out).toBe(
-      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\n",
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\n",
     )
   })
 
   it("emits headers when non-empty, omits empty params/body/auth", () => {
     const out = lang.serializeRequest(
-      makeReq({ headers: { Accept: { value: "application/json", enabled: true } } }),
+      makeReq({
+        headers: { Accept: { value: "application/json", enabled: true } },
+      }),
     )
     expect(out).toBe(
-      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\nheaders:\n  Accept: application/json\n",
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\nheaders:\n  Accept: application/json\n",
     )
   })
 
   it("emits params when non-empty", () => {
-    const out = lang.serializeRequest(makeReq({ params: { verbose: { value: "true", enabled: true } } }))
+    const out = lang.serializeRequest(
+      makeReq({ params: { verbose: { value: "true", enabled: true } } }),
+    )
     expect(out).toContain("params:\n  verbose: 'true'\n")
     expect(out).not.toContain("headers")
     expect(out).not.toContain("body")
@@ -299,6 +310,7 @@ describe("lang.serializeRequest — canonical key order", () => {
       "name",
       "method",
       "url",
+      "timeout",
       "headers",
       "params",
       "body",
@@ -342,6 +354,7 @@ describe("lang — semantic round-trip", () => {
       name: "Create post",
       method: "POST",
       url: "https://$host/posts",
+      timeout: 0,
       headers: {
         "Content-Type": { value: "application/json", enabled: true },
         Authorization: { value: "Bearer $token", enabled: true },
@@ -365,6 +378,7 @@ describe("lang — semantic round-trip", () => {
       url: "https://example.com",
       headers: {},
       params: {},
+      timeout: 0,
       auth: { type: "none" },
     }
     const yaml = lang.serializeRequest(original)
@@ -380,6 +394,7 @@ describe("lang — semantic round-trip", () => {
       url: "https://example.com/item/1",
       headers: {},
       params: {},
+      timeout: 0,
       auth: { type: "basic", user: "foo", pass: "bar" },
     }
     const yaml = lang.serializeRequest(original)
@@ -398,6 +413,7 @@ describe("lang — semantic round-trip", () => {
         "X-Debug": { value: "true", enabled: false },
       },
       params: {},
+      timeout: 0,
       auth: { type: "none" },
     }
     const yaml = lang.serializeRequest(original)

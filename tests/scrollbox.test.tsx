@@ -19,6 +19,7 @@ function makeRequest(i: number): Request {
     url: `http://example.com/${i}`,
     headers: {},
     params: {},
+    timeout: 0,
   }
 }
 
@@ -82,6 +83,7 @@ describe("RequestPane scrollbox", () => {
       headers: manyHeaders,
       params: {} as Record<string, KvEntry>,
       body: "" as string | undefined,
+      timeout: 0,
     }
 
     const { renderOnce, captureCharFrame } = await testRender(
@@ -127,6 +129,7 @@ describe("RequestPane scrollbox", () => {
       headers,
       params: {} as Record<string, KvEntry>,
       body: "" as string | undefined,
+      timeout: 0,
     }
 
     const editState: EditState = {
@@ -253,6 +256,7 @@ describe("App layout stability", () => {
       headers: manyHeaders,
       params: {} as Record<string, KvEntry>,
       body: "" as string | undefined,
+      timeout: 0,
     }
 
     const longBody = JSON.stringify(
@@ -294,7 +298,6 @@ describe("App layout stability", () => {
               editValue=""
               setEditKey={() => {}}
               setEditValue={() => {}}
-  
               focused={false}
               activeTab="headers"
             />

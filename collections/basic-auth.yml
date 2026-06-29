@@ -1,6 +1,7 @@
 name: Basic Auth
 method: GET
 url: https://httpbin.org/basic-auth/user/pass
+timeout: 1000
 auth:
   type: basic
   user: user

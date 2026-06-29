@@ -16,7 +16,13 @@ import {
 } from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 
-const FIELD_ORDER: FieldKind[] = ["headers", "params", "body", "auth"]
+const FIELD_ORDER: FieldKind[] = [
+  "headers",
+  "params",
+  "body",
+  "auth",
+  "settings",
+]
 
 function rowCount(req: Request | null): SectionRowCount {
   if (!req) return { headers: 0, params: 0 }
@@ -34,6 +40,7 @@ function currentValueFor(
 ): string {
   if (!draft) return ""
   if (field === "body") return draft.body ?? ""
+  if (field === "settings") return String(draft.timeout)
   if (field === "headers" || field === "params") {
     if (addingRow) return ""
     const rec = field === "headers" ? draft.headers : draft.params
@@ -56,8 +63,11 @@ function currentKeyValueFor(
     const rec = field === "headers" ? draft.headers : draft.params
     const entries = Object.entries(rec)
     const entry = entries[row]
-    return entry ? { key: entry[0], value: entry[1].value } : { key: "", value: "" }
+    return entry
+      ? { key: entry[0], value: entry[1].value }
+      : { key: "", value: "" }
   }
+  if (field === "settings") return { key: "", value: String(draft.timeout) }
   return { key: "", value: "" }
 }
 
@@ -139,7 +149,7 @@ export function useEditBrowse(
     }
 
     const { field, row, addingRow } = browsed.cursor
-    if (field === "body") {
+    if (field === "body" || field === "settings") {
       const init = currentValueFor(currentDraft, field, row, addingRow)
       setEditValue(init)
     } else if (field === "headers" || field === "params") {
@@ -199,7 +209,7 @@ export function useEditBrowse(
     if (state.mode !== "browsing") return
     const currentDraft = draftRef.current
     const { field, row, addingRow } = state.cursor
-    if (field === "body") {
+    if (field === "body" || field === "settings") {
       const init = currentValueFor(currentDraft, field, row, addingRow)
       setEditValue(init)
     } else if (field === "headers" || field === "params") {
@@ -218,6 +228,8 @@ export function useEditBrowse(
     const val = editValueRef.current
     if (field === "body") {
       draftMutators.setBody(val)
+    } else if (field === "settings") {
+      draftMutators.setTimeout(Number(val) || 0)
     } else if (field === "headers" || field === "params") {
       const key = editKeyRef.current.trim()
       const value = editValueRef.current.trim()
@@ -252,7 +264,7 @@ export function useEditBrowse(
     const state = editStateRef.current
     if (state.mode !== "browsing") return
     const { field, addingRow, row } = state.cursor
-    if (field === "body") {
+    if (field === "body" || field === "settings") {
       draftMutators.revertField(field)
     } else if (field === "headers" || field === "params") {
       if (addingRow) return

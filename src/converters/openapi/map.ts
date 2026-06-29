@@ -203,6 +203,7 @@ export function mapCollection(n: Normalized): Collection {
         name: reqName,
         method,
         url,
+        timeout: 0,
         headers,
         params,
         body: undefined,

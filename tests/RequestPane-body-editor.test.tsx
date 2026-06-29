@@ -4,7 +4,6 @@ import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
 import type { Request } from "../src/schema"
 
-
 const testRequest: Request = {
   id: "test",
   name: "test",
@@ -13,6 +12,7 @@ const testRequest: Request = {
   body: '{"name":"hello","count":42}',
   headers: {},
   params: {},
+  timeout: 0,
 }
 
 const editStateInactive = {
@@ -33,7 +33,6 @@ const editStateBrowse = {
   editingRow: -1,
 }
 
-
 describe("BodySection — edit mode", () => {
   it("renders body content in edit mode", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
@@ -46,7 +45,6 @@ describe("BodySection — edit mode", () => {
             editValue={testRequest.body!}
             setEditKey={() => {}}
             setEditValue={() => {}}
-
             focused={true}
             activeTab="body"
           />
@@ -72,7 +70,6 @@ describe("BodySection — edit mode", () => {
             editValue={testRequest.body!}
             setEditKey={() => {}}
             setEditValue={() => {}}
-
             focused={true}
             activeTab="body"
           />
@@ -98,7 +95,6 @@ describe("BodySection — edit mode", () => {
             editValue=""
             setEditKey={() => {}}
             setEditValue={() => {}}
-
             focused={true}
             activeTab="body"
           />
@@ -130,7 +126,6 @@ describe("BodySection — edit mode", () => {
             editValue=""
             setEditKey={() => {}}
             setEditValue={() => {}}
-
             focused={false}
             activeTab="body"
           />
@@ -154,7 +149,6 @@ describe("BodySection — edit mode", () => {
             editValue="raw text content"
             setEditKey={() => {}}
             setEditValue={() => {}}
-
             focused={true}
             activeTab="body"
           />

@@ -16,6 +16,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     headers: {},
     params: {},
     auth: { type: "none" },
+    timeout: 0,
     ...over,
   }
 }

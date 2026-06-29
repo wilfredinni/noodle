@@ -17,6 +17,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     url: "https://example.com",
     headers: {},
     params: {},
+    timeout: 0,
     ...over,
   }
 }
@@ -80,9 +81,9 @@ describe("formatParams", () => {
     expect(formatParams({})).toEqual([])
   })
   it("renders single param as 'Key: Value'", () => {
-    expect(
-      formatParams({ verbose: { value: "true", enabled: true } }),
-    ).toEqual(["verbose: true"])
+    expect(formatParams({ verbose: { value: "true", enabled: true } })).toEqual(
+      ["verbose: true"],
+    )
   })
   it("sorts multiple params alphabetically by key", () => {
     expect(

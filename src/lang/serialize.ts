@@ -11,6 +11,7 @@ export function serializeRequest(req: Request): string {
   out += `name: ${yamlVal(req.name)}\n`
   out += `method: ${yamlVal(req.method)}\n`
   out += `url: ${yamlVal(req.url)}\n`
+  out += `timeout: ${String(req.timeout)}\n`
 
   if (Object.keys(req.headers).length > 0) {
     out += "headers:\n"

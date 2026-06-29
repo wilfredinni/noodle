@@ -47,6 +47,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "name",
     "method",
     "url",
+    "timeout",
     "headers",
     "params",
     "body",
@@ -88,11 +89,20 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   const auth = parseAuth(raw.auth)
 
+  let timeout = 0
+  if (raw.timeout !== undefined) {
+    if (typeof raw.timeout !== "number" || !Number.isFinite(raw.timeout)) {
+      throw new Error('lang.parseRequest: "timeout" must be a finite number')
+    }
+    timeout = raw.timeout
+  }
+
   return {
     id,
     name: raw.name,
     method,
     url: raw.url,
+    timeout,
     headers,
     params,
     body,
@@ -100,12 +110,13 @@ export function parseRequest(id: string, yamlText: string): Request {
   }
 }
 
-function parseKvMap(value: unknown, field: string): Record<string, import("../schema").KvEntry> {
+function parseKvMap(
+  value: unknown,
+  field: string,
+): Record<string, import("../schema").KvEntry> {
   if (value === undefined) return {}
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(
-      `lang.parseRequest: ${field} must be a map`,
-    )
+    throw new Error(`lang.parseRequest: ${field} must be a map`)
   }
   const out: Record<string, import("../schema").KvEntry> = {}
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {

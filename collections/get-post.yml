@@ -1,3 +1,4 @@
 name: Get Post by ID
 method: GET
 url: $base_url/posts/$post_id
+timeout: 0

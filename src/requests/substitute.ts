@@ -7,10 +7,7 @@ export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
   params: Record<string, string>
 }
 
-export function substitute(
-  req: Request,
-  env: Environment,
-): SubstitutedRequest {
+export function substitute(req: Request, env: Environment): SubstitutedRequest {
   const resolve = (s: string, field: string): string =>
     s.replace(VAR_RE, (_, name) => {
       if (!(name in env.vars)) {
@@ -41,6 +38,7 @@ export function substitute(
     name: req.name,
     method: req.method,
     url: resolve(req.url, "url"),
+    timeout: req.timeout,
     headers,
     params,
     body: req.body !== undefined ? resolve(req.body, "body") : undefined,

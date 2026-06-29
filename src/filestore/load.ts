@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises"
+import { readdir, readFile, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
@@ -41,14 +41,24 @@ export async function loadCollection(dir: string): Promise<Collection> {
       throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
     }
     const reqId = name.slice(0, -4)
+    let req
     try {
-      requests.push(lang.parseRequest(reqId, content))
+      req = lang.parseRequest(reqId, content)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       throw new Error(
         `filestore.loadCollection: failed to parse "${name}": ${msg}`,
         { cause: e },
       )
+    }
+    requests.push(req)
+
+    if (!/^timeout:\s/m.test(content)) {
+      try {
+        await writeFile(join(dir, name), lang.serializeRequest(req), "utf8")
+      } catch {
+        /* migration non-critical, next save handles it */
+      }
     }
   }
 
