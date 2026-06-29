@@ -5,6 +5,7 @@ import {
   entryMethod,
   entryStatus,
   entryTiming,
+  entrySize,
   entryIsError,
   buildTimelineEntry,
 } from "../src/ui/timeline/formatTimeline"
@@ -115,10 +116,10 @@ describe("entryStatus", () => {
 
   it("returns status code from response", () => {
     expect(
-      entryStatus(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10 } }))
+      entryStatus(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10, size: 0 } }))
     ).toBe(200)
     expect(
-      entryStatus(makeEntry({ response: { status: 404, statusText: "Not Found", headers: {}, body: "", timeMs: 10 } }))
+      entryStatus(makeEntry({ response: { status: 404, statusText: "Not Found", headers: {}, body: "", timeMs: 10, size: 0 } }))
     ).toBe(404)
   })
 
@@ -130,7 +131,7 @@ describe("entryStatus", () => {
 describe("entryTiming", () => {
   it("returns ms from response", () => {
     expect(
-      entryTiming(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 150 } }))
+      entryTiming(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 150, size: 0 } }))
     ).toBe("150ms")
   })
 
@@ -151,8 +152,22 @@ describe("entryIsError", () => {
   it("returns false when no error", () => {
     expect(entryIsError(makeEntry())).toBe(false)
     expect(
-      entryIsError(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10 } }))
+      entryIsError(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10, size: 0 } }))
     ).toBe(false)
+  })
+})
+
+describe("entrySize", () => {
+  it("returns size from response", () => {
+    expect(entrySize(makeEntry({ response: { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 10, size: 42 } }))).toBe(42)
+  })
+
+  it("returns null when no response", () => {
+    expect(entrySize(makeEntry())).toBeNull()
+  })
+
+  it("returns null for error entries", () => {
+    expect(entrySize(makeEntry({ error: { message: "fail" } }))).toBeNull()
   })
 })
 
@@ -185,6 +200,7 @@ describe("buildTimelineEntry", () => {
     expect(entry.request.url).toBe("https://api.example.com")
     expect(entry.response?.status).toBe(201)
     expect(entry.response?.timeMs).toBe(42)
+    expect(entry.response?.size).toBe(0)
     expect(entry.envName).toBe("dev")
   })
 
@@ -294,6 +310,7 @@ describe("buildTimelineEntry", () => {
     const entry = buildTimelineEntry(req, result)
     expect(entry.response?.body.length).toBe(10_000)
     expect(entry.response?.body).toBe("y".repeat(10_000))
+    expect(entry.response?.size).toBe(20_000)
   })
 
   it("keeps short body unchanged", () => {
@@ -324,6 +341,34 @@ describe("buildTimelineEntry", () => {
     expect(entry.request.body).toBe(body)
   })
 
+  it("includes byte-accurate size for multibyte body", () => {
+    const body = "".concat(...Array.from({ length: 500 }, () => "ñ"))
+    const req = {
+      id: "req-utf8",
+      name: "UTF8",
+      method: "POST" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: {},
+      body,
+      auth: undefined,
+    }
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body,
+        timeMs: 5,
+      },
+      request: req,
+      envName: undefined,
+    }
+    const entry = buildTimelineEntry(req, result)
+    expect(entry.response?.size).toBe(1000)
+  })
+
   it("keeps empty body as empty string", () => {
     const req = {
       id: "req-empty",
@@ -350,6 +395,7 @@ describe("buildTimelineEntry", () => {
     const entry = buildTimelineEntry(req, result)
     expect(entry.request.body).toBe("")
     expect(entry.response?.body).toBe("")
+    expect(entry.response?.size).toBe(0)
   })
 
   it("keeps undefined body as undefined", () => {
@@ -377,5 +423,6 @@ describe("buildTimelineEntry", () => {
     }
     const entry = buildTimelineEntry(req, result)
     expect(entry.request.body).toBeUndefined()
+    expect(entry.response?.size).toBe(0)
   })
 })

@@ -127,6 +127,7 @@ describe("saveTimelineEntry", () => {
         headers: { "x-request-id": "abc" },
         body: '{"id":1}',
         timeMs: 42,
+        size: 11,
       },
     })
     await saveTimelineEntry(dir, "full", entry)

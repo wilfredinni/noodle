@@ -1,6 +1,6 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
-import { formatHeaders, formatStatusLine, statusColor } from "../format"
+import { formatHeaders, formatStatusLine, statusColor, formatSize } from "../format"
 import {
   entryMethod,
   entryStatus,
@@ -161,7 +161,7 @@ export function TimelineEntry({
                   <>
                     <text fg={theme.text}>
                       {" "}
-                      {formatStatusLine(r)}
+                      {formatStatusLine(r) + " · " + formatSize(r.size)}
                     </text>
                     {formatHeaders(r).map((h) => (
                       <text key={h} fg={theme.textMuted}> {h}</text>

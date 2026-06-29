@@ -1,6 +1,12 @@
 import type { Response } from "../schema"
 import type { Theme } from "./theme"
 
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
+
 export function statusColor(status: number, theme: Theme): string {
   if (status >= 200 && status <= 299) return theme.success
   if (status >= 300 && status <= 399) return theme.info

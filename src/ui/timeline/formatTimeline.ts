@@ -13,6 +13,10 @@ function truncateBodyString(body: string): string {
   return body.length <= MAX_BODY_LENGTH ? body : body.slice(0, MAX_BODY_LENGTH)
 }
 
+function responseSize(body: string): number {
+  return new TextEncoder().encode(body).length
+}
+
 export function buildTimelineEntry(
   req: Request,
   result: SendCompleteResult,
@@ -40,6 +44,7 @@ export function buildTimelineEntry(
             headers: { ...result.response.headers },
             body: truncateBodyString(result.response.body),
             timeMs: result.response.timeMs,
+            size: responseSize(result.response.body),
           }
         : undefined,
     error:
@@ -74,6 +79,11 @@ export function entryMethod(entry: TimelineEntry): Method {
 export function entryStatus(entry: TimelineEntry): number | null {
   if (entry.response) return entry.response.status
   if (entry.error) return 0
+  return null
+}
+
+export function entrySize(entry: TimelineEntry): number | null {
+  if (entry.response) return entry.response.size
   return null
 }
 

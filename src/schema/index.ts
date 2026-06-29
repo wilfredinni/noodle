@@ -68,6 +68,7 @@ export interface TimelineEntry {
     headers: Record<string, string>
     body: string
     timeMs: number
+    size: number
   }
   error?: {
     message: string
