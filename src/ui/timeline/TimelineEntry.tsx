@@ -169,8 +169,8 @@ export function TimelineEntry({
                     {r.body && (
                       <text fg={theme.text}>
                         {" "}
-                        {r.body.length > 2000
-                          ? r.body.slice(0, 2000) + "..."
+                          {r.body.length > 1000
+                            ? r.body.slice(0, 1000) + "..."
                           : r.body}
                       </text>
                     )}
