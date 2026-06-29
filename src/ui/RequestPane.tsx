@@ -341,38 +341,43 @@ function SettingsSection({
   }, [setEditValue])
 
   return (
-    <box
-      id="settings-field"
-      border={[...LeftBar.border]}
-      customBorderChars={LeftBar.customBorderChars}
-      borderColor={isActive || editingSettings ? theme.primary : theme.borderSubtle}
-      style={{
-        flexDirection: editingSettings ? "row" : undefined,
-        gap: editingSettings ? 1 : undefined,
-        backgroundColor: isActive ? theme.backgroundElement : undefined,
-      }}
-    >
-      {editingSettings ? (
-        <>
-          <text fg={theme.textMuted}>Timeout (ms): </text>
-          <textarea
-            ref={textareaRef}
-            initialValue={timeout > 0 ? String(timeout) : ""}
-            onContentChange={handleContentChange}
-            backgroundColor={theme.backgroundPanel}
-            focusedBackgroundColor={theme.backgroundPanel}
-            textColor={theme.text}
-            cursorColor={theme.primary}
-            focused
+    <>
+      <box
+        id="settings-field"
+        border={[...LeftBar.border]}
+        customBorderChars={LeftBar.customBorderChars}
+        borderColor={isActive || editingSettings ? theme.primary : theme.borderSubtle}
+        style={{
+          flexDirection: editingSettings ? "row" : undefined,
+          gap: editingSettings ? 1 : undefined,
+          backgroundColor: isActive ? theme.backgroundElement : undefined,
+        }}
+      >
+        {editingSettings ? (
+          <>
+            <text fg={theme.textMuted}>Timeout (ms): </text>
+            <textarea
+              ref={textareaRef}
+              initialValue={timeout > 0 ? String(timeout) : ""}
+              onContentChange={handleContentChange}
+              backgroundColor={theme.backgroundPanel}
+              focusedBackgroundColor={theme.backgroundPanel}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          </>
+        ) : (
+          <VarText
+            text={`Timeout (ms): ${timeout}ms`}
+            env={activeEnv ?? null}
+            baseColor={theme.text}
           />
-        </>
-      ) : (
-        <VarText
-          text={`Timeout (ms): ${timeout}ms`}
-          env={activeEnv ?? null}
-          baseColor={isActive ? theme.text : theme.textMuted}
-        />
-      )}
-    </box>
+        )}
+      </box>
+      <text fg={theme.textMuted}>
+        Set maximum time to wait before aborting the request
+      </text>
+    </>
   )
 }
