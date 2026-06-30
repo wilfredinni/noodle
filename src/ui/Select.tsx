@@ -139,6 +139,12 @@ export function Select({
     ? (theme as unknown as Record<string, string>)[selectedItem.color]
     : undefined
 
+  const indicatorColor = selectedItem
+    ? open || selectedBadgeBg
+      ? contrastColor
+      : theme.text
+    : theme.textMuted
+
   const dropdownWidth = useMemo(() => {
     let maxLabel = 0
     for (const item of items) {
@@ -182,7 +188,7 @@ export function Select({
               <text fg={theme.textMuted}>{placeholder}</text>
             )}
           </box>
-          <text fg={theme.textMuted}> ▼</text>
+          <text fg={indicatorColor}> ▼</text>
         </box>
 
         {open && (
