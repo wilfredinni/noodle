@@ -176,6 +176,8 @@ export function useEditBrowse(
   const editKeyRef = useRef(editKey)
   editKeyRef.current = editKey
 
+  const isFirstTabChange = useRef(true)
+
   useEffect(() => {
     if (options?.initialTab && editState.mode === "inactive") {
       setInactiveTab(options.initialTab)
@@ -183,6 +185,10 @@ export function useEditBrowse(
   }, [options?.initialTab, editState.mode])
 
   useEffect(() => {
+    if (isFirstTabChange.current) {
+      isFirstTabChange.current = false
+      return
+    }
     options?.onTabChange?.(inactiveTab)
   }, [inactiveTab, options?.onTabChange])
 
