@@ -280,6 +280,53 @@ describe("keymap dispatch", () => {
     cleanup()
   })
 
+  it("space dispatches browse.toggle when in browse mode", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.mode", "browse")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "browse" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        { name: "browse.toggle", run: () => { called = true } },
+      ],
+      bindings: [
+        { key: "space", cmd: "browse.toggle" },
+      ],
+    })
+
+    host.press("space")
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("space does not dispatch browse.toggle when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.mode", "browse")
+    keymap.setData("app.overlay", "help")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "browse" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        { name: "browse.toggle", run: () => { called = true } },
+      ],
+      bindings: [
+        { key: "space", cmd: "browse.toggle" },
+      ],
+    })
+
+    host.press("space")
+    expect(called).toBe(false)
+    cleanup()
+  })
+
   it("edit layer does not dispatch when overlay is active", () => {
     const { keymap, host, cleanup } = setup()
     keymap.setData("app.mode", "edit")

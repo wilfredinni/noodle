@@ -116,6 +116,47 @@ describe("lang.parseRequest — strictness", () => {
     )
   })
 
+  it("throws on non-boolean followRedirects", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nfollowRedirects: "yes"\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "followRedirects" must be a boolean',
+    )
+  })
+
+  it("defaults followRedirects to true when omitted", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\n`
+    expect(lang.parseRequest("x", yaml).followRedirects).toBe(true)
+  })
+
+  it("parses followRedirects: false", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nfollowRedirects: false\n`
+    expect(lang.parseRequest("x", yaml).followRedirects).toBe(false)
+  })
+
+  it("throws on non-integer maxRedirects", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nmaxRedirects: 5.5\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "maxRedirects" must be a non-negative integer',
+    )
+  })
+
+  it("throws on negative maxRedirects", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nmaxRedirects: -1\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "maxRedirects" must be a non-negative integer',
+    )
+  })
+
+  it("defaults maxRedirects to 5 when omitted", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\n`
+    expect(lang.parseRequest("x", yaml).maxRedirects).toBe(5)
+  })
+
+  it("parses maxRedirects: 10", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nmaxRedirects: 10\n`
+    expect(lang.parseRequest("x", yaml).maxRedirects).toBe(10)
+  })
+
   it("throws on invalid auth.type", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
