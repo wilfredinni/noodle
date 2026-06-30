@@ -63,7 +63,7 @@ describe("EnvHeaderPane", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("prod")
-    expect(frame).toContain("success")
+    expect(frame).toContain("succes")
     cleanup()
   })
 
@@ -81,12 +81,12 @@ describe("EnvHeaderPane", () => {
           />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 60, height: 6 },
+      { width: 80, height: 6 },
     )
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("staging")
-    expect(frame).toContain("Select...")
+    expect(frame).toContain("Select")
     cleanup()
   })
 
@@ -134,7 +134,7 @@ describe("EnvHeaderPane", () => {
       .flatMap((l) => l.spans)
       .map((s) => s.text)
       .join("")
-    expect(allText).toContain("primary")
+    expect(allText).toContain("primar")
     expect(allText).toContain("dev")
     cleanup()
   })

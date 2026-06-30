@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, isValidElement } from "react"
 import type { ReactNode } from "react"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
@@ -19,6 +19,7 @@ export interface SelectProps {
   placeholder?: string
   width?: number
   maxDropdownHeight?: number
+  dropdownAlign?: "left" | "right"
   onOpenChange?: (open: boolean) => void
 }
 
@@ -30,6 +31,7 @@ export function Select({
   placeholder = "Select...",
   width = 30,
   maxDropdownHeight = 16,
+  dropdownAlign = "left",
   onOpenChange,
 }: SelectProps) {
   const theme = useTheme()
@@ -130,6 +132,15 @@ export function Select({
 
   const selectedItem = items.find((i) => i.id === value)
 
+  const dropdownWidth = useMemo(() => {
+    let maxLabel = 0
+    for (const item of items) {
+      const text = extractText(item.label)
+      if (text) maxLabel = Math.max(maxLabel, text.length)
+    }
+    return Math.max(width, maxLabel + 4)
+  }, [items, width])
+
   return (
     <box style={{ position: "relative", width, flexDirection: "column" }}>
       <box
@@ -162,8 +173,8 @@ export function Select({
           style={{
             position: "absolute",
             top: "100%",
-            left: 0,
-            width: "100%",
+            ...(dropdownAlign === "right" ? { right: 0 } : { left: 0 }),
+            width: dropdownWidth,
             zIndex: 10000,
             backgroundColor: theme.background,
             borderStyle: "single",
@@ -186,6 +197,7 @@ export function Select({
                     opacity={item.disabled ? 0.4 : 1}
                     style={{
                       flexDirection: "row",
+                      gap: 1,
                       paddingLeft: 1,
                       paddingRight: 1,
                       height: item.description ? 2 : 1,
@@ -209,10 +221,7 @@ export function Select({
                       )}
                     </box>
                     {item.id === value && !item.disabled && (
-                      <text fg={theme.primary}>
-                        {" "}
-                        ●
-                      </text>
+                      <text fg={theme.primary}>●</text>
                     )}
                   </box>
                 )
@@ -238,4 +247,14 @@ function renderLabel(
     )
   }
   return label
+}
+
+function extractText(label: ReactNode): string {
+  if (typeof label === "string") return label
+  if (typeof label === "number") return String(label)
+  if (isValidElement(label)) {
+    const children = (label.props as { children?: ReactNode }).children
+    if (typeof children === "string") return children
+  }
+  return ""
 }
