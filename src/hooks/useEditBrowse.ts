@@ -420,8 +420,10 @@ const commitEdit = useCallback(() => {
           const { formType, cleanValue } = detectFormType(value)
           draftMutators.addFormRow(key, cleanValue, formType)
         } else {
-          const { formType, cleanValue } = detectFormType(value)
-          draftMutators.setFormRow(state.cursor.row - 1, key, cleanValue, formType)
+          const formIdx = state.cursor.row - 1
+          const existing = currentBody?.formData?.[formIdx]
+          const formType = existing?.type ?? "text"
+          draftMutators.setFormRow(formIdx, key, value, formType)
         }
       } else if (bodyType === "binary") {
         draftMutators.setFilePath(val)
