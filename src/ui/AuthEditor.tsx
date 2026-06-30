@@ -174,9 +174,10 @@ export function AuthEditor({
             <Select
               items={AUTH_TYPE_ITEMS}
               value={type}
-              onChange={(id) =>
+              onChange={(id) => {
+                if (id === type) return
                 onAuthTypeChange(id as "none" | "bearer" | "basic" | "api_key")
-              }
+              }}
               focused={isTypeSelectorActive}
               badge={false}
               onOpenChange={handleTypeSelectOpen}
