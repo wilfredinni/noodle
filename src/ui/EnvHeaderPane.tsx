@@ -102,7 +102,7 @@ export const EnvHeaderPane = forwardRef<
         value={color ?? "none"}
         onChange={(id) => onColorChange(id === "none" ? undefined : id)}
         focused={colorFocused}
-        width={10}
+        width={15}
         maxDropdownHeight={10}
         dropdownAlign="right"
         onOpenChange={setSelectOpen}

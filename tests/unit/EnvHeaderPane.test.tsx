@@ -63,7 +63,7 @@ describe("EnvHeaderPane", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("prod")
-    expect(frame).toContain("succes")
+    expect(frame).toContain("success")
     cleanup()
   })
 
@@ -86,7 +86,7 @@ describe("EnvHeaderPane", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("staging")
-    expect(frame).toContain("Select")
+    expect(frame).toContain("Select...")
     cleanup()
   })
 
@@ -134,7 +134,7 @@ describe("EnvHeaderPane", () => {
       .flatMap((l) => l.spans)
       .map((s) => s.text)
       .join("")
-    expect(allText).toContain("primar")
+    expect(allText).toContain("primary")
     expect(allText).toContain("dev")
     cleanup()
   })
