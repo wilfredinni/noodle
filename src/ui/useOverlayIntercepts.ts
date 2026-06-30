@@ -29,8 +29,6 @@ export function useOverlayIntercepts(opts: {
   setFocus: (f: Focus) => void
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
   headerFieldRef: RefObject<"name" | "color">
-  colorPickerOpenRef: RefObject<boolean>
-  setColorPickerOpen: (v: boolean) => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -56,8 +54,6 @@ export function useOverlayIntercepts(opts: {
     setFocus,
     envHeaderRef,
     headerFieldRef,
-    colorPickerOpenRef,
-    setColorPickerOpen,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -106,7 +102,14 @@ export function useOverlayIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [saveState.kind, confirmSelection, doSave, keymap, setConfirmSelection, setSaveState])
+  }, [
+    saveState.kind,
+    confirmSelection,
+    doSave,
+    keymap,
+    setConfirmSelection,
+    setSaveState,
+  ])
 
   // ── Overlay: Delete env confirmation ──────────────────────────────
   useEffect(() => {
@@ -116,7 +119,10 @@ export function useOverlayIntercepts(opts: {
       "key",
       (ctx) => {
         const name = ctx.event.name
-        if (name === "y" || (name === "return" && deleteConfirmSelection === 0)) {
+        if (
+          name === "y" ||
+          (name === "return" && deleteConfirmSelection === 0)
+        ) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           const envName = envDeletePending
@@ -126,13 +132,19 @@ export function useOverlayIntercepts(opts: {
             .then(() => {
               clearSaveTimer()
               setSaveState({ kind: "success", message: `Deleted ${envName}` })
-              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+              saveTimerRef.current = setTimeout(
+                () => setSaveState({ kind: "idle" }),
+                2000,
+              )
             })
             .catch((e: unknown) => {
               const msg = e instanceof Error ? e.message : String(e)
               clearSaveTimer()
               setSaveState({ kind: "error", message: msg })
-              saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+              saveTimerRef.current = setTimeout(
+                () => setSaveState({ kind: "idle" }),
+                2000,
+              )
             })
         } else if (
           name === "n" ||
@@ -246,24 +258,6 @@ export function useOverlayIntercepts(opts: {
             }
             return
           }
-          if (e.name === "return") {
-            if (colorPickerOpenRef.current) {
-              return
-            }
-            e.preventDefault()
-            e.stopPropagation()
-            if (headerFieldRef.current === "name") {
-              headerFieldRef.current = "color"
-            }
-            setColorPickerOpen(true)
-            return
-          }
-          if (e.name === "escape" && colorPickerOpenRef.current) {
-            e.preventDefault()
-            e.stopPropagation()
-            setColorPickerOpen(false)
-            return
-          }
         }
 
         if (f === "env-vars") {
@@ -357,11 +351,7 @@ export function useOverlayIntercepts(opts: {
             return
           }
 
-          if (
-            e.name === "space" &&
-            !inEdit &&
-            ee.selectedRowIndex < rows
-          ) {
+          if (e.name === "space" && !inEdit && ee.selectedRowIndex < rows) {
             e.preventDefault()
             e.stopPropagation()
             ee.toggleVar(ee.selectedRowIndex)
@@ -389,8 +379,6 @@ export function useOverlayIntercepts(opts: {
     envHeaderRef,
     headerFieldRef,
     setFocus,
-    setColorPickerOpen,
-    colorPickerOpenRef,
     envDeletePendingRef,
     setView,
   ])

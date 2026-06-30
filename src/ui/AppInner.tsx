@@ -23,8 +23,7 @@ import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
-import { VALID_COLORS } from "../env/constants"
-import { PickerOverlay, type PickerItem } from "./PickerOverlay"
+
 import type { Keybinds } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
@@ -88,12 +87,12 @@ export function AppInner({
     requestName: string
     returnFocus: Focus
   }>({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
-  const [colorPickerOpen, setColorPickerOpen] = useState(false)
-  const colorPickerOpenRef = useRef(false)
-  useEffect(() => { colorPickerOpenRef.current = colorPickerOpen }, [colorPickerOpen])
+
   const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
   const envDeletePendingRef = useRef(envDeletePending)
-  useEffect(() => { envDeletePendingRef.current = envDeletePending }, [envDeletePending])
+  useEffect(() => {
+    envDeletePendingRef.current = envDeletePending
+  }, [envDeletePending])
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
   const headerFieldRef = useRef<"name" | "color">("name")
 
@@ -121,7 +120,12 @@ export function AppInner({
     clearSaveTimer,
     savingRef,
     saveTimerRef,
-  } = useSaveFile(collectionDir, draft.draft, selectedRequest?.id, draft.markSaved)
+  } = useSaveFile(
+    collectionDir,
+    draft.draft,
+    selectedRequest?.id,
+    draft.markSaved,
+  )
 
   const doSaveRef = useRef(doSave)
   doSaveRef.current = doSave
@@ -181,13 +185,17 @@ export function AppInner({
     onEnvChange,
   )
   const envNameRef = useRef(envState.activeEnv?.name)
-  useEffect(() => { envNameRef.current = envState.activeEnv?.name }, [envState.activeEnv?.name])
+  useEffect(() => {
+    envNameRef.current = envState.activeEnv?.name
+  }, [envState.activeEnv?.name])
 
   const timeline = useTimeline(collectionDir, selectedRequest?.id)
   const timelineAppendRef = useRef(timeline.appendEntry)
   timelineAppendRef.current = timeline.appendEntry
 
-  const onCompleteRef = useRef((_req: NoodleRequest, _result: SendCompleteResult) => {})
+  const onCompleteRef = useRef(
+    (_req: NoodleRequest, _result: SendCompleteResult) => {},
+  )
   onCompleteRef.current = (req: NoodleRequest, result: SendCompleteResult) => {
     let resolvedUrl: string | undefined
     const activeEnv = envStateRef.current.activeEnv
@@ -312,8 +320,6 @@ export function AppInner({
     setFocus,
     envHeaderRef,
     headerFieldRef,
-    colorPickerOpenRef,
-    setColorPickerOpen,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -323,21 +329,6 @@ export function AppInner({
     const activeCount = rows.filter((r) => r.enabled).length
     return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
   }, [envEditor.draft])
-
-  const colorItems = useMemo(() => {
-    const t = theme as unknown as Record<string, string>
-    return [
-      { id: "none", label: "(none)", value: undefined },
-      ...Array.from(VALID_COLORS).map((c) => ({
-        id: c,
-        label: c,
-        value: c,
-        indicatorColor: t[c] ?? theme.textMuted,
-      })),
-    ] satisfies PickerItem[]
-  }, [theme])
-
-  const activeColorId = envEditor.draft?.color ?? "none"
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -481,6 +472,7 @@ export function AppInner({
                 name={envEditor.draft?.name ?? ""}
                 color={envEditor.draft?.color}
                 onNameChange={envEditor.setName}
+                onColorChange={envEditor.setColor}
                 focused={focus === "env-header"}
               />
               <EnvEditorPane
@@ -500,19 +492,6 @@ export function AppInner({
           </box>
         )}
         {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
-        {colorPickerOpen && (
-          <PickerOverlay
-            visible
-            title="Color"
-            items={colorItems}
-            activeId={activeColorId}
-            onSelect={(item) => {
-              envEditor.setColor(item.value as string | undefined)
-              setColorPickerOpen(false)
-            }}
-            onClose={() => setColorPickerOpen(false)}
-          />
-        )}
         {saveState.kind === "confirming" && (
           <ConfirmOverlay
             visible
