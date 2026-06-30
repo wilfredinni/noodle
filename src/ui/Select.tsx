@@ -9,6 +9,7 @@ export interface SelectItem {
   label: ReactNode
   description?: string
   disabled?: boolean
+  color?: string
 }
 
 export interface SelectProps {
@@ -20,6 +21,7 @@ export interface SelectProps {
   width?: number
   maxDropdownHeight?: number
   dropdownAlign?: "left" | "right"
+  badge?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
@@ -32,6 +34,7 @@ export function Select({
   width = 30,
   maxDropdownHeight = 16,
   dropdownAlign = "left",
+  badge = false,
   onOpenChange,
 }: SelectProps) {
   const theme = useTheme()
@@ -132,6 +135,10 @@ export function Select({
 
   const selectedItem = items.find((i) => i.id === value)
 
+  const selectedBadgeBg = badge && selectedItem?.color
+    ? (theme as unknown as Record<string, string>)[selectedItem.color]
+    : undefined
+
   const dropdownWidth = useMemo(() => {
     let maxLabel = 0
     for (const item of items) {
@@ -153,14 +160,22 @@ export function Select({
           paddingRight: 1,
           backgroundColor: open
             ? theme.primary
-            : focused
-              ? theme.borderSubtle
-              : theme.backgroundElement,
+            : selectedBadgeBg
+              ? selectedBadgeBg
+              : focused
+                ? theme.borderSubtle
+                : theme.backgroundElement,
         }}
       >
         <box style={{ flexDirection: "row", flexGrow: 1 }}>
           {selectedItem ? (
-            renderLabel(selectedItem.label, open ? contrastColor : theme.text)
+            renderLabel(
+              badge && selectedBadgeBg
+                ? extractText(selectedItem.label)
+                : selectedItem.label,
+              open || selectedBadgeBg ? contrastColor : theme.text,
+              focused && selectedBadgeBg ? TextAttributes.BOLD : undefined,
+            )
           ) : (
             <text fg={theme.textMuted}>{placeholder}</text>
           )}

@@ -64,6 +64,7 @@ export const EnvHeaderPane = forwardRef<
       { id: "none", label: "(none)" },
       ...Array.from(VALID_COLORS).map((c) => ({
         id: c,
+        color: c,
         label: <text fg={t[c] ?? theme.textMuted}>{c}</text>,
       })),
     ]
