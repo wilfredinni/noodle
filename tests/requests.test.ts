@@ -24,6 +24,8 @@ function makeReq(over: Partial<Request> = {}): Request {
     headers: {},
     params: {},
     timeout: 0,
+    followRedirects: true,
+    maxRedirects: 5,
     auth: { type: "none" },
     ...over,
   }
@@ -571,5 +573,188 @@ describe("send — timeout signal", () => {
     await executor.send(makeReq({ timeout: 0 }))
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect(init.signal).toBeUndefined()
+  })
+})
+
+describe("send — redirect following", () => {
+  it("follows 301 redirect to Location", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse({ status: 301, headers: { location: "/new-path" } }),
+      )
+      .mockResolvedValueOnce(fakeResponse({ status: 200, body: "done" }))
+    const res = await executor.send(makeReq({}))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(res.status).toBe(200)
+    expect(res.body).toBe("done")
+    expect(fetchMock.mock.calls[1][0]).toBe("https://example.com/new-path")
+  })
+
+  it("follows 302, 303, 307, 308", async () => {
+    for (const code of [302, 303, 307, 308]) {
+      fetchMock.mockReset()
+      fetchMock
+        .mockResolvedValueOnce(
+          fakeResponse({ status: code, headers: { location: "/target" } }),
+        )
+        .mockResolvedValueOnce(fakeResponse({ status: 200 }))
+      const res = await executor.send(makeReq({}))
+      expect(res.status).toBe(200)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(fetchMock.mock.calls[1][0]).toBe("https://example.com/target")
+    }
+  })
+
+  it("does not follow when followRedirects is false", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse({ status: 301, headers: { location: "/elsewhere" } }),
+    )
+    const res = await executor.send(
+      makeReq({ followRedirects: false }),
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(301)
+  })
+
+  it("throws when max redirects exceeded", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse({ status: 301, headers: { location: "/hop" } }),
+    )
+    await expect(
+      executor.send(makeReq({ maxRedirects: 2 })),
+    ).rejects.toThrow("requests.send: max redirects (2) exceeded")
+    expect(fetchMock).toHaveBeenCalledTimes(3) // initial + 2 redirects, 3rd triggers throw
+  })
+
+  it("returns 301 response when no Location header", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse({ status: 301 }),
+    )
+    const res = await executor.send(makeReq({}))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(301)
+  })
+
+  it("does not follow non-redirect status (200, 400, 500)", async () => {
+    for (const code of [200, 400, 404, 500]) {
+      fetchMock.mockReset()
+      fetchMock.mockResolvedValueOnce(
+        fakeResponse({ status: code, headers: { location: "/ignored" } }),
+      )
+      const res = await executor.send(makeReq({}))
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(res.status).toBe(code)
+    }
+  })
+
+  it("resolves relative Location header against current URL", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse({
+          status: 302,
+          headers: { location: "../bar/baz" },
+        }),
+      )
+      .mockResolvedValueOnce(fakeResponse({ status: 200 }))
+    await executor.send(makeReq({ url: "https://example.com/foo/" }))
+    expect(fetchMock.mock.calls[1][0]).toBe("https://example.com/bar/baz")
+  })
+
+  it("switches POST to GET on 302 with content-type and content-length stripped", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse({
+          status: 302,
+          headers: { location: "/new" },
+        }),
+      )
+      .mockResolvedValueOnce(fakeResponse({ status: 200 }))
+    await executor.send(
+      makeReq({
+        method: "POST",
+        body: '{"x":1}',
+        headers: {
+          "content-type": { value: "application/json", enabled: true },
+          "content-length": { value: "100", enabled: true },
+        },
+      }),
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const init = fetchMock.mock.calls[1][1] as RequestInit
+    expect(init.method).toBe("GET")
+    expect(init.body).toBeUndefined()
+    const headers = init.headers as Headers
+    expect(headers.get("content-type")).toBeNull()
+    expect(headers.get("content-length")).toBeNull()
+  })
+
+  it("switches POST to GET on 303", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse({
+          status: 303,
+          headers: { location: "/new" },
+        }),
+      )
+      .mockResolvedValueOnce(fakeResponse({ status: 200 }))
+    await executor.send(makeReq({ method: "POST", body: '{"x":1}' }))
+    const init = fetchMock.mock.calls[1][1] as RequestInit
+    expect(init.method).toBe("GET")
+    expect(init.body).toBeUndefined()
+  })
+
+  it("preserves method and body on 307", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse({
+          status: 307,
+          headers: { location: "/new" },
+        }),
+      )
+      .mockResolvedValueOnce(fakeResponse({ status: 200 }))
+    await executor.send(makeReq({ method: "POST", body: '{"x":1}' }))
+    const init = fetchMock.mock.calls[1][1] as RequestInit
+    expect(init.method).toBe("POST")
+    expect(init.body).toBe('{"x":1}')
+  })
+
+  it("preserves method and body on 308", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse({
+          status: 308,
+          headers: { location: "/new" },
+        }),
+      )
+      .mockResolvedValueOnce(fakeResponse({ status: 200 }))
+    await executor.send(makeReq({ method: "POST", body: '{"x":1}' }))
+    const init = fetchMock.mock.calls[1][1] as RequestInit
+    expect(init.method).toBe("POST")
+    expect(init.body).toBe('{"x":1}')
+  })
+
+  it("does not change method for non-POST on 301/302", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse({
+          status: 301,
+          headers: { location: "/new" },
+        }),
+      )
+      .mockResolvedValueOnce(fakeResponse({ status: 200 }))
+    await executor.send(makeReq({ method: "PUT", body: "data" }))
+    const init = fetchMock.mock.calls[1][1] as RequestInit
+    expect(init.method).toBe("PUT")
+    expect(init.body).toBe("data")
+  })
+
+  it("uses redirect: manual in fetch init", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse({ status: 302, headers: { location: "/there" } }),
+    )
+    fetchMock.mockResolvedValueOnce(fakeResponse({ status: 200 }))
+    await executor.send(makeReq({}))
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.redirect).toBe("manual")
   })
 })

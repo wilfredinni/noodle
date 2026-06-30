@@ -15,8 +15,10 @@ function makeReq(over: Partial<Request> = {}): Request {
     url: "https://example.com",
     headers: {},
     params: {},
-    auth: { type: "none" },
     timeout: 0,
+    followRedirects: true,
+    maxRedirects: 5,
+    auth: { type: "none" },
     ...over,
   }
 }

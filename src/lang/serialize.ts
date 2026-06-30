@@ -13,6 +13,13 @@ export function serializeRequest(req: Request): string {
   out += `url: ${yamlVal(req.url)}\n`
   out += `timeout: ${String(req.timeout)}\n`
 
+  if (req.followRedirects !== undefined && req.followRedirects !== true) {
+    out += `followRedirects: ${req.followRedirects}\n`
+  }
+  if (req.maxRedirects !== undefined && req.maxRedirects !== 5) {
+    out += `maxRedirects: ${req.maxRedirects}\n`
+  }
+
   if (Object.keys(req.headers).length > 0) {
     out += "headers:\n"
     for (const [k, v] of Object.entries(req.headers)) {

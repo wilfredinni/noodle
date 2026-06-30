@@ -12,6 +12,8 @@ describe("lang.parseRequest — required fields", () => {
       method: "GET",
       url: "https://api.example.com/users/1",
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       headers: {},
       params: {},
       auth: { type: "none" },
@@ -222,6 +224,8 @@ function makeReq(over: Partial<Request> = {}): Request {
     headers: {},
     params: {},
     timeout: 0,
+    followRedirects: true,
+    maxRedirects: 5,
     auth: { type: "none" },
     ...over,
   }
@@ -355,6 +359,8 @@ describe("lang — semantic round-trip", () => {
       method: "POST",
       url: "https://$host/posts",
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       headers: {
         "Content-Type": { value: "application/json", enabled: true },
         Authorization: { value: "Bearer $token", enabled: true },
@@ -379,6 +385,8 @@ describe("lang — semantic round-trip", () => {
       headers: {},
       params: {},
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       auth: { type: "none" },
     }
     const yaml = lang.serializeRequest(original)
@@ -395,6 +403,8 @@ describe("lang — semantic round-trip", () => {
       headers: {},
       params: {},
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       auth: { type: "basic", user: "foo", pass: "bar" },
     }
     const yaml = lang.serializeRequest(original)
@@ -414,6 +424,8 @@ describe("lang — semantic round-trip", () => {
       },
       params: {},
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       auth: { type: "none" },
     }
     const yaml = lang.serializeRequest(original)

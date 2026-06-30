@@ -23,6 +23,8 @@ export interface Request {
   method: Method
   url: string
   timeout: number
+  followRedirects?: boolean
+  maxRedirects?: number
   headers: Record<string, KvEntry>
   params: Record<string, KvEntry>
   body?: string

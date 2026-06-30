@@ -16,6 +16,8 @@ export type DraftOp =
   | { kind: "toggleParamRow"; index: number }
   | { kind: "syncUrlParams"; rawUrl: string }
   | { kind: "setTimeout"; timeout: number }
+  | { kind: "setFollowRedirects"; followRedirects: boolean }
+  | { kind: "setMaxRedirects"; maxRedirects: number }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
 
@@ -63,6 +65,8 @@ export function requestEquals(a: Request, b: Request): boolean {
   if (a.url !== b.url) return false
   if (a.method !== b.method) return false
   if (a.timeout !== b.timeout) return false
+  if (a.followRedirects !== b.followRedirects) return false
+  if (a.maxRedirects !== b.maxRedirects) return false
   if (a.body !== b.body) return false
   if (!recordsEqual(a.headers, b.headers)) return false
   if (!recordsEqual(a.params, b.params)) return false
@@ -225,9 +229,19 @@ export function applyDraft(
     case "setTimeout":
       draft.timeout = op.timeout
       break
+    case "setFollowRedirects":
+      draft.followRedirects = op.followRedirects
+      break
+    case "setMaxRedirects":
+      draft.maxRedirects = op.maxRedirects
+      break
     case "revertField": {
       if (op.field === "body") draft.body = original.body
-      else if (op.field === "settings") draft.timeout = original.timeout
+      else if (op.field === "settings") {
+        draft.timeout = original.timeout
+        draft.followRedirects = original.followRedirects
+        draft.maxRedirects = original.maxRedirects
+      }
       else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {
@@ -257,7 +271,9 @@ export interface UseRequestDraftResult {
   addParamRow: (key: string, value: string) => void
   removeParamRow: (index: number) => void
   toggleParamRow: (index: number) => void
-  setTimeout: (timeout: number) => void
+  setTimeout: (t: number) => void
+  setFollowRedirects: (b: boolean) => void
+  setMaxRedirects: (n: number) => void
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
   markSaved: () => void
@@ -305,6 +321,14 @@ export function useRequestDraft(
   )
   const setTimeoutCb = useCallback(
     (timeout: number) => apply({ kind: "setTimeout", timeout }),
+    [apply],
+  )
+  const setFollowRedirects = useCallback(
+    (followRedirects: boolean) => apply({ kind: "setFollowRedirects", followRedirects }),
+    [apply],
+  )
+  const setMaxRedirects = useCallback(
+    (maxRedirects: number) => apply({ kind: "setMaxRedirects", maxRedirects }),
     [apply],
   )
   const setHeaderRow = useCallback(
@@ -393,6 +417,8 @@ export function useRequestDraft(
       syncUrlParams,
       setBody,
       setTimeout: setTimeoutCb,
+      setFollowRedirects,
+      setMaxRedirects,
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,
@@ -413,6 +439,8 @@ export function useRequestDraft(
       syncUrlParams,
       setBody,
       setTimeoutCb,
+      setFollowRedirects,
+      setMaxRedirects,
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,
