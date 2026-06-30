@@ -126,7 +126,7 @@ export function Select({
           }
         }
       },
-      { priority: 100 },
+      { priority: 110 },
     )
     return dispose
   }, [open, highlightIndex, items, onChange, keymap])
