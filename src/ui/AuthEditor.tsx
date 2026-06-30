@@ -60,7 +60,7 @@ function getAuthRows(auth: Auth | undefined): AuthRows {
     type: "api_key",
     fieldDefs: [
       { row: 1, label: "Key", field: "key", isSecret: false },
-      { row: 2, label: "Value", field: "value", isSecret: false },
+      { row: 2, label: "Value", field: "value", isSecret: true },
       {
         row: 3,
         label: "Add To",
@@ -74,7 +74,19 @@ function getAuthRows(auth: Auth | undefined): AuthRows {
 
 function getFieldValue(auth: Auth, field: string): string {
   if (auth.type === "none") return ""
-  return ((auth as Record<string, unknown>)[field] as string) ?? ""
+  if (auth.type === "bearer") return auth.token
+  if (auth.type === "basic") {
+    if (field === "user") return auth.user
+    if (field === "pass") return auth.pass
+    return ""
+  }
+  if (auth.type === "api_key") {
+    if (field === "key") return auth.key
+    if (field === "value") return auth.value
+    if (field === "placement") return auth.placement
+    return ""
+  }
+  return ""
 }
 
 export interface AuthEditorProps {
@@ -82,12 +94,10 @@ export interface AuthEditorProps {
   editState: EditState
   inEdit: boolean
   browseActive: boolean
-  editValue: string
   setEditValue: (v: string) => void
   theme: Theme
   activeEnv?: Environment | null
   onAuthTypeChange: (t: "none" | "bearer" | "basic" | "api_key") => void
-  onAuthFieldChange: (authType: string, field: string, value: string) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
 }

@@ -30,7 +30,6 @@ interface Props {
   activeTab: FieldKind
   activeEnv?: Environment | null
   onAuthTypeChange?: (t: "none" | "bearer" | "basic" | "api_key") => void
-  onAuthFieldChange?: (authType: string, field: string, value: string) => void
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
 }
@@ -54,7 +53,6 @@ export function RequestPane({
   activeTab,
   activeEnv,
   onAuthTypeChange,
-  onAuthFieldChange,
   onApiKeyPlacementChange,
   onSelectOpenChange,
 }: Props) {
@@ -196,12 +194,10 @@ export function RequestPane({
                   editState={editState}
                   inEdit={inEdit}
                   browseActive={browseActive}
-                  editValue={editValue}
                   setEditValue={setEditValue}
                   theme={theme}
                   activeEnv={activeEnv}
                   onAuthTypeChange={onAuthTypeChange ?? (() => {})}
-                  onAuthFieldChange={onAuthFieldChange ?? (() => {})}
                   onApiKeyPlacementChange={
                     onApiKeyPlacementChange ?? (() => {})
                   }

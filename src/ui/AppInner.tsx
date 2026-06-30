@@ -403,7 +403,6 @@ export function AppInner({
                     activeTab={eb.activeTab}
                     activeEnv={envState.activeEnv}
                     onAuthTypeChange={draft.setAuthType}
-                    onAuthFieldChange={draft.setAuthField}
                     onApiKeyPlacementChange={draft.setApiKeyPlacement}
                     onSelectOpenChange={setSelectOpen}
                   />
@@ -426,7 +425,6 @@ export function AppInner({
                     activeTab={eb.activeTab}
                     activeEnv={envState.activeEnv}
                     onAuthTypeChange={draft.setAuthType}
-                    onAuthFieldChange={draft.setAuthField}
                     onApiKeyPlacementChange={draft.setApiKeyPlacement}
                     onSelectOpenChange={setSelectOpen}
                   />
