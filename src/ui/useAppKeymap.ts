@@ -232,7 +232,6 @@ export function useAppKeymap(
       { key: "escape", cmd: "browse.escape" },
       { key: keybinds.browse_delete, cmd: "browse.delete" },
       { key: keybinds.browse_revert_all, cmd: "browse.revert-all" },
-      { key: keybinds.browse_toggle, cmd: "browse.toggle" },
       { key: "space", cmd: "browse.toggle" },
       { key: keybinds.request_send, cmd: "browse.send" },
       { key: keybinds.request_save, cmd: "browse.save" },

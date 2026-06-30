@@ -43,10 +43,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           description: "Cancel edit / exit browse",
         },
         { key: displayKey(keybinds.browse_delete), description: "Revert field" },
-        {
-          key: displayKey(keybinds.browse_toggle),
-          description: "Toggle header/param enabled",
-        },
+        { key: "space", description: "Toggle header/param enabled" },
         {
           key: displayKey(keybinds.browse_revert_all),
           description: "Revert all fields",

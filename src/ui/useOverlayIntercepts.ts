@@ -367,18 +367,6 @@ export function useOverlayIntercepts(opts: {
             ee.toggleVar(ee.selectedRowIndex)
             return
           }
-
-          if (
-            e.name === "x" &&
-            e.ctrl &&
-            !inEdit &&
-            ee.selectedRowIndex < rows
-          ) {
-            e.preventDefault()
-            e.stopPropagation()
-            ee.toggleVar(ee.selectedRowIndex)
-            return
-          }
         }
 
         if (e.name === "escape" && envDeletePendingRef.current === null) {
