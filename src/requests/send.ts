@@ -56,10 +56,11 @@ export async function send(
       : timeoutSignal
   }
 
+  const substitutedBody = bodyForSend(substituted, headersInst)
   const init: RequestInit = {
     method: substituted.method,
     headers: headersInst,
-    body: substituted.body,
+    body: substitutedBody,
     signal: effectiveSignal,
   }
 
@@ -128,6 +129,47 @@ export async function send(
     body,
     timeMs: performance.now() - start,
   }
+}
+
+function bodyForSend(
+  req: SubstitutedRequest,
+  headers: Headers,
+): BodyInit | undefined {
+  const hasContentType = headers.has("content-type")
+
+  if (req.bodyType === "json" && req.body !== undefined) {
+    if (!hasContentType) headers.set("content-type", "application/json")
+    return req.body
+  }
+
+  if (req.bodyType === "urlencoded" && req.formData) {
+    if (!hasContentType) headers.set("content-type", "application/x-www-form-urlencoded")
+    const params = new URLSearchParams()
+    for (const entry of req.formData) {
+      if (entry.enabled) params.append(entry.name, entry.value)
+    }
+    return params.toString()
+  }
+
+  if (req.bodyType === "multipart" && req.formData) {
+    const fd = new FormData()
+    for (const entry of req.formData) {
+      if (!entry.enabled) continue
+      if (entry.type === "file") {
+        fd.append(entry.name, Bun.file(entry.value))
+      } else {
+        fd.append(entry.name, entry.value)
+      }
+    }
+    return fd as unknown as BodyInit
+  }
+
+  if (req.bodyType === "binary" && req.filePath) {
+    if (!hasContentType) headers.set("content-type", "application/octet-stream")
+    return Bun.file(req.filePath) as unknown as BodyInit
+  }
+
+  return req.body
 }
 
 function headersToObject(h: Headers): Record<string, string> {
