@@ -72,24 +72,23 @@ export function ResponsePane({
     else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
   })
 
-  // Sync activeTab when initialTab prop changes
+  // Sync activeTab when initialTab prop changes (request switch)
+  const syncVersionRef = useRef(0)
   useEffect(() => {
-    if (initialTab) {
-      isSyncingTab.current = true
-      setActiveTab(initialTab)
-    }
+    syncVersionRef.current += 1
+    setActiveTab(initialTab ?? "body")
   }, [initialTab])
 
-  // Notify parent on tab changes from user interaction (skip first render)
+  // Notify parent on tab changes from user interaction (skip first render + sync)
   const isFirstTabRender = useRef(true)
-  const isSyncingTab = useRef(false)
+  const lastAppliedSyncVersionRef = useRef(0)
   useEffect(() => {
     if (isFirstTabRender.current) {
       isFirstTabRender.current = false
       return
     }
-    if (isSyncingTab.current) {
-      isSyncingTab.current = false
+    if (syncVersionRef.current !== lastAppliedSyncVersionRef.current) {
+      lastAppliedSyncVersionRef.current = syncVersionRef.current
       return
     }
     onTabChange?.(activeTab)

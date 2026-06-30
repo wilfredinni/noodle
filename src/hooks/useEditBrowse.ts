@@ -179,6 +179,11 @@ export function useEditBrowse(
   const onTabChangeRef = useRef(options?.onTabChange)
   onTabChangeRef.current = options?.onTabChange
 
+  // Sync inactiveTab when initialTab prop changes (request switch)
+  useEffect(() => {
+    setInactiveTab(options?.initialTab ?? "headers")
+  }, [options?.initialTab])
+
   const isFirstTabChange = useRef(true)
   useEffect(() => {
     if (isFirstTabChange.current) {
