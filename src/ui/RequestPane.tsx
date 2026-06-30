@@ -96,7 +96,10 @@ export function RequestPane({
     if (!request) return BASE_TAB_DEFS
     const headerActive = Object.values(request.headers).some((e) => e.enabled)
     const paramActive = Object.values(request.params).some((e) => e.enabled)
-    const hasBody = request.body !== undefined && request.body !== ""
+    const hasBody =
+      (request.body !== undefined && request.body !== "") ||
+      (request.formData !== undefined && request.formData.length > 0) ||
+      (request.filePath !== undefined && request.filePath !== "")
     const hasAuth =
       request.auth?.type !== undefined && request.auth.type !== "none"
     const hasTimeout = request.timeout > 0
