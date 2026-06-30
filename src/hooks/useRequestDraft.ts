@@ -32,6 +32,13 @@ export type DraftOp =
 
 const authTypeCache = new Map<string, Record<string, Auth>>()
 
+interface CachedBody {
+  body?: string
+  formData?: FormEntry[]
+  filePath?: string
+}
+const bodyCache = new Map<string, Record<string, CachedBody>>()
+
 export function parseRow(input: string): { key: string; value: string } {
   const trimmed = input.trim()
   if (trimmed === "") return { key: "", value: "" }
@@ -82,7 +89,7 @@ export function requestEquals(a: Request, b: Request): boolean {
   if (a.followRedirects !== b.followRedirects) return false
   if (a.maxRedirects !== b.maxRedirects) return false
   if (a.body !== b.body) return false
-  if (a.bodyType !== b.bodyType) return false
+  if ((a.bodyType ?? "json") !== (b.bodyType ?? "json")) return false
   if (a.filePath !== b.filePath) return false
   if (!recordsEqual(a.headers, b.headers)) return false
   if (!recordsEqual(a.params, b.params)) return false
@@ -223,21 +230,29 @@ export function applyDraft(
     case "setBody":
       draft.body = op.body
       break
-    case "setBodyType":
-      if (op.bodyType !== draft.bodyType) {
+    case "setBodyType": {
+      const normalizedCurrent = draft.bodyType ?? "json"
+      const normalizedOp = op.bodyType ?? "json"
+      if (normalizedOp !== normalizedCurrent) {
+        const curBodyType = draft.bodyType ?? "json"
+        const idCache = bodyCache.get(id) ?? {}
+        idCache[curBodyType] = { body: draft.body, formData: draft.formData, filePath: draft.filePath }
+        bodyCache.set(id, idCache)
+
         draft.bodyType = op.bodyType
-        if (op.bodyType === "json" || op.bodyType === undefined) {
+        const cached = bodyCache.get(id)?.[normalizedOp]
+        if (cached) {
+          draft.body = cached.body
+          draft.formData = cached.formData
+          draft.filePath = cached.filePath
+        } else {
+          draft.body = undefined
           draft.formData = undefined
           draft.filePath = undefined
-        } else if (op.bodyType === "urlencoded" || op.bodyType === "multipart") {
-          draft.body = undefined
-          draft.filePath = undefined
-        } else if (op.bodyType === "binary") {
-          draft.body = undefined
-          draft.formData = undefined
         }
       }
       break
+    }
     case "setFormRow":
       draft.formData = current.formData ?? []
       if (draft.formData[op.index]) {
@@ -546,6 +561,7 @@ export function useRequestDraft(
     const currentDraft =
       mapRef.current.get(selectedRequest.id) ?? selectedRequest
     authTypeCache.delete(selectedRequest.id)
+    bodyCache.delete(selectedRequest.id)
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(selectedRequest.id, { ...currentDraft })
