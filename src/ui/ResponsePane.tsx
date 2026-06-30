@@ -39,7 +39,9 @@ export function ResponsePane({
   const focusedRef = useRef(focused)
   focusedRef.current = focused
 
-  const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">("body")
+  const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
+    "body",
+  )
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -78,9 +80,10 @@ export function ResponsePane({
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   const responseHeaders = isDone ? formatHeaders(state.response) : []
-  const maxKeyLen = responseHeaders.length > 0
-    ? Math.max(...responseHeaders.map((h) => h.key.length))
-    : 0
+  const maxKeyLen =
+    responseHeaders.length > 0
+      ? Math.max(...responseHeaders.map((h) => h.key.length))
+      : 0
 
   return (
     <box
@@ -119,15 +122,9 @@ export function ResponsePane({
         </box>
       ) : (
         <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
-          <Tabs
-            tabs={TAB_DEFS}
-            activeId={activeTab}
-          >
+          <Tabs tabs={TAB_DEFS} activeId={activeTab}>
             {activeTab === "timeline" ? (
-              <TimelineTab
-                entries={timelineEntries ?? []}
-                focused={focused}
-              />
+              <TimelineTab entries={timelineEntries ?? []} focused={focused} />
             ) : (
               <scrollbox
                 ref={scrollRef}
@@ -139,28 +136,51 @@ export function ResponsePane({
                   <box style={{ flexDirection: "column", gap: 1 }}>
                     {(() => {
                       const body = formatBody(state.response)
-                      if (body === "") return (
-                        <text fg={theme.textMuted}>(no body)</text>
+                      if (body === "")
+                        return <text fg={theme.textMuted}>(no body)</text>
+                      return (
+                        <JsonBodyViewer
+                          key={body}
+                          body={body}
+                          theme={theme}
+                          readOnly
+                        />
                       )
-                      return <JsonBodyViewer key={body} body={body} theme={theme} readOnly />
                     })()}
                   </box>
                 ) : (
                   responseHeaders.map(({ key, value }, i) => {
                     if (i < responseHeaders.length - 1) {
                       return (
-                        <box key={key} border={["bottom"]} borderColor={theme.borderDimmest} style={{ flexDirection: "row" }}>
-                          <text fg={theme.textMuted} style={{ minWidth: maxKeyLen + 1, paddingLeft: 1 }}>
+                        <box
+                          key={key}
+                          border={["bottom"]}
+                          borderColor={theme.borderDimmest}
+                          style={{ flexDirection: "row" }}
+                        >
+                          <text
+                            fg={theme.textMuted}
+                            style={{ minWidth: maxKeyLen + 1, paddingLeft: 1 }}
+                          >
                             {key.padEnd(maxKeyLen)}
                           </text>
-                          <text fg={theme.textMuted} wrapMode="none" style={{ flexShrink: 1, minWidth: 5 }}>
+                          <text
+                            fg={theme.textMuted}
+                            wrapMode="none"
+                            style={{ flexShrink: 1, minWidth: 5 }}
+                          >
                             : {value}
                           </text>
                         </box>
                       )
                     }
                     return (
-                      <text key={key} fg={theme.textMuted} wrapMode="none" style={{ paddingLeft: 1 }}>
+                      <text
+                        key={key}
+                        fg={theme.textMuted}
+                        wrapMode="none"
+                        style={{ paddingLeft: 1 }}
+                      >
                         {key.padEnd(maxKeyLen)} : {value}
                       </text>
                     )
@@ -170,9 +190,20 @@ export function ResponsePane({
             )}
           </Tabs>
           {state.response.statusText !== "" && (
-            <box style={{ flexDirection: "row", justifyContent: "flex-end", flexShrink: 0, paddingTop: 1, paddingRight: 1 }}>
+            <box
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                flexShrink: 0,
+                paddingTop: 1,
+                paddingRight: 1,
+              }}
+            >
               <GradientBadge
-                colors={[statusColor(state.response.status, theme), theme.primary]}
+                colors={[
+                  statusColor(state.response.status, theme),
+                  theme.primary,
+                ]}
                 fg={theme.background}
               >
                 {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""} • ${Math.round(state.response.timeMs)}ms • ${formatSize(new TextEncoder().encode(state.response.body).length)}`}

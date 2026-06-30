@@ -106,13 +106,17 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     await new Promise((r) => setTimeout(r, 30))
 
     const filePath = join(dir, "alpha.env")
-    const before = await readFile(filePath, "utf8").then(() => true).catch(() => false)
+    const before = await readFile(filePath, "utf8")
+      .then(() => true)
+      .catch(() => false)
     expect(before).toBe(true)
 
     await ref.current!.deleteEnv()
     await new Promise((r) => setTimeout(r, 30))
 
-    const after = await readFile(filePath, "utf8").then(() => true).catch(() => false)
+    const after = await readFile(filePath, "utf8")
+      .then(() => true)
+      .catch(() => false)
     expect(after).toBe(false)
   })
 

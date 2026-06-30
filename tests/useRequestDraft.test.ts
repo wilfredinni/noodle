@@ -129,17 +129,26 @@ describe("requestEquals", () => {
   })
   it("same followRedirects → true", () => {
     expect(
-      requestEquals(makeReq({ followRedirects: false }), makeReq({ followRedirects: false })),
+      requestEquals(
+        makeReq({ followRedirects: false }),
+        makeReq({ followRedirects: false }),
+      ),
     ).toBe(true)
   })
   it("differing followRedirects → false", () => {
     expect(
-      requestEquals(makeReq({ followRedirects: true }), makeReq({ followRedirects: false })),
+      requestEquals(
+        makeReq({ followRedirects: true }),
+        makeReq({ followRedirects: false }),
+      ),
     ).toBe(false)
   })
   it("same maxRedirects → true", () => {
     expect(
-      requestEquals(makeReq({ maxRedirects: 10 }), makeReq({ maxRedirects: 10 })),
+      requestEquals(
+        makeReq({ maxRedirects: 10 }),
+        makeReq({ maxRedirects: 10 }),
+      ),
     ).toBe(true)
   })
   it("differing maxRedirects → false", () => {
@@ -698,5 +707,213 @@ describe("isDirty with originalMap", () => {
     const draft = { ...selectedRequest }
     const saved = originalMap.get("r1") ?? selectedRequest
     expect(requestEquals(draft, saved)).toBe(true)
+  })
+})
+
+describe("applyDraft — auth", () => {
+  it("setAuthType none -> none (no change)", () => {
+    const original = makeReq({ auth: { type: "none" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthType",
+      authType: "none",
+    })
+    expect(next.get("r1")!.auth).toEqual({ type: "none" })
+  })
+
+  it("setAuthType none -> bearer resets token to empty", () => {
+    const original = makeReq({ auth: { type: "none" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthType",
+      authType: "bearer",
+    })
+    expect(next.get("r1")!.auth).toEqual({ type: "bearer", token: "" })
+  })
+
+  it("setAuthType bearer -> basic resets to empty user/pass", () => {
+    const original = makeReq({ auth: { type: "bearer", token: "old" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthType",
+      authType: "basic",
+    })
+    expect(next.get("r1")!.auth).toEqual({ type: "basic", user: "", pass: "" })
+  })
+
+  it("setAuthType basic -> api_key resets to empty with default placement", () => {
+    const original = makeReq({ auth: { type: "basic", user: "u", pass: "p" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthType",
+      authType: "api_key",
+    })
+    expect(next.get("r1")!.auth).toEqual({
+      type: "api_key",
+      key: "",
+      value: "",
+      placement: "header",
+    })
+  })
+
+  it("setAuthField sets bearer token", () => {
+    const original = makeReq({ auth: { type: "bearer", token: "old" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthField",
+      authType: "bearer",
+      field: "token",
+      value: "new-secret",
+    })
+    expect(next.get("r1")!.auth).toEqual({
+      type: "bearer",
+      token: "new-secret",
+    })
+  })
+
+  it("setAuthField sets basic user", () => {
+    const original = makeReq({
+      auth: { type: "basic", user: "old", pass: "p" },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthField",
+      authType: "basic",
+      field: "user",
+      value: "admin",
+    })
+    expect(next.get("r1")!.auth).toEqual({
+      type: "basic",
+      user: "admin",
+      pass: "p",
+    })
+  })
+
+  it("setAuthField sets basic pass", () => {
+    const original = makeReq({
+      auth: { type: "basic", user: "u", pass: "old" },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthField",
+      authType: "basic",
+      field: "pass",
+      value: "new-pass",
+    })
+    expect(next.get("r1")!.auth).toEqual({
+      type: "basic",
+      user: "u",
+      pass: "new-pass",
+    })
+  })
+
+  it("setAuthField sets api_key key", () => {
+    const original = makeReq({
+      auth: { type: "api_key", key: "", value: "", placement: "header" },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthField",
+      authType: "api_key",
+      field: "key",
+      value: "X-API-Key",
+    })
+    expect(next.get("r1")!.auth).toEqual({
+      type: "api_key",
+      key: "X-API-Key",
+      value: "",
+      placement: "header",
+    })
+  })
+
+  it("setAuthField sets api_key value", () => {
+    const original = makeReq({
+      auth: { type: "api_key", key: "k", value: "", placement: "header" },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthField",
+      authType: "api_key",
+      field: "value",
+      value: "secret",
+    })
+    expect(next.get("r1")!.auth).toEqual({
+      type: "api_key",
+      key: "k",
+      value: "secret",
+      placement: "header",
+    })
+  })
+
+  it("setApiKeyPlacement toggles placement", () => {
+    const original = makeReq({
+      auth: { type: "api_key", key: "k", value: "v", placement: "header" },
+    })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setApiKeyPlacement",
+      placement: "query",
+    })
+    expect(next.get("r1")!.auth).toEqual({
+      type: "api_key",
+      key: "k",
+      value: "v",
+      placement: "query",
+    })
+  })
+
+  it("setAuthField no-ops when authType doesn't match", () => {
+    const original = makeReq({ auth: { type: "bearer", token: "t" } })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setAuthField",
+      authType: "basic",
+      field: "user",
+      value: "x",
+    })
+    expect(next.get("r1")!.auth).toEqual({ type: "bearer", token: "t" })
+  })
+
+  it("revertField auth row 0 reverts entire auth", () => {
+    const original = makeReq({ auth: { type: "bearer", token: "orig" } })
+    const map = new Map<string, Request>([
+      ["r1", { ...original, auth: { type: "bearer", token: "edited" } }],
+    ])
+    const next = applyDraft(map, "r1", original, {
+      kind: "revertField",
+      field: "auth",
+      row: 0,
+    })
+    expect(next.get("r1")!.auth).toEqual({ type: "bearer", token: "orig" })
+  })
+})
+
+describe("authEqual — api_key", () => {
+  it("same api_key -> true", () => {
+    const a = makeReq({
+      auth: { type: "api_key", key: "k", value: "v", placement: "header" },
+    })
+    const b = makeReq({
+      auth: { type: "api_key", key: "k", value: "v", placement: "header" },
+    })
+    expect(requestEquals(a, b)).toBe(true)
+  })
+  it("different api_key key -> false", () => {
+    const a = makeReq({
+      auth: { type: "api_key", key: "k1", value: "v", placement: "header" },
+    })
+    const b = makeReq({
+      auth: { type: "api_key", key: "k2", value: "v", placement: "header" },
+    })
+    expect(requestEquals(a, b)).toBe(false)
+  })
+  it("different api_key placement -> false", () => {
+    const a = makeReq({
+      auth: { type: "api_key", key: "k", value: "v", placement: "header" },
+    })
+    const b = makeReq({
+      auth: { type: "api_key", key: "k", value: "v", placement: "query" },
+    })
+    expect(requestEquals(a, b)).toBe(false)
   })
 })

@@ -32,6 +32,16 @@ export async function send(
     })
   }
 
+  const authForParams = substituted.auth
+  if (
+    authForParams?.type === "api_key" &&
+    authForParams.placement === "query"
+  ) {
+    const up = new URL(finalUrl)
+    up.searchParams.append(authForParams.key, authForParams.value)
+    finalUrl = up.toString()
+  }
+
   const headersInst = new Headers(headers)
   const ah = authHeader(substituted.auth)
   if (ah) {
@@ -83,7 +93,11 @@ export async function send(
 
     currentUrl = new URL(loc, currentUrl).toString()
 
-    if (res.status === 303 || ((res.status === 301 || res.status === 302) && currentInit.method === "POST")) {
+    if (
+      res.status === 303 ||
+      ((res.status === 301 || res.status === 302) &&
+        currentInit.method === "POST")
+    ) {
       const newHeaders = new Headers(currentInit.headers)
       newHeaders.delete("content-type")
       newHeaders.delete("content-length")
@@ -131,8 +145,14 @@ function authHeader(
   if (auth.type === "bearer") {
     return { name: "Authorization", value: `Bearer ${auth.token}` }
   }
-  const encoded = Buffer.from(`${auth.user}:${auth.pass}`).toString("base64")
-  return { name: "Authorization", value: `Basic ${encoded}` }
+  if (auth.type === "basic") {
+    const encoded = Buffer.from(`${auth.user}:${auth.pass}`).toString("base64")
+    return { name: "Authorization", value: `Basic ${encoded}` }
+  }
+  if (auth.type === "api_key" && auth.placement === "header") {
+    return { name: auth.key, value: auth.value }
+  }
+  return null
 }
 
 function filterKv(entries: Record<string, KvEntry>): Record<string, string> {

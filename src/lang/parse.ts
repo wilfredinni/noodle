@@ -15,6 +15,13 @@ type RawAuth =
   | { type: "none"; [k: string]: unknown }
   | { type: "bearer"; token: string; [k: string]: unknown }
   | { type: "basic"; user: string; pass: string; [k: string]: unknown }
+  | {
+      type: "api_key"
+      key: string
+      value: string
+      placement?: string
+      [k: string]: unknown
+    }
   | { type: string; [k: string]: unknown }
 
 interface RawRequest {
@@ -109,8 +116,14 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   let maxRedirects: number = 5
   if (raw.maxRedirects !== undefined) {
-    if (typeof raw.maxRedirects !== "number" || !Number.isInteger(raw.maxRedirects) || raw.maxRedirects < 0) {
-      throw new Error('lang.parseRequest: "maxRedirects" must be a non-negative integer')
+    if (
+      typeof raw.maxRedirects !== "number" ||
+      !Number.isInteger(raw.maxRedirects) ||
+      raw.maxRedirects < 0
+    ) {
+      throw new Error(
+        'lang.parseRequest: "maxRedirects" must be a non-negative integer',
+      )
     }
     maxRedirects = raw.maxRedirects
   }
@@ -181,7 +194,16 @@ function parseAuth(value: unknown): Auth {
     }
     return { type: "basic", user: a.user, pass: a.pass }
   }
+  if (a.type === "api_key") {
+    if (typeof a.key !== "string" || typeof a.value !== "string") {
+      throw new Error(
+        'lang.parseRequest: auth.api_key requires "key" and "value"',
+      )
+    }
+    const placement = a.placement === "query" ? "query" : "header"
+    return { type: "api_key", key: a.key, value: a.value, placement }
+  }
   throw new Error(
-    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|bearer|basic`,
+    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|bearer|basic|api_key`,
   )
 }

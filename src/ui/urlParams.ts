@@ -45,14 +45,15 @@ export function buildDisplayUrl(
 
   if (merged.length === 0) return baseUrl
 
-  const qs = merged
-    .map(([k, v]) => `${encQuery(k)}=${encQuery(v)}`)
-    .join("&")
+  const qs = merged.map(([k, v]) => `${encQuery(k)}=${encQuery(v)}`).join("&")
   return `${baseUrl}?${qs}`
 }
 
 function encQuery(s: string): string {
-  return s.replace(/[&#]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
+  return s.replace(
+    /[&#]/g,
+    (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase(),
+  )
 }
 
 export function parseUrlAndParams(raw: string): {

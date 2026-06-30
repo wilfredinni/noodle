@@ -169,10 +169,7 @@ describe("VarText", () => {
   it("renders variable adjacent to punctuation", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <VarText
-          text='{"token":"$bearer"}'
-          env={env({ bearer: "abc123" })}
-        />
+        <VarText text='{"token":"$bearer"}' env={env({ bearer: "abc123" })} />
       </ThemeProvider>,
       { width: 80, height: 5 },
     )

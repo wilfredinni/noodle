@@ -1,6 +1,11 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { useTheme } from "../theme"
-import { formatHeaders, formatStatusLine, statusColor, formatSize } from "../format"
+import {
+  formatHeaders,
+  formatStatusLine,
+  statusColor,
+  formatSize,
+} from "../format"
 import {
   entryMethod,
   entryStatus,
@@ -27,7 +32,9 @@ function formatRequestUrl(entry: TimelineEntryType): string {
   const params = entry.request.params
   const enabled = Object.entries(params).filter(([, v]) => v.enabled)
   if (enabled.length === 0) return u
-  const qs = enabled.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v.value)}`).join("&")
+  const qs = enabled
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v.value)}`)
+    .join("&")
   if (u.includes("?")) return `${u}&${qs}`
   return `${u}?${qs}`
 }
@@ -37,7 +44,9 @@ function authSummary(
 ): string | null {
   if (!auth || auth.type === "none") return null
   if (auth.type === "bearer") return "Bearer token"
-  return `Basic ${auth.user}:****`
+  if (auth.type === "basic") return `Basic ${auth.user}:****`
+  if (auth.type === "api_key") return `${auth.key}: ${auth.value}`
+  return null
 }
 
 export function TimelineEntry({
@@ -62,20 +71,32 @@ export function TimelineEntry({
   const rowFg = isSelected ? theme.text : theme.textMuted
 
   const method = entryMethod(entry)
-  const methodStr = (method === "PATCH" ? shortMethod(method).padEnd(7) : shortMethod(method).padEnd(5))
-  const statusStr = status !== null ? (status === 0 ? "ERR " : `${status} `) : "--- "
+  const methodStr =
+    method === "PATCH"
+      ? shortMethod(method).padEnd(7)
+      : shortMethod(method).padEnd(5)
+  const statusStr =
+    status !== null ? (status === 0 ? "ERR " : `${status} `) : "--- "
   const urlStr = formatRequestUrl(entry)
   const timingStr = hasError ? "ERR" : entryTiming(entry)
   const reltimeStr = relativeTime(entry.timestamp)
 
   const ROW_PADDING = 2
   const FIXED_ELEMENTS = 24
-  const urlMaxLength = containerWidth > 0
-    ? Math.max(10, containerWidth - ROW_PADDING - FIXED_ELEMENTS)
-    : 999
+  const urlMaxLength =
+    containerWidth > 0
+      ? Math.max(10, containerWidth - ROW_PADDING - FIXED_ELEMENTS)
+      : 999
 
   return (
-    <box id={id} style={{ flexDirection: "column", backgroundColor: rowBg, overflow: "hidden" }}>
+    <box
+      id={id}
+      style={{
+        flexDirection: "column",
+        backgroundColor: rowBg,
+        overflow: "hidden",
+      }}
+    >
       <box
         style={{
           flexDirection: "row",
@@ -141,7 +162,10 @@ export function TimelineEntry({
               </text>
             )}
             {formatRequestHeaders(entry).map((h) => (
-              <text key={h} fg={theme.textMuted}> {h}</text>
+              <text key={h} fg={theme.textMuted}>
+                {" "}
+                {h}
+              </text>
             ))}
             {entry.request.body && (
               <text fg={theme.text}> {entry.request.body}</text>
@@ -168,13 +192,16 @@ export function TimelineEntry({
                       {formatStatusLine(r) + " · " + formatSize(r.size)}
                     </text>
                     {formatHeaders(r).map(({ key, value }) => (
-                      <text key={key} fg={theme.textMuted}> {key}: {value}</text>
+                      <text key={key} fg={theme.textMuted}>
+                        {" "}
+                        {key}: {value}
+                      </text>
                     ))}
                     {r.body && (
                       <text fg={theme.text}>
                         {" "}
-                          {r.body.length > 1000
-                            ? r.body.slice(0, 1000) + "..."
+                        {r.body.length > 1000
+                          ? r.body.slice(0, 1000) + "..."
                           : r.body}
                       </text>
                     )}
@@ -182,13 +209,9 @@ export function TimelineEntry({
                 )
               }
               if (entry.error) {
-                return (
-                  <text fg={theme.error}> {entry.error.message}</text>
-                )
+                return <text fg={theme.error}> {entry.error.message}</text>
               }
-              return (
-                <text fg={theme.textMuted}> No response</text>
-              )
+              return <text fg={theme.textMuted}> No response</text>
             })()}
           </box>
         </box>

@@ -26,7 +26,13 @@ export function CenterText({
 }): ReactNode {
   const words = splitWords(segments)
   return (
-    <box style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
+    <box
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "center",
+      }}
+    >
       {words.map((w, i) => (
         <text key={i} wrapMode="none" fg={w.color}>
           {w.text}

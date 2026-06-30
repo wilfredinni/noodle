@@ -25,12 +25,19 @@ const FIELD_ORDER: FieldKind[] = [
 ]
 
 function rowCount(req: Request | null): SectionRowCount {
-  if (!req) return { headers: 0, params: 0, body: 0, auth: 0, settings: 3 }
+  if (!req) return { headers: 0, params: 0, body: 0, auth: 1, settings: 3 }
+  let authRows = 1 // type selector row always present
+  const a = req.auth
+  if (a) {
+    if (a.type === "bearer") authRows = 2
+    else if (a.type === "basic") authRows = 3
+    else if (a.type === "api_key") authRows = 4
+  }
   return {
     headers: Object.keys(req.headers).length,
     params: Object.keys(req.params).length,
     body: 0,
-    auth: 0,
+    auth: authRows,
     settings: 3,
   }
 }
@@ -43,6 +50,26 @@ function currentValueFor(
 ): string {
   if (!draft) return ""
   if (field === "body") return draft.body ?? ""
+  if (field === "auth") {
+    const a = draft.auth
+    if (!a || a.type === "none") return ""
+    if (a.type === "bearer") {
+      if (row === 0) return ""
+      if (row === 1) return a.token
+    }
+    if (a.type === "basic") {
+      if (row === 0) return ""
+      if (row === 1) return a.user
+      if (row === 2) return a.pass
+    }
+    if (a.type === "api_key") {
+      if (row === 0) return ""
+      if (row === 1) return a.key
+      if (row === 2) return a.value
+      if (row === 3) return a.placement
+    }
+    return ""
+  }
   if (field === "settings") {
     if (row === 0) return String(draft.timeout)
     if (row === 1) return String(draft.followRedirects ?? true)
@@ -77,9 +104,14 @@ function currentKeyValueFor(
   }
   if (field === "settings") {
     if (row === 0) return { key: "", value: String(draft.timeout) }
-    if (row === 1) return { key: "", value: String(draft.followRedirects ?? true) }
+    if (row === 1)
+      return { key: "", value: String(draft.followRedirects ?? true) }
     if (row === 2) return { key: "", value: String(draft.maxRedirects ?? 5) }
     return { key: "", value: "" }
+  }
+  if (field === "auth") {
+    const val = currentValueFor(draft, field, row, false)
+    return { key: "", value: val }
   }
   return { key: "", value: "" }
 }
@@ -156,8 +188,19 @@ export function useEditBrowse(
     if (state.mode !== "inactive") return
 
     const browsed = enterEditBrowse(state, c, tab)
-    if (browsed.cursor.field === "auth") {
+    if (browsed.cursor.field === "auth" && browsed.cursor.row === 0) {
       setEditState(browsed)
+      return
+    }
+    if (browsed.cursor.field === "auth") {
+      const init = currentValueFor(
+        currentDraft,
+        browsed.cursor.field,
+        browsed.cursor.row,
+        false,
+      )
+      setEditValue(init)
+      setEditState(beginEditing(browsed))
       return
     }
     if (browsed.cursor.field === "settings" && browsed.cursor.row === 1) {
@@ -233,6 +276,15 @@ export function useEditBrowse(
       return
     }
     const currentDraft = draftRef.current
+    if (field === "auth") {
+      if (row === 0) {
+        return
+      }
+      const init = currentValueFor(currentDraft, field, row, false)
+      setEditValue(init)
+      setEditState((prev) => beginEditing(prev))
+      return
+    }
     const { addingRow } = state.cursor
     if (field === "body" || field === "settings") {
       const init = currentValueFor(currentDraft, field, row, addingRow)
@@ -253,6 +305,21 @@ export function useEditBrowse(
     const val = editValueRef.current
     if (field === "body") {
       draftMutators.setBody(val)
+    } else if (field === "auth") {
+      const row = state.cursor.row
+      const currentAuth = draftRef.current?.auth
+      if (currentAuth) {
+        if (currentAuth.type === "bearer" && row === 1) {
+          draftMutators.setAuthField("bearer", "token", val)
+        } else if (currentAuth.type === "basic") {
+          if (row === 1) draftMutators.setAuthField("basic", "user", val)
+          else if (row === 2) draftMutators.setAuthField("basic", "pass", val)
+        } else if (currentAuth.type === "api_key") {
+          if (row === 1) draftMutators.setAuthField("api_key", "key", val)
+          else if (row === 2)
+            draftMutators.setAuthField("api_key", "value", val)
+        }
+      }
     } else if (field === "settings") {
       const row = state.cursor.row
       if (row === 0) {
@@ -261,7 +328,9 @@ export function useEditBrowse(
         draftMutators.setFollowRedirects(val.trim().toLowerCase() !== "false")
       } else if (row === 2) {
         const n = Number(val)
-        draftMutators.setMaxRedirects(Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5)
+        draftMutators.setMaxRedirects(
+          Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5,
+        )
       }
     } else if (field === "headers" || field === "params") {
       const key = editKeyRef.current.trim()
@@ -297,6 +366,10 @@ export function useEditBrowse(
     const state = editStateRef.current
     if (state.mode !== "browsing") return
     const { field, addingRow, row } = state.cursor
+    if (field === "auth") {
+      draftMutators.revertField(field, row)
+      return
+    }
     if (field === "body" || field === "settings") {
       draftMutators.revertField(field)
     } else if (field === "headers" || field === "params") {

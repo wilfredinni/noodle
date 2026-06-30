@@ -42,7 +42,9 @@ export function TimelineTab({
       }
     }
     setTimeout(measure, 0)
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [termWidth])
 
   useEffect(() => {
@@ -84,7 +86,10 @@ export function TimelineTab({
   if (entries.length === 0) {
     return (
       <box style={{ flexGrow: 1, flexBasis: 0, minHeight: 0 }}>
-        <text fg={theme.textMuted}> No timeline entries yet. Send a request to record history.</text>
+        <text fg={theme.textMuted}>
+          {" "}
+          No timeline entries yet. Send a request to record history.
+        </text>
       </box>
     )
   }

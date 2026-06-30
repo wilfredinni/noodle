@@ -83,7 +83,10 @@ describe("highlightJsonTokens", () => {
   })
 
   it("highlights negative numbers and floats", () => {
-    const tokens = highlightJsonTokens('{\n  "a": -3.14,\n  "b": 1e10\n}', opencodeTheme)
+    const tokens = highlightJsonTokens(
+      '{\n  "a": -3.14,\n  "b": 1e10\n}',
+      opencodeTheme,
+    )
     const negToken = tokens.find((t) => t.text === "-3.14")
     const expToken = tokens.find((t) => t.text === "1e10")
     expect(negToken).toBeDefined()
@@ -93,7 +96,10 @@ describe("highlightJsonTokens", () => {
   })
 
   it("handles array values on their own lines", () => {
-    const tokens = highlightJsonTokens('[\n  "a",\n  42,\n  true\n]', opencodeTheme)
+    const tokens = highlightJsonTokens(
+      '[\n  "a",\n  42,\n  true\n]',
+      opencodeTheme,
+    )
     const strToken = tokens.find((t) => t.text === '"a"')
     const numToken = tokens.find((t) => t.text.includes("42"))
     const boolToken = tokens.find((t) => t.text.includes("true"))

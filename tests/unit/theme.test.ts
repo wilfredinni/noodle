@@ -41,7 +41,40 @@ describe("THEMES", () => {
     "zenburn",
   ]
 
-  const nth = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth", "twenty-first", "twenty-second", "twenty-third", "twenty-fourth", "twenty-fifth", "twenty-sixth", "twenty-seventh", "twenty-eighth", "twenty-ninth", "thirtieth", "thirty-first", "thirty-second"]
+  const nth = [
+    "first",
+    "second",
+    "third",
+    "fourth",
+    "fifth",
+    "sixth",
+    "seventh",
+    "eighth",
+    "ninth",
+    "tenth",
+    "eleventh",
+    "twelfth",
+    "thirteenth",
+    "fourteenth",
+    "fifteenth",
+    "sixteenth",
+    "seventeenth",
+    "eighteenth",
+    "nineteenth",
+    "twentieth",
+    "twenty-first",
+    "twenty-second",
+    "twenty-third",
+    "twenty-fourth",
+    "twenty-fifth",
+    "twenty-sixth",
+    "twenty-seventh",
+    "twenty-eighth",
+    "twenty-ninth",
+    "thirtieth",
+    "thirty-first",
+    "thirty-second",
+  ]
   for (let i = 0; i < expected.length; i++) {
     it(`${nth[i]!} theme is named ${expected[i]}`, () => {
       expect(THEMES[i]!.name).toBe(expected[i])

@@ -114,86 +114,93 @@ export function YamlEditorOverlay({
   if (!visible) return null
 
   return (
-    <Overlay visible={visible} width={90} height="80%" padding={2} gap={1} overflow="hidden">
+    <Overlay
+      visible={visible}
+      width={90}
+      height="80%"
+      padding={2}
+      gap={1}
+      overflow="hidden"
+    >
+      <box
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          flexShrink: 0,
+          paddingBottom: 1,
+          paddingX: 2,
+        }}
+      >
+        <text fg={theme.primary}>{requestName}.yml</text>
+        <text fg={theme.textMuted}>esc</text>
+      </box>
+      {readError ? (
+        <box
+          style={{
+            flexGrow: 1,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <text fg={theme.error}>Error: {readError}</text>
+        </box>
+      ) : content !== null ? (
+        <box
+          style={{
+            height: "100%",
+            minHeight: 0,
+            paddingLeft: 1,
+            paddingRight: 1,
+            flexGrow: 1,
+          }}
+        >
+          <line-number
+            ref={lineNumberRef}
+            minWidth={3}
+            paddingRight={1}
+            fg={theme.textMuted}
+            bg={theme.backgroundPanel}
+            style={{ height: "100%", minHeight: 0 }}
+            width="100%"
+          >
+            <textarea
+              ref={textareaRef}
+              initialValue={content}
+              onContentChange={handleContentChange}
+              backgroundColor={theme.backgroundPanel}
+              focusedBackgroundColor={theme.backgroundPanel}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          </line-number>
+        </box>
+      ) : (
+        <text fg={theme.textMuted}>Loading...</text>
+      )}
+      {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
+      <box
+        style={{
+          flexDirection: "row",
+          flexShrink: 0,
+        }}
+      >
         <box
           style={{
             flexDirection: "row",
-            justifyContent: "space-between",
-            flexShrink: 0,
-            paddingBottom: 1,
+            justifyContent: "flex-end",
             paddingX: 2,
+            flexGrow: 1,
+            gap: 1,
           }}
         >
-          <text fg={theme.primary}>{requestName}.yml</text>
-          <text fg={theme.textMuted}>esc</text>
+          <text fg={theme.primary}>^S</text>
+          <text fg={theme.textMuted}>save</text>
+          <text fg={theme.textMuted}> · </text>
+          <text fg={theme.primary}>esc</text>
+          <text fg={theme.textMuted}>close</text>
         </box>
-        {readError ? (
-          <box
-            style={{
-              flexGrow: 1,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <text fg={theme.error}>Error: {readError}</text>
-          </box>
-        ) : content !== null ? (
-          <box
-            style={{
-              height: "100%",
-              minHeight: 0,
-              paddingLeft: 1,
-              paddingRight: 1,
-              flexGrow: 1,
-            }}
-          >
-            <line-number
-              ref={lineNumberRef}
-              minWidth={3}
-              paddingRight={1}
-              fg={theme.textMuted}
-              bg={theme.backgroundPanel}
-              style={{ height: "100%", minHeight: 0 }}
-              width="100%"
-            >
-              <textarea
-                ref={textareaRef}
-                initialValue={content}
-                onContentChange={handleContentChange}
-                backgroundColor={theme.backgroundPanel}
-                focusedBackgroundColor={theme.backgroundPanel}
-                textColor={theme.text}
-                cursorColor={theme.primary}
-                focused
-              />
-            </line-number>
-          </box>
-        ) : (
-          <text fg={theme.textMuted}>Loading...</text>
-        )}
-        {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
-        <box
-          style={{
-            flexDirection: "row",
-            flexShrink: 0,
-          }}
-        >
-          <box
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              paddingX: 2,
-              flexGrow: 1,
-              gap: 1,
-            }}
-          >
-            <text fg={theme.primary}>^S</text>
-            <text fg={theme.textMuted}>save</text>
-            <text fg={theme.textMuted}> · </text>
-            <text fg={theme.primary}>esc</text>
-            <text fg={theme.textMuted}>close</text>
-          </box>
-        </box>
+      </box>
     </Overlay>
   )
 }

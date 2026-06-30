@@ -297,7 +297,10 @@ export function useEnvironmentEditor({
   const deleteVar = useCallback((index: number) => {
     const prev = draftRef.current
     if (!prev) return
-    const next = { ...prev, varRows: prev.varRows.filter((_, i) => i !== index) }
+    const next = {
+      ...prev,
+      varRows: prev.varRows.filter((_, i) => i !== index),
+    }
     draftRef.current = next
     setDraft(next)
     setSelectedRowIndex((prev) => {
@@ -416,7 +419,13 @@ export function useEnvironmentEditor({
     } finally {
       setSaving(false)
     }
-  }, [environmentsDir, activeEnvName, onActiveEnvChanged, closeEditor, localNames])
+  }, [
+    environmentsDir,
+    activeEnvName,
+    onActiveEnvChanged,
+    closeEditor,
+    localNames,
+  ])
 
   const cloneEnvAction = useCallback(
     async (targetName: string) => {

@@ -58,7 +58,10 @@ describe("theme state machine", () => {
   })
 
   it("navigatePreview up wraps to first theme", () => {
-    const state: ThemeState = { activeIndex: catppuccin, previewIndex: catppuccin }
+    const state: ThemeState = {
+      activeIndex: catppuccin,
+      previewIndex: catppuccin,
+    }
     const next = navigatePreview(state, 1)
     expect(next.previewIndex).toBe(catppuccin + 1)
   })
@@ -70,7 +73,10 @@ describe("theme state machine", () => {
   })
 
   it("commitPreview moves preview to active and clears preview", () => {
-    const state: ThemeState = { activeIndex: opencode, previewIndex: catppuccin }
+    const state: ThemeState = {
+      activeIndex: opencode,
+      previewIndex: catppuccin,
+    }
     const next = commitPreview(state)
     expect(next.activeIndex).toBe(catppuccin)
     expect(next.previewIndex).toBeNull()
@@ -84,7 +90,10 @@ describe("theme state machine", () => {
   })
 
   it("cancelPreview clears preview, keeps active unchanged", () => {
-    const state: ThemeState = { activeIndex: opencode, previewIndex: catppuccin }
+    const state: ThemeState = {
+      activeIndex: opencode,
+      previewIndex: catppuccin,
+    }
     const next = cancelPreview(state)
     expect(next.activeIndex).toBe(opencode)
     expect(next.previewIndex).toBeNull()
@@ -98,7 +107,10 @@ describe("theme state machine", () => {
   })
 
   it("getActiveTheme returns preview theme when picker is open", () => {
-    const state: ThemeState = { activeIndex: opencode, previewIndex: catppuccin }
+    const state: ThemeState = {
+      activeIndex: opencode,
+      previewIndex: catppuccin,
+    }
     expect(getActiveTheme(state).name).toBe("catppuccin")
   })
 

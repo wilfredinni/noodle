@@ -57,5 +57,14 @@ export function serializeRequest(req: Request): string {
 function authToObj(auth: Auth): Record<string, unknown> {
   if (auth.type === "none") return { type: "none" }
   if (auth.type === "bearer") return { type: "bearer", token: auth.token }
-  return { type: "basic", user: auth.user, pass: auth.pass }
+  if (auth.type === "basic")
+    return { type: "basic", user: auth.user, pass: auth.pass }
+  if (auth.type === "api_key")
+    return {
+      type: "api_key",
+      key: auth.key,
+      value: auth.value,
+      placement: auth.placement,
+    }
+  return { type: "none" }
 }

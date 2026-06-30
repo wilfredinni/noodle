@@ -54,6 +54,14 @@ function substituteAuth(
   if (auth.type === "bearer") {
     return { type: "bearer", token: resolve(auth.token, "auth.token") }
   }
+  if (auth.type === "api_key") {
+    return {
+      type: "api_key",
+      key: resolve(auth.key, "auth.key"),
+      value: resolve(auth.value, "auth.value"),
+      placement: auth.placement,
+    }
+  }
   return {
     type: "basic",
     user: resolve(auth.user, "auth.user"),

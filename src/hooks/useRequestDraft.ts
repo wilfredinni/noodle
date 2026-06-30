@@ -20,6 +20,11 @@ export type DraftOp =
   | { kind: "setMaxRedirects"; maxRedirects: number }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
+  | { kind: "setAuthType"; authType: "none" | "bearer" | "basic" | "api_key" }
+  | { kind: "setAuthField"; authType: string; field: string; value: string }
+  | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
+
+const authTypeCache = new Map<string, Record<string, Auth>>()
 
 export function parseRow(input: string): { key: string; value: string } {
   const trimmed = input.trim()
@@ -57,6 +62,9 @@ function authEqual(a: Auth | undefined, b: Auth | undefined): boolean {
   if (a.type === "bearer" && b.type === "bearer") return a.token === b.token
   if (a.type === "basic" && b.type === "basic") {
     return a.user === b.user && a.pass === b.pass
+  }
+  if (a.type === "api_key" && b.type === "api_key") {
+    return a.key === b.key && a.value === b.value && a.placement === b.placement
   }
   return false
 }
@@ -235,17 +243,58 @@ export function applyDraft(
     case "setMaxRedirects":
       draft.maxRedirects = op.maxRedirects
       break
+    case "setAuthType": {
+      const curAuth = current.auth
+      if (curAuth && curAuth.type !== "none") {
+        const idCache = authTypeCache.get(id) ?? {}
+        idCache[curAuth.type] = curAuth
+        authTypeCache.set(id, idCache)
+      }
+      const cached = authTypeCache.get(id)?.[op.authType]
+      if (cached && cached.type === op.authType) {
+        draft.auth = { ...cached }
+      } else if (original.auth?.type === op.authType) {
+        draft.auth = { ...original.auth }
+      } else if (op.authType === "none") {
+        draft.auth = { type: "none" }
+      } else if (op.authType === "bearer") {
+        draft.auth = { type: "bearer", token: "" }
+      } else if (op.authType === "basic") {
+        draft.auth = { type: "basic", user: "", pass: "" }
+      } else if (op.authType === "api_key") {
+        draft.auth = { type: "api_key", key: "", value: "", placement: "header" }
+      }
+      break
+    }
+    case "setAuthField": {
+      const currentAuth = draft.auth
+      if (!currentAuth || currentAuth.type !== op.authType) break
+      if (currentAuth.type === "none") break
+      ;(currentAuth as Record<string, unknown>)[op.field] = op.value
+      break
+    }
+    case "setApiKeyPlacement": {
+      const currentAuth = draft.auth
+      if (currentAuth?.type === "api_key") {
+        ;(currentAuth as { placement: "header" | "query" }).placement =
+          op.placement
+      }
+      break
+    }
     case "revertField": {
       if (op.field === "body") draft.body = original.body
       else if (op.field === "settings") {
         draft.timeout = original.timeout
         draft.followRedirects = original.followRedirects
         draft.maxRedirects = original.maxRedirects
-      }
-      else if (op.field === "headers" && op.row !== undefined) {
+      } else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {
         draft.params = revertRow(current.params, original.params, op.row)
+      } else if (op.field === "auth") {
+        if (op.row === undefined || op.row === 0) {
+          draft.auth = original.auth
+        }
       }
       break
     }
@@ -276,6 +325,9 @@ export interface UseRequestDraftResult {
   setMaxRedirects: (n: number) => void
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
+  setAuthType: (t: "none" | "bearer" | "basic" | "api_key") => void
+  setAuthField: (authType: string, field: string, value: string) => void
+  setApiKeyPlacement: (placement: "header" | "query") => void
   markSaved: () => void
 }
 
@@ -324,7 +376,8 @@ export function useRequestDraft(
     [apply],
   )
   const setFollowRedirects = useCallback(
-    (followRedirects: boolean) => apply({ kind: "setFollowRedirects", followRedirects }),
+    (followRedirects: boolean) =>
+      apply({ kind: "setFollowRedirects", followRedirects }),
     [apply],
   )
   const setMaxRedirects = useCallback(
@@ -365,6 +418,21 @@ export function useRequestDraft(
     (index: number) => apply({ kind: "toggleParamRow", index }),
     [apply],
   )
+  const setAuthTypeCb = useCallback(
+    (authType: "none" | "bearer" | "basic" | "api_key") =>
+      apply({ kind: "setAuthType", authType }),
+    [apply],
+  )
+  const setAuthFieldCb = useCallback(
+    (authType: string, field: string, value: string) =>
+      apply({ kind: "setAuthField", authType, field, value }),
+    [apply],
+  )
+  const setApiKeyPlacementCb = useCallback(
+    (placement: "header" | "query") =>
+      apply({ kind: "setApiKeyPlacement", placement }),
+    [apply],
+  )
   const revertField = useCallback(
     (field: FieldKind, row?: number) =>
       apply({ kind: "revertField", field, row }),
@@ -379,6 +447,7 @@ export function useRequestDraft(
     if (!selectedRequest) return
     const currentDraft =
       mapRef.current.get(selectedRequest.id) ?? selectedRequest
+    authTypeCache.delete(selectedRequest.id)
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(selectedRequest.id, { ...currentDraft })
@@ -429,6 +498,9 @@ export function useRequestDraft(
       toggleParamRow,
       revertField,
       revertAll,
+      setAuthType: setAuthTypeCb,
+      setAuthField: setAuthFieldCb,
+      setApiKeyPlacement: setApiKeyPlacementCb,
       markSaved,
     }),
     [
@@ -451,6 +523,9 @@ export function useRequestDraft(
       toggleParamRow,
       revertField,
       revertAll,
+      setAuthTypeCb,
+      setAuthFieldCb,
+      setApiKeyPlacementCb,
       markSaved,
     ],
   )

@@ -135,9 +135,10 @@ export function Select({
 
   const selectedItem = items.find((i) => i.id === value)
 
-  const selectedBadgeBg = badge && selectedItem?.color
-    ? (theme as unknown as Record<string, string>)[selectedItem.color]
-    : undefined
+  const selectedBadgeBg =
+    badge && selectedItem?.color
+      ? (theme as unknown as Record<string, string>)[selectedItem.color]
+      : undefined
 
   const indicatorColor = selectedItem
     ? open || selectedBadgeBg
@@ -150,13 +151,24 @@ export function Select({
     for (const item of items) {
       const text = extractText(item.label)
       if (text) maxLabel = Math.max(maxLabel, text.length)
-      if (item.description) maxLabel = Math.max(maxLabel, item.description.length)
+      if (item.description)
+        maxLabel = Math.max(maxLabel, item.description.length)
     }
     return width !== undefined ? Math.max(width, maxLabel + 6) : maxLabel + 6
   }, [items, width])
 
+  const dropdownMaxHeight = useMemo(
+    () => Math.min(maxDropdownHeight, items.reduce((s, i) => s + (i.description ? 2 : 1), 0)),
+    [maxDropdownHeight, items],
+  )
+
   return (
-    <box style={{ flexDirection: "column", ...(width !== undefined ? { width } : {}) }}>
+      <box
+        style={{
+          flexDirection: "column",
+          ...(width !== undefined ? { width } : {}),
+        }}
+      >
       <box style={{ position: "relative" }}>
         <box
           height={1}
@@ -207,7 +219,7 @@ export function Select({
             <scrollbox
               ref={scrollRef}
               scrollY
-              maxHeight={maxDropdownHeight}
+              maxHeight={dropdownMaxHeight}
               scrollbarOptions={{ visible: false }}
             >
               <box style={{ flexDirection: "column" }}>
@@ -232,15 +244,11 @@ export function Select({
                       <box style={{ flexDirection: "column", flexGrow: 1 }}>
                         {renderLabel(
                           item.label,
-                          item.id === value
-                            ? theme.primary
-                            : theme.text,
+                          item.id === value ? theme.primary : theme.text,
                           isHighlighted ? TextAttributes.BOLD : undefined,
                         )}
                         {item.description && (
-                          <text fg={theme.textMuted}>
-                            {item.description}
-                          </text>
+                          <text fg={theme.textMuted}>{item.description}</text>
                         )}
                       </box>
                       {item.id === value && !item.disabled && (

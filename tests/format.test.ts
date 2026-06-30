@@ -85,7 +85,9 @@ describe("formatHeaders", () => {
   })
   it("renders single header as key-value pair", () => {
     const res = makeRes({ headers: { "content-type": "application/json" } })
-    expect(formatHeaders(res)).toEqual([{ key: "content-type", value: "application/json" }])
+    expect(formatHeaders(res)).toEqual([
+      { key: "content-type", value: "application/json" },
+    ])
   })
   it("sorts multiple headers alphabetically by key", () => {
     const res = makeRes({

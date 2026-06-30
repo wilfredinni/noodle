@@ -47,7 +47,9 @@ export function App({
   )
 
   const [envNames, setEnvNames] = useState<string[]>(initialEnvList)
-  const [envColors, setEnvColors] = useState<Record<string, string | undefined>>({})
+  const [envColors, setEnvColors] = useState<
+    Record<string, string | undefined>
+  >({})
 
   useEffect(() => {
     listEnvironmentsWithColors(environmentsDir).then((items) => {

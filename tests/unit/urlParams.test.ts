@@ -46,25 +46,27 @@ describe("buildDisplayUrl", () => {
     const params: Record<string, KvEntry> = {
       limit: { value: "10", enabled: true },
     }
-    expect(
-      buildDisplayUrl("https://example.com/posts?sort=asc", params),
-    ).toBe("https://example.com/posts?sort=asc&limit=10")
+    expect(buildDisplayUrl("https://example.com/posts?sort=asc", params)).toBe(
+      "https://example.com/posts?sort=asc&limit=10",
+    )
   })
 
   it("strips query string when all params disabled and URL had query", () => {
     const params: Record<string, KvEntry> = {
       page: { value: "1", enabled: false },
     }
-    expect(
-      buildDisplayUrl("https://example.com/posts?page=1", params),
-    ).toBe("https://example.com/posts")
+    expect(buildDisplayUrl("https://example.com/posts?page=1", params)).toBe(
+      "https://example.com/posts",
+    )
   })
 
   it("handles URL with path but no origin (relative-like)", () => {
     const params: Record<string, KvEntry> = {
       filter: { value: "active", enabled: true },
     }
-    expect(buildDisplayUrl("/api/users", params)).toBe("/api/users?filter=active")
+    expect(buildDisplayUrl("/api/users", params)).toBe(
+      "/api/users?filter=active",
+    )
   })
 
   it("returns empty string for empty url", () => {
@@ -103,9 +105,7 @@ describe("buildDisplayUrl", () => {
 
 describe("parseUrlAndParams", () => {
   it("returns base URL and empty params for URL without query", () => {
-    const { baseUrl, params } = parseUrlAndParams(
-      "https://example.com/posts",
-    )
+    const { baseUrl, params } = parseUrlAndParams("https://example.com/posts")
     expect(baseUrl).toBe("https://example.com/posts")
     expect(params).toEqual({})
   })
@@ -162,9 +162,7 @@ describe("parseUrlAndParams", () => {
   })
 
   it("handles URL with empty query string (?)", () => {
-    const { baseUrl, params } = parseUrlAndParams(
-      "https://example.com/posts?",
-    )
+    const { baseUrl, params } = parseUrlAndParams("https://example.com/posts?")
     expect(baseUrl).toBe("https://example.com/posts")
     expect(params).toEqual({})
   })

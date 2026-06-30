@@ -42,7 +42,11 @@ describe("environment CRUD", () => {
       color: "warning",
     })
     loaded = await env.loadEnvironment(dir, "dev")
-    expect(loaded.vars).toEqual({ port: "3000", host: "localhost", debug: "true" })
+    expect(loaded.vars).toEqual({
+      port: "3000",
+      host: "localhost",
+      debug: "true",
+    })
     expect(loaded.color).toBe("warning")
 
     // 5. Delete cloned
