@@ -190,28 +190,26 @@ export function Select({
                       paddingRight: 1,
                       height: item.description ? 2 : 1,
                       backgroundColor: isHighlighted
-                        ? theme.primary
+                        ? theme.backgroundElement
                         : undefined,
                     }}
                   >
                     <box style={{ flexDirection: "column", flexGrow: 1 }}>
                       {renderLabel(
                         item.label,
-                        isHighlighted
-                          ? contrastColor
-                          : item.id === value
-                            ? theme.primary
-                            : theme.text,
+                        item.id === value
+                          ? theme.primary
+                          : theme.text,
                         isHighlighted ? TextAttributes.BOLD : undefined,
                       )}
                       {item.description && (
-                        <text fg={isHighlighted ? contrastColor : theme.textMuted}>
+                        <text fg={theme.textMuted}>
                           {item.description}
                         </text>
                       )}
                     </box>
                     {item.id === value && !item.disabled && (
-                      <text fg={isHighlighted ? contrastColor : theme.primary}>
+                      <text fg={theme.primary}>
                         {" "}
                         ●
                       </text>
