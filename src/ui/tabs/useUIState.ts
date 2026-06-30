@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { FieldKind } from "../editMode"
 import {
   loadUIState,
@@ -18,21 +18,16 @@ export interface UseUIStateResult {
   ) => void
 }
 
-function defaults(): TabPrefs {
-  return { requestTab: "headers", responseTab: "body" }
-}
+const DEFAULTS: TabPrefs = { requestTab: "headers", responseTab: "body" }
 
 export function useUIState(collectionDir: string): UseUIStateResult {
   const [state, setState] = useState<Map<string, TabPrefs>>(new Map())
-  const stateRef = useRef(state)
-  stateRef.current = state
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     loadUIState(collectionDir).then((m) => {
       setState(m)
-      stateRef.current = m
     })
   }, [collectionDir])
 
@@ -42,34 +37,36 @@ export function useUIState(collectionDir: string): UseUIStateResult {
     }
   }, [collectionDir])
 
-  const getTab = (requestId: string): TabPrefs | undefined => {
-    return state.get(requestId)
-  }
+  const getTab = useCallback(
+    (requestId: string): TabPrefs | undefined => {
+      return state.get(requestId)
+    },
+    [state],
+  )
 
-  const setTab = (
-    requestId: string,
-    pane: Pane,
-    value: FieldKind | ResponseTabKind,
-  ) => {
-    setState((prev) => {
-      const next = new Map(prev)
-      const prefs = next.get(requestId) ?? defaults()
-      if (pane === "request") {
-        prefs.requestTab = value as FieldKind
-      } else {
-        prefs.responseTab = value as ResponseTabKind
-      }
-      next.set(requestId, prefs)
+  const setTab = useCallback(
+    (requestId: string, pane: Pane, value: FieldKind | ResponseTabKind) => {
+      setState((prev) => {
+        const next = new Map(prev)
+        const prefs = next.get(requestId) ?? { ...DEFAULTS }
+        if (pane === "request") {
+          prefs.requestTab = value as FieldKind
+        } else {
+          prefs.responseTab = value as ResponseTabKind
+        }
+        next.set(requestId, prefs)
 
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(
-        () => saveUIState(collectionDir, next).catch(() => {}),
-        300,
-      )
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        debounceRef.current = setTimeout(
+          () => saveUIState(collectionDir, next).catch(() => {}),
+          300,
+        )
 
-      return next
-    })
-  }
+        return next
+      })
+    },
+    [collectionDir],
+  )
 
   return { getTab, setTab }
 }
