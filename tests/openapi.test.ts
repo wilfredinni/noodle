@@ -1032,7 +1032,7 @@ describe("mapCollection — requestBody", () => {
     expect(c.requests[0].formData).toEqual([
       { name: "title", value: "", enabled: true, type: "text" },
       { name: "photo", value: "", enabled: true, type: "file" },
-      { name: "doc", value: "", enabled: true, type: "text" },
+      { name: "doc", value: "", enabled: true, type: "file" },
     ])
   })
 
