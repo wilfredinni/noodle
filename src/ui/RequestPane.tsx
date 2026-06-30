@@ -305,36 +305,25 @@ function BodySection({
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
       <box
-        border={[...LeftBar.border]}
-        customBorderChars={LeftBar.customBorderChars}
-        borderColor={
-          browseActive && editState.cursor.field === "body" && editState.cursor.row === 0
-            ? theme.primary
-            : theme.borderSubtle
-        }
         style={{
           zIndex: typeSelectOpen ? 1 : undefined,
           backgroundColor:
             browseActive && editState.cursor.field === "body" && editState.cursor.row === 0
               ? theme.backgroundElement
               : undefined,
-          paddingLeft: 1,
         }}
       >
-        <box style={{ flexDirection: "row", gap: 1 }}>
-          <text fg={theme.text}>Body:</text>
-          <Select
-            items={bodyTypeItems}
-            value={bodyType}
-            onChange={(v) => {
-              if (v === bodyType) return
-              onBodyTypeChange(v as BodyType)
-            }}
-            focused={browseActive && editState.cursor.field === "body" && editState.cursor.row === 0}
-            badge={false}
-            onOpenChange={handleBodyTypeSelectOpen}
-          />
-        </box>
+        <Select
+          items={bodyTypeItems}
+          value={bodyType}
+          onChange={(v) => {
+            if (v === bodyType) return
+            onBodyTypeChange(v as BodyType)
+          }}
+          focused={browseActive && editState.cursor.field === "body" && editState.cursor.row === 0}
+          badge={false}
+          onOpenChange={handleBodyTypeSelectOpen}
+        />
       </box>
 
       {bodyType === "none" ? null : editingBody ? (
