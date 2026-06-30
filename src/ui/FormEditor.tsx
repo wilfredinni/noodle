@@ -46,8 +46,8 @@ export function FormEditor({
   const inEdit = editState.mode === "editing"
   const cursorHere = editState.cursor.field === "body"
   const editingRow =
-    inEdit && cursorHere && !editState.cursor.addingRow
-      ? editState.cursor.row
+    inEdit && cursorHere && !editState.cursor.addingRow && editState.cursor.row >= 1
+      ? editState.cursor.row - 1
       : -1
   const editingAdd = inEdit && cursorHere && editState.cursor.addingRow
 
@@ -85,7 +85,7 @@ export function FormEditor({
               browseActive &&
               cursorHere &&
               !editState.cursor.addingRow &&
-              editState.cursor.row === i
+              editState.cursor.row - 1 === i
             const dimmed = (inEdit && !isEditingThisRow) || !entry.enabled
 
             const displayKey =

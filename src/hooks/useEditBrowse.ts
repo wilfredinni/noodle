@@ -34,8 +34,8 @@ function rowCount(req: Request | null): SectionRowCount {
     else if (a.type === "api_key") authRows = 4
   }
   const body = req.bodyType === "urlencoded" || req.bodyType === "multipart"
-    ? (req.formData?.length ?? 0)
-    : 0
+    ? 1 + (req.formData?.length ?? 0)
+    : 2
   return {
     headers: Object.keys(req.headers).length,
     params: Object.keys(req.params).length,
@@ -53,10 +53,12 @@ function currentValueFor(
 ): string {
   if (!draft) return ""
   if (field === "body") {
+    if (row === 0) return ""
     if (addingRow) return ""
     const formData = draft.formData
-    if (formData && row >= 0 && row < formData.length) {
-      const entry = formData[row]!
+    const formIdx = row - 1
+    if (formData && formIdx >= 0 && formIdx < formData.length) {
+      const entry = formData[formIdx]!
       return `${entry.name}: ${entry.value}`
     }
     if (draft.bodyType === "binary") {
@@ -124,9 +126,11 @@ function currentKeyValueFor(
     return { key: "", value: "" }
   }
   if (field === "body") {
+    if (row === 0) return { key: "", value: "" }
     const formData = draft.formData
-    if (formData && row >= 0 && row < formData.length) {
-      const entry = formData[row]!
+    const formIdx = row - 1
+    if (formData && formIdx >= 0 && formIdx < formData.length) {
+      const entry = formData[formIdx]!
       return { key: entry.name, value: entry.value }
     }
     if (draft.bodyType === "binary") {
@@ -263,6 +267,10 @@ export function useEditBrowse(
     }
 
     const { field, row, addingRow } = browsed.cursor
+    if (field === "body" && row === 0) {
+      setEditState(browsed)
+      return
+    }
     if (field === "body" || field === "settings") {
       const bodyType = currentDraft?.bodyType
       if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
@@ -347,6 +355,9 @@ export function useEditBrowse(
       return
     }
     const { addingRow } = state.cursor
+    if (field === "body" && row === 0) {
+      return
+    }
     if (field === "body" || field === "settings") {
       const bodyType = currentDraft?.bodyType
       if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
@@ -386,15 +397,16 @@ const commitEdit = useCallback(() => {
         const key = editKeyRef.current.trim()
         const value = editValueRef.current.trim()
         if (key === "") {
-          if (!addingRow && state.cursor.row >= 0) {
-            draftMutators.removeFormRow(state.cursor.row)
+          const formIdx = state.cursor.row - 1
+          if (!addingRow && formIdx >= 0) {
+            draftMutators.removeFormRow(formIdx)
           }
         } else if (addingRow) {
           const { formType, cleanValue } = detectFormType(value)
           draftMutators.addFormRow(key, cleanValue, formType)
         } else {
           const { formType, cleanValue } = detectFormType(value)
-          draftMutators.setFormRow(state.cursor.row, key, cleanValue, formType)
+          draftMutators.setFormRow(state.cursor.row - 1, key, cleanValue, formType)
         }
       } else if (bodyType === "binary") {
         draftMutators.setFilePath(val)
@@ -467,10 +479,14 @@ const commitEdit = useCallback(() => {
       return
     }
     if (field === "body") {
+      if (row === 0) return
       const bodyType = draftRef.current?.bodyType
       if (bodyType === "urlencoded" || bodyType === "multipart") {
         if (addingRow) return
-        draftMutators.removeFormRow(row)
+        const formIdx = row - 1
+        if (formIdx >= 0) {
+          draftMutators.removeFormRow(formIdx)
+        }
       } else {
         draftMutators.revertField(field)
       }
@@ -495,9 +511,10 @@ const commitEdit = useCallback(() => {
     const { field, addingRow, row } = state.cursor
     if (addingRow) return
     if (field === "body") {
+      if (row === 0) return
       const bodyType = draftRef.current?.bodyType
       if (bodyType === "urlencoded" || bodyType === "multipart") {
-        draftMutators.toggleFormRow(row)
+        draftMutators.toggleFormRow(row - 1)
       }
       return
     }

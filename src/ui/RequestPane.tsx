@@ -75,6 +75,8 @@ export function RequestPane({
       scrollRef.current?.scrollChildIntoView(
         addingRow ? `${prefix}-add` : `${prefix}-${row}`,
       )
+    } else if (field === "body" && addingRow) {
+      scrollRef.current?.scrollChildIntoView("body-add")
     } else {
       scrollRef.current?.scrollChildIntoView(`${field}-field`)
     }
@@ -302,14 +304,14 @@ function BodySection({
         border={[...LeftBar.border]}
         customBorderChars={LeftBar.customBorderChars}
         borderColor={
-          browseActive && editState.cursor.field === "body"
+          browseActive && editState.cursor.field === "body" && editState.cursor.row === 0
             ? theme.primary
             : theme.borderSubtle
         }
         style={{
           zIndex: typeSelectOpen ? 1 : undefined,
           backgroundColor:
-            browseActive && editState.cursor.field === "body"
+            browseActive && editState.cursor.field === "body" && editState.cursor.row === 0
               ? theme.backgroundElement
               : undefined,
           paddingLeft: 1,
@@ -324,7 +326,7 @@ function BodySection({
               if (v === bodyType) return
               onBodyTypeChange(v as BodyType)
             }}
-            focused={browseActive && editState.cursor.field === "body"}
+            focused={browseActive && editState.cursor.field === "body" && editState.cursor.row === 0}
             badge={false}
             onOpenChange={handleBodyTypeSelectOpen}
           />
@@ -333,17 +335,23 @@ function BodySection({
 
       {editingBody ? (
         isFormMode ? (
-          <FormEditor
-            request={{ formData: request.formData, bodyType: request.bodyType }}
-            editState={editState}
-            editKey={editKey}
-            editValue={editValue}
-            setEditKey={setEditKey}
-            setEditValue={setEditValue}
-            browseActive={browseActive}
-            theme={theme}
-            activeEnv={activeEnv}
-          />
+          <box
+            border={[...LeftBar.border]}
+            customBorderChars={LeftBar.customBorderChars}
+            borderColor={theme.borderSubtle}
+          >
+            <FormEditor
+              request={{ formData: request.formData, bodyType: request.bodyType }}
+              editState={editState}
+              editKey={editKey}
+              editValue={editValue}
+              setEditKey={setEditKey}
+              setEditValue={setEditValue}
+              browseActive={browseActive}
+              theme={theme}
+              activeEnv={activeEnv}
+            />
+          </box>
         ) : isBinaryMode ? (
           <input
             id="body-field"
@@ -393,18 +401,66 @@ function BodySection({
           activeEnv={activeEnv}
         />
       ) : isBinaryMode ? (
-        <text id="body-field" fg={theme.text}>
-          {request.filePath || "(no file selected)"}
-        </text>
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={
+            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              ? theme.primary
+              : theme.borderSubtle
+          }
+          style={{
+            backgroundColor:
+              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+                ? theme.backgroundElement
+                : undefined,
+          }}
+        >
+          <text id="body-field" fg={theme.text}>
+            {request.filePath || "(no file selected)"}
+          </text>
+        </box>
       ) : body === "" ? (
-        <text id="body-field" fg={theme.textMuted}>(none)</text>
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={
+            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              ? theme.primary
+              : theme.borderSubtle
+          }
+          style={{
+            backgroundColor:
+              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+                ? theme.backgroundElement
+                : undefined,
+          }}
+        >
+          <text id="body-field" fg={theme.textMuted}>(none)</text>
+        </box>
       ) : (
-        <JsonBodyViewer
-          body={body}
-          theme={theme}
-          id="body-field"
-          activeEnv={activeEnv ?? null}
-        />
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={
+            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              ? theme.primary
+              : theme.borderSubtle
+          }
+          style={{
+            backgroundColor:
+              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+                ? theme.backgroundElement
+                : undefined,
+          }}
+        >
+          <JsonBodyViewer
+            body={body}
+            theme={theme}
+            id="body-field"
+            activeEnv={activeEnv ?? null}
+          />
+        </box>
       )}
     </box>
   )

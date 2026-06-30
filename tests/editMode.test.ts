@@ -74,7 +74,7 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("body")
-    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(0)
@@ -152,12 +152,21 @@ describe("moveRowCursor", () => {
     expect(moveRowCursor(s, -1, c(0, 0))).toBe(s)
     expect(s.cursor.addingRow).toBe(true)
   })
-  it("scalar field (body) is a no-op", () => {
+  it("body Select row (row 0) clamps on up arrow", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
     s = moveFieldCursor(s, +1, c(2, 1))
-    s = moveFieldCursor(s, +1, c(2, 1))
+    s = moveFieldCursor(s, +1, { ...c(2, 1), body: 2 })
     expect(s.cursor.field).toBe("body")
-    expect(moveRowCursor(s, +1, c(2, 1))).toBe(s)
+    expect(s.cursor.row).toBe(0)
+    // Enter on row 0 (Select) is handled differently — see enterEdit hook
+    // Down goes to row 1 (first content row)
+    s = moveRowCursor(s, +1, { ...c(2, 1), body: 2 })
+    expect(s.cursor.row).toBe(1)
+    expect(s.cursor.addingRow).toBe(false)
+    // Up from row 1 goes back to row 0 (Select)
+    s = moveRowCursor(s, -1, { ...c(2, 1), body: 2 })
+    expect(s.cursor.row).toBe(0)
+    expect(s.cursor.addingRow).toBe(false)
   })
   it("no-op when editing", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
@@ -176,15 +185,16 @@ describe("beginEditing", () => {
     expect(e.mode).toBe("editing")
     expect(e.editingRow).toBe(1)
   })
-  it("browsing → editing, editingRow -1 for scalar field (headers empty)", () => {
+  it("browsing → editing, editingRow follows cursor.row for body (no longer addingRow)", () => {
     let s = enterEditBrowse(inactive, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     expect(s.cursor.field).toBe("params")
-    s = moveFieldCursor(s, +1, c(0, 0))
+    s = moveFieldCursor(s, +1, { ...c(0, 0), body: 0 })
     expect(s.cursor.field).toBe("body")
+    expect(s.cursor.row).toBe(0)
     const e = beginEditing(s)
     expect(e.mode).toBe("editing")
-    expect(e.editingRow).toBe(-1)
+    expect(e.editingRow).toBe(0)
   })
   it("enters edit mode for auth (type selector row)", () => {
     const counts = { headers: 0, params: 0, body: 0, auth: 2, settings: 3 }

@@ -72,10 +72,7 @@ function cursorForField(
 ): FieldCursor {
   switch (field) {
     case "body":
-      if (counts.body > 0) {
-        return { field, row: 0, addingRow: false }
-      }
-      return { field, row: -1, addingRow: true }
+      return { field, row: 0, addingRow: false }
     case "auth":
       return { field, row: 0, addingRow: false }
     case "settings":
@@ -155,6 +152,33 @@ export function moveRowCursor(
       return { ...prev, cursor: { field, row: 0, addingRow: false } }
     if (next > count - 1)
       return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
+    return { ...prev, cursor: { field, row: next, addingRow: false } }
+  }
+
+  if (field === "body") {
+    // row 0 is the type Select (clamped, no addingRow wrap)
+    // rows 1..count-1 are content entries (addingRow wrap)
+    if (prev.cursor.addingRow) {
+      if (delta > 0) {
+        return { ...prev, cursor: { field, row: 1, addingRow: false } }
+      }
+      return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
+    }
+    if (prev.cursor.row === 0) {
+      if (delta > 0 && count > 1) {
+        return { ...prev, cursor: { field, row: 1, addingRow: false } }
+      }
+      if (delta < 0) {
+        return prev
+      }
+      return prev
+    }
+    if (next < 1) {
+      return { ...prev, cursor: { field, row: 0, addingRow: false } }
+    }
+    if (next > count - 1) {
+      return { ...prev, cursor: { field, row: -1, addingRow: true } }
+    }
     return { ...prev, cursor: { field, row: next, addingRow: false } }
   }
 

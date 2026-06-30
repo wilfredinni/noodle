@@ -25,13 +25,13 @@ const editStateInactive = {
 
 const editStateEditing = {
   mode: "editing" as const,
-  cursor: { field: "body" as const, row: -1, addingRow: false },
-  editingRow: -1,
+  cursor: { field: "body" as const, row: 1, addingRow: false },
+  editingRow: 1,
 }
 
 const editStateBrowse = {
   mode: "browsing" as const,
-  cursor: { field: "body" as const, row: -1, addingRow: false },
+  cursor: { field: "body" as const, row: 0, addingRow: false },
   editingRow: -1,
 }
 
