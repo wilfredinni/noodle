@@ -395,11 +395,11 @@ function SettingsSection({
                 </>
               ) : idx === 1 ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
-                  <text fg={theme.textMuted}>{row.label}: </text>
-                  <Checkbox
-                    checked={request.followRedirects ?? true}
-                    theme={theme}
-                  />
+              <text fg={theme.text}>{row.label}: </text>
+              <Checkbox
+                checked={request.followRedirects ?? true}
+                theme={theme}
+              />
                 </box>
               ) : (
                 <VarText

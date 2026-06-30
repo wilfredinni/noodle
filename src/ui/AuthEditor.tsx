@@ -170,7 +170,7 @@ export function AuthEditor({
           }}
         >
           <box style={{ flexDirection: "row", gap: 1 }}>
-            <text fg={theme.textMuted}>Type:</text>
+            <text fg={theme.text}>Type:</text>
             <Select
               items={AUTH_TYPE_ITEMS}
               value={type}
@@ -243,7 +243,7 @@ export function AuthEditor({
                 </>
               ) : def.isPlacement ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
-                  <text fg={theme.textMuted}>{def.label}: </text>
+                  <text fg={theme.text}>{def.label}: </text>
                   <Select
                     items={PLACEMENT_ITEMS}
                     value={fieldValue || "header"}
