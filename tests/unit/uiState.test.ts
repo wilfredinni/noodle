@@ -77,6 +77,18 @@ describe("uiState I/O", () => {
   })
 
   describe("lastRequest", () => {
+    it("saveUIState preserves lastRequest key", async () => {
+      // saveLastRequest writes lastRequest, then saveUIState should preserve it
+      await saveLastRequest(tmpDir, "get-posts")
+      await saveUIState(
+        tmpDir,
+        new Map([["get-posts", { requestTab: "body", responseTab: "headers" }]]),
+      )
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBe("get-posts")
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: get-posts")
+    })
     it("loadLastRequest returns undefined for missing file", async () => {
       const result = await loadLastRequest(tmpDir)
       expect(result).toBeUndefined()

@@ -56,7 +56,10 @@ export async function saveUIState(
   const dir = stateDir(colDir)
   await mkdir(dir, { recursive: true })
 
-  const obj: Record<string, { request: string; response: string }> = {}
+  const lastRequestId = await loadLastRequest(colDir)
+
+  const obj: Record<string, unknown> = {}
+  if (lastRequestId) obj.lastRequest = lastRequestId
   for (const [key, val] of map) {
     if (isDefaultPrefs(val)) continue
     obj[key] = { request: val.requestTab, response: val.responseTab }
