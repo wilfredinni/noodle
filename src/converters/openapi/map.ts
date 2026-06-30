@@ -80,6 +80,12 @@ function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
   if (type === "http" && schemeName === "basic") {
     return { type: "basic", user: "$USER", pass: "$PASS" }
   }
+  if (type === "apiKey") {
+    const name = typeof scheme.name === "string" ? scheme.name : "X-API-Key"
+    const inV = scheme.in
+    const placement = inV === "query" ? "query" : "header"
+    return { type: "api_key", key: name, value: "$API_KEY", placement }
+  }
   return null
 }
 

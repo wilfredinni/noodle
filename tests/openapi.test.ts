@@ -392,7 +392,7 @@ describe("mapCollection — auth resolution", () => {
     })
   })
 
-  it("maps apiKey scheme to none", () => {
+  it("maps apiKey header scheme", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { key: apiKeyHeader } },
@@ -400,7 +400,30 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "none" })
+    expect(c.requests[0].auth).toEqual({
+      type: "api_key",
+      key: "X-Api-Key",
+      value: "$API_KEY",
+      placement: "header",
+    })
+  })
+
+  it("maps apiKey query scheme", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: {
+          securitySchemes: { key: { type: "apiKey", in: "query", name: "api_key" } },
+        },
+        security: [{ key: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(c.requests[0].auth).toEqual({
+      type: "api_key",
+      key: "api_key",
+      value: "$API_KEY",
+      placement: "query",
+    })
   })
 
   it("maps oauth2 to none", () => {
@@ -492,9 +515,9 @@ describe("mapCollection — auth resolution", () => {
     const c = mapCollection(
       makeNormalized({
         components: {
-          securitySchemes: { key: apiKeyHeader, bearerAuth: bearer },
+          securitySchemes: { oauth: oauth2, bearerAuth: bearer },
         },
-        security: [{ key: [] }, { bearerAuth: [] }],
+        security: [{ oauth: [] }, { bearerAuth: [] }],
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
