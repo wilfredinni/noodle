@@ -182,6 +182,10 @@ export function useEditBrowse(
     }
   }, [options?.initialTab, editState.mode])
 
+  useEffect(() => {
+    options?.onTabChange?.(inactiveTab)
+  }, [inactiveTab, options?.onTabChange])
+
   const activeTab =
     editState.mode !== "inactive" ? editState.cursor.field : inactiveTab
 
@@ -266,10 +270,9 @@ export function useEditBrowse(
       if (prev.mode !== "browsing") return prev
       const next = moveFieldCursor(prev, -1, c)
       setInactiveTab(next.cursor.field)
-      options?.onTabChange?.(next.cursor.field)
       return next
     })
-  }, [options?.onTabChange])
+  }, [])
 
   const browseRight = useCallback(() => {
     const c = rowCount(draftRef.current)
@@ -277,10 +280,9 @@ export function useEditBrowse(
       if (prev.mode !== "browsing") return prev
       const next = moveFieldCursor(prev, +1, c)
       setInactiveTab(next.cursor.field)
-      options?.onTabChange?.(next.cursor.field)
       return next
     })
-  }, [options?.onTabChange])
+  }, [])
 
   const enterEdit = useCallback(() => {
     const state = editStateRef.current
@@ -412,16 +414,9 @@ export function useEditBrowse(
     }
   }, [draftMutators])
 
-  const cycleInactiveTab = useCallback(
-    (delta: 1 | -1) => {
-      setInactiveTab((prev) => {
-        const next = cycleField(prev, delta)
-        options?.onTabChange?.(next)
-        return next
-      })
-    },
-    [options?.onTabChange],
-  )
+  const cycleInactiveTab = useCallback((delta: 1 | -1) => {
+    setInactiveTab((prev) => cycleField(prev, delta))
+  }, [])
 
   return useMemo(
     () => ({
