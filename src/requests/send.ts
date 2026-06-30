@@ -139,15 +139,13 @@ export async function bodyForSend(
 ): Promise<BodyInit | undefined> {
   if (req.bodyType === "none") return undefined
 
-  const hasContentType = headers.has("content-type")
-
   if (req.bodyType === "json" && req.body !== undefined) {
-    if (!hasContentType) headers.set("content-type", "application/json")
+    headers.set("content-type", "application/json")
     return req.body
   }
 
   if (req.bodyType === "urlencoded" && req.formData) {
-    if (!hasContentType) headers.set("content-type", "application/x-www-form-urlencoded")
+    headers.set("content-type", "application/x-www-form-urlencoded")
     const params = new URLSearchParams()
     for (const entry of req.formData) {
       if (entry.enabled) params.append(entry.name, entry.value)
@@ -156,6 +154,7 @@ export async function bodyForSend(
   }
 
   if (req.bodyType === "multipart" && req.formData) {
+    headers.delete("content-type")
     const fd = new FormData()
     for (const entry of req.formData) {
       if (!entry.enabled) continue
@@ -176,7 +175,7 @@ export async function bodyForSend(
       if (!(await Bun.file(req.filePath).exists())) {
         throw new Error(`file not found: ${req.filePath}`)
       }
-      if (!hasContentType) headers.set("content-type", "application/octet-stream")
+      headers.set("content-type", "application/octet-stream")
       return Bun.file(req.filePath) as unknown as BodyInit
     }
     return undefined
