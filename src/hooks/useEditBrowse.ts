@@ -365,7 +365,15 @@ export function useEditBrowse(
     setEditState((prev) => beginEditing(prev))
   }, [])
 
-  const commitEdit = useCallback(() => {
+function detectFormType(value: string): { formType: "text" | "file"; cleanValue: string } {
+  const fileMatch = value.match(/^@file\((.+)\)$/)
+  if (fileMatch) {
+    return { formType: "file", cleanValue: fileMatch[1]! }
+  }
+  return { formType: "text", cleanValue: value }
+}
+
+const commitEdit = useCallback(() => {
     const state = editStateRef.current
     if (state.mode !== "editing") return
     const { field } = state.cursor
@@ -382,9 +390,11 @@ export function useEditBrowse(
             draftMutators.removeFormRow(state.cursor.row)
           }
         } else if (addingRow) {
-          draftMutators.addFormRow(key, value, "text")
+          const { formType, cleanValue } = detectFormType(value)
+          draftMutators.addFormRow(key, cleanValue, formType)
         } else {
-          draftMutators.setFormRow(state.cursor.row, key, value, "text")
+          const { formType, cleanValue } = detectFormType(value)
+          draftMutators.setFormRow(state.cursor.row, key, cleanValue, formType)
         }
       } else if (bodyType === "binary") {
         draftMutators.setFilePath(val)
