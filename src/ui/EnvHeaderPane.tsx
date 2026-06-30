@@ -1,40 +1,49 @@
-import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react"
+import {
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef,
+} from "react"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
-import type { BoxRenderable, InputRenderable } from "@opentui/core"
+import type { InputRenderable } from "@opentui/core"
+import { Select, type SelectItem } from "./Select"
+import { VALID_COLORS } from "../env/constants"
 
 export interface EnvHeaderPaneHandle {
   focusName: () => void
   focusColor: () => void
 }
 
-export const EnvHeaderPane = forwardRef<EnvHeaderPaneHandle, {
-  name: string
-  color: string | undefined
-  onNameChange: (name: string) => void
-  focused: boolean
-}>(function EnvHeaderPane({
-  name,
-  color,
-  onNameChange,
-  focused,
-}, ref) {
+export const EnvHeaderPane = forwardRef<
+  EnvHeaderPaneHandle,
+  {
+    name: string
+    color: string | undefined
+    onNameChange: (name: string) => void
+    onColorChange: (color: string | undefined) => void
+    focused: boolean
+  }
+>(function EnvHeaderPane(
+  { name, color, onNameChange, onColorChange, focused },
+  ref,
+) {
   const theme = useTheme()
   const nameRef = useRef<InputRenderable | null>(null)
-  const colorRef = useRef<BoxRenderable | null>(null)
   const prevFocused = useRef(false)
   const [colorFocused, setColorFocused] = useState(false)
+  const [selectOpen, setSelectOpen] = useState(false)
 
   useImperativeHandle(ref, () => ({
     focusName: () => {
       setColorFocused(false)
-      colorRef.current?.blur()
       nameRef.current?.focus()
     },
     focusColor: () => {
       setColorFocused(true)
       nameRef.current?.blur()
-      colorRef.current?.focus()
     },
   }))
 
@@ -49,12 +58,16 @@ export const EnvHeaderPane = forwardRef<EnvHeaderPaneHandle, {
     prevFocused.current = focused
   }, [focused])
 
-  const colorValue =
-    color !== undefined
-      ? ((theme as unknown as Record<string, string>)[color] ?? theme.textMuted)
-      : theme.textMuted
-
-  const colorBg = colorFocused ? theme.borderSubtle : theme.backgroundElement
+  const colorItems: SelectItem[] = useMemo(() => {
+    const t = theme as unknown as Record<string, string>
+    return [
+      { id: "none", label: <text fg={theme.textMuted}>(none)</text> },
+      ...Array.from(VALID_COLORS).map((c) => ({
+        id: c,
+        label: <text fg={t[c] ?? theme.textMuted}>{c}</text>,
+      })),
+    ]
+  }, [theme])
 
   return (
     <box
@@ -63,6 +76,7 @@ export const EnvHeaderPane = forwardRef<EnvHeaderPaneHandle, {
         gap: 1,
         padding: 1,
         backgroundColor: theme.backgroundPanel,
+        zIndex: selectOpen ? 1 : undefined,
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
@@ -83,17 +97,15 @@ export const EnvHeaderPane = forwardRef<EnvHeaderPaneHandle, {
         cursorColor={theme.primary}
         style={{ flexGrow: 1 }}
       />
-      <box
-        ref={colorRef}
-        style={{
-          height: 1,
-          backgroundColor: colorBg,
-          paddingLeft: 1,
-          paddingRight: 1,
-        }}
-      >
-        <text fg={colorValue}>Color: {color ?? "(none)"}</text>
-      </box>
+      <Select
+        items={colorItems}
+        value={color ?? "none"}
+        onChange={(id) => onColorChange(id === "none" ? undefined : id)}
+        focused={colorFocused}
+        width={20}
+        maxDropdownHeight={10}
+        onOpenChange={setSelectOpen}
+      />
     </box>
   )
 })

@@ -19,6 +19,7 @@ export interface SelectProps {
   placeholder?: string
   width?: number
   maxDropdownHeight?: number
+  onOpenChange?: (open: boolean) => void
 }
 
 export function Select({
@@ -29,6 +30,7 @@ export function Select({
   placeholder = "Select...",
   width = 30,
   maxDropdownHeight = 16,
+  onOpenChange,
 }: SelectProps) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -45,6 +47,10 @@ export function Select({
   useEffect(() => {
     if (!focused && open) setOpen(false)
   }, [focused])
+
+  useEffect(() => {
+    onOpenChange?.(open)
+  }, [open])
 
   useEffect(() => {
     if (open) {
@@ -140,8 +146,8 @@ export function Select({
           backgroundColor: open
             ? theme.primary
             : focused
-              ? theme.backgroundPanel
-              : undefined,
+              ? theme.borderSubtle
+              : theme.backgroundElement,
         }}
       >
         <box style={{ flexDirection: "row", flexGrow: 1 }}>

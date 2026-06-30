@@ -1,18 +1,17 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { ThemeProvider } from "../../src/ui/theme"
-import {
-  EnvHeaderPane,
-} from "../../src/ui/EnvHeaderPane"
+import { EnvHeaderPane } from "../../src/ui/EnvHeaderPane"
 
 describe("EnvHeaderPane", () => {
-  it("renders name input and color text", async () => {
+  it("renders name input and color select with placeholder", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <EnvHeaderPane
           name="dev"
           color={undefined}
           onNameChange={() => {}}
+          onColorChange={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -21,17 +20,18 @@ describe("EnvHeaderPane", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("dev")
-    expect(frame).toContain("Color: (none)")
+    expect(frame).toContain("(none)")
     expect(frame).toContain("Environment")
   })
 
-  it("shows color name when set", async () => {
+  it("shows color value in select trigger when set", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <EnvHeaderPane
           name="prod"
           color="success"
           onNameChange={() => {}}
+          onColorChange={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -40,16 +40,17 @@ describe("EnvHeaderPane", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("prod")
-    expect(frame).toContain("Color: success")
+    expect(frame).toContain("success")
   })
 
-  it("does not show color text color as muted fallback when invalid", async () => {
+  it("shows color select with invalid color key as fallback", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <EnvHeaderPane
           name="staging"
           color="invalidColorKey"
           onNameChange={() => {}}
+          onColorChange={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -57,7 +58,7 @@ describe("EnvHeaderPane", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("Color: invalidColorKey")
+    expect(frame).toContain("invalidColorKey")
   })
 
   it("shows focused border when focused", async () => {
@@ -67,6 +68,7 @@ describe("EnvHeaderPane", () => {
           name="dev"
           color={undefined}
           onNameChange={() => {}}
+          onColorChange={() => {}}
           focused={true}
         />
       </ThemeProvider>,
@@ -77,13 +79,14 @@ describe("EnvHeaderPane", () => {
     expect(frame).toContain("Environment")
   })
 
-  it("has color box with background matching inputs", async () => {
+  it("renders color select with color items", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <EnvHeaderPane
           name="dev"
           color="primary"
           onNameChange={() => {}}
+          onColorChange={() => {}}
           focused={false}
         />
       </ThemeProvider>,
@@ -91,9 +94,11 @@ describe("EnvHeaderPane", () => {
     )
     await renderOnce()
     const frame = captureSpans()
-    const allText = frame.lines.flatMap((l) => l.spans).map((s) => s.text).join("")
+    const allText = frame.lines
+      .flatMap((l) => l.spans)
+      .map((s) => s.text)
+      .join("")
     expect(allText).toContain("primary")
-    expect(allText).toContain("Color:")
     expect(allText).toContain("dev")
   })
 })
