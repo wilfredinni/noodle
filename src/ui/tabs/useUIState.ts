@@ -36,6 +36,12 @@ export function useUIState(collectionDir: string): UseUIStateResult {
     })
   }, [collectionDir])
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [collectionDir])
+
   const getTab = (requestId: string): TabPrefs | undefined => {
     return state.get(requestId)
   }
