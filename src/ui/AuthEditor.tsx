@@ -136,16 +136,6 @@ export function AuthEditor({
     [onSelectOpenChange],
   )
 
-  const descFor = (field: string): string => {
-    if (field === "token") return "(bearer token)"
-    if (field === "user") return "(basic username)"
-    if (field === "pass") return "(basic password)"
-    if (field === "key") return "(api key name/custom header)"
-    if (field === "value") return "(api key value)"
-    if (field === "placement") return "(api key placement)"
-    return ""
-  }
-
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
       <box
@@ -184,7 +174,6 @@ export function AuthEditor({
             />
           </box>
         </box>
-        <text fg={theme.textMuted}>Authentication method</text>
       </box>
 
       {fieldDefs.map((def) => {
@@ -263,7 +252,6 @@ export function AuthEditor({
                 />
               )}
             </box>
-            <text fg={theme.textMuted}>{descFor(def.field)}</text>
           </box>
         )
       })}
