@@ -110,7 +110,10 @@ export function AppInner({
   )
   const requests = collection?.requests ?? []
 
-  const { getTab, setTab } = useUIState(collectionDir)
+  const { getTab, setTab } = useUIState(
+    collectionDir,
+    requests.map((r) => r.id),
+  )
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const { selectedIndex, selectedRequest, setSelectedIndex: setSelIdx } =
@@ -121,17 +124,22 @@ export function AppInner({
 
   const initRef = useRef(false)
 
-  if (
-    !initRef.current &&
-    requests.length > 0 &&
-    initialLastRequestId
-  ) {
+  useEffect(() => {
+    if (
+      initRef.current ||
+      requests.length === 0 ||
+      !initialLastRequestId
+    )
+      return
     const idx = requests.findIndex((r) => r.id === initialLastRequestId)
     initRef.current = true
-    if (idx > 0) setSelIdx(idx)
-  }
+    if (idx >= 0) setSelIdx(idx)
+  }, [requests, initialLastRequestId])
 
   const saveLastReqRef = useRef(false)
+  const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
 
   useEffect(() => {
     if (!saveLastReqRef.current) {
@@ -140,7 +148,21 @@ export function AppInner({
     }
     const req = requests[selectedIndex]
     if (req) {
-      saveLastRequest(collectionDir, req.id).catch(() => {})
+      if (saveLastDebounceRef.current)
+        clearTimeout(saveLastDebounceRef.current)
+      saveLastDebounceRef.current = setTimeout(() => {
+        saveLastRequest(
+          collectionDir,
+          req.id,
+          new Set(requests.map((r) => r.id)),
+        ).catch((e: unknown) => {
+          console.error("Failed to save last request:", e)
+        })
+      }, 150)
+    }
+    return () => {
+      if (saveLastDebounceRef.current)
+        clearTimeout(saveLastDebounceRef.current)
     }
   }, [selectedIndex])
 

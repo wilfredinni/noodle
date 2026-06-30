@@ -144,5 +144,45 @@ describe("uiState I/O", () => {
       const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
       expect(raw).toContain("lastRequest: create-post")
     })
+
+    it("saveUIState removes stale entries when validRequestIds provided", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([
+          ["a", { requestTab: "auth", responseTab: "timeline" }],
+          ["b", { requestTab: "body", responseTab: "headers" }],
+        ]),
+      )
+      await saveUIState(
+        tmpDir,
+        new Map([["a", { requestTab: "auth", responseTab: "timeline" }]]),
+        new Set(["a"]),
+      )
+      const map = await loadUIState(tmpDir)
+      expect(map.has("a")).toBe(true)
+      expect(map.has("b")).toBe(false)
+    })
+
+    it("saveLastRequest removes stale entries when validRequestIds provided", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([["stale-req", { requestTab: "auth", responseTab: "timeline" }]]),
+      )
+      await saveLastRequest(tmpDir, "current-req", new Set(["current-req"]))
+      const map = await loadUIState(tmpDir)
+      expect(map.has("stale-req")).toBe(false)
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: current-req")
+    })
+
+    it("saveLastRequest does not remove lastRequest key during orphan cleanup", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([["some-req", { requestTab: "auth", responseTab: "timeline" }]]),
+      )
+      await saveLastRequest(tmpDir, "some-req", new Set(["some-req"]))
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBe("some-req")
+    })
   })
 })
