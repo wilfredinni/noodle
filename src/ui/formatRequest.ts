@@ -33,7 +33,9 @@ export function formatBody(body?: string): string {
 export function formatAuth(auth?: Auth): string {
   if (auth === undefined || auth.type === "none") return "(none)"
   if (auth.type === "bearer") return "bearer: \u2022\u2022\u2022\u2022"
-  if (auth.type === "basic") return `basic: ${auth.user}:\u2022\u2022\u2022\u2022`
-  if (auth.type === "api_key") return `api_key: ${auth.key}:\u2022\u2022\u2022\u2022`
+  if (auth.type === "basic")
+    return `basic: ${auth.user}:\u2022\u2022\u2022\u2022`
+  if (auth.type === "api_key")
+    return `api_key: ${auth.key}:\u2022\u2022\u2022\u2022`
   return "(none)"
 }

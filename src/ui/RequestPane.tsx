@@ -5,7 +5,7 @@ import type {
 } from "@opentui/core"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import type { Request, Environment } from "../schema"
-import { formatBody, formatAuth } from "./formatRequest"
+import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 
 import { Tabs, type TabDef } from "./Tabs"
@@ -17,6 +17,7 @@ import { JsonBodyViewer } from "./JsonBodyViewer"
 import { VarText } from "./VarText"
 import { KeyValueSection } from "./KeyValueSection"
 import { Checkbox } from "./Checkbox"
+import { AuthEditor } from "./AuthEditor"
 
 interface Props {
   request: Request | null
@@ -28,6 +29,10 @@ interface Props {
   focused?: boolean
   activeTab: FieldKind
   activeEnv?: Environment | null
+  onAuthTypeChange?: (t: "none" | "bearer" | "basic" | "api_key") => void
+  onAuthFieldChange?: (authType: string, field: string, value: string) => void
+  onApiKeyPlacementChange?: (placement: "header" | "query") => void
+  onSelectOpenChange?: (open: boolean) => void
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -48,6 +53,10 @@ export function RequestPane({
   focused = false,
   activeTab,
   activeEnv,
+  onAuthTypeChange,
+  onAuthFieldChange,
+  onApiKeyPlacementChange,
+  onSelectOpenChange,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -67,6 +76,16 @@ export function RequestPane({
       scrollRef.current?.scrollChildIntoView(`${field}-field`)
     }
   }, [editState.cursor])
+
+  const handleSelectOpenChange = useCallback(
+    (open: boolean) => {
+      onSelectOpenChange?.(open)
+      if (open) {
+        scrollRef.current?.scrollChildIntoView("auth-field")
+      }
+    },
+    [onSelectOpenChange],
+  )
 
   const tabs = useMemo(() => {
     if (!request) return BASE_TAB_DEFS
@@ -172,11 +191,21 @@ export function RequestPane({
                 />
               )}
               {activeTab === "auth" && (
-                <AuthSection
+                <AuthEditor
                   request={request}
                   editState={editState}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
                   theme={theme}
                   activeEnv={activeEnv}
+                  onAuthTypeChange={onAuthTypeChange ?? (() => {})}
+                  onAuthFieldChange={onAuthFieldChange ?? (() => {})}
+                  onApiKeyPlacementChange={
+                    onApiKeyPlacementChange ?? (() => {})
+                  }
+                  onSelectOpenChange={handleSelectOpenChange}
                 />
               )}
               {activeTab === "settings" && (
@@ -278,39 +307,6 @@ function BodySection({
   )
 }
 
-function AuthSection({
-  request,
-  editState,
-  theme,
-  activeEnv,
-}: {
-  request: Request
-  editState: EditState
-  theme: Theme
-  activeEnv?: Environment | null
-}) {
-  const auth = formatAuth(request.auth)
-  const isActive =
-    editState.mode === "browsing" && editState.cursor.field === "auth"
-  return (
-    <box
-      id="auth-field"
-      border={[...LeftBar.border]}
-      customBorderChars={LeftBar.customBorderChars}
-      borderColor={isActive ? theme.primary : theme.borderSubtle}
-      style={{
-        backgroundColor: isActive ? theme.backgroundElement : undefined,
-      }}
-    >
-      <VarText
-        text={` ${auth}`}
-        env={activeEnv ?? null}
-        baseColor={isActive ? theme.text : theme.textMuted}
-      />
-    </box>
-  )
-}
-
 function SettingsSection({
   request,
   editState,
@@ -329,38 +325,44 @@ function SettingsSection({
   activeEnv?: Environment | null
 }) {
   const textareaRef = useRef<TextareaRenderable | null>(null)
-  
+
   const handleContentChange = useCallback(() => {
     const ta = textareaRef.current
     if (ta) setEditValue(ta.plainText)
   }, [setEditValue])
 
   const rows = [
-    { 
-      label: "Timeout (ms)", 
-      value: request.timeout, 
+    {
+      label: "Timeout (ms)",
+      value: request.timeout,
       display: `${request.timeout}ms`,
-      desc: "Set maximum time to wait before aborting the request" 
+      desc: "Set maximum time to wait before aborting the request",
     },
-    { 
-      label: "Follow Redirects", 
-      value: request.followRedirects ?? true, 
+    {
+      label: "Follow Redirects",
+      value: request.followRedirects ?? true,
       display: String(request.followRedirects ?? true),
-      desc: "Automatically follow HTTP redirects" 
+      desc: "Automatically follow HTTP redirects",
     },
-    { 
-      label: "Max Redirects", 
-      value: request.maxRedirects ?? 5, 
+    {
+      label: "Max Redirects",
+      value: request.maxRedirects ?? 5,
       display: String(request.maxRedirects ?? 5),
-      desc: "Maximum number of redirects to follow" 
+      desc: "Maximum number of redirects to follow",
     },
   ]
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
       {rows.map((row, idx) => {
-        const editingRow = inEdit && editState.cursor.field === "settings" && editState.cursor.row === idx
-        const isActive = browseActive && editState.cursor.field === "settings" && editState.cursor.row === idx
+        const editingRow =
+          inEdit &&
+          editState.cursor.field === "settings" &&
+          editState.cursor.row === idx
+        const isActive =
+          browseActive &&
+          editState.cursor.field === "settings" &&
+          editState.cursor.row === idx
 
         return (
           <box key={row.label} style={{ flexDirection: "column" }}>
@@ -368,7 +370,9 @@ function SettingsSection({
               id={idx === 0 ? "settings-field" : `settings-${idx}`}
               border={[...LeftBar.border]}
               customBorderChars={LeftBar.customBorderChars}
-              borderColor={isActive || editingRow ? theme.primary : theme.borderSubtle}
+              borderColor={
+                isActive || editingRow ? theme.primary : theme.borderSubtle
+              }
               style={{
                 flexDirection: editingRow ? "row" : undefined,
                 gap: editingRow ? 1 : undefined,
@@ -392,7 +396,10 @@ function SettingsSection({
               ) : idx === 1 ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
                   <text fg={theme.textMuted}>{row.label}: </text>
-                  <Checkbox checked={request.followRedirects ?? true} theme={theme} />
+                  <Checkbox
+                    checked={request.followRedirects ?? true}
+                    theme={theme}
+                  />
                 </box>
               ) : (
                 <VarText

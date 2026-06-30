@@ -170,7 +170,7 @@ export function KeyValueSection({
                   : undefined,
             }}
           >
-          <Checkbox checked={false} theme={theme} />
+            <Checkbox checked={false} theme={theme} />
             <input
               value={editingAdd ? editKey : ""}
               placeholder="Key"

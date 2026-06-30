@@ -33,7 +33,10 @@ export async function send(
   }
 
   const authForParams = substituted.auth
-  if (authForParams?.type === "api_key" && authForParams.placement === "query") {
+  if (
+    authForParams?.type === "api_key" &&
+    authForParams.placement === "query"
+  ) {
     const up = new URL(finalUrl)
     up.searchParams.append(authForParams.key, authForParams.value)
     finalUrl = up.toString()
@@ -90,7 +93,11 @@ export async function send(
 
     currentUrl = new URL(loc, currentUrl).toString()
 
-    if (res.status === 303 || ((res.status === 301 || res.status === 302) && currentInit.method === "POST")) {
+    if (
+      res.status === 303 ||
+      ((res.status === 301 || res.status === 302) &&
+        currentInit.method === "POST")
+    ) {
       const newHeaders = new Headers(currentInit.headers)
       newHeaders.delete("content-type")
       newHeaders.delete("content-length")

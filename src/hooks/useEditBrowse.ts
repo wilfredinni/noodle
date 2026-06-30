@@ -104,7 +104,8 @@ function currentKeyValueFor(
   }
   if (field === "settings") {
     if (row === 0) return { key: "", value: String(draft.timeout) }
-    if (row === 1) return { key: "", value: String(draft.followRedirects ?? true) }
+    if (row === 1)
+      return { key: "", value: String(draft.followRedirects ?? true) }
     if (row === 2) return { key: "", value: String(draft.maxRedirects ?? 5) }
     return { key: "", value: "" }
   }
@@ -192,7 +193,12 @@ export function useEditBrowse(
       return
     }
     if (browsed.cursor.field === "auth") {
-      const init = currentValueFor(currentDraft, browsed.cursor.field, browsed.cursor.row, false)
+      const init = currentValueFor(
+        currentDraft,
+        browsed.cursor.field,
+        browsed.cursor.row,
+        false,
+      )
       setEditValue(init)
       setEditState(beginEditing(browsed))
       return
@@ -310,7 +316,8 @@ export function useEditBrowse(
           else if (row === 2) draftMutators.setAuthField("basic", "pass", val)
         } else if (currentAuth.type === "api_key") {
           if (row === 1) draftMutators.setAuthField("api_key", "key", val)
-          else if (row === 2) draftMutators.setAuthField("api_key", "value", val)
+          else if (row === 2)
+            draftMutators.setAuthField("api_key", "value", val)
         }
       }
     } else if (field === "settings") {
@@ -321,7 +328,9 @@ export function useEditBrowse(
         draftMutators.setFollowRedirects(val.trim().toLowerCase() !== "false")
       } else if (row === 2) {
         const n = Number(val)
-        draftMutators.setMaxRedirects(Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5)
+        draftMutators.setMaxRedirects(
+          Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5,
+        )
       }
     } else if (field === "headers" || field === "params") {
       const key = editKeyRef.current.trim()

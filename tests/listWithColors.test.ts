@@ -32,7 +32,11 @@ describe("listEnvironmentsWithColors", () => {
   })
 
   it("reads _color= from first line", async () => {
-    await writeFile(join(dir, "staging.env"), "_color=warning\napi_key=abc\n", "utf8")
+    await writeFile(
+      join(dir, "staging.env"),
+      "_color=warning\napi_key=abc\n",
+      "utf8",
+    )
     const out = await listEnvironmentsWithColors(dir)
     expect(out).toEqual([{ name: "staging", color: "warning" }])
   })

@@ -42,7 +42,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: keybinds.browse_escape,
           description: "Cancel edit / exit browse",
         },
-        { key: displayKey(keybinds.browse_delete), description: "Revert field" },
+        {
+          key: displayKey(keybinds.browse_delete),
+          description: "Revert field",
+        },
         { key: "space", description: "Toggle checkboxes" },
         {
           key: displayKey(keybinds.browse_revert_all),
@@ -55,9 +58,18 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       keys: [
         { key: displayKey(keybinds.request_send), description: "Send request" },
         { key: displayKey(keybinds.request_save), description: "Save to disk" },
-        { key: displayKey(keybinds.env_editor), description: "Open environment editor" },
-        { key: displayKey(keybinds.layout_toggle), description: "Toggle layout" },
-        { key: displayKey(keybinds.env_cycle), description: "Cycle environment" },
+        {
+          key: displayKey(keybinds.env_editor),
+          description: "Open environment editor",
+        },
+        {
+          key: displayKey(keybinds.layout_toggle),
+          description: "Toggle layout",
+        },
+        {
+          key: displayKey(keybinds.env_cycle),
+          description: "Cycle environment",
+        },
       ],
     },
     {
@@ -65,16 +77,28 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       keys: [
         { key: "^c", description: "Quit" },
         { key: keybinds.help_toggle, description: "Toggle help" },
-        { key: displayKey(keybinds.theme_picker), description: "Open theme picker" },
+        {
+          key: displayKey(keybinds.theme_picker),
+          description: "Open theme picker",
+        },
       ],
     },
     {
       title: "Env Editor",
       keys: [
         { key: displayKey(keybinds.env_save), description: "Save environment" },
-        { key: displayKey(keybinds.env_new), description: "Create new environment" },
-        { key: displayKey(keybinds.env_clone), description: "Clone environment" },
-        { key: displayKey(keybinds.env_delete), description: "Delete environment" },
+        {
+          key: displayKey(keybinds.env_new),
+          description: "Create new environment",
+        },
+        {
+          key: displayKey(keybinds.env_clone),
+          description: "Clone environment",
+        },
+        {
+          key: displayKey(keybinds.env_delete),
+          description: "Delete environment",
+        },
       ],
     },
   ]

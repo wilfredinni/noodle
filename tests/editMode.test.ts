@@ -46,9 +46,7 @@ describe("enterEditBrowse", () => {
     expect(enterEditBrowse(browsing)).toBe(browsing)
   })
   it("no-op from editing", () => {
-    const editing = beginEditing(
-      enterEditBrowse(inactive, c(2, 0)),
-    )
+    const editing = beginEditing(enterEditBrowse(inactive, c(2, 0)))
     expect(enterEditBrowse(editing)).toBe(editing)
   })
 })
@@ -60,9 +58,7 @@ describe("exitEditBrowse", () => {
     expect(s.mode).toBe("inactive")
   })
   it("no-op from editing (must cancel first)", () => {
-    const editing = beginEditing(
-      enterEditBrowse(inactive, c(2, 0)),
-    )
+    const editing = beginEditing(enterEditBrowse(inactive, c(2, 0)))
     expect(exitEditBrowse(editing)).toBe(editing)
   })
   it("no-op from inactive", () => {
@@ -111,12 +107,8 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.row).toBe(-1)
   })
   it("no-op when editing", () => {
-    const editing = beginEditing(
-      enterEditBrowse(inactive, c(2, 0)),
-    )
-    expect(moveFieldCursor(editing, +1, c(2, 1))).toBe(
-      editing,
-    )
+    const editing = beginEditing(enterEditBrowse(inactive, c(2, 0)))
+    expect(moveFieldCursor(editing, +1, c(2, 1))).toBe(editing)
   })
 })
 
@@ -260,9 +252,7 @@ describe("beginEditing", () => {
     expect(beginEditing(inactive)).toBe(inactive)
   })
   it("no-op when already editing", () => {
-    const editing = beginEditing(
-      enterEditBrowse(inactive, c(2, 0)),
-    )
+    const editing = beginEditing(enterEditBrowse(inactive, c(2, 0)))
     expect(beginEditing(editing)).toBe(editing)
   })
 
@@ -294,9 +284,7 @@ describe("beginEditing", () => {
 
 describe("commitEditing", () => {
   it("editing → browsing, editingRow reset to -1", () => {
-    const editing = beginEditing(
-      enterEditBrowse(inactive, c(2, 0)),
-    )
+    const editing = beginEditing(enterEditBrowse(inactive, c(2, 0)))
     const s = commitEditing(editing)
     expect(s.mode).toBe("browsing")
     expect(s.editingRow).toBe(-1)

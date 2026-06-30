@@ -116,7 +116,9 @@ describe("saveTimelineEntry", () => {
         name: "Full test",
         method: "POST",
         url: "https://api.example.com/data",
-        headers: { "content-type": { value: "application/json", enabled: true } },
+        headers: {
+          "content-type": { value: "application/json", enabled: true },
+        },
         params: { q: { value: "test", enabled: true } },
         body: '{"key":"val"}',
         auth: { type: "bearer", token: "tok" },

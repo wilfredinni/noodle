@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import type { Environment, Request, Response } from "../schema"
 import { executor } from "../requests"
-import { startSend, finishSend, failSend, type SendState } from "../ui/sendState"
+import {
+  startSend,
+  finishSend,
+  failSend,
+  type SendState,
+} from "../ui/sendState"
 
 type CachedResult =
   | { status: "done"; response: Response }
@@ -54,7 +59,15 @@ export function useResponse(
       if (prev.status === "sending") return prev
       const controller = new AbortController()
       abortRef.current = controller
-      void runSend(req, env ?? undefined, controller.signal, setState, cacheRef, abortRef, onCompleteRef)
+      void runSend(
+        req,
+        env ?? undefined,
+        controller.signal,
+        setState,
+        cacheRef,
+        abortRef,
+        onCompleteRef,
+      )
       return startSend(prev, req)
     })
   }, [selectedRequest, env])
@@ -73,7 +86,9 @@ async function runSend(
   setState: Dispatch<SetStateAction<SendState>>,
   cacheRef: React.RefObject<Map<string, CachedResult>>,
   abortRef: React.RefObject<AbortController | null>,
-  onCompleteRef: React.RefObject<((req: Request, result: SendCompleteResult) => void) | undefined>,
+  onCompleteRef: React.RefObject<
+    ((req: Request, result: SendCompleteResult) => void) | undefined
+  >,
 ): Promise<void> {
   try {
     const res = await executor.send(req, env, signal)

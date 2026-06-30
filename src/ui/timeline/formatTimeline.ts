@@ -48,9 +48,7 @@ export function buildTimelineEntry(
           }
         : undefined,
     error:
-      result.status === "error"
-        ? { message: result.error.message }
-        : undefined,
+      result.status === "error" ? { message: result.error.message } : undefined,
   }
 }
 

@@ -366,9 +366,18 @@ describe("lang.serializeRequest — canonical output", () => {
 
   it("emits api_key auth when set", () => {
     const out = lang.serializeRequest(
-      makeReq({ auth: { type: "api_key", key: "X-API-Key", value: "secret123", placement: "header" } }),
+      makeReq({
+        auth: {
+          type: "api_key",
+          key: "X-API-Key",
+          value: "secret123",
+          placement: "header",
+        },
+      }),
     )
-    expect(out).toContain("auth:\n  type: api_key\n  key: X-API-Key\n  value: secret123\n  placement: header\n")
+    expect(out).toContain(
+      "auth:\n  type: api_key\n  key: X-API-Key\n  value: secret123\n  placement: header\n",
+    )
   })
 
   it("does NOT emit id field", () => {
@@ -517,7 +526,12 @@ describe("lang — semantic round-trip", () => {
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
-      auth: { type: "api_key", key: "X-API-Key", value: "$KEYVAL", placement: "query" },
+      auth: {
+        type: "api_key",
+        key: "X-API-Key",
+        value: "$KEYVAL",
+        placement: "query",
+      },
     }
     const yaml = lang.serializeRequest(original)
     const reparsed = lang.parseRequest(original.id, yaml)

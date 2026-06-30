@@ -16,7 +16,12 @@ export type Auth =
   | { type: "none" }
   | { type: "bearer"; token: string }
   | { type: "basic"; user: string; pass: string }
-  | { type: "api_key"; key: string; value: string; placement: "header" | "query" }
+  | {
+      type: "api_key"
+      key: string
+      value: string
+      placement: "header" | "query"
+    }
 
 export interface Request {
   id: string

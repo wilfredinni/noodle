@@ -21,7 +21,9 @@ export function useTimeline(
 
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
 
   const doLoad = useCallback(async () => {

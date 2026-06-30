@@ -96,7 +96,9 @@ export function PickerOverlay({
             const isActive = i === activeIndex
             const isSelected = i === previewIndex
             const indicator = item.indicator ?? "●"
-            const indicatorFg = item.indicatorColor ?? (isActive ? theme.primary : theme.textMuted)
+            const indicatorFg =
+              item.indicatorColor ??
+              (isActive ? theme.primary : theme.textMuted)
             return (
               <box
                 key={i}

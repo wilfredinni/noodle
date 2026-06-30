@@ -17,7 +17,9 @@ function theme() {
 describe("splitEnvVars", () => {
   it("returns single plain segment for text without variables", () => {
     const result = splitEnvVars("plain text", env({}))
-    expect(result).toEqual([{ text: "plain text", isVar: false, exists: false }])
+    expect(result).toEqual([
+      { text: "plain text", isVar: false, exists: false },
+    ])
   })
 
   it("returns empty array for empty string", () => {
@@ -80,7 +82,11 @@ describe("splitEnvVars", () => {
   it("does not match $ followed by non-word char", () => {
     const result = splitEnvVars("$var $ stuff", env({ var: "x" }))
     expect(result[0]!).toEqual({ text: "$var", isVar: true, exists: true })
-    expect(result[1]!).toEqual({ text: " $ stuff", isVar: false, exists: false })
+    expect(result[1]!).toEqual({
+      text: " $ stuff",
+      isVar: false,
+      exists: false,
+    })
   })
 
   it("does not match lone $ at end of string", () => {

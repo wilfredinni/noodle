@@ -15,7 +15,13 @@ type RawAuth =
   | { type: "none"; [k: string]: unknown }
   | { type: "bearer"; token: string; [k: string]: unknown }
   | { type: "basic"; user: string; pass: string; [k: string]: unknown }
-  | { type: "api_key"; key: string; value: string; placement?: string; [k: string]: unknown }
+  | {
+      type: "api_key"
+      key: string
+      value: string
+      placement?: string
+      [k: string]: unknown
+    }
   | { type: string; [k: string]: unknown }
 
 interface RawRequest {
@@ -110,8 +116,14 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   let maxRedirects: number = 5
   if (raw.maxRedirects !== undefined) {
-    if (typeof raw.maxRedirects !== "number" || !Number.isInteger(raw.maxRedirects) || raw.maxRedirects < 0) {
-      throw new Error('lang.parseRequest: "maxRedirects" must be a non-negative integer')
+    if (
+      typeof raw.maxRedirects !== "number" ||
+      !Number.isInteger(raw.maxRedirects) ||
+      raw.maxRedirects < 0
+    ) {
+      throw new Error(
+        'lang.parseRequest: "maxRedirects" must be a non-negative integer',
+      )
     }
     maxRedirects = raw.maxRedirects
   }

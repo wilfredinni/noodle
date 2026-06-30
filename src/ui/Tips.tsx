@@ -55,11 +55,16 @@ export function parseTip(tip: string): TipPart[] {
 export function Tips() {
   const theme = useTheme()
 
-  const [tip] = useState(() => TIPS[Math.floor(Math.random() * TIPS.length)] ?? TIPS[0])
+  const [tip] = useState(
+    () => TIPS[Math.floor(Math.random() * TIPS.length)] ?? TIPS[0],
+  )
   const parts = parseTip(tip)
   const segments = [
     { text: "● Tip", color: theme.secondary },
-    ...parts.map((p) => ({ text: p.text, color: p.isKey ? theme.primary : theme.textMuted })),
+    ...parts.map((p) => ({
+      text: p.text,
+      color: p.isKey ? theme.primary : theme.textMuted,
+    })),
   ]
 
   return (

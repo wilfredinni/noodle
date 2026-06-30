@@ -56,7 +56,11 @@ describe("saveEnvironment", () => {
 
   it("rejects invalid color", async () => {
     await expect(
-      env.saveEnvironment(dir, { name: "test", vars: {}, color: "nonexistent" }),
+      env.saveEnvironment(dir, {
+        name: "test",
+        vars: {},
+        color: "nonexistent",
+      }),
     ).rejects.toThrow('env.save: unknown color "nonexistent"')
   })
 })

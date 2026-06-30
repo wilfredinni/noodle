@@ -412,7 +412,9 @@ describe("mapCollection — auth resolution", () => {
     const c = mapCollection(
       makeNormalized({
         components: {
-          securitySchemes: { key: { type: "apiKey", in: "query", name: "api_key" } },
+          securitySchemes: {
+            key: { type: "apiKey", in: "query", name: "api_key" },
+          },
         },
         security: [{ key: [] }],
         paths: { "/x": { get: { operationId: "getX" } } },

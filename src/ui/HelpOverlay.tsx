@@ -49,10 +49,13 @@ export function HelpOverlay({
                 <text fg={theme.text}>{section.title}</text>
               </box>
               {section.keys.map((k, i) => (
-                <box key={i} paddingLeft={4} paddingRight={4} style={{ flexDirection: "row" }}>
-                  <text fg={theme.primary}>
-                    {k.key.padEnd(11)}
-                  </text>
+                <box
+                  key={i}
+                  paddingLeft={4}
+                  paddingRight={4}
+                  style={{ flexDirection: "row" }}
+                >
+                  <text fg={theme.primary}>{k.key.padEnd(11)}</text>
                   <text fg={theme.textMuted}>{k.description}</text>
                 </box>
               ))}

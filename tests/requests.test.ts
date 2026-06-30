@@ -82,21 +82,43 @@ describe("substitute — pure $var replacement", () => {
 
   it("substitutes $x in api_key key and value", () => {
     const req = makeReq({
-      auth: { type: "api_key", key: "$keyName", value: "$keyVal", placement: "header" },
+      auth: {
+        type: "api_key",
+        key: "$keyName",
+        value: "$keyVal",
+        placement: "header",
+      },
     })
-    const out = substitute(req, makeEnv({ keyName: "X-API-Key", keyVal: "secret123" }))
-    expect(out.auth).toEqual({ type: "api_key", key: "X-API-Key", value: "secret123", placement: "header" })
+    const out = substitute(
+      req,
+      makeEnv({ keyName: "X-API-Key", keyVal: "secret123" }),
+    )
+    expect(out.auth).toEqual({
+      type: "api_key",
+      key: "X-API-Key",
+      value: "secret123",
+      placement: "header",
+    })
   })
 
   it("throws on unresolved variable in api_key key", () => {
-    const req = makeReq({ auth: { type: "api_key", key: "$keyName", value: "v", placement: "header" } })
+    const req = makeReq({
+      auth: {
+        type: "api_key",
+        key: "$keyName",
+        value: "v",
+        placement: "header",
+      },
+    })
     expect(() => substitute(req, makeEnv({}))).toThrow(
       'requests.substitute: unresolved variable "keyName" in auth.key',
     )
   })
 
   it("throws on unresolved variable in api_key value", () => {
-    const req = makeReq({ auth: { type: "api_key", key: "k", value: "$val", placement: "header" } })
+    const req = makeReq({
+      auth: { type: "api_key", key: "k", value: "$val", placement: "header" },
+    })
     expect(() => substitute(req, makeEnv({}))).toThrow(
       'requests.substitute: unresolved variable "val" in auth.value',
     )
@@ -448,7 +470,14 @@ describe("send — auth header", () => {
   it("adds api_key header when placement is header", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await executor.send(
-      makeReq({ auth: { type: "api_key", key: "X-API-Key", value: "secret123", placement: "header" } }),
+      makeReq({
+        auth: {
+          type: "api_key",
+          key: "X-API-Key",
+          value: "secret123",
+          placement: "header",
+        },
+      }),
     )
     const init = fetchMock.mock.calls[0][1] as RequestInit
     const headers = init.headers as Headers
@@ -459,9 +488,18 @@ describe("send — auth header", () => {
   it("injects api_key as query param when placement is query", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
     await executor.send(
-      makeReq({ auth: { type: "api_key", key: "api_key", value: "secret123", placement: "query" } }),
+      makeReq({
+        auth: {
+          type: "api_key",
+          key: "api_key",
+          value: "secret123",
+          placement: "query",
+        },
+      }),
     )
-    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?api_key=secret123")
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://example.com/?api_key=secret123",
+    )
   })
 
   it("api_key query param appends to existing query params", async () => {
@@ -472,7 +510,9 @@ describe("send — auth header", () => {
         auth: { type: "api_key", key: "key", value: "val", placement: "query" },
       }),
     )
-    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?verbose=true&key=val")
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://example.com/?verbose=true&key=val",
+    )
   })
 })
 
@@ -605,7 +645,11 @@ describe("send — timeout signal", () => {
   it("combines signals when timeout > 0 and caller signal present", async () => {
     const controller = new AbortController()
     fetchMock.mockResolvedValueOnce(fakeResponse({}))
-    await executor.send(makeReq({ timeout: 5000 }), undefined, controller.signal)
+    await executor.send(
+      makeReq({ timeout: 5000 }),
+      undefined,
+      controller.signal,
+    )
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect(init.signal).toBeInstanceOf(AbortSignal)
     expect(init.signal).not.toBe(controller.signal)
@@ -661,9 +705,7 @@ describe("send — redirect following", () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse({ status: 301, headers: { location: "/elsewhere" } }),
     )
-    const res = await executor.send(
-      makeReq({ followRedirects: false }),
-    )
+    const res = await executor.send(makeReq({ followRedirects: false }))
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(res.status).toBe(301)
   })
@@ -672,16 +714,14 @@ describe("send — redirect following", () => {
     fetchMock.mockResolvedValue(
       fakeResponse({ status: 301, headers: { location: "/hop" } }),
     )
-    await expect(
-      executor.send(makeReq({ maxRedirects: 2 })),
-    ).rejects.toThrow("requests.send: max redirects (2) exceeded")
+    await expect(executor.send(makeReq({ maxRedirects: 2 }))).rejects.toThrow(
+      "requests.send: max redirects (2) exceeded",
+    )
     expect(fetchMock).toHaveBeenCalledTimes(3) // initial + 2 redirects, 3rd triggers throw
   })
 
   it("returns 301 response when no Location header", async () => {
-    fetchMock.mockResolvedValueOnce(
-      fakeResponse({ status: 301 }),
-    )
+    fetchMock.mockResolvedValueOnce(fakeResponse({ status: 301 }))
     const res = await executor.send(makeReq({}))
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(res.status).toBe(301)

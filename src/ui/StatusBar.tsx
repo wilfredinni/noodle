@@ -121,7 +121,9 @@ export function StatusBar(input: {
   const rightSegments = sections.right.split(" · ").map((seg) => {
     const s = seg.replace(/[[\]]/g, "")
     const sp = s.indexOf(" ")
-    return sp > -1 ? { key: s.slice(0, sp), word: s.slice(sp + 1) } : { key: s, word: "" }
+    return sp > -1
+      ? { key: s.slice(0, sp), word: s.slice(sp + 1) }
+      : { key: s, word: "" }
   })
 
   const envText =
@@ -136,7 +138,8 @@ export function StatusBar(input: {
     : input.envLabel === "" || input.envLabel === "(no env)"
       ? theme.textMuted
       : input.envColor !== undefined
-        ? (theme as unknown as Record<string, string>)[input.envColor] ?? theme.info
+        ? ((theme as unknown as Record<string, string>)[input.envColor] ??
+          theme.info)
         : theme.info
 
   const saveFlash =

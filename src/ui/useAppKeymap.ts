@@ -27,12 +27,45 @@ export interface UseAppKeymapRefs {
 export interface UseAppKeymapSetters {
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
-  setLayout: (layout: "stacked" | "side-by-side" | ((prev: "stacked" | "side-by-side") => "stacked" | "side-by-side")) => void
-  setView: (v: "main" | "env-editor" | ((prev: "main" | "env-editor") => "main" | "env-editor")) => void
-  setYamlEditor: (v: { visible: boolean; filePath: string; requestName: string; returnFocus: Focus } | ((prev: { visible: boolean; filePath: string; requestName: string; returnFocus: Focus }) => { visible: boolean; filePath: string; requestName: string; returnFocus: Focus })) => void
+  setLayout: (
+    layout:
+      | "stacked"
+      | "side-by-side"
+      | ((prev: "stacked" | "side-by-side") => "stacked" | "side-by-side"),
+  ) => void
+  setView: (
+    v:
+      | "main"
+      | "env-editor"
+      | ((prev: "main" | "env-editor") => "main" | "env-editor"),
+  ) => void
+  setYamlEditor: (
+    v:
+      | {
+          visible: boolean
+          filePath: string
+          requestName: string
+          returnFocus: Focus
+        }
+      | ((prev: {
+          visible: boolean
+          filePath: string
+          requestName: string
+          returnFocus: Focus
+        }) => {
+          visible: boolean
+          filePath: string
+          requestName: string
+          returnFocus: Focus
+        }),
+  ) => void
   setCollectionReloadToken: (n: number | ((prev: number) => number)) => void
-  setPreviewIndex: (n: number | null | ((prev: number | null) => number | null)) => void
-  setEnvDeletePending: (s: string | null | ((prev: string | null) => string | null)) => void
+  setPreviewIndex: (
+    n: number | null | ((prev: number | null) => number | null),
+  ) => void
+  setEnvDeletePending: (
+    s: string | null | ((prev: string | null) => string | null),
+  ) => void
   setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
 }
@@ -100,7 +133,8 @@ export function useAppKeymap(
       {
         name: "request.edit-yaml",
         run: () => {
-          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          const req =
+            refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
           if (!req || !collectionDir) return
           const filePath = join(collectionDir, `${req.id}.yml`)
           setters.setYamlEditor({

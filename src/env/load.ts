@@ -69,6 +69,7 @@ export async function loadEnvironment(
     name,
     vars,
     color,
-    disabledVars: Object.keys(disabledVars).length > 0 ? disabledVars : undefined,
+    disabledVars:
+      Object.keys(disabledVars).length > 0 ? disabledVars : undefined,
   }
 }

@@ -47,17 +47,15 @@ describe("splitWords", () => {
 
 describe("CenterText", () => {
   it("renders words as inline text elements in a row", async () => {
-    const segments = [
-      { text: "hello world", color: "#ffffff" },
-    ]
+    const segments = [{ text: "hello world", color: "#ffffff" }]
     const { renderOnce, captureSpans } = await testRender(
       <CenterText segments={segments} />,
       { width: 40, height: 5 },
     )
     await renderOnce()
     const frame = captureSpans()
-    const spans = frame.lines.flatMap(l => l.spans)
-    const fullText = spans.map(s => s.text).join("")
+    const spans = frame.lines.flatMap((l) => l.spans)
+    const fullText = spans.map((s) => s.text).join("")
     expect(fullText).toContain("hello ")
     expect(fullText).toContain("world")
   })
@@ -74,8 +72,8 @@ describe("CenterText", () => {
     )
     await renderOnce()
     const frame = captureSpans()
-    const spans = frame.lines.flatMap(l => l.spans)
-    const fullText = spans.map(s => s.text).join("")
+    const spans = frame.lines.flatMap((l) => l.spans)
+    const fullText = spans.map((s) => s.text).join("")
     expect(fullText).toContain("press Enter to continue")
   })
 
@@ -87,7 +85,7 @@ describe("CenterText", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    const lines = frame.split("\n").filter(l => l.trim().length > 0)
+    const lines = frame.split("\n").filter((l) => l.trim().length > 0)
     const nonEmpty = lines[0]
     expect(nonEmpty?.trim()).toBe("tip")
     // tip should be roughly centered (padded with spaces on both sides)

@@ -271,7 +271,14 @@ describe("keymap dispatch", () => {
       enabled: () =>
         keymap.getData("app.mode") === "browse" &&
         keymap.getData("app.overlay") === "none",
-      commands: [{ name: "browse.enter", run: () => { called = true } }],
+      commands: [
+        {
+          name: "browse.enter",
+          run: () => {
+            called = true
+          },
+        },
+      ],
       bindings: [{ key: "return", cmd: "browse.enter" }],
     })
 
@@ -291,11 +298,14 @@ describe("keymap dispatch", () => {
         keymap.getData("app.overlay") === "none" &&
         keymap.getData("app.view") !== "env-editor",
       commands: [
-        { name: "browse.toggle", run: () => { called = true } },
+        {
+          name: "browse.toggle",
+          run: () => {
+            called = true
+          },
+        },
       ],
-      bindings: [
-        { key: "space", cmd: "browse.toggle" },
-      ],
+      bindings: [{ key: "space", cmd: "browse.toggle" }],
     })
 
     host.press("space")
@@ -315,11 +325,14 @@ describe("keymap dispatch", () => {
         keymap.getData("app.overlay") === "none" &&
         keymap.getData("app.view") !== "env-editor",
       commands: [
-        { name: "browse.toggle", run: () => { called = true } },
+        {
+          name: "browse.toggle",
+          run: () => {
+            called = true
+          },
+        },
       ],
-      bindings: [
-        { key: "space", cmd: "browse.toggle" },
-      ],
+      bindings: [{ key: "space", cmd: "browse.toggle" }],
     })
 
     host.press("space")
@@ -337,7 +350,14 @@ describe("keymap dispatch", () => {
       enabled: () =>
         keymap.getData("app.mode") === "edit" &&
         keymap.getData("app.overlay") === "none",
-      commands: [{ name: "edit.commit", run: () => { called = true } }],
+      commands: [
+        {
+          name: "edit.commit",
+          run: () => {
+            called = true
+          },
+        },
+      ],
       bindings: [{ key: "return", cmd: "edit.commit" }],
     })
 
@@ -620,7 +640,14 @@ describe("help keybinding (? always-on)", () => {
     let called = false
 
     keymap.registerLayer({
-      commands: [{ name: "app.help", run: () => { called = true } }],
+      commands: [
+        {
+          name: "app.help",
+          run: () => {
+            called = true
+          },
+        },
+      ],
       bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
@@ -635,7 +662,14 @@ describe("help keybinding (? always-on)", () => {
     let called = false
 
     keymap.registerLayer({
-      commands: [{ name: "app.help", run: () => { called = true } }],
+      commands: [
+        {
+          name: "app.help",
+          run: () => {
+            called = true
+          },
+        },
+      ],
       bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
@@ -650,7 +684,14 @@ describe("help keybinding (? always-on)", () => {
     let called = false
 
     keymap.registerLayer({
-      commands: [{ name: "app.help", run: () => { called = true } }],
+      commands: [
+        {
+          name: "app.help",
+          run: () => {
+            called = true
+          },
+        },
+      ],
       bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
@@ -665,7 +706,14 @@ describe("help keybinding (? always-on)", () => {
     let called = false
 
     keymap.registerLayer({
-      commands: [{ name: "app.help", run: () => { called = true } }],
+      commands: [
+        {
+          name: "app.help",
+          run: () => {
+            called = true
+          },
+        },
+      ],
       bindings: [{ key: "f1", cmd: "app.help" }],
     })
 
@@ -689,7 +737,12 @@ describe("env-editor layer", () => {
         keymap.getData("app.view") === "env-editor" &&
         keymap.getData("app.overlay") === "none",
       commands: [
-        { name: "env.save", run: () => { called = true } },
+        {
+          name: "env.save",
+          run: () => {
+            called = true
+          },
+        },
       ],
       bindings: [{ key: "ctrl+s", cmd: "env.save" }],
     })
@@ -710,7 +763,12 @@ describe("env-editor layer", () => {
         keymap.getData("app.view") === "env-editor" &&
         keymap.getData("app.overlay") === "none",
       commands: [
-        { name: "env.new", run: () => { called = true } },
+        {
+          name: "env.new",
+          run: () => {
+            called = true
+          },
+        },
       ],
       bindings: [{ key: "ctrl+n", cmd: "env.new" }],
     })
@@ -731,7 +789,12 @@ describe("env-editor layer", () => {
         keymap.getData("app.view") === "env-editor" &&
         keymap.getData("app.overlay") === "none",
       commands: [
-        { name: "env.clone", run: () => { called = true } },
+        {
+          name: "env.clone",
+          run: () => {
+            called = true
+          },
+        },
       ],
       bindings: [{ key: "ctrl+k", cmd: "env.clone" }],
     })
@@ -752,7 +815,12 @@ describe("env-editor layer", () => {
         keymap.getData("app.view") === "env-editor" &&
         keymap.getData("app.overlay") === "none",
       commands: [
-        { name: "env.delete", run: () => { called = true } },
+        {
+          name: "env.delete",
+          run: () => {
+            called = true
+          },
+        },
       ],
       bindings: [{ key: "ctrl+w", cmd: "env.delete" }],
     })
@@ -773,7 +841,12 @@ describe("env-editor layer", () => {
         keymap.getData("app.view") === "env-editor" &&
         keymap.getData("app.overlay") === "none",
       commands: [
-        { name: "env.save", run: () => { called = true } },
+        {
+          name: "env.save",
+          run: () => {
+            called = true
+          },
+        },
       ],
       bindings: [{ key: "ctrl+s", cmd: "env.save" }],
     })
@@ -794,7 +867,12 @@ describe("env-editor layer", () => {
         keymap.getData("app.view") === "env-editor" &&
         keymap.getData("app.overlay") === "none",
       commands: [
-        { name: "env.save", run: () => { called = true } },
+        {
+          name: "env.save",
+          run: () => {
+            called = true
+          },
+        },
       ],
       bindings: [{ key: "ctrl+s", cmd: "env.save" }],
     })
@@ -818,7 +896,9 @@ describe("env-editor layer", () => {
         {
           name: "env.clone",
           enabled: () => false, // e.g. no selectedEnvName
-          run: () => { called = true },
+          run: () => {
+            called = true
+          },
         },
       ],
       bindings: [{ key: "ctrl+k", cmd: "env.clone" }],

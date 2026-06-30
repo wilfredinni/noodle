@@ -1,7 +1,10 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
-import { registerEnabledFields, registerDefaultKeys } from "@opentui/keymap/addons"
+import {
+  registerEnabledFields,
+  registerDefaultKeys,
+} from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -74,11 +77,7 @@ describe("Delete confirmation", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ConfirmOverlay
-            visible
-            message="Delete?"
-            selectedIndex={0}
-          />
+          <ConfirmOverlay visible message="Delete?" selectedIndex={0} />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 10 },
@@ -95,11 +94,7 @@ describe("Delete confirmation", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ConfirmOverlay
-            visible
-            message="Delete?"
-            selectedIndex={0}
-          />
+          <ConfirmOverlay visible message="Delete?" selectedIndex={0} />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 10 },

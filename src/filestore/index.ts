@@ -8,7 +8,14 @@ import {
   clearAllTimeline,
 } from "./timeline"
 
-export { loadSettings, saveSettings, loadTimeline, saveTimelineEntry, clearTimelineForRequest, clearAllTimeline }
+export {
+  loadSettings,
+  saveSettings,
+  loadTimeline,
+  saveTimelineEntry,
+  clearTimelineForRequest,
+  clearAllTimeline,
+}
 export type { CollectionSettings }
 
 export interface Filestore {

@@ -204,7 +204,11 @@ describe("EnvSidebar", () => {
           envNames={["dev", "staging", "prod"]}
           selectedEnvName={null}
           activeEnvName={undefined}
-          envColors={{ dev: "success", staging: undefined, prod: "nonexistent" }}
+          envColors={{
+            dev: "success",
+            staging: undefined,
+            prod: "nonexistent",
+          }}
           dirty={false}
           onSelectEnv={() => {}}
           onCreate={() => {}}
@@ -230,7 +234,9 @@ describe("EnvSidebar", () => {
     const mutedRGBA = RGBA.fromHex(THEMES[0].textMuted)
     const dot1IsSuccess = dot1.fg.equals(successRGBA)
     const dot2IsSuccess = dot2.fg.equals(successRGBA)
-    expect((dot1IsSuccess && dot2.fg.equals(mutedRGBA)) ||
-           (dot2IsSuccess && dot1.fg.equals(mutedRGBA))).toBe(true)
+    expect(
+      (dot1IsSuccess && dot2.fg.equals(mutedRGBA)) ||
+        (dot2IsSuccess && dot1.fg.equals(mutedRGBA)),
+    ).toBe(true)
   })
 })

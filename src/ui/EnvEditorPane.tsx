@@ -182,9 +182,7 @@ export function EnvEditorPane({
           />
         </box>
       </scrollbox>
-      {error && (
-        <text fg={theme.error}>Error: {error}</text>
-      )}
+      {error && <text fg={theme.error}>Error: {error}</text>}
       {saving && <text fg={theme.info}>Saving...</text>}
     </box>
   )

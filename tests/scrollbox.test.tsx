@@ -65,7 +65,6 @@ describe("ResponsePane scrollbox", () => {
       .filter((l: string) => l.includes("item-"))
     expect(bodyLines.length).toBeGreaterThan(0)
     expect(bodyLines.length).toBeLessThan(100)
-
   })
 })
 

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from "react"
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react"
 import type { ReactNode } from "react"
 import { TextAttributes } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
@@ -94,9 +102,10 @@ export function ThemePickerOverlay({
   }, [])
 
   const filtered = useMemo(
-    () => THEMES.map((t, i) => ({ theme: t, index: i })).filter(
-      ({ theme: t }) => t.name.toLowerCase().includes(search.toLowerCase()),
-    ),
+    () =>
+      THEMES.map((t, i) => ({ theme: t, index: i })).filter(({ theme: t }) =>
+        t.name.toLowerCase().includes(search.toLowerCase()),
+      ),
     [search],
   )
 
@@ -122,7 +131,8 @@ export function ThemePickerOverlay({
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           const pos = filtered.findIndex((f) => f.index === previewIndex)
-          if (pos < filtered.length - 1) setPreviewIndex(filtered[pos + 1]!.index)
+          if (pos < filtered.length - 1)
+            setPreviewIndex(filtered[pos + 1]!.index)
         } else if (name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
@@ -137,73 +147,73 @@ export function ThemePickerOverlay({
 
   return (
     <Overlay visible={visible} width={48} gap={1} padding={1}>
-        <box paddingLeft={4} paddingRight={4}>
-          <box flexDirection="row" justifyContent="space-between">
-            <text fg={theme.text}>Themes</text>
-            <text fg={theme.textMuted}>esc</text>
-          </box>
-          <box paddingTop={1}>
-            <input
-              ref={inputRef}
-              value={search}
-              onInput={(e: string) => setSearch(e)}
-              placeholder="Search themes..."
-              placeholderColor={theme.textMuted}
-              focusedBackgroundColor={theme.backgroundPanel}
-              cursorColor={theme.primary}
-              focusedTextColor={theme.textMuted}
-            />
-          </box>
+      <box paddingLeft={4} paddingRight={4}>
+        <box flexDirection="row" justifyContent="space-between">
+          <text fg={theme.text}>Themes</text>
+          <text fg={theme.textMuted}>esc</text>
         </box>
-        <scrollbox
-          ref={scrollRef}
-          scrollY
-          paddingLeft={1}
-          paddingRight={1}
-          maxHeight={16}
-          scrollbarOptions={{ visible: false }}
-        >
-          <box style={{ flexDirection: "column" }}>
-            {filtered.map(({ theme: t, index: i }) => {
-              const isCurrent = i === activeIndex
-              const isSelected = i === previewIndex
-              return (
-                <box
-                  key={t.name}
-                  id={`theme-${i}`}
-                  style={{
-                    flexDirection: "row",
-                    paddingLeft: isCurrent ? 1 : 3,
-                    paddingRight: 3,
-                    gap: 1,
-                    backgroundColor: isSelected ? theme.primary : undefined,
-                  }}
+        <box paddingTop={1}>
+          <input
+            ref={inputRef}
+            value={search}
+            onInput={(e: string) => setSearch(e)}
+            placeholder="Search themes..."
+            placeholderColor={theme.textMuted}
+            focusedBackgroundColor={theme.backgroundPanel}
+            cursorColor={theme.primary}
+            focusedTextColor={theme.textMuted}
+          />
+        </box>
+      </box>
+      <scrollbox
+        ref={scrollRef}
+        scrollY
+        paddingLeft={1}
+        paddingRight={1}
+        maxHeight={16}
+        scrollbarOptions={{ visible: false }}
+      >
+        <box style={{ flexDirection: "column" }}>
+          {filtered.map(({ theme: t, index: i }) => {
+            const isCurrent = i === activeIndex
+            const isSelected = i === previewIndex
+            return (
+              <box
+                key={t.name}
+                id={`theme-${i}`}
+                style={{
+                  flexDirection: "row",
+                  paddingLeft: isCurrent ? 1 : 3,
+                  paddingRight: 3,
+                  gap: 1,
+                  backgroundColor: isSelected ? theme.primary : undefined,
+                }}
+              >
+                {isCurrent && (
+                  <text fg={isSelected ? "#1a1a1a" : theme.primary}>●</text>
+                )}
+                <text
+                  fg={
+                    isSelected
+                      ? "#1a1a1a"
+                      : isCurrent
+                        ? theme.primary
+                        : theme.text
+                  }
+                  attributes={isSelected ? TextAttributes.BOLD : undefined}
                 >
-                  {isCurrent && (
-                    <text fg={isSelected ? "#1a1a1a" : theme.primary}>●</text>
-                  )}
-                  <text
-                    fg={
-                      isSelected
-                        ? "#1a1a1a"
-                        : isCurrent
-                          ? theme.primary
-                          : theme.text
-                    }
-                    attributes={isSelected ? TextAttributes.BOLD : undefined}
-                  >
-                    {t.name}
-                  </text>
-                </box>
-              )
-            })}
-            {filtered.length === 0 && (
-              <box paddingLeft={3} paddingTop={1}>
-                <text fg={theme.textMuted}>No results found</text>
+                  {t.name}
+                </text>
               </box>
-            )}
-          </box>
-        </scrollbox>
+            )
+          })}
+          {filtered.length === 0 && (
+            <box paddingLeft={3} paddingTop={1}>
+              <text fg={theme.textMuted}>No results found</text>
+            </box>
+          )}
+        </box>
+      </scrollbox>
     </Overlay>
   )
 }

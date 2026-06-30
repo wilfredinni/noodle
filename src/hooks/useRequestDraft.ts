@@ -249,7 +249,12 @@ export function applyDraft(
       } else if (op.authType === "basic") {
         draft.auth = { type: "basic", user: "", pass: "" }
       } else if (op.authType === "api_key") {
-        draft.auth = { type: "api_key", key: "", value: "", placement: "header" }
+        draft.auth = {
+          type: "api_key",
+          key: "",
+          value: "",
+          placement: "header",
+        }
       }
       break
     }
@@ -263,7 +268,8 @@ export function applyDraft(
     case "setApiKeyPlacement": {
       const currentAuth = draft.auth
       if (currentAuth?.type === "api_key") {
-        ;(currentAuth as { placement: "header" | "query" }).placement = op.placement
+        ;(currentAuth as { placement: "header" | "query" }).placement =
+          op.placement
       }
       break
     }
@@ -273,13 +279,11 @@ export function applyDraft(
         draft.timeout = original.timeout
         draft.followRedirects = original.followRedirects
         draft.maxRedirects = original.maxRedirects
-      }
-      else if (op.field === "headers" && op.row !== undefined) {
+      } else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {
         draft.params = revertRow(current.params, original.params, op.row)
-      }
-      else if (op.field === "auth") {
+      } else if (op.field === "auth") {
         if (op.row === undefined || op.row === 0) {
           draft.auth = original.auth
         }
@@ -364,7 +368,8 @@ export function useRequestDraft(
     [apply],
   )
   const setFollowRedirects = useCallback(
-    (followRedirects: boolean) => apply({ kind: "setFollowRedirects", followRedirects }),
+    (followRedirects: boolean) =>
+      apply({ kind: "setFollowRedirects", followRedirects }),
     [apply],
   )
   const setMaxRedirects = useCallback(
@@ -406,15 +411,18 @@ export function useRequestDraft(
     [apply],
   )
   const setAuthTypeCb = useCallback(
-    (authType: "none" | "bearer" | "basic" | "api_key") => apply({ kind: "setAuthType", authType }),
+    (authType: "none" | "bearer" | "basic" | "api_key") =>
+      apply({ kind: "setAuthType", authType }),
     [apply],
   )
   const setAuthFieldCb = useCallback(
-    (authType: string, field: string, value: string) => apply({ kind: "setAuthField", authType, field, value }),
+    (authType: string, field: string, value: string) =>
+      apply({ kind: "setAuthField", authType, field, value }),
     [apply],
   )
   const setApiKeyPlacementCb = useCallback(
-    (placement: "header" | "query") => apply({ kind: "setApiKeyPlacement", placement }),
+    (placement: "header" | "query") =>
+      apply({ kind: "setApiKeyPlacement", placement }),
     [apply],
   )
   const revertField = useCallback(
