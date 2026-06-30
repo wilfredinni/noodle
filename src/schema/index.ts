@@ -7,6 +7,15 @@ export type Method =
   | "HEAD"
   | "OPTIONS"
 
+export type BodyType = "json" | "multipart" | "urlencoded" | "binary"
+
+export interface FormEntry {
+  name: string
+  value: string
+  enabled: boolean
+  type: "text" | "file"
+}
+
 export interface KvEntry {
   value: string
   enabled: boolean
@@ -34,6 +43,9 @@ export interface Request {
   headers: Record<string, KvEntry>
   params: Record<string, KvEntry>
   body?: string
+  bodyType?: BodyType
+  formData?: FormEntry[]
+  filePath?: string
   auth?: Auth
 }
 
