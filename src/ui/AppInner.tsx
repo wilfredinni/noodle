@@ -31,6 +31,7 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
+import { useUIState } from "./tabs/useUIState"
 
 export function AppInner({
   collectionDir,
@@ -104,6 +105,8 @@ export function AppInner({
   )
   const requests = collection?.requests ?? []
 
+  const tabState = useUIState(collectionDir)
+
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
@@ -111,7 +114,17 @@ export function AppInner({
   )
 
   const draft = useRequestDraft(selectedRequest)
-  const eb = useEditBrowse(draft.draft, draft)
+
+  const tabPrefs = tabState.getTab(selectedRequest?.id ?? "")
+  const initialRequestTab = tabPrefs?.requestTab
+  const initialResponseTab = tabPrefs?.responseTab
+
+  const eb = useEditBrowse(draft.draft, draft, {
+    initialTab: initialRequestTab,
+    onTabChange: (tab) => {
+      if (selectedRequest?.id) tabState.setTab(selectedRequest.id, "request", tab)
+    },
+  })
 
   // ── Save logic (provides saveState needed by keymap.setData below) ──
   const {
@@ -410,6 +423,11 @@ export function AppInner({
                     state={responseState}
                     focused={focus === "response"}
                     timelineEntries={timeline.entries}
+                    initialTab={initialResponseTab}
+                    onTabChange={(tab) => {
+                      if (selectedRequest?.id)
+                        tabState.setTab(selectedRequest.id, "response", tab)
+                    }}
                   />
                 </box>
               ) : (
@@ -432,6 +450,11 @@ export function AppInner({
                     state={responseState}
                     focused={focus === "response"}
                     timelineEntries={timeline.entries}
+                    initialTab={initialResponseTab}
+                    onTabChange={(tab) => {
+                      if (selectedRequest?.id)
+                        tabState.setTab(selectedRequest.id, "response", tab)
+                    }}
                   />
                 </>
               )}
