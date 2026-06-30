@@ -80,6 +80,28 @@ describe("substitute — pure $var replacement", () => {
     expect(out.auth).toEqual({ type: "basic", user: "foo", pass: "bar" })
   })
 
+  it("substitutes $x in api_key key and value", () => {
+    const req = makeReq({
+      auth: { type: "api_key", key: "$keyName", value: "$keyVal", placement: "header" },
+    })
+    const out = substitute(req, makeEnv({ keyName: "X-API-Key", keyVal: "secret123" }))
+    expect(out.auth).toEqual({ type: "api_key", key: "X-API-Key", value: "secret123", placement: "header" })
+  })
+
+  it("throws on unresolved variable in api_key key", () => {
+    const req = makeReq({ auth: { type: "api_key", key: "$keyName", value: "v", placement: "header" } })
+    expect(() => substitute(req, makeEnv({}))).toThrow(
+      'requests.substitute: unresolved variable "keyName" in auth.key',
+    )
+  })
+
+  it("throws on unresolved variable in api_key value", () => {
+    const req = makeReq({ auth: { type: "api_key", key: "k", value: "$val", placement: "header" } })
+    expect(() => substitute(req, makeEnv({}))).toThrow(
+      'requests.substitute: unresolved variable "val" in auth.value',
+    )
+  })
+
   it("leaves id, name, method untouched", () => {
     const req = makeReq({ id: "my-id", name: "$name", method: "POST" })
     const out = substitute(req, makeEnv({ name: "should-not-apply" }))
