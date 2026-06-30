@@ -149,102 +149,104 @@ export function Select({
   }, [items, width])
 
   return (
-    <box style={{ position: "relative", width, flexDirection: "column" }}>
-      <box
-        height={1}
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingLeft: 1,
-          paddingRight: 1,
-          backgroundColor: open
-            ? theme.primary
-            : selectedBadgeBg
-              ? selectedBadgeBg
-              : focused
-                ? theme.borderSubtle
-                : theme.backgroundElement,
-        }}
-      >
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
-          {selectedItem ? (
-            renderLabel(
-              badge && selectedBadgeBg
-                ? extractText(selectedItem.label)
-                : selectedItem.label,
-              open || selectedBadgeBg ? contrastColor : theme.text,
-              focused && selectedBadgeBg ? TextAttributes.BOLD : undefined,
-            )
-          ) : (
-            <text fg={theme.textMuted}>{placeholder}</text>
-          )}
-        </box>
-        <text fg={theme.textMuted}> ▼</text>
-      </box>
-
-      {open && (
+    <box style={{ width, flexDirection: "column" }}>
+      <box style={{ position: "relative" }}>
         <box
+          height={1}
           style={{
-            position: "absolute",
-            top: "100%",
-            ...(dropdownAlign === "right" ? { right: 0 } : { left: 0 }),
-            width: dropdownWidth,
-            zIndex: 10000,
-            backgroundColor: theme.background,
-            borderStyle: "single",
-            borderColor: theme.primary,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor: open
+              ? theme.primary
+              : selectedBadgeBg
+                ? selectedBadgeBg
+                : focused
+                  ? theme.borderSubtle
+                  : theme.backgroundElement,
           }}
         >
-          <scrollbox
-            ref={scrollRef}
-            scrollY
-            maxHeight={maxDropdownHeight}
-            scrollbarOptions={{ visible: false }}
+          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+            {selectedItem ? (
+              renderLabel(
+                badge && selectedBadgeBg
+                  ? extractText(selectedItem.label)
+                  : selectedItem.label,
+                open || selectedBadgeBg ? contrastColor : theme.text,
+                focused && selectedBadgeBg ? TextAttributes.BOLD : undefined,
+              )
+            ) : (
+              <text fg={theme.textMuted}>{placeholder}</text>
+            )}
+          </box>
+          <text fg={theme.textMuted}> ▼</text>
+        </box>
+
+        {open && (
+          <box
+            style={{
+              position: "absolute",
+              top: "100%",
+              ...(dropdownAlign === "right" ? { right: 0 } : { left: 0 }),
+              width: dropdownWidth,
+              zIndex: 10000,
+              backgroundColor: theme.background,
+              borderStyle: "single",
+              borderColor: theme.primary,
+            }}
           >
-            <box style={{ flexDirection: "column" }}>
-              {items.map((item, i) => {
-                const isHighlighted = i === highlightIndex
-                return (
-                  <box
-                    key={item.id}
-                    id={`select-item-${item.id}`}
-                    opacity={item.disabled ? 0.4 : 1}
-                    style={{
-                      flexDirection: "row",
-                      gap: 1,
-                      paddingLeft: 1,
-                      paddingRight: 1,
-                      height: item.description ? 2 : 1,
-                      backgroundColor: isHighlighted
-                        ? theme.backgroundElement
-                        : undefined,
-                    }}
-                  >
-                    <box style={{ flexDirection: "column", flexGrow: 1 }}>
-                      {renderLabel(
-                        item.label,
-                        item.id === value
-                          ? theme.primary
-                          : theme.text,
-                        isHighlighted ? TextAttributes.BOLD : undefined,
-                      )}
-                      {item.description && (
-                        <text fg={theme.textMuted}>
-                          {item.description}
-                        </text>
+            <scrollbox
+              ref={scrollRef}
+              scrollY
+              maxHeight={maxDropdownHeight}
+              scrollbarOptions={{ visible: false }}
+            >
+              <box style={{ flexDirection: "column" }}>
+                {items.map((item, i) => {
+                  const isHighlighted = i === highlightIndex
+                  return (
+                    <box
+                      key={item.id}
+                      id={`select-item-${item.id}`}
+                      opacity={item.disabled ? 0.4 : 1}
+                      style={{
+                        flexDirection: "row",
+                        gap: 1,
+                        paddingLeft: 1,
+                        paddingRight: 1,
+                        height: item.description ? 2 : 1,
+                        backgroundColor: isHighlighted
+                          ? theme.backgroundElement
+                          : undefined,
+                      }}
+                    >
+                      <box style={{ flexDirection: "column", flexGrow: 1 }}>
+                        {renderLabel(
+                          item.label,
+                          item.id === value
+                            ? theme.primary
+                            : theme.text,
+                          isHighlighted ? TextAttributes.BOLD : undefined,
+                        )}
+                        {item.description && (
+                          <text fg={theme.textMuted}>
+                            {item.description}
+                          </text>
+                        )}
+                      </box>
+                      {item.id === value && !item.disabled && (
+                        <text fg={theme.primary}>●</text>
                       )}
                     </box>
-                    {item.id === value && !item.disabled && (
-                      <text fg={theme.primary}>●</text>
-                    )}
-                  </box>
-                )
-              })}
-            </box>
-          </scrollbox>
-        </box>
-      )}
+                  )
+                })}
+              </box>
+            </scrollbox>
+          </box>
+        )}
+      </box>
     </box>
   )
 }
