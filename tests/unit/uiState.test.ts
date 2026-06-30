@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { loadUIState, saveUIState, type TabPrefs } from "../../src/ui/tabs/uiState"
+import {
+  loadUIState,
+  saveUIState,
+  loadLastRequest,
+  saveLastRequest,
+  type TabPrefs,
+} from "../../src/ui/tabs/uiState"
 
 describe("uiState I/O", () => {
   let tmpDir: string
@@ -68,5 +74,63 @@ describe("uiState I/O", () => {
     const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
     expect(raw).not.toContain("req_a")
     expect(raw).toContain("req_b")
+  })
+
+  describe("lastRequest", () => {
+    it("loadLastRequest returns undefined for missing file", async () => {
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBeUndefined()
+    })
+
+    it("loadLastRequest returns the lastRequest key when present", async () => {
+      mkdirSync(join(tmpDir, ".noodle"))
+      writeFileSync(
+        join(tmpDir, ".noodle", "ui-state.yml"),
+        "lastRequest: get-posts\n" +
+          "get-posts:\n" +
+          "  request: body\n" +
+          "  response: pretty\n",
+        "utf8",
+      )
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBe("get-posts")
+    })
+
+    it("loadLastRequest returns undefined when key is absent", async () => {
+      mkdirSync(join(tmpDir, ".noodle"))
+      writeFileSync(
+        join(tmpDir, ".noodle", "ui-state.yml"),
+        "get-posts:\n  request: body\n  response: pretty\n",
+        "utf8",
+      )
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBeUndefined()
+    })
+
+    it("loadLastRequest returns undefined for corrupt yaml", async () => {
+      mkdirSync(join(tmpDir, ".noodle"))
+      writeFileSync(join(tmpDir, ".noodle", "ui-state.yml"), "{{ broken yaml\n", "utf8")
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBeUndefined()
+    })
+
+    it("saveLastRequest writes the lastRequest key and preserves existing tab data", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([["get-posts", { requestTab: "body", responseTab: "headers" }]]),
+      )
+      await saveLastRequest(tmpDir, "get-posts")
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: get-posts")
+      expect(raw).toContain("get-posts:")
+      expect(raw).toContain("request: body")
+      expect(raw).toContain("response: headers")
+    })
+
+    it("saveLastRequest creates the directory and file if missing", async () => {
+      await saveLastRequest(tmpDir, "create-post")
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: create-post")
+    })
   })
 })
