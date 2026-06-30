@@ -176,24 +176,22 @@ export function useEditBrowse(
   const editKeyRef = useRef(editKey)
   editKeyRef.current = editKey
 
+  const onTabChangeRef = useRef(options?.onTabChange)
+  onTabChangeRef.current = options?.onTabChange
+
   const isFirstTabChange = useRef(true)
-
-  useEffect(() => {
-    if (options?.initialTab && editState.mode === "inactive") {
-      setInactiveTab(options.initialTab)
-    }
-  }, [options?.initialTab, editState.mode])
-
   useEffect(() => {
     if (isFirstTabChange.current) {
       isFirstTabChange.current = false
       return
     }
-    options?.onTabChange?.(inactiveTab)
-  }, [inactiveTab, options?.onTabChange])
+    onTabChangeRef.current?.(inactiveTab)
+  }, [inactiveTab])
 
   const activeTab =
-    editState.mode !== "inactive" ? editState.cursor.field : inactiveTab
+    editState.mode !== "inactive"
+      ? editState.cursor.field
+      : options?.initialTab ?? inactiveTab
 
   const enterBrowse = useCallback(() => {
     const c = rowCount(draftRef.current)
