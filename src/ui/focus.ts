@@ -7,6 +7,17 @@ export type Focus =
   | "env-header"
   | "env-vars"
 
+export type ExpandTarget = "request" | "response" | null
+
+export function toggleExpand(
+  current: ExpandTarget,
+  focus: "request" | "response",
+): ExpandTarget {
+  if (current === null) return focus
+  if (current === focus) return null
+  return focus
+}
+
 const MAIN_FOCUS_ORDER: Focus[] = ["sidebar", "urlbar", "request", "response"]
 const ENV_FOCUS_ORDER: Focus[] = ["env-sidebar", "env-header", "env-vars"]
 
