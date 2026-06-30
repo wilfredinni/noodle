@@ -16,6 +16,7 @@ import { useJsonHighlight } from "../hooks/useJsonHighlight"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { VarText } from "./VarText"
 import { KeyValueSection } from "./KeyValueSection"
+import { Checkbox } from "./Checkbox"
 
 interface Props {
   request: Request | null
@@ -391,9 +392,7 @@ function SettingsSection({
               ) : idx === 1 ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
                   <text fg={theme.textMuted}>{row.label}: </text>
-                  <text fg={(request.followRedirects ?? true) ? theme.primary : theme.textMuted}>
-                    {(request.followRedirects ?? true) ? "[x]" : "[ ]"}
-                  </text>
+                  <Checkbox checked={request.followRedirects ?? true} theme={theme} />
                 </box>
               ) : (
                 <VarText

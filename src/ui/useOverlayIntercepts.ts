@@ -358,6 +358,17 @@ export function useOverlayIntercepts(opts: {
           }
 
           if (
+            e.name === "space" &&
+            !inEdit &&
+            ee.selectedRowIndex < rows
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+            ee.toggleVar(ee.selectedRowIndex)
+            return
+          }
+
+          if (
             e.name === "x" &&
             e.ctrl &&
             !inEdit &&

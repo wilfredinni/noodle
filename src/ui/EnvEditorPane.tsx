@@ -1,6 +1,7 @@
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import type { EnvDraft } from "../hooks/useEnvironmentEditor"
+import { Checkbox } from "./Checkbox"
 
 export function EnvEditorPane({
   draft,
@@ -107,9 +108,7 @@ export function EnvEditorPane({
                       : undefined,
               }}
             >
-              <text fg={row.enabled ? theme.primary : theme.textMuted}>
-                {row.enabled ? "[x] " : "[ ] "}
-              </text>
+              <Checkbox checked={row.enabled} theme={theme} />
               <input
                 value={editing === "key" ? row.key : row.key}
                 placeholder="Key"
@@ -166,7 +165,7 @@ export function EnvEditorPane({
                 : undefined,
           }}
         >
-          <text fg={theme.textMuted}>[ ] </text>
+          <Checkbox checked={false} theme={theme} />
           <input
             value=""
             placeholder="Key"
