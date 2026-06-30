@@ -18,6 +18,9 @@ import { VarText } from "./VarText"
 import { KeyValueSection } from "./KeyValueSection"
 import { Checkbox } from "./Checkbox"
 import { AuthEditor } from "./AuthEditor"
+import { Select, type SelectItem } from "./Select"
+import { FormEditor } from "./FormEditor"
+import type { BodyType } from "../schema"
 
 interface Props {
   request: Request | null
@@ -31,6 +34,7 @@ interface Props {
   activeEnv?: Environment | null
   onAuthTypeChange?: (t: "none" | "bearer" | "basic" | "api_key") => void
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
+  onBodyTypeChange?: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
 }
 
@@ -54,6 +58,7 @@ export function RequestPane({
   activeEnv,
   onAuthTypeChange,
   onApiKeyPlacementChange,
+  onBodyTypeChange,
   onSelectOpenChange,
 }: Props) {
   const theme = useTheme()
@@ -180,12 +185,16 @@ export function RequestPane({
                 <BodySection
                   request={request}
                   editState={editState}
+                  editKey={editKey}
                   editValue={editValue}
+                  setEditKey={setEditKey}
                   setEditValue={setEditValue}
                   inEdit={inEdit}
                   browseActive={browseActive}
                   theme={theme}
                   activeEnv={activeEnv}
+                  onBodyTypeChange={onBodyTypeChange ?? (() => {})}
+                  onSelectOpenChange={onSelectOpenChange}
                 />
               )}
               {activeTab === "auth" && (
@@ -228,22 +237,42 @@ export function RequestPane({
 function BodySection({
   request,
   editState,
+  editKey,
   editValue,
+  setEditKey,
   setEditValue,
   inEdit,
-  browseActive: _browseActive,
+  browseActive,
   theme,
   activeEnv,
+  onBodyTypeChange,
+  onSelectOpenChange,
 }: {
   request: Request
   editState: EditState
+  editKey: string
   editValue: string
+  setEditKey: (v: string) => void
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
+  onBodyTypeChange: (t: BodyType) => void
+  onSelectOpenChange?: (open: boolean) => void
 }) {
+  const bodyType = request.bodyType ?? "json"
+
+  const bodyTypeItems: SelectItem[] = [
+    { id: "json", label: "JSON" },
+    { id: "multipart", label: "Multipart Form" },
+    { id: "urlencoded", label: "Form URL-Encoded" },
+    { id: "binary", label: "Binary" },
+  ]
+
+  const isFormMode = bodyType === "multipart" || bodyType === "urlencoded"
+  const isBinaryMode = bodyType === "binary"
+
   const body = formatBody(request.body)
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
@@ -257,49 +286,93 @@ function BodySection({
 
   const editingBody = inEdit && editState.cursor.field === "body"
 
-  if (editingBody) {
-    const initialValue = formatBody(editValue)
-    return (
-      <line-number
-        ref={lineNumberRef}
-        minWidth={3}
-        paddingRight={1}
-        fg={theme.textMuted}
-        bg={theme.backgroundPanel}
-        style={{ flexGrow: 1 }}
-        width="100%"
-      >
-        <textarea
-          ref={textareaRef}
-          id="body-field"
-          initialValue={initialValue}
-          onContentChange={handleContentChange}
-          keyBindings={[{ name: "return", shift: true, action: "newline" }]}
-          backgroundColor={theme.backgroundPanel}
-          focusedBackgroundColor={theme.backgroundPanel}
-          textColor={theme.text}
-          cursorColor={theme.primary}
-          focused
-        />
-      </line-number>
-    )
-  }
-
-  if (body === "") {
-    return (
-      <text id="body-field" fg={theme.textMuted}>
-        (none)
-      </text>
-    )
-  }
-
   return (
-    <JsonBodyViewer
-      body={body}
-      theme={theme}
-      id="body-field"
-      activeEnv={activeEnv ?? null}
-    />
+    <box style={{ flexDirection: "column", gap: 1 }}>
+      <Select
+        items={bodyTypeItems}
+        value={bodyType}
+        onChange={(v) => onBodyTypeChange(v as BodyType)}
+        focused={browseActive && editState.cursor.field === "body"}
+        width={22}
+        onOpenChange={onSelectOpenChange}
+      />
+
+      {editingBody ? (
+        isFormMode ? (
+          <FormEditor
+            request={{ formData: request.formData, bodyType: request.bodyType }}
+            editState={editState}
+            editKey={editKey}
+            editValue={editValue}
+            setEditKey={setEditKey}
+            setEditValue={setEditValue}
+            browseActive={browseActive}
+            theme={theme}
+            activeEnv={activeEnv}
+          />
+        ) : isBinaryMode ? (
+          <input
+            id="body-field"
+            value={editValue}
+            placeholder="File path..."
+            onInput={setEditValue}
+            focused
+            textColor={theme.text}
+            cursorColor={theme.primary}
+            backgroundColor={theme.backgroundElement}
+            focusedBackgroundColor={theme.borderSubtle}
+          />
+        ) : (
+          <line-number
+            ref={lineNumberRef}
+            minWidth={3}
+            paddingRight={1}
+            fg={theme.textMuted}
+            bg={theme.backgroundPanel}
+            style={{ flexGrow: 1 }}
+            width="100%"
+          >
+            <textarea
+              ref={textareaRef}
+              id="body-field"
+              initialValue={formatBody(editValue)}
+              onContentChange={handleContentChange}
+              keyBindings={[{ name: "return", shift: true, action: "newline" }]}
+              backgroundColor={theme.backgroundPanel}
+              focusedBackgroundColor={theme.backgroundPanel}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          </line-number>
+        )
+      ) : isFormMode ? (
+        <FormEditor
+          request={{ formData: request.formData, bodyType: request.bodyType }}
+          editState={editState}
+          editKey={editKey}
+          editValue={editValue}
+          setEditKey={setEditKey}
+          setEditValue={setEditValue}
+          browseActive={browseActive}
+          theme={theme}
+          activeEnv={activeEnv}
+        />
+      ) : isBinaryMode ? (
+        <text id="body-field" fg={theme.text}>
+          {request.filePath || "(no file selected)"}
+        </text>
+      ) : body === "" ? (
+        <text id="body-field" fg={theme.textMuted}>(none)</text>
+      ) : (
+        <JsonBodyViewer
+          body={body}
+          theme={theme}
+          id="body-field"
+          activeEnv={activeEnv ?? null}
+        />
+      )}
+    </box>
   )
 }
 

@@ -1,8 +1,10 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
+import { KeymapProvider } from "@opentui/keymap/react"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
 import type { Request } from "../src/schema"
+import { setupKeymap } from "./unit/_helpers"
 
 const testRequest: Request = {
   id: "test",
@@ -35,21 +37,24 @@ const editStateBrowse = {
 
 describe("BodySection — edit mode", () => {
   it("renders body content in edit mode", async () => {
+    const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <box width={80} height={20}>
-          <RequestPane
-            request={testRequest}
-            editState={editStateEditing}
-            editKey=""
-            editValue={testRequest.body!}
-            setEditKey={() => {}}
-            setEditValue={() => {}}
-            focused={true}
-            activeTab="body"
-          />
-        </box>
-      </ThemeProvider>,
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateEditing}
+              editKey=""
+              editValue={testRequest.body!}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
       { width: 80, height: 20 },
     )
     await renderOnce()
@@ -57,24 +62,28 @@ describe("BodySection — edit mode", () => {
     // Should contain the JSON content in the textarea (formatted)
     expect(frame).toContain("name")
     expect(frame).toContain("hello")
+    cleanup()
   })
 
   it("renders formatted JSON content in textarea", async () => {
+    const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <box width={80} height={20}>
-          <RequestPane
-            request={testRequest}
-            editState={editStateEditing}
-            editKey=""
-            editValue={testRequest.body!}
-            setEditKey={() => {}}
-            setEditValue={() => {}}
-            focused={true}
-            activeTab="body"
-          />
-        </box>
-      </ThemeProvider>,
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateEditing}
+              editKey=""
+              editValue={testRequest.body!}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
       { width: 80, height: 20 },
     )
     await renderOnce()
@@ -82,24 +91,28 @@ describe("BodySection — edit mode", () => {
     // Textarea renders the formatted JSON from formatBody
     expect(frame).toContain("name")
     expect(frame).toContain("42")
+    cleanup()
   })
 
   it("renders browse view unchanged when not editing body", async () => {
+    const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <box width={80} height={20}>
-          <RequestPane
-            request={testRequest}
-            editState={editStateBrowse}
-            editKey=""
-            editValue=""
-            setEditKey={() => {}}
-            setEditValue={() => {}}
-            focused={true}
-            activeTab="body"
-          />
-        </box>
-      </ThemeProvider>,
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
       { width: 80, height: 20 },
     )
     await renderOnce()
@@ -109,55 +122,64 @@ describe("BodySection — edit mode", () => {
     expect(frame).toContain("hello")
     // Should NOT contain "(none)"
     expect(frame).not.toContain("(none)")
+    cleanup()
   })
 
   it("renders (none) when body is empty and not editing", async () => {
+    const { keymap, cleanup } = setupKeymap()
     const emptyRequest: Request = {
       ...testRequest,
       body: "",
     }
     const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <box width={80} height={20}>
-          <RequestPane
-            request={emptyRequest}
-            editState={editStateInactive}
-            editKey=""
-            editValue=""
-            setEditKey={() => {}}
-            setEditValue={() => {}}
-            focused={false}
-            activeTab="body"
-          />
-        </box>
-      </ThemeProvider>,
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={emptyRequest}
+              editState={editStateInactive}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={false}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
       { width: 80, height: 20 },
     )
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("(none)")
+    cleanup()
   })
 
   it("renders raw content when editing non-JSON body", async () => {
+    const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <box width={80} height={20}>
-          <RequestPane
-            request={testRequest}
-            editState={editStateEditing}
-            editKey=""
-            editValue="raw text content"
-            setEditKey={() => {}}
-            setEditValue={() => {}}
-            focused={true}
-            activeTab="body"
-          />
-        </box>
-      </ThemeProvider>,
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateEditing}
+              editKey=""
+              editValue="raw text content"
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
       { width: 80, height: 20 },
     )
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("raw text content")
+    cleanup()
   })
 })
