@@ -182,6 +182,62 @@ describe("bodyForSend — bodyType routing", () => {
     const result = await bodyForSend({ bodyType: "binary" }, h)
     expect(result).toBeUndefined()
   })
+
+  it("sets content-type even when user already set one (json)", async () => {
+    const h = new Headers({ "content-type": "text/plain" })
+    const result = await bodyForSend(
+      { bodyType: "json", body: '{"key":"val"}' },
+      h,
+    )
+    expect(result).toBe('{"key":"val"}')
+    expect(h.get("content-type")).toBe("application/json")
+  })
+
+  it("sets content-type even when user already set one (urlencoded)", async () => {
+    const h = new Headers({ "content-type": "application/json" })
+    const result = await bodyForSend(
+      {
+        bodyType: "urlencoded",
+        formData: [{ name: "q", value: "hello", enabled: true, type: "text" }],
+      },
+      h,
+    )
+    expect(result).toBe("q=hello")
+    expect(h.get("content-type")).toBe("application/x-www-form-urlencoded")
+  })
+
+  it("sets content-type even when user already set one (binary)", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+    const { join } = await import("node:path")
+    const dir = mkdtempSync("/tmp/noodle-test-")
+    const filePath = join(dir, "data.bin")
+    writeFileSync(filePath, "binary content")
+
+    try {
+      const h = new Headers({ "content-type": "application/json" })
+      const result = await bodyForSend(
+        { bodyType: "binary", filePath },
+        h,
+      )
+      expect(result).toBeDefined()
+      expect(h.get("content-type")).toBe("application/octet-stream")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("deletes user-set content-type for multipart", async () => {
+    const h = new Headers({ "content-type": "application/json" })
+    const result = await bodyForSend(
+      {
+        bodyType: "multipart",
+        formData: [{ name: "field", value: "val", enabled: true, type: "text" }],
+      },
+      h,
+    )
+    expect(result).toBeDefined()
+    expect(h.get("content-type")).toBeNull()
+  })
 })
 
 describe("bodyForSend — file validation", () => {
