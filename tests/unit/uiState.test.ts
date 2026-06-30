@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { loadUIState, saveUIState, type TabPrefs } from "../../src/ui/tabs/uiState"
+import {
+  loadUIState,
+  saveUIState,
+  loadLastRequest,
+  saveLastRequest,
+  type TabPrefs,
+} from "../../src/ui/tabs/uiState"
 
 describe("uiState I/O", () => {
   let tmpDir: string
@@ -68,5 +74,115 @@ describe("uiState I/O", () => {
     const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
     expect(raw).not.toContain("req_a")
     expect(raw).toContain("req_b")
+  })
+
+  describe("lastRequest", () => {
+    it("saveUIState preserves lastRequest key", async () => {
+      // saveLastRequest writes lastRequest, then saveUIState should preserve it
+      await saveLastRequest(tmpDir, "get-posts")
+      await saveUIState(
+        tmpDir,
+        new Map([["get-posts", { requestTab: "body", responseTab: "headers" }]]),
+      )
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBe("get-posts")
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: get-posts")
+    })
+    it("loadLastRequest returns undefined for missing file", async () => {
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBeUndefined()
+    })
+
+    it("loadLastRequest returns the lastRequest key when present", async () => {
+      mkdirSync(join(tmpDir, ".noodle"))
+      writeFileSync(
+        join(tmpDir, ".noodle", "ui-state.yml"),
+        "lastRequest: get-posts\n" +
+          "get-posts:\n" +
+          "  request: body\n" +
+          "  response: pretty\n",
+        "utf8",
+      )
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBe("get-posts")
+    })
+
+    it("loadLastRequest returns undefined when key is absent", async () => {
+      mkdirSync(join(tmpDir, ".noodle"))
+      writeFileSync(
+        join(tmpDir, ".noodle", "ui-state.yml"),
+        "get-posts:\n  request: body\n  response: pretty\n",
+        "utf8",
+      )
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBeUndefined()
+    })
+
+    it("loadLastRequest returns undefined for corrupt yaml", async () => {
+      mkdirSync(join(tmpDir, ".noodle"))
+      writeFileSync(join(tmpDir, ".noodle", "ui-state.yml"), "{{ broken yaml\n", "utf8")
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBeUndefined()
+    })
+
+    it("saveLastRequest writes the lastRequest key and preserves existing tab data", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([["get-posts", { requestTab: "body", responseTab: "headers" }]]),
+      )
+      await saveLastRequest(tmpDir, "get-posts")
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: get-posts")
+      expect(raw).toContain("get-posts:")
+      expect(raw).toContain("request: body")
+      expect(raw).toContain("response: headers")
+    })
+
+    it("saveLastRequest creates the directory and file if missing", async () => {
+      await saveLastRequest(tmpDir, "create-post")
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: create-post")
+    })
+
+    it("saveUIState removes stale entries when validRequestIds provided", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([
+          ["a", { requestTab: "auth", responseTab: "timeline" }],
+          ["b", { requestTab: "body", responseTab: "headers" }],
+        ]),
+      )
+      await saveUIState(
+        tmpDir,
+        new Map([["a", { requestTab: "auth", responseTab: "timeline" }]]),
+        new Set(["a"]),
+      )
+      const map = await loadUIState(tmpDir)
+      expect(map.has("a")).toBe(true)
+      expect(map.has("b")).toBe(false)
+    })
+
+    it("saveLastRequest removes stale entries when validRequestIds provided", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([["stale-req", { requestTab: "auth", responseTab: "timeline" }]]),
+      )
+      await saveLastRequest(tmpDir, "current-req", new Set(["current-req"]))
+      const map = await loadUIState(tmpDir)
+      expect(map.has("stale-req")).toBe(false)
+      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
+      expect(raw).toContain("lastRequest: current-req")
+    })
+
+    it("saveLastRequest does not remove lastRequest key during orphan cleanup", async () => {
+      await saveUIState(
+        tmpDir,
+        new Map([["some-req", { requestTab: "auth", responseTab: "timeline" }]]),
+      )
+      await saveLastRequest(tmpDir, "some-req", new Set(["some-req"]))
+      const result = await loadLastRequest(tmpDir)
+      expect(result).toBe("some-req")
+    })
   })
 })

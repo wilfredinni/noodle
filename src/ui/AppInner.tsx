@@ -32,6 +32,7 @@ import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
 import { useUIState } from "./tabs/useUIState"
+import { saveLastRequest } from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 
@@ -51,6 +52,7 @@ export function AppInner({
   onEnvChange,
   onEnvListChanged,
   settingsEnv,
+  initialLastRequestId,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -67,6 +69,7 @@ export function AppInner({
   onEnvChange: (name: string | null) => void
   onEnvListChanged: () => Promise<void>
   settingsEnv?: string
+  initialLastRequestId?: string
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -107,13 +110,61 @@ export function AppInner({
   )
   const requests = collection?.requests ?? []
 
-  const { getTab, setTab } = useUIState(collectionDir)
+  const { getTab, setTab } = useUIState(
+    collectionDir,
+    requests.map((r) => r.id),
+  )
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
-  const { selectedIndex, selectedRequest } = useSidebarSelection(
-    requests,
-    () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+  const { selectedIndex, selectedRequest, setSelectedIndex: setSelIdx } =
+    useSidebarSelection(
+      requests,
+      () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+    )
+
+  const initRef = useRef(false)
+
+  useEffect(() => {
+    if (
+      initRef.current ||
+      requests.length === 0 ||
+      !initialLastRequestId
+    )
+      return
+    const idx = requests.findIndex((r) => r.id === initialLastRequestId)
+    initRef.current = true
+    if (idx >= 0) setSelIdx(idx)
+  }, [requests, initialLastRequestId])
+
+  const saveLastReqRef = useRef(false)
+  const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
   )
+
+  useEffect(() => {
+    if (!saveLastReqRef.current) {
+      saveLastReqRef.current = true
+      return
+    }
+    const req = requests[selectedIndex]
+    if (req) {
+      if (saveLastDebounceRef.current)
+        clearTimeout(saveLastDebounceRef.current)
+      saveLastDebounceRef.current = setTimeout(() => {
+        saveLastRequest(
+          collectionDir,
+          req.id,
+          new Set(requests.map((r) => r.id)),
+        ).catch((e: unknown) => {
+          console.error("Failed to save last request:", e)
+        })
+      }, 150)
+    }
+    return () => {
+      if (saveLastDebounceRef.current)
+        clearTimeout(saveLastDebounceRef.current)
+    }
+  }, [selectedIndex])
 
   const draft = useRequestDraft(selectedRequest)
 

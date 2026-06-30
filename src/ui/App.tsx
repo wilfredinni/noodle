@@ -15,6 +15,7 @@ export function App({
   initialEnvName,
   settingsEnv: initialSettingsEnv,
   keybinds: keybinds,
+  lastRequestId,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -22,6 +23,7 @@ export function App({
   initialEnvName?: string
   settingsEnv?: string
   keybinds: Keybinds
+  lastRequestId?: string
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
   const [settingsEnv, setSettingsEnv] = useState<string | undefined>(
@@ -89,6 +91,7 @@ export function App({
         setPreviewIndex={setPreviewIndex}
         onThemeChange={handleThemeChange}
         keybinds={keybinds}
+        initialLastRequestId={lastRequestId}
         initialLayout={config.layout}
         onLayoutChange={handleLayoutChange}
         onEnvChange={handleEnvChange}

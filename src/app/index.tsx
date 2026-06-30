@@ -6,6 +6,7 @@ import { App } from "../ui/App"
 import { parseArgs, type ParsedArgs } from "./args"
 import { env } from "../env"
 import { loadSettings } from "../filestore"
+import { loadLastRequest } from "../ui/tabs/uiState"
 import { createNoodleKeymap } from "../hooks/useKeymap"
 import { parseOverrides } from "../ui/keybind"
 import { join } from "node:path"
@@ -64,6 +65,13 @@ try {
   // settings.yml missing or invalid — ignore, use defaults
 }
 
+let lastRequestId: string | undefined
+try {
+  lastRequestId = await loadLastRequest(args.collectionDir)
+} catch {
+  // ignore — fall through to undefined
+}
+
 const KEYBINDS_PATH = `${process.env.HOME ?? "~"}/.config/noodle/keybinds.yml`
 let keybindsConfig: Record<string, unknown> = {}
 try {
@@ -88,6 +96,7 @@ createRoot(renderer).render(
         initialEnvName={initialEnvName}
         settingsEnv={settingsEnv}
         keybinds={keybinds}
+        lastRequestId={lastRequestId}
       />
     </RendererProvider>
   </KeymapProvider>,

@@ -20,10 +20,16 @@ export interface UseUIStateResult {
 
 const DEFAULTS: TabPrefs = { requestTab: "headers", responseTab: "body" }
 
-export function useUIState(collectionDir: string): UseUIStateResult {
+export function useUIState(
+  collectionDir: string,
+  requestIds: string[],
+): UseUIStateResult {
   const [state, setState] = useState<Map<string, TabPrefs>>(new Map())
   const mapRef = useRef(state)
   mapRef.current = state
+
+  const requestIdsRef = useRef(requestIds)
+  requestIdsRef.current = requestIds
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -60,10 +66,15 @@ export function useUIState(collectionDir: string): UseUIStateResult {
       setState(next)
 
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(
-        () => saveUIState(collectionDir, next).catch(() => {}),
-        300,
-      )
+      debounceRef.current = setTimeout(() => {
+        saveUIState(
+          collectionDir,
+          next,
+          new Set(requestIdsRef.current),
+        ).catch((e: unknown) => {
+          console.error("Failed to save UI state:", e)
+        })
+      }, 300)
     },
     [collectionDir],
   )
