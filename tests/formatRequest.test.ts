@@ -134,4 +134,14 @@ describe("formatAuth", () => {
       "basic: alice:\u2022\u2022\u2022\u2022",
     )
   })
+  it("masks api_key value with fixed dots, shows key in cleartext", () => {
+    expect(
+      formatAuth({
+        type: "api_key",
+        key: "X-API-Key",
+        value: "my-secret",
+        placement: "header",
+      }),
+    ).toBe("api_key: X-API-Key:\u2022\u2022\u2022\u2022")
+  })
 })
