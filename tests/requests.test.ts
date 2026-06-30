@@ -183,3 +183,88 @@ describe("bodyForSend — bodyType routing", () => {
     expect(result).toBeUndefined()
   })
 })
+
+describe("bodyForSend — file validation", () => {
+  it("throws when multipart file entry path does not exist", async () => {
+    const h = new Headers()
+    const fn = () =>
+      bodyForSend(
+        {
+          bodyType: "multipart",
+          formData: [
+            { name: "photo", value: "/nonexistent/path/photo.png", enabled: true, type: "file" },
+          ],
+        },
+        h,
+      )
+    await expect(fn()).rejects.toThrow("file not found: /nonexistent/path/photo.png")
+  })
+
+  it("throws when binary filePath does not exist", async () => {
+    const h = new Headers()
+    const fn = () =>
+      bodyForSend(
+        { bodyType: "binary", filePath: "/nonexistent/path/data.bin" },
+        h,
+      )
+    await expect(fn()).rejects.toThrow("file not found: /nonexistent/path/data.bin")
+  })
+
+  it("does not throw when multipart file entry exists", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+    const { join } = await import("node:path")
+    const dir = mkdtempSync("/tmp/noodle-test-")
+    const filePath = join(dir, "test.txt")
+    writeFileSync(filePath, "hello")
+
+    try {
+      const h = new Headers()
+      const result = await bodyForSend(
+        {
+          bodyType: "multipart",
+          formData: [
+            { name: "file", value: filePath, enabled: true, type: "file" },
+          ],
+        },
+        h,
+      )
+      expect(result).toBeDefined()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not throw when binary filePath exists", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+    const { join } = await import("node:path")
+    const dir = mkdtempSync("/tmp/noodle-test-")
+    const filePath = join(dir, "data.bin")
+    writeFileSync(filePath, "binary content")
+
+    try {
+      const h = new Headers()
+      const result = await bodyForSend(
+        { bodyType: "binary", filePath },
+        h,
+      )
+      expect(result).toBeDefined()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not validate text entries in multipart (no file check)", async () => {
+    const h = new Headers()
+    // Text entries with made-up values should not trigger file validation
+    const result = await bodyForSend(
+      {
+        bodyType: "multipart",
+        formData: [
+          { name: "username", value: "john", enabled: true, type: "text" },
+        ],
+      },
+      h,
+    )
+    expect(result).toBeDefined()
+  })
+})
