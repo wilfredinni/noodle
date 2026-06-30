@@ -30,17 +30,21 @@ export function ResponsePane({
   state,
   focused = false,
   timelineEntries,
+  initialTab,
+  onTabChange,
 }: {
   state: SendState
   focused?: boolean
   timelineEntries?: TimelineEntry[]
+  initialTab?: "body" | "headers" | "timeline"
+  onTabChange?: (tab: "body" | "headers" | "timeline") => void
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
 
   const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
-    "body",
+    initialTab ?? "body",
   )
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const isDone = state.status === "done"
@@ -67,6 +71,23 @@ export function ResponsePane({
     else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
     else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
   })
+
+  // Sync activeTab when initialTab prop changes
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [initialTab])
+
+  // Notify parent on tab changes from user interaction (skip first render)
+  const isFirstTabRender = useRef(true)
+  useEffect(() => {
+    if (isFirstTabRender.current) {
+      isFirstTabRender.current = false
+      return
+    }
+    onTabChange?.(activeTab)
+  }, [activeTab, onTabChange])
 
   // Spinner animation tick
   useEffect(() => {
