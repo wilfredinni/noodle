@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Request } from "../schema"
 import {
   initialEditState,
@@ -147,14 +147,22 @@ export interface UseEditBrowseResult {
   cycleInactiveTab: (delta: 1 | -1) => void
 }
 
+export interface UseEditBrowseOptions {
+  initialTab?: FieldKind
+  onTabChange?: (tab: FieldKind) => void
+}
+
 export function useEditBrowse(
   draft: Request | null,
   draftMutators: UseRequestDraftResult,
+  options?: UseEditBrowseOptions,
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
   const [editValue, setEditValue] = useState("")
   const [editKey, setEditKey] = useState("")
-  const [inactiveTab, setInactiveTab] = useState<FieldKind>("headers")
+  const [inactiveTab, setInactiveTab] = useState<FieldKind>(
+    options?.initialTab ?? "headers",
+  )
 
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -168,8 +176,27 @@ export function useEditBrowse(
   const editKeyRef = useRef(editKey)
   editKeyRef.current = editKey
 
+  const onTabChangeRef = useRef(options?.onTabChange)
+  onTabChangeRef.current = options?.onTabChange
+
+  // Sync inactiveTab when initialTab prop changes (request switch)
+  useEffect(() => {
+    setInactiveTab(options?.initialTab ?? "headers")
+  }, [options?.initialTab])
+
+  const isFirstTabChange = useRef(true)
+  useEffect(() => {
+    if (isFirstTabChange.current) {
+      isFirstTabChange.current = false
+      return
+    }
+    onTabChangeRef.current?.(inactiveTab)
+  }, [inactiveTab])
+
   const activeTab =
-    editState.mode !== "inactive" ? editState.cursor.field : inactiveTab
+    editState.mode !== "inactive"
+      ? editState.cursor.field
+      : options?.initialTab ?? inactiveTab
 
   const enterBrowse = useCallback(() => {
     const c = rowCount(draftRef.current)

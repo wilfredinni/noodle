@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { Sidebar } from "./Sidebar"
@@ -31,6 +31,9 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
+import { useUIState } from "./tabs/useUIState"
+import type { FieldKind } from "./editMode"
+import type { ResponseTabKind } from "./tabs/uiState"
 
 export function AppInner({
   collectionDir,
@@ -104,6 +107,8 @@ export function AppInner({
   )
   const requests = collection?.requests ?? []
 
+  const { getTab, setTab } = useUIState(collectionDir)
+
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
@@ -111,7 +116,29 @@ export function AppInner({
   )
 
   const draft = useRequestDraft(selectedRequest)
-  const eb = useEditBrowse(draft.draft, draft)
+
+  const tabPrefs = getTab(selectedRequest?.id ?? "")
+  const initialRequestTab = tabPrefs?.requestTab
+  const initialResponseTab = tabPrefs?.responseTab
+
+  const onRequestTabChange = useCallback(
+    (tab: FieldKind) => {
+      if (selectedRequest?.id) setTab(selectedRequest.id, "request", tab)
+    },
+    [selectedRequest?.id, setTab],
+  )
+
+  const onResponseTabChange = useCallback(
+    (tab: ResponseTabKind) => {
+      if (selectedRequest?.id) setTab(selectedRequest.id, "response", tab)
+    },
+    [selectedRequest?.id, setTab],
+  )
+
+  const eb = useEditBrowse(draft.draft, draft, {
+    initialTab: initialRequestTab,
+    onTabChange: onRequestTabChange,
+  })
 
   // ── Save logic (provides saveState needed by keymap.setData below) ──
   const {
@@ -410,6 +437,8 @@ export function AppInner({
                     state={responseState}
                     focused={focus === "response"}
                     timelineEntries={timeline.entries}
+                    initialTab={initialResponseTab}
+                    onTabChange={onResponseTabChange}
                   />
                 </box>
               ) : (
@@ -432,6 +461,8 @@ export function AppInner({
                     state={responseState}
                     focused={focus === "response"}
                     timelineEntries={timeline.entries}
+                    initialTab={initialResponseTab}
+                    onTabChange={onResponseTabChange}
                   />
                 </>
               )}
