@@ -431,6 +431,7 @@ export function AppInner({
                     activeEnv={envState.activeEnv}
                     onAuthTypeChange={draft.setAuthType}
                     onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                    onBodyTypeChange={draft.setBodyType}
                     onSelectOpenChange={setSelectOpen}
                   />
                   <ResponsePane
@@ -455,6 +456,7 @@ export function AppInner({
                     activeEnv={envState.activeEnv}
                     onAuthTypeChange={draft.setAuthType}
                     onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                    onBodyTypeChange={draft.setBodyType}
                     onSelectOpenChange={setSelectOpen}
                   />
                   <ResponsePane

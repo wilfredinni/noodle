@@ -1,4 +1,4 @@
-import type { Auth, Collection, KvEntry, Method, Request } from "../../schema"
+import type { Auth, BodyType, Collection, FormEntry, KvEntry, Method, Request } from "../../schema"
 
 export interface Normalized {
   openapi: string
@@ -33,6 +33,111 @@ const METHOD_UPPER: Record<string, Method> = {
 
 function isMapping(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v)
+}
+
+const SUPPORTED_MEDIA: readonly string[] = [
+  "application/json",
+  "multipart/form-data",
+  "application/x-www-form-urlencoded",
+]
+
+const FILE_FORMATS = new Set(["binary", "base64"])
+
+function pickMediaType(
+  content: Record<string, unknown>,
+): string | null {
+  for (const mt of SUPPORTED_MEDIA) {
+    if (mt in content) return mt
+  }
+  return null
+}
+
+function collectBody(op: Record<string, unknown>): {
+  body?: string
+  bodyType?: Extract<BodyType, "json" | "multipart" | "urlencoded">
+  formData?: FormEntry[]
+} {
+  const rb = op.requestBody
+  if (!isMapping(rb)) return {}
+
+  const content = rb.content
+  if (!isMapping(content)) return {}
+
+  const mt = pickMediaType(content as Record<string, unknown>)
+  if (mt === null) return {}
+
+  const mediaObj = (content as Record<string, unknown>)[mt]
+  if (!isMapping(mediaObj)) return {}
+
+  const schema = mediaObj.schema
+  if (!isMapping(schema)) {
+    if (mt === "application/json") return { body: "{}", bodyType: "json" }
+    return {}
+  }
+
+  if (mt === "application/json") {
+    const example = (schema as Record<string, unknown>).example
+    if (example !== undefined) {
+      return { body: JSON.stringify(example), bodyType: "json" }
+    }
+    const props = (schema as Record<string, unknown>).properties
+    if (isMapping(props)) {
+      const entries: Record<string, string> = {}
+      for (const [key] of Object.entries(props)) {
+        entries[key] = `$${key}`
+      }
+      return { body: JSON.stringify(entries), bodyType: "json" }
+    }
+    return { body: "{}", bodyType: "json" }
+  }
+
+  if (mt === "multipart/form-data") {
+    const props = (schema as Record<string, unknown>).properties
+    if (!isMapping(props)) return { bodyType: "multipart", formData: [] }
+
+    const encoding = (mediaObj as Record<string, unknown>).encoding
+    const fileFields = new Set<string>()
+    if (isMapping(encoding)) {
+      for (const key of Object.keys(encoding as Record<string, unknown>)) {
+        fileFields.add(key)
+      }
+    }
+    for (const [key, prop] of Object.entries(props)) {
+      if (isMapping(prop) && typeof (prop as Record<string, unknown>).format === "string" &&
+          FILE_FORMATS.has((prop as Record<string, unknown>).format as string)) {
+        fileFields.add(key)
+      }
+    }
+
+    const formData: FormEntry[] = []
+    for (const [key] of Object.entries(props)) {
+      formData.push({
+        name: key,
+        value: "",
+        enabled: true,
+        type: fileFields.has(key) ? "file" : "text",
+      })
+    }
+    return { bodyType: "multipart", formData }
+  }
+
+  if (mt === "application/x-www-form-urlencoded") {
+    const props = (schema as Record<string, unknown>).properties
+    if (!isMapping(props)) return { bodyType: "urlencoded", formData: [] }
+
+    const formData: FormEntry[] = []
+    for (const [key] of Object.entries(props)) {
+      formData.push({
+        name: key,
+        value: `$${key}`,
+        enabled: true,
+        type: "text",
+      })
+    }
+    return { bodyType: "urlencoded", formData }
+  }
+
+  return {}
 }
 
 function collectParams(
@@ -212,7 +317,7 @@ export function mapCollection(n: Normalized): Collection {
         timeout: 0,
         headers,
         params,
-        body: undefined,
+        ...collectBody(op),
         auth: resolveAuth(op, n),
       })
     }

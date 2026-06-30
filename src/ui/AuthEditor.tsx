@@ -149,41 +149,25 @@ export function AuthEditor({
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
       <box
+        id="auth-field"
         style={{
-          flexDirection: "column",
           zIndex: typeSelectOpen ? 1 : undefined,
+          backgroundColor: isTypeSelectorActive
+            ? theme.backgroundElement
+            : undefined,
         }}
       >
-        <box
-          id="auth-field"
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={
-            isTypeSelectorActive ? theme.primary : theme.borderSubtle
-          }
-          style={{
-            zIndex: typeSelectOpen ? 1 : undefined,
-            backgroundColor: isTypeSelectorActive
-              ? theme.backgroundElement
-              : undefined,
-            paddingLeft: 1,
+        <Select
+          items={AUTH_TYPE_ITEMS}
+          value={type}
+          onChange={(id) => {
+            if (id === type) return
+            onAuthTypeChange(id as "none" | "bearer" | "basic" | "api_key")
           }}
-        >
-          <box style={{ flexDirection: "row", gap: 1 }}>
-            <text fg={theme.text}>Type:</text>
-            <Select
-              items={AUTH_TYPE_ITEMS}
-              value={type}
-              onChange={(id) => {
-                if (id === type) return
-                onAuthTypeChange(id as "none" | "bearer" | "basic" | "api_key")
-              }}
-              focused={isTypeSelectorActive}
-              badge={false}
-              onOpenChange={handleTypeSelectOpen}
-            />
-          </box>
-        </box>
+          focused={isTypeSelectorActive}
+          badge={false}
+          onOpenChange={handleTypeSelectOpen}
+        />
       </box>
 
       {fieldDefs.map((def) => {

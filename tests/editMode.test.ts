@@ -11,6 +11,8 @@ import {
   toggleSubfield,
   type EditState,
 } from "../src/ui/editMode"
+import { applyDraft } from "../src/hooks/useRequestDraft"
+import type { Request } from "../src/schema"
 
 const inactive: EditState = initialEditState()
 
@@ -74,7 +76,7 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("body")
-    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(0)
@@ -152,12 +154,36 @@ describe("moveRowCursor", () => {
     expect(moveRowCursor(s, -1, c(0, 0))).toBe(s)
     expect(s.cursor.addingRow).toBe(true)
   })
-  it("scalar field (body) is a no-op", () => {
+  it("body Select row (row 0) clamps on up arrow", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
     s = moveFieldCursor(s, +1, c(2, 1))
-    s = moveFieldCursor(s, +1, c(2, 1))
+    s = moveFieldCursor(s, +1, { ...c(2, 1), body: 2 })
     expect(s.cursor.field).toBe("body")
-    expect(moveRowCursor(s, +1, c(2, 1))).toBe(s)
+    expect(s.cursor.row).toBe(0)
+    // Enter on row 0 (Select) is handled differently — see enterEdit hook
+    // Down goes to row 1 (first content row)
+    s = moveRowCursor(s, +1, { ...c(2, 1), body: 2 })
+    expect(s.cursor.row).toBe(1)
+    expect(s.cursor.addingRow).toBe(false)
+    // Up from row 1 goes back to row 0 (Select)
+    s = moveRowCursor(s, -1, { ...c(2, 1), body: 2 })
+    expect(s.cursor.row).toBe(0)
+    expect(s.cursor.addingRow).toBe(false)
+  })
+  it("body Select row (row 0) to addingRow when count=1 (no entries)", () => {
+    let s = enterEditBrowse(inactive, c(2, 0))
+    s = moveFieldCursor(s, +1, c(2, 1))
+    s = moveFieldCursor(s, +1, { ...c(2, 1), body: 1 })
+    expect(s.cursor.field).toBe("body")
+    expect(s.cursor.row).toBe(0)
+    // Down with no content rows goes to addingRow (for adding first entry)
+    s = moveRowCursor(s, +1, { ...c(2, 1), body: 1 })
+    expect(s.cursor.addingRow).toBe(true)
+    expect(s.cursor.row).toBe(-1)
+    // Up from addingRow goes back to row 0 (Select)
+    s = moveRowCursor(s, -1, { ...c(2, 1), body: 1 })
+    expect(s.cursor.row).toBe(0)
+    expect(s.cursor.addingRow).toBe(false)
   })
   it("no-op when editing", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
@@ -176,15 +202,16 @@ describe("beginEditing", () => {
     expect(e.mode).toBe("editing")
     expect(e.editingRow).toBe(1)
   })
-  it("browsing → editing, editingRow -1 for scalar field (headers empty)", () => {
+  it("browsing → editing, editingRow follows cursor.row for body (no longer addingRow)", () => {
     let s = enterEditBrowse(inactive, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     expect(s.cursor.field).toBe("params")
-    s = moveFieldCursor(s, +1, c(0, 0))
+    s = moveFieldCursor(s, +1, { ...c(0, 0), body: 0 })
     expect(s.cursor.field).toBe("body")
+    expect(s.cursor.row).toBe(0)
     const e = beginEditing(s)
     expect(e.mode).toBe("editing")
-    expect(e.editingRow).toBe(-1)
+    expect(e.editingRow).toBe(0)
   })
   it("enters edit mode for auth (type selector row)", () => {
     const counts = { headers: 0, params: 0, body: 0, auth: 2, settings: 3 }
@@ -272,13 +299,13 @@ describe("beginEditing", () => {
     expect(e.cursor.subfield).toBe("key")
   })
 
-  it("does not set subfield for body (scalar)", () => {
+  it("sets subfield to 'key' for body row", () => {
     let s = enterEditBrowse(inactive, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     expect(s.cursor.field).toBe("body")
     const e = beginEditing(s)
-    expect(e.cursor.subfield).toBeUndefined()
+    expect(e.cursor.subfield).toBe("key")
   })
 })
 
@@ -355,14 +382,14 @@ describe("toggleSubfield", () => {
     expect(toggleSubfield(browsing)).toBe(browsing)
   })
 
-  it("no-op for body field (no subfield)", () => {
+  it("toggles key → value for body field", () => {
     let s = enterEditBrowse(inactive, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     expect(s.cursor.field).toBe("body")
     const editing = beginEditing(s)
-    expect(editing.cursor.subfield).toBeUndefined()
-    expect(toggleSubfield(editing)).toBe(editing)
+    expect(editing.cursor.subfield).toBe("key")
+    expect(toggleSubfield(editing).cursor.subfield).toBe("value")
   })
 
   it("beginEditing on auth row 0 (type selector) enters edit mode", () => {
@@ -414,5 +441,62 @@ describe("moveRowCursor — settings", () => {
     expect(s.cursor.addingRow).toBe(false)
     s = moveRowCursor(s, +1, c(0, 0))
     expect(s.cursor.addingRow).toBe(false)
+  })
+})
+
+function makeReq(over: Partial<Request> = {}): Request {
+  return {
+    id: "r1",
+    name: "Test",
+    method: "GET",
+    url: "https://example.com",
+    headers: {},
+    params: {},
+    timeout: 0,
+    followRedirects: true,
+    maxRedirects: 5,
+    auth: { type: "none" },
+    ...over,
+  }
+}
+
+describe("toggleFormRowType — applyDraft setFormRow", () => {
+  it("toggles form entry from text to file", () => {
+    const original = makeReq({ bodyType: "multipart", formData: [{ name: "avatar", value: "/path/to/photo.png", enabled: true, type: "text" }] })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setFormRow", index: 0, name: "avatar", value: "/path/to/photo.png", formType: "file" })
+    expect(next.get("r1")!.formData![0]!.type).toBe("file")
+    expect(next.get("r1")!.formData![0]!.name).toBe("avatar")
+    expect(next.get("r1")!.formData![0]!.value).toBe("/path/to/photo.png")
+  })
+
+  it("toggles form entry from file to text", () => {
+    const original = makeReq({ bodyType: "multipart", formData: [{ name: "avatar", value: "/path/to/photo.png", enabled: true, type: "file" }] })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setFormRow", index: 0, name: "avatar", value: "/path/to/photo.png", formType: "text" })
+    expect(next.get("r1")!.formData![0]!.type).toBe("text")
+    expect(next.get("r1")!.formData![0]!.name).toBe("avatar")
+    expect(next.get("r1")!.formData![0]!.value).toBe("/path/to/photo.png")
+  })
+
+  it("preserves value when toggling type", () => {
+    const original = makeReq({ bodyType: "multipart", formData: [{ name: "data", value: "some/path.txt", enabled: true, type: "text" }] })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setFormRow", index: 0, name: "data", value: "some/path.txt", formType: "file" })
+    expect(next.get("r1")!.formData![0]!.type).toBe("file")
+    expect(next.get("r1")!.formData![0]!.value).toBe("some/path.txt")
+  })
+
+  it("detects file-typed entries in new rows via @file() syntax", () => {
+    const value = "@file(/tmp/upload.bin)"
+    const fileMatch = value.match(/^@file\((.+)\)$/)
+    expect(fileMatch).not.toBeNull()
+    expect(fileMatch![1]).toBe("/tmp/upload.bin")
+  })
+
+  it("does not flag non-@file values as file type", () => {
+    const value = "plain text"
+    const fileMatch = value.match(/^@file\((.+)\)$/)
+    expect(fileMatch).toBeNull()
   })
 })

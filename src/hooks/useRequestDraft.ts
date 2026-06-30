@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Request, Auth, Method, KvEntry } from "../schema"
+import type { BodyType, FormEntry, Request, Auth, Method, KvEntry } from "../schema"
 import type { FieldKind } from "../ui/editMode"
 import { parseUrlAndParams } from "../ui/urlParams"
 
@@ -23,8 +23,21 @@ export type DraftOp =
   | { kind: "setAuthType"; authType: "none" | "bearer" | "basic" | "api_key" }
   | { kind: "setAuthField"; authType: string; field: string; value: string }
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
+  | { kind: "setBodyType"; bodyType: BodyType }
+  | { kind: "setFormRow"; index: number; name: string; value: string; formType: "text" | "file" }
+  | { kind: "addFormRow"; name: string; value: string; formType: "text" | "file" }
+  | { kind: "removeFormRow"; index: number }
+  | { kind: "toggleFormRow"; index: number }
+  | { kind: "setFilePath"; filePath: string }
 
 const authTypeCache = new Map<string, Record<string, Auth>>()
+
+interface CachedBody {
+  body?: string
+  formData?: FormEntry[]
+  filePath?: string
+}
+const bodyCache = new Map<string, Record<string, CachedBody>>()
 
 export function parseRow(input: string): { key: string; value: string } {
   const trimmed = input.trim()
@@ -76,9 +89,14 @@ export function requestEquals(a: Request, b: Request): boolean {
   if (a.followRedirects !== b.followRedirects) return false
   if (a.maxRedirects !== b.maxRedirects) return false
   if (a.body !== b.body) return false
+  if ((a.bodyType ?? "json") !== (b.bodyType ?? "json")) return false
+  if (a.filePath !== b.filePath) return false
   if (!recordsEqual(a.headers, b.headers)) return false
   if (!recordsEqual(a.params, b.params)) return false
   if (!authEqual(a.auth, b.auth)) return false
+  const fa = a.formData ?? []
+  const fb = b.formData ?? []
+  if (!formEntriesEqual(fa, fb)) return false
   return true
 }
 
@@ -172,6 +190,20 @@ function toggleRow(
   return out
 }
 
+function formEntriesEqual(a: FormEntry[], b: FormEntry[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i]!.name !== b[i]!.name ||
+      a[i]!.value !== b[i]!.value ||
+      a[i]!.enabled !== b[i]!.enabled ||
+      a[i]!.type !== b[i]!.type
+    )
+      return false
+  }
+  return true
+}
+
 export function applyDraft(
   map: Map<string, Request>,
   id: string,
@@ -197,6 +229,51 @@ export function applyDraft(
     }
     case "setBody":
       draft.body = op.body
+      break
+    case "setBodyType": {
+      const normalizedCurrent = draft.bodyType ?? "json"
+      const normalizedOp = op.bodyType ?? "json"
+      if (normalizedOp !== normalizedCurrent) {
+        const curBodyType = draft.bodyType ?? "json"
+        const idCache = bodyCache.get(id) ?? {}
+        idCache[curBodyType] = { body: draft.body, formData: draft.formData, filePath: draft.filePath }
+        bodyCache.set(id, idCache)
+
+        draft.bodyType = op.bodyType
+        const cached = bodyCache.get(id)?.[normalizedOp]
+        if (cached) {
+          draft.body = cached.body
+          draft.formData = cached.formData
+          draft.filePath = cached.filePath
+        } else {
+          draft.body = undefined
+          draft.formData = undefined
+          draft.filePath = undefined
+        }
+      }
+      break
+    }
+    case "setFormRow":
+      draft.formData = current.formData ?? []
+      if (draft.formData[op.index]) {
+        draft.formData = draft.formData.map((e, i) =>
+          i === op.index ? { name: op.name, value: op.value, enabled: e.enabled, type: op.formType } : e,
+        )
+      }
+      break
+    case "addFormRow":
+      draft.formData = [...(current.formData ?? []), { name: op.name, value: op.value, enabled: true, type: op.formType }]
+      break
+    case "removeFormRow":
+      draft.formData = (current.formData ?? []).filter((_, i) => i !== op.index)
+      break
+    case "toggleFormRow":
+      draft.formData = (current.formData ?? []).map((e, i) =>
+        i === op.index ? { ...e, enabled: !e.enabled } : e,
+      )
+      break
+    case "setFilePath":
+      draft.filePath = op.filePath
       break
     case "setHeaderRow": {
       const { key, value } = op
@@ -282,8 +359,12 @@ export function applyDraft(
       break
     }
     case "revertField": {
-      if (op.field === "body") draft.body = original.body
-      else if (op.field === "settings") {
+      if (op.field === "body") {
+        draft.body = original.body
+        draft.bodyType = original.bodyType
+        draft.formData = original.formData
+        draft.filePath = original.filePath
+      } else if (op.field === "settings") {
         draft.timeout = original.timeout
         draft.followRedirects = original.followRedirects
         draft.maxRedirects = original.maxRedirects
@@ -328,6 +409,12 @@ export interface UseRequestDraftResult {
   setAuthType: (t: "none" | "bearer" | "basic" | "api_key") => void
   setAuthField: (authType: string, field: string, value: string) => void
   setApiKeyPlacement: (placement: "header" | "query") => void
+  setBodyType: (t: BodyType) => void
+  setFormRow: (index: number, name: string, value: string, formType: "text" | "file") => void
+  addFormRow: (name: string, value: string, formType: "text" | "file") => void
+  removeFormRow: (index: number) => void
+  toggleFormRow: (index: number) => void
+  setFilePath: (path: string) => void
   markSaved: () => void
 }
 
@@ -433,6 +520,32 @@ export function useRequestDraft(
       apply({ kind: "setApiKeyPlacement", placement }),
     [apply],
   )
+  const setBodyTypeCb = useCallback(
+    (bodyType: BodyType) => apply({ kind: "setBodyType", bodyType }),
+    [apply],
+  )
+  const setFormRowCb = useCallback(
+    (index: number, name: string, value: string, formType: "text" | "file") =>
+      apply({ kind: "setFormRow", index, name, value, formType }),
+    [apply],
+  )
+  const addFormRowCb = useCallback(
+    (name: string, value: string, formType: "text" | "file") =>
+      apply({ kind: "addFormRow", name, value, formType }),
+    [apply],
+  )
+  const removeFormRowCb = useCallback(
+    (index: number) => apply({ kind: "removeFormRow", index }),
+    [apply],
+  )
+  const toggleFormRowCb = useCallback(
+    (index: number) => apply({ kind: "toggleFormRow", index }),
+    [apply],
+  )
+  const setFilePathCb = useCallback(
+    (filePath: string) => apply({ kind: "setFilePath", filePath }),
+    [apply],
+  )
   const revertField = useCallback(
     (field: FieldKind, row?: number) =>
       apply({ kind: "revertField", field, row }),
@@ -448,6 +561,7 @@ export function useRequestDraft(
     const currentDraft =
       mapRef.current.get(selectedRequest.id) ?? selectedRequest
     authTypeCache.delete(selectedRequest.id)
+    bodyCache.delete(selectedRequest.id)
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(selectedRequest.id, { ...currentDraft })
@@ -501,6 +615,12 @@ export function useRequestDraft(
       setAuthType: setAuthTypeCb,
       setAuthField: setAuthFieldCb,
       setApiKeyPlacement: setApiKeyPlacementCb,
+      setBodyType: setBodyTypeCb,
+      setFormRow: setFormRowCb,
+      addFormRow: addFormRowCb,
+      removeFormRow: removeFormRowCb,
+      toggleFormRow: toggleFormRowCb,
+      setFilePath: setFilePathCb,
       markSaved,
     }),
     [
@@ -526,6 +646,12 @@ export function useRequestDraft(
       setAuthTypeCb,
       setAuthFieldCb,
       setApiKeyPlacementCb,
+      setBodyTypeCb,
+      setFormRowCb,
+      addFormRowCb,
+      removeFormRowCb,
+      toggleFormRowCb,
+      setFilePathCb,
       markSaved,
     ],
   )

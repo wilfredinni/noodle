@@ -33,10 +33,15 @@ function rowCount(req: Request | null): SectionRowCount {
     else if (a.type === "basic") authRows = 3
     else if (a.type === "api_key") authRows = 4
   }
+  const body = req.bodyType === "none"
+    ? 1
+    : req.bodyType === "urlencoded" || req.bodyType === "multipart"
+    ? 1 + (req.formData?.length ?? 0)
+    : 2
   return {
     headers: Object.keys(req.headers).length,
     params: Object.keys(req.params).length,
-    body: 0,
+    body,
     auth: authRows,
     settings: 3,
   }
@@ -49,7 +54,26 @@ function currentValueFor(
   addingRow: boolean,
 ): string {
   if (!draft) return ""
-  if (field === "body") return draft.body ?? ""
+  if (field === "body") {
+    if (row === 0) return ""
+    if (addingRow) {
+      const bt = draft.bodyType
+      if (bt === "urlencoded" || bt === "multipart") return ""
+      if (bt === "binary") return draft.filePath ?? ""
+      return draft.body ?? ""
+    }
+    const formData = draft.formData
+    const formIdx = row - 1
+    if (formData && formIdx >= 0 && formIdx < formData.length) {
+      const entry = formData[formIdx]!
+      return `${entry.name}: ${entry.value}`
+    }
+    if (draft.bodyType === "binary") {
+      return draft.filePath ?? ""
+    }
+    if (draft.bodyType === "none") return ""
+    return draft.body ?? ""
+  }
   if (field === "auth") {
     const a = draft.auth
     if (!a || a.type === "none") return ""
@@ -109,6 +133,19 @@ function currentKeyValueFor(
     if (row === 2) return { key: "", value: String(draft.maxRedirects ?? 5) }
     return { key: "", value: "" }
   }
+  if (field === "body") {
+    if (row === 0) return { key: "", value: "" }
+    const formData = draft.formData
+    const formIdx = row - 1
+    if (formData && formIdx >= 0 && formIdx < formData.length) {
+      const entry = formData[formIdx]!
+      return { key: entry.name, value: entry.value }
+    }
+    if (draft.bodyType === "binary") {
+      return { key: "", value: draft.filePath ?? "" }
+    }
+    return { key: "", value: draft.body ?? "" }
+  }
   if (field === "auth") {
     const val = currentValueFor(draft, field, row, false)
     return { key: "", value: val }
@@ -144,6 +181,7 @@ export interface UseEditBrowseResult {
   revertField: () => void
   revertAll: () => void
   toggleRow: () => void
+  toggleFormRowType: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
 }
 
@@ -238,9 +276,26 @@ export function useEditBrowse(
     }
 
     const { field, row, addingRow } = browsed.cursor
+    if (field === "body" && row === 0) {
+      setEditState(browsed)
+      return
+    }
     if (field === "body" || field === "settings") {
-      const init = currentValueFor(currentDraft, field, row, addingRow)
-      setEditValue(init)
+      const bodyType = currentDraft?.bodyType
+      if (field === "body" && bodyType === "none") {
+        setEditState(browsed)
+        return
+      }
+      if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
+        const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
+        setEditKey(kv.key)
+        setEditValue(kv.value)
+      } else if (field === "body" && bodyType === "binary") {
+        setEditValue(currentDraft?.filePath ?? "")
+      } else {
+        const init = currentValueFor(currentDraft, field, row, addingRow)
+        setEditValue(init)
+      }
     } else if (field === "headers" || field === "params") {
       const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
       setEditKey(kv.key)
@@ -313,9 +368,22 @@ export function useEditBrowse(
       return
     }
     const { addingRow } = state.cursor
+    if (field === "body" && row === 0) {
+      return
+    }
     if (field === "body" || field === "settings") {
-      const init = currentValueFor(currentDraft, field, row, addingRow)
-      setEditValue(init)
+      const bodyType = currentDraft?.bodyType
+      if (field === "body" && bodyType === "none") {
+        return
+      }
+      if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
+        const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
+        setEditKey(kv.key)
+        setEditValue(kv.value)
+      } else {
+        const init = currentValueFor(currentDraft, field, row, addingRow)
+        setEditValue(init)
+      }
     } else if (field === "headers" || field === "params") {
       const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
       setEditKey(kv.key)
@@ -324,14 +392,45 @@ export function useEditBrowse(
     setEditState((prev) => beginEditing(prev))
   }, [])
 
-  const commitEdit = useCallback(() => {
+function detectFormType(value: string): { formType: "text" | "file"; cleanValue: string } {
+  const fileMatch = value.match(/^@file\((.+)\)$/)
+  if (fileMatch) {
+    return { formType: "file", cleanValue: fileMatch[1]! }
+  }
+  return { formType: "text", cleanValue: value }
+}
+
+const commitEdit = useCallback(() => {
     const state = editStateRef.current
     if (state.mode !== "editing") return
     const { field } = state.cursor
     const addingRow = state.cursor.addingRow
     const val = editValueRef.current
     if (field === "body") {
-      draftMutators.setBody(val)
+      const currentBody = draftRef.current
+      const bodyType = currentBody?.bodyType
+      if (bodyType === "multipart" || bodyType === "urlencoded") {
+        const key = editKeyRef.current.trim()
+        const value = editValueRef.current.trim()
+        if (key === "") {
+          const formIdx = state.cursor.row - 1
+          if (!addingRow && formIdx >= 0) {
+            draftMutators.removeFormRow(formIdx)
+          }
+        } else if (addingRow) {
+          const { formType, cleanValue } = detectFormType(value)
+          draftMutators.addFormRow(key, cleanValue, formType)
+        } else {
+          const formIdx = state.cursor.row - 1
+          const existing = currentBody?.formData?.[formIdx]
+          const formType = existing?.type ?? "text"
+          draftMutators.setFormRow(formIdx, key, value, formType)
+        }
+      } else if (bodyType === "binary") {
+        draftMutators.setFilePath(val)
+      } else {
+        draftMutators.setBody(val)
+      }
     } else if (field === "auth") {
       const row = state.cursor.row
       const currentAuth = draftRef.current?.auth
@@ -397,7 +496,21 @@ export function useEditBrowse(
       draftMutators.revertField(field, row)
       return
     }
-    if (field === "body" || field === "settings") {
+    if (field === "body") {
+      if (row === 0) return
+      const bodyType = draftRef.current?.bodyType
+      if (bodyType === "urlencoded" || bodyType === "multipart") {
+        if (addingRow) return
+        const formIdx = row - 1
+        if (formIdx >= 0) {
+          draftMutators.removeFormRow(formIdx)
+        }
+      } else {
+        draftMutators.revertField(field)
+      }
+      return
+    }
+    if (field === "settings") {
       draftMutators.revertField(field)
     } else if (field === "headers" || field === "params") {
       if (addingRow) return
@@ -415,12 +528,34 @@ export function useEditBrowse(
     if (state.mode !== "browsing") return
     const { field, addingRow, row } = state.cursor
     if (addingRow) return
+    if (field === "body") {
+      if (row === 0) return
+      const bodyType = draftRef.current?.bodyType
+      if (bodyType === "urlencoded" || bodyType === "multipart") {
+        draftMutators.toggleFormRow(row - 1)
+      }
+      return
+    }
     if (field === "headers") draftMutators.toggleHeaderRow(row)
     else if (field === "params") draftMutators.toggleParamRow(row)
     else if (field === "settings" && row === 1) {
       const current = draftRef.current?.followRedirects ?? true
       draftMutators.setFollowRedirects(!current)
     }
+  }, [draftMutators])
+
+  const toggleFormRowType = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "browsing") return
+    const { field, addingRow, row } = state.cursor
+    if (field !== "body" || addingRow || row === 0) return
+    const bodyType = draftRef.current?.bodyType
+    if (bodyType !== "multipart" && bodyType !== "urlencoded") return
+    const formIdx = row - 1
+    const entry = draftRef.current?.formData?.[formIdx]
+    if (!entry) return
+    const newType = entry.type === "file" ? "text" : "file"
+    draftMutators.setFormRow(formIdx, entry.name, entry.value, newType)
   }, [draftMutators])
 
   const cycleInactiveTab = useCallback((delta: 1 | -1) => {
@@ -450,6 +585,7 @@ export function useEditBrowse(
       revertField: revertFieldHandler,
       revertAll: revertAllHandler,
       toggleRow,
+      toggleFormRowType,
       cycleInactiveTab,
     }),
     [
@@ -471,6 +607,7 @@ export function useEditBrowse(
       revertFieldHandler,
       revertAllHandler,
       toggleRow,
+      toggleFormRowType,
       cycleInactiveTab,
     ],
   )

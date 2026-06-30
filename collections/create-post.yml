@@ -1,6 +1,7 @@
 name: Create Post
 method: POST
 url: $base_url/posts
+body_type: json
 timeout: 0
 followRedirects: true
 maxRedirects: 5

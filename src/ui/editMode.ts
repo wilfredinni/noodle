@@ -72,7 +72,7 @@ function cursorForField(
 ): FieldCursor {
   switch (field) {
     case "body":
-      return { field, row: -1, addingRow: false }
+      return { field, row: 0, addingRow: false }
     case "auth":
       return { field, row: 0, addingRow: false }
     case "settings":
@@ -88,7 +88,7 @@ function cursorForField(
 export function toggleSubfield(prev: EditState): EditState {
   if (prev.mode !== "editing") return prev
   const { field } = prev.cursor
-  if (field !== "headers" && field !== "params") return prev
+  if (field !== "headers" && field !== "params" && field !== "body") return prev
   const current = prev.cursor.subfield ?? "key"
   const next: "key" | "value" = current === "key" ? "value" : "key"
   return {
@@ -123,7 +123,8 @@ export function moveRowCursor(
     field !== "headers" &&
     field !== "params" &&
     field !== "settings" &&
-    field !== "auth"
+    field !== "auth" &&
+    field !== "body"
   )
     return prev
   let count = 0
@@ -131,6 +132,7 @@ export function moveRowCursor(
   else if (field === "params") count = counts.params
   else if (field === "settings") count = counts.settings
   else if (field === "auth") count = counts.auth
+  else if (field === "body") count = counts.body
 
   if (count === 0) return prev
 
@@ -153,6 +155,36 @@ export function moveRowCursor(
     return { ...prev, cursor: { field, row: next, addingRow: false } }
   }
 
+  if (field === "body") {
+    // row 0 is the type Select (clamped, no addingRow wrap)
+    // rows 1..count-1 are content entries (addingRow wrap)
+    if (prev.cursor.addingRow) {
+      if (delta > 0) {
+        return { ...prev, cursor: { field, row: 1, addingRow: false } }
+      }
+      return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
+    }
+    if (prev.cursor.row === 0) {
+      if (delta > 0 && count > 1) {
+        return { ...prev, cursor: { field, row: 1, addingRow: false } }
+      }
+      if (delta > 0) {
+        return { ...prev, cursor: { field, row: -1, addingRow: true } }
+      }
+      if (delta < 0) {
+        return prev
+      }
+      return prev
+    }
+    if (next < 1) {
+      return { ...prev, cursor: { field, row: 0, addingRow: false } }
+    }
+    if (next > count - 1) {
+      return { ...prev, cursor: { field, row: -1, addingRow: true } }
+    }
+    return { ...prev, cursor: { field, row: next, addingRow: false } }
+  }
+
   if (next < 0) {
     return { ...prev, cursor: { field, row: -1, addingRow: true } }
   }
@@ -168,7 +200,9 @@ export function beginEditing(prev: EditState): EditState {
   const subfield: "key" | "value" | undefined =
     prev.cursor.field === "headers" || prev.cursor.field === "params"
       ? "key"
-      : undefined
+      : prev.cursor.field === "body"
+        ? "key"
+        : undefined
   return {
     ...prev,
     mode: "editing",

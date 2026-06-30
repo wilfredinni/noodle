@@ -56,10 +56,11 @@ export async function send(
       : timeoutSignal
   }
 
+  const substitutedBody = await bodyForSend(substituted, headersInst)
   const init: RequestInit = {
     method: substituted.method,
     headers: headersInst,
-    body: substituted.body,
+    body: substitutedBody,
     signal: effectiveSignal,
   }
 
@@ -128,6 +129,60 @@ export async function send(
     body,
     timeMs: performance.now() - start,
   }
+}
+
+type BodyRequest = Pick<Request, "body" | "bodyType" | "formData" | "filePath">
+
+export async function bodyForSend(
+  req: BodyRequest,
+  headers: Headers,
+): Promise<BodyInit | undefined> {
+  if (req.bodyType === "none") return undefined
+
+  const hasContentType = headers.has("content-type")
+
+  if (req.bodyType === "json" && req.body !== undefined) {
+    if (!hasContentType) headers.set("content-type", "application/json")
+    return req.body
+  }
+
+  if (req.bodyType === "urlencoded" && req.formData) {
+    if (!hasContentType) headers.set("content-type", "application/x-www-form-urlencoded")
+    const params = new URLSearchParams()
+    for (const entry of req.formData) {
+      if (entry.enabled) params.append(entry.name, entry.value)
+    }
+    return params.toString()
+  }
+
+  if (req.bodyType === "multipart" && req.formData) {
+    const fd = new FormData()
+    for (const entry of req.formData) {
+      if (!entry.enabled) continue
+      if (entry.type === "file") {
+        if (!(await Bun.file(entry.value).exists())) {
+          throw new Error(`file not found: ${entry.value}`)
+        }
+        fd.append(entry.name, Bun.file(entry.value))
+      } else {
+        fd.append(entry.name, entry.value)
+      }
+    }
+    return fd as unknown as BodyInit
+  }
+
+  if (req.bodyType === "binary") {
+    if (req.filePath) {
+      if (!(await Bun.file(req.filePath).exists())) {
+        throw new Error(`file not found: ${req.filePath}`)
+      }
+      if (!hasContentType) headers.set("content-type", "application/octet-stream")
+      return Bun.file(req.filePath) as unknown as BodyInit
+    }
+    return undefined
+  }
+
+  return req.body
 }
 
 function headersToObject(h: Headers): Record<string, string> {

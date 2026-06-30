@@ -43,6 +43,27 @@ export function serializeRequest(req: Request): string {
     out += `body: ${yamlVal(req.body)}\n`
   }
 
+  if (req.bodyType !== undefined) {
+    out += `body_type: ${yamlVal(req.bodyType)}\n`
+  }
+
+  if (req.formData !== undefined && req.formData.length > 0) {
+    out += "form_data:\n"
+    for (const entry of req.formData) {
+      const nameVal = yamlVal(entry.name)
+      const valVal = yamlVal(entry.value)
+      if (entry.enabled && entry.type === "text") {
+        out += `  - name: ${nameVal}\n    value: ${valVal}\n`
+      } else {
+        out += `  - name: ${nameVal}\n    value: ${valVal}\n    enabled: ${entry.enabled}\n    type: ${entry.type}\n`
+      }
+    }
+  }
+
+  if (req.filePath !== undefined) {
+    out += `file_path: ${yamlVal(req.filePath)}\n`
+  }
+
   if (req.auth && req.auth.type !== "none") {
     const authObj = authToObj(req.auth)
     out += "auth:\n"

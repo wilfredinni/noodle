@@ -1,6 +1,7 @@
 name: Get Post by ID
 method: GET
 url: $base_url/posts/$post_id
+body_type: none
 timeout: 0
 followRedirects: true
 maxRedirects: 5

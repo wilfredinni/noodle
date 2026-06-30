@@ -926,3 +926,328 @@ paths:
     expect(c.requests[0].id).toBe("get-x")
   })
 })
+
+describe("mapCollection — requestBody", () => {
+  it("json with example", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: { name: "Alice", age: 30 } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBe('{"name":"Alice","age":30}')
+    expect(c.requests[0].bodyType).toBe("json")
+  })
+
+  it("json with schema properties (no example)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: {
+                      properties: {
+                        name: { type: "string" },
+                        age: { type: "integer" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBe('{"name":"$name","age":"$age"}')
+    expect(c.requests[0].bodyType).toBe("json")
+  })
+
+  it("json with empty schema", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": { schema: {} },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBe("{}")
+    expect(c.requests[0].bodyType).toBe("json")
+  })
+
+  it("multipart with text and file fields (encoding marks file)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/upload": {
+            post: {
+              operationId: "upload",
+              requestBody: {
+                content: {
+                  "multipart/form-data": {
+                    schema: {
+                      properties: {
+                        title: { type: "string" },
+                        photo: { type: "string", format: "binary" },
+                        doc: { type: "string", format: "binary" },
+                      },
+                    },
+                    encoding: {
+                      photo: { contentType: "image/png" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].bodyType).toBe("multipart")
+    expect(c.requests[0].formData).toEqual([
+      { name: "title", value: "", enabled: true, type: "text" },
+      { name: "photo", value: "", enabled: true, type: "file" },
+      { name: "doc", value: "", enabled: true, type: "file" },
+    ])
+  })
+
+  it("multipart without encoding (all text)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "multipart/form-data": {
+                    schema: {
+                      properties: {
+                        a: { type: "string" },
+                        b: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].bodyType).toBe("multipart")
+    expect(c.requests[0].formData).toEqual([
+      { name: "a", value: "", enabled: true, type: "text" },
+      { name: "b", value: "", enabled: true, type: "text" },
+    ])
+  })
+
+  it("multipart with no schema properties", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "multipart/form-data": { schema: {} },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].bodyType).toBe("multipart")
+    expect(c.requests[0].formData).toEqual([])
+  })
+
+  it("urlencoded", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/login": {
+            post: {
+              operationId: "login",
+              requestBody: {
+                content: {
+                  "application/x-www-form-urlencoded": {
+                    schema: {
+                      properties: {
+                        username: { type: "string" },
+                        password: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].bodyType).toBe("urlencoded")
+    expect(c.requests[0].formData).toEqual([
+      { name: "username", value: "$username", enabled: true, type: "text" },
+      { name: "password", value: "$password", enabled: true, type: "text" },
+    ])
+  })
+
+  it("no requestBody", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": { get: { operationId: "getX" } },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBeUndefined()
+    expect(c.requests[0].bodyType).toBeUndefined()
+    expect(c.requests[0].formData).toBeUndefined()
+  })
+
+  it("unsupported media type (text/plain)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "text/plain": { schema: { type: "string" } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBeUndefined()
+    expect(c.requests[0].bodyType).toBeUndefined()
+  })
+
+  it("requestBody without content", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: { description: "no content" },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBeUndefined()
+    expect(c.requests[0].bodyType).toBeUndefined()
+  })
+
+  it("non-mapping requestBody (string)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: "not a mapping",
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBeUndefined()
+    expect(c.requests[0].bodyType).toBeUndefined()
+  })
+
+  it("non-mapping content (array)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: { content: ["not a mapping"] },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].body).toBeUndefined()
+    expect(c.requests[0].bodyType).toBeUndefined()
+  })
+
+  it("json takes priority over multipart when both present", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "multipart/form-data": { schema: { properties: { f: { type: "string" } } } },
+                  "application/json": { schema: { example: { a: 1 } } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].bodyType).toBe("json")
+    expect(c.requests[0].body).toBe('{"a":1}')
+  })
+
+  it("multipart takes priority over urlencoded when both present", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/x-www-form-urlencoded": {
+                    schema: { properties: { x: { type: "string" } } },
+                  },
+                  "multipart/form-data": {
+                    schema: { properties: { f: { type: "string" } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(c.requests[0].bodyType).toBe("multipart")
+  })
+})

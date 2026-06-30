@@ -300,6 +300,93 @@ describe("lang.parseRequest — env var preservation", () => {
   })
 })
 
+describe("lang.parseRequest — body_type, form_data, file_path", () => {
+  it("parses body_type: multipart with form_data", () => {
+    const yaml = `name: Upload\nmethod: POST\nurl: https://example.com\nbody_type: multipart\nform_data:\n  - name: username\n    value: john\n  - name: avatar\n    value: /path/to/photo.png\n    type: file\n`
+    const req = lang.parseRequest("upload", yaml)
+    expect(req.bodyType).toBe("multipart")
+    expect(req.formData).toEqual([
+      { name: "username", value: "john", enabled: true, type: "text" },
+      { name: "avatar", value: "/path/to/photo.png", enabled: true, type: "file" },
+    ])
+  })
+
+  it("parses body_type: urlencoded with form_data", () => {
+    const yaml = `name: Search\nmethod: POST\nurl: https://example.com\nbody_type: urlencoded\nform_data:\n  - name: q\n    value: hello world\n`
+    const req = lang.parseRequest("search", yaml)
+    expect(req.bodyType).toBe("urlencoded")
+    expect(req.body).toBeUndefined()
+    expect(req.formData).toEqual([
+      { name: "q", value: "hello world", enabled: true, type: "text" },
+    ])
+  })
+
+  it("parses body_type: binary with file_path", () => {
+    const yaml = `name: Upload binary\nmethod: POST\nurl: https://example.com\nbody_type: binary\nfile_path: /tmp/data.bin\n`
+    const req = lang.parseRequest("bin", yaml)
+    expect(req.bodyType).toBe("binary")
+    expect(req.filePath).toBe("/tmp/data.bin")
+    expect(req.body).toBeUndefined()
+  })
+
+  it("parses body_type: json explicitly with body string", () => {
+    const yaml = `name: Create\nmethod: POST\nurl: https://example.com\nbody_type: json\nbody: '{"id": 1}'\n`
+    const req = lang.parseRequest("create", yaml)
+    expect(req.bodyType).toBe("json")
+    expect(req.body).toBe('{"id": 1}')
+  })
+
+  it("bodyType defaults to undefined when omitted (backward compat)", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nbody: hello\n`
+    const req = lang.parseRequest("x", yaml)
+    expect(req.bodyType).toBeUndefined()
+    expect(req.body).toBe("hello")
+  })
+
+  it("parses disabled form entry", () => {
+    const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: multipart\nform_data:\n  - name: debug\n    value: "1"\n    enabled: false\n`
+    const req = lang.parseRequest("x", yaml)
+    expect(req.formData).toEqual([
+      { name: "debug", value: "1", enabled: false, type: "text" },
+    ])
+  })
+
+  it("throws on invalid body_type", () => {
+    const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: graphql\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "body_type" must be one of none|json|multipart|urlencoded|binary',
+    )
+  })
+
+  it("throws on non-array form_data", () => {
+    const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: multipart\nform_data: not-an-array\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "form_data" must be an array',
+    )
+  })
+
+  it("throws on form_data entry with missing name", () => {
+    const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: multipart\nform_data:\n  - value: no-name\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      "lang.parseRequest: form_data[0].name must be a string",
+    )
+  })
+
+  it("throws on form_data entry with invalid type", () => {
+    const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: multipart\nform_data:\n  - name: f\n    value: v\n    type: oops\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: form_data[0].type must be "text" or "file"',
+    )
+  })
+
+  it("throws on non-string file_path", () => {
+    const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: binary\nfile_path: 123\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "file_path" must be a string',
+    )
+  })
+})
+
 function makeReq(over: Partial<Request> = {}): Request {
   return {
     id: "get-user",
@@ -553,6 +640,146 @@ describe("lang — semantic round-trip", () => {
       followRedirects: true,
       maxRedirects: 5,
       auth: { type: "none" },
+    }
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+    expect(reparsed).toEqual(original)
+  })
+})
+
+describe("lang.serializeRequest — body_type, form_data, file_path", () => {
+  it("serializes multipart form_data", () => {
+    const out = lang.serializeRequest(
+      makeReq({
+        bodyType: "multipart",
+        formData: [
+          { name: "username", value: "john", enabled: true, type: "text" },
+          { name: "avatar", value: "/p/photo.png", enabled: true, type: "file" },
+        ],
+      }),
+    )
+    expect(out).toContain("body_type: multipart")
+    expect(out).toContain("  - name: username")
+    expect(out).toContain("    value: john")
+    expect(out).toContain("    type: file")
+  })
+
+  it("serializes urlencoded form_data", () => {
+    const out = lang.serializeRequest(
+      makeReq({
+        bodyType: "urlencoded",
+        formData: [
+          { name: "q", value: "hello world", enabled: true, type: "text" },
+        ],
+      }),
+    )
+    expect(out).toContain("body_type: urlencoded")
+  })
+
+  it("serializes binary file_path", () => {
+    const out = lang.serializeRequest(
+      makeReq({ bodyType: "binary", filePath: "/tmp/data.bin" }),
+    )
+    expect(out).toContain("body_type: binary")
+    expect(out).toContain("file_path: /tmp/data.bin")
+  })
+
+  it("includes body_type when json (explicitly set)", () => {
+    const out = lang.serializeRequest(makeReq({ bodyType: "json", body: "hi" }))
+    expect(out).toContain("body_type: json")
+  })
+
+  it("omits body_type when undefined (backward compat)", () => {
+    const out = lang.serializeRequest(makeReq())
+    expect(out).not.toContain("body_type:")
+  })
+
+  it("omits form_data when empty array", () => {
+    const out = lang.serializeRequest(
+      makeReq({ bodyType: "urlencoded", formData: [] }),
+    )
+    expect(out).not.toContain("form_data:")
+  })
+
+  it("round-trip: multipart with both text and file entries", () => {
+    const original: Request = {
+      id: "multi",
+      name: "Multi",
+      method: "POST",
+      url: "https://example.com/upload",
+      headers: {},
+      params: {},
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: { type: "none" },
+      bodyType: "multipart",
+      formData: [
+        { name: "title", value: "hello", enabled: true, type: "text" },
+        { name: "pic", value: "/Users/me/img.png", enabled: true, type: "file" },
+      ],
+    }
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+    expect(reparsed).toEqual(original)
+  })
+
+  it("round-trip: binary", () => {
+    const original: Request = {
+      id: "bin",
+      name: "Binary",
+      method: "POST",
+      url: "https://example.com/upload",
+      headers: {},
+      params: {},
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: { type: "none" },
+      bodyType: "binary",
+      filePath: "/tmp/data.bin",
+    }
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+    expect(reparsed).toEqual(original)
+  })
+
+  it("round-trip: urlencoded with $var in values", () => {
+    const original: Request = {
+      id: "form",
+      name: "Form",
+      method: "POST",
+      url: "https://example.com/login",
+      headers: {},
+      params: {},
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: { type: "none" },
+      bodyType: "urlencoded",
+      formData: [
+        { name: "user", value: "$USER", enabled: true, type: "text" },
+        { name: "pass", value: "$PASS", enabled: true, type: "text" },
+      ],
+    }
+    const yaml = lang.serializeRequest(original)
+    const reparsed = lang.parseRequest(original.id, yaml)
+    expect(reparsed).toEqual(original)
+  })
+
+  it("round-trip preserves existing json body (no bodyType)", () => {
+    const original: Request = {
+      id: "json-only",
+      name: "JSON body",
+      method: "POST",
+      url: "https://example.com",
+      headers: { "Content-Type": { value: "application/json", enabled: true } },
+      params: {},
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: { type: "none" },
+      body: '{"id": 1}',
     }
     const yaml = lang.serializeRequest(original)
     const reparsed = lang.parseRequest(original.id, yaml)

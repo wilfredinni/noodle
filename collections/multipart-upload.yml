@@ -1,0 +1,16 @@
+name: Multipart Upload
+method: POST
+url: https://httpbin.org/post
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body_type: multipart
+form_data:
+  - name: username
+    value: john
+  - name: comment
+    value: hello world
+  - name: readme
+    value: /Users/carlosmontecinos/Projects/noodle/README.md
+    enabled: true
+    type: file

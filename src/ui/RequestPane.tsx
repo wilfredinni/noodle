@@ -3,7 +3,7 @@ import type {
   TextareaRenderable,
   LineNumberRenderable,
 } from "@opentui/core"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
@@ -18,6 +18,9 @@ import { VarText } from "./VarText"
 import { KeyValueSection } from "./KeyValueSection"
 import { Checkbox } from "./Checkbox"
 import { AuthEditor } from "./AuthEditor"
+import { Select, type SelectItem } from "./Select"
+import { FormEditor } from "./FormEditor"
+import type { BodyType } from "../schema"
 
 interface Props {
   request: Request | null
@@ -31,6 +34,7 @@ interface Props {
   activeEnv?: Environment | null
   onAuthTypeChange?: (t: "none" | "bearer" | "basic" | "api_key") => void
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
+  onBodyTypeChange?: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
 }
 
@@ -54,6 +58,7 @@ export function RequestPane({
   activeEnv,
   onAuthTypeChange,
   onApiKeyPlacementChange,
+  onBodyTypeChange,
   onSelectOpenChange,
 }: Props) {
   const theme = useTheme()
@@ -70,6 +75,8 @@ export function RequestPane({
       scrollRef.current?.scrollChildIntoView(
         addingRow ? `${prefix}-add` : `${prefix}-${row}`,
       )
+    } else if (field === "body" && addingRow) {
+      scrollRef.current?.scrollChildIntoView("body-add")
     } else {
       scrollRef.current?.scrollChildIntoView(`${field}-field`)
     }
@@ -89,7 +96,10 @@ export function RequestPane({
     if (!request) return BASE_TAB_DEFS
     const headerActive = Object.values(request.headers).some((e) => e.enabled)
     const paramActive = Object.values(request.params).some((e) => e.enabled)
-    const hasBody = request.body !== undefined && request.body !== ""
+    const hasBody =
+      (request.body !== undefined && request.body !== "") ||
+      (request.formData !== undefined && request.formData.length > 0) ||
+      (request.filePath !== undefined && request.filePath !== "")
     const hasAuth =
       request.auth?.type !== undefined && request.auth.type !== "none"
     const hasTimeout = request.timeout > 0
@@ -180,12 +190,16 @@ export function RequestPane({
                 <BodySection
                   request={request}
                   editState={editState}
+                  editKey={editKey}
                   editValue={editValue}
+                  setEditKey={setEditKey}
                   setEditValue={setEditValue}
                   inEdit={inEdit}
                   browseActive={browseActive}
                   theme={theme}
                   activeEnv={activeEnv}
+                  onBodyTypeChange={onBodyTypeChange ?? (() => {})}
+                  onSelectOpenChange={onSelectOpenChange}
                 />
               )}
               {activeTab === "auth" && (
@@ -228,22 +242,43 @@ export function RequestPane({
 function BodySection({
   request,
   editState,
+  editKey,
   editValue,
+  setEditKey,
   setEditValue,
   inEdit,
-  browseActive: _browseActive,
+  browseActive,
   theme,
   activeEnv,
+  onBodyTypeChange,
+  onSelectOpenChange,
 }: {
   request: Request
   editState: EditState
+  editKey: string
   editValue: string
+  setEditKey: (v: string) => void
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
+  onBodyTypeChange: (t: BodyType) => void
+  onSelectOpenChange?: (open: boolean) => void
 }) {
+  const bodyType = request.bodyType ?? "json"
+
+  const bodyTypeItems: SelectItem[] = [
+    { id: "none", label: "None" },
+    { id: "json", label: "JSON" },
+    { id: "multipart", label: "Multipart Form" },
+    { id: "urlencoded", label: "Form URL-Encoded" },
+    { id: "binary", label: "Binary" },
+  ]
+
+  const isFormMode = bodyType === "multipart" || bodyType === "urlencoded"
+  const isBinaryMode = bodyType === "binary"
+
   const body = formatBody(request.body)
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
@@ -255,51 +290,172 @@ function BodySection({
     setEditValue,
   )
 
+  const [typeSelectOpen, setTypeSelectOpen] = useState(false)
+
+  const handleBodyTypeSelectOpen = useCallback(
+    (open: boolean) => {
+      setTypeSelectOpen(open)
+      onSelectOpenChange?.(open)
+    },
+    [onSelectOpenChange],
+  )
+
   const editingBody = inEdit && editState.cursor.field === "body"
 
-  if (editingBody) {
-    const initialValue = formatBody(editValue)
-    return (
-      <line-number
-        ref={lineNumberRef}
-        minWidth={3}
-        paddingRight={1}
-        fg={theme.textMuted}
-        bg={theme.backgroundPanel}
-        style={{ flexGrow: 1 }}
-        width="100%"
-      >
-        <textarea
-          ref={textareaRef}
-          id="body-field"
-          initialValue={initialValue}
-          onContentChange={handleContentChange}
-          keyBindings={[{ name: "return", shift: true, action: "newline" }]}
-          backgroundColor={theme.backgroundPanel}
-          focusedBackgroundColor={theme.backgroundPanel}
-          textColor={theme.text}
-          cursorColor={theme.primary}
-          focused
-        />
-      </line-number>
-    )
-  }
-
-  if (body === "") {
-    return (
-      <text id="body-field" fg={theme.textMuted}>
-        (none)
-      </text>
-    )
-  }
-
   return (
-    <JsonBodyViewer
-      body={body}
-      theme={theme}
-      id="body-field"
-      activeEnv={activeEnv ?? null}
-    />
+    <box style={{ flexDirection: "column", gap: 1 }}>
+      <box
+        style={{
+          zIndex: typeSelectOpen ? 1 : undefined,
+          backgroundColor:
+            browseActive && editState.cursor.field === "body" && editState.cursor.row === 0
+              ? theme.backgroundElement
+              : undefined,
+        }}
+      >
+        <Select
+          items={bodyTypeItems}
+          value={bodyType}
+          onChange={(v) => {
+            if (v === bodyType) return
+            onBodyTypeChange(v as BodyType)
+          }}
+          focused={browseActive && editState.cursor.field === "body" && editState.cursor.row === 0}
+          badge={false}
+          onOpenChange={handleBodyTypeSelectOpen}
+        />
+      </box>
+
+      {bodyType === "none" ? null : editingBody ? (
+        isFormMode ? (
+          <box
+            border={[...LeftBar.border]}
+            customBorderChars={LeftBar.customBorderChars}
+            borderColor={theme.borderSubtle}
+          >
+            <FormEditor
+              request={{ formData: request.formData, bodyType: request.bodyType }}
+              editState={editState}
+              editKey={editKey}
+              editValue={editValue}
+              setEditKey={setEditKey}
+              setEditValue={setEditValue}
+              browseActive={browseActive}
+              theme={theme}
+              activeEnv={activeEnv}
+            />
+          </box>
+        ) : isBinaryMode ? (
+          <input
+            id="body-field"
+            value={editValue}
+            placeholder="File path..."
+            onInput={setEditValue}
+            focused
+            textColor={theme.text}
+            cursorColor={theme.primary}
+            backgroundColor={theme.backgroundElement}
+            focusedBackgroundColor={theme.borderSubtle}
+          />
+        ) : (
+          <line-number
+            ref={lineNumberRef}
+            minWidth={3}
+            paddingRight={1}
+            fg={theme.textMuted}
+            bg={theme.backgroundPanel}
+            style={{ flexGrow: 1 }}
+            width="100%"
+          >
+            <textarea
+              ref={textareaRef}
+              id="body-field"
+              initialValue={formatBody(editValue)}
+              onContentChange={handleContentChange}
+              keyBindings={[{ name: "return", shift: true, action: "newline" }]}
+              backgroundColor={theme.backgroundPanel}
+              focusedBackgroundColor={theme.backgroundPanel}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              focused
+            />
+          </line-number>
+        )
+      ) : isFormMode ? (
+        <FormEditor
+          request={{ formData: request.formData, bodyType: request.bodyType }}
+          editState={editState}
+          editKey={editKey}
+          editValue={editValue}
+          setEditKey={setEditKey}
+          setEditValue={setEditValue}
+          browseActive={browseActive}
+          theme={theme}
+          activeEnv={activeEnv}
+        />
+      ) : isBinaryMode ? (
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={
+            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              ? theme.primary
+              : theme.borderSubtle
+          }
+          style={{
+            backgroundColor:
+              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+                ? theme.backgroundElement
+                : undefined,
+          }}
+        >
+          <text id="body-field" fg={theme.text}>
+            {request.filePath || "(no file selected)"}
+          </text>
+        </box>
+      ) : body === "" ? (
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={
+            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              ? theme.primary
+              : theme.borderSubtle
+          }
+          style={{
+            backgroundColor:
+              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+                ? theme.backgroundElement
+                : undefined,
+          }}
+        >
+          <text id="body-field" fg={theme.textMuted}>(none)</text>
+        </box>
+      ) : (
+        <box
+          border={[...LeftBar.border]}
+          customBorderChars={LeftBar.customBorderChars}
+          borderColor={
+            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              ? theme.primary
+              : theme.borderSubtle
+          }
+          style={{
+            backgroundColor:
+              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+                ? theme.backgroundElement
+                : undefined,
+          }}
+        >
+          <JsonBodyViewer
+            body={body}
+            theme={theme}
+            id="body-field"
+            activeEnv={activeEnv ?? null}
+          />
+        </box>
+      )}
+    </box>
   )
 }
 

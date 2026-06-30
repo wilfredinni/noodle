@@ -1,5 +1,5 @@
 import yaml from "js-yaml"
-import type { Auth, Method, Request } from "../schema"
+import type { Auth, BodyType, FormEntry, Method, Request } from "../schema"
 
 const METHODS: readonly Method[] = [
   "GET",
@@ -10,6 +10,12 @@ const METHODS: readonly Method[] = [
   "HEAD",
   "OPTIONS",
 ]
+
+const BODY_TYPES = ["none", "json", "multipart", "urlencoded", "binary"] as const
+
+function isBodyType(s: string): s is BodyType {
+  return (BODY_TYPES as readonly string[]).includes(s as BodyType)
+}
 
 type RawAuth =
   | { type: "none"; [k: string]: unknown }
@@ -61,6 +67,9 @@ export function parseRequest(id: string, yamlText: string): Request {
     "params",
     "body",
     "auth",
+    "body_type",
+    "form_data",
+    "file_path",
   ])
   for (const key of Object.keys(raw)) {
     if (!knownKeys.has(key)) {
@@ -94,6 +103,61 @@ export function parseRequest(id: string, yamlText: string): Request {
       throw new Error('lang.parseRequest: "body" must be a string')
     }
     body = raw.body
+  }
+
+  let bodyType: BodyType | undefined
+  if (raw.body_type !== undefined) {
+    if (typeof raw.body_type !== "string" || !isBodyType(raw.body_type)) {
+      throw new Error(
+        `lang.parseRequest: "body_type" must be one of none|json|multipart|urlencoded|binary`,
+      )
+    }
+    bodyType = raw.body_type as BodyType
+  }
+
+  let formData: FormEntry[] | undefined
+  if (raw.form_data !== undefined) {
+    if (!Array.isArray(raw.form_data)) {
+      throw new Error('lang.parseRequest: "form_data" must be an array')
+    }
+    formData = raw.form_data.map((item: unknown, i: number) => {
+      if (typeof item !== "object" || item === null || Array.isArray(item)) {
+        throw new Error(
+          `lang.parseRequest: form_data[${i}] must be an object`,
+        )
+      }
+      const obj = item as Record<string, unknown>
+      if (typeof obj.name !== "string") {
+        throw new Error(
+          `lang.parseRequest: form_data[${i}].name must be a string`,
+        )
+      }
+      if (typeof obj.value !== "string") {
+        throw new Error(
+          `lang.parseRequest: form_data[${i}].value must be a string`,
+        )
+      }
+      const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
+      let type: "text" | "file" = "text"
+      if (obj.type !== undefined) {
+        if (obj.type === "file") {
+          type = "file"
+        } else if (obj.type !== "text") {
+          throw new Error(
+            `lang.parseRequest: form_data[${i}].type must be "text" or "file"`,
+          )
+        }
+      }
+      return { name: obj.name, value: obj.value, enabled, type }
+    })
+  }
+
+  let filePath: string | undefined
+  if (raw.file_path !== undefined) {
+    if (typeof raw.file_path !== "string") {
+      throw new Error('lang.parseRequest: "file_path" must be a string')
+    }
+    filePath = raw.file_path
   }
 
   const auth = parseAuth(raw.auth)
@@ -139,6 +203,9 @@ export function parseRequest(id: string, yamlText: string): Request {
     headers,
     params,
     body,
+    bodyType,
+    formData,
+    filePath,
     auth,
   }
 }
