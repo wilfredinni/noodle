@@ -32,6 +32,7 @@ import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
 import { useUIState } from "./tabs/useUIState"
+import { saveLastRequest } from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 
@@ -51,6 +52,7 @@ export function AppInner({
   onEnvChange,
   onEnvListChanged,
   settingsEnv,
+  initialLastRequestId,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -67,6 +69,7 @@ export function AppInner({
   onEnvChange: (name: string | null) => void
   onEnvListChanged: () => Promise<void>
   settingsEnv?: string
+  initialLastRequestId?: string
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -107,13 +110,33 @@ export function AppInner({
   )
   const requests = collection?.requests ?? []
 
+  const sidebarInitialIndex = useMemo(() => {
+    if (!initialLastRequestId) return undefined
+    const idx = requests.findIndex((r) => r.id === initialLastRequestId)
+    return idx >= 0 ? idx : undefined
+  }, [initialLastRequestId, requests])
+
   const { getTab, setTab } = useUIState(collectionDir)
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const { selectedIndex, selectedRequest } = useSidebarSelection(
     requests,
     () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+    sidebarInitialIndex,
   )
+
+  const saveLastReqRef = useRef(false)
+
+  useEffect(() => {
+    if (!saveLastReqRef.current) {
+      saveLastReqRef.current = true
+      return
+    }
+    const req = requests[selectedIndex]
+    if (req) {
+      saveLastRequest(collectionDir, req.id).catch(() => {})
+    }
+  }, [selectedIndex])
 
   const draft = useRequestDraft(selectedRequest)
 
