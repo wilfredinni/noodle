@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { Sidebar } from "./Sidebar"
@@ -32,6 +32,8 @@ import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
 import { useUIState } from "./tabs/useUIState"
+import type { FieldKind } from "./editMode"
+import type { ResponseTabKind } from "./tabs/uiState"
 
 export function AppInner({
   collectionDir,
@@ -105,7 +107,7 @@ export function AppInner({
   )
   const requests = collection?.requests ?? []
 
-  const tabState = useUIState(collectionDir)
+  const { getTab, setTab } = useUIState(collectionDir)
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const { selectedIndex, selectedRequest } = useSidebarSelection(
@@ -115,15 +117,27 @@ export function AppInner({
 
   const draft = useRequestDraft(selectedRequest)
 
-  const tabPrefs = tabState.getTab(selectedRequest?.id ?? "")
+  const tabPrefs = getTab(selectedRequest?.id ?? "")
   const initialRequestTab = tabPrefs?.requestTab
   const initialResponseTab = tabPrefs?.responseTab
 
+  const onRequestTabChange = useCallback(
+    (tab: FieldKind) => {
+      if (selectedRequest?.id) setTab(selectedRequest.id, "request", tab)
+    },
+    [selectedRequest?.id, setTab],
+  )
+
+  const onResponseTabChange = useCallback(
+    (tab: ResponseTabKind) => {
+      if (selectedRequest?.id) setTab(selectedRequest.id, "response", tab)
+    },
+    [selectedRequest?.id, setTab],
+  )
+
   const eb = useEditBrowse(draft.draft, draft, {
     initialTab: initialRequestTab,
-    onTabChange: (tab) => {
-      if (selectedRequest?.id) tabState.setTab(selectedRequest.id, "request", tab)
-    },
+    onTabChange: onRequestTabChange,
   })
 
   // ── Save logic (provides saveState needed by keymap.setData below) ──
@@ -424,10 +438,7 @@ export function AppInner({
                     focused={focus === "response"}
                     timelineEntries={timeline.entries}
                     initialTab={initialResponseTab}
-                    onTabChange={(tab) => {
-                      if (selectedRequest?.id)
-                        tabState.setTab(selectedRequest.id, "response", tab)
-                    }}
+                    onTabChange={onResponseTabChange}
                   />
                 </box>
               ) : (
@@ -451,10 +462,7 @@ export function AppInner({
                     focused={focus === "response"}
                     timelineEntries={timeline.entries}
                     initialTab={initialResponseTab}
-                    onTabChange={(tab) => {
-                      if (selectedRequest?.id)
-                        tabState.setTab(selectedRequest.id, "response", tab)
-                    }}
+                    onTabChange={onResponseTabChange}
                   />
                 </>
               )}
