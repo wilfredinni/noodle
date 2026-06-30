@@ -33,15 +33,35 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
   const auth =
     req.auth === undefined ? undefined : substituteAuth(req.auth, resolve)
 
+  const formData =
+    req.formData !== undefined
+      ? req.formData.map((entry) => ({
+          name: resolve(entry.name, `formData.name`),
+          value: resolve(entry.value, `formData.${entry.name}`),
+          enabled: entry.enabled,
+          type: entry.type,
+        }))
+      : req.formData
+
+  const filePath =
+    req.filePath !== undefined
+      ? resolve(req.filePath, "filePath")
+      : req.filePath
+
   return {
     id: req.id,
     name: req.name,
     method: req.method,
     url: resolve(req.url, "url"),
     timeout: req.timeout,
+    followRedirects: req.followRedirects,
+    maxRedirects: req.maxRedirects,
     headers,
     params,
     body: req.body !== undefined ? resolve(req.body, "body") : undefined,
+    bodyType: req.bodyType,
+    formData,
+    filePath,
     auth,
   }
 }
