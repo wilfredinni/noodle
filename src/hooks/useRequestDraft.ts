@@ -24,6 +24,8 @@ export type DraftOp =
   | { kind: "setAuthField"; authType: string; field: string; value: string }
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
 
+const authTypeCache = new Map<string, Record<string, Auth>>()
+
 export function parseRow(input: string): { key: string; value: string } {
   const trimmed = input.trim()
   if (trimmed === "") return { key: "", value: "" }
@@ -242,23 +244,25 @@ export function applyDraft(
       draft.maxRedirects = op.maxRedirects
       break
     case "setAuthType": {
-      if (op.authType === "none") {
+      const curAuth = current.auth
+      if (curAuth && curAuth.type !== "none") {
+        const idCache = authTypeCache.get(id) ?? {}
+        idCache[curAuth.type] = curAuth
+        authTypeCache.set(id, idCache)
+      }
+      const cached = authTypeCache.get(id)?.[op.authType]
+      if (cached && cached.type === op.authType) {
+        draft.auth = { ...cached }
+      } else if (original.auth?.type === op.authType) {
+        draft.auth = { ...original.auth }
+      } else if (op.authType === "none") {
         draft.auth = { type: "none" }
       } else if (op.authType === "bearer") {
-        draft.auth =
-          original.auth?.type === "bearer"
-            ? { ...original.auth }
-            : { type: "bearer", token: "" }
+        draft.auth = { type: "bearer", token: "" }
       } else if (op.authType === "basic") {
-        draft.auth =
-          original.auth?.type === "basic"
-            ? { ...original.auth }
-            : { type: "basic", user: "", pass: "" }
+        draft.auth = { type: "basic", user: "", pass: "" }
       } else if (op.authType === "api_key") {
-        draft.auth =
-          original.auth?.type === "api_key"
-            ? { ...original.auth }
-            : { type: "api_key", key: "", value: "", placement: "header" }
+        draft.auth = { type: "api_key", key: "", value: "", placement: "header" }
       }
       break
     }
@@ -443,6 +447,7 @@ export function useRequestDraft(
     if (!selectedRequest) return
     const currentDraft =
       mapRef.current.get(selectedRequest.id) ?? selectedRequest
+    authTypeCache.delete(selectedRequest.id)
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(selectedRequest.id, { ...currentDraft })
