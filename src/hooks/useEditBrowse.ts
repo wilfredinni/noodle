@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Request } from "../schema"
 import {
   initialEditState,
@@ -147,14 +147,22 @@ export interface UseEditBrowseResult {
   cycleInactiveTab: (delta: 1 | -1) => void
 }
 
+export interface UseEditBrowseOptions {
+  initialTab?: FieldKind
+  onTabChange?: (tab: FieldKind) => void
+}
+
 export function useEditBrowse(
   draft: Request | null,
   draftMutators: UseRequestDraftResult,
+  options?: UseEditBrowseOptions,
 ): UseEditBrowseResult {
   const [editState, setEditState] = useState<EditState>(initialEditState())
   const [editValue, setEditValue] = useState("")
   const [editKey, setEditKey] = useState("")
-  const [inactiveTab, setInactiveTab] = useState<FieldKind>("headers")
+  const [inactiveTab, setInactiveTab] = useState<FieldKind>(
+    options?.initialTab ?? "headers",
+  )
 
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -167,6 +175,12 @@ export function useEditBrowse(
 
   const editKeyRef = useRef(editKey)
   editKeyRef.current = editKey
+
+  useEffect(() => {
+    if (options?.initialTab && editState.mode === "inactive") {
+      setInactiveTab(options.initialTab)
+    }
+  }, [options?.initialTab, editState.mode])
 
   const activeTab =
     editState.mode !== "inactive" ? editState.cursor.field : inactiveTab
@@ -252,9 +266,10 @@ export function useEditBrowse(
       if (prev.mode !== "browsing") return prev
       const next = moveFieldCursor(prev, -1, c)
       setInactiveTab(next.cursor.field)
+      options?.onTabChange?.(next.cursor.field)
       return next
     })
-  }, [])
+  }, [options?.onTabChange])
 
   const browseRight = useCallback(() => {
     const c = rowCount(draftRef.current)
@@ -262,9 +277,10 @@ export function useEditBrowse(
       if (prev.mode !== "browsing") return prev
       const next = moveFieldCursor(prev, +1, c)
       setInactiveTab(next.cursor.field)
+      options?.onTabChange?.(next.cursor.field)
       return next
     })
-  }, [])
+  }, [options?.onTabChange])
 
   const enterEdit = useCallback(() => {
     const state = editStateRef.current
@@ -396,9 +412,16 @@ export function useEditBrowse(
     }
   }, [draftMutators])
 
-  const cycleInactiveTab = useCallback((delta: 1 | -1) => {
-    setInactiveTab((prev) => cycleField(prev, delta))
-  }, [])
+  const cycleInactiveTab = useCallback(
+    (delta: 1 | -1) => {
+      setInactiveTab((prev) => {
+        const next = cycleField(prev, delta)
+        options?.onTabChange?.(next)
+        return next
+      })
+    },
+    [options?.onTabChange],
+  )
 
   return useMemo(
     () => ({
