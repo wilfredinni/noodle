@@ -168,6 +168,9 @@ export function moveRowCursor(
       if (delta > 0 && count > 1) {
         return { ...prev, cursor: { field, row: 1, addingRow: false } }
       }
+      if (delta > 0) {
+        return { ...prev, cursor: { field, row: -1, addingRow: true } }
+      }
       if (delta < 0) {
         return prev
       }

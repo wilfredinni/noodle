@@ -54,7 +54,12 @@ function currentValueFor(
   if (!draft) return ""
   if (field === "body") {
     if (row === 0) return ""
-    if (addingRow) return ""
+    if (addingRow) {
+      const bt = draft.bodyType
+      if (bt === "urlencoded" || bt === "multipart") return ""
+      if (bt === "binary") return draft.filePath ?? ""
+      return draft.body ?? ""
+    }
     const formData = draft.formData
     const formIdx = row - 1
     if (formData && formIdx >= 0 && formIdx < formData.length) {
