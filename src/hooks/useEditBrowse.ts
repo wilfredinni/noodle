@@ -53,10 +53,14 @@ function currentValueFor(
 ): string {
   if (!draft) return ""
   if (field === "body") {
+    if (addingRow) return ""
     const formData = draft.formData
     if (formData && row >= 0 && row < formData.length) {
       const entry = formData[row]!
       return `${entry.name}: ${entry.value}`
+    }
+    if (draft.bodyType === "binary") {
+      return draft.filePath ?? ""
     }
     return draft.body ?? ""
   }
