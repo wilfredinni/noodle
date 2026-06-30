@@ -15,8 +15,9 @@ function clampBase(prev: number, len: number): number {
 export function useSidebarSelection(
   requests: Request[],
   enabled: () => boolean = () => true,
+  initialIndex?: number,
 ): UseSidebarSelectionResult {
-  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [selectedIndex, setSelectedIndex] = useState(initialIndex ?? 0)
 
   useKeyboard((key) => {
     if (!enabled()) return
