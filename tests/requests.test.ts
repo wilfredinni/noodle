@@ -73,6 +73,19 @@ describe("substitute — formData", () => {
     ])
   })
 
+  it("throws on unresolved $var in formData name", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      bodyType: "urlencoded",
+      formData: [
+        { name: "$MISSING", value: "v", enabled: true, type: "text" },
+      ],
+    })
+    expect(() => substitute(req, env)).toThrow(
+      'requests.substitute: unresolved variable "MISSING" in formData[0].name',
+    )
+  })
+
   it("throws on unresolved $var in formData value", () => {
     const env: Environment = { name: "dev", vars: {} }
     const req = makeReq({
@@ -83,6 +96,17 @@ describe("substitute — formData", () => {
     })
     expect(() => substitute(req, env)).toThrow(
       'requests.substitute: unresolved variable "MISSING" in formData[0].value',
+    )
+  })
+
+  it("throws on unresolved $var in filePath for binary", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      bodyType: "binary",
+      filePath: "$MISSING",
+    })
+    expect(() => substitute(req, env)).toThrow(
+      'requests.substitute: unresolved variable "MISSING" in filePath',
     )
   })
 
