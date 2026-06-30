@@ -66,8 +66,9 @@ function cursorForField(
 ): FieldCursor {
   switch (field) {
     case "body":
-    case "auth":
       return { field, row: -1, addingRow: false }
+    case "auth":
+      return { field, row: 0, addingRow: false }
     case "settings":
       return { field, row: 0, addingRow: false }
   }
@@ -112,11 +113,12 @@ export function moveRowCursor(
 ): EditState {
   if (prev.mode !== "browsing") return prev
   const { field } = prev.cursor
-  if (field !== "headers" && field !== "params" && field !== "settings") return prev
+  if (field !== "headers" && field !== "params" && field !== "settings" && field !== "auth") return prev
   let count = 0
   if (field === "headers") count = counts.headers
   else if (field === "params") count = counts.params
   else if (field === "settings") count = counts.settings
+  else if (field === "auth") count = counts.auth
   
   if (count === 0) return prev
 
@@ -130,7 +132,7 @@ export function moveRowCursor(
   const row = prev.cursor.row
   const next = row + delta
   
-  if (field === "settings") {
+  if (field === "settings" || field === "auth") {
     // settings has no addingRow state, clamp to bounds
     if (next < 0) return { ...prev, cursor: { field, row: 0, addingRow: false } }
     if (next > count - 1) return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
@@ -148,7 +150,6 @@ export function moveRowCursor(
 
 export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
-  if (prev.cursor.field === "auth") return prev
   if (prev.cursor.field === "settings" && prev.cursor.row === 1) return prev
   const subfield: "key" | "value" | undefined =
     prev.cursor.field === "headers" || prev.cursor.field === "params"

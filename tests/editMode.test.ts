@@ -81,7 +81,7 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.row).toBe(-1)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("auth")
-    expect(s.cursor.row).toBe(-1)
+    expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("settings")
     expect(s.cursor.row).toBe(0)
@@ -194,12 +194,59 @@ describe("beginEditing", () => {
     expect(e.mode).toBe("editing")
     expect(e.editingRow).toBe(-1)
   })
-  it("no-op for auth (browse-only field)", () => {
-    let s = enterEditBrowse(inactive, c(2, 0))
-    s = moveFieldCursor(s, -1, c(2, 1))
-    s = moveFieldCursor(s, -1, c(2, 1))
+  it("enters edit mode for auth (type selector row)", () => {
+    const counts = { headers: 0, params: 0, body: 0, auth: 2, settings: 3 }
+    let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
-    expect(beginEditing(s)).toBe(s)
+    expect(s.cursor.row).toBe(0)
+    const e = beginEditing(s)
+    expect(e.mode).toBe("editing")
+  })
+
+  it("navigates auth rows for bearer (2 rows)", () => {
+    const counts = { headers: 0, params: 0, body: 0, auth: 2, settings: 3 }
+    let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    expect(s.cursor.field).toBe("auth")
+    expect(s.cursor.row).toBe(0)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1) // clamped
+    expect(s.cursor.addingRow).toBe(false)
+  })
+
+  it("navigates auth rows for basic (3 rows)", () => {
+    const counts = { headers: 0, params: 0, body: 0, auth: 3, settings: 3 }
+    let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    expect(s.cursor.row).toBe(0)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(2)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(2) // clamped
+  })
+
+  it("navigates auth rows for api_key (4 rows)", () => {
+    const counts = { headers: 0, params: 0, body: 0, auth: 4, settings: 3 }
+    let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    expect(s.cursor.row).toBe(0)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(1)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(2)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(3)
+    s = moveRowCursor(s, +1, counts)
+    expect(s.cursor.row).toBe(3) // clamped
   })
   it("browsing → editing on [+] line keeps editingRow -1 (caller adds row)", () => {
     let s = enterEditBrowse(inactive, c(0, 0))
@@ -330,12 +377,16 @@ describe("toggleSubfield", () => {
     expect(toggleSubfield(editing)).toBe(editing)
   })
 
-  it("no-op for auth field (cannot enter edit)", () => {
-    let s = enterEditBrowse(inactive, c(0, 0))
-    s = moveFieldCursor(s, -1, c(0, 0))
-    s = moveFieldCursor(s, -1, c(0, 0))
+  it("beginEditing on auth row 0 (type selector) enters edit mode", () => {
+    const counts = { headers: 0, params: 0, body: 0, auth: 2, settings: 3 }
+    let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
-    expect(toggleSubfield(s)).toBe(s)
+    expect(s.cursor.row).toBe(0)
+    const e = beginEditing(s)
+    expect(e.mode).toBe("editing")
+    expect(e.cursor.subfield).toBeUndefined()
   })
 })
 
