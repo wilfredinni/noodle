@@ -35,9 +35,9 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
 
   const formData =
     req.formData !== undefined
-      ? req.formData.map((entry) => ({
-          name: resolve(entry.name, `formData.name`),
-          value: resolve(entry.value, `formData.${entry.name}`),
+      ? req.formData.map((entry, i) => ({
+          name: resolve(entry.name, `formData[${i}].name`),
+          value: resolve(entry.value, `formData[${i}].value`),
           enabled: entry.enabled,
           type: entry.type,
         }))
