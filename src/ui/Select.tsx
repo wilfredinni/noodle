@@ -31,7 +31,7 @@ export function Select({
   onChange,
   focused = false,
   placeholder = "Select...",
-  width = 30,
+  width,
   maxDropdownHeight = 16,
   dropdownAlign = "left",
   badge = false,
@@ -144,12 +144,13 @@ export function Select({
     for (const item of items) {
       const text = extractText(item.label)
       if (text) maxLabel = Math.max(maxLabel, text.length)
+      if (item.description) maxLabel = Math.max(maxLabel, item.description.length)
     }
-    return Math.max(width, maxLabel + 4)
+    return width !== undefined ? Math.max(width, maxLabel + 6) : maxLabel + 6
   }, [items, width])
 
   return (
-    <box style={{ width, flexDirection: "column" }}>
+    <box style={{ flexDirection: "column", ...(width !== undefined ? { width } : {}) }}>
       <box style={{ position: "relative" }}>
         <box
           height={1}
