@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
-import { useTheme } from "./theme"
+import { useTheme, contrastOnPrimary } from "./theme"
 
 export interface SelectItem {
   id: string
@@ -37,6 +37,7 @@ export function Select({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [open, setOpen] = useState(false)
   const [highlightIndex, setHighlightIndex] = useState(0)
+  const contrastColor = useMemo(() => contrastOnPrimary(theme), [theme])
 
   const currentIndex = useMemo(
     () => items.findIndex((i) => i.id === value),
@@ -56,17 +57,12 @@ export function Select({
     if (open) {
       setHighlightIndex(safeInitialIndex)
     }
-  }, [open])
-
-  useEffect(() => {
-    if (highlightIndex >= items.length) {
-      setHighlightIndex(Math.max(0, items.length - 1))
-    }
-  }, [items.length])
+  }, [open, safeInitialIndex])
 
   useEffect(() => {
     if (open) {
-      const id = items[highlightIndex]?.id
+      const idx = Math.min(highlightIndex, Math.max(0, items.length - 1))
+      const id = items[idx]?.id
       if (id) scrollRef.current?.scrollChildIntoView(`select-item-${id}`)
     }
   }, [highlightIndex, open, items])
@@ -119,7 +115,8 @@ export function Select({
         } else if (name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          const item = items[highlightIndex]
+          const idx = Math.min(highlightIndex, Math.max(0, items.length - 1))
+          const item = items[idx]
           if (item && !item.disabled) {
             onChange?.(item.id)
             setOpen(false)
@@ -152,7 +149,7 @@ export function Select({
       >
         <box style={{ flexDirection: "row", flexGrow: 1 }}>
           {selectedItem ? (
-            renderLabel(selectedItem.label, open ? "#1a1a1a" : theme.text)
+            renderLabel(selectedItem.label, open ? contrastColor : theme.text)
           ) : (
             <text fg={theme.textMuted}>{placeholder}</text>
           )}
@@ -201,20 +198,20 @@ export function Select({
                       {renderLabel(
                         item.label,
                         isHighlighted
-                          ? "#1a1a1a"
+                          ? contrastColor
                           : item.id === value
                             ? theme.primary
                             : theme.text,
                         isHighlighted ? TextAttributes.BOLD : undefined,
                       )}
                       {item.description && (
-                        <text fg={isHighlighted ? "#333" : theme.textMuted}>
+                        <text fg={isHighlighted ? contrastColor : theme.textMuted}>
                           {item.description}
                         </text>
                       )}
                     </box>
                     {item.id === value && !item.disabled && (
-                      <text fg={isHighlighted ? "#1a1a1a" : theme.primary}>
+                      <text fg={isHighlighted ? contrastColor : theme.primary}>
                         {" "}
                         ●
                       </text>

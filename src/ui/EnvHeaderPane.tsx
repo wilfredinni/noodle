@@ -61,7 +61,7 @@ export const EnvHeaderPane = forwardRef<
   const colorItems: SelectItem[] = useMemo(() => {
     const t = theme as unknown as Record<string, string>
     return [
-      { id: "none", label: <text fg={theme.textMuted}>(none)</text> },
+      { id: "none", label: "(none)" },
       ...Array.from(VALID_COLORS).map((c) => ({
         id: c,
         label: <text fg={t[c] ?? theme.textMuted}>{c}</text>,

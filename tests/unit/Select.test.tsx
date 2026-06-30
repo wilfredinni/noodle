@@ -265,4 +265,75 @@ describe("Select", () => {
     expect(frame).toContain("Pick one")
     cleanup()
   })
+
+  it("opens dropdown on Space key when focused", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let open = false
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            focused
+            onOpenChange={(v) => {
+              open = v
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+    expect(open).toBe(false)
+
+    act(() => {
+      host.press("space")
+    })
+    await renderOnce()
+    expect(open).toBe(true)
+    cleanup()
+  })
+
+  it("skips disabled items during arrow navigation", async () => {
+    const itemsWithDisabled: SelectItem[] = [
+      { id: "a", label: "A" },
+      { id: "b", label: "B", disabled: true },
+      { id: "c", label: "C" },
+    ]
+    const { keymap, host, cleanup } = setupKeymap()
+    let selected = ""
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={itemsWithDisabled}
+            value="a"
+            focused
+            onChange={(id) => {
+              selected = id
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => {
+      host.press("return")
+    })
+    await renderOnce()
+
+    act(() => {
+      host.press("down")
+    })
+    await renderOnce()
+
+    act(() => {
+      host.press("return")
+    })
+    await renderOnce()
+    expect(selected).toBe("c")
+    cleanup()
+  })
 })
