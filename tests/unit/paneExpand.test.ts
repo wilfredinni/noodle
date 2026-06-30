@@ -24,7 +24,7 @@ describe("toggleExpand", () => {
     expect(toggleExpand("response", "request")).toBe("request")
   })
 
-  it("returns null when focus is neither request nor response (type-level, cast for test)", () => {
+  it("returns ExpandTarget type (type-level compatibility)", () => {
     const result: ExpandTarget = toggleExpand(null, "request")
     expect(result).toBe("request")
   })
