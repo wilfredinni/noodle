@@ -334,7 +334,7 @@ function BodySection({
         </box>
       </box>
 
-      {editingBody ? (
+      {bodyType === "none" ? null : editingBody ? (
         isFormMode ? (
           <box
             border={[...LeftBar.border]}
