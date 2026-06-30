@@ -6,6 +6,7 @@ import { nextIndex } from "../ui/selection"
 export interface UseSidebarSelectionResult {
   selectedIndex: number
   selectedRequest: Request | null
+  setSelectedIndex: (index: number) => void
 }
 
 function clampBase(prev: number, len: number): number {
@@ -15,9 +16,8 @@ function clampBase(prev: number, len: number): number {
 export function useSidebarSelection(
   requests: Request[],
   enabled: () => boolean = () => true,
-  initialIndex?: number,
 ): UseSidebarSelectionResult {
-  const [selectedIndex, setSelectedIndex] = useState(initialIndex ?? 0)
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
   useKeyboard((key) => {
     if (!enabled()) return
@@ -34,5 +34,7 @@ export function useSidebarSelection(
   return {
     selectedIndex: clamped,
     selectedRequest: clamped >= 0 ? requests[clamped] : null,
+    setSelectedIndex: (index: number) =>
+      setSelectedIndex(clampBase(index, requests.length)),
   }
 }

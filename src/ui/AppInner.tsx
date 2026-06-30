@@ -110,20 +110,26 @@ export function AppInner({
   )
   const requests = collection?.requests ?? []
 
-  const sidebarInitialIndex = useMemo(() => {
-    if (!initialLastRequestId) return undefined
-    const idx = requests.findIndex((r) => r.id === initialLastRequestId)
-    return idx >= 0 ? idx : undefined
-  }, [initialLastRequestId, requests])
-
   const { getTab, setTab } = useUIState(collectionDir)
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
-  const { selectedIndex, selectedRequest } = useSidebarSelection(
-    requests,
-    () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
-    sidebarInitialIndex,
-  )
+  const { selectedIndex, selectedRequest, setSelectedIndex: setSelIdx } =
+    useSidebarSelection(
+      requests,
+      () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+    )
+
+  const initRef = useRef(false)
+
+  if (
+    !initRef.current &&
+    requests.length > 0 &&
+    initialLastRequestId
+  ) {
+    const idx = requests.findIndex((r) => r.id === initialLastRequestId)
+    initRef.current = true
+    if (idx > 0) setSelIdx(idx)
+  }
 
   const saveLastReqRef = useRef(false)
 
