@@ -388,6 +388,13 @@ function SettingsSection({
                     focused
                   />
                 </>
+              ) : idx === 1 ? (
+                <box style={{ flexDirection: "row", gap: 1 }}>
+                  <text fg={theme.textMuted}>{row.label}: </text>
+                  <text fg={(request.followRedirects ?? true) ? theme.primary : theme.textMuted}>
+                    {(request.followRedirects ?? true) ? "[x]" : "[ ]"}
+                  </text>
+                </box>
               ) : (
                 <VarText
                   text={`${row.label}: ${row.display}`}

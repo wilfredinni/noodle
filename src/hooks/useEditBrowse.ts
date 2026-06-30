@@ -160,6 +160,12 @@ export function useEditBrowse(
       setEditState(browsed)
       return
     }
+    if (browsed.cursor.field === "settings" && browsed.cursor.row === 1) {
+      const current = currentDraft?.followRedirects ?? true
+      draftMutators.setFollowRedirects(!current)
+      setEditState(browsed)
+      return
+    }
 
     const { field, row, addingRow } = browsed.cursor
     if (field === "body" || field === "settings") {
@@ -220,8 +226,14 @@ export function useEditBrowse(
   const enterEdit = useCallback(() => {
     const state = editStateRef.current
     if (state.mode !== "browsing") return
+    const { field, row } = state.cursor
+    if (field === "settings" && row === 1) {
+      const current = draftRef.current?.followRedirects ?? true
+      draftMutators.setFollowRedirects(!current)
+      return
+    }
     const currentDraft = draftRef.current
-    const { field, row, addingRow } = state.cursor
+    const { addingRow } = state.cursor
     if (field === "body" || field === "settings") {
       const init = currentValueFor(currentDraft, field, row, addingRow)
       setEditValue(init)
@@ -305,6 +317,10 @@ export function useEditBrowse(
     if (addingRow) return
     if (field === "headers") draftMutators.toggleHeaderRow(row)
     else if (field === "params") draftMutators.toggleParamRow(row)
+    else if (field === "settings" && row === 1) {
+      const current = draftRef.current?.followRedirects ?? true
+      draftMutators.setFollowRedirects(!current)
+    }
   }, [draftMutators])
 
   const cycleInactiveTab = useCallback((delta: 1 | -1) => {
