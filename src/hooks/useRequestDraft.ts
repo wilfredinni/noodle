@@ -245,16 +245,20 @@ export function applyDraft(
       if (op.authType === "none") {
         draft.auth = { type: "none" }
       } else if (op.authType === "bearer") {
-        draft.auth = { type: "bearer", token: "" }
+        draft.auth =
+          original.auth?.type === "bearer"
+            ? { ...original.auth }
+            : { type: "bearer", token: "" }
       } else if (op.authType === "basic") {
-        draft.auth = { type: "basic", user: "", pass: "" }
+        draft.auth =
+          original.auth?.type === "basic"
+            ? { ...original.auth }
+            : { type: "basic", user: "", pass: "" }
       } else if (op.authType === "api_key") {
-        draft.auth = {
-          type: "api_key",
-          key: "",
-          value: "",
-          placement: "header",
-        }
+        draft.auth =
+          original.auth?.type === "api_key"
+            ? { ...original.auth }
+            : { type: "api_key", key: "", value: "", placement: "header" }
       }
       break
     }
