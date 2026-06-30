@@ -75,7 +75,10 @@ export const EnvHeaderPane = forwardRef<
       style={{
         flexDirection: "row",
         gap: 1,
-        padding: 1,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 1,
+        paddingRight: 1,
         backgroundColor: theme.backgroundPanel,
         zIndex: selectOpen ? 1 : undefined,
       }}
@@ -105,6 +108,7 @@ export const EnvHeaderPane = forwardRef<
         focused={colorFocused}
         maxDropdownHeight={10}
         dropdownAlign="right"
+        badge
         onOpenChange={setSelectOpen}
       />
     </box>

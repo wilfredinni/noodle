@@ -1,23 +1,9 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
-import { createTestKeymap } from "@opentui/keymap/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { EnvHeaderPane } from "../../src/ui/EnvHeaderPane"
-
-function setupKeymap() {
-  const { keymap, cleanup: hostCleanup } = createTestKeymap()
-  keymap.setData("app.mode", "base")
-  keymap.setData("app.focus", "sidebar")
-  keymap.setData("app.overlay", "none")
-  return {
-    keymap: keymap as unknown as KeymapProviderProps["keymap"],
-    cleanup: () => {
-      hostCleanup()
-    },
-  }
-}
+import { setupKeymap } from "./_helpers"
 
 describe("EnvHeaderPane", () => {
   it("renders name input and color select with placeholder", async () => {

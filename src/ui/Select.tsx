@@ -52,7 +52,7 @@ export function Select({
 
   useEffect(() => {
     if (!focused && open) setOpen(false)
-  }, [focused])
+  }, [focused, open])
 
   useEffect(() => {
     onOpenChange?.(open)
@@ -273,6 +273,9 @@ function extractText(label: ReactNode): string {
   if (isValidElement(label)) {
     const children = (label.props as { children?: ReactNode }).children
     if (typeof children === "string") return children
+    if (typeof children === "number") return String(children)
+    if (isValidElement(children)) return extractText(children)
+    if (Array.isArray(children)) return children.map(extractText).join("")
   }
   return ""
 }
