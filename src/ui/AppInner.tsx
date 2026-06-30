@@ -81,6 +81,7 @@ export function AppInner({
   )
   const [confirmSelection, setConfirmSelection] = useState(0)
   const [collectionReloadToken, setCollectionReloadToken] = useState(0)
+  const [selectOpen, setSelectOpen] = useState(false)
   const [yamlEditor, setYamlEditor] = useState<{
     visible: boolean
     filePath: string
@@ -401,6 +402,10 @@ export function AppInner({
                     focused={focus === "request"}
                     activeTab={eb.activeTab}
                     activeEnv={envState.activeEnv}
+                    onAuthTypeChange={draft.setAuthType}
+                    onAuthFieldChange={draft.setAuthField}
+                    onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                    onSelectOpenChange={setSelectOpen}
                   />
                   <ResponsePane
                     state={responseState}
@@ -420,6 +425,10 @@ export function AppInner({
                     focused={focus === "request"}
                     activeTab={eb.activeTab}
                     activeEnv={envState.activeEnv}
+                    onAuthTypeChange={draft.setAuthType}
+                    onAuthFieldChange={draft.setAuthField}
+                    onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                    onSelectOpenChange={setSelectOpen}
                   />
                   <ResponsePane
                     state={responseState}
