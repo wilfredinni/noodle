@@ -4,7 +4,7 @@ url: https://httpbin.org/basic-auth/user/pass
 timeout: 0
 followRedirects: true
 maxRedirects: 5
-body_type: multipart
+body_type: none
 auth:
   type: basic
   user: user
