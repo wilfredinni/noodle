@@ -1,5 +1,5 @@
 import type { TextareaRenderable } from "@opentui/core"
-import { useCallback, useRef } from "react"
+import { useCallback, useRef, useState } from "react"
 import type { Auth, Environment } from "../schema"
 import type { EditState } from "./editMode"
 import { Select, type SelectItem } from "./Select"
@@ -105,6 +105,8 @@ export function AuthEditor({
   onSelectOpenChange,
 }: AuthEditorProps) {
   const textareaRef = useRef<TextareaRenderable | null>(null)
+  const [typeSelectOpen, setTypeSelectOpen] = useState(false)
+  const [placementSelectOpen, setPlacementSelectOpen] = useState(false)
 
   const handleContentChange = useCallback(() => {
     const ta = textareaRef.current
@@ -118,6 +120,22 @@ export function AuthEditor({
     editState.cursor.field === "auth" &&
     editState.cursor.row === 0
 
+  const handleTypeSelectOpen = useCallback(
+    (open: boolean) => {
+      setTypeSelectOpen(open)
+      onSelectOpenChange?.(open)
+    },
+    [onSelectOpenChange],
+  )
+
+  const handlePlacementSelectOpen = useCallback(
+    (open: boolean) => {
+      setPlacementSelectOpen(open)
+      onSelectOpenChange?.(open)
+    },
+    [onSelectOpenChange],
+  )
+
   const descFor = (field: string): string => {
     if (field === "token") return "(bearer token)"
     if (field === "user") return "(basic username)"
@@ -130,7 +148,12 @@ export function AuthEditor({
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
-      <box style={{ flexDirection: "column" }}>
+      <box
+        style={{
+          flexDirection: "column",
+          zIndex: typeSelectOpen ? 1 : undefined,
+        }}
+      >
         <box
           id="auth-field"
           border={[...LeftBar.border]}
@@ -139,6 +162,7 @@ export function AuthEditor({
             isTypeSelectorActive ? theme.primary : theme.borderSubtle
           }
           style={{
+            zIndex: typeSelectOpen ? 1 : undefined,
             backgroundColor: isTypeSelectorActive
               ? theme.backgroundElement
               : undefined,
@@ -155,7 +179,7 @@ export function AuthEditor({
               }
               focused={isTypeSelectorActive}
               badge={false}
-              onOpenChange={onSelectOpenChange}
+              onOpenChange={handleTypeSelectOpen}
             />
           </box>
         </box>
@@ -179,7 +203,14 @@ export function AuthEditor({
           : fieldValue
 
         return (
-          <box key={def.field} style={{ flexDirection: "column" }}>
+          <box
+            key={def.field}
+            style={{
+              flexDirection: "column",
+              zIndex:
+                def.isPlacement && placementSelectOpen ? 1 : undefined,
+            }}
+          >
             <box
               id={`auth-${def.field}`}
               border={[...LeftBar.border]}
@@ -220,7 +251,7 @@ export function AuthEditor({
                     }
                     focused={isActive}
                     badge={false}
-                    onOpenChange={onSelectOpenChange}
+                    onOpenChange={handlePlacementSelectOpen}
                   />
                 </box>
               ) : (

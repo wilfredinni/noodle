@@ -157,14 +157,18 @@ export function Select({
     return width !== undefined ? Math.max(width, maxLabel + 6) : maxLabel + 6
   }, [items, width])
 
+  const dropdownMaxHeight = useMemo(
+    () => Math.min(maxDropdownHeight, items.reduce((s, i) => s + (i.description ? 2 : 1), 0)),
+    [maxDropdownHeight, items],
+  )
+
   return (
-    <box
-      style={{
-        flexDirection: "column",
-        ...(width !== undefined ? { width } : {}),
-        ...(open ? { zIndex: 1, position: "relative" as const } : {}),
-      }}
-    >
+      <box
+        style={{
+          flexDirection: "column",
+          ...(width !== undefined ? { width } : {}),
+        }}
+      >
       <box style={{ position: "relative" }}>
         <box
           height={1}
@@ -215,7 +219,7 @@ export function Select({
             <scrollbox
               ref={scrollRef}
               scrollY
-              maxHeight={maxDropdownHeight}
+              maxHeight={dropdownMaxHeight}
               scrollbarOptions={{ visible: false }}
             >
               <box style={{ flexDirection: "column" }}>
