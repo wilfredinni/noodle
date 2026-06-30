@@ -164,9 +164,12 @@ function bodyForSend(
     return fd as unknown as BodyInit
   }
 
-  if (req.bodyType === "binary" && req.filePath) {
-    if (!hasContentType) headers.set("content-type", "application/octet-stream")
-    return Bun.file(req.filePath) as unknown as BodyInit
+  if (req.bodyType === "binary") {
+    if (req.filePath) {
+      if (!hasContentType) headers.set("content-type", "application/octet-stream")
+      return Bun.file(req.filePath) as unknown as BodyInit
+    }
+    return undefined
   }
 
   return req.body
