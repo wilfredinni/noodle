@@ -444,6 +444,36 @@ describe("send — auth header", () => {
     const headers = init.headers as Headers
     expect(headers.get("Authorization")).toBe("Bearer from-auth")
   })
+
+  it("adds api_key header when placement is header", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({ auth: { type: "api_key", key: "X-API-Key", value: "secret123", placement: "header" } }),
+    )
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const headers = init.headers as Headers
+    expect(headers.get("X-API-Key")).toBe("secret123")
+    expect(headers.get("Authorization")).toBeNull()
+  })
+
+  it("injects api_key as query param when placement is query", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({ auth: { type: "api_key", key: "api_key", value: "secret123", placement: "query" } }),
+    )
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?api_key=secret123")
+  })
+
+  it("api_key query param appends to existing query params", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse({}))
+    await executor.send(
+      makeReq({
+        params: { verbose: { value: "true", enabled: true } },
+        auth: { type: "api_key", key: "key", value: "val", placement: "query" },
+      }),
+    )
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/?verbose=true&key=val")
+  })
 })
 
 describe("send — error handling", () => {

@@ -37,7 +37,9 @@ function authSummary(
 ): string | null {
   if (!auth || auth.type === "none") return null
   if (auth.type === "bearer") return "Bearer token"
-  return `Basic ${auth.user}:****`
+  if (auth.type === "basic") return `Basic ${auth.user}:****`
+  if (auth.type === "api_key") return `${auth.key}: ${auth.value}`
+  return null
 }
 
 export function TimelineEntry({
