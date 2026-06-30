@@ -59,6 +59,10 @@ export function FormEditor({
           style={{
             flexDirection: "row",
             gap: 0,
+            backgroundColor:
+              cursorHere && editState.cursor.addingRow
+                ? theme.backgroundElement
+                : undefined,
           }}
         >
           <Checkbox checked={false} theme={theme} />
