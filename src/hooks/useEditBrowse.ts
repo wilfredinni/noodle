@@ -181,6 +181,7 @@ export interface UseEditBrowseResult {
   revertField: () => void
   revertAll: () => void
   toggleRow: () => void
+  toggleFormRowType: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
 }
 
@@ -543,6 +544,20 @@ const commitEdit = useCallback(() => {
     }
   }, [draftMutators])
 
+  const toggleFormRowType = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "browsing") return
+    const { field, addingRow, row } = state.cursor
+    if (field !== "body" || addingRow || row === 0) return
+    const bodyType = draftRef.current?.bodyType
+    if (bodyType !== "multipart" && bodyType !== "urlencoded") return
+    const formIdx = row - 1
+    const entry = draftRef.current?.formData?.[formIdx]
+    if (!entry) return
+    const newType = entry.type === "file" ? "text" : "file"
+    draftMutators.setFormRow(formIdx, entry.name, entry.value, newType)
+  }, [draftMutators])
+
   const cycleInactiveTab = useCallback((delta: 1 | -1) => {
     setInactiveTab((prev) => cycleField(prev, delta))
   }, [])
@@ -570,6 +585,7 @@ const commitEdit = useCallback(() => {
       revertField: revertFieldHandler,
       revertAll: revertAllHandler,
       toggleRow,
+      toggleFormRowType,
       cycleInactiveTab,
     }),
     [
@@ -591,6 +607,7 @@ const commitEdit = useCallback(() => {
       revertFieldHandler,
       revertAllHandler,
       toggleRow,
+      toggleFormRowType,
       cycleInactiveTab,
     ],
   )

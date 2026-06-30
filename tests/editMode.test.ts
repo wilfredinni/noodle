@@ -11,6 +11,8 @@ import {
   toggleSubfield,
   type EditState,
 } from "../src/ui/editMode"
+import { applyDraft } from "../src/hooks/useRequestDraft"
+import type { Request } from "../src/schema"
 
 const inactive: EditState = initialEditState()
 
@@ -439,5 +441,62 @@ describe("moveRowCursor — settings", () => {
     expect(s.cursor.addingRow).toBe(false)
     s = moveRowCursor(s, +1, c(0, 0))
     expect(s.cursor.addingRow).toBe(false)
+  })
+})
+
+function makeReq(over: Partial<Request> = {}): Request {
+  return {
+    id: "r1",
+    name: "Test",
+    method: "GET",
+    url: "https://example.com",
+    headers: {},
+    params: {},
+    timeout: 0,
+    followRedirects: true,
+    maxRedirects: 5,
+    auth: { type: "none" },
+    ...over,
+  }
+}
+
+describe("toggleFormRowType — applyDraft setFormRow", () => {
+  it("toggles form entry from text to file", () => {
+    const original = makeReq({ bodyType: "multipart", formData: [{ name: "avatar", value: "/path/to/photo.png", enabled: true, type: "text" }] })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setFormRow", index: 0, name: "avatar", value: "/path/to/photo.png", formType: "file" })
+    expect(next.get("r1")!.formData![0]!.type).toBe("file")
+    expect(next.get("r1")!.formData![0]!.name).toBe("avatar")
+    expect(next.get("r1")!.formData![0]!.value).toBe("/path/to/photo.png")
+  })
+
+  it("toggles form entry from file to text", () => {
+    const original = makeReq({ bodyType: "multipart", formData: [{ name: "avatar", value: "/path/to/photo.png", enabled: true, type: "file" }] })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setFormRow", index: 0, name: "avatar", value: "/path/to/photo.png", formType: "text" })
+    expect(next.get("r1")!.formData![0]!.type).toBe("text")
+    expect(next.get("r1")!.formData![0]!.name).toBe("avatar")
+    expect(next.get("r1")!.formData![0]!.value).toBe("/path/to/photo.png")
+  })
+
+  it("preserves value when toggling type", () => {
+    const original = makeReq({ bodyType: "multipart", formData: [{ name: "data", value: "some/path.txt", enabled: true, type: "text" }] })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, { kind: "setFormRow", index: 0, name: "data", value: "some/path.txt", formType: "file" })
+    expect(next.get("r1")!.formData![0]!.type).toBe("file")
+    expect(next.get("r1")!.formData![0]!.value).toBe("some/path.txt")
+  })
+
+  it("detects file-typed entries in new rows via @file() syntax", () => {
+    const value = "@file(/tmp/upload.bin)"
+    const fileMatch = value.match(/^@file\((.+)\)$/)
+    expect(fileMatch).not.toBeNull()
+    expect(fileMatch![1]).toBe("/tmp/upload.bin")
+  })
+
+  it("does not flag non-@file values as file type", () => {
+    const value = "plain text"
+    const fileMatch = value.match(/^@file\((.+)\)$/)
+    expect(fileMatch).toBeNull()
   })
 })

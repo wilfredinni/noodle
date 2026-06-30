@@ -248,6 +248,10 @@ export function useAppKeymap(
         run: () => refs.trySendRef.current?.(),
       },
       {
+        name: "browse.toggle-form-type",
+        run: () => refs.ebRef.current.toggleFormRowType(),
+      },
+      {
         name: "browse.save",
         run: () => {
           const d = refs.draftRef.current
@@ -269,6 +273,7 @@ export function useAppKeymap(
       { key: "space", cmd: "browse.toggle" },
       { key: keybinds.request_send, cmd: "browse.send" },
       { key: keybinds.request_save, cmd: "browse.save" },
+      { key: keybinds.browse_toggle_form_type, cmd: "browse.toggle-form-type" },
     ],
   }))
 

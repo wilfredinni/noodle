@@ -183,3 +183,94 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 })
+
+describe("BodySection — FormEditor browse mode", () => {
+  const formRequest: Request = {
+    id: "form-test",
+    name: "form-test",
+    method: "POST",
+    url: "https://example.com/api",
+    headers: {},
+    params: {},
+    timeout: 0,
+    bodyType: "multipart",
+    formData: [
+      { name: "username", value: "john", enabled: true, type: "text" },
+      { name: "avatar", value: "/path/to/photo.png", enabled: true, type: "file" },
+    ],
+  }
+
+  const editStateBrowseBody = {
+    mode: "inactive" as const,
+    cursor: { field: "body" as const, row: -1, addingRow: false },
+    editingRow: -1,
+  }
+
+  it("renders [F] prefix for file-type form entries", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={formRequest}
+              editState={editStateBrowseBody}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("[F]")
+    expect(frame).toContain("avatar")
+    expect(frame).toContain("username")
+    expect(frame).toContain("john")
+    cleanup()
+  })
+
+  it("does not show [F] prefix for text-type form entries", async () => {
+    const textOnlyReq: Request = {
+      ...formRequest,
+      formData: [
+        { name: "username", value: "john", enabled: true, type: "text" },
+        { name: "email", value: "john@example.com", enabled: true, type: "text" },
+      ],
+    }
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={textOnlyReq}
+              editState={editStateBrowseBody}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("username")
+    expect(frame).toContain("john")
+    expect(frame).toContain("email")
+    expect(frame).toContain("john@example.com")
+    expect(frame).not.toContain("[F]")
+    cleanup()
+  })
+})
