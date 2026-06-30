@@ -1,7 +1,9 @@
 name: Basic Auth
 method: GET
 url: https://httpbin.org/basic-auth/user/pass
-timeout: 1000
+timeout: 0
+followRedirects: true
+maxRedirects: 5
 auth:
   type: basic
   user: user
