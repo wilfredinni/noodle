@@ -7,7 +7,7 @@ export type Method =
   | "HEAD"
   | "OPTIONS"
 
-export type BodyType = "json" | "multipart" | "urlencoded" | "binary"
+export type BodyType = "none" | "json" | "multipart" | "urlencoded" | "binary"
 
 export interface FormEntry {
   name: string

@@ -266,6 +266,7 @@ function BodySection({
   const bodyType = request.bodyType ?? "json"
 
   const bodyTypeItems: SelectItem[] = [
+    { id: "none", label: "None" },
     { id: "json", label: "JSON" },
     { id: "multipart", label: "Multipart Form" },
     { id: "urlencoded", label: "Form URL-Encoded" },

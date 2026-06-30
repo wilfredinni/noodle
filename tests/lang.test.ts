@@ -354,7 +354,7 @@ describe("lang.parseRequest — body_type, form_data, file_path", () => {
   it("throws on invalid body_type", () => {
     const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: graphql\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
-      'lang.parseRequest: "body_type" must be one of json|multipart|urlencoded|binary',
+      'lang.parseRequest: "body_type" must be one of none|json|multipart|urlencoded|binary',
     )
   })
 
@@ -684,9 +684,9 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
     expect(out).toContain("file_path: /tmp/data.bin")
   })
 
-  it("omits body_type when json (default)", () => {
+  it("includes body_type when json (explicitly set)", () => {
     const out = lang.serializeRequest(makeReq({ bodyType: "json", body: "hi" }))
-    expect(out).not.toContain("body_type:")
+    expect(out).toContain("body_type: json")
   })
 
   it("omits body_type when undefined (backward compat)", () => {

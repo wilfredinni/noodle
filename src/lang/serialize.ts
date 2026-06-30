@@ -43,7 +43,7 @@ export function serializeRequest(req: Request): string {
     out += `body: ${yamlVal(req.body)}\n`
   }
 
-  if (req.bodyType !== undefined && req.bodyType !== "json") {
+  if (req.bodyType !== undefined) {
     out += `body_type: ${yamlVal(req.bodyType)}\n`
   }
 

@@ -1,6 +1,7 @@
 name: Bearer Auth
 method: GET
 url: https://httpbin.org/bearer
+body_type: none
 timeout: 0
 followRedirects: true
 maxRedirects: 5

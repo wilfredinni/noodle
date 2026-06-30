@@ -33,7 +33,9 @@ function rowCount(req: Request | null): SectionRowCount {
     else if (a.type === "basic") authRows = 3
     else if (a.type === "api_key") authRows = 4
   }
-  const body = req.bodyType === "urlencoded" || req.bodyType === "multipart"
+  const body = req.bodyType === "none"
+    ? 1
+    : req.bodyType === "urlencoded" || req.bodyType === "multipart"
     ? 1 + (req.formData?.length ?? 0)
     : 2
   return {
@@ -69,6 +71,7 @@ function currentValueFor(
     if (draft.bodyType === "binary") {
       return draft.filePath ?? ""
     }
+    if (draft.bodyType === "none") return ""
     return draft.body ?? ""
   }
   if (field === "auth") {
@@ -278,6 +281,10 @@ export function useEditBrowse(
     }
     if (field === "body" || field === "settings") {
       const bodyType = currentDraft?.bodyType
+      if (field === "body" && bodyType === "none") {
+        setEditState(browsed)
+        return
+      }
       if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
         const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
         setEditKey(kv.key)
@@ -365,6 +372,9 @@ export function useEditBrowse(
     }
     if (field === "body" || field === "settings") {
       const bodyType = currentDraft?.bodyType
+      if (field === "body" && bodyType === "none") {
+        return
+      }
       if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
         const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
         setEditKey(kv.key)
