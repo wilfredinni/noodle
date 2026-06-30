@@ -1,6 +1,7 @@
 import type { Request, Environment } from "../schema"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
+import { Checkbox } from "./Checkbox"
 import { varSummaryColor } from "./envHighlight"
 
 export interface KeyValueSectionProps {
@@ -60,7 +61,7 @@ export function KeyValueSection({
             gap: 0,
           }}
         >
-          <text fg={theme.textMuted}>[ ] </text>
+          <Checkbox checked={false} theme={theme} />
           <input
             value=""
             placeholder="Key"
@@ -102,9 +103,7 @@ export function KeyValueSection({
                         : undefined,
                 }}
               >
-                <text fg={entry.enabled ? theme.primary : theme.textMuted}>
-                  {entry.enabled ? "[x] " : "[ ] "}
-                </text>
+                <Checkbox checked={entry.enabled} theme={theme} />
                 <input
                   value={isEditingThisRow ? editKey : k}
                   placeholder="Key"
@@ -171,7 +170,7 @@ export function KeyValueSection({
                   : undefined,
             }}
           >
-            <text fg={theme.textMuted}>[ ] </text>
+          <Checkbox checked={false} theme={theme} />
             <input
               value={editingAdd ? editKey : ""}
               placeholder="Key"

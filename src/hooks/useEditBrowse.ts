@@ -25,10 +25,13 @@ const FIELD_ORDER: FieldKind[] = [
 ]
 
 function rowCount(req: Request | null): SectionRowCount {
-  if (!req) return { headers: 0, params: 0 }
+  if (!req) return { headers: 0, params: 0, body: 0, auth: 0, settings: 3 }
   return {
     headers: Object.keys(req.headers).length,
     params: Object.keys(req.params).length,
+    body: 0,
+    auth: 0,
+    settings: 3,
   }
 }
 
@@ -40,7 +43,12 @@ function currentValueFor(
 ): string {
   if (!draft) return ""
   if (field === "body") return draft.body ?? ""
-  if (field === "settings") return String(draft.timeout)
+  if (field === "settings") {
+    if (row === 0) return String(draft.timeout)
+    if (row === 1) return String(draft.followRedirects ?? true)
+    if (row === 2) return String(draft.maxRedirects ?? 5)
+    return ""
+  }
   if (field === "headers" || field === "params") {
     if (addingRow) return ""
     const rec = field === "headers" ? draft.headers : draft.params
@@ -67,7 +75,12 @@ function currentKeyValueFor(
       ? { key: entry[0], value: entry[1].value }
       : { key: "", value: "" }
   }
-  if (field === "settings") return { key: "", value: String(draft.timeout) }
+  if (field === "settings") {
+    if (row === 0) return { key: "", value: String(draft.timeout) }
+    if (row === 1) return { key: "", value: String(draft.followRedirects ?? true) }
+    if (row === 2) return { key: "", value: String(draft.maxRedirects ?? 5) }
+    return { key: "", value: "" }
+  }
   return { key: "", value: "" }
 }
 
@@ -147,6 +160,12 @@ export function useEditBrowse(
       setEditState(browsed)
       return
     }
+    if (browsed.cursor.field === "settings" && browsed.cursor.row === 1) {
+      const current = currentDraft?.followRedirects ?? true
+      draftMutators.setFollowRedirects(!current)
+      setEditState(browsed)
+      return
+    }
 
     const { field, row, addingRow } = browsed.cursor
     if (field === "body" || field === "settings") {
@@ -207,8 +226,14 @@ export function useEditBrowse(
   const enterEdit = useCallback(() => {
     const state = editStateRef.current
     if (state.mode !== "browsing") return
+    const { field, row } = state.cursor
+    if (field === "settings" && row === 1) {
+      const current = draftRef.current?.followRedirects ?? true
+      draftMutators.setFollowRedirects(!current)
+      return
+    }
     const currentDraft = draftRef.current
-    const { field, row, addingRow } = state.cursor
+    const { addingRow } = state.cursor
     if (field === "body" || field === "settings") {
       const init = currentValueFor(currentDraft, field, row, addingRow)
       setEditValue(init)
@@ -229,7 +254,15 @@ export function useEditBrowse(
     if (field === "body") {
       draftMutators.setBody(val)
     } else if (field === "settings") {
-      draftMutators.setTimeout(Number(val) || 0)
+      const row = state.cursor.row
+      if (row === 0) {
+        draftMutators.setTimeout(Number(val) || 0)
+      } else if (row === 1) {
+        draftMutators.setFollowRedirects(val.trim().toLowerCase() !== "false")
+      } else if (row === 2) {
+        const n = Number(val)
+        draftMutators.setMaxRedirects(Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5)
+      }
     } else if (field === "headers" || field === "params") {
       const key = editKeyRef.current.trim()
       const value = editValueRef.current.trim()
@@ -284,6 +317,10 @@ export function useEditBrowse(
     if (addingRow) return
     if (field === "headers") draftMutators.toggleHeaderRow(row)
     else if (field === "params") draftMutators.toggleParamRow(row)
+    else if (field === "settings" && row === 1) {
+      const current = draftRef.current?.followRedirects ?? true
+      draftMutators.setFollowRedirects(!current)
+    }
   }, [draftMutators])
 
   const cycleInactiveTab = useCallback((delta: 1 | -1) => {

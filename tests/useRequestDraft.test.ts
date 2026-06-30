@@ -15,6 +15,9 @@ function makeReq(over: Partial<Request> = {}): Request {
     headers: {},
     params: {},
     timeout: 0,
+    followRedirects: true,
+    maxRedirects: 5,
+    auth: { type: "none" },
     ...over,
   }
 }
@@ -122,6 +125,26 @@ describe("requestEquals", () => {
   it("differing timeout → false", () => {
     expect(
       requestEquals(makeReq({ timeout: 0 }), makeReq({ timeout: 10000 })),
+    ).toBe(false)
+  })
+  it("same followRedirects → true", () => {
+    expect(
+      requestEquals(makeReq({ followRedirects: false }), makeReq({ followRedirects: false })),
+    ).toBe(true)
+  })
+  it("differing followRedirects → false", () => {
+    expect(
+      requestEquals(makeReq({ followRedirects: true }), makeReq({ followRedirects: false })),
+    ).toBe(false)
+  })
+  it("same maxRedirects → true", () => {
+    expect(
+      requestEquals(makeReq({ maxRedirects: 10 }), makeReq({ maxRedirects: 10 })),
+    ).toBe(true)
+  })
+  it("differing maxRedirects → false", () => {
+    expect(
+      requestEquals(makeReq({ maxRedirects: 5 }), makeReq({ maxRedirects: 0 })),
     ).toBe(false)
   })
   it("name/id differences → still equal (only url/method/headers/params/body/auth compared)", () => {

@@ -12,6 +12,8 @@ export function serializeRequest(req: Request): string {
   out += `method: ${yamlVal(req.method)}\n`
   out += `url: ${yamlVal(req.url)}\n`
   out += `timeout: ${String(req.timeout)}\n`
+  out += `followRedirects: ${req.followRedirects ?? true}\n`
+  out += `maxRedirects: ${req.maxRedirects ?? 5}\n`
 
   if (Object.keys(req.headers).length > 0) {
     out += "headers:\n"

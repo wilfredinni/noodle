@@ -12,6 +12,8 @@ describe("lang.parseRequest — required fields", () => {
       method: "GET",
       url: "https://api.example.com/users/1",
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       headers: {},
       params: {},
       auth: { type: "none" },
@@ -112,6 +114,47 @@ describe("lang.parseRequest — strictness", () => {
     expect(() => lang.parseRequest("x", yaml)).toThrow(
       "lang.parseRequest: headers must be a map",
     )
+  })
+
+  it("throws on non-boolean followRedirects", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nfollowRedirects: "yes"\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "followRedirects" must be a boolean',
+    )
+  })
+
+  it("defaults followRedirects to true when omitted", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\n`
+    expect(lang.parseRequest("x", yaml).followRedirects).toBe(true)
+  })
+
+  it("parses followRedirects: false", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nfollowRedirects: false\n`
+    expect(lang.parseRequest("x", yaml).followRedirects).toBe(false)
+  })
+
+  it("throws on non-integer maxRedirects", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nmaxRedirects: 5.5\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "maxRedirects" must be a non-negative integer',
+    )
+  })
+
+  it("throws on negative maxRedirects", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nmaxRedirects: -1\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "maxRedirects" must be a non-negative integer',
+    )
+  })
+
+  it("defaults maxRedirects to 5 when omitted", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\n`
+    expect(lang.parseRequest("x", yaml).maxRedirects).toBe(5)
+  })
+
+  it("parses maxRedirects: 10", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nmaxRedirects: 10\n`
+    expect(lang.parseRequest("x", yaml).maxRedirects).toBe(10)
   })
 
   it("throws on invalid auth.type", () => {
@@ -222,6 +265,8 @@ function makeReq(over: Partial<Request> = {}): Request {
     headers: {},
     params: {},
     timeout: 0,
+    followRedirects: true,
+    maxRedirects: 5,
     auth: { type: "none" },
     ...over,
   }
@@ -231,7 +276,7 @@ describe("lang.serializeRequest — canonical output", () => {
   it("emits name, method, url always (no other fields when all defaults)", () => {
     const out = lang.serializeRequest(makeReq())
     expect(out).toBe(
-      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\n",
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\nfollowRedirects: true\nmaxRedirects: 5\n",
     )
   })
 
@@ -242,7 +287,7 @@ describe("lang.serializeRequest — canonical output", () => {
       }),
     )
     expect(out).toBe(
-      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\nheaders:\n  Accept: application/json\n",
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\nfollowRedirects: true\nmaxRedirects: 5\nheaders:\n  Accept: application/json\n",
     )
   })
 
@@ -311,6 +356,8 @@ describe("lang.serializeRequest — canonical key order", () => {
       "method",
       "url",
       "timeout",
+      "followRedirects",
+      "maxRedirects",
       "headers",
       "params",
       "body",
@@ -355,6 +402,8 @@ describe("lang — semantic round-trip", () => {
       method: "POST",
       url: "https://$host/posts",
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       headers: {
         "Content-Type": { value: "application/json", enabled: true },
         Authorization: { value: "Bearer $token", enabled: true },
@@ -379,6 +428,8 @@ describe("lang — semantic round-trip", () => {
       headers: {},
       params: {},
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       auth: { type: "none" },
     }
     const yaml = lang.serializeRequest(original)
@@ -395,6 +446,8 @@ describe("lang — semantic round-trip", () => {
       headers: {},
       params: {},
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       auth: { type: "basic", user: "foo", pass: "bar" },
     }
     const yaml = lang.serializeRequest(original)
@@ -414,6 +467,8 @@ describe("lang — semantic round-trip", () => {
       },
       params: {},
       timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
       auth: { type: "none" },
     }
     const yaml = lang.serializeRequest(original)

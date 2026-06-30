@@ -48,6 +48,8 @@ export function parseRequest(id: string, yamlText: string): Request {
     "method",
     "url",
     "timeout",
+    "followRedirects",
+    "maxRedirects",
     "headers",
     "params",
     "body",
@@ -97,12 +99,30 @@ export function parseRequest(id: string, yamlText: string): Request {
     timeout = raw.timeout
   }
 
+  let followRedirects: boolean = true
+  if (raw.followRedirects !== undefined) {
+    if (typeof raw.followRedirects !== "boolean") {
+      throw new Error('lang.parseRequest: "followRedirects" must be a boolean')
+    }
+    followRedirects = raw.followRedirects
+  }
+
+  let maxRedirects: number = 5
+  if (raw.maxRedirects !== undefined) {
+    if (typeof raw.maxRedirects !== "number" || !Number.isInteger(raw.maxRedirects) || raw.maxRedirects < 0) {
+      throw new Error('lang.parseRequest: "maxRedirects" must be a non-negative integer')
+    }
+    maxRedirects = raw.maxRedirects
+  }
+
   return {
     id,
     name: raw.name,
     method,
     url: raw.url,
     timeout,
+    followRedirects,
+    maxRedirects,
     headers,
     params,
     body,

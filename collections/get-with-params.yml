@@ -2,5 +2,7 @@ name: Get with Params
 method: GET
 url: $base_url/posts
 timeout: 0
+followRedirects: true
+maxRedirects: 5
 params:
   userId: $user_id

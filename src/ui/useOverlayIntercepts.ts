@@ -358,8 +358,7 @@ export function useOverlayIntercepts(opts: {
           }
 
           if (
-            e.name === "x" &&
-            e.ctrl &&
+            e.name === "space" &&
             !inEdit &&
             ee.selectedRowIndex < rows
           ) {

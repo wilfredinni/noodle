@@ -16,6 +16,7 @@ import { useJsonHighlight } from "../hooks/useJsonHighlight"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { VarText } from "./VarText"
 import { KeyValueSection } from "./KeyValueSection"
+import { Checkbox } from "./Checkbox"
 
 interface Props {
   request: Request | null
@@ -182,7 +183,6 @@ export function RequestPane({
                 <SettingsSection
                   request={request}
                   editState={editState}
-                  editValue={editValue}
                   setEditValue={setEditValue}
                   inEdit={inEdit}
                   browseActive={browseActive}
@@ -314,7 +314,6 @@ function AuthSection({
 function SettingsSection({
   request,
   editState,
-  editValue: _editValue,
   setEditValue,
   inEdit,
   browseActive,
@@ -323,7 +322,6 @@ function SettingsSection({
 }: {
   request: Request
   editState: EditState
-  editValue: string
   setEditValue: (v: string) => void
   inEdit: boolean
   browseActive: boolean
@@ -331,53 +329,83 @@ function SettingsSection({
   activeEnv?: Environment | null
 }) {
   const textareaRef = useRef<TextareaRenderable | null>(null)
-  const editingSettings = inEdit && editState.cursor.field === "settings"
-  const isActive = browseActive && editState.cursor.field === "settings"
-  const timeout = request.timeout
-
+  
   const handleContentChange = useCallback(() => {
     const ta = textareaRef.current
     if (ta) setEditValue(ta.plainText)
   }, [setEditValue])
 
+  const rows = [
+    { 
+      label: "Timeout (ms)", 
+      value: request.timeout, 
+      display: `${request.timeout}ms`,
+      desc: "Set maximum time to wait before aborting the request" 
+    },
+    { 
+      label: "Follow Redirects", 
+      value: request.followRedirects ?? true, 
+      display: String(request.followRedirects ?? true),
+      desc: "Automatically follow HTTP redirects" 
+    },
+    { 
+      label: "Max Redirects", 
+      value: request.maxRedirects ?? 5, 
+      display: String(request.maxRedirects ?? 5),
+      desc: "Maximum number of redirects to follow" 
+    },
+  ]
+
   return (
-    <>
-      <box
-        id="settings-field"
-        border={[...LeftBar.border]}
-        customBorderChars={LeftBar.customBorderChars}
-        borderColor={isActive || editingSettings ? theme.primary : theme.borderSubtle}
-        style={{
-          flexDirection: editingSettings ? "row" : undefined,
-          gap: editingSettings ? 1 : undefined,
-          backgroundColor: isActive ? theme.backgroundElement : undefined,
-        }}
-      >
-        {editingSettings ? (
-          <>
-            <text fg={theme.textMuted}>Timeout (ms): </text>
-            <textarea
-              ref={textareaRef}
-              initialValue={timeout > 0 ? String(timeout) : ""}
-              onContentChange={handleContentChange}
-              backgroundColor={theme.backgroundPanel}
-              focusedBackgroundColor={theme.backgroundPanel}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-              focused
-            />
-          </>
-        ) : (
-          <VarText
-            text={`Timeout (ms): ${timeout}ms`}
-            env={activeEnv ?? null}
-            baseColor={theme.text}
-          />
-        )}
-      </box>
-      <text fg={theme.textMuted}>
-        Set maximum time to wait before aborting the request
-      </text>
-    </>
+    <box style={{ flexDirection: "column", gap: 1 }}>
+      {rows.map((row, idx) => {
+        const editingRow = inEdit && editState.cursor.field === "settings" && editState.cursor.row === idx
+        const isActive = browseActive && editState.cursor.field === "settings" && editState.cursor.row === idx
+
+        return (
+          <box key={row.label} style={{ flexDirection: "column" }}>
+            <box
+              id={idx === 0 ? "settings-field" : `settings-${idx}`}
+              border={[...LeftBar.border]}
+              customBorderChars={LeftBar.customBorderChars}
+              borderColor={isActive || editingRow ? theme.primary : theme.borderSubtle}
+              style={{
+                flexDirection: editingRow ? "row" : undefined,
+                gap: editingRow ? 1 : undefined,
+                backgroundColor: isActive ? theme.backgroundElement : undefined,
+              }}
+            >
+              {editingRow ? (
+                <>
+                  <text fg={theme.textMuted}>{row.label}: </text>
+                  <textarea
+                    ref={textareaRef}
+                    initialValue={String(row.value)}
+                    onContentChange={handleContentChange}
+                    backgroundColor={theme.backgroundPanel}
+                    focusedBackgroundColor={theme.backgroundPanel}
+                    textColor={theme.text}
+                    cursorColor={theme.primary}
+                    focused
+                  />
+                </>
+              ) : idx === 1 ? (
+                <box style={{ flexDirection: "row", gap: 1 }}>
+                  <text fg={theme.textMuted}>{row.label}: </text>
+                  <Checkbox checked={request.followRedirects ?? true} theme={theme} />
+                </box>
+              ) : (
+                <VarText
+                  text={`${row.label}: ${row.display}`}
+                  env={activeEnv ?? null}
+                  baseColor={theme.text}
+                />
+              )}
+            </box>
+            <text fg={theme.textMuted}>{row.desc}</text>
+          </box>
+        )
+      })}
+    </box>
   )
 }

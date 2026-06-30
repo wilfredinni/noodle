@@ -55,11 +55,46 @@ export async function send(
 
   const start = performance.now()
   let res: globalThis.Response
-  try {
-    res = await fetch(finalUrl, init)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    throw new Error(`requests.send: fetch failed: ${msg}`, { cause: e })
+  let currentUrl = finalUrl
+  let currentInit: RequestInit = { ...init, redirect: "manual" }
+  let redirectCount = 0
+  const maxRedirects = req.maxRedirects ?? 5
+  const followRedirects = req.followRedirects ?? true
+
+  while (true) {
+    try {
+      res = await fetch(currentUrl, currentInit)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw new Error(`requests.send: fetch failed: ${msg}`, { cause: e })
+    }
+
+    if (!followRedirects || ![301, 302, 303, 307, 308].includes(res.status)) {
+      break
+    }
+
+    const loc = res.headers.get("location")
+    if (!loc) break
+
+    if (redirectCount >= maxRedirects) {
+      throw new Error(`requests.send: max redirects (${maxRedirects}) exceeded`)
+    }
+    redirectCount++
+
+    currentUrl = new URL(loc, currentUrl).toString()
+
+    if (res.status === 303 || ((res.status === 301 || res.status === 302) && currentInit.method === "POST")) {
+      const newHeaders = new Headers(currentInit.headers)
+      newHeaders.delete("content-type")
+      newHeaders.delete("content-length")
+
+      currentInit = {
+        ...currentInit,
+        method: "GET",
+        body: undefined,
+        headers: newHeaders,
+      }
+    }
   }
 
   let body: string
