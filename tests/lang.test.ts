@@ -217,6 +217,50 @@ describe("lang.parseRequest — auth variants", () => {
     })
   })
 
+  it("parses api_key auth with default placement", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: api_key\n  key: X-API-Key\n  value: abc123\n`
+    expect(lang.parseRequest("x", yaml).auth).toEqual({
+      type: "api_key",
+      key: "X-API-Key",
+      value: "abc123",
+      placement: "header",
+    })
+  })
+
+  it("parses api_key auth with query placement", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: api_key\n  key: api_key\n  value: secret\n  placement: query\n`
+    expect(lang.parseRequest("x", yaml).auth).toEqual({
+      type: "api_key",
+      key: "api_key",
+      value: "secret",
+      placement: "query",
+    })
+  })
+
+  it("api_key throws when key missing", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: api_key\n  value: abc\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: auth.api_key requires "key" and "value"',
+    )
+  })
+
+  it("api_key throws when value missing", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: api_key\n  key: X-Key\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: auth.api_key requires "key" and "value"',
+    )
+  })
+
+  it("parses api_key with $var in key and value", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: api_key\n  key: "$KEY_NAME"\n  value: "$KEY_VALUE"\n`
+    expect(lang.parseRequest("x", yaml).auth).toEqual({
+      type: "api_key",
+      key: "$KEY_NAME",
+      value: "$KEY_VALUE",
+      placement: "header",
+    })
+  })
+
   it("parses explicit none auth", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: none\n`
     expect(lang.parseRequest("x", yaml).auth).toEqual({ type: "none" })

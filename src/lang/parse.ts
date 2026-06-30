@@ -15,6 +15,7 @@ type RawAuth =
   | { type: "none"; [k: string]: unknown }
   | { type: "bearer"; token: string; [k: string]: unknown }
   | { type: "basic"; user: string; pass: string; [k: string]: unknown }
+  | { type: "api_key"; key: string; value: string; placement?: string; [k: string]: unknown }
   | { type: string; [k: string]: unknown }
 
 interface RawRequest {
@@ -180,6 +181,15 @@ function parseAuth(value: unknown): Auth {
       )
     }
     return { type: "basic", user: a.user, pass: a.pass }
+  }
+  if (a.type === "api_key") {
+    if (typeof a.key !== "string" || typeof a.value !== "string") {
+      throw new Error(
+        'lang.parseRequest: auth.api_key requires "key" and "value"',
+      )
+    }
+    const placement = a.placement === "query" ? "query" : "header"
+    return { type: "api_key", key: a.key, value: a.value, placement }
   }
   throw new Error(
     `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|bearer|basic|api_key`,
