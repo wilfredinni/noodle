@@ -134,27 +134,27 @@ describe("substitute — formData", () => {
 })
 
 describe("bodyForSend — bodyType routing", () => {
-  it("returns undefined when bodyType is none", () => {
+  it("returns undefined when bodyType is none", async () => {
     const h = new Headers()
-    const result = bodyForSend(
+    const result = await bodyForSend(
       { bodyType: "none", body: "should be ignored" },
       h,
     )
     expect(result).toBeUndefined()
   })
 
-  it("returns undefined when bodyType is none even with body set", () => {
+  it("returns undefined when bodyType is none even with body set", async () => {
     const h = new Headers()
-    const result = bodyForSend(
+    const result = await bodyForSend(
       { bodyType: "none", body: '{"key":"val"}' },
       h,
     )
     expect(result).toBeUndefined()
   })
 
-  it("returns body when bodyType is json", () => {
+  it("returns body when bodyType is json", async () => {
     const h = new Headers()
-    const result = bodyForSend(
+    const result = await bodyForSend(
       { bodyType: "json", body: '{"key":"val"}' },
       h,
     )
@@ -162,24 +162,24 @@ describe("bodyForSend — bodyType routing", () => {
     expect(h.get("content-type")).toBe("application/json")
   })
 
-  it("returns undefined when bodyType is json but body is undefined", () => {
+  it("returns undefined when bodyType is json but body is undefined", async () => {
     const h = new Headers()
-    const result = bodyForSend(
+    const result = await bodyForSend(
       { bodyType: "json", body: undefined },
       h,
     )
     expect(result).toBeUndefined()
   })
 
-  it("returns body as-is when bodyType is undefined (backward compat)", () => {
+  it("returns body as-is when bodyType is undefined (backward compat)", async () => {
     const h = new Headers()
-    const result = bodyForSend({ body: "raw text" }, h)
+    const result = await bodyForSend({ body: "raw text" }, h)
     expect(result).toBe("raw text")
   })
 
-  it("returns undefined when bodyType is binary and no filePath", () => {
+  it("returns undefined when bodyType is binary and no filePath", async () => {
     const h = new Headers()
-    const result = bodyForSend({ bodyType: "binary" }, h)
+    const result = await bodyForSend({ bodyType: "binary" }, h)
     expect(result).toBeUndefined()
   })
 })

@@ -56,7 +56,7 @@ export async function send(
       : timeoutSignal
   }
 
-  const substitutedBody = bodyForSend(substituted, headersInst)
+  const substitutedBody = await bodyForSend(substituted, headersInst)
   const init: RequestInit = {
     method: substituted.method,
     headers: headersInst,
@@ -133,10 +133,10 @@ export async function send(
 
 type BodyRequest = Pick<Request, "body" | "bodyType" | "formData" | "filePath">
 
-export function bodyForSend(
+export async function bodyForSend(
   req: BodyRequest,
   headers: Headers,
-): BodyInit | undefined {
+): Promise<BodyInit | undefined> {
   if (req.bodyType === "none") return undefined
 
   const hasContentType = headers.has("content-type")
@@ -160,6 +160,9 @@ export function bodyForSend(
     for (const entry of req.formData) {
       if (!entry.enabled) continue
       if (entry.type === "file") {
+        if (!(await Bun.file(entry.value).exists())) {
+          throw new Error(`file not found: ${entry.value}`)
+        }
         fd.append(entry.name, Bun.file(entry.value))
       } else {
         fd.append(entry.name, entry.value)
@@ -170,6 +173,9 @@ export function bodyForSend(
 
   if (req.bodyType === "binary") {
     if (req.filePath) {
+      if (!(await Bun.file(req.filePath).exists())) {
+        throw new Error(`file not found: ${req.filePath}`)
+      }
       if (!hasContentType) headers.set("content-type", "application/octet-stream")
       return Bun.file(req.filePath) as unknown as BodyInit
     }
