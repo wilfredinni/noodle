@@ -75,15 +75,21 @@ export function ResponsePane({
   // Sync activeTab when initialTab prop changes
   useEffect(() => {
     if (initialTab) {
+      isSyncingTab.current = true
       setActiveTab(initialTab)
     }
   }, [initialTab])
 
   // Notify parent on tab changes from user interaction (skip first render)
   const isFirstTabRender = useRef(true)
+  const isSyncingTab = useRef(false)
   useEffect(() => {
     if (isFirstTabRender.current) {
       isFirstTabRender.current = false
+      return
+    }
+    if (isSyncingTab.current) {
+      isSyncingTab.current = false
       return
     }
     onTabChange?.(activeTab)
