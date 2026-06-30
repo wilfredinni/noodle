@@ -3,7 +3,7 @@ import type {
   TextareaRenderable,
   LineNumberRenderable,
 } from "@opentui/core"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
@@ -284,18 +284,30 @@ function BodySection({
     setEditValue,
   )
 
+  const [typeSelectOpen, setTypeSelectOpen] = useState(false)
+
+  const handleBodyTypeSelectOpen = useCallback(
+    (open: boolean) => {
+      setTypeSelectOpen(open)
+      onSelectOpenChange?.(open)
+    },
+    [onSelectOpenChange],
+  )
+
   const editingBody = inEdit && editState.cursor.field === "body"
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
-      <Select
-        items={bodyTypeItems}
-        value={bodyType}
-        onChange={(v) => onBodyTypeChange(v as BodyType)}
-        focused={browseActive && editState.cursor.field === "body"}
-        width={22}
-        onOpenChange={onSelectOpenChange}
-      />
+      <box style={{ zIndex: typeSelectOpen ? 1 : undefined }}>
+        <Select
+          items={bodyTypeItems}
+          value={bodyType}
+          onChange={(v) => onBodyTypeChange(v as BodyType)}
+          focused={browseActive && editState.cursor.field === "body"}
+          width={22}
+          onOpenChange={handleBodyTypeSelectOpen}
+        />
+      </box>
 
       {editingBody ? (
         isFormMode ? (
