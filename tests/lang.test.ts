@@ -235,7 +235,7 @@ describe("lang.serializeRequest — canonical output", () => {
   it("emits name, method, url always (no other fields when all defaults)", () => {
     const out = lang.serializeRequest(makeReq())
     expect(out).toBe(
-      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\n",
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\nfollowRedirects: true\nmaxRedirects: 5\n",
     )
   })
 
@@ -246,7 +246,7 @@ describe("lang.serializeRequest — canonical output", () => {
       }),
     )
     expect(out).toBe(
-      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\nheaders:\n  Accept: application/json\n",
+      "name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\ntimeout: 0\nfollowRedirects: true\nmaxRedirects: 5\nheaders:\n  Accept: application/json\n",
     )
   })
 
@@ -315,6 +315,8 @@ describe("lang.serializeRequest — canonical key order", () => {
       "method",
       "url",
       "timeout",
+      "followRedirects",
+      "maxRedirects",
       "headers",
       "params",
       "body",
