@@ -133,10 +133,12 @@ export async function send(
 
 type BodyRequest = Pick<Request, "body" | "bodyType" | "formData" | "filePath">
 
-function bodyForSend(
+export function bodyForSend(
   req: BodyRequest,
   headers: Headers,
 ): BodyInit | undefined {
+  if (req.bodyType === "none") return undefined
+
   const hasContentType = headers.has("content-type")
 
   if (req.bodyType === "json" && req.body !== undefined) {

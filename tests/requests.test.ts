@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import type { Request, Environment } from "../src/schema"
 import { substitute } from "../src/requests/substitute"
+import { bodyForSend } from "../src/requests/send"
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -129,5 +130,56 @@ describe("substitute — formData", () => {
     const req = makeReq({ bodyType: "binary" })
     const result = substitute(req, env)
     expect(result.filePath).toBeUndefined()
+  })
+})
+
+describe("bodyForSend — bodyType routing", () => {
+  it("returns undefined when bodyType is none", () => {
+    const h = new Headers()
+    const result = bodyForSend(
+      { bodyType: "none", body: "should be ignored" },
+      h,
+    )
+    expect(result).toBeUndefined()
+  })
+
+  it("returns undefined when bodyType is none even with body set", () => {
+    const h = new Headers()
+    const result = bodyForSend(
+      { bodyType: "none", body: '{"key":"val"}' },
+      h,
+    )
+    expect(result).toBeUndefined()
+  })
+
+  it("returns body when bodyType is json", () => {
+    const h = new Headers()
+    const result = bodyForSend(
+      { bodyType: "json", body: '{"key":"val"}' },
+      h,
+    )
+    expect(result).toBe('{"key":"val"}')
+    expect(h.get("content-type")).toBe("application/json")
+  })
+
+  it("returns undefined when bodyType is json but body is undefined", () => {
+    const h = new Headers()
+    const result = bodyForSend(
+      { bodyType: "json", body: undefined },
+      h,
+    )
+    expect(result).toBeUndefined()
+  })
+
+  it("returns body as-is when bodyType is undefined (backward compat)", () => {
+    const h = new Headers()
+    const result = bodyForSend({ body: "raw text" }, h)
+    expect(result).toBe("raw text")
+  })
+
+  it("returns undefined when bodyType is binary and no filePath", () => {
+    const h = new Headers()
+    const result = bodyForSend({ bodyType: "binary" }, h)
+    expect(result).toBeUndefined()
   })
 })
