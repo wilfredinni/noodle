@@ -182,6 +182,6 @@ function parseAuth(value: unknown): Auth {
     return { type: "basic", user: a.user, pass: a.pass }
   }
   throw new Error(
-    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|bearer|basic`,
+    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|bearer|basic|api_key`,
   )
 }
