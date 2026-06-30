@@ -272,13 +272,13 @@ describe("beginEditing", () => {
     expect(e.cursor.subfield).toBe("key")
   })
 
-  it("does not set subfield for body (scalar)", () => {
+  it("sets subfield to 'key' for body row", () => {
     let s = enterEditBrowse(inactive, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     expect(s.cursor.field).toBe("body")
     const e = beginEditing(s)
-    expect(e.cursor.subfield).toBeUndefined()
+    expect(e.cursor.subfield).toBe("key")
   })
 })
 
@@ -355,14 +355,14 @@ describe("toggleSubfield", () => {
     expect(toggleSubfield(browsing)).toBe(browsing)
   })
 
-  it("no-op for body field (no subfield)", () => {
+  it("toggles key → value for body field", () => {
     let s = enterEditBrowse(inactive, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     s = moveFieldCursor(s, +1, c(0, 0))
     expect(s.cursor.field).toBe("body")
     const editing = beginEditing(s)
-    expect(editing.cursor.subfield).toBeUndefined()
-    expect(toggleSubfield(editing)).toBe(editing)
+    expect(editing.cursor.subfield).toBe("key")
+    expect(toggleSubfield(editing).cursor.subfield).toBe("value")
   })
 
   it("beginEditing on auth row 0 (type selector) enters edit mode", () => {
