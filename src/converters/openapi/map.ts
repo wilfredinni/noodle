@@ -1,4 +1,4 @@
-import type { Auth, Collection, FormEntry, KvEntry, Method, Request } from "../../schema"
+import type { Auth, BodyType, Collection, FormEntry, KvEntry, Method, Request } from "../../schema"
 
 export interface Normalized {
   openapi: string
@@ -41,6 +41,8 @@ const SUPPORTED_MEDIA: readonly string[] = [
   "application/x-www-form-urlencoded",
 ]
 
+const FILE_FORMATS = new Set(["binary", "base64"])
+
 function pickMediaType(
   content: Record<string, unknown>,
 ): string | null {
@@ -52,7 +54,7 @@ function pickMediaType(
 
 function collectBody(op: Record<string, unknown>): {
   body?: string
-  bodyType?: "json" | "multipart" | "urlencoded"
+  bodyType?: Extract<BodyType, "json" | "multipart" | "urlencoded">
   formData?: FormEntry[]
 } {
   const rb = op.requestBody
@@ -100,8 +102,6 @@ function collectBody(op: Record<string, unknown>): {
         fileFields.add(key)
       }
     }
-    // Also detect binary/base64 format as file fields
-    const FILE_FORMATS = new Set(["binary", "base64"])
     for (const [key, prop] of Object.entries(props)) {
       if (isMapping(prop) && typeof (prop as Record<string, unknown>).format === "string" &&
           FILE_FORMATS.has((prop as Record<string, unknown>).format as string)) {
