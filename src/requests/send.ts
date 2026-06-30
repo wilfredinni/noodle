@@ -131,8 +131,10 @@ export async function send(
   }
 }
 
+type BodyRequest = Pick<Request, "body" | "bodyType" | "formData" | "filePath">
+
 function bodyForSend(
-  req: SubstitutedRequest,
+  req: BodyRequest,
   headers: Headers,
 ): BodyInit | undefined {
   const hasContentType = headers.has("content-type")
