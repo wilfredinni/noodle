@@ -165,13 +165,14 @@ export function RequestPane({
               {activeTab === "headers" && (
                 <KeyValueSection
                   kind="headers"
-                  request={request}
+                  entries={Object.entries(request?.headers ?? {}).map(
+                    ([key, value], i) => ({ key, value, index: i }),
+                  )}
                   editState={editState}
                   editKey={editKey}
                   editValue={editValue}
                   setEditKey={setEditKey}
                   setEditValue={setEditValue}
-                  browseActive={browseActive}
                   theme={theme}
                   activeEnv={activeEnv}
                 />
@@ -179,13 +180,14 @@ export function RequestPane({
               {activeTab === "params" && (
                 <KeyValueSection
                   kind="params"
-                  request={request}
+                  entries={Object.entries(request?.params ?? {}).map(
+                    ([key, value], i) => ({ key, value, index: i }),
+                  )}
                   editState={editState}
                   editKey={editKey}
                   editValue={editValue}
                   setEditKey={setEditKey}
                   setEditValue={setEditValue}
-                  browseActive={browseActive}
                   theme={theme}
                   activeEnv={activeEnv}
                 />
