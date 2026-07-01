@@ -44,7 +44,7 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
-import { getRequestIds, findFolderByPath } from "./tree"
+import { getRequestIds, findFolderByPath, updateFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import {
   saveLastRequest,
@@ -136,7 +136,7 @@ export function AppInner({
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
-  const { collection, loading, error } = useCollection(
+  const { collection, loading, error, updateCollection } = useCollection(
     collectionDir,
     collectionReloadToken,
   )
@@ -279,11 +279,14 @@ export function AppInner({
 
   const handleFolderSave = useCallback(async () => {
     const draftFolder = folderDraftRef.current?.folderDraft
-    if (!draftFolder) return
+    if (!draftFolder || !collection) return
     try {
       await saveFolder(collectionDir, draftFolder)
       folderDraftRef.current?.markSaved()
-      setCollectionReloadToken((t) => t + 1)
+      updateCollection({
+        ...collection,
+        items: updateFolderByPath(collection.items, draftFolder.path, draftFolder),
+      })
       setSaveState({ kind: "success", message: `Saved folder ${draftFolder.name}` })
       clearSaveTimer()
       saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
@@ -293,7 +296,7 @@ export function AppInner({
       clearSaveTimer()
       saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
     }
-  }, [collectionDir, setSaveState, setCollectionReloadToken, clearSaveTimer, saveTimerRef])
+  }, [collection, collectionDir, setSaveState, updateCollection, clearSaveTimer, saveTimerRef])
 
   folderSaveRef.current = handleFolderSave
 

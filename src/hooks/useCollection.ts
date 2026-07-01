@@ -6,6 +6,7 @@ export interface UseCollectionResult {
   collection: Collection | null
   loading: boolean
   error: Error | null
+  updateCollection: (collection: Collection) => void
 }
 
 export function useCollection(
@@ -41,5 +42,5 @@ export function useCollection(
     }
   }, [dir, reloadToken])
 
-  return { collection, loading, error }
+  return { collection, loading, error, updateCollection: setCollection }
 }
