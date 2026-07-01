@@ -164,7 +164,7 @@ export function StatusBar(input: {
         flexDirection: "row",
         justifyContent: "space-between",
         flexShrink: 0,
-        paddingY: 1,
+        paddingY: 0,
         paddingLeft: 1,
         paddingRight: 1,
       }}
@@ -179,9 +179,7 @@ export function StatusBar(input: {
             {input.envStats || "Env Editor"}
           </Badge>
         ) : (
-          <Badge bg={theme.backgroundElement} fg={envFg}>
-            {envText}
-          </Badge>
+          <text fg={envFg}>{envText}</text>
         )}
       </box>
       <box style={{ flexDirection: "row" }}>
