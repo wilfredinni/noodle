@@ -115,11 +115,21 @@ export function useTreeNavigation(
         const next = prev - 1
         return next < 0 ? 0 : next
       })
+      const nextIdx = Math.max(idx - 1, 0)
+      const target = v[nextIdx]
+      if (target && target.type === "request") {
+        setSelectedIdState(target.id)
+      }
     } else if (key.name === "down") {
       setCursorIndex((prev) => {
         const next = prev + 1
         return next >= v.length ? v.length - 1 : next
       })
+      const nextIdx = Math.min(idx + 1, v.length - 1)
+      const target = v[nextIdx]
+      if (target && target.type === "request") {
+        setSelectedIdState(target.id)
+      }
     } else if (key.name === "right") {
       if (
         node &&
