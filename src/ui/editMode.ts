@@ -147,7 +147,7 @@ export function folderCursorForField(
 export function toggleSubfield(prev: EditState): EditState {
   if (prev.mode !== "editing") return prev
   const { field } = prev.cursor
-  if (field !== "headers" && field !== "body" && field !== "meta") return prev
+  if (field !== "headers" && field !== "params" && field !== "body" && field !== "meta") return prev
   const current = prev.cursor.subfield ?? "key"
   const next: "key" | "value" = current === "key" ? "value" : "key"
   return {
@@ -315,7 +315,7 @@ export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
   if (prev.cursor.field === "settings" && prev.cursor.row === 1) return prev
   const subfield: "key" | "value" | undefined =
-    prev.cursor.field === "headers" || prev.cursor.field === "meta"
+    prev.cursor.field === "headers" || prev.cursor.field === "params" || prev.cursor.field === "meta"
       ? "key"
       : prev.cursor.field === "body"
         ? "key"
