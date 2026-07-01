@@ -8,10 +8,6 @@ export type FolderDraftOp =
   | { kind: "addHeaderRow"; key: string; value: string }
   | { kind: "removeHeaderRow"; index: number }
   | { kind: "toggleHeaderRow"; index: number }
-  | { kind: "setParamRow"; index: number; key: string; value: string }
-  | { kind: "addParamRow"; key: string; value: string }
-  | { kind: "removeParamRow"; index: number }
-  | { kind: "toggleParamRow"; index: number }
   | { kind: "setAuthType"; authType: Auth["type"] }
   | { kind: "setAuthField"; authType: string; field: string; value: string }
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
@@ -87,6 +83,7 @@ function authEqual(a: Auth | undefined, b: Auth | undefined): boolean {
   if (a === undefined || b === undefined) return false
   if (a.type !== b.type) return false
   if (a.type === "none" && b.type === "none") return true
+  if (a.type === "inherit" && b.type === "inherit") return true
   if (a.type === "bearer" && b.type === "bearer") return a.token === b.token
   if (a.type === "basic" && b.type === "basic") {
     return a.user === b.user && a.pass === b.pass
@@ -118,6 +115,8 @@ function recordsEqual(
 function defaultAuth(authType: Auth["type"]): Auth {
   switch (authType) {
     case "none":
+      return { type: "none" }
+    case "inherit":
       return { type: "none" }
     case "bearer":
       return { type: "bearer", token: "" }
@@ -177,39 +176,6 @@ export function applyDraftOp(
       }
       break
     }
-    case "addParamRow":
-      draft.overrides = {
-        ...draft.overrides,
-        params: addRow(draft.overrides?.params ?? {}, op.key, op.value),
-      }
-      break
-    case "removeParamRow":
-      draft.overrides = {
-        ...draft.overrides,
-        params: removeRow(draft.overrides?.params ?? {}, op.index),
-      }
-      break
-    case "toggleParamRow":
-      draft.overrides = {
-        ...draft.overrides,
-        params: toggleRow(draft.overrides?.params ?? {}, op.index),
-      }
-      break
-    case "setParamRow": {
-      const { key, value } = op
-      if (key === "") {
-        draft.overrides = {
-          ...draft.overrides,
-          params: removeRow(draft.overrides?.params ?? {}, op.index),
-        }
-      } else {
-        draft.overrides = {
-          ...draft.overrides,
-          params: replaceRow(draft.overrides?.params ?? {}, op.index, key, value),
-        }
-      }
-      break
-    }
     case "setAuthType":
       draft.overrides = {
         ...draft.overrides,
@@ -250,10 +216,6 @@ export function folderEqual(a: Folder, b: Folder): boolean {
     !recordsEqual(a.overrides?.headers ?? {}, b.overrides?.headers ?? {})
   )
     return false
-  if (
-    !recordsEqual(a.overrides?.params ?? {}, b.overrides?.params ?? {})
-  )
-    return false
   if (!authEqual(a.overrides?.auth, b.overrides?.auth)) return false
   return true
 }
@@ -269,10 +231,6 @@ export interface UseFolderDraftResult {
   addHeaderRow: (key: string, value: string) => void
   removeHeaderRow: (index: number) => void
   toggleHeaderRow: (index: number) => void
-  setParamRow: (index: number, key: string, value: string) => void
-  addParamRow: (key: string, value: string) => void
-  removeParamRow: (index: number) => void
-  toggleParamRow: (index: number) => void
   setAuthType: (authType: Auth["type"]) => void
   setAuthField: (authType: string, field: string, value: string) => void
   setApiKeyPlacement: (placement: "header" | "query") => void
@@ -347,24 +305,6 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     (index: number) => dispatch({ kind: "toggleHeaderRow", index }),
     [dispatch],
   )
-  const setParamRow = useCallback(
-    (index: number, key: string, value: string) =>
-      dispatch({ kind: "setParamRow", index, key, value }),
-    [dispatch],
-  )
-  const addParamRow = useCallback(
-    (key: string, value: string) =>
-      dispatch({ kind: "addParamRow", key, value }),
-    [dispatch],
-  )
-  const removeParamRow = useCallback(
-    (index: number) => dispatch({ kind: "removeParamRow", index }),
-    [dispatch],
-  )
-  const toggleParamRow = useCallback(
-    (index: number) => dispatch({ kind: "toggleParamRow", index }),
-    [dispatch],
-  )
   const setAuthType = useCallback(
     (authType: Auth["type"]) =>
       dispatch({ kind: "setAuthType", authType }),
@@ -406,10 +346,6 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       addHeaderRow,
       removeHeaderRow,
       toggleHeaderRow,
-      setParamRow,
-      addParamRow,
-      removeParamRow,
-      toggleParamRow,
       setAuthType,
       setAuthField,
       setApiKeyPlacement,
@@ -427,10 +363,6 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       addHeaderRow,
       removeHeaderRow,
       toggleHeaderRow,
-      setParamRow,
-      addParamRow,
-      removeParamRow,
-      toggleParamRow,
       setAuthType,
       setAuthField,
       setApiKeyPlacement,
