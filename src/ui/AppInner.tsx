@@ -177,7 +177,7 @@ export function AppInner({
 
   // ── Folder draft + edit-browse ────────────────────────────────────
   const folderDraft = useFolderDraft(focusedFolder)
-  const folderEb = useFolderEditBrowse(focusedFolder, folderDraft)
+  const folderEb = useFolderEditBrowse(folderDraft.folderDraft, folderDraft)
   const folderEbRef = useRef(folderEb)
   folderEbRef.current = folderEb
 

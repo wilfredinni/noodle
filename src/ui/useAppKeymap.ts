@@ -385,6 +385,37 @@ export function useAppKeymap(
     ],
   }))
 
+  // ── Keymap: Folder Init Layer (base mode, folder focused) ──────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.mode") === "base" &&
+      keymap.getData("app.focus") === "folder" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      {
+        name: "folder.edit-enter",
+        run: () => {
+          refs.folderEbRef.current?.enterBrowse()
+          setters.setFocus("folder")
+        },
+      },
+      {
+        name: "folder.tab-prev",
+        run: () => refs.folderEbRef.current?.cycleInactiveTab(-1),
+      },
+      {
+        name: "folder.tab-next",
+        run: () => refs.folderEbRef.current?.cycleInactiveTab(1),
+      },
+    ],
+    bindings: [
+      { key: "return", cmd: "folder.edit-enter" },
+      { key: "left", cmd: "folder.tab-prev" },
+      { key: "right", cmd: "folder.tab-next" },
+    ],
+  }))
+
   // ── Keymap: Folder Focus Layer (always when folder is focused) ───
   useBindings(() => ({
     enabled: () =>
