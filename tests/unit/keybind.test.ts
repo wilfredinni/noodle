@@ -67,8 +67,8 @@ describe("CommandMap", () => {
 })
 
 describe("pane_expand", () => {
-  it("has default ctrl+shift+f", () => {
-    expect(Definitions.pane_expand.default).toBe("ctrl+shift+f")
+  it("has default f2", () => {
+    expect(Definitions.pane_expand.default).toBe("f2")
   })
 
   it("is configurable (not fixed)", () => {
@@ -82,6 +82,6 @@ describe("pane_expand", () => {
 
   it("appears in bindingDefaults", () => {
     const defaults = bindingDefaults()
-    expect(defaults.pane_expand).toBe("ctrl+shift+f")
+    expect(defaults.pane_expand).toBe("f2")
   })
 })
