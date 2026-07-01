@@ -27,7 +27,7 @@ export type DraftOp =
   | { kind: "setMaxRedirects"; maxRedirects: number }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
-  | { kind: "setAuthType"; authType: "none" | "bearer" | "basic" | "api_key" }
+  | { kind: "setAuthType"; authType: Auth["type"] }
   | { kind: "setAuthField"; authType: string; field: string; value: string }
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
   | { kind: "setBodyType"; bodyType: BodyType }
@@ -100,6 +100,7 @@ function authEqual(a: Auth | undefined, b: Auth | undefined): boolean {
   if (a === undefined || b === undefined) return false
   if (a.type !== b.type) return false
   if (a.type === "none" && b.type === "none") return true
+  if (a.type === "inherit" && b.type === "inherit") return true
   if (a.type === "bearer" && b.type === "bearer") return a.token === b.token
   if (a.type === "basic" && b.type === "basic") {
     return a.user === b.user && a.pass === b.pass
@@ -376,6 +377,8 @@ export function applyDraft(
         draft.auth = { ...original.auth }
       } else if (op.authType === "none") {
         draft.auth = { type: "none" }
+      } else if (op.authType === "inherit") {
+        draft.auth = { type: "inherit" }
       } else if (op.authType === "bearer") {
         draft.auth = { type: "bearer", token: "" }
       } else if (op.authType === "basic") {
@@ -453,7 +456,7 @@ export interface UseRequestDraftResult {
   setMaxRedirects: (n: number) => void
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
-  setAuthType: (t: "none" | "bearer" | "basic" | "api_key") => void
+  setAuthType: (t: Auth["type"]) => void
   setAuthField: (authType: string, field: string, value: string) => void
   setApiKeyPlacement: (placement: "header" | "query") => void
   setBodyType: (t: BodyType) => void
@@ -558,7 +561,7 @@ export function useRequestDraft(
     [apply],
   )
   const setAuthTypeCb = useCallback(
-    (authType: "none" | "bearer" | "basic" | "api_key") =>
+    (authType: Auth["type"]) =>
       apply({ kind: "setAuthType", authType }),
     [apply],
   )

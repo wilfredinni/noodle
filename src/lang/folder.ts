@@ -15,7 +15,6 @@ interface RawFolderMeta {
 interface RawFolder {
   meta?: unknown
   headers?: unknown
-  params?: unknown
   auth?: unknown
   [k: string]: unknown
 }
@@ -56,15 +55,11 @@ export function parseFolder(yamlText: string): {
   let overrides: FolderOverrides | undefined
   if (
     raw.headers !== undefined ||
-    raw.params !== undefined ||
     raw.auth !== undefined
   ) {
     overrides = {}
     if (raw.headers !== undefined) {
       overrides.headers = parseKvMap(raw.headers, "headers", "lang.parseFolder")
-    }
-    if (raw.params !== undefined) {
-      overrides.params = parseKvMap(raw.params, "params", "lang.parseFolder")
     }
     if (raw.auth !== undefined) {
       overrides.auth = parseFolderAuth(raw.auth)
@@ -76,6 +71,7 @@ export function parseFolder(yamlText: string): {
 
 type RawFolderAuth =
   | { type: "none"; [k: string]: unknown }
+  | { type: "inherit"; [k: string]: unknown }
   | { type: "bearer"; token: string; [k: string]: unknown }
   | { type: "basic"; user: string; pass: string; [k: string]: unknown }
   | {
@@ -93,6 +89,7 @@ function parseFolderAuth(value: unknown): Auth {
   }
   const a = value as RawFolderAuth
   if (a.type === "none") return { type: "none" }
+  if (a.type === "inherit") return { type: "inherit" }
   if (a.type === "bearer") {
     if (typeof a.token !== "string")
       throw new Error('lang.parseFolder: auth.bearer requires "token"')
@@ -152,22 +149,12 @@ export function serializeFolder(folder: Folder): string {
         }
       }
     }
-    if (o.params && Object.keys(o.params).length > 0) {
-      out += "params:\n"
-      for (const [k, v] of Object.entries(o.params)) {
-        const key = yamlVal(k)
-        const val = yamlVal(v.value)
-        if (v.enabled) {
-          out += `  ${key}: ${val}\n`
-        } else {
-          out += `  ${key}: { value: ${val}, enabled: false }\n`
-        }
-      }
-    }
     if (o.auth) {
       out += "auth:\n"
       if (o.auth.type === "none") {
         out += "  type: none\n"
+      } else if (o.auth.type === "inherit") {
+        out += "  type: inherit\n"
       } else if (o.auth.type === "bearer") {
         out += "  type: bearer\n"
         out += `  token: ${yamlVal(o.auth.token)}\n`

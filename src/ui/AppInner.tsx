@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar"
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
+import { FolderPane } from "./FolderPane"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { useResponse } from "../hooks/useResponse"
@@ -12,6 +13,8 @@ import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
+import { useFolderDraft } from "../hooks/useFolderDraft"
+import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import { type Focus } from "./focus"
@@ -27,7 +30,7 @@ import {
   CloneRequestOverlay,
   type CloneRequestOverlayHandle,
 } from "./CloneRequestOverlay"
-import { saveRequest, deleteRequest } from "../filestore/save"
+import { saveRequest, deleteRequest, saveFolder } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -41,10 +44,13 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
-import { getRequestIds } from "./tree"
+import { getRequestIds, findFolderByPath, updateFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
-import { saveLastRequest, loadExpandedFolders, saveExpandedFolders } from "./tabs/uiState"
-import { FullBorder } from "./borders"
+import {
+  saveLastRequest,
+  loadExpandedFolders,
+  saveExpandedFolders,
+} from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 
@@ -130,13 +136,13 @@ export function AppInner({
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
-  const { collection, loading, error } = useCollection(
+  const { collection, loading, error, updateCollection } = useCollection(
     collectionDir,
     collectionReloadToken,
   )
   const items = collection?.items ?? []
 
-  const requestIds = getRequestIds(items)
+  const requestIds = useMemo(() => getRequestIds(items), [items])
   const { getTab, setTab } = useUIState(collectionDir, requestIds)
 
   useEffect(() => {
@@ -151,7 +157,6 @@ export function AppInner({
     visibleItems,
     cursorIndex,
     focusedFolderPath,
-    focusedFolderName,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -160,8 +165,23 @@ export function AppInner({
     initialExpandedFolders ?? undefined,
   )
 
+  const focusedFolder = useMemo(
+    () => (focusedFolderPath ? findFolderByPath(items, focusedFolderPath) : null),
+    [focusedFolderPath, items],
+  )
+
   const newRequestFolderRef = useRef(focusedFolderPath)
   newRequestFolderRef.current = focusedFolderPath
+
+  // ── Folder draft + edit-browse ────────────────────────────────────
+  const folderDraft = useFolderDraft(focusedFolder)
+  const folderEb = useFolderEditBrowse(folderDraft.folderDraft, folderDraft)
+  const folderEbRef = useRef(folderEb)
+  folderEbRef.current = folderEb
+
+  const dirtyFolderPaths = folderDraft.dirtyPaths
+  const folderDraftRef = useRef(folderDraft)
+  folderDraftRef.current = folderDraft
 
   useEffect(() => {
     setExpanded(null)
@@ -175,9 +195,7 @@ export function AppInner({
       saveLastReqRef.current = true
       return
     }
-    const lastId = focusedFolderPath
-      ? `${focusedFolderPath}/`
-      : selectedId
+    const lastId = focusedFolderPath ? `${focusedFolderPath}/` : selectedId
     if (!lastId) return
     if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     saveLastDebounceRef.current = setTimeout(() => {
@@ -209,8 +227,7 @@ export function AppInner({
       )
     }, 300)
     return () => {
-      if (expandedDebounceRef.current)
-        clearTimeout(expandedDebounceRef.current)
+      if (expandedDebounceRef.current) clearTimeout(expandedDebounceRef.current)
     }
   }, [expandedFolders, collectionDir])
 
@@ -256,6 +273,32 @@ export function AppInner({
 
   const doSaveRef = useRef(doSave)
   doSaveRef.current = doSave
+
+  // ── Folder save ────────────────────────────────────────────────────
+  const folderSaveRef = useRef<() => void>(() => {})
+
+  const handleFolderSave = useCallback(async () => {
+    const draftFolder = folderDraftRef.current?.folderDraft
+    if (!draftFolder || !collection) return
+    try {
+      await saveFolder(collectionDir, draftFolder)
+      folderDraftRef.current?.markSaved()
+      updateCollection({
+        ...collection,
+        items: updateFolderByPath(collection.items, draftFolder.path, draftFolder),
+      })
+      setSaveState({ kind: "success", message: `Saved folder ${draftFolder.name}` })
+      clearSaveTimer()
+      saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setSaveState({ kind: "error", message: msg })
+      clearSaveTimer()
+      saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+    }
+  }, [collection, collectionDir, setSaveState, updateCollection, clearSaveTimer, saveTimerRef])
+
+  folderSaveRef.current = handleFolderSave
 
   const handleNewRequestConfirm = useCallback(
     (name: string, method: Method, url: string) => {
@@ -318,7 +361,8 @@ export function AppInner({
       const baseId = slugify(newName)
       if (!baseId) return
       const lastSlash = req.id.lastIndexOf("/")
-      const id = lastSlash >= 0 ? `${req.id.slice(0, lastSlash)}/${baseId}` : baseId
+      const id =
+        lastSlash >= 0 ? `${req.id.slice(0, lastSlash)}/${baseId}` : baseId
 
       const cloned: NoodleRequest = {
         ...req,
@@ -488,25 +532,39 @@ export function AppInner({
   }, [view, keymap])
 
   useEffect(() => {
-    const mode =
+    const requestMode =
       eb.editState.mode === "browsing"
         ? "browse"
         : eb.editState.mode === "editing"
           ? "edit"
           : "base"
-    keymap.setData("app.mode", mode)
-  }, [eb.editState.mode, keymap])
+    const folderMode =
+      folderEb.editState.mode === "browsing"
+        ? "browse"
+        : folderEb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    keymap.setData("app.mode", focus === "folder" ? folderMode : requestMode)
+  }, [eb.editState.mode, folderEb.editState.mode, focus, keymap])
 
   useEffect(() => {
     if (focus !== "request") {
       const state = eb.editState
-      if (state.mode === "editing") {
-        eb.cancelEdit()
-      } else if (state.mode === "browsing") {
-        eb.exitBrowse()
-      }
+      if (state.mode === "editing") eb.cancelEdit()
+      else if (state.mode === "browsing") eb.exitBrowse()
     }
-  }, [focus, eb])
+    if (focus !== "folder") {
+      const state = folderEb.editState
+      if (state.mode === "editing") folderEb.cancelEdit()
+      else if (state.mode === "browsing") folderEb.exitBrowse()
+    }
+  }, [focus, eb, folderEb])
+
+  useEffect(() => {
+    if (focus === "folder" && folderEb.editState.mode === "inactive") {
+      folderEb.enterBrowse()
+    }
+  }, [focus, folderEb])
 
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
@@ -547,7 +605,13 @@ export function AppInner({
     state: responseState,
     trySend,
     cancelSend,
-  } = useResponse(draft.draft, envState.activeEnv, onCompleteRef.current)
+  } = useResponse(
+    draft.draft,
+    envState.activeEnv,
+    onCompleteRef.current,
+    collection ?? undefined,
+    draft.draft?.id,
+  )
 
   const envEditor = useEnvironmentEditor({
     environmentsDir,
@@ -597,7 +661,7 @@ export function AppInner({
   selectedIdRef.current = selectedId
 
   const folderViewRef = useRef(false)
-  folderViewRef.current = focusedFolderName !== null
+  folderViewRef.current = focusedFolder !== null
 
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap(
@@ -617,6 +681,9 @@ export function AppInner({
       savingRef,
       expandedRef,
       folderViewRef,
+      folderSaveRef,
+      folderEbRef,
+      folderDraftRef,
     },
     {
       setFocus,
@@ -730,6 +797,7 @@ export function AppInner({
               focused={focus === "sidebar"}
               keybinds={keybinds}
               dirtyRequestIds={draft.dirtyRequestIds}
+              dirtyFolderPaths={dirtyFolderPaths}
             />
             <box
               style={{
@@ -739,23 +807,23 @@ export function AppInner({
                 minHeight: 0,
               }}
             >
-              {focusedFolderName !== null ? (
-                <box
-                  style={{
-                    flexGrow: 1,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: theme.backgroundPanel,
-                  }}
-                  border={[...FullBorder.border]}
-                  customBorderChars={FullBorder.customBorderChars}
-                  borderColor={focus === "folder" ? theme.primary : theme.borderSubtle}
-                  title="Folder"
-                  titleColor={focus === "folder" ? theme.primary : theme.textMuted}
-                  titleAlignment="left"
-                >
-                  <text fg={theme.textMuted}>{focusedFolderName}</text>
-                </box>
+              {focusedFolder !== null ? (
+                <FolderPane
+                  folder={folderDraft.folderDraft}
+                  focused={focus === "folder"}
+                  editState={folderEb.editState}
+                  editKey={folderEb.editKey}
+                  editValue={folderEb.editValue}
+                  setEditKey={folderEb.setEditKey}
+                  setEditValue={folderEb.setEditValue}
+                  activeTab={folderEb.activeTab}
+                  onTabChange={() => {}}
+                  onAuthTypeChange={folderDraft.setAuthType}
+                  onApiKeyPlacementChange={folderDraft.setApiKeyPlacement}
+                  onSelectOpenChange={setSelectOpen}
+                  activeEnv={envState.activeEnv}
+                  theme={theme}
+                />
               ) : (
                 <>
                   <UrlBar

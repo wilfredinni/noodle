@@ -160,7 +160,7 @@ describe("lang.parseRequest — strictness", () => {
   it("throws on invalid auth.type", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
-      'lang.parseRequest: invalid auth.type "oauth", expected none|bearer|basic',
+      'lang.parseRequest: invalid auth.type "oauth", expected none|inherit|bearer|basic|api_key',
     )
   })
 

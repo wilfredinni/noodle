@@ -71,6 +71,7 @@ function substituteAuth(
   resolve: (s: string, field: string) => string,
 ): Auth {
   if (auth.type === "none") return { type: "none" }
+  if (auth.type === "inherit") return { type: "inherit" }
   if (auth.type === "bearer") {
     return { type: "bearer", token: resolve(auth.token, "auth.token") }
   }

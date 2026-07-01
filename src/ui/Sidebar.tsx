@@ -26,6 +26,7 @@ export function Sidebar({
   focused = false,
   keybinds: _keybinds,
   dirtyRequestIds,
+  dirtyFolderPaths,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -37,6 +38,7 @@ export function Sidebar({
   focused?: boolean
   keybinds?: Keybinds
   dirtyRequestIds?: Set<string>
+  dirtyFolderPaths?: Set<string>
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -93,12 +95,14 @@ export function Sidebar({
                   ? "\u25BE"
                   : "\u25B8"
                 : "\u00A0"
+              const isFolderDirty = dirtyFolderPaths?.has(node.id)
               return (
                 <box
                   key={node.id}
                   id={`so-${node.id}`}
                   style={{
                     flexDirection: "row",
+                    justifyContent: "space-between",
                     paddingLeft: node.depth * 2,
                     backgroundColor: isCursor
                       ? theme.backgroundElement
@@ -108,8 +112,15 @@ export function Sidebar({
                   customBorderChars={LeftBar.customBorderChars}
                   borderColor={isCursor ? theme.primary : theme.backgroundPanel}
                 >
-                  <text fg={theme.textMuted}>{chevron} </text>
-                  <text fg={theme.textMuted}>{truncName(node.name, 20)}</text>
+                  <box style={{ flexDirection: "row" }}>
+                    <text fg={theme.textMuted}>{chevron} </text>
+                    <text fg={theme.textMuted} wrapMode="none">
+                      {truncName(node.name, 20)}
+                    </text>
+                  </box>
+                  {isFolderDirty && (
+                    <text fg={theme.warning}>{`\u25CF`}</text>
+                  )}
                 </box>
               )
             }
@@ -140,7 +151,9 @@ export function Sidebar({
                     {truncName(node.name, 20)}
                   </text>
                 </box>
-                {isDirty && <text fg={theme.warning}>\u25CF</text>}
+                {isDirty && (
+                  <text fg={theme.warning}>{`\u25CF`}</text>
+                )}
               </box>
             )
           })}

@@ -1,4 +1,4 @@
-import type { Request, Environment } from "../schema"
+import type { KvEntry, Environment } from "../schema"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
@@ -6,31 +6,28 @@ import { varSummaryColor } from "./envHighlight"
 
 export interface KeyValueSectionProps {
   kind: "headers" | "params"
-  request: Request
+  entries: Array<{ key: string; value: KvEntry }>
   editState: EditState
   editKey: string
   editValue: string
   setEditKey: (v: string) => void
   setEditValue: (v: string) => void
-  browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
 }
 
 export function KeyValueSection({
   kind,
-  request,
+  entries,
   editState,
   editKey,
   editValue,
   setEditKey,
   setEditValue,
-  browseActive,
   theme,
   activeEnv,
 }: KeyValueSectionProps) {
-  const rec = kind === "headers" ? request.headers : request.params
-  const rows = Object.entries(rec)
+  const rows = entries
 
   const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
   const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
@@ -79,14 +76,15 @@ export function KeyValueSection({
         </box>
       ) : (
         <>
-          {rows.map(([k, entry], i) => {
+          {rows.map((entry, i) => {
+            const kv = entry.value
             const isEditingThisRow = editingRow === i
             const cursorOnThisRow =
-              browseActive &&
+              editState.mode === "browsing" &&
               cursorHere &&
               !editState.cursor.addingRow &&
               editState.cursor.row === i
-            const dimmed = (inEdit && !isEditingThisRow) || !entry.enabled
+            const dimmed = (inEdit && !isEditingThisRow) || !kv.enabled
 
             return (
               <box
@@ -103,9 +101,9 @@ export function KeyValueSection({
                         : undefined,
                 }}
               >
-                <Checkbox checked={entry.enabled} theme={theme} />
+                <Checkbox checked={kv.enabled} theme={theme} />
                 <input
-                  value={isEditingThisRow ? editKey : k}
+                  value={isEditingThisRow ? editKey : entry.key}
                   placeholder="Key"
                   onInput={isEditingThisRow ? setEditKey : undefined}
                   focused={
@@ -119,7 +117,7 @@ export function KeyValueSection({
                     isEditingThisRow
                       ? theme.text
                       : varSummaryColor(
-                          k,
+                          entry.key,
                           activeEnv ?? null,
                           theme,
                           dimmed ? theme.textMuted : theme.text,
@@ -129,7 +127,7 @@ export function KeyValueSection({
                   style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
                 />
                 <input
-                  value={isEditingThisRow ? editValue : entry.value}
+                  value={isEditingThisRow ? editValue : kv.value}
                   placeholder="Value"
                   onInput={isEditingThisRow ? setEditValue : undefined}
                   focused={
@@ -143,7 +141,7 @@ export function KeyValueSection({
                     isEditingThisRow
                       ? theme.text
                       : varSummaryColor(
-                          entry.value,
+                          kv.value,
                           activeEnv ?? null,
                           theme,
                           dimmed

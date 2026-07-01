@@ -1,4 +1,40 @@
-import type { CollectionItem, Request } from "../schema"
+import type { CollectionItem, Folder, Request } from "../schema"
+
+export function updateFolderByPath(
+  items: CollectionItem[],
+  path: string,
+  folder: Folder,
+): CollectionItem[] {
+  return items.map((item) => {
+    if (item.type === "folder") {
+      if (item.data.path === path) {
+        return { type: "folder", data: { ...folder } }
+      }
+      return {
+        type: "folder",
+        data: {
+          ...item.data,
+          children: updateFolderByPath(item.data.children, path, folder),
+        },
+      }
+    }
+    return item
+  })
+}
+
+export function findFolderByPath(
+  items: CollectionItem[],
+  path: string,
+): Folder | null {
+  for (const item of items) {
+    if (item.type === "folder") {
+      if (item.data.path === path) return item.data
+      const found = findFolderByPath(item.data.children, path)
+      if (found) return found
+    }
+  }
+  return null
+}
 
 export function findRequestById(
   items: CollectionItem[],

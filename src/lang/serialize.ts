@@ -77,6 +77,7 @@ export function serializeRequest(req: Request): string {
 
 function authToObj(auth: Auth): Record<string, unknown> {
   if (auth.type === "none") return { type: "none" }
+  if (auth.type === "inherit") return { type: "inherit" }
   if (auth.type === "bearer") return { type: "bearer", token: auth.token }
   if (auth.type === "basic")
     return { type: "basic", user: auth.user, pass: auth.pass }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
-import { findRequestById, flattenRequests, visibleNodes } from "../src/ui/tree"
-import type { CollectionItem, Folder, Request } from "../src/schema"
+import { findRequestById, findFolderByPath, updateFolderByPath, flattenRequests, visibleNodes } from "../src/ui/tree"
+import type { CollectionItem } from "../src/schema"
 
 function req(id: string, name?: string): CollectionItem {
   return {
@@ -64,6 +64,77 @@ describe("findRequestById", () => {
     const result = findRequestById(nestedItems, "users/admins/root")
     expect(result).not.toBeNull()
     expect(result!.id).toBe("users/admins/root")
+  })
+})
+
+describe("findFolderByPath", () => {
+  it("finds folder in flat list", () => {
+    const items: CollectionItem[] = [
+      folder("auth", [req("auth/login")], "Auth"),
+    ]
+    const result = findFolderByPath(items, "auth")
+    expect(result).not.toBeNull()
+    expect(result!.path).toBe("auth")
+    expect(result!.name).toBe("Auth")
+  })
+
+  it("returns null for missing path", () => {
+    expect(findFolderByPath(nestedItems, "nope")).toBeNull()
+  })
+
+  it("finds nested folder", () => {
+    const result = findFolderByPath(nestedItems, "users/admins")
+    expect(result).not.toBeNull()
+    expect(result!.path).toBe("users/admins")
+  })
+
+  it("returns null when path matches a request not a folder", () => {
+    expect(findFolderByPath(nestedItems, "root")).toBeNull()
+  })
+})
+
+describe("updateFolderByPath", () => {
+  it("updates folder name in flat list", () => {
+    const updated = updateFolderByPath(nestedItems, "auth", {
+      id: "auth",
+      name: "Renamed",
+      path: "auth",
+      children: [],
+    })
+    const folder = findFolderByPath(updated, "auth")
+    expect(folder?.name).toBe("Renamed")
+  })
+
+  it("updates nested folder", () => {
+    const updated = updateFolderByPath(nestedItems, "users/admins", {
+      id: "admins",
+      name: "Super Admins",
+      path: "users/admins",
+      children: [],
+    })
+    const folder = findFolderByPath(updated, "users/admins")
+    expect(folder?.name).toBe("Super Admins")
+  })
+
+  it("preserves other folders unchanged", () => {
+    const updated = updateFolderByPath(nestedItems, "auth", {
+      id: "auth",
+      name: "Renamed",
+      path: "auth",
+      children: [],
+    })
+    const users = findFolderByPath(updated, "users")
+    expect(users?.name).toBe("Users")
+  })
+
+  it("returns same items when path not found", () => {
+    const updated = updateFolderByPath(nestedItems, "nope", {
+      id: "nope",
+      name: "?",
+      path: "nope",
+      children: [],
+    })
+    expect(updated).toEqual(nestedItems)
   })
 })
 

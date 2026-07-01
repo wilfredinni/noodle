@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
-import type { Environment, Request, Response } from "../schema"
+import type { Collection, Environment, Request, Response } from "../schema"
 import { executor } from "../requests"
 import {
   startSend,
@@ -27,6 +27,8 @@ export function useResponse(
   selectedRequest: Request | null,
   env?: Environment | null,
   onComplete?: (req: Request, result: SendCompleteResult) => void,
+  collection?: Collection,
+  requestPath?: string,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
@@ -67,10 +69,12 @@ export function useResponse(
         cacheRef,
         abortRef,
         onCompleteRef,
+        collection,
+        requestPath,
       )
       return startSend(prev, req)
     })
-  }, [selectedRequest, env])
+  }, [selectedRequest, env, collection, requestPath])
 
   const cancelSend = useCallback(() => {
     abortRef.current?.abort()
@@ -89,9 +93,11 @@ async function runSend(
   onCompleteRef: React.RefObject<
     ((req: Request, result: SendCompleteResult) => void) | undefined
   >,
+  collection?: Collection,
+  requestPath?: string,
 ): Promise<void> {
   try {
-    const res = await executor.send(req, env, signal)
+    const res = await executor.send(req, env, signal, collection, requestPath)
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))
     onCompleteRef.current?.(req, { status: "done", response: res })

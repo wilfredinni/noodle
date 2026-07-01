@@ -5,6 +5,8 @@ import { cycleFocus, toggleExpand, type Focus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
+import type { UseFolderEditBrowseResult } from "../hooks/useFolderEditBrowse"
+import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
@@ -13,6 +15,8 @@ import { findRequestById } from "./tree"
 export interface UseAppKeymapRefs {
   ebRef: RefObject<UseEditBrowseResult>
   draftRef: RefObject<UseRequestDraftResult>
+  folderEbRef: RefObject<UseFolderEditBrowseResult>
+  folderDraftRef: RefObject<UseFolderDraftResult>
   envStateRef: RefObject<UseEnvironmentsResult>
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   collectionRef: RefObject<Collection | null>
@@ -25,6 +29,7 @@ export interface UseAppKeymapRefs {
   savingRef: RefObject<boolean>
   expandedRef: RefObject<"request" | "response" | null>
   folderViewRef: RefObject<boolean>
+  folderSaveRef: RefObject<() => void>
 }
 
 export interface UseAppKeymapSetters {
@@ -206,6 +211,7 @@ export function useAppKeymap(
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "base" &&
+      keymap.getData("app.focus") !== "folder" &&
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
@@ -329,6 +335,7 @@ export function useAppKeymap(
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "browse" &&
+      keymap.getData("app.focus") !== "folder" &&
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
@@ -378,10 +385,110 @@ export function useAppKeymap(
     ],
   }))
 
+  // ── Keymap: Folder Init Layer (base mode, folder focused) ──────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.mode") === "base" &&
+      keymap.getData("app.focus") === "folder" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      {
+        name: "folder.edit-enter",
+        run: () => {
+          refs.folderEbRef.current?.enterBrowse()
+          setters.setFocus("folder")
+        },
+      },
+      {
+        name: "folder.tab-prev",
+        run: () => refs.folderEbRef.current?.cycleInactiveTab(-1),
+      },
+      {
+        name: "folder.tab-next",
+        run: () => refs.folderEbRef.current?.cycleInactiveTab(1),
+      },
+    ],
+    bindings: [
+      { key: "return", cmd: "folder.edit-enter" },
+      { key: "left", cmd: "folder.tab-prev" },
+      { key: "right", cmd: "folder.tab-next" },
+    ],
+  }))
+
+  // ── Keymap: Folder Focus Layer (always when folder is focused) ───
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.focus") === "folder" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      {
+        name: "folder.save",
+        run: () => refs.folderSaveRef.current(),
+      },
+    ],
+    bindings: [{ key: keybinds.request_save, cmd: "folder.save" }],
+  }))
+
+  // ── Keymap: Folder Browse Layer ──────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.focus") === "folder" &&
+      keymap.getData("app.mode") === "browse" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      { name: "folder-browse.up", run: () => refs.folderEbRef.current?.browseUp() },
+      { name: "folder-browse.down", run: () => refs.folderEbRef.current?.browseDown() },
+      { name: "folder-browse.left", run: () => refs.folderEbRef.current?.browseLeft() },
+      { name: "folder-browse.right", run: () => refs.folderEbRef.current?.browseRight() },
+      { name: "folder-browse.enter", run: () => refs.folderEbRef.current?.enterEdit() },
+      { name: "folder-browse.escape", run: () => {
+        refs.folderEbRef.current?.exitBrowse()
+        setters.setFocus("sidebar")
+      }},
+      { name: "folder-browse.toggle", run: () => refs.folderEbRef.current?.toggleRow() },
+      { name: "folder-browse.revert-field", run: () => refs.folderEbRef.current?.revertField() },
+      { name: "folder-browse.revert-all", run: () => refs.folderEbRef.current?.revertAll() },
+    ],
+    bindings: [
+      { key: "up", cmd: "folder-browse.up" },
+      { key: "down", cmd: "folder-browse.down" },
+      { key: "left", cmd: "folder-browse.left" },
+      { key: "right", cmd: "folder-browse.right" },
+      { key: "return", cmd: "folder-browse.enter" },
+      { key: "escape", cmd: "folder-browse.escape" },
+      { key: "space", cmd: "folder-browse.toggle" },
+      { key: keybinds.browse_delete, cmd: "folder-browse.revert-field" },
+      { key: keybinds.browse_revert_all, cmd: "folder-browse.revert-all" },
+    ],
+  }))
+
+  // ── Keymap: Folder Edit Layer ────────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.focus") === "folder" &&
+      keymap.getData("app.mode") === "edit" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      { name: "folder-edit.commit", run: () => refs.folderEbRef.current?.commitEdit() },
+      { name: "folder-edit.cancel", run: () => refs.folderEbRef.current?.cancelEdit() },
+      { name: "folder-edit.tab", run: () => refs.folderEbRef.current?.browseTab() },
+    ],
+    bindings: [
+      { key: "return", cmd: "folder-edit.commit" },
+      { key: "escape", cmd: "folder-edit.cancel" },
+      { key: "tab", cmd: "folder-edit.tab" },
+    ],
+  }))
+
   // ── Keymap: Edit Layer ─────────────────────────────────────────────
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "edit" &&
+      keymap.getData("app.focus") !== "folder" &&
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [

@@ -252,6 +252,7 @@ function parseAuth(value: unknown): Auth {
   }
   const a = value as RawAuth
   if (a.type === "none") return { type: "none" }
+  if (a.type === "inherit") return { type: "inherit" }
   if (a.type === "bearer") {
     if (typeof a.token !== "string") {
       throw new Error('lang.parseRequest: auth.bearer requires "token"')
@@ -276,6 +277,6 @@ function parseAuth(value: unknown): Auth {
     return { type: "api_key", key: a.key, value: a.value, placement }
   }
   throw new Error(
-    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|bearer|basic|api_key`,
+    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|inherit|bearer|basic|api_key`,
   )
 }
