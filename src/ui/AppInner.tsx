@@ -286,7 +286,6 @@ export function AppInner({
           setNewRequestVisible(false)
           setFocus("sidebar")
           setSaveState({ kind: "success", message: `Created ${name}` })
-          setSaveState({ kind: "success", message: `Created ${name}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
