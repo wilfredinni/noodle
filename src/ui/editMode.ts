@@ -135,12 +135,13 @@ export function folderCursorForField(
     case "meta":
     case "auth":
       return { field, row: 0, addingRow: false }
+    case "headers": {
+      if (counts.headers === 0) {
+        return { field, row: -1, addingRow: true }
+      }
+      return { field, row: 0, addingRow: false }
+    }
   }
-  const count = counts.headers
-  if (count === 0) {
-    return { field, row: -1, addingRow: true }
-  }
-  return { field, row: 0, addingRow: false }
 }
 
 export function toggleSubfield(prev: EditState): EditState {
