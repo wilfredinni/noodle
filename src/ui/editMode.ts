@@ -1,4 +1,4 @@
-export type FieldKind = "headers" | "params" | "body" | "auth" | "settings"
+export type FieldKind = "headers" | "params" | "body" | "auth" | "settings" | "meta"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export interface FieldCursor {
@@ -22,6 +22,13 @@ export interface SectionRowCount {
   settings: number
 }
 
+export interface FolderRowCount {
+  meta: number
+  headers: number
+  params: number
+  auth: number
+}
+
 export const FIELD_ORDER: FieldKind[] = [
   "headers",
   "params",
@@ -30,10 +37,25 @@ export const FIELD_ORDER: FieldKind[] = [
   "settings",
 ]
 
+export const FOLDER_FIELD_ORDER: FieldKind[] = [
+  "meta",
+  "headers",
+  "params",
+  "auth",
+]
+
 export function initialEditState(): EditState {
   return {
     mode: "inactive",
     cursor: { field: "headers", row: -1, addingRow: false },
+    editingRow: -1,
+  }
+}
+
+export function initialFolderEditState(): EditState {
+  return {
+    mode: "inactive",
+    cursor: { field: "meta", row: -1, addingRow: false },
     editingRow: -1,
   }
 }
@@ -57,6 +79,24 @@ export function enterEditBrowse(
   }
 }
 
+export function enterFolderEditBrowse(
+  prev: EditState,
+  counts: FolderRowCount = {
+    meta: 0,
+    headers: 0,
+    params: 0,
+    auth: 0,
+  },
+  startField: FieldKind = "meta",
+): EditState {
+  if (prev.mode !== "inactive") return prev
+  return {
+    mode: "browsing",
+    cursor: folderCursorForField(startField, counts),
+    editingRow: -1,
+  }
+}
+
 export function exitEditBrowse(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
   return { ...prev, mode: "inactive" }
@@ -64,6 +104,10 @@ export function exitEditBrowse(prev: EditState): EditState {
 
 function fieldIndex(field: FieldKind): number {
   return FIELD_ORDER.indexOf(field)
+}
+
+export function folderFieldIndex(field: FieldKind): number {
+  return FOLDER_FIELD_ORDER.indexOf(field)
 }
 
 function cursorForField(
@@ -85,10 +129,26 @@ function cursorForField(
   return { field, row: 0, addingRow: false }
 }
 
+export function folderCursorForField(
+  field: FieldKind,
+  counts: FolderRowCount,
+): FieldCursor {
+  switch (field) {
+    case "meta":
+    case "auth":
+      return { field, row: 0, addingRow: false }
+  }
+  const count = field === "headers" ? counts.headers : counts.params
+  if (count === 0) {
+    return { field, row: -1, addingRow: true }
+  }
+  return { field, row: 0, addingRow: false }
+}
+
 export function toggleSubfield(prev: EditState): EditState {
   if (prev.mode !== "editing") return prev
   const { field } = prev.cursor
-  if (field !== "headers" && field !== "params" && field !== "body") return prev
+  if (field !== "headers" && field !== "params" && field !== "body" && field !== "meta") return prev
   const current = prev.cursor.subfield ?? "key"
   const next: "key" | "value" = current === "key" ? "value" : "key"
   return {
@@ -109,6 +169,21 @@ export function moveFieldCursor(
   return {
     ...prev,
     cursor: cursorForField(nextField, counts),
+  }
+}
+
+export function moveFolderFieldCursor(
+  prev: EditState,
+  delta: 1 | -1,
+  counts: FolderRowCount,
+): EditState {
+  if (prev.mode !== "browsing") return prev
+  const idx = folderFieldIndex(prev.cursor.field)
+  const nextIdx = (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
+  const nextField = FOLDER_FIELD_ORDER[nextIdx]!
+  return {
+    ...prev,
+    cursor: folderCursorForField(nextField, counts),
   }
 }
 
@@ -194,11 +269,55 @@ export function moveRowCursor(
   return { ...prev, cursor: { field, row: next, addingRow: false } }
 }
 
+export function moveFolderRowCursor(
+  prev: EditState,
+  delta: 1 | -1,
+  counts: FolderRowCount,
+): EditState {
+  if (prev.mode !== "browsing") return prev
+  const { field } = prev.cursor
+  if (field !== "meta" && field !== "headers" && field !== "params" && field !== "auth") return prev
+
+  let count = 0
+  if (field === "meta") count = counts.meta
+  else if (field === "headers") count = counts.headers
+  else if (field === "params") count = counts.params
+  else if (field === "auth") count = counts.auth
+
+  if (count === 0) return prev
+
+  if (prev.cursor.addingRow) {
+    return {
+      ...prev,
+      cursor: { field, row: delta > 0 ? 0 : count - 1, addingRow: false },
+    }
+  }
+
+  const row = prev.cursor.row
+  const next = row + delta
+
+  if (field === "meta" || field === "auth") {
+    if (next < 0)
+      return { ...prev, cursor: { field, row: 0, addingRow: false } }
+    if (next > count - 1)
+      return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
+    return { ...prev, cursor: { field, row: next, addingRow: false } }
+  }
+
+  if (next < 0) {
+    return { ...prev, cursor: { field, row: -1, addingRow: true } }
+  }
+  if (next > count - 1) {
+    return { ...prev, cursor: { field, row: -1, addingRow: true } }
+  }
+  return { ...prev, cursor: { field, row: next, addingRow: false } }
+}
+
 export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
   if (prev.cursor.field === "settings" && prev.cursor.row === 1) return prev
   const subfield: "key" | "value" | undefined =
-    prev.cursor.field === "headers" || prev.cursor.field === "params"
+    prev.cursor.field === "headers" || prev.cursor.field === "params" || prev.cursor.field === "meta"
       ? "key"
       : prev.cursor.field === "body"
         ? "key"
