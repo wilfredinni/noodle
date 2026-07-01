@@ -77,6 +77,40 @@ describe("hintForFocus — sidebar is mode-independent", () => {
   })
 })
 
+describe("hintForFocus — folder browsing", () => {
+  it("shows navigate, tabs, edit, Esc, save, revert all", () => {
+    const hint = hintForFocus("folder", "browsing")
+    expect(hint).toContain("↑")
+    expect(hint).toContain("↓")
+    expect(hint).toContain("←")
+    expect(hint).toContain("→")
+    expect(hint).toContain("tabs")
+    expect(hint).toContain("Enter")
+    expect(hint).toContain("edit")
+    expect(hint).toContain("Esc")
+    expect(hint).toContain("save")
+    expect(hint).toContain("revert")
+  })
+})
+
+describe("hintForFocus — folder editing", () => {
+  it("shows commit and cancel", () => {
+    const hint = hintForFocus("folder", "editing")
+    expect(hint).toContain("commit")
+    expect(hint).toContain("cancel")
+  })
+})
+
+describe("hintForFocus — folder inactive", () => {
+  it("shows save and Tab", () => {
+    const hint = hintForFocus("folder", "inactive")
+    expect(hint).toContain("save")
+    expect(hint).toContain("Tab")
+    expect(hint).not.toContain("edit")
+    expect(hint).not.toContain("revert")
+  })
+})
+
 describe("hintForFocus — response is mode-independent", () => {
   it("same hint for all modes when response focused", () => {
     const a = hintForFocus("response", "inactive")
