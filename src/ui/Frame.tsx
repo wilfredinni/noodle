@@ -3,6 +3,7 @@ import type { BorderCharacters } from "@opentui/core"
 
 export interface FrameProps {
   children?: ReactNode
+  titleLeft?: ReactNode
   titleRight?: ReactNode
   bottomRight?: ReactNode
   bottomLeft?: ReactNode
@@ -19,6 +20,7 @@ export interface FrameProps {
 
 export function Frame({
   children,
+  titleLeft,
   titleRight,
   bottomRight,
   bottomLeft,
@@ -45,8 +47,13 @@ export function Frame({
       bottomTitleAlignment={bottomTitleAlignment}
     >
       {children}
+      {titleLeft ? (
+        <box style={{ position: "absolute", top: -1, left: 2 }}>
+          {titleLeft}
+        </box>
+      ) : null}
       {titleRight ? (
-        <box style={{ position: "absolute", top: -1, right: 1 }}>
+        <box style={{ position: "absolute", top: -1, right: 2 }}>
           {titleRight}
         </box>
       ) : null}
@@ -56,7 +63,7 @@ export function Frame({
         </box>
       ) : null}
       {bottomRight ? (
-        <box style={{ position: "absolute", bottom: -1, right: 1 }}>
+        <box style={{ position: "absolute", bottom: -1, right: 2 }}>
           {bottomRight}
         </box>
       ) : null}

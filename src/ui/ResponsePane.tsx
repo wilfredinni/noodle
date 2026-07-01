@@ -108,19 +108,23 @@ export function ResponsePane({
       ? Math.max(...responseHeaders.map((h) => h.key.length))
       : 0
 
-  const headerRight = isDone ? (
+  const statusCode = isDone ? (
+    <text fg={statusColor(state.response.status, theme)}>
+      {state.response.status}{state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}
+    </text>
+  ) : undefined
+
+  const headerLeft = isDone ? (
     <box style={{ flexDirection: "row" }}>
-      <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
+      <text fg={statusColor(state.response.status, theme)}>Response</text>
       <text> </text>
-      <text fg={statusColor(state.response.status, theme)}>
-        {state.response.status}{state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}
-      </text>
+      {statusCode}
     </box>
   ) : (
     <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
   )
 
-  const bottomStatus = isDone ? (
+  const headerRight = isDone ? (
     <text fg={theme.textMuted}>
       {`${formatSize(new TextEncoder().encode(state.response.body).length)} in ${Math.round(state.response.timeMs)}ms`}
     </text>
@@ -140,10 +144,10 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
+      titleLeft={headerLeft}
       titleRight={headerRight}
       bottomTitle={focused ? expandHint : undefined}
-      bottomTitleAlignment="left"
-      bottomRight={bottomStatus}
+      bottomTitleAlignment="right"
     >
       {state.status === "idle" ? (
         <Tips />
