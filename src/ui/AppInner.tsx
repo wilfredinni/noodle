@@ -144,6 +144,7 @@ export function AppInner({
     visibleItems,
     cursorIndex,
     focusedFolderPath,
+    focusedFolderName,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -704,82 +705,96 @@ export function AppInner({
                 minHeight: 0,
               }}
             >
-              <UrlBar
-                method={draft.draft?.method ?? ""}
-                url={draft.draft?.url ?? ""}
-                params={draft.draft?.params ?? {}}
-                setUrl={draft.setUrl}
-                onDefocus={draft.syncUrlParams}
-                focused={focus === "urlbar"}
-                activeEnv={envState.activeEnv}
-              />
-              {layout === "side-by-side" ? (
+              {focusedFolderName !== null ? (
                 <box
                   style={{
-                    flexDirection: "row",
                     flexGrow: 1,
-                    gap: 1,
-                    minHeight: 0,
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {expanded !== "response" && (
-                    <RequestPane
-                      request={draft.draft}
-                      editState={eb.editState}
-                      editKey={eb.editKey}
-                      editValue={eb.editValue}
-                      setEditKey={eb.setEditKey}
-                      setEditValue={eb.setEditValue}
-                      focused={focus === "request"}
-                      activeTab={eb.activeTab}
-                      activeEnv={envState.activeEnv}
-                      onAuthTypeChange={draft.setAuthType}
-                      onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                      onBodyTypeChange={draft.setBodyType}
-                      onSelectOpenChange={setSelectOpen}
-                      expandHint={expandHint}
-                    />
-                  )}
-                  {expanded !== "request" && (
-                    <ResponsePane
-                      state={responseState}
-                      focused={focus === "response"}
-                      timelineEntries={timeline.entries}
-                      initialTab={initialResponseTab}
-                      onTabChange={onResponseTabChange}
-                      expandHint={expandHint}
-                    />
-                  )}
+                  <text fg={theme.textMuted}>{focusedFolderName}</text>
                 </box>
               ) : (
                 <>
-                  {expanded !== "response" && (
-                    <RequestPane
-                      request={draft.draft}
-                      editState={eb.editState}
-                      editKey={eb.editKey}
-                      editValue={eb.editValue}
-                      setEditKey={eb.setEditKey}
-                      setEditValue={eb.setEditValue}
-                      focused={focus === "request"}
-                      activeTab={eb.activeTab}
-                      activeEnv={envState.activeEnv}
-                      onAuthTypeChange={draft.setAuthType}
-                      onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                      onBodyTypeChange={draft.setBodyType}
-                      onSelectOpenChange={setSelectOpen}
-                      expandHint={expandHint}
-                    />
-                  )}
-                  {expanded !== "request" && (
-                    <ResponsePane
-                      state={responseState}
-                      focused={focus === "response"}
-                      timelineEntries={timeline.entries}
-                      initialTab={initialResponseTab}
-                      onTabChange={onResponseTabChange}
-                      expandHint={expandHint}
-                    />
+                  <UrlBar
+                    method={draft.draft?.method ?? ""}
+                    url={draft.draft?.url ?? ""}
+                    params={draft.draft?.params ?? {}}
+                    setUrl={draft.setUrl}
+                    onDefocus={draft.syncUrlParams}
+                    focused={focus === "urlbar"}
+                    activeEnv={envState.activeEnv}
+                  />
+                  {layout === "side-by-side" ? (
+                    <box
+                      style={{
+                        flexDirection: "row",
+                        flexGrow: 1,
+                        gap: 1,
+                        minHeight: 0,
+                      }}
+                    >
+                      {expanded !== "response" && (
+                        <RequestPane
+                          request={draft.draft}
+                          editState={eb.editState}
+                          editKey={eb.editKey}
+                          editValue={eb.editValue}
+                          setEditKey={eb.setEditKey}
+                          setEditValue={eb.setEditValue}
+                          focused={focus === "request"}
+                          activeTab={eb.activeTab}
+                          activeEnv={envState.activeEnv}
+                          onAuthTypeChange={draft.setAuthType}
+                          onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                          onBodyTypeChange={draft.setBodyType}
+                          onSelectOpenChange={setSelectOpen}
+                          expandHint={expandHint}
+                        />
+                      )}
+                      {expanded !== "request" && (
+                        <ResponsePane
+                          state={responseState}
+                          focused={focus === "response"}
+                          timelineEntries={timeline.entries}
+                          initialTab={initialResponseTab}
+                          onTabChange={onResponseTabChange}
+                          expandHint={expandHint}
+                        />
+                      )}
+                    </box>
+                  ) : (
+                    <>
+                      {expanded !== "response" && (
+                        <RequestPane
+                          request={draft.draft}
+                          editState={eb.editState}
+                          editKey={eb.editKey}
+                          editValue={eb.editValue}
+                          setEditKey={eb.setEditKey}
+                          setEditValue={eb.setEditValue}
+                          focused={focus === "request"}
+                          activeTab={eb.activeTab}
+                          activeEnv={envState.activeEnv}
+                          onAuthTypeChange={draft.setAuthType}
+                          onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                          onBodyTypeChange={draft.setBodyType}
+                          onSelectOpenChange={setSelectOpen}
+                          expandHint={expandHint}
+                        />
+                      )}
+                      {expanded !== "request" && (
+                        <ResponsePane
+                          state={responseState}
+                          focused={focus === "response"}
+                          timelineEntries={timeline.entries}
+                          initialTab={initialResponseTab}
+                          onTabChange={onResponseTabChange}
+                          expandHint={expandHint}
+                        />
+                      )}
+                    </>
                   )}
                 </>
               )}

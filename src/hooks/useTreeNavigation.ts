@@ -12,6 +12,7 @@ export interface UseTreeNavigationResult {
   selectedId: string | null
   selectedRequest: Request | null
   focusedFolderPath: string | null
+  focusedFolderName: string | null
   expanded: Set<string>
   visibleItems: VisibleNode[]
   cursorIndex: number
@@ -147,6 +148,8 @@ export function useTreeNavigation(
   const focusedNode = vis[clampedCursor]
   const focusedFolderPath =
     focusedNode?.type === "folder" ? focusedNode.id : null
+  const focusedFolderName =
+    focusedNode?.type === "folder" ? focusedNode.name : null
   const selectedRequest = selectedId
     ? findRequestById(itemsRef.current, selectedId)
     : null
@@ -155,6 +158,7 @@ export function useTreeNavigation(
     selectedId,
     selectedRequest,
     focusedFolderPath,
+    focusedFolderName,
     expanded,
     visibleItems: vis,
     cursorIndex: clampedCursor,
