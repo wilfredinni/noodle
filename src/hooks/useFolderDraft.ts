@@ -220,14 +220,19 @@ export function applyDraftOp(
       const currentAuth = draft.overrides?.auth
       if (!currentAuth || currentAuth.type !== op.authType) break
       if (currentAuth.type === "none") break
-      ;(currentAuth as Record<string, unknown>)[op.field] = op.value
+      draft.overrides = {
+        ...draft.overrides,
+        auth: { ...currentAuth, [op.field]: op.value },
+      }
       break
     }
     case "setApiKeyPlacement": {
       const currentAuth = draft.overrides?.auth
       if (currentAuth?.type === "api_key") {
-        ;(currentAuth as { placement: "header" | "query" }).placement =
-          op.placement
+        draft.overrides = {
+          ...draft.overrides,
+          auth: { ...currentAuth, placement: op.placement },
+        }
       }
       break
     }
