@@ -116,6 +116,8 @@ export function AppInner({
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
+  const [editRequestVisible, setEditRequestVisible] = useState(false)
+  const editRequestRef = useRef<NewRequestOverlayHandle>(null)
   const [cloneRequestVisible, setCloneRequestVisible] = useState(false)
   const cloneRequestRef = useRef<CloneRequestOverlayHandle>(null)
   const [requestDeletePending, setRequestDeletePending] = useState<
@@ -322,6 +324,60 @@ export function AppInner({
     ],
   )
 
+  const handleEditRequestConfirm = useCallback(
+    (name: string, method: Method, url: string) => {
+      const req = selectedRequest
+      if (!req) return
+      const newId = slugify(name)
+      if (!newId) return
+
+      const nameChanged = newId !== req.id
+
+      const updated: NoodleRequest = {
+        ...req,
+        id: newId,
+        name,
+        method,
+        url,
+      }
+
+      const savePromise = saveRequest(collectionDir, updated).then(() => {
+        if (nameChanged) {
+          return deleteRequest(collectionDir, req.id)
+        }
+      })
+
+      savePromise
+        .then(() => {
+          setCollectionReloadToken((n) => n + 1)
+          setEditRequestVisible(false)
+          setFocus("sidebar")
+          setSaveState({ kind: "success", message: `Saved ${name}` })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e)
+          setSaveState({ kind: "error", message: msg })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+    },
+    [
+      selectedRequest,
+      collectionDir,
+      setCollectionReloadToken,
+      setFocus,
+      setSaveState,
+      clearSaveTimer,
+      saveTimerRef,
+    ],
+  )
+
   const handleRequestDeleteConfirm = useCallback(() => {
     const req = selectedRequest
     if (!req) return
@@ -374,7 +430,9 @@ export function AppInner({
             ? "yaml-editor"
             : newRequestVisible
               ? "new-request"
-              : cloneRequestVisible
+              : editRequestVisible
+                ? "edit-request"
+                : cloneRequestVisible
                 ? "clone-request"
                 : requestDeletePending !== null
                   ? "request-delete"
@@ -386,6 +444,7 @@ export function AppInner({
     saveState.kind,
     yamlEditor.visible,
     newRequestVisible,
+    editRequestVisible,
     cloneRequestVisible,
     requestDeletePending,
     keymap,
@@ -533,6 +592,7 @@ export function AppInner({
       setEnvDeletePending,
       setDeleteConfirmSelection,
       setNewRequestVisible,
+      setEditRequestVisible,
       setCloneRequestVisible,
       setRequestDeletePending,
       onLayoutChange,
@@ -570,6 +630,11 @@ export function AppInner({
     setNewRequestVisible,
     onNewRequestConfirm: (v) =>
       handleNewRequestConfirm(v.name, v.method as Method, v.url),
+    editRequestVisible,
+    editRequestRef,
+    setEditRequestVisible,
+    onEditRequestConfirm: (v) =>
+      handleEditRequestConfirm(v.name, v.method as Method, v.url),
     cloneRequestVisible,
     cloneRequestRef,
     setCloneRequestVisible,
@@ -835,6 +900,16 @@ export function AppInner({
           />
         )}
         {newRequestVisible && <NewRequestOverlay visible ref={newRequestRef} />}
+        {editRequestVisible && (
+          <NewRequestOverlay
+            visible
+            mode="edit"
+            initialName={selectedRequest?.name}
+            initialMethod={selectedRequest?.method}
+            initialUrl={selectedRequest?.url}
+            ref={editRequestRef}
+          />
+        )}
         {cloneRequestVisible && (
           <CloneRequestOverlay
             visible

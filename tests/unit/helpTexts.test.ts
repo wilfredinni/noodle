@@ -10,10 +10,10 @@ describe("getHelpSections", () => {
     expect(sections).toHaveLength(5)
   })
 
-  it("section titles are NAVIGATION, EDITING, ACTIONS, SYSTEM, ENV EDITOR", () => {
+  it("section titles are NAVIGATION, ENVIRONMENTS, ACTIONS, SYSTEM, ENV EDITOR", () => {
     const sections = getHelpSections(defaults)
     expect(sections[0]!.title).toBe("Navigation")
-    expect(sections[1]!.title).toBe("Editing")
+    expect(sections[1]!.title).toBe("Environments")
     expect(sections[2]!.title).toBe("Actions")
     expect(sections[3]!.title).toBe("System")
     expect(sections[4]!.title).toBe("Env Editor")
@@ -44,10 +44,10 @@ describe("getHelpSections", () => {
     expect(keys).toContain("shift+tab")
   })
 
-  it("EDITING section shows return, escape, ^d, space, ^r, ^e", () => {
+  it("ENVIRONMENTS section shows return, escape, ^d, space, ^r, ^e", () => {
     const sections = getHelpSections(defaults)
-    const edit = sections.find((s) => s.title === "Editing")!
-    const keys = edit.keys.map((k) => k.key)
+    const env = sections.find((s) => s.title === "Environments")!
+    const keys = env.keys.map((k) => k.key)
     expect(keys).toContain("return")
     expect(keys).toContain("escape")
     expect(keys).toContain("^d")

@@ -78,6 +78,7 @@ export interface UseAppKeymapSetters {
   ) => void
   setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setEditRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setRequestDeletePending: (s: string | null | ((prev: string | null) => string | null)) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
@@ -235,6 +236,14 @@ export function useAppKeymap(
         run: () => setters.setNewRequestVisible(true),
       },
       {
+        name: "request.edit-overlay",
+        run: () => {
+          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          if (!req) return
+          setters.setEditRequestVisible(true)
+        },
+      },
+      {
         name: "request.clone",
         run: () => {
           const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
@@ -276,6 +285,7 @@ export function useAppKeymap(
       { key: keybinds.env_editor, cmd: "env.editor-open" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.request_new, cmd: "request.new" },
+      { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
       { key: keybinds.request_clone, cmd: "request.clone" },
       { key: keybinds.request_delete, cmd: "request.delete" },
       { key: "return", cmd: "request.edit-enter" },
