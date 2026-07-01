@@ -1,31 +1,36 @@
-import { mkdir, writeFile, unlink } from "node:fs/promises"
-import { join } from "node:path"
+import { mkdir, writeFile, unlink, rm } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
-import type { CollectionSettings, Request } from "../schema"
+import type { CollectionSettings, Folder, Request } from "../schema"
+
+function validatePathId(id: string | undefined): void {
+  if (!id) {
+    throw new Error("filestore: missing or invalid id")
+  }
+  if (id.includes("\\") || id.includes("..")) {
+    throw new Error('filestore: id must not contain backslash or ".."')
+  }
+}
 
 export async function saveRequest(dir: string, req: Request): Promise<void> {
   const id = (req as { id?: string }).id
-  if (!id) {
-    throw new Error("filestore.saveRequest: missing or invalid id")
-  }
-  if (id.includes("/") || id.includes("\\") || id.includes("..")) {
-    throw new Error(
-      'filestore.saveRequest: id must not contain path separators or ".."',
-    )
-  }
+  validatePathId(id)
+
+  const filePath = join(dir, `${id}.yml`)
+  const parentDir = dirname(filePath)
 
   try {
-    await mkdir(dir, { recursive: true })
+    await mkdir(parentDir, { recursive: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveRequest: ${msg}`, { cause: e })
   }
 
-  const yaml = lang.serializeRequest(req)
+  const yamlStr = lang.serializeRequest(req)
 
   try {
-    await writeFile(join(dir, `${id}.yml`), yaml, "utf8")
+    await writeFile(filePath, yamlStr, "utf8")
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveRequest: ${msg}`, { cause: e })
@@ -33,17 +38,45 @@ export async function saveRequest(dir: string, req: Request): Promise<void> {
 }
 
 export async function deleteRequest(dir: string, id: string): Promise<void> {
-  if (id.includes("/") || id.includes("\\") || id.includes("..")) {
-    throw new Error(
-      'filestore.deleteRequest: id must not contain path separators or ".."',
-    )
-  }
+  validatePathId(id)
 
   try {
     await unlink(join(dir, `${id}.yml`))
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.deleteRequest: ${msg}`, { cause: e })
+  }
+}
+
+export async function saveFolder(dir: string, folder: Folder): Promise<void> {
+  const folderDir = join(dir, folder.path)
+
+  try {
+    await mkdir(folderDir, { recursive: true })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`filestore.saveFolder: ${msg}`, { cause: e })
+  }
+
+  const yamlStr = lang.serializeFolder(folder)
+
+  try {
+    await writeFile(join(folderDir, "folder.yml"), yamlStr, "utf8")
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`filestore.saveFolder: ${msg}`, { cause: e })
+  }
+}
+
+export async function deleteFolder(dir: string, path: string): Promise<void> {
+  validatePathId(path)
+
+  const folderDir = join(dir, path)
+  try {
+    await rm(folderDir, { recursive: true, force: true })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`filestore.deleteFolder: ${msg}`, { cause: e })
   }
 }
 
