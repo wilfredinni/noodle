@@ -7,6 +7,8 @@ import {
   saveUIState,
   loadLastRequest,
   saveLastRequest,
+  loadExpandedFolders,
+  saveExpandedFolders,
   type TabPrefs,
 } from "../../src/ui/tabs/uiState"
 
@@ -211,6 +213,35 @@ describe("uiState I/O", () => {
       await saveLastRequest(tmpDir, "some-req", new Set(["some-req"]))
       const result = await loadLastRequest(tmpDir)
       expect(result).toBe("some-req")
+    })
+  })
+
+  describe("expandedFolders", () => {
+    it("loadExpandedFolders returns empty set when no ui-state file", async () => {
+      const result = await loadExpandedFolders(tmpDir)
+      expect(result.size).toBe(0)
+    })
+
+    it("saveExpandedFolders and loadExpandedFolders round-trips", async () => {
+      const folders = new Set(["auth", "users", "users/admins"])
+      await saveExpandedFolders(tmpDir, folders)
+      const result = await loadExpandedFolders(tmpDir)
+      expect(result).toEqual(folders)
+    })
+
+    it("saveExpandedFolders updates existing set to smaller set", async () => {
+      await saveExpandedFolders(tmpDir, new Set(["a", "b", "c"]))
+      await saveExpandedFolders(tmpDir, new Set(["a"]))
+      const result = await loadExpandedFolders(tmpDir)
+      expect(result.size).toBe(1)
+      expect(result.has("a")).toBe(true)
+    })
+
+    it("saveExpandedFolders creates directory if missing", async () => {
+      const deep = join(tmpDir, "a", "b", "c")
+      await saveExpandedFolders(deep, new Set(["x"]))
+      const result = await loadExpandedFolders(deep)
+      expect(result.has("x")).toBe(true)
     })
   })
 })

@@ -212,7 +212,7 @@ export function AppInner({
       if (expandedDebounceRef.current)
         clearTimeout(expandedDebounceRef.current)
     }
-  }, [expandedFolders])
+  }, [expandedFolders, collectionDir])
 
   const draft = useRequestDraft(selectedRequest)
 
