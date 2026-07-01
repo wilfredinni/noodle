@@ -661,7 +661,6 @@ export function AppInner({
                       initialTab={initialResponseTab}
                       onTabChange={onResponseTabChange}
                       expandHint={expandHint}
-                      layout="side-by-side"
                     />
                   )}
                 </box>
@@ -693,7 +692,6 @@ export function AppInner({
                       initialTab={initialResponseTab}
                       onTabChange={onResponseTabChange}
                       expandHint={expandHint}
-                      layout="stacked"
                     />
                   )}
                 </>

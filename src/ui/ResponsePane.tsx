@@ -3,23 +3,17 @@ import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
 import type { TimelineEntry } from "../schema"
-import { formatHeaders, formatBody, statusColor } from "./format"
+import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
-import { GradientBadge } from "./GradientBadge"
 import { Tips } from "./Tips"
+import { Frame } from "./Frame"
 
 import { TimelineTab } from "./timeline/TimelineTab"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
-}
 
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
@@ -34,7 +28,6 @@ export function ResponsePane({
   initialTab,
   onTabChange,
   expandHint,
-  layout,
 }: {
   state: SendState
   focused?: boolean
@@ -42,7 +35,6 @@ export function ResponsePane({
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   expandHint?: string
-  layout?: "stacked" | "side-by-side"
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
@@ -116,8 +108,26 @@ export function ResponsePane({
       ? Math.max(...responseHeaders.map((h) => h.key.length))
       : 0
 
+  const headerRight = isDone ? (
+    <box style={{ flexDirection: "row" }}>
+      <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
+      <text> </text>
+      <text fg={statusColor(state.response.status, theme)}>
+        {state.response.status}{state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}
+      </text>
+    </box>
+  ) : (
+    <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
+  )
+
+  const bottomStatus = isDone ? (
+    <text fg={theme.textMuted}>
+      {`${formatSize(new TextEncoder().encode(state.response.body).length)} in ${Math.round(state.response.timeMs)}ms`}
+    </text>
+  ) : undefined
+
   return (
-    <box
+    <Frame
       style={{
         flexGrow: 1,
         flexDirection: "column",
@@ -130,11 +140,10 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
-      title="Response"
-      titleColor={focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
+      titleRight={headerRight}
       bottomTitle={focused ? expandHint : undefined}
-      bottomTitleAlignment="right"
+      bottomTitleAlignment="left"
+      bottomRight={bottomStatus}
     >
       {state.status === "idle" ? (
         <Tips />
@@ -221,32 +230,9 @@ export function ResponsePane({
                 )}
               </scrollbox>
             )}
-            </Tabs>
-          {state.response.statusText !== "" && (
-            <box
-              style={{
-                flexDirection: "row",
-                justifyContent: "flex-end",
-                flexShrink: 0,
-                paddingTop: 1,
-                ...(layout === "stacked"
-                  ? { paddingBottom: 1 }
-                  : { paddingRight: 1 }),
-              }}
-            >
-              <GradientBadge
-                colors={[
-                  statusColor(state.response.status, theme),
-                  theme.primary,
-                ]}
-                fg={theme.background}
-              >
-                {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""} • ${Math.round(state.response.timeMs)}ms • ${formatSize(new TextEncoder().encode(state.response.body).length)}`}
-              </GradientBadge>
-            </box>
-          )}
+          </Tabs>
         </box>
       )}
-    </box>
+    </Frame>
   )
 }
