@@ -1,0 +1,8 @@
+name: test request
+method: DELETE
+url: https://google.com
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body: ''
+body_type: none

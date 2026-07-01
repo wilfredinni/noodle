@@ -23,7 +23,11 @@ import {
   slugify,
   type NewRequestOverlayHandle,
 } from "./NewRequestOverlay"
-import { saveRequest } from "../filestore/save"
+import {
+  CloneRequestOverlay,
+  type CloneRequestOverlayHandle,
+} from "./CloneRequestOverlay"
+import { saveRequest, deleteRequest } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -112,6 +116,9 @@ export function AppInner({
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
+  const [cloneRequestVisible, setCloneRequestVisible] = useState(false)
+  const cloneRequestRef = useRef<CloneRequestOverlayHandle>(null)
+  const [requestDeletePending, setRequestDeletePending] = useState<string | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -264,6 +271,57 @@ export function AppInner({
     ],
   )
 
+  const handleCloneRequestConfirm = useCallback(
+    (newName: string) => {
+      const req = selectedRequest
+      if (!req) return
+      const id = slugify(newName)
+      if (!id) return
+
+      const cloned: NoodleRequest = {
+        ...req,
+        id,
+        name: newName,
+      }
+
+      saveRequest(collectionDir, cloned)
+        .then(() => {
+          setCollectionReloadToken((n) => n + 1)
+          setCloneRequestVisible(false)
+          setFocus("sidebar")
+        })
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e)
+          setSaveState({ kind: "error", message: msg })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+    },
+    [selectedRequest, collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef],
+  )
+
+  const handleRequestDeleteConfirm = useCallback(() => {
+    const req = selectedRequest
+    if (!req) return
+
+    deleteRequest(collectionDir, req.id)
+      .then(() => {
+        setCollectionReloadToken((n) => n + 1)
+        setRequestDeletePending(null)
+        setFocus("sidebar")
+      })
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e)
+        setSaveState({ kind: "error", message: msg })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
+      })
+  }, [selectedRequest, collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef])
+
   // ── keymap.setData effects ─────────────────────────────────────────
   useEffect(() => {
     keymap.setData("app.focus", focus)
@@ -283,7 +341,11 @@ export function AppInner({
             ? "yaml-editor"
             : newRequestVisible
               ? "new-request"
-              : "none"
+              : cloneRequestVisible
+                ? "clone-request"
+                : requestDeletePending !== null
+                  ? "request-delete"
+                  : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     helpVisible,
@@ -291,6 +353,8 @@ export function AppInner({
     saveState.kind,
     yamlEditor.visible,
     newRequestVisible,
+    cloneRequestVisible,
+    requestDeletePending,
     keymap,
   ])
 
@@ -436,6 +500,8 @@ export function AppInner({
       setEnvDeletePending,
       setDeleteConfirmSelection,
       setNewRequestVisible,
+      setCloneRequestVisible,
+      setRequestDeletePending,
       onLayoutChange,
       setExpanded,
     },
@@ -471,6 +537,13 @@ export function AppInner({
     setNewRequestVisible,
     onNewRequestConfirm: (v) =>
       handleNewRequestConfirm(v.name, v.method as Method, v.url),
+    cloneRequestVisible,
+    cloneRequestRef,
+    setCloneRequestVisible,
+    onCloneRequestConfirm: handleCloneRequestConfirm,
+    requestDeletePending,
+    setRequestDeletePending,
+    onRequestDeleteConfirm: handleRequestDeleteConfirm,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -730,6 +803,20 @@ export function AppInner({
           />
         )}
         {newRequestVisible && <NewRequestOverlay visible ref={newRequestRef} />}
+        {cloneRequestVisible && (
+          <CloneRequestOverlay
+            visible
+            initialName={selectedRequest?.name ?? ""}
+            ref={cloneRequestRef}
+          />
+        )}
+        {requestDeletePending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Delete "${requestDeletePending}"?`}
+            selectedIndex={0}
+          />
+        )}
       </box>
       <StatusBar
         method={draft.draft?.method ?? ""}

@@ -6,6 +6,7 @@ import type { Focus } from "./focus"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import type { NewRequestOverlayHandle } from "./NewRequestOverlay"
+import type { CloneRequestOverlayHandle } from "./CloneRequestOverlay"
 
 export function useOverlayIntercepts(opts: {
   cancelSendRef: RefObject<() => void>
@@ -38,6 +39,13 @@ export function useOverlayIntercepts(opts: {
     method: string
     url: string
   }) => void
+  cloneRequestVisible: boolean
+  cloneRequestRef: RefObject<CloneRequestOverlayHandle | null>
+  setCloneRequestVisible: (v: boolean) => void
+  onCloneRequestConfirm: (newName: string) => void
+  requestDeletePending: string | null
+  setRequestDeletePending: (s: string | null) => void
+  onRequestDeleteConfirm: () => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -67,6 +75,13 @@ export function useOverlayIntercepts(opts: {
     newRequestRef,
     setNewRequestVisible,
     onNewRequestConfirm,
+    cloneRequestVisible,
+    cloneRequestRef,
+    setCloneRequestVisible,
+    onCloneRequestConfirm,
+    requestDeletePending,
+    setRequestDeletePending,
+    onRequestDeleteConfirm,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -270,6 +285,60 @@ export function useOverlayIntercepts(opts: {
     onNewRequestConfirm,
     keymap,
   ])
+
+  // ── Overlay: Clone Request ─────────────────────────────────────────
+  useEffect(() => {
+    if (!cloneRequestVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const handle = cloneRequestRef.current
+        if (!handle) return
+
+        if (e.name === "s" && e.ctrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          const result = handle.confirm()
+          if (result) onCloneRequestConfirm(result)
+          return
+        }
+        if (e.name === "escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          setCloneRequestVisible(false)
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [cloneRequestVisible, cloneRequestRef, setCloneRequestVisible, onCloneRequestConfirm, keymap])
+
+  // ── Overlay: Delete Request ────────────────────────────────────────
+  useEffect(() => {
+    if (!requestDeletePending) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onRequestDeleteConfirm()
+          return
+        }
+        if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setRequestDeletePending(null)
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [requestDeletePending, onRequestDeleteConfirm, setRequestDeletePending, keymap])
 
   // ── Env Editor Mode ───────────────────────────────────────────────
   useEffect(() => {
