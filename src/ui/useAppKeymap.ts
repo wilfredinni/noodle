@@ -8,6 +8,7 @@ import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
+import { findRequestById } from "./tree"
 
 export interface UseAppKeymapRefs {
   ebRef: RefObject<UseEditBrowseResult>
@@ -15,7 +16,7 @@ export interface UseAppKeymapRefs {
   envStateRef: RefObject<UseEnvironmentsResult>
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   collectionRef: RefObject<Collection | null>
-  selectedIndexRef: RefObject<number>
+  selectedIdRef: RefObject<string | null>
   trySendRef: RefObject<(() => void) | undefined>
   doSaveRef: RefObject<() => void>
   focusRef: RefObject<Focus>
@@ -157,14 +158,17 @@ export function useAppKeymap(
       {
         name: "request.edit-yaml",
         run: () => {
-          const req =
-            refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
-          if (!req || !collectionDir) return
-          const filePath = join(collectionDir, `${req.id}.yml`)
+          const sid = refs.selectedIdRef.current
+          if (!sid || !collectionDir) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const r = findRequestById(col.items, sid)
+          if (!r) return
+          const filePath = join(collectionDir, `${sid}.yml`)
           setters.setYamlEditor({
             visible: true,
             filePath,
-            requestName: req.name,
+            requestName: r.name,
             returnFocus: refs.focusRef.current,
           })
         },
@@ -238,7 +242,11 @@ export function useAppKeymap(
       {
         name: "request.edit-overlay",
         run: () => {
-          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
           if (!req) return
           setters.setEditRequestVisible(true)
         },
@@ -246,7 +254,11 @@ export function useAppKeymap(
       {
         name: "request.clone",
         run: () => {
-          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
           if (!req) return
           setters.setCloneRequestVisible(true)
         },
@@ -254,7 +266,11 @@ export function useAppKeymap(
       {
         name: "request.delete",
         run: () => {
-          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
           if (!req) return
           setters.setRequestDeletePending(req.name)
         },
