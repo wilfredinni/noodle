@@ -17,7 +17,8 @@ function keybind(
 export const Definitions = {
   request_send: keybind("ctrl+return", "Send request"),
   request_save: keybind("ctrl+s", "Save request to disk"),
-  env_cycle: keybind("ctrl+n", "Cycle environment"),
+  env_cycle: keybind("ctrl+p", "Cycle environment"),
+  request_new: keybind("ctrl+n", "New request"),
   env_editor: keybind("e", "Open environment editor"),
   help_toggle: keybind("f1", "Toggle help overlay"),
   theme_picker: keybind("ctrl+t", "Open theme picker"),
@@ -59,6 +60,7 @@ export const CommandMap = {
   help_toggle: "app.help",
   theme_picker: "app.theme",
   request_edit_yaml: "request.edit-yaml",
+  request_new: "request.new",
   focus_next: "focus.next",
   focus_prev: "focus.prev",
   browse_up: "browse.up",

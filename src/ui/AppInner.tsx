@@ -106,6 +106,7 @@ export function AppInner({
     envDeletePendingRef.current = envDeletePending
   }, [envDeletePending])
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
+  const [newRequestVisible, setNewRequestVisible] = useState(false)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -380,6 +381,7 @@ export function AppInner({
       setPreviewIndex: setPreviewIndexProp,
       setEnvDeletePending,
       setDeleteConfirmSelection,
+      setNewRequestVisible,
       onLayoutChange,
       setExpanded,
     },
