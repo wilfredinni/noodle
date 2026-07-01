@@ -623,7 +623,6 @@ export function AppInner({
                 setUrl={draft.setUrl}
                 onDefocus={draft.syncUrlParams}
                 focused={focus === "urlbar"}
-                sending={responseState.status === "sending"}
                 activeEnv={envState.activeEnv}
               />
               {layout === "side-by-side" ? (
