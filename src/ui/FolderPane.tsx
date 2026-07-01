@@ -25,6 +25,7 @@ interface FolderPaneProps {
   onTabChange: (tab: FolderFieldKind) => void
   onAuthTypeChange: (type: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
+  onSelectOpenChange?: (open: boolean) => void
   activeEnv: Environment | null
   theme: Theme
 }
@@ -41,6 +42,7 @@ export function FolderPane({
   onTabChange: _onTabChange,
   onAuthTypeChange,
   onApiKeyPlacementChange,
+  onSelectOpenChange,
   activeEnv,
   theme,
 }: FolderPaneProps) {
@@ -114,6 +116,7 @@ export function FolderPane({
                   onApiKeyPlacementChange={
                     onApiKeyPlacementChange ?? (() => {})
                   }
+                  onSelectOpenChange={onSelectOpenChange}
                 />
               )}
             </scrollbox>

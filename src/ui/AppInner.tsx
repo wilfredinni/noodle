@@ -824,6 +824,7 @@ export function AppInner({
                   onTabChange={() => {}}
                   onAuthTypeChange={folderDraft.setAuthType}
                   onApiKeyPlacementChange={folderDraft.setApiKeyPlacement}
+                  onSelectOpenChange={setSelectOpen}
                   activeEnv={envState.activeEnv}
                   theme={theme}
                 />

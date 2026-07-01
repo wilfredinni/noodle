@@ -80,7 +80,10 @@ function toggleRow(
 
 function authEqual(a: Auth | undefined, b: Auth | undefined): boolean {
   if (a === undefined && b === undefined) return true
-  if (a === undefined || b === undefined) return false
+  if (a === undefined || b === undefined) {
+    const defined = a ?? b
+    return defined!.type === "none"
+  }
   if (a.type !== b.type) return false
   if (a.type === "none" && b.type === "none") return true
   if (a.type === "inherit" && b.type === "inherit") return true
@@ -240,13 +243,15 @@ export interface UseFolderDraftResult {
 
 export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
   const [draftMap, setDraftMap] = useState<Map<string, Folder>>(new Map())
-  const [original, setOriginal] = useState<Folder | null>(null)
+  const [originalMap, setOriginalMap] = useState<Map<string, Folder>>(new Map())
 
   useEffect(() => {
     if (!folder) return
-    setOriginal((prev) => {
-      if (prev?.path === folder.path) return prev
-      return folder
+    setOriginalMap((prev) => {
+      if (prev.has(folder.path)) return prev
+      const next = new Map(prev)
+      next.set(folder.path, folder)
+      return next
     })
   }, [folder])
 
@@ -254,11 +259,21 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
 
   const folderDraft = folder ? (draftMap.get(key) ?? folder) : null
 
-  const isDirty = folderDraft && original
-    ? !folderEqual(folderDraft, original)
+  const isDirty = folderDraft
+    ? !folderEqual(folderDraft, originalMap.get(key) ?? folderDraft)
     : false
 
-  const dirtyPaths = useMemo(() => new Set(draftMap.keys()), [draftMap])
+  const dirtyPaths = useMemo(() => {
+    const paths = new Set<string>()
+    for (const [path, draft] of draftMap) {
+      const orig = originalMap.get(path)
+      if (!orig) continue
+      if (!folderEqual(draft, orig)) {
+        paths.add(path)
+      }
+    }
+    return paths
+  }, [draftMap, originalMap])
 
   const dispatch = useCallback(
     (op: FolderDraftOp) => {
@@ -326,7 +341,11 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
   )
   const markSaved = useCallback(() => {
     if (!folderDraft || !folder) return
-    setOriginal({ ...folderDraft })
+    setOriginalMap((prev) => {
+      const next = new Map(prev)
+      next.set(key, { ...folderDraft })
+      return next
+    })
     setDraftMap((prev) => {
       const next = new Map(prev)
       next.delete(key)
@@ -339,7 +358,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       folderDraft,
       isDirty,
       dirtyPaths,
-      originalFolder: original,
+      originalFolder: originalMap.get(key) ?? null,
       setName,
       setSeq,
       setHeaderRow,
@@ -356,7 +375,8 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       folderDraft,
       isDirty,
       dirtyPaths,
-      original,
+      originalMap,
+      key,
       setName,
       setSeq,
       setHeaderRow,

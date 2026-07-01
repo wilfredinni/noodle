@@ -195,4 +195,12 @@ describe("folderEqual", () => {
   it("returns true for both undefined auth", () => {
     expect(folderEqual(makeFolder(), makeFolder())).toBe(true)
   })
+
+  it("returns true when one folder has none auth and other has no overrides", () => {
+    const a = makeFolder({
+      overrides: { auth: { type: "none" } },
+    })
+    const b = makeFolder()
+    expect(folderEqual(a, b)).toBe(true)
+  })
 })
