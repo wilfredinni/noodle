@@ -9,7 +9,7 @@ import { useCollection } from "../hooks/useCollection"
 import { useSidebarSelection } from "../hooks/useSidebarSelection"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest } from "../schema"
+import type { Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
@@ -18,6 +18,8 @@ import { type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
 import { YamlEditorOverlay } from "./YamlEditorOverlay"
+import { NewRequestOverlay, slugify, type NewRequestOverlayHandle } from "./NewRequestOverlay"
+import { saveRequest } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -106,8 +108,8 @@ export function AppInner({
     envDeletePendingRef.current = envDeletePending
   }, [envDeletePending])
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [newRequestVisible, setNewRequestVisible] = useState(false)
+  const newRequestRef = useRef<NewRequestOverlayHandle>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -220,6 +222,105 @@ export function AppInner({
   const doSaveRef = useRef(doSave)
   doSaveRef.current = doSave
 
+  const handleNewRequestConfirm = useCallback(
+    (name: string, method: Method, url: string) => {
+      const id = slugify(name)
+      if (!id) return
+
+      const req: NoodleRequest = {
+        id,
+        name,
+        method,
+        url,
+        timeout: 0,
+        followRedirects: true,
+        maxRedirects: 5,
+        headers: {},
+        params: {},
+        auth: { type: "none" },
+        bodyType: "none",
+        body: "",
+      }
+
+      saveRequest(collectionDir, req)
+        .then(() => {
+          setCollectionReloadToken((n) => n + 1)
+          setNewRequestVisible(false)
+          setFocus("sidebar")
+        })
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e)
+          setSaveState({ kind: "error", message: msg })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+    },
+    [collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef],
+  )
+
+  const handleNewRequestClose = useCallback(() => {
+    setNewRequestVisible(false)
+  }, [])
+
+  // ── New request overlay intercepts ──────────────────────────────────
+  useEffect(() => {
+    if (!newRequestVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const handle = newRequestRef.current
+        if (!handle) return
+
+        if (e.name === "tab" && !e.shift) {
+          e.preventDefault()
+          e.stopPropagation()
+          handle.cycleFocus(1)
+          return
+        }
+        if (e.name === "tab" && e.shift) {
+          e.preventDefault()
+          e.stopPropagation()
+          handle.cycleFocus(-1)
+          return
+        }
+        if (e.name === "return") {
+          e.preventDefault()
+          e.stopPropagation()
+          if (handle.getFocus() === "url") {
+            const result = handle.confirm()
+            if (result) handleNewRequestConfirm(result.name, result.method, result.url)
+          } else {
+            handle.commitField()
+          }
+          return
+        }
+        if (e.name === "y") {
+          e.preventDefault()
+          e.stopPropagation()
+          const result = handle.confirm()
+          if (result) handleNewRequestConfirm(result.name, result.method, result.url)
+          return
+        }
+        if (e.name === "n" || e.name === "escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          handleNewRequestClose()
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    newRequestVisible,
+    keymap,
+    handleNewRequestConfirm,
+    handleNewRequestClose,
+  ])
+
   // ── keymap.setData effects ─────────────────────────────────────────
   useEffect(() => {
     keymap.setData("app.focus", focus)
@@ -237,9 +338,11 @@ export function AppInner({
           ? "confirm"
           : yamlEditor.visible
             ? "yaml-editor"
-            : "none"
+            : newRequestVisible
+              ? "new-request"
+              : "none"
     keymap.setData("app.overlay", overlay)
-  }, [helpVisible, previewIndex, saveState.kind, yamlEditor.visible, keymap])
+  }, [helpVisible, previewIndex, saveState.kind, yamlEditor.visible, newRequestVisible, keymap])
 
   useEffect(() => {
     keymap.setData("app.view", view)
@@ -669,6 +772,12 @@ export function AppInner({
               })
               setFocus(yamlEditor.returnFocus)
             }}
+          />
+        )}
+        {newRequestVisible && (
+          <NewRequestOverlay
+            visible
+            ref={newRequestRef}
           />
         )}
       </box>
