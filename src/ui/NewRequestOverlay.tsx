@@ -113,7 +113,14 @@ export const NewRequestOverlay = forwardRef<
         <text fg={theme.textMuted}>esc</text>
       </box>
 
-      <box style={{ paddingX: 2, flexDirection: "column", gap: 1, paddingBottom: 1 }}>
+      <box
+        style={{
+          paddingX: 2,
+          flexDirection: "column",
+          gap: 1,
+          paddingBottom: 1,
+        }}
+      >
         <box style={{ flexDirection: "column" }}>
           <text fg={theme.textMuted}>Request Name</text>
           <input
@@ -126,12 +133,13 @@ export const NewRequestOverlay = forwardRef<
             focusedBackgroundColor={theme.borderSubtle}
             textColor={theme.text}
             cursorColor={theme.primary}
+            placeholderColor={theme.textMuted}
           />
         </box>
 
         <box style={{ flexDirection: "column" }}>
           <text fg={theme.textMuted}>Method &amp; URL</text>
-          <box style={{ flexDirection: "row", gap: 0 }}>
+          <box style={{ flexDirection: "row", gap: 1 }}>
             <Select
               items={METHOD_ITEMS}
               value={method}
@@ -140,17 +148,18 @@ export const NewRequestOverlay = forwardRef<
               badge
             />
             <box style={{ flexGrow: 1 }}>
-              <input
-                ref={urlRef}
-                value={url}
-                placeholder="Request URL"
-                onInput={setUrl}
-                focused={focus === "url"}
-                backgroundColor={theme.backgroundElement}
-                focusedBackgroundColor={theme.borderSubtle}
-                textColor={theme.text}
-                cursorColor={theme.primary}
-              />
+            <input
+              ref={urlRef}
+              value={url}
+              placeholder="Request URL"
+              onInput={setUrl}
+              focused={focus === "url"}
+              backgroundColor={theme.backgroundElement}
+              focusedBackgroundColor={theme.borderSubtle}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              placeholderColor={theme.textMuted}
+            />
             </box>
           </box>
         </box>
