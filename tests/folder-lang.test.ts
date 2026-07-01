@@ -100,6 +100,17 @@ describe("lang.serializeFolder", () => {
     expect(result).toBe("")
   })
 
+  it("serializes folder with auth type none", () => {
+    const result = lang.serializeFolder({
+      id: "parent",
+      name: "parent",
+      path: "parent",
+      children: [],
+      overrides: { auth: { type: "none" } },
+    })
+    expect(result).toContain("type: none")
+  })
+
   it("serializes folder with seq", () => {
     const result = lang.serializeFolder({
       id: "auth",
@@ -127,5 +138,17 @@ describe("lang.serializeFolder", () => {
     expect(reparsed.overrides?.headers).toEqual({
       "X-Test": { value: "val", enabled: true },
     })
+  })
+
+  it("round-trips auth type none through serialize -> parse", () => {
+    const serialized = lang.serializeFolder({
+      id: "child",
+      name: "child",
+      path: "child",
+      children: [],
+      overrides: { auth: { type: "none" } },
+    })
+    const reparsed = lang.parseFolder(serialized)
+    expect(reparsed.overrides?.auth).toEqual({ type: "none" })
   })
 })

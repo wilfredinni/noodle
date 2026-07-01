@@ -164,9 +164,11 @@ export function serializeFolder(folder: Folder): string {
         }
       }
     }
-    if (o.auth && o.auth.type !== "none") {
+    if (o.auth) {
       out += "auth:\n"
-      if (o.auth.type === "bearer") {
+      if (o.auth.type === "none") {
+        out += "  type: none\n"
+      } else if (o.auth.type === "bearer") {
         out += "  type: bearer\n"
         out += `  token: ${yamlVal(o.auth.token)}\n`
       } else if (o.auth.type === "basic") {
