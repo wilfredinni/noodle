@@ -65,3 +65,23 @@ describe("CommandMap", () => {
     }
   })
 })
+
+describe("pane_expand", () => {
+  it("has default ctrl+shift+f", () => {
+    expect(Definitions.pane_expand.default).toBe("ctrl+shift+f")
+  })
+
+  it("is configurable (not fixed)", () => {
+    expect(Definitions.pane_expand.fixed).toBe(false)
+  })
+
+  it("is overrideable", () => {
+    const result = parseOverrides({ pane_expand: "ctrl+x" })
+    expect(result.pane_expand).toBe("ctrl+x")
+  })
+
+  it("appears in bindingDefaults", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.pane_expand).toBe("ctrl+shift+f")
+  })
+})
