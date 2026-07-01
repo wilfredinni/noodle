@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar"
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
+import { FolderPane } from "./FolderPane"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { useResponse } from "../hooks/useResponse"
@@ -12,6 +13,8 @@ import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Folder, Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
+import { useFolderDraft } from "../hooks/useFolderDraft"
+import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import type { InputRenderable } from "@opentui/core"
@@ -165,26 +168,21 @@ export function AppInner({
     initialExpandedFolders ?? undefined,
   )
 
+  const focusedFolder = useMemo(
+    () => (focusedFolderPath ? findFolderByPath(items, focusedFolderPath) : null),
+    [focusedFolderPath, items],
+  )
+
   const newRequestFolderRef = useRef(focusedFolderPath)
   newRequestFolderRef.current = focusedFolderPath
 
-  // ── Folder name editing ────────────────────────────────────────────
-  const [folderNameDraft, setFolderNameDraft] = useState(
-    focusedFolderName ?? "",
-  )
-  const folderNameInputRef = useRef<InputRenderable | null>(null)
-  const prevFolderFocus = useRef(false)
-
-  useEffect(() => {
-    setFolderNameDraft(focusedFolderName ?? "")
-  }, [focusedFolderName])
-
-  useEffect(() => {
-    if (focus === "folder" && !prevFolderFocus.current) {
-      folderNameInputRef.current?.focus()
-    }
-    prevFolderFocus.current = focus === "folder"
-  }, [focus])
+  // ── Folder draft + edit-browse ────────────────────────────────────
+  const folderDraft = useFolderDraft(focusedFolder)
+  const folderEb = useFolderEditBrowse(focusedFolder, folderDraft)
+  const folderEbRef = useRef(folderEb)
+  folderEbRef.current = folderEb
+  const folderDraftRef = useRef(folderDraft)
+  folderDraftRef.current = folderDraft
 
   useEffect(() => {
     setExpanded(null)
@@ -277,54 +275,31 @@ export function AppInner({
   const doSaveRef = useRef(doSave)
   doSaveRef.current = doSave
 
-  // ── Folder name save ───────────────────────────────────────────────
-  const focusedFolderPathRef = useRef(focusedFolderPath)
-  focusedFolderPathRef.current = focusedFolderPath
-  const collectionRef2 = useRef(collection)
-  collectionRef2.current = collection
-  const folderNameDraftRef = useRef(folderNameDraft)
-  folderNameDraftRef.current = folderNameDraft
-  const [folderReloadToken, setFolderReloadToken] = useState(0)
-
+  // ── Folder save ────────────────────────────────────────────────────
   const folderSaveRef = useRef<() => void>(() => {})
 
   const handleFolderSave = useCallback(async () => {
-    const path = focusedFolderPathRef.current
-    const col = collectionRef2.current
-    const name = folderNameDraftRef.current.trim()
-    if (!path || !col || !name) return
-    const folder = findFolderByPath(col.items, path)
-    if (!folder) return
-    const updated: Folder = {
-      ...folder,
-      name,
-    }
+    const draftFolder = folderDraftRef.current?.folderDraft
+    if (!draftFolder) return
     try {
-      await saveFolder(collectionDir, updated)
-      folder.name = name
-      setFolderReloadToken((n) => n + 1)
-      setSaveState({
-        kind: "success",
-        message: `Renamed folder to ${name}`,
-      })
+      await saveFolder(collectionDir, draftFolder)
+      const existing = findFolderByPath(collectionRef.current?.items ?? [], draftFolder.path)
+      if (existing) {
+        existing.name = draftFolder.name
+        existing.seq = draftFolder.seq
+        existing.overrides = draftFolder.overrides
+      }
+      folderDraftRef.current?.markSaved()
+      setSaveState({ kind: "success", message: `Saved folder ${draftFolder.name}` })
       clearSaveTimer()
-      saveTimerRef.current = setTimeout(() => {
-        setSaveState({ kind: "idle" })
-      }, 2000)
+      saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setSaveState({ kind: "error", message: msg })
       clearSaveTimer()
-      saveTimerRef.current = setTimeout(() => {
-        setSaveState({ kind: "idle" })
-      }, 2000)
+      saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
     }
-  }, [
-    collectionDir,
-    setSaveState,
-    clearSaveTimer,
-    saveTimerRef,
-  ])
+  }, [collectionDir, setSaveState, clearSaveTimer, saveTimerRef])
 
   folderSaveRef.current = handleFolderSave
 
@@ -560,25 +535,39 @@ export function AppInner({
   }, [view, keymap])
 
   useEffect(() => {
-    const mode =
+    const requestMode =
       eb.editState.mode === "browsing"
         ? "browse"
         : eb.editState.mode === "editing"
           ? "edit"
           : "base"
-    keymap.setData("app.mode", mode)
-  }, [eb.editState.mode, keymap])
+    const folderMode =
+      folderEb.editState.mode === "browsing"
+        ? "browse"
+        : folderEb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    keymap.setData("app.mode", focus === "folder" ? folderMode : requestMode)
+  }, [eb.editState.mode, folderEb.editState.mode, focus, keymap])
 
   useEffect(() => {
     if (focus !== "request") {
       const state = eb.editState
-      if (state.mode === "editing") {
-        eb.cancelEdit()
-      } else if (state.mode === "browsing") {
-        eb.exitBrowse()
-      }
+      if (state.mode === "editing") eb.cancelEdit()
+      else if (state.mode === "browsing") eb.exitBrowse()
     }
-  }, [focus, eb])
+    if (focus !== "folder") {
+      const state = folderEb.editState
+      if (state.mode === "editing") folderEb.cancelEdit()
+      else if (state.mode === "browsing") folderEb.exitBrowse()
+    }
+  }, [focus, eb, folderEb])
+
+  useEffect(() => {
+    if (focus === "folder" && folderEb.editState.mode === "inactive" && folderEb.isActive === false) {
+      folderEb.enterBrowse()
+    }
+  }, [focus, folderEb])
 
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
@@ -675,7 +664,7 @@ export function AppInner({
   selectedIdRef.current = selectedId
 
   const folderViewRef = useRef(false)
-  folderViewRef.current = focusedFolderName !== null
+  folderViewRef.current = focusedFolder !== null
 
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap(
@@ -696,6 +685,8 @@ export function AppInner({
       expandedRef,
       folderViewRef,
       folderSaveRef,
+      folderEbRef,
+      folderDraftRef,
     },
     {
       setFocus,
@@ -818,40 +809,22 @@ export function AppInner({
                 minHeight: 0,
               }}
             >
-              {focusedFolderName !== null ? (
-                <box
-                  style={{
-                    flexGrow: 1,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: theme.backgroundPanel,
-                  }}
-                  border={[...FullBorder.border]}
-                  customBorderChars={FullBorder.customBorderChars}
-                  borderColor={
-                    focus === "folder" ? theme.primary : theme.borderSubtle
-                  }
-                  title="Folder"
-                  titleColor={
-                    focus === "folder" ? theme.primary : theme.textMuted
-                  }
-                  titleAlignment="left"
-                >
-                  <input
-                    ref={folderNameInputRef}
-                    value={folderNameDraft}
-                    placeholder="Folder name"
-                    onInput={setFolderNameDraft}
-                    focused={focus === "folder"}
-                    backgroundColor={theme.backgroundElement}
-                    focusedBackgroundColor={theme.borderSubtle}
-                    textColor={
-                      focus === "folder" ? theme.text : theme.textMuted
-                    }
-                    cursorColor={theme.primary}
-                    style={{ width: 40 }}
-                  />
-                </box>
+              {focusedFolder !== null && focus === "folder" ? (
+                <FolderPane
+                  folder={folderDraft.folderDraft}
+                  focused={focus === "folder"}
+                  editState={folderEb.editState}
+                  editKey={folderEb.editKey}
+                  editValue={folderEb.editValue}
+                  setEditKey={folderEb.setEditKey}
+                  setEditValue={folderEb.setEditValue}
+                  activeTab={folderEb.activeTab}
+                  onTabChange={() => {}}
+                  onAuthTypeChange={folderDraft.setAuthType}
+                  onApiKeyPlacementChange={folderDraft.setApiKeyPlacement}
+                  activeEnv={envState.activeEnv}
+                  theme={theme}
+                />
               ) : (
                 <>
                   <UrlBar

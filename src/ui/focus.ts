@@ -85,7 +85,13 @@ export function hintForFocus(
     return "[Enter] commit · [Esc] cancel"
   }
   if (focus === "folder") {
-    return "[^S] save name · [Tab] next"
+    if (mode === "browsing") {
+      return "[↑/↓] navigate · [←/→] tabs · [Enter] edit · [Esc] back · [^S] save · [^R] revert all"
+    }
+    if (mode === "editing") {
+      return "[Enter] commit · [Esc] cancel"
+    }
+    return "[^S] save · [Tab] next"
   }
   // response
   return "[↑/↓/PgUp/PgDn] scroll · [Tab] next"
