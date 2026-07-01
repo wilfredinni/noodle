@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import * as yaml from "js-yaml"
 import type { TimelineEntry } from "../schema"
@@ -63,10 +63,15 @@ export async function clearTimelineForRequest(
 }
 
 export async function clearAllTimeline(colDir: string): Promise<void> {
-  const filePath = join(timelineDir(colDir), "index.yml")
+  const dir = timelineDir(colDir)
   try {
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, yaml.dump([]), "utf8")
+    await mkdir(dir, { recursive: true })
+    const entries = await readdir(dir, { withFileTypes: true })
+    await Promise.all(
+      entries
+        .filter((e) => e.isFile() && e.name.endsWith(".yml"))
+        .map((e) => writeFile(join(dir, e.name), yaml.dump([]), "utf8")),
+    )
   } catch {
     // ignore
   }
