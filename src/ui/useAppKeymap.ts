@@ -24,6 +24,7 @@ export interface UseAppKeymapRefs {
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
   expandedRef: RefObject<"request" | "response" | null>
+  folderViewRef: RefObject<boolean>
 }
 
 export interface UseAppKeymapSetters {
@@ -115,6 +116,7 @@ export function useAppKeymap(
               1,
               refs.viewRef.current,
               refs.expandedRef.current,
+              refs.folderViewRef.current,
             )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
@@ -147,6 +149,7 @@ export function useAppKeymap(
               -1,
               refs.viewRef.current,
               refs.expandedRef.current,
+              refs.folderViewRef.current,
             )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()

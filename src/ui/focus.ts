@@ -3,6 +3,7 @@ export type Focus =
   | "urlbar"
   | "request"
   | "response"
+  | "folder"
   | "env-sidebar"
   | "env-header"
   | "env-vars"
@@ -26,7 +27,14 @@ export function cycleFocus(
   delta: 1 | -1,
   view: string = "main",
   expanded?: ExpandTarget,
+  folderView = false,
 ): Focus {
+  if (folderView && view === "main") {
+    const order: Focus[] = ["sidebar", "folder"]
+    const idx = order.indexOf(current)
+    const idx2 = idx < 0 ? 0 : idx
+    return order[(idx2 + delta + order.length) % order.length]!
+  }
   const order = view === "env-editor" ? ENV_FOCUS_ORDER : MAIN_FOCUS_ORDER
   const idx = order.indexOf(current)
   let next = (idx + delta + order.length) % order.length

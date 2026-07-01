@@ -44,6 +44,7 @@ import { substitute } from "../requests"
 import { getRequestIds } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import { saveLastRequest, loadExpandedFolders, saveExpandedFolders } from "./tabs/uiState"
+import { FullBorder } from "./borders"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 
@@ -595,6 +596,9 @@ export function AppInner({
   const selectedIdRef = useRef(selectedId)
   selectedIdRef.current = selectedId
 
+  const folderViewRef = useRef(false)
+  folderViewRef.current = focusedFolderName !== null
+
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap(
     keybinds,
@@ -612,6 +616,7 @@ export function AppInner({
       activeIndexRef,
       savingRef,
       expandedRef,
+      folderViewRef,
     },
     {
       setFocus,
@@ -740,7 +745,14 @@ export function AppInner({
                     flexGrow: 1,
                     alignItems: "center",
                     justifyContent: "center",
+                    backgroundColor: theme.backgroundPanel,
                   }}
+                  border={[...FullBorder.border]}
+                  customBorderChars={FullBorder.customBorderChars}
+                  borderColor={focus === "folder" ? theme.primary : theme.borderSubtle}
+                  title="Folder"
+                  titleColor={focus === "folder" ? theme.primary : theme.textMuted}
+                  titleAlignment="left"
                 >
                   <text fg={theme.textMuted}>{focusedFolderName}</text>
                 </box>
