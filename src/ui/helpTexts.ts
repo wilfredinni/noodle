@@ -27,7 +27,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       ],
     },
     {
-      title: "Editing",
+      title: "Environments",
       keys: [
         {
           key: displayKey(keybinds.request_edit_overlay),
