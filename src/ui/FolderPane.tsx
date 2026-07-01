@@ -48,9 +48,6 @@ export function FolderPane({
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
 
-  const headerName = folder?.name ?? "(no folder)"
-  const headerSeq = folder?.seq
-
   return (
     <box
       style={{
@@ -74,20 +71,6 @@ export function FolderPane({
     >
       {folder ? (
         <>
-          <box
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              paddingLeft: 1,
-              paddingRight: 1,
-            }}
-          >
-            <text fg={theme.text}>Name: {headerName}</text>
-            {headerSeq !== undefined && (
-              <text fg={theme.textMuted}>Seq: {headerSeq}</text>
-            )}
-          </box>
-
           <Tabs tabs={FOLDER_TABS} activeId={activeTab}>
             <scrollbox
               scrollY
