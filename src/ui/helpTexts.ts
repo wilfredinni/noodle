@@ -30,6 +30,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       title: "Editing",
       keys: [
         {
+          key: displayKey(keybinds.request_edit_overlay),
+          description: "Edit request",
+        },
+        {
           key: displayKey(keybinds.request_edit_yaml),
           description: "Edit request YAML",
         },

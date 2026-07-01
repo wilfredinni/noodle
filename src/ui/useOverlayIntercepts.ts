@@ -39,6 +39,14 @@ export function useOverlayIntercepts(opts: {
     method: string
     url: string
   }) => void
+  editRequestVisible: boolean
+  editRequestRef: RefObject<NewRequestOverlayHandle | null>
+  setEditRequestVisible: (v: boolean) => void
+  onEditRequestConfirm: (values: {
+    name: string
+    method: string
+    url: string
+  }) => void
   cloneRequestVisible: boolean
   cloneRequestRef: RefObject<CloneRequestOverlayHandle | null>
   setCloneRequestVisible: (v: boolean) => void
@@ -75,6 +83,10 @@ export function useOverlayIntercepts(opts: {
     newRequestRef,
     setNewRequestVisible,
     onNewRequestConfirm,
+    editRequestVisible,
+    editRequestRef,
+    setEditRequestVisible,
+    onEditRequestConfirm,
     cloneRequestVisible,
     cloneRequestRef,
     setCloneRequestVisible,
@@ -283,6 +295,68 @@ export function useOverlayIntercepts(opts: {
     newRequestRef,
     setNewRequestVisible,
     onNewRequestConfirm,
+    keymap,
+  ])
+
+  // ── Overlay: Edit Request ──────────────────────────────────────────
+  useEffect(() => {
+    if (!editRequestVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const handle = editRequestRef.current
+        if (!handle) return
+
+        if (e.name === "tab" && !e.shift) {
+          e.preventDefault()
+          e.stopPropagation()
+          handle.cycleFocus(1)
+          return
+        }
+        if (e.name === "tab" && e.shift) {
+          e.preventDefault()
+          e.stopPropagation()
+          handle.cycleFocus(-1)
+          return
+        }
+        if (e.name === "return") {
+          if (handle.getFocus() === "url") {
+            e.preventDefault()
+            e.stopPropagation()
+            const result = handle.confirm()
+            if (result) onEditRequestConfirm(result)
+          } else if (handle.getFocus() === "method") {
+            return
+          } else {
+            e.preventDefault()
+            e.stopPropagation()
+            handle.commitField()
+          }
+          return
+        }
+        if (e.name === "s" && e.ctrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          const result = handle.confirm()
+          if (result) onEditRequestConfirm(result)
+          return
+        }
+        if (e.name === "escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          setEditRequestVisible(false)
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    editRequestVisible,
+    editRequestRef,
+    setEditRequestVisible,
+    onEditRequestConfirm,
     keymap,
   ])
 

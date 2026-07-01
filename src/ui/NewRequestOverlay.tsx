@@ -20,6 +20,9 @@ export interface NewRequestOverlayHandle {
 
 interface NewRequestOverlayProps {
   visible: boolean
+  initialName?: string
+  initialMethod?: Method
+  initialUrl?: string
 }
 
 export const METHOD_ITEMS: SelectItem[] = [
@@ -43,8 +46,9 @@ function slugify(name: string): string {
 export const NewRequestOverlay = forwardRef<
   NewRequestOverlayHandle,
   NewRequestOverlayProps
->(function NewRequestOverlay({ visible }, ref) {
+>(function NewRequestOverlay({ visible, initialName, initialMethod, initialUrl }, ref) {
   const theme = useTheme()
+  const isEdit = initialName !== undefined
   const [name, setName] = useState("")
   const [method, setMethod] = useState<Method>("GET")
   const [url, setUrl] = useState("")
@@ -84,13 +88,19 @@ export const NewRequestOverlay = forwardRef<
   // Reset state when overlay opens
   useEffect(() => {
     if (visible) {
-      setName("")
-      setMethod("GET")
-      setUrl("")
+      if (isEdit) {
+        setName(initialName ?? "")
+        setMethod(initialMethod ?? "GET")
+        setUrl(initialUrl ?? "")
+      } else {
+        setName("")
+        setMethod("GET")
+        setUrl("")
+      }
       setFocus("name")
       setErrorText(null)
     }
-  }, [visible])
+  }, [visible, isEdit, initialName, initialMethod, initialUrl])
 
   // Auto-focus based on focus state
   useEffect(() => {
@@ -109,7 +119,7 @@ export const NewRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>New Request</text>
+        <text fg={theme.primary}>{isEdit ? "Edit Request" : "New Request"}</text>
         <text fg={theme.textMuted}>esc</text>
       </box>
 
