@@ -1,5 +1,12 @@
 import { describe, it, expect } from "bun:test"
-import { findRequestById, findFolderByPath, updateFolderByPath, flattenRequests, visibleNodes } from "../src/ui/tree"
+import {
+  findRequestById,
+  findFolderByPath,
+  updateFolderByPath,
+  flattenRequests,
+  visibleNodes,
+  deriveRequestParentFolder,
+} from "../src/ui/tree"
 import type { CollectionItem } from "../src/schema"
 
 function req(id: string, name?: string): CollectionItem {
@@ -206,5 +213,23 @@ describe("visibleNodes", () => {
     expect(authFolder?.expanded).toBe(true)
     const usersFolder = result.find((n) => n.id === "users")
     expect(usersFolder?.expanded).toBe(false)
+  })
+})
+
+describe("deriveRequestParentFolder", () => {
+  it("returns focusedFolderPath when set", () => {
+    expect(deriveRequestParentFolder("users", null)).toBe("users")
+    expect(deriveRequestParentFolder("users", "auth/login")).toBe("users")
+  })
+
+  it("derives parent folder from selectedId when no focused folder", () => {
+    expect(deriveRequestParentFolder(null, "users/list")).toBe("users")
+    expect(deriveRequestParentFolder(null, "auth/login")).toBe("auth")
+    expect(deriveRequestParentFolder(null, "users/admins/root")).toBe("users/admins")
+  })
+
+  it("returns null for root request and no focused folder", () => {
+    expect(deriveRequestParentFolder(null, "get-user")).toBeNull()
+    expect(deriveRequestParentFolder(null, null)).toBeNull()
   })
 })

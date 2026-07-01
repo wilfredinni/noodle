@@ -8,6 +8,7 @@ import { ResponsePane } from "./ResponsePane"
 import { FolderPane } from "./FolderPane"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
+import { deriveRequestParentFolder } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Request as NoodleRequest, Method } from "../schema"
@@ -170,12 +171,10 @@ export function AppInner({
     [focusedFolderPath, items],
   )
 
-  const requestParentFolder = useMemo(() => {
-    if (focusedFolderPath) return focusedFolderPath
-    if (selectedId && selectedId.includes("/"))
-      return selectedId.slice(0, selectedId.lastIndexOf("/"))
-    return null
-  }, [focusedFolderPath, selectedId])
+  const requestParentFolder = useMemo(
+    () => deriveRequestParentFolder(focusedFolderPath, selectedId),
+    [focusedFolderPath, selectedId],
+  )
   const newRequestFolderRef = useRef(requestParentFolder)
   newRequestFolderRef.current = requestParentFolder
 
