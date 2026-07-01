@@ -118,7 +118,9 @@ export function AppInner({
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
   const [cloneRequestVisible, setCloneRequestVisible] = useState(false)
   const cloneRequestRef = useRef<CloneRequestOverlayHandle>(null)
-  const [requestDeletePending, setRequestDeletePending] = useState<string | null>(null)
+  const [requestDeletePending, setRequestDeletePending] = useState<
+    string | null
+  >(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -309,7 +311,15 @@ export function AppInner({
           }, 2000)
         })
     },
-    [selectedRequest, collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef],
+    [
+      selectedRequest,
+      collectionDir,
+      setCollectionReloadToken,
+      setFocus,
+      setSaveState,
+      clearSaveTimer,
+      saveTimerRef,
+    ],
   )
 
   const handleRequestDeleteConfirm = useCallback(() => {
@@ -335,7 +345,15 @@ export function AppInner({
           setSaveState({ kind: "idle" })
         }, 2000)
       })
-  }, [selectedRequest, collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef])
+  }, [
+    selectedRequest,
+    collectionDir,
+    setCollectionReloadToken,
+    setFocus,
+    setSaveState,
+    clearSaveTimer,
+    saveTimerRef,
+  ])
 
   // ── keymap.setData effects ─────────────────────────────────────────
   useEffect(() => {
@@ -820,7 +838,9 @@ export function AppInner({
         {cloneRequestVisible && (
           <CloneRequestOverlay
             visible
-            initialName={selectedRequest ? `${selectedRequest.name} - Copy` : ""}
+            initialName={
+              selectedRequest ? `${selectedRequest.name} - Copy` : ""
+            }
             ref={cloneRequestRef}
           />
         )}

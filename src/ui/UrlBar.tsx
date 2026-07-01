@@ -82,30 +82,30 @@ export function UrlBar({
           >
             {method === "DELETE" ? "DEL" : method}
           </Badge>
-            {focused ? (
-              <box style={{ flexGrow: 1 }}>
-                <input
-                  value={inputValue}
-                  onInput={handleInput}
-                  backgroundColor={theme.backgroundElement}
-                  focusedBackgroundColor={theme.borderSubtle}
-                  textColor={theme.text}
-                  cursorColor={theme.primary}
-                  paddingX={1}
-                  focused
-                />
-              </box>
-            ) : (
-              <box
-                style={{
-                  backgroundColor: theme.backgroundElement,
-                  flexGrow: 1,
-                }}
-              >
-                <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
-              </box>
-            )}
-          </box>
+          {focused ? (
+            <box style={{ flexGrow: 1 }}>
+              <input
+                value={inputValue}
+                onInput={handleInput}
+                backgroundColor={theme.backgroundElement}
+                focusedBackgroundColor={theme.borderSubtle}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+                paddingX={1}
+                focused
+              />
+            </box>
+          ) : (
+            <box
+              style={{
+                backgroundColor: theme.backgroundElement,
+                flexGrow: 1,
+              }}
+            >
+              <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
+            </box>
+          )}
+        </box>
       )}
     </box>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
@@ -109,22 +109,24 @@ export function ResponsePane({
       ? Math.max(...responseHeaders.map((h) => h.key.length))
       : 0
 
+  const bodySize = useMemo(() => {
+    if (state.status !== "done") return 0
+    return new TextEncoder().encode(state.response.body).length
+  }, [state.status, state.status === "done" ? state.response.body : null])
+
   const headerLeft = (
     <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
   )
 
   const headerRight = isDone ? (
-    <Badge
-      bg={statusColor(state.response.status, theme)}
-      fg={theme.background}
-    >
+    <Badge bg={statusColor(state.response.status, theme)} fg={theme.background}>
       {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}`}
     </Badge>
   ) : undefined
 
   const footerRight = isDone ? (
     <text fg={focused ? theme.primary : theme.textMuted}>
-      {`${formatSize(new TextEncoder().encode(state.response.body).length)} in ${Math.round(state.response.timeMs)}ms`}
+      {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms`}
     </text>
   ) : undefined
 
@@ -156,7 +158,7 @@ export function ResponsePane({
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
           <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
-    <text fg={focused ? theme.primary : theme.textMuted}>
+          <text fg={focused ? theme.primary : theme.textMuted}>
             Sending {state.request.method} {state.request.url}...
           </text>
         </box>
