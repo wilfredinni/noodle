@@ -34,7 +34,7 @@ if (args.help) {
   process.exit(0)
 }
 
-const environmentsDir = join(args.collectionDir, "environments")
+const environmentsDir = join(args.collectionDir, ".environments")
 
 let envList: string[]
 try {

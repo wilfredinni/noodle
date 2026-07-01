@@ -11,7 +11,6 @@ import type {
 } from "../schema"
 
 const SKIP_DIRS = new Set([
-  "environments",
   ".noodle",
   ".timeline",
   ".git",
