@@ -25,11 +25,22 @@ export function cycleFocus(
   current: Focus,
   delta: 1 | -1,
   view: string = "main",
+  expanded?: ExpandTarget,
 ): Focus {
   const order = view === "env-editor" ? ENV_FOCUS_ORDER : MAIN_FOCUS_ORDER
   const idx = order.indexOf(current)
-  const next = (idx + delta + order.length) % order.length
-  return order[next]!
+  let next = (idx + delta + order.length) % order.length
+  const candidate = order[next]!
+
+  if (expanded && view === "main") {
+    const hiddenFocus: Focus = expanded === "request" ? "response" : "request"
+    if (candidate === hiddenFocus) {
+      next = (next + delta + order.length) % order.length
+      return order[next]!
+    }
+  }
+
+  return candidate
 }
 
 export function hintForFocus(

@@ -88,6 +88,8 @@ export function AppInner({
   const [expanded, setExpanded] = useState<"request" | "response" | null>(
     null,
   )
+  const expandedRef = useRef(expanded)
+  expandedRef.current = expanded
   const [confirmSelection, setConfirmSelection] = useState(0)
   const [collectionReloadToken, setCollectionReloadToken] = useState(0)
   const [, setSelectOpen] = useState(false)
@@ -366,6 +368,7 @@ export function AppInner({
       viewRef,
       activeIndexRef,
       savingRef,
+      expandedRef,
     },
     {
       setFocus,

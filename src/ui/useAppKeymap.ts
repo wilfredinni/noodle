@@ -22,6 +22,7 @@ export interface UseAppKeymapRefs {
   viewRef: RefObject<"main" | "env-editor">
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
+  expandedRef: RefObject<"request" | "response" | null>
 }
 
 export interface UseAppKeymapSetters {
@@ -102,7 +103,12 @@ export function useAppKeymap(
         },
         run: () =>
           setters.setFocus((prev: Focus) => {
-            const next = cycleFocus(prev, 1, refs.viewRef.current)
+            const next = cycleFocus(
+              prev,
+              1,
+              refs.viewRef.current,
+              refs.expandedRef.current,
+            )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
             return next
@@ -129,7 +135,12 @@ export function useAppKeymap(
         },
         run: () =>
           setters.setFocus((prev: Focus) => {
-            const next = cycleFocus(prev, -1, refs.viewRef.current)
+            const next = cycleFocus(
+              prev,
+              -1,
+              refs.viewRef.current,
+              refs.expandedRef.current,
+            )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
             return next
