@@ -92,6 +92,7 @@ export const NewRequestOverlay = forwardRef<
       setMethod("GET")
       setUrl("")
       setFocus("name")
+      setErrorText(null)
     }
   }, [visible])
 
