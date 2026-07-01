@@ -53,7 +53,7 @@ export interface UseFolderEditBrowseOptions {
 }
 
 function folderRowCount(folder: Folder | null): FolderRowCount {
-  if (!folder) return { meta: 2, headers: 0, params: 0, auth: 1 }
+  if (!folder) return { meta: 1, headers: 0, params: 0, auth: 1 }
   let authRows = 1
   const a = folder.overrides?.auth
   if (a) {
@@ -62,7 +62,7 @@ function folderRowCount(folder: Folder | null): FolderRowCount {
     else if (a.type === "api_key") authRows = 4
   }
   return {
-    meta: 2,
+    meta: 1,
     headers: Object.keys(folder.overrides?.headers ?? {}).length,
     params: Object.keys(folder.overrides?.params ?? {}).length,
     auth: authRows,
@@ -78,7 +78,6 @@ function folderCurrentValueFor(
   if (!folder) return ""
   if (field === "meta") {
     if (row === 0) return folder.name ?? ""
-    if (row === 1) return String(folder.seq ?? "")
     return ""
   }
   if (field === "auth") {
@@ -135,7 +134,6 @@ function folderCurrentKeyValueFor(
   }
   if (field === "meta") {
     if (row === 0) return { key: "", value: folder.name ?? "" }
-    if (row === 1) return { key: "", value: String(folder.seq ?? "") }
     return { key: "", value: "" }
   }
   if (field === "auth") {
@@ -316,8 +314,7 @@ export function useFolderEditBrowse(
     const addingRow = state.cursor.addingRow
     const val = editValueRef.current
     if (field === "meta") {
-      if (row === 0) draftMutators.setName(val)
-      else if (row === 1) draftMutators.setSeq(Number(val) || 0)
+      draftMutators.setName(val)
     } else if (field === "auth") {
       const currentAuth = draftRef.current?.overrides?.auth
       if (currentAuth) {

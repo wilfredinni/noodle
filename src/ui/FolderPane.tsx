@@ -79,7 +79,6 @@ export function FolderPane({
               {activeTab === "meta" && (
                 <FolderMetaTab
                   name={folder.name}
-                  seq={folder.seq}
                   editState={editState}
                   editValue={editValue}
                   setEditValue={setEditValue}

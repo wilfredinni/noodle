@@ -205,13 +205,11 @@ describe("moveFolderFieldCursor", () => {
 })
 
 describe("moveFolderRowCursor", () => {
-  it("meta rows clamp: 0 → 1 → clamped at count-1", () => {
-    const counts: FolderRowCount = { meta: 2, headers: 0, params: 0, auth: 0 }
+  it("meta rows clamp: 0 → clamped at 0", () => {
+    const counts: FolderRowCount = { meta: 1, headers: 0, params: 0, auth: 0 }
     const browsing = folderBrowsing("meta", 0)
-    const step1 = moveFolderRowCursor(browsing, 1, counts)
-    expect(step1.cursor.row).toBe(1)
-    const step2 = moveFolderRowCursor(step1, 1, counts)
-    expect(step2.cursor.row).toBe(1)
+    const step = moveFolderRowCursor(browsing, 1, counts)
+    expect(step.cursor.row).toBe(0)
   })
 
   it("auth rows clamp", () => {
