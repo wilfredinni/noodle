@@ -130,7 +130,7 @@ export function ResponsePane({
       title="Response"
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
-      bottomTitle={expandHint}
+      bottomTitle={focused ? expandHint : undefined}
       bottomTitleAlignment="right"
     >
       {state.status === "idle" ? (

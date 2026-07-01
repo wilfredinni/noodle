@@ -418,7 +418,7 @@ export function AppInner({
   }, [envEditor.draft])
 
   const expandHint = useMemo(
-    () => displayKey(keybinds.pane_expand),
+    () => `${displayKey(keybinds.pane_expand)} expand`,
     [keybinds.pane_expand],
   )
 
