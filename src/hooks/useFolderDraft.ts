@@ -261,6 +261,7 @@ export function folderEqual(a: Folder, b: Folder): boolean {
 export interface UseFolderDraftResult {
   folderDraft: Folder | null
   isDirty: boolean
+  dirtyPaths: Set<string>
   originalFolder: Folder | null
   setName: (name: string) => void
   setSeq: (seq: number) => void
@@ -298,6 +299,8 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
   const isDirty = folderDraft && original
     ? !folderEqual(folderDraft, original)
     : false
+
+  const dirtyPaths = useMemo(() => new Set(draftMap.keys()), [draftMap])
 
   const dispatch = useCallback(
     (op: FolderDraftOp) => {
@@ -395,6 +398,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     () => ({
       folderDraft,
       isDirty,
+      dirtyPaths,
       originalFolder: original,
       setName,
       setSeq,
@@ -415,6 +419,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     [
       folderDraft,
       isDirty,
+      dirtyPaths,
       original,
       setName,
       setSeq,

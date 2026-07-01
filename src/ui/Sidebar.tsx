@@ -151,7 +151,9 @@ export function Sidebar({
                     {truncName(node.name, 20)}
                   </text>
                 </box>
-                {isDirty && <text fg={theme.warning}>\u25CF</text>}
+                {isDirty && (
+                  <text fg={theme.warning}>{`\u25CF`}</text>
+                )}
               </box>
             )
           })}
