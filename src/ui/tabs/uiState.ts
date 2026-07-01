@@ -116,7 +116,8 @@ export async function loadUIState(
     const obj = data as Record<string, unknown>
     const map = new Map<string, TabPrefs>()
     for (const [key, val] of Object.entries(obj)) {
-      if (val && typeof val === "object") {
+      if (key === "lastRequest" || key === "expanded_folders") continue
+      if (val && typeof val === "object" && !Array.isArray(val)) {
         const v = val as Record<string, unknown>
         map.set(key, {
           requestTab: v.request as FieldKind,
