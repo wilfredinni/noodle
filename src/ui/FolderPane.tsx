@@ -1,17 +1,12 @@
+import { useMemo } from "react"
 import type { Folder, Environment, Auth } from "../schema"
 import type { EditState, FolderFieldKind, FieldKind } from "./editMode"
-import { Tabs, type TabDef } from "./Tabs"
+import { Tabs } from "./Tabs"
 import { FolderMetaTab } from "./FolderMetaTab"
 import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
 import type { Theme } from "./theme"
 import { FullBorder } from "./borders"
-
-const FOLDER_TABS: TabDef[] = [
-  { id: "meta", label: "Name & Seq" },
-  { id: "headers", label: "Headers" },
-  { id: "auth", label: "Auth" },
-]
 
 interface FolderPaneProps {
   folder: Folder | null
@@ -49,6 +44,28 @@ export function FolderPane({
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
 
+  const tabs = useMemo(() => {
+    if (!folder) {
+      return [
+        { id: "meta", label: "Name & Seq" },
+        { id: "headers", label: "Headers" },
+        { id: "auth", label: "Auth" },
+      ]
+    }
+    const hasHeaders = Object.values(
+      folder.overrides?.headers ?? {},
+    ).some((e) => e.enabled)
+    const hasAuth =
+      folder.overrides?.auth?.type !== undefined &&
+      folder.overrides.auth.type !== "none" &&
+      folder.overrides.auth.type !== "inherit"
+    return [
+      { id: "meta", label: "Name & Seq" },
+      { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
+      { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
+    ]
+  }, [folder])
+
   return (
     <box
       style={{
@@ -72,7 +89,7 @@ export function FolderPane({
     >
       {folder ? (
         <>
-          <Tabs tabs={FOLDER_TABS} activeId={activeTab}>
+          <Tabs tabs={tabs} activeId={activeTab}>
             <scrollbox
               scrollY
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
