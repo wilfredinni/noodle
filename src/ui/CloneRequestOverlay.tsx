@@ -1,4 +1,10 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react"
 import type { InputRenderable } from "@opentui/core"
 import { Overlay } from "./Overlay"
 import { useTheme } from "./theme"

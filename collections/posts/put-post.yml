@@ -1,0 +1,20 @@
+name: Replace Post
+method: PUT
+url: $base_url/posts/$post_id
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body_type: json
+body: |
+  {
+    "id": 1,
+    "title": "replaced title",
+    "body": "replaced body",
+    "userId": 1
+  }
+headers:
+  Content-Type:
+    value: application/json
+    enabled: true
+auth:
+  type: none

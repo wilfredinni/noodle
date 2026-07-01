@@ -196,7 +196,12 @@ describe("BodySection — FormEditor browse mode", () => {
     bodyType: "multipart",
     formData: [
       { name: "username", value: "john", enabled: true, type: "text" },
-      { name: "avatar", value: "/path/to/photo.png", enabled: true, type: "file" },
+      {
+        name: "avatar",
+        value: "/path/to/photo.png",
+        enabled: true,
+        type: "file",
+      },
     ],
   }
 
@@ -241,7 +246,12 @@ describe("BodySection — FormEditor browse mode", () => {
       ...formRequest,
       formData: [
         { name: "username", value: "john", enabled: true, type: "text" },
-        { name: "email", value: "john@example.com", enabled: true, type: "text" },
+        {
+          name: "email",
+          value: "john@example.com",
+          enabled: true,
+          type: "text",
+        },
       ],
     }
     const { keymap, cleanup } = setupKeymap()

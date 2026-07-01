@@ -37,9 +37,7 @@ function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
   writeMutex = new Promise<void>((r) => {
     resolve = r
   })
-  return prev
-    .then(() => fn())
-    .finally(() => resolve!())
+  return prev.then(() => fn()).finally(() => resolve!())
 }
 
 // ── Unified state writer ─────────────────────────────────────────────
@@ -50,6 +48,7 @@ async function saveStateAtomically(
     lastRequestId?: string
     tabPrefs?: Map<string, TabPrefs>
     validRequestIds?: Set<string>
+    expandedFolders?: string[]
   },
 ): Promise<void> {
   return withWriteLock(async () => {
@@ -73,6 +72,14 @@ async function saveStateAtomically(
       obj.lastRequest = opts.lastRequestId
     }
 
+    if (opts.expandedFolders !== undefined) {
+      if (opts.expandedFolders.length > 0) {
+        obj.expanded_folders = opts.expandedFolders
+      } else {
+        delete obj.expanded_folders
+      }
+    }
+
     if (opts.tabPrefs) {
       for (const [key, val] of opts.tabPrefs) {
         if (isDefaultPrefs(val)) {
@@ -85,7 +92,7 @@ async function saveStateAtomically(
 
     if (opts.validRequestIds) {
       for (const key of Object.keys(obj)) {
-        if (key === "lastRequest") continue
+        if (key === "lastRequest" || key === "expanded_folders") continue
         if (!opts.validRequestIds.has(key)) {
           delete obj[key]
         }
@@ -109,7 +116,8 @@ export async function loadUIState(
     const obj = data as Record<string, unknown>
     const map = new Map<string, TabPrefs>()
     for (const [key, val] of Object.entries(obj)) {
-      if (val && typeof val === "object") {
+      if (key === "lastRequest" || key === "expanded_folders") continue
+      if (val && typeof val === "object" && !Array.isArray(val)) {
         const v = val as Record<string, unknown>
         map.set(key, {
           requestTab: v.request as FieldKind,
@@ -156,5 +164,32 @@ export async function saveLastRequest(
   return saveStateAtomically(colDir, {
     lastRequestId: requestId,
     validRequestIds,
+  })
+}
+
+export async function loadExpandedFolders(
+  colDir: string,
+): Promise<Set<string>> {
+  try {
+    const raw = await readFile(statePath(colDir), "utf8")
+    const data = yaml.load(raw)
+    if (!data || typeof data !== "object") return new Set()
+    const obj = data as Record<string, unknown>
+    if (Array.isArray(obj.expanded_folders)) {
+      return new Set(obj.expanded_folders.filter((v) => typeof v === "string"))
+    }
+    return new Set()
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return new Set()
+    return new Set()
+  }
+}
+
+export async function saveExpandedFolders(
+  colDir: string,
+  expanded: Set<string>,
+): Promise<void> {
+  return saveStateAtomically(colDir, {
+    expandedFolders: [...expanded],
   })
 }

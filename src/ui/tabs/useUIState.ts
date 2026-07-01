@@ -67,13 +67,11 @@ export function useUIState(
 
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
-        saveUIState(
-          collectionDir,
-          next,
-          new Set(requestIdsRef.current),
-        ).catch((e: unknown) => {
-          console.error("Failed to save UI state:", e)
-        })
+        saveUIState(collectionDir, next, new Set(requestIdsRef.current)).catch(
+          (e: unknown) => {
+            console.error("Failed to save UI state:", e)
+          },
+        )
       }, 300)
     },
     [collectionDir],

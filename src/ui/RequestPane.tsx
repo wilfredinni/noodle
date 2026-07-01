@@ -312,7 +312,9 @@ function BodySection({
         style={{
           zIndex: typeSelectOpen ? 1 : undefined,
           backgroundColor:
-            browseActive && editState.cursor.field === "body" && editState.cursor.row === 0
+            browseActive &&
+            editState.cursor.field === "body" &&
+            editState.cursor.row === 0
               ? theme.backgroundElement
               : undefined,
         }}
@@ -324,7 +326,11 @@ function BodySection({
             if (v === bodyType) return
             onBodyTypeChange(v as BodyType)
           }}
-          focused={browseActive && editState.cursor.field === "body" && editState.cursor.row === 0}
+          focused={
+            browseActive &&
+            editState.cursor.field === "body" &&
+            editState.cursor.row === 0
+          }
           badge={false}
           onOpenChange={handleBodyTypeSelectOpen}
         />
@@ -338,7 +344,10 @@ function BodySection({
             borderColor={theme.borderSubtle}
           >
             <FormEditor
-              request={{ formData: request.formData, bodyType: request.bodyType }}
+              request={{
+                formData: request.formData,
+                bodyType: request.bodyType,
+              }}
               editState={editState}
               editKey={editKey}
               editValue={editValue}
@@ -403,13 +412,17 @@ function BodySection({
           border={[...LeftBar.border]}
           customBorderChars={LeftBar.customBorderChars}
           borderColor={
-            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+            browseActive &&
+            editState.cursor.field === "body" &&
+            editState.cursor.row >= 1
               ? theme.primary
               : theme.borderSubtle
           }
           style={{
             backgroundColor:
-              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              browseActive &&
+              editState.cursor.field === "body" &&
+              editState.cursor.row >= 1
                 ? theme.backgroundElement
                 : undefined,
           }}
@@ -423,31 +436,41 @@ function BodySection({
           border={[...LeftBar.border]}
           customBorderChars={LeftBar.customBorderChars}
           borderColor={
-            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+            browseActive &&
+            editState.cursor.field === "body" &&
+            editState.cursor.row >= 1
               ? theme.primary
               : theme.borderSubtle
           }
           style={{
             backgroundColor:
-              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              browseActive &&
+              editState.cursor.field === "body" &&
+              editState.cursor.row >= 1
                 ? theme.backgroundElement
                 : undefined,
           }}
         >
-          <text id="body-field" fg={theme.textMuted}>(none)</text>
+          <text id="body-field" fg={theme.textMuted}>
+            (none)
+          </text>
         </box>
       ) : (
         <box
           border={[...LeftBar.border]}
           customBorderChars={LeftBar.customBorderChars}
           borderColor={
-            browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+            browseActive &&
+            editState.cursor.field === "body" &&
+            editState.cursor.row >= 1
               ? theme.primary
               : theme.borderSubtle
           }
           style={{
             backgroundColor:
-              browseActive && editState.cursor.field === "body" && editState.cursor.row >= 1
+              browseActive &&
+              editState.cursor.field === "body" &&
+              editState.cursor.row >= 1
                 ? theme.backgroundElement
                 : undefined,
           }}
@@ -552,11 +575,11 @@ function SettingsSection({
                 </>
               ) : idx === 1 ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
-              <text fg={theme.text}>{row.label}: </text>
-              <Checkbox
-                checked={request.followRedirects ?? true}
-                theme={theme}
-              />
+                  <text fg={theme.text}>{row.label}: </text>
+                  <Checkbox
+                    checked={request.followRedirects ?? true}
+                    theme={theme}
+                  />
                 </box>
               ) : (
                 <VarText

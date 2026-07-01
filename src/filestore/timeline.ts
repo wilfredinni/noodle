@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import * as yaml from "js-yaml"
 import type { TimelineEntry } from "../schema"
 
@@ -34,8 +34,8 @@ export async function saveTimelineEntry(
   entry: TimelineEntry,
   maxEntries = DEFAULT_MAX_ENTRIES,
 ): Promise<void> {
-  const dir = timelineDir(colDir)
-  await mkdir(dir, { recursive: true })
+  const filePath = timelinePath(colDir, reqId)
+  await mkdir(dirname(filePath), { recursive: true })
 
   const current = await loadTimeline(colDir, reqId)
   current.unshift(entry)
@@ -45,16 +45,16 @@ export async function saveTimelineEntry(
   }
 
   const yamlText = yaml.dump(current)
-  await writeFile(timelinePath(colDir, reqId), yamlText, "utf8")
+  await writeFile(filePath, yamlText, "utf8")
 }
 
 export async function clearTimelineForRequest(
   colDir: string,
   reqId: string,
 ): Promise<void> {
-  const dir = timelineDir(colDir)
-  const filePath = join(dir, `${reqId}.yml`)
+  const filePath = join(timelineDir(colDir), `${reqId}.yml`)
   try {
+    await mkdir(dirname(filePath), { recursive: true })
     await writeFile(filePath, yaml.dump([]), "utf8")
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return
@@ -65,7 +65,13 @@ export async function clearTimelineForRequest(
 export async function clearAllTimeline(colDir: string): Promise<void> {
   const dir = timelineDir(colDir)
   try {
-    await writeFile(join(dir, "index.yml"), yaml.dump([]), "utf8")
+    await mkdir(dir, { recursive: true })
+    const entries = await readdir(dir, { withFileTypes: true })
+    await Promise.all(
+      entries
+        .filter((e) => e.isFile() && e.name.endsWith(".yml"))
+        .map((e) => writeFile(join(dir, e.name), yaml.dump([]), "utf8")),
+    )
   } catch {
     // ignore
   }

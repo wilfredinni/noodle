@@ -1,9 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises"
+import { mkdtemp, rm, mkdir, writeFile, readFile, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
-import { filestore, loadSettings, saveSettings } from "../src/filestore"
-import type { Request } from "../src/schema"
+import { filestore, loadSettings, saveSettings, saveFolder, deleteFolder } from "../src/filestore"
+import type { Folder, Request, Collection } from "../src/schema"
+
+function reqs(col: Collection): Request[] {
+  return col.items
+    .filter(
+      (i): i is { type: "request"; data: Request } => i.type === "request",
+    )
+    .map((i) => i.data)
+}
 
 let dir: string
 
@@ -25,7 +33,7 @@ describe("filestore.loadCollection — directory state", () => {
 
   it("returns empty Collection when dir has no .yml files", async () => {
     const col = await filestore.loadCollection(dir)
-    expect(col.requests).toEqual([])
+    expect(reqs(col)).toEqual([])
     expect(col.id).toBe(col.name)
     expect(col.id).toBeTruthy()
   })
@@ -55,6 +63,16 @@ function makeReq(over: Partial<Request> = {}): Request {
   }
 }
 
+function makeFolder(over: Partial<Folder> = {}): Folder {
+  return {
+    id: "f",
+    name: "F",
+    path: "f",
+    children: [],
+    ...over,
+  }
+}
+
 const yamlTmpl = (r: Request) =>
   `name: ${r.name}\nmethod: ${r.method}\nurl: ${r.url}\n`
 
@@ -62,8 +80,8 @@ describe("filestore.loadCollection — file selection and order", () => {
   it("reads a single .yml file as one request", async () => {
     await writeFile(join(dir, "get-user.yml"), yamlTmpl(makeReq()))
     const col = await filestore.loadCollection(dir)
-    expect(col.requests).toHaveLength(1)
-    expect(col.requests[0].id).toBe("get-user")
+    expect(reqs(col)).toHaveLength(1)
+    expect(reqs(col)[0].id).toBe("get-user")
   })
 
   it("sorts requests by filename ascending", async () => {
@@ -71,7 +89,7 @@ describe("filestore.loadCollection — file selection and order", () => {
     await writeFile(join(dir, "a.yml"), yamlTmpl(makeReq({ name: "A" })))
     await writeFile(join(dir, "m.yml"), yamlTmpl(makeReq({ name: "M" })))
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["a", "m", "z"])
+    expect(reqs(col).map((r) => r.id)).toEqual(["a", "m", "z"])
   })
 
   it("ignores non-.yml files (.yaml, .json, .txt, dotfile)", async () => {
@@ -81,21 +99,30 @@ describe("filestore.loadCollection — file selection and order", () => {
     await writeFile(join(dir, "readme.txt"), "hi")
     await writeFile(join(dir, ".hidden.yml"), yamlTmpl(makeReq()))
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["keep"])
+    expect(reqs(col).map((r) => r.id)).toEqual(["keep"])
   })
 
-  it("ignores subdirectories even if named like .yml", async () => {
+  it("includes subdirectories as folders", async () => {
     await writeFile(join(dir, "real.yml"), yamlTmpl(makeReq()))
-    await mkdir(join(dir, "sub.yml"))
+    await mkdir(join(dir, "sub"))
+    await writeFile(
+      join(dir, "sub", "nested.yml"),
+      yamlTmpl(makeReq({ name: "Nested", id: "nested" })),
+    )
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["real"])
+    expect(col.items).toHaveLength(2)
+    const reqItem = col.items.find((i) => i.type === "request")
+    const folderItem = col.items.find((i) => i.type === "folder")
+    expect(folderItem).toBeDefined()
+    expect(reqItem).toBeDefined()
+    if (reqItem?.type === "request") expect(reqItem.data.id).toBe("real")
   })
 
   it("skips settings.yml (not a request)", async () => {
     await writeFile(join(dir, "get.yml"), yamlTmpl(makeReq({ name: "Get" })))
     await writeFile(join(dir, "settings.yml"), "environment: dev\n")
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["get"])
+    expect(reqs(col).map((r) => r.id)).toEqual(["get"])
   })
 
   it("wraps lang parse failures with filename and lang message", async () => {
@@ -164,30 +191,28 @@ describe("filestore.saveRequest — id validation", () => {
   it("rejects empty id", async () => {
     await expect(
       filestore.saveRequest(dir, makeReq({ id: "" })),
-    ).rejects.toThrow("filestore.saveRequest: missing or invalid id")
+    ).rejects.toThrow("filestore.validatePathId: missing or invalid id")
   })
 
   it("rejects undefined id (treated as empty)", async () => {
     const req = makeReq()
     delete (req as { id?: string }).id
     await expect(filestore.saveRequest(dir, req)).rejects.toThrow(
-      "filestore.saveRequest: missing or invalid id",
+      "filestore.validatePathId: missing or invalid id",
     )
   })
 
-  it("rejects id with forward slash", async () => {
-    await expect(
-      filestore.saveRequest(dir, makeReq({ id: "../evil" })),
-    ).rejects.toThrow(
-      'filestore.saveRequest: id must not contain path separators or ".."',
-    )
+  it("allows id with forward slash (subdirectory path)", async () => {
+    await filestore.saveRequest(dir, makeReq({ id: "sub/ping" }))
+    const content = await readFile(join(dir, "sub", "ping.yml"), "utf8")
+    expect(content).toContain("name: X")
   })
 
   it("rejects id with backslash", async () => {
     await expect(
       filestore.saveRequest(dir, makeReq({ id: "a\\b" })),
     ).rejects.toThrow(
-      'filestore.saveRequest: id must not contain path separators or ".."',
+      'filestore.validatePathId: id must not contain backslash or ".."',
     )
   })
 
@@ -195,7 +220,31 @@ describe("filestore.saveRequest — id validation", () => {
     await expect(
       filestore.saveRequest(dir, makeReq({ id: "a..b" })),
     ).rejects.toThrow(
-      'filestore.saveRequest: id must not contain path separators or ".."',
+      'filestore.validatePathId: id must not contain backslash or ".."',
+    )
+  })
+
+  it("rejects id that is just '.'", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "." })),
+    ).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it('rejects id that starts with "./"', async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "./foo" })),
+    ).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it("rejects id that is an absolute path", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "/etc/passwd" })),
+    ).rejects.toThrow(
+      "filestore.validatePathId: id must not be an absolute path",
     )
   })
 
@@ -230,9 +279,9 @@ describe("filestore — integration round-trip", () => {
     const col = await filestore.loadCollection(collectionDir)
     expect(col.id).toBe("my-api")
     expect(col.name).toBe("my-api")
-    expect(col.requests.map((r) => r.id)).toEqual(["create-post", "get-user"])
-    expect(col.requests[0]).toEqual(b)
-    expect(col.requests[1]).toEqual(a)
+    expect(reqs(col).map((r) => r.id)).toEqual(["create-post", "get-user"])
+    expect(reqs(col)[0]).toEqual(b)
+    expect(reqs(col)[1]).toEqual(a)
   })
 
   it("load on lazy-created dir yields sorted requests only after save", async () => {
@@ -250,7 +299,60 @@ describe("filestore — integration round-trip", () => {
     const after = await filestore.loadCollection(fresh)
     expect(after.id).toBe("lazy")
     expect(after.name).toBe("lazy")
-    expect(after.requests.map((r) => r.id)).toEqual(["a", "z"])
+    expect(reqs(after).map((r) => r.id)).toEqual(["a", "z"])
+  })
+})
+
+describe("filestore.saveFolder — path validation", () => {
+  it("rejects '.' as path", async () => {
+    await expect(saveFolder(dir, makeFolder({ path: "." }))).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it("rejects absolute path", async () => {
+    await expect(saveFolder(dir, makeFolder({ path: "/etc" }))).rejects.toThrow(
+      "filestore.validatePathId: id must not be an absolute path",
+    )
+  })
+
+  it("rejects path with backslash", async () => {
+    await expect(saveFolder(dir, makeFolder({ path: "a\\b" }))).rejects.toThrow(
+      'filestore.validatePathId: id must not contain backslash or ".."',
+    )
+  })
+
+  it("creates folder.yml on disk", async () => {
+    await saveFolder(dir, makeFolder({ path: "my-folder", name: "My Folder" }))
+    const content = await readFile(join(dir, "my-folder", "folder.yml"), "utf8")
+    expect(content).toContain("name: My Folder")
+  })
+})
+
+describe("filestore.deleteFolder — path validation", () => {
+  it("rejects '.' as path", async () => {
+    await expect(deleteFolder(dir, ".")).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it("rejects absolute path", async () => {
+    await expect(deleteFolder(dir, "/etc")).rejects.toThrow(
+      "filestore.validatePathId: id must not be an absolute path",
+    )
+  })
+
+  it("rejects path with backslash", async () => {
+    await expect(deleteFolder(dir, "a\\b")).rejects.toThrow(
+      'filestore.validatePathId: id must not contain backslash or ".."',
+    )
+  })
+
+  it("deletes folder directory", async () => {
+    await mkdir(join(dir, "to-delete"))
+    await writeFile(join(dir, "to-delete", "folder.yml"), "meta:\n  name: Bye\n", "utf8")
+    await deleteFolder(dir, "to-delete")
+    await expect(readFile(join(dir, "to-delete", "folder.yml"), "utf8")).rejects.toThrow()
   })
 })
 
@@ -327,5 +429,89 @@ describe("filestore.saveSettings", () => {
     const content = await readFile(join(dir, "settings.yml"), "utf8")
     expect(content).toContain("environment: new")
     expect(content).not.toContain("old")
+  })
+})
+
+describe("filestore — nested folders", () => {
+  it("loads nested directory structure as tree", async () => {
+    await writeFile(
+      join(dir, "root.yml"),
+      yamlTmpl(makeReq({ id: "root", name: "Root" })),
+    )
+
+    await mkdir(join(dir, "auth"))
+    await writeFile(
+      join(dir, "auth", "login.yml"),
+      yamlTmpl(makeReq({ id: "auth/login", name: "Login" })),
+    )
+
+    await mkdir(join(dir, "users"))
+    await writeFile(
+      join(dir, "users", "folder.yml"),
+      "meta:\n  name: User Management\n  seq: 1\n",
+    )
+    await writeFile(
+      join(dir, "users", "list.yml"),
+      yamlTmpl(makeReq({ id: "users/list", name: "List Users" })),
+    )
+
+    const col = await filestore.loadCollection(dir)
+
+    expect(col.items).toHaveLength(3)
+    expect(col.items[0].type).toBe("folder")
+    if (col.items[0].type === "folder") {
+      expect(col.items[0].data.name).toBe("User Management")
+      expect(col.items[0].data.children).toHaveLength(1)
+    }
+    if (col.items[2].type === "request") {
+      expect(col.items[2].data.id).toBe("root")
+    }
+  })
+})
+
+describe("filestore — symlink handling", () => {
+  it("skips symlink pointing outside collection root", async () => {
+    await mkdir(join(dir, "outside-collection"))
+    await writeFile(join(dir, "outside-collection", "x.yml"), yamlTmpl(makeReq({ name: "Outside" })))
+    await symlink(join(dir, "outside-collection"), join(dir, "outside-link"), "dir")
+
+    const col = await filestore.loadCollection(dir)
+    const folderNames = col.items
+      .filter((i) => i.type === "folder")
+      .map((i) => (i.type === "folder" ? i.data.name : ""))
+    expect(folderNames).not.toContain("outside-link")
+  })
+
+  it("follows symlink pointing to sibling directory inside collection", async () => {
+    await mkdir(join(dir, "real-folder"))
+    await writeFile(join(dir, "real-folder", "inside.yml"), yamlTmpl(makeReq({ name: "Inside", id: "real-folder/inside" })))
+    await symlink(join(dir, "real-folder"), join(dir, "link-to-real"), "dir")
+
+    const col = await filestore.loadCollection(dir)
+    const folderItem = col.items.find(
+      (i) => i.type === "folder" && i.data.name === "real-folder",
+    )
+    expect(folderItem).toBeDefined()
+  })
+
+  it("detects symlink cycles and skips duplicate", async () => {
+    await mkdir(join(dir, "cycle-a"))
+    await writeFile(join(dir, "cycle-a", "a.yml"), yamlTmpl(makeReq({ name: "A", id: "cycle-a/a" })))
+    await symlink(join(dir, "cycle-a"), join(dir, "cycle-a", "link-to-self"), "dir")
+
+    const col = await filestore.loadCollection(dir)
+    // Should load without infinite loop
+    expect(col.items.some((i) => i.type === "folder" && i.data.name === "cycle-a")).toBe(true)
+  })
+
+  it("loads collection under path with symlinked parent components", async () => {
+    await writeFile(join(dir, "root.yml"), yamlTmpl(makeReq({ id: "root", name: "Root" })))
+    await mkdir(join(dir, "sub"))
+    await writeFile(join(dir, "sub", "nested.yml"), yamlTmpl(makeReq({ id: "sub/nested", name: "Nested" })))
+
+    const col = await filestore.loadCollection(dir)
+    expect(col.items).toHaveLength(2)
+    expect(col.items.some((i) => i.type === "request" && i.data.id === "root")).toBe(true)
+    expect(col.items.some((i) => i.type === "folder")).toBe(true)
   })
 })

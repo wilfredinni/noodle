@@ -191,8 +191,7 @@ export function AuthEditor({
             key={def.field}
             style={{
               flexDirection: "column",
-              zIndex:
-                def.isPlacement && placementSelectOpen ? 1 : undefined,
+              zIndex: def.isPlacement && placementSelectOpen ? 1 : undefined,
             }}
           >
             <box

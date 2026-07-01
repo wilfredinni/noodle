@@ -6,6 +6,7 @@ import {
   loadTimeline,
   saveTimelineEntry,
   clearTimelineForRequest,
+  clearAllTimeline,
 } from "../src/filestore/timeline"
 import type { TimelineEntry } from "../src/schema"
 
@@ -187,5 +188,22 @@ describe("clearTimelineForRequest", () => {
     await clearTimelineForRequest(dir, "nonexistent")
     const result = await loadTimeline(dir, "nonexistent")
     expect(result).toEqual([])
+  })
+})
+
+describe("clearAllTimeline", () => {
+  it("clears all per-request timeline files", async () => {
+    await saveTimelineEntry(dir, "req-a", makeEntry({ timestamp: 1 }))
+    await saveTimelineEntry(dir, "req-b", makeEntry({ timestamp: 2 }))
+    await clearAllTimeline(dir)
+    const a = await loadTimeline(dir, "req-a")
+    const b = await loadTimeline(dir, "req-b")
+    expect(a).toEqual([])
+    expect(b).toEqual([])
+  })
+
+  it("no-op when .timeline directory does not exist", async () => {
+    await clearAllTimeline(dir)
+    // should not throw
   })
 })

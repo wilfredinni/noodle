@@ -7,6 +7,8 @@ import {
   saveUIState,
   loadLastRequest,
   saveLastRequest,
+  loadExpandedFolders,
+  saveExpandedFolders,
   type TabPrefs,
 } from "../../src/ui/tabs/uiState"
 
@@ -43,7 +45,13 @@ describe("uiState I/O", () => {
   it("loads multiple requests", async () => {
     const a: TabPrefs = { requestTab: "auth", responseTab: "body" }
     const b: TabPrefs = { requestTab: "body", responseTab: "timeline" }
-    await saveUIState(tmpDir, new Map([["req_a", a], ["req_b", b]]))
+    await saveUIState(
+      tmpDir,
+      new Map([
+        ["req_a", a],
+        ["req_b", b],
+      ]),
+    )
     const map = await loadUIState(tmpDir)
     expect(map.size).toBe(2)
     expect(map.get("req_a")).toEqual(a)
@@ -51,8 +59,14 @@ describe("uiState I/O", () => {
   })
 
   it("overwrites existing data on save", async () => {
-    await saveUIState(tmpDir, new Map([["x", { requestTab: "auth", responseTab: "body" }]]))
-    await saveUIState(tmpDir, new Map([["x", { requestTab: "body", responseTab: "timeline" }]]))
+    await saveUIState(
+      tmpDir,
+      new Map([["x", { requestTab: "auth", responseTab: "body" }]]),
+    )
+    await saveUIState(
+      tmpDir,
+      new Map([["x", { requestTab: "body", responseTab: "timeline" }]]),
+    )
     const map = await loadUIState(tmpDir)
     expect(map.get("x")?.requestTab).toBe("body")
     expect(map.get("x")?.responseTab).toBe("timeline")
@@ -60,7 +74,11 @@ describe("uiState I/O", () => {
 
   it("handles corrupted yaml gracefully", async () => {
     mkdirSync(join(tmpDir, ".noodle"))
-    writeFileSync(join(tmpDir, ".noodle", "ui-state.yml"), "{{ broken yaml\n", "utf8")
+    writeFileSync(
+      join(tmpDir, ".noodle", "ui-state.yml"),
+      "{{ broken yaml\n",
+      "utf8",
+    )
     const map = await loadUIState(tmpDir)
     expect(map.size).toBe(0)
   })
@@ -82,7 +100,9 @@ describe("uiState I/O", () => {
       await saveLastRequest(tmpDir, "get-posts")
       await saveUIState(
         tmpDir,
-        new Map([["get-posts", { requestTab: "body", responseTab: "headers" }]]),
+        new Map([
+          ["get-posts", { requestTab: "body", responseTab: "headers" }],
+        ]),
       )
       const result = await loadLastRequest(tmpDir)
       expect(result).toBe("get-posts")
@@ -121,7 +141,11 @@ describe("uiState I/O", () => {
 
     it("loadLastRequest returns undefined for corrupt yaml", async () => {
       mkdirSync(join(tmpDir, ".noodle"))
-      writeFileSync(join(tmpDir, ".noodle", "ui-state.yml"), "{{ broken yaml\n", "utf8")
+      writeFileSync(
+        join(tmpDir, ".noodle", "ui-state.yml"),
+        "{{ broken yaml\n",
+        "utf8",
+      )
       const result = await loadLastRequest(tmpDir)
       expect(result).toBeUndefined()
     })
@@ -129,7 +153,9 @@ describe("uiState I/O", () => {
     it("saveLastRequest writes the lastRequest key and preserves existing tab data", async () => {
       await saveUIState(
         tmpDir,
-        new Map([["get-posts", { requestTab: "body", responseTab: "headers" }]]),
+        new Map([
+          ["get-posts", { requestTab: "body", responseTab: "headers" }],
+        ]),
       )
       await saveLastRequest(tmpDir, "get-posts")
       const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
@@ -166,7 +192,9 @@ describe("uiState I/O", () => {
     it("saveLastRequest removes stale entries when validRequestIds provided", async () => {
       await saveUIState(
         tmpDir,
-        new Map([["stale-req", { requestTab: "auth", responseTab: "timeline" }]]),
+        new Map([
+          ["stale-req", { requestTab: "auth", responseTab: "timeline" }],
+        ]),
       )
       await saveLastRequest(tmpDir, "current-req", new Set(["current-req"]))
       const map = await loadUIState(tmpDir)
@@ -178,11 +206,42 @@ describe("uiState I/O", () => {
     it("saveLastRequest does not remove lastRequest key during orphan cleanup", async () => {
       await saveUIState(
         tmpDir,
-        new Map([["some-req", { requestTab: "auth", responseTab: "timeline" }]]),
+        new Map([
+          ["some-req", { requestTab: "auth", responseTab: "timeline" }],
+        ]),
       )
       await saveLastRequest(tmpDir, "some-req", new Set(["some-req"]))
       const result = await loadLastRequest(tmpDir)
       expect(result).toBe("some-req")
+    })
+  })
+
+  describe("expandedFolders", () => {
+    it("loadExpandedFolders returns empty set when no ui-state file", async () => {
+      const result = await loadExpandedFolders(tmpDir)
+      expect(result.size).toBe(0)
+    })
+
+    it("saveExpandedFolders and loadExpandedFolders round-trips", async () => {
+      const folders = new Set(["auth", "users", "users/admins"])
+      await saveExpandedFolders(tmpDir, folders)
+      const result = await loadExpandedFolders(tmpDir)
+      expect(result).toEqual(folders)
+    })
+
+    it("saveExpandedFolders updates existing set to smaller set", async () => {
+      await saveExpandedFolders(tmpDir, new Set(["a", "b", "c"]))
+      await saveExpandedFolders(tmpDir, new Set(["a"]))
+      const result = await loadExpandedFolders(tmpDir)
+      expect(result.size).toBe(1)
+      expect(result.has("a")).toBe(true)
+    })
+
+    it("saveExpandedFolders creates directory if missing", async () => {
+      const deep = join(tmpDir, "a", "b", "c")
+      await saveExpandedFolders(deep, new Set(["x"]))
+      const result = await loadExpandedFolders(deep)
+      expect(result.has("x")).toBe(true)
     })
   })
 })

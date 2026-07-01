@@ -8,6 +8,7 @@ import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
+import { findRequestById } from "./tree"
 
 export interface UseAppKeymapRefs {
   ebRef: RefObject<UseEditBrowseResult>
@@ -15,7 +16,7 @@ export interface UseAppKeymapRefs {
   envStateRef: RefObject<UseEnvironmentsResult>
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   collectionRef: RefObject<Collection | null>
-  selectedIndexRef: RefObject<number>
+  selectedIdRef: RefObject<string | null>
   trySendRef: RefObject<(() => void) | undefined>
   doSaveRef: RefObject<() => void>
   focusRef: RefObject<Focus>
@@ -23,6 +24,7 @@ export interface UseAppKeymapRefs {
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
   expandedRef: RefObject<"request" | "response" | null>
+  folderViewRef: RefObject<boolean>
 }
 
 export interface UseAppKeymapSetters {
@@ -80,7 +82,9 @@ export interface UseAppKeymapSetters {
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEditRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
-  setRequestDeletePending: (s: string | null | ((prev: string | null) => string | null)) => void
+  setRequestDeletePending: (
+    s: string | null | ((prev: string | null) => string | null),
+  ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
 }
 
@@ -112,6 +116,7 @@ export function useAppKeymap(
               1,
               refs.viewRef.current,
               refs.expandedRef.current,
+              refs.folderViewRef.current,
             )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
@@ -144,6 +149,7 @@ export function useAppKeymap(
               -1,
               refs.viewRef.current,
               refs.expandedRef.current,
+              refs.folderViewRef.current,
             )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
@@ -157,14 +163,17 @@ export function useAppKeymap(
       {
         name: "request.edit-yaml",
         run: () => {
-          const req =
-            refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
-          if (!req || !collectionDir) return
-          const filePath = join(collectionDir, `${req.id}.yml`)
+          const sid = refs.selectedIdRef.current
+          if (!sid || !collectionDir) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const r = findRequestById(col.items, sid)
+          if (!r) return
+          const filePath = join(collectionDir, `${sid}.yml`)
           setters.setYamlEditor({
             visible: true,
             filePath,
-            requestName: req.name,
+            requestName: r.name,
             returnFocus: refs.focusRef.current,
           })
         },
@@ -238,7 +247,11 @@ export function useAppKeymap(
       {
         name: "request.edit-overlay",
         run: () => {
-          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
           if (!req) return
           setters.setEditRequestVisible(true)
         },
@@ -246,7 +259,11 @@ export function useAppKeymap(
       {
         name: "request.clone",
         run: () => {
-          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
           if (!req) return
           setters.setCloneRequestVisible(true)
         },
@@ -254,28 +271,14 @@ export function useAppKeymap(
       {
         name: "request.delete",
         run: () => {
-          const req = refs.collectionRef.current?.requests[refs.selectedIndexRef.current]
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
           if (!req) return
           setters.setRequestDeletePending(req.name)
         },
-      },
-      {
-        name: "request.edit-enter",
-        enabled: () => keymap.getData("app.focus") === "request",
-        run: () => {
-          refs.ebRef.current.enterBrowse()
-          setters.setFocus("request")
-        },
-      },
-      {
-        name: "request.tab-prev",
-        enabled: () => keymap.getData("app.focus") === "request",
-        run: () => refs.ebRef.current.cycleInactiveTab(-1),
-      },
-      {
-        name: "request.tab-next",
-        enabled: () => keymap.getData("app.focus") === "request",
-        run: () => refs.ebRef.current.cycleInactiveTab(1),
       },
     ],
     bindings: [
@@ -288,6 +291,34 @@ export function useAppKeymap(
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
       { key: keybinds.request_clone, cmd: "request.clone" },
       { key: keybinds.request_delete, cmd: "request.delete" },
+    ],
+  }))
+
+  // ── Keymap: Request Focus Layer ─────────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.mode") === "base" &&
+      keymap.getData("app.focus") === "request" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      {
+        name: "request.edit-enter",
+        run: () => {
+          refs.ebRef.current.enterBrowse()
+          setters.setFocus("request")
+        },
+      },
+      {
+        name: "request.tab-prev",
+        run: () => refs.ebRef.current.cycleInactiveTab(-1),
+      },
+      {
+        name: "request.tab-next",
+        run: () => refs.ebRef.current.cycleInactiveTab(1),
+      },
+    ],
+    bindings: [
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },

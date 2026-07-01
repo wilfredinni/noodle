@@ -22,7 +22,7 @@ export interface SectionRowCount {
   settings: number
 }
 
-const FIELD_ORDER: FieldKind[] = [
+export const FIELD_ORDER: FieldKind[] = [
   "headers",
   "params",
   "body",

@@ -1,4 +1,12 @@
-import type { Auth, BodyType, Collection, FormEntry, KvEntry, Method, Request } from "../../schema"
+import type {
+  Auth,
+  BodyType,
+  Collection,
+  FormEntry,
+  KvEntry,
+  Method,
+  Request,
+} from "../../schema"
 
 export interface Normalized {
   openapi: string
@@ -43,9 +51,7 @@ const SUPPORTED_MEDIA: readonly string[] = [
 
 const FILE_FORMATS = new Set(["binary", "base64"])
 
-function pickMediaType(
-  content: Record<string, unknown>,
-): string | null {
+function pickMediaType(content: Record<string, unknown>): string | null {
   for (const mt of SUPPORTED_MEDIA) {
     if (mt in content) return mt
   }
@@ -103,8 +109,11 @@ function collectBody(op: Record<string, unknown>): {
       }
     }
     for (const [key, prop] of Object.entries(props)) {
-      if (isMapping(prop) && typeof (prop as Record<string, unknown>).format === "string" &&
-          FILE_FORMATS.has((prop as Record<string, unknown>).format as string)) {
+      if (
+        isMapping(prop) &&
+        typeof (prop as Record<string, unknown>).format === "string" &&
+        FILE_FORMATS.has((prop as Record<string, unknown>).format as string)
+      ) {
         fileFields.add(key)
       }
     }
@@ -323,5 +332,9 @@ export function mapCollection(n: Normalized): Collection {
     }
   }
 
-  return { id, name, requests }
+  return {
+    id,
+    name,
+    items: requests.map((r) => ({ type: "request" as const, data: r })),
+  }
 }

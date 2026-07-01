@@ -1,6 +1,15 @@
 import { describe, it, expect } from "bun:test"
 import { parseSpec, mapCollection } from "../src/converters/openapi"
 import type { Normalized } from "../src/converters/openapi"
+import type { Request, Collection } from "../src/schema"
+
+function reqs(col: Collection): Request[] {
+  return col.items
+    .filter(
+      (i): i is { type: "request"; data: Request } => i.type === "request",
+    )
+    .map((i) => i.data)
+}
 
 describe("parseSpec — string/object dispatch + validation", () => {
   it("passes an object input through unchanged (no re-parse)", () => {
@@ -139,7 +148,7 @@ describe("mapCollection — Collection metadata", () => {
 
   it("returns an empty requests array when paths is empty", () => {
     const c = mapCollection(makeNormalized())
-    expect(c.requests).toEqual([])
+    expect(reqs(c)).toEqual([])
   })
 })
 
@@ -159,8 +168,8 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests).toHaveLength(3)
-    expect(c.requests.map((r) => r.method)).toEqual(["GET", "POST", "GET"])
+    expect(reqs(c)).toHaveLength(3)
+    expect(reqs(c).map((r) => r.method)).toEqual(["GET", "POST", "GET"])
   })
 
   it("uses deterministic method order (METHOD_KEYS) regardless of spec key order", () => {
@@ -174,7 +183,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests.map((r) => r.method)).toEqual(["GET", "POST"])
+    expect(reqs(c).map((r) => r.method)).toEqual(["GET", "POST"])
   })
 
   it("skips pathItem that is not a mapping", () => {
@@ -186,8 +195,8 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests).toHaveLength(1)
-    expect(c.requests[0].name).toBe("getY")
+    expect(reqs(c)).toHaveLength(1)
+    expect(reqs(c)[0].name).toBe("getY")
   })
 
   it("skips an op value that is not a mapping", () => {
@@ -201,8 +210,8 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests).toHaveLength(1)
-    expect(c.requests[0].method).toBe("POST")
+    expect(reqs(c)).toHaveLength(1)
+    expect(reqs(c)[0].method).toBe("POST")
   })
 
   it("ignores non-method keys at the pathItem level (parameters, summary)", () => {
@@ -217,7 +226,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests).toHaveLength(1)
+    expect(reqs(c)).toHaveLength(1)
   })
 
   it("builds the url from base + path with var substitution", () => {
@@ -229,7 +238,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests[0].url).toBe("https://api.example.com/v1/users/$id")
+    expect(reqs(c)[0].url).toBe("https://api.example.com/v1/users/$id")
   })
 
   it("builds a path-only url when servers is missing", () => {
@@ -241,7 +250,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(c.requests[0].url).toBe("/users/$id")
+    expect(reqs(c)[0].url).toBe("/users/$id")
   })
 
   it("initializes headers, params as empty and body as undefined and auth as none", () => {
@@ -250,7 +259,7 @@ describe("mapCollection — operations & methods", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    const r = c.requests[0]
+    const r = reqs(c)[0]
     expect(r.headers).toEqual({})
     expect(r.params).toEqual({})
     expect(r.body).toBeUndefined()
@@ -265,7 +274,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         paths: { "/x": { get: { operationId: "getX", summary: "ignored" } } },
       }),
     )
-    expect(c.requests[0].name).toBe("getX")
+    expect(reqs(c)[0].name).toBe("getX")
   })
 
   it("falls back to summary when operationId is missing", () => {
@@ -274,7 +283,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         paths: { "/x": { get: { summary: "Get the X" } } },
       }),
     )
-    expect(c.requests[0].name).toBe("Get the X")
+    expect(reqs(c)[0].name).toBe("Get the X")
   })
 
   it("falls back to METHOD path when operationId and summary are missing", () => {
@@ -283,7 +292,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         paths: { "/x/{id}": { get: {} } },
       }),
     )
-    expect(c.requests[0].name).toBe("GET /x/{id}")
+    expect(reqs(c)[0].name).toBe("GET /x/{id}")
   })
 
   it("ignores non-string operationId", () => {
@@ -292,7 +301,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         paths: { "/x": { get: { operationId: 123, summary: "Get X" } } },
       }),
     )
-    expect(c.requests[0].name).toBe("Get X")
+    expect(reqs(c)[0].name).toBe("Get X")
   })
 
   it("ignores empty-string operationId", () => {
@@ -301,7 +310,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         paths: { "/x": { get: { operationId: "", summary: "Get X" } } },
       }),
     )
-    expect(c.requests[0].name).toBe("Get X")
+    expect(reqs(c)[0].name).toBe("Get X")
   })
 
   it("ignores non-string summary", () => {
@@ -310,7 +319,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         paths: { "/x": { get: { summary: 42 } } },
       }),
     )
-    expect(c.requests[0].name).toBe("GET /x")
+    expect(reqs(c)[0].name).toBe("GET /x")
   })
 
   it("derives id from method+path slug with braces stripped", () => {
@@ -321,7 +330,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         },
       }),
     )
-    expect(c.requests[0].id).toBe("get-users-id-items-itemid")
+    expect(reqs(c)[0].id).toBe("get-users-id-items-itemid")
   })
 
   it("dedupes identical ids with -2 suffix when two paths lowercased collide", () => {
@@ -338,7 +347,7 @@ describe("mapCollection — name derivation and id dedupe", () => {
         },
       }),
     )
-    const ids = c.requests.map((r) => r.id)
+    const ids = reqs(c).map((r) => r.id)
     expect(ids).toContain("get-users")
     expect(ids).toContain("get-users-2")
     expect(ids).toContain("post-users")
@@ -354,7 +363,9 @@ describe("mapCollection — name derivation and id dedupe", () => {
         },
       }),
     )
-    const ids = c.requests.map((r) => r.id).sort()
+    const ids = reqs(c)
+      .map((r) => r.id)
+      .sort()
     expect(ids).toEqual(["get-users", "get-users-2", "get-users-3"])
   })
 })
@@ -374,7 +385,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
   it("maps http+basic to Auth=basic with $USER $PASS", () => {
@@ -385,7 +396,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({
+    expect(reqs(c)[0].auth).toEqual({
       type: "basic",
       user: "$USER",
       pass: "$PASS",
@@ -400,7 +411,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({
+    expect(reqs(c)[0].auth).toEqual({
       type: "api_key",
       key: "X-Api-Key",
       value: "$API_KEY",
@@ -420,7 +431,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({
+    expect(reqs(c)[0].auth).toEqual({
       type: "api_key",
       key: "api_key",
       value: "$API_KEY",
@@ -436,7 +447,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "none" })
+    expect(reqs(c)[0].auth).toEqual({ type: "none" })
   })
 
   it("maps openIdConnect to none", () => {
@@ -447,7 +458,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "none" })
+    expect(reqs(c)[0].auth).toEqual({ type: "none" })
   })
 
   it("op.security overrides global security", () => {
@@ -462,7 +473,7 @@ describe("mapCollection — auth resolution", () => {
         },
       }),
     )
-    expect(c.requests[0].auth).toEqual({
+    expect(reqs(c)[0].auth).toEqual({
       type: "basic",
       user: "$USER",
       pass: "$PASS",
@@ -477,7 +488,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
   it("op.security: [] (empty array) means no auth required", () => {
@@ -488,7 +499,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX", security: [] } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "none" })
+    expect(reqs(c)[0].auth).toEqual({ type: "none" })
   })
 
   it("falls to none when security requirement references an unknown scheme", () => {
@@ -499,7 +510,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "none" })
+    expect(reqs(c)[0].auth).toEqual({ type: "none" })
   })
 
   it("falls to none when securitySchemes is missing entirely", () => {
@@ -510,7 +521,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "none" })
+    expect(reqs(c)[0].auth).toEqual({ type: "none" })
   })
 
   it("tries the next requirement when prior requirement has no usable scheme", () => {
@@ -523,7 +534,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
   it("falls to none when no security anywhere", () => {
@@ -534,7 +545,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "none" })
+    expect(reqs(c)[0].auth).toEqual({ type: "none" })
   })
 
   it("skips a security requirement that is not a mapping", () => {
@@ -545,7 +556,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 
   it("skips security requirement entries whose scheme name is not a string", () => {
@@ -556,7 +567,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(c.requests[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
   })
 })
 
@@ -577,7 +588,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       q: { value: "$q", enabled: true },
       limit: { value: "$limit", enabled: true },
     })
@@ -596,7 +607,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].headers).toEqual({
+    expect(reqs(c)[0].headers).toEqual({
       "X-Custom": { value: "$X-Custom", enabled: true },
     })
   })
@@ -614,8 +625,8 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].headers).toEqual({})
-    expect(c.requests[0].params).toEqual({})
+    expect(reqs(c)[0].headers).toEqual({})
+    expect(reqs(c)[0].params).toEqual({})
   })
 
   it("does not duplicate path params (in:path is a no-op; already in url)", () => {
@@ -635,9 +646,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({})
-    expect(c.requests[0].headers).toEqual({})
-    expect(c.requests[0].url).toBe("/users/$id/items/$itemId")
+    expect(reqs(c)[0].params).toEqual({})
+    expect(reqs(c)[0].headers).toEqual({})
+    expect(reqs(c)[0].url).toBe("/users/$id/items/$itemId")
   })
 
   it("skips a param with missing name", () => {
@@ -653,7 +664,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       good: { value: "$good", enabled: true },
     })
   })
@@ -674,7 +685,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       good: { value: "$good", enabled: true },
     })
   })
@@ -695,7 +706,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       good: { value: "$good", enabled: true },
     })
   })
@@ -713,7 +724,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       good: { value: "$good", enabled: true },
     })
   })
@@ -734,7 +745,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       good: { value: "$good", enabled: true },
     })
   })
@@ -751,10 +762,10 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       shared: { value: "$shared", enabled: true },
     })
-    expect(c.requests[1].params).toEqual({
+    expect(reqs(c)[1].params).toEqual({
       shared: { value: "$shared", enabled: true },
     })
   })
@@ -776,7 +787,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       shared: { value: "$shared", enabled: true },
       extra: { value: "$extra", enabled: true },
     })
@@ -796,10 +807,10 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(c.requests[0].params).toEqual({
+    expect(reqs(c)[0].params).toEqual({
       alpha: { value: "$alpha", enabled: true },
     })
-    expect(c.requests[0].headers).toEqual({
+    expect(reqs(c)[0].headers).toEqual({
       alpha: { value: "$alpha", enabled: true },
     })
   })
@@ -820,7 +831,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(Object.keys(c.requests[0].params)).toEqual(["dup"])
+    expect(Object.keys(reqs(c)[0].params)).toEqual(["dup"])
   })
 })
 
@@ -872,10 +883,10 @@ describe("mapCollection — end-to-end integration", () => {
     expect(c.id).toBe("pet-store-api")
     expect(c.name).toBe("Pet Store API")
 
-    const methods = c.requests.map((r) => r.method)
+    const methods = reqs(c).map((r) => r.method)
     expect(methods).toEqual(["GET", "DELETE", "GET", "POST"])
 
-    const getPet = c.requests[0]
+    const getPet = reqs(c)[0]
     expect(getPet.id).toBe("get-pets-petid")
     expect(getPet.name).toBe("getPet")
     expect(getPet.method).toBe("GET")
@@ -889,7 +900,7 @@ describe("mapCollection — end-to-end integration", () => {
     expect(getPet.body).toBeUndefined()
     expect(getPet.auth).toEqual({ type: "bearer", token: "$TOKEN" })
 
-    const deletePet = c.requests[1]
+    const deletePet = reqs(c)[1]
     expect(deletePet.name).toBe("Delete a pet")
     expect(deletePet.method).toBe("DELETE")
     expect(deletePet.auth).toEqual({
@@ -898,14 +909,14 @@ describe("mapCollection — end-to-end integration", () => {
       pass: "$PASS",
     })
 
-    const listPets = c.requests[2]
+    const listPets = reqs(c)[2]
     expect(listPets.id).toBe("get-pets")
     expect(listPets.params).toEqual({
       limit: { value: "$limit", enabled: true },
     })
     expect(listPets.auth).toEqual({ type: "bearer", token: "$TOKEN" })
 
-    const createPet = c.requests[3]
+    const createPet = reqs(c)[3]
     expect(createPet.id).toBe("post-pets")
     expect(createPet.auth).toEqual({ type: "none" })
   })
@@ -923,7 +934,7 @@ paths:
     const c = mapCollection(parseSpec(yamlText))
     expect(c.id).toBe("yaml-api")
     expect(c.name).toBe("YAML API!")
-    expect(c.requests[0].id).toBe("get-x")
+    expect(reqs(c)[0].id).toBe("get-x")
   })
 })
 
@@ -947,8 +958,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBe('{"name":"Alice","age":30}')
-    expect(c.requests[0].bodyType).toBe("json")
+    expect(reqs(c)[0].body).toBe('{"name":"Alice","age":30}')
+    expect(reqs(c)[0].bodyType).toBe("json")
   })
 
   it("json with schema properties (no example)", () => {
@@ -975,8 +986,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBe('{"name":"$name","age":"$age"}')
-    expect(c.requests[0].bodyType).toBe("json")
+    expect(reqs(c)[0].body).toBe('{"name":"$name","age":"$age"}')
+    expect(reqs(c)[0].bodyType).toBe("json")
   })
 
   it("json with empty schema", () => {
@@ -996,8 +1007,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBe("{}")
-    expect(c.requests[0].bodyType).toBe("json")
+    expect(reqs(c)[0].body).toBe("{}")
+    expect(reqs(c)[0].bodyType).toBe("json")
   })
 
   it("multipart with text and file fields (encoding marks file)", () => {
@@ -1028,8 +1039,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].bodyType).toBe("multipart")
-    expect(c.requests[0].formData).toEqual([
+    expect(reqs(c)[0].bodyType).toBe("multipart")
+    expect(reqs(c)[0].formData).toEqual([
       { name: "title", value: "", enabled: true, type: "text" },
       { name: "photo", value: "", enabled: true, type: "file" },
       { name: "doc", value: "", enabled: true, type: "file" },
@@ -1060,8 +1071,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].bodyType).toBe("multipart")
-    expect(c.requests[0].formData).toEqual([
+    expect(reqs(c)[0].bodyType).toBe("multipart")
+    expect(reqs(c)[0].formData).toEqual([
       { name: "a", value: "", enabled: true, type: "text" },
       { name: "b", value: "", enabled: true, type: "text" },
     ])
@@ -1084,8 +1095,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].bodyType).toBe("multipart")
-    expect(c.requests[0].formData).toEqual([])
+    expect(reqs(c)[0].bodyType).toBe("multipart")
+    expect(reqs(c)[0].formData).toEqual([])
   })
 
   it("urlencoded", () => {
@@ -1112,8 +1123,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].bodyType).toBe("urlencoded")
-    expect(c.requests[0].formData).toEqual([
+    expect(reqs(c)[0].bodyType).toBe("urlencoded")
+    expect(reqs(c)[0].formData).toEqual([
       { name: "username", value: "$username", enabled: true, type: "text" },
       { name: "password", value: "$password", enabled: true, type: "text" },
     ])
@@ -1127,9 +1138,9 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBeUndefined()
-    expect(c.requests[0].bodyType).toBeUndefined()
-    expect(c.requests[0].formData).toBeUndefined()
+    expect(reqs(c)[0].body).toBeUndefined()
+    expect(reqs(c)[0].bodyType).toBeUndefined()
+    expect(reqs(c)[0].formData).toBeUndefined()
   })
 
   it("unsupported media type (text/plain)", () => {
@@ -1149,8 +1160,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBeUndefined()
-    expect(c.requests[0].bodyType).toBeUndefined()
+    expect(reqs(c)[0].body).toBeUndefined()
+    expect(reqs(c)[0].bodyType).toBeUndefined()
   })
 
   it("requestBody without content", () => {
@@ -1166,8 +1177,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBeUndefined()
-    expect(c.requests[0].bodyType).toBeUndefined()
+    expect(reqs(c)[0].body).toBeUndefined()
+    expect(reqs(c)[0].bodyType).toBeUndefined()
   })
 
   it("non-mapping requestBody (string)", () => {
@@ -1183,8 +1194,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBeUndefined()
-    expect(c.requests[0].bodyType).toBeUndefined()
+    expect(reqs(c)[0].body).toBeUndefined()
+    expect(reqs(c)[0].bodyType).toBeUndefined()
   })
 
   it("non-mapping content (array)", () => {
@@ -1200,8 +1211,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].body).toBeUndefined()
-    expect(c.requests[0].bodyType).toBeUndefined()
+    expect(reqs(c)[0].body).toBeUndefined()
+    expect(reqs(c)[0].bodyType).toBeUndefined()
   })
 
   it("json takes priority over multipart when both present", () => {
@@ -1213,7 +1224,9 @@ describe("mapCollection — requestBody", () => {
               operationId: "postX",
               requestBody: {
                 content: {
-                  "multipart/form-data": { schema: { properties: { f: { type: "string" } } } },
+                  "multipart/form-data": {
+                    schema: { properties: { f: { type: "string" } } },
+                  },
                   "application/json": { schema: { example: { a: 1 } } },
                 },
               },
@@ -1222,8 +1235,8 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].bodyType).toBe("json")
-    expect(c.requests[0].body).toBe('{"a":1}')
+    expect(reqs(c)[0].bodyType).toBe("json")
+    expect(reqs(c)[0].body).toBe('{"a":1}')
   })
 
   it("multipart takes priority over urlencoded when both present", () => {
@@ -1248,6 +1261,6 @@ describe("mapCollection — requestBody", () => {
         },
       }),
     )
-    expect(c.requests[0].bodyType).toBe("multipart")
+    expect(reqs(c)[0].bodyType).toBe("multipart")
   })
 })

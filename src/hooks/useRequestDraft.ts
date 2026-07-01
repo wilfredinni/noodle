@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { BodyType, FormEntry, Request, Auth, Method, KvEntry } from "../schema"
+import type {
+  BodyType,
+  FormEntry,
+  Request,
+  Auth,
+  Method,
+  KvEntry,
+} from "../schema"
 import type { FieldKind } from "../ui/editMode"
 import { parseUrlAndParams } from "../ui/urlParams"
 
@@ -24,13 +31,34 @@ export type DraftOp =
   | { kind: "setAuthField"; authType: string; field: string; value: string }
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
   | { kind: "setBodyType"; bodyType: BodyType }
-  | { kind: "setFormRow"; index: number; name: string; value: string; formType: "text" | "file" }
-  | { kind: "addFormRow"; name: string; value: string; formType: "text" | "file" }
+  | {
+      kind: "setFormRow"
+      index: number
+      name: string
+      value: string
+      formType: "text" | "file"
+    }
+  | {
+      kind: "addFormRow"
+      name: string
+      value: string
+      formType: "text" | "file"
+    }
   | { kind: "removeFormRow"; index: number }
   | { kind: "toggleFormRow"; index: number }
   | { kind: "setFilePath"; filePath: string }
 
+const CACHE_MAX = 100
+
 const authTypeCache = new Map<string, Record<string, Auth>>()
+
+function cacheSet<K, V>(map: Map<K, V>, key: K, value: V): void {
+  map.set(key, value)
+  if (map.size > CACHE_MAX) {
+    const first = map.keys().next().value as K | undefined
+    if (first !== undefined) map.delete(first)
+  }
+}
 
 interface CachedBody {
   body?: string
@@ -236,8 +264,12 @@ export function applyDraft(
       if (normalizedOp !== normalizedCurrent) {
         const curBodyType = draft.bodyType ?? "json"
         const idCache = bodyCache.get(id) ?? {}
-        idCache[curBodyType] = { body: draft.body, formData: draft.formData, filePath: draft.filePath }
-        bodyCache.set(id, idCache)
+        idCache[curBodyType] = {
+          body: draft.body,
+          formData: draft.formData,
+          filePath: draft.filePath,
+        }
+        cacheSet(bodyCache, id, idCache)
 
         draft.bodyType = op.bodyType
         const cached = bodyCache.get(id)?.[normalizedOp]
@@ -257,12 +289,22 @@ export function applyDraft(
       draft.formData = current.formData ?? []
       if (draft.formData[op.index]) {
         draft.formData = draft.formData.map((e, i) =>
-          i === op.index ? { name: op.name, value: op.value, enabled: e.enabled, type: op.formType } : e,
+          i === op.index
+            ? {
+                name: op.name,
+                value: op.value,
+                enabled: e.enabled,
+                type: op.formType,
+              }
+            : e,
         )
       }
       break
     case "addFormRow":
-      draft.formData = [...(current.formData ?? []), { name: op.name, value: op.value, enabled: true, type: op.formType }]
+      draft.formData = [
+        ...(current.formData ?? []),
+        { name: op.name, value: op.value, enabled: true, type: op.formType },
+      ]
       break
     case "removeFormRow":
       draft.formData = (current.formData ?? []).filter((_, i) => i !== op.index)
@@ -325,7 +367,7 @@ export function applyDraft(
       if (curAuth && curAuth.type !== "none") {
         const idCache = authTypeCache.get(id) ?? {}
         idCache[curAuth.type] = curAuth
-        authTypeCache.set(id, idCache)
+        cacheSet(authTypeCache, id, idCache)
       }
       const cached = authTypeCache.get(id)?.[op.authType]
       if (cached && cached.type === op.authType) {
@@ -339,7 +381,12 @@ export function applyDraft(
       } else if (op.authType === "basic") {
         draft.auth = { type: "basic", user: "", pass: "" }
       } else if (op.authType === "api_key") {
-        draft.auth = { type: "api_key", key: "", value: "", placement: "header" }
+        draft.auth = {
+          type: "api_key",
+          key: "",
+          value: "",
+          placement: "header",
+        }
       }
       break
     }
@@ -410,7 +457,12 @@ export interface UseRequestDraftResult {
   setAuthField: (authType: string, field: string, value: string) => void
   setApiKeyPlacement: (placement: "header" | "query") => void
   setBodyType: (t: BodyType) => void
-  setFormRow: (index: number, name: string, value: string, formType: "text" | "file") => void
+  setFormRow: (
+    index: number,
+    name: string,
+    value: string,
+    formType: "text" | "file",
+  ) => void
   addFormRow: (name: string, value: string, formType: "text" | "file") => void
   removeFormRow: (index: number) => void
   toggleFormRow: (index: number) => void

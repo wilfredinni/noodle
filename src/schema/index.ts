@@ -21,6 +21,30 @@ export interface KvEntry {
   enabled: boolean
 }
 
+export interface FolderMeta {
+  name?: string
+  seq?: number
+}
+
+export interface FolderOverrides {
+  headers?: Record<string, KvEntry>
+  params?: Record<string, KvEntry>
+  auth?: Auth
+}
+
+export interface Folder {
+  id: string
+  name: string
+  path: string
+  seq?: number
+  overrides?: FolderOverrides
+  children: CollectionItem[]
+}
+
+export type CollectionItem =
+  | { type: "request"; data: Request }
+  | { type: "folder"; data: Folder }
+
 export type Auth =
   | { type: "none" }
   | { type: "bearer"; token: string }
@@ -52,7 +76,7 @@ export interface Request {
 export interface Collection {
   id: string
   name: string
-  requests: Request[]
+  items: CollectionItem[]
 }
 
 export interface Response {

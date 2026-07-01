@@ -21,12 +21,13 @@ function makeReq(over: Partial<Request> = {}): Request {
 
 describe("substitute — formData", () => {
   it("substitutes $var in formData name and value", () => {
-    const env: Environment = { name: "dev", vars: { KEY: "username", VAL: "john" } }
+    const env: Environment = {
+      name: "dev",
+      vars: { KEY: "username", VAL: "john" },
+    }
     const req = makeReq({
       bodyType: "urlencoded",
-      formData: [
-        { name: "$KEY", value: "$VAL", enabled: true, type: "text" },
-      ],
+      formData: [{ name: "$KEY", value: "$VAL", enabled: true, type: "text" }],
     })
     const result = substitute(req, env)
     expect(result.formData).toEqual([
@@ -45,12 +46,13 @@ describe("substitute — formData", () => {
   })
 
   it("substitutes $var in formData file path", () => {
-    const env: Environment = { name: "dev", vars: { IMG: "/photos/avatar.png" } }
+    const env: Environment = {
+      name: "dev",
+      vars: { IMG: "/photos/avatar.png" },
+    }
     const req = makeReq({
       bodyType: "multipart",
-      formData: [
-        { name: "pic", value: "$IMG", enabled: true, type: "file" },
-      ],
+      formData: [{ name: "pic", value: "$IMG", enabled: true, type: "file" }],
     })
     const result = substitute(req, env)
     expect(result.formData).toEqual([
@@ -78,9 +80,7 @@ describe("substitute — formData", () => {
     const env: Environment = { name: "dev", vars: {} }
     const req = makeReq({
       bodyType: "urlencoded",
-      formData: [
-        { name: "$MISSING", value: "v", enabled: true, type: "text" },
-      ],
+      formData: [{ name: "$MISSING", value: "v", enabled: true, type: "text" }],
     })
     expect(() => substitute(req, env)).toThrow(
       'requests.substitute: unresolved variable "MISSING" in formData[0].name',
@@ -164,10 +164,7 @@ describe("bodyForSend — bodyType routing", () => {
 
   it("returns undefined when bodyType is json but body is undefined", async () => {
     const h = new Headers()
-    const result = await bodyForSend(
-      { bodyType: "json", body: undefined },
-      h,
-    )
+    const result = await bodyForSend({ bodyType: "json", body: undefined }, h)
     expect(result).toBeUndefined()
   })
 
@@ -215,10 +212,7 @@ describe("bodyForSend — bodyType routing", () => {
 
     try {
       const h = new Headers({ "content-type": "application/json" })
-      const result = await bodyForSend(
-        { bodyType: "binary", filePath },
-        h,
-      )
+      const result = await bodyForSend({ bodyType: "binary", filePath }, h)
       expect(result).toBeDefined()
       expect(h.get("content-type")).toBe("application/octet-stream")
     } finally {
@@ -231,7 +225,9 @@ describe("bodyForSend — bodyType routing", () => {
     const result = await bodyForSend(
       {
         bodyType: "multipart",
-        formData: [{ name: "field", value: "val", enabled: true, type: "text" }],
+        formData: [
+          { name: "field", value: "val", enabled: true, type: "text" },
+        ],
       },
       h,
     )
@@ -248,12 +244,19 @@ describe("bodyForSend — file validation", () => {
         {
           bodyType: "multipart",
           formData: [
-            { name: "photo", value: "/nonexistent/path/photo.png", enabled: true, type: "file" },
+            {
+              name: "photo",
+              value: "/nonexistent/path/photo.png",
+              enabled: true,
+              type: "file",
+            },
           ],
         },
         h,
       )
-    await expect(fn()).rejects.toThrow("file not found: /nonexistent/path/photo.png")
+    await expect(fn()).rejects.toThrow(
+      "file not found: /nonexistent/path/photo.png",
+    )
   })
 
   it("throws when binary filePath does not exist", async () => {
@@ -263,7 +266,9 @@ describe("bodyForSend — file validation", () => {
         { bodyType: "binary", filePath: "/nonexistent/path/data.bin" },
         h,
       )
-    await expect(fn()).rejects.toThrow("file not found: /nonexistent/path/data.bin")
+    await expect(fn()).rejects.toThrow(
+      "file not found: /nonexistent/path/data.bin",
+    )
   })
 
   it("does not throw when multipart file entry exists", async () => {
@@ -299,10 +304,7 @@ describe("bodyForSend — file validation", () => {
 
     try {
       const h = new Headers()
-      const result = await bodyForSend(
-        { bodyType: "binary", filePath },
-        h,
-      )
+      const result = await bodyForSend({ bodyType: "binary", filePath }, h)
       expect(result).toBeDefined()
     } finally {
       rmSync(dir, { recursive: true, force: true })

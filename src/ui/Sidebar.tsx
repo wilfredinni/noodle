@@ -1,10 +1,11 @@
 import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
-import type { Collection } from "../schema"
+import type { CollectionItem, Method } from "../schema"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import type { Keybinds } from "./keybind"
+import type { VisibleNode } from "./tree"
 
 function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
@@ -15,18 +16,24 @@ function truncName(name: string, max: number): string {
 }
 
 export function Sidebar({
-  collection,
+  items: _items,
   loading,
   error,
-  selectedIndex,
+  visibleItems,
+  cursorIndex,
+  selectedId: _selectedId,
+  expanded: _expanded,
   focused = false,
   keybinds: _keybinds,
   dirtyRequestIds,
 }: {
-  collection: Collection | null
+  items: CollectionItem[]
   loading: boolean
   error: Error | null
-  selectedIndex: number
+  visibleItems: VisibleNode[]
+  cursorIndex: number
+  selectedId: string | null
+  expanded: Set<string>
   focused?: boolean
   keybinds?: Keybinds
   dirtyRequestIds?: Set<string>
@@ -35,10 +42,13 @@ export function Sidebar({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   useEffect(() => {
-    if (selectedIndex >= 0) {
-      scrollRef.current?.scrollChildIntoView(`req-${selectedIndex}`)
+    if (cursorIndex >= 0 && visibleItems.length > 0) {
+      const idx = Math.min(cursorIndex, visibleItems.length - 1)
+      scrollRef.current?.scrollChildIntoView(
+        `so-${visibleItems[idx].id}`,
+      )
     }
-  }, [selectedIndex])
+  }, [cursorIndex, visibleItems])
 
   return (
     <box
@@ -61,7 +71,7 @@ export function Sidebar({
         <text fg={theme.textMuted}>Loading...</text>
       ) : error ? (
         <text fg={theme.textMuted}>Error: {error.message}</text>
-      ) : !collection || collection.requests.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <text fg={theme.textMuted}>(empty)</text>
       ) : (
         <scrollbox
@@ -75,33 +85,62 @@ export function Sidebar({
             },
           }}
         >
-          {collection.requests.map((r, i) => {
-            const isSelected = i === selectedIndex
-            const isDirty = dirtyRequestIds?.has(r.id)
+          {visibleItems.map((node, i) => {
+            const isCursor = i === cursorIndex
+            if (node.type === "folder") {
+              const chevron = node.hasChildren
+                ? node.expanded
+                  ? "\u25BE"
+                  : "\u25B8"
+                : "\u00A0"
+              return (
+                <box
+                  key={node.id}
+                  id={`so-${node.id}`}
+                  style={{
+                    flexDirection: "row",
+                    paddingLeft: node.depth * 2,
+                    backgroundColor: isCursor
+                      ? theme.backgroundElement
+                      : undefined,
+                  }}
+                  border={[...LeftBar.border]}
+                  customBorderChars={LeftBar.customBorderChars}
+                  borderColor={isCursor ? theme.primary : theme.backgroundPanel}
+                >
+                  <text fg={theme.textMuted}>{chevron} </text>
+                  <text fg={theme.textMuted}>{truncName(node.name, 20)}</text>
+                </box>
+              )
+            }
+            const isDirty = dirtyRequestIds?.has(node.id)
             return (
               <box
-                key={r.id}
-                id={`req-${i}`}
+                key={node.id}
+                id={`so-${node.id}`}
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  backgroundColor: isSelected
+                  paddingLeft: (node.depth + 1) * 2,
+                  backgroundColor: isCursor
                     ? theme.backgroundElement
                     : undefined,
                 }}
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
-                borderColor={isSelected ? theme.primary : theme.backgroundPanel}
+                borderColor={isCursor ? theme.primary : theme.backgroundPanel}
               >
                 <box style={{ flexDirection: "row" }}>
-                  <text fg={methodColor(r.method, theme)}>
-                    {shortMethod(r.method).padEnd(7)}
+                  <text
+                    fg={methodColor((node.method ?? "GET") as Method, theme)}
+                  >
+                    {shortMethod(node.method ?? "GET").padEnd(7)}
                   </text>
                   <text fg={theme.text} wrapMode="none">
-                    {truncName(r.name, 20)}
+                    {truncName(node.name, 20)}
                   </text>
                 </box>
-                {isDirty && <text fg={theme.warning}>●</text>}
+                {isDirty && <text fg={theme.warning}>\u25CF</text>}
               </box>
             )
           })}

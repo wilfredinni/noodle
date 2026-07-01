@@ -6,7 +6,7 @@ import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
 import { useCollection } from "../hooks/useCollection"
-import { useSidebarSelection } from "../hooks/useSidebarSelection"
+import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Request as NoodleRequest, Method } from "../schema"
@@ -41,8 +41,10 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
+import { getRequestIds } from "./tree"
 import { useUIState } from "./tabs/useUIState"
-import { saveLastRequest } from "./tabs/uiState"
+import { saveLastRequest, loadExpandedFolders, saveExpandedFolders } from "./tabs/uiState"
+import { FullBorder } from "./borders"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 
@@ -123,6 +125,8 @@ export function AppInner({
   const [requestDeletePending, setRequestDeletePending] = useState<
     string | null
   >(null)
+  const [initialExpandedFolders, setInitialExpandedFolders] =
+    useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -130,32 +134,34 @@ export function AppInner({
     collectionDir,
     collectionReloadToken,
   )
-  const requests = collection?.requests ?? []
+  const items = collection?.items ?? []
 
-  const { getTab, setTab } = useUIState(
-    collectionDir,
-    requests.map((r) => r.id),
-  )
+  const requestIds = getRequestIds(items)
+  const { getTab, setTab } = useUIState(collectionDir, requestIds)
+
+  useEffect(() => {
+    loadExpandedFolders(collectionDir).then(setInitialExpandedFolders)
+  }, [collectionDir])
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const {
-    selectedIndex,
+    selectedId,
     selectedRequest,
-    setSelectedIndex: setSelIdx,
-  } = useSidebarSelection(
-    requests,
+    expanded: expandedFolders,
+    visibleItems,
+    cursorIndex,
+    focusedFolderPath,
+    focusedFolderName,
+    expandFolder,
+  } = useTreeNavigation(
+    items,
     () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+    initialLastRequestId,
+    initialExpandedFolders ?? undefined,
   )
 
-  const initRef = useRef(false)
-
-  useEffect(() => {
-    if (initRef.current || requests.length === 0 || !initialLastRequestId)
-      return
-    const idx = requests.findIndex((r) => r.id === initialLastRequestId)
-    initRef.current = true
-    if (idx >= 0) setSelIdx(idx)
-  }, [requests, initialLastRequestId])
+  const newRequestFolderRef = useRef(focusedFolderPath)
+  newRequestFolderRef.current = focusedFolderPath
 
   useEffect(() => {
     setExpanded(null)
@@ -169,23 +175,44 @@ export function AppInner({
       saveLastReqRef.current = true
       return
     }
-    const req = requests[selectedIndex]
-    if (req) {
-      if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
-      saveLastDebounceRef.current = setTimeout(() => {
-        saveLastRequest(
-          collectionDir,
-          req.id,
-          new Set(requests.map((r) => r.id)),
-        ).catch((e: unknown) => {
+    const lastId = focusedFolderPath
+      ? `${focusedFolderPath}/`
+      : selectedId
+    if (!lastId) return
+    if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
+    saveLastDebounceRef.current = setTimeout(() => {
+      saveLastRequest(collectionDir, lastId, new Set(requestIds)).catch(
+        (e: unknown) => {
           console.error("Failed to save last request:", e)
-        })
-      }, 150)
-    }
+        },
+      )
+    }, 200)
     return () => {
       if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     }
-  }, [selectedIndex])
+  }, [selectedId, focusedFolderPath])
+
+  const expandedSaveRef = useRef(false)
+  const expandedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!expandedSaveRef.current) {
+      expandedSaveRef.current = true
+      return
+    }
+    if (expandedDebounceRef.current) clearTimeout(expandedDebounceRef.current)
+    expandedDebounceRef.current = setTimeout(() => {
+      saveExpandedFolders(collectionDir, expandedFolders).catch(
+        (e: unknown) => {
+          console.error("Failed to save expanded folders:", e)
+        },
+      )
+    }, 300)
+    return () => {
+      if (expandedDebounceRef.current)
+        clearTimeout(expandedDebounceRef.current)
+    }
+  }, [expandedFolders, collectionDir])
 
   const draft = useRequestDraft(selectedRequest)
 
@@ -232,8 +259,10 @@ export function AppInner({
 
   const handleNewRequestConfirm = useCallback(
     (name: string, method: Method, url: string) => {
-      const id = slugify(name)
-      if (!id) return
+      const baseId = slugify(name)
+      if (!baseId) return
+      const folder = newRequestFolderRef.current
+      const id = folder ? `${folder}/${baseId}` : baseId
 
       const req: NoodleRequest = {
         id,
@@ -252,6 +281,7 @@ export function AppInner({
 
       saveRequest(collectionDir, req)
         .then(() => {
+          if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
           setNewRequestVisible(false)
           setFocus("sidebar")
@@ -277,6 +307,7 @@ export function AppInner({
       setSaveState,
       clearSaveTimer,
       saveTimerRef,
+      expandFolder,
     ],
   )
 
@@ -284,8 +315,10 @@ export function AppInner({
     (newName: string) => {
       const req = selectedRequest
       if (!req) return
-      const id = slugify(newName)
-      if (!id) return
+      const baseId = slugify(newName)
+      if (!baseId) return
+      const lastSlash = req.id.lastIndexOf("/")
+      const id = lastSlash >= 0 ? `${req.id.slice(0, lastSlash)}/${baseId}` : baseId
 
       const cloned: NoodleRequest = {
         ...req,
@@ -433,10 +466,10 @@ export function AppInner({
               : editRequestVisible
                 ? "edit-request"
                 : cloneRequestVisible
-                ? "clone-request"
-                : requestDeletePending !== null
-                  ? "request-delete"
-                  : "none"
+                  ? "clone-request"
+                  : requestDeletePending !== null
+                    ? "request-delete"
+                    : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     helpVisible,
@@ -560,8 +593,11 @@ export function AppInner({
   const collectionRef = useRef(collection)
   collectionRef.current = collection
 
-  const selectedIndexRef = useRef(selectedIndex)
-  selectedIndexRef.current = selectedIndex
+  const selectedIdRef = useRef(selectedId)
+  selectedIdRef.current = selectedId
+
+  const folderViewRef = useRef(false)
+  folderViewRef.current = focusedFolderName !== null
 
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap(
@@ -572,7 +608,7 @@ export function AppInner({
       envStateRef,
       envEditorRef,
       collectionRef,
-      selectedIndexRef,
+      selectedIdRef,
       trySendRef,
       doSaveRef,
       focusRef,
@@ -580,6 +616,7 @@ export function AppInner({
       activeIndexRef,
       savingRef,
       expandedRef,
+      folderViewRef,
     },
     {
       setFocus,
@@ -683,10 +720,13 @@ export function AppInner({
             style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
           >
             <Sidebar
-              collection={collection}
+              items={items}
               loading={loading}
               error={error}
-              selectedIndex={selectedIndex}
+              visibleItems={visibleItems}
+              cursorIndex={cursorIndex}
+              selectedId={selectedId}
+              expanded={expandedFolders}
               focused={focus === "sidebar"}
               keybinds={keybinds}
               dirtyRequestIds={draft.dirtyRequestIds}
@@ -699,82 +739,103 @@ export function AppInner({
                 minHeight: 0,
               }}
             >
-              <UrlBar
-                method={draft.draft?.method ?? ""}
-                url={draft.draft?.url ?? ""}
-                params={draft.draft?.params ?? {}}
-                setUrl={draft.setUrl}
-                onDefocus={draft.syncUrlParams}
-                focused={focus === "urlbar"}
-                activeEnv={envState.activeEnv}
-              />
-              {layout === "side-by-side" ? (
+              {focusedFolderName !== null ? (
                 <box
                   style={{
-                    flexDirection: "row",
                     flexGrow: 1,
-                    gap: 1,
-                    minHeight: 0,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: theme.backgroundPanel,
                   }}
+                  border={[...FullBorder.border]}
+                  customBorderChars={FullBorder.customBorderChars}
+                  borderColor={focus === "folder" ? theme.primary : theme.borderSubtle}
+                  title="Folder"
+                  titleColor={focus === "folder" ? theme.primary : theme.textMuted}
+                  titleAlignment="left"
                 >
-                  {expanded !== "response" && (
-                    <RequestPane
-                      request={draft.draft}
-                      editState={eb.editState}
-                      editKey={eb.editKey}
-                      editValue={eb.editValue}
-                      setEditKey={eb.setEditKey}
-                      setEditValue={eb.setEditValue}
-                      focused={focus === "request"}
-                      activeTab={eb.activeTab}
-                      activeEnv={envState.activeEnv}
-                      onAuthTypeChange={draft.setAuthType}
-                      onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                      onBodyTypeChange={draft.setBodyType}
-                      onSelectOpenChange={setSelectOpen}
-                      expandHint={expandHint}
-                    />
-                  )}
-                  {expanded !== "request" && (
-                    <ResponsePane
-                      state={responseState}
-                      focused={focus === "response"}
-                      timelineEntries={timeline.entries}
-                      initialTab={initialResponseTab}
-                      onTabChange={onResponseTabChange}
-                      expandHint={expandHint}
-                    />
-                  )}
+                  <text fg={theme.textMuted}>{focusedFolderName}</text>
                 </box>
               ) : (
                 <>
-                  {expanded !== "response" && (
-                    <RequestPane
-                      request={draft.draft}
-                      editState={eb.editState}
-                      editKey={eb.editKey}
-                      editValue={eb.editValue}
-                      setEditKey={eb.setEditKey}
-                      setEditValue={eb.setEditValue}
-                      focused={focus === "request"}
-                      activeTab={eb.activeTab}
-                      activeEnv={envState.activeEnv}
-                      onAuthTypeChange={draft.setAuthType}
-                      onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                      onBodyTypeChange={draft.setBodyType}
-                      onSelectOpenChange={setSelectOpen}
-                      expandHint={expandHint}
-                    />
-                  )}
-                  {expanded !== "request" && (
-                    <ResponsePane
-                      state={responseState}
-                      focused={focus === "response"}
-                      timelineEntries={timeline.entries}
-                      initialTab={initialResponseTab}
-                      onTabChange={onResponseTabChange}
-                      expandHint={expandHint}
-                    />
+                  <UrlBar
+                    method={draft.draft?.method ?? ""}
+                    url={draft.draft?.url ?? ""}
+                    params={draft.draft?.params ?? {}}
+                    setUrl={draft.setUrl}
+                    onDefocus={draft.syncUrlParams}
+                    focused={focus === "urlbar"}
+                    activeEnv={envState.activeEnv}
+                  />
+                  {layout === "side-by-side" ? (
+                    <box
+                      style={{
+                        flexDirection: "row",
+                        flexGrow: 1,
+                        gap: 1,
+                        minHeight: 0,
+                      }}
+                    >
+                      {expanded !== "response" && (
+                        <RequestPane
+                          request={draft.draft}
+                          editState={eb.editState}
+                          editKey={eb.editKey}
+                          editValue={eb.editValue}
+                          setEditKey={eb.setEditKey}
+                          setEditValue={eb.setEditValue}
+                          focused={focus === "request"}
+                          activeTab={eb.activeTab}
+                          activeEnv={envState.activeEnv}
+                          onAuthTypeChange={draft.setAuthType}
+                          onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                          onBodyTypeChange={draft.setBodyType}
+                          onSelectOpenChange={setSelectOpen}
+                          expandHint={expandHint}
+                        />
+                      )}
+                      {expanded !== "request" && (
+                        <ResponsePane
+                          state={responseState}
+                          focused={focus === "response"}
+                          timelineEntries={timeline.entries}
+                          initialTab={initialResponseTab}
+                          onTabChange={onResponseTabChange}
+                          expandHint={expandHint}
+                        />
+                      )}
+                    </box>
+                  ) : (
+                    <>
+                      {expanded !== "response" && (
+                        <RequestPane
+                          request={draft.draft}
+                          editState={eb.editState}
+                          editKey={eb.editKey}
+                          editValue={eb.editValue}
+                          setEditKey={eb.setEditKey}
+                          setEditValue={eb.setEditValue}
+                          focused={focus === "request"}
+                          activeTab={eb.activeTab}
+                          activeEnv={envState.activeEnv}
+                          onAuthTypeChange={draft.setAuthType}
+                          onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                          onBodyTypeChange={draft.setBodyType}
+                          onSelectOpenChange={setSelectOpen}
+                          expandHint={expandHint}
+                        />
+                      )}
+                      {expanded !== "request" && (
+                        <ResponsePane
+                          state={responseState}
+                          focused={focus === "response"}
+                          timelineEntries={timeline.entries}
+                          initialTab={initialResponseTab}
+                          onTabChange={onResponseTabChange}
+                          expandHint={expandHint}
+                        />
+                      )}
+                    </>
                   )}
                 </>
               )}
