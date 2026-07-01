@@ -4,7 +4,7 @@ import type {
   LineNumberRenderable,
 } from "@opentui/core"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Request, Environment } from "../schema"
+import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 
@@ -32,7 +32,7 @@ interface Props {
   focused?: boolean
   activeTab: FieldKind
   activeEnv?: Environment | null
-  onAuthTypeChange?: (t: "none" | "bearer" | "basic" | "api_key") => void
+  onAuthTypeChange?: (t: Auth["type"]) => void
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
   onBodyTypeChange?: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
@@ -222,6 +222,7 @@ export function RequestPane({
                     onApiKeyPlacementChange ?? (() => {})
                   }
                   onSelectOpenChange={handleSelectOpenChange}
+                  showInherit={true}
                 />
               )}
               {activeTab === "settings" && (

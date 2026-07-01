@@ -9,6 +9,7 @@ import { VarText } from "./VarText"
 
 const AUTH_TYPE_ITEMS: SelectItem[] = [
   { id: "none", label: "None" },
+  { id: "inherit", label: "Inherit" },
   { id: "bearer", label: "Bearer Token" },
   { id: "basic", label: "Basic Auth" },
   { id: "api_key", label: "API Key" },
@@ -40,6 +41,9 @@ function maskIfSecret(value: string, isSecret: boolean): string {
 function getAuthRows(auth: Auth | undefined): AuthRows {
   if (!auth || auth.type === "none") {
     return { type: "none", fieldDefs: [] }
+  }
+  if (auth.type === "inherit") {
+    return { type: "inherit", fieldDefs: [] }
   }
   if (auth.type === "bearer") {
     return {
@@ -74,6 +78,7 @@ function getAuthRows(auth: Auth | undefined): AuthRows {
 
 function getFieldValue(auth: Auth, field: string): string {
   if (auth.type === "none") return ""
+  if (auth.type === "inherit") return ""
   if (auth.type === "bearer") return auth.token
   if (auth.type === "basic") {
     if (field === "user") return auth.user
@@ -97,10 +102,11 @@ export interface AuthEditorProps {
   setEditValue: (v: string) => void
   theme: Theme
   activeEnv?: Environment | null
-  onAuthTypeChange: (t: "none" | "bearer" | "basic" | "api_key") => void
+  onAuthTypeChange: (t: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
   idPrefix?: string
+  showInherit?: boolean
 }
 
 export function AuthEditor({
@@ -115,6 +121,7 @@ export function AuthEditor({
   onApiKeyPlacementChange,
   onSelectOpenChange,
   idPrefix = "auth",
+  showInherit = false,
 }: AuthEditorProps) {
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
@@ -126,6 +133,9 @@ export function AuthEditor({
   }, [setEditValue])
 
   const { type, fieldDefs } = getAuthRows(auth)
+  const authItems = showInherit
+    ? AUTH_TYPE_ITEMS
+    : AUTH_TYPE_ITEMS.filter((item) => item.id !== "inherit")
 
   const isTypeSelectorActive =
     browseActive &&
@@ -160,11 +170,11 @@ export function AuthEditor({
         }}
       >
         <Select
-          items={AUTH_TYPE_ITEMS}
+          items={authItems}
           value={type}
           onChange={(id) => {
             if (id === type) return
-            onAuthTypeChange(id as "none" | "bearer" | "basic" | "api_key")
+            onAuthTypeChange(id as Auth["type"])
           }}
           focused={isTypeSelectorActive}
           badge={false}
