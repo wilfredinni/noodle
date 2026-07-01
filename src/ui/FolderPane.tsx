@@ -89,36 +89,46 @@ export function FolderPane({
                 />
               )}
               {activeTab === "headers" && (
-                <KeyValueSection
-                  kind="headers"
-                  entries={Object.entries(
-                    folder.overrides?.headers ?? {},
-                  ).map(([key, value]) => ({ key, value }))}
-                  editState={editState}
-                  editKey={editKey}
-                  editValue={editValue}
-                  setEditKey={setEditKey}
-                  setEditValue={setEditValue}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                />
+                <box style={{ flexDirection: "column", gap: 1 }}>
+                  <text fg={theme.textMuted}>
+                    Headers sent with every request inside this folder.
+                  </text>
+                  <KeyValueSection
+                    kind="headers"
+                    entries={Object.entries(
+                      folder.overrides?.headers ?? {},
+                    ).map(([key, value]) => ({ key, value }))}
+                    editState={editState}
+                    editKey={editKey}
+                    editValue={editValue}
+                    setEditKey={setEditKey}
+                    setEditValue={setEditValue}
+                    theme={theme}
+                    activeEnv={activeEnv}
+                  />
+                </box>
               )}
               {activeTab === "auth" && (
-                <AuthEditor
-                  auth={folder.overrides?.auth ?? { type: "none" }}
-                  editState={editState}
-                  inEdit={inEdit}
-                  browseActive={browseActive}
-                  setEditValue={setEditValue}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                  onAuthTypeChange={onAuthTypeChange ?? (() => {})}
-                  onApiKeyPlacementChange={
-                    onApiKeyPlacementChange ?? (() => {})
-                  }
-                  onSelectOpenChange={onSelectOpenChange}
-                  showInherit={true}
-                />
+                <box style={{ flexDirection: "column", gap: 1 }}>
+                  <text fg={theme.textMuted}>
+                    Auth applied to every request inside this folder.
+                  </text>
+                  <AuthEditor
+                    auth={folder.overrides?.auth ?? { type: "none" }}
+                    editState={editState}
+                    inEdit={inEdit}
+                    browseActive={browseActive}
+                    setEditValue={setEditValue}
+                    theme={theme}
+                    activeEnv={activeEnv}
+                    onAuthTypeChange={onAuthTypeChange ?? (() => {})}
+                    onApiKeyPlacementChange={
+                      onApiKeyPlacementChange ?? (() => {})
+                    }
+                    onSelectOpenChange={onSelectOpenChange}
+                    showInherit={true}
+                  />
+                </box>
               )}
             </scrollbox>
           </Tabs>
