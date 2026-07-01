@@ -1,5 +1,5 @@
 export type FieldKind = "headers" | "params" | "body" | "auth" | "settings" | "meta"
-export type FolderFieldKind = "meta" | "headers" | "params" | "auth"
+export type FolderFieldKind = "meta" | "headers" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export interface FieldCursor {
@@ -26,7 +26,6 @@ export interface SectionRowCount {
 export interface FolderRowCount {
   meta: number
   headers: number
-  params: number
   auth: number
 }
 
@@ -41,7 +40,6 @@ export const FIELD_ORDER: FieldKind[] = [
 export const FOLDER_FIELD_ORDER: FolderFieldKind[] = [
   "meta",
   "headers",
-  "params",
   "auth",
 ]
 
@@ -85,7 +83,6 @@ export function enterFolderEditBrowse(
   counts: FolderRowCount = {
     meta: 0,
     headers: 0,
-    params: 0,
     auth: 0,
   },
   startField: FolderFieldKind = "meta",
@@ -139,7 +136,7 @@ export function folderCursorForField(
     case "auth":
       return { field, row: 0, addingRow: false }
   }
-  const count = field === "headers" ? counts.headers : counts.params
+  const count = counts.headers
   if (count === 0) {
     return { field, row: -1, addingRow: true }
   }
@@ -149,7 +146,7 @@ export function folderCursorForField(
 export function toggleSubfield(prev: EditState): EditState {
   if (prev.mode !== "editing") return prev
   const { field } = prev.cursor
-  if (field !== "headers" && field !== "params" && field !== "body" && field !== "meta") return prev
+  if (field !== "headers" && field !== "body" && field !== "meta") return prev
   const current = prev.cursor.subfield ?? "key"
   const next: "key" | "value" = current === "key" ? "value" : "key"
   return {
@@ -277,12 +274,11 @@ export function moveFolderRowCursor(
 ): EditState {
   if (prev.mode !== "browsing") return prev
   const { field } = prev.cursor
-  if (field !== "meta" && field !== "headers" && field !== "params" && field !== "auth") return prev
+  if (field !== "meta" && field !== "headers" && field !== "auth") return prev
 
   let count = 0
   if (field === "meta") count = counts.meta
   else if (field === "headers") count = counts.headers
-  else if (field === "params") count = counts.params
   else if (field === "auth") count = counts.auth
 
   if (count === 0) return prev
@@ -318,7 +314,7 @@ export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
   if (prev.cursor.field === "settings" && prev.cursor.row === 1) return prev
   const subfield: "key" | "value" | undefined =
-    prev.cursor.field === "headers" || prev.cursor.field === "params" || prev.cursor.field === "meta"
+    prev.cursor.field === "headers" || prev.cursor.field === "meta"
       ? "key"
       : prev.cursor.field === "body"
         ? "key"

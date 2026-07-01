@@ -53,7 +53,7 @@ export interface UseFolderEditBrowseOptions {
 }
 
 function folderRowCount(folder: Folder | null): FolderRowCount {
-  if (!folder) return { meta: 1, headers: 0, params: 0, auth: 1 }
+  if (!folder) return { meta: 1, headers: 0, auth: 1 }
   let authRows = 1
   const a = folder.overrides?.auth
   if (a) {
@@ -64,7 +64,7 @@ function folderRowCount(folder: Folder | null): FolderRowCount {
   return {
     meta: 1,
     headers: Object.keys(folder.overrides?.headers ?? {}).length,
-    params: Object.keys(folder.overrides?.params ?? {}).length,
+
     auth: authRows,
   }
 }
@@ -100,12 +100,9 @@ function folderCurrentValueFor(
     }
     return ""
   }
-  if (field === "headers" || field === "params") {
+  if (field === "headers") {
     if (addingRow) return ""
-    const rec =
-      field === "headers"
-        ? (folder.overrides?.headers ?? {})
-        : (folder.overrides?.params ?? {})
+    const rec = folder.overrides?.headers ?? {}
     const entries = Object.entries(rec)
     const entry = entries[row]
     return entry ? `${entry[0]}: ${entry[1].value}` : ""
@@ -121,11 +118,8 @@ function folderCurrentKeyValueFor(
 ): { key: string; value: string } {
   if (!folder) return { key: "", value: "" }
   if (addingRow) return { key: "", value: "" }
-  if (field === "headers" || field === "params") {
-    const rec =
-      field === "headers"
-        ? (folder.overrides?.headers ?? {})
-        : (folder.overrides?.params ?? {})
+  if (field === "headers") {
+    const rec = folder.overrides?.headers ?? {}
     const entries = Object.entries(rec)
     const entry = entries[row]
     return entry
@@ -329,21 +323,17 @@ export function useFolderEditBrowse(
             draftMutators.setAuthField("api_key", "value", val)
         }
       }
-    } else if (field === "headers" || field === "params") {
+    } else if (field === "headers") {
       const key = editKeyRef.current.trim()
       const value = editValueRef.current.trim()
       if (key === "") {
         if (!addingRow && row >= 0) {
-          if (field === "headers") draftMutators.removeHeaderRow(row)
-          else draftMutators.removeParamRow(row)
+          draftMutators.removeHeaderRow(row)
         }
       } else if (addingRow) {
-        if (field === "headers") draftMutators.addHeaderRow(key, value)
-        else draftMutators.addParamRow(key, value)
+        draftMutators.addHeaderRow(key, value)
       } else {
-        if (field === "headers")
-          draftMutators.setHeaderRow(row, key, value)
-        else draftMutators.setParamRow(row, key, value)
+        draftMutators.setHeaderRow(row, key, value)
       }
     }
     setEditState((prev) => commitEditing(prev))
@@ -369,8 +359,6 @@ export function useFolderEditBrowse(
     }
     if (field === "headers") {
       draftMutators.removeHeaderRow(row)
-    } else if (field === "params") {
-      draftMutators.removeParamRow(row)
     }
   }, [draftMutators])
 
@@ -384,7 +372,6 @@ export function useFolderEditBrowse(
     const { field, addingRow, row } = state.cursor
     if (addingRow) return
     if (field === "headers") draftMutators.toggleHeaderRow(row)
-    else if (field === "params") draftMutators.toggleParamRow(row)
   }, [draftMutators])
 
   const cycleInactiveTab = useCallback((delta: 1 | -1) => {
