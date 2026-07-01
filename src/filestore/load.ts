@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from "node:fs/promises"
+import { readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
@@ -21,7 +21,17 @@ const SKIP_DIRS = new Set([
 async function walk(
   absDir: string,
   relPath: string,
+  visited = new Set<string>(),
 ): Promise<CollectionItem[]> {
+  let resolved: string
+  try {
+    resolved = await realpath(absDir)
+  } catch {
+    return []
+  }
+  if (visited.has(resolved)) return []
+  visited.add(resolved)
+
   let entries
   try {
     entries = await readdir(absDir, { withFileTypes: true })
@@ -59,7 +69,7 @@ async function walk(
         }
       }
 
-      const children = await walk(childAbs, childRel)
+      const children = await walk(childAbs, childRel, visited)
       const folder: Folder = {
         id: entry.name,
         name: folderMeta.meta?.name ?? entry.name,

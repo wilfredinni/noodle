@@ -36,6 +36,13 @@ export function useTreeNavigation(
   const expandedRef = useRef(expanded)
   expandedRef.current = expanded
 
+  const vis = visibleNodes(items, expanded)
+  const visRef = useRef(vis)
+  visRef.current = vis
+
+  const cursorIndexRef = useRef(cursorIndex)
+  cursorIndexRef.current = cursorIndex
+
   const flatReqs = flattenRequests(items)
 
   const setSelectedId = useCallback((id: string) => {
@@ -69,8 +76,6 @@ export function useTreeNavigation(
     })
   }, [])
 
-  const vis = visibleNodes(items, expanded)
-
   useEffect(() => {
     if (flatReqs.length > 0) {
       let targetId: string | null = null
@@ -79,25 +84,30 @@ export function useTreeNavigation(
         if (found) targetId = initialSelectedId
       }
       if (!targetId) targetId = flatReqs[0].id
-      if (targetId !== selectedId) setSelectedIdState(targetId)
+      if (targetId !== selectedId) {
+        setSelectedIdState(targetId)
+        const parts = targetId.split("/")
+        if (parts.length > 1) {
+          setExpanded((prev) => {
+            const next = new Set(prev)
+            for (let i = 1; i < parts.length; i++) {
+              next.add(parts.slice(0, i).join("/"))
+            }
+            return next
+          })
+        }
+      }
     } else {
       setSelectedIdState(null)
     }
   }, [items])
 
-  useEffect(() => {
-    if (selectedId && vis.length > 0) {
-      const idx = vis.findIndex(
-        (n) => n.type === "request" && n.id === selectedId,
-      )
-      if (idx >= 0) setCursorIndex(idx)
-    }
-  }, [vis.length])
-
   useKeyboard((key) => {
     if (!enabled()) return
-    const len = vis.length
-    if (len === 0) return
+    const v = visRef.current
+    if (v.length === 0) return
+    const idx = cursorIndexRef.current
+    const node = v[idx]
 
     if (key.name === "up") {
       setCursorIndex((prev) => {
@@ -107,10 +117,9 @@ export function useTreeNavigation(
     } else if (key.name === "down") {
       setCursorIndex((prev) => {
         const next = prev + 1
-        return next >= len ? len - 1 : next
+        return next >= v.length ? v.length - 1 : next
       })
     } else if (key.name === "right") {
-      const node = vis[cursorIndex]
       if (
         node &&
         node.type === "folder" &&
@@ -120,17 +129,14 @@ export function useTreeNavigation(
         expandFolder(node.id)
       }
     } else if (key.name === "left") {
-      const node = vis[cursorIndex]
       if (node && node.type === "folder" && node.expanded) {
         collapseFolder(node.id)
       }
     } else if (key.name === "return") {
-      const node = vis[cursorIndex]
       if (node && node.type === "request") {
         setSelectedIdState(node.id)
       }
     } else if (key.name === "space") {
-      const node = vis[cursorIndex]
       if (node && node.type === "folder") {
         toggleFolder(node.id)
       }

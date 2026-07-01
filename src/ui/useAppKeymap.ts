@@ -277,24 +277,6 @@ export function useAppKeymap(
           setters.setRequestDeletePending(req.name)
         },
       },
-      {
-        name: "request.edit-enter",
-        enabled: () => keymap.getData("app.focus") === "request",
-        run: () => {
-          refs.ebRef.current.enterBrowse()
-          setters.setFocus("request")
-        },
-      },
-      {
-        name: "request.tab-prev",
-        enabled: () => keymap.getData("app.focus") === "request",
-        run: () => refs.ebRef.current.cycleInactiveTab(-1),
-      },
-      {
-        name: "request.tab-next",
-        enabled: () => keymap.getData("app.focus") === "request",
-        run: () => refs.ebRef.current.cycleInactiveTab(1),
-      },
     ],
     bindings: [
       { key: keybinds.request_send, cmd: "request.send" },
@@ -306,6 +288,34 @@ export function useAppKeymap(
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
       { key: keybinds.request_clone, cmd: "request.clone" },
       { key: keybinds.request_delete, cmd: "request.delete" },
+    ],
+  }))
+
+  // ── Keymap: Request Focus Layer ─────────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.mode") === "base" &&
+      keymap.getData("app.focus") === "request" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      {
+        name: "request.edit-enter",
+        run: () => {
+          refs.ebRef.current.enterBrowse()
+          setters.setFocus("request")
+        },
+      },
+      {
+        name: "request.tab-prev",
+        run: () => refs.ebRef.current.cycleInactiveTab(-1),
+      },
+      {
+        name: "request.tab-next",
+        run: () => refs.ebRef.current.cycleInactiveTab(1),
+      },
+    ],
+    bindings: [
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },
