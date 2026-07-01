@@ -108,26 +108,24 @@ export function ResponsePane({
       ? Math.max(...responseHeaders.map((h) => h.key.length))
       : 0
 
-  const statusCode = isDone ? (
+  const headerLeft = (
+    <text fg={theme.primary}>Response</text>
+  )
+
+  const headerRight = isDone ? (
     <text fg={statusColor(state.response.status, theme)}>
       {state.response.status}{state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}
     </text>
   ) : undefined
 
-  const headerLeft = isDone ? (
-    <box style={{ flexDirection: "row" }}>
-      <text fg={statusColor(state.response.status, theme)}>Response</text>
-      <text> </text>
-      {statusCode}
-    </box>
-  ) : (
-    <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
-  )
-
-  const headerRight = isDone ? (
-    <text fg={theme.textMuted}>
+  const footerRight = isDone ? (
+    <text fg={focused ? theme.primary : theme.textMuted}>
       {`${formatSize(new TextEncoder().encode(state.response.body).length)} in ${Math.round(state.response.timeMs)}ms`}
     </text>
+  ) : undefined
+
+  const footerLeft = focused ? (
+    <text fg={theme.primary}>{expandHint}</text>
   ) : undefined
 
   return (
@@ -146,15 +144,15 @@ export function ResponsePane({
       borderColor={borderColor}
       titleLeft={headerLeft}
       titleRight={headerRight}
-      bottomTitle={focused ? expandHint : undefined}
-      bottomTitleAlignment="right"
+      bottomLeft={footerLeft}
+      bottomRight={footerRight}
     >
       {state.status === "idle" ? (
         <Tips />
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
           <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
-          <text fg={theme.textMuted}>
+    <text fg={focused ? theme.primary : theme.textMuted}>
             Sending {state.request.method} {state.request.url}...
           </text>
         </box>
