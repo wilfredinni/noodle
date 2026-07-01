@@ -18,7 +18,11 @@ import { type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
 import { YamlEditorOverlay } from "./YamlEditorOverlay"
-import { NewRequestOverlay, slugify, type NewRequestOverlayHandle } from "./NewRequestOverlay"
+import {
+  NewRequestOverlay,
+  slugify,
+  type NewRequestOverlayHandle,
+} from "./NewRequestOverlay"
 import { saveRequest } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
@@ -87,9 +91,7 @@ export function AppInner({
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
-  const [expanded, setExpanded] = useState<"request" | "response" | null>(
-    null,
-  )
+  const [expanded, setExpanded] = useState<"request" | "response" | null>(null)
   const expandedRef = useRef(expanded)
   expandedRef.current = expanded
   const [confirmSelection, setConfirmSelection] = useState(0)
@@ -125,20 +127,19 @@ export function AppInner({
   )
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
-  const { selectedIndex, selectedRequest, setSelectedIndex: setSelIdx } =
-    useSidebarSelection(
-      requests,
-      () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
-    )
+  const {
+    selectedIndex,
+    selectedRequest,
+    setSelectedIndex: setSelIdx,
+  } = useSidebarSelection(
+    requests,
+    () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+  )
 
   const initRef = useRef(false)
 
   useEffect(() => {
-    if (
-      initRef.current ||
-      requests.length === 0 ||
-      !initialLastRequestId
-    )
+    if (initRef.current || requests.length === 0 || !initialLastRequestId)
       return
     const idx = requests.findIndex((r) => r.id === initialLastRequestId)
     initRef.current = true
@@ -150,9 +151,7 @@ export function AppInner({
   }, [selectedRequest?.id])
 
   const saveLastReqRef = useRef(false)
-  const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  )
+  const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!saveLastReqRef.current) {
@@ -161,8 +160,7 @@ export function AppInner({
     }
     const req = requests[selectedIndex]
     if (req) {
-      if (saveLastDebounceRef.current)
-        clearTimeout(saveLastDebounceRef.current)
+      if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
       saveLastDebounceRef.current = setTimeout(() => {
         saveLastRequest(
           collectionDir,
@@ -174,8 +172,7 @@ export function AppInner({
       }, 150)
     }
     return () => {
-      if (saveLastDebounceRef.current)
-        clearTimeout(saveLastDebounceRef.current)
+      if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     }
   }, [selectedIndex])
 
@@ -257,7 +254,14 @@ export function AppInner({
           }, 2000)
         })
     },
-    [collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef],
+    [
+      collectionDir,
+      setCollectionReloadToken,
+      setFocus,
+      setSaveState,
+      clearSaveTimer,
+      saveTimerRef,
+    ],
   )
 
   // ── keymap.setData effects ─────────────────────────────────────────
@@ -281,7 +285,14 @@ export function AppInner({
               ? "new-request"
               : "none"
     keymap.setData("app.overlay", overlay)
-  }, [helpVisible, previewIndex, saveState.kind, yamlEditor.visible, newRequestVisible, keymap])
+  }, [
+    helpVisible,
+    previewIndex,
+    saveState.kind,
+    yamlEditor.visible,
+    newRequestVisible,
+    keymap,
+  ])
 
   useEffect(() => {
     keymap.setData("app.view", view)
@@ -458,7 +469,8 @@ export function AppInner({
     newRequestVisible,
     newRequestRef,
     setNewRequestVisible,
-    onNewRequestConfirm: (v) => handleNewRequestConfirm(v.name, v.method as Method, v.url),
+    onNewRequestConfirm: (v) =>
+      handleNewRequestConfirm(v.name, v.method as Method, v.url),
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -717,12 +729,7 @@ export function AppInner({
             }}
           />
         )}
-        {newRequestVisible && (
-          <NewRequestOverlay
-            visible
-            ref={newRequestRef}
-          />
-        )}
+        {newRequestVisible && <NewRequestOverlay visible ref={newRequestRef} />}
       </box>
       <StatusBar
         method={draft.draft?.method ?? ""}

@@ -156,11 +156,7 @@ export const NewRequestOverlay = forwardRef<
       </box>
 
       {/* Error text */}
-      {errorText && (
-        <text fg={theme.error}>
-          {errorText}
-        </text>
-      )}
+      {errorText && <text fg={theme.error}>{errorText}</text>}
 
       {/* Separator */}
       <box style={{ height: 1, backgroundColor: theme.borderSubtle }} />

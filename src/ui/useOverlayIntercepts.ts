@@ -259,7 +259,13 @@ export function useOverlayIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [newRequestVisible, newRequestRef, setNewRequestVisible, onNewRequestConfirm, keymap])
+  }, [
+    newRequestVisible,
+    newRequestRef,
+    setNewRequestVisible,
+    onNewRequestConfirm,
+    keymap,
+  ])
 
   // ── Env Editor Mode ───────────────────────────────────────────────
   useEffect(() => {
