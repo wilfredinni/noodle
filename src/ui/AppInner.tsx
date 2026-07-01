@@ -180,6 +180,14 @@ export function AppInner({
   const folderEb = useFolderEditBrowse(focusedFolder, folderDraft)
   const folderEbRef = useRef(folderEb)
   folderEbRef.current = folderEb
+
+  const dirtyFolderPaths = useMemo(() => {
+    const s = new Set<string>()
+    if (folderDraft.isDirty && folderDraft.folderDraft) {
+      s.add(folderDraft.folderDraft.path)
+    }
+    return s
+  }, [folderDraft.isDirty, folderDraft.folderDraft])
   const folderDraftRef = useRef(folderDraft)
   folderDraftRef.current = folderDraft
 
@@ -799,6 +807,7 @@ export function AppInner({
               focused={focus === "sidebar"}
               keybinds={keybinds}
               dirtyRequestIds={draft.dirtyRequestIds}
+              dirtyFolderPaths={dirtyFolderPaths}
             />
             <box
               style={{

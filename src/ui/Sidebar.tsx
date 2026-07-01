@@ -26,6 +26,7 @@ export function Sidebar({
   focused = false,
   keybinds: _keybinds,
   dirtyRequestIds,
+  dirtyFolderPaths,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -37,6 +38,7 @@ export function Sidebar({
   focused?: boolean
   keybinds?: Keybinds
   dirtyRequestIds?: Set<string>
+  dirtyFolderPaths?: Set<string>
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -93,6 +95,7 @@ export function Sidebar({
                   ? "\u25BE"
                   : "\u25B8"
                 : "\u00A0"
+              const isFolderDirty = dirtyFolderPaths?.has(node.id)
               return (
                 <box
                   key={node.id}
@@ -110,6 +113,7 @@ export function Sidebar({
                 >
                   <text fg={theme.textMuted}>{chevron} </text>
                   <text fg={theme.textMuted}>{truncName(node.name, 20)}</text>
+                  {isFolderDirty && <text fg={theme.warning}> \u25CF</text>}
                 </box>
               )
             }
