@@ -1,25 +1,20 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
 import type { TimelineEntry } from "../schema"
-import { formatHeaders, formatBody, statusColor } from "./format"
+import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
-import { GradientBadge } from "./GradientBadge"
 import { Tips } from "./Tips"
+import { Frame } from "./Frame"
+import { Badge } from "./Badge"
 
 import { TimelineTab } from "./timeline/TimelineTab"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
-}
 
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
@@ -34,7 +29,6 @@ export function ResponsePane({
   initialTab,
   onTabChange,
   expandHint,
-  layout,
 }: {
   state: SendState
   focused?: boolean
@@ -42,7 +36,6 @@ export function ResponsePane({
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   expandHint?: string
-  layout?: "stacked" | "side-by-side"
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
@@ -116,8 +109,33 @@ export function ResponsePane({
       ? Math.max(...responseHeaders.map((h) => h.key.length))
       : 0
 
+  const bodySize = useMemo(() => {
+    if (state.status !== "done") return 0
+    return new TextEncoder().encode(state.response.body).length
+  }, [state.status, state.status === "done" ? state.response.body : null])
+
+  const headerLeft = (
+    <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
+  )
+
+  const headerRight = isDone ? (
+    <Badge bg={statusColor(state.response.status, theme)} fg={theme.background}>
+      {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}`}
+    </Badge>
+  ) : undefined
+
+  const footerRight = isDone ? (
+    <text fg={focused ? theme.primary : theme.textMuted}>
+      {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms`}
+    </text>
+  ) : undefined
+
+  const footerLeft = focused ? (
+    <text fg={theme.primary}>{expandHint}</text>
+  ) : undefined
+
   return (
-    <box
+    <Frame
       style={{
         flexGrow: 1,
         flexDirection: "column",
@@ -130,18 +148,17 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
-      title="Response"
-      titleColor={focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
-      bottomTitle={focused ? expandHint : undefined}
-      bottomTitleAlignment="right"
+      titleLeft={headerLeft}
+      titleRight={headerRight}
+      bottomLeft={footerLeft}
+      bottomRight={footerRight}
     >
       {state.status === "idle" ? (
         <Tips />
       ) : state.status === "sending" ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
           <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
-          <text fg={theme.textMuted}>
+          <text fg={focused ? theme.primary : theme.textMuted}>
             Sending {state.request.method} {state.request.url}...
           </text>
         </box>
@@ -221,32 +238,9 @@ export function ResponsePane({
                 )}
               </scrollbox>
             )}
-            </Tabs>
-          {state.response.statusText !== "" && (
-            <box
-              style={{
-                flexDirection: "row",
-                justifyContent: "flex-end",
-                flexShrink: 0,
-                paddingTop: 1,
-                ...(layout === "stacked"
-                  ? { paddingBottom: 1 }
-                  : { paddingRight: 1 }),
-              }}
-            >
-              <GradientBadge
-                colors={[
-                  statusColor(state.response.status, theme),
-                  theme.primary,
-                ]}
-                fg={theme.background}
-              >
-                {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""} • ${Math.round(state.response.timeMs)}ms • ${formatSize(new TextEncoder().encode(state.response.body).length)}`}
-              </GradientBadge>
-            </box>
-          )}
+          </Tabs>
         </box>
       )}
-    </box>
+    </Frame>
   )
 }
