@@ -60,6 +60,14 @@ describe("lang.parseFolder", () => {
     })
   })
 
+  it("throws on invalid auth api_key placement", () => {
+    expect(() =>
+      lang.parseFolder(
+        "auth:\n  type: api_key\n  key: X-API-Key\n  value: abc\n  placement: body\n",
+      ),
+    ).toThrow('placement must be "header" or "query"')
+  })
+
   it("throws on invalid YAML", () => {
     expect(() => lang.parseFolder("{ broken: : : ")).toThrow("YAML syntax")
   })

@@ -110,6 +110,11 @@ function parseFolderAuth(value: unknown): Auth {
         'lang.parseFolder: auth.api_key requires "key" and "value"',
       )
     }
+    if (a.placement !== undefined && a.placement !== "header" && a.placement !== "query") {
+      throw new Error(
+        `lang.parseFolder: auth.api_key placement must be "header" or "query", got "${String(a.placement)}"`,
+      )
+    }
     const placement = a.placement === "query" ? "query" : "header"
     return { type: "api_key", key: a.key, value: a.value, placement }
   }
