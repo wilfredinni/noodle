@@ -335,6 +335,7 @@ export function useAppKeymap(
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "browse" &&
+      keymap.getData("app.focus") !== "folder" &&
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
@@ -456,6 +457,7 @@ export function useAppKeymap(
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "edit" &&
+      keymap.getData("app.focus") !== "folder" &&
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
