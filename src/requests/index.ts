@@ -1,9 +1,15 @@
-import type { Environment, Request, Response } from "../schema"
+import type { Collection, Environment, Request, Response } from "../schema"
 import { send } from "./send"
 import { substitute } from "./substitute"
 
 export interface RequestExecutor {
-  send(req: Request, env?: Environment, signal?: AbortSignal): Promise<Response>
+  send(
+    req: Request,
+    env?: Environment,
+    signal?: AbortSignal,
+    collection?: Collection,
+    requestPath?: string,
+  ): Promise<Response>
 }
 
 export const executor: RequestExecutor = {

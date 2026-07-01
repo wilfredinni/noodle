@@ -619,7 +619,13 @@ export function AppInner({
     state: responseState,
     trySend,
     cancelSend,
-  } = useResponse(draft.draft, envState.activeEnv, onCompleteRef.current)
+  } = useResponse(
+    draft.draft,
+    envState.activeEnv,
+    onCompleteRef.current,
+    collection ?? undefined,
+    draft.draft?.id,
+  )
 
   const envEditor = useEnvironmentEditor({
     environmentsDir,
