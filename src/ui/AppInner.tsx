@@ -808,7 +808,7 @@ export function AppInner({
                 minHeight: 0,
               }}
             >
-              {focusedFolder !== null && focus === "folder" ? (
+              {focusedFolder !== null ? (
                 <FolderPane
                   folder={folderDraft.folderDraft}
                   focused={focus === "folder"}
