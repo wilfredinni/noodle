@@ -246,14 +246,14 @@ export function useOverlayIntercepts(opts: {
           }
           return
         }
-        if (e.name === "y") {
+        if (e.name === "s" && e.ctrl) {
           e.preventDefault()
           e.stopPropagation()
           const result = handle.confirm()
           if (result) onNewRequestConfirm(result)
           return
         }
-        if (e.name === "n" || e.name === "escape") {
+        if (e.name === "escape") {
           e.preventDefault()
           e.stopPropagation()
           setNewRequestVisible(false)

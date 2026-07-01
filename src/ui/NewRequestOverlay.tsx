@@ -176,11 +176,11 @@ export const NewRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>y</text>
-        <text fg={theme.textMuted}>confirm</text>
+        <text fg={theme.primary}>^S</text>
+        <text fg={theme.textMuted}>save</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={theme.primary}>n</text>
-        <text fg={theme.textMuted}>cancel</text>
+        <text fg={theme.primary}>esc</text>
+        <text fg={theme.textMuted}>close</text>
       </box>
     </Overlay>
   )
