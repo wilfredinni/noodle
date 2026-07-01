@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { findRequestById, findFolderByPath, flattenRequests, visibleNodes } from "../src/ui/tree"
-import type { CollectionItem, Folder, Request } from "../src/schema"
+import type { CollectionItem } from "../src/schema"
 
 function req(id: string, name?: string): CollectionItem {
   return {

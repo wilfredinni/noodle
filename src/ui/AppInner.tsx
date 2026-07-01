@@ -10,14 +10,13 @@ import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Folder, Request as NoodleRequest, Method } from "../schema"
+import type { Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
 import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
-import type { InputRenderable } from "@opentui/core"
 import { type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
@@ -52,7 +51,6 @@ import {
   loadExpandedFolders,
   saveExpandedFolders,
 } from "./tabs/uiState"
-import { FullBorder } from "./borders"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 
@@ -167,6 +165,7 @@ export function AppInner({
     initialLastRequestId,
     initialExpandedFolders ?? undefined,
   )
+  void focusedFolderName
 
   const focusedFolder = useMemo(
     () => (focusedFolderPath ? findFolderByPath(items, focusedFolderPath) : null),
