@@ -23,13 +23,13 @@ interface NewRequestOverlayProps {
 }
 
 export const METHOD_ITEMS: SelectItem[] = [
-  { id: "GET", label: "GET" },
-  { id: "POST", label: "POST" },
-  { id: "PUT", label: "PUT" },
-  { id: "PATCH", label: "PATCH" },
-  { id: "DELETE", label: "DEL" },
-  { id: "HEAD", label: "HEAD" },
-  { id: "OPTIONS", label: "OPTIONS" },
+  { id: "GET", label: "GET", color: "success" },
+  { id: "POST", label: "POST", color: "warning" },
+  { id: "PUT", label: "PUT", color: "warning" },
+  { id: "PATCH", label: "PATCH", color: "warning" },
+  { id: "DELETE", label: "DEL", color: "error" },
+  { id: "HEAD", label: "HEAD", color: "textMuted" },
+  { id: "OPTIONS", label: "OPTIONS", color: "textMuted" },
 ]
 
 function slugify(name: string): string {
@@ -137,6 +137,7 @@ export const NewRequestOverlay = forwardRef<
               value={method}
               onChange={(id) => setMethod(id as Method)}
               focused={focus === "method"}
+              badge
             />
             <box style={{ flexGrow: 1 }}>
               <input
