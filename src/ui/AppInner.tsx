@@ -170,8 +170,14 @@ export function AppInner({
     [focusedFolderPath, items],
   )
 
-  const newRequestFolderRef = useRef(focusedFolderPath)
-  newRequestFolderRef.current = focusedFolderPath
+  const requestParentFolder = useMemo(() => {
+    if (focusedFolderPath) return focusedFolderPath
+    if (selectedId && selectedId.includes("/"))
+      return selectedId.slice(0, selectedId.lastIndexOf("/"))
+    return null
+  }, [focusedFolderPath, selectedId])
+  const newRequestFolderRef = useRef(requestParentFolder)
+  newRequestFolderRef.current = requestParentFolder
 
   // ── Folder draft + edit-browse ────────────────────────────────────
   const folderDraft = useFolderDraft(focusedFolder)
