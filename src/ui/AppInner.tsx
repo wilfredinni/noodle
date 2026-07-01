@@ -9,11 +9,12 @@ import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest, Method } from "../schema"
+import type { Folder, Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
+import type { InputRenderable } from "@opentui/core"
 import { type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
@@ -27,7 +28,7 @@ import {
   CloneRequestOverlay,
   type CloneRequestOverlayHandle,
 } from "./CloneRequestOverlay"
-import { saveRequest, deleteRequest } from "../filestore/save"
+import { saveRequest, deleteRequest, saveFolder } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -41,9 +42,13 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
-import { getRequestIds } from "./tree"
+import { getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
-import { saveLastRequest, loadExpandedFolders, saveExpandedFolders } from "./tabs/uiState"
+import {
+  saveLastRequest,
+  loadExpandedFolders,
+  saveExpandedFolders,
+} from "./tabs/uiState"
 import { FullBorder } from "./borders"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
@@ -163,6 +168,24 @@ export function AppInner({
   const newRequestFolderRef = useRef(focusedFolderPath)
   newRequestFolderRef.current = focusedFolderPath
 
+  // ── Folder name editing ────────────────────────────────────────────
+  const [folderNameDraft, setFolderNameDraft] = useState(
+    focusedFolderName ?? "",
+  )
+  const folderNameInputRef = useRef<InputRenderable | null>(null)
+  const prevFolderFocus = useRef(false)
+
+  useEffect(() => {
+    setFolderNameDraft(focusedFolderName ?? "")
+  }, [focusedFolderName])
+
+  useEffect(() => {
+    if (focus === "folder" && !prevFolderFocus.current) {
+      folderNameInputRef.current?.focus()
+    }
+    prevFolderFocus.current = focus === "folder"
+  }, [focus])
+
   useEffect(() => {
     setExpanded(null)
   }, [selectedRequest?.id])
@@ -175,9 +198,7 @@ export function AppInner({
       saveLastReqRef.current = true
       return
     }
-    const lastId = focusedFolderPath
-      ? `${focusedFolderPath}/`
-      : selectedId
+    const lastId = focusedFolderPath ? `${focusedFolderPath}/` : selectedId
     if (!lastId) return
     if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     saveLastDebounceRef.current = setTimeout(() => {
@@ -209,8 +230,7 @@ export function AppInner({
       )
     }, 300)
     return () => {
-      if (expandedDebounceRef.current)
-        clearTimeout(expandedDebounceRef.current)
+      if (expandedDebounceRef.current) clearTimeout(expandedDebounceRef.current)
     }
   }, [expandedFolders, collectionDir])
 
@@ -256,6 +276,57 @@ export function AppInner({
 
   const doSaveRef = useRef(doSave)
   doSaveRef.current = doSave
+
+  // ── Folder name save ───────────────────────────────────────────────
+  const focusedFolderPathRef = useRef(focusedFolderPath)
+  focusedFolderPathRef.current = focusedFolderPath
+  const collectionRef2 = useRef(collection)
+  collectionRef2.current = collection
+  const folderNameDraftRef = useRef(folderNameDraft)
+  folderNameDraftRef.current = folderNameDraft
+  const [folderReloadToken, setFolderReloadToken] = useState(0)
+
+  const folderSaveRef = useRef<() => void>(() => {})
+
+  const handleFolderSave = useCallback(async () => {
+    const path = focusedFolderPathRef.current
+    const col = collectionRef2.current
+    const name = folderNameDraftRef.current.trim()
+    if (!path || !col || !name) return
+    const folder = findFolderByPath(col.items, path)
+    if (!folder) return
+    const updated: Folder = {
+      ...folder,
+      name,
+    }
+    try {
+      await saveFolder(collectionDir, updated)
+      folder.name = name
+      setFolderReloadToken((n) => n + 1)
+      setSaveState({
+        kind: "success",
+        message: `Renamed folder to ${name}`,
+      })
+      clearSaveTimer()
+      saveTimerRef.current = setTimeout(() => {
+        setSaveState({ kind: "idle" })
+      }, 2000)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setSaveState({ kind: "error", message: msg })
+      clearSaveTimer()
+      saveTimerRef.current = setTimeout(() => {
+        setSaveState({ kind: "idle" })
+      }, 2000)
+    }
+  }, [
+    collectionDir,
+    setSaveState,
+    clearSaveTimer,
+    saveTimerRef,
+  ])
+
+  folderSaveRef.current = handleFolderSave
 
   const handleNewRequestConfirm = useCallback(
     (name: string, method: Method, url: string) => {
@@ -318,7 +389,8 @@ export function AppInner({
       const baseId = slugify(newName)
       if (!baseId) return
       const lastSlash = req.id.lastIndexOf("/")
-      const id = lastSlash >= 0 ? `${req.id.slice(0, lastSlash)}/${baseId}` : baseId
+      const id =
+        lastSlash >= 0 ? `${req.id.slice(0, lastSlash)}/${baseId}` : baseId
 
       const cloned: NoodleRequest = {
         ...req,
@@ -617,6 +689,7 @@ export function AppInner({
       savingRef,
       expandedRef,
       folderViewRef,
+      folderSaveRef,
     },
     {
       setFocus,
@@ -749,12 +822,29 @@ export function AppInner({
                   }}
                   border={[...FullBorder.border]}
                   customBorderChars={FullBorder.customBorderChars}
-                  borderColor={focus === "folder" ? theme.primary : theme.borderSubtle}
+                  borderColor={
+                    focus === "folder" ? theme.primary : theme.borderSubtle
+                  }
                   title="Folder"
-                  titleColor={focus === "folder" ? theme.primary : theme.textMuted}
+                  titleColor={
+                    focus === "folder" ? theme.primary : theme.textMuted
+                  }
                   titleAlignment="left"
                 >
-                  <text fg={theme.textMuted}>{focusedFolderName}</text>
+                  <input
+                    ref={folderNameInputRef}
+                    value={folderNameDraft}
+                    placeholder="Folder name"
+                    onInput={setFolderNameDraft}
+                    focused={focus === "folder"}
+                    backgroundColor={theme.backgroundElement}
+                    focusedBackgroundColor={theme.borderSubtle}
+                    textColor={
+                      focus === "folder" ? theme.text : theme.textMuted
+                    }
+                    cursorColor={theme.primary}
+                    style={{ width: 40 }}
+                  />
                 </box>
               ) : (
                 <>

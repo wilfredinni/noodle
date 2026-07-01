@@ -151,4 +151,26 @@ describe("lang.serializeFolder", () => {
     const reparsed = lang.parseFolder(serialized)
     expect(reparsed.overrides?.auth).toEqual({ type: "none" })
   })
+
+  it("serializes folder renamed from dirname to custom name", () => {
+    const result = lang.serializeFolder({
+      id: "auth",
+      name: "Authentication",
+      path: "auth",
+      children: [],
+    })
+    expect(result).toContain("meta:")
+    expect(result).toContain("name: Authentication")
+  })
+
+  it("round-trips folder rename: serialize with new name -> parse gets meta.name", () => {
+    const serialized = lang.serializeFolder({
+      id: "posts",
+      name: "Blog Posts",
+      path: "posts",
+      children: [],
+    })
+    const parsed = lang.parseFolder(serialized)
+    expect(parsed.meta?.name).toBe("Blog Posts")
+  })
 })

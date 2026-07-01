@@ -84,6 +84,9 @@ export function hintForFocus(
     // editing
     return "[Enter] commit · [Esc] cancel"
   }
+  if (focus === "folder") {
+    return "[^S] save name · [Tab] next"
+  }
   // response
   return "[↑/↓/PgUp/PgDn] scroll · [Tab] next"
 }

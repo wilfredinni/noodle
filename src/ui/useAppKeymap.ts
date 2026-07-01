@@ -25,6 +25,7 @@ export interface UseAppKeymapRefs {
   savingRef: RefObject<boolean>
   expandedRef: RefObject<"request" | "response" | null>
   folderViewRef: RefObject<boolean>
+  folderSaveRef: RefObject<() => void>
 }
 
 export interface UseAppKeymapSetters {
@@ -206,6 +207,7 @@ export function useAppKeymap(
   useBindings(() => ({
     enabled: () =>
       keymap.getData("app.mode") === "base" &&
+      keymap.getData("app.focus") !== "folder" &&
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
@@ -376,6 +378,21 @@ export function useAppKeymap(
       { key: keybinds.request_save, cmd: "browse.save" },
       { key: keybinds.browse_toggle_form_type, cmd: "browse.toggle-form-type" },
     ],
+  }))
+
+  // ── Keymap: Folder Focus Layer ────────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.focus") === "folder" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      {
+        name: "folder.save",
+        run: () => refs.folderSaveRef.current(),
+      },
+    ],
+    bindings: [{ key: keybinds.request_save, cmd: "folder.save" }],
   }))
 
   // ── Keymap: Edit Layer ─────────────────────────────────────────────

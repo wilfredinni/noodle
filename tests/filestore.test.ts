@@ -327,6 +327,21 @@ describe("filestore.saveFolder — path validation", () => {
     const content = await readFile(join(dir, "my-folder", "folder.yml"), "utf8")
     expect(content).toContain("name: My Folder")
   })
+
+  it("overwrites folder.yml with new name on rename", async () => {
+    const folderPath = "rename-test"
+    await saveFolder(dir, makeFolder({ path: folderPath, name: "Old Name" }))
+    const before = await readFile(join(dir, folderPath, "folder.yml"), "utf8")
+    expect(before).toContain("name: Old Name")
+
+    await saveFolder(
+      dir,
+      makeFolder({ path: folderPath, name: "New Name" }),
+    )
+    const after = await readFile(join(dir, folderPath, "folder.yml"), "utf8")
+    expect(after).toContain("name: New Name")
+    expect(after).not.toContain("Old Name")
+  })
 })
 
 describe("filestore.deleteFolder — path validation", () => {

@@ -1,4 +1,18 @@
-import type { CollectionItem, Request } from "../schema"
+import type { CollectionItem, Folder, Request } from "../schema"
+
+export function findFolderByPath(
+  items: CollectionItem[],
+  path: string,
+): Folder | null {
+  for (const item of items) {
+    if (item.type === "folder") {
+      if (item.data.path === path) return item.data
+      const found = findFolderByPath(item.data.children, path)
+      if (found) return found
+    }
+  }
+  return null
+}
 
 export function findRequestById(
   items: CollectionItem[],
