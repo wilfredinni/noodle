@@ -32,12 +32,14 @@ export function ResponsePane({
   timelineEntries,
   initialTab,
   onTabChange,
+  expandHint,
 }: {
   state: SendState
   focused?: boolean
   timelineEntries?: TimelineEntry[]
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
+  expandHint?: string
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
@@ -128,6 +130,8 @@ export function ResponsePane({
       title="Response"
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
+      bottomTitle={expandHint}
+      bottomTitleAlignment="right"
     >
       {state.status === "idle" ? (
         <Tips />
