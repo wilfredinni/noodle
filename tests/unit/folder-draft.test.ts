@@ -117,37 +117,6 @@ describe("applyDraftOp", () => {
     expect(r?.overrides?.headers?.["X-New"]).toEqual({ value: "new", enabled: false })
   })
 
-  it("addParamRow adds to empty params", () => {
-    const f = makeFolder()
-    const r = applyDraftOp(f, { kind: "addParamRow", key: "page", value: "1" })
-    expect(r?.overrides?.params?.["page"]).toEqual({ value: "1", enabled: true })
-  })
-
-  it("removeParamRow deletes by index", () => {
-    const f = makeFolder({
-      overrides: { params: { p1: { value: "v1", enabled: true }, p2: { value: "v2", enabled: true } } },
-    })
-    const r = applyDraftOp(f, { kind: "removeParamRow", index: 1 })
-    expect(Object.keys(r?.overrides?.params ?? {})).toEqual(["p1"])
-  })
-
-  it("toggleParamRow toggles enabled", () => {
-    const f = makeFolder({
-      overrides: { params: { p1: { value: "v1", enabled: true } } },
-    })
-    const r = applyDraftOp(f, { kind: "toggleParamRow", index: 0 })
-    expect(r?.overrides?.params?.["p1"]?.enabled).toBe(false)
-  })
-
-  it("setParamRow updates key and value preserving enabled", () => {
-    const f = makeFolder({
-      overrides: { params: { "old-key": { value: "old", enabled: true } } },
-    })
-    const r = applyDraftOp(f, { kind: "setParamRow", index: 0, key: "new-key", value: "new" })
-    expect(Object.keys(r?.overrides?.params ?? {})).toEqual(["new-key"])
-    expect(r?.overrides?.params?.["new-key"]).toEqual({ value: "new", enabled: true })
-  })
-
   it("revert signals return to original (null)", () => {
     const f = makeFolder()
     const r = applyDraftOp(f, { kind: "revert" })
@@ -202,13 +171,6 @@ describe("folderEqual", () => {
     expect(folderEqual(a, b)).toBe(false)
   })
 
-  it("returns false for different params", () => {
-    const a = makeFolder({
-      overrides: { params: { p1: { value: "v1", enabled: true } } },
-    })
-    const b = makeFolder()
-    expect(folderEqual(a, b)).toBe(false)
-  })
 
   it("returns false for different auth", () => {
     const a = makeFolder({

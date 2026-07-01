@@ -49,14 +49,12 @@ function folderEditing(
 const defaultCounts: FolderRowCount = {
   meta: 3,
   headers: 3,
-  params: 3,
   auth: 3,
 }
 
 const emptyCounts: FolderRowCount = {
   meta: 0,
   headers: 0,
-  params: 0,
   auth: 0,
 }
 
@@ -73,7 +71,7 @@ describe("initialFolderEditState", () => {
 
 describe("FOLDER_FIELD_ORDER", () => {
   it("has correct order", () => {
-    expect(FOLDER_FIELD_ORDER).toEqual(["meta", "headers", "params", "auth"])
+    expect(FOLDER_FIELD_ORDER).toEqual(["meta", "headers", "auth"])
   })
 })
 
@@ -81,8 +79,7 @@ describe("folderFieldIndex", () => {
   it("maps field to index based on FOLDER_FIELD_ORDER", () => {
     expect(folderFieldIndex("meta")).toBe(0)
     expect(folderFieldIndex("headers")).toBe(1)
-    expect(folderFieldIndex("params")).toBe(2)
-    expect(folderFieldIndex("auth")).toBe(3)
+    expect(folderFieldIndex("auth")).toBe(2)
   })
 
   it("returns -1 for unknown field", () => {
@@ -111,10 +108,7 @@ describe("folderCursorForField", () => {
     expect(c).toEqual({ field: "headers", row: 0, addingRow: false })
   })
 
-  it("non-empty params returns row 0, addingRow false", () => {
-    const c = folderCursorForField("params", defaultCounts)
-    expect(c).toEqual({ field: "params", row: 0, addingRow: false })
-  })
+
 })
 
 describe("enterFolderEditBrowse", () => {
@@ -130,10 +124,10 @@ describe("enterFolderEditBrowse", () => {
     const result = enterFolderEditBrowse(
       folderInactive(),
       defaultCounts,
-      "params",
+      "auth",
     )
     expect(result.mode).toBe("browsing")
-    expect(result.cursor.field).toBe("params")
+    expect(result.cursor.field).toBe("auth")
     expect(result.cursor.row).toBe(0)
   })
 
@@ -171,27 +165,23 @@ describe("exitEditBrowse", () => {
 })
 
 describe("moveFolderFieldCursor", () => {
-  it("+1 walks meta → headers → params → auth → meta", () => {
+  it("+1 walks meta → headers → auth → meta", () => {
     const counts = emptyCounts
     const atMeta = enterFolderEditBrowse(folderInactive(), counts, "meta")
     const atHeaders = moveFolderFieldCursor(atMeta, 1, counts)
     expect(atHeaders.cursor.field).toBe("headers")
-    const atParams = moveFolderFieldCursor(atHeaders, 1, counts)
-    expect(atParams.cursor.field).toBe("params")
-    const atAuth = moveFolderFieldCursor(atParams, 1, counts)
+    const atAuth = moveFolderFieldCursor(atHeaders, 1, counts)
     expect(atAuth.cursor.field).toBe("auth")
     const backToMeta = moveFolderFieldCursor(atAuth, 1, counts)
     expect(backToMeta.cursor.field).toBe("meta")
   })
 
-  it("-1 walks meta → auth → params → headers → meta", () => {
+  it("-1 walks meta → auth → headers → meta", () => {
     const counts = emptyCounts
     const atMeta = enterFolderEditBrowse(folderInactive(), counts, "meta")
     const atAuth = moveFolderFieldCursor(atMeta, -1, counts)
     expect(atAuth.cursor.field).toBe("auth")
-    const atParams = moveFolderFieldCursor(atAuth, -1, counts)
-    expect(atParams.cursor.field).toBe("params")
-    const atHeaders = moveFolderFieldCursor(atParams, -1, counts)
+    const atHeaders = moveFolderFieldCursor(atAuth, -1, counts)
     expect(atHeaders.cursor.field).toBe("headers")
     const backToMeta = moveFolderFieldCursor(atHeaders, -1, counts)
     expect(backToMeta.cursor.field).toBe("meta")
@@ -206,21 +196,21 @@ describe("moveFolderFieldCursor", () => {
 
 describe("moveFolderRowCursor", () => {
   it("meta rows clamp: 0 → clamped at 0", () => {
-    const counts: FolderRowCount = { meta: 1, headers: 0, params: 0, auth: 0 }
+    const counts: FolderRowCount = { meta: 1, headers: 0, auth: 0 }
     const browsing = folderBrowsing("meta", 0)
     const step = moveFolderRowCursor(browsing, 1, counts)
     expect(step.cursor.row).toBe(0)
   })
 
   it("auth rows clamp", () => {
-    const counts: FolderRowCount = { meta: 0, headers: 0, params: 0, auth: 2 }
+    const counts: FolderRowCount = { meta: 0, headers: 0, auth: 2 }
     const browsing = folderBrowsing("auth", 1)
     const stepDown = moveFolderRowCursor(browsing, 1, counts)
     expect(stepDown.cursor.row).toBe(1)
   })
 
   it("headers addingRow wrap: 0 → 1 → [+] → 0 → 1", () => {
-    const counts: FolderRowCount = { meta: 0, headers: 2, params: 0, auth: 0 }
+    const counts: FolderRowCount = { meta: 0, headers: 2, auth: 0 }
     const at0 = folderBrowsing("headers", 0)
     const at1 = moveFolderRowCursor(at0, 1, counts)
     expect(at1.cursor.row).toBe(1)
@@ -235,18 +225,9 @@ describe("moveFolderRowCursor", () => {
     expect(backTo1.cursor.row).toBe(1)
   })
 
-  it("params addingRow wrap similar to headers", () => {
-    const counts: FolderRowCount = { meta: 0, headers: 0, params: 1, auth: 0 }
-    const browsing = folderBrowsing("params", 0)
-    const atPlus = moveFolderRowCursor(browsing, 1, counts)
-    expect(atPlus.cursor.addingRow).toBe(true)
-    const backTo0 = moveFolderRowCursor(atPlus, 1, counts)
-    expect(backTo0.cursor.row).toBe(0)
-    expect(backTo0.cursor.addingRow).toBe(false)
-  })
 
   it("headers backward wrap: [+] → last row, 0 → [+]", () => {
-    const counts: FolderRowCount = { meta: 0, headers: 3, params: 0, auth: 0 }
+    const counts: FolderRowCount = { meta: 0, headers: 3, auth: 0 }
     const at0 = folderBrowsing("headers", 0)
     const toPlus = moveFolderRowCursor(at0, -1, counts)
     expect(toPlus.cursor.addingRow).toBe(true)
