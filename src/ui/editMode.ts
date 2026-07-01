@@ -1,4 +1,5 @@
 export type FieldKind = "headers" | "params" | "body" | "auth" | "settings" | "meta"
+export type FolderFieldKind = "meta" | "headers" | "params" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export interface FieldCursor {
@@ -37,7 +38,7 @@ export const FIELD_ORDER: FieldKind[] = [
   "settings",
 ]
 
-export const FOLDER_FIELD_ORDER: FieldKind[] = [
+export const FOLDER_FIELD_ORDER: FolderFieldKind[] = [
   "meta",
   "headers",
   "params",
@@ -87,7 +88,7 @@ export function enterFolderEditBrowse(
     params: 0,
     auth: 0,
   },
-  startField: FieldKind = "meta",
+  startField: FolderFieldKind = "meta",
 ): EditState {
   if (prev.mode !== "inactive") return prev
   return {
@@ -106,7 +107,7 @@ function fieldIndex(field: FieldKind): number {
   return FIELD_ORDER.indexOf(field)
 }
 
-export function folderFieldIndex(field: FieldKind): number {
+export function folderFieldIndex(field: FolderFieldKind): number {
   return FOLDER_FIELD_ORDER.indexOf(field)
 }
 
@@ -130,7 +131,7 @@ function cursorForField(
 }
 
 export function folderCursorForField(
-  field: FieldKind,
+  field: FolderFieldKind,
   counts: FolderRowCount,
 ): FieldCursor {
   switch (field) {
@@ -178,7 +179,7 @@ export function moveFolderFieldCursor(
   counts: FolderRowCount,
 ): EditState {
   if (prev.mode !== "browsing") return prev
-  const idx = folderFieldIndex(prev.cursor.field)
+  const idx = folderFieldIndex(prev.cursor.field as FolderFieldKind)
   const nextIdx = (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
   const nextField = FOLDER_FIELD_ORDER[nextIdx]!
   return {

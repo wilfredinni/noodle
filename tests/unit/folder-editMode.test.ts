@@ -14,7 +14,7 @@ import {
   folderCursorForField,
   type EditState,
   type FolderRowCount,
-  type FieldKind,
+  type FolderFieldKind,
 } from "../../src/ui/editMode"
 
 function folderInactive(): EditState {
@@ -22,7 +22,7 @@ function folderInactive(): EditState {
 }
 
 function folderBrowsing(
-  field: FieldKind = "meta",
+  field: FolderFieldKind = "meta",
   row = 0,
   addingRow = false,
 ): EditState {
@@ -34,7 +34,7 @@ function folderBrowsing(
 }
 
 function folderEditing(
-  field: FieldKind = "meta",
+  field: FolderFieldKind = "meta",
   row = 0,
   subfield: "key" | "value" = "key",
   editingRow = 0,
@@ -86,7 +86,7 @@ describe("folderFieldIndex", () => {
   })
 
   it("returns -1 for unknown field", () => {
-    expect(folderFieldIndex("body" as FieldKind)).toBe(-1)
+    expect(folderFieldIndex("body" as FolderFieldKind)).toBe(-1)
   })
 })
 
@@ -109,6 +109,11 @@ describe("folderCursorForField", () => {
   it("non-empty headers returns row 0, addingRow false", () => {
     const c = folderCursorForField("headers", defaultCounts)
     expect(c).toEqual({ field: "headers", row: 0, addingRow: false })
+  })
+
+  it("non-empty params returns row 0, addingRow false", () => {
+    const c = folderCursorForField("params", defaultCounts)
+    expect(c).toEqual({ field: "params", row: 0, addingRow: false })
   })
 })
 
@@ -240,6 +245,17 @@ describe("moveFolderRowCursor", () => {
     const backTo0 = moveFolderRowCursor(atPlus, 1, counts)
     expect(backTo0.cursor.row).toBe(0)
     expect(backTo0.cursor.addingRow).toBe(false)
+  })
+
+  it("headers backward wrap: [+] → last row, 0 → [+]", () => {
+    const counts: FolderRowCount = { meta: 0, headers: 3, params: 0, auth: 0 }
+    const at0 = folderBrowsing("headers", 0)
+    const toPlus = moveFolderRowCursor(at0, -1, counts)
+    expect(toPlus.cursor.addingRow).toBe(true)
+    expect(toPlus.cursor.row).toBe(-1)
+    const toLast = moveFolderRowCursor(toPlus, -1, counts)
+    expect(toLast.cursor.row).toBe(counts.headers - 1)
+    expect(toLast.cursor.addingRow).toBe(false)
   })
 
   it("empty section is no-op", () => {
