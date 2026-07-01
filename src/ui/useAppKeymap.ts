@@ -81,7 +81,9 @@ export interface UseAppKeymapSetters {
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEditRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
-  setRequestDeletePending: (s: string | null | ((prev: string | null) => string | null)) => void
+  setRequestDeletePending: (
+    s: string | null | ((prev: string | null) => string | null),
+  ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
 }
 

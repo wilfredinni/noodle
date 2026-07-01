@@ -7,7 +7,9 @@ import type { Request, Collection } from "../src/schema"
 
 function reqs(col: Collection): Request[] {
   return col.items
-    .filter((i): i is { type: "request"; data: Request } => i.type === "request")
+    .filter(
+      (i): i is { type: "request"; data: Request } => i.type === "request",
+    )
     .map((i) => i.data)
 }
 
@@ -93,7 +95,10 @@ describe("filestore.loadCollection — file selection and order", () => {
   it("includes subdirectories as folders", async () => {
     await writeFile(join(dir, "real.yml"), yamlTmpl(makeReq()))
     await mkdir(join(dir, "sub"))
-    await writeFile(join(dir, "sub", "nested.yml"), yamlTmpl(makeReq({ name: "Nested", id: "nested" })))
+    await writeFile(
+      join(dir, "sub", "nested.yml"),
+      yamlTmpl(makeReq({ name: "Nested", id: "nested" })),
+    )
     const col = await filestore.loadCollection(dir)
     expect(col.items).toHaveLength(2)
     const reqItem = col.items.find((i) => i.type === "request")
@@ -342,14 +347,26 @@ describe("filestore.saveSettings", () => {
 
 describe("filestore — nested folders", () => {
   it("loads nested directory structure as tree", async () => {
-    await writeFile(join(dir, "root.yml"), yamlTmpl(makeReq({ id: "root", name: "Root" })))
+    await writeFile(
+      join(dir, "root.yml"),
+      yamlTmpl(makeReq({ id: "root", name: "Root" })),
+    )
 
     await mkdir(join(dir, "auth"))
-    await writeFile(join(dir, "auth", "login.yml"), yamlTmpl(makeReq({ id: "auth/login", name: "Login" })))
+    await writeFile(
+      join(dir, "auth", "login.yml"),
+      yamlTmpl(makeReq({ id: "auth/login", name: "Login" })),
+    )
 
     await mkdir(join(dir, "users"))
-    await writeFile(join(dir, "users", "folder.yml"), "meta:\n  name: User Management\n  seq: 1\n")
-    await writeFile(join(dir, "users", "list.yml"), yamlTmpl(makeReq({ id: "users/list", name: "List Users" })))
+    await writeFile(
+      join(dir, "users", "folder.yml"),
+      "meta:\n  name: User Management\n  seq: 1\n",
+    )
+    await writeFile(
+      join(dir, "users", "list.yml"),
+      yamlTmpl(makeReq({ id: "users/list", name: "List Users" })),
+    )
 
     const col = await filestore.loadCollection(dir)
 

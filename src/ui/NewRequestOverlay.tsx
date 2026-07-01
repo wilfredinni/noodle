@@ -47,7 +47,10 @@ function slugify(name: string): string {
 export const NewRequestOverlay = forwardRef<
   NewRequestOverlayHandle,
   NewRequestOverlayProps
->(function NewRequestOverlay({ visible, mode, initialName, initialMethod, initialUrl }, ref) {
+>(function NewRequestOverlay(
+  { visible, mode, initialName, initialMethod, initialUrl },
+  ref,
+) {
   const theme = useTheme()
   const isEdit = mode === "edit"
   const [name, setName] = useState("")
@@ -120,7 +123,9 @@ export const NewRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>{isEdit ? "Edit Request" : "New Request"}</text>
+        <text fg={theme.primary}>
+          {isEdit ? "Edit Request" : "New Request"}
+        </text>
         <text fg={theme.textMuted}>esc</text>
       </box>
 
@@ -159,18 +164,18 @@ export const NewRequestOverlay = forwardRef<
               badge
             />
             <box style={{ flexGrow: 1 }}>
-            <input
-              ref={urlRef}
-              value={url}
-              placeholder="Request URL"
-              onInput={setUrl}
-              focused={focus === "url"}
-              backgroundColor={theme.backgroundElement}
-              focusedBackgroundColor={theme.borderSubtle}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-              placeholderColor={theme.textMuted}
-            />
+              <input
+                ref={urlRef}
+                value={url}
+                placeholder="Request URL"
+                onInput={setUrl}
+                focused={focus === "url"}
+                backgroundColor={theme.backgroundElement}
+                focusedBackgroundColor={theme.borderSubtle}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+                placeholderColor={theme.textMuted}
+              />
             </box>
           </box>
         </box>

@@ -38,8 +38,14 @@ describe("lang.parseFolder", () => {
   })
 
   it("parses auth basic", () => {
-    const result = lang.parseFolder("auth:\n  type: basic\n  user: admin\n  pass: secret\n")
-    expect(result.overrides?.auth).toEqual({ type: "basic", user: "admin", pass: "secret" })
+    const result = lang.parseFolder(
+      "auth:\n  type: basic\n  user: admin\n  pass: secret\n",
+    )
+    expect(result.overrides?.auth).toEqual({
+      type: "basic",
+      user: "admin",
+      pass: "secret",
+    })
   })
 
   it("parses auth api_key", () => {
@@ -59,7 +65,9 @@ describe("lang.parseFolder", () => {
   })
 
   it("throws on non-mapping top level", () => {
-    expect(() => lang.parseFolder("- item\n")).toThrow("expected a YAML mapping")
+    expect(() => lang.parseFolder("- item\n")).toThrow(
+      "expected a YAML mapping",
+    )
   })
 })
 

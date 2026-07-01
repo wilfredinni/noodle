@@ -2,7 +2,13 @@ import { readdir, readFile, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
-import type { Collection, CollectionItem, CollectionSettings, Folder, Request } from "../schema"
+import type {
+  Collection,
+  CollectionItem,
+  CollectionSettings,
+  Folder,
+  Request,
+} from "../schema"
 
 const SKIP_DIRS = new Set([
   "environments",
@@ -12,7 +18,10 @@ const SKIP_DIRS = new Set([
   "node_modules",
 ])
 
-async function walk(absDir: string, relPath: string): Promise<CollectionItem[]> {
+async function walk(
+  absDir: string,
+  relPath: string,
+): Promise<CollectionItem[]> {
   let entries
   try {
     entries = await readdir(absDir, { withFileTypes: true })
@@ -32,7 +41,10 @@ async function walk(absDir: string, relPath: string): Promise<CollectionItem[]> 
       const childRel = relPath ? `${relPath}/${entry.name}` : entry.name
       const childAbs = join(absDir, entry.name)
 
-      let folderMeta: { meta?: import("../schema").FolderMeta; overrides?: import("../schema").FolderOverrides } = {}
+      let folderMeta: {
+        meta?: import("../schema").FolderMeta
+        overrides?: import("../schema").FolderOverrides
+      } = {}
       let folderYmlContent = ""
       try {
         folderYmlContent = await readFile(join(childAbs, "folder.yml"), "utf8")
@@ -85,7 +97,11 @@ async function walk(absDir: string, relPath: string): Promise<CollectionItem[]> 
 
       if (!/^timeout:\s/m.test(content)) {
         try {
-          await writeFile(join(absDir, entry.name), lang.serializeRequest(req), "utf8")
+          await writeFile(
+            join(absDir, entry.name),
+            lang.serializeRequest(req),
+            "utf8",
+          )
         } catch {
           /* migration non-critical */
         }
@@ -99,7 +115,9 @@ async function walk(absDir: string, relPath: string): Promise<CollectionItem[]> 
     if (sa !== undefined && sb !== undefined) return sa - sb
     if (sa !== undefined) return -1
     if (sb !== undefined) return 1
-    return (a.item.data as Folder).name.localeCompare((b.item.data as Folder).name)
+    return (a.item.data as Folder).name.localeCompare(
+      (b.item.data as Folder).name,
+    )
   })
   requests.sort((a, b) => a.name.localeCompare(b.name))
 
@@ -112,9 +130,12 @@ export async function loadCollection(dir: string): Promise<Collection> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if ((e as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`filestore.loadCollection: directory not found "${dir}"`, {
-        cause: e,
-      })
+      throw new Error(
+        `filestore.loadCollection: directory not found "${dir}"`,
+        {
+          cause: e,
+        },
+      )
     }
     throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
   }
@@ -139,7 +160,8 @@ export async function loadSettings(dir: string): Promise<CollectionSettings> {
     if (!data || typeof data !== "object") return {}
     const obj = data as Record<string, unknown>
     return {
-      environment: typeof obj.environment === "string" ? obj.environment : undefined,
+      environment:
+        typeof obj.environment === "string" ? obj.environment : undefined,
     }
   } catch {
     return {}

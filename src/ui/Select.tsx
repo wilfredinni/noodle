@@ -158,17 +158,21 @@ export function Select({
   }, [items, width])
 
   const dropdownMaxHeight = useMemo(
-    () => Math.min(maxDropdownHeight, items.reduce((s, i) => s + (i.description ? 2 : 1), 0)),
+    () =>
+      Math.min(
+        maxDropdownHeight,
+        items.reduce((s, i) => s + (i.description ? 2 : 1), 0),
+      ),
     [maxDropdownHeight, items],
   )
 
   return (
-      <box
-        style={{
-          flexDirection: "column",
-          ...(width !== undefined ? { width } : {}),
-        }}
-      >
+    <box
+      style={{
+        flexDirection: "column",
+        ...(width !== undefined ? { width } : {}),
+      }}
+    >
       <box style={{ position: "relative" }}>
         <box
           height={1}
@@ -247,7 +251,9 @@ export function Select({
                           item.id === value
                             ? theme.primary
                             : item.color
-                              ? (theme as unknown as Record<string, string>)[item.color] ?? theme.text
+                              ? ((theme as unknown as Record<string, string>)[
+                                  item.color
+                                ] ?? theme.text)
                               : theme.text,
                           isHighlighted ? TextAttributes.BOLD : undefined,
                         )}

@@ -387,7 +387,13 @@ export function useOverlayIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [cloneRequestVisible, cloneRequestRef, setCloneRequestVisible, onCloneRequestConfirm, keymap])
+  }, [
+    cloneRequestVisible,
+    cloneRequestRef,
+    setCloneRequestVisible,
+    onCloneRequestConfirm,
+    keymap,
+  ])
 
   // ── Overlay: Delete Request ────────────────────────────────────────
   useEffect(() => {
@@ -412,7 +418,12 @@ export function useOverlayIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [requestDeletePending, onRequestDeleteConfirm, setRequestDeletePending, keymap])
+  }, [
+    requestDeletePending,
+    onRequestDeleteConfirm,
+    setRequestDeletePending,
+    keymap,
+  ])
 
   // ── Env Editor Mode ───────────────────────────────────────────────
   useEffect(() => {

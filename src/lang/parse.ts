@@ -11,7 +11,13 @@ const METHODS: readonly Method[] = [
   "OPTIONS",
 ]
 
-const BODY_TYPES = ["none", "json", "multipart", "urlencoded", "binary"] as const
+const BODY_TYPES = [
+  "none",
+  "json",
+  "multipart",
+  "urlencoded",
+  "binary",
+] as const
 
 function isBodyType(s: string): s is BodyType {
   return (BODY_TYPES as readonly string[]).includes(s as BodyType)
@@ -122,9 +128,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     }
     formData = raw.form_data.map((item: unknown, i: number) => {
       if (typeof item !== "object" || item === null || Array.isArray(item)) {
-        throw new Error(
-          `lang.parseRequest: form_data[${i}] must be an object`,
-        )
+        throw new Error(`lang.parseRequest: form_data[${i}] must be an object`)
       }
       const obj = item as Record<string, unknown>
       if (typeof obj.name !== "string") {

@@ -175,7 +175,10 @@ describe("RequestPane scrollbox", () => {
 describe("Sidebar scrollbox", () => {
   it("renders without crashing with many requests", async () => {
     const requests = Array.from({ length: 50 }, (_, i) => makeRequest(i))
-    const items: CollectionItem[] = requests.map((r) => ({ type: "request", data: r }))
+    const items: CollectionItem[] = requests.map((r) => ({
+      type: "request",
+      data: r,
+    }))
     const visibleItems: VisibleNode[] = requests.map((r) => ({
       type: "request" as const,
       id: r.id,
@@ -216,7 +219,10 @@ describe("Sidebar scrollbox", () => {
 
   it("selected request has LeftBar border and no INVERSE instead of primary background", async () => {
     const requests = Array.from({ length: 5 }, (_, i) => makeRequest(i))
-    const items: CollectionItem[] = requests.map((r) => ({ type: "request", data: r }))
+    const items: CollectionItem[] = requests.map((r) => ({
+      type: "request",
+      data: r,
+    }))
     const visibleItems: VisibleNode[] = requests.map((r) => ({
       type: "request" as const,
       id: r.id,
@@ -266,7 +272,10 @@ describe("Sidebar scrollbox", () => {
 describe("App layout stability", () => {
   it("renders all three panes together without overflow", async () => {
     const requests = Array.from({ length: 50 }, (_, i) => makeRequest(i))
-    const items: CollectionItem[] = requests.map((r) => ({ type: "request", data: r }))
+    const items: CollectionItem[] = requests.map((r) => ({
+      type: "request",
+      data: r,
+    }))
     const visibleItems: VisibleNode[] = requests.map((r) => ({
       type: "request" as const,
       id: r.id,

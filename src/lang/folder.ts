@@ -1,5 +1,11 @@
 import yaml from "js-yaml"
-import type { Auth, Folder, FolderMeta, FolderOverrides, KvEntry } from "../schema"
+import type {
+  Auth,
+  Folder,
+  FolderMeta,
+  FolderOverrides,
+  KvEntry,
+} from "../schema"
 
 interface RawFolderMeta {
   name?: unknown
@@ -14,9 +20,10 @@ interface RawFolder {
   [k: string]: unknown
 }
 
-export function parseFolder(
-  yamlText: string,
-): { meta?: FolderMeta; overrides?: FolderOverrides } {
+export function parseFolder(yamlText: string): {
+  meta?: FolderMeta
+  overrides?: FolderOverrides
+} {
   let doc: unknown
   try {
     doc = yaml.load(yamlText)
@@ -33,7 +40,11 @@ export function parseFolder(
 
   let meta: FolderMeta | undefined
   if (raw.meta !== undefined) {
-    if (typeof raw.meta !== "object" || raw.meta === null || Array.isArray(raw.meta)) {
+    if (
+      typeof raw.meta !== "object" ||
+      raw.meta === null ||
+      Array.isArray(raw.meta)
+    ) {
       throw new Error('lang.parseFolder: "meta" must be a mapping')
     }
     const m = raw.meta as RawFolderMeta
@@ -43,7 +54,11 @@ export function parseFolder(
   }
 
   let overrides: FolderOverrides | undefined
-  if (raw.headers !== undefined || raw.params !== undefined || raw.auth !== undefined) {
+  if (
+    raw.headers !== undefined ||
+    raw.params !== undefined ||
+    raw.auth !== undefined
+  ) {
     overrides = {}
     if (raw.headers !== undefined) {
       overrides.headers = parseKvMap(raw.headers, "headers")
@@ -70,7 +85,9 @@ function parseKvMap(value: unknown, field: string): Record<string, KvEntry> {
     } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
       const obj = v as Record<string, unknown>
       if (typeof obj.value !== "string") {
-        throw new Error(`lang.parseFolder: ${field}.${k} must have string "value"`)
+        throw new Error(
+          `lang.parseFolder: ${field}.${k} must have string "value"`,
+        )
       }
       const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
       out[k] = { value: obj.value, enabled }
@@ -87,7 +104,13 @@ type RawFolderAuth =
   | { type: "none"; [k: string]: unknown }
   | { type: "bearer"; token: string; [k: string]: unknown }
   | { type: "basic"; user: string; pass: string; [k: string]: unknown }
-  | { type: "api_key"; key: string; value: string; placement?: string; [k: string]: unknown }
+  | {
+      type: "api_key"
+      key: string
+      value: string
+      placement?: string
+      [k: string]: unknown
+    }
   | { type: string; [k: string]: unknown }
 
 function parseFolderAuth(value: unknown): Auth {
@@ -97,7 +120,8 @@ function parseFolderAuth(value: unknown): Auth {
   const a = value as RawFolderAuth
   if (a.type === "none") return { type: "none" }
   if (a.type === "bearer") {
-    if (typeof a.token !== "string") throw new Error('lang.parseFolder: auth.bearer requires "token"')
+    if (typeof a.token !== "string")
+      throw new Error('lang.parseFolder: auth.bearer requires "token"')
     return { type: "bearer", token: a.token }
   }
   if (a.type === "basic") {
@@ -108,7 +132,9 @@ function parseFolderAuth(value: unknown): Auth {
   }
   if (a.type === "api_key") {
     if (typeof a.key !== "string" || typeof a.value !== "string") {
-      throw new Error('lang.parseFolder: auth.api_key requires "key" and "value"')
+      throw new Error(
+        'lang.parseFolder: auth.api_key requires "key" and "value"',
+      )
     }
     const placement = a.placement === "query" ? "query" : "header"
     return { type: "api_key", key: a.key, value: a.value, placement }

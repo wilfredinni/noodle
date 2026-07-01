@@ -37,9 +37,7 @@ function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
   writeMutex = new Promise<void>((r) => {
     resolve = r
   })
-  return prev
-    .then(() => fn())
-    .finally(() => resolve!())
+  return prev.then(() => fn()).finally(() => resolve!())
 }
 
 // ── Unified state writer ─────────────────────────────────────────────

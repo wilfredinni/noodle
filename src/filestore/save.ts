@@ -9,7 +9,9 @@ function validatePathId(id: string | undefined): void {
     throw new Error("filestore.validatePathId: missing or invalid id")
   }
   if (id.includes("\\") || id.includes("..")) {
-    throw new Error('filestore.validatePathId: id must not contain backslash or ".."')
+    throw new Error(
+      'filestore.validatePathId: id must not contain backslash or ".."',
+    )
   }
 }
 

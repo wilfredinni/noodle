@@ -33,11 +33,12 @@ function rowCount(req: Request | null): SectionRowCount {
     else if (a.type === "basic") authRows = 3
     else if (a.type === "api_key") authRows = 4
   }
-  const body = req.bodyType === "none"
-    ? 1
-    : req.bodyType === "urlencoded" || req.bodyType === "multipart"
-    ? 1 + (req.formData?.length ?? 0)
-    : 2
+  const body =
+    req.bodyType === "none"
+      ? 1
+      : req.bodyType === "urlencoded" || req.bodyType === "multipart"
+        ? 1 + (req.formData?.length ?? 0)
+        : 2
   return {
     headers: Object.keys(req.headers).length,
     params: Object.keys(req.params).length,
@@ -234,7 +235,7 @@ export function useEditBrowse(
   const activeTab =
     editState.mode !== "inactive"
       ? editState.cursor.field
-      : options?.initialTab ?? inactiveTab
+      : (options?.initialTab ?? inactiveTab)
 
   const enterBrowse = useCallback(() => {
     const c = rowCount(draftRef.current)
@@ -286,7 +287,11 @@ export function useEditBrowse(
         setEditState(browsed)
         return
       }
-      if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
+      if (
+        field === "body" &&
+        (bodyType === "multipart" || bodyType === "urlencoded") &&
+        !addingRow
+      ) {
         const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
         setEditKey(kv.key)
         setEditValue(kv.value)
@@ -376,7 +381,11 @@ export function useEditBrowse(
       if (field === "body" && bodyType === "none") {
         return
       }
-      if (field === "body" && (bodyType === "multipart" || bodyType === "urlencoded") && !addingRow) {
+      if (
+        field === "body" &&
+        (bodyType === "multipart" || bodyType === "urlencoded") &&
+        !addingRow
+      ) {
         const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
         setEditKey(kv.key)
         setEditValue(kv.value)
@@ -392,15 +401,18 @@ export function useEditBrowse(
     setEditState((prev) => beginEditing(prev))
   }, [])
 
-function detectFormType(value: string): { formType: "text" | "file"; cleanValue: string } {
-  const fileMatch = value.match(/^@file\((.+)\)$/)
-  if (fileMatch) {
-    return { formType: "file", cleanValue: fileMatch[1]! }
+  function detectFormType(value: string): {
+    formType: "text" | "file"
+    cleanValue: string
+  } {
+    const fileMatch = value.match(/^@file\((.+)\)$/)
+    if (fileMatch) {
+      return { formType: "file", cleanValue: fileMatch[1]! }
+    }
+    return { formType: "text", cleanValue: value }
   }
-  return { formType: "text", cleanValue: value }
-}
 
-const commitEdit = useCallback(() => {
+  const commitEdit = useCallback(() => {
     const state = editStateRef.current
     if (state.mode !== "editing") return
     const { field } = state.cursor

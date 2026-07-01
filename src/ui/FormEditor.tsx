@@ -46,7 +46,10 @@ export function FormEditor({
   const inEdit = editState.mode === "editing"
   const cursorHere = editState.cursor.field === "body"
   const editingRow =
-    inEdit && cursorHere && !editState.cursor.addingRow && editState.cursor.row >= 1
+    inEdit &&
+    cursorHere &&
+    !editState.cursor.addingRow &&
+    editState.cursor.row >= 1
       ? editState.cursor.row - 1
       : -1
   const editingAdd = inEdit && cursorHere && editState.cursor.addingRow

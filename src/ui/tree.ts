@@ -1,6 +1,9 @@
 import type { CollectionItem, Request } from "../schema"
 
-export function findRequestById(items: CollectionItem[], id: string): Request | null {
+export function findRequestById(
+  items: CollectionItem[],
+  id: string,
+): Request | null {
   for (const item of items) {
     if (item.type === "request" && item.data.id === id) return item.data
     if (item.type === "folder") {

@@ -307,7 +307,12 @@ describe("lang.parseRequest — body_type, form_data, file_path", () => {
     expect(req.bodyType).toBe("multipart")
     expect(req.formData).toEqual([
       { name: "username", value: "john", enabled: true, type: "text" },
-      { name: "avatar", value: "/path/to/photo.png", enabled: true, type: "file" },
+      {
+        name: "avatar",
+        value: "/path/to/photo.png",
+        enabled: true,
+        type: "file",
+      },
     ])
   })
 
@@ -654,7 +659,12 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
         bodyType: "multipart",
         formData: [
           { name: "username", value: "john", enabled: true, type: "text" },
-          { name: "avatar", value: "/p/photo.png", enabled: true, type: "file" },
+          {
+            name: "avatar",
+            value: "/p/photo.png",
+            enabled: true,
+            type: "file",
+          },
         ],
       }),
     )
@@ -716,7 +726,12 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
       bodyType: "multipart",
       formData: [
         { name: "title", value: "hello", enabled: true, type: "text" },
-        { name: "pic", value: "/Users/me/img.png", enabled: true, type: "file" },
+        {
+          name: "pic",
+          value: "/Users/me/img.png",
+          enabled: true,
+          type: "file",
+        },
       ],
     }
     const yaml = lang.serializeRequest(original)

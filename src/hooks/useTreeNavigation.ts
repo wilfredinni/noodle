@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { CollectionItem, Request } from "../schema"
-import { findRequestById, flattenRequests, visibleNodes, type VisibleNode } from "../ui/tree"
+import {
+  findRequestById,
+  flattenRequests,
+  visibleNodes,
+  type VisibleNode,
+} from "../ui/tree"
 
 export interface UseTreeNavigationResult {
   selectedId: string | null
@@ -82,7 +87,9 @@ export function useTreeNavigation(
 
   useEffect(() => {
     if (selectedId && vis.length > 0) {
-      const idx = vis.findIndex((n) => n.type === "request" && n.id === selectedId)
+      const idx = vis.findIndex(
+        (n) => n.type === "request" && n.id === selectedId,
+      )
       if (idx >= 0) setCursorIndex(idx)
     }
   }, [vis.length])
@@ -104,7 +111,12 @@ export function useTreeNavigation(
       })
     } else if (key.name === "right") {
       const node = vis[cursorIndex]
-      if (node && node.type === "folder" && !node.expanded && node.hasChildren) {
+      if (
+        node &&
+        node.type === "folder" &&
+        !node.expanded &&
+        node.hasChildren
+      ) {
         expandFolder(node.id)
       }
     } else if (key.name === "left") {
@@ -127,8 +139,11 @@ export function useTreeNavigation(
 
   const clampedCursor = Math.min(cursorIndex, Math.max(0, vis.length - 1))
   const focusedNode = vis[clampedCursor]
-  const focusedFolderPath = focusedNode?.type === "folder" ? focusedNode.id : null
-  const selectedRequest = selectedId ? findRequestById(itemsRef.current, selectedId) : null
+  const focusedFolderPath =
+    focusedNode?.type === "folder" ? focusedNode.id : null
+  const selectedRequest = selectedId
+    ? findRequestById(itemsRef.current, selectedId)
+    : null
 
   return {
     selectedId,

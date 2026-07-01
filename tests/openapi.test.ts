@@ -5,7 +5,9 @@ import type { Request, Collection } from "../src/schema"
 
 function reqs(col: Collection): Request[] {
   return col.items
-    .filter((i): i is { type: "request"; data: Request } => i.type === "request")
+    .filter(
+      (i): i is { type: "request"; data: Request } => i.type === "request",
+    )
     .map((i) => i.data)
 }
 
@@ -361,7 +363,9 @@ describe("mapCollection — name derivation and id dedupe", () => {
         },
       }),
     )
-    const ids = reqs(c).map((r) => r.id).sort()
+    const ids = reqs(c)
+      .map((r) => r.id)
+      .sort()
     expect(ids).toEqual(["get-users", "get-users-2", "get-users-3"])
   })
 })
@@ -1220,7 +1224,9 @@ describe("mapCollection — requestBody", () => {
               operationId: "postX",
               requestBody: {
                 content: {
-                  "multipart/form-data": { schema: { properties: { f: { type: "string" } } } },
+                  "multipart/form-data": {
+                    schema: { properties: { f: { type: "string" } } },
+                  },
                   "application/json": { schema: { example: { a: 1 } } },
                 },
               },
