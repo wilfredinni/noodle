@@ -1,0 +1,4 @@
+auth:
+  type: basic
+  user: user
+  pass: pass
