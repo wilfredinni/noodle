@@ -90,6 +90,7 @@ export function useTreeNavigation(
 
   useEffect(() => {
     if (flatReqs.length > 0) {
+      initialCursorSet.current = false
       if (initialSelectedId && initialSelectedId.endsWith("/")) return
       let targetId: string | null = null
       if (initialSelectedId) {
