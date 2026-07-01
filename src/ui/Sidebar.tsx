@@ -102,6 +102,7 @@ export function Sidebar({
                   id={`so-${node.id}`}
                   style={{
                     flexDirection: "row",
+                    justifyContent: "space-between",
                     paddingLeft: node.depth * 2,
                     backgroundColor: isCursor
                       ? theme.backgroundElement
@@ -111,9 +112,15 @@ export function Sidebar({
                   customBorderChars={LeftBar.customBorderChars}
                   borderColor={isCursor ? theme.primary : theme.backgroundPanel}
                 >
-                  <text fg={theme.textMuted}>{chevron} </text>
-                  <text fg={theme.textMuted}>{truncName(node.name, 20)}</text>
-                  {isFolderDirty && <text fg={theme.warning}> \u25CF</text>}
+                  <box style={{ flexDirection: "row" }}>
+                    <text fg={theme.textMuted}>{chevron} </text>
+                    <text fg={theme.textMuted} wrapMode="none">
+                      {truncName(node.name, 20)}
+                    </text>
+                  </box>
+                  {isFolderDirty && (
+                    <text fg={theme.warning}>{`\u25CF`}</text>
+                  )}
                 </box>
               )
             }
