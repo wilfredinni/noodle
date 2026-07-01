@@ -53,7 +53,6 @@ export const NewRequestOverlay = forwardRef<
 
   const nameRef = useRef<InputRenderable | null>(null)
   const urlRef = useRef<InputRenderable | null>(null)
-  const [selectOpen, setSelectOpen] = useState(false)
 
   const focusOrder: Array<"name" | "method" | "url"> = ["name", "method", "url"]
 
@@ -69,10 +68,7 @@ export const NewRequestOverlay = forwardRef<
     commitField: () => {
       if (focus === "name") {
         setFocus("method")
-      } else if (focus === "method") {
-        setSelectOpen(true)
       }
-      // focus === "url" handled by useOverlayIntercepts (y equivalent)
     },
     confirm: () => {
       if (name.trim() === "") {
@@ -96,14 +92,7 @@ export const NewRequestOverlay = forwardRef<
     }
   }, [visible])
 
-  // Auto-focus name input when overlay opens
-  useEffect(() => {
-    if (visible && focus === "name") {
-      nameRef.current?.focus()
-    }
-  }, [visible])
-
-  // Manage input focus based on focus state
+  // Auto-focus based on focus state
   useEffect(() => {
     if (focus === "name") nameRef.current?.focus()
     else if (focus === "url") urlRef.current?.focus()
@@ -150,7 +139,6 @@ export const NewRequestOverlay = forwardRef<
           value={method}
           onChange={(id) => setMethod(id as Method)}
           focused={focus === "method"}
-          onOpenChange={setSelectOpen}
         />
         <box style={{ flexGrow: 1 }}>
           <input

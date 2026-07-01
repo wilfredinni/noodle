@@ -106,6 +106,7 @@ export function AppInner({
     envDeletePendingRef.current = envDeletePending
   }, [envDeletePending])
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const headerFieldRef = useRef<"name" | "color">("name")
 
