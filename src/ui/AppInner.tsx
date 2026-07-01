@@ -806,7 +806,7 @@ export function AppInner({
         {cloneRequestVisible && (
           <CloneRequestOverlay
             visible
-            initialName={selectedRequest?.name ?? ""}
+            initialName={selectedRequest ? `${selectedRequest.name} - Copy` : ""}
             ref={cloneRequestRef}
           />
         )}
