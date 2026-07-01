@@ -232,12 +232,16 @@ export function useOverlayIntercepts(opts: {
           return
         }
         if (e.name === "return") {
-          e.preventDefault()
-          e.stopPropagation()
           if (handle.getFocus() === "url") {
+            e.preventDefault()
+            e.stopPropagation()
             const result = handle.confirm()
             if (result) onNewRequestConfirm(result)
+          } else if (handle.getFocus() === "method") {
+            return
           } else {
+            e.preventDefault()
+            e.stopPropagation()
             handle.commitField()
           }
           return
