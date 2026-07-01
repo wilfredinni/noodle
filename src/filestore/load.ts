@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath, writeFile } from "node:fs/promises"
+import { lstat, readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
@@ -26,7 +26,14 @@ async function walk(
 ): Promise<CollectionItem[]> {
   let resolved: string
   try {
-    resolved = await realpath(absDir)
+    const stat = await lstat(absDir)
+    if (stat.isSymbolicLink()) {
+      resolved = await realpath(absDir)
+    } else if (root !== undefined) {
+      resolved = relPath ? join(root, relPath) : root
+    } else {
+      resolved = absDir
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })

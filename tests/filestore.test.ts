@@ -503,4 +503,15 @@ describe("filestore — symlink handling", () => {
     // Should load without infinite loop
     expect(col.items.some((i) => i.type === "folder" && i.data.name === "cycle-a")).toBe(true)
   })
+
+  it("loads collection under path with symlinked parent components", async () => {
+    await writeFile(join(dir, "root.yml"), yamlTmpl(makeReq({ id: "root", name: "Root" })))
+    await mkdir(join(dir, "sub"))
+    await writeFile(join(dir, "sub", "nested.yml"), yamlTmpl(makeReq({ id: "sub/nested", name: "Nested" })))
+
+    const col = await filestore.loadCollection(dir)
+    expect(col.items).toHaveLength(2)
+    expect(col.items.some((i) => i.type === "request" && i.data.id === "root")).toBe(true)
+    expect(col.items.some((i) => i.type === "folder")).toBe(true)
+  })
 })
