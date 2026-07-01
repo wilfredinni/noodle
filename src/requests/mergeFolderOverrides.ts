@@ -38,33 +38,35 @@ export function mergeFolderOverrides(
   if (folders.length === 0) return request
 
   let mergedHeaders: Record<string, KvEntry> = {}
-  let mergedParams: Record<string, KvEntry> = {}
-
   for (const folder of folders) {
     if (folder.overrides?.headers) {
       mergedHeaders = mergeKv(mergedHeaders, folder.overrides.headers, request.headers)
     }
-    if (folder.overrides?.params) {
-      mergedParams = mergeKv(mergedParams, folder.overrides.params, request.params)
-    }
   }
 
-  let mergedAuth: Auth = { type: "none" }
-  for (const folder of folders) {
-    if (folder.overrides?.auth && folder.overrides.auth.type !== "none") {
-      mergedAuth = folder.overrides.auth
-    }
-  }
+  const requestAuth: Auth = request.auth ?? { type: "none" }
 
-  const requestAuth = request.auth ?? { type: "none" }
-  if (requestAuth.type !== "none") {
-    mergedAuth = requestAuth
+  if (requestAuth.type === "inherit") {
+    const reversed = [...folders].reverse()
+    for (const folder of reversed) {
+      if (folder.overrides?.auth && folder.overrides.auth.type !== "none" && folder.overrides.auth.type !== "inherit") {
+        return {
+          ...request,
+          headers: { ...mergedHeaders, ...request.headers },
+          auth: folder.overrides.auth,
+        }
+      }
+    }
+    return {
+      ...request,
+      headers: { ...mergedHeaders, ...request.headers },
+      auth: { type: "none" },
+    }
   }
 
   return {
     ...request,
     headers: { ...mergedHeaders, ...request.headers },
-    params: { ...mergedParams, ...request.params },
-    auth: mergedAuth,
+    auth: requestAuth,
   }
 }
