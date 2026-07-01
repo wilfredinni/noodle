@@ -6,10 +6,10 @@ import type { CollectionSettings, Folder, Request } from "../schema"
 
 function validatePathId(id: string | undefined): void {
   if (!id) {
-    throw new Error("filestore: missing or invalid id")
+    throw new Error("filestore.validatePathId: missing or invalid id")
   }
   if (id.includes("\\") || id.includes("..")) {
-    throw new Error('filestore: id must not contain backslash or ".."')
+    throw new Error('filestore.validatePathId: id must not contain backslash or ".."')
   }
 }
 
@@ -49,6 +49,7 @@ export async function deleteRequest(dir: string, id: string): Promise<void> {
 }
 
 export async function saveFolder(dir: string, folder: Folder): Promise<void> {
+  validatePathId(folder.path)
   const folderDir = join(dir, folder.path)
 
   try {
