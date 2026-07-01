@@ -9,7 +9,7 @@ import { useCollection } from "../hooks/useCollection"
 import { useSidebarSelection } from "../hooks/useSidebarSelection"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest } from "../schema"
+import type { Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
@@ -18,6 +18,16 @@ import { type Focus } from "./focus"
 import { HelpOverlay } from "./HelpOverlay"
 import { ConfirmOverlay } from "./ConfirmOverlay"
 import { YamlEditorOverlay } from "./YamlEditorOverlay"
+import {
+  NewRequestOverlay,
+  slugify,
+  type NewRequestOverlayHandle,
+} from "./NewRequestOverlay"
+import {
+  CloneRequestOverlay,
+  type CloneRequestOverlayHandle,
+} from "./CloneRequestOverlay"
+import { saveRequest, deleteRequest } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -85,9 +95,7 @@ export function AppInner({
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
-  const [expanded, setExpanded] = useState<"request" | "response" | null>(
-    null,
-  )
+  const [expanded, setExpanded] = useState<"request" | "response" | null>(null)
   const expandedRef = useRef(expanded)
   expandedRef.current = expanded
   const [confirmSelection, setConfirmSelection] = useState(0)
@@ -106,6 +114,11 @@ export function AppInner({
     envDeletePendingRef.current = envDeletePending
   }, [envDeletePending])
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
+  const [newRequestVisible, setNewRequestVisible] = useState(false)
+  const newRequestRef = useRef<NewRequestOverlayHandle>(null)
+  const [cloneRequestVisible, setCloneRequestVisible] = useState(false)
+  const cloneRequestRef = useRef<CloneRequestOverlayHandle>(null)
+  const [requestDeletePending, setRequestDeletePending] = useState<string | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -121,20 +134,19 @@ export function AppInner({
   )
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
-  const { selectedIndex, selectedRequest, setSelectedIndex: setSelIdx } =
-    useSidebarSelection(
-      requests,
-      () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
-    )
+  const {
+    selectedIndex,
+    selectedRequest,
+    setSelectedIndex: setSelIdx,
+  } = useSidebarSelection(
+    requests,
+    () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+  )
 
   const initRef = useRef(false)
 
   useEffect(() => {
-    if (
-      initRef.current ||
-      requests.length === 0 ||
-      !initialLastRequestId
-    )
+    if (initRef.current || requests.length === 0 || !initialLastRequestId)
       return
     const idx = requests.findIndex((r) => r.id === initialLastRequestId)
     initRef.current = true
@@ -146,9 +158,7 @@ export function AppInner({
   }, [selectedRequest?.id])
 
   const saveLastReqRef = useRef(false)
-  const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  )
+  const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!saveLastReqRef.current) {
@@ -157,8 +167,7 @@ export function AppInner({
     }
     const req = requests[selectedIndex]
     if (req) {
-      if (saveLastDebounceRef.current)
-        clearTimeout(saveLastDebounceRef.current)
+      if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
       saveLastDebounceRef.current = setTimeout(() => {
         saveLastRequest(
           collectionDir,
@@ -170,8 +179,7 @@ export function AppInner({
       }, 150)
     }
     return () => {
-      if (saveLastDebounceRef.current)
-        clearTimeout(saveLastDebounceRef.current)
+      if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     }
   }, [selectedIndex])
 
@@ -218,6 +226,117 @@ export function AppInner({
   const doSaveRef = useRef(doSave)
   doSaveRef.current = doSave
 
+  const handleNewRequestConfirm = useCallback(
+    (name: string, method: Method, url: string) => {
+      const id = slugify(name)
+      if (!id) return
+
+      const req: NoodleRequest = {
+        id,
+        name,
+        method,
+        url,
+        timeout: 0,
+        followRedirects: true,
+        maxRedirects: 5,
+        headers: {},
+        params: {},
+        auth: { type: "none" },
+        bodyType: "none",
+        body: "",
+      }
+
+      saveRequest(collectionDir, req)
+        .then(() => {
+          setCollectionReloadToken((n) => n + 1)
+          setNewRequestVisible(false)
+          setFocus("sidebar")
+          setSaveState({ kind: "success", message: `Created ${name}` })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e)
+          setSaveState({ kind: "error", message: msg })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+    },
+    [
+      collectionDir,
+      setCollectionReloadToken,
+      setFocus,
+      setSaveState,
+      clearSaveTimer,
+      saveTimerRef,
+    ],
+  )
+
+  const handleCloneRequestConfirm = useCallback(
+    (newName: string) => {
+      const req = selectedRequest
+      if (!req) return
+      const id = slugify(newName)
+      if (!id) return
+
+      const cloned: NoodleRequest = {
+        ...req,
+        id,
+        name: newName,
+      }
+
+      saveRequest(collectionDir, cloned)
+        .then(() => {
+          setCollectionReloadToken((n) => n + 1)
+          setCloneRequestVisible(false)
+          setFocus("sidebar")
+          setSaveState({ kind: "success", message: `Cloned ${newName}` })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e)
+          setSaveState({ kind: "error", message: msg })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+    },
+    [selectedRequest, collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef],
+  )
+
+  const handleRequestDeleteConfirm = useCallback(() => {
+    const req = selectedRequest
+    if (!req) return
+
+    deleteRequest(collectionDir, req.id)
+      .then(() => {
+        setCollectionReloadToken((n) => n + 1)
+        setRequestDeletePending(null)
+        setFocus("sidebar")
+        setSaveState({ kind: "success", message: `Deleted ${req.name}` })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
+      })
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e)
+        setSaveState({ kind: "error", message: msg })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
+      })
+  }, [selectedRequest, collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef])
+
   // ── keymap.setData effects ─────────────────────────────────────────
   useEffect(() => {
     keymap.setData("app.focus", focus)
@@ -235,9 +354,24 @@ export function AppInner({
           ? "confirm"
           : yamlEditor.visible
             ? "yaml-editor"
-            : "none"
+            : newRequestVisible
+              ? "new-request"
+              : cloneRequestVisible
+                ? "clone-request"
+                : requestDeletePending !== null
+                  ? "request-delete"
+                  : "none"
     keymap.setData("app.overlay", overlay)
-  }, [helpVisible, previewIndex, saveState.kind, yamlEditor.visible, keymap])
+  }, [
+    helpVisible,
+    previewIndex,
+    saveState.kind,
+    yamlEditor.visible,
+    newRequestVisible,
+    cloneRequestVisible,
+    requestDeletePending,
+    keymap,
+  ])
 
   useEffect(() => {
     keymap.setData("app.view", view)
@@ -380,6 +514,9 @@ export function AppInner({
       setPreviewIndex: setPreviewIndexProp,
       setEnvDeletePending,
       setDeleteConfirmSelection,
+      setNewRequestVisible,
+      setCloneRequestVisible,
+      setRequestDeletePending,
       onLayoutChange,
       setExpanded,
     },
@@ -410,6 +547,18 @@ export function AppInner({
     setFocus,
     envHeaderRef,
     headerFieldRef,
+    newRequestVisible,
+    newRequestRef,
+    setNewRequestVisible,
+    onNewRequestConfirm: (v) =>
+      handleNewRequestConfirm(v.name, v.method as Method, v.url),
+    cloneRequestVisible,
+    cloneRequestRef,
+    setCloneRequestVisible,
+    onCloneRequestConfirm: handleCloneRequestConfirm,
+    requestDeletePending,
+    setRequestDeletePending,
+    onRequestDeleteConfirm: handleRequestDeleteConfirm,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -666,6 +815,21 @@ export function AppInner({
               })
               setFocus(yamlEditor.returnFocus)
             }}
+          />
+        )}
+        {newRequestVisible && <NewRequestOverlay visible ref={newRequestRef} />}
+        {cloneRequestVisible && (
+          <CloneRequestOverlay
+            visible
+            initialName={selectedRequest ? `${selectedRequest.name} - Copy` : ""}
+            ref={cloneRequestRef}
+          />
+        )}
+        {requestDeletePending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Delete "${requestDeletePending}"?`}
+            selectedIndex={0}
           />
         )}
       </box>

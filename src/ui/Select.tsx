@@ -244,7 +244,11 @@ export function Select({
                       <box style={{ flexDirection: "column", flexGrow: 1 }}>
                         {renderLabel(
                           item.label,
-                          item.id === value ? theme.primary : theme.text,
+                          item.id === value
+                            ? theme.primary
+                            : item.color
+                              ? (theme as unknown as Record<string, string>)[item.color] ?? theme.text
+                              : theme.text,
                           isHighlighted ? TextAttributes.BOLD : undefined,
                         )}
                         {item.description && (

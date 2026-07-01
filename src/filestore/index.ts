@@ -1,6 +1,6 @@
 import type { Collection, CollectionSettings, Request } from "../schema"
 import { loadCollection, loadSettings } from "./load"
-import { saveRequest, saveSettings } from "./save"
+import { saveRequest, saveSettings, deleteRequest } from "./save"
 import {
   loadTimeline,
   saveTimelineEntry,
@@ -11,6 +11,8 @@ import {
 export {
   loadSettings,
   saveSettings,
+  saveRequest,
+  deleteRequest,
   loadTimeline,
   saveTimelineEntry,
   clearTimelineForRequest,

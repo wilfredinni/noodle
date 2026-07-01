@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, writeFile, unlink } from "node:fs/promises"
 import { join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
@@ -29,6 +29,21 @@ export async function saveRequest(dir: string, req: Request): Promise<void> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveRequest: ${msg}`, { cause: e })
+  }
+}
+
+export async function deleteRequest(dir: string, id: string): Promise<void> {
+  if (id.includes("/") || id.includes("\\") || id.includes("..")) {
+    throw new Error(
+      'filestore.deleteRequest: id must not contain path separators or ".."',
+    )
+  }
+
+  try {
+    await unlink(join(dir, `${id}.yml`))
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`filestore.deleteRequest: ${msg}`, { cause: e })
   }
 }
 

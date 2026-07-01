@@ -176,13 +176,13 @@ describe("ConfirmOverlay", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Confirm")
-    expect(frame).toContain("Cancel")
+    expect(frame).toContain("cancel")
     // Old bracket format not present
     expect(frame).not.toContain("[y]")
     expect(frame).not.toContain("[n]")
     // Shortcut keys present
-    expect(frame).toContain("Y")
-    expect(frame).toContain("N")
+    expect(frame).toContain("y")
+    expect(frame).toContain("n")
     cleanup()
   })
 
