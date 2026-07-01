@@ -36,6 +36,7 @@ interface Props {
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
   onBodyTypeChange?: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
+  expandHint?: string
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -60,6 +61,7 @@ export function RequestPane({
   onApiKeyPlacementChange,
   onBodyTypeChange,
   onSelectOpenChange,
+  expandHint,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -149,6 +151,8 @@ export function RequestPane({
       title={title}
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
+      bottomTitle={focused ? expandHint : undefined}
+      bottomTitleAlignment="right"
     >
       {request ? (
         <>

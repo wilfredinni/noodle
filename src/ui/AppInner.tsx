@@ -24,7 +24,7 @@ import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 
-import type { Keybinds } from "./keybind"
+import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
@@ -85,6 +85,11 @@ export function AppInner({
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
+  const [expanded, setExpanded] = useState<"request" | "response" | null>(
+    null,
+  )
+  const expandedRef = useRef(expanded)
+  expandedRef.current = expanded
   const [confirmSelection, setConfirmSelection] = useState(0)
   const [collectionReloadToken, setCollectionReloadToken] = useState(0)
   const [, setSelectOpen] = useState(false)
@@ -135,6 +140,10 @@ export function AppInner({
     initRef.current = true
     if (idx >= 0) setSelIdx(idx)
   }, [requests, initialLastRequestId])
+
+  useEffect(() => {
+    setExpanded(null)
+  }, [selectedRequest?.id])
 
   const saveLastReqRef = useRef(false)
   const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -359,6 +368,7 @@ export function AppInner({
       viewRef,
       activeIndexRef,
       savingRef,
+      expandedRef,
     },
     {
       setFocus,
@@ -371,6 +381,7 @@ export function AppInner({
       setEnvDeletePending,
       setDeleteConfirmSelection,
       onLayoutChange,
+      setExpanded,
     },
     collectionDir,
   )
@@ -408,6 +419,11 @@ export function AppInner({
     const activeCount = rows.filter((r) => r.enabled).length
     return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
   }, [envEditor.draft])
+
+  const expandHint = useMemo(
+    () => `${displayKey(keybinds.pane_expand)} expand`,
+    [keybinds.pane_expand],
+  )
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -470,53 +486,65 @@ export function AppInner({
                     minHeight: 0,
                   }}
                 >
-                  <RequestPane
-                    request={draft.draft}
-                    editState={eb.editState}
-                    editKey={eb.editKey}
-                    editValue={eb.editValue}
-                    setEditKey={eb.setEditKey}
-                    setEditValue={eb.setEditValue}
-                    focused={focus === "request"}
-                    activeTab={eb.activeTab}
-                    activeEnv={envState.activeEnv}
-                    onAuthTypeChange={draft.setAuthType}
-                    onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                    onBodyTypeChange={draft.setBodyType}
-                    onSelectOpenChange={setSelectOpen}
-                  />
-                  <ResponsePane
-                    state={responseState}
-                    focused={focus === "response"}
-                    timelineEntries={timeline.entries}
-                    initialTab={initialResponseTab}
-                    onTabChange={onResponseTabChange}
-                  />
+                  {expanded !== "response" && (
+                    <RequestPane
+                      request={draft.draft}
+                      editState={eb.editState}
+                      editKey={eb.editKey}
+                      editValue={eb.editValue}
+                      setEditKey={eb.setEditKey}
+                      setEditValue={eb.setEditValue}
+                      focused={focus === "request"}
+                      activeTab={eb.activeTab}
+                      activeEnv={envState.activeEnv}
+                      onAuthTypeChange={draft.setAuthType}
+                      onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                      onBodyTypeChange={draft.setBodyType}
+                      onSelectOpenChange={setSelectOpen}
+                      expandHint={expandHint}
+                    />
+                  )}
+                  {expanded !== "request" && (
+                    <ResponsePane
+                      state={responseState}
+                      focused={focus === "response"}
+                      timelineEntries={timeline.entries}
+                      initialTab={initialResponseTab}
+                      onTabChange={onResponseTabChange}
+                      expandHint={expandHint}
+                    />
+                  )}
                 </box>
               ) : (
                 <>
-                  <RequestPane
-                    request={draft.draft}
-                    editState={eb.editState}
-                    editKey={eb.editKey}
-                    editValue={eb.editValue}
-                    setEditKey={eb.setEditKey}
-                    setEditValue={eb.setEditValue}
-                    focused={focus === "request"}
-                    activeTab={eb.activeTab}
-                    activeEnv={envState.activeEnv}
-                    onAuthTypeChange={draft.setAuthType}
-                    onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                    onBodyTypeChange={draft.setBodyType}
-                    onSelectOpenChange={setSelectOpen}
-                  />
-                  <ResponsePane
-                    state={responseState}
-                    focused={focus === "response"}
-                    timelineEntries={timeline.entries}
-                    initialTab={initialResponseTab}
-                    onTabChange={onResponseTabChange}
-                  />
+                  {expanded !== "response" && (
+                    <RequestPane
+                      request={draft.draft}
+                      editState={eb.editState}
+                      editKey={eb.editKey}
+                      editValue={eb.editValue}
+                      setEditKey={eb.setEditKey}
+                      setEditValue={eb.setEditValue}
+                      focused={focus === "request"}
+                      activeTab={eb.activeTab}
+                      activeEnv={envState.activeEnv}
+                      onAuthTypeChange={draft.setAuthType}
+                      onApiKeyPlacementChange={draft.setApiKeyPlacement}
+                      onBodyTypeChange={draft.setBodyType}
+                      onSelectOpenChange={setSelectOpen}
+                      expandHint={expandHint}
+                    />
+                  )}
+                  {expanded !== "request" && (
+                    <ResponsePane
+                      state={responseState}
+                      focused={focus === "response"}
+                      timelineEntries={timeline.entries}
+                      initialTab={initialResponseTab}
+                      onTabChange={onResponseTabChange}
+                      expandHint={expandHint}
+                    />
+                  )}
                 </>
               )}
             </box>

@@ -1,7 +1,7 @@
 import { useBindings, useKeymap } from "@opentui/keymap/react"
 import { join } from "node:path"
 import type { RefObject } from "react"
-import { cycleFocus, type Focus } from "./focus"
+import { cycleFocus, toggleExpand, type Focus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
@@ -22,6 +22,7 @@ export interface UseAppKeymapRefs {
   viewRef: RefObject<"main" | "env-editor">
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
+  expandedRef: RefObject<"request" | "response" | null>
 }
 
 export interface UseAppKeymapSetters {
@@ -32,6 +33,15 @@ export interface UseAppKeymapSetters {
       | "stacked"
       | "side-by-side"
       | ((prev: "stacked" | "side-by-side") => "stacked" | "side-by-side"),
+  ) => void
+  setExpanded: (
+    v:
+      | "request"
+      | "response"
+      | null
+      | ((
+          prev: "request" | "response" | null,
+        ) => "request" | "response" | null),
   ) => void
   setView: (
     v:
@@ -93,7 +103,12 @@ export function useAppKeymap(
         },
         run: () =>
           setters.setFocus((prev: Focus) => {
-            const next = cycleFocus(prev, 1, refs.viewRef.current)
+            const next = cycleFocus(
+              prev,
+              1,
+              refs.viewRef.current,
+              refs.expandedRef.current,
+            )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
             return next
@@ -120,7 +135,12 @@ export function useAppKeymap(
         },
         run: () =>
           setters.setFocus((prev: Focus) => {
-            const next = cycleFocus(prev, -1, refs.viewRef.current)
+            const next = cycleFocus(
+              prev,
+              -1,
+              refs.viewRef.current,
+              refs.expandedRef.current,
+            )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
             return next
@@ -145,6 +165,19 @@ export function useAppKeymap(
           })
         },
       },
+      {
+        name: "request.expand-toggle",
+        enabled: () => {
+          const f = keymap.getData("app.focus")
+          return f === "request" || f === "response"
+        },
+        run: () => {
+          const f = keymap.getData("app.focus") as "request" | "response"
+          setters.setExpanded((prev: "request" | "response" | null) =>
+            toggleExpand(prev, f),
+          )
+        },
+      },
     ],
     bindings: [
       { key: "tab", cmd: "focus.next" },
@@ -152,6 +185,7 @@ export function useAppKeymap(
       { key: keybinds.layout_toggle, cmd: "layout.toggle" },
       { key: keybinds.help_toggle, cmd: "app.help" },
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
+      { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
     ],
   }))
 

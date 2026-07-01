@@ -60,3 +60,59 @@ describe("cycleFocus — round-trip", () => {
     expect(f).toBe("sidebar")
   })
 })
+
+describe("cycleFocus — expanded pane (skip hidden)", () => {
+  describe("expanded = request (response hidden)", () => {
+    it("forward from request skips response → sidebar", () => {
+      expect(cycleFocus("request", 1, "main", "request")).toBe("sidebar")
+    })
+
+    it("backward from sidebar skips response → request", () => {
+      expect(cycleFocus("sidebar", -1, "main", "request")).toBe("request")
+    })
+
+    it("forward from urlbar goes to request (not hidden)", () => {
+      expect(cycleFocus("urlbar", 1, "main", "request")).toBe("request")
+    })
+
+    it("backward from request goes to urlbar (not hidden)", () => {
+      expect(cycleFocus("request", -1, "main", "request")).toBe("urlbar")
+    })
+  })
+
+  describe("expanded = response (request hidden)", () => {
+    it("forward from urlbar skips request → response", () => {
+      expect(cycleFocus("urlbar", 1, "main", "response")).toBe("response")
+    })
+
+    it("backward from response skips request → urlbar", () => {
+      expect(cycleFocus("response", -1, "main", "response")).toBe("urlbar")
+    })
+
+    it("forward from response goes to sidebar (not hidden)", () => {
+      expect(cycleFocus("response", 1, "main", "response")).toBe("sidebar")
+    })
+
+    it("backward from sidebar goes to response (not hidden)", () => {
+      expect(cycleFocus("sidebar", -1, "main", "response")).toBe("response")
+    })
+  })
+
+  describe("expanded = null (normal cycling, no skip)", () => {
+    it("forward from request → response", () => {
+      expect(cycleFocus("request", 1, "main", null)).toBe("response")
+    })
+
+    it("backward from response → request", () => {
+      expect(cycleFocus("response", -1, "main", null)).toBe("request")
+    })
+  })
+
+  describe("expanded ignored in env-editor view", () => {
+    it("forward in env-editor ignores expanded", () => {
+      expect(cycleFocus("env-sidebar", 1, "env-editor", "request")).toBe(
+        "env-header",
+      )
+    })
+  })
+})

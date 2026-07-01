@@ -65,3 +65,23 @@ describe("CommandMap", () => {
     }
   })
 })
+
+describe("pane_expand", () => {
+  it("has default f2", () => {
+    expect(Definitions.pane_expand.default).toBe("f2")
+  })
+
+  it("is configurable (not fixed)", () => {
+    expect(Definitions.pane_expand.fixed).toBe(false)
+  })
+
+  it("is overrideable", () => {
+    const result = parseOverrides({ pane_expand: "ctrl+x" })
+    expect(result.pane_expand).toBe("ctrl+x")
+  })
+
+  it("appears in bindingDefaults", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.pane_expand).toBe("f2")
+  })
+})
