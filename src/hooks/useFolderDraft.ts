@@ -117,7 +117,7 @@ function defaultAuth(authType: Auth["type"]): Auth {
     case "none":
       return { type: "none" }
     case "inherit":
-      return { type: "none" }
+      return { type: "inherit" }
     case "bearer":
       return { type: "bearer", token: "" }
     case "basic":
