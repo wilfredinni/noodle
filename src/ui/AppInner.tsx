@@ -43,7 +43,7 @@ import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
 import { getRequestIds } from "./tree"
 import { useUIState } from "./tabs/useUIState"
-import { saveLastRequest } from "./tabs/uiState"
+import { saveLastRequest, loadExpandedFolders, saveExpandedFolders } from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 
@@ -124,6 +124,8 @@ export function AppInner({
   const [requestDeletePending, setRequestDeletePending] = useState<
     string | null
   >(null)
+  const [initialExpandedFolders, setInitialExpandedFolders] =
+    useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -135,6 +137,10 @@ export function AppInner({
 
   const requestIds = getRequestIds(items)
   const { getTab, setTab } = useUIState(collectionDir, requestIds)
+
+  useEffect(() => {
+    loadExpandedFolders(collectionDir).then(setInitialExpandedFolders)
+  }, [collectionDir])
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const {
@@ -150,6 +156,7 @@ export function AppInner({
     items,
     () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
     initialLastRequestId,
+    initialExpandedFolders ?? undefined,
   )
 
   const newRequestFolderRef = useRef(focusedFolderPath)
@@ -182,6 +189,28 @@ export function AppInner({
       if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     }
   }, [selectedId])
+
+  const expandedSaveRef = useRef(false)
+  const expandedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!expandedSaveRef.current) {
+      expandedSaveRef.current = true
+      return
+    }
+    if (expandedDebounceRef.current) clearTimeout(expandedDebounceRef.current)
+    expandedDebounceRef.current = setTimeout(() => {
+      saveExpandedFolders(collectionDir, expandedFolders).catch(
+        (e: unknown) => {
+          console.error("Failed to save expanded folders:", e)
+        },
+      )
+    }, 300)
+    return () => {
+      if (expandedDebounceRef.current)
+        clearTimeout(expandedDebounceRef.current)
+    }
+  }, [expandedFolders])
 
   const draft = useRequestDraft(selectedRequest)
 

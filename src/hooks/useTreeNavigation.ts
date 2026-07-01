@@ -26,10 +26,19 @@ export function useTreeNavigation(
   items: CollectionItem[],
   enabled: () => boolean = () => true,
   initialSelectedId?: string,
+  initialExpanded?: Set<string>,
 ): UseTreeNavigationResult {
   const [selectedId, setSelectedIdState] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [cursorIndex, setCursorIndex] = useState(0)
+
+  const expandedInitDone = useRef(false)
+  useEffect(() => {
+    if (!expandedInitDone.current && initialExpanded && initialExpanded.size > 0) {
+      setExpanded(new Set(initialExpanded))
+      expandedInitDone.current = true
+    }
+  }, [initialExpanded])
 
   const itemsRef = useRef(items)
   itemsRef.current = items
