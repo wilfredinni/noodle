@@ -1,0 +1,12 @@
+name: Get Posts by User
+method: GET
+url: $base_url/posts
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+params:
+  userId: "1"
+headers: {}
+auth:
+  type: none
+body_type: none

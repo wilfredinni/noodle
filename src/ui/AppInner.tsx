@@ -143,11 +143,16 @@ export function AppInner({
     expanded: expandedFolders,
     visibleItems,
     cursorIndex,
+    focusedFolderPath,
+    expandFolder,
   } = useTreeNavigation(
     items,
     () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
     initialLastRequestId,
   )
+
+  const newRequestFolderRef = useRef(focusedFolderPath)
+  newRequestFolderRef.current = focusedFolderPath
 
   useEffect(() => {
     setExpanded(null)
@@ -222,8 +227,10 @@ export function AppInner({
 
   const handleNewRequestConfirm = useCallback(
     (name: string, method: Method, url: string) => {
-      const id = slugify(name)
-      if (!id) return
+      const baseId = slugify(name)
+      if (!baseId) return
+      const folder = newRequestFolderRef.current
+      const id = folder ? `${folder}/${baseId}` : baseId
 
       const req: NoodleRequest = {
         id,
@@ -242,9 +249,11 @@ export function AppInner({
 
       saveRequest(collectionDir, req)
         .then(() => {
+          if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
           setNewRequestVisible(false)
           setFocus("sidebar")
+          setSaveState({ kind: "success", message: `Created ${name}` })
           setSaveState({ kind: "success", message: `Created ${name}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
@@ -267,6 +276,7 @@ export function AppInner({
       setSaveState,
       clearSaveTimer,
       saveTimerRef,
+      expandFolder,
     ],
   )
 
@@ -274,8 +284,10 @@ export function AppInner({
     (newName: string) => {
       const req = selectedRequest
       if (!req) return
-      const id = slugify(newName)
-      if (!id) return
+      const baseId = slugify(newName)
+      if (!baseId) return
+      const lastSlash = req.id.lastIndexOf("/")
+      const id = lastSlash >= 0 ? `${req.id.slice(0, lastSlash)}/${baseId}` : baseId
 
       const cloned: NoodleRequest = {
         ...req,
