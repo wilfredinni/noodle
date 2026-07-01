@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { TextAttributes, type InputRenderable } from "@opentui/core"
+import type { InputRenderable } from "@opentui/core"
 import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "./Select"
 import { useTheme } from "./theme"
@@ -106,71 +106,71 @@ export const NewRequestOverlay = forwardRef<
           flexDirection: "row",
           justifyContent: "space-between",
           paddingBottom: 1,
+          paddingX: 2,
         }}
       >
-        <text fg={theme.primary} attributes={TextAttributes.BOLD}>
-          New Request
-        </text>
-        <text fg={theme.textMuted}>esc to close</text>
+        <text fg={theme.primary}>New Request</text>
+        <text fg={theme.textMuted}>esc</text>
       </box>
 
-      {/* Separator */}
-      <box style={{ height: 1, backgroundColor: theme.borderSubtle }} />
-
-      {/* Request Name */}
-      <text fg={theme.textMuted}>Request Name</text>
-      <input
-        ref={nameRef}
-        value={name}
-        placeholder="Request Name"
-        onInput={setName}
-        focused={focus === "name"}
-        backgroundColor={theme.backgroundElement}
-        focusedBackgroundColor={theme.borderSubtle}
-        textColor={theme.text}
-        cursorColor={theme.primary}
-      />
-
-      {/* Method & URL */}
-      <text fg={theme.textMuted}>Method &amp; URL</text>
-      <box style={{ flexDirection: "row", gap: 0 }}>
-        <Select
-          items={METHOD_ITEMS}
-          value={method}
-          onChange={(id) => setMethod(id as Method)}
-          focused={focus === "method"}
-        />
-        <box style={{ flexGrow: 1 }}>
+      <box style={{ paddingX: 2, flexDirection: "column", gap: 1 }}>
+        <box style={{ flexDirection: "column" }}>
+          <text fg={theme.textMuted}>Request Name</text>
           <input
-            ref={urlRef}
-            value={url}
-            placeholder="Request URL"
-            onInput={setUrl}
-            focused={focus === "url"}
+            ref={nameRef}
+            value={name}
+            placeholder="Request Name"
+            onInput={setName}
+            focused={focus === "name"}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
             textColor={theme.text}
             cursorColor={theme.primary}
           />
         </box>
+
+        <box style={{ flexDirection: "column" }}>
+          <text fg={theme.textMuted}>Method &amp; URL</text>
+          <box style={{ flexDirection: "row", gap: 0 }}>
+            <Select
+              items={METHOD_ITEMS}
+              value={method}
+              onChange={(id) => setMethod(id as Method)}
+              focused={focus === "method"}
+            />
+            <box style={{ flexGrow: 1 }}>
+              <input
+                ref={urlRef}
+                value={url}
+                placeholder="Request URL"
+                onInput={setUrl}
+                focused={focus === "url"}
+                backgroundColor={theme.backgroundElement}
+                focusedBackgroundColor={theme.borderSubtle}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+              />
+            </box>
+          </box>
+        </box>
+
+        {errorText && <text fg={theme.error}>{errorText}</text>}
       </box>
-
-      {/* Error text */}
-      {errorText && <text fg={theme.error}>{errorText}</text>}
-
-      {/* Separator */}
-      <box style={{ height: 1, backgroundColor: theme.borderSubtle }} />
 
       {/* Footer */}
       <box
         style={{
           flexDirection: "row",
           justifyContent: "flex-end",
-          gap: 3,
+          gap: 1,
+          paddingX: 2,
         }}
       >
-        <text fg={theme.success}>y confirm</text>
-        <text fg={theme.error}>n cancel</text>
+        <text fg={theme.primary}>y</text>
+        <text fg={theme.textMuted}>confirm</text>
+        <text fg={theme.textMuted}> · </text>
+        <text fg={theme.primary}>n</text>
+        <text fg={theme.textMuted}>cancel</text>
       </box>
     </Overlay>
   )
