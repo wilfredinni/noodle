@@ -166,7 +166,7 @@ export function RequestPane({
                 <KeyValueSection
                   kind="headers"
                   entries={Object.entries(request?.headers ?? {}).map(
-                    ([key, value], i) => ({ key, value, index: i }),
+                    ([key, value]) => ({ key, value }),
                   )}
                   editState={editState}
                   editKey={editKey}
@@ -181,7 +181,7 @@ export function RequestPane({
                 <KeyValueSection
                   kind="params"
                   entries={Object.entries(request?.params ?? {}).map(
-                    ([key, value], i) => ({ key, value, index: i }),
+                    ([key, value]) => ({ key, value }),
                   )}
                   editState={editState}
                   editKey={editKey}

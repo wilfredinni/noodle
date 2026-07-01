@@ -18,8 +18,6 @@ import {
 } from "../ui/editMode"
 import type { UseFolderDraftResult } from "./useFolderDraft"
 
-const FIELD_ORDER: FolderFieldKind[] = FOLDER_FIELD_ORDER
-
 export type { FolderFieldKind }
 
 export interface UseFolderEditBrowseResult {
@@ -138,10 +136,10 @@ function folderCurrentKeyValueFor(
 }
 
 function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
-  const idx = FIELD_ORDER.indexOf(current as FolderFieldKind)
+  const idx = FOLDER_FIELD_ORDER.indexOf(current as FolderFieldKind)
   if (idx === -1) return current
-  const next = (idx + delta + FIELD_ORDER.length) % FIELD_ORDER.length
-  return FIELD_ORDER[next]!
+  const next = (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
+  return FOLDER_FIELD_ORDER[next]!
 }
 
 export function useFolderEditBrowse(

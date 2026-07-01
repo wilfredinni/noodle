@@ -93,7 +93,7 @@ export function FolderPane({
                   kind="headers"
                   entries={Object.entries(
                     folder.overrides?.headers ?? {},
-                  ).map(([key, value], i) => ({ key, value, index: i }))}
+                  ).map(([key, value]) => ({ key, value }))}
                   editState={editState}
                   editKey={editKey}
                   editValue={editValue}

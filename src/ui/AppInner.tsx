@@ -142,7 +142,7 @@ export function AppInner({
   )
   const items = collection?.items ?? []
 
-  const requestIds = getRequestIds(items)
+  const requestIds = useMemo(() => getRequestIds(items), [items])
   const { getTab, setTab } = useUIState(collectionDir, requestIds)
 
   useEffect(() => {
@@ -561,7 +561,7 @@ export function AppInner({
   }, [focus, eb, folderEb])
 
   useEffect(() => {
-    if (focus === "folder" && folderEb.editState.mode === "inactive" && folderEb.isActive === false) {
+    if (focus === "folder" && folderEb.editState.mode === "inactive") {
       folderEb.enterBrowse()
     }
   }, [focus, folderEb])

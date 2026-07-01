@@ -6,7 +6,7 @@ import { varSummaryColor } from "./envHighlight"
 
 export interface KeyValueSectionProps {
   kind: "headers" | "params"
-  entries: Array<{ key: string; value: KvEntry; index: number }>
+  entries: Array<{ key: string; value: KvEntry }>
   editState: EditState
   editKey: string
   editValue: string

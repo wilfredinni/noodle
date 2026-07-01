@@ -14,17 +14,13 @@ export type FolderDraftOp =
   | { kind: "revert" }
   | { kind: "markSaved" }
 
-function sortedEntries(rec: Record<string, KvEntry>): [string, KvEntry][] {
-  return Object.entries(rec)
-}
-
 function replaceRow(
   rec: Record<string, KvEntry>,
   index: number,
   key: string,
   value: string,
 ): Record<string, KvEntry> {
-  const entries = sortedEntries(rec)
+  const entries = Object.entries(rec)
   if (!entries[index]) return rec
   const out: Record<string, KvEntry> = {}
   for (let i = 0; i < entries.length; i++) {
@@ -51,7 +47,7 @@ function removeRow(
   rec: Record<string, KvEntry>,
   index: number,
 ): Record<string, KvEntry> {
-  const entries = sortedEntries(rec)
+  const entries = Object.entries(rec)
   const target = entries[index]
   if (!target) return rec
   const out: Record<string, KvEntry> = {}
@@ -63,7 +59,7 @@ function toggleRow(
   rec: Record<string, KvEntry>,
   index: number,
 ): Record<string, KvEntry> {
-  const entries = sortedEntries(rec)
+  const entries = Object.entries(rec)
   const target = entries[index]
   if (!target) return rec
   const [k] = target
