@@ -28,7 +28,6 @@ export interface FolderMeta {
 
 export interface FolderOverrides {
   headers?: Record<string, KvEntry>
-  params?: Record<string, KvEntry>
   auth?: Auth
 }
 
@@ -47,6 +46,7 @@ export type CollectionItem =
 
 export type Auth =
   | { type: "none" }
+  | { type: "inherit" }
   | { type: "bearer"; token: string }
   | { type: "basic"; user: string; pass: string }
   | {
