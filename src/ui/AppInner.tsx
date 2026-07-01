@@ -6,7 +6,7 @@ import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
 import { useCollection } from "../hooks/useCollection"
-import { useSidebarSelection } from "../hooks/useSidebarSelection"
+import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Request as NoodleRequest, Method } from "../schema"
@@ -41,6 +41,7 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
+import { getRequestIds } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import { saveLastRequest } from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
@@ -130,32 +131,25 @@ export function AppInner({
     collectionDir,
     collectionReloadToken,
   )
-  const requests = collection?.requests ?? []
+  const items = collection?.items ?? []
 
-  const { getTab, setTab } = useUIState(
-    collectionDir,
-    requests.map((r) => r.id),
-  )
+  const requestIds = getRequestIds(items)
+  const { getTab, setTab } = useUIState(collectionDir, requestIds)
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const {
-    selectedIndex,
+    selectedId,
     selectedRequest,
-    setSelectedIndex: setSelIdx,
-  } = useSidebarSelection(
-    requests,
+    focusedFolderPath,
+    expanded: expandedFolders,
+    visibleItems,
+    cursorIndex,
+    setSelectedId,
+  } = useTreeNavigation(
+    items,
     () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
+    initialLastRequestId,
   )
-
-  const initRef = useRef(false)
-
-  useEffect(() => {
-    if (initRef.current || requests.length === 0 || !initialLastRequestId)
-      return
-    const idx = requests.findIndex((r) => r.id === initialLastRequestId)
-    initRef.current = true
-    if (idx >= 0) setSelIdx(idx)
-  }, [requests, initialLastRequestId])
 
   useEffect(() => {
     setExpanded(null)
@@ -169,14 +163,14 @@ export function AppInner({
       saveLastReqRef.current = true
       return
     }
-    const req = requests[selectedIndex]
+    const req = selectedRequest
     if (req) {
       if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
       saveLastDebounceRef.current = setTimeout(() => {
         saveLastRequest(
           collectionDir,
           req.id,
-          new Set(requests.map((r) => r.id)),
+          new Set(requestIds),
         ).catch((e: unknown) => {
           console.error("Failed to save last request:", e)
         })
@@ -185,7 +179,7 @@ export function AppInner({
     return () => {
       if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     }
-  }, [selectedIndex])
+  }, [selectedId])
 
   const draft = useRequestDraft(selectedRequest)
 
@@ -560,8 +554,8 @@ export function AppInner({
   const collectionRef = useRef(collection)
   collectionRef.current = collection
 
-  const selectedIndexRef = useRef(selectedIndex)
-  selectedIndexRef.current = selectedIndex
+  const selectedIdRef = useRef(selectedId)
+  selectedIdRef.current = selectedId
 
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap(
@@ -572,7 +566,7 @@ export function AppInner({
       envStateRef,
       envEditorRef,
       collectionRef,
-      selectedIndexRef,
+      selectedIdRef,
       trySendRef,
       doSaveRef,
       focusRef,
@@ -682,11 +676,14 @@ export function AppInner({
           <box
             style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
           >
-            <Sidebar
-              collection={collection}
+             <Sidebar
+              items={items}
               loading={loading}
               error={error}
-              selectedIndex={selectedIndex}
+              visibleItems={visibleItems}
+              cursorIndex={cursorIndex}
+              selectedId={selectedId}
+              expanded={expandedFolders}
               focused={focus === "sidebar"}
               keybinds={keybinds}
               dirtyRequestIds={draft.dirtyRequestIds}
