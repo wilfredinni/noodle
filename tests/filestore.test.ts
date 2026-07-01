@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises"
+import { mkdtemp, rm, mkdir, writeFile, readFile, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { filestore, loadSettings, saveSettings, saveFolder, deleteFolder } from "../src/filestore"
@@ -466,5 +466,41 @@ describe("filestore — nested folders", () => {
     if (col.items[2].type === "request") {
       expect(col.items[2].data.id).toBe("root")
     }
+  })
+})
+
+describe("filestore — symlink handling", () => {
+  it("skips symlink pointing outside collection root", async () => {
+    await mkdir(join(dir, "outside-collection"))
+    await writeFile(join(dir, "outside-collection", "x.yml"), yamlTmpl(makeReq({ name: "Outside" })))
+    await symlink(join(dir, "outside-collection"), join(dir, "outside-link"), "dir")
+
+    const col = await filestore.loadCollection(dir)
+    const folderNames = col.items
+      .filter((i) => i.type === "folder")
+      .map((i) => (i.type === "folder" ? i.data.name : ""))
+    expect(folderNames).not.toContain("outside-link")
+  })
+
+  it("follows symlink pointing to sibling directory inside collection", async () => {
+    await mkdir(join(dir, "real-folder"))
+    await writeFile(join(dir, "real-folder", "inside.yml"), yamlTmpl(makeReq({ name: "Inside", id: "real-folder/inside" })))
+    await symlink(join(dir, "real-folder"), join(dir, "link-to-real"), "dir")
+
+    const col = await filestore.loadCollection(dir)
+    const folderItem = col.items.find(
+      (i) => i.type === "folder" && i.data.name === "real-folder",
+    )
+    expect(folderItem).toBeDefined()
+  })
+
+  it("detects symlink cycles and skips duplicate", async () => {
+    await mkdir(join(dir, "cycle-a"))
+    await writeFile(join(dir, "cycle-a", "a.yml"), yamlTmpl(makeReq({ name: "A", id: "cycle-a/a" })))
+    await symlink(join(dir, "cycle-a"), join(dir, "cycle-a", "link-to-self"), "dir")
+
+    const col = await filestore.loadCollection(dir)
+    // Should load without infinite loop
+    expect(col.items.some((i) => i.type === "folder" && i.data.name === "cycle-a")).toBe(true)
   })
 })

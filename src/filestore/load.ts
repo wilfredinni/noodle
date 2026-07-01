@@ -22,11 +22,16 @@ async function walk(
   absDir: string,
   relPath: string,
   visited = new Set<string>(),
+  root?: string,
 ): Promise<CollectionItem[]> {
   let resolved: string
   try {
     resolved = await realpath(absDir)
-  } catch {
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
+  }
+  if (root !== undefined && resolved !== root && !resolved.startsWith(root + "/")) {
     return []
   }
   if (visited.has(resolved)) return []
@@ -69,7 +74,7 @@ async function walk(
         }
       }
 
-      const children = await walk(childAbs, childRel, visited)
+      const children = await walk(childAbs, childRel, visited, root)
       const folder: Folder = {
         id: entry.name,
         name: folderMeta.meta?.name ?? entry.name,
@@ -151,7 +156,8 @@ export async function loadCollection(dir: string): Promise<Collection> {
   }
 
   const id = basename(dir)
-  const items = await walk(dir, "")
+  const root = await realpath(dir)
+  const items = await walk(dir, "", new Set(), root)
   return { id, name: id, items }
 }
 
