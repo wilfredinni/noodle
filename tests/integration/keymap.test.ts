@@ -908,4 +908,112 @@ describe("env-editor layer", () => {
     expect(called).toBe(false)
     cleanup()
   })
+
+  it("dispatches request.new when ctrl+n pressed in base mode", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "base" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        {
+          name: "request.new",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+n", cmd: "request.new" }],
+    })
+
+    host.press("n", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches env.cycle when ctrl+p pressed in base mode", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "base" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        {
+          name: "env.cycle",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+p", cmd: "env.cycle" }],
+    })
+
+    host.press("p", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("does not dispatch request.new when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "help")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "base" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        {
+          name: "request.new",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+n", cmd: "request.new" }],
+    })
+
+    host.press("n", { ctrl: true })
+    expect(called).toBe(false)
+    cleanup()
+  })
+
+  it("does not dispatch env.cycle when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "help")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "base" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        {
+          name: "env.cycle",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+p", cmd: "env.cycle" }],
+    })
+
+    host.press("p", { ctrl: true })
+    expect(called).toBe(false)
+    cleanup()
+  })
 })
