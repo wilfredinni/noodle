@@ -85,3 +85,43 @@ describe("pane_expand", () => {
     expect(defaults.pane_expand).toBe("f2")
   })
 })
+
+describe("request_edit_overlay", () => {
+  it("has default ctrl+e", () => {
+    expect(Definitions.request_edit_overlay.default).toBe("ctrl+e")
+  })
+
+  it("is configurable (not fixed)", () => {
+    expect(Definitions.request_edit_overlay.fixed).toBe(false)
+  })
+
+  it("is overrideable", () => {
+    const result = parseOverrides({ request_edit_overlay: "ctrl+x" })
+    expect(result.request_edit_overlay).toBe("ctrl+x")
+  })
+
+  it("appears in bindingDefaults", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.request_edit_overlay).toBe("ctrl+e")
+  })
+})
+
+describe("request_edit_yaml", () => {
+  it("has default ctrl+alt+e", () => {
+    expect(Definitions.request_edit_yaml.default).toBe("ctrl+alt+e")
+  })
+
+  it("is configurable (not fixed)", () => {
+    expect(Definitions.request_edit_yaml.fixed).toBe(false)
+  })
+
+  it("is overrideable", () => {
+    const result = parseOverrides({ request_edit_yaml: "ctrl+z" })
+    expect(result.request_edit_yaml).toBe("ctrl+z")
+  })
+
+  it("appears in bindingDefaults", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.request_edit_yaml).toBe("ctrl+alt+e")
+  })
+})

@@ -20,6 +20,7 @@ export interface NewRequestOverlayHandle {
 
 interface NewRequestOverlayProps {
   visible: boolean
+  mode?: "create" | "edit"
   initialName?: string
   initialMethod?: Method
   initialUrl?: string
@@ -46,9 +47,9 @@ function slugify(name: string): string {
 export const NewRequestOverlay = forwardRef<
   NewRequestOverlayHandle,
   NewRequestOverlayProps
->(function NewRequestOverlay({ visible, initialName, initialMethod, initialUrl }, ref) {
+>(function NewRequestOverlay({ visible, mode, initialName, initialMethod, initialUrl }, ref) {
   const theme = useTheme()
-  const isEdit = initialName !== undefined
+  const isEdit = mode === "edit"
   const [name, setName] = useState("")
   const [method, setMethod] = useState<Method>("GET")
   const [url, setUrl] = useState("")

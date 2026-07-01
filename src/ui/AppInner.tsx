@@ -341,11 +341,11 @@ export function AppInner({
         url,
       }
 
-      const savePromise = nameChanged
-        ? deleteRequest(collectionDir, req.id).then(() =>
-            saveRequest(collectionDir, updated),
-          )
-        : saveRequest(collectionDir, updated)
+      const savePromise = saveRequest(collectionDir, updated).then(() => {
+        if (nameChanged) {
+          return deleteRequest(collectionDir, req.id)
+        }
+      })
 
       savePromise
         .then(() => {
@@ -903,6 +903,7 @@ export function AppInner({
         {editRequestVisible && (
           <NewRequestOverlay
             visible
+            mode="edit"
             initialName={selectedRequest?.name}
             initialMethod={selectedRequest?.method}
             initialUrl={selectedRequest?.url}
