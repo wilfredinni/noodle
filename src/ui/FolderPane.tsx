@@ -117,6 +117,7 @@ export function FolderPane({
                     onApiKeyPlacementChange ?? (() => {})
                   }
                   onSelectOpenChange={onSelectOpenChange}
+                  showInherit={true}
                 />
               )}
             </scrollbox>

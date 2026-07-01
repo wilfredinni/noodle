@@ -157,7 +157,6 @@ export function AppInner({
     visibleItems,
     cursorIndex,
     focusedFolderPath,
-    focusedFolderName,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -165,7 +164,6 @@ export function AppInner({
     initialLastRequestId,
     initialExpandedFolders ?? undefined,
   )
-  void focusedFolderName
 
   const focusedFolder = useMemo(
     () => (focusedFolderPath ? findFolderByPath(items, focusedFolderPath) : null),
@@ -284,13 +282,8 @@ export function AppInner({
     if (!draftFolder) return
     try {
       await saveFolder(collectionDir, draftFolder)
-      const existing = findFolderByPath(collectionRef.current?.items ?? [], draftFolder.path)
-      if (existing) {
-        existing.name = draftFolder.name
-        existing.seq = draftFolder.seq
-        existing.overrides = draftFolder.overrides
-      }
       folderDraftRef.current?.markSaved()
+      setCollectionReloadToken((t) => t + 1)
       setSaveState({ kind: "success", message: `Saved folder ${draftFolder.name}` })
       clearSaveTimer()
       saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
@@ -300,7 +293,7 @@ export function AppInner({
       clearSaveTimer()
       saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
     }
-  }, [collectionDir, setSaveState, clearSaveTimer, saveTimerRef])
+  }, [collectionDir, setSaveState, setCollectionReloadToken, clearSaveTimer, saveTimerRef])
 
   folderSaveRef.current = handleFolderSave
 

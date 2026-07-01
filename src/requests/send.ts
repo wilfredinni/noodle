@@ -16,12 +16,12 @@ export async function send(
   const substituted = env !== undefined ? substitute(merged, env) : merged
 
   const headers: Record<string, string> =
-    substituted === req
-      ? filterKv(req.headers)
+    substituted === merged
+      ? filterKv(merged.headers)
       : (substituted as SubstitutedRequest).headers
   const params: Record<string, string> =
-    substituted === req
-      ? filterKv(req.params)
+    substituted === merged
+      ? filterKv(merged.params)
       : (substituted as SubstitutedRequest).params
 
   let finalUrl: string
