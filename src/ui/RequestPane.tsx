@@ -382,6 +382,7 @@ function BodySection({
               textColor={theme.text}
               cursorColor={theme.primary}
               focused
+              style={{ flexGrow: 1 }}
             />
           </line-number>
         )

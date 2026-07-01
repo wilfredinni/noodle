@@ -44,6 +44,7 @@ export function JsonBodyViewer({
         initialValue={body}
         backgroundColor={theme.backgroundPanel}
         textColor={theme.text}
+        style={{ flexGrow: 1 }}
       />
     </line-number>
   )
