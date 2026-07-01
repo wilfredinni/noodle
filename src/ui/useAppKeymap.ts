@@ -408,11 +408,29 @@ export function useAppKeymap(
         name: "folder.tab-next",
         run: () => refs.folderEbRef.current?.cycleInactiveTab(1),
       },
+      {
+        name: "request.new",
+        run: () => setters.setNewRequestVisible(true),
+      },
+      {
+        name: "request.clone",
+        run: () => {
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
+          if (!req) return
+          setters.setCloneRequestVisible(true)
+        },
+      },
     ],
     bindings: [
       { key: "return", cmd: "folder.edit-enter" },
       { key: "left", cmd: "folder.tab-prev" },
       { key: "right", cmd: "folder.tab-next" },
+      { key: keybinds.request_new, cmd: "request.new" },
+      { key: keybinds.request_clone, cmd: "request.clone" },
     ],
   }))
 
