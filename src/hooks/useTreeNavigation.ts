@@ -44,6 +44,8 @@ export function useTreeNavigation(
   const cursorIndexRef = useRef(cursorIndex)
   cursorIndexRef.current = cursorIndex
 
+  const initialCursorSet = useRef(false)
+
   const flatReqs = flattenRequests(items)
 
   const setSelectedId = useCallback((id: string) => {
@@ -102,6 +104,18 @@ export function useTreeNavigation(
       setSelectedIdState(null)
     }
   }, [items])
+
+  useEffect(() => {
+    if (initialCursorSet.current) return
+    if (!selectedId || vis.length === 0) return
+    const idx = vis.findIndex(
+      (n) => n.type === "request" && n.id === selectedId,
+    )
+    if (idx >= 0) {
+      setCursorIndex(idx)
+      initialCursorSet.current = true
+    }
+  })
 
   useKeyboard((key) => {
     if (!enabled()) return
