@@ -10,7 +10,6 @@ import { FullBorder } from "./borders"
 const FOLDER_TABS: TabDef[] = [
   { id: "meta", label: "Name & Seq" },
   { id: "headers", label: "Headers" },
-  { id: "params", label: "Params" },
   { id: "auth", label: "Auth" },
 ]
 
@@ -92,21 +91,6 @@ export function FolderPane({
                   kind="headers"
                   entries={Object.entries(
                     folder.overrides?.headers ?? {},
-                  ).map(([key, value], i) => ({ key, value, index: i }))}
-                  editState={editState}
-                  editKey={editKey}
-                  editValue={editValue}
-                  setEditKey={setEditKey}
-                  setEditValue={setEditValue}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                />
-              )}
-              {activeTab === "params" && (
-                <KeyValueSection
-                  kind="params"
-                  entries={Object.entries(
-                    folder.overrides?.params ?? {},
                   ).map(([key, value], i) => ({ key, value, index: i }))}
                   editState={editState}
                   editKey={editKey}
