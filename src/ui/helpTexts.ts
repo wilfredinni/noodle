@@ -71,6 +71,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           description: "Cycle environment",
         },
         {
+          key: displayKey(keybinds.request_new),
+          description: "New request",
+        },
+        {
           key: displayKey(keybinds.pane_expand),
           description: "Expand/collapse focused pane",
         },

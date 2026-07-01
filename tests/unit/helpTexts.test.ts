@@ -56,13 +56,14 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^e")
   })
 
-  it("ACTIONS section shows ^return, ^s, ^n, ^l", () => {
+  it("ACTIONS section shows ^return, ^s, ^n, ^p, ^l", () => {
     const sections = getHelpSections(defaults)
     const act = sections.find((s) => s.title === "Actions")!
     const keys = act.keys.map((k) => k.key)
     expect(keys).toContain("^return")
     expect(keys).toContain("^s")
     expect(keys).toContain("^n")
+    expect(keys).toContain("^p")
     expect(keys).toContain("^l")
   })
 
