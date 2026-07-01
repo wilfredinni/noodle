@@ -113,7 +113,7 @@ export const NewRequestOverlay = forwardRef<
         <text fg={theme.textMuted}>esc</text>
       </box>
 
-      <box style={{ paddingX: 2, flexDirection: "column", gap: 1 }}>
+      <box style={{ paddingX: 2, flexDirection: "column", gap: 1, paddingBottom: 1 }}>
         <box style={{ flexDirection: "column" }}>
           <text fg={theme.textMuted}>Request Name</text>
           <input
