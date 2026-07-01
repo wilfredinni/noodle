@@ -109,7 +109,7 @@ export function ResponsePane({
       : 0
 
   const headerLeft = (
-    <text fg={theme.primary}>Response</text>
+    <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
   )
 
   const headerRight = isDone ? (
