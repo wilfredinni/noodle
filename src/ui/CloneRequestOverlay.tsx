@@ -41,7 +41,7 @@ export const CloneRequestOverlay = forwardRef<
   }))
 
   return (
-    <Overlay visible={visible} width={58} padding={1} gap={1}>
+    <Overlay visible={visible} width={50} padding={1} gap={1}>
       <box
         style={{
           flexDirection: "row",
@@ -54,7 +54,7 @@ export const CloneRequestOverlay = forwardRef<
         <text fg={theme.textMuted}>esc</text>
       </box>
 
-      <box style={{ paddingX: 2, flexDirection: "column" }}>
+      <box style={{ paddingX: 2, flexDirection: "column", paddingBottom: 1 }}>
         <text fg={theme.textMuted}>Request Name</text>
         <input
           ref={nameRef}

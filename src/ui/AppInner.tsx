@@ -251,6 +251,11 @@ export function AppInner({
           setCollectionReloadToken((n) => n + 1)
           setNewRequestVisible(false)
           setFocus("sidebar")
+          setSaveState({ kind: "success", message: `Created ${name}` })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
         })
         .catch((e: unknown) => {
           const msg = e instanceof Error ? e.message : String(e)
@@ -289,6 +294,11 @@ export function AppInner({
           setCollectionReloadToken((n) => n + 1)
           setCloneRequestVisible(false)
           setFocus("sidebar")
+          setSaveState({ kind: "success", message: `Cloned ${newName}` })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
         })
         .catch((e: unknown) => {
           const msg = e instanceof Error ? e.message : String(e)
@@ -311,6 +321,11 @@ export function AppInner({
         setCollectionReloadToken((n) => n + 1)
         setRequestDeletePending(null)
         setFocus("sidebar")
+        setSaveState({ kind: "success", message: `Deleted ${req.name}` })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
       })
       .catch((e: unknown) => {
         const msg = e instanceof Error ? e.message : String(e)

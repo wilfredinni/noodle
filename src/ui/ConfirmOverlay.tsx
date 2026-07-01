@@ -15,30 +15,34 @@ export function ConfirmOverlay({
   const theme = useTheme()
 
   return (
-    <Overlay visible={visible} width={50} gap={1} padding={2}>
+    <Overlay visible={visible} width={50} gap={1} padding={1}>
       <box
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
+          paddingBottom: 1,
+          paddingX: 2,
         }}
       >
-        <text fg={theme.text}>Confirm</text>
+        <text fg={theme.primary}>Confirm</text>
         <text fg={theme.textMuted}>esc</text>
       </box>
-      <text fg={theme.text}>{message}</text>
+      <box style={{ paddingX: 2, paddingBottom: 1 }}>
+        <text fg={theme.text}>{message}</text>
+      </box>
       <box
         style={{
           flexDirection: "row",
-          alignSelf: "flex-end",
+          justifyContent: "flex-end",
           gap: 1,
-          paddingRight: 1,
+          paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>Y</text>
-        <text fg={theme.textMuted}>Confirm</text>
+        <text fg={theme.primary}>y</text>
+        <text fg={theme.textMuted}>confirm</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={theme.primary}>N</text>
-        <text fg={theme.textMuted}>Cancel</text>
+        <text fg={theme.primary}>n</text>
+        <text fg={theme.textMuted}>cancel</text>
       </box>
     </Overlay>
   )
