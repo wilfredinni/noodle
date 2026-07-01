@@ -5,6 +5,7 @@ import type { SaveState } from "./saveState"
 import type { Focus } from "./focus"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "./EnvHeaderPane"
+import type { NewRequestOverlayHandle } from "./NewRequestOverlay"
 
 export function useOverlayIntercepts(opts: {
   cancelSendRef: RefObject<() => void>
@@ -29,6 +30,14 @@ export function useOverlayIntercepts(opts: {
   setFocus: (f: Focus) => void
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
   headerFieldRef: RefObject<"name" | "color">
+  newRequestVisible: boolean
+  newRequestRef: RefObject<NewRequestOverlayHandle | null>
+  setNewRequestVisible: (v: boolean) => void
+  onNewRequestConfirm: (values: {
+    name: string
+    method: string
+    url: string
+  }) => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -54,6 +63,10 @@ export function useOverlayIntercepts(opts: {
     setFocus,
     envHeaderRef,
     headerFieldRef,
+    newRequestVisible,
+    newRequestRef,
+    setNewRequestVisible,
+    onNewRequestConfirm,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -195,6 +208,58 @@ export function useOverlayIntercepts(opts: {
     )
     return dispose
   }, [helpVisible, keymap, setHelpVisible])
+
+  // ── Overlay: New Request ──────────────────────────────────────────
+  useEffect(() => {
+    if (!newRequestVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const handle = newRequestRef.current
+        if (!handle) return
+
+        if (e.name === "tab" && !e.shift) {
+          e.preventDefault()
+          e.stopPropagation()
+          handle.cycleFocus(1)
+          return
+        }
+        if (e.name === "tab" && e.shift) {
+          e.preventDefault()
+          e.stopPropagation()
+          handle.cycleFocus(-1)
+          return
+        }
+        if (e.name === "return") {
+          e.preventDefault()
+          e.stopPropagation()
+          if (handle.getFocus() === "url") {
+            const result = handle.confirm()
+            if (result) onNewRequestConfirm(result)
+          } else {
+            handle.commitField()
+          }
+          return
+        }
+        if (e.name === "y") {
+          e.preventDefault()
+          e.stopPropagation()
+          const result = handle.confirm()
+          if (result) onNewRequestConfirm(result)
+          return
+        }
+        if (e.name === "n" || e.name === "escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          setNewRequestVisible(false)
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [newRequestVisible, newRequestRef, setNewRequestVisible, onNewRequestConfirm, keymap])
 
   // ── Env Editor Mode ───────────────────────────────────────────────
   useEffect(() => {

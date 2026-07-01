@@ -260,67 +260,6 @@ export function AppInner({
     [collectionDir, setCollectionReloadToken, setFocus, setSaveState, clearSaveTimer, saveTimerRef],
   )
 
-  const handleNewRequestClose = useCallback(() => {
-    setNewRequestVisible(false)
-  }, [])
-
-  // ── New request overlay intercepts ──────────────────────────────────
-  useEffect(() => {
-    if (!newRequestVisible) return
-    const dispose = keymap.intercept(
-      "key",
-      (ctx) => {
-        const e = ctx.event
-        const handle = newRequestRef.current
-        if (!handle) return
-
-        if (e.name === "tab" && !e.shift) {
-          e.preventDefault()
-          e.stopPropagation()
-          handle.cycleFocus(1)
-          return
-        }
-        if (e.name === "tab" && e.shift) {
-          e.preventDefault()
-          e.stopPropagation()
-          handle.cycleFocus(-1)
-          return
-        }
-        if (e.name === "return") {
-          e.preventDefault()
-          e.stopPropagation()
-          if (handle.getFocus() === "url") {
-            const result = handle.confirm()
-            if (result) handleNewRequestConfirm(result.name, result.method, result.url)
-          } else {
-            handle.commitField()
-          }
-          return
-        }
-        if (e.name === "y") {
-          e.preventDefault()
-          e.stopPropagation()
-          const result = handle.confirm()
-          if (result) handleNewRequestConfirm(result.name, result.method, result.url)
-          return
-        }
-        if (e.name === "n" || e.name === "escape") {
-          e.preventDefault()
-          e.stopPropagation()
-          handleNewRequestClose()
-          return
-        }
-      },
-      { priority: 100 },
-    )
-    return dispose
-  }, [
-    newRequestVisible,
-    keymap,
-    handleNewRequestConfirm,
-    handleNewRequestClose,
-  ])
-
   // ── keymap.setData effects ─────────────────────────────────────────
   useEffect(() => {
     keymap.setData("app.focus", focus)
@@ -516,6 +455,10 @@ export function AppInner({
     setFocus,
     envHeaderRef,
     headerFieldRef,
+    newRequestVisible,
+    newRequestRef,
+    setNewRequestVisible,
+    onNewRequestConfirm: (v) => handleNewRequestConfirm(v.name, v.method as Method, v.url),
   })
 
   // ── Derived values for render ─────────────────────────────────────
