@@ -175,21 +175,22 @@ export function AppInner({
       saveLastReqRef.current = true
       return
     }
-    const req = selectedRequest
-    if (req) {
-      if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
-      saveLastDebounceRef.current = setTimeout(() => {
-        saveLastRequest(collectionDir, req.id, new Set(requestIds)).catch(
-          (e: unknown) => {
-            console.error("Failed to save last request:", e)
-          },
-        )
-      }, 150)
-    }
+    const lastId = focusedFolderPath
+      ? `${focusedFolderPath}/`
+      : selectedId
+    if (!lastId) return
+    if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
+    saveLastDebounceRef.current = setTimeout(() => {
+      saveLastRequest(collectionDir, lastId, new Set(requestIds)).catch(
+        (e: unknown) => {
+          console.error("Failed to save last request:", e)
+        },
+      )
+    }, 200)
     return () => {
       if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     }
-  }, [selectedId])
+  }, [selectedId, focusedFolderPath])
 
   const expandedSaveRef = useRef(false)
   const expandedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)

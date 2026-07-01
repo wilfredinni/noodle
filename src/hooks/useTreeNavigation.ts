@@ -90,6 +90,7 @@ export function useTreeNavigation(
 
   useEffect(() => {
     if (flatReqs.length > 0) {
+      if (initialSelectedId && initialSelectedId.endsWith("/")) return
       let targetId: string | null = null
       if (initialSelectedId) {
         const found = findRequestById(items, initialSelectedId)
@@ -116,7 +117,19 @@ export function useTreeNavigation(
 
   useEffect(() => {
     if (initialCursorSet.current) return
-    if (!selectedId || vis.length === 0) return
+    if (vis.length === 0) return
+    if (initialSelectedId && initialSelectedId.endsWith("/")) {
+      const folderPath = initialSelectedId.slice(0, -1)
+      const idx = vis.findIndex(
+        (n) => n.type === "folder" && n.id === folderPath,
+      )
+      if (idx >= 0) {
+        setCursorIndex(idx)
+        initialCursorSet.current = true
+        return
+      }
+    }
+    if (!selectedId) return
     const idx = vis.findIndex(
       (n) => n.type === "request" && n.id === selectedId,
     )
