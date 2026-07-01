@@ -8,6 +8,14 @@ function validatePathId(id: string | undefined): void {
   if (!id) {
     throw new Error("filestore.validatePathId: missing or invalid id")
   }
+  if (id === "." || id.startsWith("./")) {
+    throw new Error(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  }
+  if (id.startsWith("/")) {
+    throw new Error("filestore.validatePathId: id must not be an absolute path")
+  }
   if (id.includes("\\") || id.includes("..")) {
     throw new Error(
       'filestore.validatePathId: id must not contain backslash or ".."',

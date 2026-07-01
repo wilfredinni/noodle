@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
-import { filestore, loadSettings, saveSettings } from "../src/filestore"
-import type { Request, Collection } from "../src/schema"
+import { filestore, loadSettings, saveSettings, saveFolder, deleteFolder } from "../src/filestore"
+import type { Folder, Request, Collection } from "../src/schema"
 
 function reqs(col: Collection): Request[] {
   return col.items
@@ -59,6 +59,16 @@ function makeReq(over: Partial<Request> = {}): Request {
     followRedirects: true,
     maxRedirects: 5,
     auth: { type: "none" },
+    ...over,
+  }
+}
+
+function makeFolder(over: Partial<Folder> = {}): Folder {
+  return {
+    id: "f",
+    name: "F",
+    path: "f",
+    children: [],
     ...over,
   }
 }
@@ -214,6 +224,30 @@ describe("filestore.saveRequest — id validation", () => {
     )
   })
 
+  it("rejects id that is just '.'", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "." })),
+    ).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it('rejects id that starts with "./"', async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "./foo" })),
+    ).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it("rejects id that is an absolute path", async () => {
+    await expect(
+      filestore.saveRequest(dir, makeReq({ id: "/etc/passwd" })),
+    ).rejects.toThrow(
+      "filestore.validatePathId: id must not be an absolute path",
+    )
+  })
+
   it("accepts ids with spaces, dots, capitals", async () => {
     await filestore.saveRequest(dir, makeReq({ id: "My.Request v2" }))
     const content = await readFile(join(dir, "My.Request v2.yml"), "utf8")
@@ -266,6 +300,59 @@ describe("filestore — integration round-trip", () => {
     expect(after.id).toBe("lazy")
     expect(after.name).toBe("lazy")
     expect(reqs(after).map((r) => r.id)).toEqual(["a", "z"])
+  })
+})
+
+describe("filestore.saveFolder — path validation", () => {
+  it("rejects '.' as path", async () => {
+    await expect(saveFolder(dir, makeFolder({ path: "." }))).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it("rejects absolute path", async () => {
+    await expect(saveFolder(dir, makeFolder({ path: "/etc" }))).rejects.toThrow(
+      "filestore.validatePathId: id must not be an absolute path",
+    )
+  })
+
+  it("rejects path with backslash", async () => {
+    await expect(saveFolder(dir, makeFolder({ path: "a\\b" }))).rejects.toThrow(
+      'filestore.validatePathId: id must not contain backslash or ".."',
+    )
+  })
+
+  it("creates folder.yml on disk", async () => {
+    await saveFolder(dir, makeFolder({ path: "my-folder", name: "My Folder" }))
+    const content = await readFile(join(dir, "my-folder", "folder.yml"), "utf8")
+    expect(content).toContain("name: My Folder")
+  })
+})
+
+describe("filestore.deleteFolder — path validation", () => {
+  it("rejects '.' as path", async () => {
+    await expect(deleteFolder(dir, ".")).rejects.toThrow(
+      'filestore.validatePathId: id must not be "." or start with "./"',
+    )
+  })
+
+  it("rejects absolute path", async () => {
+    await expect(deleteFolder(dir, "/etc")).rejects.toThrow(
+      "filestore.validatePathId: id must not be an absolute path",
+    )
+  })
+
+  it("rejects path with backslash", async () => {
+    await expect(deleteFolder(dir, "a\\b")).rejects.toThrow(
+      'filestore.validatePathId: id must not contain backslash or ".."',
+    )
+  })
+
+  it("deletes folder directory", async () => {
+    await mkdir(join(dir, "to-delete"))
+    await writeFile(join(dir, "to-delete", "folder.yml"), "meta:\n  name: Bye\n", "utf8")
+    await deleteFolder(dir, "to-delete")
+    await expect(readFile(join(dir, "to-delete", "folder.yml"), "utf8")).rejects.toThrow()
   })
 })
 
