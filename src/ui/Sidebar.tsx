@@ -21,7 +21,7 @@ export function Sidebar({
   error,
   visibleItems,
   cursorIndex,
-  selectedId,
+  selectedId: _selectedId,
   expanded: _expanded,
   focused = false,
   keybinds: _keybinds,
@@ -97,7 +97,9 @@ export function Sidebar({
                   style={{
                     flexDirection: "row",
                     paddingLeft: node.depth * 2,
-                    backgroundColor: isCursor ? theme.backgroundElement : undefined,
+                    backgroundColor: isCursor
+                      ? theme.backgroundElement
+                      : undefined,
                   }}
                   border={[...LeftBar.border]}
                   customBorderChars={LeftBar.customBorderChars}
@@ -117,14 +119,18 @@ export function Sidebar({
                   flexDirection: "row",
                   justifyContent: "space-between",
                   paddingLeft: (node.depth + 1) * 2,
-                  backgroundColor: isCursor ? theme.backgroundElement : undefined,
+                  backgroundColor: isCursor
+                    ? theme.backgroundElement
+                    : undefined,
                 }}
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isCursor ? theme.primary : theme.backgroundPanel}
               >
                 <box style={{ flexDirection: "row" }}>
-                  <text fg={methodColor((node.method ?? "GET") as Method, theme)}>
+                  <text
+                    fg={methodColor((node.method ?? "GET") as Method, theme)}
+                  >
                     {shortMethod(node.method ?? "GET").padEnd(7)}
                   </text>
                   <text fg={theme.text} wrapMode="none">

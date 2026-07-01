@@ -140,11 +140,9 @@ export function AppInner({
   const {
     selectedId,
     selectedRequest,
-    focusedFolderPath,
     expanded: expandedFolders,
     visibleItems,
     cursorIndex,
-    setSelectedId,
   } = useTreeNavigation(
     items,
     () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
@@ -167,13 +165,11 @@ export function AppInner({
     if (req) {
       if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
       saveLastDebounceRef.current = setTimeout(() => {
-        saveLastRequest(
-          collectionDir,
-          req.id,
-          new Set(requestIds),
-        ).catch((e: unknown) => {
-          console.error("Failed to save last request:", e)
-        })
+        saveLastRequest(collectionDir, req.id, new Set(requestIds)).catch(
+          (e: unknown) => {
+            console.error("Failed to save last request:", e)
+          },
+        )
       }, 150)
     }
     return () => {
@@ -427,10 +423,10 @@ export function AppInner({
               : editRequestVisible
                 ? "edit-request"
                 : cloneRequestVisible
-                ? "clone-request"
-                : requestDeletePending !== null
-                  ? "request-delete"
-                  : "none"
+                  ? "clone-request"
+                  : requestDeletePending !== null
+                    ? "request-delete"
+                    : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     helpVisible,
@@ -676,7 +672,7 @@ export function AppInner({
           <box
             style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
           >
-             <Sidebar
+            <Sidebar
               items={items}
               loading={loading}
               error={error}

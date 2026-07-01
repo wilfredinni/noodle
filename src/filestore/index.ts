@@ -1,6 +1,12 @@
-import type { Collection, CollectionSettings, Folder, Request } from "../schema"
+import type { Collection, CollectionSettings, Request } from "../schema"
 import { loadCollection, loadSettings } from "./load"
-import { saveRequest, saveSettings, deleteRequest, saveFolder, deleteFolder } from "./save"
+import {
+  saveRequest,
+  saveSettings,
+  deleteRequest,
+  saveFolder,
+  deleteFolder,
+} from "./save"
 import {
   loadTimeline,
   saveTimelineEntry,
