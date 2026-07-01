@@ -3,7 +3,13 @@ import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { filestore, loadSettings, saveSettings } from "../src/filestore"
-import type { Request } from "../src/schema"
+import type { Request, Collection } from "../src/schema"
+
+function reqs(col: Collection): Request[] {
+  return col.items
+    .filter((i): i is { type: "request"; data: Request } => i.type === "request")
+    .map((i) => i.data)
+}
 
 let dir: string
 
@@ -25,7 +31,7 @@ describe("filestore.loadCollection — directory state", () => {
 
   it("returns empty Collection when dir has no .yml files", async () => {
     const col = await filestore.loadCollection(dir)
-    expect(col.requests).toEqual([])
+    expect(reqs(col)).toEqual([])
     expect(col.id).toBe(col.name)
     expect(col.id).toBeTruthy()
   })
@@ -62,8 +68,8 @@ describe("filestore.loadCollection — file selection and order", () => {
   it("reads a single .yml file as one request", async () => {
     await writeFile(join(dir, "get-user.yml"), yamlTmpl(makeReq()))
     const col = await filestore.loadCollection(dir)
-    expect(col.requests).toHaveLength(1)
-    expect(col.requests[0].id).toBe("get-user")
+    expect(reqs(col)).toHaveLength(1)
+    expect(reqs(col)[0].id).toBe("get-user")
   })
 
   it("sorts requests by filename ascending", async () => {
@@ -71,7 +77,7 @@ describe("filestore.loadCollection — file selection and order", () => {
     await writeFile(join(dir, "a.yml"), yamlTmpl(makeReq({ name: "A" })))
     await writeFile(join(dir, "m.yml"), yamlTmpl(makeReq({ name: "M" })))
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["a", "m", "z"])
+    expect(reqs(col).map((r) => r.id)).toEqual(["a", "m", "z"])
   })
 
   it("ignores non-.yml files (.yaml, .json, .txt, dotfile)", async () => {
@@ -81,21 +87,27 @@ describe("filestore.loadCollection — file selection and order", () => {
     await writeFile(join(dir, "readme.txt"), "hi")
     await writeFile(join(dir, ".hidden.yml"), yamlTmpl(makeReq()))
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["keep"])
+    expect(reqs(col).map((r) => r.id)).toEqual(["keep"])
   })
 
-  it("ignores subdirectories even if named like .yml", async () => {
+  it("includes subdirectories as folders", async () => {
     await writeFile(join(dir, "real.yml"), yamlTmpl(makeReq()))
-    await mkdir(join(dir, "sub.yml"))
+    await mkdir(join(dir, "sub"))
+    await writeFile(join(dir, "sub", "nested.yml"), yamlTmpl(makeReq({ name: "Nested", id: "nested" })))
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["real"])
+    expect(col.items).toHaveLength(2)
+    const reqItem = col.items.find((i) => i.type === "request")
+    const folderItem = col.items.find((i) => i.type === "folder")
+    expect(folderItem).toBeDefined()
+    expect(reqItem).toBeDefined()
+    if (reqItem?.type === "request") expect(reqItem.data.id).toBe("real")
   })
 
   it("skips settings.yml (not a request)", async () => {
     await writeFile(join(dir, "get.yml"), yamlTmpl(makeReq({ name: "Get" })))
     await writeFile(join(dir, "settings.yml"), "environment: dev\n")
     const col = await filestore.loadCollection(dir)
-    expect(col.requests.map((r) => r.id)).toEqual(["get"])
+    expect(reqs(col).map((r) => r.id)).toEqual(["get"])
   })
 
   it("wraps lang parse failures with filename and lang message", async () => {
@@ -164,30 +176,28 @@ describe("filestore.saveRequest — id validation", () => {
   it("rejects empty id", async () => {
     await expect(
       filestore.saveRequest(dir, makeReq({ id: "" })),
-    ).rejects.toThrow("filestore.saveRequest: missing or invalid id")
+    ).rejects.toThrow("filestore.validatePathId: missing or invalid id")
   })
 
   it("rejects undefined id (treated as empty)", async () => {
     const req = makeReq()
     delete (req as { id?: string }).id
     await expect(filestore.saveRequest(dir, req)).rejects.toThrow(
-      "filestore.saveRequest: missing or invalid id",
+      "filestore.validatePathId: missing or invalid id",
     )
   })
 
-  it("rejects id with forward slash", async () => {
-    await expect(
-      filestore.saveRequest(dir, makeReq({ id: "../evil" })),
-    ).rejects.toThrow(
-      'filestore.saveRequest: id must not contain path separators or ".."',
-    )
+  it("allows id with forward slash (subdirectory path)", async () => {
+    await filestore.saveRequest(dir, makeReq({ id: "sub/ping" }))
+    const content = await readFile(join(dir, "sub", "ping.yml"), "utf8")
+    expect(content).toContain("name: X")
   })
 
   it("rejects id with backslash", async () => {
     await expect(
       filestore.saveRequest(dir, makeReq({ id: "a\\b" })),
     ).rejects.toThrow(
-      'filestore.saveRequest: id must not contain path separators or ".."',
+      'filestore.validatePathId: id must not contain backslash or ".."',
     )
   })
 
@@ -195,7 +205,7 @@ describe("filestore.saveRequest — id validation", () => {
     await expect(
       filestore.saveRequest(dir, makeReq({ id: "a..b" })),
     ).rejects.toThrow(
-      'filestore.saveRequest: id must not contain path separators or ".."',
+      'filestore.validatePathId: id must not contain backslash or ".."',
     )
   })
 
@@ -230,9 +240,9 @@ describe("filestore — integration round-trip", () => {
     const col = await filestore.loadCollection(collectionDir)
     expect(col.id).toBe("my-api")
     expect(col.name).toBe("my-api")
-    expect(col.requests.map((r) => r.id)).toEqual(["create-post", "get-user"])
-    expect(col.requests[0]).toEqual(b)
-    expect(col.requests[1]).toEqual(a)
+    expect(reqs(col).map((r) => r.id)).toEqual(["create-post", "get-user"])
+    expect(reqs(col)[0]).toEqual(b)
+    expect(reqs(col)[1]).toEqual(a)
   })
 
   it("load on lazy-created dir yields sorted requests only after save", async () => {
@@ -250,7 +260,7 @@ describe("filestore — integration round-trip", () => {
     const after = await filestore.loadCollection(fresh)
     expect(after.id).toBe("lazy")
     expect(after.name).toBe("lazy")
-    expect(after.requests.map((r) => r.id)).toEqual(["a", "z"])
+    expect(reqs(after).map((r) => r.id)).toEqual(["a", "z"])
   })
 })
 

@@ -1,7 +1,8 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA, TextAttributes } from "@opentui/core"
-import type { Collection, Request, KvEntry } from "../src/schema"
+import type { Request, KvEntry, CollectionItem } from "../src/schema"
+import type { VisibleNode } from "../src/ui/tree"
 import { Sidebar } from "../src/ui/Sidebar"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ResponsePane } from "../src/ui/ResponsePane"
@@ -174,14 +175,26 @@ describe("RequestPane scrollbox", () => {
 describe("Sidebar scrollbox", () => {
   it("renders without crashing with many requests", async () => {
     const requests = Array.from({ length: 50 }, (_, i) => makeRequest(i))
-    const collection: Collection = { id: "test", name: "Test", requests }
+    const items: CollectionItem[] = requests.map((r) => ({ type: "request", data: r }))
+    const visibleItems: VisibleNode[] = requests.map((r) => ({
+      type: "request" as const,
+      id: r.id,
+      name: r.name,
+      depth: 0,
+      expanded: false,
+      hasChildren: false,
+      method: r.method,
+    }))
 
     const { renderOnce, captureCharFrame } = await testRender(
       <Sidebar
-        collection={collection}
+        items={items}
         loading={false}
         error={null}
-        selectedIndex={5}
+        visibleItems={visibleItems}
+        cursorIndex={5}
+        selectedId="req-5"
+        expanded={new Set()}
         focused={true}
       />,
       { width: 80, height: 24 },
@@ -203,15 +216,27 @@ describe("Sidebar scrollbox", () => {
 
   it("selected request has LeftBar border and no INVERSE instead of primary background", async () => {
     const requests = Array.from({ length: 5 }, (_, i) => makeRequest(i))
-    const collection: Collection = { id: "test", name: "Test", requests }
+    const items: CollectionItem[] = requests.map((r) => ({ type: "request", data: r }))
+    const visibleItems: VisibleNode[] = requests.map((r) => ({
+      type: "request" as const,
+      id: r.id,
+      name: r.name,
+      depth: 0,
+      expanded: false,
+      hasChildren: false,
+      method: r.method,
+    }))
 
     const { renderOnce, captureCharFrame, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <Sidebar
-          collection={collection}
+          items={items}
           loading={false}
           error={null}
-          selectedIndex={2}
+          visibleItems={visibleItems}
+          cursorIndex={2}
+          selectedId="req-2"
+          expanded={new Set()}
           focused={true}
         />
       </ThemeProvider>,
@@ -241,7 +266,16 @@ describe("Sidebar scrollbox", () => {
 describe("App layout stability", () => {
   it("renders all three panes together without overflow", async () => {
     const requests = Array.from({ length: 50 }, (_, i) => makeRequest(i))
-    const collection: Collection = { id: "test", name: "Test", requests }
+    const items: CollectionItem[] = requests.map((r) => ({ type: "request", data: r }))
+    const visibleItems: VisibleNode[] = requests.map((r) => ({
+      type: "request" as const,
+      id: r.id,
+      name: r.name,
+      depth: 0,
+      expanded: false,
+      hasChildren: false,
+      method: r.method,
+    }))
 
     const manyHeaders: Record<string, KvEntry> = {}
     for (let i = 0; i < 30; i++) {
@@ -284,10 +318,13 @@ describe("App layout stability", () => {
       <box style={{ width: "100%", height: "100%", flexDirection: "column" }}>
         <box style={{ flexDirection: "row", flexGrow: 1 }}>
           <Sidebar
-            collection={collection}
+            items={items}
             loading={false}
             error={null}
-            selectedIndex={3}
+            visibleItems={visibleItems}
+            cursorIndex={3}
+            selectedId="req-3"
+            expanded={new Set()}
             focused={false}
           />
           <box style={{ flexDirection: "column", flexGrow: 1 }}>

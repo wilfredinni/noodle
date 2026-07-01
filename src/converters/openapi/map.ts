@@ -323,5 +323,5 @@ export function mapCollection(n: Normalized): Collection {
     }
   }
 
-  return { id, name, requests }
+  return { id, name, items: requests.map((r) => ({ type: "request" as const, data: r })) }
 }
