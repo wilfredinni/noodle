@@ -70,7 +70,11 @@ export const CloneRequestOverlay = forwardRef<
         />
       </box>
 
-      {errorText && <text fg={theme.error}>{errorText}</text>}
+      {errorText && (
+        <box style={{ paddingX: 2 }}>
+          <text fg={theme.error}>{errorText}</text>
+        </box>
+      )}
 
       <box
         style={{

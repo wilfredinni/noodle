@@ -47,8 +47,8 @@ describe("Delete confirmation", () => {
     expect(frame).toContain("Delete environment")
     expect(frame).toContain("staging")
     expect(frame).toContain("Confirm")
-    expect(frame).toContain("Y")
-    expect(frame).toContain("N")
+    expect(frame).toContain("y")
+    expect(frame).toContain("n")
     cleanup()
   })
 
@@ -85,7 +85,7 @@ describe("Delete confirmation", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Confirm")
-    expect(frame).toContain("Cancel")
+    expect(frame).toContain("cancel")
     cleanup()
   })
 
