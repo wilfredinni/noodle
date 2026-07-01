@@ -42,10 +42,13 @@ export function Sidebar({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   useEffect(() => {
-    if (cursorIndex >= 0) {
-      scrollRef.current?.scrollChildIntoView(`tree-node-${cursorIndex}`)
+    if (cursorIndex >= 0 && visibleItems.length > 0) {
+      const idx = Math.min(cursorIndex, visibleItems.length - 1)
+      scrollRef.current?.scrollChildIntoView(
+        `so-${visibleItems[idx].id}`,
+      )
     }
-  }, [cursorIndex])
+  }, [cursorIndex, visibleItems])
 
   return (
     <box
@@ -93,7 +96,7 @@ export function Sidebar({
               return (
                 <box
                   key={node.id}
-                  id={`tree-node-${i}`}
+                  id={`so-${node.id}`}
                   style={{
                     flexDirection: "row",
                     paddingLeft: node.depth * 2,
@@ -114,7 +117,7 @@ export function Sidebar({
             return (
               <box
                 key={node.id}
-                id={`tree-node-${i}`}
+                id={`so-${node.id}`}
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
