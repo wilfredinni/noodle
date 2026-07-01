@@ -210,7 +210,7 @@ export function RequestPane({
               )}
               {activeTab === "auth" && (
                 <AuthEditor
-                  request={request}
+                  auth={request?.auth ?? { type: "none" }}
                   editState={editState}
                   inEdit={inEdit}
                   browseActive={browseActive}

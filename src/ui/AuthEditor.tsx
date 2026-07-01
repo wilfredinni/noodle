@@ -90,7 +90,7 @@ function getFieldValue(auth: Auth, field: string): string {
 }
 
 export interface AuthEditorProps {
-  request: { auth?: Auth }
+  auth: Auth
   editState: EditState
   inEdit: boolean
   browseActive: boolean
@@ -100,10 +100,11 @@ export interface AuthEditorProps {
   onAuthTypeChange: (t: "none" | "bearer" | "basic" | "api_key") => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
+  idPrefix?: string
 }
 
 export function AuthEditor({
-  request,
+  auth,
   editState,
   inEdit,
   browseActive,
@@ -113,6 +114,7 @@ export function AuthEditor({
   onAuthTypeChange,
   onApiKeyPlacementChange,
   onSelectOpenChange,
+  idPrefix = "auth",
 }: AuthEditorProps) {
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
@@ -123,7 +125,7 @@ export function AuthEditor({
     if (ta) setEditValue(ta.plainText)
   }, [setEditValue])
 
-  const { type, fieldDefs } = getAuthRows(request.auth)
+  const { type, fieldDefs } = getAuthRows(auth)
 
   const isTypeSelectorActive =
     browseActive &&
@@ -149,7 +151,7 @@ export function AuthEditor({
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
       <box
-        id="auth-field"
+        id={`${idPrefix}-field`}
         style={{
           zIndex: typeSelectOpen ? 1 : undefined,
           backgroundColor: isTypeSelectorActive
@@ -179,9 +181,7 @@ export function AuthEditor({
           inEdit &&
           editState.cursor.field === "auth" &&
           editState.cursor.row === def.row
-        const fieldValue = request.auth
-          ? getFieldValue(request.auth, def.field)
-          : ""
+        const fieldValue = getFieldValue(auth, def.field)
         const displayValue = def.isSecret
           ? maskIfSecret(fieldValue, true)
           : fieldValue
@@ -195,7 +195,7 @@ export function AuthEditor({
             }}
           >
             <box
-              id={`auth-${def.field}`}
+              id={`${idPrefix}-${def.field}`}
               border={[...LeftBar.border]}
               customBorderChars={LeftBar.customBorderChars}
               borderColor={
