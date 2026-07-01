@@ -339,3 +339,28 @@ describe("filestore.saveSettings", () => {
     expect(content).not.toContain("old")
   })
 })
+
+describe("filestore — nested folders", () => {
+  it("loads nested directory structure as tree", async () => {
+    await writeFile(join(dir, "root.yml"), yamlTmpl(makeReq({ id: "root", name: "Root" })))
+
+    await mkdir(join(dir, "auth"))
+    await writeFile(join(dir, "auth", "login.yml"), yamlTmpl(makeReq({ id: "auth/login", name: "Login" })))
+
+    await mkdir(join(dir, "users"))
+    await writeFile(join(dir, "users", "folder.yml"), "meta:\n  name: User Management\n  seq: 1\n")
+    await writeFile(join(dir, "users", "list.yml"), yamlTmpl(makeReq({ id: "users/list", name: "List Users" })))
+
+    const col = await filestore.loadCollection(dir)
+
+    expect(col.items).toHaveLength(3)
+    expect(col.items[0].type).toBe("folder")
+    if (col.items[0].type === "folder") {
+      expect(col.items[0].data.name).toBe("User Management")
+      expect(col.items[0].data.children).toHaveLength(1)
+    }
+    if (col.items[2].type === "request") {
+      expect(col.items[2].data.id).toBe("root")
+    }
+  })
+})
