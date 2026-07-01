@@ -56,7 +56,7 @@ export function Select({
 
   useEffect(() => {
     onOpenChange?.(open)
-  }, [open])
+  }, [open, onOpenChange])
 
   useEffect(() => {
     if (open) {

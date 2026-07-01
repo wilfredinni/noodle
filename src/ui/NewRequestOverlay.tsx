@@ -62,15 +62,15 @@ export const NewRequestOverlay = forwardRef<
   const nameRef = useRef<InputRenderable | null>(null)
   const urlRef = useRef<InputRenderable | null>(null)
 
-  const focusOrder: Array<"name" | "method" | "url"> = ["name", "method", "url"]
+const FOCUS_ORDER: Array<"name" | "method" | "url"> = ["name", "method", "url"]
 
   useImperativeHandle(ref, () => ({
     cycleFocus: (direction: 1 | -1) => {
       setErrorText(null)
       setFocus((prev) => {
-        const idx = focusOrder.indexOf(prev)
-        const next = (idx + direction + focusOrder.length) % focusOrder.length
-        return focusOrder[next]!
+        const idx = FOCUS_ORDER.indexOf(prev)
+        const next = (idx + direction + FOCUS_ORDER.length) % FOCUS_ORDER.length
+        return FOCUS_ORDER[next]!
       })
     },
     commitField: () => {

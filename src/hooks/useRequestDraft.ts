@@ -48,7 +48,17 @@ export type DraftOp =
   | { kind: "toggleFormRow"; index: number }
   | { kind: "setFilePath"; filePath: string }
 
+const CACHE_MAX = 100
+
 const authTypeCache = new Map<string, Record<string, Auth>>()
+
+function cacheSet<K, V>(map: Map<K, V>, key: K, value: V): void {
+  map.set(key, value)
+  if (map.size > CACHE_MAX) {
+    const first = map.keys().next().value as K | undefined
+    if (first !== undefined) map.delete(first)
+  }
+}
 
 interface CachedBody {
   body?: string
@@ -259,7 +269,7 @@ export function applyDraft(
           formData: draft.formData,
           filePath: draft.filePath,
         }
-        bodyCache.set(id, idCache)
+        cacheSet(bodyCache, id, idCache)
 
         draft.bodyType = op.bodyType
         const cached = bodyCache.get(id)?.[normalizedOp]
@@ -357,7 +367,7 @@ export function applyDraft(
       if (curAuth && curAuth.type !== "none") {
         const idCache = authTypeCache.get(id) ?? {}
         idCache[curAuth.type] = curAuth
-        authTypeCache.set(id, idCache)
+        cacheSet(authTypeCache, id, idCache)
       }
       const cached = authTypeCache.get(id)?.[op.authType]
       if (cached && cached.type === op.authType) {

@@ -4,8 +4,8 @@ import type {
   Folder,
   FolderMeta,
   FolderOverrides,
-  KvEntry,
 } from "../schema"
+import { parseKvMap } from "./parse"
 
 interface RawFolderMeta {
   name?: unknown
@@ -61,10 +61,10 @@ export function parseFolder(yamlText: string): {
   ) {
     overrides = {}
     if (raw.headers !== undefined) {
-      overrides.headers = parseKvMap(raw.headers, "headers")
+      overrides.headers = parseKvMap(raw.headers, "headers", "lang.parseFolder")
     }
     if (raw.params !== undefined) {
-      overrides.params = parseKvMap(raw.params, "params")
+      overrides.params = parseKvMap(raw.params, "params", "lang.parseFolder")
     }
     if (raw.auth !== undefined) {
       overrides.auth = parseFolderAuth(raw.auth)
@@ -72,32 +72,6 @@ export function parseFolder(yamlText: string): {
   }
 
   return { meta, overrides }
-}
-
-function parseKvMap(value: unknown, field: string): Record<string, KvEntry> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`lang.parseFolder: ${field} must be a map`)
-  }
-  const out: Record<string, KvEntry> = {}
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof v === "string") {
-      out[k] = { value: v, enabled: true }
-    } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
-      const obj = v as Record<string, unknown>
-      if (typeof obj.value !== "string") {
-        throw new Error(
-          `lang.parseFolder: ${field}.${k} must have string "value"`,
-        )
-      }
-      const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
-      out[k] = { value: obj.value, enabled }
-    } else {
-      throw new Error(
-        `lang.parseFolder: ${field}.${k} must be a string or {value, enabled} object`,
-      )
-    }
-  }
-  return out
 }
 
 type RawFolderAuth =
@@ -164,22 +138,24 @@ export function serializeFolder(folder: Folder): string {
     if (o.headers && Object.keys(o.headers).length > 0) {
       out += "headers:\n"
       for (const [k, v] of Object.entries(o.headers)) {
+        const key = yamlVal(k)
         const val = yamlVal(v.value)
         if (v.enabled) {
-          out += `  ${k}: ${val}\n`
+          out += `  ${key}: ${val}\n`
         } else {
-          out += `  ${k}: { value: ${val}, enabled: false }\n`
+          out += `  ${key}: { value: ${val}, enabled: false }\n`
         }
       }
     }
     if (o.params && Object.keys(o.params).length > 0) {
       out += "params:\n"
       for (const [k, v] of Object.entries(o.params)) {
+        const key = yamlVal(k)
         const val = yamlVal(v.value)
         if (v.enabled) {
-          out += `  ${k}: ${val}\n`
+          out += `  ${key}: ${val}\n`
         } else {
-          out += `  ${k}: { value: ${val}, enabled: false }\n`
+          out += `  ${key}: { value: ${val}, enabled: false }\n`
         }
       }
     }

@@ -1,5 +1,5 @@
 import yaml from "js-yaml"
-import type { Auth, BodyType, FormEntry, Method, Request } from "../schema"
+import type { Auth, BodyType, FormEntry, KvEntry, Method, Request } from "../schema"
 
 const METHODS: readonly Method[] = [
   "GET",
@@ -214,15 +214,16 @@ export function parseRequest(id: string, yamlText: string): Request {
   }
 }
 
-function parseKvMap(
+export function parseKvMap(
   value: unknown,
   field: string,
-): Record<string, import("../schema").KvEntry> {
+  prefix = "lang.parseRequest",
+): Record<string, KvEntry> {
   if (value === undefined) return {}
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`lang.parseRequest: ${field} must be a map`)
+    throw new Error(`${prefix}: ${field} must be a map`)
   }
-  const out: Record<string, import("../schema").KvEntry> = {}
+  const out: Record<string, KvEntry> = {}
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     if (typeof v === "string") {
       out[k] = { value: v, enabled: true }
@@ -230,14 +231,14 @@ function parseKvMap(
       const obj = v as Record<string, unknown>
       if (typeof obj.value !== "string") {
         throw new Error(
-          `lang.parseRequest: ${field}.${k} must have string "value"`,
+          `${prefix}: ${field}.${k} must have string "value"`,
         )
       }
       const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
       out[k] = { value: obj.value, enabled }
     } else {
       throw new Error(
-        `lang.parseRequest: ${field}.${k} must be a string or {value, enabled} object`,
+        `${prefix}: ${field}.${k} must be a string or {value, enabled} object`,
       )
     }
   }

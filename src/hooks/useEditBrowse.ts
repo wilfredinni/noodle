@@ -10,19 +10,12 @@ import {
   commitEditing,
   cancelEditing,
   toggleSubfield,
+  FIELD_ORDER,
   type EditState,
   type SectionRowCount,
   type FieldKind,
 } from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
-
-const FIELD_ORDER: FieldKind[] = [
-  "headers",
-  "params",
-  "body",
-  "auth",
-  "settings",
-]
 
 function rowCount(req: Request | null): SectionRowCount {
   if (!req) return { headers: 0, params: 0, body: 0, auth: 1, settings: 3 }
