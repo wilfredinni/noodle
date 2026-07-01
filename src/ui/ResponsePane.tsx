@@ -10,6 +10,7 @@ import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { GradientBadge } from "./GradientBadge"
 import { Tips } from "./Tips"
+
 import { TimelineTab } from "./timeline/TimelineTab"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -33,6 +34,7 @@ export function ResponsePane({
   initialTab,
   onTabChange,
   expandHint,
+  layout,
 }: {
   state: SendState
   focused?: boolean
@@ -40,6 +42,7 @@ export function ResponsePane({
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   expandHint?: string
+  layout?: "stacked" | "side-by-side"
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
@@ -218,7 +221,7 @@ export function ResponsePane({
                 )}
               </scrollbox>
             )}
-          </Tabs>
+            </Tabs>
           {state.response.statusText !== "" && (
             <box
               style={{
@@ -226,7 +229,9 @@ export function ResponsePane({
                 justifyContent: "flex-end",
                 flexShrink: 0,
                 paddingTop: 1,
-                paddingRight: 1,
+                ...(layout === "stacked"
+                  ? { paddingBottom: 1 }
+                  : { paddingRight: 1 }),
               }}
             >
               <GradientBadge
