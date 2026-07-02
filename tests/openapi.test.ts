@@ -247,7 +247,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(reqs(c)[0].url).toBe("https://api.example.com/v1/users/$id")
+    expect(reqs(c)[0].url).toBe("$base_url/users/$id")
   })
 
   it("builds a path-only url when servers is missing", () => {
@@ -386,7 +386,7 @@ describe("mapCollection — auth resolution", () => {
   const oauth2 = { type: "oauth2", flows: {} }
   const oidc = { type: "openIdConnect", openIdConnectUrl: "https://x" }
 
-  it("maps http+bearer to Auth=bearer with $TOKEN", () => {
+  it("maps http+bearer to Auth=bearer with $token", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { bearerAuth: bearer } },
@@ -394,10 +394,10 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
-  it("maps http+basic to Auth=basic with $USER $PASS", () => {
+  it("maps http+basic to Auth=basic with $user $pass", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { basicAuth: basic } },
@@ -407,8 +407,8 @@ describe("mapCollection — auth resolution", () => {
     )
     expect(reqs(c)[0].auth).toEqual({
       type: "basic",
-      user: "$USER",
-      pass: "$PASS",
+      user: "$user",
+      pass: "$pass",
     })
   })
 
@@ -423,7 +423,7 @@ describe("mapCollection — auth resolution", () => {
     expect(reqs(c)[0].auth).toEqual({
       type: "api_key",
       key: "X-Api-Key",
-      value: "$API_KEY",
+      value: "$api_key",
       placement: "header",
     })
   })
@@ -443,7 +443,7 @@ describe("mapCollection — auth resolution", () => {
     expect(reqs(c)[0].auth).toEqual({
       type: "api_key",
       key: "api_key",
-      value: "$API_KEY",
+      value: "$api_key",
       placement: "query",
     })
   })
@@ -484,8 +484,8 @@ describe("mapCollection — auth resolution", () => {
     )
     expect(reqs(c)[0].auth).toEqual({
       type: "basic",
-      user: "$USER",
-      pass: "$PASS",
+      user: "$user",
+      pass: "$pass",
     })
   })
 
@@ -497,7 +497,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
   it("op.security: [] (empty array) means no auth required", () => {
@@ -543,7 +543,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
   it("falls to none when no security anywhere", () => {
@@ -565,7 +565,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
   it("skips security requirement entries whose scheme name is not a string", () => {
@@ -576,7 +576,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 })
 
@@ -907,15 +907,15 @@ describe("mapCollection — end-to-end integration", () => {
       "X-Trace": { value: "", enabled: true },
     })
     expect(getPet.body).toBeUndefined()
-    expect(getPet.auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(getPet.auth).toEqual({ type: "bearer", token: "$token" })
 
     const deletePet = reqs(c)[1]
     expect(deletePet.name).toBe("Delete a pet")
     expect(deletePet.method).toBe("DELETE")
     expect(deletePet.auth).toEqual({
       type: "basic",
-      user: "$USER",
-      pass: "$PASS",
+      user: "$user",
+      pass: "$pass",
     })
 
     const listPets = reqs(c)[2]
@@ -923,7 +923,7 @@ describe("mapCollection — end-to-end integration", () => {
     expect(listPets.params).toEqual({
       limit: { value: "", enabled: true },
     })
-    expect(listPets.auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(listPets.auth).toEqual({ type: "bearer", token: "$token" })
 
     const createPet = reqs(c)[3]
     expect(createPet.id).toBe("post-pets")
@@ -1490,12 +1490,16 @@ describe("mapCollection — environments from servers", () => {
     expect(mapCollection(n).environments).toEqual([])
   })
 
-  it("skips env when server URL has no template vars", () => {
+  it("creates base_url env var when server URL has no template vars", () => {
     const n = makeNormalized({
       servers: [{ url: "https://api.example.com" }],
       paths: { "/x": { get: { operationId: "getX" } } },
     })
-    expect(mapCollection(n).environments).toEqual([])
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].vars).toEqual({
+      base_url: "https://api.example.com",
+    })
   })
 
   it("skips non-mapping server entries", () => {

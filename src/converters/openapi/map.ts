@@ -151,11 +151,15 @@ function collectBody(op: Record<string, unknown>): {
   return {}
 }
 
+function convertTpl(v: string): string {
+  return v.replace(/\{\{(\w+)\}\}/g, "$$$1")
+}
+
 function paramDefault(p: Record<string, unknown>): string | undefined {
-  if (p.example !== undefined) return String(p.example)
+  if (p.example !== undefined) return convertTpl(String(p.example))
   const schema = p.schema
   if (isMapping(schema) && schema.default !== undefined) {
-    return String(schema.default)
+    return convertTpl(String(schema.default))
   }
   return undefined
 }
@@ -200,16 +204,16 @@ function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
   const type = scheme.type
   const schemeName = scheme.scheme
   if (type === "http" && schemeName === "bearer") {
-    return { type: "bearer", token: "$TOKEN" }
+    return { type: "bearer", token: "$token" }
   }
   if (type === "http" && schemeName === "basic") {
-    return { type: "basic", user: "$USER", pass: "$PASS" }
+    return { type: "basic", user: "$user", pass: "$pass" }
   }
   if (type === "apiKey") {
     const name = typeof scheme.name === "string" ? scheme.name : "X-API-Key"
     const inV = scheme.in
     const placement = inV === "query" ? "query" : "header"
-    return { type: "api_key", key: name, value: "$API_KEY", placement }
+    return { type: "api_key", key: name, value: "$api_key", placement }
   }
   return null
 }
@@ -257,7 +261,9 @@ function baseUrl(n: Normalized): string {
   if (!Array.isArray(servers) || servers.length === 0) return "/"
   const first = servers[0] as { url?: unknown } | null | undefined
   if (typeof first?.url !== "string" || first.url === "") return "/"
-  return urlTemplateToVar(first.url)
+  const raw = first.url
+  if (/\{/.test(raw)) return urlTemplateToVar(raw)
+  return "$base_url"
 }
 
 function joinUrl(base: string, path: string): string {
@@ -392,6 +398,37 @@ export function mapCollection(n: Normalized): ImportResult {
     })
   }
 
+  const envVarsFound = new Set<string>()
+  for (const r of requests) {
+    const mUrl = r.url.match(/\$(\w+)/g)
+    if (mUrl) for (const v of mUrl) envVarsFound.add(v.slice(1))
+    for (const [, kv] of Object.entries(r.headers)) {
+      const m = kv.value.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
+    }
+    for (const [, kv] of Object.entries(r.params)) {
+      const m = kv.value.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
+    }
+    const a = r.auth
+    if (a) {
+      if (a.type === "bearer") {
+        const m = a.token.match(/\$(\w+)/)
+        if (m) envVarsFound.add(m[1])
+      }
+      if (a.type === "basic") {
+        const mu = a.user.match(/\$(\w+)/)
+        if (mu) envVarsFound.add(mu[1])
+        const mp = a.pass.match(/\$(\w+)/)
+        if (mp) envVarsFound.add(mp[1])
+      }
+      if (a.type === "api_key") {
+        const m = a.value.match(/\$(\w+)/)
+        if (m) envVarsFound.add(m[1])
+      }
+    }
+  }
+
   const environments: Environment[] = []
   const servers = n.servers
   if (Array.isArray(servers) && servers.length > 0) {
@@ -426,7 +463,15 @@ export function mapCollection(n: Normalized): ImportResult {
         }
       }
 
-      if (Object.keys(vars).length > 0) {
+      if (srvUrl) {
+        if (Object.keys(vars).length === 0) {
+          vars["base_url"] = srvUrl
+        }
+        for (const varName of envVarsFound) {
+          if (!(varName in vars)) {
+            vars[varName] = ""
+          }
+        }
         environments.push({ name: envName, vars })
       }
     }
