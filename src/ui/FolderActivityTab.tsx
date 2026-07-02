@@ -1,4 +1,3 @@
-import { useMemo } from "react"
 import { methodColor } from "./formatRequest"
 import type { Theme } from "./theme"
 import type { FolderActivityStats } from "./useFolderActivity"
@@ -62,7 +61,7 @@ export function FolderActivityTab({
     )
   }
 
-  const widths = useMemo(() => {
+  const widths = (() => {
     const method = Math.max(
       ...stats.requests.map((r) => shortMethod(r.method).length),
       "Method".length,
@@ -92,7 +91,7 @@ export function FolderActivityTab({
       "Last".length,
     )
     return { method, name, ok, avg, last }
-  }, [stats])
+  })()
 
   return (
     <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
