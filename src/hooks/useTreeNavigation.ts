@@ -158,7 +158,7 @@ export function useTreeNavigation(
       setCursorIndex(idx)
       initialCursorSet.current = true
     }
-  })
+  }, [selectedId, vis])
 
   useKeyboard((key) => {
     if (!enabled()) return
