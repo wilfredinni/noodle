@@ -35,6 +35,16 @@ if (args.help) {
   process.exit(0)
 }
 
+if (args.source) {
+  const { runImport } = await import("./import")
+  await runImport(
+    args.source,
+    args.importFormat,
+    args.outputDir ?? args.collectionDir,
+  )
+  process.exit(0)
+}
+
 const environmentsDir = join(args.collectionDir, ".environments")
 
 let envList: string[]
