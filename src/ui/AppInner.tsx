@@ -169,6 +169,7 @@ export function AppInner({
     cursorIndex,
     focusedFolderPath,
     focusedFolderName,
+    setSelectedId,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -347,6 +348,7 @@ export function AppInner({
         .then(() => {
           if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
+          setSelectedId(id)
           setNewRequestVisible(false)
           setFocus("sidebar")
           setSaveState({ kind: "success", message: `Created ${name}` })
@@ -371,6 +373,7 @@ export function AppInner({
       setSaveState,
       clearSaveTimer,
       saveTimerRef,
+      setSelectedId,
       expandFolder,
     ],
   )
@@ -396,6 +399,9 @@ export function AppInner({
           setCollectionReloadToken((n) => n + 1)
           setCloneRequestVisible(false)
           setFocus("sidebar")
+          setSelectedId(id)
+          const lastSlash = id.lastIndexOf("/")
+          if (lastSlash >= 0) expandFolder(id.slice(0, lastSlash))
           setSaveState({ kind: "success", message: `Cloned ${newName}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
@@ -419,6 +425,8 @@ export function AppInner({
       setSaveState,
       clearSaveTimer,
       saveTimerRef,
+      setSelectedId,
+      expandFolder,
     ],
   )
 

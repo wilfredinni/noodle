@@ -88,12 +88,18 @@ export function useTreeNavigation(
     })
   }, [])
 
+  const initialSetupDone = useRef(false)
+
   useEffect(() => {
     if (flatReqs.length > 0) {
       initialCursorSet.current = false
       if (initialSelectedId && initialSelectedId.endsWith("/")) return
       let targetId: string | null = null
-      if (initialSelectedId) {
+      if (selectedId) {
+        const found = findRequestById(items, selectedId)
+        if (found) targetId = selectedId
+      }
+      if (!targetId && initialSelectedId) {
         const found = findRequestById(items, initialSelectedId)
         if (found) targetId = initialSelectedId
       }
@@ -111,6 +117,12 @@ export function useTreeNavigation(
           })
         }
       }
+      if (selectedId) {
+        const idx = vis.findIndex(
+          (n) => n.type === "request" && n.id === selectedId,
+        )
+        if (idx >= 0) setCursorIndex(idx)
+      }
     } else {
       setSelectedIdState(null)
     }
@@ -119,17 +131,22 @@ export function useTreeNavigation(
   useEffect(() => {
     if (initialCursorSet.current) return
     if (vis.length === 0) return
-    if (initialSelectedId && initialSelectedId.endsWith("/")) {
-      const folderPath = initialSelectedId.slice(0, -1)
-      const idx = vis.findIndex(
-        (n) => n.type === "folder" && n.id === folderPath,
-      )
-      if (idx >= 0) {
-        setCursorIndex(idx)
-        initialCursorSet.current = true
-        return
+
+    if (!initialSetupDone.current) {
+      initialSetupDone.current = true
+      if (initialSelectedId && initialSelectedId.endsWith("/")) {
+        const folderPath = initialSelectedId.slice(0, -1)
+        const idx = vis.findIndex(
+          (n) => n.type === "folder" && n.id === folderPath,
+        )
+        if (idx >= 0) {
+          setCursorIndex(idx)
+          initialCursorSet.current = true
+          return
+        }
       }
     }
+
     if (!selectedId) return
     const idx = vis.findIndex(
       (n) => n.type === "request" && n.id === selectedId,
