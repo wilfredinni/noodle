@@ -98,9 +98,11 @@ export function useJsonHighlight(
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => {
-      const content = textarea.plainText
+      const ta = textareaRef.current
+      if (!ta) return
+      const content = ta.plainText
       setEditValue(content)
-      highlightTextarea(textarea, content, theme)
+      highlightTextarea(ta, content, theme)
     }, DEBOUNCE_MS)
   }, [textareaRef, theme, setEditValue])
 
