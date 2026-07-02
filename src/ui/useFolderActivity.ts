@@ -14,11 +14,6 @@ export interface RequestActivityStats {
 
 export interface FolderActivityStats {
   requests: RequestActivityStats[]
-  summary: {
-    totalCalls: number
-    overallSuccessRate: number | null
-    overallAvgTime: number | null
-  }
 }
 
 interface ChildRequest {
@@ -56,32 +51,7 @@ export function computeFolderActivity(
     }
   })
 
-  const totalCalls = requests.reduce((s, r) => s + r.callCount, 0)
-
-  const allEntries = requests.flatMap((r) => timelines.get(r.id) ?? [])
-  const allSuccessCount = allEntries.filter(
-    (e) => e.response !== undefined,
-  ).length
-  const overallSuccessRate =
-    totalCalls > 0 ? allSuccessCount / totalCalls : null
-
-  const allTimes = allEntries
-    .filter((e) => e.response !== undefined)
-    .map((e) => e.response!.timeMs)
-
-  const overallAvgTime =
-    allTimes.length > 0
-      ? Math.round(allTimes.reduce((s, t) => s + t, 0) / allTimes.length)
-      : null
-
-  return {
-    requests,
-    summary: {
-      totalCalls,
-      overallSuccessRate,
-      overallAvgTime,
-    },
-  }
+  return { requests }
 }
 
 export function useFolderActivity(

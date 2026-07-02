@@ -53,7 +53,7 @@ export function FolderActivityTab({
     return <text fg={theme.textMuted}>No requests in this folder.</text>
   }
 
-  if (stats.summary.totalCalls === 0) {
+  if (stats.requests.every((r) => r.callCount === 0)) {
     return (
       <text fg={theme.textMuted}>
         No activity yet. Send requests to see stats.

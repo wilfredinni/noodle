@@ -43,7 +43,7 @@ function makeTimeline(
 }
 
 describe("computeFolderActivity", () => {
-  it("returns empty requests array and zero summary for empty timeline map", () => {
+  it("returns zeroed per-request stats for empty timeline map", () => {
     const result = computeFolderActivity(
       [{ id: "user/list", name: "List Users", method: "GET" }],
       new Map(),
@@ -53,9 +53,6 @@ describe("computeFolderActivity", () => {
     expect(result.requests[0]!.successRate).toBeNull()
     expect(result.requests[0]!.avgTimeMs).toBeNull()
     expect(result.requests[0]!.lastSent).toBeNull()
-    expect(result.summary.totalCalls).toBe(0)
-    expect(result.summary.overallSuccessRate).toBeNull()
-    expect(result.summary.overallAvgTime).toBeNull()
   })
 
   it("computes per-request stats from timeline entries", () => {
@@ -87,30 +84,6 @@ describe("computeFolderActivity", () => {
     expect(result.requests[0]!.avgTimeMs).toBeNull()
   })
 
-  it("computes summary across multiple requests", () => {
-    const timeline = new Map<string, TimelineEntry[]>()
-    timeline.set("user/list", [
-      makeEntry({
-        response: { ...makeEntry().response!, timeMs: 100, status: 200 },
-      }),
-      makeEntry({
-        response: { ...makeEntry().response!, timeMs: 300, status: 200 },
-      }),
-    ])
-    timeline.set("user/create", [
-      makeEntry({ error: { message: "err" }, response: undefined }),
-    ])
-    const result = computeFolderActivity(
-      [
-        { id: "user/list", name: "List Users", method: "GET" },
-        { id: "user/create", name: "Create User", method: "POST" },
-      ],
-      timeline,
-    )
-    expect(result.summary.totalCalls).toBe(3)
-    expect(result.summary.overallSuccessRate).toBe(2 / 3)
-  })
-
   it("handles partial data (some requests have no timeline)", () => {
     const timeline = makeTimeline("user/list", [
       { response: { ...makeEntry().response!, timeMs: 100, status: 200 } },
@@ -124,12 +97,10 @@ describe("computeFolderActivity", () => {
     )
     expect(result.requests[1]!.callCount).toBe(0)
     expect(result.requests[1]!.successRate).toBeNull()
-    expect(result.summary.totalCalls).toBe(1)
   })
 
   it("returns empty when no requests in folder", () => {
     const result = computeFolderActivity([], new Map())
     expect(result.requests).toHaveLength(0)
-    expect(result.summary.totalCalls).toBe(0)
   })
 })
