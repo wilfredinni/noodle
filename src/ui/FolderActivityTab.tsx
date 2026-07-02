@@ -11,6 +11,18 @@ function ms(v: number): string {
   return `${(v / 1000).toFixed(1)}s`
 }
 
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts
+  const sec = Math.floor(diff / 1000)
+  if (sec < 5) return "now"
+  if (sec < 60) return `${sec}s`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}m`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h`
+  return `${Math.floor(hr / 24)}d`
+}
+
 function nameColumn(name: string, max: number): string {
   if (name.length <= max) return name
   return name.slice(0, max - 1) + "\u2026"
@@ -83,16 +95,16 @@ export function FolderActivityTab({
           {"Method".padEnd(7)}
         </text>
         <text fg={theme.textMuted} wrapMode="none">
-          {"Name".padEnd(18)}
+          {"Name".padEnd(14)}
         </text>
         <text fg={theme.textMuted} wrapMode="none">
           {"OK%".padEnd(6)}
         </text>
         <text fg={theme.textMuted} wrapMode="none">
-          {"Avg".padEnd(8)}
+          {"Avg".padEnd(7)}
         </text>
         <text fg={theme.textMuted} wrapMode="none">
-          Calls
+          Last
         </text>
       </box>
 
@@ -106,6 +118,11 @@ export function FolderActivityTab({
                 ? theme.warning
                 : theme.error
 
+        const lastSentText =
+          r.lastSent !== null ? relativeTime(r.lastSent) : "\u2014"
+        const callsText =
+          r.callCount > 0 ? `${r.callCount}c \u00B7 ` : ""
+
         return (
           <box key={r.id} style={{ flexDirection: "row" }}>
             <text fg={methodColor(r.method, theme)} wrapMode="none">
@@ -115,7 +132,7 @@ export function FolderActivityTab({
               fg={r.callCount > 0 ? theme.text : theme.textMuted}
               wrapMode="none"
             >
-              {nameColumn(r.name, 16)}
+              {nameColumn(r.name, 12)}
               {"  "}
             </text>
             <text fg={statusColor} wrapMode="none">
@@ -128,11 +145,14 @@ export function FolderActivityTab({
               wrapMode="none"
             >
               {r.avgTimeMs !== null
-                ? ms(r.avgTimeMs).padEnd(8)
-                : "\u2014".padEnd(8)}
+                ? ms(r.avgTimeMs).padEnd(7)
+                : "\u2014".padEnd(7)}
             </text>
             <text fg={theme.textMuted} wrapMode="none">
-              {r.callCount > 0 ? `${r.callCount}c` : "\u2014"}
+              {callsText}
+              <text fg={r.lastSent !== null ? theme.text : theme.textMuted}>
+                {lastSentText}
+              </text>
             </text>
           </box>
         )
