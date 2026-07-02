@@ -1,14 +1,23 @@
 import { describe, it, expect } from "bun:test"
-import { parseSpec, mapCollection } from "../src/converters/openapi"
+import { parseSpec, mapCollection, openApiImporter } from "../src/converters/openapi"
 import type { Normalized } from "../src/converters/openapi"
 import type { Request, Collection } from "../src/schema"
 
-function reqs(col: Collection): Request[] {
-  return col.items
-    .filter(
-      (i): i is { type: "request"; data: Request } => i.type === "request",
-    )
-    .map((i) => i.data)
+function reqs(result: { collection: Collection }): Request[] {
+  function flatten(
+    items: { collection: Collection }["collection"]["items"],
+  ): Request[] {
+    const out: Request[] = []
+    for (const item of items) {
+      if (item.type === "request") {
+        out.push(item.data)
+      } else if (item.type === "folder") {
+        out.push(...flatten(item.data.children))
+      }
+    }
+    return out
+  }
+  return flatten(result.collection.items)
 }
 
 describe("parseSpec — string/object dispatch + validation", () => {
@@ -118,32 +127,32 @@ function makeNormalized(over: Partial<Normalized> = {}): Normalized {
 describe("mapCollection — Collection metadata", () => {
   it("derives name and id from info.title", () => {
     const c = mapCollection(makeNormalized({ info: { title: "My Cool API!" } }))
-    expect(c.name).toBe("My Cool API!")
-    expect(c.id).toBe("my-cool-api")
+    expect(c.collection.name).toBe("My Cool API!")
+    expect(c.collection.id).toBe("my-cool-api")
   })
 
   it("falls back when info.title is empty string", () => {
     const c = mapCollection(makeNormalized({ info: { title: "" } }))
-    expect(c.name).toBe("openapi-import")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("openapi-import")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("falls back when info is missing entirely", () => {
     const c = mapCollection(makeNormalized({ info: undefined }))
-    expect(c.name).toBe("openapi-import")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("openapi-import")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("falls back when info.title is not a string", () => {
     const c = mapCollection(makeNormalized({ info: { title: 42 } }))
-    expect(c.name).toBe("openapi-import")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("openapi-import")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("falls back when title is all punctuation (slug empty)", () => {
     const c = mapCollection(makeNormalized({ info: { title: "!!!" } }))
-    expect(c.name).toBe("!!!")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("!!!")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("returns an empty requests array when paths is empty", () => {
@@ -238,7 +247,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(reqs(c)[0].url).toBe("https://api.example.com/v1/users/$id")
+    expect(reqs(c)[0].url).toBe("$base_url/users/$id")
   })
 
   it("builds a path-only url when servers is missing", () => {
@@ -268,16 +277,16 @@ describe("mapCollection — operations & methods", () => {
 })
 
 describe("mapCollection — name derivation and id dedupe", () => {
-  it("uses operationId for name when present", () => {
+  it("summary takes priority over operationId for name", () => {
     const c = mapCollection(
       makeNormalized({
-        paths: { "/x": { get: { operationId: "getX", summary: "ignored" } } },
+        paths: { "/x": { get: { operationId: "getX", summary: "Get the X" } } },
       }),
     )
-    expect(reqs(c)[0].name).toBe("getX")
+    expect(reqs(c)[0].name).toBe("Get the X")
   })
 
-  it("falls back to summary when operationId is missing", () => {
+  it("falls back to operationId when summary is missing", () => {
     const c = mapCollection(
       makeNormalized({
         paths: { "/x": { get: { summary: "Get the X" } } },
@@ -377,7 +386,7 @@ describe("mapCollection — auth resolution", () => {
   const oauth2 = { type: "oauth2", flows: {} }
   const oidc = { type: "openIdConnect", openIdConnectUrl: "https://x" }
 
-  it("maps http+bearer to Auth=bearer with $TOKEN", () => {
+  it("maps http+bearer to Auth=bearer with $token", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { bearerAuth: bearer } },
@@ -385,10 +394,10 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
-  it("maps http+basic to Auth=basic with $USER $PASS", () => {
+  it("maps http+basic to Auth=basic with $user $pass", () => {
     const c = mapCollection(
       makeNormalized({
         components: { securitySchemes: { basicAuth: basic } },
@@ -398,8 +407,8 @@ describe("mapCollection — auth resolution", () => {
     )
     expect(reqs(c)[0].auth).toEqual({
       type: "basic",
-      user: "$USER",
-      pass: "$PASS",
+      user: "$user",
+      pass: "$pass",
     })
   })
 
@@ -414,7 +423,7 @@ describe("mapCollection — auth resolution", () => {
     expect(reqs(c)[0].auth).toEqual({
       type: "api_key",
       key: "X-Api-Key",
-      value: "$API_KEY",
+      value: "$api_key",
       placement: "header",
     })
   })
@@ -434,7 +443,7 @@ describe("mapCollection — auth resolution", () => {
     expect(reqs(c)[0].auth).toEqual({
       type: "api_key",
       key: "api_key",
-      value: "$API_KEY",
+      value: "$api_key",
       placement: "query",
     })
   })
@@ -475,8 +484,8 @@ describe("mapCollection — auth resolution", () => {
     )
     expect(reqs(c)[0].auth).toEqual({
       type: "basic",
-      user: "$USER",
-      pass: "$PASS",
+      user: "$user",
+      pass: "$pass",
     })
   })
 
@@ -488,7 +497,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
   it("op.security: [] (empty array) means no auth required", () => {
@@ -534,7 +543,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
   it("falls to none when no security anywhere", () => {
@@ -556,7 +565,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 
   it("skips security requirement entries whose scheme name is not a string", () => {
@@ -567,7 +576,7 @@ describe("mapCollection — auth resolution", () => {
         paths: { "/x": { get: { operationId: "getX" } } },
       }),
     )
-    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(reqs(c)[0].auth).toEqual({ type: "bearer", token: "$token" })
   })
 })
 
@@ -589,8 +598,8 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      q: { value: "$q", enabled: true },
-      limit: { value: "$limit", enabled: true },
+      q: { value: "", enabled: true },
+      limit: { value: "", enabled: true },
     })
   })
 
@@ -608,7 +617,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].headers).toEqual({
-      "X-Custom": { value: "$X-Custom", enabled: true },
+      "X-Custom": { value: "", enabled: true },
     })
   })
 
@@ -665,7 +674,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -686,7 +695,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -707,7 +716,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -725,7 +734,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -746,7 +755,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -763,10 +772,10 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      shared: { value: "$shared", enabled: true },
+      shared: { value: "", enabled: true },
     })
     expect(reqs(c)[1].params).toEqual({
-      shared: { value: "$shared", enabled: true },
+      shared: { value: "", enabled: true },
     })
   })
 
@@ -788,8 +797,8 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      shared: { value: "$shared", enabled: true },
-      extra: { value: "$extra", enabled: true },
+      shared: { value: "", enabled: true },
+      extra: { value: "", enabled: true },
     })
   })
 
@@ -808,10 +817,10 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      alpha: { value: "$alpha", enabled: true },
+      alpha: { value: "", enabled: true },
     })
     expect(reqs(c)[0].headers).toEqual({
-      alpha: { value: "$alpha", enabled: true },
+      alpha: { value: "", enabled: true },
     })
   })
 
@@ -880,8 +889,8 @@ describe("mapCollection — end-to-end integration", () => {
 
     const c = mapCollection(parseSpec(spec))
 
-    expect(c.id).toBe("pet-store-api")
-    expect(c.name).toBe("Pet Store API")
+    expect(c.collection.id).toBe("pet-store-api")
+    expect(c.collection.name).toBe("Pet Store API")
 
     const methods = reqs(c).map((r) => r.method)
     expect(methods).toEqual(["GET", "DELETE", "GET", "POST"])
@@ -892,29 +901,29 @@ describe("mapCollection — end-to-end integration", () => {
     expect(getPet.method).toBe("GET")
     expect(getPet.url).toBe("https://$host/v1/pets/$petId")
     expect(getPet.params).toEqual({
-      verbose: { value: "$verbose", enabled: true },
+      verbose: { value: "", enabled: true },
     })
     expect(getPet.headers).toEqual({
-      "X-Trace": { value: "$X-Trace", enabled: true },
+      "X-Trace": { value: "", enabled: true },
     })
     expect(getPet.body).toBeUndefined()
-    expect(getPet.auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(getPet.auth).toEqual({ type: "bearer", token: "$token" })
 
     const deletePet = reqs(c)[1]
     expect(deletePet.name).toBe("Delete a pet")
     expect(deletePet.method).toBe("DELETE")
     expect(deletePet.auth).toEqual({
       type: "basic",
-      user: "$USER",
-      pass: "$PASS",
+      user: "$user",
+      pass: "$pass",
     })
 
     const listPets = reqs(c)[2]
     expect(listPets.id).toBe("get-pets")
     expect(listPets.params).toEqual({
-      limit: { value: "$limit", enabled: true },
+      limit: { value: "", enabled: true },
     })
-    expect(listPets.auth).toEqual({ type: "bearer", token: "$TOKEN" })
+    expect(listPets.auth).toEqual({ type: "bearer", token: "$token" })
 
     const createPet = reqs(c)[3]
     expect(createPet.id).toBe("post-pets")
@@ -932,8 +941,8 @@ paths:
       operationId: getX
 `
     const c = mapCollection(parseSpec(yamlText))
-    expect(c.id).toBe("yaml-api")
-    expect(c.name).toBe("YAML API!")
+    expect(c.collection.id).toBe("yaml-api")
+    expect(c.collection.name).toBe("YAML API!")
     expect(reqs(c)[0].id).toBe("get-x")
   })
 })
@@ -959,6 +968,75 @@ describe("mapCollection — requestBody", () => {
       }),
     )
     expect(reqs(c)[0].body).toBe('{"name":"Alice","age":30}')
+    expect(reqs(c)[0].bodyType).toBe("json")
+  })
+
+  it("json with example = 0 (falsy number)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: 0 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].body).toBe("0")
+    expect(reqs(c)[0].bodyType).toBe("json")
+  })
+
+  it("json with example = false (falsy boolean)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: false },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].body).toBe("false")
+    expect(reqs(c)[0].bodyType).toBe("json")
+  })
+
+  it("json with example = null (falsy null)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: null },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].body).toBe("null")
     expect(reqs(c)[0].bodyType).toBe("json")
   })
 
@@ -1041,7 +1119,7 @@ describe("mapCollection — requestBody", () => {
     )
     expect(reqs(c)[0].bodyType).toBe("multipart")
     expect(reqs(c)[0].formData).toEqual([
-      { name: "title", value: "", enabled: true, type: "text" },
+      { name: "title", value: "$title", enabled: true, type: "text" },
       { name: "photo", value: "", enabled: true, type: "file" },
       { name: "doc", value: "", enabled: true, type: "file" },
     ])
@@ -1073,8 +1151,8 @@ describe("mapCollection — requestBody", () => {
     )
     expect(reqs(c)[0].bodyType).toBe("multipart")
     expect(reqs(c)[0].formData).toEqual([
-      { name: "a", value: "", enabled: true, type: "text" },
-      { name: "b", value: "", enabled: true, type: "text" },
+      { name: "a", value: "$a", enabled: true, type: "text" },
+      { name: "b", value: "$b", enabled: true, type: "text" },
     ])
   })
 
@@ -1262,5 +1340,288 @@ describe("mapCollection — requestBody", () => {
       }),
     )
     expect(reqs(c)[0].bodyType).toBe("multipart")
+  })
+})
+
+describe("mapCollection — folder grouping by tags", () => {
+  it("groups requests by first tag into folders", () => {
+    const n = makeNormalized({
+      paths: {
+        "/pets": {
+          get: { operationId: "listPets", tags: ["pets"] },
+          post: { operationId: "createPet", tags: ["pets"] },
+        },
+        "/users": {
+          get: { operationId: "listUsers", tags: ["users"] },
+        },
+        "/health": {
+          get: { operationId: "health" },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const items = c.collection.items
+
+    const folders = items.filter((i) => i.type === "folder")
+    const rootReqs = items.filter((i) => i.type === "request")
+
+    expect(folders).toHaveLength(2)
+    expect(rootReqs).toHaveLength(1)
+    expect(
+      rootReqs[0].type === "request" && rootReqs[0].data.name,
+    ).toBe("health")
+
+    const petsFolder = folders.find(
+      (f) => f.type === "folder" && f.data.name === "pets",
+    )
+    expect(petsFolder).toBeDefined()
+    if (petsFolder && petsFolder.type === "folder") {
+      expect(petsFolder.data.children).toHaveLength(2)
+    }
+
+    const usersFolder = folders.find(
+      (f) => f.type === "folder" && f.data.name === "users",
+    )
+    expect(usersFolder).toBeDefined()
+    if (usersFolder && usersFolder.type === "folder") {
+      expect(usersFolder.data.children).toHaveLength(1)
+    }
+
+    const allReqs = reqs(c)
+    expect(allReqs).toHaveLength(4)
+  })
+
+  it("first tag wins for multi-tagged request", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": {
+          get: { operationId: "getX", tags: ["alpha", "beta"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folders = c.collection.items.filter((i) => i.type === "folder")
+    expect(folders).toHaveLength(1)
+    expect(folders[0].type === "folder" && folders[0].data.name).toBe("alpha")
+  })
+
+  it("ignores non-string tags", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": {
+          get: { operationId: "getX", tags: [42, "valid"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folders = c.collection.items.filter((i) => i.type === "folder")
+    expect(folders).toHaveLength(1)
+    expect(folders[0].type === "folder" && folders[0].data.name).toBe("valid")
+  })
+
+  it("empty tags array — request at root", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": { get: { operationId: "getX", tags: [] } },
+      },
+    })
+    const c = mapCollection(n)
+    expect(c.collection.items).toHaveLength(1)
+    expect(c.collection.items[0].type).toBe("request")
+  })
+
+  it("all requests at root when no tags", () => {
+    const n = makeNormalized({
+      paths: {
+        "/a": { get: { operationId: "getA" } },
+        "/b": { post: { operationId: "postB" } },
+      },
+    })
+    const c = mapCollection(n)
+    expect(c.collection.items.every((i) => i.type === "request")).toBe(true)
+  })
+
+  it("slugifies folder id from tag name", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": {
+          get: { operationId: "getX", tags: ["Pet Store"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folder = c.collection.items.find((i) => i.type === "folder")
+    expect(folder).toBeDefined()
+    if (folder && folder.type === "folder") {
+      expect(folder.data.id).toBe("pet-store")
+      expect(folder.data.path).toBe("pet-store")
+    }
+  })
+
+  it("folder requests have folder-prefixed ids", () => {
+    const n = makeNormalized({
+      paths: {
+        "/users": {
+          get: { operationId: "listUsers", tags: ["users"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folder = c.collection.items.find((i) => i.type === "folder")
+    expect(folder).toBeDefined()
+    if (folder && folder.type === "folder") {
+      expect(folder.data.children[0].type).toBe("request")
+      if (folder.data.children[0].type === "request") {
+        expect(folder.data.children[0].data.id).toBe("users/get-users")
+      }
+    }
+  })
+})
+
+describe("mapCollection — environments from servers", () => {
+  it("creates one environment per server with vars", () => {
+    const n = makeNormalized({
+      servers: [
+        { url: "https://{host}/v1", description: "Production" },
+        { url: "https://{host}/v1", description: "Staging" },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(2)
+    expect(c.environments[0].name).toBe("Production")
+    expect(c.environments[1].name).toBe("Staging")
+  })
+
+  it("extracts URL template vars and uses variables.default", () => {
+    const n = makeNormalized({
+      servers: [
+        {
+          url: "https://{host}/v1",
+          description: "Default",
+          variables: { host: { default: "api.example.com" } },
+        },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].vars).toEqual({ host: "api.example.com" })
+  })
+
+  it("uses empty string when URL var has no variable definition", () => {
+    const n = makeNormalized({
+      servers: [{ url: "https://{host}/v1" }],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].vars).toEqual({ host: "" })
+  })
+
+  it("name defaults to 'default' for single server without description", () => {
+    const n = makeNormalized({
+      servers: [{ url: "https://{host}/v1" }],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].name).toBe("default")
+  })
+
+  it("name uses 'server-N' for multiple servers without descriptions", () => {
+    const n = makeNormalized({
+      servers: [
+        { url: "https://{host}/v1" },
+        { url: "https://{host}/v1" },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(2)
+    expect(c.environments[0].name).toBe("server-1")
+    expect(c.environments[1].name).toBe("server-2")
+  })
+
+  it("empty environments when servers undefined", () => {
+    const n = makeNormalized({
+      servers: undefined,
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    expect(mapCollection(n).environments).toEqual([])
+  })
+
+  it("empty environments when servers is empty array", () => {
+    const n = makeNormalized({
+      servers: [],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    expect(mapCollection(n).environments).toEqual([])
+  })
+
+  it("creates base_url env var when server URL has no template vars", () => {
+    const n = makeNormalized({
+      servers: [{ url: "https://api.example.com" }],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].vars).toEqual({
+      base_url: "https://api.example.com",
+    })
+  })
+
+  it("skips non-mapping server entries", () => {
+    const n = makeNormalized({
+      servers: [
+        "garbage" as unknown as Record<string, unknown>,
+        { url: "https://{host}/v1", description: "Good" },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    expect(mapCollection(n).environments).toHaveLength(1)
+    expect(mapCollection(n).environments[0].name).toBe("Good")
+  })
+})
+
+describe("openApiImporter.import() — pipeline", () => {
+  it("accepts a JSON string and produces ImportResult", () => {
+    const text = JSON.stringify({
+      openapi: "3.0.3",
+      info: { title: "Pipeline API" },
+      servers: [{ url: "https://api.pipeline.com" }],
+      paths: {
+        "/items": {
+          get: { operationId: "listItems" },
+        },
+      },
+    })
+    const result = openApiImporter.import(text)
+    expect(result.collection.name).toBe("Pipeline API")
+    expect(result.collection.id).toBe("pipeline-api")
+    expect(result.collection.items).toHaveLength(1)
+    expect(result.environments).toHaveLength(1)
+    expect(result.environments[0].vars).toEqual({
+      base_url: "https://api.pipeline.com",
+    })
+  })
+
+  it("accepts a YAML string", () => {
+    const text = `openapi: "3.0.0"
+info:
+  title: YAML Pipeline
+paths:
+  /x:
+    get:
+      operationId: getX
+`
+    const result = openApiImporter.import(text)
+    expect(result.collection.name).toBe("YAML Pipeline")
+    expect(reqs(result)).toHaveLength(1)
+    expect(reqs(result)[0].method).toBe("GET")
+  })
+
+  it("throws on invalid input", () => {
+    expect(() => openApiImporter.import(": : :")).toThrow()
   })
 })

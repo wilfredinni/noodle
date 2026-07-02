@@ -2,11 +2,13 @@ import type {
   Auth,
   BodyType,
   Collection,
+  Environment,
   FormEntry,
   KvEntry,
   Method,
   Request,
 } from "../../schema"
+import type { ImportResult } from "../index"
 
 export interface Normalized {
   openapi: string
@@ -43,13 +45,13 @@ function isMapping(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v)
 }
 
-const SUPPORTED_MEDIA: readonly string[] = [
+const SUPPORTED_MEDIA = [
   "application/json",
   "multipart/form-data",
   "application/x-www-form-urlencoded",
-]
+] as const
 
-const FILE_FORMATS = new Set(["binary", "base64"])
+const FILE_FORMATS = new Set(["binary", "base64", "byte"])
 
 function pickMediaType(content: Record<string, unknown>): string | null {
   for (const mt of SUPPORTED_MEDIA) {
@@ -69,10 +71,10 @@ function collectBody(op: Record<string, unknown>): {
   const content = rb.content
   if (!isMapping(content)) return {}
 
-  const mt = pickMediaType(content as Record<string, unknown>)
+  const mt = pickMediaType(content)
   if (mt === null) return {}
 
-  const mediaObj = (content as Record<string, unknown>)[mt]
+  const mediaObj = content[mt]
   if (!isMapping(mediaObj)) return {}
 
   const schema = mediaObj.schema
@@ -82,11 +84,11 @@ function collectBody(op: Record<string, unknown>): {
   }
 
   if (mt === "application/json") {
-    const example = (schema as Record<string, unknown>).example
+    const example = schema.example
     if (example !== undefined) {
       return { body: JSON.stringify(example), bodyType: "json" }
     }
-    const props = (schema as Record<string, unknown>).properties
+    const props = schema.properties
     if (isMapping(props)) {
       const entries: Record<string, string> = {}
       for (const [key] of Object.entries(props)) {
@@ -98,21 +100,21 @@ function collectBody(op: Record<string, unknown>): {
   }
 
   if (mt === "multipart/form-data") {
-    const props = (schema as Record<string, unknown>).properties
+    const props = schema.properties
     if (!isMapping(props)) return { bodyType: "multipart", formData: [] }
 
-    const encoding = (mediaObj as Record<string, unknown>).encoding
+    const encoding = mediaObj.encoding
     const fileFields = new Set<string>()
     if (isMapping(encoding)) {
-      for (const key of Object.keys(encoding as Record<string, unknown>)) {
+      for (const key of Object.keys(encoding)) {
         fileFields.add(key)
       }
     }
     for (const [key, prop] of Object.entries(props)) {
       if (
         isMapping(prop) &&
-        typeof (prop as Record<string, unknown>).format === "string" &&
-        FILE_FORMATS.has((prop as Record<string, unknown>).format as string)
+        typeof prop.format === "string" &&
+        FILE_FORMATS.has(prop.format as string)
       ) {
         fileFields.add(key)
       }
@@ -122,7 +124,7 @@ function collectBody(op: Record<string, unknown>): {
     for (const [key] of Object.entries(props)) {
       formData.push({
         name: key,
-        value: "",
+        value: fileFields.has(key) ? "" : `$${key}`,
         enabled: true,
         type: fileFields.has(key) ? "file" : "text",
       })
@@ -131,7 +133,7 @@ function collectBody(op: Record<string, unknown>): {
   }
 
   if (mt === "application/x-www-form-urlencoded") {
-    const props = (schema as Record<string, unknown>).properties
+    const props = schema.properties
     if (!isMapping(props)) return { bodyType: "urlencoded", formData: [] }
 
     const formData: FormEntry[] = []
@@ -149,12 +151,25 @@ function collectBody(op: Record<string, unknown>): {
   return {}
 }
 
+export function convertTpl(v: string): string {
+  return v.replace(/\{\{(\w+)\}\}/g, "$$$1")
+}
+
+export function paramDefault(p: Record<string, unknown>): string | undefined {
+  if (p.example !== undefined) return convertTpl(String(p.example))
+  const schema = p.schema
+  if (isMapping(schema) && schema.default !== undefined) {
+    return convertTpl(String(schema.default))
+  }
+  return undefined
+}
+
 function collectParams(
   pathItemParams: unknown,
   opParams: unknown,
-): { name: string; in: string }[] {
-  const list: { name: string; in: string }[] = []
-  const allowedIn = new Set(["path", "query", "header", "cookie"])
+): { name: string; in: string; default?: string }[] {
+  const list: { name: string; in: string; default?: string }[] = []
+  const allowedIn = new Set(["path", "query", "header"])
   const consider = (p: unknown) => {
     if (!isMapping(p)) return
     const pName = p.name
@@ -162,7 +177,7 @@ function collectParams(
     if (typeof pName !== "string" || pName === "") return
     if (typeof inV !== "string") return
     if (!allowedIn.has(inV)) return
-    list.push({ name: pName, in: inV })
+    list.push({ name: pName, in: inV, default: paramDefault(p) })
   }
   if (Array.isArray(pathItemParams)) {
     for (const p of pathItemParams) consider(p)
@@ -179,9 +194,9 @@ function lookupScheme(
 ): Record<string, unknown> | null {
   const comp = n.components
   if (!isMapping(comp)) return null
-  const schemes = (comp as Record<string, unknown>).securitySchemes
+  const schemes = comp.securitySchemes
   if (!isMapping(schemes)) return null
-  const s = (schemes as Record<string, unknown>)[name]
+  const s = schemes[name]
   return isMapping(s) ? s : null
 }
 
@@ -189,16 +204,16 @@ function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
   const type = scheme.type
   const schemeName = scheme.scheme
   if (type === "http" && schemeName === "bearer") {
-    return { type: "bearer", token: "$TOKEN" }
+    return { type: "bearer", token: "$token" }
   }
   if (type === "http" && schemeName === "basic") {
-    return { type: "basic", user: "$USER", pass: "$PASS" }
+    return { type: "basic", user: "$user", pass: "$pass" }
   }
   if (type === "apiKey") {
     const name = typeof scheme.name === "string" ? scheme.name : "X-API-Key"
     const inV = scheme.in
     const placement = inV === "query" ? "query" : "header"
-    return { type: "api_key", key: name, value: "$API_KEY", placement }
+    return { type: "api_key", key: name, value: "$api_key", placement }
   }
   return null
 }
@@ -214,7 +229,6 @@ function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
     if (!isMapping(req)) continue
     const entries = Object.entries(req)
     for (const [schemeName] of entries) {
-      if (typeof schemeName !== "string") continue
       const scheme = lookupScheme(n, schemeName)
       if (!scheme) continue
       const auth = schemeToAuth(scheme)
@@ -224,7 +238,7 @@ function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
   return { type: "none" }
 }
 
-function slugify(s: string): string {
+export function slugify(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -237,19 +251,21 @@ function collectionName(n: Normalized): string {
   return typeof t === "string" && t !== "" ? t : FALLBACK_ID
 }
 
-function urlTemplateToVar(s: string): string {
+export function urlTemplateToVar(s: string): string {
   return s.replace(/\{(\w+)\}/g, "$$$1")
 }
 
-function baseUrl(n: Normalized): string {
+export function baseUrl(n: Normalized): string {
   const servers = n.servers
   if (!Array.isArray(servers) || servers.length === 0) return "/"
   const first = servers[0] as { url?: unknown } | null | undefined
   if (typeof first?.url !== "string" || first.url === "") return "/"
-  return urlTemplateToVar(first.url)
+  const raw = first.url
+  if (/\{/.test(raw)) return urlTemplateToVar(raw)
+  return "$base_url"
 }
 
-function joinUrl(base: string, path: string): string {
+export function joinUrl(base: string, path: string): string {
   const b = base.replace(/\/+$/, "")
   const p = path.startsWith("/") ? path : `/${path}`
   return `${b}${p}`
@@ -260,14 +276,14 @@ function makeName(
   methodKey: string,
   pathTemplate: string,
 ): string {
-  const operationId = op.operationId
-  if (typeof operationId === "string" && operationId !== "") return operationId
   const summary = op.summary
   if (typeof summary === "string" && summary !== "") return summary
-  return `${METHOD_UPPER[methodKey]} ${pathTemplate}`
+  const operationId = op.operationId
+  if (typeof operationId === "string" && operationId !== "") return operationId
+  return `${METHOD_UPPER[methodKey] ?? methodKey.toUpperCase()} ${pathTemplate}`
 }
 
-function makeIdRaw(methodKey: string, pathTemplate: string): string {
+export function makeIdRaw(methodKey: string, pathTemplate: string): string {
   const segs = pathTemplate
     .split("/")
     .filter((s) => s !== "")
@@ -276,13 +292,14 @@ function makeIdRaw(methodKey: string, pathTemplate: string): string {
   return slugify(joined)
 }
 
-export function mapCollection(n: Normalized): Collection {
+export function mapCollection(n: Normalized): ImportResult {
   const name = collectionName(n)
   const id = slugify(name) || FALLBACK_ID
   const base = baseUrl(n)
 
   const requests: Request[] = []
   const seenIds = new Map<string, number>()
+  const tagsByRequest = new Map<Request, string[]>()
 
   for (const [pathTemplate, pathItem] of Object.entries(n.paths)) {
     if (
@@ -312,13 +329,22 @@ export function mapCollection(n: Normalized): Collection {
       const headers: Record<string, KvEntry> = {}
       const params: Record<string, KvEntry> = {}
       for (const p of collected) {
+        const val = p.default ?? ""
         if (p.in === "query")
-          params[p.name] = { value: `$${p.name}`, enabled: true }
+          params[p.name] = { value: val, enabled: true }
         else if (p.in === "header")
-          headers[p.name] = { value: `$${p.name}`, enabled: true }
+          headers[p.name] = { value: val, enabled: true }
       }
 
-      requests.push({
+      const rawTags = op.tags
+      const tags: string[] = []
+      if (Array.isArray(rawTags)) {
+        for (const t of rawTags) {
+          if (typeof t === "string" && t !== "") tags.push(t)
+        }
+      }
+
+      const req: Request = {
         id: reqId,
         name: reqName,
         method,
@@ -328,13 +354,133 @@ export function mapCollection(n: Normalized): Collection {
         params,
         ...collectBody(op),
         auth: resolveAuth(op, n),
-      })
+      }
+      requests.push(req)
+      tagsByRequest.set(req, tags)
+    }
+  }
+
+  const rootItems: Collection["items"] = []
+  const tagFolders = new Map<string, Request[]>()
+
+  for (const req of requests) {
+    const tagList = tagsByRequest.get(req) ?? []
+    if (tagList.length > 0) {
+      const firstTag = tagList[0]
+      const existing = tagFolders.get(firstTag)
+      if (existing) {
+        existing.push(req)
+      } else {
+        tagFolders.set(firstTag, [req])
+      }
+    } else {
+      rootItems.push({ type: "request", data: req })
+    }
+  }
+
+  for (const [tag, reqs] of tagFolders) {
+    const folderId = slugify(tag) || `tag-untitled`
+    rootItems.push({
+      type: "folder",
+      data: {
+        id: folderId,
+        name: tag,
+        path: folderId,
+        children: reqs.map((r) => {
+          r.id = `${folderId}/${r.id}`
+          return {
+            type: "request" as const,
+            data: r,
+          }
+        }),
+      },
+    })
+  }
+
+  const envVarsFound = new Set<string>()
+  for (const r of requests) {
+    const mUrl = r.url.match(/\$(\w+)/g)
+    if (mUrl) for (const v of mUrl) envVarsFound.add(v.slice(1))
+    for (const [, kv] of Object.entries(r.headers)) {
+      const m = kv.value.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
+    }
+    for (const [, kv] of Object.entries(r.params)) {
+      const m = kv.value.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
+    }
+    if (r.body) {
+      const mBody = r.body.match(/\$(\w+)/g)
+      if (mBody) for (const v of mBody) envVarsFound.add(v.slice(1))
+    }
+    if (r.formData) {
+      for (const fe of r.formData) {
+        const m = fe.value.match(/\$(\w+)/)
+        if (m) envVarsFound.add(m[1])
+      }
+    }
+    const a = r.auth
+    if (!a) continue
+    if (a.type === "bearer") {
+      const m = a.token.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
+    }
+    if (a.type === "basic") {
+      const mu = a.user.match(/\$(\w+)/)
+      if (mu) envVarsFound.add(mu[1])
+      const mp = a.pass.match(/\$(\w+)/)
+      if (mp) envVarsFound.add(mp[1])
+    }
+    if (a.type === "api_key") {
+      const m = a.value.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
+    }
+  }
+
+  const environments: Environment[] = []
+  const servers = n.servers
+  if (Array.isArray(servers) && servers.length > 0) {
+    for (let i = 0; i < servers.length; i++) {
+      const server = servers[i] as Record<string, unknown> | null | undefined
+      if (!isMapping(server)) continue
+      const srvDesc =
+        typeof server.description === "string" ? server.description : null
+      const envName =
+        srvDesc || (servers.length === 1 ? "default" : `server-${i + 1}`)
+
+      const vars: Record<string, string> = {}
+      const srvUrl = typeof server.url === "string" ? server.url : ""
+
+      const urlVarMatches = srvUrl.matchAll(/\{(\w+)\}/g)
+      for (const match of urlVarMatches) {
+        vars[match[1]] = ""
+      }
+
+      const srvVariables = server.variables
+      if (isMapping(srvVariables)) {
+        for (const [varName, varDef] of Object.entries(srvVariables)) {
+          if (isMapping(varDef) && varDef.default !== undefined) {
+            vars[varName] = String(varDef.default)
+          }
+        }
+      }
+
+      if (srvUrl) {
+        if (Object.keys(vars).length === 0) {
+          vars["base_url"] = srvUrl
+        }
+        for (const varName of envVarsFound) {
+          if (!(varName in vars)) {
+            vars[varName] = ""
+          }
+        }
+        environments.push({ name: envName, vars })
+      }
     }
   }
 
   return {
-    id,
-    name,
-    items: requests.map((r) => ({ type: "request" as const, data: r })),
+    collection: { id, name, items: rootItems },
+    environments,
   }
 }

@@ -1,16 +1,24 @@
-import type { Collection } from "../../schema"
+import { detectOpenApi } from "./detect"
 import { parseSpec } from "./parse"
 import { mapCollection } from "./map"
 
-export interface OpenApiImporter {
-  import(spec: string | object): Collection
-}
-
-export const openApiImporter: OpenApiImporter = {
-  import(spec) {
-    return mapCollection(parseSpec(spec))
+export const openApiImporter = {
+  type: "openapi",
+  detect: detectOpenApi,
+  import(content: string) {
+    return mapCollection(parseSpec(content))
   },
 }
 
 export { parseSpec } from "./parse"
-export { mapCollection, type Normalized } from "./map"
+export {
+  mapCollection,
+  convertTpl,
+  slugify,
+  urlTemplateToVar,
+  baseUrl,
+  joinUrl,
+  paramDefault,
+  makeIdRaw,
+  type Normalized,
+} from "./map"

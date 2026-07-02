@@ -1,5 +1,6 @@
 import yaml from "js-yaml"
 import type { Normalized } from "./map"
+import { resolveSpecRefs } from "./refs"
 
 export function parseSpec(spec: string | object): Normalized {
   let doc: unknown
@@ -41,12 +42,14 @@ export function parseSpec(spec: string | object): Normalized {
     throw new Error('converters.openapi.import: missing or invalid "paths"')
   }
 
+  const resolved = resolveSpecRefs(root) as Record<string, unknown>
+
   return {
     openapi,
-    info: root.info as Normalized["info"],
-    servers: root.servers,
-    paths: paths as Record<string, unknown>,
-    security: root.security,
-    components: root.components as Normalized["components"],
+    info: resolved.info as Normalized["info"],
+    servers: resolved.servers,
+    paths: resolved.paths as Record<string, unknown>,
+    security: resolved.security,
+    components: resolved.components as Normalized["components"],
   }
 }
