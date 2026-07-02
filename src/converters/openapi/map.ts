@@ -271,10 +271,10 @@ function makeName(
   methodKey: string,
   pathTemplate: string,
 ): string {
-  const operationId = op.operationId
-  if (typeof operationId === "string" && operationId !== "") return operationId
   const summary = op.summary
   if (typeof summary === "string" && summary !== "") return summary
+  const operationId = op.operationId
+  if (typeof operationId === "string" && operationId !== "") return operationId
   return `${METHOD_UPPER[methodKey]} ${pathTemplate}`
 }
 

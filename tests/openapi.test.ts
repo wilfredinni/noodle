@@ -277,16 +277,16 @@ describe("mapCollection — operations & methods", () => {
 })
 
 describe("mapCollection — name derivation and id dedupe", () => {
-  it("uses operationId for name when present", () => {
+  it("summary takes priority over operationId for name", () => {
     const c = mapCollection(
       makeNormalized({
-        paths: { "/x": { get: { operationId: "getX", summary: "ignored" } } },
+        paths: { "/x": { get: { operationId: "getX", summary: "Get the X" } } },
       }),
     )
-    expect(reqs(c)[0].name).toBe("getX")
+    expect(reqs(c)[0].name).toBe("Get the X")
   })
 
-  it("falls back to summary when operationId is missing", () => {
+  it("falls back to operationId when summary is missing", () => {
     const c = mapCollection(
       makeNormalized({
         paths: { "/x": { get: { summary: "Get the X" } } },
