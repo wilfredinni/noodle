@@ -3,12 +3,15 @@ import type { Folder, Environment, Auth } from "../schema"
 import type { EditState, FolderFieldKind, FieldKind } from "./editMode"
 import { Tabs } from "./Tabs"
 import { FolderMetaTab } from "./FolderMetaTab"
+import { FolderActivityTab } from "./FolderActivityTab"
+import { useFolderActivity } from "./useFolderActivity"
 import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
 import type { Theme } from "./theme"
 import { FullBorder } from "./borders"
 
 interface FolderPaneProps {
+  collectionDir: string
   folder: Folder | null
   focused: boolean
   editState: EditState
@@ -26,6 +29,7 @@ interface FolderPaneProps {
 }
 
 export function FolderPane({
+  collectionDir,
   folder,
   focused,
   editState,
@@ -44,10 +48,17 @@ export function FolderPane({
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
 
+  const { stats: activityStats, loading: activityLoading } = useFolderActivity(
+    collectionDir,
+    folder,
+    activeTab === "activity",
+  )
+
   const tabs = useMemo(() => {
     if (!folder) {
       return [
-        { id: "meta", label: "Name & Seq" },
+        { id: "activity", label: "Activity" },
+        { id: "meta", label: "General" },
         { id: "headers", label: "Headers" },
         { id: "auth", label: "Auth" },
       ]
@@ -60,7 +71,8 @@ export function FolderPane({
       folder.overrides.auth.type !== "none" &&
       folder.overrides.auth.type !== "inherit"
     return [
-      { id: "meta", label: "Name & Seq" },
+      { id: "activity", label: "Activity" },
+      { id: "meta", label: "General" },
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
       { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
     ]
@@ -94,6 +106,13 @@ export function FolderPane({
               scrollY
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
             >
+              {activeTab === "activity" && (
+                <FolderActivityTab
+                  stats={activityStats}
+                  loading={activityLoading}
+                  theme={theme}
+                />
+              )}
               {activeTab === "meta" && (
                 <FolderMetaTab
                   name={folder.name}

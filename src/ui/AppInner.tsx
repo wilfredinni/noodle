@@ -967,6 +967,7 @@ export function AppInner({
             >
               {focusedFolder !== null ? (
                 <FolderPane
+                  collectionDir={collectionDir}
                   folder={folderDraft.folderDraft}
                   focused={focus === "folder"}
                   editState={folderEb.editState}
