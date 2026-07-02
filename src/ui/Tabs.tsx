@@ -35,6 +35,7 @@ export function Tabs({
               key={tab.id}
               style={{
                 flexDirection: "column",
+                flexShrink: 0,
               }}
             >
               <box style={{ paddingLeft: 1, paddingRight: 2 }}>
