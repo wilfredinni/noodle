@@ -93,18 +93,20 @@ export function useTreeNavigation(
   useEffect(() => {
     if (flatReqs.length > 0) {
       initialCursorSet.current = false
-      if (initialSelectedId && initialSelectedId.endsWith("/")) return
+
       let targetId: string | null = null
       if (selectedId) {
         const found = findRequestById(items, selectedId)
         if (found) targetId = selectedId
       }
-      if (!targetId && initialSelectedId) {
+      if (!targetId && initialSelectedId && !initialSelectedId.endsWith("/")) {
         const found = findRequestById(items, initialSelectedId)
         if (found) targetId = initialSelectedId
       }
-      if (!targetId) targetId = flatReqs[0].id
-      if (targetId !== selectedId) {
+      if (!targetId && !(initialSelectedId && initialSelectedId.endsWith("/"))) {
+        targetId = flatReqs[0].id
+      }
+      if (targetId && targetId !== selectedId) {
         setSelectedIdState(targetId)
         const parts = targetId.split("/")
         if (parts.length > 1) {
@@ -133,7 +135,6 @@ export function useTreeNavigation(
     if (vis.length === 0) return
 
     if (!initialSetupDone.current) {
-      initialSetupDone.current = true
       if (initialSelectedId && initialSelectedId.endsWith("/")) {
         const folderPath = initialSelectedId.slice(0, -1)
         const idx = vis.findIndex(
@@ -142,9 +143,11 @@ export function useTreeNavigation(
         if (idx >= 0) {
           setCursorIndex(idx)
           initialCursorSet.current = true
+          initialSetupDone.current = true
           return
         }
       }
+      initialSetupDone.current = true
     }
 
     if (!selectedId) return
