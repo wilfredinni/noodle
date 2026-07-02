@@ -138,4 +138,53 @@ describe("NewRequestOverlay mode prop", () => {
     expect(frame).toContain("https://api.example.com/v2/users")
     cleanup()
   })
+
+  it("pre-fills folder when folderPaths and initialFolderPath are given in edit mode", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay
+            visible
+            mode="edit"
+            initialName="Get Users"
+            initialMethod="POST"
+            initialUrl="https://api.example.com/v2/users"
+            folderPaths={[
+              { id: "", label: "(root)" },
+              { id: "auth", label: "auth" },
+              { id: "users", label: "users" },
+            ]}
+            initialFolderPath="auth"
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Folder")
+    expect(frame).toContain("auth")
+    expect(frame).toContain("Get Users")
+    cleanup()
+  })
+
+  it("does not show folder selector in create mode even with folderPaths", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay
+            visible
+            folderPaths={[{ id: "auth", label: "auth" }]}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).not.toContain("Folder")
+    cleanup()
+  })
 })
