@@ -151,11 +151,20 @@ function collectBody(op: Record<string, unknown>): {
   return {}
 }
 
+function paramDefault(p: Record<string, unknown>): string | undefined {
+  if (p.example !== undefined) return String(p.example)
+  const schema = p.schema
+  if (isMapping(schema) && schema.default !== undefined) {
+    return String(schema.default)
+  }
+  return undefined
+}
+
 function collectParams(
   pathItemParams: unknown,
   opParams: unknown,
-): { name: string; in: string }[] {
-  const list: { name: string; in: string }[] = []
+): { name: string; in: string; default?: string }[] {
+  const list: { name: string; in: string; default?: string }[] = []
   const allowedIn = new Set(["path", "query", "header", "cookie"])
   const consider = (p: unknown) => {
     if (!isMapping(p)) return
@@ -164,7 +173,7 @@ function collectParams(
     if (typeof pName !== "string" || pName === "") return
     if (typeof inV !== "string") return
     if (!allowedIn.has(inV)) return
-    list.push({ name: pName, in: inV })
+    list.push({ name: pName, in: inV, default: paramDefault(p) })
   }
   if (Array.isArray(pathItemParams)) {
     for (const p of pathItemParams) consider(p)
@@ -315,10 +324,11 @@ export function mapCollection(n: Normalized): ImportResult {
       const headers: Record<string, KvEntry> = {}
       const params: Record<string, KvEntry> = {}
       for (const p of collected) {
+        const val = p.default ?? ""
         if (p.in === "query")
-          params[p.name] = { value: `$${p.name}`, enabled: true }
+          params[p.name] = { value: val, enabled: true }
         else if (p.in === "header")
-          headers[p.name] = { value: `$${p.name}`, enabled: true }
+          headers[p.name] = { value: val, enabled: true }
       }
 
       const rawTags = op.tags

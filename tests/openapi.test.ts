@@ -598,8 +598,8 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      q: { value: "$q", enabled: true },
-      limit: { value: "$limit", enabled: true },
+      q: { value: "", enabled: true },
+      limit: { value: "", enabled: true },
     })
   })
 
@@ -617,7 +617,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].headers).toEqual({
-      "X-Custom": { value: "$X-Custom", enabled: true },
+      "X-Custom": { value: "", enabled: true },
     })
   })
 
@@ -674,7 +674,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -695,7 +695,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -716,7 +716,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -734,7 +734,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -755,7 +755,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      good: { value: "$good", enabled: true },
+      good: { value: "", enabled: true },
     })
   })
 
@@ -772,10 +772,10 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      shared: { value: "$shared", enabled: true },
+      shared: { value: "", enabled: true },
     })
     expect(reqs(c)[1].params).toEqual({
-      shared: { value: "$shared", enabled: true },
+      shared: { value: "", enabled: true },
     })
   })
 
@@ -797,8 +797,8 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      shared: { value: "$shared", enabled: true },
-      extra: { value: "$extra", enabled: true },
+      shared: { value: "", enabled: true },
+      extra: { value: "", enabled: true },
     })
   })
 
@@ -817,10 +817,10 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].params).toEqual({
-      alpha: { value: "$alpha", enabled: true },
+      alpha: { value: "", enabled: true },
     })
     expect(reqs(c)[0].headers).toEqual({
-      alpha: { value: "$alpha", enabled: true },
+      alpha: { value: "", enabled: true },
     })
   })
 
@@ -901,10 +901,10 @@ describe("mapCollection — end-to-end integration", () => {
     expect(getPet.method).toBe("GET")
     expect(getPet.url).toBe("https://$host/v1/pets/$petId")
     expect(getPet.params).toEqual({
-      verbose: { value: "$verbose", enabled: true },
+      verbose: { value: "", enabled: true },
     })
     expect(getPet.headers).toEqual({
-      "X-Trace": { value: "$X-Trace", enabled: true },
+      "X-Trace": { value: "", enabled: true },
     })
     expect(getPet.body).toBeUndefined()
     expect(getPet.auth).toEqual({ type: "bearer", token: "$TOKEN" })
@@ -921,7 +921,7 @@ describe("mapCollection — end-to-end integration", () => {
     const listPets = reqs(c)[2]
     expect(listPets.id).toBe("get-pets")
     expect(listPets.params).toEqual({
-      limit: { value: "$limit", enabled: true },
+      limit: { value: "", enabled: true },
     })
     expect(listPets.auth).toEqual({ type: "bearer", token: "$TOKEN" })
 
