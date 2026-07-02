@@ -1,5 +1,12 @@
-export type FieldKind = "headers" | "params" | "body" | "auth" | "settings" | "meta"
-export type FolderFieldKind = "meta" | "headers" | "auth"
+export type FieldKind =
+  | "headers"
+  | "params"
+  | "body"
+  | "auth"
+  | "settings"
+  | "meta"
+  | "activity"
+export type FolderFieldKind = "activity" | "meta" | "headers" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export interface FieldCursor {
@@ -41,6 +48,7 @@ export const FOLDER_FIELD_ORDER: FolderFieldKind[] = [
   "meta",
   "headers",
   "auth",
+  "activity",
 ]
 
 export function initialEditState(): EditState {
@@ -119,6 +127,8 @@ function cursorForField(
       return { field, row: 0, addingRow: false }
     case "settings":
       return { field, row: 0, addingRow: false }
+    case "activity":
+      return { field, row: 0, addingRow: false }
   }
   const count = field === "headers" ? counts.headers : counts.params
   if (count === 0) {
@@ -135,6 +145,8 @@ export function folderCursorForField(
     case "meta":
     case "auth":
       return { field, row: 0, addingRow: false }
+    case "activity":
+      return { field: "activity", row: 0, addingRow: false }
     case "headers": {
       if (counts.headers === 0) {
         return { field, row: -1, addingRow: true }
@@ -147,7 +159,13 @@ export function folderCursorForField(
 export function toggleSubfield(prev: EditState): EditState {
   if (prev.mode !== "editing") return prev
   const { field } = prev.cursor
-  if (field !== "headers" && field !== "params" && field !== "body" && field !== "meta") return prev
+  if (
+    field !== "headers" &&
+    field !== "params" &&
+    field !== "body" &&
+    field !== "meta"
+  )
+    return prev
   const current = prev.cursor.subfield ?? "key"
   const next: "key" | "value" = current === "key" ? "value" : "key"
   return {
@@ -178,7 +196,8 @@ export function moveFolderFieldCursor(
 ): EditState {
   if (prev.mode !== "browsing") return prev
   const idx = folderFieldIndex(prev.cursor.field as FolderFieldKind)
-  const nextIdx = (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
+  const nextIdx =
+    (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
   const nextField = FOLDER_FIELD_ORDER[nextIdx]!
   return {
     ...prev,
@@ -313,9 +332,12 @@ export function moveFolderRowCursor(
 
 export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
+  if (prev.cursor.field === "activity") return prev
   if (prev.cursor.field === "settings" && prev.cursor.row === 1) return prev
   const subfield: "key" | "value" | undefined =
-    prev.cursor.field === "headers" || prev.cursor.field === "params" || prev.cursor.field === "meta"
+    prev.cursor.field === "headers" ||
+    prev.cursor.field === "params" ||
+    prev.cursor.field === "meta"
       ? "key"
       : prev.cursor.field === "body"
         ? "key"

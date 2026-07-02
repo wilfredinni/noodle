@@ -1,10 +1,5 @@
 import yaml from "js-yaml"
-import type {
-  Auth,
-  Folder,
-  FolderMeta,
-  FolderOverrides,
-} from "../schema"
+import type { Auth, Folder, FolderMeta, FolderOverrides } from "../schema"
 import { parseKvMap } from "./parse"
 
 interface RawFolderMeta {
@@ -53,10 +48,7 @@ export function parseFolder(yamlText: string): {
   }
 
   let overrides: FolderOverrides | undefined
-  if (
-    raw.headers !== undefined ||
-    raw.auth !== undefined
-  ) {
+  if (raw.headers !== undefined || raw.auth !== undefined) {
     overrides = {}
     if (raw.headers !== undefined) {
       overrides.headers = parseKvMap(raw.headers, "headers", "lang.parseFolder")
@@ -107,7 +99,11 @@ function parseFolderAuth(value: unknown): Auth {
         'lang.parseFolder: auth.api_key requires "key" and "value"',
       )
     }
-    if (a.placement !== undefined && a.placement !== "header" && a.placement !== "query") {
+    if (
+      a.placement !== undefined &&
+      a.placement !== "header" &&
+      a.placement !== "query"
+    ) {
       throw new Error(
         `lang.parseFolder: auth.api_key placement must be "header" or "query", got "${String(a.placement)}"`,
       )

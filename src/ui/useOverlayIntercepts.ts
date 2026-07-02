@@ -342,7 +342,10 @@ export function useOverlayIntercepts(opts: {
             e.stopPropagation()
             const result = handle.confirm()
             if (result) onEditRequestConfirm(result)
-          } else if (handle.getFocus() === "method" || handle.getFocus() === "folder") {
+          } else if (
+            handle.getFocus() === "method" ||
+            handle.getFocus() === "folder"
+          ) {
             return
           } else {
             e.preventDefault()

@@ -177,9 +177,7 @@ describe("visibleNodes", () => {
 
   it("shows collapsed folder as single node", () => {
     const result = visibleNodes(nestedItems, new Set())
-    const folderIds = result
-      .filter((n) => n.type === "folder")
-      .map((n) => n.id)
+    const folderIds = result.filter((n) => n.type === "folder").map((n) => n.id)
     expect(folderIds).toEqual(["auth", "users"])
     expect(result).toHaveLength(3) // auth, root, users
   })
@@ -226,7 +224,9 @@ describe("deriveRequestParentFolder", () => {
   it("derives parent folder from selectedId when no focused folder", () => {
     expect(deriveRequestParentFolder(null, "users/list")).toBe("users")
     expect(deriveRequestParentFolder(null, "auth/login")).toBe("auth")
-    expect(deriveRequestParentFolder(null, "users/admins/root")).toBe("users/admins")
+    expect(deriveRequestParentFolder(null, "users/admins/root")).toBe(
+      "users/admins",
+    )
   })
 
   it("returns null for root request and no focused folder", () => {
@@ -242,9 +242,7 @@ describe("getFolderPaths", () => {
   })
 
   it("returns root + single folder", () => {
-    const items: CollectionItem[] = [
-      folder("api", [], "API Requests"),
-    ]
+    const items: CollectionItem[] = [folder("api", [], "API Requests")]
     const paths = getFolderPaths(items)
     expect(paths).toEqual([
       { path: "", name: "(root)" },
@@ -269,10 +267,14 @@ describe("getFolderPaths", () => {
 
   it("returns flat list even with nested items", () => {
     const items: CollectionItem[] = [
-      folder("auth", [
-        req("auth/login"),
-        folder("auth/oauth", [req("auth/oauth/github")], "OAuth"),
-      ], "Auth"),
+      folder(
+        "auth",
+        [
+          req("auth/login"),
+          folder("auth/oauth", [req("auth/oauth/github")], "OAuth"),
+        ],
+        "Auth",
+      ),
       req("root-request"),
       folder("users", [req("users/list")], "Users"),
     ]

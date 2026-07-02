@@ -42,13 +42,14 @@ interface Props {
   ) => void
 }
 
-function Harness({ initialSelectedId, initialItems, afterMount }: Props): ReactNode {
+function Harness({
+  initialSelectedId,
+  initialItems,
+  afterMount,
+}: Props): ReactNode {
   const [items, setItems] = useState(initialItems)
-  const { selectedId, setSelectedId, expandFolder, cursorIndex } = useTreeNavigation(
-    items,
-    () => true,
-    initialSelectedId,
-  )
+  const { selectedId, setSelectedId, expandFolder, cursorIndex } =
+    useTreeNavigation(items, () => true, initialSelectedId)
 
   useEffect(() => {
     afterMount?.(setSelectedId, setItems, expandFolder)
@@ -72,9 +73,7 @@ describe("useTreeNavigation", () => {
     const { keymap, cleanup } = setupKeymap()
     keyCleanup = cleanup
     return testRender(
-      <KeymapProvider keymap={keymap}>
-        {element}
-      </KeymapProvider>,
+      <KeymapProvider keymap={keymap}>{element}</KeymapProvider>,
       { width: 80, height: 10 },
     )
   }
@@ -115,10 +114,7 @@ describe("useTreeNavigation", () => {
     const items = [fld("users", [])]
 
     const { renderOnce, captureCharFrame } = await render(
-      <Harness
-        initialSelectedId="users/"
-        initialItems={items}
-      />,
+      <Harness initialSelectedId="users/" initialItems={items} />,
     )
 
     await renderOnce()
@@ -134,10 +130,7 @@ describe("useTreeNavigation", () => {
     const items = [fld("users", [req("users/list")])]
 
     const { renderOnce, captureCharFrame } = await render(
-      <Harness
-        initialSelectedId="users/list"
-        initialItems={items}
-      />,
+      <Harness initialSelectedId="users/list" initialItems={items} />,
     )
 
     await renderOnce()

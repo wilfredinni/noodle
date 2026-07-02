@@ -495,18 +495,45 @@ export function useAppKeymap(
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
-      { name: "folder-browse.up", run: () => refs.folderEbRef.current?.browseUp() },
-      { name: "folder-browse.down", run: () => refs.folderEbRef.current?.browseDown() },
-      { name: "folder-browse.left", run: () => refs.folderEbRef.current?.browseLeft() },
-      { name: "folder-browse.right", run: () => refs.folderEbRef.current?.browseRight() },
-      { name: "folder-browse.enter", run: () => refs.folderEbRef.current?.enterEdit() },
-      { name: "folder-browse.escape", run: () => {
-        refs.folderEbRef.current?.exitBrowse()
-        setters.setFocus("sidebar")
-      }},
-      { name: "folder-browse.toggle", run: () => refs.folderEbRef.current?.toggleRow() },
-      { name: "folder-browse.revert-field", run: () => refs.folderEbRef.current?.revertField() },
-      { name: "folder-browse.revert-all", run: () => refs.folderEbRef.current?.revertAll() },
+      {
+        name: "folder-browse.up",
+        run: () => refs.folderEbRef.current?.browseUp(),
+      },
+      {
+        name: "folder-browse.down",
+        run: () => refs.folderEbRef.current?.browseDown(),
+      },
+      {
+        name: "folder-browse.left",
+        run: () => refs.folderEbRef.current?.browseLeft(),
+      },
+      {
+        name: "folder-browse.right",
+        run: () => refs.folderEbRef.current?.browseRight(),
+      },
+      {
+        name: "folder-browse.enter",
+        run: () => refs.folderEbRef.current?.enterEdit(),
+      },
+      {
+        name: "folder-browse.escape",
+        run: () => {
+          refs.folderEbRef.current?.exitBrowse()
+          setters.setFocus("sidebar")
+        },
+      },
+      {
+        name: "folder-browse.toggle",
+        run: () => refs.folderEbRef.current?.toggleRow(),
+      },
+      {
+        name: "folder-browse.revert-field",
+        run: () => refs.folderEbRef.current?.revertField(),
+      },
+      {
+        name: "folder-browse.revert-all",
+        run: () => refs.folderEbRef.current?.revertAll(),
+      },
     ],
     bindings: [
       { key: "up", cmd: "folder-browse.up" },
@@ -529,9 +556,18 @@ export function useAppKeymap(
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
-      { name: "folder-edit.commit", run: () => refs.folderEbRef.current?.commitEdit() },
-      { name: "folder-edit.cancel", run: () => refs.folderEbRef.current?.cancelEdit() },
-      { name: "folder-edit.tab", run: () => refs.folderEbRef.current?.browseTab() },
+      {
+        name: "folder-edit.commit",
+        run: () => refs.folderEbRef.current?.commitEdit(),
+      },
+      {
+        name: "folder-edit.cancel",
+        run: () => refs.folderEbRef.current?.cancelEdit(),
+      },
+      {
+        name: "folder-edit.tab",
+        run: () => refs.folderEbRef.current?.browseTab(),
+      },
     ],
     bindings: [
       { key: "return", cmd: "folder-edit.commit" },

@@ -1,14 +1,17 @@
 import { useMemo } from "react"
 import type { Folder, Environment, Auth } from "../schema"
-import type { EditState, FolderFieldKind, FieldKind } from "./editMode"
+import type { EditState, FieldKind } from "./editMode"
 import { Tabs } from "./Tabs"
 import { FolderMetaTab } from "./FolderMetaTab"
+import { FolderActivityTab } from "./FolderActivityTab"
+import { useFolderActivity } from "./useFolderActivity"
 import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
 import type { Theme } from "./theme"
 import { FullBorder } from "./borders"
 
 interface FolderPaneProps {
+  collectionDir: string
   folder: Folder | null
   focused: boolean
   editState: EditState
@@ -17,7 +20,6 @@ interface FolderPaneProps {
   setEditKey: (v: string) => void
   setEditValue: (v: string) => void
   activeTab: FieldKind
-  onTabChange: (tab: FolderFieldKind) => void
   onAuthTypeChange: (type: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
@@ -26,6 +28,7 @@ interface FolderPaneProps {
 }
 
 export function FolderPane({
+  collectionDir,
   folder,
   focused,
   editState,
@@ -34,7 +37,6 @@ export function FolderPane({
   setEditKey,
   setEditValue,
   activeTab,
-  onTabChange: _onTabChange,
   onAuthTypeChange,
   onApiKeyPlacementChange,
   onSelectOpenChange,
@@ -44,25 +46,33 @@ export function FolderPane({
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
 
+  const { stats: activityStats, loading: activityLoading } = useFolderActivity(
+    collectionDir,
+    folder,
+    activeTab === "activity",
+  )
+
   const tabs = useMemo(() => {
     if (!folder) {
       return [
-        { id: "meta", label: "Name & Seq" },
+        { id: "meta", label: "General" },
         { id: "headers", label: "Headers" },
         { id: "auth", label: "Auth" },
+        { id: "activity", label: "Activity" },
       ]
     }
-    const hasHeaders = Object.values(
-      folder.overrides?.headers ?? {},
-    ).some((e) => e.enabled)
+    const hasHeaders = Object.values(folder.overrides?.headers ?? {}).some(
+      (e) => e.enabled,
+    )
     const hasAuth =
       folder.overrides?.auth?.type !== undefined &&
       folder.overrides.auth.type !== "none" &&
       folder.overrides.auth.type !== "inherit"
     return [
-      { id: "meta", label: "Name & Seq" },
+      { id: "meta", label: "General" },
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
       { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
+      { id: "activity", label: "Activity" },
     ]
   }, [folder])
 
@@ -94,6 +104,13 @@ export function FolderPane({
               scrollY
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
             >
+              {activeTab === "activity" && (
+                <FolderActivityTab
+                  stats={activityStats}
+                  loading={activityLoading}
+                  theme={theme}
+                />
+              )}
               {activeTab === "meta" && (
                 <FolderMetaTab
                   name={folder.name}
@@ -106,7 +123,7 @@ export function FolderPane({
                 />
               )}
               {activeTab === "headers" && (
-                <box style={{ flexDirection: "column", gap: 1 }}>
+                <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
                   <text fg={theme.textMuted}>
                     Headers sent with every request inside this folder.
                   </text>
@@ -126,7 +143,7 @@ export function FolderPane({
                 </box>
               )}
               {activeTab === "auth" && (
-                <box style={{ flexDirection: "column", gap: 1 }}>
+                <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
                   <text fg={theme.textMuted}>
                     Auth applied to every request inside this folder.
                   </text>

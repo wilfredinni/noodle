@@ -240,6 +240,7 @@ export function useEditBrowse(
   }, [activeTab])
 
   const enterAndEdit = useCallback(() => {
+    if (activeTab === "activity") return
     const c = rowCount(draftRef.current)
     const currentDraft = draftRef.current
     const tab = activeTab

@@ -40,7 +40,11 @@ export function mergeFolderOverrides(
   let mergedHeaders: Record<string, KvEntry> = {}
   for (const folder of folders) {
     if (folder.overrides?.headers) {
-      mergedHeaders = mergeKv(mergedHeaders, folder.overrides.headers, request.headers)
+      mergedHeaders = mergeKv(
+        mergedHeaders,
+        folder.overrides.headers,
+        request.headers,
+      )
     }
   }
 
@@ -49,7 +53,11 @@ export function mergeFolderOverrides(
   if (requestAuth.type === "inherit") {
     const reversed = [...folders].reverse()
     for (const folder of reversed) {
-      if (folder.overrides?.auth && folder.overrides.auth.type !== "none" && folder.overrides.auth.type !== "inherit") {
+      if (
+        folder.overrides?.auth &&
+        folder.overrides.auth.type !== "none" &&
+        folder.overrides.auth.type !== "inherit"
+      ) {
         return {
           ...request,
           headers: { ...mergedHeaders, ...request.headers },

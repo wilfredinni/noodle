@@ -170,7 +170,12 @@ export function applyDraftOp(
       } else {
         draft.overrides = {
           ...draft.overrides,
-          headers: replaceRow(draft.overrides?.headers ?? {}, op.index, key, value),
+          headers: replaceRow(
+            draft.overrides?.headers ?? {},
+            op.index,
+            key,
+            value,
+          ),
         }
       }
       break
@@ -211,9 +216,7 @@ export function applyDraftOp(
 export function folderEqual(a: Folder, b: Folder): boolean {
   if (a.name !== b.name) return false
   if (a.seq !== b.seq) return false
-  if (
-    !recordsEqual(a.overrides?.headers ?? {}, b.overrides?.headers ?? {})
-  )
+  if (!recordsEqual(a.overrides?.headers ?? {}, b.overrides?.headers ?? {}))
     return false
   if (!authEqual(a.overrides?.auth, b.overrides?.auth)) return false
   return true
@@ -317,8 +320,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     [dispatch],
   )
   const setAuthType = useCallback(
-    (authType: Auth["type"]) =>
-      dispatch({ kind: "setAuthType", authType }),
+    (authType: Auth["type"]) => dispatch({ kind: "setAuthType", authType }),
     [dispatch],
   )
   const setAuthField = useCallback(
@@ -331,10 +333,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       dispatch({ kind: "setApiKeyPlacement", placement }),
     [dispatch],
   )
-  const revertAll = useCallback(
-    () => dispatch({ kind: "revert" }),
-    [dispatch],
-  )
+  const revertAll = useCallback(() => dispatch({ kind: "revert" }), [dispatch])
   const markSaved = useCallback(() => {
     if (!folderDraft || !folder) return
     setOriginalMap((prev) => {

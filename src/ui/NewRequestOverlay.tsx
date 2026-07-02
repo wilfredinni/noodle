@@ -14,7 +14,12 @@ import type { Method } from "../schema"
 export interface NewRequestOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void
   commitField: () => void
-  confirm: () => { name: string; method: Method; url: string; folderPath?: string } | null
+  confirm: () => {
+    name: string
+    method: Method
+    url: string
+    folderPath?: string
+  } | null
   getFocus: () => "folder" | "name" | "method" | "url"
 }
 
@@ -50,7 +55,15 @@ export const NewRequestOverlay = forwardRef<
   NewRequestOverlayHandle,
   NewRequestOverlayProps
 >(function NewRequestOverlay(
-  { visible, mode, initialName, initialMethod, initialUrl, folderPaths, initialFolderPath },
+  {
+    visible,
+    mode,
+    initialName,
+    initialMethod,
+    initialUrl,
+    folderPaths,
+    initialFolderPath,
+  },
   ref,
 ) {
   const theme = useTheme()
@@ -61,7 +74,7 @@ export const NewRequestOverlay = forwardRef<
   const [url, setUrl] = useState("")
   const [folderPath, setFolderPath] = useState("")
   const [focus, setFocus] = useState<"folder" | "name" | "method" | "url">(
-    showFolder ? "folder" : "name"
+    showFolder ? "folder" : "name",
   )
   const [errorText, setErrorText] = useState<string | null>(null)
   const [folderSelectOpen, setFolderSelectOpen] = useState(false)
@@ -119,7 +132,15 @@ export const NewRequestOverlay = forwardRef<
       setFocus(showFolder ? "folder" : "name")
       setErrorText(null)
     }
-  }, [visible, isEdit, initialName, initialMethod, initialUrl, initialFolderPath, showFolder])
+  }, [
+    visible,
+    isEdit,
+    initialName,
+    initialMethod,
+    initialUrl,
+    initialFolderPath,
+    showFolder,
+  ])
 
   // Auto-focus based on focus state
   useEffect(() => {

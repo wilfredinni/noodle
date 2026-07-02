@@ -34,7 +34,11 @@ export function useTreeNavigation(
 
   const expandedInitDone = useRef(false)
   useEffect(() => {
-    if (!expandedInitDone.current && initialExpanded && initialExpanded.size > 0) {
+    if (
+      !expandedInitDone.current &&
+      initialExpanded &&
+      initialExpanded.size > 0
+    ) {
       setExpanded(new Set(initialExpanded))
       expandedInitDone.current = true
     }
@@ -103,7 +107,10 @@ export function useTreeNavigation(
         const found = findRequestById(items, initialSelectedId)
         if (found) targetId = initialSelectedId
       }
-      if (!targetId && !(initialSelectedId && initialSelectedId.endsWith("/"))) {
+      if (
+        !targetId &&
+        !(initialSelectedId && initialSelectedId.endsWith("/"))
+      ) {
         targetId = flatReqs[0].id
       }
       if (targetId && targetId !== selectedId) {
