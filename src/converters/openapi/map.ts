@@ -71,10 +71,10 @@ function collectBody(op: Record<string, unknown>): {
   const content = rb.content
   if (!isMapping(content)) return {}
 
-  const mt = pickMediaType(content as Record<string, unknown>)
+  const mt = pickMediaType(content)
   if (mt === null) return {}
 
-  const mediaObj = (content as Record<string, unknown>)[mt]
+  const mediaObj = content[mt]
   if (!isMapping(mediaObj)) return {}
 
   const schema = mediaObj.schema
@@ -84,11 +84,11 @@ function collectBody(op: Record<string, unknown>): {
   }
 
   if (mt === "application/json") {
-    const example = (schema as Record<string, unknown>).example
+    const example = schema.example
     if (example !== undefined) {
       return { body: JSON.stringify(example), bodyType: "json" }
     }
-    const props = (schema as Record<string, unknown>).properties
+    const props = schema.properties
     if (isMapping(props)) {
       const entries: Record<string, string> = {}
       for (const [key] of Object.entries(props)) {
@@ -100,21 +100,21 @@ function collectBody(op: Record<string, unknown>): {
   }
 
   if (mt === "multipart/form-data") {
-    const props = (schema as Record<string, unknown>).properties
+    const props = schema.properties
     if (!isMapping(props)) return { bodyType: "multipart", formData: [] }
 
-    const encoding = (mediaObj as Record<string, unknown>).encoding
+    const encoding = mediaObj.encoding
     const fileFields = new Set<string>()
     if (isMapping(encoding)) {
-      for (const key of Object.keys(encoding as Record<string, unknown>)) {
+      for (const key of Object.keys(encoding)) {
         fileFields.add(key)
       }
     }
     for (const [key, prop] of Object.entries(props)) {
       if (
         isMapping(prop) &&
-        typeof (prop as Record<string, unknown>).format === "string" &&
-        FILE_FORMATS.has((prop as Record<string, unknown>).format as string)
+        typeof prop.format === "string" &&
+        FILE_FORMATS.has(prop.format as string)
       ) {
         fileFields.add(key)
       }
@@ -133,7 +133,7 @@ function collectBody(op: Record<string, unknown>): {
   }
 
   if (mt === "application/x-www-form-urlencoded") {
-    const props = (schema as Record<string, unknown>).properties
+    const props = schema.properties
     if (!isMapping(props)) return { bodyType: "urlencoded", formData: [] }
 
     const formData: FormEntry[] = []
@@ -194,9 +194,9 @@ function lookupScheme(
 ): Record<string, unknown> | null {
   const comp = n.components
   if (!isMapping(comp)) return null
-  const schemes = (comp as Record<string, unknown>).securitySchemes
+  const schemes = comp.securitySchemes
   if (!isMapping(schemes)) return null
-  const s = (schemes as Record<string, unknown>)[name]
+  const s = schemes[name]
   return isMapping(s) ? s : null
 }
 
@@ -280,7 +280,7 @@ function makeName(
   if (typeof summary === "string" && summary !== "") return summary
   const operationId = op.operationId
   if (typeof operationId === "string" && operationId !== "") return operationId
-  return `${METHOD_UPPER[methodKey]} ${pathTemplate}`
+  return `${METHOD_UPPER[methodKey] ?? methodKey.toUpperCase()} ${pathTemplate}`
 }
 
 function makeIdRaw(methodKey: string, pathTemplate: string): string {
@@ -458,15 +458,12 @@ export function mapCollection(n: Normalized): ImportResult {
 
       const srvVariables = server.variables
       if (isMapping(srvVariables)) {
-        for (const [varName, varDef] of Object.entries(
-          srvVariables as Record<string, unknown>,
-        )) {
+        for (const [varName, varDef] of Object.entries(srvVariables)) {
           if (
             isMapping(varDef) &&
-            typeof (varDef as Record<string, unknown>).default === "string"
+            typeof varDef.default === "string"
           ) {
-            vars[varName] =
-              (varDef as Record<string, unknown>).default as string
+            vars[varName] = varDef.default as string
           }
         }
       }
