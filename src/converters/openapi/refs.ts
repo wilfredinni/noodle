@@ -1,0 +1,59 @@
+function resolvePointer(root: Record<string, unknown>, ref: string): unknown {
+  const parts = ref.slice(2).split("/")
+  let current: unknown = root
+  for (const part of parts) {
+    if (typeof current === "object" && current !== null) {
+      current = (current as Record<string, unknown>)[part]
+    } else {
+      return undefined
+    }
+  }
+  return current
+}
+
+function resolveRefs(
+  doc: unknown,
+  root?: Record<string, unknown>,
+  visited?: Set<string>,
+): unknown {
+  if (root === undefined) {
+    if (typeof doc !== "object" || doc === null) return doc
+    root = doc as Record<string, unknown>
+  }
+  if (visited === undefined) visited = new Set()
+
+  if (Array.isArray(doc)) {
+    return doc.map((item) => resolveRefs(item, root, visited))
+  }
+
+  if (typeof doc === "object" && doc !== null) {
+    const obj = doc as Record<string, unknown>
+
+    if (typeof obj.$ref === "string" && obj.$ref.startsWith("#/")) {
+      const refPath = obj.$ref
+      if (visited.has(refPath)) {
+        return { circular: true, ref: refPath }
+      }
+      visited.add(refPath)
+      const resolved = resolvePointer(root, refPath)
+      if (resolved !== undefined) {
+        const result = resolveRefs(resolved, root, visited)
+        visited.delete(refPath)
+        return result
+      }
+      return obj
+    }
+
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = resolveRefs(value, root, visited)
+    }
+    return result
+  }
+
+  return doc
+}
+
+export function resolveSpecRefs(spec: object): object {
+  return resolveRefs(spec) as object
+}
