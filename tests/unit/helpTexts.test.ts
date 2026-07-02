@@ -44,16 +44,16 @@ describe("getHelpSections", () => {
     expect(keys).toContain("shift+tab")
   })
 
-  it("REQUEST EDITING section shows return, escape, ^d, space, ^r, ^e", () => {
+  it("REQUEST EDITING section shows escape, ^d, space, ^r, ^e, ^t", () => {
     const sections = getHelpSections(defaults)
     const edit = sections.find((s) => s.title === "Request Editing")!
     const keys = edit.keys.map((k) => k.key)
-    expect(keys).toContain("return")
     expect(keys).toContain("escape")
     expect(keys).toContain("^d")
     expect(keys).toContain("space")
     expect(keys).toContain("^r")
     expect(keys).toContain("^e")
+    expect(keys).toContain("^t")
   })
 
   it("ACTIONS section shows ^return, ^s, ^n, ^k, ^w, ^p, ^l", () => {
@@ -75,13 +75,6 @@ describe("getHelpSections", () => {
     const keys = sys.keys.map((k) => k.key)
     expect(keys).toContain("^c")
     expect(keys).toContain("f1")
-  })
-
-  it("NAVIGATION section contains return for edit-enter", () => {
-    const sections = getHelpSections(defaults)
-    const nav = sections.find((s) => s.title === "Navigation")!
-    const keys = nav.keys.map((k) => k.key)
-    expect(keys).toContain("return")
   })
 
   it("reflects custom keybinds", () => {

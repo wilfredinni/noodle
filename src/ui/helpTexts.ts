@@ -20,10 +20,6 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         { key: "↑/↓", description: "Move cursor (browse) · request" },
         { key: keybinds.focus_next, description: "Next pane" },
         { key: keybinds.focus_prev, description: "Previous pane" },
-        {
-          key: keybinds.request_edit,
-          description: "Enter request edit-browse · request pane",
-        },
       ],
     },
     {
@@ -38,11 +34,6 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           description: "Edit request YAML",
         },
         {
-          key: keybinds.browse_enter,
-          description: "Edit focused field · request browse",
-        },
-        { key: keybinds.edit_commit, description: "Commit edit" },
-        {
           key: keybinds.browse_escape,
           description: "Cancel edit / exit browse",
         },
@@ -54,6 +45,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         {
           key: displayKey(keybinds.browse_revert_all),
           description: "Revert all fields",
+        },
+        {
+          key: displayKey(keybinds.browse_toggle_form_type),
+          description: "Toggle form entry type",
         },
       ],
     },
@@ -89,6 +84,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         {
           key: displayKey(keybinds.pane_expand),
           description: "Expand/collapse focused pane",
+        },
+        {
+          key: displayKey(keybinds.folder_new),
+          description: "New folder",
         },
       ],
     },
