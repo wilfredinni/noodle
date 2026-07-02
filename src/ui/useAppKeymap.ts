@@ -30,6 +30,9 @@ export interface UseAppKeymapRefs {
   expandedRef: RefObject<"request" | "response" | null>
   folderViewRef: RefObject<boolean>
   folderSaveRef: RefObject<() => void>
+  focusedFolderPathRef: RefObject<string | null>
+  focusedFolderNameRef: RefObject<string | null>
+  folderDeletePathRef: RefObject<string | null>
 }
 
 export interface UseAppKeymapSetters {
@@ -92,6 +95,9 @@ export interface UseAppKeymapSetters {
   ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setFolderDeletePending: (
+    s: string | null | ((prev: string | null) => string | null),
+  ) => void
 }
 
 export function useAppKeymap(
@@ -282,6 +288,13 @@ export function useAppKeymap(
       {
         name: "request.delete",
         run: () => {
+          const folderPath = refs.focusedFolderPathRef.current
+          const folderName = refs.focusedFolderNameRef.current
+          if (folderPath && folderName) {
+            refs.folderDeletePathRef.current = folderPath
+            setters.setFolderDeletePending(folderName)
+            return
+          }
           const sid = refs.selectedIdRef.current
           if (!sid) return
           const col = refs.collectionRef.current
@@ -456,8 +469,22 @@ export function useAppKeymap(
         name: "folder.save",
         run: () => refs.folderSaveRef.current(),
       },
+      {
+        name: "folder.delete",
+        run: () => {
+          const folderPath = refs.focusedFolderPathRef.current
+          const folderName = refs.focusedFolderNameRef.current
+          if (folderPath && folderName) {
+            refs.folderDeletePathRef.current = folderPath
+            setters.setFolderDeletePending(folderName)
+          }
+        },
+      },
     ],
-    bindings: [{ key: keybinds.request_save, cmd: "folder.save" }],
+    bindings: [
+      { key: keybinds.request_save, cmd: "folder.save" },
+      { key: keybinds.request_delete, cmd: "folder.delete" },
+    ],
   }))
 
   // ── Keymap: Folder Browse Layer ──────────────────────────────────

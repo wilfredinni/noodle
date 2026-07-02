@@ -59,6 +59,9 @@ export function useOverlayIntercepts(opts: {
   newFolderRef: RefObject<NewFolderOverlayHandle | null>
   setNewFolderVisible: (v: boolean) => void
   onNewFolderConfirm: (name: string) => void
+  folderDeletePending: string | null
+  setFolderDeletePending: (s: string | null) => void
+  onFolderDeleteConfirm: () => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -103,6 +106,9 @@ export function useOverlayIntercepts(opts: {
     newFolderRef,
     setNewFolderVisible,
     onNewFolderConfirm,
+    folderDeletePending,
+    setFolderDeletePending,
+    onFolderDeleteConfirm,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -431,6 +437,36 @@ export function useOverlayIntercepts(opts: {
     requestDeletePending,
     onRequestDeleteConfirm,
     setRequestDeletePending,
+    keymap,
+  ])
+
+  // ── Overlay: Delete Folder ────────────────────────────────────────
+  useEffect(() => {
+    if (!folderDeletePending) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onFolderDeleteConfirm()
+          return
+        }
+        if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setFolderDeletePending(null)
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    folderDeletePending,
+    onFolderDeleteConfirm,
+    setFolderDeletePending,
     keymap,
   ])
 

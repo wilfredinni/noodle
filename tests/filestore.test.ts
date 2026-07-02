@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtemp, rm, mkdir, writeFile, readFile, symlink } from "node:fs/promises"
+import { mkdtemp, rm, mkdir, writeFile, readFile, readdir, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { filestore, loadSettings, saveSettings, saveFolder, deleteFolder } from "../src/filestore"
@@ -368,6 +368,20 @@ describe("filestore.deleteFolder — path validation", () => {
     await writeFile(join(dir, "to-delete", "folder.yml"), "meta:\n  name: Bye\n", "utf8")
     await deleteFolder(dir, "to-delete")
     await expect(readFile(join(dir, "to-delete", "folder.yml"), "utf8")).rejects.toThrow()
+  })
+
+  it("deletes folder with nested requests and subfolders", async () => {
+    await mkdir(join(dir, "nested", "sub"), { recursive: true })
+    await writeFile(join(dir, "nested", "folder.yml"), "meta:\n  name: Nested\n", "utf8")
+    await writeFile(join(dir, "nested", "get-user.yml"), "method: GET\nurl: /user\n", "utf8")
+    await writeFile(join(dir, "nested", "sub", "folder.yml"), "meta:\n  name: Sub\n", "utf8")
+    await writeFile(join(dir, "nested", "sub", "delete.yml"), "method: DELETE\nurl: /user\n", "utf8")
+
+    await deleteFolder(dir, "nested")
+
+    await expect(readFile(join(dir, "nested", "folder.yml"), "utf8")).rejects.toThrow()
+    await expect(readFile(join(dir, "nested", "sub", "delete.yml"), "utf8")).rejects.toThrow()
+    await expect(readdir(join(dir, "nested"))).rejects.toThrow()
   })
 })
 

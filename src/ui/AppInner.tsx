@@ -35,7 +35,7 @@ import {
   NewFolderOverlay,
   type NewFolderOverlayHandle,
 } from "./NewFolderOverlay"
-import { saveRequest, deleteRequest, saveFolder } from "../filestore/save"
+import { saveRequest, deleteRequest, saveFolder, deleteFolder } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -138,6 +138,10 @@ export function AppInner({
   >(null)
   const [newFolderVisible, setNewFolderVisible] = useState(false)
   const newFolderRef = useRef<NewFolderOverlayHandle>(null)
+  const [folderDeletePending, setFolderDeletePending] = useState<
+    string | null
+  >(null)
+  const folderDeletePathRef = useRef<string | null>(null)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -164,6 +168,7 @@ export function AppInner({
     visibleItems,
     cursorIndex,
     focusedFolderPath,
+    focusedFolderName,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -183,6 +188,11 @@ export function AppInner({
   )
   const newRequestFolderRef = useRef(requestParentFolder)
   newRequestFolderRef.current = requestParentFolder
+
+  const focusedFolderPathRef = useRef(focusedFolderPath)
+  focusedFolderPathRef.current = focusedFolderPath
+  const focusedFolderNameRef = useRef(focusedFolderName)
+  focusedFolderNameRef.current = focusedFolderName
 
   // ── Folder draft + edit-browse ────────────────────────────────────
   const folderDraft = useFolderDraft(focusedFolder)
@@ -458,6 +468,38 @@ export function AppInner({
     ],
   )
 
+  const handleFolderDeleteConfirm = useCallback(() => {
+    const path = folderDeletePathRef.current
+    if (!path) return
+
+    deleteFolder(collectionDir, path)
+      .then(() => {
+        setCollectionReloadToken((n) => n + 1)
+        setFolderDeletePending(null)
+        setFocus("sidebar")
+        setSaveState({ kind: "success", message: `Deleted folder ${path}` })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
+      })
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e)
+        setSaveState({ kind: "error", message: msg })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
+      })
+  }, [
+    collectionDir,
+    setCollectionReloadToken,
+    setFocus,
+    setSaveState,
+    clearSaveTimer,
+    saveTimerRef,
+  ])
+
   const handleEditRequestConfirm = useCallback(
     (name: string, method: Method, url: string) => {
       const req = selectedRequest
@@ -570,6 +612,8 @@ export function AppInner({
               ? "clone-request"
               : newFolderVisible
                 ? "new-folder"
+                : folderDeletePending !== null
+                  ? "delete-folder"
                 : requestDeletePending !== null
                   ? "request-delete"
                   : "none"
@@ -583,6 +627,7 @@ export function AppInner({
     editRequestVisible,
     cloneRequestVisible,
     newFolderVisible,
+    folderDeletePending,
     requestDeletePending,
     keymap,
   ])
@@ -744,6 +789,9 @@ export function AppInner({
       folderSaveRef,
       folderEbRef,
       folderDraftRef,
+      focusedFolderPathRef,
+      focusedFolderNameRef,
+      folderDeletePathRef,
     },
     {
       setFocus,
@@ -760,6 +808,7 @@ export function AppInner({
       setCloneRequestVisible,
       setRequestDeletePending,
       setNewFolderVisible,
+      setFolderDeletePending,
       onLayoutChange,
       setExpanded,
     },
@@ -811,6 +860,9 @@ export function AppInner({
     newFolderRef,
     setNewFolderVisible,
     onNewFolderConfirm: handleNewFolderConfirm,
+    folderDeletePending,
+    setFolderDeletePending,
+    onFolderDeleteConfirm: handleFolderDeleteConfirm,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -1114,6 +1166,13 @@ export function AppInner({
           />
         )}
         {newFolderVisible && <NewFolderOverlay visible ref={newFolderRef} />}
+        {folderDeletePending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Delete folder "${folderDeletePending}" and all requests inside?`}
+            selectedIndex={0}
+          />
+        )}
         {requestDeletePending !== null && (
           <ConfirmOverlay
             visible
