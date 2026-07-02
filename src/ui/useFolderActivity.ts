@@ -91,13 +91,14 @@ export function useFolderActivity(
 
     setLoading(true)
     try {
-      const timelines = new Map<string, TimelineEntry[]>()
-      for (const req of childRequests) {
-        const entries = await loadTimeline(collectionDir, req.id)
-        timelines.set(req.id, entries)
-        if (loadId !== loadIdRef.current) return
-      }
+      const entriesList = await Promise.all(
+        childRequests.map((req) => loadTimeline(collectionDir, req.id)),
+      )
       if (loadId !== loadIdRef.current) return
+      const timelines = new Map<string, TimelineEntry[]>()
+      for (let i = 0; i < childRequests.length; i++) {
+        timelines.set(childRequests[i]!.id, entriesList[i]!)
+      }
       setStats(computeFolderActivity(childRequests, timelines))
     } catch {
       if (loadId !== loadIdRef.current) return
