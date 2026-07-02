@@ -47,6 +47,7 @@ export function useOverlayIntercepts(opts: {
     name: string
     method: string
     url: string
+    folderPath?: string
   }) => void
   cloneRequestVisible: boolean
   cloneRequestRef: RefObject<CloneRequestOverlayHandle | null>
