@@ -24,7 +24,7 @@ export function ConfirmOverlay({
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>Confirm</text>
+        <text fg={theme.text}>Confirm</text>
         <text fg={theme.textMuted}>esc</text>
       </box>
       <box style={{ paddingX: 2, paddingBottom: 1 }}>
@@ -38,10 +38,10 @@ export function ConfirmOverlay({
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>y</text>
+        <text fg={theme.text}>y</text>
         <text fg={theme.textMuted}>confirm</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={theme.primary}>n</text>
+        <text fg={theme.text}>n</text>
         <text fg={theme.textMuted}>cancel</text>
       </box>
     </Overlay>

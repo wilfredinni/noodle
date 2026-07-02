@@ -2,6 +2,7 @@ import { getHelpSections } from "./helpTexts"
 import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
 import type { Keybinds } from "./keybind"
+import { TextAttributes } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useRef } from "react"
 
@@ -46,7 +47,7 @@ export function HelpOverlay({
           {sections.map((section) => (
             <box key={section.title} style={{ flexDirection: "column" }}>
               <box paddingLeft={4} paddingRight={4}>
-                <text fg={theme.text}>{section.title}</text>
+                <text fg={theme.text} attributes={TextAttributes.BOLD}>{section.title}</text>
               </box>
               {section.keys.map((k, i) => (
                 <box
@@ -55,7 +56,7 @@ export function HelpOverlay({
                   paddingRight={4}
                   style={{ flexDirection: "row" }}
                 >
-                  <text fg={theme.primary}>{k.key.padEnd(11)}</text>
+                  <text fg={theme.text}>{k.key.padEnd(11)}</text>
                   <text fg={theme.textMuted}>{k.description}</text>
                 </box>
               ))}

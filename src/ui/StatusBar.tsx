@@ -175,7 +175,7 @@ export function StatusBar(input: {
         {(isEnvEditor ? envEditorSegments : rightSegments).map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>
             {i > 0 ? <text fg={theme.textMuted}> · </text> : null}
-            <text fg={theme.primary}>{seg.key}</text>
+            <text fg={theme.text}>{seg.key}</text>
             <text fg={theme.textMuted}> {seg.word}</text>
           </box>
         ))}
