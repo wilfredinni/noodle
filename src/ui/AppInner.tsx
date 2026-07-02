@@ -194,7 +194,7 @@ export function AppInner({
     if (!collection) return []
     return getFolderPaths(collection.items).map((f) => ({
       id: f.path,
-      label: f.path === "" ? "(root)" : f.path,
+      label: f.path === "" ? "(root)" : f.name,
     }))
   }, [collection])
 
@@ -538,7 +538,7 @@ export function AppInner({
 
       const nameChanged = newId !== req.id
       const folderChanged = newFolder !== oldFolder
-      const changed = nameChanged || folderChanged || method !== req.method || url !== req.url
+      const changed = nameChanged || method !== req.method || url !== req.url
 
       if (!changed) {
         setEditRequestVisible(false)
@@ -556,7 +556,9 @@ export function AppInner({
 
       const savePromise = saveRequest(collectionDir, updated).then(() => {
         if (nameChanged || folderChanged) {
-          return deleteRequest(collectionDir, req.id)
+          deleteRequest(collectionDir, req.id).catch(() => {
+            /* stale file not cleaned up — new file is safe */
+          })
         }
       })
 
