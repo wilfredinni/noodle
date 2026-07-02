@@ -78,7 +78,7 @@ export function Select({
       "key",
       (ctx) => {
         const name = ctx.event.name
-        if (name === "return" || name === "space") {
+        if ((name === "return" && !ctx.event.ctrl) || name === "space") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           setOpen(true)
