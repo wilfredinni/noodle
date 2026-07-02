@@ -1,6 +1,11 @@
+import { useMemo } from "react"
 import { methodColor } from "./formatRequest"
 import type { Theme } from "./theme"
 import type { FolderActivityStats } from "./useFolderActivity"
+
+function shortMethod(m: string): string {
+  return m === "DELETE" ? "DEL" : m
+}
 
 function pct(v: number): string {
   return `${Math.round(v * 100)}%`
@@ -57,13 +62,44 @@ export function FolderActivityTab({
     )
   }
 
+  const widths = useMemo(() => {
+    const method = Math.max(
+      ...stats.requests.map((r) => shortMethod(r.method).length),
+      "Method".length,
+    ) + 1
+    const name = Math.min(
+      Math.max(...stats.requests.map((r) => r.name.length), "Name".length),
+      20,
+    )
+    const ok = Math.max(
+      ...stats.requests.map((r) =>
+        r.successRate !== null ? pct(r.successRate).length : 1,
+      ),
+      "OK%".length,
+    )
+    const avg = Math.max(
+      ...stats.requests.map((r) =>
+        r.avgTimeMs !== null ? ms(r.avgTimeMs).length : 1,
+      ),
+      "Avg".length,
+    )
+    const last = Math.max(
+      ...stats.requests.map((r) => {
+        const lastSent = r.lastSent !== null ? relativeTime(r.lastSent) : "\u2014"
+        const calls = r.callCount > 0 ? `${r.callCount}c \u00B7 ` : ""
+        return `${calls}${lastSent}`.length
+      }),
+      "Last".length,
+    )
+    return { method, name, ok, avg, last }
+  }, [stats])
+
   return (
     <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
       <box
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
-          paddingBottom: 1,
         }}
         border={["bottom"]}
         borderColor={theme.borderSubtle}
@@ -86,29 +122,38 @@ export function FolderActivityTab({
         </text>
       </box>
 
-      <box
-        style={{ flexDirection: "row", paddingBottom: 0 }}
+      <box style={{ flexDirection: "row", justifyContent: "space-between", paddingBottom: 0 }}
         border={["bottom"]}
         borderColor={theme.borderSubtle}
       >
-        <text fg={theme.textMuted} wrapMode="none">
-          {"Method".padEnd(7)}
+        <text fg={theme.textMuted} wrapMode="none"
+          style={{ flexShrink: 0, minWidth: widths.method }}
+        >
+          {"Method".padEnd(widths.method)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none">
-          {"Name".padEnd(14)}
+        <text fg={theme.textMuted} wrapMode="none"
+          style={{ flexShrink: 1, minWidth: widths.name }}
+        >
+          {"Name".padEnd(widths.name)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none">
-          {"OK%".padEnd(6)}
+        <text fg={theme.textMuted} wrapMode="none"
+          style={{ flexShrink: 0, minWidth: widths.ok }}
+        >
+          {"OK%".padStart(widths.ok)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none">
-          {"Avg".padEnd(7)}
+        <text fg={theme.textMuted} wrapMode="none"
+          style={{ flexShrink: 0, minWidth: widths.avg }}
+        >
+          {"Avg".padStart(widths.avg)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none">
-          Last
+        <text fg={theme.textMuted} wrapMode="none"
+          style={{ flexShrink: 0, minWidth: widths.last }}
+        >
+          {"Last".padEnd(widths.last)}
         </text>
       </box>
 
-      {stats.requests.map((r) => {
+      {stats.requests.map((r, _i) => {
         const statusColor =
           r.successRate === null
             ? theme.textMuted
@@ -123,39 +168,50 @@ export function FolderActivityTab({
         const callsText =
           r.callCount > 0 ? `${r.callCount}c \u00B7 ` : ""
 
+        const method = shortMethod(r.method).padEnd(widths.method)
+        const name = nameColumn(r.name, widths.name).padEnd(widths.name)
+        const okPct = r.successRate !== null
+          ? pct(r.successRate).padStart(widths.ok)
+          : "\u2014".padStart(widths.ok)
+        const avgTime = r.avgTimeMs !== null
+          ? ms(r.avgTimeMs).padStart(widths.avg)
+          : "\u2014".padStart(widths.avg)
+        const last = `${callsText}${lastSentText}`
+
         return (
-          <box key={r.id} style={{ flexDirection: "row" }}>
-            <text fg={methodColor(r.method, theme)} wrapMode="none">
-              {r.method === "DELETE" ? "DEL" : r.method.padEnd(7).slice(0, 7)}
-            </text>
-            <text
-              fg={r.callCount > 0 ? theme.text : theme.textMuted}
+          <box key={r.id}
+            style={{ flexDirection: "row", justifyContent: "space-between" }}
+          >
+            <text fg={methodColor(r.method, theme)}
               wrapMode="none"
+              style={{ flexShrink: 0, minWidth: widths.method }}
             >
-              {nameColumn(r.name, 12)}
-              {"  "}
+              {method}
             </text>
-            <text fg={statusColor} wrapMode="none">
-              {r.successRate !== null
-                ? pct(r.successRate).padEnd(6)
-                : "\u2014".padEnd(6)}
-            </text>
-            <text
-              fg={r.avgTimeMs !== null ? theme.text : theme.textMuted}
+            <text fg={r.callCount > 0 ? theme.text : theme.textMuted}
               wrapMode="none"
+              style={{ flexShrink: 1, minWidth: widths.name }}
             >
-              {r.avgTimeMs !== null
-                ? ms(r.avgTimeMs).padEnd(7)
-                : "\u2014".padEnd(7)}
+              {name}
             </text>
-            <box style={{ flexDirection: "row" }}>
-              <text fg={theme.textMuted} wrapMode="none">
-                {callsText}
-              </text>
-              <text fg={r.lastSent !== null ? theme.text : theme.textMuted}>
-                {lastSentText}
-              </text>
-            </box>
+            <text fg={statusColor}
+              wrapMode="none"
+              style={{ flexShrink: 0, minWidth: widths.ok }}
+            >
+              {okPct}
+            </text>
+            <text fg={r.avgTimeMs !== null ? theme.text : theme.textMuted}
+              wrapMode="none"
+              style={{ flexShrink: 0, minWidth: widths.avg }}
+            >
+              {avgTime}
+            </text>
+            <text fg={theme.textMuted}
+              wrapMode="none"
+              style={{ flexShrink: 0, minWidth: widths.last }}
+            >
+              {last}
+            </text>
           </box>
         )
       })}
