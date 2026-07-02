@@ -64,6 +64,7 @@ export const NewRequestOverlay = forwardRef<
     showFolder ? "folder" : "name"
   )
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [folderSelectOpen, setFolderSelectOpen] = useState(false)
 
   const nameRef = useRef<InputRenderable | null>(null)
   const urlRef = useRef<InputRenderable | null>(null)
@@ -152,13 +153,19 @@ export const NewRequestOverlay = forwardRef<
         }}
       >
         {showFolder && (
-          <box style={{ flexDirection: "column" }}>
+          <box
+            style={{
+              flexDirection: "column",
+              zIndex: folderSelectOpen ? 1 : undefined,
+            }}
+          >
             <text fg={theme.textMuted}>Folder</text>
             <Select
               items={folderPaths!}
               value={folderPath}
               onChange={setFolderPath}
               focused={focus === "folder"}
+              onOpenChange={setFolderSelectOpen}
             />
           </box>
         )}
