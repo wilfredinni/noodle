@@ -1,4 +1,6 @@
-import type { TimelineEntry, Method } from "../schema"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { TimelineEntry, Method, Folder } from "../schema"
+import { loadTimeline } from "../filestore"
 
 export interface RequestActivityStats {
   id: string
@@ -80,4 +82,69 @@ export function computeFolderActivity(
       overallAvgTime,
     },
   }
+}
+
+export function useFolderActivity(
+  collectionDir: string,
+  folder: Folder | null,
+  active: boolean,
+): { stats: FolderActivityStats | null; loading: boolean } {
+  const [stats, setStats] = useState<FolderActivityStats | null>(null)
+  const [loading, setLoading] = useState(false)
+  const loadedRef = useRef(false)
+  const lastDirRef = useRef("")
+  const lastPathRef = useRef("")
+
+  const compute = useCallback(async () => {
+    if (!folder) {
+      setStats(null)
+      return
+    }
+
+    const childRequests = folder.children
+      .filter((c) => c.type === "request")
+      .map((c) => ({
+        id: c.data.id,
+        name: c.data.name,
+        method: c.data.method,
+      }))
+
+    if (childRequests.length === 0) {
+      setStats(computeFolderActivity([], new Map()))
+      return
+    }
+
+    setLoading(true)
+    try {
+      const timelines = new Map<string, TimelineEntry[]>()
+      for (const req of childRequests) {
+        const entries = await loadTimeline(collectionDir, req.id)
+        timelines.set(req.id, entries)
+      }
+      setStats(computeFolderActivity(childRequests, timelines))
+    } catch {
+      setStats(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [collectionDir, folder])
+
+  useEffect(() => {
+    const path = folder?.path ?? ""
+    if (collectionDir !== lastDirRef.current || path !== lastPathRef.current) {
+      lastDirRef.current = collectionDir
+      lastPathRef.current = path
+      loadedRef.current = false
+      setStats(null)
+    }
+  }, [collectionDir, folder])
+
+  useEffect(() => {
+    if (active && !loadedRef.current && folder) {
+      loadedRef.current = true
+      compute()
+    }
+  }, [active, folder, compute])
+
+  return { stats, loading }
 }
