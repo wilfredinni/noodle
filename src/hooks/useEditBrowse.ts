@@ -231,6 +231,7 @@ export function useEditBrowse(
       : (options?.initialTab ?? inactiveTab)
 
   const enterBrowse = useCallback(() => {
+    if (activeTab === "activity") return
     const c = rowCount(draftRef.current)
     const tab = activeTab
     setEditState((prev) => {
@@ -240,6 +241,7 @@ export function useEditBrowse(
   }, [activeTab])
 
   const enterAndEdit = useCallback(() => {
+    if (activeTab === "activity") return
     const c = rowCount(draftRef.current)
     const currentDraft = draftRef.current
     const tab = activeTab
