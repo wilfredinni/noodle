@@ -60,10 +60,10 @@ export function Tips() {
   )
   const parts = parseTip(tip)
   const segments = [
-    { text: "● Tip", color: theme.secondary },
+    { text: "● Tip", color: theme.accent },
     ...parts.map((p) => ({
       text: p.text,
-      color: p.isKey ? theme.primary : theme.textMuted,
+      color: p.isKey ? theme.text : theme.textMuted,
     })),
   ]
 
