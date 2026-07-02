@@ -14,8 +14,8 @@ import type { Method } from "../schema"
 export interface NewRequestOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void
   commitField: () => void
-  confirm: () => { name: string; method: Method; url: string } | null
-  getFocus: () => "name" | "method" | "url"
+  confirm: () => { name: string; method: Method; url: string; folderPath?: string } | null
+  getFocus: () => "folder" | "name" | "method" | "url"
 }
 
 interface NewRequestOverlayProps {
@@ -24,6 +24,8 @@ interface NewRequestOverlayProps {
   initialName?: string
   initialMethod?: Method
   initialUrl?: string
+  folderPaths?: SelectItem[]
+  initialFolderPath?: string
 }
 
 export const METHOD_ITEMS: SelectItem[] = [
@@ -48,21 +50,28 @@ export const NewRequestOverlay = forwardRef<
   NewRequestOverlayHandle,
   NewRequestOverlayProps
 >(function NewRequestOverlay(
-  { visible, mode, initialName, initialMethod, initialUrl },
+  { visible, mode, initialName, initialMethod, initialUrl, folderPaths, initialFolderPath },
   ref,
 ) {
   const theme = useTheme()
   const isEdit = mode === "edit"
+  const showFolder = isEdit && folderPaths && folderPaths.length > 0
   const [name, setName] = useState("")
   const [method, setMethod] = useState<Method>("GET")
   const [url, setUrl] = useState("")
-  const [focus, setFocus] = useState<"name" | "method" | "url">("name")
+  const [folderPath, setFolderPath] = useState("")
+  const [focus, setFocus] = useState<"folder" | "name" | "method" | "url">(
+    showFolder ? "folder" : "name"
+  )
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [folderSelectOpen, setFolderSelectOpen] = useState(false)
 
   const nameRef = useRef<InputRenderable | null>(null)
   const urlRef = useRef<InputRenderable | null>(null)
 
-const FOCUS_ORDER: Array<"name" | "method" | "url"> = ["name", "method", "url"]
+  const FOCUS_ORDER: Array<"folder" | "name" | "method" | "url"> = showFolder
+    ? ["folder", "name", "method", "url"]
+    : ["name", "method", "url"]
 
   useImperativeHandle(ref, () => ({
     cycleFocus: (direction: 1 | -1) => {
@@ -76,6 +85,8 @@ const FOCUS_ORDER: Array<"name" | "method" | "url"> = ["name", "method", "url"]
     commitField: () => {
       if (focus === "name") {
         setFocus("method")
+      } else if (focus === "folder") {
+        setFocus("name")
       }
     },
     confirm: () => {
@@ -84,7 +95,9 @@ const FOCUS_ORDER: Array<"name" | "method" | "url"> = ["name", "method", "url"]
         return null
       }
       setErrorText(null)
-      return { name, method, url }
+      return showFolder
+        ? { name, method, url, folderPath }
+        : { name, method, url }
     },
     getFocus: () => focus,
   }))
@@ -96,15 +109,17 @@ const FOCUS_ORDER: Array<"name" | "method" | "url"> = ["name", "method", "url"]
         setName(initialName ?? "")
         setMethod(initialMethod ?? "GET")
         setUrl(initialUrl ?? "")
+        setFolderPath(initialFolderPath ?? "")
       } else {
         setName("")
         setMethod("GET")
         setUrl("")
+        setFolderPath("")
       }
-      setFocus("name")
+      setFocus(showFolder ? "folder" : "name")
       setErrorText(null)
     }
-  }, [visible, isEdit, initialName, initialMethod, initialUrl])
+  }, [visible, isEdit, initialName, initialMethod, initialUrl, initialFolderPath, showFolder])
 
   // Auto-focus based on focus state
   useEffect(() => {
@@ -137,6 +152,24 @@ const FOCUS_ORDER: Array<"name" | "method" | "url"> = ["name", "method", "url"]
           paddingBottom: 1,
         }}
       >
+        {showFolder && (
+          <box
+            style={{
+              flexDirection: "column",
+              zIndex: folderSelectOpen ? 1 : undefined,
+            }}
+          >
+            <text fg={theme.textMuted}>Folder</text>
+            <Select
+              items={folderPaths!}
+              value={folderPath}
+              onChange={setFolderPath}
+              focused={focus === "folder"}
+              onOpenChange={setFolderSelectOpen}
+            />
+          </box>
+        )}
+
         <box style={{ flexDirection: "column" }}>
           <text fg={theme.textMuted}>Request Name</text>
           <input

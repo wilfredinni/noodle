@@ -47,6 +47,7 @@ export function useOverlayIntercepts(opts: {
     name: string
     method: string
     url: string
+    folderPath?: string
   }) => void
   cloneRequestVisible: boolean
   cloneRequestRef: RefObject<CloneRequestOverlayHandle | null>
@@ -341,7 +342,7 @@ export function useOverlayIntercepts(opts: {
             e.stopPropagation()
             const result = handle.confirm()
             if (result) onEditRequestConfirm(result)
-          } else if (handle.getFocus() === "method") {
+          } else if (handle.getFocus() === "method" || handle.getFocus() === "folder") {
             return
           } else {
             e.preventDefault()

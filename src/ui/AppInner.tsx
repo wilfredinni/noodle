@@ -8,7 +8,7 @@ import { ResponsePane } from "./ResponsePane"
 import { FolderPane } from "./FolderPane"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
-import { deriveRequestParentFolder } from "./tree"
+import { deriveRequestParentFolder, getFolderPaths } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Folder, Request as NoodleRequest, Method } from "../schema"
@@ -189,6 +189,20 @@ export function AppInner({
   )
   const newRequestFolderRef = useRef(requestParentFolder)
   newRequestFolderRef.current = requestParentFolder
+
+  const folderPaths = useMemo(() => {
+    if (!collection) return []
+    return getFolderPaths(collection.items).map((f) => ({
+      id: f.path,
+      label: f.path === "" ? "(root)" : f.name,
+    }))
+  }, [collection])
+
+  const editRequestInitialFolder = useMemo(() => {
+    const req = selectedRequest
+    if (!req || !req.id.includes("/")) return ""
+    return req.id.slice(0, req.id.lastIndexOf("/"))
+  }, [selectedRequest])
 
   const focusedFolderPathRef = useRef(focusedFolderPath)
   focusedFolderPathRef.current = focusedFolderPath
@@ -509,13 +523,28 @@ export function AppInner({
   ])
 
   const handleEditRequestConfirm = useCallback(
-    (name: string, method: Method, url: string) => {
+    (name: string, method: Method, url: string, folderPath?: string) => {
       const req = selectedRequest
       if (!req) return
-      const newId = slugify(name)
-      if (!newId) return
+      const baseId = slugify(name)
+      if (!baseId) return
+
+      const newFolder = folderPath ?? ""
+      const newId = newFolder ? `${newFolder}/${baseId}` : baseId
+
+      const oldFolder = req.id.includes("/")
+        ? req.id.slice(0, req.id.lastIndexOf("/"))
+        : ""
 
       const nameChanged = newId !== req.id
+      const folderChanged = newFolder !== oldFolder
+      const changed = nameChanged || method !== req.method || url !== req.url
+
+      if (!changed) {
+        setEditRequestVisible(false)
+        setFocus("sidebar")
+        return
+      }
 
       const updated: NoodleRequest = {
         ...req,
@@ -526,8 +555,10 @@ export function AppInner({
       }
 
       const savePromise = saveRequest(collectionDir, updated).then(() => {
-        if (nameChanged) {
-          return deleteRequest(collectionDir, req.id)
+        if (nameChanged || folderChanged) {
+          deleteRequest(collectionDir, req.id).catch(() => {
+            /* stale file not cleaned up — new file is safe */
+          })
         }
       })
 
@@ -536,6 +567,7 @@ export function AppInner({
           setCollectionReloadToken((n) => n + 1)
           setEditRequestVisible(false)
           setFocus("sidebar")
+          if (newFolder) expandFolder(newFolder)
           setSaveState({ kind: "success", message: `Saved ${name}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
@@ -559,6 +591,7 @@ export function AppInner({
       setSaveState,
       clearSaveTimer,
       saveTimerRef,
+      expandFolder,
     ],
   )
 
@@ -856,7 +889,7 @@ export function AppInner({
     editRequestRef,
     setEditRequestVisible,
     onEditRequestConfirm: (v) =>
-      handleEditRequestConfirm(v.name, v.method as Method, v.url),
+      handleEditRequestConfirm(v.name, v.method as Method, v.url, v.folderPath),
     cloneRequestVisible,
     cloneRequestRef,
     setCloneRequestVisible,
@@ -1161,6 +1194,8 @@ export function AppInner({
             initialName={selectedRequest?.name}
             initialMethod={selectedRequest?.method}
             initialUrl={selectedRequest?.url}
+            folderPaths={folderPaths}
+            initialFolderPath={editRequestInitialFolder}
             ref={editRequestRef}
           />
         )}

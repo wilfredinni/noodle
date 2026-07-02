@@ -112,6 +112,31 @@ export function getRequestIds(items: CollectionItem[]): string[] {
   return flattenRequests(items).map((r) => r.id)
 }
 
+export function getFolderPaths(
+  items: CollectionItem[],
+): { path: string; name: string }[] {
+  const out: { path: string; name: string }[] = [{ path: "", name: "(root)" }]
+  for (const item of items) {
+    if (item.type === "folder") {
+      out.push({ path: item.data.path, name: item.data.name })
+      collectFolderPaths(item.data.children, out)
+    }
+  }
+  return out
+}
+
+function collectFolderPaths(
+  items: CollectionItem[],
+  out: { path: string; name: string }[],
+): void {
+  for (const item of items) {
+    if (item.type === "folder") {
+      out.push({ path: item.data.path, name: item.data.name })
+      collectFolderPaths(item.data.children, out)
+    }
+  }
+}
+
 export function deriveRequestParentFolder(
   focusedFolderPath: string | null,
   selectedId: string | null,
