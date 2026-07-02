@@ -94,8 +94,11 @@ export function useFolderActivity(
   const loadedRef = useRef(false)
   const lastDirRef = useRef("")
   const lastPathRef = useRef("")
+  const loadIdRef = useRef(0)
 
   const compute = useCallback(async () => {
+    const loadId = ++loadIdRef.current
+
     if (!folder) {
       setStats(null)
       return
@@ -114,18 +117,25 @@ export function useFolderActivity(
       return
     }
 
+    if (loadId !== loadIdRef.current) return
+
     setLoading(true)
     try {
       const timelines = new Map<string, TimelineEntry[]>()
       for (const req of childRequests) {
         const entries = await loadTimeline(collectionDir, req.id)
         timelines.set(req.id, entries)
+        if (loadId !== loadIdRef.current) return
       }
+      if (loadId !== loadIdRef.current) return
       setStats(computeFolderActivity(childRequests, timelines))
     } catch {
+      if (loadId !== loadIdRef.current) return
       setStats(null)
     } finally {
-      setLoading(false)
+      if (loadId === loadIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [collectionDir, folder])
 
