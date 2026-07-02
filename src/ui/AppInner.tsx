@@ -538,7 +538,7 @@ export function AppInner({
 
       const nameChanged = newId !== req.id
       const folderChanged = newFolder !== oldFolder
-      const changed = nameChanged || folderChanged
+      const changed = nameChanged || folderChanged || method !== req.method || url !== req.url
 
       if (!changed) {
         setEditRequestVisible(false)
