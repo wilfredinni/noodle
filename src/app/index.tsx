@@ -83,8 +83,28 @@ try {
 
 const keybinds = parseOverrides(keybindsConfig)
 
-const renderer = await createCliRenderer({ exitOnCtrlC: true })
+const renderer = await createCliRenderer({ exitOnCtrlC: false })
 const keymap = createNoodleKeymap(renderer)
+
+renderer.on("selection", (selection) => {
+  const text = selection.getSelectedText()
+  if (text) renderer.copyToClipboardOSC52(text)
+})
+
+renderer.keyInput.on("keypress", (key) => {
+  if (key.ctrl && key.name === "c") {
+    const editor = renderer.currentFocusedEditor
+    const selectedText =
+      editor?.hasSelection() ? editor.getSelectedText() :
+      renderer.hasSelection ? renderer.getSelection()?.getSelectedText() : null
+    if (selectedText) {
+      renderer.copyToClipboardOSC52(selectedText)
+      renderer.clearSelection()
+      return
+    }
+    renderer.destroy()
+  }
+})
 
 createRoot(renderer).render(
   <KeymapProvider keymap={keymap}>
