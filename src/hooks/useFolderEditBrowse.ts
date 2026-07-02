@@ -175,7 +175,7 @@ export function useFolderEditBrowse(
   onTabChangeRef.current = options?.onTabChange
 
   useEffect(() => {
-    setInactiveTab(options?.initialTab ?? "meta")
+    setInactiveTab(options?.initialTab ?? "activity")
   }, [options?.initialTab])
 
   const isFirstTabChange = useRef(true)
