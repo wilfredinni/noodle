@@ -8,9 +8,10 @@ import { ResponsePane } from "./ResponsePane"
 import { FolderPane } from "./FolderPane"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
+import { deriveRequestParentFolder } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest, Method } from "../schema"
+import type { Folder, Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -30,7 +31,11 @@ import {
   CloneRequestOverlay,
   type CloneRequestOverlayHandle,
 } from "./CloneRequestOverlay"
-import { saveRequest, deleteRequest, saveFolder } from "../filestore/save"
+import {
+  NewFolderOverlay,
+  type NewFolderOverlayHandle,
+} from "./NewFolderOverlay"
+import { saveRequest, deleteRequest, saveFolder, deleteFolder } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -131,6 +136,12 @@ export function AppInner({
   const [requestDeletePending, setRequestDeletePending] = useState<
     string | null
   >(null)
+  const [newFolderVisible, setNewFolderVisible] = useState(false)
+  const newFolderRef = useRef<NewFolderOverlayHandle>(null)
+  const [folderDeletePending, setFolderDeletePending] = useState<
+    string | null
+  >(null)
+  const folderDeletePathRef = useRef<string | null>(null)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -157,6 +168,8 @@ export function AppInner({
     visibleItems,
     cursorIndex,
     focusedFolderPath,
+    focusedFolderName,
+    setSelectedId,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -170,8 +183,17 @@ export function AppInner({
     [focusedFolderPath, items],
   )
 
-  const newRequestFolderRef = useRef(focusedFolderPath)
-  newRequestFolderRef.current = focusedFolderPath
+  const requestParentFolder = useMemo(
+    () => deriveRequestParentFolder(focusedFolderPath, selectedId),
+    [focusedFolderPath, selectedId],
+  )
+  const newRequestFolderRef = useRef(requestParentFolder)
+  newRequestFolderRef.current = requestParentFolder
+
+  const focusedFolderPathRef = useRef(focusedFolderPath)
+  focusedFolderPathRef.current = focusedFolderPath
+  const focusedFolderNameRef = useRef(focusedFolderName)
+  focusedFolderNameRef.current = focusedFolderName
 
   // ── Folder draft + edit-browse ────────────────────────────────────
   const folderDraft = useFolderDraft(focusedFolder)
@@ -326,6 +348,7 @@ export function AppInner({
         .then(() => {
           if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
+          setSelectedId(id)
           setNewRequestVisible(false)
           setFocus("sidebar")
           setSaveState({ kind: "success", message: `Created ${name}` })
@@ -350,6 +373,7 @@ export function AppInner({
       setSaveState,
       clearSaveTimer,
       saveTimerRef,
+      setSelectedId,
       expandFolder,
     ],
   )
@@ -375,6 +399,9 @@ export function AppInner({
           setCollectionReloadToken((n) => n + 1)
           setCloneRequestVisible(false)
           setFocus("sidebar")
+          setSelectedId(id)
+          const lastSlash = id.lastIndexOf("/")
+          if (lastSlash >= 0) expandFolder(id.slice(0, lastSlash))
           setSaveState({ kind: "success", message: `Cloned ${newName}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
@@ -398,8 +425,88 @@ export function AppInner({
       setSaveState,
       clearSaveTimer,
       saveTimerRef,
+      setSelectedId,
+      expandFolder,
     ],
   )
+
+  const handleNewFolderConfirm = useCallback(
+    (name: string) => {
+      const baseId = slugify(name)
+      if (!baseId) return
+      const folder = newRequestFolderRef.current
+      const path = folder ? `${folder}/${baseId}` : baseId
+
+      const newFolder: Folder = {
+        id: baseId,
+        name,
+        path,
+        children: [],
+      }
+
+      saveFolder(collectionDir, newFolder)
+        .then(() => {
+          if (folder) expandFolder(folder)
+          setCollectionReloadToken((n) => n + 1)
+          setNewFolderVisible(false)
+          setFocus("sidebar")
+          setSaveState({ kind: "success", message: `Created folder ${name}` })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e)
+          setSaveState({ kind: "error", message: msg })
+          clearSaveTimer()
+          saveTimerRef.current = setTimeout(() => {
+            setSaveState({ kind: "idle" })
+          }, 2000)
+        })
+    },
+    [
+      collectionDir,
+      setCollectionReloadToken,
+      setFocus,
+      setSaveState,
+      clearSaveTimer,
+      saveTimerRef,
+      expandFolder,
+    ],
+  )
+
+  const handleFolderDeleteConfirm = useCallback(() => {
+    const path = folderDeletePathRef.current
+    if (!path) return
+
+    deleteFolder(collectionDir, path)
+      .then(() => {
+        setCollectionReloadToken((n) => n + 1)
+        setFolderDeletePending(null)
+        setFocus("sidebar")
+        setSaveState({ kind: "success", message: `Deleted folder ${path}` })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
+      })
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e)
+        setSaveState({ kind: "error", message: msg })
+        clearSaveTimer()
+        saveTimerRef.current = setTimeout(() => {
+          setSaveState({ kind: "idle" })
+        }, 2000)
+      })
+  }, [
+    collectionDir,
+    setCollectionReloadToken,
+    setFocus,
+    setSaveState,
+    clearSaveTimer,
+    saveTimerRef,
+  ])
 
   const handleEditRequestConfirm = useCallback(
     (name: string, method: Method, url: string) => {
@@ -509,11 +616,15 @@ export function AppInner({
               ? "new-request"
               : editRequestVisible
                 ? "edit-request"
-                : cloneRequestVisible
-                  ? "clone-request"
-                  : requestDeletePending !== null
-                    ? "request-delete"
-                    : "none"
+            : cloneRequestVisible
+              ? "clone-request"
+              : newFolderVisible
+                ? "new-folder"
+                : folderDeletePending !== null
+                  ? "delete-folder"
+                : requestDeletePending !== null
+                  ? "request-delete"
+                  : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     helpVisible,
@@ -523,6 +634,8 @@ export function AppInner({
     newRequestVisible,
     editRequestVisible,
     cloneRequestVisible,
+    newFolderVisible,
+    folderDeletePending,
     requestDeletePending,
     keymap,
   ])
@@ -684,6 +797,9 @@ export function AppInner({
       folderSaveRef,
       folderEbRef,
       folderDraftRef,
+      focusedFolderPathRef,
+      focusedFolderNameRef,
+      folderDeletePathRef,
     },
     {
       setFocus,
@@ -699,6 +815,8 @@ export function AppInner({
       setEditRequestVisible,
       setCloneRequestVisible,
       setRequestDeletePending,
+      setNewFolderVisible,
+      setFolderDeletePending,
       onLayoutChange,
       setExpanded,
     },
@@ -746,6 +864,13 @@ export function AppInner({
     requestDeletePending,
     setRequestDeletePending,
     onRequestDeleteConfirm: handleRequestDeleteConfirm,
+    newFolderVisible,
+    newFolderRef,
+    setNewFolderVisible,
+    onNewFolderConfirm: handleNewFolderConfirm,
+    folderDeletePending,
+    setFolderDeletePending,
+    onFolderDeleteConfirm: handleFolderDeleteConfirm,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -1046,6 +1171,14 @@ export function AppInner({
               selectedRequest ? `${selectedRequest.name} - Copy` : ""
             }
             ref={cloneRequestRef}
+          />
+        )}
+        {newFolderVisible && <NewFolderOverlay visible ref={newFolderRef} />}
+        {folderDeletePending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Delete folder "${folderDeletePending}" and all requests inside?`}
+            selectedIndex={0}
           />
         )}
         {requestDeletePending !== null && (

@@ -111,3 +111,13 @@ export function visibleNodes(
 export function getRequestIds(items: CollectionItem[]): string[] {
   return flattenRequests(items).map((r) => r.id)
 }
+
+export function deriveRequestParentFolder(
+  focusedFolderPath: string | null,
+  selectedId: string | null,
+): string | null {
+  if (focusedFolderPath) return focusedFolderPath
+  if (selectedId && selectedId.includes("/"))
+    return selectedId.slice(0, selectedId.lastIndexOf("/"))
+  return null
+}

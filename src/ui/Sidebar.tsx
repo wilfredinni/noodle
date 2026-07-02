@@ -90,11 +90,9 @@ export function Sidebar({
           {visibleItems.map((node, i) => {
             const isCursor = i === cursorIndex
             if (node.type === "folder") {
-              const chevron = node.hasChildren
-                ? node.expanded
-                  ? "\u25BE"
-                  : "\u25B8"
-                : "\u00A0"
+              const chevron = node.expanded
+                ? "\u25BE"
+                : "\u25B8"
               const isFolderDirty = dirtyFolderPaths?.has(node.id)
               return (
                 <box

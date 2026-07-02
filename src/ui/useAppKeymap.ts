@@ -30,6 +30,9 @@ export interface UseAppKeymapRefs {
   expandedRef: RefObject<"request" | "response" | null>
   folderViewRef: RefObject<boolean>
   folderSaveRef: RefObject<() => void>
+  focusedFolderPathRef: RefObject<string | null>
+  focusedFolderNameRef: RefObject<string | null>
+  folderDeletePathRef: RefObject<string | null>
 }
 
 export interface UseAppKeymapSetters {
@@ -91,6 +94,10 @@ export interface UseAppKeymapSetters {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
+  setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setFolderDeletePending: (
+    s: string | null | ((prev: string | null) => string | null),
+  ) => void
 }
 
 export function useAppKeymap(
@@ -251,6 +258,10 @@ export function useAppKeymap(
         run: () => setters.setNewRequestVisible(true),
       },
       {
+        name: "folder.new",
+        run: () => setters.setNewFolderVisible(true),
+      },
+      {
         name: "request.edit-overlay",
         run: () => {
           const sid = refs.selectedIdRef.current
@@ -277,6 +288,13 @@ export function useAppKeymap(
       {
         name: "request.delete",
         run: () => {
+          const folderPath = refs.focusedFolderPathRef.current
+          const folderName = refs.focusedFolderNameRef.current
+          if (folderPath && folderName) {
+            refs.folderDeletePathRef.current = folderPath
+            setters.setFolderDeletePending(folderName)
+            return
+          }
           const sid = refs.selectedIdRef.current
           if (!sid) return
           const col = refs.collectionRef.current
@@ -294,6 +312,7 @@ export function useAppKeymap(
       { key: keybinds.env_editor, cmd: "env.editor-open" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.request_new, cmd: "request.new" },
+      { key: keybinds.folder_new, cmd: "folder.new" },
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
       { key: keybinds.request_clone, cmd: "request.clone" },
       { key: keybinds.request_delete, cmd: "request.delete" },
@@ -408,11 +427,34 @@ export function useAppKeymap(
         name: "folder.tab-next",
         run: () => refs.folderEbRef.current?.cycleInactiveTab(1),
       },
+      {
+        name: "request.new",
+        run: () => setters.setNewRequestVisible(true),
+      },
+      {
+        name: "folder.new",
+        run: () => setters.setNewFolderVisible(true),
+      },
+      {
+        name: "request.clone",
+        run: () => {
+          const sid = refs.selectedIdRef.current
+          if (!sid) return
+          const col = refs.collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
+          if (!req) return
+          setters.setCloneRequestVisible(true)
+        },
+      },
     ],
     bindings: [
       { key: "return", cmd: "folder.edit-enter" },
       { key: "left", cmd: "folder.tab-prev" },
       { key: "right", cmd: "folder.tab-next" },
+      { key: keybinds.request_new, cmd: "request.new" },
+      { key: keybinds.folder_new, cmd: "folder.new" },
+      { key: keybinds.request_clone, cmd: "request.clone" },
     ],
   }))
 
@@ -427,8 +469,22 @@ export function useAppKeymap(
         name: "folder.save",
         run: () => refs.folderSaveRef.current(),
       },
+      {
+        name: "folder.delete",
+        run: () => {
+          const folderPath = refs.focusedFolderPathRef.current
+          const folderName = refs.focusedFolderNameRef.current
+          if (folderPath && folderName) {
+            refs.folderDeletePathRef.current = folderPath
+            setters.setFolderDeletePending(folderName)
+          }
+        },
+      },
     ],
-    bindings: [{ key: keybinds.request_save, cmd: "folder.save" }],
+    bindings: [
+      { key: keybinds.request_save, cmd: "folder.save" },
+      { key: keybinds.request_delete, cmd: "folder.delete" },
+    ],
   }))
 
   // ── Keymap: Folder Browse Layer ──────────────────────────────────

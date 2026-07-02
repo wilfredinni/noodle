@@ -341,26 +341,20 @@ function BodySection({
 
       {bodyType === "none" ? null : editingBody ? (
         isFormMode ? (
-          <box
-            border={[...LeftBar.border]}
-            customBorderChars={LeftBar.customBorderChars}
-            borderColor={theme.borderSubtle}
-          >
-            <FormEditor
-              request={{
-                formData: request.formData,
-                bodyType: request.bodyType,
-              }}
-              editState={editState}
-              editKey={editKey}
-              editValue={editValue}
-              setEditKey={setEditKey}
-              setEditValue={setEditValue}
-              browseActive={browseActive}
-              theme={theme}
-              activeEnv={activeEnv}
-            />
-          </box>
+          <FormEditor
+            request={{
+              formData: request.formData,
+              bodyType: request.bodyType,
+            }}
+            editState={editState}
+            editKey={editKey}
+            editValue={editValue}
+            setEditKey={setEditKey}
+            setEditValue={setEditValue}
+            browseActive={browseActive}
+            theme={theme}
+            activeEnv={activeEnv}
+          />
         ) : isBinaryMode ? (
           <input
             id="body-field"
@@ -412,15 +406,6 @@ function BodySection({
         />
       ) : isBinaryMode ? (
         <box
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row >= 1
-              ? theme.primary
-              : theme.borderSubtle
-          }
           style={{
             backgroundColor:
               browseActive &&
@@ -436,15 +421,6 @@ function BodySection({
         </box>
       ) : body === "" ? (
         <box
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row >= 1
-              ? theme.primary
-              : theme.borderSubtle
-          }
           style={{
             backgroundColor:
               browseActive &&
@@ -460,15 +436,6 @@ function BodySection({
         </box>
       ) : (
         <box
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row >= 1
-              ? theme.primary
-              : theme.borderSubtle
-          }
           style={{
             backgroundColor:
               browseActive &&
