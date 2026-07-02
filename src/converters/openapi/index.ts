@@ -11,4 +11,14 @@ export const openApiImporter = {
 }
 
 export { parseSpec } from "./parse"
-export { mapCollection, type Normalized } from "./map"
+export {
+  mapCollection,
+  convertTpl,
+  slugify,
+  urlTemplateToVar,
+  baseUrl,
+  joinUrl,
+  paramDefault,
+  makeIdRaw,
+  type Normalized,
+} from "./map"

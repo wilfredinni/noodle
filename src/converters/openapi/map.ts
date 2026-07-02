@@ -45,13 +45,13 @@ function isMapping(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v)
 }
 
-const SUPPORTED_MEDIA: readonly string[] = [
+const SUPPORTED_MEDIA = [
   "application/json",
   "multipart/form-data",
   "application/x-www-form-urlencoded",
-]
+] as const
 
-const FILE_FORMATS = new Set(["binary", "base64"])
+const FILE_FORMATS = new Set(["binary", "base64", "byte"])
 
 function pickMediaType(content: Record<string, unknown>): string | null {
   for (const mt of SUPPORTED_MEDIA) {
@@ -151,11 +151,11 @@ function collectBody(op: Record<string, unknown>): {
   return {}
 }
 
-function convertTpl(v: string): string {
+export function convertTpl(v: string): string {
   return v.replace(/\{\{(\w+)\}\}/g, "$$$1")
 }
 
-function paramDefault(p: Record<string, unknown>): string | undefined {
+export function paramDefault(p: Record<string, unknown>): string | undefined {
   if (p.example !== undefined) return convertTpl(String(p.example))
   const schema = p.schema
   if (isMapping(schema) && schema.default !== undefined) {
@@ -238,7 +238,7 @@ function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
   return { type: "none" }
 }
 
-function slugify(s: string): string {
+export function slugify(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -251,11 +251,11 @@ function collectionName(n: Normalized): string {
   return typeof t === "string" && t !== "" ? t : FALLBACK_ID
 }
 
-function urlTemplateToVar(s: string): string {
+export function urlTemplateToVar(s: string): string {
   return s.replace(/\{(\w+)\}/g, "$$$1")
 }
 
-function baseUrl(n: Normalized): string {
+export function baseUrl(n: Normalized): string {
   const servers = n.servers
   if (!Array.isArray(servers) || servers.length === 0) return "/"
   const first = servers[0] as { url?: unknown } | null | undefined
@@ -265,7 +265,7 @@ function baseUrl(n: Normalized): string {
   return "$base_url"
 }
 
-function joinUrl(base: string, path: string): string {
+export function joinUrl(base: string, path: string): string {
   const b = base.replace(/\/+$/, "")
   const p = path.startsWith("/") ? path : `/${path}`
   return `${b}${p}`
@@ -283,7 +283,7 @@ function makeName(
   return `${METHOD_UPPER[methodKey] ?? methodKey.toUpperCase()} ${pathTemplate}`
 }
 
-function makeIdRaw(methodKey: string, pathTemplate: string): string {
+export function makeIdRaw(methodKey: string, pathTemplate: string): string {
   const segs = pathTemplate
     .split("/")
     .filter((s) => s !== "")

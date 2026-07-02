@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { parseSpec, mapCollection } from "../src/converters/openapi"
+import { parseSpec, mapCollection, openApiImporter } from "../src/converters/openapi"
 import type { Normalized } from "../src/converters/openapi"
 import type { Request, Collection } from "../src/schema"
 
@@ -1581,5 +1581,47 @@ describe("mapCollection — environments from servers", () => {
     })
     expect(mapCollection(n).environments).toHaveLength(1)
     expect(mapCollection(n).environments[0].name).toBe("Good")
+  })
+})
+
+describe("openApiImporter.import() — pipeline", () => {
+  it("accepts a JSON string and produces ImportResult", () => {
+    const text = JSON.stringify({
+      openapi: "3.0.3",
+      info: { title: "Pipeline API" },
+      servers: [{ url: "https://api.pipeline.com" }],
+      paths: {
+        "/items": {
+          get: { operationId: "listItems" },
+        },
+      },
+    })
+    const result = openApiImporter.import(text)
+    expect(result.collection.name).toBe("Pipeline API")
+    expect(result.collection.id).toBe("pipeline-api")
+    expect(result.collection.items).toHaveLength(1)
+    expect(result.environments).toHaveLength(1)
+    expect(result.environments[0].vars).toEqual({
+      base_url: "https://api.pipeline.com",
+    })
+  })
+
+  it("accepts a YAML string", () => {
+    const text = `openapi: "3.0.0"
+info:
+  title: YAML Pipeline
+paths:
+  /x:
+    get:
+      operationId: getX
+`
+    const result = openApiImporter.import(text)
+    expect(result.collection.name).toBe("YAML Pipeline")
+    expect(reqs(result)).toHaveLength(1)
+    expect(reqs(result)[0].method).toBe("GET")
+  })
+
+  it("throws on invalid input", () => {
+    expect(() => openApiImporter.import(": : :")).toThrow()
   })
 })
