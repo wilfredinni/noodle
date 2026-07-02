@@ -9,6 +9,7 @@ import { loadSettings } from "../filestore"
 import { loadLastRequest } from "../ui/tabs/uiState"
 import { createNoodleKeymap } from "../hooks/useKeymap"
 import { parseOverrides } from "../ui/keybind"
+import { showToast } from "../ui/Toast"
 import { join } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
@@ -88,7 +89,10 @@ const keymap = createNoodleKeymap(renderer)
 
 renderer.on("selection", (selection) => {
   const text = selection.getSelectedText()
-  if (text) renderer.copyToClipboardOSC52(text)
+  if (text) {
+    renderer.copyToClipboardOSC52(text)
+    showToast("Copied to clipboard", "info")
+  }
 })
 
 renderer.keyInput.on("keypress", (key) => {
@@ -100,6 +104,7 @@ renderer.keyInput.on("keypress", (key) => {
     if (selectedText) {
       renderer.copyToClipboardOSC52(selectedText)
       renderer.clearSelection()
+      showToast("Copied to clipboard", "info")
       return
     }
     renderer.destroy()

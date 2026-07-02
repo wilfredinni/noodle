@@ -3,6 +3,7 @@ import { AppInner } from "./AppInner"
 import { useConfig } from "../hooks/useConfig"
 import { listEnvironmentsWithColors } from "../env/listWithColors"
 import { ThemeProvider } from "./theme"
+import { Toast } from "./Toast"
 import { saveSettings } from "../filestore"
 import type { Keybinds } from "./keybind"
 
@@ -80,6 +81,7 @@ export function App({
 
   return (
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
+      <Toast />
       <AppInner
         collectionDir={collectionDir}
         environmentsDir={environmentsDir}
