@@ -152,7 +152,7 @@ export function RequestPane({
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
       bottomTitle={focused ? expandHint : undefined}
-      bottomTitleAlignment="right"
+      bottomTitleAlignment="left"
     >
       {request ? (
         <>

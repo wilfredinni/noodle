@@ -56,7 +56,7 @@ export const CloneRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>Clone Request</text>
+        <text fg={theme.text}>Clone Request</text>
         <text fg={theme.textMuted}>esc</text>
       </box>
 
@@ -90,10 +90,10 @@ export const CloneRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>^S</text>
+        <text fg={theme.text}>^S</text>
         <text fg={theme.textMuted}>save</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={theme.primary}>esc</text>
+        <text fg={theme.text}>esc</text>
         <text fg={theme.textMuted}>close</text>
       </box>
     </Overlay>

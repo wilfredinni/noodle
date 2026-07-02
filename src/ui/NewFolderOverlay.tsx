@@ -55,7 +55,7 @@ export const NewFolderOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>New Folder</text>
+        <text fg={theme.text}>New Folder</text>
         <text fg={theme.textMuted}>esc</text>
       </box>
 

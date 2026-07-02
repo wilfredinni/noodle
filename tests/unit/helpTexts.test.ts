@@ -10,10 +10,10 @@ describe("getHelpSections", () => {
     expect(sections).toHaveLength(5)
   })
 
-  it("section titles are NAVIGATION, ENVIRONMENTS, ACTIONS, SYSTEM, ENV EDITOR", () => {
+  it("section titles are NAVIGATION, REQUEST EDITING, ACTIONS, SYSTEM, ENV EDITOR", () => {
     const sections = getHelpSections(defaults)
     expect(sections[0]!.title).toBe("Navigation")
-    expect(sections[1]!.title).toBe("Environments")
+    expect(sections[1]!.title).toBe("Request Editing")
     expect(sections[2]!.title).toBe("Actions")
     expect(sections[3]!.title).toBe("System")
     expect(sections[4]!.title).toBe("Env Editor")
@@ -44,16 +44,16 @@ describe("getHelpSections", () => {
     expect(keys).toContain("shift+tab")
   })
 
-  it("ENVIRONMENTS section shows return, escape, ^d, space, ^r, ^e", () => {
+  it("REQUEST EDITING section shows escape, ^d, space, ^r, ^e, ^t", () => {
     const sections = getHelpSections(defaults)
-    const env = sections.find((s) => s.title === "Environments")!
-    const keys = env.keys.map((k) => k.key)
-    expect(keys).toContain("return")
+    const edit = sections.find((s) => s.title === "Request Editing")!
+    const keys = edit.keys.map((k) => k.key)
     expect(keys).toContain("escape")
     expect(keys).toContain("^d")
     expect(keys).toContain("space")
     expect(keys).toContain("^r")
     expect(keys).toContain("^e")
+    expect(keys).toContain("^t")
   })
 
   it("ACTIONS section shows ^return, ^s, ^n, ^k, ^w, ^p, ^l", () => {
@@ -75,13 +75,6 @@ describe("getHelpSections", () => {
     const keys = sys.keys.map((k) => k.key)
     expect(keys).toContain("^c")
     expect(keys).toContain("f1")
-  })
-
-  it("NAVIGATION section contains return for edit-enter", () => {
-    const sections = getHelpSections(defaults)
-    const nav = sections.find((s) => s.title === "Navigation")!
-    const keys = nav.keys.map((k) => k.key)
-    expect(keys).toContain("return")
   })
 
   it("reflects custom keybinds", () => {

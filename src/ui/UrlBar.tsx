@@ -100,6 +100,7 @@ export function UrlBar({
               style={{
                 backgroundColor: theme.backgroundElement,
                 flexGrow: 1,
+                overflow: "hidden",
               }}
             >
               <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />

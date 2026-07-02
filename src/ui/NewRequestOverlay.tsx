@@ -159,7 +159,7 @@ export const NewRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>
+        <text fg={theme.text}>
           {isEdit ? "Edit Request" : "New Request"}
         </text>
         <text fg={theme.textMuted}>esc</text>
@@ -246,10 +246,10 @@ export const NewRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>^S</text>
+        <text fg={theme.text}>^S</text>
         <text fg={theme.textMuted}>save</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={theme.primary}>esc</text>
+        <text fg={theme.text}>esc</text>
         <text fg={theme.textMuted}>close</text>
       </box>
     </Overlay>

@@ -15,6 +15,7 @@ export function Badge({
         backgroundColor: bg,
         paddingLeft: 1,
         paddingRight: 1,
+        flexShrink: 0,
       }}
     >
       <text fg={fg}>{children}</text>

@@ -43,6 +43,7 @@ import {
 } from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
+import { showToast } from "./Toast"
 import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
@@ -316,6 +317,12 @@ export function AppInner({
   const doSaveRef = useRef(doSave)
   doSaveRef.current = doSave
 
+  useEffect(() => {
+    if (saveState.kind === "success" || saveState.kind === "error") {
+      showToast(saveState.message, saveState.kind)
+    }
+  }, [saveState])
+
   // ── Folder save ────────────────────────────────────────────────────
   const folderSaveRef = useRef<() => void>(() => {})
 
@@ -335,7 +342,7 @@ export function AppInner({
       })
       setSaveState({
         kind: "success",
-        message: `Saved folder ${draftFolder.name}`,
+        message: `Successfully saved folder ${draftFolder.name}`,
       })
       clearSaveTimer()
       saveTimerRef.current = setTimeout(
@@ -391,7 +398,7 @@ export function AppInner({
           setSelectedId(id)
           setNewRequestVisible(false)
           setFocus("sidebar")
-          setSaveState({ kind: "success", message: `Created ${name}` })
+          setSaveState({ kind: "success", message: `Successfully created ${name}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -442,7 +449,7 @@ export function AppInner({
           setSelectedId(id)
           const lastSlash = id.lastIndexOf("/")
           if (lastSlash >= 0) expandFolder(id.slice(0, lastSlash))
-          setSaveState({ kind: "success", message: `Cloned ${newName}` })
+          setSaveState({ kind: "success", message: `Successfully created ${newName}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -490,7 +497,7 @@ export function AppInner({
           setCollectionReloadToken((n) => n + 1)
           setNewFolderVisible(false)
           setFocus("sidebar")
-          setSaveState({ kind: "success", message: `Created folder ${name}` })
+          setSaveState({ kind: "success", message: `Successfully created folder ${name}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -525,7 +532,7 @@ export function AppInner({
         setCollectionReloadToken((n) => n + 1)
         setFolderDeletePending(null)
         setFocus("sidebar")
-        setSaveState({ kind: "success", message: `Deleted folder ${path}` })
+        setSaveState({ kind: "success", message: `Successfully deleted folder ${path}` })
         clearSaveTimer()
         saveTimerRef.current = setTimeout(() => {
           setSaveState({ kind: "idle" })
@@ -594,7 +601,7 @@ export function AppInner({
           setEditRequestVisible(false)
           setFocus("sidebar")
           if (newFolder) expandFolder(newFolder)
-          setSaveState({ kind: "success", message: `Saved ${name}` })
+          setSaveState({ kind: "success", message: `Successfully edited ${name}` })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -630,7 +637,7 @@ export function AppInner({
         setCollectionReloadToken((n) => n + 1)
         setRequestDeletePending(null)
         setFocus("sidebar")
-        setSaveState({ kind: "success", message: `Deleted ${req.name}` })
+        setSaveState({ kind: "success", message: `Successfully deleted ${req.name}` })
         clearSaveTimer()
         saveTimerRef.current = setTimeout(() => {
           setSaveState({ kind: "idle" })
@@ -1194,7 +1201,7 @@ export function AppInner({
               setFocus(yamlEditor.returnFocus)
               setSaveState({
                 kind: "success",
-                message: `Saved ${yamlEditor.filePath.split("/").pop() ?? ""}`,
+                message: `Successfully edited ${yamlEditor.filePath.split("/").pop() ?? ""}`,
               })
               clearSaveTimer()
               saveTimerRef.current = setTimeout(() => {
