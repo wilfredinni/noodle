@@ -142,13 +142,6 @@ export function StatusBar(input: {
           theme.info)
         : theme.info
 
-  const saveFlash =
-    sk === "success"
-      ? `✓ ${input.saveState.message}`
-      : sk === "error"
-        ? `✗ ${input.saveState.message}`
-        : null
-
   const isEnvEditor = input.view === "env-editor"
   const envEditorSegments = [
     { key: "Esc", word: "back" },
@@ -170,11 +163,7 @@ export function StatusBar(input: {
       }}
     >
       <box style={{ flexDirection: "row" }}>
-        {saveFlash ? (
-          <Badge bg={theme.primary} fg={theme.background}>
-            {saveFlash}
-          </Badge>
-        ) : isEnvEditor ? (
+        {isEnvEditor ? (
           <Badge bg={theme.backgroundElement} fg={theme.info}>
             {input.envStats || "Env Editor"}
           </Badge>
