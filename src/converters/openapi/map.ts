@@ -2,11 +2,13 @@ import type {
   Auth,
   BodyType,
   Collection,
+  Environment,
   FormEntry,
   KvEntry,
   Method,
   Request,
 } from "../../schema"
+import type { ImportResult } from "../index"
 
 export interface Normalized {
   openapi: string
@@ -276,13 +278,14 @@ function makeIdRaw(methodKey: string, pathTemplate: string): string {
   return slugify(joined)
 }
 
-export function mapCollection(n: Normalized): Collection {
+export function mapCollection(n: Normalized): ImportResult {
   const name = collectionName(n)
   const id = slugify(name) || FALLBACK_ID
   const base = baseUrl(n)
 
   const requests: Request[] = []
   const seenIds = new Map<string, number>()
+  const tagsByRequest = new Map<Request, string[]>()
 
   for (const [pathTemplate, pathItem] of Object.entries(n.paths)) {
     if (
@@ -318,7 +321,15 @@ export function mapCollection(n: Normalized): Collection {
           headers[p.name] = { value: `$${p.name}`, enabled: true }
       }
 
-      requests.push({
+      const rawTags = op.tags
+      const tags: string[] = []
+      if (Array.isArray(rawTags)) {
+        for (const t of rawTags) {
+          if (typeof t === "string" && t !== "") tags.push(t)
+        }
+      }
+
+      const req: Request = {
         id: reqId,
         name: reqName,
         method,
@@ -328,13 +339,91 @@ export function mapCollection(n: Normalized): Collection {
         params,
         ...collectBody(op),
         auth: resolveAuth(op, n),
-      })
+      }
+      requests.push(req)
+      tagsByRequest.set(req, tags)
+    }
+  }
+
+  const rootItems: Collection["items"] = []
+  const tagFolders = new Map<string, Request[]>()
+
+  for (const req of requests) {
+    const tagList = tagsByRequest.get(req) ?? []
+    if (tagList.length > 0) {
+      const firstTag = tagList[0]
+      const existing = tagFolders.get(firstTag)
+      if (existing) {
+        existing.push(req)
+      } else {
+        tagFolders.set(firstTag, [req])
+      }
+    } else {
+      rootItems.push({ type: "request", data: req })
+    }
+  }
+
+  for (const [tag, reqs] of tagFolders) {
+    const folderId = slugify(tag) || `tag-untitled`
+    rootItems.push({
+      type: "folder",
+      data: {
+        id: folderId,
+        name: tag,
+        path: folderId,
+        children: reqs.map((r) => {
+          r.id = `${folderId}/${r.id}`
+          return {
+            type: "request" as const,
+            data: r,
+          }
+        }),
+      },
+    })
+  }
+
+  const environments: Environment[] = []
+  const servers = n.servers
+  if (Array.isArray(servers) && servers.length > 0) {
+    for (let i = 0; i < servers.length; i++) {
+      const server = servers[i] as Record<string, unknown> | null | undefined
+      if (!isMapping(server)) continue
+      const srvDesc =
+        typeof server.description === "string" ? server.description : null
+      const envName =
+        srvDesc || (servers.length === 1 ? "default" : `server-${i + 1}`)
+
+      const vars: Record<string, string> = {}
+      const srvUrl = typeof server.url === "string" ? server.url : ""
+
+      const urlVarMatches = srvUrl.matchAll(/\{(\w+)\}/g)
+      for (const match of urlVarMatches) {
+        vars[match[1]] = ""
+      }
+
+      const srvVariables = server.variables
+      if (isMapping(srvVariables)) {
+        for (const [varName, varDef] of Object.entries(
+          srvVariables as Record<string, unknown>,
+        )) {
+          if (
+            isMapping(varDef) &&
+            typeof (varDef as Record<string, unknown>).default === "string"
+          ) {
+            vars[varName] =
+              (varDef as Record<string, unknown>).default as string
+          }
+        }
+      }
+
+      if (Object.keys(vars).length > 0) {
+        environments.push({ name: envName, vars })
+      }
     }
   }
 
   return {
-    id,
-    name,
-    items: requests.map((r) => ({ type: "request" as const, data: r })),
+    collection: { id, name, items: rootItems },
+    environments,
   }
 }

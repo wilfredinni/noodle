@@ -1,9 +1,9 @@
-import type { Collection } from "../../schema"
+import type { ImportResult } from "../index"
 import { parseSpec } from "./parse"
 import { mapCollection } from "./map"
 
 export interface OpenApiImporter {
-  import(spec: string | object): Collection
+  import(spec: string | object): ImportResult
 }
 
 export const openApiImporter: OpenApiImporter = {

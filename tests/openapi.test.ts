@@ -3,12 +3,21 @@ import { parseSpec, mapCollection } from "../src/converters/openapi"
 import type { Normalized } from "../src/converters/openapi"
 import type { Request, Collection } from "../src/schema"
 
-function reqs(col: Collection): Request[] {
-  return col.items
-    .filter(
-      (i): i is { type: "request"; data: Request } => i.type === "request",
-    )
-    .map((i) => i.data)
+function reqs(result: { collection: Collection }): Request[] {
+  function flatten(
+    items: { collection: Collection }["collection"]["items"],
+  ): Request[] {
+    const out: Request[] = []
+    for (const item of items) {
+      if (item.type === "request") {
+        out.push(item.data)
+      } else if (item.type === "folder") {
+        out.push(...flatten(item.data.children))
+      }
+    }
+    return out
+  }
+  return flatten(result.collection.items)
 }
 
 describe("parseSpec — string/object dispatch + validation", () => {
@@ -118,32 +127,32 @@ function makeNormalized(over: Partial<Normalized> = {}): Normalized {
 describe("mapCollection — Collection metadata", () => {
   it("derives name and id from info.title", () => {
     const c = mapCollection(makeNormalized({ info: { title: "My Cool API!" } }))
-    expect(c.name).toBe("My Cool API!")
-    expect(c.id).toBe("my-cool-api")
+    expect(c.collection.name).toBe("My Cool API!")
+    expect(c.collection.id).toBe("my-cool-api")
   })
 
   it("falls back when info.title is empty string", () => {
     const c = mapCollection(makeNormalized({ info: { title: "" } }))
-    expect(c.name).toBe("openapi-import")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("openapi-import")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("falls back when info is missing entirely", () => {
     const c = mapCollection(makeNormalized({ info: undefined }))
-    expect(c.name).toBe("openapi-import")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("openapi-import")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("falls back when info.title is not a string", () => {
     const c = mapCollection(makeNormalized({ info: { title: 42 } }))
-    expect(c.name).toBe("openapi-import")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("openapi-import")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("falls back when title is all punctuation (slug empty)", () => {
     const c = mapCollection(makeNormalized({ info: { title: "!!!" } }))
-    expect(c.name).toBe("!!!")
-    expect(c.id).toBe("openapi-import")
+    expect(c.collection.name).toBe("!!!")
+    expect(c.collection.id).toBe("openapi-import")
   })
 
   it("returns an empty requests array when paths is empty", () => {
@@ -880,8 +889,8 @@ describe("mapCollection — end-to-end integration", () => {
 
     const c = mapCollection(parseSpec(spec))
 
-    expect(c.id).toBe("pet-store-api")
-    expect(c.name).toBe("Pet Store API")
+    expect(c.collection.id).toBe("pet-store-api")
+    expect(c.collection.name).toBe("Pet Store API")
 
     const methods = reqs(c).map((r) => r.method)
     expect(methods).toEqual(["GET", "DELETE", "GET", "POST"])
@@ -932,8 +941,8 @@ paths:
       operationId: getX
 `
     const c = mapCollection(parseSpec(yamlText))
-    expect(c.id).toBe("yaml-api")
-    expect(c.name).toBe("YAML API!")
+    expect(c.collection.id).toBe("yaml-api")
+    expect(c.collection.name).toBe("YAML API!")
     expect(reqs(c)[0].id).toBe("get-x")
   })
 })
@@ -1262,5 +1271,242 @@ describe("mapCollection — requestBody", () => {
       }),
     )
     expect(reqs(c)[0].bodyType).toBe("multipart")
+  })
+})
+
+describe("mapCollection — folder grouping by tags", () => {
+  it("groups requests by first tag into folders", () => {
+    const n = makeNormalized({
+      paths: {
+        "/pets": {
+          get: { operationId: "listPets", tags: ["pets"] },
+          post: { operationId: "createPet", tags: ["pets"] },
+        },
+        "/users": {
+          get: { operationId: "listUsers", tags: ["users"] },
+        },
+        "/health": {
+          get: { operationId: "health" },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const items = c.collection.items
+
+    const folders = items.filter((i) => i.type === "folder")
+    const rootReqs = items.filter((i) => i.type === "request")
+
+    expect(folders).toHaveLength(2)
+    expect(rootReqs).toHaveLength(1)
+    expect(
+      rootReqs[0].type === "request" && rootReqs[0].data.name,
+    ).toBe("health")
+
+    const petsFolder = folders.find(
+      (f) => f.type === "folder" && f.data.name === "pets",
+    )
+    expect(petsFolder).toBeDefined()
+    if (petsFolder && petsFolder.type === "folder") {
+      expect(petsFolder.data.children).toHaveLength(2)
+    }
+
+    const usersFolder = folders.find(
+      (f) => f.type === "folder" && f.data.name === "users",
+    )
+    expect(usersFolder).toBeDefined()
+    if (usersFolder && usersFolder.type === "folder") {
+      expect(usersFolder.data.children).toHaveLength(1)
+    }
+
+    const allReqs = reqs(c)
+    expect(allReqs).toHaveLength(4)
+  })
+
+  it("first tag wins for multi-tagged request", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": {
+          get: { operationId: "getX", tags: ["alpha", "beta"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folders = c.collection.items.filter((i) => i.type === "folder")
+    expect(folders).toHaveLength(1)
+    expect(folders[0].type === "folder" && folders[0].data.name).toBe("alpha")
+  })
+
+  it("ignores non-string tags", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": {
+          get: { operationId: "getX", tags: [42, "valid"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folders = c.collection.items.filter((i) => i.type === "folder")
+    expect(folders).toHaveLength(1)
+    expect(folders[0].type === "folder" && folders[0].data.name).toBe("valid")
+  })
+
+  it("empty tags array — request at root", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": { get: { operationId: "getX", tags: [] } },
+      },
+    })
+    const c = mapCollection(n)
+    expect(c.collection.items).toHaveLength(1)
+    expect(c.collection.items[0].type).toBe("request")
+  })
+
+  it("all requests at root when no tags", () => {
+    const n = makeNormalized({
+      paths: {
+        "/a": { get: { operationId: "getA" } },
+        "/b": { post: { operationId: "postB" } },
+      },
+    })
+    const c = mapCollection(n)
+    expect(c.collection.items.every((i) => i.type === "request")).toBe(true)
+  })
+
+  it("slugifies folder id from tag name", () => {
+    const n = makeNormalized({
+      paths: {
+        "/x": {
+          get: { operationId: "getX", tags: ["Pet Store"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folder = c.collection.items.find((i) => i.type === "folder")
+    expect(folder).toBeDefined()
+    if (folder && folder.type === "folder") {
+      expect(folder.data.id).toBe("pet-store")
+      expect(folder.data.path).toBe("pet-store")
+    }
+  })
+
+  it("folder requests have folder-prefixed ids", () => {
+    const n = makeNormalized({
+      paths: {
+        "/users": {
+          get: { operationId: "listUsers", tags: ["users"] },
+        },
+      },
+    })
+    const c = mapCollection(n)
+    const folder = c.collection.items.find((i) => i.type === "folder")
+    expect(folder).toBeDefined()
+    if (folder && folder.type === "folder") {
+      expect(folder.data.children[0].type).toBe("request")
+      if (folder.data.children[0].type === "request") {
+        expect(folder.data.children[0].data.id).toBe("users/get-users")
+      }
+    }
+  })
+})
+
+describe("mapCollection — environments from servers", () => {
+  it("creates one environment per server with vars", () => {
+    const n = makeNormalized({
+      servers: [
+        { url: "https://{host}/v1", description: "Production" },
+        { url: "https://{host}/v1", description: "Staging" },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(2)
+    expect(c.environments[0].name).toBe("Production")
+    expect(c.environments[1].name).toBe("Staging")
+  })
+
+  it("extracts URL template vars and uses variables.default", () => {
+    const n = makeNormalized({
+      servers: [
+        {
+          url: "https://{host}/v1",
+          description: "Default",
+          variables: { host: { default: "api.example.com" } },
+        },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].vars).toEqual({ host: "api.example.com" })
+  })
+
+  it("uses empty string when URL var has no variable definition", () => {
+    const n = makeNormalized({
+      servers: [{ url: "https://{host}/v1" }],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].vars).toEqual({ host: "" })
+  })
+
+  it("name defaults to 'default' for single server without description", () => {
+    const n = makeNormalized({
+      servers: [{ url: "https://{host}/v1" }],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(1)
+    expect(c.environments[0].name).toBe("default")
+  })
+
+  it("name uses 'server-N' for multiple servers without descriptions", () => {
+    const n = makeNormalized({
+      servers: [
+        { url: "https://{host}/v1" },
+        { url: "https://{host}/v1" },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    const c = mapCollection(n)
+    expect(c.environments).toHaveLength(2)
+    expect(c.environments[0].name).toBe("server-1")
+    expect(c.environments[1].name).toBe("server-2")
+  })
+
+  it("empty environments when servers undefined", () => {
+    const n = makeNormalized({
+      servers: undefined,
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    expect(mapCollection(n).environments).toEqual([])
+  })
+
+  it("empty environments when servers is empty array", () => {
+    const n = makeNormalized({
+      servers: [],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    expect(mapCollection(n).environments).toEqual([])
+  })
+
+  it("skips env when server URL has no template vars", () => {
+    const n = makeNormalized({
+      servers: [{ url: "https://api.example.com" }],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    expect(mapCollection(n).environments).toEqual([])
+  })
+
+  it("skips non-mapping server entries", () => {
+    const n = makeNormalized({
+      servers: [
+        "garbage" as unknown as Record<string, unknown>,
+        { url: "https://{host}/v1", description: "Good" },
+      ],
+      paths: { "/x": { get: { operationId: "getX" } } },
+    })
+    expect(mapCollection(n).environments).toHaveLength(1)
+    expect(mapCollection(n).environments[0].name).toBe("Good")
   })
 })
