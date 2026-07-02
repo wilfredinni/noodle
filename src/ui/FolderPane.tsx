@@ -125,7 +125,7 @@ export function FolderPane({
                 />
               )}
               {activeTab === "headers" && (
-                <box style={{ flexDirection: "column", gap: 1 }}>
+                <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
                   <text fg={theme.textMuted}>
                     Headers sent with every request inside this folder.
                   </text>
@@ -145,7 +145,7 @@ export function FolderPane({
                 </box>
               )}
               {activeTab === "auth" && (
-                <box style={{ flexDirection: "column", gap: 1 }}>
+                <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
                   <text fg={theme.textMuted}>
                     Auth applied to every request inside this folder.
                   </text>

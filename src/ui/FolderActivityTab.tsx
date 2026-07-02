@@ -96,31 +96,9 @@ export function FolderActivityTab({
 
   return (
     <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
-      <box
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-        }}
-        border={["bottom"]}
-        borderColor={theme.borderSubtle}
-      >
-        <text fg={theme.textMuted}>
-          {stats.summary.overallSuccessRate !== null
-            ? pct(stats.summary.overallSuccessRate)
-            : "\u2014"}{" "}
-          success
-        </text>
-        <text fg={theme.textMuted}>
-          {stats.summary.overallAvgTime !== null
-            ? ms(stats.summary.overallAvgTime)
-            : "\u2014"}{" "}
-          avg
-        </text>
-        <text fg={theme.textMuted}>
-          {stats.summary.totalCalls} call
-          {stats.summary.totalCalls !== 1 ? "s" : ""}
-        </text>
-      </box>
+      <text fg={theme.textMuted}>
+        Activity stats for requests inside this folder.
+      </text>
 
       <box style={{ flexDirection: "row", justifyContent: "space-between", paddingBottom: 0 }}
         border={["bottom"]}
