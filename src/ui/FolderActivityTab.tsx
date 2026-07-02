@@ -148,12 +148,14 @@ export function FolderActivityTab({
                 ? ms(r.avgTimeMs).padEnd(7)
                 : "\u2014".padEnd(7)}
             </text>
-            <text fg={theme.textMuted} wrapMode="none">
-              {callsText}
+            <box style={{ flexDirection: "row" }}>
+              <text fg={theme.textMuted} wrapMode="none">
+                {callsText}
+              </text>
               <text fg={r.lastSent !== null ? theme.text : theme.textMuted}>
                 {lastSentText}
               </text>
-            </text>
+            </box>
           </box>
         )
       })}
