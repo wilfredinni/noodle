@@ -5,6 +5,7 @@ import {
   updateFolderByPath,
   flattenRequests,
   visibleNodes,
+  getFolderPaths,
   deriveRequestParentFolder,
 } from "../src/ui/tree"
 import type { CollectionItem } from "../src/schema"
@@ -231,5 +232,56 @@ describe("deriveRequestParentFolder", () => {
   it("returns null for root request and no focused folder", () => {
     expect(deriveRequestParentFolder(null, "get-user")).toBeNull()
     expect(deriveRequestParentFolder(null, null)).toBeNull()
+  })
+})
+
+describe("getFolderPaths", () => {
+  it("returns only root when no folders exist", () => {
+    const paths = getFolderPaths([])
+    expect(paths).toEqual([{ path: "", name: "(root)" }])
+  })
+
+  it("returns root + single folder", () => {
+    const items: CollectionItem[] = [
+      folder("api", [], "API Requests"),
+    ]
+    const paths = getFolderPaths(items)
+    expect(paths).toEqual([
+      { path: "", name: "(root)" },
+      { path: "api", name: "API Requests" },
+    ])
+  })
+
+  it("returns root + multiple nested folders", () => {
+    const items: CollectionItem[] = [
+      folder("api", [], "API"),
+      folder("api/internal", [], "Internal"),
+      folder("users", [], "Users"),
+    ]
+    const paths = getFolderPaths(items)
+    expect(paths).toEqual([
+      { path: "", name: "(root)" },
+      { path: "api", name: "API" },
+      { path: "api/internal", name: "Internal" },
+      { path: "users", name: "Users" },
+    ])
+  })
+
+  it("returns flat list even with nested items", () => {
+    const items: CollectionItem[] = [
+      folder("auth", [
+        req("auth/login"),
+        folder("auth/oauth", [req("auth/oauth/github")], "OAuth"),
+      ], "Auth"),
+      req("root-request"),
+      folder("users", [req("users/list")], "Users"),
+    ]
+    const paths = getFolderPaths(items)
+    expect(paths).toEqual([
+      { path: "", name: "(root)" },
+      { path: "auth", name: "Auth" },
+      { path: "auth/oauth", name: "OAuth" },
+      { path: "users", name: "Users" },
+    ])
   })
 })
