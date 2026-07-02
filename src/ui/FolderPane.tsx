@@ -57,10 +57,10 @@ export function FolderPane({
   const tabs = useMemo(() => {
     if (!folder) {
       return [
-        { id: "activity", label: "Activity" },
         { id: "meta", label: "General" },
         { id: "headers", label: "Headers" },
         { id: "auth", label: "Auth" },
+        { id: "activity", label: "Activity" },
       ]
     }
     const hasHeaders = Object.values(folder.overrides?.headers ?? {}).some(
@@ -71,10 +71,10 @@ export function FolderPane({
       folder.overrides.auth.type !== "none" &&
       folder.overrides.auth.type !== "inherit"
     return [
-      { id: "activity", label: "Activity" },
       { id: "meta", label: "General" },
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
       { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
+      { id: "activity", label: "Activity" },
     ]
   }, [folder])
 

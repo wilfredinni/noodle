@@ -45,10 +45,10 @@ export const FIELD_ORDER: FieldKind[] = [
 ]
 
 export const FOLDER_FIELD_ORDER: FolderFieldKind[] = [
-  "activity",
   "meta",
   "headers",
   "auth",
+  "activity",
 ]
 
 export function initialEditState(): EditState {
@@ -62,7 +62,7 @@ export function initialEditState(): EditState {
 export function initialFolderEditState(): EditState {
   return {
     mode: "inactive",
-    cursor: { field: "activity", row: -1, addingRow: false },
+    cursor: { field: "meta", row: -1, addingRow: false },
     editingRow: -1,
   }
 }
@@ -93,7 +93,7 @@ export function enterFolderEditBrowse(
     headers: 0,
     auth: 0,
   },
-  startField: FolderFieldKind = "activity",
+  startField: FolderFieldKind = "meta",
 ): EditState {
   if (prev.mode !== "inactive") return prev
   return {

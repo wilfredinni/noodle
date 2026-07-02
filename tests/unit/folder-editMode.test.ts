@@ -59,10 +59,10 @@ const emptyCounts: FolderRowCount = {
 }
 
 describe("initialFolderEditState", () => {
-  it("starts inactive with activity cursor", () => {
+  it("starts inactive with meta cursor", () => {
     const state = initialFolderEditState()
     expect(state.mode).toBe("inactive")
-    expect(state.cursor.field).toBe("activity")
+    expect(state.cursor.field).toBe("meta")
     expect(state.cursor.row).toBe(-1)
     expect(state.cursor.addingRow).toBe(false)
     expect(state.editingRow).toBe(-1)
@@ -71,16 +71,16 @@ describe("initialFolderEditState", () => {
 
 describe("FOLDER_FIELD_ORDER", () => {
   it("has correct order", () => {
-    expect(FOLDER_FIELD_ORDER).toEqual(["activity", "meta", "headers", "auth"])
+    expect(FOLDER_FIELD_ORDER).toEqual(["meta", "headers", "auth", "activity"])
   })
 })
 
 describe("folderFieldIndex", () => {
   it("maps field to index based on FOLDER_FIELD_ORDER", () => {
-    expect(folderFieldIndex("activity")).toBe(0)
-    expect(folderFieldIndex("meta")).toBe(1)
-    expect(folderFieldIndex("headers")).toBe(2)
-    expect(folderFieldIndex("auth")).toBe(3)
+    expect(folderFieldIndex("activity")).toBe(3)
+    expect(folderFieldIndex("meta")).toBe(0)
+    expect(folderFieldIndex("headers")).toBe(1)
+    expect(folderFieldIndex("auth")).toBe(2)
   })
 
   it("returns -1 for unknown field", () => {
@@ -111,10 +111,10 @@ describe("folderCursorForField", () => {
 })
 
 describe("enterFolderEditBrowse", () => {
-  it("inactive → browsing at activity", () => {
+  it("inactive → browsing at meta by default", () => {
     const result = enterFolderEditBrowse(folderInactive(), emptyCounts)
     expect(result.mode).toBe("browsing")
-    expect(result.cursor.field).toBe("activity")
+    expect(result.cursor.field).toBe("meta")
     expect(result.cursor.row).toBe(0)
     expect(result.editingRow).toBe(-1)
   })
