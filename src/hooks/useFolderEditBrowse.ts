@@ -74,6 +74,7 @@ function folderCurrentValueFor(
   addingRow: boolean,
 ): string {
   if (!folder) return ""
+  if (field === "activity") return ""
   if (field === "meta") {
     if (row === 0) return folder.name ?? ""
     return ""
@@ -115,6 +116,7 @@ function folderCurrentKeyValueFor(
   addingRow: boolean,
 ): { key: string; value: string } {
   if (!folder) return { key: "", value: "" }
+  if (field === "activity") return { key: "", value: "" }
   if (addingRow) return { key: "", value: "" }
   if (field === "headers") {
     const rec = folder.overrides?.headers ?? {}
@@ -188,6 +190,7 @@ export function useFolderEditBrowse(
       : (options?.initialTab ?? inactiveTab)
 
   const enterBrowse = useCallback(() => {
+    if (activeTab === "activity") return
     const c = folderRowCount(draftRef.current)
     const tab = activeTab as FolderFieldKind
     setEditState((prev) => {
@@ -197,6 +200,7 @@ export function useFolderEditBrowse(
   }, [activeTab])
 
   const enterAndEdit = useCallback(() => {
+    if (activeTab === "activity") return
     const c = folderRowCount(draftRef.current)
     const currentFolder = draftRef.current
     const tab = activeTab as FolderFieldKind

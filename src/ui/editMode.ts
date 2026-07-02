@@ -1,5 +1,5 @@
-export type FieldKind = "headers" | "params" | "body" | "auth" | "settings" | "meta"
-export type FolderFieldKind = "meta" | "headers" | "auth"
+export type FieldKind = "headers" | "params" | "body" | "auth" | "settings" | "meta" | "activity"
+export type FolderFieldKind = "activity" | "meta" | "headers" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
 export interface FieldCursor {
@@ -38,6 +38,7 @@ export const FIELD_ORDER: FieldKind[] = [
 ]
 
 export const FOLDER_FIELD_ORDER: FolderFieldKind[] = [
+  "activity",
   "meta",
   "headers",
   "auth",
@@ -119,6 +120,8 @@ function cursorForField(
       return { field, row: 0, addingRow: false }
     case "settings":
       return { field, row: 0, addingRow: false }
+    case "activity":
+      return { field, row: 0, addingRow: false }
   }
   const count = field === "headers" ? counts.headers : counts.params
   if (count === 0) {
@@ -135,6 +138,8 @@ export function folderCursorForField(
     case "meta":
     case "auth":
       return { field, row: 0, addingRow: false }
+    case "activity":
+      return { field: "activity", row: 0, addingRow: false }
     case "headers": {
       if (counts.headers === 0) {
         return { field, row: -1, addingRow: true }

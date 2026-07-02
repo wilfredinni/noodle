@@ -71,15 +71,16 @@ describe("initialFolderEditState", () => {
 
 describe("FOLDER_FIELD_ORDER", () => {
   it("has correct order", () => {
-    expect(FOLDER_FIELD_ORDER).toEqual(["meta", "headers", "auth"])
+    expect(FOLDER_FIELD_ORDER).toEqual(["activity", "meta", "headers", "auth"])
   })
 })
 
 describe("folderFieldIndex", () => {
   it("maps field to index based on FOLDER_FIELD_ORDER", () => {
-    expect(folderFieldIndex("meta")).toBe(0)
-    expect(folderFieldIndex("headers")).toBe(1)
-    expect(folderFieldIndex("auth")).toBe(2)
+    expect(folderFieldIndex("activity")).toBe(0)
+    expect(folderFieldIndex("meta")).toBe(1)
+    expect(folderFieldIndex("headers")).toBe(2)
+    expect(folderFieldIndex("auth")).toBe(3)
   })
 
   it("returns -1 for unknown field", () => {
@@ -165,21 +166,25 @@ describe("exitEditBrowse", () => {
 })
 
 describe("moveFolderFieldCursor", () => {
-  it("+1 walks meta → headers → auth → meta", () => {
+  it("+1 walks activity → meta → headers → auth → activity", () => {
     const counts = emptyCounts
-    const atMeta = enterFolderEditBrowse(folderInactive(), counts, "meta")
+    const atActivity = enterFolderEditBrowse(folderInactive(), counts, "activity")
+    const atMeta = moveFolderFieldCursor(atActivity, 1, counts)
+    expect(atMeta.cursor.field).toBe("meta")
     const atHeaders = moveFolderFieldCursor(atMeta, 1, counts)
     expect(atHeaders.cursor.field).toBe("headers")
     const atAuth = moveFolderFieldCursor(atHeaders, 1, counts)
     expect(atAuth.cursor.field).toBe("auth")
-    const backToMeta = moveFolderFieldCursor(atAuth, 1, counts)
-    expect(backToMeta.cursor.field).toBe("meta")
+    const backToActivity = moveFolderFieldCursor(atAuth, 1, counts)
+    expect(backToActivity.cursor.field).toBe("activity")
   })
 
-  it("-1 walks meta → auth → headers → meta", () => {
+  it("-1 walks meta → activity → auth → headers → meta", () => {
     const counts = emptyCounts
     const atMeta = enterFolderEditBrowse(folderInactive(), counts, "meta")
-    const atAuth = moveFolderFieldCursor(atMeta, -1, counts)
+    const atActivity = moveFolderFieldCursor(atMeta, -1, counts)
+    expect(atActivity.cursor.field).toBe("activity")
+    const atAuth = moveFolderFieldCursor(atActivity, -1, counts)
     expect(atAuth.cursor.field).toBe("auth")
     const atHeaders = moveFolderFieldCursor(atAuth, -1, counts)
     expect(atHeaders.cursor.field).toBe("headers")
