@@ -332,6 +332,7 @@ export function moveFolderRowCursor(
 
 export function beginEditing(prev: EditState): EditState {
   if (prev.mode !== "browsing") return prev
+  if (prev.cursor.field === "activity") return prev
   if (prev.cursor.field === "settings" && prev.cursor.row === 1) return prev
   const subfield: "key" | "value" | undefined =
     prev.cursor.field === "headers" ||

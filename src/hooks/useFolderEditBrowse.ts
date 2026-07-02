@@ -193,7 +193,6 @@ export function useFolderEditBrowse(
       : (options?.initialTab ?? inactiveTab)
 
   const enterBrowse = useCallback(() => {
-    if (activeTab === "activity") return
     const c = folderRowCount(draftRef.current)
     const tab = activeTab as FolderFieldKind
     setEditState((prev) => {
@@ -203,7 +202,6 @@ export function useFolderEditBrowse(
   }, [activeTab])
 
   const enterAndEdit = useCallback(() => {
-    if (activeTab === "activity") return
     const c = folderRowCount(draftRef.current)
     const currentFolder = draftRef.current
     const tab = activeTab as FolderFieldKind
