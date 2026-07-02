@@ -169,7 +169,7 @@ function collectParams(
   opParams: unknown,
 ): { name: string; in: string; default?: string }[] {
   const list: { name: string; in: string; default?: string }[] = []
-  const allowedIn = new Set(["path", "query", "header", "cookie"])
+  const allowedIn = new Set(["path", "query", "header"])
   const consider = (p: unknown) => {
     if (!isMapping(p)) return
     const pName = p.name
@@ -229,7 +229,6 @@ function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
     if (!isMapping(req)) continue
     const entries = Object.entries(req)
     for (const [schemeName] of entries) {
-      if (typeof schemeName !== "string") continue
       const scheme = lookupScheme(n, schemeName)
       if (!scheme) continue
       const auth = schemeToAuth(scheme)
@@ -421,21 +420,20 @@ export function mapCollection(n: Normalized): ImportResult {
       }
     }
     const a = r.auth
-    if (a) {
-      if (a.type === "bearer") {
-        const m = a.token.match(/\$(\w+)/)
-        if (m) envVarsFound.add(m[1])
-      }
-      if (a.type === "basic") {
-        const mu = a.user.match(/\$(\w+)/)
-        if (mu) envVarsFound.add(mu[1])
-        const mp = a.pass.match(/\$(\w+)/)
-        if (mp) envVarsFound.add(mp[1])
-      }
-      if (a.type === "api_key") {
-        const m = a.value.match(/\$(\w+)/)
-        if (m) envVarsFound.add(m[1])
-      }
+    if (!a) continue
+    if (a.type === "bearer") {
+      const m = a.token.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
+    }
+    if (a.type === "basic") {
+      const mu = a.user.match(/\$(\w+)/)
+      if (mu) envVarsFound.add(mu[1])
+      const mp = a.pass.match(/\$(\w+)/)
+      if (mp) envVarsFound.add(mp[1])
+    }
+    if (a.type === "api_key") {
+      const m = a.value.match(/\$(\w+)/)
+      if (m) envVarsFound.add(m[1])
     }
   }
 
