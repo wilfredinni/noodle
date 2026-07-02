@@ -7,6 +7,7 @@ import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import type { NewRequestOverlayHandle } from "./NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./CloneRequestOverlay"
+import type { NewFolderOverlayHandle } from "./NewFolderOverlay"
 
 export function useOverlayIntercepts(opts: {
   cancelSendRef: RefObject<() => void>
@@ -54,6 +55,10 @@ export function useOverlayIntercepts(opts: {
   requestDeletePending: string | null
   setRequestDeletePending: (s: string | null) => void
   onRequestDeleteConfirm: () => void
+  newFolderVisible: boolean
+  newFolderRef: RefObject<NewFolderOverlayHandle | null>
+  setNewFolderVisible: (v: boolean) => void
+  onNewFolderConfirm: (name: string) => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -94,6 +99,10 @@ export function useOverlayIntercepts(opts: {
     requestDeletePending,
     setRequestDeletePending,
     onRequestDeleteConfirm,
+    newFolderVisible,
+    newFolderRef,
+    setNewFolderVisible,
+    onNewFolderConfirm,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -422,6 +431,41 @@ export function useOverlayIntercepts(opts: {
     requestDeletePending,
     onRequestDeleteConfirm,
     setRequestDeletePending,
+    keymap,
+  ])
+
+  // ── Overlay: New Folder ───────────────────────────────────────────
+  useEffect(() => {
+    if (!newFolderVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const e = ctx.event
+        const handle = newFolderRef.current
+        if (!handle) return
+
+        if (e.name === "s" && e.ctrl) {
+          e.preventDefault()
+          e.stopPropagation()
+          const result = handle.confirm()
+          if (result) onNewFolderConfirm(result)
+          return
+        }
+        if (e.name === "escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          setNewFolderVisible(false)
+          return
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    newFolderVisible,
+    newFolderRef,
+    setNewFolderVisible,
+    onNewFolderConfirm,
     keymap,
   ])
 

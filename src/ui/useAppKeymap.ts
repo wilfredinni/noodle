@@ -91,6 +91,7 @@ export interface UseAppKeymapSetters {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
+  setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
 }
 
 export function useAppKeymap(
@@ -251,6 +252,10 @@ export function useAppKeymap(
         run: () => setters.setNewRequestVisible(true),
       },
       {
+        name: "folder.new",
+        run: () => setters.setNewFolderVisible(true),
+      },
+      {
         name: "request.edit-overlay",
         run: () => {
           const sid = refs.selectedIdRef.current
@@ -294,6 +299,7 @@ export function useAppKeymap(
       { key: keybinds.env_editor, cmd: "env.editor-open" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.request_new, cmd: "request.new" },
+      { key: keybinds.folder_new, cmd: "folder.new" },
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
       { key: keybinds.request_clone, cmd: "request.clone" },
       { key: keybinds.request_delete, cmd: "request.delete" },
@@ -413,6 +419,10 @@ export function useAppKeymap(
         run: () => setters.setNewRequestVisible(true),
       },
       {
+        name: "folder.new",
+        run: () => setters.setNewFolderVisible(true),
+      },
+      {
         name: "request.clone",
         run: () => {
           const sid = refs.selectedIdRef.current
@@ -430,6 +440,7 @@ export function useAppKeymap(
       { key: "left", cmd: "folder.tab-prev" },
       { key: "right", cmd: "folder.tab-next" },
       { key: keybinds.request_new, cmd: "request.new" },
+      { key: keybinds.folder_new, cmd: "folder.new" },
       { key: keybinds.request_clone, cmd: "request.clone" },
     ],
   }))
