@@ -124,7 +124,7 @@ function collectBody(op: Record<string, unknown>): {
     for (const [key] of Object.entries(props)) {
       formData.push({
         name: key,
-        value: "",
+        value: fileFields.has(key) ? "" : `$${key}`,
         enabled: true,
         type: fileFields.has(key) ? "file" : "text",
       })
@@ -409,6 +409,16 @@ export function mapCollection(n: Normalized): ImportResult {
     for (const [, kv] of Object.entries(r.params)) {
       const m = kv.value.match(/\$(\w+)/)
       if (m) envVarsFound.add(m[1])
+    }
+    if (r.body) {
+      const mBody = r.body.match(/\$(\w+)/g)
+      if (mBody) for (const v of mBody) envVarsFound.add(v.slice(1))
+    }
+    if (r.formData) {
+      for (const fe of r.formData) {
+        const m = fe.value.match(/\$(\w+)/)
+        if (m) envVarsFound.add(m[1])
+      }
     }
     const a = r.auth
     if (a) {

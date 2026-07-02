@@ -1050,7 +1050,7 @@ describe("mapCollection — requestBody", () => {
     )
     expect(reqs(c)[0].bodyType).toBe("multipart")
     expect(reqs(c)[0].formData).toEqual([
-      { name: "title", value: "", enabled: true, type: "text" },
+      { name: "title", value: "$title", enabled: true, type: "text" },
       { name: "photo", value: "", enabled: true, type: "file" },
       { name: "doc", value: "", enabled: true, type: "file" },
     ])
@@ -1082,8 +1082,8 @@ describe("mapCollection — requestBody", () => {
     )
     expect(reqs(c)[0].bodyType).toBe("multipart")
     expect(reqs(c)[0].formData).toEqual([
-      { name: "a", value: "", enabled: true, type: "text" },
-      { name: "b", value: "", enabled: true, type: "text" },
+      { name: "a", value: "$a", enabled: true, type: "text" },
+      { name: "b", value: "$b", enabled: true, type: "text" },
     ])
   })
 
