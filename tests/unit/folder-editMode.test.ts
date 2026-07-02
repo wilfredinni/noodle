@@ -59,10 +59,10 @@ const emptyCounts: FolderRowCount = {
 }
 
 describe("initialFolderEditState", () => {
-  it("starts inactive with meta cursor", () => {
+  it("starts inactive with activity cursor", () => {
     const state = initialFolderEditState()
     expect(state.mode).toBe("inactive")
-    expect(state.cursor.field).toBe("meta")
+    expect(state.cursor.field).toBe("activity")
     expect(state.cursor.row).toBe(-1)
     expect(state.cursor.addingRow).toBe(false)
     expect(state.editingRow).toBe(-1)
@@ -111,10 +111,10 @@ describe("folderCursorForField", () => {
 })
 
 describe("enterFolderEditBrowse", () => {
-  it("inactive → browsing at meta", () => {
+  it("inactive → browsing at activity", () => {
     const result = enterFolderEditBrowse(folderInactive(), emptyCounts)
     expect(result.mode).toBe("browsing")
-    expect(result.cursor.field).toBe("meta")
+    expect(result.cursor.field).toBe("activity")
     expect(result.cursor.row).toBe(0)
     expect(result.editingRow).toBe(-1)
   })

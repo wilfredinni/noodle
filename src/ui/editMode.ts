@@ -62,7 +62,7 @@ export function initialEditState(): EditState {
 export function initialFolderEditState(): EditState {
   return {
     mode: "inactive",
-    cursor: { field: "meta", row: -1, addingRow: false },
+    cursor: { field: "activity", row: -1, addingRow: false },
     editingRow: -1,
   }
 }
@@ -93,7 +93,7 @@ export function enterFolderEditBrowse(
     headers: 0,
     auth: 0,
   },
-  startField: FolderFieldKind = "meta",
+  startField: FolderFieldKind = "activity",
 ): EditState {
   if (prev.mode !== "inactive") return prev
   return {

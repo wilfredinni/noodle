@@ -156,7 +156,7 @@ export function useFolderEditBrowse(
   const [editValue, setEditValue] = useState("")
   const [editKey, setEditKey] = useState("")
   const [inactiveTab, setInactiveTab] = useState<FieldKind>(
-    options?.initialTab ?? "meta",
+    options?.initialTab ?? "activity",
   )
 
   const draftRef = useRef(folder)
