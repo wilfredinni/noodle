@@ -406,15 +406,6 @@ function BodySection({
         />
       ) : isBinaryMode ? (
         <box
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row >= 1
-              ? theme.primary
-              : theme.borderSubtle
-          }
           style={{
             backgroundColor:
               browseActive &&
@@ -430,15 +421,6 @@ function BodySection({
         </box>
       ) : body === "" ? (
         <box
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row >= 1
-              ? theme.primary
-              : theme.borderSubtle
-          }
           style={{
             backgroundColor:
               browseActive &&
@@ -454,15 +436,6 @@ function BodySection({
         </box>
       ) : (
         <box
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row >= 1
-              ? theme.primary
-              : theme.borderSubtle
-          }
           style={{
             backgroundColor:
               browseActive &&
