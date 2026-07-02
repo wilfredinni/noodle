@@ -1002,7 +1002,6 @@ export function AppInner({
                   setEditKey={folderEb.setEditKey}
                   setEditValue={folderEb.setEditValue}
                   activeTab={folderEb.activeTab}
-                  onTabChange={() => {}}
                   onAuthTypeChange={folderDraft.setAuthType}
                   onApiKeyPlacementChange={folderDraft.setApiKeyPlacement}
                   onSelectOpenChange={setSelectOpen}

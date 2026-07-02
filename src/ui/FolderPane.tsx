@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import type { Folder, Environment, Auth } from "../schema"
-import type { EditState, FolderFieldKind, FieldKind } from "./editMode"
+import type { EditState, FieldKind } from "./editMode"
 import { Tabs } from "./Tabs"
 import { FolderMetaTab } from "./FolderMetaTab"
 import { FolderActivityTab } from "./FolderActivityTab"
@@ -20,7 +20,6 @@ interface FolderPaneProps {
   setEditKey: (v: string) => void
   setEditValue: (v: string) => void
   activeTab: FieldKind
-  onTabChange: (tab: FolderFieldKind) => void
   onAuthTypeChange: (type: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
@@ -38,7 +37,6 @@ export function FolderPane({
   setEditKey,
   setEditValue,
   activeTab,
-  onTabChange: _onTabChange,
   onAuthTypeChange,
   onApiKeyPlacementChange,
   onSelectOpenChange,
