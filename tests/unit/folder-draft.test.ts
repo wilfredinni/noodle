@@ -112,9 +112,15 @@ describe("applyDraftOp", () => {
         auth: { type: "api_key", key: "k", value: "v", placement: "header" },
       },
     })
-    const r = applyDraftOp(f, { kind: "setApiKeyPlacement", placement: "query" })
+    const r = applyDraftOp(f, {
+      kind: "setApiKeyPlacement",
+      placement: "query",
+    })
     expect(r?.overrides?.auth).toEqual({
-      type: "api_key", key: "k", value: "v", placement: "query",
+      type: "api_key",
+      key: "k",
+      value: "v",
+      placement: "query",
     })
   })
 
@@ -124,9 +130,17 @@ describe("applyDraftOp", () => {
         headers: { "X-Old": { value: "old", enabled: false } },
       },
     })
-    const r = applyDraftOp(f, { kind: "setHeaderRow", index: 0, key: "X-New", value: "new" })
+    const r = applyDraftOp(f, {
+      kind: "setHeaderRow",
+      index: 0,
+      key: "X-New",
+      value: "new",
+    })
     expect(Object.keys(r?.overrides?.headers ?? {})).toEqual(["X-New"])
-    expect(r?.overrides?.headers?.["X-New"]).toEqual({ value: "new", enabled: false })
+    expect(r?.overrides?.headers?.["X-New"]).toEqual({
+      value: "new",
+      enabled: false,
+    })
   })
 
   it("revert signals return to original (null)", () => {
@@ -143,7 +157,12 @@ describe("applyDraftOp", () => {
     const f = makeFolder({
       overrides: { auth: { type: "bearer", token: "tok" } },
     })
-    const r = applyDraftOp(f, { kind: "setAuthField", authType: "basic", field: "user", value: "u" })
+    const r = applyDraftOp(f, {
+      kind: "setAuthField",
+      authType: "basic",
+      field: "user",
+      value: "u",
+    })
     expect(r?.overrides?.auth).toEqual({ type: "bearer", token: "tok" })
   })
 
@@ -151,7 +170,10 @@ describe("applyDraftOp", () => {
     const f = makeFolder({
       overrides: { auth: { type: "bearer", token: "tok" } },
     })
-    const r = applyDraftOp(f, { kind: "setApiKeyPlacement", placement: "query" })
+    const r = applyDraftOp(f, {
+      kind: "setApiKeyPlacement",
+      placement: "query",
+    })
     expect(r?.overrides?.auth).toEqual({ type: "bearer", token: "tok" })
   })
 
@@ -168,11 +190,15 @@ describe("folderEqual", () => {
   })
 
   it("returns false for different names", () => {
-    expect(folderEqual(makeFolder({ name: "A" }), makeFolder({ name: "B" }))).toBe(false)
+    expect(
+      folderEqual(makeFolder({ name: "A" }), makeFolder({ name: "B" })),
+    ).toBe(false)
   })
 
   it("returns false for different seq", () => {
-    expect(folderEqual(makeFolder({ seq: 1 }), makeFolder({ seq: 2 }))).toBe(false)
+    expect(folderEqual(makeFolder({ seq: 1 }), makeFolder({ seq: 2 }))).toBe(
+      false,
+    )
   })
 
   it("returns false for different headers", () => {
@@ -182,7 +208,6 @@ describe("folderEqual", () => {
     const b = makeFolder()
     expect(folderEqual(a, b)).toBe(false)
   })
-
 
   it("returns false for different auth", () => {
     const a = makeFolder({

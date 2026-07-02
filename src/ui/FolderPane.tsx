@@ -63,9 +63,9 @@ export function FolderPane({
         { id: "auth", label: "Auth" },
       ]
     }
-    const hasHeaders = Object.values(
-      folder.overrides?.headers ?? {},
-    ).some((e) => e.enabled)
+    const hasHeaders = Object.values(folder.overrides?.headers ?? {}).some(
+      (e) => e.enabled,
+    )
     const hasAuth =
       folder.overrides?.auth?.type !== undefined &&
       folder.overrides.auth.type !== "none" &&

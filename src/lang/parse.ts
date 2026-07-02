@@ -1,5 +1,12 @@
 import yaml from "js-yaml"
-import type { Auth, BodyType, FormEntry, KvEntry, Method, Request } from "../schema"
+import type {
+  Auth,
+  BodyType,
+  FormEntry,
+  KvEntry,
+  Method,
+  Request,
+} from "../schema"
 
 const METHODS: readonly Method[] = [
   "GET",
@@ -230,9 +237,7 @@ export function parseKvMap(
     } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
       const obj = v as Record<string, unknown>
       if (typeof obj.value !== "string") {
-        throw new Error(
-          `${prefix}: ${field}.${k} must have string "value"`,
-        )
+        throw new Error(`${prefix}: ${field}.${k} must have string "value"`)
       }
       const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
       out[k] = { value: obj.value, enabled }

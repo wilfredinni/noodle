@@ -230,11 +230,9 @@ describe("mergeFolderOverrides", () => {
     const child = makeFolder("api/v2", {
       auth: { type: "bearer", token: "tok" },
     })
-    const parent = makeFolderData(
-      "api",
-      { auth: { type: "none" } },
-      [{ type: "folder", data: child }],
-    )
+    const parent = makeFolderData("api", { auth: { type: "none" } }, [
+      { type: "folder", data: child },
+    ])
     const req = makeRequest({ auth: { type: "inherit" } })
     const col: Collection = {
       id: "c",

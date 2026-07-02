@@ -46,9 +46,7 @@ export function Sidebar({
   useEffect(() => {
     if (cursorIndex >= 0 && visibleItems.length > 0) {
       const idx = Math.min(cursorIndex, visibleItems.length - 1)
-      scrollRef.current?.scrollChildIntoView(
-        `so-${visibleItems[idx].id}`,
-      )
+      scrollRef.current?.scrollChildIntoView(`so-${visibleItems[idx].id}`)
     }
   }, [cursorIndex, visibleItems])
 
@@ -90,9 +88,7 @@ export function Sidebar({
           {visibleItems.map((node, i) => {
             const isCursor = i === cursorIndex
             if (node.type === "folder") {
-              const chevron = node.expanded
-                ? "\u25BE"
-                : "\u25B8"
+              const chevron = node.expanded ? "\u25BE" : "\u25B8"
               const isFolderDirty = dirtyFolderPaths?.has(node.id)
               return (
                 <box
@@ -116,9 +112,7 @@ export function Sidebar({
                       {truncName(node.name, 20)}
                     </text>
                   </box>
-                  {isFolderDirty && (
-                    <text fg={theme.warning}>{`\u25CF`}</text>
-                  )}
+                  {isFolderDirty && <text fg={theme.warning}>{`\u25CF`}</text>}
                 </box>
               )
             }
@@ -149,9 +143,7 @@ export function Sidebar({
                     {truncName(node.name, 20)}
                   </text>
                 </box>
-                {isDirty && (
-                  <text fg={theme.warning}>{`\u25CF`}</text>
-                )}
+                {isDirty && <text fg={theme.warning}>{`\u25CF`}</text>}
               </box>
             )
           })}

@@ -140,7 +140,8 @@ function folderCurrentKeyValueFor(
 function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
   const idx = FOLDER_FIELD_ORDER.indexOf(current as FolderFieldKind)
   if (idx === -1) return current
-  const next = (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
+  const next =
+    (idx + delta + FOLDER_FIELD_ORDER.length) % FOLDER_FIELD_ORDER.length
   return FOLDER_FIELD_ORDER[next]!
 }
 
@@ -149,7 +150,9 @@ export function useFolderEditBrowse(
   draftMutators: UseFolderDraftResult,
   options?: UseFolderEditBrowseOptions,
 ): UseFolderEditBrowseResult {
-  const [editState, setEditState] = useState<EditState>(initialFolderEditState())
+  const [editState, setEditState] = useState<EditState>(
+    initialFolderEditState(),
+  )
   const [editValue, setEditValue] = useState("")
   const [editKey, setEditKey] = useState("")
   const [inactiveTab, setInactiveTab] = useState<FieldKind>(

@@ -39,10 +39,8 @@ export function computeFolderActivity(
     const avgTimeMs =
       successEntries.length > 0
         ? Math.round(
-            successEntries.reduce(
-              (s, e) => s + (e.response?.timeMs ?? 0),
-              0,
-            ) / successEntries.length,
+            successEntries.reduce((s, e) => s + (e.response?.timeMs ?? 0), 0) /
+              successEntries.length,
           )
         : null
     const lastSent = entries.length > 0 ? entries[0]!.timestamp : null
@@ -61,7 +59,9 @@ export function computeFolderActivity(
   const totalCalls = requests.reduce((s, r) => s + r.callCount, 0)
 
   const allEntries = requests.flatMap((r) => timelines.get(r.id) ?? [])
-  const allSuccessCount = allEntries.filter((e) => e.response !== undefined).length
+  const allSuccessCount = allEntries.filter(
+    (e) => e.response !== undefined,
+  ).length
   const overallSuccessRate =
     totalCalls > 0 ? allSuccessCount / totalCalls : null
 

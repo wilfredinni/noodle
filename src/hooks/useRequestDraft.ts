@@ -561,8 +561,7 @@ export function useRequestDraft(
     [apply],
   )
   const setAuthTypeCb = useCallback(
-    (authType: Auth["type"]) =>
-      apply({ kind: "setAuthType", authType }),
+    (authType: Auth["type"]) => apply({ kind: "setAuthType", authType }),
     [apply],
   )
   const setAuthFieldCb = useCallback(

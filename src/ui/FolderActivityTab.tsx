@@ -2,18 +2,6 @@ import { methodColor } from "./formatRequest"
 import type { Theme } from "./theme"
 import type { FolderActivityStats } from "./useFolderActivity"
 
-function relativeTime(ts: number): string {
-  const diff = Date.now() - ts
-  const sec = Math.floor(diff / 1000)
-  if (sec < 5) return "now"
-  if (sec < 60) return `${sec}s`
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h`
-  return `${Math.floor(hr / 24)}d`
-}
-
 function pct(v: number): string {
   return `${Math.round(v * 100)}%`
 }
@@ -139,7 +127,9 @@ export function FolderActivityTab({
               fg={r.avgTimeMs !== null ? theme.text : theme.textMuted}
               wrapMode="none"
             >
-              {r.avgTimeMs !== null ? ms(r.avgTimeMs).padEnd(8) : "\u2014".padEnd(8)}
+              {r.avgTimeMs !== null
+                ? ms(r.avgTimeMs).padEnd(8)
+                : "\u2014".padEnd(8)}
             </text>
             <text fg={theme.textMuted} wrapMode="none">
               {r.callCount > 0 ? `${r.callCount}c` : "\u2014"}

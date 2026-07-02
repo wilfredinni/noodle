@@ -1,8 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtemp, rm, mkdir, writeFile, readFile, readdir, symlink } from "node:fs/promises"
+import {
+  mkdtemp,
+  rm,
+  mkdir,
+  writeFile,
+  readFile,
+  readdir,
+  symlink,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
-import { filestore, loadSettings, saveSettings, saveFolder, deleteFolder } from "../src/filestore"
+import {
+  filestore,
+  loadSettings,
+  saveSettings,
+  saveFolder,
+  deleteFolder,
+} from "../src/filestore"
 import type { Folder, Request, Collection } from "../src/schema"
 
 function reqs(col: Collection): Request[] {
@@ -334,10 +348,7 @@ describe("filestore.saveFolder — path validation", () => {
     const before = await readFile(join(dir, folderPath, "folder.yml"), "utf8")
     expect(before).toContain("name: Old Name")
 
-    await saveFolder(
-      dir,
-      makeFolder({ path: folderPath, name: "New Name" }),
-    )
+    await saveFolder(dir, makeFolder({ path: folderPath, name: "New Name" }))
     const after = await readFile(join(dir, folderPath, "folder.yml"), "utf8")
     expect(after).toContain("name: New Name")
     expect(after).not.toContain("Old Name")
@@ -365,22 +376,48 @@ describe("filestore.deleteFolder — path validation", () => {
 
   it("deletes folder directory", async () => {
     await mkdir(join(dir, "to-delete"))
-    await writeFile(join(dir, "to-delete", "folder.yml"), "meta:\n  name: Bye\n", "utf8")
+    await writeFile(
+      join(dir, "to-delete", "folder.yml"),
+      "meta:\n  name: Bye\n",
+      "utf8",
+    )
     await deleteFolder(dir, "to-delete")
-    await expect(readFile(join(dir, "to-delete", "folder.yml"), "utf8")).rejects.toThrow()
+    await expect(
+      readFile(join(dir, "to-delete", "folder.yml"), "utf8"),
+    ).rejects.toThrow()
   })
 
   it("deletes folder with nested requests and subfolders", async () => {
     await mkdir(join(dir, "nested", "sub"), { recursive: true })
-    await writeFile(join(dir, "nested", "folder.yml"), "meta:\n  name: Nested\n", "utf8")
-    await writeFile(join(dir, "nested", "get-user.yml"), "method: GET\nurl: /user\n", "utf8")
-    await writeFile(join(dir, "nested", "sub", "folder.yml"), "meta:\n  name: Sub\n", "utf8")
-    await writeFile(join(dir, "nested", "sub", "delete.yml"), "method: DELETE\nurl: /user\n", "utf8")
+    await writeFile(
+      join(dir, "nested", "folder.yml"),
+      "meta:\n  name: Nested\n",
+      "utf8",
+    )
+    await writeFile(
+      join(dir, "nested", "get-user.yml"),
+      "method: GET\nurl: /user\n",
+      "utf8",
+    )
+    await writeFile(
+      join(dir, "nested", "sub", "folder.yml"),
+      "meta:\n  name: Sub\n",
+      "utf8",
+    )
+    await writeFile(
+      join(dir, "nested", "sub", "delete.yml"),
+      "method: DELETE\nurl: /user\n",
+      "utf8",
+    )
 
     await deleteFolder(dir, "nested")
 
-    await expect(readFile(join(dir, "nested", "folder.yml"), "utf8")).rejects.toThrow()
-    await expect(readFile(join(dir, "nested", "sub", "delete.yml"), "utf8")).rejects.toThrow()
+    await expect(
+      readFile(join(dir, "nested", "folder.yml"), "utf8"),
+    ).rejects.toThrow()
+    await expect(
+      readFile(join(dir, "nested", "sub", "delete.yml"), "utf8"),
+    ).rejects.toThrow()
     await expect(readdir(join(dir, "nested"))).rejects.toThrow()
   })
 })
@@ -501,8 +538,15 @@ describe("filestore — nested folders", () => {
 describe("filestore — symlink handling", () => {
   it("skips symlink pointing outside collection root", async () => {
     await mkdir(join(dir, "outside-collection"))
-    await writeFile(join(dir, "outside-collection", "x.yml"), yamlTmpl(makeReq({ name: "Outside" })))
-    await symlink(join(dir, "outside-collection"), join(dir, "outside-link"), "dir")
+    await writeFile(
+      join(dir, "outside-collection", "x.yml"),
+      yamlTmpl(makeReq({ name: "Outside" })),
+    )
+    await symlink(
+      join(dir, "outside-collection"),
+      join(dir, "outside-link"),
+      "dir",
+    )
 
     const col = await filestore.loadCollection(dir)
     const folderNames = col.items
@@ -513,7 +557,10 @@ describe("filestore — symlink handling", () => {
 
   it("follows symlink pointing to sibling directory inside collection", async () => {
     await mkdir(join(dir, "real-folder"))
-    await writeFile(join(dir, "real-folder", "inside.yml"), yamlTmpl(makeReq({ name: "Inside", id: "real-folder/inside" })))
+    await writeFile(
+      join(dir, "real-folder", "inside.yml"),
+      yamlTmpl(makeReq({ name: "Inside", id: "real-folder/inside" })),
+    )
     await symlink(join(dir, "real-folder"), join(dir, "link-to-real"), "dir")
 
     const col = await filestore.loadCollection(dir)
@@ -525,22 +572,39 @@ describe("filestore — symlink handling", () => {
 
   it("detects symlink cycles and skips duplicate", async () => {
     await mkdir(join(dir, "cycle-a"))
-    await writeFile(join(dir, "cycle-a", "a.yml"), yamlTmpl(makeReq({ name: "A", id: "cycle-a/a" })))
-    await symlink(join(dir, "cycle-a"), join(dir, "cycle-a", "link-to-self"), "dir")
+    await writeFile(
+      join(dir, "cycle-a", "a.yml"),
+      yamlTmpl(makeReq({ name: "A", id: "cycle-a/a" })),
+    )
+    await symlink(
+      join(dir, "cycle-a"),
+      join(dir, "cycle-a", "link-to-self"),
+      "dir",
+    )
 
     const col = await filestore.loadCollection(dir)
     // Should load without infinite loop
-    expect(col.items.some((i) => i.type === "folder" && i.data.name === "cycle-a")).toBe(true)
+    expect(
+      col.items.some((i) => i.type === "folder" && i.data.name === "cycle-a"),
+    ).toBe(true)
   })
 
   it("loads collection under path with symlinked parent components", async () => {
-    await writeFile(join(dir, "root.yml"), yamlTmpl(makeReq({ id: "root", name: "Root" })))
+    await writeFile(
+      join(dir, "root.yml"),
+      yamlTmpl(makeReq({ id: "root", name: "Root" })),
+    )
     await mkdir(join(dir, "sub"))
-    await writeFile(join(dir, "sub", "nested.yml"), yamlTmpl(makeReq({ id: "sub/nested", name: "Nested" })))
+    await writeFile(
+      join(dir, "sub", "nested.yml"),
+      yamlTmpl(makeReq({ id: "sub/nested", name: "Nested" })),
+    )
 
     const col = await filestore.loadCollection(dir)
     expect(col.items).toHaveLength(2)
-    expect(col.items.some((i) => i.type === "request" && i.data.id === "root")).toBe(true)
+    expect(
+      col.items.some((i) => i.type === "request" && i.data.id === "root"),
+    ).toBe(true)
     expect(col.items.some((i) => i.type === "folder")).toBe(true)
   })
 })

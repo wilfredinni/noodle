@@ -1,4 +1,11 @@
-import type { Auth, Collection, Environment, KvEntry, Request, Response } from "../schema"
+import type {
+  Auth,
+  Collection,
+  Environment,
+  KvEntry,
+  Request,
+  Response,
+} from "../schema"
 import { substitute } from "./substitute"
 import type { SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
@@ -11,7 +18,9 @@ export async function send(
   requestPath?: string,
 ): Promise<Response> {
   const merged =
-    collection && requestPath ? mergeFolderOverrides(req, collection, requestPath) : req
+    collection && requestPath
+      ? mergeFolderOverrides(req, collection, requestPath)
+      : req
 
   const substituted = env !== undefined ? substitute(merged, env) : merged
 

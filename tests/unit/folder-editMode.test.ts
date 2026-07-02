@@ -108,8 +108,6 @@ describe("folderCursorForField", () => {
     const c = folderCursorForField("headers", defaultCounts)
     expect(c).toEqual({ field: "headers", row: 0, addingRow: false })
   })
-
-
 })
 
 describe("enterFolderEditBrowse", () => {
@@ -168,7 +166,11 @@ describe("exitEditBrowse", () => {
 describe("moveFolderFieldCursor", () => {
   it("+1 walks activity → meta → headers → auth → activity", () => {
     const counts = emptyCounts
-    const atActivity = enterFolderEditBrowse(folderInactive(), counts, "activity")
+    const atActivity = enterFolderEditBrowse(
+      folderInactive(),
+      counts,
+      "activity",
+    )
     const atMeta = moveFolderFieldCursor(atActivity, 1, counts)
     expect(atMeta.cursor.field).toBe("meta")
     const atHeaders = moveFolderFieldCursor(atMeta, 1, counts)
@@ -229,7 +231,6 @@ describe("moveFolderRowCursor", () => {
     const backTo1 = moveFolderRowCursor(backTo0, 1, counts)
     expect(backTo1.cursor.row).toBe(1)
   })
-
 
   it("headers backward wrap: [+] → last row, 0 → [+]", () => {
     const counts: FolderRowCount = { meta: 0, headers: 3, auth: 0 }

@@ -35,7 +35,12 @@ import {
   NewFolderOverlay,
   type NewFolderOverlayHandle,
 } from "./NewFolderOverlay"
-import { saveRequest, deleteRequest, saveFolder, deleteFolder } from "../filestore/save"
+import {
+  saveRequest,
+  deleteRequest,
+  saveFolder,
+  deleteFolder,
+} from "../filestore/save"
 import { ThemePickerOverlay, useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { EnvSidebar } from "./EnvSidebar"
@@ -138,9 +143,9 @@ export function AppInner({
   >(null)
   const [newFolderVisible, setNewFolderVisible] = useState(false)
   const newFolderRef = useRef<NewFolderOverlayHandle>(null)
-  const [folderDeletePending, setFolderDeletePending] = useState<
-    string | null
-  >(null)
+  const [folderDeletePending, setFolderDeletePending] = useState<string | null>(
+    null,
+  )
   const folderDeletePathRef = useRef<string | null>(null)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
@@ -179,7 +184,8 @@ export function AppInner({
   )
 
   const focusedFolder = useMemo(
-    () => (focusedFolderPath ? findFolderByPath(items, focusedFolderPath) : null),
+    () =>
+      focusedFolderPath ? findFolderByPath(items, focusedFolderPath) : null,
     [focusedFolderPath, items],
   )
 
@@ -321,18 +327,38 @@ export function AppInner({
       folderDraftRef.current?.markSaved()
       updateCollection({
         ...collection,
-        items: updateFolderByPath(collection.items, draftFolder.path, draftFolder),
+        items: updateFolderByPath(
+          collection.items,
+          draftFolder.path,
+          draftFolder,
+        ),
       })
-      setSaveState({ kind: "success", message: `Saved folder ${draftFolder.name}` })
+      setSaveState({
+        kind: "success",
+        message: `Saved folder ${draftFolder.name}`,
+      })
       clearSaveTimer()
-      saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+      saveTimerRef.current = setTimeout(
+        () => setSaveState({ kind: "idle" }),
+        2000,
+      )
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setSaveState({ kind: "error", message: msg })
       clearSaveTimer()
-      saveTimerRef.current = setTimeout(() => setSaveState({ kind: "idle" }), 2000)
+      saveTimerRef.current = setTimeout(
+        () => setSaveState({ kind: "idle" }),
+        2000,
+      )
     }
-  }, [collection, collectionDir, setSaveState, updateCollection, clearSaveTimer, saveTimerRef])
+  }, [
+    collection,
+    collectionDir,
+    setSaveState,
+    updateCollection,
+    clearSaveTimer,
+    saveTimerRef,
+  ])
 
   folderSaveRef.current = handleFolderSave
 
@@ -649,15 +675,15 @@ export function AppInner({
               ? "new-request"
               : editRequestVisible
                 ? "edit-request"
-            : cloneRequestVisible
-              ? "clone-request"
-              : newFolderVisible
-                ? "new-folder"
-                : folderDeletePending !== null
-                  ? "delete-folder"
-                : requestDeletePending !== null
-                  ? "request-delete"
-                  : "none"
+                : cloneRequestVisible
+                  ? "clone-request"
+                  : newFolderVisible
+                    ? "new-folder"
+                    : folderDeletePending !== null
+                      ? "delete-folder"
+                      : requestDeletePending !== null
+                        ? "request-delete"
+                        : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     helpVisible,

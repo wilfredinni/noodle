@@ -10,12 +10,7 @@ import type {
   Request,
 } from "../schema"
 
-const SKIP_DIRS = new Set([
-  ".noodle",
-  ".timeline",
-  ".git",
-  "node_modules",
-])
+const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
 
 async function walk(
   absDir: string,
@@ -37,7 +32,11 @@ async function walk(
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.loadCollection: ${msg}`, { cause: e })
   }
-  if (root !== undefined && resolved !== root && !resolved.startsWith(root + "/")) {
+  if (
+    root !== undefined &&
+    resolved !== root &&
+    !resolved.startsWith(root + "/")
+  ) {
     return []
   }
   if (visited.has(resolved)) return []
