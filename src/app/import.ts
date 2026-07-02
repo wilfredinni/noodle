@@ -4,13 +4,15 @@ import { join } from "node:path"
 import {
   getImporter,
   detectFormat,
+  registerImporter,
   supportedFormats,
   type ImportResult,
 } from "../converters/index"
 import { saveRequest, saveFolder } from "../filestore"
 import type { Collection, Environment } from "../schema"
 
-import "../converters/openapi/index"
+import { openApiImporter } from "../converters/openapi/index"
+registerImporter(openApiImporter)
 
 function serializeEnv(env: Environment): string {
   let out = ""

@@ -971,6 +971,75 @@ describe("mapCollection — requestBody", () => {
     expect(reqs(c)[0].bodyType).toBe("json")
   })
 
+  it("json with example = 0 (falsy number)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: 0 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].body).toBe("0")
+    expect(reqs(c)[0].bodyType).toBe("json")
+  })
+
+  it("json with example = false (falsy boolean)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: false },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].body).toBe("false")
+    expect(reqs(c)[0].bodyType).toBe("json")
+  })
+
+  it("json with example = null (falsy null)", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              operationId: "postX",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: null },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].body).toBe("null")
+    expect(reqs(c)[0].bodyType).toBe("json")
+  })
+
   it("json with schema properties (no example)", () => {
     const c = mapCollection(
       makeNormalized({

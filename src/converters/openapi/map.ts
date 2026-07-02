@@ -459,11 +459,8 @@ export function mapCollection(n: Normalized): ImportResult {
       const srvVariables = server.variables
       if (isMapping(srvVariables)) {
         for (const [varName, varDef] of Object.entries(srvVariables)) {
-          if (
-            isMapping(varDef) &&
-            typeof varDef.default === "string"
-          ) {
-            vars[varName] = varDef.default as string
+          if (isMapping(varDef) && varDef.default !== undefined) {
+            vars[varName] = String(varDef.default)
           }
         }
       }
