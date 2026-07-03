@@ -792,6 +792,9 @@ export function AppInner({
     draft.draft?.id,
   )
 
+  const responseStateRef = useRef(responseState)
+  responseStateRef.current = responseState
+
   const envEditor = useEnvironmentEditor({
     environmentsDir,
     envNames,
@@ -866,6 +869,7 @@ export function AppInner({
       focusedFolderPathRef,
       focusedFolderNameRef,
       folderDeletePathRef,
+      responseStateRef,
     },
     {
       setFocus,
@@ -950,6 +954,10 @@ export function AppInner({
   const expandHint = useMemo(
     () => `${displayKey(keybinds.pane_expand)} expand`,
     [keybinds.pane_expand],
+  )
+  const copyBodyHint = useMemo(
+    () => `${displayKey(keybinds.response_copy_body)} copy`,
+    [keybinds.response_copy_body],
   )
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -1061,6 +1069,7 @@ export function AppInner({
                           initialTab={initialResponseTab}
                           onTabChange={onResponseTabChange}
                           expandHint={expandHint}
+                          copyBodyHint={copyBodyHint}
                         />
                       )}
                     </box>
@@ -1092,6 +1101,7 @@ export function AppInner({
                           initialTab={initialResponseTab}
                           onTabChange={onResponseTabChange}
                           expandHint={expandHint}
+                          copyBodyHint={copyBodyHint}
                         />
                       )}
                     </>

@@ -10,6 +10,9 @@ import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
+import type { SendState } from "./sendState"
+import { useRenderer } from "./RendererContext"
+import { showToast } from "./Toast"
 import { findRequestById } from "./tree"
 
 export interface UseAppKeymapRefs {
@@ -33,6 +36,7 @@ export interface UseAppKeymapRefs {
   focusedFolderPathRef: RefObject<string | null>
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
+  responseStateRef: RefObject<SendState>
 }
 
 export interface UseAppKeymapSetters {
@@ -107,6 +111,7 @@ export function useAppKeymap(
   collectionDir: string,
 ): void {
   const keymap = useKeymap()
+  const renderer = useRenderer()
 
   // ── Keymap: Always-On Layer ───────────────────────────────────────
   useBindings(() => ({
@@ -203,6 +208,21 @@ export function useAppKeymap(
           )
         },
       },
+      {
+        name: "response.copy-body",
+        enabled: () => {
+          const f = keymap.getData("app.focus")
+          if (f !== "response") return false
+          const s = refs.responseStateRef.current
+          return s?.status === "done"
+        },
+        run: () => {
+          const s = refs.responseStateRef.current
+          if (s?.status !== "done") return
+          renderer.copyToClipboardOSC52(s.response.body)
+          showToast("Response body copied", "success")
+        },
+      },
     ],
     bindings: [
       { key: "tab", cmd: "focus.next" },
@@ -211,6 +231,7 @@ export function useAppKeymap(
       { key: keybinds.help_toggle, cmd: "app.help" },
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
+      { key: keybinds.response_copy_body, cmd: "response.copy-body" },
     ],
   }))
 
