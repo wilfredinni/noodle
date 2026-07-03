@@ -3,12 +3,14 @@ import { join } from "node:path"
 import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
 import defaultCommand from "../src/app/commands/default"
 import importCommand from "../src/app/commands/import"
+import updateCommand from "../src/app/commands/update"
 
 const CLI = join(import.meta.dir, "../src/app/cli.ts")
 const defaultMeta = defaultCommand.meta as CommandMeta | undefined
 const defaultArgs = defaultCommand.args as ArgsDef | undefined
 const importMeta = importCommand.meta as CommandMeta | undefined
 const importArgs = importCommand.args as ArgsDef | undefined
+const updateMeta = updateCommand.meta as CommandMeta | undefined
 
 describe("default command (noodle)", () => {
   it("has correct meta name", () => {
@@ -36,6 +38,24 @@ describe("default command (noodle)", () => {
 
   it("has run handler", () => {
     expect(typeof defaultCommand.run).toBe("function")
+  })
+})
+
+describe("update command", () => {
+  it("has correct meta name", () => {
+    expect(updateMeta?.name).toBe("update")
+  })
+
+  it("has meta description", () => {
+    expect(updateMeta?.description).toBeTruthy()
+  })
+
+  it("has no required args", () => {
+    expect(updateCommand.args).toBeUndefined()
+  })
+
+  it("has run handler", () => {
+    expect(typeof updateCommand.run).toBe("function")
   })
 })
 
@@ -77,6 +97,7 @@ describe("CLI integration", () => {
     const out = proc.stdout.toString()
     expect(out).toContain("noodle")
     expect(out).toContain("import")
+    expect(out).toContain("update")
   })
 
   it("shows default command flags with noodle --help", () => {
@@ -94,6 +115,13 @@ describe("CLI integration", () => {
     expect(out).toContain("SOURCE")
     expect(out).toContain("format")
     expect(out).toContain("output")
+  })
+
+  it("shows help for update subcommand with update --help", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "update", "--help"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("Update")
   })
 
   it("fails when import is called without source argument", () => {
