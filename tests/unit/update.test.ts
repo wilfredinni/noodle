@@ -57,9 +57,9 @@ describe("isHomebrewInstall", () => {
   })
 
   it("detects linuxbrew prefix", () => {
-    expect(
-      isHomebrewInstall("/home/linuxbrew/.linuxbrew/bin/noodle"),
-    ).toBe(true)
+    expect(isHomebrewInstall("/home/linuxbrew/.linuxbrew/bin/noodle")).toBe(
+      true,
+    )
   })
 
   it("detects brew in path", () => {

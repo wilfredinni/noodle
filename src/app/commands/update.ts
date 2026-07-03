@@ -1,10 +1,7 @@
 import { defineCommand } from "citty"
 import pkg from "../../../package.json" with { type: "json" }
 
-export function getPlatformString(
-  platform: string,
-  arch: string,
-): string {
+export function getPlatformString(platform: string, arch: string): string {
   const os = platform === "darwin" ? "macos" : "linux"
   const cpu = arch === "arm64" ? "arm64" : "x86_64"
   return `${os}-${cpu}`
