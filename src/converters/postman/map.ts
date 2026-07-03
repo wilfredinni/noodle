@@ -53,23 +53,23 @@ function extractAuthParams(
   const params = new Map<string, string>()
 
   try {
-    const members = auth.bearer ?? auth.basic ?? auth.apiKey
-    if (members) {
-      members.each((m: Variable) => {
-        params.set(m.key, m.value ?? "")
-      })
+    const raw = auth.parameters?.()
+    if (raw) {
+      const items = raw.all()
+      if (items.length > 0) {
+        const byKey = new Map(items.map((p) => [p.key, p.value]))
+
+        if (byKey.has("key") && byKey.has("value")) {
+          params.set(byKey.get("key")!, byKey.get("value")!)
+        } else {
+          for (const p of items) {
+            params.set(p.key, p.value)
+          }
+        }
+      }
     }
   } catch {
-    try {
-      if (typeof auth.members === "function") {
-        const m = auth.members()
-        m.each((p: { key: string; value: string }) => {
-          params.set(p.key, p.value)
-        })
-      }
-    } catch {
-      // ignore
-    }
+    // ignore
   }
 
   return params.size > 0 ? params : undefined

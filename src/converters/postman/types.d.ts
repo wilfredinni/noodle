@@ -41,6 +41,7 @@ declare module "postman-collection" {
     bearer?: VariableList
     basic?: VariableList
     apiKey?: VariableList
+    parameters?(): PropertyList<{ key: string; value: string; type: string }>
   }
 
   interface Request {
