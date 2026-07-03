@@ -1,7 +1,9 @@
 import { describe, it, expect } from "bun:test"
+import { join } from "node:path"
 import defaultCommand from "../src/app/commands/default"
 import importCommand from "../src/app/commands/import"
 
+const CLI = join(import.meta.dir, "../src/app/cli.ts")
 const defaultMeta = defaultCommand.meta as {
   name?: string
   description?: string
@@ -73,5 +75,46 @@ describe("import command", () => {
 
   it("has run handler", () => {
     expect(typeof importCommand.run).toBe("function")
+  })
+})
+
+describe("CLI integration", () => {
+  it("shows available subcommands with --help", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "--help"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("noodle")
+    expect(out).toContain("import")
+  })
+
+  it("shows default command flags with noodle --help", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "noodle", "--help"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("collection")
+    expect(out).toContain("env")
+  })
+
+  it("shows help for import subcommand with import --help", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "import", "--help"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("SOURCE")
+    expect(out).toContain("format")
+    expect(out).toContain("output")
+  })
+
+  it("fails when import is called without source argument", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "import"], {})
+    expect(proc.exitCode).not.toBe(0)
+    const err = proc.stderr.toString()
+    expect(err).toContain("SOURCE")
+  })
+
+  it("shows version with --version", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "--version"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString().trim()
+    expect(out).toBe("0.1.0")
   })
 })
