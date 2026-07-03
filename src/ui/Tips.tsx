@@ -22,7 +22,16 @@ const TIPS = [
   "response body auto-formats JSON when detected",
   "create a new request — save with {^S} and type a new name",
   "import an OpenAPI spec with {bun run import <path>}",
+  "import Postman collections with {bun run import <path>}",
   "environment variables let you switch between dev, staging, prod",
+  "clone a request with {^K}",
+  "delete a request with {^W}",
+  "copy the response body with {^B}",
+  "create a new folder with {^Alt+N}",
+  "press {F2} to expand a pane fullscreen",
+  "edit request YAML in your editor with {^Alt+E}",
+  "press {e} to open the environment editor",
+  "recent responses are saved in a timeline per request",
 ]
 
 interface TipPart {
