@@ -25,21 +25,21 @@ Some notable features include:
 
 ## Installation (macOS & Linux)
 
-### Homebrew
-
-```bash
-brew trust wilfredinni/noodle
-brew tap wilfredinni/noodle
-brew install noodle
-```
-
 ### Curl
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh | sh
 ```
 
-Installs to `~/.local/bin/noodle`. Make sure `~/.local/bin` is in your PATH.
+### Homebrew
+
+```bash
+brew tap wilfredinni/noodle
+brew trust wilfredinni/noodle
+brew install noodle
+```
+
+Installs to `~/.local/bin/noodle` (curl) or your Homebrew prefix. Make sure the install directory is in your PATH.
 
 ## Roadmap
 
