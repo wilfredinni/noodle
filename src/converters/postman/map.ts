@@ -12,7 +12,6 @@ import type {
 } from "postman-collection"
 import type {
   Auth,
-  BodyType,
   CollectionItem,
   Environment,
   FormEntry,
@@ -149,7 +148,7 @@ function mapParams(
 
 function mapBody(req: { body?: BodyMember }): {
   body?: string
-  bodyType?: Extract<BodyType, "json" | "urlencoded" | "multipart">
+  bodyType?: "json" | "urlencoded" | "multipart"
   formData?: FormEntry[]
 } {
   const b = req.body
