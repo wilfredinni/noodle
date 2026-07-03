@@ -21,7 +21,7 @@ export default defineCommand({
     output: {
       type: "string",
       alias: "o",
-      description: "Output directory (defaults to collection dir)",
+      description: "Output directory (defaults to ./collections)",
     },
   },
   async run({ args }) {
