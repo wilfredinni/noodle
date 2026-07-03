@@ -20,7 +20,8 @@ export default defineCommand({
     output: {
       type: "string",
       alias: "o",
-      description: "Output directory (defaults to ./collections)",
+      default: "./collections",
+      description: "Output directory",
     },
   },
   async run({ args }) {
