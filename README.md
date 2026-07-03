@@ -1,113 +1,70 @@
 # noodle
 
-A terminal REST client. Inspect, send, and iterate on HTTP requests from YAML files on disk — inspired by [Bruno](https://github.com/usebruno/bruno).
+A delicious REST client that lives in your terminal.
 
-## Status
+Noodle is an HTTP client, not unlike Postman and Bruno. As a TUI application, it can be used over SSH and enables efficient keyboard-centric workflows. Your requests are stored locally as simple YAML files — easy to read, easy to version control.
 
-v1 feature-complete. Terminal REST client with full request lifecycle: browse, edit, send, save. Keybinding reference (`?`) and Tab-cycle focus between panes. See [Roadmap](#roadmap-to-v1).
+![noodle](assets/noodle-tokyo.png)
 
-## Quick start
+Some notable features include:
+
+- YAML request files — one per request, git-friendly, no lock-in
+- Folder organization with inheritable headers and auth
+- Environments with `$var` substitution
+- Inline editing of every field directly in the terminal
+- Multiple auth types (bearer, basic, API key) and body types (JSON, form data, multipart, binary)
+- Response history with timeline per request
+- Theme picker and flexible layout (stacked / side-by-side)
+- Customizable keybindings
+- Import from OpenAPI 3.0 and Postman collections
+- Copy response body to clipboard
+
+## Installation
 
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
 ```
 
-Flags:
-
-- `--collection <dir>` — collection directory to load (default `./collections`)
-- `--env <name>` — initial environment; loads `environments/<name>.yml` (optional; cycle at runtime with `[`/`]`)
-- `-h, --help`
+## Usage
 
 Requests are `.yml` files, one per request:
 
 ```yml
-name: Get user
-method: GET
-url: http://{{host}}/users/{{id}}
+name: Create Post
+method: POST
+url: $base_url/posts
 headers:
-  Authorization: Bearer {{token}}
-params:
-  id: "42"
+  Content-Type: application/json
+auth:
+  type: bearer
+  token: $api_token
+body_type: json
+body: |-
+  {
+    "title": "hello",
+    "body": "world",
+    "userId": 1
+  }
 ```
 
-Environments are `.yml` files holding `{{var}}` values:
+Environments are `.env` files in `.environments/`:
 
-```yml
-name: development
-vars:
-  host: localhost:3000
-  token: dev-token-123
+```env
+_color=success
+base_url=https://jsonplaceholder.typicode.com
+api_token=dev-token-123
 ```
 
-## What works today
+`$var` values in requests are replaced from the active environment at send time. Cycle environments at runtime with `Ctrl+P`.
 
-- **YAML request language** — `lang.parseRequest` / `serializeRequest`. Strict, typed, preserves `{{var}}` literals.
-- **Filestore** — `loadCollection(dir)` walks a folder of `.yml` files into a `Collection`. `saveRequest(dir, req)` writes one back.
-- **Request execution** — `executor.send(req, env?)` via Bun fetch. `substitute(req, env)` replaces `{{var}}` in url/headers/params/body/auth before fetch. Returns a `Response` for any HTTP status; throws only on transport errors (with `{ cause }`).
-- **Environment loading** — `env.loadEnvironment(dir, name)` reads `environments/<name>.yml`, strict-validated (name, vars, unknown keys rejected; non-string values coerced). Path-traversal-safe.
-- **Environment switching** — footer shows active env name; `[`/`]` cycles all loaded envs at runtime (scanned from `environments/*.yml` at startup). `--env` flag sets the initial env; omitted starts with no env.
-- **CLI args** — `--collection`, `--env`, `--help`.
-- **OpenAPI 3.0 importer** — `openApiImporter.import(spec)` converts an OpenAPI 3.0 spec (JSON or YAML) into a `Collection`, emitting `{{var}}` placeholders for path/query/header params and auth (bearer/basic).
-- **Request pane** — renders full request detail: method (color-coded by verb), url, sorted headers, sorted params, pretty-printed JSON body, and masked auth. Inline editing for url, headers, params, and body via edit-browse mode (`e` to enter, `↑/↓` to navigate fields, `e/Enter` to edit, `Enter` to commit, `Esc` to cancel).
-- **Sidebar** — lists requests from the loaded collection, arrow-key navigation, selection highlight.
-- **Response pane** — renders idle / sending / done / error states. Done state shows status line (color-coded), sorted headers, and pretty-printed JSON body.
-- **Send trigger** — press `s` to send the active (possibly edited) request with the current env.
-- **Save to disk** — press `w` (inactive mode) to persist the current draft to its `.yml` file; confirms overwrite with `[y/N]`. Draft dirty state (`*` in title) clears on successful save.
-- **Focus management** — Tab/Shift+Tab cycles focus between Sidebar, Request Pane, and Response Pane. Focused pane gets a cyan border and `▸` title prefix. Each pane's keyboard handlers are gated on focus; global keys (`s`, `w`, `[`/`]`) always work. Footer shows per-pane hints.
-- **Help overlay** — `?` toggles a centered keybinding cheatsheet (action-grouped: Navigation, Editing, Actions, System). `?` or `Esc` dismisses. Blocked while editing in text inputs.
+## Development
 
-## Roadmap to v1
-
-v1 = a **usable terminal UI**: you can browse a collection, see a request's full detail, edit it inline, send it with an environment, and save changes back to disk.
-
-### 1. Full request detail view ✅
-
-`RequestPane` renders the full request: method (color-coded), url, sorted headers, sorted params, pretty-printed body, and masked auth. Read-only foundation for editing.
-
-### 2. Inline editing of request fields ✅
-
-Edit url, headers, params, and body in-place before send via an edit-browse mode (`e` to enter, `↑/↓` to navigate fields, `e/Enter` to edit, `Enter` to commit, `Esc` to cancel). Body is single-line raw input; multiline deferred. Edits are session-local and preserved per request across sidebar switches.
-
-### 3. Environment indicator + runtime switching ✅
-
-Footer shows the active env name. `[`/`]` cycles all `environments/*.yml` files at runtime without restarting. `--env` sets the initial env; omitted starts with no env.
-
-### 4. Save request changes back to disk ✅
-
-`w` to persist the current draft to its `.yml` file. Confirms with `[y/N]`. Footer flashes success/error feedback. Dirty `*` clears on successful save.
-
-### 5. Focus management between panes ✅
-
-`Tab`/`Shift+Tab` cycles focus between Sidebar, Request Pane, and Response Pane (wrap-around). Focused pane gets a cyan border and `▸` title prefix. Per-pane footer hints. Global keys (`s`, `w`, `[`/`]`) always work. `e` from any pane enters edit-browse and shifts focus to request.
-
-### 6. Help overlay ✅
-
-`?` toggles a keybinding cheatsheet overlay. Lists all keys grouped by action (Navigation, Editing, Actions, System). `Esc` or `?` again dismisses.
-
-### Deferred past v1
-
-- OpenAPI import via UI (CLI-only today)
-- Multi-collection switching
-- Request folders / nesting
-- Response search / filtering
-- Variable scoping per-request
-- `.yaml` extension support (`.yml` only)
-
-## Project layout
-
-```
-src/
-├─ schema/        # Method, Auth, Request, Collection, Response, Environment types
-├─ lang/          # YAML request language: parse + serialize
-├─ filestore/     # loadCollection / saveRequest (disk I/O)
-├─ env/           # loadEnvironment (env file I/O + validation)
-├─ requests/      # executor.send + substitute ({{var}} replacement)
-├─ converters/
-│  └─ openapi/    # OpenAPI 3.0 → Collection importer
-├─ app/           # CLI args, entry point, keymap stub
-└─ ui/            # React components + hooks (Sidebar, RequestPane, ResponsePane, App)
-collections/      # sample request .yml files
-environments/     # sample env .yml files
-tests/            # bun:test suites (356 tests)
+```bash
+bun install
+bun run dev -- --collection ./collections --env development
+bun test
+bun run lint
+bun run typecheck
+bunx prettier --check ./src ./tests
 ```
