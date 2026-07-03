@@ -117,19 +117,22 @@ describe("uiState I/O", () => {
       expect(result).toBeUndefined()
     })
 
-    itOnCI("loadLastRequest returns the lastRequest key when present", async () => {
-      mkdirSync(join(tmpDir, ".noodle"))
-      writeFileSync(
-        join(tmpDir, ".noodle", "ui-state.yml"),
-        "lastRequest: get-posts\n" +
-          "get-posts:\n" +
-          "  request: body\n" +
-          "  response: pretty\n",
-        "utf8",
-      )
-      const result = await loadLastRequest(tmpDir)
-      expect(result).toBe("get-posts")
-    })
+    itOnCI(
+      "loadLastRequest returns the lastRequest key when present",
+      async () => {
+        mkdirSync(join(tmpDir, ".noodle"))
+        writeFileSync(
+          join(tmpDir, ".noodle", "ui-state.yml"),
+          "lastRequest: get-posts\n" +
+            "get-posts:\n" +
+            "  request: body\n" +
+            "  response: pretty\n",
+          "utf8",
+        )
+        const result = await loadLastRequest(tmpDir)
+        expect(result).toBe("get-posts")
+      },
+    )
 
     it("loadLastRequest returns undefined when key is absent", async () => {
       mkdirSync(join(tmpDir, ".noodle"))
@@ -153,70 +156,91 @@ describe("uiState I/O", () => {
       expect(result).toBeUndefined()
     })
 
-    itOnCI("saveLastRequest writes the lastRequest key and preserves existing tab data", async () => {
-      await saveUIState(
-        tmpDir,
-        new Map([
-          ["get-posts", { requestTab: "body", responseTab: "headers" }],
-        ]),
-      )
-      await saveLastRequest(tmpDir, "get-posts")
-      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
-      expect(raw).toContain("lastRequest: get-posts")
-      expect(raw).toContain("get-posts:")
-      expect(raw).toContain("request: body")
-      expect(raw).toContain("response: headers")
-    })
+    itOnCI(
+      "saveLastRequest writes the lastRequest key and preserves existing tab data",
+      async () => {
+        await saveUIState(
+          tmpDir,
+          new Map([
+            ["get-posts", { requestTab: "body", responseTab: "headers" }],
+          ]),
+        )
+        await saveLastRequest(tmpDir, "get-posts")
+        const raw = await Bun.file(
+          join(tmpDir, ".noodle", "ui-state.yml"),
+        ).text()
+        expect(raw).toContain("lastRequest: get-posts")
+        expect(raw).toContain("get-posts:")
+        expect(raw).toContain("request: body")
+        expect(raw).toContain("response: headers")
+      },
+    )
 
-    itOnCI("saveLastRequest creates the directory and file if missing", async () => {
-      await saveLastRequest(tmpDir, "create-post")
-      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
-      expect(raw).toContain("lastRequest: create-post")
-    })
+    itOnCI(
+      "saveLastRequest creates the directory and file if missing",
+      async () => {
+        await saveLastRequest(tmpDir, "create-post")
+        const raw = await Bun.file(
+          join(tmpDir, ".noodle", "ui-state.yml"),
+        ).text()
+        expect(raw).toContain("lastRequest: create-post")
+      },
+    )
 
-    itOnCI("saveUIState removes stale entries when validRequestIds provided", async () => {
-      await saveUIState(
-        tmpDir,
-        new Map([
-          ["a", { requestTab: "auth", responseTab: "timeline" }],
-          ["b", { requestTab: "body", responseTab: "headers" }],
-        ]),
-      )
-      await saveUIState(
-        tmpDir,
-        new Map([["a", { requestTab: "auth", responseTab: "timeline" }]]),
-        new Set(["a"]),
-      )
-      const map = await loadUIState(tmpDir)
-      expect(map.has("a")).toBe(true)
-      expect(map.has("b")).toBe(false)
-    })
+    itOnCI(
+      "saveUIState removes stale entries when validRequestIds provided",
+      async () => {
+        await saveUIState(
+          tmpDir,
+          new Map([
+            ["a", { requestTab: "auth", responseTab: "timeline" }],
+            ["b", { requestTab: "body", responseTab: "headers" }],
+          ]),
+        )
+        await saveUIState(
+          tmpDir,
+          new Map([["a", { requestTab: "auth", responseTab: "timeline" }]]),
+          new Set(["a"]),
+        )
+        const map = await loadUIState(tmpDir)
+        expect(map.has("a")).toBe(true)
+        expect(map.has("b")).toBe(false)
+      },
+    )
 
-    itOnCI("saveLastRequest removes stale entries when validRequestIds provided", async () => {
-      await saveUIState(
-        tmpDir,
-        new Map([
-          ["stale-req", { requestTab: "auth", responseTab: "timeline" }],
-        ]),
-      )
-      await saveLastRequest(tmpDir, "current-req", new Set(["current-req"]))
-      const map = await loadUIState(tmpDir)
-      expect(map.has("stale-req")).toBe(false)
-      const raw = await Bun.file(join(tmpDir, ".noodle", "ui-state.yml")).text()
-      expect(raw).toContain("lastRequest: current-req")
-    })
+    itOnCI(
+      "saveLastRequest removes stale entries when validRequestIds provided",
+      async () => {
+        await saveUIState(
+          tmpDir,
+          new Map([
+            ["stale-req", { requestTab: "auth", responseTab: "timeline" }],
+          ]),
+        )
+        await saveLastRequest(tmpDir, "current-req", new Set(["current-req"]))
+        const map = await loadUIState(tmpDir)
+        expect(map.has("stale-req")).toBe(false)
+        const raw = await Bun.file(
+          join(tmpDir, ".noodle", "ui-state.yml"),
+        ).text()
+        expect(raw).toContain("lastRequest: current-req")
+      },
+    )
 
-    itOnCI("saveLastRequest does not remove lastRequest key during orphan cleanup", async () => {
-      await saveUIState(
-        tmpDir,
-        new Map([
-          ["some-req", { requestTab: "auth", responseTab: "timeline" }],
-        ]),
-      )
-      await saveLastRequest(tmpDir, "some-req", new Set(["some-req"]))
-      const result = await loadLastRequest(tmpDir)
-      expect(result).toBe("some-req")
-    })
+    itOnCI(
+      "saveLastRequest does not remove lastRequest key during orphan cleanup",
+      async () => {
+        await saveUIState(
+          tmpDir,
+          new Map([
+            ["some-req", { requestTab: "auth", responseTab: "timeline" }],
+          ]),
+        )
+        await saveLastRequest(tmpDir, "some-req", new Set(["some-req"]))
+        const result = await loadLastRequest(tmpDir)
+        expect(result).toBe("some-req")
+      },
+    )
   })
 
   describe("expandedFolders", () => {
@@ -225,20 +249,26 @@ describe("uiState I/O", () => {
       expect(result.size).toBe(0)
     })
 
-    itOnCI("saveExpandedFolders and loadExpandedFolders round-trips", async () => {
-      const folders = new Set(["auth", "users", "users/admins"])
-      await saveExpandedFolders(tmpDir, folders)
-      const result = await loadExpandedFolders(tmpDir)
-      expect(result).toEqual(folders)
-    })
+    itOnCI(
+      "saveExpandedFolders and loadExpandedFolders round-trips",
+      async () => {
+        const folders = new Set(["auth", "users", "users/admins"])
+        await saveExpandedFolders(tmpDir, folders)
+        const result = await loadExpandedFolders(tmpDir)
+        expect(result).toEqual(folders)
+      },
+    )
 
-    itOnCI("saveExpandedFolders updates existing set to smaller set", async () => {
-      await saveExpandedFolders(tmpDir, new Set(["a", "b", "c"]))
-      await saveExpandedFolders(tmpDir, new Set(["a"]))
-      const result = await loadExpandedFolders(tmpDir)
-      expect(result.size).toBe(1)
-      expect(result.has("a")).toBe(true)
-    })
+    itOnCI(
+      "saveExpandedFolders updates existing set to smaller set",
+      async () => {
+        await saveExpandedFolders(tmpDir, new Set(["a", "b", "c"]))
+        await saveExpandedFolders(tmpDir, new Set(["a"]))
+        const result = await loadExpandedFolders(tmpDir)
+        expect(result.size).toBe(1)
+        expect(result.has("a")).toBe(true)
+      },
+    )
 
     itOnCI("saveExpandedFolders creates directory if missing", async () => {
       const deep = join(tmpDir, "a", "b", "c")
