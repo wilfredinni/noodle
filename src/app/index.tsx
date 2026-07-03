@@ -37,11 +37,11 @@ if (args.help) {
 
 if (args.source) {
   const { runImport } = await import("./import")
-  await runImport(
-    args.source,
-    args.importFormat,
-    args.outputDir ?? args.collectionDir,
-  )
+  await runImport({
+    source: args.source,
+    format: args.importFormat,
+    outputDir: args.outputDir ?? args.collectionDir,
+  })
   process.exit(0)
 }
 

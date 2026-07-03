@@ -49,11 +49,14 @@ async function writeCollection(
   }
 }
 
-export async function runImport(
-  source: string,
-  format: string | undefined,
-  outputDir: string,
-): Promise<void> {
+export interface ImportOptions {
+  source: string
+  format?: string
+  outputDir?: string
+}
+
+export async function runImport(options: ImportOptions): Promise<void> {
+  const { source, format, outputDir = "./collections" } = options
   let content: string
   try {
     content = readFileSync(source, "utf-8")
