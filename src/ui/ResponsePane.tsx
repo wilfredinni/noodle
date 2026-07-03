@@ -29,7 +29,6 @@ export function ResponsePane({
   initialTab,
   onTabChange,
   expandHint,
-  copyBodyHint,
 }: {
   state: SendState
   focused?: boolean
@@ -37,7 +36,6 @@ export function ResponsePane({
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   expandHint?: string
-  copyBodyHint?: string
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
@@ -127,9 +125,7 @@ export function ResponsePane({
   ) : undefined
 
   const footerLeft = focused ? (
-    <text fg={theme.primary}>
-      {expandHint}{copyBodyHint ? `  ${copyBodyHint}` : ""}
-    </text>
+    <text fg={theme.primary}>{expandHint}</text>
   ) : undefined
 
   const footerRight = isDone ? (

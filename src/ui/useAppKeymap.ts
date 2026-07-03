@@ -211,15 +211,22 @@ export function useAppKeymap(
       {
         name: "response.copy-body",
         enabled: () => {
-          const f = keymap.getData("app.focus")
-          if (f !== "response") return false
           const s = refs.responseStateRef.current
           return s?.status === "done"
         },
         run: () => {
           const s = refs.responseStateRef.current
           if (s?.status !== "done") return
-          renderer.copyToClipboardOSC52(s.response.body)
+          const body = s.response.body
+          const tmp = `/tmp/noodle-copy-${Date.now()}`
+          try {
+            Bun.write(tmp, body)
+            Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])
+          } catch {
+            renderer.copyToClipboardOSC52(body)
+          } finally {
+            try { Bun.spawnSync(["rm", "-f", tmp]) } catch {}
+          }
           showToast("Response body copied", "success")
         },
       },
