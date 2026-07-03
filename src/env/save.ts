@@ -1,4 +1,4 @@
-import { writeFile, rename } from "node:fs/promises"
+import { writeFile, rename, mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { randomUUID } from "node:crypto"
 import type { Environment } from "../schema"
@@ -41,6 +41,8 @@ export async function saveEnvironment(
   }
 
   lines.push("")
+
+  await mkdir(dir, { recursive: true })
 
   const filePath = join(dir, `${env.name}.env`)
   const tmpPath = join(dir, `.${env.name}.${randomUUID()}.tmp`)
