@@ -53,6 +53,20 @@ api_token=dev-token-123
 
 `$var` values in requests are replaced from the active environment at send time. Cycle environments at runtime with `Ctrl+P`.
 
+## Importing collections
+
+Import requests from OpenAPI 3.0 specs or Postman collections:
+
+```bash
+bun run dev -- --source ./specs/api.yaml
+```
+
+By default the imported collection is written to the `--collection` directory. Use `--output` to set a custom destination:
+
+```bash
+bun run dev -- --source ./specs/api.yaml --output ./my-collection
+```
+
 ## Development
 
 ```bash
