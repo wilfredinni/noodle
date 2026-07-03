@@ -190,27 +190,29 @@ App (src/ui/App.tsx)
 
 ## CLI flow
 
-`src/app/index.tsx` — single entry point:
+`src/app/cli.ts` — citty main entry with subcommands:
 ```
-parseArgs(argv) → ParsedArgs
+createMain(main) — citty argparse
   │
-  ├── [if --source] runImport() → exit
+  ├── "noodle" (default) → commands/default.ts
+  │     ├── --collection/-c (default: ./collections)
+  │     ├── --env/-e
+  │     └── run() → bootstrap(options) in main.tsx
   │
-  └── [normal mode]
-      ├── listEnvironments(collectionDir/.environments)
-      ├── Validate --env flag
-      ├── loadSettings() → settingsEnv from settings.yml
-      ├── loadLastRequest() from .noodle/last-request
-      ├── Read ~/.config/noodle/keybinds.yml, parseOverrides()
-      ├── createCliRenderer({ exitOnCtrlC: false })
-      ├── createNoodleKeymap(renderer)
-      ├── Ctrl+C handler: copy selection → quit
-      └── createRoot(renderer).render(<App ...props />)
+  └── "import" → commands/import.ts
+        ├── source (positional, required)
+        ├── --format/-i (auto-detect if omitted)
+        ├── --output/-o (default: ./collections)
+        └── run() → lazy-load importers, runImport(options)
 ```
 
-**Args parsing** (`src/app/args.ts`): Manual loop over `argv`. Each flag supports `--flag value` and `--flag=value`. Unknown flags throw `Error("args: unknown flag ...")`. No positional args allowed.
+**Bootstrap** (`src/app/main.tsx`): Extracted `bootstrap()` function that:
+- Lists environments, validates `--env` flag
+- Loads settings, last request, keybind overrides
+- Creates renderer, keymap, Ctrl+C handler
+- Mounts root React component
 
-**Import mode** (`src/app/import.ts`): Runs when `--source` present. Registers importers (`openapi`, `postman`), detects format, calls `convert()`, writes output to collection dir. Exits without starting UI.
+**Import mode** (`src/app/import.ts`): Called via `import` subcommand. Lazy-loads importers on first call (reduces startup cost). Detects format, converts, writes output.
 
 **Config files** (read during startup):
 - `~/.config/noodle/keybinds.yml` — user keybinding overrides
@@ -260,7 +262,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Environments | `src/env/load.ts`, `src/env/save.ts` |
 | HTTP execution | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts` |
 | Hooks | `src/hooks/*.ts` |
-| CLI | `src/app/index.tsx` (entry), `src/app/args.ts` (flags), `src/app/import.ts` (import mode) |
+| CLI | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` (import cmd), `src/app/import.ts` (importer logic) |
 | UI entry | `src/ui/App.tsx`, `src/ui/AppInner.tsx` |
 | Focus | `src/ui/focus.ts` |
 | Keybindings | `src/ui/keybind.ts`, `src/ui/useAppKeymap.ts` |

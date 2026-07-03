@@ -220,21 +220,19 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 ## Add a new CLI flag
 
 **Locate:**
-- `src/app/args.ts` — `ParsedArgs` interface + `parseArgs()` manual parser
-- `src/app/index.tsx:1-138` — CLI entry: parses args, loads resources, mounts renderer
-- `src/app/import.ts` — import-mode handler (runs when `--source` set)
+- `src/app/commands/default.ts` — citty `defineCommand` for TUI mode (args + run handler)
+- `src/app/commands/import.ts` — citty `defineCommand` for import subcommand
+- `src/app/cli.ts` — main entry, defines subcommands
+- `src/app/main.tsx` — `bootstrap()` function, wires flags into app
 
-**Follow:** Each flag supports both `--flag value` and `--flag=value` forms. Unknown flags and missing values throw `new Error("args: ...")`. Help flag is `-h`/`--help`.
+**Follow:** Flags are typed citty args. Each arg is a property in `args:` object with `type`, `alias`, `default`, `description`. Positional args use `type: "positional"` + `required: true`.
 
 **Implement:**
-1. Add field to `ParsedArgs` interface in `args.ts`
-2. Add parsing block in `parseArgs()` — handle `--flag` (next arg) and `--flag=` forms, validate value presence, error on empty
-3. Add to `return` statement in `parseArgs()` — provide sensible default
-4. In `src/app/index.tsx` — read new field from parsed args, wire into app
-5. If flag affects startup: add logic in `index.tsx` after `parseArgs()` call
-6. If flag adds import mode: add to `--source` + `--import` guard in `index.tsx` + handler in `import.ts`
-7. If flag for help text: update `printHelp()` in `index.tsx`
+1. Add arg to the appropriate `defineCommand()` command definition
+2. For startup flags: pass to `bootstrap()` in command's `run()` handler
+3. Wire into app via `BootstrapOptions` in `src/app/main.tsx`
+4. If flag affects subcommand behavior: use in command's `run()` handler directly
 
-**Test:** Add test in `tests/args.test.ts` (or create). Test: flag present/absent, `--flag=value`, missing value throws, unknown flag throws.
+**Test:** Add test in `tests/cli.test.ts`. Test command definition types and integration via `Bun.spawnSync`.
 
-**Verify:** `bun test tests/args.test.ts && bun run lint && bun run typecheck`
+**Verify:** `bun test tests/cli.test.ts && bun run lint && bun run typecheck`
