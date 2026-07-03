@@ -16,30 +16,10 @@ import type {
   Environment,
   FormEntry,
   KvEntry,
-  Method,
   Request,
 } from "../../schema"
 import type { ImportResult } from "../index"
-
-export type { ImportResult }
-
-const METHOD_UPPER: Record<string, Method> = {
-  get: "GET",
-  post: "POST",
-  put: "PUT",
-  patch: "PATCH",
-  delete: "DELETE",
-  head: "HEAD",
-  options: "OPTIONS",
-}
-
-export function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-")
-}
+import { slugify, METHOD_UPPER } from "../shared"
 
 export function convertTpl(s: string): string {
   return s.replace(/\{\{(\$?[\w.-]+)\}\}/g, "$$$1")
@@ -221,15 +201,24 @@ function mapUrl(
   return "$base_url"
 }
 
+function uniqueId(candidate: string, usedIds: Set<string>): string {
+  if (!usedIds.has(candidate)) return candidate
+  let n = 2
+  while (usedIds.has(`${candidate}-${n}`)) n++
+  return `${candidate}-${n}`
+}
+
 function mapRequest(
   item: Item,
   parentPath: string,
   index: number,
+  usedIds: Set<string>,
 ): Request {
   const req = item.request
   if (!req) {
+    const id = uniqueId(`${parentPath}unknown-${index}`, usedIds)
     return {
-      id: `${parentPath}unknown-${index}`,
+      id,
       name: item.name,
       method: "GET",
       url: "$base_url",
@@ -250,7 +239,8 @@ function mapRequest(
   const rawId = slugify(
     `${method}-${item.name}`,
   )
-  const id = `${parentPath}${rawId || `request-${index}`}`
+  const id = uniqueId(`${parentPath}${rawId || `request-${index}`}`, usedIds)
+  usedIds.add(id)
 
   return {
     id,
@@ -268,6 +258,7 @@ function mapRequest(
 function mapItems(
   items: PropertyList<Item | ItemGroup> | undefined,
   parentPath: string,
+  usedIds: Set<string>,
 ): CollectionItem[] {
   if (!items) return []
   const result: CollectionItem[] = []
@@ -279,7 +270,9 @@ function mapItems(
     const itemGroup = item as ItemGroup
     if (itemGroup.items) {
       const name = itemGroup.name
-      const folderId = slugify(name) || `folder-${idx}`
+      const rawFolderId = slugify(name) || `folder-${idx}`
+      const folderId = uniqueId(rawFolderId, usedIds)
+      usedIds.add(folderId)
       const path = `${parentPath}${folderId}/`
 
       const auth = (itemGroup as { auth?: AuthMember }).auth
@@ -292,14 +285,14 @@ function mapItems(
           name,
           path: folderId,
           overrides,
-          children: mapItems(itemGroup.items, path),
+          children: mapItems(itemGroup.items, path, usedIds),
         },
       })
     } else {
       const reqItem = item as Item
       result.push({
         type: "request",
-        data: mapRequest(reqItem, parentPath, idx),
+        data: mapRequest(reqItem, parentPath, idx, usedIds),
       })
     }
   })
@@ -311,7 +304,7 @@ export function mapCollection(col: Collection): ImportResult {
   const name = col.name || "postman-import"
   const collectionId = slugify(name)
 
-  const rootItems = mapItems(col.items, "")
+  const rootItems = mapItems(col.items, "", new Set<string>())
 
   const envVars: Record<string, string> = {}
   try {

@@ -11,6 +11,3 @@ export const postmanImporter = {
     return mapCollection(col)
   },
 }
-
-export { detectPostman } from "./detect"
-export { mapCollection, convertTpl, slugify } from "./map"

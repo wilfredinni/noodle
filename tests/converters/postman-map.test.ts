@@ -374,3 +374,130 @@ describe("mapCollection — collection variables", () => {
     expect(result.environments.length).toBe(0)
   })
 })
+
+describe("mapCollection — edge cases", () => {
+  it("generates unique IDs for requests with the same name", () => {
+    const result = makeCollection({
+      info: { name: "Dedup" },
+      item: [
+        {
+          name: "Users",
+          request: { method: "GET", url: "http://example.com/users", header: [] },
+        },
+        {
+          name: "Users",
+          request: { method: "GET", url: "http://example.com/users/2", header: [] },
+        },
+      ],
+    })
+    const all = reqs(result) as Record<string, unknown>[]
+    expect(all.length).toBe(2)
+    const ids = all.map((r) => r.id)
+    expect(ids[0]).toBe("get-users")
+    expect(ids[1]).toBe("get-users-2")
+  })
+
+  it("generates unique IDs for folders with the same name", () => {
+    const result = makeCollection({
+      info: { name: "DedupFolders" },
+      item: [
+        {
+          name: "v1",
+          item: [
+            {
+              name: "Ping",
+              request: { method: "GET", url: "http://example.com/ping", header: [] },
+            },
+          ],
+        },
+        {
+          name: "v1",
+          item: [
+            {
+              name: "Pong",
+              request: { method: "GET", url: "http://example.com/pong", header: [] },
+            },
+          ],
+        },
+      ],
+    })
+    const folders = result.collection.items.filter((i) => i.type === "folder")
+    expect(folders.length).toBe(2)
+    expect((folders[0].data as { id: string }).id).toBe("v1")
+    expect((folders[1].data as { id: string }).id).toBe("v1-2")
+  })
+
+  it("falls back to $base_url when request has no URL", () => {
+    const result = makeCollection({
+      info: { name: "NoUrl" },
+      item: [
+        {
+          name: "No URL Req",
+          request: { method: "GET", header: [] },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.url).toBe("$base_url")
+  })
+
+  it("falls back to $base_url when request url is undefined", () => {
+    const result = makeCollection({
+      info: { name: "NoUrl2" },
+      item: [
+        {
+          name: "Missing Url",
+          request: { method: "POST" },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.url).toBe("$base_url")
+  })
+
+  it("maps folder-level auth override", () => {
+    const result = makeCollection({
+      info: { name: "FolderAuth" },
+      item: [
+        {
+          name: "Protected",
+          auth: { type: "bearer", bearer: [{ key: "token", value: "{{folderToken}}", type: "string" }] },
+          item: [
+            {
+              name: "Inner",
+              request: { method: "GET", url: "http://example.com", header: [] },
+            },
+          ],
+        },
+      ],
+    })
+    const folders = result.collection.items.filter((i) => i.type === "folder")
+    expect(folders.length).toBe(1)
+    const overrides = (folders[0].data as { overrides?: { auth?: unknown } }).overrides
+    expect(overrides).toBeDefined()
+    expect(overrides!.auth).toEqual({ type: "bearer", token: "$folderToken" })
+  })
+
+  it("ignores unknown body mode (graphql)", () => {
+    const result = makeCollection({
+      info: { name: "UnknownBody" },
+      item: [
+        {
+          name: "GraphQL Req",
+          request: {
+            method: "POST",
+            url: "http://example.com/graphql",
+            header: [],
+            body: {
+              mode: "graphql",
+              graphql: { query: "query { users }" },
+            },
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.body).toBeUndefined()
+    expect(r.bodyType).toBeUndefined()
+  })
+})
