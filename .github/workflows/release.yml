@@ -11,7 +11,21 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - run: gh release view "$TAG" &>/dev/null || gh release create "$TAG" --title "$TAG" --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+
   build:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +52,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - run: bun build --compile src/app/cli.ts --outfile noodle-${{ matrix.target }}
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: noodle-${{ matrix.target }}
+      - run: gh release upload "$TAG" noodle-${{ matrix.target }} --clobber
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.create-release.outputs.tag }}
