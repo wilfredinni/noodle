@@ -42,7 +42,7 @@ export function slugify(s: string): string {
 }
 
 export function convertTpl(s: string): string {
-  return s.replace(/\{\{(\$?\w+)\}\}/g, "$$$1")
+  return s.replace(/\{\{(\$?[\w.-]+)\}\}/g, "$$$1")
 }
 
 function extractAuthParams(

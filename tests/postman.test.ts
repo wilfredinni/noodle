@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { postmanImporter } from "../src/converters/postman/index"
 import type { Request, Collection, CollectionItem } from "../src/schema"
 
-const takaPath = join(import.meta.dir, "..", "TakaTaka.json")
+const takaPath = join(import.meta.dir, "fixtures", "TakaTaka.json")
 const content = readFileSync(takaPath, "utf-8")
 
 function reqs(result: { collection: Collection }): Request[] {

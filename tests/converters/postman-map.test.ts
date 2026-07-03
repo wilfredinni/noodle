@@ -36,6 +36,14 @@ describe("convertTpl", () => {
     expect(convertTpl("{{$randomInt}}")).toBe("$$randomInt")
   })
 
+  it("converts hyphenated variable names", () => {
+    expect(convertTpl("{{my-api-key}}")).toBe("$my-api-key")
+  })
+
+  it("converts dotted variable names", () => {
+    expect(convertTpl("{{user.id}}")).toBe("$user.id")
+  })
+
   it("does not modify strings without templates", () => {
     expect(convertTpl("http://example.com/api")).toBe("http://example.com/api")
   })
