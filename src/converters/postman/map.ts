@@ -42,7 +42,7 @@ export function slugify(s: string): string {
 }
 
 export function convertTpl(s: string): string {
-  return s.replace(/\{\{(\w+)\}\}/g, "$$$1")
+  return s.replace(/\{\{(\$?\w+)\}\}/g, "$$$1")
 }
 
 function extractAuthParams(
@@ -308,7 +308,7 @@ function mapItems(
 }
 
 export function mapCollection(col: Collection): ImportResult {
-  const name = col.info.name || "postman-import"
+  const name = col.name || "postman-import"
   const collectionId = slugify(name)
 
   const rootItems = mapItems(col.items, "")

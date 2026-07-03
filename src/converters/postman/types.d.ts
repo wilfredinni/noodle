@@ -83,6 +83,7 @@ declare module "postman-collection" {
   }
 
   interface Collection {
+    name: string
     info: { name: string; schema?: string; description?: string }
     items: PropertyList<Item | ItemGroup>
     variables: VariableList
