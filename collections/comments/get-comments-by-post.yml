@@ -1,0 +1,7 @@
+name: Get Comments by Post
+method: GET
+url: $base_url/comments?postId=$post_id
+body_type: none
+timeout: 0
+followRedirects: true
+maxRedirects: 5

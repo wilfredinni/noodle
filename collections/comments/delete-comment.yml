@@ -1,0 +1,7 @@
+name: Delete Comment
+method: DELETE
+url: $base_url/comments/1
+body_type: none
+timeout: 0
+followRedirects: true
+maxRedirects: 5

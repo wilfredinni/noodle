@@ -1,0 +1,7 @@
+name: Get Photos by Album
+method: GET
+url: $base_url/photos?albumId=1
+body_type: none
+timeout: 0
+followRedirects: true
+maxRedirects: 5

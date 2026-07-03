@@ -1,0 +1,7 @@
+name: Delete Album
+method: DELETE
+url: $base_url/albums/1
+body_type: none
+timeout: 0
+followRedirects: true
+maxRedirects: 5

@@ -1,0 +1,14 @@
+name: Create Album
+method: POST
+url: $base_url/albums
+body_type: json
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+headers:
+  Content-Type: application/json
+body: |-
+  {
+    "title": "my album",
+    "userId": 1
+  }

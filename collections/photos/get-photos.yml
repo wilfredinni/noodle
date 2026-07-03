@@ -1,0 +1,7 @@
+name: Get Photos
+method: GET
+url: $base_url/photos
+body_type: none
+timeout: 0
+followRedirects: true
+maxRedirects: 5

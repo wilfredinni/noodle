@@ -1,0 +1,16 @@
+name: Create Photo
+method: POST
+url: $base_url/photos
+body_type: json
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+headers:
+  Content-Type: application/json
+body: |-
+  {
+    "albumId": 1,
+    "title": "my photo",
+    "url": "https://via.placeholder.com/600/92c952",
+    "thumbnailUrl": "https://via.placeholder.com/150/92c952"
+  }
