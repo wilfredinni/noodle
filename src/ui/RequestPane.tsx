@@ -137,7 +137,7 @@ export function RequestPane({
         flexGrow: 1,
         flexDirection: "column",
         paddingTop: 0,
-        paddingBottom: 1,
+        paddingBottom: 0,
         paddingLeft: 1,
         paddingRight: 1,
         gap: 1,

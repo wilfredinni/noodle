@@ -57,7 +57,10 @@ export function Sidebar({
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
-        padding: 1,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 1,
+        paddingRight: 1,
         gap: 1,
       }}
       border={[...FullBorder.border]}
