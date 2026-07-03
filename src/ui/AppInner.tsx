@@ -1060,6 +1060,7 @@ export function AppInner({
                       {expanded !== "response" && (
                         <RequestPane
                           request={draft.draft}
+                          error={error}
                           editState={eb.editState}
                           editKey={eb.editKey}
                           editValue={eb.editValue}
@@ -1091,6 +1092,7 @@ export function AppInner({
                       {expanded !== "response" && (
                         <RequestPane
                           request={draft.draft}
+                          error={error}
                           editState={eb.editState}
                           editKey={eb.editKey}
                           editValue={eb.editValue}
