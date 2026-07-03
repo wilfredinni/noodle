@@ -71,11 +71,25 @@ export function Sidebar({
       titleAlignment="left"
     >
       {loading ? (
-        <text fg={theme.textMuted}>Loading...</text>
-      ) : error ? (
-        <text fg={theme.textMuted}>Error: {error.message}</text>
-      ) : visibleItems.length === 0 ? (
-        <text fg={theme.textMuted}>(empty)</text>
+        <box
+          style={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <text fg={theme.textMuted}>Loading...</text>
+        </box>
+      ) : error || visibleItems.length === 0 ? (
+        <box
+          style={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <text fg={theme.textMuted}>empty</text>
+        </box>
       ) : (
         <scrollbox
           ref={scrollRef}

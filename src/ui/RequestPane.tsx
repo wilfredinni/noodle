@@ -8,6 +8,7 @@ import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 
+import { CenterText } from "./CenterText"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import type { Theme } from "./theme"
@@ -24,6 +25,7 @@ import type { BodyType } from "../schema"
 
 interface Props {
   request: Request | null
+  error?: Error | null
   editState: EditState
   editKey: string
   editValue: string
@@ -49,6 +51,7 @@ const BASE_TAB_DEFS: TabDef[] = [
 
 export function RequestPane({
   request,
+  error,
   editState,
   editKey,
   editValue,
@@ -239,8 +242,38 @@ export function RequestPane({
             </scrollbox>
           </Tabs>
         </>
+      ) : error ? (
+        <box
+          style={{
+            flexGrow: 1,
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingLeft: 4,
+            paddingRight: 4,
+          }}
+        >
+          <CenterText
+            segments={[
+              { text: "No collection found", color: theme.text },
+              { text: " ", color: theme.textMuted },
+              {
+                text: "use --collection <dir> or create the default directory",
+                color: theme.textMuted,
+              },
+            ]}
+          />
+        </box>
       ) : (
-        <text fg={theme.textMuted}>(no request selected)</text>
+        <box
+          style={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <text fg={theme.textMuted}>empty</text>
+        </box>
       )}
     </box>
   )

@@ -73,7 +73,15 @@ export function UrlBar({
       borderColor={focused ? theme.primary : theme.borderSubtle}
     >
       {!displayUrl ? (
-        <text fg={theme.text}>(no request selected)</text>
+        <box
+          style={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <text fg={theme.textMuted}>no request selected</text>
+        </box>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
           <Badge
