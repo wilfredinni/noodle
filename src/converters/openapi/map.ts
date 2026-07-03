@@ -314,8 +314,7 @@ export function mapCollection(n: Normalized): ImportResult {
       const params: Record<string, KvEntry> = {}
       for (const p of collected) {
         const val = p.default ?? ""
-        if (p.in === "query")
-          params[p.name] = { value: val, enabled: true }
+        if (p.in === "query") params[p.name] = { value: val, enabled: true }
         else if (p.in === "header")
           headers[p.name] = { value: val, enabled: true }
       }

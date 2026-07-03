@@ -17,5 +17,3 @@ export function slugify(s: string): string {
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-")
 }
-
-

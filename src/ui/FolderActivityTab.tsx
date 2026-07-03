@@ -62,10 +62,11 @@ export function FolderActivityTab({
   }
 
   const widths = (() => {
-    const method = Math.max(
-      ...stats.requests.map((r) => shortMethod(r.method).length),
-      "Method".length,
-    ) + 1
+    const method =
+      Math.max(
+        ...stats.requests.map((r) => shortMethod(r.method).length),
+        "Method".length,
+      ) + 1
     const name = Math.min(
       Math.max(...stats.requests.map((r) => r.name.length), "Name".length),
       20,
@@ -84,7 +85,8 @@ export function FolderActivityTab({
     )
     const last = Math.max(
       ...stats.requests.map((r) => {
-        const lastSent = r.lastSent !== null ? relativeTime(r.lastSent) : "\u2014"
+        const lastSent =
+          r.lastSent !== null ? relativeTime(r.lastSent) : "\u2014"
         const calls = r.callCount > 0 ? `${r.callCount}c \u00B7 ` : ""
         return `${calls}${lastSent}`.length
       }),
@@ -99,31 +101,46 @@ export function FolderActivityTab({
         Activity stats for requests inside this folder.
       </text>
 
-      <box style={{ flexDirection: "row", justifyContent: "space-between", paddingBottom: 0 }}
+      <box
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingBottom: 0,
+        }}
         border={["bottom"]}
         borderColor={theme.borderSubtle}
       >
-        <text fg={theme.textMuted} wrapMode="none"
+        <text
+          fg={theme.textMuted}
+          wrapMode="none"
           style={{ flexShrink: 0, minWidth: widths.method }}
         >
           {"Method".padEnd(widths.method)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none"
+        <text
+          fg={theme.textMuted}
+          wrapMode="none"
           style={{ flexShrink: 1, minWidth: widths.name }}
         >
           {"Name".padEnd(widths.name)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none"
+        <text
+          fg={theme.textMuted}
+          wrapMode="none"
           style={{ flexShrink: 0, minWidth: widths.ok }}
         >
           {"OK%".padStart(widths.ok)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none"
+        <text
+          fg={theme.textMuted}
+          wrapMode="none"
           style={{ flexShrink: 0, minWidth: widths.avg }}
         >
           {"Avg".padStart(widths.avg)}
         </text>
-        <text fg={theme.textMuted} wrapMode="none"
+        <text
+          fg={theme.textMuted}
+          wrapMode="none"
           style={{ flexShrink: 0, minWidth: widths.last }}
         >
           {"Last".padEnd(widths.last)}
@@ -142,48 +159,55 @@ export function FolderActivityTab({
 
         const lastSentText =
           r.lastSent !== null ? relativeTime(r.lastSent) : "\u2014"
-        const callsText =
-          r.callCount > 0 ? `${r.callCount}c \u00B7 ` : ""
+        const callsText = r.callCount > 0 ? `${r.callCount}c \u00B7 ` : ""
 
         const method = shortMethod(r.method).padEnd(widths.method)
         const name = nameColumn(r.name, widths.name).padEnd(widths.name)
-        const okPct = r.successRate !== null
-          ? pct(r.successRate).padStart(widths.ok)
-          : "\u2014".padStart(widths.ok)
-        const avgTime = r.avgTimeMs !== null
-          ? ms(r.avgTimeMs).padStart(widths.avg)
-          : "\u2014".padStart(widths.avg)
+        const okPct =
+          r.successRate !== null
+            ? pct(r.successRate).padStart(widths.ok)
+            : "\u2014".padStart(widths.ok)
+        const avgTime =
+          r.avgTimeMs !== null
+            ? ms(r.avgTimeMs).padStart(widths.avg)
+            : "\u2014".padStart(widths.avg)
         const last = `${callsText}${lastSentText}`
 
         return (
-          <box key={r.id}
+          <box
+            key={r.id}
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
-            <text fg={methodColor(r.method, theme)}
+            <text
+              fg={methodColor(r.method, theme)}
               wrapMode="none"
               style={{ flexShrink: 0, minWidth: widths.method }}
             >
               {method}
             </text>
-            <text fg={r.callCount > 0 ? theme.text : theme.textMuted}
+            <text
+              fg={r.callCount > 0 ? theme.text : theme.textMuted}
               wrapMode="none"
               style={{ flexShrink: 1, minWidth: widths.name }}
             >
               {name}
             </text>
-            <text fg={statusColor}
+            <text
+              fg={statusColor}
               wrapMode="none"
               style={{ flexShrink: 0, minWidth: widths.ok }}
             >
               {okPct}
             </text>
-            <text fg={r.avgTimeMs !== null ? theme.text : theme.textMuted}
+            <text
+              fg={r.avgTimeMs !== null ? theme.text : theme.textMuted}
               wrapMode="none"
               style={{ flexShrink: 0, minWidth: widths.avg }}
             >
               {avgTime}
             </text>
-            <text fg={theme.textMuted}
+            <text
+              fg={theme.textMuted}
               wrapMode="none"
               style={{ flexShrink: 0, minWidth: widths.last }}
             >

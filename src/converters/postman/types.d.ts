@@ -31,7 +31,11 @@ declare module "postman-collection" {
   interface BodyMember {
     mode: string
     raw?: string
-    urlencoded?: PropertyList<{ key: string; value: string; disabled?: boolean }>
+    urlencoded?: PropertyList<{
+      key: string
+      value: string
+      disabled?: boolean
+    }>
     formdata?: PropertyList<FormParam>
     options?: { raw?: { language?: string } }
   }

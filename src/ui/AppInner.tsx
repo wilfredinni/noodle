@@ -398,7 +398,10 @@ export function AppInner({
           setSelectedId(id)
           setNewRequestVisible(false)
           setFocus("sidebar")
-          setSaveState({ kind: "success", message: `Successfully created ${name}` })
+          setSaveState({
+            kind: "success",
+            message: `Successfully created ${name}`,
+          })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -449,7 +452,10 @@ export function AppInner({
           setSelectedId(id)
           const lastSlash = id.lastIndexOf("/")
           if (lastSlash >= 0) expandFolder(id.slice(0, lastSlash))
-          setSaveState({ kind: "success", message: `Successfully created ${newName}` })
+          setSaveState({
+            kind: "success",
+            message: `Successfully created ${newName}`,
+          })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -497,7 +503,10 @@ export function AppInner({
           setCollectionReloadToken((n) => n + 1)
           setNewFolderVisible(false)
           setFocus("sidebar")
-          setSaveState({ kind: "success", message: `Successfully created folder ${name}` })
+          setSaveState({
+            kind: "success",
+            message: `Successfully created folder ${name}`,
+          })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -532,7 +541,10 @@ export function AppInner({
         setCollectionReloadToken((n) => n + 1)
         setFolderDeletePending(null)
         setFocus("sidebar")
-        setSaveState({ kind: "success", message: `Successfully deleted folder ${path}` })
+        setSaveState({
+          kind: "success",
+          message: `Successfully deleted folder ${path}`,
+        })
         clearSaveTimer()
         saveTimerRef.current = setTimeout(() => {
           setSaveState({ kind: "idle" })
@@ -601,7 +613,10 @@ export function AppInner({
           setEditRequestVisible(false)
           setFocus("sidebar")
           if (newFolder) expandFolder(newFolder)
-          setSaveState({ kind: "success", message: `Successfully edited ${name}` })
+          setSaveState({
+            kind: "success",
+            message: `Successfully edited ${name}`,
+          })
           clearSaveTimer()
           saveTimerRef.current = setTimeout(() => {
             setSaveState({ kind: "idle" })
@@ -637,7 +652,10 @@ export function AppInner({
         setCollectionReloadToken((n) => n + 1)
         setRequestDeletePending(null)
         setFocus("sidebar")
-        setSaveState({ kind: "success", message: `Successfully deleted ${req.name}` })
+        setSaveState({
+          kind: "success",
+          message: `Successfully deleted ${req.name}`,
+        })
         clearSaveTimer()
         saveTimerRef.current = setTimeout(() => {
           setSaveState({ kind: "idle" })
@@ -955,7 +973,6 @@ export function AppInner({
     () => `${displayKey(keybinds.pane_expand)} expand`,
     [keybinds.pane_expand],
   )
-
 
   // ── Render ─────────────────────────────────────────────────────────
   return (

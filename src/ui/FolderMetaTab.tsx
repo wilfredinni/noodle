@@ -41,9 +41,7 @@ export function FolderMetaTab({
 
   return (
     <box style={{ flexDirection: "column", gap: 1, padding: 1 }}>
-      <text fg={theme.textMuted}>
-        Edit folder metadata.
-      </text>
+      <text fg={theme.textMuted}>Edit folder metadata.</text>
       <box
         border={[...LeftBar.border]}
         customBorderChars={LeftBar.customBorderChars}

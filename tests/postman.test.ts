@@ -42,7 +42,9 @@ describe("postmanImporter — TakaTaka.json integration", () => {
       (i: { type: string }) => i.type === "folder",
     )
     expect(folders.length).toBe(1)
-    expect((folders[0] as { type: "folder"; data: { name: string } }).data.name).toBe("v1")
+    expect(
+      (folders[0] as { type: "folder"; data: { name: string } }).data.name,
+    ).toBe("v1")
   })
 
   it("all requests have correct HTTP methods", () => {

@@ -116,8 +116,6 @@ export function StatusBar(input: {
   const theme = useTheme()
   const sections = statusBarText(input)
 
-  const sk = input.saveState.kind
-
   const rightSegments = sections.right.split(" · ").map((seg) => {
     const s = seg.replace(/[[\]]/g, "")
     const sp = s.indexOf(" ")

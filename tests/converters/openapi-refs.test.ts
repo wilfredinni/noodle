@@ -10,9 +10,7 @@ describe("$ref resolution in parseSpec", () => {
         "/pets": {
           get: {
             operationId: "listPets",
-            parameters: [
-              { $ref: "#/components/parameters/Limit" },
-            ],
+            parameters: [{ $ref: "#/components/parameters/Limit" }],
           },
         },
       },
@@ -23,7 +21,10 @@ describe("$ref resolution in parseSpec", () => {
       },
     }
     const n = parseSpec(spec)
-    const params = (n.paths["/pets"] as Record<string, unknown>).get as Record<string, unknown>
+    const params = (n.paths["/pets"] as Record<string, unknown>).get as Record<
+      string,
+      unknown
+    >
     expect(params.operationId).toBe("listPets")
     const paramList = params.parameters as Array<Record<string, unknown>>
     expect(paramList[0].name).toBe("limit")
@@ -68,7 +69,9 @@ describe("$ref resolution in parseSpec", () => {
     const json = content["application/json"] as Record<string, unknown>
     const schema = json.schema as Record<string, unknown>
     expect(schema.type).toBe("object")
-    expect((schema.properties as Record<string, unknown>).name).toEqual({ type: "string" })
+    expect((schema.properties as Record<string, unknown>).name).toEqual({
+      type: "string",
+    })
   })
 
   it("resolves recursive $ref chains", () => {
@@ -79,9 +82,7 @@ describe("$ref resolution in parseSpec", () => {
         "/pets": {
           get: {
             operationId: "listPets",
-            parameters: [
-              { $ref: "#/components/parameters/Ref1" },
-            ],
+            parameters: [{ $ref: "#/components/parameters/Ref1" }],
           },
         },
       },
@@ -108,9 +109,7 @@ describe("$ref resolution in parseSpec", () => {
         "/x": {
           get: {
             operationId: "getX",
-            parameters: [
-              { $ref: "#/components/parameters/Circular" },
-            ],
+            parameters: [{ $ref: "#/components/parameters/Circular" }],
           },
         },
       },
@@ -124,7 +123,10 @@ describe("$ref resolution in parseSpec", () => {
     const pathItem = n.paths["/x"] as Record<string, unknown>
     const get = pathItem.get as Record<string, unknown>
     const params = get.parameters as Array<Record<string, unknown>>
-    expect(params[0]).toEqual({ circular: true, ref: "#/components/parameters/Circular" })
+    expect(params[0]).toEqual({
+      circular: true,
+      ref: "#/components/parameters/Circular",
+    })
   })
 
   it("leaves network refs unresolved", () => {
@@ -135,9 +137,7 @@ describe("$ref resolution in parseSpec", () => {
         "/x": {
           get: {
             operationId: "getX",
-            parameters: [
-              { $ref: "https://example.com/schemas/Pet" },
-            ],
+            parameters: [{ $ref: "https://example.com/schemas/Pet" }],
           },
         },
       },

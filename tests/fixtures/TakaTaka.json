@@ -26,9 +26,7 @@
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/api/v1/auth/",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\"email\": \"test@example.com\", \"password\": \"secret123\"}",
@@ -136,6 +134,9 @@
   ],
   "variable": [
     { "key": "baseUrl", "value": "https://api.example.com" },
-    { "key": "token", "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0" }
+    {
+      "key": "token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0"
+    }
   ]
 }

@@ -65,10 +65,7 @@ function mapAuth(auth: AuthMember | undefined): Auth {
   const params = extractAuthParams(auth)
 
   if (type === "bearer") {
-    const token =
-      params?.get("token") ??
-      params?.get("bearer") ??
-      ""
+    const token = params?.get("token") ?? params?.get("bearer") ?? ""
     return { type: "bearer", token: convertTpl(token) }
   }
 
@@ -136,23 +133,26 @@ function mapBody(req: { body?: BodyMember }): {
   if (mode === "raw") {
     const raw = b.raw ?? ""
     const lang = b.options?.raw?.language
-    const bodyType = lang === undefined || lang === "json" ? "json" as const : undefined
+    const bodyType =
+      lang === undefined || lang === "json" ? ("json" as const) : undefined
     return { body: raw, ...(bodyType ? { bodyType } : {}) }
   }
 
   if (mode === "urlencoded") {
     const formData: FormEntry[] = []
     if (b.urlencoded) {
-      b.urlencoded.each((e: { key: string; value: string; disabled?: boolean }) => {
-        if (!e.disabled) {
-          formData.push({
-            name: e.key,
-            value: convertTpl(e.value),
-            enabled: true,
-            type: "text",
-          })
-        }
-      })
+      b.urlencoded.each(
+        (e: { key: string; value: string; disabled?: boolean }) => {
+          if (!e.disabled) {
+            formData.push({
+              name: e.key,
+              value: convertTpl(e.value),
+              enabled: true,
+              type: "text",
+            })
+          }
+        },
+      )
     }
     return { bodyType: "urlencoded", formData }
   }
@@ -177,14 +177,18 @@ function mapBody(req: { body?: BodyMember }): {
   return {}
 }
 
-function mapUrl(
-  req: { url?: { getRaw?: () => string; toString?: () => string; query?: PropertyList<QueryParam> } },
-): string {
+function mapUrl(req: {
+  url?: {
+    getRaw?: () => string
+    toString?: () => string
+    query?: PropertyList<QueryParam>
+  }
+}): string {
   if (!req.url) return "$base_url"
 
   let raw = ""
   try {
-    raw = typeof req.url.getRaw === "function" ? req.url.getRaw() ?? "" : ""
+    raw = typeof req.url.getRaw === "function" ? (req.url.getRaw() ?? "") : ""
   } catch {
     // ignore
   }
@@ -227,17 +231,16 @@ function mapRequest(
     }
   }
 
-  const method =
-    METHOD_UPPER[(req.method ?? "").toLowerCase()] ?? "GET"
+  const method = METHOD_UPPER[(req.method ?? "").toLowerCase()] ?? "GET"
   const url = mapUrl(req)
   const headers = mapHeaders(req.headers as PropertyList<Header> | undefined)
-  const params = mapParams((req.url as { query?: PropertyList<QueryParam> })?.query)
+  const params = mapParams(
+    (req.url as { query?: PropertyList<QueryParam> })?.query,
+  )
   const bodyMapping = mapBody(req as { body?: BodyMember })
   const auth = mapAuth(req.auth as AuthMember | undefined)
 
-  const rawId = slugify(
-    `${method}-${item.name}`,
-  )
+  const rawId = slugify(`${method}-${item.name}`)
   const id = uniqueId(`${parentPath}${rawId || `request-${index}`}`, usedIds)
   usedIds.add(id)
 

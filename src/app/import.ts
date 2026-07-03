@@ -59,9 +59,7 @@ export async function runImport(
     content = readFileSync(source, "utf-8")
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    process.stderr.write(
-      `error: cannot read source file "${source}": ${msg}\n`,
-    )
+    process.stderr.write(`error: cannot read source file "${source}": ${msg}\n`)
     process.exit(1)
   }
 
@@ -123,7 +121,5 @@ export async function runImport(
     }
   }
 
-  process.stdout.write(
-    `Imported ${result.collection.name} → ${collDir}\n`,
-  )
+  process.stdout.write(`Imported ${result.collection.name} → ${collDir}\n`)
 }

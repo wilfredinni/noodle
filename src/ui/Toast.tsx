@@ -4,7 +4,8 @@ import { PaneBorder } from "./borders"
 
 type ToastVariant = "info" | "success" | "warning" | "error"
 
-let showToastFn: ((message: string, variant?: ToastVariant) => void) | null = null
+let showToastFn: ((message: string, variant?: ToastVariant) => void) | null =
+  null
 
 export function showToast(message: string, variant?: ToastVariant) {
   showToastFn?.(message, variant)
@@ -16,7 +17,7 @@ export function Toast() {
     message: string
     variant: ToastVariant
   } | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     showToastFn = (message: string, variant?: ToastVariant) => {

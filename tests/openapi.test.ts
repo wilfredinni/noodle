@@ -1,5 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import { parseSpec, mapCollection, openApiImporter } from "../src/converters/openapi"
+import {
+  parseSpec,
+  mapCollection,
+  openApiImporter,
+} from "../src/converters/openapi"
 import type { Normalized } from "../src/converters/openapi"
 import type { Request, Collection } from "../src/schema"
 
@@ -1367,9 +1371,9 @@ describe("mapCollection — folder grouping by tags", () => {
 
     expect(folders).toHaveLength(2)
     expect(rootReqs).toHaveLength(1)
-    expect(
-      rootReqs[0].type === "request" && rootReqs[0].data.name,
-    ).toBe("health")
+    expect(rootReqs[0].type === "request" && rootReqs[0].data.name).toBe(
+      "health",
+    )
 
     const petsFolder = folders.find(
       (f) => f.type === "folder" && f.data.name === "pets",
@@ -1531,10 +1535,7 @@ describe("mapCollection — environments from servers", () => {
 
   it("name uses 'server-N' for multiple servers without descriptions", () => {
     const n = makeNormalized({
-      servers: [
-        { url: "https://{host}/v1" },
-        { url: "https://{host}/v1" },
-      ],
+      servers: [{ url: "https://{host}/v1" }, { url: "https://{host}/v1" }],
       paths: { "/x": { get: { operationId: "getX" } } },
     })
     const c = mapCollection(n)

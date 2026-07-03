@@ -159,9 +159,7 @@ export const NewRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.text}>
-          {isEdit ? "Edit Request" : "New Request"}
-        </text>
+        <text fg={theme.text}>{isEdit ? "Edit Request" : "New Request"}</text>
         <text fg={theme.textMuted}>esc</text>
       </box>
 

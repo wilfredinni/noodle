@@ -225,7 +225,11 @@ export function useAppKeymap(
           } catch {
             renderer.copyToClipboardOSC52(body)
           } finally {
-            try { Bun.spawnSync(["rm", "-f", tmp]) } catch {}
+            try {
+              Bun.spawnSync(["rm", "-f", tmp])
+            } catch {
+              // cleanup is best-effort; ignore failures
+            }
           }
           showToast("Response body copied", "success")
         },

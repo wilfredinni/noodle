@@ -108,9 +108,11 @@ renderer.on("selection", (selection) => {
 renderer.keyInput.on("keypress", (key) => {
   if (key.ctrl && key.name === "c") {
     const editor = renderer.currentFocusedEditor
-    const selectedText =
-      editor?.hasSelection() ? editor.getSelectedText() :
-      renderer.hasSelection ? renderer.getSelection()?.getSelectedText() : null
+    const selectedText = editor?.hasSelection()
+      ? editor.getSelectedText()
+      : renderer.hasSelection
+        ? renderer.getSelection()?.getSelectedText()
+        : null
     if (selectedText) {
       renderer.copyToClipboardOSC52(selectedText)
       renderer.clearSelection()

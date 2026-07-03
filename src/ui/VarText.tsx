@@ -17,7 +17,15 @@ export function VarText({
   const defaultColor = baseColor ?? theme.text
 
   return (
-    <box style={{ flexDirection: "row", gap: 0, flexShrink: 1, minWidth: 0, overflow: "hidden" }}>
+    <box
+      style={{
+        flexDirection: "row",
+        gap: 0,
+        flexShrink: 1,
+        minWidth: 0,
+        overflow: "hidden",
+      }}
+    >
       {segments.map((seg, i) => (
         <text
           key={i}

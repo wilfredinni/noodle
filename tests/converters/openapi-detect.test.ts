@@ -43,7 +43,9 @@ describe("detectOpenApi", () => {
   })
 
   it("rejects paths as array", () => {
-    expect(detectOpenApi(JSON.stringify({ openapi: "3.0.0", paths: [] }))).toBe(false)
+    expect(detectOpenApi(JSON.stringify({ openapi: "3.0.0", paths: [] }))).toBe(
+      false,
+    )
   })
 
   it("rejects completely invalid YAML", () => {

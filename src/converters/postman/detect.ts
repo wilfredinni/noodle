@@ -31,8 +31,8 @@ export function detectPostman(content: string): boolean {
           typeof i === "object" &&
           i !== null &&
           !Array.isArray(i) &&
-          (("request" in (i as Record<string, unknown>)) ||
-            ("item" in (i as Record<string, unknown>))),
+          ("request" in (i as Record<string, unknown>) ||
+            "item" in (i as Record<string, unknown>)),
       )
     ) {
       return true

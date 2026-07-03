@@ -92,9 +92,7 @@ describe("mapCollection — auth variants", () => {
             header: [],
             auth: {
               type: "bearer",
-              bearer: [
-                { key: "token", value: "{{apiKey}}", type: "string" },
-              ],
+              bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }],
             },
           },
         },
@@ -264,11 +262,26 @@ describe("mapCollection — body variants", () => {
     })
     const r = reqs(result)[0] as Record<string, unknown>
     expect(r.bodyType).toBe("multipart")
-    const fd = r.formData as { name: string; value: string; type: string; enabled: boolean }[]
+    const fd = r.formData as {
+      name: string
+      value: string
+      type: string
+      enabled: boolean
+    }[]
     expect(fd).toBeDefined()
     expect(fd.length).toBe(2)
-    expect(fd[0]).toEqual({ name: "name", value: "John", enabled: true, type: "text" })
-    expect(fd[1]).toEqual({ name: "avatar", value: "", enabled: true, type: "file" })
+    expect(fd[0]).toEqual({
+      name: "name",
+      value: "John",
+      enabled: true,
+      type: "text",
+    })
+    expect(fd[1]).toEqual({
+      name: "avatar",
+      value: "",
+      enabled: true,
+      type: "file",
+    })
   })
 })
 
@@ -291,7 +304,10 @@ describe("mapCollection — disabled headers and params", () => {
       ],
     })
     const r = reqs(result)[0] as Record<string, unknown>
-    const headers = r.headers as Record<string, { value: string; enabled: boolean }>
+    const headers = r.headers as Record<
+      string,
+      { value: string; enabled: boolean }
+    >
     expect(headers["X-Enabled"]).toEqual({ value: "yes", enabled: true })
     expect(headers["X-Disabled"]).toEqual({ value: "no", enabled: false })
   })
@@ -382,11 +398,19 @@ describe("mapCollection — edge cases", () => {
       item: [
         {
           name: "Users",
-          request: { method: "GET", url: "http://example.com/users", header: [] },
+          request: {
+            method: "GET",
+            url: "http://example.com/users",
+            header: [],
+          },
         },
         {
           name: "Users",
-          request: { method: "GET", url: "http://example.com/users/2", header: [] },
+          request: {
+            method: "GET",
+            url: "http://example.com/users/2",
+            header: [],
+          },
         },
       ],
     })
@@ -406,7 +430,11 @@ describe("mapCollection — edge cases", () => {
           item: [
             {
               name: "Ping",
-              request: { method: "GET", url: "http://example.com/ping", header: [] },
+              request: {
+                method: "GET",
+                url: "http://example.com/ping",
+                header: [],
+              },
             },
           ],
         },
@@ -415,7 +443,11 @@ describe("mapCollection — edge cases", () => {
           item: [
             {
               name: "Pong",
-              request: { method: "GET", url: "http://example.com/pong", header: [] },
+              request: {
+                method: "GET",
+                url: "http://example.com/pong",
+                header: [],
+              },
             },
           ],
         },
@@ -461,7 +493,12 @@ describe("mapCollection — edge cases", () => {
       item: [
         {
           name: "Protected",
-          auth: { type: "bearer", bearer: [{ key: "token", value: "{{folderToken}}", type: "string" }] },
+          auth: {
+            type: "bearer",
+            bearer: [
+              { key: "token", value: "{{folderToken}}", type: "string" },
+            ],
+          },
           item: [
             {
               name: "Inner",
@@ -473,7 +510,8 @@ describe("mapCollection — edge cases", () => {
     })
     const folders = result.collection.items.filter((i) => i.type === "folder")
     expect(folders.length).toBe(1)
-    const overrides = (folders[0].data as { overrides?: { auth?: unknown } }).overrides
+    const overrides = (folders[0].data as { overrides?: { auth?: unknown } })
+      .overrides
     expect(overrides).toBeDefined()
     expect(overrides!.auth).toEqual({ type: "bearer", token: "$folderToken" })
   })

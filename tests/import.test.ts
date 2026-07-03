@@ -68,10 +68,7 @@ describe("import — integration", () => {
     expect(listUsersYml).toContain("method: GET")
     expect(listUsersYml).toContain("url: https://$host/v1/users")
 
-    const createUserYml = readFileSync(
-      join(collDir, "post-users.yml"),
-      "utf-8",
-    )
+    const createUserYml = readFileSync(join(collDir, "post-users.yml"), "utf-8")
     expect(createUserYml).toContain("name: createUser")
     expect(createUserYml).toContain("method: POST")
     expect(createUserYml).toContain("params:")
