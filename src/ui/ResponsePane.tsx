@@ -10,7 +10,6 @@ import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { Tips } from "./Tips"
 import { Frame } from "./Frame"
-import { Badge } from "./Badge"
 
 import { TimelineTab } from "./timeline/TimelineTab"
 
@@ -119,9 +118,9 @@ export function ResponsePane({
   )
 
   const headerRight = isDone ? (
-    <Badge bg={statusColor(state.response.status, theme)} fg={theme.background}>
+    <text fg={statusColor(state.response.status, theme)}>
       {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}`}
-    </Badge>
+    </text>
   ) : undefined
 
   const footerLeft = focused ? (
