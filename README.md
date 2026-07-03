@@ -25,6 +25,16 @@ Some notable features include:
 
 ## Installation (macOS & Linux)
 
+### Homebrew
+
+```bash
+brew trust wilfredinni/noodle
+brew tap wilfredinni/noodle
+brew install noodle
+```
+
+### Curl
+
 ```bash
 curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh | sh
 ```
