@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "bun --watch src/app/cli.ts",
     "test": "bun test",
+    "build:bin": "bun build --compile src/app/cli.ts --outfile noodle",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit"
