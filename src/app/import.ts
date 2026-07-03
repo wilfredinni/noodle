@@ -12,7 +12,9 @@ import { saveRequest, saveFolder } from "../filestore"
 import type { Collection, Environment } from "../schema"
 
 import { openApiImporter } from "../converters/openapi/index"
+import { postmanImporter } from "../converters/postman/index"
 registerImporter(openApiImporter)
+registerImporter(postmanImporter)
 
 function serializeEnv(env: Environment): string {
   let out = ""
