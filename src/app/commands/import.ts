@@ -1,5 +1,4 @@
 import { defineCommand } from "citty"
-import { runImport } from "../import"
 
 export default defineCommand({
   meta: {
@@ -25,6 +24,7 @@ export default defineCommand({
     },
   },
   async run({ args }) {
+    const { runImport } = await import("../import")
     await runImport({
       source: args.source,
       format: args.format,
