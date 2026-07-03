@@ -11,17 +11,20 @@ export async function listEnvironments(dir: string): Promise<string[]> {
       cause: e,
     })
   }
-  const names: string[] = []
+  const envs: { name: string; created: number }[] = []
   for (const entry of entries) {
     if (!entry.endsWith(".env")) continue
-    let isFile = false
     try {
       const s = await stat(join(dir, entry))
-      isFile = s.isFile()
+      if (!s.isFile()) continue
+      envs.push({
+        name: entry.slice(0, -".env".length),
+        created: s.birthtimeMs || s.mtimeMs,
+      })
     } catch {
-      // isFile stays false
+      // skip unreadable entries
     }
-    if (isFile) names.push(entry.slice(0, -".env".length))
   }
-  return names
+  envs.sort((a, b) => a.created - b.created)
+  return envs.map((e) => e.name)
 }

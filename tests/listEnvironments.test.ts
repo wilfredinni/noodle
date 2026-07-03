@@ -25,7 +25,7 @@ describe("listEnvironments", () => {
     await expect(env.listEnvironments(dir)).resolves.toEqual([])
   })
 
-  it("lists .env files in directory order, stripped of extension", async () => {
+  it("lists .env files by creation time, stripped of extension", async () => {
     await writeFile(join(dir, "zebra.env"), "z=zebra\n", "utf8")
     await writeFile(join(dir, "alpha.env"), "a=alpha\n", "utf8")
     await writeFile(join(dir, "mid.env"), "m=mid\n", "utf8")
