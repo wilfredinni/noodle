@@ -1,45 +1,37 @@
 import { describe, it, expect } from "bun:test"
 import { join } from "node:path"
+import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
 import defaultCommand from "../src/app/commands/default"
 import importCommand from "../src/app/commands/import"
 
 const CLI = join(import.meta.dir, "../src/app/cli.ts")
-const defaultMeta = defaultCommand.meta as {
-  name?: string
-  description?: string
-}
-const defaultArgs = defaultCommand.args as Record<
-  string,
-  { type?: string; default?: string; alias?: string }
->
-const importMeta = importCommand.meta as { name?: string }
-const importArgs = importCommand.args as Record<
-  string,
-  { type?: string; required?: boolean; alias?: string }
->
+const defaultMeta = defaultCommand.meta as CommandMeta | undefined
+const defaultArgs = defaultCommand.args as ArgsDef | undefined
+const importMeta = importCommand.meta as CommandMeta | undefined
+const importArgs = importCommand.args as ArgsDef | undefined
 
 describe("default command (noodle)", () => {
   it("has correct meta name", () => {
-    expect(defaultMeta.name).toBe("noodle")
+    expect(defaultMeta?.name).toBe("noodle")
   })
 
   it("has meta description", () => {
-    expect(defaultMeta.description).toBeTruthy()
+    expect(defaultMeta?.description).toBeTruthy()
   })
 
   it("has --collection arg with default ./collections", () => {
-    const arg = defaultArgs.collection
+    const arg = defaultArgs?.collection
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
     expect(arg?.default).toBe("./collections")
-    expect(arg?.alias).toBe("c")
+    expect((arg as StringArgDef)?.alias).toBe("c")
   })
 
   it("has --env arg with alias e", () => {
-    const arg = defaultArgs.env
+    const arg = defaultArgs?.env
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
-    expect(arg?.alias).toBe("e")
+    expect((arg as StringArgDef)?.alias).toBe("e")
   })
 
   it("has run handler", () => {
@@ -49,28 +41,28 @@ describe("default command (noodle)", () => {
 
 describe("import command", () => {
   it("has correct meta name", () => {
-    expect(importMeta.name).toBe("import")
+    expect(importMeta?.name).toBe("import")
   })
 
   it("has source as required positional arg", () => {
-    const arg = importArgs.source
+    const arg = importArgs?.source
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("positional")
     expect(arg?.required).toBe(true)
   })
 
   it("has optional --format arg with alias i", () => {
-    const arg = importArgs.format
+    const arg = importArgs?.format
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
-    expect(arg?.alias).toBe("i")
+    expect((arg as StringArgDef)?.alias).toBe("i")
   })
 
   it("has optional --output arg with alias o", () => {
-    const arg = importArgs.output
+    const arg = importArgs?.output
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
-    expect(arg?.alias).toBe("o")
+    expect((arg as StringArgDef)?.alias).toBe("o")
   })
 
   it("has run handler", () => {
