@@ -332,6 +332,10 @@ export function useAppKeymap(
           setters.setRequestDeletePending(req.name)
         },
       },
+      {
+        name: "focus.sidebar",
+        run: () => setters.setFocus("sidebar"),
+      },
     ],
     bindings: [
       { key: keybinds.request_send, cmd: "request.send" },
@@ -344,6 +348,7 @@ export function useAppKeymap(
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
       { key: keybinds.request_clone, cmd: "request.clone" },
       { key: keybinds.request_delete, cmd: "request.delete" },
+      { key: "escape", cmd: "focus.sidebar" },
     ],
   }))
 
