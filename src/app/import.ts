@@ -11,11 +11,6 @@ import {
 import { saveRequest, saveFolder } from "../filestore"
 import type { Collection, Environment } from "../schema"
 
-import { openApiImporter } from "../converters/openapi/index"
-import { postmanImporter } from "../converters/postman/index"
-registerImporter(openApiImporter)
-registerImporter(postmanImporter)
-
 function serializeEnv(env: Environment): string {
   let out = ""
   if (env.color) out += `_color=${env.color}\n`
@@ -49,11 +44,23 @@ async function writeCollection(
   }
 }
 
-export async function runImport(
-  source: string,
-  format: string | undefined,
-  outputDir: string,
-): Promise<void> {
+export interface ImportOptions {
+  source: string
+  format?: string
+  outputDir?: string
+}
+
+let _importersRegistered = false
+
+export async function runImport(options: ImportOptions): Promise<void> {
+  if (!_importersRegistered) {
+    const { openApiImporter } = await import("../converters/openapi/index")
+    const { postmanImporter } = await import("../converters/postman/index")
+    registerImporter(openApiImporter)
+    registerImporter(postmanImporter)
+    _importersRegistered = true
+  }
+  const { source, format, outputDir = "./collections" } = options
   let content: string
   try {
     content = readFileSync(source, "utf-8")

@@ -55,7 +55,7 @@ describe("import — integration", () => {
     await writeFile(specPath, JSON.stringify(spec))
 
     const { runImport } = await import("../src/app/import")
-    await runImport(specPath, undefined, outDir)
+    await runImport({ source: specPath, format: undefined, outputDir: outDir })
 
     const collDir = join(outDir, "test-api")
     expect(existsSync(collDir)).toBe(true)
@@ -99,7 +99,7 @@ describe("import — integration", () => {
     await writeFile(specPath, JSON.stringify(spec))
 
     const { runImport } = await import("../src/app/import")
-    await runImport(specPath, undefined, outDir)
+    await runImport({ source: specPath, format: undefined, outputDir: outDir })
 
     const collDir = join(outDir, "flat-api")
     expect(existsSync(join(collDir, "get-a.yml"))).toBe(true)
@@ -120,7 +120,11 @@ describe("import — integration", () => {
     await writeFile(specPath, JSON.stringify(spec))
 
     const { runImport } = await import("../src/app/import")
-    await runImport(specPath, undefined, customOut)
+    await runImport({
+      source: specPath,
+      format: undefined,
+      outputDir: customOut,
+    })
 
     const collDir = join(customOut, "custom")
     expect(existsSync(join(collDir, "get-x.yml"))).toBe(true)
