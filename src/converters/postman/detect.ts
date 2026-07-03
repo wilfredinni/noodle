@@ -25,7 +25,15 @@ export function detectPostman(content: string): boolean {
 
     if (
       typeof infoObj.name === "string" &&
-      Array.isArray(root.item)
+      Array.isArray(root.item) &&
+      root.item.some(
+        (i: unknown) =>
+          typeof i === "object" &&
+          i !== null &&
+          !Array.isArray(i) &&
+          (("request" in (i as Record<string, unknown>)) ||
+            ("item" in (i as Record<string, unknown>))),
+      )
     ) {
       return true
     }

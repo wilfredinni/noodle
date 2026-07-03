@@ -79,4 +79,12 @@ describe("detectPostman", () => {
     })
     expect(detectPostman(spec)).toBe(false)
   })
+
+  it("rejects object with info.name and item array but items lack request/item", () => {
+    const spec = JSON.stringify({
+      info: { name: "X" },
+      item: [{ name: "no_request_or_item" }],
+    })
+    expect(detectPostman(spec)).toBe(false)
+  })
 })
