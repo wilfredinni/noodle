@@ -6,7 +6,7 @@ Noodle is an HTTP client, not unlike Postman and Bruno. As a TUI application, it
 
 ![noodle](assets/noodle-catppuccin.png)
 
-_([more screenshots](assets/))_
+Browse [more screenshots](assets/)
 
 Some notable features include:
 
@@ -23,37 +23,17 @@ Some notable features include:
 - 📦 Import from OpenAPI 3.0 and Postman collections
 - 📋 Copy response body to clipboard
 
-## Usage
+## Installation (macOS & Linux)
 
-Requests are `.yml` files, one per request:
-
-```yml
-name: Create Post
-method: POST
-url: $base_url/posts
-headers:
-  Content-Type: application/json
-auth:
-  type: bearer
-  token: $api_token
-body_type: json
-body: |-
-  {
-    "title": "hello",
-    "body": "world",
-    "userId": 1
-  }
+```bash
+curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh | sh
 ```
 
-Environments are `.env` files in `.environments/`:
+Installs to `~/.local/bin/noodle`. Make sure `~/.local/bin` is in your PATH.
 
-```env
-_color=success
-base_url=https://jsonplaceholder.typicode.com
-api_token=dev-token-123
-```
+## Roadmap
 
-`$var` values in requests are replaced from the active environment at send time. Cycle environments at runtime with `Ctrl+P`.
+See the [public roadmap](https://app.notion.com/p/39128d9edba9809da834f351332baf57?v=39228d9edba98042ad07000cdbe5d751&source=copy_link) for upcoming features and improvements.
 
 ## Importing collections
 
