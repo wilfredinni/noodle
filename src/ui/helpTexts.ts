@@ -89,6 +89,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: displayKey(keybinds.folder_new),
           description: "New folder",
         },
+        {
+          key: displayKey(keybinds.response_copy_body),
+          description: "Copy response body",
+        },
       ],
     },
     {

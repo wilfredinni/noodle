@@ -955,10 +955,7 @@ export function AppInner({
     () => `${displayKey(keybinds.pane_expand)} expand`,
     [keybinds.pane_expand],
   )
-  const copyBodyHint = useMemo(
-    () => `${displayKey(keybinds.response_copy_body)} copy`,
-    [keybinds.response_copy_body],
-  )
+
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -1069,7 +1066,6 @@ export function AppInner({
                           initialTab={initialResponseTab}
                           onTabChange={onResponseTabChange}
                           expandHint={expandHint}
-                          copyBodyHint={copyBodyHint}
                         />
                       )}
                     </box>
@@ -1101,7 +1097,6 @@ export function AppInner({
                           initialTab={initialResponseTab}
                           onTabChange={onResponseTabChange}
                           expandHint={expandHint}
-                          copyBodyHint={copyBodyHint}
                         />
                       )}
                     </>
