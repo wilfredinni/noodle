@@ -12,26 +12,26 @@ declare module "postman-collection" {
   interface QueryParam {
     key: string
     value: string
-    disabled: boolean
+    disabled?: boolean
   }
 
   interface Header {
     key: string
     value: string
-    disabled: boolean
+    disabled?: boolean
   }
 
   interface FormParam {
     key: string
     value: string
-    type: "text" | "file"
-    disabled: boolean
+    type?: "text" | "file"
+    disabled?: boolean
   }
 
   interface BodyMember {
     mode: string
     raw?: string
-    urlencoded?: PropertyList<{ key: string; value: string; disabled: boolean }>
+    urlencoded?: PropertyList<{ key: string; value: string; disabled?: boolean }>
     formdata?: PropertyList<FormParam>
   }
 
