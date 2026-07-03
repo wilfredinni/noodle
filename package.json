@@ -15,6 +15,7 @@
     "@opentui/keymap": "^0.4.2",
     "@opentui/react": "^0.4.2",
     "js-yaml": "^4.1.0",
+    "postman-collection": "^5.3.0",
     "react": "^19.2.7"
   },
   "devDependencies": {

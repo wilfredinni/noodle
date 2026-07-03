@@ -1,0 +1,141 @@
+{
+  "info": {
+    "name": "TakaTaka",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "v1",
+      "item": [
+        {
+          "name": "v1_core_ping_retrieve",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/core/ping/",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "v1_auth_create_create",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"test@example.com\", \"password\": \"secret123\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "v1_auth_list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/auth/",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "v1_auth_partial_update",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/auth/",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "v1_users_create",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/users/",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Test User\", \"role\": \"admin\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "v1_users_list",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/users/",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "v1_users_update",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/v1/users/1",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "v1_users_partial_update",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/users/1",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{token}}", "type": "string" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://api.example.com" },
+    { "key": "token", "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0" }
+  ]
+}

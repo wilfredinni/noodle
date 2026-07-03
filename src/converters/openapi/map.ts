@@ -5,10 +5,12 @@ import type {
   Environment,
   FormEntry,
   KvEntry,
-  Method,
   Request,
 } from "../../schema"
 import type { ImportResult } from "../index"
+import { slugify, METHOD_UPPER } from "../shared"
+
+export { slugify, METHOD_UPPER }
 
 export interface Normalized {
   openapi: string
@@ -30,16 +32,6 @@ const METHOD_KEYS = [
   "head",
   "options",
 ] as const
-
-const METHOD_UPPER: Record<string, Method> = {
-  get: "GET",
-  post: "POST",
-  put: "PUT",
-  patch: "PATCH",
-  delete: "DELETE",
-  head: "HEAD",
-  options: "OPTIONS",
-}
 
 function isMapping(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v)
@@ -236,14 +228,6 @@ function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
     }
   }
   return { type: "none" }
-}
-
-export function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-")
 }
 
 function collectionName(n: Normalized): string {

@@ -29,6 +29,7 @@ export function ResponsePane({
   initialTab,
   onTabChange,
   expandHint,
+  copyBodyHint,
 }: {
   state: SendState
   focused?: boolean
@@ -36,6 +37,7 @@ export function ResponsePane({
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   expandHint?: string
+  copyBodyHint?: string
 }) {
   const theme = useTheme()
   const focusedRef = useRef(focused)
@@ -124,14 +126,16 @@ export function ResponsePane({
     </Badge>
   ) : undefined
 
+  const footerLeft = focused ? (
+    <text fg={theme.primary}>
+      {expandHint}{copyBodyHint ? `  ${copyBodyHint}` : ""}
+    </text>
+  ) : undefined
+
   const footerRight = isDone ? (
     <text fg={focused ? theme.primary : theme.textMuted}>
       {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms`}
     </text>
-  ) : undefined
-
-  const footerLeft = focused ? (
-    <text fg={theme.primary}>{expandHint}</text>
   ) : undefined
 
   return (

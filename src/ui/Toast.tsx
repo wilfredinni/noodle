@@ -43,7 +43,7 @@ export function Toast() {
       backgroundColor={theme.backgroundPanel}
       border={[...PaneBorder.border]}
       customBorderChars={PaneBorder.customBorderChars}
-      borderColor={theme[state.variant]}
+      borderColor={theme.primary}
     >
       <text fg={theme.text}>{state.message}</text>
     </box>
