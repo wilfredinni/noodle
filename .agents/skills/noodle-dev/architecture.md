@@ -1,5 +1,117 @@
 # Architecture
 
+## Collection directory layout
+
+Example collection on disk:
+
+```
+my-collection/
+├── settings.yml              ← { environment: "dev" }
+├── folder.yml                ← (root level, optional) root folder meta + overrides
+├── list-users.yml            ← Request file: id = "list-users"
+├── get-user.yml              ← Request file: id = "get-user"
+├── auth/
+│   ├── folder.yml            ← { meta: { name: "Auth", seq: 1 }, overrides: { headers: [...] } }
+│   ├── login.yml             ← Request: id = "auth/login"
+│   └── refresh.yml           ← Request: id = "auth/refresh"
+├── .environments/
+│   ├── development.env       ← KEY=value (dotenv format)
+│   └── production.env
+├── .noodle/
+│   ├── last-request          ← Plain text: last selected request ID
+│   ├── expanded-folders      ← YAML list of expanded folder paths
+│   └── ui-state/
+│       └── auth/login.yml    ← Per-request state: { tabIndex: 2 }
+├── .timeline/                ← Per-request response history (max 50 entries each)
+│   ├── list-users.yml
+│   └── auth/
+│       └── login.yml
+└── .git/                     ← Skipped by walk()
+```
+
+### How `walk()` loads a collection
+
+`filestore/load.ts: walk()` recursively reads the directory tree:
+
+1. **Resolve path** — follows symlinks via `realpath()`, detects symlink escapes
+2. **Read directory entries** — `readdir()` with `withFileTypes`
+3. **Skip hidden** — entries starting with `.` are ignored (both files and dirs)
+4. **Skip known dirs** — `.noodle`, `.timeline`, `.git`, `node_modules` are skipped
+5. **Folders** — read optional `folder.yml` for meta (name, seq) and overrides (headers, auth); recurse into children
+6. **Requests** — read `.yml` files (skip `settings.yml` and `folder.yml`); parse with `lang.parseRequest(id, yaml)`
+7. **Sort** — folders by `seq` then name, requests alphabetically; folders always before requests
+
+### Request ID convention
+
+Request IDs are their **relative path from collection root, minus the `.yml` extension**. A file at `auth/login.yml` gets ID `"auth/login"`. This ID is used for:
+- Navigation (`selectedId` in tree)
+- File I/O (`join(dir, ${id}.yml)`)
+- Timeline storage (`join(.timeline, ${id}.yml)`)
+- UI state persistence (`join(.noodle/ui-state, ${id}.yml)`)
+
+### `folder.yml` format
+
+```yaml
+meta:
+  name: My Folder        # Display name (defaults to directory name)
+  seq: 1                 # Sort order (lower = first, undefined = last)
+overrides:
+  headers:               # Merged additively: folder header only if request doesn't have same key
+    - name: X-API-Key
+      value: $API_KEY
+      enabled: true
+  auth:
+    type: bearer          # Used when request auth is "inherit"
+    token: $TOKEN
+```
+
+Folder overrides are resolved in `requests/mergeFolderOverrides.ts` — walks ancestor folders bottom-up.
+
+### Hidden state files (`.noodle/`)
+
+| File | Format | Purpose |
+|------|--------|---------|
+| `last-request` | Plain text | Last selected request ID, restored on startup |
+| `expanded-folders` | YAML list | Array of folder paths that are expanded in sidebar |
+| `ui-state/<requestId>.yml` | YAML | Per-request UI state (tabIndex, scroll positions, etc.) |
+
+### `settings.yml`
+
+Collection-level settings at the root, loaded by `filestore/loadSettings()`:
+```yaml
+environment: development   # Last active environment name
+```
+
+Falls back to empty object `{}` when file is missing or invalid.
+
+### Timeline (`.timeline/`)
+
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Max 50 entries per request (FIFO — `unshift` + truncate). Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`.
+
+### File write conventions
+
+- **`saveRequest()`**: `validatePathId()` → `mkdir` parent → write `.yml` file. Non-atomic (direct write).
+- **`saveFolder()`**: `validatePathId()` → `mkdir` dir → write `folder.yml`. Non-atomic.
+- **`saveEnvironment()`** (`env/save.ts`): Atomic — writes to `.tmp` then `rename()`.
+- **`deleteFolder()`**: `rm(path, { recursive: true, force: true })` — wipes entire folder including .yml files and subdirs.
+- **Migration** (in `walk()`): If `.yml` file lacks `timeout:` field, auto-serializes and writes the request back. Non-critical (caught errors are ignored).
+
+### `validatePathId()` rules
+
+All save/delete operations call `validatePathId()`. Rejects:
+- Missing/empty ID
+- `"."` or starts with `"./"`
+- Absolute paths (starts with `"/"`)
+- Contains `".."` or `"\"`
+
+### Adding new persistent state
+
+Follow existing patterns:
+- **Collection-level config**: Add to `settings.yml` via `saveSettings()` + `loadSettings()`
+- **Per-request state**: Add to `.noodle/ui-state/<id>.yml` following the per-request YAML pattern
+- **New hidden directory**: Add name to `SKIP_DIRS` in `load.ts` so `walk()` skips it
+- **Global user config**: Use `~/.config/noodle/config.yml` via `useConfig` hook
+
 ## Module dependency flow
 
 ```

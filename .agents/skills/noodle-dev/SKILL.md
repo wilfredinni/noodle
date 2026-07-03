@@ -13,9 +13,10 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 
 | Task | Read |
 |------|------|
-| Understand module boundaries, data flow, state, CLI | [architecture.md](architecture.md) |
+| Understand module boundaries, data flow, state, CLI, collection layout | [architecture.md](architecture.md) |
 | Add a keybinding, pane, overlay, auth type, body type, hook, importer, CLI flag | [recipes.md](recipes.md) |
 | Write tests for new feature | [testing.md](testing.md) |
+| Add/modify persistent state (new files, config, timeline) | [architecture.md](architecture.md) → "Collection directory layout" |
 | Build terminal UI components | **REQUIRED SUB-SKILL:** Use `opentui` skill |
 
 ## Key conventions
