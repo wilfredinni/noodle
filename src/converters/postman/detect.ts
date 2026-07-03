@@ -17,7 +17,7 @@ export function detectPostman(content: string): boolean {
     const schema = infoObj.schema
 
     if (typeof schema === "string") {
-      if (schema.includes("getpostman.com/json/collection/")) {
+      if (schema.startsWith("https://schema.getpostman.com/json/collection/")) {
         return true
       }
       return false

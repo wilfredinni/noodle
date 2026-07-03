@@ -33,6 +33,7 @@ declare module "postman-collection" {
     raw?: string
     urlencoded?: PropertyList<{ key: string; value: string; disabled?: boolean }>
     formdata?: PropertyList<FormParam>
+    options?: { raw?: { language?: string } }
   }
 
   interface AuthMember {

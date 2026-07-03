@@ -92,9 +92,6 @@ function mapAuth(auth: AuthMember | undefined): Auth {
     }
   }
 
-  process.stderr.write(
-    `postman.import: unsupported auth type "${type}", mapping to none\n`,
-  )
   return { type: "none" }
 }
 
@@ -138,7 +135,9 @@ function mapBody(req: { body?: BodyMember }): {
 
   if (mode === "raw") {
     const raw = b.raw ?? ""
-    return { body: raw, bodyType: "json" }
+    const lang = b.options?.raw?.language
+    const bodyType = lang === undefined || lang === "json" ? "json" as const : undefined
+    return { body: raw, ...(bodyType ? { bodyType } : {}) }
   }
 
   if (mode === "urlencoded") {
@@ -185,7 +184,7 @@ function mapUrl(
 
   let raw = ""
   try {
-    raw = typeof req.url.getRaw === "function" ? req.url.getRaw() : ""
+    raw = typeof req.url.getRaw === "function" ? req.url.getRaw() ?? "" : ""
   } catch {
     // ignore
   }
@@ -267,15 +266,15 @@ function mapItems(
   items.each((item) => {
     idx++
 
-    const itemGroup = item as ItemGroup
-    if (itemGroup.items) {
+    if ("items" in item) {
+      const itemGroup = item as ItemGroup
       const name = itemGroup.name
       const rawFolderId = slugify(name) || `folder-${idx}`
       const folderId = uniqueId(rawFolderId, usedIds)
       usedIds.add(folderId)
       const path = `${parentPath}${folderId}/`
 
-      const auth = (itemGroup as { auth?: AuthMember }).auth
+      const auth = itemGroup.auth
       const overrides = auth ? { auth: mapAuth(auth) } : undefined
 
       result.push({
@@ -289,10 +288,9 @@ function mapItems(
         },
       })
     } else {
-      const reqItem = item as Item
       result.push({
         type: "request",
-        data: mapRequest(reqItem, parentPath, idx, usedIds),
+        data: mapRequest(item as Item, parentPath, idx, usedIds),
       })
     }
   })
