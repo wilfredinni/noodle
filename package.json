@@ -2,6 +2,7 @@
   "name": "noodle",
   "version": "0.1.0",
   "type": "module",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "dev": "bun --watch src/app/index.tsx",
