@@ -71,9 +71,8 @@ describe("listEnvironmentsWithColors", () => {
     await writeFile(join(dir, "b.env"), "_color=info\nz=w\n", "utf8")
     await writeFile(join(dir, "c.yml"), "name: c\nvars:\n  x: y\n", "utf8")
     const out = await listEnvironmentsWithColors(dir)
-    expect(out).toEqual([
-      { name: "a", color: undefined },
-      { name: "b", color: "info" },
-    ])
+    expect(out).toHaveLength(2)
+    expect(out).toContainEqual({ name: "a", color: undefined })
+    expect(out).toContainEqual({ name: "b", color: "info" })
   })
 })

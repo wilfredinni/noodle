@@ -101,6 +101,7 @@ async function saveStateAtomically(
 
     const yamlText = yaml.dump(obj)
     await writeFile(statePath(colDir), yamlText, "utf8")
+    await Bun.sleep(1)
   })
 }
 
