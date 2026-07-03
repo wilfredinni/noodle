@@ -4,7 +4,9 @@ A delicious REST client that lives in your terminal.
 
 Noodle is an HTTP client, not unlike Postman and Bruno. As a TUI application, it can be used over SSH and enables efficient keyboard-centric workflows. Your requests are stored locally as simple YAML files — easy to read, easy to version control.
 
-![noodle](assets/noodle-tokyo.png)
+![noodle](assets/noodle-catppuccin.png)
+
+_([more screenshots](assets/))_
 
 Some notable features include:
 
