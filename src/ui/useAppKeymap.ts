@@ -211,8 +211,6 @@ export function useAppKeymap(
       {
         name: "response.copy-body",
         enabled: () => {
-          const f = keymap.getData("app.focus")
-          if (f !== "response") return false
           const s = refs.responseStateRef.current
           return s?.status === "done"
         },
