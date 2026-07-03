@@ -120,7 +120,11 @@ describe("import — integration", () => {
     await writeFile(specPath, JSON.stringify(spec))
 
     const { runImport } = await import("../src/app/import")
-    await runImport({ source: specPath, format: undefined, outputDir: customOut })
+    await runImport({
+      source: specPath,
+      format: undefined,
+      outputDir: customOut,
+    })
 
     const collDir = join(customOut, "custom")
     expect(existsSync(join(collDir, "get-x.yml"))).toBe(true)

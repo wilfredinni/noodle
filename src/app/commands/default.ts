@@ -4,7 +4,8 @@ import { bootstrap } from "../main"
 export default defineCommand({
   meta: {
     name: "noodle",
-    description: "Terminal REST client. Inspect, send, and iterate on HTTP requests.",
+    description:
+      "Terminal REST client. Inspect, send, and iterate on HTTP requests.",
   },
   args: {
     collection: {

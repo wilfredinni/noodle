@@ -2,17 +2,31 @@ import { describe, it, expect } from "bun:test"
 import defaultCommand from "../src/app/commands/default"
 import importCommand from "../src/app/commands/import"
 
+const defaultMeta = defaultCommand.meta as {
+  name?: string
+  description?: string
+}
+const defaultArgs = defaultCommand.args as Record<
+  string,
+  { type?: string; default?: string; alias?: string }
+>
+const importMeta = importCommand.meta as { name?: string }
+const importArgs = importCommand.args as Record<
+  string,
+  { type?: string; required?: boolean; alias?: string }
+>
+
 describe("default command (noodle)", () => {
   it("has correct meta name", () => {
-    expect(defaultCommand.meta?.name).toBe("noodle")
+    expect(defaultMeta.name).toBe("noodle")
   })
 
   it("has meta description", () => {
-    expect(defaultCommand.meta?.description).toBeTruthy()
+    expect(defaultMeta.description).toBeTruthy()
   })
 
   it("has --collection arg with default ./collections", () => {
-    const arg = defaultCommand.args?.collection
+    const arg = defaultArgs.collection
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
     expect(arg?.default).toBe("./collections")
@@ -20,7 +34,7 @@ describe("default command (noodle)", () => {
   })
 
   it("has --env arg with alias e", () => {
-    const arg = defaultCommand.args?.env
+    const arg = defaultArgs.env
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
     expect(arg?.alias).toBe("e")
@@ -33,25 +47,25 @@ describe("default command (noodle)", () => {
 
 describe("import command", () => {
   it("has correct meta name", () => {
-    expect(importCommand.meta?.name).toBe("import")
+    expect(importMeta.name).toBe("import")
   })
 
   it("has source as required positional arg", () => {
-    const arg = importCommand.args?.source
+    const arg = importArgs.source
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("positional")
     expect(arg?.required).toBe(true)
   })
 
   it("has optional --format arg with alias i", () => {
-    const arg = importCommand.args?.format
+    const arg = importArgs.format
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
     expect(arg?.alias).toBe("i")
   })
 
   it("has optional --output arg with alias o", () => {
-    const arg = importCommand.args?.output
+    const arg = importArgs.output
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
     expect(arg?.alias).toBe("o")
