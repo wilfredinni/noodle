@@ -1,15 +1,3 @@
-<div align="center">
-    <img src="assets/logo.png" data-canonical-src="/logo.png" width="60" height="60" />
-</div>
-
-<div align="center">
-  <a href="https://noodlerest.dev/">Website</a> ·
-  <a href="https://noodlerest.dev/changelog/">Changelog</a> ·
-  <a href="https://noodlerest.dev/roadmap/">Roadmap</a> ·
-  <a href="https://noodlerest.dev/docs/getting-started/quick-start/">Quick Start</a> ·
-  <a href="https://noodlerest.dev/docs/">Docs</a>
-</div>
-
 # noodle
 
 A delicious REST client that lives in your terminal.
