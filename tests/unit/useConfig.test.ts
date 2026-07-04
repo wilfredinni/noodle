@@ -11,8 +11,9 @@ import {
   type NoodleConfig,
   CONFIG_FILE_NAME,
 } from "../../src/hooks/useConfig"
+import { DEFAULT_THEME_NAME } from "../../src/ui/theme-data"
 
-const DEFAULTS: NoodleConfig = { theme: "catppuccin", layout: "stacked" }
+const DEFAULTS: NoodleConfig = { theme: DEFAULT_THEME_NAME, layout: "stacked" }
 
 describe("loadConfig", () => {
   let dir: string
@@ -95,6 +96,6 @@ describe("saveConfig", () => {
     const deepDir = join(dir, "sub", "dir")
     saveConfig(deepDir, DEFAULTS)
     const raw = readFileSync(join(deepDir, CONFIG_FILE_NAME), "utf8")
-    expect(yaml.load(raw)).toEqual({ theme: "catppuccin", layout: "stacked" })
+    expect(yaml.load(raw)).toEqual(DEFAULTS)
   })
 })

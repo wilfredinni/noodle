@@ -3,8 +3,6 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
 import * as yaml from "js-yaml"
-import { DEFAULT_THEME_NAME } from "../ui/theme-data"
-
 export const CONFIG_FILE_NAME = "config.yml"
 
 export interface NoodleConfig {
@@ -13,7 +11,7 @@ export interface NoodleConfig {
 }
 
 const DEFAULTS: NoodleConfig = {
-  theme: DEFAULT_THEME_NAME,
+  theme: "catppuccin",
   layout: "stacked",
 }
 
