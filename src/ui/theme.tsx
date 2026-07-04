@@ -17,6 +17,8 @@ import type { Theme } from "./theme-data"
 
 export {
   THEMES,
+  DEFAULT_THEME_INDEX,
+  DEFAULT_THEME_NAME,
   contrastOnPrimary,
   opencodeTheme,
   catppuccinTheme,
