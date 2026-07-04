@@ -3,16 +3,17 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
 import * as yaml from "js-yaml"
+import { DEFAULT_THEME_NAME } from "../ui/theme-data"
 
 export const CONFIG_FILE_NAME = "config.yml"
 
 export interface NoodleConfig {
-  theme: number
+  theme: string
   layout: "stacked" | "side-by-side"
 }
 
 const DEFAULTS: NoodleConfig = {
-  theme: 0,
+  theme: DEFAULT_THEME_NAME,
   layout: "stacked",
 }
 
@@ -23,7 +24,7 @@ export function loadConfig(configDir: string): NoodleConfig {
     if (!data || typeof data !== "object") return { ...DEFAULTS }
     const obj = data as Record<string, unknown>
     return {
-      theme: typeof obj.theme === "number" ? obj.theme : DEFAULTS.theme,
+      theme: typeof obj.theme === "string" ? obj.theme : DEFAULTS.theme,
       layout: obj.layout === "side-by-side" ? "side-by-side" : DEFAULTS.layout,
     }
   } catch {

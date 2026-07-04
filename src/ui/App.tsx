@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { AppInner } from "./AppInner"
 import { useConfig } from "../hooks/useConfig"
 import { listEnvironmentsWithColors } from "../env/listWithColors"
-import { ThemeProvider } from "./theme"
+import { ThemeProvider, THEMES, DEFAULT_THEME_INDEX } from "./theme"
 import { Toast } from "./Toast"
 import { saveSettings } from "../filestore"
 import type { Keybinds } from "./keybind"
@@ -31,13 +31,16 @@ export function App({
     initialSettingsEnv,
   )
 
-  const [activeIndex, setActiveIndex] = useState(config.theme)
+  const [activeIndex, setActiveIndex] = useState(() => {
+    const idx = THEMES.findIndex((t) => t.name === config.theme)
+    return idx !== -1 ? idx : DEFAULT_THEME_INDEX
+  })
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
   const handleThemeChange = useCallback(
     (index: number) => {
       setActiveIndex(index)
-      updateConfig({ theme: index })
+      updateConfig({ theme: THEMES[index]!.name })
     },
     [updateConfig],
   )

@@ -693,6 +693,9 @@ export const THEMES: Theme[] = [
   zenburnTheme,
 ]
 
+export const DEFAULT_THEME_NAME = "catppuccin"
+export const DEFAULT_THEME_INDEX = THEMES.findIndex((t) => t.name === DEFAULT_THEME_NAME)
+
 export function contrastOnPrimary(_theme: Theme): string {
   return "#1a1a1a"
 }

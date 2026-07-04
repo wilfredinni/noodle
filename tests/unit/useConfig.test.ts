@@ -12,7 +12,7 @@ import {
   CONFIG_FILE_NAME,
 } from "../../src/hooks/useConfig"
 
-const DEFAULTS: NoodleConfig = { theme: 0, layout: "stacked" }
+const DEFAULTS: NoodleConfig = { theme: "catppuccin", layout: "stacked" }
 
 describe("loadConfig", () => {
   let dir: string
@@ -34,11 +34,11 @@ describe("loadConfig", () => {
   it("reads valid YAML file", () => {
     writeFileSync(
       join(dir, CONFIG_FILE_NAME),
-      yaml.dump({ theme: 1, layout: "side-by-side" }),
+      yaml.dump({ theme: "dracula", layout: "side-by-side" }),
       "utf8",
     )
     const result = loadConfig(dir)
-    expect(result).toEqual({ theme: 1, layout: "side-by-side" })
+    expect(result).toEqual({ theme: "dracula", layout: "side-by-side" })
   })
 
   it("returns defaults for invalid YAML", () => {
@@ -54,9 +54,9 @@ describe("loadConfig", () => {
   })
 
   it("handles partial file — missing fields get defaults", () => {
-    writeFileSync(join(dir, CONFIG_FILE_NAME), "theme: 1\n", "utf8")
+    writeFileSync(join(dir, CONFIG_FILE_NAME), "theme: dracula\n", "utf8")
     const result = loadConfig(dir)
-    expect(result).toEqual({ theme: 1, layout: "stacked" })
+    expect(result).toEqual({ theme: "dracula", layout: "stacked" })
   })
 })
 
@@ -73,28 +73,28 @@ describe("saveConfig", () => {
   })
 
   it("writes YAML file", () => {
-    saveConfig(dir, { theme: 1, layout: "side-by-side" })
+    saveConfig(dir, { theme: "dracula", layout: "side-by-side" })
     const raw = readFileSync(join(dir, CONFIG_FILE_NAME), "utf8")
-    expect(yaml.load(raw)).toEqual({ theme: 1, layout: "side-by-side" })
+    expect(yaml.load(raw)).toEqual({ theme: "dracula", layout: "side-by-side" })
   })
 
   it("round-trips save→load", () => {
-    const input: NoodleConfig = { theme: 1, layout: "side-by-side" }
+    const input: NoodleConfig = { theme: "dracula", layout: "side-by-side" }
     saveConfig(dir, input)
     const result = loadConfig(dir)
     expect(result).toEqual(input)
   })
 
   it("writes and reads back null lastEnv", () => {
-    saveConfig(dir, { theme: 2, layout: "stacked" })
+    saveConfig(dir, { theme: "monokai", layout: "stacked" })
     const result = loadConfig(dir)
-    expect(result).toEqual({ theme: 2, layout: "stacked" })
+    expect(result).toEqual({ theme: "monokai", layout: "stacked" })
   })
 
   it("creates directory if missing", () => {
     const deepDir = join(dir, "sub", "dir")
     saveConfig(deepDir, DEFAULTS)
     const raw = readFileSync(join(deepDir, CONFIG_FILE_NAME), "utf8")
-    expect(yaml.load(raw)).toEqual({ theme: 0, layout: "stacked" })
+    expect(yaml.load(raw)).toEqual({ theme: "catppuccin", layout: "stacked" })
   })
 })
