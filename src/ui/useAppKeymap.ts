@@ -180,6 +180,7 @@ export function useAppKeymap(
       {
         name: "request.edit-yaml",
         run: () => {
+          if (refs.focusedFolderPathRef.current) return
           const sid = refs.selectedIdRef.current
           if (!sid || !collectionDir) return
           const col = refs.collectionRef.current
@@ -296,6 +297,7 @@ export function useAppKeymap(
       {
         name: "request.edit-overlay",
         run: () => {
+          if (refs.focusedFolderPathRef.current) return
           const sid = refs.selectedIdRef.current
           if (!sid) return
           const col = refs.collectionRef.current
