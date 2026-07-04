@@ -28,7 +28,7 @@ Some notable features include:
 ### Curl
 
 ```bash
-curl -LsSf https://noodlerest.dev/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/wilfredinni/noodle/main/scripts/install.sh | sh
 ```
 
 ### Homebrew
