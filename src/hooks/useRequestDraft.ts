@@ -609,6 +609,8 @@ export function useRequestDraft(
   const revertAll = useCallback(() => apply({ kind: "revertAll" }), [apply])
 
   const revertAllRequests = useCallback(() => {
+    authTypeCache.clear()
+    bodyCache.clear()
     setMap(new Map())
   }, [])
 

@@ -452,6 +452,9 @@ export function useEnvironmentEditor({
   )
 
   const revertDraft = useCallback(() => {
+    draftRef.current = null
+    originalRef.current = null
+    selectedEnvNameRef.current = null
     setDraft(null)
     setOriginal(null)
     setSelectedEnvName(null)
