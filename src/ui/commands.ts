@@ -193,7 +193,7 @@ export function buildCommandPaletteCommands(
     {
       id: "layout.toggle",
       label: "Toggle Layout",
-      section: "View",
+      section: "Actions",
       keybinding: displayKey(keybinds.layout_toggle),
       run: () =>
         setLayout((prev: "stacked" | "side-by-side") => {
@@ -205,7 +205,7 @@ export function buildCommandPaletteCommands(
     {
       id: "pane.expand",
       label: "Expand/Collapse Pane",
-      section: "View",
+      section: "Actions",
       keybinding: displayKey(keybinds.pane_expand),
       run: () => {
         const f = getKeymapFocus() as "request" | "response"
@@ -218,28 +218,28 @@ export function buildCommandPaletteCommands(
     {
       id: "app.help",
       label: "Toggle Help",
-      section: "View",
+      section: "System",
       keybinding: displayKey(keybinds.help_toggle),
       run: () => setHelpVisible((prev: boolean) => !prev),
     },
     {
       id: "request.new",
       label: "New Request",
-      section: "Create",
+      section: "Actions",
       keybinding: displayKey(keybinds.request_new),
       run: () => setNewRequestVisible(true),
     },
     {
       id: "folder.new",
       label: "New Folder",
-      section: "Create",
+      section: "Actions",
       keybinding: displayKey(keybinds.folder_new),
       run: () => setNewFolderVisible(true),
     },
     {
       id: "request.clone",
       label: "Clone Request",
-      section: "Create",
+      section: "Actions",
       keybinding: displayKey(keybinds.request_clone),
       run: () => {
         const sid = selectedIdRef.current
@@ -254,7 +254,7 @@ export function buildCommandPaletteCommands(
     {
       id: "request.edit-overlay",
       label: "Edit Request",
-      section: "Edit",
+      section: "Request Editing",
       keybinding: displayKey(keybinds.request_edit_overlay),
       run: () => {
         if (focusedFolderPathRef.current) return
@@ -266,7 +266,7 @@ export function buildCommandPaletteCommands(
     {
       id: "request.edit-yaml",
       label: "Edit Request YAML",
-      section: "Edit",
+      section: "Request Editing",
       keybinding: displayKey(keybinds.request_edit_yaml),
       run: () => {
         if (focusedFolderPathRef.current) return
@@ -288,7 +288,7 @@ export function buildCommandPaletteCommands(
     {
       id: "request.delete",
       label: "Delete Request",
-      section: "Delete",
+      section: "Actions",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
         const folderPath = focusedFolderPathRef.current
@@ -310,7 +310,7 @@ export function buildCommandPaletteCommands(
     {
       id: "env.editor-open",
       label: "Open Environment Editor",
-      section: "Workspace",
+      section: "Env Editor",
       keybinding: displayKey(keybinds.env_editor),
       run: () => {
         const name = envStateRef.current.activeEnv?.name
@@ -322,7 +322,7 @@ export function buildCommandPaletteCommands(
     {
       id: "app.theme",
       label: "Open Theme Picker",
-      section: "Workspace",
+      section: "System",
       keybinding: displayKey(keybinds.theme_picker),
       run: () => setPreviewIndexProp(activeIndexRef.current),
     },
