@@ -99,6 +99,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       title: "System",
       keys: [
         { key: "^c", description: "Quit" },
+        {
+          key: displayKey(keybinds.command_palette),
+          description: "Open command palette",
+        },
         { key: keybinds.help_toggle, description: "Toggle help" },
         {
           key: displayKey(keybinds.theme_picker),
