@@ -111,7 +111,7 @@ export function CommandPaletteOverlay({
       // Header at start of list — handle wrap
       if (idx === 0) {
         const last = [...visible].reverse().find(isNavigable)
-        if (highlightedId === after?.id && last) {
+        if ((highlightedId === after?.id || highlightedId === null) && last) {
           // Was on first command, pressed up — wrap to last
           setHighlightedId(last.id)
           return
