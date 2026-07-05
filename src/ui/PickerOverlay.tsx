@@ -76,6 +76,14 @@ export function PickerOverlay<T>({
     return found ?? filtered[0] ?? null
   }, [filtered, highlightedItem, keyExtractor])
 
+  const prevHighlight = useRef(currentHighlight)
+  useEffect(() => {
+    if (currentHighlight && prevHighlight.current !== currentHighlight) {
+      onHighlightChange?.(currentHighlight)
+    }
+    prevHighlight.current = currentHighlight
+  }, [currentHighlight, onHighlightChange])
+
   const highlightIndex = useMemo(() => {
     if (!currentHighlight || filtered.length === 0) return -1
     return filtered.findIndex(
