@@ -261,6 +261,46 @@ describe("keymap dispatch", () => {
     cleanup()
   })
 
+  it("global.undo-all dispatches ctrl+z in base mode with no overlay", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () => {
+        const mode = keymap.getData("app.mode") as string
+        const overlay = keymap.getData("app.overlay") as string
+        return mode !== "edit" && overlay === "none"
+      },
+      commands: [
+        {
+          name: "global.undo-all",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+z", cmd: "global.undo-all" }],
+    })
+
+    host.press("z", { ctrl: true })
+    expect(called).toBe(true)
+
+    // Does not dispatch in edit mode
+    called = false
+    keymap.setData("app.mode", "edit")
+    host.press("z", { ctrl: true })
+    expect(called).toBe(false)
+
+    // Does not dispatch when overlay is active
+    called = false
+    keymap.setData("app.mode", "base")
+    keymap.setData("app.overlay", "theme")
+    host.press("z", { ctrl: true })
+    expect(called).toBe(false)
+
+    cleanup()
+  })
+
   it("browse layer does not dispatch when overlay is active", () => {
     const { keymap, host, cleanup } = setup()
     keymap.setData("app.mode", "browse")

@@ -241,7 +241,8 @@ export function useAppKeymap(
         name: "global.undo-all",
         enabled: () => {
           const mode = keymap.getData("app.mode") as string
-          return mode !== "edit"
+          const overlay = keymap.getData("app.overlay") as string
+          return mode !== "edit" && overlay === "none"
         },
         run: () => {
           const d = refs.draftRef.current
