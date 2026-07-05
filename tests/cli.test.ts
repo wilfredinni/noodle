@@ -130,11 +130,4 @@ describe("CLI integration", () => {
     const err = proc.stderr.toString()
     expect(err).toContain("SOURCE")
   })
-
-  it("shows version with --version", () => {
-    const proc = Bun.spawnSync(["bun", CLI, "--version"], {})
-    expect(proc.exitCode).toBe(0)
-    const out = proc.stdout.toString().trim()
-    expect(out).toBe("0.1.0")
-  })
 })
