@@ -1057,3 +1057,53 @@ describe("env-editor layer", () => {
     cleanup()
   })
 })
+
+describe("command palette", () => {
+  it("dispatches app.command-palette when ctrl+p pressed", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () => true,
+      commands: [
+        {
+          name: "app.command-palette",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+p", cmd: "app.command-palette" }],
+    })
+
+    host.press("p", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("dispatches app.command-palette even when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "help")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () => true,
+      commands: [
+        {
+          name: "app.command-palette",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+p", cmd: "app.command-palette" }],
+    })
+
+    host.press("p", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+})
