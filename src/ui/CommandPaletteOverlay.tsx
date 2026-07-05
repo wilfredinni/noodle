@@ -53,45 +53,6 @@ function buildDisplayItems(commands: CommandItem[]): PaletteItem[] {
   return items
 }
 
-function filterDisplayItems(
-  items: PaletteItem[],
-  commands: CommandItem[],
-  query: string,
-): PaletteItem[] {
-  if (!query) return items
-  return items.filter((item) => {
-    if (item.type === "command") {
-      return item.label.toLowerCase().includes(query.toLowerCase())
-    }
-    if (item.type === "header") {
-      return commands.some(
-        (c) =>
-          c.section === item.section &&
-          c.label.toLowerCase().includes(query.toLowerCase()),
-      )
-    }
-    // spacer: only visible if both adjacent sections have visible commands
-    const idx = items.indexOf(item)
-    const prevHeader = items
-      .slice(0, idx)
-      .reverse()
-      .find((i) => i.type === "header")
-    const nextHeader = items.slice(idx + 1).find((i) => i.type === "header")
-    if (!prevHeader || !nextHeader) return true
-    const prevVisible = commands.some(
-      (c) =>
-        c.section === prevHeader.section &&
-        c.label.toLowerCase().includes(query.toLowerCase()),
-    )
-    const nextVisible = commands.some(
-      (c) =>
-        c.section === nextHeader.section &&
-        c.label.toLowerCase().includes(query.toLowerCase()),
-    )
-    return prevVisible && nextVisible
-  })
-}
-
 export function CommandPaletteOverlay({
   visible,
   commands,
@@ -127,7 +88,7 @@ export function CommandPaletteOverlay({
             c.label.toLowerCase().includes(query.toLowerCase()),
         )
       }
-      // spacer: only if both adjacent sections are visible
+      // spacer: only if both adjacent sections have matching commands
       const idx = displayItems.indexOf(item)
       const prevHeader = displayItems
         .slice(0, idx)
@@ -159,9 +120,9 @@ export function CommandPaletteOverlay({
           setHighlightedId(null)
           return
         }
-        // search within the CURRENT filtered list
+        // search within the CURRENT filtered list (same as PickerOverlay sees)
         const visible = queryRef.current
-          ? filterDisplayItems(displayItems, commands, queryRef.current)
+          ? displayItems.filter((i) => filter(i, queryRef.current))
           : displayItems
         const idx = visible.indexOf(item)
         if (idx < 0) return
