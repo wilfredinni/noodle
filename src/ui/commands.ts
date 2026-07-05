@@ -1,5 +1,6 @@
 import { join } from "node:path"
 import type { RefObject } from "react"
+import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./CommandPaletteOverlay"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
@@ -17,6 +18,7 @@ export interface CommandBuilderContext {
   keybinds: Keybinds
   collectionDir: string
   confirmUndoAll: boolean
+  renderer: CliRenderer
   trySendRef: RefObject<(() => void) | undefined>
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
@@ -100,6 +102,7 @@ export function buildCommandPaletteCommands(
     keybinds,
     collectionDir,
     confirmUndoAll,
+    renderer,
     trySendRef,
     draftRef,
     folderDraftRef,
@@ -134,6 +137,46 @@ export function buildCommandPaletteCommands(
   } = ctx
 
   return [
+    // ── Request Editing ──────────────────────────────────────────────
+    {
+      id: "request.edit-overlay",
+      label: "Edit Request",
+      section: "Request Editing",
+      keybinding: displayKey(keybinds.request_edit_overlay),
+      run: () => {
+        if (focusedFolderPathRef.current) return
+        const sid = selectedIdRef.current
+        if (!sid) return
+        const col = collectionRef.current
+        if (!col) return
+        const req = findRequestById(col.items, sid)
+        if (!req) return
+        setEditRequestVisible(true)
+      },
+    },
+    {
+      id: "request.edit-yaml",
+      label: "Edit Request YAML",
+      section: "Request Editing",
+      keybinding: displayKey(keybinds.request_edit_yaml),
+      run: () => {
+        if (focusedFolderPathRef.current) return
+        const sid = selectedIdRef.current
+        if (!sid || !collectionDir) return
+        const col = collectionRef.current
+        if (!col) return
+        const r = findRequestById(col.items, sid)
+        if (!r) return
+        const filePath = join(collectionDir, `${sid}.yml`)
+        setYamlEditor({
+          visible: true,
+          filePath,
+          requestName: r.name,
+          returnFocus: focusRef.current,
+        })
+      },
+    },
+    // ── Actions ──────────────────────────────────────────────────────
     {
       id: "request.send",
       label: "Send Request",
@@ -152,75 +195,6 @@ export function buildCommandPaletteCommands(
           doSaveRef.current()
         }
       },
-    },
-    {
-      id: "env.cycle",
-      label: "Cycle Environment",
-      section: "Actions",
-      keybinding: displayKey(keybinds.env_cycle),
-      run: () => envStateRef.current.cycle(1),
-    },
-    {
-      id: "response.copy-body",
-      label: "Copy Response Body",
-      section: "Actions",
-      keybinding: displayKey(keybinds.response_copy_body),
-      run: () => {
-        const s = responseStateRef.current
-        if (s?.status !== "done") return
-        const body = s.response.body
-        let copied = false
-        const tmp = `/tmp/noodle-copy-${Date.now()}`
-        try {
-          Bun.write(tmp, body)
-          Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])
-          copied = true
-        } catch {
-          // fallback failed — toast shows error
-        } finally {
-          try {
-            Bun.spawnSync(["rm", "-f", tmp])
-          } catch {
-            // cleanup is best-effort; ignore failures
-          }
-        }
-        showToast(
-          copied ? "Response body copied" : "Failed to copy response body",
-          copied ? "success" : "error",
-        )
-      },
-    },
-    {
-      id: "layout.toggle",
-      label: "Toggle Layout",
-      section: "Actions",
-      keybinding: displayKey(keybinds.layout_toggle),
-      run: () =>
-        setLayout((prev: "stacked" | "side-by-side") => {
-          const next = prev === "stacked" ? "side-by-side" : "stacked"
-          onLayoutChange(next)
-          return next
-        }),
-    },
-    {
-      id: "pane.expand",
-      label: "Expand/Collapse Pane",
-      section: "Actions",
-      keybinding: displayKey(keybinds.pane_expand),
-      run: () => {
-        const f = getKeymapFocus() as "request" | "response"
-        if (f !== "request" && f !== "response") return
-        setExpanded((prev: "request" | "response" | null) =>
-          prev === f ? null : f,
-        )
-      },
-    },
-    {
-      id: "app.help",
-      label: "Toggle Help",
-      section: "System",
-      keybinding: displayKey(keybinds.help_toggle),
-      run: () => setHelpVisible((prev: boolean) => !prev),
     },
     {
       id: "request.new",
@@ -252,40 +226,6 @@ export function buildCommandPaletteCommands(
       },
     },
     {
-      id: "request.edit-overlay",
-      label: "Edit Request",
-      section: "Request Editing",
-      keybinding: displayKey(keybinds.request_edit_overlay),
-      run: () => {
-        if (focusedFolderPathRef.current) return
-        const sid = selectedIdRef.current
-        if (!sid) return
-        setEditRequestVisible(true)
-      },
-    },
-    {
-      id: "request.edit-yaml",
-      label: "Edit Request YAML",
-      section: "Request Editing",
-      keybinding: displayKey(keybinds.request_edit_yaml),
-      run: () => {
-        if (focusedFolderPathRef.current) return
-        const sid = selectedIdRef.current
-        if (!sid || !collectionDir) return
-        const col = collectionRef.current
-        if (!col) return
-        const r = findRequestById(col.items, sid)
-        if (!r) return
-        const filePath = join(collectionDir, `${sid}.yml`)
-        setYamlEditor({
-          visible: true,
-          filePath,
-          requestName: r.name,
-          returnFocus: focusRef.current,
-        })
-      },
-    },
-    {
       id: "request.delete",
       label: "Delete Request",
       section: "Actions",
@@ -308,16 +248,69 @@ export function buildCommandPaletteCommands(
       },
     },
     {
-      id: "env.editor-open",
-      label: "Open Environment Editor",
-      section: "Env Editor",
-      keybinding: displayKey(keybinds.env_editor),
+      id: "env.cycle",
+      label: "Cycle Environment",
+      section: "Actions",
+      keybinding: displayKey(keybinds.env_cycle),
+      run: () => envStateRef.current.cycle(1),
+    },
+    {
+      id: "response.copy-body",
+      label: "Copy Response Body",
+      section: "Actions",
+      keybinding: displayKey(keybinds.response_copy_body),
       run: () => {
-        const name = envStateRef.current.activeEnv?.name
-        envEditorRef.current.openEditor(name)
-        setView("env-editor")
-        setFocus("env-sidebar")
+        const s = responseStateRef.current
+        if (s?.status !== "done") return
+        const body = s.response.body
+        const tmp = `/tmp/noodle-copy-${Date.now()}`
+        try {
+          Bun.write(tmp, body)
+          Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])
+        } catch {
+          renderer.copyToClipboardOSC52(body)
+        } finally {
+          try {
+            Bun.spawnSync(["rm", "-f", tmp])
+          } catch {
+            // cleanup is best-effort
+          }
+        }
+        showToast("Response body copied", "success")
       },
+    },
+    {
+      id: "layout.toggle",
+      label: "Toggle Layout",
+      section: "Actions",
+      keybinding: displayKey(keybinds.layout_toggle),
+      run: () =>
+        setLayout((prev: "stacked" | "side-by-side") => {
+          const next = prev === "stacked" ? "side-by-side" : "stacked"
+          onLayoutChange(next)
+          return next
+        }),
+    },
+    {
+      id: "pane.expand",
+      label: "Expand/Collapse Pane",
+      section: "Actions",
+      keybinding: displayKey(keybinds.pane_expand),
+      run: () => {
+        const f = getKeymapFocus() as "request" | "response"
+        if (f !== "request" && f !== "response") return
+        setExpanded((prev: "request" | "response" | null) =>
+          prev === f ? null : f,
+        )
+      },
+    },
+    // ── System ───────────────────────────────────────────────────────
+    {
+      id: "app.help",
+      label: "Toggle Help",
+      section: "System",
+      keybinding: displayKey(keybinds.help_toggle),
+      run: () => setHelpVisible((prev: boolean) => !prev),
     },
     {
       id: "app.theme",
@@ -344,6 +337,19 @@ export function buildCommandPaletteCommands(
           fd.revertAllFolders()
           ee?.revertDraft()
         }
+      },
+    },
+    // ── Env Editor ───────────────────────────────────────────────────
+    {
+      id: "env.editor-open",
+      label: "Open Environment Editor",
+      section: "Env Editor",
+      keybinding: displayKey(keybinds.env_editor),
+      run: () => {
+        const name = envStateRef.current.activeEnv?.name
+        envEditorRef.current.openEditor(name)
+        setView("env-editor")
+        setFocus("env-sidebar")
       },
     },
   ]

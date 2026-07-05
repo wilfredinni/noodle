@@ -53,6 +53,7 @@ import { EnvEditorPane } from "./EnvEditorPane"
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
+import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
@@ -993,12 +994,15 @@ export function AppInner({
     [keybinds.pane_expand],
   )
 
+  const renderer = useRenderer()
+
   const commandPaletteCommands = useMemo(
     () =>
       buildCommandPaletteCommands({
         keybinds,
         collectionDir,
         confirmUndoAll,
+        renderer,
         trySendRef,
         draftRef,
         folderDraftRef,
