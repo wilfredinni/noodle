@@ -1,11 +1,10 @@
-import type { TextareaRenderable } from "@opentui/core"
-import { useCallback, useRef, useState } from "react"
+import { useState } from "react"
 import type { Auth, Environment } from "../schema"
 import type { EditState } from "./editMode"
 import { Select, type SelectItem } from "./Select"
 import type { Theme } from "./theme"
 import { LeftBar } from "./borders"
-import { VarText } from "./VarText"
+import { VarInput } from "./VarInput"
 
 const AUTH_TYPE_ITEMS: SelectItem[] = [
   { id: "none", label: "None" },
@@ -123,14 +122,8 @@ export function AuthEditor({
   idPrefix = "auth",
   showInherit = false,
 }: AuthEditorProps) {
-  const textareaRef = useRef<TextareaRenderable | null>(null)
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
   const [placementSelectOpen, setPlacementSelectOpen] = useState(false)
-
-  const handleContentChange = useCallback(() => {
-    const ta = textareaRef.current
-    if (ta) setEditValue(ta.plainText)
-  }, [setEditValue])
 
   const { type, fieldDefs } = getAuthRows(auth)
   const authItems = showInherit
@@ -142,21 +135,15 @@ export function AuthEditor({
     editState.cursor.field === "auth" &&
     editState.cursor.row === 0
 
-  const handleTypeSelectOpen = useCallback(
-    (open: boolean) => {
-      setTypeSelectOpen(open)
-      onSelectOpenChange?.(open)
-    },
-    [onSelectOpenChange],
-  )
+  const handleTypeSelectOpen = (open: boolean) => {
+    setTypeSelectOpen(open)
+    onSelectOpenChange?.(open)
+  }
 
-  const handlePlacementSelectOpen = useCallback(
-    (open: boolean) => {
-      setPlacementSelectOpen(open)
-      onSelectOpenChange?.(open)
-    },
-    [onSelectOpenChange],
-  )
+  const handlePlacementSelectOpen = (open: boolean) => {
+    setPlacementSelectOpen(open)
+    onSelectOpenChange?.(open)
+  }
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
@@ -222,15 +209,12 @@ export function AuthEditor({
               {isEditingRow && !def.isPlacement ? (
                 <>
                   <text fg={theme.textMuted}>{def.label}: </text>
-                  <textarea
-                    ref={textareaRef}
-                    initialValue={fieldValue}
-                    onContentChange={handleContentChange}
-                    backgroundColor={theme.backgroundPanel}
-                    focusedBackgroundColor={theme.backgroundPanel}
-                    textColor={theme.text}
-                    cursorColor={theme.primary}
-                    focused
+                  <VarInput
+                    value={fieldValue}
+                    env={activeEnv ?? null}
+                    isEditing
+                    useTextarea
+                    onChange={setEditValue}
                   />
                 </>
               ) : def.isPlacement ? (
@@ -248,9 +232,10 @@ export function AuthEditor({
                   />
                 </box>
               ) : (
-                <VarText
-                  text={`${def.label}: ${displayValue}`}
+                <VarInput
+                  value={`${def.label}: ${displayValue}`}
                   env={activeEnv ?? null}
+                  isEditing={false}
                   baseColor={theme.text}
                 />
               )}

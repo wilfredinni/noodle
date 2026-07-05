@@ -1243,7 +1243,13 @@ export function AppInner({
             }}
           />
         )}
-        {newRequestVisible && <NewRequestOverlay visible ref={newRequestRef} />}
+        {newRequestVisible && (
+          <NewRequestOverlay
+            visible
+            ref={newRequestRef}
+            activeEnv={envState.activeEnv}
+          />
+        )}
         {editRequestVisible && (
           <NewRequestOverlay
             visible
@@ -1254,6 +1260,7 @@ export function AppInner({
             folderPaths={folderPaths}
             initialFolderPath={editRequestInitialFolder}
             ref={editRequestRef}
+            activeEnv={envState.activeEnv}
           />
         )}
         {cloneRequestVisible && (

@@ -15,7 +15,7 @@ import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import { useJsonHighlight } from "../hooks/useJsonHighlight"
 import { JsonBodyViewer } from "./JsonBodyViewer"
-import { VarText } from "./VarText"
+import { VarInput } from "./VarInput"
 import { KeyValueSection } from "./KeyValueSection"
 import { Checkbox } from "./Checkbox"
 import { AuthEditor } from "./AuthEditor"
@@ -389,14 +389,13 @@ function BodySection({
             activeEnv={activeEnv}
           />
         ) : isBinaryMode ? (
-          <input
-            id="body-field"
+          <VarInput
             value={editValue}
+            env={activeEnv ?? null}
+            isEditing
+            onChange={setEditValue}
+            isFocused
             placeholder="File path..."
-            onInput={setEditValue}
-            focused
-            textColor={theme.text}
-            cursorColor={theme.primary}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
           />
@@ -448,9 +447,11 @@ function BodySection({
                 : undefined,
           }}
         >
-          <text id="body-field" fg={theme.text}>
-            {request.filePath || "(no file selected)"}
-          </text>
+          <VarInput
+            value={request.filePath || "(no file selected)"}
+            env={activeEnv ?? null}
+            isEditing={false}
+          />
         </box>
       ) : body === "" ? (
         <box
@@ -507,13 +508,6 @@ function SettingsSection({
   theme: Theme
   activeEnv?: Environment | null
 }) {
-  const textareaRef = useRef<TextareaRenderable | null>(null)
-
-  const handleContentChange = useCallback(() => {
-    const ta = textareaRef.current
-    if (ta) setEditValue(ta.plainText)
-  }, [setEditValue])
-
   const rows = [
     {
       label: "Timeout (ms)",
@@ -565,15 +559,12 @@ function SettingsSection({
               {editingRow ? (
                 <>
                   <text fg={theme.textMuted}>{row.label}: </text>
-                  <textarea
-                    ref={textareaRef}
-                    initialValue={String(row.value)}
-                    onContentChange={handleContentChange}
-                    backgroundColor={theme.backgroundPanel}
-                    focusedBackgroundColor={theme.backgroundPanel}
-                    textColor={theme.text}
-                    cursorColor={theme.primary}
-                    focused
+                  <VarInput
+                    value={String(row.value)}
+                    env={activeEnv ?? null}
+                    isEditing
+                    useTextarea
+                    onChange={setEditValue}
                   />
                 </>
               ) : idx === 1 ? (
@@ -585,9 +576,10 @@ function SettingsSection({
                   />
                 </box>
               ) : (
-                <VarText
-                  text={`${row.label}: ${row.display}`}
+                <VarInput
+                  value={`${row.label}: ${row.display}`}
                   env={activeEnv ?? null}
+                  isEditing={false}
                   baseColor={theme.text}
                 />
               )}

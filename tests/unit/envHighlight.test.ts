@@ -1,17 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import {
-  splitEnvVars,
-  envVarStatus,
-  varSummaryColor,
-} from "../../src/ui/envHighlight"
+import { splitEnvVars } from "../../src/ui/envHighlight"
 import type { Environment } from "../../src/schema"
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test-env", vars }
-}
-
-function theme() {
-  return { primary: "#fab283", error: "#e06c75" }
 }
 
 describe("splitEnvVars", () => {
@@ -114,68 +106,5 @@ describe("splitEnvVars", () => {
   it("handles $ with digits", () => {
     const result = splitEnvVars("$port8080", env({ port8080: "8080" }))
     expect(result).toEqual([{ text: "$port8080", isVar: true, exists: true }])
-  })
-})
-
-describe("envVarStatus", () => {
-  it('returns "none" when text has no variables', () => {
-    expect(envVarStatus("plain text", env({}))).toBe("none")
-  })
-
-  it('returns "missing" when env is null', () => {
-    expect(envVarStatus("$var", null)).toBe("missing")
-  })
-
-  it('returns "missing" when variable not in env', () => {
-    expect(envVarStatus("$missing", env({}))).toBe("missing")
-  })
-
-  it('returns "resolved" when all variables exist', () => {
-    expect(envVarStatus("$x $y", env({ x: "1", y: "2" }))).toBe("resolved")
-  })
-
-  it('returns "missing" when any variable is missing', () => {
-    expect(envVarStatus("$x $missing", env({ x: "1" }))).toBe("missing")
-  })
-
-  it("handles empty string", () => {
-    expect(envVarStatus("", env({}))).toBe("none")
-  })
-})
-
-describe("varSummaryColor", () => {
-  const t = theme()
-  const base = "#cccccc"
-
-  it("returns baseColor when no variables present", () => {
-    expect(varSummaryColor("plain", env({}), t, base)).toBe(base)
-  })
-
-  it("returns error when env is null", () => {
-    expect(varSummaryColor("$var", null, t, base)).toBe(t.error)
-  })
-
-  it("returns error when variable is missing", () => {
-    expect(varSummaryColor("$missing", env({}), t, base)).toBe(t.error)
-  })
-
-  it("returns primary when all variables exist", () => {
-    expect(varSummaryColor("$x", env({ x: "1" }), t, base)).toBe(t.primary)
-  })
-
-  it("returns error when any variable is missing", () => {
-    expect(varSummaryColor("$good $bad", env({ good: "ok" }), t, base)).toBe(
-      t.error,
-    )
-  })
-
-  it("returns baseColor for empty string", () => {
-    expect(varSummaryColor("", env({}), t, base)).toBe(base)
-  })
-
-  it("returns primary for multiple resolved variables", () => {
-    expect(
-      varSummaryColor("$a $b $c", env({ a: "1", b: "2", c: "3" }), t, base),
-    ).toBe(t.primary)
   })
 })

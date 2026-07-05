@@ -38,30 +38,3 @@ export function splitEnvVars(
   }
   return segments
 }
-
-export function envVarStatus(
-  value: string,
-  env: Environment | null,
-): "none" | "missing" | "resolved" {
-  VAR_RE.lastIndex = 0
-  if (!VAR_RE.test(value)) return "none"
-  if (env === null) return "missing"
-  VAR_RE.lastIndex = 0
-  let match: RegExpExecArray | null
-  while ((match = VAR_RE.exec(value)) !== null) {
-    if (!(match[1]! in env.vars)) return "missing"
-  }
-  return "resolved"
-}
-
-export function varSummaryColor(
-  value: string,
-  env: Environment | null,
-  theme: { primary: string; error: string },
-  baseColor: string,
-): string {
-  const status = envVarStatus(value, env)
-  if (status === "none") return baseColor
-  if (status === "missing") return theme.error
-  return theme.primary
-}

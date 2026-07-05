@@ -2,7 +2,7 @@ import type { KvEntry, Environment } from "../schema"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
-import { varSummaryColor } from "./envHighlight"
+import { VarInput } from "./VarInput"
 
 export interface KeyValueSectionProps {
   kind: "headers" | "params"
@@ -59,18 +59,18 @@ export function KeyValueSection({
           }}
         >
           <Checkbox checked={false} theme={theme} />
-          <input
+          <VarInput
             value=""
-            placeholder="Key"
-            textColor={theme.textMuted}
-            cursorColor={theme.primary}
+            env={activeEnv ?? null}
+            isEditing={false}
+            baseColor={theme.textMuted}
             style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
           />
-          <input
+          <VarInput
             value=""
-            placeholder="Value"
-            textColor={theme.textMuted}
-            cursorColor={theme.primary}
+            env={activeEnv ?? null}
+            isEditing={false}
+            baseColor={theme.textMuted}
             style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
           />
         </box>
@@ -85,6 +85,13 @@ export function KeyValueSection({
               !editState.cursor.addingRow &&
               editState.cursor.row === i
             const dimmed = (inEdit && !isEditingThisRow) || !kv.enabled
+
+            const keyBaseColor = dimmed ? theme.textMuted : theme.text
+            const valueBaseColor = dimmed
+              ? theme.textMuted
+              : cursorOnThisRow
+                ? theme.text
+                : theme.textMuted
 
             return (
               <box
@@ -102,56 +109,30 @@ export function KeyValueSection({
                 }}
               >
                 <Checkbox checked={kv.enabled} theme={theme} />
-                <input
+                <VarInput
                   value={isEditingThisRow ? editKey : entry.key}
-                  placeholder="Key"
-                  onInput={isEditingThisRow ? setEditKey : undefined}
-                  focused={
-                    isEditingThisRow && editState.cursor.subfield === "key"
-                  }
+                  env={activeEnv ?? null}
+                  isEditing={isEditingThisRow}
+                  onChange={setEditKey}
+                  isFocused={editState.cursor.subfield === "key"}
+                  baseColor={keyBaseColor}
                   backgroundColor={
                     isEditingThisRow ? theme.backgroundElement : undefined
                   }
                   focusedBackgroundColor={theme.borderSubtle}
-                  textColor={
-                    isEditingThisRow
-                      ? theme.text
-                      : varSummaryColor(
-                          entry.key,
-                          activeEnv ?? null,
-                          theme,
-                          dimmed ? theme.textMuted : theme.text,
-                        )
-                  }
-                  cursorColor={theme.primary}
                   style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
                 />
-                <input
+                <VarInput
                   value={isEditingThisRow ? editValue : kv.value}
-                  placeholder="Value"
-                  onInput={isEditingThisRow ? setEditValue : undefined}
-                  focused={
-                    isEditingThisRow && editState.cursor.subfield === "value"
-                  }
+                  env={activeEnv ?? null}
+                  isEditing={isEditingThisRow}
+                  onChange={setEditValue}
+                  isFocused={editState.cursor.subfield === "value"}
+                  baseColor={valueBaseColor}
                   backgroundColor={
                     isEditingThisRow ? theme.backgroundElement : undefined
                   }
                   focusedBackgroundColor={theme.borderSubtle}
-                  textColor={
-                    isEditingThisRow
-                      ? theme.text
-                      : varSummaryColor(
-                          kv.value,
-                          activeEnv ?? null,
-                          theme,
-                          dimmed
-                            ? theme.textMuted
-                            : cursorOnThisRow
-                              ? theme.text
-                              : theme.textMuted,
-                        )
-                  }
-                  cursorColor={theme.primary}
                   style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
                 />
               </box>
@@ -169,34 +150,34 @@ export function KeyValueSection({
             }}
           >
             <Checkbox checked={false} theme={theme} />
-            <input
+            <VarInput
               value={editingAdd ? editKey : ""}
-              placeholder="Key"
-              onInput={editingAdd ? setEditKey : undefined}
-              focused={editingAdd && editState.cursor.subfield === "key"}
-              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
-              focusedBackgroundColor={theme.borderSubtle}
-              textColor={
+              env={activeEnv ?? null}
+              isEditing={editingAdd}
+              onChange={setEditKey}
+              isFocused={editState.cursor.subfield === "key"}
+              baseColor={
                 editingAdd || (cursorHere && editState.cursor.addingRow)
                   ? theme.text
                   : theme.textMuted
               }
-              cursorColor={theme.primary}
+              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+              focusedBackgroundColor={theme.borderSubtle}
               style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
             />
-            <input
+            <VarInput
               value={editingAdd ? editValue : ""}
-              placeholder="Value"
-              onInput={editingAdd ? setEditValue : undefined}
-              focused={editingAdd && editState.cursor.subfield === "value"}
-              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
-              focusedBackgroundColor={theme.borderSubtle}
-              textColor={
+              env={activeEnv ?? null}
+              isEditing={editingAdd}
+              onChange={setEditValue}
+              isFocused={editState.cursor.subfield === "value"}
+              baseColor={
                 editingAdd || (cursorHere && editState.cursor.addingRow)
                   ? theme.text
                   : theme.textMuted
               }
-              cursorColor={theme.primary}
+              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+              focusedBackgroundColor={theme.borderSubtle}
               style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
             />
           </box>
