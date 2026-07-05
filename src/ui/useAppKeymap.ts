@@ -300,7 +300,7 @@ export function useAppKeymap(
           const name = refs.envStateRef.current.activeEnv?.name
           refs.envEditorRef.current.openEditor(name)
           setters.setView("env-editor")
-          setters.setFocus("env-sidebar")
+          setters.setFocus("env-header")
         },
       },
       {
