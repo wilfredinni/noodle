@@ -75,6 +75,7 @@ export function CommandPaletteOverlay({
   return (
     <PickerOverlay
       visible={visible}
+      width={60}
       title="Commands"
       placeholder="Type a command..."
       items={commands}
