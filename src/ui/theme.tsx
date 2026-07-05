@@ -91,7 +91,7 @@ export function ThemePickerOverlay({
   )
 
   const highlightedItem = useMemo(
-    () => (previewIndex !== null ? items[previewIndex] : null),
+    () => items[previewIndex] ?? null,
     [previewIndex, items],
   )
 

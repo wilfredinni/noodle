@@ -58,7 +58,7 @@ export function PickerOverlay<T>({
   }, [visible])
   const inputRef = useCallback((r: unknown) => {
     const input = r as { focus: () => void } | null
-    if (input) setTimeout(() => input.focus(), 1)
+    if (input) queueMicrotask(() => input.focus())
   }, [])
 
   const filtered = useMemo(
@@ -75,6 +75,13 @@ export function PickerOverlay<T>({
     )
     return found ?? filtered[0] ?? null
   }, [filtered, highlightedItem, keyExtractor])
+
+  const highlightIndex = useMemo(() => {
+    if (!currentHighlight || filtered.length === 0) return -1
+    return filtered.findIndex(
+      (f) => keyExtractor(f) === keyExtractor(currentHighlight),
+    )
+  }, [filtered, currentHighlight, keyExtractor])
 
   useEffect(() => {
     if (currentHighlight) {
@@ -96,24 +103,14 @@ export function PickerOverlay<T>({
         } else if (name === "up") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          if (filtered.length === 0) return
-          const pos = currentHighlight
-            ? filtered.findIndex(
-                (f) => keyExtractor(f) === keyExtractor(currentHighlight),
-              )
-            : -1
-          const nextPos = pos > 0 ? pos - 1 : filtered.length - 1
+          if (filtered.length === 0 || highlightIndex < 0) return
+          const nextPos = highlightIndex > 0 ? highlightIndex - 1 : filtered.length - 1
           onHighlightChange?.(filtered[nextPos])
         } else if (name === "down") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          if (filtered.length === 0) return
-          const pos = currentHighlight
-            ? filtered.findIndex(
-                (f) => keyExtractor(f) === keyExtractor(currentHighlight),
-              )
-            : -1
-          const nextPos = pos < filtered.length - 1 ? pos + 1 : 0
+          if (filtered.length === 0 || highlightIndex < 0) return
+          const nextPos = highlightIndex < filtered.length - 1 ? highlightIndex + 1 : 0
           onHighlightChange?.(filtered[nextPos])
         } else if (name === "return") {
           ctx.event.preventDefault()
@@ -127,6 +124,7 @@ export function PickerOverlay<T>({
   }, [
     visible,
     filtered,
+    highlightIndex,
     currentHighlight,
     onHighlightChange,
     onSelect,
