@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo } from "react"
+import { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import { TextAttributes } from "@opentui/core"
 import { PickerOverlay } from "./PickerOverlay"
 import { useTheme } from "./theme"
@@ -23,13 +23,13 @@ type PaletteItem =
     }
   | { type: "spacer"; id: string }
 
-function isNavigable(item: PaletteItem): boolean {
-  return item.type === "command"
-}
-
 function isCmd(
   item: PaletteItem,
 ): item is PaletteItem & { type: "command"; run: () => void } {
+  return item.type === "command"
+}
+
+function isNavigable(item: PaletteItem): boolean {
   return item.type === "command"
 }
 
@@ -53,6 +53,45 @@ function buildDisplayItems(commands: CommandItem[]): PaletteItem[] {
   return items
 }
 
+function filterDisplayItems(
+  items: PaletteItem[],
+  commands: CommandItem[],
+  query: string,
+): PaletteItem[] {
+  if (!query) return items
+  return items.filter((item) => {
+    if (item.type === "command") {
+      return item.label.toLowerCase().includes(query.toLowerCase())
+    }
+    if (item.type === "header") {
+      return commands.some(
+        (c) =>
+          c.section === item.section &&
+          c.label.toLowerCase().includes(query.toLowerCase()),
+      )
+    }
+    // spacer: only visible if both adjacent sections have visible commands
+    const idx = items.indexOf(item)
+    const prevHeader = items
+      .slice(0, idx)
+      .reverse()
+      .find((i) => i.type === "header")
+    const nextHeader = items.slice(idx + 1).find((i) => i.type === "header")
+    if (!prevHeader || !nextHeader) return true
+    const prevVisible = commands.some(
+      (c) =>
+        c.section === prevHeader.section &&
+        c.label.toLowerCase().includes(query.toLowerCase()),
+    )
+    const nextVisible = commands.some(
+      (c) =>
+        c.section === nextHeader.section &&
+        c.label.toLowerCase().includes(query.toLowerCase()),
+    )
+    return prevVisible && nextVisible
+  })
+}
+
 export function CommandPaletteOverlay({
   visible,
   commands,
@@ -64,6 +103,7 @@ export function CommandPaletteOverlay({
 }) {
   const theme = useTheme()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const queryRef = useRef("")
 
   const displayItems = useMemo(() => buildDisplayItems(commands), [commands])
 
@@ -71,16 +111,15 @@ export function CommandPaletteOverlay({
     if (visible) setHighlightedId(null)
   }, [visible])
 
-  const highlightedItem = useMemo(() => {
-    if (!highlightedId) return displayItems.find(isNavigable) ?? null
-    return displayItems.find((i) => i.id === highlightedId) ?? null
-  }, [displayItems, highlightedId])
-
   const keyExtractor = useCallback((item: PaletteItem) => item.id, [])
 
   const filter = useCallback(
     (item: PaletteItem, query: string) => {
+      queryRef.current = query
       if (!query) return true
+      if (item.type === "command") {
+        return item.label.toLowerCase().includes(query.toLowerCase())
+      }
       if (item.type === "header") {
         return commands.some(
           (c) =>
@@ -88,10 +127,29 @@ export function CommandPaletteOverlay({
             c.label.toLowerCase().includes(query.toLowerCase()),
         )
       }
-      if (item.type === "spacer") return true
-      return item.label.toLowerCase().includes(query.toLowerCase())
+      // spacer: only if both adjacent sections are visible
+      const idx = displayItems.indexOf(item)
+      const prevHeader = displayItems
+        .slice(0, idx)
+        .reverse()
+        .find((i) => i.type === "header")
+      const nextHeader = displayItems
+        .slice(idx + 1)
+        .find((i) => i.type === "header")
+      if (!prevHeader || !nextHeader) return true
+      const prevVisible = commands.some(
+        (c) =>
+          c.section === prevHeader.section &&
+          c.label.toLowerCase().includes(query.toLowerCase()),
+      )
+      const nextVisible = commands.some(
+        (c) =>
+          c.section === nextHeader.section &&
+          c.label.toLowerCase().includes(query.toLowerCase()),
+      )
+      return prevVisible && nextVisible
     },
-    [commands],
+    [commands, displayItems],
   )
 
   const handleHighlightChange = useCallback(
@@ -101,12 +159,16 @@ export function CommandPaletteOverlay({
           setHighlightedId(null)
           return
         }
-        const idx = displayItems.indexOf(item)
+        // search within the CURRENT filtered list
+        const visible = queryRef.current
+          ? filterDisplayItems(displayItems, commands, queryRef.current)
+          : displayItems
+        const idx = visible.indexOf(item)
         if (idx < 0) return
-        // when wrapping hits the first header, figure direction from current highlight
+        // header at edge of filtered list (wrapping)
         if (item.type === "header" && idx === 0) {
-          const firstCmd = displayItems.find(isNavigable)
-          const lastCmd = [...displayItems].reverse().find(isNavigable)
+          const firstCmd = visible.find(isNavigable)
+          const lastCmd = [...visible].reverse().find(isNavigable)
           if (highlightedId === firstCmd?.id && lastCmd) {
             setHighlightedId(lastCmd.id)
             return
@@ -116,9 +178,8 @@ export function CommandPaletteOverlay({
             return
           }
         }
-        const before = displayItems.slice(0, idx).reverse().find(isNavigable)
-        const after = displayItems.slice(idx + 1).find(isNavigable)
-        // prefer the candidate that moves away from current position
+        const before = visible.slice(0, idx).reverse().find(isNavigable)
+        const after = visible.slice(idx + 1).find(isNavigable)
         if (before && before.id !== highlightedId) {
           setHighlightedId(before.id)
         } else if (after && after.id !== highlightedId) {
@@ -130,8 +191,13 @@ export function CommandPaletteOverlay({
         setHighlightedId(item.id)
       }
     },
-    [displayItems, highlightedId],
+    [displayItems, commands, highlightedId],
   )
+
+  const highlightedItem = useMemo(() => {
+    if (!highlightedId) return displayItems.find(isNavigable) ?? null
+    return displayItems.find((i) => i.id === highlightedId) ?? null
+  }, [displayItems, highlightedId])
 
   const handleSelect = useCallback(
     (item: PaletteItem) => {
