@@ -1,4 +1,5 @@
-import { useCallback, useState, useEffect } from "react"
+import { useCallback, useState, useEffect, useMemo } from "react"
+import { TextAttributes } from "@opentui/core"
 import { PickerOverlay } from "./PickerOverlay"
 import { useTheme } from "./theme"
 
@@ -8,6 +9,48 @@ export interface CommandItem {
   section: string
   keybinding?: string
   run: () => void
+}
+
+type PaletteItem =
+  | { type: "header"; id: string; section: string }
+  | {
+      type: "command"
+      id: string
+      label: string
+      section: string
+      keybinding?: string
+      run: () => void
+    }
+  | { type: "spacer"; id: string }
+
+function isNavigable(item: PaletteItem): boolean {
+  return item.type === "command"
+}
+
+function isCmd(
+  item: PaletteItem,
+): item is PaletteItem & { type: "command"; run: () => void } {
+  return item.type === "command"
+}
+
+function buildDisplayItems(commands: CommandItem[]): PaletteItem[] {
+  const seen = new Set<string>()
+  const items: PaletteItem[] = []
+  for (const c of commands) {
+    if (!seen.has(c.section)) {
+      if (seen.size > 0) {
+        items.push({ type: "spacer", id: `spacer:${c.section}` })
+      }
+      seen.add(c.section)
+      items.push({
+        type: "header",
+        id: `header:${c.section}`,
+        section: c.section,
+      })
+    }
+    items.push({ type: "command", ...c })
+  }
+  return items
 }
 
 export function CommandPaletteOverlay({
@@ -20,50 +63,94 @@ export function CommandPaletteOverlay({
   onClose: () => void
 }) {
   const theme = useTheme()
-  const [highlightedItem, setHighlightedItem] = useState<CommandItem | null>(
-    null,
-  )
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+
+  const displayItems = useMemo(() => buildDisplayItems(commands), [commands])
 
   useEffect(() => {
-    if (visible) {
-      setHighlightedItem(null)
-    }
+    if (visible) setHighlightedId(null)
   }, [visible])
 
-  const keyExtractor = useCallback((item: CommandItem) => item.id, [])
+  const highlightedItem = useMemo(() => {
+    if (!highlightedId) return displayItems.find(isNavigable) ?? null
+    return displayItems.find((i) => i.id === highlightedId) ?? null
+  }, [displayItems, highlightedId])
+
+  const keyExtractor = useCallback((item: PaletteItem) => item.id, [])
 
   const filter = useCallback(
-    (item: CommandItem, query: string) =>
-      item.label.toLowerCase().includes(query.toLowerCase()),
-    [],
+    (item: PaletteItem, query: string) => {
+      if (!query) return true
+      if (item.type === "header") {
+        return commands.some(
+          (c) =>
+            c.section === item.section &&
+            c.label.toLowerCase().includes(query.toLowerCase()),
+        )
+      }
+      if (item.type === "spacer") return true
+      return item.label.toLowerCase().includes(query.toLowerCase())
+    },
+    [commands],
+  )
+
+  const handleHighlightChange = useCallback(
+    (item: PaletteItem | null) => {
+      if (!item || !isNavigable(item)) {
+        if (!item) {
+          setHighlightedId(null)
+          return
+        }
+        const idx = displayItems.indexOf(item)
+        if (idx < 0) return
+        const forward = displayItems.slice(idx + 1).find(isNavigable)
+        if (forward) {
+          setHighlightedId(forward.id)
+          return
+        }
+        const backward = displayItems.slice(0, idx).reverse().find(isNavigable)
+        setHighlightedId(backward?.id ?? null)
+      } else {
+        setHighlightedId(item.id)
+      }
+    },
+    [displayItems],
   )
 
   const handleSelect = useCallback(
-    (item: CommandItem) => {
-      item.run()
-      onClose()
+    (item: PaletteItem) => {
+      if (isCmd(item)) {
+        item.run()
+        onClose()
+      }
     },
     [onClose],
   )
 
   const renderItem = useCallback(
     (
-      item: CommandItem,
+      item: PaletteItem,
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
+      if (item.type === "header") {
+        return (
+          <box flexGrow={1}>
+            <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+              {item.section}
+            </text>
+          </box>
+        )
+      }
+      if (item.type === "spacer") {
+        return <box height={1} />
+      }
       const baseFg = highlighted ? "#1a1a1a" : theme.text
       const mutedFg = highlighted ? "#333333" : theme.textMuted
       return (
         <>
           <text fg={baseFg}>{item.label}</text>
           <box flexGrow={1} />
-          <text fg={mutedFg}>{item.section}</text>
-          {item.keybinding && (
-            <>
-              <text fg={mutedFg}> · </text>
-              <text fg={mutedFg}>{item.keybinding}</text>
-            </>
-          )}
+          {item.keybinding && <text fg={mutedFg}>{item.keybinding}</text>}
         </>
       )
     },
@@ -78,12 +165,12 @@ export function CommandPaletteOverlay({
       width={60}
       title="Commands"
       placeholder="Type a command..."
-      items={commands}
+      items={displayItems}
       keyExtractor={keyExtractor}
       filter={filter}
       renderItem={renderItem}
       highlightedItem={highlightedItem}
-      onHighlightChange={setHighlightedItem}
+      onHighlightChange={handleHighlightChange}
       onSelect={handleSelect}
       onClose={onClose}
     />
