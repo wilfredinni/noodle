@@ -102,6 +102,7 @@ export interface UseAppKeymapSetters {
   setFolderDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
+  setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
 }
 
 export function useAppKeymap(
@@ -109,6 +110,7 @@ export function useAppKeymap(
   refs: UseAppKeymapRefs,
   setters: UseAppKeymapSetters,
   collectionDir: string,
+  confirmUndoAll: boolean,
 ): void {
   const keymap = useKeymap()
   const renderer = useRenderer()
@@ -235,6 +237,29 @@ export function useAppKeymap(
           showToast("Response body copied", "success")
         },
       },
+      {
+        name: "global.undo-all",
+        enabled: () => {
+          const mode = keymap.getData("app.mode") as string
+          const overlay = keymap.getData("app.overlay") as string
+          return mode !== "edit" && overlay === "none"
+        },
+        run: () => {
+          const d = refs.draftRef.current
+          const fd = refs.folderDraftRef.current
+          const ee = refs.envEditorRef.current
+          const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
+          if (!hasDirty) return
+
+          if (confirmUndoAll) {
+            setters.setUndoAllPending(true)
+          } else {
+            d.revertAllRequests()
+            fd.revertAllFolders()
+            ee?.revertDraft()
+          }
+        },
+      },
     ],
     bindings: [
       { key: "tab", cmd: "focus.next" },
@@ -244,6 +269,7 @@ export function useAppKeymap(
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
+      { key: keybinds.global_undo_all, cmd: "global.undo-all" },
     ],
   }))
 

@@ -77,6 +77,7 @@ export function AppInner({
   onThemeChange,
   keybinds,
   initialLayout,
+  confirmUndoAll,
   onLayoutChange,
   onEnvChange,
   onEnvListChanged,
@@ -94,6 +95,7 @@ export function AppInner({
   onThemeChange: (index: number) => void
   keybinds: Keybinds
   initialLayout: "stacked" | "side-by-side"
+  confirmUndoAll: boolean
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   onEnvChange: (name: string | null) => void
   onEnvListChanged: () => Promise<void>
@@ -148,6 +150,7 @@ export function AppInner({
     null,
   )
   const folderDeletePathRef = useRef<string | null>(null)
+  const [undoAllPending, setUndoAllPending] = useState(false)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -694,21 +697,23 @@ export function AppInner({
         ? "theme"
         : saveState.kind === "confirming"
           ? "confirm"
-          : yamlEditor.visible
-            ? "yaml-editor"
-            : newRequestVisible
-              ? "new-request"
-              : editRequestVisible
-                ? "edit-request"
-                : cloneRequestVisible
-                  ? "clone-request"
-                  : newFolderVisible
-                    ? "new-folder"
-                    : folderDeletePending !== null
-                      ? "delete-folder"
-                      : requestDeletePending !== null
-                        ? "request-delete"
-                        : "none"
+          : undoAllPending
+            ? "undo-all"
+            : yamlEditor.visible
+              ? "yaml-editor"
+              : newRequestVisible
+                ? "new-request"
+                : editRequestVisible
+                  ? "edit-request"
+                  : cloneRequestVisible
+                    ? "clone-request"
+                    : newFolderVisible
+                      ? "new-folder"
+                      : folderDeletePending !== null
+                        ? "delete-folder"
+                        : requestDeletePending !== null
+                          ? "request-delete"
+                          : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     helpVisible,
@@ -721,6 +726,7 @@ export function AppInner({
     newFolderVisible,
     folderDeletePending,
     requestDeletePending,
+    undoAllPending,
     keymap,
   ])
 
@@ -905,10 +911,12 @@ export function AppInner({
       setRequestDeletePending,
       setNewFolderVisible,
       setFolderDeletePending,
+      setUndoAllPending,
       onLayoutChange,
       setExpanded,
     },
     collectionDir,
+    confirmUndoAll,
   )
 
   // ── Overlay intercepts ────────────────────────────────────────────
@@ -959,6 +967,10 @@ export function AppInner({
     folderDeletePending,
     setFolderDeletePending,
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
+    undoAllPending,
+    setUndoAllPending,
+    draftRef,
+    folderDraftRef,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -1198,6 +1210,13 @@ export function AppInner({
             visible
             message={`Delete environment "${envDeletePending}"?`}
             selectedIndex={deleteConfirmSelection}
+          />
+        )}
+        {undoAllPending && (
+          <ConfirmOverlay
+            visible
+            message="Discard all unsaved changes? (y/n)"
+            selectedIndex={confirmSelection}
           />
         )}
         {previewIndex !== null && (

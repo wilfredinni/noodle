@@ -98,6 +98,7 @@ export function App({
         keybinds={keybinds}
         initialLastRequestId={lastRequestId}
         initialLayout={config.layout}
+        confirmUndoAll={config.confirm_undo_all}
         onLayoutChange={handleLayoutChange}
         onEnvChange={handleEnvChange}
         onEnvListChanged={handleEnvListChanged}

@@ -58,6 +58,7 @@ export interface UseEnvironmentEditorResult {
   save: () => Promise<void>
   deleteEnv: () => Promise<void>
   cloneEnv: (targetName: string) => Promise<void>
+  revertDraft: () => void
 }
 
 function envToVarRows(
@@ -450,6 +451,18 @@ export function useEnvironmentEditor({
     [environmentsDir, localNames, loadEnv],
   )
 
+  const revertDraft = useCallback(() => {
+    draftRef.current = null
+    originalRef.current = null
+    selectedEnvNameRef.current = null
+    setDraft(null)
+    setOriginal(null)
+    setSelectedEnvName(null)
+    setSelectedRowIndex(-1)
+    setEditingField(null)
+    setError(null)
+  }, [])
+
   const dirty = dirtyChanged(
     original,
     draft?.name ?? "",
@@ -483,5 +496,6 @@ export function useEnvironmentEditor({
     save,
     deleteEnv: deleteEnvAction,
     cloneEnv: cloneEnvAction,
+    revertDraft,
   }
 }

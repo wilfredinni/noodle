@@ -8,11 +8,13 @@ export const CONFIG_FILE_NAME = "config.yml"
 export interface NoodleConfig {
   theme: string
   layout: "stacked" | "side-by-side"
+  confirm_undo_all: boolean
 }
 
 const DEFAULTS: NoodleConfig = {
   theme: "catppuccin",
   layout: "stacked",
+  confirm_undo_all: true,
 }
 
 export function loadConfig(configDir: string): NoodleConfig {
@@ -24,6 +26,10 @@ export function loadConfig(configDir: string): NoodleConfig {
     return {
       theme: typeof obj.theme === "string" ? obj.theme : DEFAULTS.theme,
       layout: obj.layout === "side-by-side" ? "side-by-side" : DEFAULTS.layout,
+      confirm_undo_all:
+        typeof obj.confirm_undo_all === "boolean"
+          ? obj.confirm_undo_all
+          : DEFAULTS.confirm_undo_all,
     }
   } catch {
     return { ...DEFAULTS }
@@ -35,6 +41,7 @@ export function saveConfig(configDir: string, config: NoodleConfig): void {
   const data = {
     theme: config.theme,
     layout: config.layout,
+    confirm_undo_all: config.confirm_undo_all,
   }
   writeFileSync(join(configDir, CONFIG_FILE_NAME), yaml.dump(data), "utf8")
 }

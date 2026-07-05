@@ -13,7 +13,11 @@ import {
 } from "../../src/hooks/useConfig"
 import { DEFAULT_THEME_NAME } from "../../src/ui/theme-data"
 
-const DEFAULTS: NoodleConfig = { theme: DEFAULT_THEME_NAME, layout: "stacked" }
+const DEFAULTS: NoodleConfig = {
+  theme: DEFAULT_THEME_NAME,
+  layout: "stacked",
+  confirm_undo_all: true,
+}
 
 describe("loadConfig", () => {
   let dir: string
@@ -39,7 +43,11 @@ describe("loadConfig", () => {
       "utf8",
     )
     const result = loadConfig(dir)
-    expect(result).toEqual({ theme: "dracula", layout: "side-by-side" })
+    expect(result).toEqual({
+      theme: "dracula",
+      layout: "side-by-side",
+      confirm_undo_all: true,
+    })
   })
 
   it("returns defaults for invalid YAML", () => {
@@ -57,7 +65,31 @@ describe("loadConfig", () => {
   it("handles partial file — missing fields get defaults", () => {
     writeFileSync(join(dir, CONFIG_FILE_NAME), "theme: dracula\n", "utf8")
     const result = loadConfig(dir)
-    expect(result).toEqual({ theme: "dracula", layout: "stacked" })
+    expect(result).toEqual({
+      theme: "dracula",
+      layout: "stacked",
+      confirm_undo_all: true,
+    })
+  })
+
+  it("confirm_undo_all defaults to true when missing from file", () => {
+    writeFileSync(
+      join(dir, CONFIG_FILE_NAME),
+      yaml.dump({ theme: "dracula", layout: "stacked" }),
+      "utf8",
+    )
+    const result = loadConfig(dir)
+    expect(result.confirm_undo_all).toBe(true)
+  })
+
+  it("confirm_undo_all: false round-trips through save/load", () => {
+    saveConfig(dir, {
+      theme: "dracula",
+      layout: "stacked",
+      confirm_undo_all: false,
+    })
+    const result = loadConfig(dir)
+    expect(result.confirm_undo_all).toBe(false)
   })
 })
 
@@ -74,22 +106,42 @@ describe("saveConfig", () => {
   })
 
   it("writes YAML file", () => {
-    saveConfig(dir, { theme: "dracula", layout: "side-by-side" })
+    saveConfig(dir, {
+      theme: "dracula",
+      layout: "side-by-side",
+      confirm_undo_all: true,
+    })
     const raw = readFileSync(join(dir, CONFIG_FILE_NAME), "utf8")
-    expect(yaml.load(raw)).toEqual({ theme: "dracula", layout: "side-by-side" })
+    expect(yaml.load(raw)).toEqual({
+      theme: "dracula",
+      layout: "side-by-side",
+      confirm_undo_all: true,
+    })
   })
 
   it("round-trips save→load", () => {
-    const input: NoodleConfig = { theme: "dracula", layout: "side-by-side" }
+    const input: NoodleConfig = {
+      theme: "dracula",
+      layout: "side-by-side",
+      confirm_undo_all: true,
+    }
     saveConfig(dir, input)
     const result = loadConfig(dir)
-    expect(result).toEqual(input)
+    expect(result).toEqual({ ...input, confirm_undo_all: true })
   })
 
   it("writes and reads back null lastEnv", () => {
-    saveConfig(dir, { theme: "monokai", layout: "stacked" })
+    saveConfig(dir, {
+      theme: "monokai",
+      layout: "stacked",
+      confirm_undo_all: true,
+    })
     const result = loadConfig(dir)
-    expect(result).toEqual({ theme: "monokai", layout: "stacked" })
+    expect(result).toEqual({
+      theme: "monokai",
+      layout: "stacked",
+      confirm_undo_all: true,
+    })
   })
 
   it("creates directory if missing", () => {

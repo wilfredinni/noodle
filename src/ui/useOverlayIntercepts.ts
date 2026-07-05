@@ -8,6 +8,8 @@ import type { EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import type { NewRequestOverlayHandle } from "./NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./NewFolderOverlay"
+import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
+import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 
 export function useOverlayIntercepts(opts: {
   cancelSendRef: RefObject<() => void>
@@ -63,6 +65,10 @@ export function useOverlayIntercepts(opts: {
   folderDeletePending: string | null
   setFolderDeletePending: (s: string | null) => void
   onFolderDeleteConfirm: () => void
+  undoAllPending: boolean
+  setUndoAllPending: (v: boolean) => void
+  draftRef: RefObject<UseRequestDraftResult>
+  folderDraftRef: RefObject<UseFolderDraftResult>
 }): void {
   const keymap = useKeymap()
   const {
@@ -110,6 +116,10 @@ export function useOverlayIntercepts(opts: {
     folderDeletePending,
     setFolderDeletePending,
     onFolderDeleteConfirm,
+    undoAllPending,
+    setUndoAllPending,
+    draftRef,
+    folderDraftRef,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -472,6 +482,38 @@ export function useOverlayIntercepts(opts: {
     onFolderDeleteConfirm,
     setFolderDeletePending,
     keymap,
+  ])
+
+  // ── Overlay: Undo All ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!undoAllPending) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          draftRef.current.revertAllRequests()
+          folderDraftRef.current.revertAllFolders()
+          envEditorRef.current?.revertDraft()
+          setUndoAllPending(false)
+        } else if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setUndoAllPending(false)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    undoAllPending,
+    keymap,
+    setUndoAllPending,
+    draftRef,
+    folderDraftRef,
+    envEditorRef,
   ])
 
   // ── Overlay: New Folder ───────────────────────────────────────────

@@ -104,6 +104,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: displayKey(keybinds.theme_picker),
           description: "Open theme picker",
         },
+        {
+          key: displayKey(keybinds.global_undo_all),
+          description: "Undo all unsaved changes",
+        },
       ],
     },
     {

@@ -471,6 +471,7 @@ export interface UseRequestDraftResult {
   toggleFormRow: (index: number) => void
   setFilePath: (path: string) => void
   markSaved: () => void
+  revertAllRequests: () => void
 }
 
 export function useRequestDraft(
@@ -607,6 +608,12 @@ export function useRequestDraft(
   )
   const revertAll = useCallback(() => apply({ kind: "revertAll" }), [apply])
 
+  const revertAllRequests = useCallback(() => {
+    authTypeCache.clear()
+    bodyCache.clear()
+    setMap(new Map())
+  }, [])
+
   const mapRef = useRef(map)
   mapRef.current = map
 
@@ -666,6 +673,7 @@ export function useRequestDraft(
       toggleParamRow,
       revertField,
       revertAll,
+      revertAllRequests,
       setAuthType: setAuthTypeCb,
       setAuthField: setAuthFieldCb,
       setApiKeyPlacement: setApiKeyPlacementCb,
@@ -697,6 +705,7 @@ export function useRequestDraft(
       toggleParamRow,
       revertField,
       revertAll,
+      revertAllRequests,
       setAuthTypeCb,
       setAuthFieldCb,
       setApiKeyPlacementCb,
