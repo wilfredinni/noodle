@@ -36,6 +36,10 @@ import {
   type NewFolderOverlayHandle,
 } from "./NewFolderOverlay"
 import {
+  CommandPaletteOverlay,
+  type CommandItem,
+} from "./CommandPaletteOverlay"
+import {
   saveRequest,
   deleteRequest,
   saveFolder,
@@ -48,6 +52,7 @@ import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 
+import { join } from "node:path"
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
@@ -55,7 +60,12 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
-import { getRequestIds, findFolderByPath, updateFolderByPath } from "./tree"
+import {
+  findRequestById,
+  getRequestIds,
+  findFolderByPath,
+  updateFolderByPath,
+} from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import {
   saveLastRequest,
@@ -692,31 +702,34 @@ export function AppInner({
   }, [focus, keymap])
 
   useEffect(() => {
-    const overlay = helpVisible
-      ? "help"
-      : previewIndex !== null
-        ? "theme"
-        : saveState.kind === "confirming"
-          ? "confirm"
-          : undoAllPending
-            ? "undo-all"
-            : yamlEditor.visible
-              ? "yaml-editor"
-              : newRequestVisible
-                ? "new-request"
-                : editRequestVisible
-                  ? "edit-request"
-                  : cloneRequestVisible
-                    ? "clone-request"
-                    : newFolderVisible
-                      ? "new-folder"
-                      : folderDeletePending !== null
-                        ? "delete-folder"
-                        : requestDeletePending !== null
-                          ? "request-delete"
-                          : "none"
+    const overlay = commandPaletteVisible
+      ? "command-palette"
+      : helpVisible
+        ? "help"
+        : previewIndex !== null
+          ? "theme"
+          : saveState.kind === "confirming"
+            ? "confirm"
+            : undoAllPending
+              ? "undo-all"
+              : yamlEditor.visible
+                ? "yaml-editor"
+                : newRequestVisible
+                  ? "new-request"
+                  : editRequestVisible
+                    ? "edit-request"
+                    : cloneRequestVisible
+                      ? "clone-request"
+                      : newFolderVisible
+                        ? "new-folder"
+                        : folderDeletePending !== null
+                          ? "delete-folder"
+                          : requestDeletePending !== null
+                            ? "request-delete"
+                            : "none"
     keymap.setData("app.overlay", overlay)
   }, [
+    commandPaletteVisible,
     helpVisible,
     previewIndex,
     saveState.kind,
@@ -988,6 +1001,241 @@ export function AppInner({
     [keybinds.pane_expand],
   )
 
+  const commandPaletteCommands = useMemo<CommandItem[]>(
+    () => [
+      {
+        id: "request.send",
+        label: "Send Request",
+        section: "Actions",
+        keybinding: displayKey(keybinds.request_send),
+        run: () => trySendRef.current?.(),
+      },
+      {
+        id: "request.save",
+        label: "Save Request",
+        section: "Actions",
+        keybinding: displayKey(keybinds.request_save),
+        run: () => {
+          const d = draftRef.current
+          if (!savingRef.current && d.draft && d.isDirty) {
+            doSaveRef.current()
+          }
+        },
+      },
+      {
+        id: "env.cycle",
+        label: "Cycle Environment",
+        section: "Actions",
+        keybinding: displayKey(keybinds.env_cycle),
+        run: () => envStateRef.current.cycle(1),
+      },
+      {
+        id: "response.copy-body",
+        label: "Copy Response Body",
+        section: "Actions",
+        keybinding: displayKey(keybinds.response_copy_body),
+        run: () => {
+          const s = responseStateRef.current
+          if (s?.status !== "done") return
+          const body = s.response.body
+          let copied = false
+          const tmp = `/tmp/noodle-copy-${Date.now()}`
+          try {
+            Bun.write(tmp, body)
+            Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])
+            copied = true
+          } catch {
+            // fallback failed — toast shows error
+          } finally {
+            try {
+              Bun.spawnSync(["rm", "-f", tmp])
+            } catch {
+              // cleanup is best-effort; ignore failures
+            }
+          }
+          showToast(
+            copied ? "Response body copied" : "Failed to copy response body",
+            copied ? "success" : "error",
+          )
+        },
+      },
+      {
+        id: "layout.toggle",
+        label: "Toggle Layout",
+        section: "View",
+        keybinding: displayKey(keybinds.layout_toggle),
+        run: () =>
+          setLayout((prev: "stacked" | "side-by-side") => {
+            const next = prev === "stacked" ? "side-by-side" : "stacked"
+            onLayoutChange(next)
+            return next
+          }),
+      },
+      {
+        id: "pane.expand",
+        label: "Expand/Collapse Pane",
+        section: "View",
+        keybinding: displayKey(keybinds.pane_expand),
+        run: () => {
+          const f = keymap.getData("app.focus") as "request" | "response"
+          if (f !== "request" && f !== "response") return
+          setExpanded((prev: "request" | "response" | null) =>
+            prev === f ? null : f,
+          )
+        },
+      },
+      {
+        id: "app.help",
+        label: "Toggle Help",
+        section: "View",
+        keybinding: displayKey(keybinds.help_toggle),
+        run: () => setHelpVisible((prev: boolean) => !prev),
+      },
+      {
+        id: "request.new",
+        label: "New Request",
+        section: "Create",
+        keybinding: displayKey(keybinds.request_new),
+        run: () => setNewRequestVisible(true),
+      },
+      {
+        id: "folder.new",
+        label: "New Folder",
+        section: "Create",
+        keybinding: displayKey(keybinds.folder_new),
+        run: () => setNewFolderVisible(true),
+      },
+      {
+        id: "request.clone",
+        label: "Clone Request",
+        section: "Create",
+        keybinding: displayKey(keybinds.request_clone),
+        run: () => {
+          const sid = selectedIdRef.current
+          if (!sid) return
+          const col = collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
+          if (!req) return
+          setCloneRequestVisible(true)
+        },
+      },
+      {
+        id: "request.edit-overlay",
+        label: "Edit Request Metadata",
+        section: "Edit",
+        keybinding: displayKey(keybinds.request_edit_overlay),
+        run: () => {
+          if (focusedFolderPathRef.current) return
+          const sid = selectedIdRef.current
+          if (!sid) return
+          setEditRequestVisible(true)
+        },
+      },
+      {
+        id: "request.edit-yaml",
+        label: "Edit Request YAML",
+        section: "Edit",
+        keybinding: displayKey(keybinds.request_edit_yaml),
+        run: () => {
+          if (focusedFolderPathRef.current) return
+          const sid = selectedIdRef.current
+          if (!sid || !collectionDir) return
+          const col = collectionRef.current
+          if (!col) return
+          const r = findRequestById(col.items, sid)
+          if (!r) return
+          const filePath = join(collectionDir, `${sid}.yml`)
+          setYamlEditor({
+            visible: true,
+            filePath,
+            requestName: r.name,
+            returnFocus: focusRef.current,
+          })
+        },
+      },
+      {
+        id: "request.delete",
+        label: "Delete Request",
+        section: "Delete",
+        keybinding: displayKey(keybinds.request_delete),
+        run: () => {
+          const folderPath = focusedFolderPathRef.current
+          const folderName = focusedFolderNameRef.current
+          if (folderPath && folderName) {
+            folderDeletePathRef.current = folderPath
+            setFolderDeletePending(folderName)
+            return
+          }
+          const sid = selectedIdRef.current
+          if (!sid) return
+          const col = collectionRef.current
+          if (!col) return
+          const req = findRequestById(col.items, sid)
+          if (!req) return
+          setRequestDeletePending(req.name)
+        },
+      },
+      {
+        id: "env.editor-open",
+        label: "Open Environment Editor",
+        section: "Workspace",
+        keybinding: displayKey(keybinds.env_editor),
+        run: () => {
+          const name = envStateRef.current.activeEnv?.name
+          envEditorRef.current.openEditor(name)
+          setView("env-editor")
+          setFocus("env-sidebar")
+        },
+      },
+      {
+        id: "app.theme",
+        label: "Open Theme Picker",
+        section: "Workspace",
+        keybinding: displayKey(keybinds.theme_picker),
+        run: () => setPreviewIndexProp(activeIndexRef.current),
+      },
+      {
+        id: "global.undo-all",
+        label: "Undo All Unsaved Changes",
+        section: "System",
+        keybinding: displayKey(keybinds.global_undo_all),
+        run: () => {
+          const d = draftRef.current
+          const fd = folderDraftRef.current
+          const ee = envEditorRef.current
+          const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
+          if (!hasDirty) return
+          if (confirmUndoAll) {
+            setUndoAllPending(true)
+          } else {
+            d.revertAllRequests()
+            fd.revertAllFolders()
+            ee?.revertDraft()
+          }
+        },
+      },
+    ],
+    [
+      keybinds,
+      setLayout,
+      onLayoutChange,
+      setHelpVisible,
+      setNewRequestVisible,
+      setNewFolderVisible,
+      setCloneRequestVisible,
+      setEditRequestVisible,
+      setYamlEditor,
+      setRequestDeletePending,
+      setView,
+      setFocus,
+      setUndoAllPending,
+      setExpanded,
+      collectionDir,
+      confirmUndoAll,
+    ],
+  )
+
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <box
@@ -1219,6 +1467,13 @@ export function AppInner({
             visible
             message="Discard all unsaved changes? (y/n)"
             selectedIndex={confirmSelection}
+          />
+        )}
+        {commandPaletteVisible && (
+          <CommandPaletteOverlay
+            visible
+            commands={commandPaletteCommands}
+            onClose={() => setCommandPaletteVisible(false)}
           />
         )}
         {previewIndex !== null && (
