@@ -9,7 +9,8 @@ import type { InputRenderable } from "@opentui/core"
 import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "./Select"
 import { useTheme } from "./theme"
-import type { Method } from "../schema"
+import type { Method, Environment } from "../schema"
+import { VarInput } from "./VarInput"
 
 export interface NewRequestOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void
@@ -31,6 +32,7 @@ interface NewRequestOverlayProps {
   initialUrl?: string
   folderPaths?: SelectItem[]
   initialFolderPath?: string
+  activeEnv?: Environment | null
 }
 
 export const METHOD_ITEMS: SelectItem[] = [
@@ -63,6 +65,7 @@ export const NewRequestOverlay = forwardRef<
     initialUrl,
     folderPaths,
     initialFolderPath,
+    activeEnv,
   },
   ref,
 ) {
@@ -80,7 +83,6 @@ export const NewRequestOverlay = forwardRef<
   const [folderSelectOpen, setFolderSelectOpen] = useState(false)
 
   const nameRef = useRef<InputRenderable | null>(null)
-  const urlRef = useRef<InputRenderable | null>(null)
 
   const FOCUS_ORDER: Array<"folder" | "name" | "method" | "url"> = showFolder
     ? ["folder", "name", "method", "url"]
@@ -145,7 +147,6 @@ export const NewRequestOverlay = forwardRef<
   // Auto-focus based on focus state
   useEffect(() => {
     if (focus === "name") nameRef.current?.focus()
-    else if (focus === "url") urlRef.current?.focus()
   }, [focus])
 
   return (
@@ -215,20 +216,18 @@ export const NewRequestOverlay = forwardRef<
               focused={focus === "method"}
               badge
             />
-            <box style={{ flexGrow: 1 }}>
-              <input
-                ref={urlRef}
-                value={url}
-                placeholder="Request URL"
-                onInput={setUrl}
-                focused={focus === "url"}
-                backgroundColor={theme.backgroundElement}
-                focusedBackgroundColor={theme.borderSubtle}
-                textColor={theme.text}
-                cursorColor={theme.primary}
-                placeholderColor={theme.textMuted}
-              />
-            </box>
+            <VarInput
+              value={url || ""}
+              env={activeEnv ?? null}
+              isEditing={focus === "url"}
+              onChange={setUrl}
+              isFocused
+              placeholder="Request URL"
+              backgroundColor={theme.backgroundElement}
+              focusedBackgroundColor={theme.borderSubtle}
+              paddingX={1}
+              style={{ flexGrow: 1 }}
+            />
           </box>
         </box>
 
