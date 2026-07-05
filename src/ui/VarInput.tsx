@@ -70,6 +70,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           <textarea
             ref={textareaRef}
             initialValue={value}
+            placeholder={placeholder}
             onContentChange={handleTextareaChange}
             backgroundColor={backgroundColor ?? theme.backgroundPanel}
             focusedBackgroundColor={
@@ -77,6 +78,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             }
             textColor={defaultColor}
             cursorColor={theme.primary}
+            paddingX={paddingX}
             focused
           />
         )
