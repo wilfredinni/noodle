@@ -233,7 +233,7 @@ createMain(main) — citty argparse
 | `useResponse` | `src/hooks/useResponse.ts` | `SendState` — `{status, response, error}` |
 | `useEnvironments` | `src/hooks/useEnvironments.ts` | `{activeIndex, activeEnv, names}` |
 | `useEnvironmentEditor` | `src/hooks/useEnvironmentEditor.ts` | Full env CRUD state for editor pane |
-| `useConfig` | `src/hooks/useConfig.ts` | `{theme, layout}` persisted to `~/.config/noodle/config.yml` |
+| `useConfig` | `src/hooks/useConfig.ts` | `{theme, layout, confirm_undo_all}` persisted to `~/.config/noodle/config.yml` |
 | `useTimeline` | `src/hooks/useTimeline.ts` | `TimelineEntry[]` per-request response history |
 
 ## Keymap layer architecture
