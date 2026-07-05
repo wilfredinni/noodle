@@ -253,7 +253,7 @@ export function buildCommandPaletteCommands(
     },
     {
       id: "request.edit-overlay",
-      label: "Edit Request Metadata",
+      label: "Edit Request",
       section: "Edit",
       keybinding: displayKey(keybinds.request_edit_overlay),
       run: () => {
