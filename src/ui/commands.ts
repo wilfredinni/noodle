@@ -1,4 +1,5 @@
 import { join } from "node:path"
+import { tmpdir } from "node:os"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./CommandPaletteOverlay"
@@ -263,7 +264,7 @@ export function buildCommandPaletteCommands(
         const s = responseStateRef.current
         if (s?.status !== "done") return
         const body = s.response.body
-        const tmp = `/tmp/noodle-copy-${Date.now()}`
+        const tmp = join(tmpdir(), `noodle-copy-${Date.now()}`)
         try {
           Bun.write(tmp, body)
           Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])

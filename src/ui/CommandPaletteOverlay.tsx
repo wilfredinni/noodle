@@ -91,44 +91,48 @@ export function CommandPaletteOverlay({
 
   const handleHighlightChange = useCallback(
     (item: PaletteItem | null) => {
-      if (!item || !isNavigable(item)) {
-        if (!item) {
-          setHighlightedId(null)
+      if (!item) {
+        setHighlightedId(null)
+        return
+      }
+      if (isNavigable(item)) {
+        setHighlightedId(item.id)
+        return
+      }
+      // Header — snap to nearest navigable command, direction-aware
+      const visible = queryRef.current
+        ? displayItems.filter((i) => filter(i, queryRef.current))
+        : displayItems
+      const idx = visible.indexOf(item)
+      if (idx < 0) return
+      const before = visible.slice(0, idx).reverse().find(isNavigable)
+      const after = visible.slice(idx + 1).find(isNavigable)
+
+      // Header at start of list — handle wrap
+      if (idx === 0) {
+        const last = [...visible].reverse().find(isNavigable)
+        if (highlightedId === after?.id && last) {
+          // Was on first command, pressed up — wrap to last
+          setHighlightedId(last.id)
           return
         }
-        // search within the CURRENT filtered list (same as PickerOverlay sees)
-        const visible = queryRef.current
-          ? displayItems.filter((i) => filter(i, queryRef.current))
-          : displayItems
-        const idx = visible.indexOf(item)
-        if (idx < 0) return
-        // header at edge of filtered list (wrapping)
-        if (item.type === "header" && idx === 0) {
-          const firstCmd = visible.find(isNavigable)
-          const lastCmd = [...visible].reverse().find(isNavigable)
-          if (highlightedId === firstCmd?.id && lastCmd) {
-            setHighlightedId(lastCmd.id)
-            return
-          }
-          if (highlightedId === lastCmd?.id && firstCmd) {
-            setHighlightedId(firstCmd.id)
-            return
-          }
-        }
-        const before = visible.slice(0, idx).reverse().find(isNavigable)
-        const after = visible.slice(idx + 1).find(isNavigable)
-        if (before && before.id !== highlightedId) {
-          setHighlightedId(before.id)
-        } else if (after && after.id !== highlightedId) {
+        // Otherwise snap to first command
+        if (after) {
           setHighlightedId(after.id)
-        } else {
-          setHighlightedId(before?.id ?? after?.id ?? null)
+          return
         }
+      }
+
+      // Direction-aware: snap to neighbor NOT matching highlightedId
+      if (before && before.id !== highlightedId) {
+        setHighlightedId(before.id)
+      } else if (after && after.id !== highlightedId) {
+        setHighlightedId(after.id)
       } else {
-        setHighlightedId(item.id)
+        setHighlightedId(before?.id ?? after?.id ?? null)
       }
     },
-    [displayItems, commands, highlightedId],
+    [displayItems, commands, filter, highlightedId],
   )
 
   const highlightedItem = useMemo(() => {
@@ -152,18 +156,8 @@ export function CommandPaletteOverlay({
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
       if (item.type === "header") {
-        const q = queryRef.current.toLowerCase()
-        const visible = q
-          ? displayItems.filter((i) => {
-              if (i.type === "command") return i.label.toLowerCase().includes(q)
-              if (i.type === "header")
-                return commands.some(
-                  (c) =>
-                    c.section === i.section &&
-                    c.label.toLowerCase().includes(q),
-                )
-              return false
-            })
+        const visible = queryRef.current
+          ? displayItems.filter((i) => filter(i, queryRef.current))
           : displayItems
         const isFirst = visible.find((i) => i.type === "header") === item
         return (
