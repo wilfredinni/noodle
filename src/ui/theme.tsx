@@ -139,11 +139,7 @@ export function ThemePickerOverlay({
           {!isCurrent && <box width={1} />}
           <text
             fg={
-              highlighted
-                ? "#1a1a1a"
-                : isCurrent
-                  ? theme.primary
-                  : theme.text
+              highlighted ? "#1a1a1a" : isCurrent ? theme.primary : theme.text
             }
             attributes={highlighted ? TextAttributes.BOLD : undefined}
           >

@@ -1,10 +1,4 @@
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-} from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import type { ReactNode } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
@@ -19,10 +13,13 @@ export interface PickerOverlayProps<T> {
   items: T[]
   keyExtractor: (item: T) => string
   filter: (item: T, query: string) => boolean
-  renderItem: (item: T, helpers: {
-    highlighted: boolean
-    active: boolean
-  }) => ReactNode
+  renderItem: (
+    item: T,
+    helpers: {
+      highlighted: boolean
+      active: boolean
+    },
+  ) => ReactNode
   highlightedItem?: T | null
   activeItem?: T | null
   onHighlightChange?: (item: T | null) => void
@@ -112,13 +109,15 @@ export function PickerOverlay<T>({
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           if (filtered.length === 0 || highlightIndex < 0) return
-          const nextPos = highlightIndex > 0 ? highlightIndex - 1 : filtered.length - 1
+          const nextPos =
+            highlightIndex > 0 ? highlightIndex - 1 : filtered.length - 1
           onHighlightChange?.(filtered[nextPos])
         } else if (name === "down") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           if (filtered.length === 0 || highlightIndex < 0) return
-          const nextPos = highlightIndex < filtered.length - 1 ? highlightIndex + 1 : 0
+          const nextPos =
+            highlightIndex < filtered.length - 1 ? highlightIndex + 1 : 0
           onHighlightChange?.(filtered[nextPos])
         } else if (name === "return") {
           ctx.event.preventDefault()
