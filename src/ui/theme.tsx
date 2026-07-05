@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from "react"
+import { createContext, useContext, useMemo, useCallback } from "react"
 import type { ReactNode } from "react"
 import { TextAttributes } from "@opentui/core"
 import { THEMES } from "./theme-data"
@@ -95,46 +95,79 @@ export function ThemePickerOverlay({
     [previewIndex, items],
   )
 
+  const keyExtractor = useCallback(
+    (item: { theme: Theme; index: number }) => item.theme.name,
+    [],
+  )
+
+  const filter = useCallback(
+    (item: { theme: Theme; index: number }, query: string) =>
+      item.theme.name.toLowerCase().includes(query.toLowerCase()),
+    [],
+  )
+
+  const handleHighlightChange = useCallback(
+    (item: { theme: Theme; index: number } | null) =>
+      setPreviewIndex(item?.index ?? null),
+    [setPreviewIndex],
+  )
+
+  const handleSelect = useCallback(
+    (item: { theme: Theme; index: number }) => {
+      onThemeChange(item.index)
+      setPreviewIndex(null)
+    },
+    [onThemeChange, setPreviewIndex],
+  )
+
+  const handleClose = useCallback(
+    () => setPreviewIndex(null),
+    [setPreviewIndex],
+  )
+
+  const renderItem = useCallback(
+    (
+      { theme: t, index: i }: { theme: Theme; index: number },
+      { highlighted }: { highlighted: boolean; active: boolean },
+    ) => {
+      const isCurrent = i === activeIndex
+      return (
+        <>
+          {isCurrent && (
+            <text fg={highlighted ? "#1a1a1a" : theme.primary}>●</text>
+          )}
+          {!isCurrent && <box width={1} />}
+          <text
+            fg={
+              highlighted
+                ? "#1a1a1a"
+                : isCurrent
+                  ? theme.primary
+                  : theme.text
+            }
+            attributes={highlighted ? TextAttributes.BOLD : undefined}
+          >
+            {t.name}
+          </text>
+        </>
+      )
+    },
+    [activeIndex, theme],
+  )
+
   return (
     <PickerOverlay
       visible={visible}
       title="Themes"
       items={items}
-      keyExtractor={(item) => item.theme.name}
-      filter={(item, query) =>
-        item.theme.name.toLowerCase().includes(query.toLowerCase())
-      }
+      keyExtractor={keyExtractor}
+      filter={filter}
       placeholder="Search themes..."
       highlightedItem={highlightedItem}
-      onHighlightChange={(item) => setPreviewIndex(item?.index ?? null)}
-      onSelect={(item) => {
-        onThemeChange(item.index)
-        setPreviewIndex(null)
-      }}
-      onClose={() => setPreviewIndex(null)}
-      renderItem={({ theme: t, index: i }, { highlighted }) => {
-        const isCurrent = i === activeIndex
-        return (
-          <>
-            {isCurrent && (
-              <text fg={highlighted ? "#1a1a1a" : theme.primary}>●</text>
-            )}
-            {!isCurrent && <box width={1} />}
-            <text
-              fg={
-                highlighted
-                  ? "#1a1a1a"
-                  : isCurrent
-                    ? theme.primary
-                    : theme.text
-              }
-              attributes={highlighted ? TextAttributes.BOLD : undefined}
-            >
-              {t.name}
-            </text>
-          </>
-        )
-      }}
+      onHighlightChange={handleHighlightChange}
+      onSelect={handleSelect}
+      onClose={handleClose}
+      renderItem={renderItem}
     />
   )
 }
