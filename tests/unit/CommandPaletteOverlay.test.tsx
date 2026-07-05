@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test"
+import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -223,7 +224,7 @@ describe("CommandPaletteOverlay", () => {
       { width: 80, height: 20 },
     )
     await renderOnce()
-    host.press("return")
+    await act(async () => host.press("return"))
     expect(selected!).toBe("ran-a")
     expect(closed).toBe(true)
     cleanup()
@@ -248,7 +249,7 @@ describe("CommandPaletteOverlay", () => {
       { width: 80, height: 20 },
     )
     await renderOnce()
-    host.press("escape")
+    await act(async () => host.press("escape"))
     expect(closed).toBe(true)
     cleanup()
   })
@@ -280,9 +281,113 @@ describe("CommandPaletteOverlay", () => {
       { width: 80, height: 20 },
     )
     await renderOnce()
-    host.press("down")
-    host.press("return")
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
     expect(ran!).toBe("beta")
+    cleanup()
+  })
+
+  it("navigates to second item then first on return works", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let ran: string | null = null
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CommandPaletteOverlay
+            visible
+            commands={[
+              { id: "a", label: "Alpha", section: "Sec", run: () => {} },
+              {
+                id: "b",
+                label: "Beta",
+                section: "Sec",
+                run: () => {
+                  ran = "beta"
+                },
+              },
+              { id: "c", label: "Gamma", section: "Sec", run: () => {} },
+            ]}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(ran!).toBe("beta")
+    cleanup()
+  })
+
+  it("down twice then return selects third item", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let ran: string | null = null
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CommandPaletteOverlay
+            visible
+            commands={[
+              { id: "a", label: "Alpha", section: "Sec", run: () => {} },
+              { id: "b", label: "Beta", section: "Sec", run: () => {} },
+              {
+                id: "c",
+                label: "Gamma",
+                section: "Sec",
+                run: () => {
+                  ran = "gamma"
+                },
+              },
+            ]}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("down"))
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(ran!).toBe("gamma")
+    cleanup()
+  })
+
+  it("navigates across section headers to second section", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let ran: string | null = null
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CommandPaletteOverlay
+            visible
+            commands={[
+              { id: "a", label: "Alpha", section: "SecA", run: () => {} },
+              { id: "b", label: "Beta", section: "SecB", run: () => {} },
+              {
+                id: "c",
+                label: "Gamma",
+                section: "SecB",
+                run: () => {
+                  ran = "gamma"
+                },
+              },
+            ]}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("down"))
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(ran!).toBe("gamma")
     cleanup()
   })
 })

@@ -123,13 +123,16 @@ export function CommandPaletteOverlay({
         }
       }
 
-      // Direction-aware: snap to neighbor NOT matching highlightedId
-      if (before && before.id !== highlightedId) {
-        setHighlightedId(before.id)
-      } else if (after && after.id !== highlightedId) {
-        setHighlightedId(after.id)
+      // Direction-aware: snap to neighbor matching highlightedId's direction
+      if (before && before.id === highlightedId) {
+        // Came from above (pressed down) — advance to next
+        setHighlightedId(after?.id ?? before.id)
+      } else if (after && after.id === highlightedId) {
+        // Came from below (pressed up) — go back to previous
+        setHighlightedId(before?.id ?? after.id)
       } else {
-        setHighlightedId(before?.id ?? after?.id ?? null)
+        // Initial state (null) or mismatch — prefer forward
+        setHighlightedId(after?.id ?? before?.id ?? null)
       }
     },
     [displayItems, commands, filter, highlightedId],
