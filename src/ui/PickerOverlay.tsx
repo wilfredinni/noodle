@@ -73,7 +73,7 @@ export function PickerOverlay<T>({
     return found ?? filtered[0] ?? null
   }, [filtered, highlightedItem, keyExtractor])
 
-  const highlightRef = useRef(currentHighlight)
+  const highlightRef = useRef<T | null>(currentHighlight)
   highlightRef.current = currentHighlight
 
   const prevHighlight = useRef(currentHighlight)
