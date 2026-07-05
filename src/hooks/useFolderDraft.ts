@@ -238,6 +238,7 @@ export interface UseFolderDraftResult {
   setApiKeyPlacement: (placement: "header" | "query") => void
   revertAll: () => void
   markSaved: () => void
+  revertAllFolders: () => void
 }
 
 export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
@@ -347,6 +348,9 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       return next
     })
   }, [folderDraft, folder, key])
+  const revertAllFolders = useCallback(() => {
+    setDraftMap(new Map())
+  }, [])
 
   return useMemo(
     () => ({
@@ -365,6 +369,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       setApiKeyPlacement,
       revertAll,
       markSaved,
+      revertAllFolders,
     }),
     [
       folderDraft,
@@ -383,6 +388,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       setApiKeyPlacement,
       revertAll,
       markSaved,
+      revertAllFolders,
     ],
   )
 }
