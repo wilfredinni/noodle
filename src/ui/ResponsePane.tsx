@@ -155,11 +155,17 @@ export function ResponsePane({
       {state.status === "idle" ? (
         <Tips />
       ) : state.status === "sending" ? (
-        <box style={{ flexDirection: "row", gap: 1 }}>
-          <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
-          <text fg={focused ? theme.primary : theme.textMuted}>
-            Sending {state.request.method} {state.request.url}...
-          </text>
+        <box
+          style={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <box style={{ flexDirection: "row", gap: 1 }}>
+            <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
+            <text fg={focused ? theme.primary : theme.textMuted}>Sending</text>
+          </box>
         </box>
       ) : state.status === "error" ? (
         <box
