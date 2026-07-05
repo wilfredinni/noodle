@@ -73,6 +73,9 @@ export function PickerOverlay<T>({
     return found ?? filtered[0] ?? null
   }, [filtered, highlightedItem, keyExtractor])
 
+  const highlightRef = useRef(currentHighlight)
+  highlightRef.current = currentHighlight
+
   const prevHighlight = useRef(currentHighlight)
   useEffect(() => {
     if (currentHighlight && prevHighlight.current !== currentHighlight) {
@@ -111,6 +114,7 @@ export function PickerOverlay<T>({
           if (filtered.length === 0 || highlightIndex < 0) return
           const nextPos =
             highlightIndex > 0 ? highlightIndex - 1 : filtered.length - 1
+          highlightRef.current = filtered[nextPos]
           onHighlightChange?.(filtered[nextPos])
         } else if (name === "down") {
           ctx.event.preventDefault()
@@ -118,11 +122,12 @@ export function PickerOverlay<T>({
           if (filtered.length === 0 || highlightIndex < 0) return
           const nextPos =
             highlightIndex < filtered.length - 1 ? highlightIndex + 1 : 0
+          highlightRef.current = filtered[nextPos]
           onHighlightChange?.(filtered[nextPos])
         } else if (name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          if (currentHighlight) onSelect(currentHighlight)
+          if (highlightRef.current) onSelect(highlightRef.current)
         }
       },
       { priority: 100 },

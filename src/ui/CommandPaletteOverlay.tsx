@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { PickerOverlay } from "./PickerOverlay"
 import { useTheme } from "./theme"
 
@@ -20,6 +20,15 @@ export function CommandPaletteOverlay({
   onClose: () => void
 }) {
   const theme = useTheme()
+  const [highlightedItem, setHighlightedItem] = useState<CommandItem | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (visible) {
+      setHighlightedItem(null)
+    }
+  }, [visible])
 
   const keyExtractor = useCallback((item: CommandItem) => item.id, [])
 
@@ -72,6 +81,8 @@ export function CommandPaletteOverlay({
       keyExtractor={keyExtractor}
       filter={filter}
       renderItem={renderItem}
+      highlightedItem={highlightedItem}
+      onHighlightChange={setHighlightedItem}
       onSelect={handleSelect}
       onClose={onClose}
     />
