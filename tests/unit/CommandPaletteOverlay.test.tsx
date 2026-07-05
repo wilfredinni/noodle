@@ -268,7 +268,9 @@ describe("CommandPaletteOverlay", () => {
                 id: "b",
                 label: "Beta",
                 section: "Sec",
-                run: () => { ran = "beta" },
+                run: () => {
+                  ran = "beta"
+                },
               },
             ]}
             onClose={noop}
