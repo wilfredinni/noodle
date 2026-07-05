@@ -151,6 +151,7 @@ export function AppInner({
   )
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
+  const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -912,6 +913,7 @@ export function AppInner({
       setNewFolderVisible,
       setFolderDeletePending,
       setUndoAllPending,
+      setCommandPaletteVisible,
       onLayoutChange,
       setExpanded,
     },

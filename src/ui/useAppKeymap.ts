@@ -99,6 +99,7 @@ export interface UseAppKeymapSetters {
   ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setCommandPaletteVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setFolderDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
@@ -242,6 +243,10 @@ export function useAppKeymap(
         run: () => setters.setPreviewIndex(refs.activeIndexRef.current),
       },
       {
+        name: "app.command-palette",
+        run: () => setters.setCommandPaletteVisible((prev: boolean) => !prev),
+      },
+      {
         name: "global.undo-all",
         enabled: () => {
           const mode = keymap.getData("app.mode") as string
@@ -274,6 +279,7 @@ export function useAppKeymap(
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
+      { key: keybinds.command_palette, cmd: "app.command-palette" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
     ],
   }))
