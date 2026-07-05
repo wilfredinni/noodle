@@ -6,11 +6,11 @@ import {
   useState,
 } from "react"
 import type { InputRenderable } from "@opentui/core"
+import { VarInput, type VarInputHandle } from "./VarInput"
 import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "./Select"
 import { useTheme } from "./theme"
 import type { Method, Environment } from "../schema"
-import { VarInput } from "./VarInput"
 
 export interface NewRequestOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void
@@ -83,6 +83,7 @@ export const NewRequestOverlay = forwardRef<
   const [folderSelectOpen, setFolderSelectOpen] = useState(false)
 
   const nameRef = useRef<InputRenderable | null>(null)
+  const urlRef = useRef<VarInputHandle | null>(null)
 
   const FOCUS_ORDER: Array<"folder" | "name" | "method" | "url"> = showFolder
     ? ["folder", "name", "method", "url"]
@@ -147,6 +148,7 @@ export const NewRequestOverlay = forwardRef<
   // Auto-focus based on focus state
   useEffect(() => {
     if (focus === "name") nameRef.current?.focus()
+    else if (focus === "url") urlRef.current?.focus()
   }, [focus])
 
   return (
@@ -217,6 +219,7 @@ export const NewRequestOverlay = forwardRef<
               badge
             />
             <VarInput
+              ref={urlRef}
               value={url || ""}
               env={activeEnv ?? null}
               isEditing={focus === "url"}
