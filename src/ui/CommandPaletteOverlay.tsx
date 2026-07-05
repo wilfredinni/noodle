@@ -103,18 +103,34 @@ export function CommandPaletteOverlay({
         }
         const idx = displayItems.indexOf(item)
         if (idx < 0) return
-        const forward = displayItems.slice(idx + 1).find(isNavigable)
-        if (forward) {
-          setHighlightedId(forward.id)
-          return
+        // when wrapping hits the first header, figure direction from current highlight
+        if (item.type === "header" && idx === 0) {
+          const firstCmd = displayItems.find(isNavigable)
+          const lastCmd = [...displayItems].reverse().find(isNavigable)
+          if (highlightedId === firstCmd?.id && lastCmd) {
+            setHighlightedId(lastCmd.id)
+            return
+          }
+          if (highlightedId === lastCmd?.id && firstCmd) {
+            setHighlightedId(firstCmd.id)
+            return
+          }
         }
-        const backward = displayItems.slice(0, idx).reverse().find(isNavigable)
-        setHighlightedId(backward?.id ?? null)
+        const before = displayItems.slice(0, idx).reverse().find(isNavigable)
+        const after = displayItems.slice(idx + 1).find(isNavigable)
+        // prefer the candidate that moves away from current position
+        if (before && before.id !== highlightedId) {
+          setHighlightedId(before.id)
+        } else if (after && after.id !== highlightedId) {
+          setHighlightedId(after.id)
+        } else {
+          setHighlightedId(before?.id ?? after?.id ?? null)
+        }
       } else {
         setHighlightedId(item.id)
       }
     },
-    [displayItems],
+    [displayItems, highlightedId],
   )
 
   const handleSelect = useCallback(
