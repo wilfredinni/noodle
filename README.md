@@ -16,10 +16,10 @@ Noodle is an HTTP client, not unlike Postman and Bruno. As a TUI application, it
 
 Some notable features include:
 
-- 📁 YAML request files — one per request, git-friendly, no lock-in
+- 📁 One YAML file per request, git-friendly, no lock-in
 - 🗂️ Folder organization with inheritable headers and auth
 - 🌐 Environments with `$var` substitution
-- ✏️ Built-in environment editor — manage environments from the app
+- ✏️ Built-in environment editor
 - ⌨️ Inline editing of every field directly in the terminal
 - 🔐 Multiple auth types (bearer, basic, API key) and body types (JSON, form data, multipart, binary)
 - 📜 Response history with timeline per request
