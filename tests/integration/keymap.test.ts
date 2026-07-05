@@ -976,7 +976,7 @@ describe("env-editor layer", () => {
     cleanup()
   })
 
-  it("dispatches env.cycle when ctrl+p pressed in base mode", () => {
+  it("dispatches env.cycle when ctrl+alt+p pressed in base mode", () => {
     const { keymap, host, cleanup } = setup()
     keymap.setData("app.view", "main")
     keymap.setData("app.overlay", "none")
@@ -995,10 +995,10 @@ describe("env-editor layer", () => {
           },
         },
       ],
-      bindings: [{ key: "ctrl+p", cmd: "env.cycle" }],
+      bindings: [{ key: "ctrl+alt+p", cmd: "env.cycle" }],
     })
 
-    host.press("p", { ctrl: true })
+    host.press("p", { ctrl: true, meta: true })
     expect(called).toBe(true)
     cleanup()
   })
@@ -1049,10 +1049,10 @@ describe("env-editor layer", () => {
           },
         },
       ],
-      bindings: [{ key: "ctrl+p", cmd: "env.cycle" }],
+      bindings: [{ key: "ctrl+alt+p", cmd: "env.cycle" }],
     })
 
-    host.press("p", { ctrl: true })
+    host.press("p", { ctrl: true, meta: true })
     expect(called).toBe(false)
     cleanup()
   })
