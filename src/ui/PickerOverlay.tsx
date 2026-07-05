@@ -48,7 +48,14 @@ export function PickerOverlay<T>({
   const theme = useTheme()
   const keymap = useKeymap()
   const [search, setSearch] = useState("")
+  const prevVisible = useRef(visible)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  useEffect(() => {
+    if (visible && !prevVisible.current) {
+      setSearch("")
+    }
+    prevVisible.current = visible
+  }, [visible])
   const inputRef = useCallback((r: unknown) => {
     const input = r as { focus: () => void } | null
     if (input) setTimeout(() => input.focus(), 1)
@@ -77,6 +84,7 @@ export function PickerOverlay<T>({
   }, [currentHighlight, keyExtractor])
 
   useEffect(() => {
+    if (!visible) return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -117,6 +125,7 @@ export function PickerOverlay<T>({
     )
     return dispose
   }, [
+    visible,
     filtered,
     currentHighlight,
     onHighlightChange,

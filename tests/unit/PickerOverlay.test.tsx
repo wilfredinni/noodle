@@ -104,7 +104,7 @@ describe("PickerOverlay", () => {
   it("passes active flag to renderItem for active item", async () => {
     const { keymap, cleanup } = setupKeymap()
     const activeLabels: string[] = []
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderOnce } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <PickerOverlay
