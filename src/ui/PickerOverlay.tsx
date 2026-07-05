@@ -1,50 +1,102 @@
-import { useEffect, useRef, useState } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import type { ReactNode } from "react"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
-import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
-import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
+import { useTheme } from "./theme"
 
-export interface PickerItem {
-  id: string | number
-  label: string
-  value?: unknown
-  indicator?: string
-  indicatorColor?: string
-}
-
-export function PickerOverlay({
-  visible,
-  title,
-  items,
-  activeId,
-  width = 30,
-  onSelect,
-  onClose,
-}: {
+export interface PickerOverlayProps<T> {
   visible: boolean
   title: string
-  items: PickerItem[]
-  activeId?: string | number
   width?: number
-  onSelect: (item: PickerItem) => void
+  placeholder?: string
+  items: T[]
+  keyExtractor: (item: T) => string
+  filter: (item: T, query: string) => boolean
+  renderItem: (
+    item: T,
+    helpers: {
+      highlighted: boolean
+      active: boolean
+    },
+  ) => ReactNode
+  highlightedItem?: T | null
+  activeItem?: T | null
+  onHighlightChange?: (item: T | null) => void
+  onSelect: (item: T) => void
   onClose: () => void
-}) {
+}
+
+export function PickerOverlay<T>({
+  visible,
+  title,
+  width = 48,
+  items,
+  keyExtractor,
+  filter,
+  renderItem,
+  highlightedItem,
+  activeItem,
+  placeholder = "Search...",
+  onHighlightChange,
+  onSelect,
+  onClose,
+}: PickerOverlayProps<T>) {
   const theme = useTheme()
   const keymap = useKeymap()
-  const initialIndex = items.findIndex((it) => it.id === activeId)
-  const safeIndex = initialIndex >= 0 ? initialIndex : 0
-  const [previewIndex, setPreviewIndex] = useState(safeIndex)
+  const [search, setSearch] = useState("")
+  const prevVisible = useRef(visible)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  useEffect(() => {
+    if (visible && !prevVisible.current) {
+      setSearch("")
+    }
+    prevVisible.current = visible
+  }, [visible])
+  const inputRef = useCallback((r: unknown) => {
+    const input = r as { focus: () => void } | null
+    if (input) queueMicrotask(() => input.focus())
+  }, [])
+
+  const filtered = useMemo(
+    () => items.filter((item) => filter(item, search)),
+    [items, filter, search],
+  )
+
+  const currentHighlight = useMemo(() => {
+    if (!highlightedItem) {
+      return filtered[0] ?? null
+    }
+    const found = filtered.find(
+      (item) => keyExtractor(item) === keyExtractor(highlightedItem),
+    )
+    return found ?? filtered[0] ?? null
+  }, [filtered, highlightedItem, keyExtractor])
+
+  const prevHighlight = useRef(currentHighlight)
+  useEffect(() => {
+    if (currentHighlight && prevHighlight.current !== currentHighlight) {
+      onHighlightChange?.(currentHighlight)
+    }
+    prevHighlight.current = currentHighlight
+  }, [currentHighlight, onHighlightChange])
+
+  const highlightIndex = useMemo(() => {
+    if (!currentHighlight || filtered.length === 0) return -1
+    return filtered.findIndex(
+      (f) => keyExtractor(f) === keyExtractor(currentHighlight),
+    )
+  }, [filtered, currentHighlight, keyExtractor])
 
   useEffect(() => {
-    setPreviewIndex(safeIndex)
-  }, [safeIndex, visible])
+    if (currentHighlight) {
+      const id = `picker-item-${keyExtractor(currentHighlight)}`
+      scrollRef.current?.scrollChildIntoView(id)
+    }
+  }, [currentHighlight, keyExtractor])
 
   useEffect(() => {
-    scrollRef.current?.scrollChildIntoView(`picker-${previewIndex}`)
-  }, [previewIndex])
-
-  useEffect(() => {
+    if (!visible) return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -56,31 +108,58 @@ export function PickerOverlay({
         } else if (name === "up") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setPreviewIndex((p) => Math.max(0, p - 1))
+          if (filtered.length === 0 || highlightIndex < 0) return
+          const nextPos =
+            highlightIndex > 0 ? highlightIndex - 1 : filtered.length - 1
+          onHighlightChange?.(filtered[nextPos])
         } else if (name === "down") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setPreviewIndex((p) => Math.min(items.length - 1, p + 1))
+          if (filtered.length === 0 || highlightIndex < 0) return
+          const nextPos =
+            highlightIndex < filtered.length - 1 ? highlightIndex + 1 : 0
+          onHighlightChange?.(filtered[nextPos])
         } else if (name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          const item = items[previewIndex]
-          if (item !== undefined) onSelect(item)
+          if (currentHighlight) onSelect(currentHighlight)
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [items, previewIndex, onSelect, onClose, keymap])
+  }, [
+    visible,
+    filtered,
+    highlightIndex,
+    currentHighlight,
+    onHighlightChange,
+    onSelect,
+    onClose,
+    keymap,
+    keyExtractor,
+  ])
 
-  const activeIndex = items.findIndex((it) => it.id === activeId)
+  if (!visible) return null
 
   return (
-    <Overlay visible={visible} width={width} gap={1} padding={1}>
-      <box paddingLeft={1} paddingRight={1}>
+    <Overlay visible width={width} gap={1} padding={1}>
+      <box paddingLeft={4} paddingRight={4}>
         <box flexDirection="row" justifyContent="space-between">
           <text fg={theme.text}>{title}</text>
           <text fg={theme.textMuted}>esc</text>
+        </box>
+        <box paddingTop={1}>
+          <input
+            ref={inputRef}
+            value={search}
+            onInput={(e: string) => setSearch(e)}
+            placeholder={placeholder}
+            placeholderColor={theme.textMuted}
+            focusedBackgroundColor={theme.backgroundPanel}
+            cursorColor={theme.primary}
+            focusedTextColor={theme.textMuted}
+          />
         </box>
       </box>
       <scrollbox
@@ -92,42 +171,33 @@ export function PickerOverlay({
         scrollbarOptions={{ visible: false }}
       >
         <box style={{ flexDirection: "column" }}>
-          {items.map((item, i) => {
-            const isActive = i === activeIndex
-            const isSelected = i === previewIndex
-            const indicator = item.indicator ?? "●"
-            const indicatorFg =
-              item.indicatorColor ??
-              (isActive ? theme.primary : theme.textMuted)
+          {filtered.map((item) => {
+            const key = keyExtractor(item)
+            const isHighlighted = currentHighlight === item
             return (
               <box
-                key={i}
-                id={`picker-${i}`}
+                key={key}
+                id={`picker-item-${key}`}
                 style={{
                   flexDirection: "row",
-                  height: 1,
-                  paddingLeft: 1,
+                  paddingLeft: 3,
                   paddingRight: 3,
                   gap: 1,
-                  backgroundColor: isSelected ? theme.primary : undefined,
+                  backgroundColor: isHighlighted ? theme.primary : undefined,
                 }}
               >
-                <text fg={indicatorFg}>{indicator}</text>
-                <text
-                  fg={
-                    isSelected
-                      ? "#1a1a1a"
-                      : isActive
-                        ? theme.primary
-                        : theme.text
-                  }
-                  attributes={isSelected ? TextAttributes.BOLD : undefined}
-                >
-                  {item.label}
-                </text>
+                {renderItem(item, {
+                  highlighted: isHighlighted,
+                  active: activeItem === item,
+                })}
               </box>
             )
           })}
+          {filtered.length === 0 && (
+            <box paddingLeft={3} paddingTop={1}>
+              <text fg={theme.textMuted}>No results found</text>
+            </box>
+          )}
         </box>
       </scrollbox>
     </Overlay>

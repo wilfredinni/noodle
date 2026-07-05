@@ -238,6 +238,10 @@ export function useAppKeymap(
         },
       },
       {
+        name: "app.theme",
+        run: () => setters.setPreviewIndex(refs.activeIndexRef.current),
+      },
+      {
         name: "global.undo-all",
         enabled: () => {
           const mode = keymap.getData("app.mode") as string
@@ -269,6 +273,7 @@ export function useAppKeymap(
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
+      { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
     ],
   }))
@@ -307,10 +312,6 @@ export function useAppKeymap(
       {
         name: "env.cycle",
         run: () => refs.envStateRef.current.cycle(1),
-      },
-      {
-        name: "app.theme",
-        run: () => setters.setPreviewIndex(refs.activeIndexRef.current),
       },
       {
         name: "request.new",
@@ -374,7 +375,6 @@ export function useAppKeymap(
       { key: keybinds.request_save, cmd: "request.save" },
       { key: keybinds.env_cycle, cmd: "env.cycle" },
       { key: keybinds.env_editor, cmd: "env.editor-open" },
-      { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.request_new, cmd: "request.new" },
       { key: keybinds.folder_new, cmd: "folder.new" },
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
