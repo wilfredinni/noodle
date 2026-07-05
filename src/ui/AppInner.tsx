@@ -1243,7 +1243,13 @@ export function AppInner({
             }}
           />
         )}
-        {newRequestVisible && <NewRequestOverlay visible ref={newRequestRef} activeEnv={envState.activeEnv} />}
+        {newRequestVisible && (
+          <NewRequestOverlay
+            visible
+            ref={newRequestRef}
+            activeEnv={envState.activeEnv}
+          />
+        )}
         {editRequestVisible && (
           <NewRequestOverlay
             visible

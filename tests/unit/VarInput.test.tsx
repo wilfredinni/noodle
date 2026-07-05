@@ -37,7 +37,11 @@ describe("VarInput — display mode (isEditing=false)", () => {
   it("renders resolved variable in primary color", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <VarInput value="$host" env={env({ host: "localhost" })} isEditing={false} />
+        <VarInput
+          value="$host"
+          env={env({ host: "localhost" })}
+          isEditing={false}
+        />
       </ThemeProvider>,
       { width: 80, height: 5 },
     )
@@ -190,7 +194,13 @@ describe("VarInput — textarea mode (isEditing=true, useTextarea=true)", () => 
   it("renders textarea with value", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <VarInput value="multi\nline" env={null} isEditing useTextarea onChange={() => {}} />
+        <VarInput
+          value="multi\nline"
+          env={null}
+          isEditing
+          useTextarea
+          onChange={() => {}}
+        />
       </ThemeProvider>,
       { width: 80, height: 5 },
     )
@@ -202,7 +212,13 @@ describe("VarInput — textarea mode (isEditing=true, useTextarea=true)", () => 
   it("renders empty textarea without crash", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <VarInput value="" env={null} isEditing useTextarea onChange={() => {}} />
+        <VarInput
+          value=""
+          env={null}
+          isEditing
+          useTextarea
+          onChange={() => {}}
+        />
       </ThemeProvider>,
       { width: 80, height: 5 },
     )

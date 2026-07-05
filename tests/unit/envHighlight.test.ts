@@ -108,4 +108,3 @@ describe("splitEnvVars", () => {
     expect(result).toEqual([{ text: "$port8080", isVar: true, exists: true }])
   })
 })
-

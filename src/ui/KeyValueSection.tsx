@@ -161,9 +161,7 @@ export function KeyValueSection({
                   ? theme.text
                   : theme.textMuted
               }
-              backgroundColor={
-                editingAdd ? theme.backgroundElement : undefined
-              }
+              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
               focusedBackgroundColor={theme.borderSubtle}
               style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
             />
@@ -178,9 +176,7 @@ export function KeyValueSection({
                   ? theme.text
                   : theme.textMuted
               }
-              backgroundColor={
-                editingAdd ? theme.backgroundElement : undefined
-              }
+              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
               focusedBackgroundColor={theme.borderSubtle}
               style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
             />
