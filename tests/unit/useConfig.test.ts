@@ -83,7 +83,11 @@ describe("loadConfig", () => {
   })
 
   it("confirm_undo_all: false round-trips through save/load", () => {
-    saveConfig(dir, { theme: "dracula", layout: "stacked", confirm_undo_all: false })
+    saveConfig(dir, {
+      theme: "dracula",
+      layout: "stacked",
+      confirm_undo_all: false,
+    })
     const result = loadConfig(dir)
     expect(result.confirm_undo_all).toBe(false)
   })
@@ -133,7 +137,11 @@ describe("saveConfig", () => {
       confirm_undo_all: true,
     })
     const result = loadConfig(dir)
-    expect(result).toEqual({ theme: "monokai", layout: "stacked", confirm_undo_all: true })
+    expect(result).toEqual({
+      theme: "monokai",
+      layout: "stacked",
+      confirm_undo_all: true,
+    })
   })
 
   it("creates directory if missing", () => {

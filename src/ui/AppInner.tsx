@@ -700,20 +700,20 @@ export function AppInner({
           : undoAllPending
             ? "undo-all"
             : yamlEditor.visible
-            ? "yaml-editor"
-            : newRequestVisible
-              ? "new-request"
-              : editRequestVisible
-                ? "edit-request"
-                : cloneRequestVisible
-                  ? "clone-request"
-                  : newFolderVisible
-                    ? "new-folder"
-                    : folderDeletePending !== null
-                      ? "delete-folder"
-                      : requestDeletePending !== null
-                        ? "request-delete"
-                        : "none"
+              ? "yaml-editor"
+              : newRequestVisible
+                ? "new-request"
+                : editRequestVisible
+                  ? "edit-request"
+                  : cloneRequestVisible
+                    ? "clone-request"
+                    : newFolderVisible
+                      ? "new-folder"
+                      : folderDeletePending !== null
+                        ? "delete-folder"
+                        : requestDeletePending !== null
+                          ? "request-delete"
+                          : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     helpVisible,

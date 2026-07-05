@@ -102,9 +102,7 @@ export interface UseAppKeymapSetters {
   setFolderDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
-  setUndoAllPending: (
-    v: boolean | ((prev: boolean) => boolean),
-  ) => void
+  setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
 }
 
 export function useAppKeymap(
