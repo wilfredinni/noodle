@@ -21,7 +21,6 @@ type PaletteItem =
       keybinding?: string
       run: () => void
     }
-  | { type: "spacer"; id: string }
 
 function isCmd(
   item: PaletteItem,
@@ -38,9 +37,6 @@ function buildDisplayItems(commands: CommandItem[]): PaletteItem[] {
   const items: PaletteItem[] = []
   for (const c of commands) {
     if (!seen.has(c.section)) {
-      if (seen.size > 0) {
-        items.push({ type: "spacer", id: `spacer:${c.section}` })
-      }
       seen.add(c.section)
       items.push({
         type: "header",
@@ -88,29 +84,9 @@ export function CommandPaletteOverlay({
             c.label.toLowerCase().includes(query.toLowerCase()),
         )
       }
-      // spacer: only if both adjacent sections have matching commands
-      const idx = displayItems.indexOf(item)
-      const prevHeader = displayItems
-        .slice(0, idx)
-        .reverse()
-        .find((i) => i.type === "header")
-      const nextHeader = displayItems
-        .slice(idx + 1)
-        .find((i) => i.type === "header")
-      if (!prevHeader || !nextHeader) return true
-      const prevVisible = commands.some(
-        (c) =>
-          c.section === prevHeader.section &&
-          c.label.toLowerCase().includes(query.toLowerCase()),
-      )
-      const nextVisible = commands.some(
-        (c) =>
-          c.section === nextHeader.section &&
-          c.label.toLowerCase().includes(query.toLowerCase()),
-      )
-      return prevVisible && nextVisible
+      return false
     },
-    [commands, displayItems],
+    [commands],
   )
 
   const handleHighlightChange = useCallback(
@@ -176,16 +152,27 @@ export function CommandPaletteOverlay({
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
       if (item.type === "header") {
+        const q = queryRef.current.toLowerCase()
+        const visible = q
+          ? displayItems.filter((i) => {
+              if (i.type === "command") return i.label.toLowerCase().includes(q)
+              if (i.type === "header")
+                return commands.some(
+                  (c) =>
+                    c.section === i.section &&
+                    c.label.toLowerCase().includes(q),
+                )
+              return false
+            })
+          : displayItems
+        const isFirst = visible.find((i) => i.type === "header") === item
         return (
-          <box flexGrow={1}>
+          <box flexGrow={1} paddingTop={isFirst ? 0 : 1}>
             <text fg={theme.primary} attributes={TextAttributes.BOLD}>
               {item.section}
             </text>
           </box>
         )
-      }
-      if (item.type === "spacer") {
-        return <box height={1} />
       }
       const baseFg = highlighted ? "#1a1a1a" : theme.text
       const mutedFg = highlighted ? "#333333" : theme.textMuted
