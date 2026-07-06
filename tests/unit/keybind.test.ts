@@ -18,15 +18,19 @@ describe("parseOverrides", () => {
   })
 
   it("applies custom keys for configurable bindings", () => {
-    const result = parseOverrides({ request_send: "ctrl+s", help_toggle: "f1" })
-    expect(result.request_send).toBe("ctrl+s")
+    const result = parseOverrides({ request_save: "ctrl+x", help_toggle: "f1" })
+    expect(result.request_save).toBe("ctrl+x")
     expect(result.help_toggle).toBe("f1")
-    expect(result.request_save).toBe("ctrl+s")
+    expect(result.request_send).toBe("ctrl+return")
   })
 
   it("ignores fixed key overrides (uses default)", () => {
-    const result = parseOverrides({ focus_next: "ctrl+n" })
+    const result = parseOverrides({
+      focus_next: "ctrl+n",
+      request_send: "ctrl+x",
+    })
     expect(result.focus_next).toBe("tab")
+    expect(result.request_send).toBe("ctrl+return")
   })
 
   it("throws on unknown key names", () => {
@@ -64,6 +68,21 @@ describe("CommandMap", () => {
     for (const name of Object.keys(Definitions)) {
       expect(CommandMap).toHaveProperty(name)
     }
+  })
+})
+
+describe("request_send", () => {
+  it("has default ctrl+return", () => {
+    expect(Definitions.request_send.default).toBe("ctrl+return")
+  })
+
+  it("is fixed", () => {
+    expect(Definitions.request_send.fixed).toBe(true)
+  })
+
+  it("ignores overrides", () => {
+    const result = parseOverrides({ request_send: "ctrl+x" })
+    expect(result.request_send).toBe("ctrl+return")
   })
 })
 
