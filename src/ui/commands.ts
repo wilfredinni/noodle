@@ -144,11 +144,30 @@ export function buildCommandPaletteCommands(
   } = ctx
 
   return [
-    // ── Request Editing ──────────────────────────────────────────────
+    // ── Request ──────────────────────────────────────────────────────
+    {
+      id: "request.send",
+      label: "Send Request",
+      section: "Request",
+      keybinding: displayKey(keybinds.request_send),
+      run: () => trySendRef.current?.(),
+    },
+    {
+      id: "request.save",
+      label: "Save Request",
+      section: "Request",
+      keybinding: displayKey(keybinds.request_save),
+      run: () => {
+        const d = draftRef.current
+        if (!savingRef.current && d.draft && d.isDirty) {
+          doSaveRef.current()
+        }
+      },
+    },
     {
       id: "request.edit-overlay",
       label: "Edit Request",
-      section: "Request Editing",
+      section: "Request",
       keybinding: displayKey(keybinds.request_edit_overlay),
       run: () => {
         if (focusedFolderPathRef.current) return
@@ -164,7 +183,7 @@ export function buildCommandPaletteCommands(
     {
       id: "request.edit-yaml",
       label: "Edit Request YAML",
-      section: "Request Editing",
+      section: "Request",
       keybinding: displayKey(keybinds.request_edit_yaml),
       run: () => {
         if (focusedFolderPathRef.current) return
@@ -183,44 +202,17 @@ export function buildCommandPaletteCommands(
         })
       },
     },
-    // ── Actions ──────────────────────────────────────────────────────
-    {
-      id: "request.send",
-      label: "Send Request",
-      section: "Actions",
-      keybinding: displayKey(keybinds.request_send),
-      run: () => trySendRef.current?.(),
-    },
-    {
-      id: "request.save",
-      label: "Save Request",
-      section: "Actions",
-      keybinding: displayKey(keybinds.request_save),
-      run: () => {
-        const d = draftRef.current
-        if (!savingRef.current && d.draft && d.isDirty) {
-          doSaveRef.current()
-        }
-      },
-    },
     {
       id: "request.new",
       label: "New Request",
-      section: "Actions",
+      section: "Request",
       keybinding: displayKey(keybinds.request_new),
       run: () => setNewRequestVisible(true),
     },
     {
-      id: "folder.new",
-      label: "New Folder",
-      section: "Actions",
-      keybinding: displayKey(keybinds.folder_new),
-      run: () => setNewFolderVisible(true),
-    },
-    {
       id: "request.clone",
       label: "Clone Request",
-      section: "Actions",
+      section: "Request",
       keybinding: displayKey(keybinds.request_clone),
       run: () => {
         const sid = selectedIdRef.current
@@ -235,7 +227,7 @@ export function buildCommandPaletteCommands(
     {
       id: "request.delete",
       label: "Delete Request",
-      section: "Actions",
+      section: "Request",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
         const folderPath = focusedFolderPathRef.current
@@ -255,16 +247,30 @@ export function buildCommandPaletteCommands(
       },
     },
     {
-      id: "env.cycle",
-      label: "Cycle Environment",
-      section: "Actions",
-      keybinding: displayKey(keybinds.env_cycle),
-      run: () => envStateRef.current.cycle(1),
+      id: "global.undo-all",
+      label: "Undo All Unsaved Changes",
+      section: "Request",
+      keybinding: displayKey(keybinds.global_undo_all),
+      run: () => {
+        const d = draftRef.current
+        const fd = folderDraftRef.current
+        const ee = envEditorRef.current
+        const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
+        if (!hasDirty) return
+        if (confirmUndoAll) {
+          setUndoAllPending(true)
+        } else {
+          d.revertAllRequests()
+          fd.revertAllFolders()
+          ee?.revertDraft()
+        }
+      },
     },
+    // ── Response ─────────────────────────────────────────────────────
     {
       id: "response.copy-body",
       label: "Copy Response Body",
-      section: "Actions",
+      section: "Response",
       keybinding: displayKey(keybinds.response_copy_body),
       run: () => {
         const s = responseStateRef.current
@@ -277,10 +283,38 @@ export function buildCommandPaletteCommands(
         }
       },
     },
+    // ── Environment ──────────────────────────────────────────────────
+    {
+      id: "env.cycle",
+      label: "Cycle Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_cycle),
+      run: () => envStateRef.current.cycle(1),
+    },
+    {
+      id: "env.editor-open",
+      label: "Open Environment Editor",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_editor),
+      run: () => {
+        const name = envStateRef.current.activeEnv?.name
+        envEditorRef.current.openEditor(name)
+        setView("env-editor")
+        setFocus("env-header")
+      },
+    },
+    // ── Workspace ────────────────────────────────────────────────────
+    {
+      id: "folder.new",
+      label: "New Folder",
+      section: "Workspace",
+      keybinding: displayKey(keybinds.folder_new),
+      run: () => setNewFolderVisible(true),
+    },
     {
       id: "layout.toggle",
       label: "Toggle Layout",
-      section: "Actions",
+      section: "Workspace",
       keybinding: displayKey(keybinds.layout_toggle),
       run: () =>
         setLayout((prev: "stacked" | "side-by-side") => {
@@ -292,7 +326,7 @@ export function buildCommandPaletteCommands(
     {
       id: "pane.expand",
       label: "Expand/Collapse Pane",
-      section: "Actions",
+      section: "Workspace",
       keybinding: displayKey(keybinds.pane_expand),
       run: () => {
         const f = getKeymapFocus() as "request" | "response"
@@ -331,39 +365,6 @@ export function buildCommandPaletteCommands(
           return
         }
         setCollectionSwitcherVisible(true)
-      },
-    },
-    {
-      id: "global.undo-all",
-      label: "Undo All Unsaved Changes",
-      section: "System",
-      keybinding: displayKey(keybinds.global_undo_all),
-      run: () => {
-        const d = draftRef.current
-        const fd = folderDraftRef.current
-        const ee = envEditorRef.current
-        const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
-        if (!hasDirty) return
-        if (confirmUndoAll) {
-          setUndoAllPending(true)
-        } else {
-          d.revertAllRequests()
-          fd.revertAllFolders()
-          ee?.revertDraft()
-        }
-      },
-    },
-    // ── Env Editor ───────────────────────────────────────────────────
-    {
-      id: "env.editor-open",
-      label: "Open Environment Editor",
-      section: "Env Editor",
-      keybinding: displayKey(keybinds.env_editor),
-      run: () => {
-        const name = envStateRef.current.activeEnv?.name
-        envEditorRef.current.openEditor(name)
-        setView("env-editor")
-        setFocus("env-header")
       },
     },
   ]

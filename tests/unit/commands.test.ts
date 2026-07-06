@@ -63,10 +63,11 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
     const sections = [...new Set(commands.map((c) => c.section))]
     expect(sections).toEqual([
-      "Request Editing",
-      "Actions",
+      "Request",
+      "Response",
+      "Environment",
+      "Workspace",
       "System",
-      "Env Editor",
     ])
   })
 
