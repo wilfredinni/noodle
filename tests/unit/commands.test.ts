@@ -27,7 +27,7 @@ function minimalContext(): CommandBuilderContext {
     focusedFolderNameRef: { current: null } as never,
     folderDeletePathRef: { current: null } as never,
     getKeymapFocus: () => "sidebar",
-    getView: () => "sidebar",
+    getView: () => "main",
     setLayout: () => {},
     onLayoutChange: () => {},
     setHelpVisible: () => {},

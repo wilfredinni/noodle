@@ -267,6 +267,39 @@ describe("CommandPaletteOverlay", () => {
     cleanup()
   })
 
+  it("does not close palette when command returns false", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let closed = false
+
+    const commands: CommandItem[] = [
+      {
+        id: "noop",
+        label: "No-op Command",
+        section: "Sec",
+        run: () => false,
+      },
+    ]
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CommandPaletteOverlay
+            visible
+            commands={commands}
+            onClose={() => {
+              closed = true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("return"))
+    expect(closed).toBe(false)
+    cleanup()
+  })
+
   it("down arrow navigates to next item", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let ran: string | null = null
@@ -403,6 +436,41 @@ describe("CommandPaletteOverlay", () => {
     await renderOnce()
     await act(async () => host.press("down"))
     await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(ran!).toBe("gamma")
+    cleanup()
+  })
+
+  it("up arrow wraps from first command to last", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let ran: string | null = null
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CommandPaletteOverlay
+            visible
+            commands={[
+              { id: "a", label: "Alpha", section: "Sec", run: () => true },
+              { id: "b", label: "Beta", section: "Sec", run: () => true },
+              {
+                id: "c",
+                label: "Gamma",
+                section: "Sec",
+                run: () => {
+                  ran = "gamma"
+                  return true
+                },
+              },
+            ]}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("up"))
     await act(async () => host.press("return"))
     expect(ran!).toBe("gamma")
     cleanup()
