@@ -64,8 +64,7 @@ export function loadConfig(configDir: string): NoodleConfig {
           : DEFAULTS.confirm_undo_all,
       collections: Array.isArray(obj.collections)
         ? obj.collections.filter(
-            (value): value is string =>
-              typeof value === "string" && value.trim() !== "",
+            (value): value is string => typeof value === "string",
           )
         : DEFAULTS.collections,
     })

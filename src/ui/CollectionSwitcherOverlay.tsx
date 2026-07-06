@@ -61,7 +61,8 @@ export function CollectionSwitcherOverlay({
     if (!query) return true
     const q = query.toLowerCase()
     return (
-      item.label.toLowerCase().includes(q) || item.path.toLowerCase().includes(q)
+      item.label.toLowerCase().includes(q) ||
+      item.path.toLowerCase().includes(q)
     )
   }, [])
 
@@ -81,11 +82,7 @@ export function CollectionSwitcherOverlay({
       item: CollectionItem,
       { highlighted, active }: { highlighted: boolean; active: boolean },
     ) => {
-      const fg = highlighted
-        ? "#1a1a1a"
-        : active
-          ? theme.primary
-          : theme.text
+      const fg = highlighted ? "#1a1a1a" : active ? theme.primary : theme.text
       const pathFg = highlighted ? "#333333" : theme.textMuted
       return (
         <>

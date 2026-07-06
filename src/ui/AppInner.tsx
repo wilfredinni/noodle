@@ -714,28 +714,28 @@ export function AppInner({
         : previewIndex !== null
           ? "theme"
           : saveState.kind === "confirming"
-          ? "confirm"
-          : undoAllPending
-            ? "undo-all"
-            : collectionSwitchPending !== null
-              ? "collection-switch-confirm"
-              : collectionSwitcherVisible
-                ? "collection-switcher"
-                : yamlEditor.visible
-                  ? "yaml-editor"
-                  : newRequestVisible
-                    ? "new-request"
-                    : editRequestVisible
-                      ? "edit-request"
-                      : cloneRequestVisible
-                        ? "clone-request"
-                        : newFolderVisible
-                          ? "new-folder"
-                          : folderDeletePending !== null
-                            ? "delete-folder"
-                            : requestDeletePending !== null
-                              ? "request-delete"
-                              : "none"
+            ? "confirm"
+            : undoAllPending
+              ? "undo-all"
+              : collectionSwitchPending !== null
+                ? "collection-switch-confirm"
+                : collectionSwitcherVisible
+                  ? "collection-switcher"
+                  : yamlEditor.visible
+                    ? "yaml-editor"
+                    : newRequestVisible
+                      ? "new-request"
+                      : editRequestVisible
+                        ? "edit-request"
+                        : cloneRequestVisible
+                          ? "clone-request"
+                          : newFolderVisible
+                            ? "new-folder"
+                            : folderDeletePending !== null
+                              ? "delete-folder"
+                              : requestDeletePending !== null
+                                ? "request-delete"
+                                : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     commandPaletteVisible,
@@ -926,7 +926,7 @@ export function AppInner({
       setCollectionSwitchPending(null)
       setCollectionSwitchSelection(0)
       setCollectionSwitcherVisible(false)
-      onCollectionChange(resolve(nextDir))
+      onCollectionChange(nextDir)
     },
     [onCollectionChange],
   )
