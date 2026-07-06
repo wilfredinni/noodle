@@ -394,6 +394,7 @@ export function useAppKeymap(
     ],
     bindings: [
       { key: keybinds.request_send, cmd: "request.send" },
+      { key: "linefeed", cmd: "request.send" },
       { key: keybinds.request_save, cmd: "request.save" },
       { key: keybinds.env_cycle, cmd: "env.cycle" },
       { key: keybinds.env_editor, cmd: "env.editor-open" },
@@ -486,6 +487,7 @@ export function useAppKeymap(
       { key: keybinds.browse_revert_all, cmd: "browse.revert-all" },
       { key: "space", cmd: "browse.toggle" },
       { key: keybinds.request_send, cmd: "browse.send" },
+      { key: "linefeed", cmd: "browse.send" },
       { key: keybinds.request_save, cmd: "browse.save" },
       { key: keybinds.browse_toggle_form_type, cmd: "browse.toggle-form-type" },
     ],

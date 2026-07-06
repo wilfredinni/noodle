@@ -24,6 +24,30 @@ function setup() {
 }
 
 describe("keymap dispatch", () => {
+  it("dispatches request.send when linefeed is pressed", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "base" &&
+        keymap.getData("app.overlay") === "none",
+      commands: [
+        {
+          name: "request.send",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "linefeed", cmd: "request.send" }],
+    })
+
+    host.press("linefeed")
+    expect(called).toBe(true)
+    cleanup()
+  })
+
   it("dispatches request.send when ctrl+return is pressed", () => {
     const { keymap, host, cleanup } = setup()
     let called = false
