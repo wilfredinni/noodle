@@ -39,7 +39,7 @@ export function normalizeCollectionPaths(paths: string[]): string[] {
 export function upsertCollectionPath(paths: string[], path: string): string[] {
   if (path.trim() === "") return normalizeCollectionPaths(paths)
   const normalized = normalizeCollectionPath(path)
-  return [normalized, ...paths.filter((item) => normalizeCollectionPath(item) !== normalized)]
+  return [normalized, ...paths.filter((item) => item !== normalized)]
 }
 
 function normalizeConfig(config: NoodleConfig): NoodleConfig {
@@ -115,7 +115,8 @@ export function useConfig(configDir: string): {
         | Partial<NoodleConfig>
         | ((prev: NoodleConfig) => Partial<NoodleConfig>),
     ) => {
-      const patch = typeof partial === "function" ? partial(configRef.current) : partial
+      const patch =
+        typeof partial === "function" ? partial(configRef.current) : partial
       const next = normalizeConfig({ ...configRef.current, ...patch })
       configRef.current = next
       setConfig(next)

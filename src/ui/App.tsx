@@ -14,7 +14,6 @@ const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
 export function App({
   collectionDir,
-  environmentsDir: _initialEnvironmentsDir,
   envList: initialEnvList,
   initialEnvName,
   settingsEnv: initialSettingsEnv,
@@ -22,7 +21,6 @@ export function App({
   lastRequestId: initialLastRequestId,
 }: {
   collectionDir: string
-  environmentsDir: string
   envList: string[]
   initialEnvName?: string
   settingsEnv?: string
@@ -31,10 +29,12 @@ export function App({
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
   const switchingRef = useRef(false)
-  const initialCollectionDir = useMemo(() => resolve(collectionDir), [collectionDir])
-  const [activeCollectionDir, setActiveCollectionDir] = useState(
-    initialCollectionDir,
+  const initialCollectionDir = useMemo(
+    () => resolve(collectionDir),
+    [collectionDir],
   )
+  const [activeCollectionDir, setActiveCollectionDir] =
+    useState(initialCollectionDir)
   const [settingsEnv, setSettingsEnv] = useState<string | undefined>(
     initialSettingsEnv,
   )
@@ -72,6 +72,7 @@ export function App({
     let cancelled = false
     listEnvironmentsWithColors(activeEnvironmentsDir).then((items) => {
       if (cancelled) return
+      setEnvNames(items.map((item) => item.name))
       const colors: Record<string, string | undefined> = {}
       for (const item of items) colors[item.name] = item.color
       setEnvColors(colors)
@@ -108,7 +109,9 @@ export function App({
     (name: string | null) => {
       const envName = name ?? undefined
       setSettingsEnv(envName)
-      saveSettings(activeCollectionDir, { environment: envName }).catch(() => {})
+      saveSettings(activeCollectionDir, { environment: envName }).catch(
+        () => {},
+      )
     },
     [activeCollectionDir],
   )

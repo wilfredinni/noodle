@@ -104,7 +104,6 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
       <RendererProvider renderer={renderer}>
         <App
           collectionDir={collectionDir}
-          environmentsDir={environmentsDir}
           envList={envList}
           initialEnvName={initialEnvName}
           settingsEnv={settingsEnv}
