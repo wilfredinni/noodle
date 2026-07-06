@@ -65,8 +65,11 @@ export function CommandPaletteOverlay({
   const displayItems = useMemo(() => buildDisplayItems(commands), [commands])
 
   useEffect(() => {
-    if (visible) setHighlightedId(null)
-  }, [visible])
+    if (visible) {
+      const first = displayItems.find(isNavigable)
+      setHighlightedId(first?.id ?? null)
+    }
+  }, [visible, displayItems])
 
   const keyExtractor = useCallback((item: PaletteItem) => item.id, [])
 
@@ -111,7 +114,7 @@ export function CommandPaletteOverlay({
       // Header at start of list — handle wrap
       if (idx === 0) {
         const last = [...visible].reverse().find(isNavigable)
-        if ((highlightedId === after?.id || highlightedId === null) && last) {
+        if (highlightedId === after?.id && last) {
           // Was on first command, pressed up — wrap to last
           setHighlightedId(last.id)
           return

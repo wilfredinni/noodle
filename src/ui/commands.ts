@@ -230,13 +230,7 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
-        const folderPath = focusedFolderPathRef.current
-        const folderName = focusedFolderNameRef.current
-        if (folderPath && folderName) {
-          folderDeletePathRef.current = folderPath
-          setFolderDeletePending(folderName)
-          return
-        }
+        if (focusedFolderPathRef.current) return
         const sid = selectedIdRef.current
         if (!sid) return
         const col = collectionRef.current
@@ -310,6 +304,19 @@ export function buildCommandPaletteCommands(
       section: "Workspace",
       keybinding: displayKey(keybinds.folder_new),
       run: () => setNewFolderVisible(true),
+    },
+    {
+      id: "folder.delete",
+      label: "Delete Folder",
+      section: "Workspace",
+      keybinding: displayKey(keybinds.request_delete),
+      run: () => {
+        const folderPath = focusedFolderPathRef.current
+        const folderName = focusedFolderNameRef.current
+        if (!folderPath || !folderName) return
+        folderDeletePathRef.current = folderPath
+        setFolderDeletePending(folderName)
+      },
     },
     {
       id: "layout.toggle",

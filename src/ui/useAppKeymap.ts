@@ -239,6 +239,10 @@ export function useAppKeymap(
       },
       {
         name: "app.command-palette",
+        enabled: () => {
+          const overlay = keymap.getData("app.overlay") as string
+          return overlay === "none" || overlay === "command-palette"
+        },
         run: () => setters.setCommandPaletteVisible((prev: boolean) => !prev),
       },
       {
