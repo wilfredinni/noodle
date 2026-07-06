@@ -2,6 +2,26 @@
 
 Scaffold noodle collections, requests, folders, and environments from scratch.
 
+## Find an existing collection
+
+Before creating a new collection, check if the user already has one that matches.
+
+### Step 1: Read noodle's config
+
+```bash
+cat ~/.config/noodle/config.yml
+```
+
+Look for the `collections` field — an array of absolute paths to known collections.
+
+### Step 2: Match by name
+
+Extract the directory name from each path. If the user asks for "the stripe collection", look for a path ending in `/stripe` or `/stripe-api`. Return the full path.
+
+### Step 3: If not found
+
+If no collection matches, proceed to create a new one below. The new collection will be registered in config so future lookups find it.
+
 ## Create a new collection
 
 When asked to create a new collection:
@@ -32,7 +52,19 @@ base_url=http://localhost:3000
 
 `base_url` is the standard name for the root API URL. Adjust based on the API being scaffolded.
 
-### Step 5: Report what was created
+### Step 5: Register in noodle config
+
+Write the absolute path to `~/.config/noodle/config.yml` so the collection appears in noodle's workspace switcher. Read the existing config, prepend the new path to `collections`, write back:
+
+```yaml
+collections:
+  - /Users/me/Projects/stripe-api
+  - /Users/me/Projects/other-api
+```
+
+If `collections` doesn't exist yet, create it with the new path. Paths must be absolute and resolved. See [config.md](reference/config.md) for the full config schema.
+
+### Step 6: Report what was created
 
 List all files/dirs created so the user can verify.
 
