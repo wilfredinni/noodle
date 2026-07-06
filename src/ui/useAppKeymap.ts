@@ -12,6 +12,7 @@ import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import type { SendState } from "./sendState"
 import { useRenderer } from "./RendererContext"
+import { copyToClipboard } from "./clipboard"
 import { showToast } from "./Toast"
 import { findRequestById } from "./tree"
 
@@ -222,16 +223,11 @@ export function useAppKeymap(
           const s = refs.responseStateRef.current
           if (s?.status !== "done") return
           const body = s.response.body
-          try {
-            const result = Bun.spawnSync(["pbcopy"], {
-              stdin: new TextEncoder().encode(body),
-            })
-            if (result.exitCode !== 0) throw new Error("pbcopy failed")
-          } catch {
-            renderer.copyToClipboardOSC52(body)
-            return
+          if (copyToClipboard(body, renderer)) {
+            showToast("Response body copied", "success")
+          } else {
+            showToast("Failed to copy response body", "error")
           }
-          showToast("Response body copied", "success")
         },
       },
       {

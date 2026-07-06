@@ -4,6 +4,7 @@ import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./CommandPaletteOverlay"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
+import { copyToClipboard } from "./clipboard"
 import { showToast } from "./Toast"
 import { findRequestById } from "./tree"
 import type { Focus } from "./focus"
@@ -263,16 +264,11 @@ export function buildCommandPaletteCommands(
         const s = responseStateRef.current
         if (s?.status !== "done") return
         const body = s.response.body
-        try {
-          const result = Bun.spawnSync(["pbcopy"], {
-            stdin: new TextEncoder().encode(body),
-          })
-          if (result.exitCode !== 0) throw new Error("pbcopy failed")
-        } catch {
-          renderer.copyToClipboardOSC52(body)
-          return
+        if (copyToClipboard(body, renderer)) {
+          showToast("Response body copied", "success")
+        } else {
+          showToast("Failed to copy response body", "error")
         }
-        showToast("Response body copied", "success")
       },
     },
     {
