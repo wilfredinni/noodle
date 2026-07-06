@@ -99,6 +99,7 @@ export interface UseAppKeymapSetters {
   ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setCommandPaletteVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setFolderDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
@@ -221,18 +222,14 @@ export function useAppKeymap(
           const s = refs.responseStateRef.current
           if (s?.status !== "done") return
           const body = s.response.body
-          const tmp = `/tmp/noodle-copy-${Date.now()}`
           try {
-            Bun.write(tmp, body)
-            Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])
+            const result = Bun.spawnSync(["pbcopy"], {
+              stdin: new TextEncoder().encode(body),
+            })
+            if (result.exitCode !== 0) throw new Error("pbcopy failed")
           } catch {
             renderer.copyToClipboardOSC52(body)
-          } finally {
-            try {
-              Bun.spawnSync(["rm", "-f", tmp])
-            } catch {
-              // cleanup is best-effort; ignore failures
-            }
+            return
           }
           showToast("Response body copied", "success")
         },
@@ -240,6 +237,10 @@ export function useAppKeymap(
       {
         name: "app.theme",
         run: () => setters.setPreviewIndex(refs.activeIndexRef.current),
+      },
+      {
+        name: "app.command-palette",
+        run: () => setters.setCommandPaletteVisible((prev: boolean) => !prev),
       },
       {
         name: "global.undo-all",
@@ -274,6 +275,7 @@ export function useAppKeymap(
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
+      { key: keybinds.command_palette, cmd: "app.command-palette" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
     ],
   }))
@@ -293,7 +295,7 @@ export function useAppKeymap(
           const name = refs.envStateRef.current.activeEnv?.name
           refs.envEditorRef.current.openEditor(name)
           setters.setView("env-editor")
-          setters.setFocus("env-sidebar")
+          setters.setFocus("env-header")
         },
       },
       {

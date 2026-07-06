@@ -17,7 +17,8 @@ function keybind(
 export const Definitions = {
   request_send: keybind("ctrl+return", "Send request"),
   request_save: keybind("ctrl+s", "Save request to disk"),
-  env_cycle: keybind("ctrl+p", "Cycle environment"),
+  env_cycle: keybind("ctrl+u", "Cycle environment"),
+  command_palette: keybind("ctrl+p", "Open command palette"),
   request_new: keybind("ctrl+n", "New request"),
   folder_new: keybind("ctrl+alt+n", "New folder"),
   request_clone: keybind("ctrl+k", "Clone request"),
@@ -63,6 +64,7 @@ export const CommandMap = {
   response_copy_body: "response.copy-body",
   request_edit: "request.edit-enter",
   env_cycle: "env.cycle",
+  command_palette: "app.command-palette",
   env_editor: "env.editor-open",
   help_toggle: "app.help",
   theme_picker: "app.theme",

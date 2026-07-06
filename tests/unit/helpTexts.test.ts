@@ -56,7 +56,7 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^t")
   })
 
-  it("ACTIONS section shows ^return, ^s, ^n, ^k, ^w, ^p, ^l", () => {
+  it("ACTIONS section shows ^return, ^s, ^n, ^k, ^w, ^shift+p, ^l", () => {
     const sections = getHelpSections(defaults)
     const act = sections.find((s) => s.title === "Actions")!
     const keys = act.keys.map((k) => k.key)
@@ -65,16 +65,17 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^n")
     expect(keys).toContain("^k")
     expect(keys).toContain("^w")
-    expect(keys).toContain("^p")
+    expect(keys).toContain("^u")
     expect(keys).toContain("^l")
   })
 
-  it("SYSTEM section contains ^c and f1", () => {
+  it("SYSTEM section contains ^c, f1, and command palette binding", () => {
     const sections = getHelpSections(defaults)
     const sys = sections.find((s) => s.title === "System")!
     const keys = sys.keys.map((k) => k.key)
     expect(keys).toContain("^c")
     expect(keys).toContain("f1")
+    expect(keys).toContain("^p")
   })
 
   it("reflects custom keybinds", () => {

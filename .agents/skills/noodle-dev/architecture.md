@@ -176,7 +176,8 @@ App (src/ui/App.tsx)
       │   │   └── KeyValueSection / JsonBodyViewer / AuthEditor / FormEditor / Select / Checkbox
       │   └── ResponsePane     ← Tabs: body/headers/timeline
       ├── [overlays]
-      │   ├── HelpOverlay, ThemePickerOverlay, YamlEditorOverlay
+      │   ├── PickerOverlay (generic base), ThemePickerOverlay (uses PickerOverlay)
+      │   ├── HelpOverlay, YamlEditorOverlay
       │   ├── NewRequestOverlay, CloneRequestOverlay, NewFolderOverlay
       │   └── ConfirmOverlay
       └── StatusBar

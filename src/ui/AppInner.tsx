@@ -35,6 +35,8 @@ import {
   NewFolderOverlay,
   type NewFolderOverlayHandle,
 } from "./NewFolderOverlay"
+import { CommandPaletteOverlay } from "./CommandPaletteOverlay"
+import { buildCommandPaletteCommands } from "./commands"
 import {
   saveRequest,
   deleteRequest,
@@ -51,6 +53,7 @@ import { EnvEditorPane } from "./EnvEditorPane"
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
+import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
@@ -151,6 +154,7 @@ export function AppInner({
   )
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
+  const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -691,31 +695,34 @@ export function AppInner({
   }, [focus, keymap])
 
   useEffect(() => {
-    const overlay = helpVisible
-      ? "help"
-      : previewIndex !== null
-        ? "theme"
-        : saveState.kind === "confirming"
-          ? "confirm"
-          : undoAllPending
-            ? "undo-all"
-            : yamlEditor.visible
-              ? "yaml-editor"
-              : newRequestVisible
-                ? "new-request"
-                : editRequestVisible
-                  ? "edit-request"
-                  : cloneRequestVisible
-                    ? "clone-request"
-                    : newFolderVisible
-                      ? "new-folder"
-                      : folderDeletePending !== null
-                        ? "delete-folder"
-                        : requestDeletePending !== null
-                          ? "request-delete"
-                          : "none"
+    const overlay = commandPaletteVisible
+      ? "command-palette"
+      : helpVisible
+        ? "help"
+        : previewIndex !== null
+          ? "theme"
+          : saveState.kind === "confirming"
+            ? "confirm"
+            : undoAllPending
+              ? "undo-all"
+              : yamlEditor.visible
+                ? "yaml-editor"
+                : newRequestVisible
+                  ? "new-request"
+                  : editRequestVisible
+                    ? "edit-request"
+                    : cloneRequestVisible
+                      ? "clone-request"
+                      : newFolderVisible
+                        ? "new-folder"
+                        : folderDeletePending !== null
+                          ? "delete-folder"
+                          : requestDeletePending !== null
+                            ? "request-delete"
+                            : "none"
     keymap.setData("app.overlay", overlay)
   }, [
+    commandPaletteVisible,
     helpVisible,
     previewIndex,
     saveState.kind,
@@ -912,6 +919,7 @@ export function AppInner({
       setNewFolderVisible,
       setFolderDeletePending,
       setUndoAllPending,
+      setCommandPaletteVisible,
       onLayoutChange,
       setExpanded,
     },
@@ -984,6 +992,50 @@ export function AppInner({
   const expandHint = useMemo(
     () => `${displayKey(keybinds.pane_expand)} expand`,
     [keybinds.pane_expand],
+  )
+
+  const renderer = useRenderer()
+
+  const commandPaletteCommands = useMemo(
+    () =>
+      buildCommandPaletteCommands({
+        keybinds,
+        collectionDir,
+        confirmUndoAll,
+        renderer,
+        trySendRef,
+        draftRef,
+        folderDraftRef,
+        envStateRef,
+        envEditorRef,
+        collectionRef,
+        selectedIdRef,
+        focusRef,
+        responseStateRef,
+        activeIndexRef,
+        savingRef,
+        doSaveRef,
+        focusedFolderPathRef,
+        focusedFolderNameRef,
+        folderDeletePathRef,
+        getKeymapFocus: () => keymap.getData("app.focus") as string,
+        setLayout,
+        onLayoutChange,
+        setHelpVisible,
+        setNewRequestVisible,
+        setNewFolderVisible,
+        setCloneRequestVisible,
+        setEditRequestVisible,
+        setRequestDeletePending,
+        setFolderDeletePending,
+        setYamlEditor,
+        setView,
+        setFocus,
+        setUndoAllPending,
+        setExpanded,
+        setPreviewIndexProp,
+      }),
+    [keybinds, collectionDir, confirmUndoAll, onLayoutChange],
   )
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -1217,6 +1269,13 @@ export function AppInner({
             visible
             message="Discard all unsaved changes? (y/n)"
             selectedIndex={confirmSelection}
+          />
+        )}
+        {commandPaletteVisible && (
+          <CommandPaletteOverlay
+            visible
+            commands={commandPaletteCommands}
+            onClose={() => setCommandPaletteVisible(false)}
           />
         )}
         {previewIndex !== null && (

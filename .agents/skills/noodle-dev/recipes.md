@@ -55,13 +55,19 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 ## Add a new overlay
 
 **Locate:**
-- Existing overlays: `src/ui/NewRequestOverlay.tsx`, `src/ui/ThemePickerOverlay.tsx`, `src/ui/YamlEditorOverlay.tsx`, `src/ui/ConfirmOverlay.tsx`
+- Existing overlays: `src/ui/PickerOverlay.tsx` (generic base), `src/ui/ThemePickerOverlay.tsx` (uses PickerOverlay), `src/ui/YamlEditorOverlay.tsx`, `src/ui/ConfirmOverlay.tsx`
 - `src/ui/AppInner.tsx` — overlay rendering gated on `overlay` state
 - `src/ui/useAppKeymap.ts` — overlay keymap layers (Close/Cancel)
 
-**Follow:** Overlays use `Modal` from OpenTUI, typically have a title, content area, and action buttons. State is managed via a `useState` in `AppInner.tsx` or a dedicated hook.
+**Follow:** For picker-style overlays (search + filter + list + selection), reuse `PickerOverlay<T>` with render props. Others use `Modal` from OpenTUI directly. State is managed via a `useState` in `AppInner.tsx` or a dedicated hook.
 
-**Implement:**
+**Implement (picker-style):**
+1. Define item type and use `PickerOverlay<T>` with `keyExtractor`, `filter`, `renderItem` props
+2. Wire `onSelect`, `onClose`, `onHighlightChange` to parent state
+3. Add render branch in `AppInner.tsx` gated on your state
+4. Add keybinding — typically in Always-On Layer for global keys, or focus-specific layer
+
+**Implement (modal):**
 1. Create component in `src/ui/YourOverlay.tsx`
 2. Add overlay type name to any overlay state tracking (e.g., `app.overlay` keymap data)
 3. Add render branch in `AppInner.tsx` when your overlay is active

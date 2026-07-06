@@ -553,13 +553,14 @@ export function useOverlayIntercepts(opts: {
 
   // ── Env Editor Mode ───────────────────────────────────────────────
   useEffect(() => {
-    if (view !== "env-editor" || keymap.getData("app.overlay") !== "none")
-      return
+    if (view !== "env-editor") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
         const e = ctx.event
         const ee = envEditorRef.current
+
+        if (keymap.getData("app.overlay") !== "none") return
 
         const f = focusRef.current
 
