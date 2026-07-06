@@ -1,22 +1,28 @@
 # Config files
 
-Noodle's global config lives at `~/.config/noodle/`. Two files:
+Noodle's global config lives at `~/.config/noodle/`. Two files.
 
 ## config.yml
 
-User preferences for TUI appearance:
+User preferences for TUI appearance, workspace management, and undo behavior:
 
 ```yaml
-theme: nord
+theme: catppuccin
 layout: stacked
+confirm_undo_all: true
+collections:
+  - /Users/me/Projects/noodle-api
+  - /Users/me/Projects/other-api
 ```
 
-**theme**: One of the built-in theme names. Themes control colors and styling in the TUI. The full list:
-`default`, `monokai`, `solarized`, `solarized-light`, `dracula`, `nord`, `gruvbox`, `one-dark`, `github`, `github-light`, `tokyo-night`, `catppuccin`, `catppuccin-latte`, `everforest`, `everforest-light`, `rose-pine`, `rose-pine-moon`, `rose-pine-dawn`, `kanagawa`, `kanagawa-wave`, `kanagawa-lotus`, `ayu-dark`, `ayu-mirage`, `ayu-light`, `night-owl`, `night-owl-light`, `palenight`, `oceanic-next`, `cyanide`, `plastic`.
+All four fields are optional — missing fields use defaults.
 
-When reading/writing: validate the theme name against this list. Unknown themes cause noodle to fall back to `default`.
-
-**layout**: `"stacked"` (vertical arrangement) or `"side-by-side"` (horizontal split).
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `theme` | string | `"catppuccin"` | TUI theme name. Controls colors and styling. Noodle does NOT validate this value — it passes the string to OpenTUI, which falls back to its own default if unrecognized. Known theme names: `opencode`, `catppuccin`, `dracula`, `nord`, `tokyonight`, `gruvbox`, `ayu`, `monokai`, `solarized`, `onedark`, `aura`, `everforest`, `kanagawa`, `rosepine`, `material`, `carbonfox`, `synthwave84`, `catppuccin-frappe`, `catppuccin-macchiato`, `cobalt2`, `cursor`, `flexoki`, `github`, `matrix`, `mercury`, `nightowl`, `orng`, `osaka-jade`, `palenight`, `vercel`, `vesper`, `zenburn`. |
+| `layout` | `"stacked"` \| `"side-by-side"` | `"stacked"` | Pane arrangement. `stacked` = vertical (sidebar top, request middle, response bottom). `side-by-side` = horizontal split. Invalid values fall back to `"stacked"`. |
+| `confirm_undo_all` | boolean | `true` | Whether `Ctrl+R` (revert all request fields) shows a confirmation dialog before reverting. Set to `false` to skip the confirmation. |
+| `collections` | string[] | `[]` | List of absolute paths to noodle collections. These appear in the workspace selector. Paths are resolved and normalized on load/save (duplicates and empty strings removed). Noodle prepends the current collection to this list when switching directories. |
 
 ## keybinds.yml
 
@@ -29,28 +35,38 @@ command_palette: ctrl+p
 
 ### Available keybind IDs
 
-**Global (always active, gated on `!helpVisible`):**
-| ID | Default | Action |
-|----|---------|--------|
-| `focus_cycle` | `Tab` | Cycle focus (sidebar → request → response) |
-| `focus_cycle_reverse` | `Shift+Tab` | Reverse cycle focus |
-| `send_request` | `Ctrl+Return` | Send request |
-| `save_request` | `Ctrl+S` | Save request to disk |
-| `new_request` | `Ctrl+N` | New request |
-| `clone_request` | `Ctrl+K` | Clone request |
-| `delete_request` | `Ctrl+W` | Delete request |
-| `env_cycle` | `Ctrl+U` | Cycle environment |
-| `command_palette` | `Ctrl+P` | Open command palette |
-| `toggle_layout` | `Ctrl+L` | Toggle layout |
-| `toggle_focus_pane_expand` | `F2` | Expand/collapse focused pane |
-| `toggle_help` | `F1` | Toggle help overlay |
-| `theme_picker` | `Ctrl+T` | Open theme picker |
-| `edit_request` | `Ctrl+E` | Edit request in overlay |
-| `edit_request_yaml` | `Ctrl+Alt+E` | Edit request YAML in overlay |
-| `copy_body` | `Ctrl+B` | Copy response body |
-| `new_folder` | `Ctrl+Alt+N` | New folder |
-| `open_env_editor` | `e` | Open environment editor |
-| `quit` | `Ctrl+C` | Quit (copies selection first if text is selected) |
+Each entry shows: ID, default key, description, whether it's `fixed` (cannot be overridden).
+
+| ID | Default | Description | Fixed |
+|----|---------|-------------|-------|
+| `request_send` | `Ctrl+Return` | Send request | yes |
+| `request_save` | `Ctrl+S` | Save request to disk | no |
+| `env_cycle` | `Ctrl+U` | Cycle active environment | no |
+| `command_palette` | `Ctrl+P` | Open command palette | no |
+| `collection_switcher` | `Ctrl+O` | Open collection switcher | no |
+| `request_new` | `Ctrl+N` | New request | no |
+| `folder_new` | `Ctrl+Alt+N` | New folder | no |
+| `request_clone` | `Ctrl+K` | Clone request | no |
+| `request_delete` | `Ctrl+W` | Delete request | no |
+| `env_editor` | `e` | Open environment editor | no |
+| `help_toggle` | `F1` | Toggle help overlay | no |
+| `theme_picker` | `Ctrl+T` | Open theme picker | no |
+| `browse_delete` | `Ctrl+D` | Revert current field (browse mode) | no |
+| `browse_revert_all` | `Ctrl+R` | Revert all fields (browse mode) | no |
+| `global_undo_all` | `Ctrl+Z` | Undo all unsaved changes | no |
+| `focus_next` | `Tab` | Next pane in focus cycle | yes |
+| `focus_prev` | `Shift+Tab` | Previous pane in focus cycle | yes |
+| `layout_toggle` | `Ctrl+L` | Toggle layout (stacked / side-by-side) | no |
+| `pane_expand` | `F2` | Expand/collapse focused pane | no |
+| `response_copy_body` | `Ctrl+B` | Copy response body to clipboard | no |
+| `request_edit_yaml` | `Ctrl+Alt+E` | Edit request YAML in overlay | no |
+| `request_edit_overlay` | `Ctrl+E` | Edit request in overlay | no |
+| `env_save` | `Ctrl+S` | Save environment (env editor) | no |
+| `env_new` | `Ctrl+N` | Create new environment (env editor) | no |
+| `env_clone` | `Ctrl+K` | Clone environment (env editor) | no |
+| `env_delete` | `Ctrl+W` | Delete environment (env editor) | no |
+
+Browse/edit mode keys (`request_edit`, `browse_up`, `browse_down`, `browse_left`, `browse_right`, `browse_enter`, `browse_escape`, `edit_commit`, `edit_cancel`, `browse_toggle_form_type`) are all `fixed` and cannot be overridden. They are not listed in the table above — only keys usable in `keybinds.yml` are shown.
 
 ### Key syntax
 
@@ -60,8 +76,13 @@ Examples: `ctrl+s`, `alt+enter`, `shift+tab`, `f1`, `ctrl+alt+n`.
 
 ### Reading keybinds.yml
 
-Parse as YAML. Each key is a bind ID, each value is a key descriptor string. Unknown bind IDs are ignored. Invalid key descriptors fall back to default.
+Parse as YAML. Each key is a bind ID from the table above, each value is a key descriptor string. Unknown bind IDs cause `noodle` to throw — do NOT invent bind IDs. `fixed` keys are ignored even if included in the file.
 
 ### Writing keybinds.yml
 
-Serialize as YAML mapping. Only include overridden keys — don't write defaults. Use the exact keybind ID names from the table above.
+Serialize as YAML mapping. Only include overridden non-fixed keys — don't write defaults. Use the exact keybind ID names from the table above. Example for a user who remaps env_cycle and command_palette:
+
+```yaml
+env_cycle: ctrl+e
+command_palette: ctrl+p
+```
