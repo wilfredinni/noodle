@@ -1,0 +1,157 @@
+# Annotated examples
+
+Complete, annotated noodle collection files. Use these as templates.
+
+## Simple GET request
+
+```yaml
+name: Get Posts
+method: GET
+url: $base_url/posts
+body_type: none
+timeout: 0
+```
+
+Minimal valid request. Fields: name, method, url, timeout. `followRedirects` and `maxRedirects` omitted (use defaults: true, 5). `body_type` explicitly `none` since no body. No `headers`, `params`, `auth`, `body` — omitted when not needed.
+
+## POST with JSON body
+
+```yaml
+name: Create Post
+method: POST
+url: $base_url/posts
+body_type: json
+timeout: 0
+headers:
+  Content-Type: application/json
+  x-api-key: $x_api_key
+body: |-
+  {
+    "title": "foo",
+    "body": "bar",
+    "userId": 1
+  }
+```
+
+JSON body with headers. `body` uses YAML literal block scalar `|-` for multi-line content. Headers include auth key (`$x_api_key`) — the env must declare `x_api_key`. `Content-Type` is per-request (not in folder override).
+
+## Bearer auth request
+
+```yaml
+name: Bearer Auth
+method: GET
+url: https://httpbin.org/bearer
+body_type: none
+timeout: 0
+auth:
+  type: bearer
+  token: $api_token
+```
+
+Auth is inline on the request. `$api_token` must be defined in the active environment. Alternative: put auth in `folder.yml` and use `type: inherit` on the request.
+
+## Inheriting auth from folder
+
+Folder (`auth/folder.yml`):
+```yaml
+auth:
+  type: basic
+  user: user
+  pass: pass
+```
+
+Request (`auth/basic-auth.yml`):
+```yaml
+name: Basic Auth
+method: GET
+url: https://httpbin.org/basic-auth/user/pass
+body_type: none
+timeout: 0
+auth:
+  type: inherit
+```
+
+Request inherits `basic` auth from parent folder. No need to repeat credentials.
+
+## Folder with headers override
+
+Folder (`posts/folder.yml`):
+```yaml
+meta:
+  name: Posts
+  seq: 1
+headers:
+  X-Custom-Header: shared-value
+```
+
+Requests in `posts/` automatically get `X-Custom-Header` unless they define it themselves.
+
+## Request with query params
+
+```yaml
+name: Get With Params
+method: GET
+url: $base_url/posts
+body_type: none
+timeout: 0
+params:
+  userId: $user_id
+  _limit: "10"
+```
+
+`params` become query string: `$base_url/posts?userId=1&_limit=10`. Values with `$` are substituted from env. Plain strings (like `"10"`) are sent literally.
+
+## Multipart form upload
+
+```yaml
+name: Upload File
+method: POST
+url: $base_url/upload
+body_type: multipart
+timeout: 0
+form_data:
+  - name: description
+    value: A photo
+  - name: file
+    value: ./photo.png
+    type: file
+```
+
+`form_data` for multipart. Text fields (default `type: "text"`) send string values. File fields (`type: "file"`) send file contents from `value` path.
+
+## Complete environment file
+
+File: `.environments/development.env`:
+```
+_color=success
+base_url=https://jsonplaceholder.typicode.com
+post_id=1
+user_id=1
+api_token=dev-token-placeholder
+x_api_key=dev-key-placeholder
+```
+
+`_color` on line 1 sets sidebar badge to green. All vars declared as `KEY=value`. No commented-out vars in this example — that would be `# disabled_key=value`.
+
+## Complete collection layout
+
+```
+my-api/
+├── settings.yml                  # environment: development
+├── folder.yml                    # auth: { type: bearer, token: $TOKEN }
+├── get-health.yml                # name: Health Check, method: GET
+├── users/
+│   ├── folder.yml                # meta: { name: "Users", seq: 1 }
+│   ├── get-users.yml             # auth: { type: inherit }
+│   ├── get-user.yml              # auth: { type: inherit }
+│   └── create-user.yml           # auth: { type: inherit }
+├── posts/
+│   ├── folder.yml                # meta: { name: "Posts", seq: 2 }
+│   ├── get-posts.yml
+│   └── create-post.yml
+└── .environments/
+    ├── development.env
+    └── production.env
+```
+
+Root `folder.yml` provides bearer auth. `users/` requests use `inherit` — they pick up the root auth. `posts/` requests don't declare auth — defaults to no auth. `settings.yml` points to `development` as the default env.
