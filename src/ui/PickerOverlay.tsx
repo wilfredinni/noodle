@@ -66,8 +66,7 @@ export function PickerOverlay<T>({
   )
 
   const navigableFiltered = useMemo(
-    () =>
-      isNavigable ? filtered.filter(isNavigable) : filtered,
+    () => (isNavigable ? filtered.filter(isNavigable) : filtered),
     [filtered, isNavigable],
   )
 

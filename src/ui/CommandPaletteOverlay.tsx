@@ -92,12 +92,9 @@ export function CommandPaletteOverlay({
     [commands],
   )
 
-  const handleHighlightChange = useCallback(
-    (item: PaletteItem | null) => {
-      setHighlightedId(item?.id ?? null)
-    },
-    [],
-  )
+  const handleHighlightChange = useCallback((item: PaletteItem | null) => {
+    setHighlightedId(item?.id ?? null)
+  }, [])
 
   const highlightedItem = useMemo(() => {
     if (!highlightedId) return displayItems.find(isNavigable) ?? null

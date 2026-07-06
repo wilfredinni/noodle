@@ -212,9 +212,7 @@ export function togglePaneExpand(
 ): boolean {
   const f = focus as "request" | "response"
   if (f !== "request" && f !== "response") return false
-  setExpanded((prev: "request" | "response" | null) =>
-    toggleExpand(prev, f),
-  )
+  setExpanded((prev: "request" | "response" | null) => toggleExpand(prev, f))
   return true
 }
 
@@ -244,10 +242,7 @@ export function openThemePicker(): boolean {
 
 export function openCollectionSwitcher(view: string): boolean {
   if (view === "env-editor") {
-    showToast(
-      "Cannot switch collections from environment editor",
-      "warning",
-    )
+    showToast("Cannot switch collections from environment editor", "warning")
     return false
   }
   return true
