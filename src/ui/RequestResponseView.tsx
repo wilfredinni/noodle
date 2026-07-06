@@ -1,0 +1,98 @@
+import { UrlBar } from "./UrlBar"
+import { RequestPane } from "./RequestPane"
+import { ResponsePane } from "./ResponsePane"
+import type { Environment, TimelineEntry } from "../schema"
+import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
+import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
+import type { Focus } from "./focus"
+import type { ResponseTabKind } from "./tabs/uiState"
+import type { SendState } from "./sendState"
+
+interface RequestResponseViewProps {
+  draft: UseRequestDraftResult
+  eb: UseEditBrowseResult
+  error: Error | null
+  focus: Focus
+  layout: "stacked" | "side-by-side"
+  expanded: "request" | "response" | null
+  activeEnv: Environment | null
+  responseState: SendState
+  timelineEntries: TimelineEntry[]
+  initialResponseTab?: ResponseTabKind
+  onResponseTabChange: (tab: ResponseTabKind) => void
+  setSelectOpen: (open: boolean) => void
+  expandHint: string
+}
+
+export function RequestResponseView({
+  draft,
+  eb,
+  error,
+  focus,
+  layout,
+  expanded,
+  activeEnv,
+  responseState,
+  timelineEntries,
+  initialResponseTab,
+  onResponseTabChange,
+  setSelectOpen,
+  expandHint,
+}: RequestResponseViewProps) {
+  const content = (
+    <>
+      {expanded !== "response" && (
+        <RequestPane
+          request={draft.draft}
+          error={error}
+          editState={eb.editState}
+          editKey={eb.editKey}
+          editValue={eb.editValue}
+          setEditKey={eb.setEditKey}
+          setEditValue={eb.setEditValue}
+          focused={focus === "request"}
+          activeTab={eb.activeTab}
+          activeEnv={activeEnv}
+          onAuthTypeChange={draft.setAuthType}
+          onApiKeyPlacementChange={draft.setApiKeyPlacement}
+          onBodyTypeChange={draft.setBodyType}
+          onSelectOpenChange={setSelectOpen}
+          expandHint={expandHint}
+        />
+      )}
+      {expanded !== "request" && (
+        <ResponsePane
+          state={responseState}
+          focused={focus === "response"}
+          timelineEntries={timelineEntries}
+          initialTab={initialResponseTab}
+          onTabChange={onResponseTabChange}
+          expandHint={expandHint}
+        />
+      )}
+    </>
+  )
+
+  return (
+    <>
+      <UrlBar
+        method={draft.draft?.method ?? ""}
+        url={draft.draft?.url ?? ""}
+        params={draft.draft?.params ?? {}}
+        setUrl={draft.setUrl}
+        onDefocus={draft.syncUrlParams}
+        focused={focus === "urlbar"}
+        activeEnv={activeEnv}
+      />
+      {layout === "side-by-side" ? (
+        <box
+          style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
+        >
+          {content}
+        </box>
+      ) : (
+        content
+      )}
+    </>
+  )
+}
