@@ -125,3 +125,23 @@ describe("request_edit_yaml", () => {
     expect(defaults.request_edit_yaml).toBe("ctrl+alt+e")
   })
 })
+
+describe("collection_switcher", () => {
+  it("has default ctrl+o", () => {
+    expect(Definitions.collection_switcher.default).toBe("ctrl+o")
+  })
+
+  it("is configurable (not fixed)", () => {
+    expect(Definitions.collection_switcher.fixed).toBe(false)
+  })
+
+  it("is overrideable", () => {
+    const result = parseOverrides({ collection_switcher: "ctrl+x" })
+    expect(result.collection_switcher).toBe("ctrl+x")
+  })
+
+  it("appears in bindingDefaults", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.collection_switcher).toBe("ctrl+o")
+  })
+})

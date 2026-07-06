@@ -36,6 +36,7 @@ function minimalContext(): CommandBuilderContext {
     setEditRequestVisible: () => {},
     setRequestDeletePending: () => {},
     setFolderDeletePending: () => {},
+    setCollectionSwitcherVisible: () => {},
     setYamlEditor: () => {},
     setView: () => {},
     setFocus: () => {},
@@ -48,7 +49,7 @@ function minimalContext(): CommandBuilderContext {
 describe("buildCommandPaletteCommands", () => {
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
-    expect(commands.length).toBe(16)
+    expect(commands.length).toBe(17)
     for (const cmd of commands) {
       expect(cmd.id).toBeTruthy()
       expect(cmd.label).toBeTruthy()
@@ -95,6 +96,18 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(ctx)
     const send = commands.find((c) => c.id === "request.send")!
     expect(send.keybinding).toBe("^r")
+  })
+
+  it("collection.switcher runs its setter", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.setCollectionSwitcherVisible = () => {
+      opened = true
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "collection.switcher")!
+    cmd.run()
+    expect(opened).toBe(true)
   })
 
   it("request.save calls doSave when draft is dirty and not saving", () => {
