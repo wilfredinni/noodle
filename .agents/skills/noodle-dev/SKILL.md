@@ -26,11 +26,16 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - **YAML files:** `.yml` extension (not `.yaml`). Requests stored one-per-file in collection dir.
 - **Environments:** Dotenv-style `.env` files in `<collection>/.environments/`. `_color=<name>` sets sidebar badge.
 - **Draft pattern:** `useRequestDraft` holds `Map<id, Request>` of dirty edits. `DraftOp` discriminated union for mutations. Compare with `isDirty` via deep equality.
-- **Focus model:** `"sidebar" → "urlbar" → "request" → "response"` (main). `"env-sidebar" → "env-header" → "env-vars"` (env editor). Skips hidden panes.
+- **Focus model:** `"sidebar" → "urlbar" → "request" → "response"` (main). `"env-sidebar" → "env-header" → "env-vars" (env editor). Skips hidden panes.
 - **Keymap layers:** `useAppKeymap.ts` defines layered bindings gated on `focus`, `mode`, `overlay`, `view` state. `useBindings()` from `@opentui/keymap`.
 - **Edit/Browse FSM:** Three modes — `inactive → browsing → editing`. `useEditBrowse` hook manages cursor, commit, cancel.
 - **File I/O:** All writes use `validatePathId()` preventing traversal. Atomic writes via `.tmp` + `rename()`.
 - **Imports:** Module singletons (`filestore`, `lang`, `env`, `executor`). Types from `schema/index.ts`.
+- **Command actions:** Shared command logic lives in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. If you add a new action, add it to `commandActions.ts` and call from both places. Do not duplicate logic.
+- **CommandItem.run returns boolean:** Palette commands return `true` (close palette) or `false` (stay open). Unavailable commands (save when not dirty, copy body when no response) return `false`.
+- **Commands are contextual by view:** Build them in view-specific arrays (`requestCommands`, `mainEnvCommands`, `editorEnvCommands`, `workspaceCommands`, `systemCommands`, etc.) in `buildCommandPaletteCommands`. The function appends the right arrays based on `view === "main"` vs `view === "env-editor"`. Don't add guards inside `run()` — use the array structure.
+- **PickerOverlay isNavigable:** If items include non-selectable entries (like section headers), pass `isNavigable={(item) => item.type === "command"}`. PickerOverlay skips non-navigable items during up/down/return.
+- **getView reads React state, not keymap:** In `AppInner.tsx`, `getView: () => keymap.getData("app.view")` is stale during render. Use `getView: () => view` where `view` is the React state variable.
 
 ## Common pitfalls
 
@@ -40,3 +45,6 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - Adding keybindings without `fixed: true` for navigation keys (Tab, Enter, Escape, arrows) — users could break navigation
 - Not registering new keymap layer in `useAppKeymap.ts` — binding won't fire
 - Forgetting to update `focus.ts` `cycleFocus()` when adding new panes — tab cycling breaks
+- Adding command logic inline instead of in `commandActions.ts` — will drift from keymap layer and vice versa
+- Using `run: () => void` instead of `run: () => boolean` — palette won't close correctly
+- Adding vanilla `run()` with early `return` instead of `return false` — palette closes on unavailable commands
