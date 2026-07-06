@@ -22,6 +22,7 @@ export interface PickerOverlayProps<T> {
   ) => ReactNode
   highlightedItem?: T | null
   activeItem?: T | null
+  isNavigable?: (item: T) => boolean
   onHighlightChange?: (item: T | null) => void
   onSelect: (item: T) => void
   onClose: () => void
@@ -37,6 +38,7 @@ export function PickerOverlay<T>({
   renderItem,
   highlightedItem,
   activeItem,
+  isNavigable,
   placeholder = "Search...",
   onHighlightChange,
   onSelect,
@@ -63,15 +65,20 @@ export function PickerOverlay<T>({
     [items, filter, search],
   )
 
+  const navigableFiltered = useMemo(
+    () => (isNavigable ? filtered.filter(isNavigable) : filtered),
+    [filtered, isNavigable],
+  )
+
   const currentHighlight = useMemo(() => {
     if (!highlightedItem) {
-      return filtered[0] ?? null
+      return navigableFiltered[0] ?? null
     }
-    const found = filtered.find(
+    const found = navigableFiltered.find(
       (item) => keyExtractor(item) === keyExtractor(highlightedItem),
     )
-    return found ?? filtered[0] ?? null
-  }, [filtered, highlightedItem, keyExtractor])
+    return found ?? navigableFiltered[0] ?? null
+  }, [navigableFiltered, highlightedItem, keyExtractor])
 
   const highlightRef = useRef<T | null>(currentHighlight)
   highlightRef.current = currentHighlight
@@ -85,11 +92,11 @@ export function PickerOverlay<T>({
   }, [currentHighlight, onHighlightChange])
 
   const highlightIndex = useMemo(() => {
-    if (!currentHighlight || filtered.length === 0) return -1
-    return filtered.findIndex(
+    if (!currentHighlight || navigableFiltered.length === 0) return -1
+    return navigableFiltered.findIndex(
       (f) => keyExtractor(f) === keyExtractor(currentHighlight),
     )
-  }, [filtered, currentHighlight, keyExtractor])
+  }, [navigableFiltered, currentHighlight, keyExtractor])
 
   useEffect(() => {
     if (currentHighlight) {
@@ -111,19 +118,23 @@ export function PickerOverlay<T>({
         } else if (name === "up") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          if (filtered.length === 0 || highlightIndex < 0) return
+          if (navigableFiltered.length === 0 || highlightIndex < 0) return
           const nextPos =
-            highlightIndex > 0 ? highlightIndex - 1 : filtered.length - 1
-          highlightRef.current = filtered[nextPos]
-          onHighlightChange?.(filtered[nextPos])
+            highlightIndex > 0
+              ? highlightIndex - 1
+              : navigableFiltered.length - 1
+          highlightRef.current = navigableFiltered[nextPos]
+          onHighlightChange?.(navigableFiltered[nextPos])
         } else if (name === "down") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          if (filtered.length === 0 || highlightIndex < 0) return
+          if (navigableFiltered.length === 0 || highlightIndex < 0) return
           const nextPos =
-            highlightIndex < filtered.length - 1 ? highlightIndex + 1 : 0
-          highlightRef.current = filtered[nextPos]
-          onHighlightChange?.(filtered[nextPos])
+            highlightIndex < navigableFiltered.length - 1
+              ? highlightIndex + 1
+              : 0
+          highlightRef.current = navigableFiltered[nextPos]
+          onHighlightChange?.(navigableFiltered[nextPos])
         } else if (name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
@@ -135,7 +146,7 @@ export function PickerOverlay<T>({
     return dispose
   }, [
     visible,
-    filtered,
+    navigableFiltered,
     highlightIndex,
     currentHighlight,
     onHighlightChange,

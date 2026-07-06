@@ -1,12 +1,8 @@
-import { join } from "node:path"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./CommandPaletteOverlay"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
-import { copyToClipboard } from "./clipboard"
-import { showToast } from "./Toast"
-import { findRequestById } from "./tree"
 import type { Focus } from "./focus"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
@@ -14,6 +10,27 @@ import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import type { SendState } from "./sendState"
+import {
+  saveRequest,
+  getEditRequestYamlFile,
+  cloneRequest,
+  deleteRequest,
+  deleteFolder,
+  copyResponseBody,
+  cycleEnvironment,
+  openEnvironmentEditor,
+  saveEnvironment,
+  newEnvironment,
+  cloneEnvironment,
+  deleteEnvironment,
+  newFolder,
+  toggleLayout,
+  togglePaneExpand,
+  undoAll,
+  openThemePicker,
+  openCollectionSwitcher,
+  type CommandActionsConfig,
+} from "./commandActions"
 
 export interface CommandBuilderContext {
   keybinds: Keybinds
@@ -98,6 +115,33 @@ export interface CommandBuilderContext {
   setPreviewIndexProp: (
     n: number | null | ((prev: number | null) => number | null),
   ) => void
+  setEnvDeletePending: (
+    s: string | null | ((prev: string | null) => string | null),
+  ) => void
+  setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
+}
+
+function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
+  return {
+    collectionDir: ctx.collectionDir,
+    confirmUndoAll: ctx.confirmUndoAll,
+    renderer: ctx.renderer,
+    trySendRef: ctx.trySendRef,
+    draftRef: ctx.draftRef,
+    folderDraftRef: ctx.folderDraftRef,
+    envStateRef: ctx.envStateRef,
+    envEditorRef: ctx.envEditorRef,
+    collectionRef: ctx.collectionRef,
+    selectedIdRef: ctx.selectedIdRef,
+    focusRef: ctx.focusRef,
+    responseStateRef: ctx.responseStateRef,
+    activeIndexRef: ctx.activeIndexRef,
+    savingRef: ctx.savingRef,
+    doSaveRef: ctx.doSaveRef,
+    focusedFolderPathRef: ctx.focusedFolderPathRef,
+    focusedFolderNameRef: ctx.focusedFolderNameRef,
+    folderDeletePathRef: ctx.folderDeletePathRef,
+  }
 }
 
 export function buildCommandPaletteCommands(
@@ -105,64 +149,49 @@ export function buildCommandPaletteCommands(
 ): CommandItem[] {
   const {
     keybinds,
-    collectionDir,
-    confirmUndoAll,
-    renderer,
     trySendRef,
-    draftRef,
-    folderDraftRef,
-    envStateRef,
-    envEditorRef,
-    collectionRef,
-    selectedIdRef,
-    focusRef,
-    responseStateRef,
-    activeIndexRef,
-    savingRef,
-    doSaveRef,
-    focusedFolderPathRef,
-    focusedFolderNameRef,
-    folderDeletePathRef,
-    getKeymapFocus,
-    getView,
-    setLayout,
-    onLayoutChange,
-    setHelpVisible,
-    setNewRequestVisible,
-    setNewFolderVisible,
-    setCloneRequestVisible,
     setEditRequestVisible,
+    setYamlEditor,
+    setNewRequestVisible,
+    setCloneRequestVisible,
     setRequestDeletePending,
     setFolderDeletePending,
-    setCollectionSwitcherVisible,
-    setYamlEditor,
+    setUndoAllPending,
     setView,
     setFocus,
-    setUndoAllPending,
+    setLayout,
+    onLayoutChange,
+    setNewFolderVisible,
     setExpanded,
+    getKeymapFocus,
+    getView,
+    setHelpVisible,
     setPreviewIndexProp,
+    setCollectionSwitcherVisible,
+    setEnvDeletePending,
+    setDeleteConfirmSelection,
   } = ctx
 
-  return [
-    // ── Request ──────────────────────────────────────────────────────
+  const c = toConfig(ctx)
+  const view = getView()
+
+  const requestCommands: CommandItem[] = [
     {
       id: "request.send",
       label: "Send Request",
       section: "Request",
       keybinding: displayKey(keybinds.request_send),
-      run: () => trySendRef.current?.(),
+      run: () => {
+        trySendRef.current?.()
+        return true
+      },
     },
     {
       id: "request.save",
       label: "Save Request",
       section: "Request",
       keybinding: displayKey(keybinds.request_save),
-      run: () => {
-        const d = draftRef.current
-        if (!savingRef.current && d.draft && d.isDirty) {
-          doSaveRef.current()
-        }
-      },
+      run: () => saveRequest(c),
     },
     {
       id: "request.edit-overlay",
@@ -170,14 +199,9 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_edit_overlay),
       run: () => {
-        if (focusedFolderPathRef.current) return
-        const sid = selectedIdRef.current
-        if (!sid) return
-        const col = collectionRef.current
-        if (!col) return
-        const req = findRequestById(col.items, sid)
-        if (!req) return
+        if (!cloneRequest(c)) return false
         setEditRequestVisible(true)
+        return true
       },
     },
     {
@@ -186,20 +210,15 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_edit_yaml),
       run: () => {
-        if (focusedFolderPathRef.current) return
-        const sid = selectedIdRef.current
-        if (!sid || !collectionDir) return
-        const col = collectionRef.current
-        if (!col) return
-        const r = findRequestById(col.items, sid)
-        if (!r) return
-        const filePath = join(collectionDir, `${sid}.yml`)
+        const file = getEditRequestYamlFile(c)
+        if (!file) return false
         setYamlEditor({
           visible: true,
-          filePath,
-          requestName: r.name,
-          returnFocus: focusRef.current,
+          filePath: file.filePath,
+          requestName: file.requestName,
+          returnFocus: file.returnFocus,
         })
+        return true
       },
     },
     {
@@ -207,7 +226,10 @@ export function buildCommandPaletteCommands(
       label: "New Request",
       section: "Request",
       keybinding: displayKey(keybinds.request_new),
-      run: () => setNewRequestVisible(true),
+      run: () => {
+        setNewRequestVisible(true)
+        return true
+      },
     },
     {
       id: "request.clone",
@@ -215,13 +237,9 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_clone),
       run: () => {
-        const sid = selectedIdRef.current
-        if (!sid) return
-        const col = collectionRef.current
-        if (!col) return
-        const req = findRequestById(col.items, sid)
-        if (!req) return
+        if (!cloneRequest(c)) return false
         setCloneRequestVisible(true)
+        return true
       },
     },
     {
@@ -230,66 +248,31 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
-        const folderPath = focusedFolderPathRef.current
-        const folderName = focusedFolderNameRef.current
-        if (folderPath && folderName) {
-          folderDeletePathRef.current = folderPath
-          setFolderDeletePending(folderName)
-          return
-        }
-        const sid = selectedIdRef.current
-        if (!sid) return
-        const col = collectionRef.current
-        if (!col) return
-        const req = findRequestById(col.items, sid)
-        if (!req) return
-        setRequestDeletePending(req.name)
+        const result = deleteRequest(c)
+        if (!result) return false
+        setRequestDeletePending(result.requestName)
+        return true
       },
     },
-    {
-      id: "global.undo-all",
-      label: "Undo All Unsaved Changes",
-      section: "Request",
-      keybinding: displayKey(keybinds.global_undo_all),
-      run: () => {
-        const d = draftRef.current
-        const fd = folderDraftRef.current
-        const ee = envEditorRef.current
-        const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
-        if (!hasDirty) return
-        if (confirmUndoAll) {
-          setUndoAllPending(true)
-        } else {
-          d.revertAllRequests()
-          fd.revertAllFolders()
-          ee?.revertDraft()
-        }
-      },
-    },
-    // ── Response ─────────────────────────────────────────────────────
+  ]
+
+  const responseCommands: CommandItem[] = [
     {
       id: "response.copy-body",
       label: "Copy Response Body",
       section: "Response",
       keybinding: displayKey(keybinds.response_copy_body),
-      run: () => {
-        const s = responseStateRef.current
-        if (s?.status !== "done") return
-        const body = s.response.body
-        if (copyToClipboard(body, renderer)) {
-          showToast("Response body copied", "success")
-        } else {
-          showToast("Failed to copy response body", "error")
-        }
-      },
+      run: () => copyResponseBody(c),
     },
-    // ── Environment ──────────────────────────────────────────────────
+  ]
+
+  const mainEnvCommands: CommandItem[] = [
     {
       id: "env.cycle",
       label: "Cycle Environment",
       section: "Environment",
       keybinding: displayKey(keybinds.env_cycle),
-      run: () => envStateRef.current.cycle(1),
+      run: () => cycleEnvironment(c),
     },
     {
       id: "env.editor-open",
@@ -297,59 +280,142 @@ export function buildCommandPaletteCommands(
       section: "Environment",
       keybinding: displayKey(keybinds.env_editor),
       run: () => {
-        const name = envStateRef.current.activeEnv?.name
-        envEditorRef.current.openEditor(name)
+        if (!openEnvironmentEditor(c)) return false
         setView("env-editor")
         setFocus("env-header")
+        return true
       },
     },
-    // ── Workspace ────────────────────────────────────────────────────
+  ]
+
+  const editorEnvCommands: CommandItem[] = [
+    {
+      id: "env.cycle",
+      label: "Cycle Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_cycle),
+      run: () => cycleEnvironment(c),
+    },
+    {
+      id: "env.save",
+      label: "Save Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_save),
+      run: () => saveEnvironment(c),
+    },
+    {
+      id: "env.new",
+      label: "New Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_new),
+      run: () => {
+        if (!newEnvironment(c)) return false
+        setFocus("env-header")
+        return true
+      },
+    },
+    {
+      id: "env.clone",
+      label: "Clone Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_clone),
+      run: () => cloneEnvironment(c),
+    },
+    {
+      id: "env.delete",
+      label: "Delete Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_delete),
+      run: () => {
+        const result = deleteEnvironment(c)
+        if (!result) return false
+        setEnvDeletePending(result.envName)
+        setDeleteConfirmSelection(0)
+        return true
+      },
+    },
+  ]
+
+  const workspaceCommands: CommandItem[] = [
     {
       id: "folder.new",
       label: "New Folder",
       section: "Workspace",
       keybinding: displayKey(keybinds.folder_new),
-      run: () => setNewFolderVisible(true),
+      run: () => {
+        if (!newFolder()) return false
+        setNewFolderVisible(true)
+        return true
+      },
+    },
+    {
+      id: "folder.delete",
+      label: "Delete Folder",
+      section: "Workspace",
+      keybinding: displayKey(keybinds.request_delete),
+      run: () => {
+        const result = deleteFolder(c)
+        if (!result) return false
+        c.folderDeletePathRef.current = result.folderPath
+        setFolderDeletePending(result.folderName)
+        return true
+      },
     },
     {
       id: "layout.toggle",
       label: "Toggle Layout",
       section: "Workspace",
       keybinding: displayKey(keybinds.layout_toggle),
-      run: () =>
-        setLayout((prev: "stacked" | "side-by-side") => {
-          const next = prev === "stacked" ? "side-by-side" : "stacked"
-          onLayoutChange(next)
-          return next
-        }),
+      run: () => toggleLayout(c, setLayout, onLayoutChange),
     },
+  ]
+
+  const mainOnlyCommands: CommandItem[] = [
     {
       id: "pane.expand",
       label: "Expand/Collapse Pane",
       section: "Workspace",
       keybinding: displayKey(keybinds.pane_expand),
+      run: () => togglePaneExpand(c, getKeymapFocus(), setExpanded),
+    },
+  ]
+
+  const globalCommands: CommandItem[] = [
+    {
+      id: "global.undo-all",
+      label: "Undo All Unsaved Changes",
+      section: "System",
+      keybinding: displayKey(keybinds.global_undo_all),
       run: () => {
-        const f = getKeymapFocus() as "request" | "response"
-        if (f !== "request" && f !== "response") return
-        setExpanded((prev: "request" | "response" | null) =>
-          prev === f ? null : f,
-        )
+        if (!undoAll(c)) return false
+        if (c.confirmUndoAll) {
+          setUndoAllPending(true)
+        }
+        return true
       },
     },
-    // ── System ───────────────────────────────────────────────────────
+  ]
+
+  const systemCommands: CommandItem[] = [
     {
       id: "app.help",
       label: "Toggle Help",
       section: "System",
       keybinding: displayKey(keybinds.help_toggle),
-      run: () => setHelpVisible((prev: boolean) => !prev),
+      run: () => {
+        setHelpVisible((prev: boolean) => !prev)
+        return true
+      },
     },
     {
       id: "app.theme",
       label: "Open Theme Picker",
       section: "System",
       keybinding: displayKey(keybinds.theme_picker),
-      run: () => setPreviewIndexProp(activeIndexRef.current),
+      run: () => {
+        setPreviewIndexProp(c.activeIndexRef.current)
+        return openThemePicker()
+      },
     },
     {
       id: "collection.switcher",
@@ -357,15 +423,29 @@ export function buildCommandPaletteCommands(
       section: "System",
       keybinding: displayKey(keybinds.collection_switcher),
       run: () => {
-        if (getView() === "env-editor") {
-          showToast(
-            "Cannot switch collections from environment editor",
-            "warning",
-          )
-          return
-        }
+        if (!openCollectionSwitcher(view)) return false
         setCollectionSwitcherVisible(true)
+        return true
       },
     },
+  ]
+
+  if (view === "env-editor") {
+    return [
+      ...editorEnvCommands,
+      ...workspaceCommands,
+      ...globalCommands,
+      ...systemCommands,
+    ]
+  }
+
+  return [
+    ...requestCommands,
+    ...responseCommands,
+    ...mainEnvCommands,
+    ...workspaceCommands,
+    ...mainOnlyCommands,
+    ...globalCommands,
+    ...systemCommands,
   ]
 }

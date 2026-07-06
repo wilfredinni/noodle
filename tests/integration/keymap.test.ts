@@ -1083,6 +1083,34 @@ describe("command palette", () => {
     cleanup()
   })
 
+  it("does not dispatch when overlay is active (enabled gate)", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "help")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () => true,
+      commands: [
+        {
+          name: "app.command-palette",
+          enabled: () => {
+            const overlay = keymap.getData("app.overlay") as string
+            return overlay === "none" || overlay === "command-palette"
+          },
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+p", cmd: "app.command-palette" }],
+    })
+
+    host.press("p", { ctrl: true })
+    expect(called).toBe(false)
+    cleanup()
+  })
+
   it("dispatches app.command-palette even when overlay is active", () => {
     const { keymap, host, cleanup } = setup()
     keymap.setData("app.view", "main")

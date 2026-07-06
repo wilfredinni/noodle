@@ -27,7 +27,7 @@ function minimalContext(): CommandBuilderContext {
     focusedFolderNameRef: { current: null } as never,
     folderDeletePathRef: { current: null } as never,
     getKeymapFocus: () => "sidebar",
-    getView: () => "sidebar",
+    getView: () => "main",
     setLayout: () => {},
     onLayoutChange: () => {},
     setHelpVisible: () => {},
@@ -44,13 +44,15 @@ function minimalContext(): CommandBuilderContext {
     setUndoAllPending: () => {},
     setExpanded: () => {},
     setPreviewIndexProp: () => {},
+    setEnvDeletePending: () => {},
+    setDeleteConfirmSelection: () => {},
   }
 }
 
 describe("buildCommandPaletteCommands", () => {
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
-    expect(commands.length).toBe(17)
+    expect(commands.length).toBe(18)
     for (const cmd of commands) {
       expect(cmd.id).toBeTruthy()
       expect(cmd.label).toBeTruthy()

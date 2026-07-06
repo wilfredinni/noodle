@@ -8,7 +8,7 @@ export interface CommandItem {
   label: string
   section: string
   keybinding?: string
-  run: () => void
+  run: () => boolean
 }
 
 type PaletteItem =
@@ -19,12 +19,12 @@ type PaletteItem =
       label: string
       section: string
       keybinding?: string
-      run: () => void
+      run: () => boolean
     }
 
 function isCmd(
   item: PaletteItem,
-): item is PaletteItem & { type: "command"; run: () => void } {
+): item is PaletteItem & { type: "command"; run: () => boolean } {
   return item.type === "command"
 }
 
@@ -65,8 +65,11 @@ export function CommandPaletteOverlay({
   const displayItems = useMemo(() => buildDisplayItems(commands), [commands])
 
   useEffect(() => {
-    if (visible) setHighlightedId(null)
-  }, [visible])
+    if (visible) {
+      const first = displayItems.find(isNavigable)
+      setHighlightedId(first?.id ?? null)
+    }
+  }, [visible, displayItems])
 
   const keyExtractor = useCallback((item: PaletteItem) => item.id, [])
 
@@ -89,54 +92,9 @@ export function CommandPaletteOverlay({
     [commands],
   )
 
-  const handleHighlightChange = useCallback(
-    (item: PaletteItem | null) => {
-      if (!item) {
-        setHighlightedId(null)
-        return
-      }
-      if (isNavigable(item)) {
-        setHighlightedId(item.id)
-        return
-      }
-      // Header — snap to nearest navigable command, direction-aware
-      const visible = queryRef.current
-        ? displayItems.filter((i) => filter(i, queryRef.current))
-        : displayItems
-      const idx = visible.indexOf(item)
-      if (idx < 0) return
-      const before = visible.slice(0, idx).reverse().find(isNavigable)
-      const after = visible.slice(idx + 1).find(isNavigable)
-
-      // Header at start of list — handle wrap
-      if (idx === 0) {
-        const last = [...visible].reverse().find(isNavigable)
-        if ((highlightedId === after?.id || highlightedId === null) && last) {
-          // Was on first command, pressed up — wrap to last
-          setHighlightedId(last.id)
-          return
-        }
-        // Otherwise snap to first command
-        if (after) {
-          setHighlightedId(after.id)
-          return
-        }
-      }
-
-      // Direction-aware: snap to neighbor matching highlightedId's direction
-      if (before && before.id === highlightedId) {
-        // Came from above (pressed down) — advance to next
-        setHighlightedId(after?.id ?? before.id)
-      } else if (after && after.id === highlightedId) {
-        // Came from below (pressed up) — go back to previous
-        setHighlightedId(before?.id ?? after.id)
-      } else {
-        // Initial state (null) or mismatch — prefer forward
-        setHighlightedId(after?.id ?? before?.id ?? null)
-      }
-    },
-    [displayItems, commands, filter, highlightedId],
-  )
+  const handleHighlightChange = useCallback((item: PaletteItem | null) => {
+    setHighlightedId(item?.id ?? null)
+  }, [])
 
   const highlightedItem = useMemo(() => {
     if (!highlightedId) return displayItems.find(isNavigable) ?? null
@@ -146,8 +104,8 @@ export function CommandPaletteOverlay({
   const handleSelect = useCallback(
     (item: PaletteItem) => {
       if (isCmd(item)) {
-        item.run()
-        onClose()
+        const shouldClose = item.run()
+        if (shouldClose) onClose()
       }
     },
     [onClose],
@@ -162,9 +120,9 @@ export function CommandPaletteOverlay({
         const visible = queryRef.current
           ? displayItems.filter((i) => filter(i, queryRef.current))
           : displayItems
-        const isFirst = visible.find((i) => i.type === "header") === item
+        const idx = visible.indexOf(item)
         return (
-          <box flexGrow={1} paddingTop={isFirst ? 0 : 1}>
+          <box flexGrow={1} marginTop={idx > 0 ? 1 : 0}>
             <text fg={theme.primary} attributes={TextAttributes.BOLD}>
               {item.section}
             </text>
@@ -181,7 +139,7 @@ export function CommandPaletteOverlay({
         </>
       )
     },
-    [theme],
+    [theme, displayItems, filter],
   )
 
   if (!visible) return null
@@ -197,6 +155,7 @@ export function CommandPaletteOverlay({
       filter={filter}
       renderItem={renderItem}
       highlightedItem={highlightedItem}
+      isNavigable={isNavigable}
       onHighlightChange={handleHighlightChange}
       onSelect={handleSelect}
       onClose={onClose}

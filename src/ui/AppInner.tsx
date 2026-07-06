@@ -1077,7 +1077,7 @@ export function AppInner({
         focusedFolderNameRef,
         folderDeletePathRef,
         getKeymapFocus: () => keymap.getData("app.focus") as string,
-        getView: () => keymap.getData("app.view") as string,
+        getView: () => view,
         setLayout,
         onLayoutChange,
         setHelpVisible,
@@ -1094,6 +1094,8 @@ export function AppInner({
         setUndoAllPending,
         setExpanded,
         setPreviewIndexProp,
+        setEnvDeletePending,
+        setDeleteConfirmSelection,
       }),
     [
       keybinds,
@@ -1101,6 +1103,7 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
+      view,
     ],
   )
 

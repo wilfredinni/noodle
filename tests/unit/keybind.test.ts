@@ -4,6 +4,7 @@ import {
   CommandMap,
   parseOverrides,
   bindingDefaults,
+  displayKey,
 } from "../../src/ui/keybind"
 import type { KeybindName } from "../../src/ui/keybind"
 
@@ -143,5 +144,24 @@ describe("collection_switcher", () => {
   it("appears in bindingDefaults", () => {
     const defaults = bindingDefaults()
     expect(defaults.collection_switcher).toBe("ctrl+o")
+  })
+})
+
+describe("displayKey", () => {
+  it("transforms ctrl+return to ^return", () => {
+    expect(displayKey("ctrl+return")).toBe("^return")
+  })
+
+  it("transforms ctrl+s to ^s", () => {
+    expect(displayKey("ctrl+s")).toBe("^s")
+  })
+
+  it("preserves non-ctrl keys unchanged", () => {
+    expect(displayKey("f1")).toBe("f1")
+    expect(displayKey("shift+tab")).toBe("shift+tab")
+  })
+
+  it("only replaces leading ctrl+ prefix", () => {
+    expect(displayKey("ctrl+alt+e")).toBe("^alt+e")
   })
 })

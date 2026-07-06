@@ -33,21 +33,21 @@ function setupKeymap() {
 }
 
 const testCommands: CommandItem[] = [
-  { id: "a.send", label: "Send Request", section: "Actions", run: () => {} },
-  { id: "b.save", label: "Save Request", section: "Actions", run: () => {} },
+  { id: "a.send", label: "Send Request", section: "Actions", run: () => true },
+  { id: "b.save", label: "Save Request", section: "Actions", run: () => true },
   {
     id: "c.new",
     label: "New Request",
     section: "Create",
     keybinding: "^N",
-    run: () => {},
+    run: () => true,
   },
   {
     id: "d.layout",
     label: "Toggle Layout",
     section: "View",
     keybinding: "^L",
-    run: () => {},
+    run: () => true,
   },
 ]
 
@@ -165,9 +165,9 @@ describe("CommandPaletteOverlay", () => {
   it("filters commands by label via search input", async () => {
     const { keymap, cleanup } = setupKeymap()
     const commands: CommandItem[] = [
-      { id: "a", label: "Alpha", section: "Sec", run: () => {} },
-      { id: "b", label: "Beta", section: "Sec", run: () => {} },
-      { id: "c", label: "Gamma", section: "Sec", run: () => {} },
+      { id: "a", label: "Alpha", section: "Sec", run: () => true },
+      { id: "b", label: "Beta", section: "Sec", run: () => true },
+      { id: "c", label: "Gamma", section: "Sec", run: () => true },
     ]
     const { renderOnce, captureCharFrame, mockInput } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -208,6 +208,7 @@ describe("CommandPaletteOverlay", () => {
         section: "Sec",
         run: () => {
           selected = "ran-a"
+          return true
         },
       },
       {
@@ -216,6 +217,7 @@ describe("CommandPaletteOverlay", () => {
         section: "Sec",
         run: () => {
           selected = "ran-b"
+          return true
         },
       },
     ]
@@ -265,6 +267,39 @@ describe("CommandPaletteOverlay", () => {
     cleanup()
   })
 
+  it("does not close palette when command returns false", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let closed = false
+
+    const commands: CommandItem[] = [
+      {
+        id: "noop",
+        label: "No-op Command",
+        section: "Sec",
+        run: () => false,
+      },
+    ]
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CommandPaletteOverlay
+            visible
+            commands={commands}
+            onClose={() => {
+              closed = true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("return"))
+    expect(closed).toBe(false)
+    cleanup()
+  })
+
   it("down arrow navigates to next item", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let ran: string | null = null
@@ -275,13 +310,14 @@ describe("CommandPaletteOverlay", () => {
           <CommandPaletteOverlay
             visible
             commands={[
-              { id: "a", label: "Alpha", section: "Sec", run: () => {} },
+              { id: "a", label: "Alpha", section: "Sec", run: () => true },
               {
                 id: "b",
                 label: "Beta",
                 section: "Sec",
                 run: () => {
                   ran = "beta"
+                  return true
                 },
               },
             ]}
@@ -308,16 +344,17 @@ describe("CommandPaletteOverlay", () => {
           <CommandPaletteOverlay
             visible
             commands={[
-              { id: "a", label: "Alpha", section: "Sec", run: () => {} },
+              { id: "a", label: "Alpha", section: "Sec", run: () => true },
               {
                 id: "b",
                 label: "Beta",
                 section: "Sec",
                 run: () => {
                   ran = "beta"
+                  return true
                 },
               },
-              { id: "c", label: "Gamma", section: "Sec", run: () => {} },
+              { id: "c", label: "Gamma", section: "Sec", run: () => true },
             ]}
             onClose={noop}
           />
@@ -342,14 +379,15 @@ describe("CommandPaletteOverlay", () => {
           <CommandPaletteOverlay
             visible
             commands={[
-              { id: "a", label: "Alpha", section: "Sec", run: () => {} },
-              { id: "b", label: "Beta", section: "Sec", run: () => {} },
+              { id: "a", label: "Alpha", section: "Sec", run: () => true },
+              { id: "b", label: "Beta", section: "Sec", run: () => true },
               {
                 id: "c",
                 label: "Gamma",
                 section: "Sec",
                 run: () => {
                   ran = "gamma"
+                  return true
                 },
               },
             ]}
@@ -377,14 +415,15 @@ describe("CommandPaletteOverlay", () => {
           <CommandPaletteOverlay
             visible
             commands={[
-              { id: "a", label: "Alpha", section: "SecA", run: () => {} },
-              { id: "b", label: "Beta", section: "SecB", run: () => {} },
+              { id: "a", label: "Alpha", section: "SecA", run: () => true },
+              { id: "b", label: "Beta", section: "SecB", run: () => true },
               {
                 id: "c",
                 label: "Gamma",
                 section: "SecB",
                 run: () => {
                   ran = "gamma"
+                  return true
                 },
               },
             ]}
@@ -397,6 +436,41 @@ describe("CommandPaletteOverlay", () => {
     await renderOnce()
     await act(async () => host.press("down"))
     await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(ran!).toBe("gamma")
+    cleanup()
+  })
+
+  it("up arrow wraps from first command to last", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let ran: string | null = null
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CommandPaletteOverlay
+            visible
+            commands={[
+              { id: "a", label: "Alpha", section: "Sec", run: () => true },
+              { id: "b", label: "Beta", section: "Sec", run: () => true },
+              {
+                id: "c",
+                label: "Gamma",
+                section: "Sec",
+                run: () => {
+                  ran = "gamma"
+                  return true
+                },
+              },
+            ]}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("up"))
     await act(async () => host.press("return"))
     expect(ran!).toBe("gamma")
     cleanup()
