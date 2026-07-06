@@ -94,51 +94,9 @@ export function CommandPaletteOverlay({
 
   const handleHighlightChange = useCallback(
     (item: PaletteItem | null) => {
-      if (!item) {
-        setHighlightedId(null)
-        return
-      }
-      if (isNavigable(item)) {
-        setHighlightedId(item.id)
-        return
-      }
-      // Header — snap to nearest navigable command, direction-aware
-      const visible = queryRef.current
-        ? displayItems.filter((i) => filter(i, queryRef.current))
-        : displayItems
-      const idx = visible.indexOf(item)
-      if (idx < 0) return
-      const before = visible.slice(0, idx).reverse().find(isNavigable)
-      const after = visible.slice(idx + 1).find(isNavigable)
-
-      // Header at start of list — handle wrap
-      if (idx === 0) {
-        const last = [...visible].reverse().find(isNavigable)
-        if (highlightedId === after?.id && last) {
-          // Was on first command, pressed up — wrap to last
-          setHighlightedId(last.id)
-          return
-        }
-        // Otherwise snap to first command
-        if (after) {
-          setHighlightedId(after.id)
-          return
-        }
-      }
-
-      // Direction-aware: snap to neighbor matching highlightedId's direction
-      if (before && before.id === highlightedId) {
-        // Came from above (pressed down) — advance to next
-        setHighlightedId(after?.id ?? before.id)
-      } else if (after && after.id === highlightedId) {
-        // Came from below (pressed up) — go back to previous
-        setHighlightedId(before?.id ?? after.id)
-      } else {
-        // Initial state (null) or mismatch — prefer forward
-        setHighlightedId(after?.id ?? before?.id ?? null)
-      }
+      setHighlightedId(item?.id ?? null)
     },
-    [displayItems, commands, filter, highlightedId],
+    [],
   )
 
   const highlightedItem = useMemo(() => {
@@ -162,12 +120,8 @@ export function CommandPaletteOverlay({
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
       if (item.type === "header") {
-        const visible = queryRef.current
-          ? displayItems.filter((i) => filter(i, queryRef.current))
-          : displayItems
-        const isFirst = visible.find((i) => i.type === "header") === item
         return (
-          <box flexGrow={1} paddingTop={isFirst ? 0 : 1}>
+          <box flexGrow={1}>
             <text fg={theme.primary} attributes={TextAttributes.BOLD}>
               {item.section}
             </text>
@@ -184,7 +138,7 @@ export function CommandPaletteOverlay({
         </>
       )
     },
-    [theme, displayItems, filter],
+    [theme],
   )
 
   if (!visible) return null
@@ -200,6 +154,7 @@ export function CommandPaletteOverlay({
       filter={filter}
       renderItem={renderItem}
       highlightedItem={highlightedItem}
+      isNavigable={isNavigable}
       onHighlightChange={handleHighlightChange}
       onSelect={handleSelect}
       onClose={onClose}

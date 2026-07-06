@@ -1,7 +1,6 @@
 import { useBindings, useKeymap } from "@opentui/keymap/react"
-import { join } from "node:path"
 import type { RefObject } from "react"
-import { cycleFocus, toggleExpand, type Focus } from "./focus"
+import { cycleFocus, type Focus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
@@ -12,9 +11,16 @@ import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import type { SendState } from "./sendState"
 import { useRenderer } from "./RendererContext"
-import { copyToClipboard } from "./clipboard"
-import { showToast } from "./Toast"
 import { findRequestById } from "./tree"
+import {
+  getEditRequestYamlFile,
+  copyResponseBody,
+  deleteEnvironment,
+  togglePaneExpand,
+  undoAll,
+  openThemePicker,
+  type CommandActionsConfig,
+} from "./commandActions"
 
 export interface UseAppKeymapRefs {
   ebRef: RefObject<UseEditBrowseResult>
@@ -120,6 +126,27 @@ export function useAppKeymap(
   const keymap = useKeymap()
   const renderer = useRenderer()
 
+  const actionsConfig: CommandActionsConfig = {
+    collectionDir,
+    confirmUndoAll,
+    renderer,
+    trySendRef: refs.trySendRef,
+    draftRef: refs.draftRef,
+    folderDraftRef: refs.folderDraftRef,
+    envStateRef: refs.envStateRef,
+    envEditorRef: refs.envEditorRef,
+    collectionRef: refs.collectionRef,
+    selectedIdRef: refs.selectedIdRef,
+    focusRef: refs.focusRef,
+    responseStateRef: refs.responseStateRef,
+    activeIndexRef: refs.activeIndexRef,
+    savingRef: refs.savingRef,
+    doSaveRef: refs.doSaveRef,
+    focusedFolderPathRef: refs.focusedFolderPathRef,
+    focusedFolderNameRef: refs.focusedFolderNameRef,
+    folderDeletePathRef: refs.folderDeletePathRef,
+  }
+
   // ── Keymap: Always-On Layer ───────────────────────────────────────
   useBindings(() => ({
     commands: [
@@ -188,18 +215,13 @@ export function useAppKeymap(
         name: "request.edit-yaml",
         run: () => {
           if (refs.focusedFolderPathRef.current) return
-          const sid = refs.selectedIdRef.current
-          if (!sid || !collectionDir) return
-          const col = refs.collectionRef.current
-          if (!col) return
-          const r = findRequestById(col.items, sid)
-          if (!r) return
-          const filePath = join(collectionDir, `${sid}.yml`)
+          const file = getEditRequestYamlFile(actionsConfig)
+          if (!file) return
           setters.setYamlEditor({
             visible: true,
-            filePath,
-            requestName: r.name,
-            returnFocus: refs.focusRef.current,
+            filePath: file.filePath,
+            requestName: file.requestName,
+            returnFocus: file.returnFocus,
           })
         },
       },
@@ -210,10 +232,8 @@ export function useAppKeymap(
           return f === "request" || f === "response"
         },
         run: () => {
-          const f = keymap.getData("app.focus") as "request" | "response"
-          setters.setExpanded((prev: "request" | "response" | null) =>
-            toggleExpand(prev, f),
-          )
+          const f = keymap.getData("app.focus") as string
+          togglePaneExpand(actionsConfig, f, setters.setExpanded)
         },
       },
       {
@@ -223,19 +243,15 @@ export function useAppKeymap(
           return s?.status === "done"
         },
         run: () => {
-          const s = refs.responseStateRef.current
-          if (s?.status !== "done") return
-          const body = s.response.body
-          if (copyToClipboard(body, renderer)) {
-            showToast("Response body copied", "success")
-          } else {
-            showToast("Failed to copy response body", "error")
-          }
+          copyResponseBody(actionsConfig)
         },
       },
       {
         name: "app.theme",
-        run: () => setters.setPreviewIndex(refs.activeIndexRef.current),
+        run: () => {
+          setters.setPreviewIndex(refs.activeIndexRef.current)
+          openThemePicker()
+        },
       },
       {
         name: "app.command-palette",
@@ -253,18 +269,9 @@ export function useAppKeymap(
           return mode !== "edit" && overlay === "none"
         },
         run: () => {
-          const d = refs.draftRef.current
-          const fd = refs.folderDraftRef.current
-          const ee = refs.envEditorRef.current
-          const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
-          if (!hasDirty) return
-
+          if (!undoAll(actionsConfig)) return
           if (confirmUndoAll) {
             setters.setUndoAllPending(true)
-          } else {
-            d.revertAllRequests()
-            fd.revertAllFolders()
-            ee?.revertDraft()
           }
         },
       },
@@ -681,7 +688,9 @@ export function useAppKeymap(
     commands: [
       {
         name: "env.save",
-        run: () => refs.envEditorRef.current.save(),
+        run: () => {
+          refs.envEditorRef.current.save()
+        },
       },
       {
         name: "env.new",
@@ -704,11 +713,10 @@ export function useAppKeymap(
         name: "env.delete",
         enabled: () => refs.envEditorRef.current.selectedEnvName !== null,
         run: () => {
-          const ee = refs.envEditorRef.current
-          if (ee.selectedEnvName) {
-            setters.setEnvDeletePending(ee.selectedEnvName)
-            setters.setDeleteConfirmSelection(0)
-          }
+          const result = deleteEnvironment(actionsConfig)
+          if (!result) return
+          setters.setEnvDeletePending(result.envName)
+          setters.setDeleteConfirmSelection(0)
         },
       },
     ],
