@@ -44,6 +44,8 @@ function minimalContext(): CommandBuilderContext {
     setUndoAllPending: () => {},
     setExpanded: () => {},
     setPreviewIndexProp: () => {},
+    setEnvDeletePending: () => {},
+    setDeleteConfirmSelection: () => {},
   }
 }
 

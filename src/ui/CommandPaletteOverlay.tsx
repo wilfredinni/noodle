@@ -8,7 +8,7 @@ export interface CommandItem {
   label: string
   section: string
   keybinding?: string
-  run: () => void
+  run: () => boolean
 }
 
 type PaletteItem =
@@ -19,12 +19,12 @@ type PaletteItem =
       label: string
       section: string
       keybinding?: string
-      run: () => void
+      run: () => boolean
     }
 
 function isCmd(
   item: PaletteItem,
-): item is PaletteItem & { type: "command"; run: () => void } {
+): item is PaletteItem & { type: "command"; run: () => boolean } {
   return item.type === "command"
 }
 
@@ -149,8 +149,8 @@ export function CommandPaletteOverlay({
   const handleSelect = useCallback(
     (item: PaletteItem) => {
       if (isCmd(item)) {
-        item.run()
-        onClose()
+        const shouldClose = item.run()
+        if (shouldClose) onClose()
       }
     },
     [onClose],
@@ -184,7 +184,7 @@ export function CommandPaletteOverlay({
         </>
       )
     },
-    [theme],
+    [theme, displayItems, filter],
   )
 
   if (!visible) return null
