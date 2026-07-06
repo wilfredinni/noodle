@@ -96,8 +96,8 @@ tests/integration/ # Integration tests
 
 All except `fixed` keys can be overridden in YAML:
 ```yaml
-request_send: ctrl+enter
 env_cycle: ctrl+u
+command_palette: ctrl+p
 ```
 
 ### Global (always active, gated on `!helpVisible`)

@@ -6,6 +6,8 @@ import { TextAttributes } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useRef } from "react"
 
+const keyColumnWidth = 16
+
 export function HelpOverlay({
   visible,
   keybinds,
@@ -58,7 +60,7 @@ export function HelpOverlay({
                   paddingRight={4}
                   style={{ flexDirection: "row" }}
                 >
-                  <text fg={theme.text}>{k.key.padEnd(11)}</text>
+                  <text fg={theme.text}>{k.key.padEnd(keyColumnWidth)}</text>
                   <text fg={theme.textMuted}>{k.description}</text>
                 </box>
               ))}

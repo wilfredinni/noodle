@@ -55,7 +55,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
     {
       title: "Actions",
       keys: [
-        { key: displayKey(keybinds.request_send), description: "Send request" },
+        {
+          key: `${displayKey(keybinds.request_send)} / ^j`,
+          description: "Send request",
+        },
         { key: displayKey(keybinds.request_save), description: "Save to disk" },
         {
           key: displayKey(keybinds.env_editor),
