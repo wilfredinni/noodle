@@ -62,6 +62,7 @@ Example prompts:
 - "Change the expand layout keybinding to Alt+I"
 - "Set Catppuccin as my theme"
 - "How many requests are in the Stripe API collection?"
+- "What's the average response time for the login request on my Stripe collection?"
 
 ## Roadmap
 

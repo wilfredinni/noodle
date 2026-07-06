@@ -150,3 +150,46 @@ Sets the default active environment name. Must match an env file in `.environmen
 - All `$var` references must resolve to a variable declared in the active environment
 - Unresolved variables cause noodle to throw an error at request send time
 - Multi-level substitution is NOT supported (`$VAR1` that evaluates to `$VAR2` won't be resolved again)
+
+## Timeline file (`.timeline/<request-id>.yml`)
+
+Response history for each request. Stored in `<collection>/.timeline/`, one file per request. Max 50 entries, newest first (prepended on save). YAML array:
+
+```yaml
+- timestamp: 1783374564216
+  envName: production
+  request:
+    id: posts/get-posts
+    name: Get Posts
+    method: GET
+    url: https://api.example.com/posts
+    headers: {}
+    params: {}
+    auth:
+      type: none
+  response:
+    status: 200
+    statusText: OK
+    headers:
+      content-type: application/json
+    body: "[...]"
+    timeMs: 56.27
+    size: 27520
+```
+
+Each entry has:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | number | Unix timestamp in ms when the request was sent |
+| `envName` | string | Name of the active environment when sent |
+| `request` | object | Snapshot of the request at send time (id, name, method, url, headers, params, auth, body if present) |
+| `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string), `timeMs` (number — response time in ms), `size` (number — response body size in bytes) |
+| `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
+
+**Useful queries agents can answer from timeline data:**
+- Average response time for a request: sum all `response.timeMs` / count
+- Success rate: count entries with `response.status` in 2xx range / total count
+- Recent errors: filter entries where `error` is present
+- Response size trend: compare `response.size` across entries
+- Which environment was used: `envName` on each entry
