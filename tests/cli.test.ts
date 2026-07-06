@@ -21,11 +21,11 @@ describe("default command (noodle)", () => {
     expect(defaultMeta?.description).toBeTruthy()
   })
 
-  it("has --collection arg with default ./collections", () => {
+  it("has --collection arg with alias c and no default", () => {
     const arg = defaultArgs?.collection
     expect(arg).toBeDefined()
     expect(arg?.type).toBe("string")
-    expect(arg?.default).toBe("./collections")
+    expect(arg?.default).toBeUndefined()
     expect((arg as StringArgDef)?.alias).toBe("c")
   })
 

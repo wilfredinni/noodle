@@ -13,14 +13,29 @@ import { join } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
+import { loadConfig } from "../hooks/useConfig"
+
+const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
 export interface BootstrapOptions {
-  collectionDir: string
+  collectionDir?: string
   envName?: string
 }
 
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
-  const collectionDir = resolve(options.collectionDir)
+  let collectionDir: string
+  if (options.collectionDir) {
+    collectionDir = resolve(options.collectionDir)
+  } else {
+    let fallback: string | undefined
+    try {
+      const config = loadConfig(CONFIG_DIR)
+      fallback = config.collections[0]
+    } catch {
+      // config unavailable
+    }
+    collectionDir = resolve(fallback ?? "./collections")
+  }
   const environmentsDir = join(collectionDir, ".environments")
 
   let envList: string[]
