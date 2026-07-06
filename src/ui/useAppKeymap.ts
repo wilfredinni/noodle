@@ -262,6 +262,15 @@ export function useAppKeymap(
         run: () => setters.setCommandPaletteVisible((prev: boolean) => !prev),
       },
       {
+        name: "collection.switcher",
+        enabled: () => {
+          const overlay = keymap.getData("app.overlay") as string
+          const view = keymap.getData("app.view") as string
+          return overlay === "none" && view !== "env-editor"
+        },
+        run: () => setters.setCollectionSwitcherVisible(true),
+      },
+      {
         name: "global.undo-all",
         enabled: () => {
           const mode = keymap.getData("app.mode") as string
@@ -286,6 +295,7 @@ export function useAppKeymap(
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.command_palette, cmd: "app.command-palette" },
+      { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
     ],
   }))
@@ -307,13 +317,6 @@ export function useAppKeymap(
           setters.setView("env-editor")
           setters.setFocus("env-header")
         },
-      },
-      {
-        name: "collection.switcher",
-        enabled: () =>
-          keymap.getData("app.overlay") === "none" &&
-          keymap.getData("app.view") !== "env-editor",
-        run: () => setters.setCollectionSwitcherVisible(true),
       },
       {
         name: "request.send",
@@ -394,7 +397,6 @@ export function useAppKeymap(
       { key: keybinds.request_save, cmd: "request.save" },
       { key: keybinds.env_cycle, cmd: "env.cycle" },
       { key: keybinds.env_editor, cmd: "env.editor-open" },
-      { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.request_new, cmd: "request.new" },
       { key: keybinds.folder_new, cmd: "folder.new" },
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },
