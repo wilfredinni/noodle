@@ -288,7 +288,7 @@ describe("statusBarText", () => {
       spinnerFrame: "⠋",
     })
     expect(r.right).toBe(
-      "[^return] send · [^s] save · [^n] new · [^e] edit · [^k] clone · [^w] delete · [f1] help",
+      "[^return] send · [^s] save · [^n] new · [^e] edit · [^w] delete · [^u] env · [^p] palette · [f1] help",
     )
   })
 
@@ -305,7 +305,7 @@ describe("statusBarText", () => {
       spinnerFrame: "⠋",
     })
     expect(r.right).toBe(
-      "[^return] send · [^s] save · [^n] new · [^e] edit · [^k] clone · [^w] delete · [f1] help",
+      "[^return] send · [^s] save · [^n] new · [^e] edit · [^w] delete · [^u] env · [^p] palette · [f1] help",
     )
   })
 
