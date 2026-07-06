@@ -12,6 +12,7 @@ import { showToast } from "../ui/Toast"
 import { join } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 
 export interface BootstrapOptions {
   collectionDir: string
@@ -19,7 +20,8 @@ export interface BootstrapOptions {
 }
 
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
-  const environmentsDir = join(options.collectionDir, ".environments")
+  const collectionDir = resolve(options.collectionDir)
+  const environmentsDir = join(collectionDir, ".environments")
 
   let envList: string[]
   try {
@@ -44,7 +46,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
 
   let settingsEnv: string | undefined
   try {
-    const settings = await loadSettings(options.collectionDir)
+    const settings = await loadSettings(collectionDir)
     settingsEnv = settings.environment
   } catch {
     // settings.yml missing or invalid — ignore, use defaults
@@ -52,7 +54,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
 
   let lastRequestId: string | undefined
   try {
-    lastRequestId = await loadLastRequest(options.collectionDir)
+    lastRequestId = await loadLastRequest(collectionDir)
   } catch {
     // ignore — fall through to undefined
   }
@@ -101,7 +103,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     <KeymapProvider keymap={keymap}>
       <RendererProvider renderer={renderer}>
         <App
-          collectionDir={options.collectionDir}
+          collectionDir={collectionDir}
           environmentsDir={environmentsDir}
           envList={envList}
           initialEnvName={initialEnvName}

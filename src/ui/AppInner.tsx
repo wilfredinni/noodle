@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
+import { resolve } from "node:path"
 import { useKeymap } from "@opentui/keymap/react"
 import { Sidebar } from "./Sidebar"
 import { UrlBar } from "./UrlBar"
@@ -36,6 +37,7 @@ import {
   type NewFolderOverlayHandle,
 } from "./NewFolderOverlay"
 import { CommandPaletteOverlay } from "./CommandPaletteOverlay"
+import { CollectionSwitcherOverlay } from "./CollectionSwitcherOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import {
   saveRequest,
@@ -86,6 +88,8 @@ export function AppInner({
   onEnvListChanged,
   settingsEnv,
   initialLastRequestId,
+  collectionPaths,
+  onCollectionChange,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -104,6 +108,8 @@ export function AppInner({
   onEnvListChanged: () => Promise<void>
   settingsEnv?: string
   initialLastRequestId?: string
+  collectionPaths: string[]
+  onCollectionChange: (collectionDir: string) => void
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -155,6 +161,12 @@ export function AppInner({
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
+  const [collectionSwitcherVisible, setCollectionSwitcherVisible] =
+    useState(false)
+  const [collectionSwitchPending, setCollectionSwitchPending] = useState<
+    string | null
+  >(null)
+  const [collectionSwitchSelection, setCollectionSwitchSelection] = useState(0)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -702,24 +714,28 @@ export function AppInner({
         : previewIndex !== null
           ? "theme"
           : saveState.kind === "confirming"
-            ? "confirm"
-            : undoAllPending
-              ? "undo-all"
-              : yamlEditor.visible
-                ? "yaml-editor"
-                : newRequestVisible
-                  ? "new-request"
-                  : editRequestVisible
-                    ? "edit-request"
-                    : cloneRequestVisible
-                      ? "clone-request"
-                      : newFolderVisible
-                        ? "new-folder"
-                        : folderDeletePending !== null
-                          ? "delete-folder"
-                          : requestDeletePending !== null
-                            ? "request-delete"
-                            : "none"
+          ? "confirm"
+          : undoAllPending
+            ? "undo-all"
+            : collectionSwitchPending !== null
+              ? "collection-switch-confirm"
+              : collectionSwitcherVisible
+                ? "collection-switcher"
+                : yamlEditor.visible
+                  ? "yaml-editor"
+                  : newRequestVisible
+                    ? "new-request"
+                    : editRequestVisible
+                      ? "edit-request"
+                      : cloneRequestVisible
+                        ? "clone-request"
+                        : newFolderVisible
+                          ? "new-folder"
+                          : folderDeletePending !== null
+                            ? "delete-folder"
+                            : requestDeletePending !== null
+                              ? "request-delete"
+                              : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     commandPaletteVisible,
@@ -734,6 +750,8 @@ export function AppInner({
     folderDeletePending,
     requestDeletePending,
     undoAllPending,
+    collectionSwitchPending,
+    collectionSwitcherVisible,
     keymap,
   ])
 
@@ -876,6 +894,43 @@ export function AppInner({
   const folderViewRef = useRef(false)
   folderViewRef.current = focusedFolder !== null
 
+  const requestCollectionSwitch = useCallback(
+    (nextDir: string) => {
+      const normalized = resolve(nextDir)
+      setCollectionSwitcherVisible(false)
+      if (normalized === collectionDir) {
+        setCollectionSwitchPending(null)
+        setCollectionSwitchSelection(0)
+        return
+      }
+      if (draft.isDirty || folderDraft.isDirty || envEditor.dirty) {
+        setCollectionSwitchPending(normalized)
+        setCollectionSwitchSelection(0)
+        return
+      }
+      setCollectionSwitchPending(null)
+      setCollectionSwitchSelection(0)
+      onCollectionChange(normalized)
+    },
+    [
+      collectionDir,
+      draft.isDirty,
+      folderDraft.isDirty,
+      envEditor.dirty,
+      onCollectionChange,
+    ],
+  )
+
+  const confirmCollectionSwitch = useCallback(
+    (nextDir: string) => {
+      setCollectionSwitchPending(null)
+      setCollectionSwitchSelection(0)
+      setCollectionSwitcherVisible(false)
+      onCollectionChange(resolve(nextDir))
+    },
+    [onCollectionChange],
+  )
+
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap(
     keybinds,
@@ -920,6 +975,7 @@ export function AppInner({
       setFolderDeletePending,
       setUndoAllPending,
       setCommandPaletteVisible,
+      setCollectionSwitcherVisible,
       onLayoutChange,
       setExpanded,
     },
@@ -975,6 +1031,11 @@ export function AppInner({
     folderDeletePending,
     setFolderDeletePending,
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
+    collectionSwitchPending,
+    collectionSwitchSelection,
+    setCollectionSwitchSelection,
+    setCollectionSwitchPending,
+    onCollectionSwitchConfirm: confirmCollectionSwitch,
     undoAllPending,
     setUndoAllPending,
     draftRef,
@@ -1028,6 +1089,7 @@ export function AppInner({
         setEditRequestVisible,
         setRequestDeletePending,
         setFolderDeletePending,
+        setCollectionSwitcherVisible,
         setYamlEditor,
         setView,
         setFocus,
@@ -1035,7 +1097,13 @@ export function AppInner({
         setExpanded,
         setPreviewIndexProp,
       }),
-    [keybinds, collectionDir, confirmUndoAll, onLayoutChange],
+    [
+      keybinds,
+      collectionDir,
+      confirmUndoAll,
+      onLayoutChange,
+      setCollectionSwitcherVisible,
+    ],
   )
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -1271,11 +1339,27 @@ export function AppInner({
             selectedIndex={confirmSelection}
           />
         )}
+        {collectionSwitchPending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Switch to "${collectionSwitchPending}" and discard unsaved changes?`}
+            selectedIndex={collectionSwitchSelection}
+          />
+        )}
         {commandPaletteVisible && (
           <CommandPaletteOverlay
             visible
             commands={commandPaletteCommands}
             onClose={() => setCommandPaletteVisible(false)}
+          />
+        )}
+        {collectionSwitcherVisible && (
+          <CollectionSwitcherOverlay
+            visible
+            collections={collectionPaths}
+            activeCollectionDir={collectionDir}
+            onSelect={requestCollectionSwitch}
+            onClose={() => setCollectionSwitcherVisible(false)}
           />
         )}
         {previewIndex !== null && (

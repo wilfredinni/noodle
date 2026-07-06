@@ -54,6 +54,9 @@ export interface CommandBuilderContext {
   setFolderDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
+  setCollectionSwitcherVisible: (
+    v: boolean | ((prev: boolean) => boolean),
+  ) => void
   setYamlEditor: (
     v:
       | {
@@ -129,6 +132,7 @@ export function buildCommandPaletteCommands(
     setEditRequestVisible,
     setRequestDeletePending,
     setFolderDeletePending,
+    setCollectionSwitcherVisible,
     setYamlEditor,
     setView,
     setFocus,
@@ -310,6 +314,13 @@ export function buildCommandPaletteCommands(
       section: "System",
       keybinding: displayKey(keybinds.theme_picker),
       run: () => setPreviewIndexProp(activeIndexRef.current),
+    },
+    {
+      id: "collection.switcher",
+      label: "Switch Collection",
+      section: "System",
+      keybinding: displayKey(keybinds.collection_switcher),
+      run: () => setCollectionSwitcherVisible(true),
     },
     {
       id: "global.undo-all",
