@@ -15,7 +15,7 @@ function keybind(
 }
 
 export const Definitions = {
-  request_send: keybind("ctrl+return", "Send request"),
+  request_send: keybind("ctrl+return", "Send request", true),
   request_save: keybind("ctrl+s", "Save request to disk"),
   env_cycle: keybind("ctrl+u", "Cycle environment"),
   command_palette: keybind("ctrl+p", "Open command palette"),

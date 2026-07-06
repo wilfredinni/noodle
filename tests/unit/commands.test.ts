@@ -95,11 +95,11 @@ describe("buildCommandPaletteCommands", () => {
 
   it("displays keybinding as ^ shortcut", () => {
     const ctx = minimalContext()
-    const custom = { ...ctx.keybinds, request_send: "ctrl+r" }
+    const custom = { ...ctx.keybinds, request_save: "ctrl+r" }
     ctx.keybinds = custom
     const commands = buildCommandPaletteCommands(ctx)
-    const send = commands.find((c) => c.id === "request.send")!
-    expect(send.keybinding).toBe("^r")
+    const save = commands.find((c) => c.id === "request.save")!
+    expect(save.keybinding).toBe("^r")
   })
 
   it("collection.switcher runs its setter", () => {
