@@ -109,7 +109,11 @@ describe("buildCommandPaletteCommands", () => {
       },
     } as never
     ctx.savingRef = { current: false } as never
-    ctx.doSaveRef = { current: () => { saved = true } } as never
+    ctx.doSaveRef = {
+      current: () => {
+        saved = true
+      },
+    } as never
     const commands = buildCommandPaletteCommands(ctx)
     const save = commands.find((c) => c.id === "request.save")!
     save.run()
@@ -127,7 +131,11 @@ describe("buildCommandPaletteCommands", () => {
       },
     } as never
     ctx.savingRef = { current: false } as never
-    ctx.doSaveRef = { current: () => { saved = true } } as never
+    ctx.doSaveRef = {
+      current: () => {
+        saved = true
+      },
+    } as never
     const commands = buildCommandPaletteCommands(ctx)
     const save = commands.find((c) => c.id === "request.save")!
     save.run()
@@ -139,7 +147,11 @@ describe("buildCommandPaletteCommands", () => {
     ctx.getKeymapFocus = () => "request"
     let expanded: "request" | "response" | null = null
     ctx.setExpanded = (fn: unknown) => {
-      expanded = (fn as (prev: "request" | "response" | null) => "request" | "response" | null)(null)
+      expanded = (
+        fn as (
+          prev: "request" | "response" | null,
+        ) => "request" | "response" | null
+      )(null)
     }
     const commands = buildCommandPaletteCommands(ctx)
     const expand = commands.find((c) => c.id === "pane.expand")!
@@ -151,7 +163,9 @@ describe("buildCommandPaletteCommands", () => {
     const ctx = minimalContext()
     ctx.getKeymapFocus = () => "sidebar"
     let called = false
-    ctx.setExpanded = () => { called = true }
+    ctx.setExpanded = () => {
+      called = true
+    }
     const commands = buildCommandPaletteCommands(ctx)
     const expand = commands.find((c) => c.id === "pane.expand")!
     expand.run()

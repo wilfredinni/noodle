@@ -264,7 +264,9 @@ export function buildCommandPaletteCommands(
         if (s?.status !== "done") return
         const body = s.response.body
         try {
-          const result = Bun.spawnSync(["pbcopy"], { stdin: new TextEncoder().encode(body) })
+          const result = Bun.spawnSync(["pbcopy"], {
+            stdin: new TextEncoder().encode(body),
+          })
           if (result.exitCode !== 0) throw new Error("pbcopy failed")
         } catch {
           renderer.copyToClipboardOSC52(body)
