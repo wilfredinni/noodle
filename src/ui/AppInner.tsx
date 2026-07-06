@@ -2,17 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { resolve } from "node:path"
 import { useKeymap } from "@opentui/keymap/react"
-import { Sidebar } from "./Sidebar"
-import { UrlBar } from "./UrlBar"
-import { RequestPane } from "./RequestPane"
-import { ResponsePane } from "./ResponsePane"
-import { FolderPane } from "./FolderPane"
+import { MainView } from "./MainView"
+import { EnvironmentEditorView } from "./EnvironmentEditorView"
+import { AppOverlays } from "./AppOverlays"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { deriveRequestParentFolder, getFolderPaths } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Folder, Request as NoodleRequest, Method } from "../schema"
+import type { Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -20,47 +18,25 @@ import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import { type Focus } from "./focus"
-import { HelpOverlay } from "./HelpOverlay"
-import { ConfirmOverlay } from "./ConfirmOverlay"
-import { YamlEditorOverlay } from "./YamlEditorOverlay"
-import {
-  NewRequestOverlay,
-  slugify,
-  type NewRequestOverlayHandle,
-} from "./NewRequestOverlay"
-import {
-  CloneRequestOverlay,
-  type CloneRequestOverlayHandle,
-} from "./CloneRequestOverlay"
-import {
-  NewFolderOverlay,
-  type NewFolderOverlayHandle,
-} from "./NewFolderOverlay"
-import { CommandPaletteOverlay } from "./CommandPaletteOverlay"
-import { CollectionSwitcherOverlay } from "./CollectionSwitcherOverlay"
+import { type NewRequestOverlayHandle } from "./NewRequestOverlay"
+import { type CloneRequestOverlayHandle } from "./CloneRequestOverlay"
+import { type NewFolderOverlayHandle } from "./NewFolderOverlay"
 import { buildCommandPaletteCommands } from "./commands"
-import {
-  saveRequest,
-  deleteRequest,
-  saveFolder,
-  deleteFolder,
-} from "../filestore/save"
-import { ThemePickerOverlay, useTheme } from "./theme"
+import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { showToast } from "./Toast"
-import { EnvSidebar } from "./EnvSidebar"
-import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
-import { EnvEditorPane } from "./EnvEditorPane"
+import { type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
+import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
-import { getRequestIds, findFolderByPath, updateFolderByPath } from "./tree"
+import { getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import {
   saveLastRequest,
@@ -241,7 +217,6 @@ export function AppInner({
   const folderEbRef = useRef(folderEb)
   folderEbRef.current = folderEb
 
-  const dirtyFolderPaths = folderDraft.dirtyPaths
   const folderDraftRef = useRef(folderDraft)
   folderDraftRef.current = folderDraft
 
@@ -342,361 +317,40 @@ export function AppInner({
     }
   }, [saveState])
 
-  // ── Folder save ────────────────────────────────────────────────────
   const folderSaveRef = useRef<() => void>(() => {})
 
-  const handleFolderSave = useCallback(async () => {
-    const draftFolder = folderDraftRef.current?.folderDraft
-    if (!draftFolder || !collection) return
-    try {
-      await saveFolder(collectionDir, draftFolder)
-      folderDraftRef.current?.markSaved()
-      updateCollection({
-        ...collection,
-        items: updateFolderByPath(
-          collection.items,
-          draftFolder.path,
-          draftFolder,
-        ),
-      })
-      setSaveState({
-        kind: "success",
-        message: `Successfully saved folder ${draftFolder.name}`,
-      })
-      clearSaveTimer()
-      saveTimerRef.current = setTimeout(
-        () => setSaveState({ kind: "idle" }),
-        2000,
-      )
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      setSaveState({ kind: "error", message: msg })
-      clearSaveTimer()
-      saveTimerRef.current = setTimeout(
-        () => setSaveState({ kind: "idle" }),
-        2000,
-      )
-    }
-  }, [
+  const {
+    handleFolderSave,
+    handleNewRequestConfirm,
+    handleCloneRequestConfirm,
+    handleNewFolderConfirm,
+    handleFolderDeleteConfirm,
+    handleEditRequestConfirm,
+    handleRequestDeleteConfirm,
+  } = useCollectionFileActions({
     collection,
     collectionDir,
-    setSaveState,
     updateCollection,
+    selectedRequest,
+    folderDraftRef,
+    newRequestFolderRef,
+    folderDeletePathRef,
+    setCollectionReloadToken,
+    setFocus,
+    setSaveState,
     clearSaveTimer,
     saveTimerRef,
-  ])
+    setSelectedId,
+    expandFolder,
+    setNewRequestVisible,
+    setCloneRequestVisible,
+    setNewFolderVisible,
+    setEditRequestVisible,
+    setRequestDeletePending,
+    setFolderDeletePending,
+  })
 
   folderSaveRef.current = handleFolderSave
-
-  const handleNewRequestConfirm = useCallback(
-    (name: string, method: Method, url: string) => {
-      const baseId = slugify(name)
-      if (!baseId) return
-      const folder = newRequestFolderRef.current
-      const id = folder ? `${folder}/${baseId}` : baseId
-
-      const req: NoodleRequest = {
-        id,
-        name,
-        method,
-        url,
-        timeout: 0,
-        followRedirects: true,
-        maxRedirects: 5,
-        headers: {},
-        params: {},
-        auth: { type: "none" },
-        bodyType: "none",
-        body: "",
-      }
-
-      saveRequest(collectionDir, req)
-        .then(() => {
-          if (folder) expandFolder(folder)
-          setCollectionReloadToken((n) => n + 1)
-          setSelectedId(id)
-          setNewRequestVisible(false)
-          setFocus("sidebar")
-          setSaveState({
-            kind: "success",
-            message: `Successfully created ${name}`,
-          })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e)
-          setSaveState({ kind: "error", message: msg })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-    },
-    [
-      collectionDir,
-      setCollectionReloadToken,
-      setFocus,
-      setSaveState,
-      clearSaveTimer,
-      saveTimerRef,
-      setSelectedId,
-      expandFolder,
-    ],
-  )
-
-  const handleCloneRequestConfirm = useCallback(
-    (newName: string) => {
-      const req = selectedRequest
-      if (!req) return
-      const baseId = slugify(newName)
-      if (!baseId) return
-      const lastSlash = req.id.lastIndexOf("/")
-      const id =
-        lastSlash >= 0 ? `${req.id.slice(0, lastSlash)}/${baseId}` : baseId
-
-      const cloned: NoodleRequest = {
-        ...req,
-        id,
-        name: newName,
-      }
-
-      saveRequest(collectionDir, cloned)
-        .then(() => {
-          setCollectionReloadToken((n) => n + 1)
-          setCloneRequestVisible(false)
-          setFocus("sidebar")
-          setSelectedId(id)
-          const lastSlash = id.lastIndexOf("/")
-          if (lastSlash >= 0) expandFolder(id.slice(0, lastSlash))
-          setSaveState({
-            kind: "success",
-            message: `Successfully created ${newName}`,
-          })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e)
-          setSaveState({ kind: "error", message: msg })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-    },
-    [
-      selectedRequest,
-      collectionDir,
-      setCollectionReloadToken,
-      setFocus,
-      setSaveState,
-      clearSaveTimer,
-      saveTimerRef,
-      setSelectedId,
-      expandFolder,
-    ],
-  )
-
-  const handleNewFolderConfirm = useCallback(
-    (name: string) => {
-      const baseId = slugify(name)
-      if (!baseId) return
-      const folder = newRequestFolderRef.current
-      const path = folder ? `${folder}/${baseId}` : baseId
-
-      const newFolder: Folder = {
-        id: baseId,
-        name,
-        path,
-        children: [],
-      }
-
-      saveFolder(collectionDir, newFolder)
-        .then(() => {
-          if (folder) expandFolder(folder)
-          setCollectionReloadToken((n) => n + 1)
-          setNewFolderVisible(false)
-          setFocus("sidebar")
-          setSaveState({
-            kind: "success",
-            message: `Successfully created folder ${name}`,
-          })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e)
-          setSaveState({ kind: "error", message: msg })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-    },
-    [
-      collectionDir,
-      setCollectionReloadToken,
-      setFocus,
-      setSaveState,
-      clearSaveTimer,
-      saveTimerRef,
-      expandFolder,
-    ],
-  )
-
-  const handleFolderDeleteConfirm = useCallback(() => {
-    const path = folderDeletePathRef.current
-    if (!path) return
-
-    deleteFolder(collectionDir, path)
-      .then(() => {
-        setCollectionReloadToken((n) => n + 1)
-        setFolderDeletePending(null)
-        setFocus("sidebar")
-        setSaveState({
-          kind: "success",
-          message: `Successfully deleted folder ${path}`,
-        })
-        clearSaveTimer()
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, 2000)
-      })
-      .catch((e: unknown) => {
-        const msg = e instanceof Error ? e.message : String(e)
-        setSaveState({ kind: "error", message: msg })
-        clearSaveTimer()
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, 2000)
-      })
-  }, [
-    collectionDir,
-    setCollectionReloadToken,
-    setFocus,
-    setSaveState,
-    clearSaveTimer,
-    saveTimerRef,
-  ])
-
-  const handleEditRequestConfirm = useCallback(
-    (name: string, method: Method, url: string, folderPath?: string) => {
-      const req = selectedRequest
-      if (!req) return
-      const baseId = slugify(name)
-      if (!baseId) return
-
-      const newFolder = folderPath ?? ""
-      const newId = newFolder ? `${newFolder}/${baseId}` : baseId
-
-      const oldFolder = req.id.includes("/")
-        ? req.id.slice(0, req.id.lastIndexOf("/"))
-        : ""
-
-      const nameChanged = newId !== req.id
-      const folderChanged = newFolder !== oldFolder
-      const changed = nameChanged || method !== req.method || url !== req.url
-
-      if (!changed) {
-        setEditRequestVisible(false)
-        setFocus("sidebar")
-        return
-      }
-
-      const updated: NoodleRequest = {
-        ...req,
-        id: newId,
-        name,
-        method,
-        url,
-      }
-
-      const savePromise = saveRequest(collectionDir, updated).then(() => {
-        if (nameChanged || folderChanged) {
-          deleteRequest(collectionDir, req.id).catch(() => {
-            /* stale file not cleaned up — new file is safe */
-          })
-        }
-      })
-
-      savePromise
-        .then(() => {
-          setCollectionReloadToken((n) => n + 1)
-          setEditRequestVisible(false)
-          setFocus("sidebar")
-          if (newFolder) expandFolder(newFolder)
-          setSaveState({
-            kind: "success",
-            message: `Successfully edited ${name}`,
-          })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e)
-          setSaveState({ kind: "error", message: msg })
-          clearSaveTimer()
-          saveTimerRef.current = setTimeout(() => {
-            setSaveState({ kind: "idle" })
-          }, 2000)
-        })
-    },
-    [
-      selectedRequest,
-      collectionDir,
-      setCollectionReloadToken,
-      setFocus,
-      setSaveState,
-      clearSaveTimer,
-      saveTimerRef,
-      expandFolder,
-    ],
-  )
-
-  const handleRequestDeleteConfirm = useCallback(() => {
-    const req = selectedRequest
-    if (!req) return
-
-    deleteRequest(collectionDir, req.id)
-      .then(() => {
-        setCollectionReloadToken((n) => n + 1)
-        setRequestDeletePending(null)
-        setFocus("sidebar")
-        setSaveState({
-          kind: "success",
-          message: `Successfully deleted ${req.name}`,
-        })
-        clearSaveTimer()
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, 2000)
-      })
-      .catch((e: unknown) => {
-        const msg = e instanceof Error ? e.message : String(e)
-        setSaveState({ kind: "error", message: msg })
-        clearSaveTimer()
-        saveTimerRef.current = setTimeout(() => {
-          setSaveState({ kind: "idle" })
-        }, 2000)
-      })
-  }, [
-    selectedRequest,
-    collectionDir,
-    setCollectionReloadToken,
-    setFocus,
-    setSaveState,
-    clearSaveTimer,
-    saveTimerRef,
-  ])
 
   // ── keymap.setData effects ─────────────────────────────────────────
   useEffect(() => {
@@ -1129,327 +783,88 @@ export function AppInner({
         }}
       >
         {view === "main" ? (
-          <box
-            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
-          >
-            <Sidebar
-              items={items}
-              loading={loading}
-              error={error}
-              visibleItems={visibleItems}
-              cursorIndex={cursorIndex}
-              selectedId={selectedId}
-              expanded={expandedFolders}
-              focused={focus === "sidebar"}
-              keybinds={keybinds}
-              dirtyRequestIds={draft.dirtyRequestIds}
-              dirtyFolderPaths={dirtyFolderPaths}
-            />
-            <box
-              style={{
-                flexDirection: "column",
-                flexGrow: 1,
-                gap: 1,
-                minHeight: 0,
-              }}
-            >
-              {focusedFolder !== null ? (
-                <FolderPane
-                  collectionDir={collectionDir}
-                  folder={folderDraft.folderDraft}
-                  focused={focus === "folder"}
-                  editState={folderEb.editState}
-                  editKey={folderEb.editKey}
-                  editValue={folderEb.editValue}
-                  setEditKey={folderEb.setEditKey}
-                  setEditValue={folderEb.setEditValue}
-                  activeTab={folderEb.activeTab}
-                  onAuthTypeChange={folderDraft.setAuthType}
-                  onApiKeyPlacementChange={folderDraft.setApiKeyPlacement}
-                  onSelectOpenChange={setSelectOpen}
-                  activeEnv={envState.activeEnv}
-                  theme={theme}
-                />
-              ) : (
-                <>
-                  <UrlBar
-                    method={draft.draft?.method ?? ""}
-                    url={draft.draft?.url ?? ""}
-                    params={draft.draft?.params ?? {}}
-                    setUrl={draft.setUrl}
-                    onDefocus={draft.syncUrlParams}
-                    focused={focus === "urlbar"}
-                    activeEnv={envState.activeEnv}
-                  />
-                  {layout === "side-by-side" ? (
-                    <box
-                      style={{
-                        flexDirection: "row",
-                        flexGrow: 1,
-                        gap: 1,
-                        minHeight: 0,
-                      }}
-                    >
-                      {expanded !== "response" && (
-                        <RequestPane
-                          request={draft.draft}
-                          error={error}
-                          editState={eb.editState}
-                          editKey={eb.editKey}
-                          editValue={eb.editValue}
-                          setEditKey={eb.setEditKey}
-                          setEditValue={eb.setEditValue}
-                          focused={focus === "request"}
-                          activeTab={eb.activeTab}
-                          activeEnv={envState.activeEnv}
-                          onAuthTypeChange={draft.setAuthType}
-                          onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                          onBodyTypeChange={draft.setBodyType}
-                          onSelectOpenChange={setSelectOpen}
-                          expandHint={expandHint}
-                        />
-                      )}
-                      {expanded !== "request" && (
-                        <ResponsePane
-                          state={responseState}
-                          focused={focus === "response"}
-                          timelineEntries={timeline.entries}
-                          initialTab={initialResponseTab}
-                          onTabChange={onResponseTabChange}
-                          expandHint={expandHint}
-                        />
-                      )}
-                    </box>
-                  ) : (
-                    <>
-                      {expanded !== "response" && (
-                        <RequestPane
-                          request={draft.draft}
-                          error={error}
-                          editState={eb.editState}
-                          editKey={eb.editKey}
-                          editValue={eb.editValue}
-                          setEditKey={eb.setEditKey}
-                          setEditValue={eb.setEditValue}
-                          focused={focus === "request"}
-                          activeTab={eb.activeTab}
-                          activeEnv={envState.activeEnv}
-                          onAuthTypeChange={draft.setAuthType}
-                          onApiKeyPlacementChange={draft.setApiKeyPlacement}
-                          onBodyTypeChange={draft.setBodyType}
-                          onSelectOpenChange={setSelectOpen}
-                          expandHint={expandHint}
-                        />
-                      )}
-                      {expanded !== "request" && (
-                        <ResponsePane
-                          state={responseState}
-                          focused={focus === "response"}
-                          timelineEntries={timeline.entries}
-                          initialTab={initialResponseTab}
-                          onTabChange={onResponseTabChange}
-                          expandHint={expandHint}
-                        />
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-            </box>
-          </box>
+          <MainView
+            items={items}
+            collectionDir={collectionDir}
+            loading={loading}
+            error={error}
+            visibleItems={visibleItems}
+            cursorIndex={cursorIndex}
+            selectedId={selectedId}
+            expandedFolders={expandedFolders}
+            focusedFolderPresent={focusedFolder !== null}
+            focus={focus}
+            keybinds={keybinds}
+            draft={draft}
+            folderDraft={folderDraft}
+            folderEb={folderEb}
+            eb={eb}
+            layout={layout}
+            expanded={expanded}
+            activeEnv={envState.activeEnv}
+            responseState={responseState}
+            timelineEntries={timeline.entries}
+            initialResponseTab={initialResponseTab}
+            onResponseTabChange={onResponseTabChange}
+            setSelectOpen={setSelectOpen}
+            expandHint={expandHint}
+          />
         ) : (
-          <box
-            style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
-          >
-            <EnvSidebar
-              envNames={envEditor.envNames}
-              selectedEnvName={envEditor.selectedEnvName}
-              activeEnvName={envState.activeEnv?.name}
-              envColors={envColors}
-              dirty={envEditor.dirty}
-              onSelectEnv={envEditor.selectEnv}
-              onCreate={() => {
-                envEditor.openEditor()
-                setFocus("env-vars")
-              }}
-              onClone={() => {
-                if (envEditor.selectedEnvName) {
-                  const target = `${envEditor.selectedEnvName} - Copy`
-                  envEditor.cloneEnv(target)
-                }
-              }}
-              onDelete={() => {
-                if (envEditor.selectedEnvName) {
-                  setEnvDeletePending(envEditor.selectedEnvName)
-                  setDeleteConfirmSelection(0)
-                }
-              }}
-              focused={focus === "env-sidebar"}
-            />
-            <box
-              style={{
-                flexDirection: "column",
-                flexGrow: 1,
-                gap: 1,
-                minHeight: 0,
-              }}
-            >
-              <EnvHeaderPane
-                ref={envHeaderRef}
-                name={envEditor.draft?.name ?? ""}
-                color={envEditor.draft?.color}
-                onNameChange={envEditor.setName}
-                onColorChange={envEditor.setColor}
-                focused={focus === "env-header"}
-              />
-              <EnvEditorPane
-                draft={envEditor.draft}
-                selectedRowIndex={envEditor.selectedRowIndex}
-                editingField={envEditor.editingField}
-                saving={envEditor.saving}
-                error={envEditor.error}
-                onSelectRow={envEditor.selectRow}
-                onUpdateVarKey={envEditor.updateVarKey}
-                onUpdateVarValue={envEditor.updateVarValue}
-                onToggleVar={envEditor.toggleVar}
-                onDeleteVar={envEditor.deleteVar}
-                focused={focus === "env-vars"}
-              />
-            </box>
-          </box>
-        )}
-        {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
-        {saveState.kind === "confirming" && (
-          <ConfirmOverlay
-            visible
-            message={`Save changes to ${saveState.requestId}?`}
-            selectedIndex={confirmSelection}
-          />
-        )}
-        {envDeletePending !== null && (
-          <ConfirmOverlay
-            visible
-            message={`Delete environment "${envDeletePending}"?`}
-            selectedIndex={deleteConfirmSelection}
-          />
-        )}
-        {undoAllPending && (
-          <ConfirmOverlay
-            visible
-            message="Discard all unsaved changes? (y/n)"
-            selectedIndex={confirmSelection}
-          />
-        )}
-        {collectionSwitchPending !== null && (
-          <ConfirmOverlay
-            visible
-            message={`Switch to "${collectionSwitchPending}" and discard unsaved changes?`}
-            selectedIndex={collectionSwitchSelection}
-          />
-        )}
-        {commandPaletteVisible && (
-          <CommandPaletteOverlay
-            visible
-            commands={commandPaletteCommands}
-            onClose={() => setCommandPaletteVisible(false)}
-          />
-        )}
-        {collectionSwitcherVisible && (
-          <CollectionSwitcherOverlay
-            visible
-            collections={collectionPaths}
-            activeCollectionDir={collectionDir}
-            onSelect={requestCollectionSwitch}
-            onClose={() => setCollectionSwitcherVisible(false)}
-          />
-        )}
-        {previewIndex !== null && (
-          <ThemePickerOverlay
-            visible
-            activeIndex={activeIndex}
-            previewIndex={previewIndex}
-            setPreviewIndex={setPreviewIndexProp}
-            onThemeChange={onThemeChange}
-          />
-        )}
-        {yamlEditor.visible && (
-          <YamlEditorOverlay
-            visible
-            filePath={yamlEditor.filePath}
-            requestName={yamlEditor.requestName}
-            onSaved={() => {
-              setCollectionReloadToken((n) => n + 1)
-              setYamlEditor({
-                visible: false,
-                filePath: "",
-                requestName: "",
-                returnFocus: "sidebar",
-              })
-              setFocus(yamlEditor.returnFocus)
-              setSaveState({
-                kind: "success",
-                message: `Successfully edited ${yamlEditor.filePath.split("/").pop() ?? ""}`,
-              })
-              clearSaveTimer()
-              saveTimerRef.current = setTimeout(() => {
-                setSaveState({ kind: "idle" })
-              }, 2000)
-            }}
-            onClose={() => {
-              setYamlEditor({
-                visible: false,
-                filePath: "",
-                requestName: "",
-                returnFocus: "sidebar",
-              })
-              setFocus(yamlEditor.returnFocus)
-            }}
-          />
-        )}
-        {newRequestVisible && (
-          <NewRequestOverlay
-            visible
-            ref={newRequestRef}
+          <EnvironmentEditorView
+            envEditor={envEditor}
             activeEnv={envState.activeEnv}
+            envColors={envColors}
+            focus={focus}
+            envHeaderRef={envHeaderRef}
+            setFocus={setFocus}
+            setEnvDeletePending={setEnvDeletePending}
+            setDeleteConfirmSelection={setDeleteConfirmSelection}
           />
         )}
-        {editRequestVisible && (
-          <NewRequestOverlay
-            visible
-            mode="edit"
-            initialName={selectedRequest?.name}
-            initialMethod={selectedRequest?.method}
-            initialUrl={selectedRequest?.url}
-            folderPaths={folderPaths}
-            initialFolderPath={editRequestInitialFolder}
-            ref={editRequestRef}
-            activeEnv={envState.activeEnv}
-          />
-        )}
-        {cloneRequestVisible && (
-          <CloneRequestOverlay
-            visible
-            initialName={
-              selectedRequest ? `${selectedRequest.name} - Copy` : ""
-            }
-            ref={cloneRequestRef}
-          />
-        )}
-        {newFolderVisible && <NewFolderOverlay visible ref={newFolderRef} />}
-        {folderDeletePending !== null && (
-          <ConfirmOverlay
-            visible
-            message={`Delete folder "${folderDeletePending}" and all requests inside?`}
-            selectedIndex={0}
-          />
-        )}
-        {requestDeletePending !== null && (
-          <ConfirmOverlay
-            visible
-            message={`Delete "${requestDeletePending}"?`}
-            selectedIndex={0}
-          />
-        )}
+        <AppOverlays
+          keybinds={keybinds}
+          helpVisible={helpVisible}
+          saveState={saveState}
+          confirmSelection={confirmSelection}
+          envDeletePending={envDeletePending}
+          deleteConfirmSelection={deleteConfirmSelection}
+          undoAllPending={undoAllPending}
+          collectionSwitchPending={collectionSwitchPending}
+          collectionSwitchSelection={collectionSwitchSelection}
+          commandPaletteVisible={commandPaletteVisible}
+          commandPaletteCommands={commandPaletteCommands}
+          setCommandPaletteVisible={setCommandPaletteVisible}
+          collectionSwitcherVisible={collectionSwitcherVisible}
+          collectionPaths={collectionPaths}
+          collectionDir={collectionDir}
+          requestCollectionSwitch={requestCollectionSwitch}
+          setCollectionSwitcherVisible={setCollectionSwitcherVisible}
+          previewIndex={previewIndex}
+          activeIndex={activeIndex}
+          setPreviewIndex={setPreviewIndexProp}
+          onThemeChange={onThemeChange}
+          yamlEditor={yamlEditor}
+          setYamlEditor={setYamlEditor}
+          setCollectionReloadToken={setCollectionReloadToken}
+          setFocus={setFocus}
+          setSaveState={setSaveState}
+          clearSaveTimer={clearSaveTimer}
+          saveTimerRef={saveTimerRef}
+          newRequestVisible={newRequestVisible}
+          newRequestRef={newRequestRef}
+          activeEnv={envState.activeEnv}
+          editRequestVisible={editRequestVisible}
+          selectedRequest={selectedRequest}
+          folderPaths={folderPaths}
+          editRequestInitialFolder={editRequestInitialFolder}
+          editRequestRef={editRequestRef}
+          cloneRequestVisible={cloneRequestVisible}
+          cloneRequestRef={cloneRequestRef}
+          newFolderVisible={newFolderVisible}
+          newFolderRef={newFolderRef}
+          folderDeletePending={folderDeletePending}
+          requestDeletePending={requestDeletePending}
+        />
       </box>
       <StatusBar
         method={draft.draft?.method ?? ""}
