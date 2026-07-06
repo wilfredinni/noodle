@@ -1,7 +1,4 @@
 import { Sidebar } from "./Sidebar"
-import { UrlBar } from "./UrlBar"
-import { RequestPane } from "./RequestPane"
-import { ResponsePane } from "./ResponsePane"
 import { FolderPane } from "./FolderPane"
 import { useTheme } from "./theme"
 import type { CollectionItem, Environment } from "../schema"
@@ -12,9 +9,7 @@ import type { UseFolderEditBrowseResult } from "../hooks/useFolderEditBrowse"
 import type { Focus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
-import type { ResponseTabKind } from "./tabs/uiState"
-import type { SendState } from "./sendState"
-import type { TimelineEntry } from "../schema"
+import { RequestResponseView } from "./RequestResponseView"
 
 interface MainViewProps {
   items: CollectionItem[]
@@ -35,10 +30,12 @@ interface MainViewProps {
   layout: "stacked" | "side-by-side"
   expanded: "request" | "response" | null
   activeEnv: Environment | null
-  responseState: SendState
-  timelineEntries: TimelineEntry[]
-  initialResponseTab?: ResponseTabKind
-  onResponseTabChange: (tab: ResponseTabKind) => void
+  responseState: import("./sendState").SendState
+  timelineEntries: import("../schema").TimelineEntry[]
+  initialResponseTab?: import("./tabs/uiState").ResponseTabKind
+  onResponseTabChange: (
+    tab: import("./tabs/uiState").ResponseTabKind,
+  ) => void
   setSelectOpen: (open: boolean) => void
   expandHint: string
 }
@@ -130,93 +127,5 @@ export function MainView({
         )}
       </box>
     </box>
-  )
-}
-
-function RequestResponseView({
-  draft,
-  eb,
-  error,
-  focus,
-  layout,
-  expanded,
-  activeEnv,
-  responseState,
-  timelineEntries,
-  initialResponseTab,
-  onResponseTabChange,
-  setSelectOpen,
-  expandHint,
-}: Pick<
-  MainViewProps,
-  | "draft"
-  | "eb"
-  | "error"
-  | "focus"
-  | "layout"
-  | "expanded"
-  | "activeEnv"
-  | "responseState"
-  | "timelineEntries"
-  | "initialResponseTab"
-  | "onResponseTabChange"
-  | "setSelectOpen"
-  | "expandHint"
->) {
-  const content = (
-    <>
-      {expanded !== "response" && (
-        <RequestPane
-          request={draft.draft}
-          error={error}
-          editState={eb.editState}
-          editKey={eb.editKey}
-          editValue={eb.editValue}
-          setEditKey={eb.setEditKey}
-          setEditValue={eb.setEditValue}
-          focused={focus === "request"}
-          activeTab={eb.activeTab}
-          activeEnv={activeEnv}
-          onAuthTypeChange={draft.setAuthType}
-          onApiKeyPlacementChange={draft.setApiKeyPlacement}
-          onBodyTypeChange={draft.setBodyType}
-          onSelectOpenChange={setSelectOpen}
-          expandHint={expandHint}
-        />
-      )}
-      {expanded !== "request" && (
-        <ResponsePane
-          state={responseState}
-          focused={focus === "response"}
-          timelineEntries={timelineEntries}
-          initialTab={initialResponseTab}
-          onTabChange={onResponseTabChange}
-          expandHint={expandHint}
-        />
-      )}
-    </>
-  )
-
-  return (
-    <>
-      <UrlBar
-        method={draft.draft?.method ?? ""}
-        url={draft.draft?.url ?? ""}
-        params={draft.draft?.params ?? {}}
-        setUrl={draft.setUrl}
-        onDefocus={draft.syncUrlParams}
-        focused={focus === "urlbar"}
-        activeEnv={activeEnv}
-      />
-      {layout === "side-by-side" ? (
-        <box
-          style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
-        >
-          {content}
-        </box>
-      ) : (
-        content
-      )}
-    </>
   )
 }
