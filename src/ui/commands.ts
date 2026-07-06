@@ -148,7 +148,9 @@ export function buildCommandPaletteCommands(
     setEnvDeletePending,
   } = ctx
 
-  return [
+  const view = getView()
+
+  const requestCommands: CommandItem[] = [
     // ── Request ──────────────────────────────────────────────────────
     {
       id: "request.send",
@@ -257,27 +259,9 @@ export function buildCommandPaletteCommands(
         return true
       },
     },
-    {
-      id: "global.undo-all",
-      label: "Undo All Unsaved Changes",
-      section: "Request",
-      keybinding: displayKey(keybinds.global_undo_all),
-      run: () => {
-        const d = draftRef.current
-        const fd = folderDraftRef.current
-        const ee = envEditorRef.current
-        const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
-        if (!hasDirty) return false
-        if (confirmUndoAll) {
-          setUndoAllPending(true)
-        } else {
-          d.revertAllRequests()
-          fd.revertAllFolders()
-          ee?.revertDraft()
-        }
-        return true
-      },
-    },
+  ]
+
+  const responseCommands: CommandItem[] = [
     // ── Response ─────────────────────────────────────────────────────
     {
       id: "response.copy-body",
@@ -297,7 +281,9 @@ export function buildCommandPaletteCommands(
         }
       },
     },
-    // ── Environment ──────────────────────────────────────────────────
+  ]
+
+  const mainEnvCommands: CommandItem[] = [
     {
       id: "env.cycle",
       label: "Cycle Environment",
@@ -321,59 +307,71 @@ export function buildCommandPaletteCommands(
         return true
       },
     },
-    ...(getView() === "env-editor"
-      ? ([
-          {
-            id: "env.save",
-            label: "Save Environment",
-            section: "Environment",
-            keybinding: displayKey(keybinds.env_save),
-            run: () => {
-              envEditorRef.current.save()
-              return true
-            },
-          },
-          {
-            id: "env.new",
-            label: "New Environment",
-            section: "Environment",
-            keybinding: displayKey(keybinds.env_new),
-            run: () => {
-              envEditorRef.current.openEditor()
-              setFocus("env-header")
-              return true
-            },
-          },
-          {
-            id: "env.clone",
-            label: "Clone Environment",
-            section: "Environment",
-            keybinding: displayKey(keybinds.env_clone),
-            run: () => {
-              const ee = envEditorRef.current
-              if (ee.selectedEnvName) {
-                ee.cloneEnv(`${ee.selectedEnvName} - Copy`)
-                return true
-              }
-              return false
-            },
-          },
-          {
-            id: "env.delete",
-            label: "Delete Environment",
-            section: "Environment",
-            keybinding: displayKey(keybinds.env_delete),
-            run: () => {
-              const ee = envEditorRef.current
-              if (ee.selectedEnvName) {
-                setEnvDeletePending(ee.selectedEnvName)
-                return true
-              }
-              return false
-            },
-          },
-        ] as CommandItem[])
-      : []),
+  ]
+
+  const editorEnvCommands: CommandItem[] = [
+    {
+      id: "env.cycle",
+      label: "Cycle Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_cycle),
+      run: () => {
+        envStateRef.current.cycle(1)
+        return true
+      },
+    },
+    {
+      id: "env.save",
+      label: "Save Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_save),
+      run: () => {
+        envEditorRef.current.save()
+        return true
+      },
+    },
+    {
+      id: "env.new",
+      label: "New Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_new),
+      run: () => {
+        envEditorRef.current.openEditor()
+        setFocus("env-header")
+        return true
+      },
+    },
+    {
+      id: "env.clone",
+      label: "Clone Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_clone),
+      run: () => {
+        const ee = envEditorRef.current
+        if (ee.selectedEnvName) {
+          ee.cloneEnv(`${ee.selectedEnvName} - Copy`)
+          return true
+        }
+        return false
+      },
+    },
+    {
+      id: "env.delete",
+      label: "Delete Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_delete),
+      run: () => {
+        const ee = envEditorRef.current
+        if (ee.selectedEnvName) {
+          setEnvDeletePending(ee.selectedEnvName)
+          return true
+        }
+        return false
+      },
+    },
+  ]
+
+  const workspaceCommands: CommandItem[] = [
     // ── Workspace ────────────────────────────────────────────────────
     {
       id: "folder.new",
@@ -413,6 +411,9 @@ export function buildCommandPaletteCommands(
         return true
       },
     },
+  ]
+
+  const mainOnlyCommands: CommandItem[] = [
     {
       id: "pane.expand",
       label: "Expand/Collapse Pane",
@@ -427,6 +428,33 @@ export function buildCommandPaletteCommands(
         return true
       },
     },
+  ]
+
+  const globalCommands: CommandItem[] = [
+    {
+      id: "global.undo-all",
+      label: "Undo All Unsaved Changes",
+      section: "System",
+      keybinding: displayKey(keybinds.global_undo_all),
+      run: () => {
+        const d = draftRef.current
+        const fd = folderDraftRef.current
+        const ee = envEditorRef.current
+        const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
+        if (!hasDirty) return false
+        if (confirmUndoAll) {
+          setUndoAllPending(true)
+        } else {
+          d.revertAllRequests()
+          fd.revertAllFolders()
+          ee?.revertDraft()
+        }
+        return true
+      },
+    },
+  ]
+
+  const systemCommands: CommandItem[] = [
     // ── System ───────────────────────────────────────────────────────
     {
       id: "app.help",
@@ -454,7 +482,7 @@ export function buildCommandPaletteCommands(
       section: "System",
       keybinding: displayKey(keybinds.collection_switcher),
       run: () => {
-        if (getView() === "env-editor") {
+        if (view === "env-editor") {
           showToast(
             "Cannot switch collections from environment editor",
             "warning",
@@ -465,5 +493,24 @@ export function buildCommandPaletteCommands(
         return true
       },
     },
+  ]
+
+  if (view === "env-editor") {
+    return [
+      ...editorEnvCommands,
+      ...workspaceCommands,
+      ...globalCommands,
+      ...systemCommands,
+    ]
+  }
+
+  return [
+    ...requestCommands,
+    ...responseCommands,
+    ...mainEnvCommands,
+    ...workspaceCommands,
+    ...mainOnlyCommands,
+    ...globalCommands,
+    ...systemCommands,
   ]
 }
