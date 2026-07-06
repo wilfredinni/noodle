@@ -33,9 +33,7 @@ interface MainViewProps {
   responseState: import("./sendState").SendState
   timelineEntries: import("../schema").TimelineEntry[]
   initialResponseTab?: import("./tabs/uiState").ResponseTabKind
-  onResponseTabChange: (
-    tab: import("./tabs/uiState").ResponseTabKind,
-  ) => void
+  onResponseTabChange: (tab: import("./tabs/uiState").ResponseTabKind) => void
   setSelectOpen: (open: boolean) => void
   expandHint: string
 }
