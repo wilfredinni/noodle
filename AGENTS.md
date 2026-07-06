@@ -46,7 +46,7 @@ src/
 ├── lang/          # YAML request language: parse + serialize
 ├── filestore/     # loadCollection(dir) / saveRequest(dir, req) — disk I/O
 ├── env/           # loadEnvironment, listEnvironments — env file I/O + validation
-├── requests/      # executor.send + substitute ({{var}} replacement)
+├── requests/      # executor.send + substitute ($var replacement)
 ├── hooks/         # React hooks: useCollection, useRequestDraft, useEnvironments, etc.
 ├── converters/
 │   └── openapi/   # OpenAPI 3.0 → Collection importer (CLI only)
@@ -88,7 +88,7 @@ tests/integration/ # Integration tests
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
 - **Requests are `.yml` files**, one per request. Extension is `.yml` not `.yaml`.
 - **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color.
-- **`{{var}}` template syntax** for variable substitution in url/headers/params/body/auth.
+- **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.
 - **UI features require loading the `opentui` skill**. The skill lives at `.agents/skills/opentui/SKILL.md`.
 
