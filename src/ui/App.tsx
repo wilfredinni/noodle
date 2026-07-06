@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { join, resolve } from "node:path"
 import { AppInner } from "./AppInner"
 import { useConfig, upsertCollectionPath } from "../hooks/useConfig"
 import { listEnvironmentsWithColors } from "../env/listWithColors"
 import { ThemeProvider, THEMES, DEFAULT_THEME_INDEX } from "./theme"
+import { stat } from "node:fs/promises"
 import { Toast, showToast } from "./Toast"
-import { filestore, loadSettings, saveSettings } from "../filestore"
+import { loadSettings, saveSettings } from "../filestore"
 import { loadLastRequest } from "./tabs/uiState"
 import type { Keybinds } from "./keybind"
 
@@ -29,6 +30,7 @@ export function App({
   lastRequestId?: string
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
+  const switchingRef = useRef(false)
   const initialCollectionDir = useMemo(() => resolve(collectionDir), [collectionDir])
   const [activeCollectionDir, setActiveCollectionDir] = useState(
     initialCollectionDir,
@@ -60,7 +62,7 @@ export function App({
   )
 
   useEffect(() => {
-    if (config.collections.includes(activeCollectionDir)) return
+    if (config.collections[0] === activeCollectionDir) return
     updateConfig((prev) => ({
       collections: upsertCollectionPath(prev.collections, activeCollectionDir),
     }))
@@ -113,54 +115,64 @@ export function App({
 
   const handleCollectionChange = useCallback(
     async (nextDir: string) => {
+      if (switchingRef.current) return
       const normalized = resolve(nextDir)
       if (normalized === activeCollectionDir) return
 
+      switchingRef.current = true
       try {
-        await filestore.loadCollection(normalized)
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        showToast(`Failed to open collection: ${msg}`, "error")
-        return
-      }
-
-      let nextEnvNames: string[] = []
-      const nextEnvColors: Record<string, string | undefined> = {}
-      try {
-        const items = await listEnvironmentsWithColors(
-          join(normalized, ".environments"),
-        )
-        nextEnvNames = items.map((item) => item.name)
-        for (const item of items) {
-          nextEnvColors[item.name] = item.color
+        try {
+          const s = await stat(normalized)
+          if (!s.isDirectory()) {
+            showToast(`Not a directory: ${normalized}`, "error")
+            return
+          }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e)
+          showToast(`Failed to open collection: ${msg}`, "error")
+          return
         }
-      } catch {
-        // Collection env metadata is optional.
-      }
 
-      let nextSettingsEnv: string | undefined
-      try {
-        nextSettingsEnv = (await loadSettings(normalized)).environment
-      } catch {
-        nextSettingsEnv = undefined
-      }
+        let nextEnvNames: string[] = []
+        const nextEnvColors: Record<string, string | undefined> = {}
+        try {
+          const items = await listEnvironmentsWithColors(
+            join(normalized, ".environments"),
+          )
+          nextEnvNames = items.map((item) => item.name)
+          for (const item of items) {
+            nextEnvColors[item.name] = item.color
+          }
+        } catch {
+          // Collection env metadata is optional.
+        }
 
-      let nextLastRequestId: string | undefined
-      try {
-        nextLastRequestId = await loadLastRequest(normalized)
-      } catch {
-        nextLastRequestId = undefined
-      }
+        let nextSettingsEnv: string | undefined
+        try {
+          nextSettingsEnv = (await loadSettings(normalized)).environment
+        } catch {
+          nextSettingsEnv = undefined
+        }
 
-      setEnvNames(nextEnvNames)
-      setEnvColors(nextEnvColors)
-      setSettingsEnv(nextSettingsEnv)
-      setLastRequestId(nextLastRequestId)
-      setInitialEnvNameState(undefined)
-      setActiveCollectionDir(normalized)
-      updateConfig((prev) => ({
-        collections: upsertCollectionPath(prev.collections, normalized),
-      }))
+        let nextLastRequestId: string | undefined
+        try {
+          nextLastRequestId = await loadLastRequest(normalized)
+        } catch {
+          nextLastRequestId = undefined
+        }
+
+        setEnvNames(nextEnvNames)
+        setEnvColors(nextEnvColors)
+        setSettingsEnv(nextSettingsEnv)
+        setLastRequestId(nextLastRequestId)
+        setInitialEnvNameState(undefined)
+        setActiveCollectionDir(normalized)
+        updateConfig((prev) => ({
+          collections: upsertCollectionPath(prev.collections, normalized),
+        }))
+      } finally {
+        switchingRef.current = false
+      }
     },
     [activeCollectionDir, updateConfig],
   )

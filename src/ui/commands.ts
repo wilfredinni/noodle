@@ -36,6 +36,7 @@ export interface CommandBuilderContext {
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
   getKeymapFocus: () => string
+  getView: () => string
   setLayout: (
     v:
       | "stacked"
@@ -123,6 +124,7 @@ export function buildCommandPaletteCommands(
     focusedFolderNameRef,
     folderDeletePathRef,
     getKeymapFocus,
+    getView,
     setLayout,
     onLayoutChange,
     setHelpVisible,
@@ -320,7 +322,16 @@ export function buildCommandPaletteCommands(
       label: "Switch Collection",
       section: "System",
       keybinding: displayKey(keybinds.collection_switcher),
-      run: () => setCollectionSwitcherVisible(true),
+      run: () => {
+        if (getView() === "env-editor") {
+          showToast(
+            "Cannot switch collections from environment editor",
+            "warning",
+          )
+          return
+        }
+        setCollectionSwitcherVisible(true)
+      },
     },
     {
       id: "global.undo-all",

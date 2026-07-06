@@ -1080,6 +1080,7 @@ export function AppInner({
         focusedFolderNameRef,
         folderDeletePathRef,
         getKeymapFocus: () => keymap.getData("app.focus") as string,
+        getView: () => keymap.getData("app.view") as string,
         setLayout,
         onLayoutChange,
         setHelpVisible,
