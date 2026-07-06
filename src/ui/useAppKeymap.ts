@@ -98,6 +98,9 @@ export interface UseAppKeymapSetters {
   setRequestDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
+  setCollectionSwitcherVisible: (
+    v: boolean | ((prev: boolean) => boolean),
+  ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCommandPaletteVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -295,6 +298,13 @@ export function useAppKeymap(
         },
       },
       {
+        name: "collection.switcher",
+        enabled: () =>
+          keymap.getData("app.overlay") === "none" &&
+          keymap.getData("app.view") !== "env-editor",
+        run: () => setters.setCollectionSwitcherVisible(true),
+      },
+      {
         name: "request.send",
         run: () => refs.trySendRef.current?.(),
       },
@@ -373,6 +383,7 @@ export function useAppKeymap(
       { key: keybinds.request_save, cmd: "request.save" },
       { key: keybinds.env_cycle, cmd: "env.cycle" },
       { key: keybinds.env_editor, cmd: "env.editor-open" },
+      { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.request_new, cmd: "request.new" },
       { key: keybinds.folder_new, cmd: "folder.new" },
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },

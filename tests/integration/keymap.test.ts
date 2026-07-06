@@ -1107,3 +1107,59 @@ describe("command palette", () => {
     cleanup()
   })
 })
+
+describe("collection switcher", () => {
+  it("dispatches collection.switcher when ctrl+o pressed", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "none")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "base" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        {
+          name: "collection.switcher",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+o", cmd: "collection.switcher" }],
+    })
+
+    host.press("o", { ctrl: true })
+    expect(called).toBe(true)
+    cleanup()
+  })
+
+  it("does not dispatch when overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "help")
+    let called = false
+
+    keymap.registerLayer({
+      enabled: () =>
+        keymap.getData("app.mode") === "base" &&
+        keymap.getData("app.overlay") === "none" &&
+        keymap.getData("app.view") !== "env-editor",
+      commands: [
+        {
+          name: "collection.switcher",
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+o", cmd: "collection.switcher" }],
+    })
+
+    host.press("o", { ctrl: true })
+    expect(called).toBe(false)
+    cleanup()
+  })
+})

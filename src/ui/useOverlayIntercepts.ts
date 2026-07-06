@@ -65,6 +65,11 @@ export function useOverlayIntercepts(opts: {
   folderDeletePending: string | null
   setFolderDeletePending: (s: string | null) => void
   onFolderDeleteConfirm: () => void
+  collectionSwitchPending: string | null
+  collectionSwitchSelection: number
+  setCollectionSwitchSelection: (n: number) => void
+  setCollectionSwitchPending: (s: string | null) => void
+  onCollectionSwitchConfirm: (collectionDir: string) => void
   undoAllPending: boolean
   setUndoAllPending: (v: boolean) => void
   draftRef: RefObject<UseRequestDraftResult>
@@ -116,6 +121,11 @@ export function useOverlayIntercepts(opts: {
     folderDeletePending,
     setFolderDeletePending,
     onFolderDeleteConfirm,
+    collectionSwitchPending,
+    collectionSwitchSelection,
+    setCollectionSwitchSelection,
+    setCollectionSwitchPending,
+    onCollectionSwitchConfirm,
     undoAllPending,
     setUndoAllPending,
     draftRef,
@@ -243,6 +253,54 @@ export function useOverlayIntercepts(opts: {
     clearSaveTimer,
     saveTimerRef,
     envEditorRef,
+  ])
+
+  // ── Overlay: Collection switch confirmation ──────────────────────
+  useEffect(() => {
+    if (!collectionSwitchPending) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (
+          name === "y" ||
+          (name === "return" && collectionSwitchSelection === 0)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          const nextDir = collectionSwitchPending
+          setCollectionSwitchPending(null)
+          setCollectionSwitchSelection(0)
+          onCollectionSwitchConfirm(nextDir)
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && collectionSwitchSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setCollectionSwitchPending(null)
+          setCollectionSwitchSelection(0)
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setCollectionSwitchSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setCollectionSwitchSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    collectionSwitchPending,
+    collectionSwitchSelection,
+    keymap,
+    onCollectionSwitchConfirm,
+    setCollectionSwitchPending,
+    setCollectionSwitchSelection,
   ])
 
   // ── Overlay: Help ──────────────────────────────────────────────────

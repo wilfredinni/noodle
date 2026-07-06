@@ -36,6 +36,7 @@ export interface CommandBuilderContext {
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
   getKeymapFocus: () => string
+  getView: () => string
   setLayout: (
     v:
       | "stacked"
@@ -53,6 +54,9 @@ export interface CommandBuilderContext {
   ) => void
   setFolderDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
+  ) => void
+  setCollectionSwitcherVisible: (
+    v: boolean | ((prev: boolean) => boolean),
   ) => void
   setYamlEditor: (
     v:
@@ -120,6 +124,7 @@ export function buildCommandPaletteCommands(
     focusedFolderNameRef,
     folderDeletePathRef,
     getKeymapFocus,
+    getView,
     setLayout,
     onLayoutChange,
     setHelpVisible,
@@ -129,6 +134,7 @@ export function buildCommandPaletteCommands(
     setEditRequestVisible,
     setRequestDeletePending,
     setFolderDeletePending,
+    setCollectionSwitcherVisible,
     setYamlEditor,
     setView,
     setFocus,
@@ -310,6 +316,22 @@ export function buildCommandPaletteCommands(
       section: "System",
       keybinding: displayKey(keybinds.theme_picker),
       run: () => setPreviewIndexProp(activeIndexRef.current),
+    },
+    {
+      id: "collection.switcher",
+      label: "Switch Collection",
+      section: "System",
+      keybinding: displayKey(keybinds.collection_switcher),
+      run: () => {
+        if (getView() === "env-editor") {
+          showToast(
+            "Cannot switch collections from environment editor",
+            "warning",
+          )
+          return
+        }
+        setCollectionSwitcherVisible(true)
+      },
     },
     {
       id: "global.undo-all",

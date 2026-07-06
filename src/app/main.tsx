@@ -12,14 +12,31 @@ import { showToast } from "../ui/Toast"
 import { join } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
+import { loadConfig } from "../hooks/useConfig"
+
+const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
 export interface BootstrapOptions {
-  collectionDir: string
+  collectionDir?: string
   envName?: string
 }
 
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
-  const environmentsDir = join(options.collectionDir, ".environments")
+  let collectionDir: string
+  if (options.collectionDir) {
+    collectionDir = resolve(options.collectionDir)
+  } else {
+    let fallback: string | undefined
+    try {
+      const config = loadConfig(CONFIG_DIR)
+      fallback = config.collections[0]
+    } catch {
+      // config unavailable
+    }
+    collectionDir = resolve(fallback ?? "./collections")
+  }
+  const environmentsDir = join(collectionDir, ".environments")
 
   let envList: string[]
   try {
@@ -44,7 +61,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
 
   let settingsEnv: string | undefined
   try {
-    const settings = await loadSettings(options.collectionDir)
+    const settings = await loadSettings(collectionDir)
     settingsEnv = settings.environment
   } catch {
     // settings.yml missing or invalid — ignore, use defaults
@@ -52,7 +69,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
 
   let lastRequestId: string | undefined
   try {
-    lastRequestId = await loadLastRequest(options.collectionDir)
+    lastRequestId = await loadLastRequest(collectionDir)
   } catch {
     // ignore — fall through to undefined
   }
@@ -101,8 +118,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     <KeymapProvider keymap={keymap}>
       <RendererProvider renderer={renderer}>
         <App
-          collectionDir={options.collectionDir}
-          environmentsDir={environmentsDir}
+          collectionDir={collectionDir}
           envList={envList}
           initialEnvName={initialEnvName}
           settingsEnv={settingsEnv}

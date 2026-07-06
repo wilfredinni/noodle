@@ -17,6 +17,7 @@ const DEFAULTS: NoodleConfig = {
   theme: DEFAULT_THEME_NAME,
   layout: "stacked",
   confirm_undo_all: true,
+  collections: [],
 }
 
 describe("loadConfig", () => {
@@ -39,7 +40,11 @@ describe("loadConfig", () => {
   it("reads valid YAML file", () => {
     writeFileSync(
       join(dir, CONFIG_FILE_NAME),
-      yaml.dump({ theme: "dracula", layout: "side-by-side" }),
+      yaml.dump({
+        theme: "dracula",
+        layout: "side-by-side",
+        collections: ["/tmp/a", "/tmp/b"],
+      }),
       "utf8",
     )
     const result = loadConfig(dir)
@@ -47,6 +52,7 @@ describe("loadConfig", () => {
       theme: "dracula",
       layout: "side-by-side",
       confirm_undo_all: true,
+      collections: ["/tmp/a", "/tmp/b"],
     })
   })
 
@@ -69,6 +75,7 @@ describe("loadConfig", () => {
       theme: "dracula",
       layout: "stacked",
       confirm_undo_all: true,
+      collections: [],
     })
   })
 
@@ -87,9 +94,24 @@ describe("loadConfig", () => {
       theme: "dracula",
       layout: "stacked",
       confirm_undo_all: false,
+      collections: [],
     })
     const result = loadConfig(dir)
     expect(result.confirm_undo_all).toBe(false)
+  })
+
+  it("normalizes and deduplicates collections", () => {
+    writeFileSync(
+      join(dir, CONFIG_FILE_NAME),
+      yaml.dump({
+        theme: "dracula",
+        layout: "stacked",
+        collections: ["./collections", "./collections"],
+      }),
+      "utf8",
+    )
+    const result = loadConfig(dir)
+    expect(result.collections).toHaveLength(1)
   })
 })
 
@@ -110,12 +132,14 @@ describe("saveConfig", () => {
       theme: "dracula",
       layout: "side-by-side",
       confirm_undo_all: true,
+      collections: [],
     })
     const raw = readFileSync(join(dir, CONFIG_FILE_NAME), "utf8")
     expect(yaml.load(raw)).toEqual({
       theme: "dracula",
       layout: "side-by-side",
       confirm_undo_all: true,
+      collections: [],
     })
   })
 
@@ -124,10 +148,11 @@ describe("saveConfig", () => {
       theme: "dracula",
       layout: "side-by-side",
       confirm_undo_all: true,
+      collections: [],
     }
     saveConfig(dir, input)
     const result = loadConfig(dir)
-    expect(result).toEqual({ ...input, confirm_undo_all: true })
+    expect(result).toEqual(input)
   })
 
   it("writes and reads back null lastEnv", () => {
@@ -135,12 +160,14 @@ describe("saveConfig", () => {
       theme: "monokai",
       layout: "stacked",
       confirm_undo_all: true,
+      collections: [],
     })
     const result = loadConfig(dir)
     expect(result).toEqual({
       theme: "monokai",
       layout: "stacked",
       confirm_undo_all: true,
+      collections: [],
     })
   })
 

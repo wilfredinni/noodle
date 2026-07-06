@@ -10,7 +10,6 @@ export default defineCommand({
   args: {
     collection: {
       type: "string",
-      default: "./collections",
       alias: "c",
       description: "Collection directory",
     },
