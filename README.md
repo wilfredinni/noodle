@@ -63,6 +63,7 @@ Example prompts:
 - "Set Catppuccin as my theme"
 - "How many requests are in the Stripe API collection?"
 - "What's the average response time for the login request on my Stripe collection?"
+- "Order the folders on the Stripe collection from Z to A"
 
 ## Roadmap
 
