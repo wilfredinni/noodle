@@ -894,11 +894,14 @@ export function AppInner({
   const folderViewRef = useRef(false)
   folderViewRef.current = focusedFolder !== null
 
+  const collectionDirRef = useRef(collectionDir)
+  collectionDirRef.current = collectionDir
+
   const requestCollectionSwitch = useCallback(
     (nextDir: string) => {
       const normalized = resolve(nextDir)
       setCollectionSwitcherVisible(false)
-      if (normalized === collectionDir) {
+      if (normalized === collectionDirRef.current) {
         setCollectionSwitchPending(null)
         setCollectionSwitchSelection(0)
         return
@@ -912,13 +915,7 @@ export function AppInner({
       setCollectionSwitchSelection(0)
       onCollectionChange(normalized)
     },
-    [
-      collectionDir,
-      draft.isDirty,
-      folderDraft.isDirty,
-      envEditor.dirty,
-      onCollectionChange,
-    ],
+    [draft.isDirty, folderDraft.isDirty, envEditor.dirty, onCollectionChange],
   )
 
   const confirmCollectionSwitch = useCallback(
