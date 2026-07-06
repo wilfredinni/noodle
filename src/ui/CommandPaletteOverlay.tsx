@@ -117,8 +117,12 @@ export function CommandPaletteOverlay({
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
       if (item.type === "header") {
+        const visible = queryRef.current
+          ? displayItems.filter((i) => filter(i, queryRef.current))
+          : displayItems
+        const idx = visible.indexOf(item)
         return (
-          <box flexGrow={1}>
+          <box flexGrow={1} marginTop={idx > 0 ? 1 : 0}>
             <text fg={theme.primary} attributes={TextAttributes.BOLD}>
               {item.section}
             </text>
@@ -135,7 +139,7 @@ export function CommandPaletteOverlay({
         </>
       )
     },
-    [theme],
+    [theme, displayItems, filter],
   )
 
   if (!visible) return null
