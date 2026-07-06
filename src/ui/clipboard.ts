@@ -7,10 +7,7 @@ const CLIPBOARD_CMDS: Array<{ cmd: string[]; platform: string }> = [
   { cmd: ["clip.exe"], platform: "win32" },
 ]
 
-export function copyToClipboard(
-  text: string,
-  renderer: CliRenderer,
-): boolean {
+export function copyToClipboard(text: string, renderer: CliRenderer): boolean {
   const stdin = new TextEncoder().encode(text)
 
   for (const { cmd } of CLIPBOARD_CMDS) {
