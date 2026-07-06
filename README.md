@@ -61,6 +61,7 @@ Example prompts:
 - "Convert this Insomnia export to a noodle collection"
 - "Change the expand layout keybinding to Alt+I"
 - "Set Catppuccin as my theme"
+- "How many requests are in the Stripe API collection?"
 
 ## Roadmap
 
