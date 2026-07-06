@@ -1,6 +1,5 @@
 import { useBindings, useKeymap } from "@opentui/keymap/react"
 import { join } from "node:path"
-import { tmpdir } from "node:os"
 import type { RefObject } from "react"
 import { cycleFocus, toggleExpand, type Focus } from "./focus"
 import type { Keybinds } from "./keybind"
@@ -223,18 +222,12 @@ export function useAppKeymap(
           const s = refs.responseStateRef.current
           if (s?.status !== "done") return
           const body = s.response.body
-          const tmp = join(tmpdir(), `noodle-copy-${Date.now()}`)
           try {
-            Bun.write(tmp, body)
-            Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])
+            const result = Bun.spawnSync(["pbcopy"], { stdin: new TextEncoder().encode(body) })
+            if (result.exitCode !== 0) throw new Error("pbcopy failed")
           } catch {
             renderer.copyToClipboardOSC52(body)
-          } finally {
-            try {
-              Bun.spawnSync(["rm", "-f", tmp])
-            } catch {
-              // cleanup is best-effort; ignore failures
-            }
+            return
           }
           showToast("Response body copied", "success")
         },

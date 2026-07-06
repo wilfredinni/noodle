@@ -169,7 +169,7 @@ describe("CommandPaletteOverlay", () => {
       { id: "b", label: "Beta", section: "Sec", run: () => {} },
       { id: "c", label: "Gamma", section: "Sec", run: () => {} },
     ]
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <CommandPaletteOverlay visible commands={commands} onClose={noop} />
@@ -178,10 +178,21 @@ describe("CommandPaletteOverlay", () => {
       { width: 80, height: 20 },
     )
     await renderOnce()
-    const frame = captureCharFrame()
+    let frame = captureCharFrame()
     expect(frame).toContain("Alpha")
     expect(frame).toContain("Beta")
     expect(frame).toContain("Gamma")
+
+    // Type "al" to filter — use waitForFrame since typeText is async
+    await act(async () => {
+      await mockInput.typeText("al")
+    })
+    await renderOnce()
+    await renderOnce()
+    frame = captureCharFrame()
+    expect(frame).toContain("Alpha")
+    expect(frame).not.toContain("Beta")
+    expect(frame).not.toContain("Gamma")
     cleanup()
   })
 

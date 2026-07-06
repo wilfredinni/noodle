@@ -1,5 +1,4 @@
 import { join } from "node:path"
-import { tmpdir } from "node:os"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { CommandItem } from "./CommandPaletteOverlay"
@@ -264,18 +263,12 @@ export function buildCommandPaletteCommands(
         const s = responseStateRef.current
         if (s?.status !== "done") return
         const body = s.response.body
-        const tmp = join(tmpdir(), `noodle-copy-${Date.now()}`)
         try {
-          Bun.write(tmp, body)
-          Bun.spawnSync(["bash", "-c", `pbcopy < "${tmp}"`])
+          const result = Bun.spawnSync(["pbcopy"], { stdin: new TextEncoder().encode(body) })
+          if (result.exitCode !== 0) throw new Error("pbcopy failed")
         } catch {
           renderer.copyToClipboardOSC52(body)
-        } finally {
-          try {
-            Bun.spawnSync(["rm", "-f", tmp])
-          } catch {
-            // cleanup is best-effort
-          }
+          return
         }
         showToast("Response body copied", "success")
       },
@@ -350,7 +343,7 @@ export function buildCommandPaletteCommands(
         const name = envStateRef.current.activeEnv?.name
         envEditorRef.current.openEditor(name)
         setView("env-editor")
-        setFocus("env-sidebar")
+        setFocus("env-header")
       },
     },
   ]

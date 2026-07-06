@@ -97,23 +97,64 @@ describe("buildCommandPaletteCommands", () => {
     expect(send.keybinding).toBe("^r")
   })
 
-  it("request.save requires draft and isDirty", () => {
+  it("request.save calls doSave when draft is dirty and not saving", () => {
     const ctx = minimalContext()
+    let saved = false
     ctx.draftRef = {
-      current: { draft: null, isDirty: false, revertAllRequests: () => {} },
+      current: {
+        draft: { id: "test" },
+        isDirty: true,
+        revertAllRequests: () => {},
+        dirtyRequestIds: new Set(),
+      },
     } as never
     ctx.savingRef = { current: false } as never
-    ctx.doSaveRef = { current: () => {} } as never
+    ctx.doSaveRef = { current: () => { saved = true } } as never
     const commands = buildCommandPaletteCommands(ctx)
     const save = commands.find((c) => c.id === "request.save")!
-    expect(save.run).toBeDefined()
+    save.run()
+    expect(saved).toBe(true)
   })
 
-  it("pane.expand ignores non-request/response focus", () => {
+  it("request.save does not call doSave when draft is not dirty", () => {
     const ctx = minimalContext()
-    ctx.getKeymapFocus = () => "sidebar"
+    let saved = false
+    ctx.draftRef = {
+      current: {
+        draft: null,
+        isDirty: false,
+        revertAllRequests: () => {},
+      },
+    } as never
+    ctx.savingRef = { current: false } as never
+    ctx.doSaveRef = { current: () => { saved = true } } as never
+    const commands = buildCommandPaletteCommands(ctx)
+    const save = commands.find((c) => c.id === "request.save")!
+    save.run()
+    expect(saved).toBe(false)
+  })
+
+  it("pane.expand toggles expanded when focus is request", () => {
+    const ctx = minimalContext()
+    ctx.getKeymapFocus = () => "request"
+    let expanded: "request" | "response" | null = null
+    ctx.setExpanded = (fn: unknown) => {
+      expanded = (fn as (prev: "request" | "response" | null) => "request" | "response" | null)(null)
+    }
     const commands = buildCommandPaletteCommands(ctx)
     const expand = commands.find((c) => c.id === "pane.expand")!
-    expect(expand.run).toBeDefined()
+    expand.run()
+    expect(expanded!).toBe("request")
+  })
+
+  it("pane.expand does nothing when focus is sidebar", () => {
+    const ctx = minimalContext()
+    ctx.getKeymapFocus = () => "sidebar"
+    let called = false
+    ctx.setExpanded = () => { called = true }
+    const commands = buildCommandPaletteCommands(ctx)
+    const expand = commands.find((c) => c.id === "pane.expand")!
+    expand.run()
+    expect(called).toBe(false)
   })
 })

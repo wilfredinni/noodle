@@ -97,7 +97,7 @@ tests/integration/ # Integration tests
 All except `fixed` keys can be overridden in YAML:
 ```yaml
 request_send: ctrl+enter
-env_cycle: ctrl+shift+p
+env_cycle: ctrl+u
 ```
 
 ### Global (always active, gated on `!helpVisible`)
@@ -109,7 +109,8 @@ env_cycle: ctrl+shift+p
 | `Ctrl+N` | New request |
 | `Ctrl+K` | Clone request |
 | `Ctrl+W` | Delete request |
-| `Ctrl+P` | Cycle environment |
+| `Ctrl+U` | Cycle environment |
+| `Ctrl+P` | Open command palette |
 | `Ctrl+L` | Toggle layout (stacked / side-by-side) |
 | `F2` | Expand/collapse focused pane |
 | `F1` | Toggle help overlay |
