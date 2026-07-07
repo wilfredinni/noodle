@@ -82,7 +82,6 @@ function authEqual(a: Auth | undefined, b: Auth | undefined): boolean {
   }
   if (a.type !== b.type) return false
   if (a.type === "none" && b.type === "none") return true
-  if (a.type === "inherit" && b.type === "inherit") return true
   if (a.type === "bearer" && b.type === "bearer") return a.token === b.token
   if (a.type === "basic" && b.type === "basic") {
     return a.user === b.user && a.pass === b.pass
@@ -115,14 +114,14 @@ function defaultAuth(authType: Auth["type"]): Auth {
   switch (authType) {
     case "none":
       return { type: "none" }
-    case "inherit":
-      return { type: "inherit" }
     case "bearer":
       return { type: "bearer", token: "" }
     case "basic":
       return { type: "basic", user: "", pass: "" }
     case "api_key":
       return { type: "api_key", key: "", value: "", placement: "header" }
+    default:
+      return { type: "none" }
   }
 }
 

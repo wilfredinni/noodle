@@ -87,12 +87,6 @@ describe("applyDraftOp", () => {
     expect(r?.overrides?.auth).toEqual({ type: "none" })
   })
 
-  it("setAuthType sets auth to inherit", () => {
-    const f = makeFolder()
-    const r = applyDraftOp(f, { kind: "setAuthType", authType: "inherit" })
-    expect(r?.overrides?.auth).toEqual({ type: "inherit" })
-  })
-
   it("setAuthField updates token for bearer", () => {
     const f = makeFolder({
       overrides: { auth: { type: "bearer", token: "" } },

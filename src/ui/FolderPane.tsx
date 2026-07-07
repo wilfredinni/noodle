@@ -66,8 +66,7 @@ export function FolderPane({
     )
     const hasAuth =
       folder.overrides?.auth?.type !== undefined &&
-      folder.overrides.auth.type !== "none" &&
-      folder.overrides.auth.type !== "inherit"
+      folder.overrides.auth.type !== "none"
     return [
       { id: "meta", label: "General" },
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
@@ -160,7 +159,7 @@ export function FolderPane({
                       onApiKeyPlacementChange ?? (() => {})
                     }
                     onSelectOpenChange={onSelectOpenChange}
-                    showInherit={true}
+                    showInherit={false}
                   />
                 </box>
               )}

@@ -261,18 +261,4 @@ describe("mergeFolderOverrides", () => {
     const result = mergeFolderOverrides(req, col, "api/v2/endpoint")
     expect(result.auth).toEqual({ type: "basic", user: "admin", pass: "pw" })
   })
-
-  it("inherit skips folder auth marked as inherit", () => {
-    const folder = makeFolder("auth", {
-      auth: { type: "inherit" },
-    })
-    const req = makeRequest({ auth: { type: "inherit" } })
-    const col: Collection = {
-      id: "c",
-      name: "C",
-      items: [{ type: "folder", data: folder }],
-    }
-    const result = mergeFolderOverrides(req, col, "auth/login")
-    expect(result.auth).toEqual({ type: "none" })
-  })
 })
