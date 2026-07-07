@@ -49,11 +49,11 @@ Installs to `~/.local/bin/noodle` (curl) or your Homebrew prefix. Make sure the 
 
 ### npx skills (AI agents)
 
+Teach your AI coding agent to create, organize, audit, import, and convert noodle collections. Supports OpenCode, Claude Code, Cursor, Copilot, and 70+ other agents.
+
 ```bash
 npx skills add wilfredinni/noodle --skill noodle-use -g
 ```
-
-Teaches your AI coding agent to create, organize, audit, import, and convert noodle collections. Supports OpenCode, Claude Code, Cursor, Copilot, and 70+ other agents.
 
 Example prompts:
 - "Scaffold a noodle collection for the Stripe API with auth and a few endpoints"
