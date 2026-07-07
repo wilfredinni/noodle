@@ -28,7 +28,9 @@ export function computeFolderActivity(
 ): FolderActivityStats {
   const requests: RequestActivityStats[] = childRequests.map((req) => {
     const entries = timelines.get(req.id) ?? []
-    const successEntries = entries.filter((e) => e.response !== undefined)
+    const successEntries = entries.filter(
+      (e) => e.response && e.response.status >= 200 && e.response.status < 400,
+    )
     const callCount = entries.length
     const successRate = callCount > 0 ? successEntries.length / callCount : null
     const avgTimeMs =

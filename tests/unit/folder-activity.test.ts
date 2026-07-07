@@ -43,6 +43,21 @@ function makeTimeline(
 }
 
 describe("computeFolderActivity", () => {
+  it("counts only 2xx/3xx as success, not 4xx/5xx", () => {
+    const timeline = makeTimeline("user/list", [
+      { response: { ...makeEntry().response!, status: 200 } },
+      { response: { ...makeEntry().response!, status: 401 } },
+      { response: { ...makeEntry().response!, status: 500 } },
+      { response: { ...makeEntry().response!, status: 302 } },
+    ])
+    const result = computeFolderActivity(
+      [{ id: "user/list", name: "List Users", method: "GET" }],
+      timeline,
+    )
+    expect(result.requests[0]!.callCount).toBe(4)
+    expect(result.requests[0]!.successRate).toBe(0.5) // 200 + 302 = 2 out of 4
+  })
+
   it("returns zeroed per-request stats for empty timeline map", () => {
     const result = computeFolderActivity(
       [{ id: "user/list", name: "List Users", method: "GET" }],
