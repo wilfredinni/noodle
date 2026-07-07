@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { Auth, Folder, KvEntry } from "../schema"
 
+const CACHE_MAX = 100
+
+const authTypeCache = new Map<string, Record<string, Auth>>()
+
+function cacheSet<K, V>(map: Map<K, V>, key: K, value: V): void {
+  map.set(key, value)
+  if (map.size > CACHE_MAX) {
+    const first = map.keys().next().value as K | undefined
+    if (first !== undefined) map.delete(first)
+  }
+}
+
 export type FolderDraftOp =
   | { kind: "setName"; name: string }
   | { kind: "setSeq"; seq: number }
@@ -114,6 +126,8 @@ function defaultAuth(authType: Auth["type"]): Auth {
   switch (authType) {
     case "none":
       return { type: "none" }
+    case "inherit":
+      return { type: "inherit" }
     case "bearer":
       return { type: "bearer", token: "" }
     case "basic":
@@ -125,9 +139,14 @@ function defaultAuth(authType: Auth["type"]): Auth {
   }
 }
 
+export function clearFolderAuthTypeCache(): void {
+  authTypeCache.clear()
+}
+
 export function applyDraftOp(
   folder: Folder | null,
   op: FolderDraftOp,
+  originalFolder: Folder | null = null,
 ): Folder | null {
   if (!folder) return null
   if (op.kind === "revert") return null
@@ -179,12 +198,26 @@ export function applyDraftOp(
       }
       break
     }
-    case "setAuthType":
-      draft.overrides = {
-        ...draft.overrides,
-        auth: defaultAuth(op.authType),
+    case "setAuthType": {
+      const curAuth = draft.overrides?.auth
+      if (curAuth && curAuth.type !== "none") {
+        const idCache = authTypeCache.get(draft.path) ?? {}
+        idCache[curAuth.type] = curAuth
+        cacheSet(authTypeCache, draft.path, idCache)
+      }
+      const cached = authTypeCache.get(draft.path)?.[op.authType]
+      if (cached && cached.type === op.authType) {
+        draft.overrides = { ...draft.overrides, auth: { ...cached } }
+      } else if (originalFolder?.overrides?.auth?.type === op.authType) {
+        draft.overrides = {
+          ...draft.overrides,
+          auth: { ...originalFolder.overrides.auth },
+        }
+      } else {
+        draft.overrides = { ...draft.overrides, auth: defaultAuth(op.authType) }
       }
       break
+    }
     case "setAuthField": {
       const currentAuth = draft.overrides?.auth
       if (!currentAuth || currentAuth.type !== op.authType) break
@@ -279,7 +312,8 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       setDraftMap((prev) => {
         if (!folder) return prev
         const current = prev.get(key) ?? folder
-        const result = applyDraftOp(current, op)
+        const original = originalMap.get(key) ?? folder
+        const result = applyDraftOp(current, op, original)
         if (result === null) {
           const next = new Map(prev)
           next.delete(key)
@@ -290,7 +324,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
         return next
       })
     },
-    [folder, key],
+    [folder, key, originalMap],
   )
 
   const setName = useCallback(
@@ -336,6 +370,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
   const revertAll = useCallback(() => dispatch({ kind: "revert" }), [dispatch])
   const markSaved = useCallback(() => {
     if (!folderDraft || !folder) return
+    authTypeCache.delete(key)
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(key, { ...folderDraft })
@@ -348,6 +383,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     })
   }, [folderDraft, folder, key])
   const revertAllFolders = useCallback(() => {
+    authTypeCache.clear()
     setDraftMap(new Map())
   }, [])
 
