@@ -39,7 +39,7 @@ export async function send(
     const u = new URL(substituted.url)
     for (const entry of params) {
       if (!entry.enabled) continue
-      u.searchParams.set(entry.name, entry.value)
+      u.searchParams.append(entry.name, entry.value)
     }
     finalUrl = u.toString()
   } catch (e) {
