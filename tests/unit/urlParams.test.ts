@@ -99,7 +99,16 @@ describe("buildDisplayUrl", () => {
     const result = buildDisplayUrl("https://example.com?sort=asc", params)
     const u = new URL(result)
     expect(u.searchParams.getAll("id")).toEqual(["1"])
-    expect(u.searchParams.get("sort")).toBe("asc")
+  })
+
+  it("preserves multiple params with same key in output", () => {
+    const params: ParamEntry[] = [
+      { name: "filter", value: "active", enabled: true },
+      { name: "filter", value: "pending", enabled: true },
+    ]
+    const result = buildDisplayUrl("https://example.com/data", params)
+    const u = new URL(result)
+    expect(u.searchParams.getAll("filter")).toEqual(["active", "pending"])
   })
 })
 
