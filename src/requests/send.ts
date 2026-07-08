@@ -3,6 +3,7 @@ import type {
   Collection,
   Environment,
   KvEntry,
+  ParamEntry,
   Request,
   Response,
 } from "../schema"
@@ -28,16 +29,17 @@ export async function send(
     substituted === merged
       ? filterKv(merged.headers)
       : (substituted as SubstitutedRequest).headers
-  const params: Record<string, string> =
+  const params: ParamEntry[] =
     substituted === merged
-      ? filterKv(merged.params)
+      ? merged.params.filter((e) => e.enabled)
       : (substituted as SubstitutedRequest).params
 
   let finalUrl: string
   try {
     const u = new URL(substituted.url)
-    for (const [k, v] of Object.entries(params)) {
-      u.searchParams.append(k, v)
+    for (const entry of params) {
+      if (!entry.enabled) continue
+      u.searchParams.set(entry.name, entry.value)
     }
     finalUrl = u.toString()
   } catch (e) {
