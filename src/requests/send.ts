@@ -37,6 +37,10 @@ export async function send(
   let finalUrl: string
   try {
     const u = new URL(substituted.url)
+    const paramKeys = new Set(params.map((e) => e.name))
+    for (const key of paramKeys) {
+      u.searchParams.delete(key)
+    }
     for (const entry of params) {
       if (!entry.enabled) continue
       u.searchParams.append(entry.name, entry.value)

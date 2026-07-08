@@ -19,28 +19,7 @@ function makeReq(over: Partial<Request> = {}): Request {
 }
 
 describe("send — param deduplication", () => {
-  it("appends params from params block after inline URL params (same key duplicates)", async () => {
-    let captured: string | undefined
-    const orig = globalThis.fetch
-    globalThis.fetch = mock(async (url: RequestInfo | URL) => {
-      captured = url.toString()
-      return new Response("ok", { status: 200 })
-    }) as unknown as typeof globalThis.fetch
-
-    try {
-      const req = makeReq({
-        url: "https://api.example.com/posts?userId=42",
-        params: [{ name: "userId", value: "42", enabled: true }],
-      })
-      await send(req)
-      const parsed = new URL(captured!)
-      expect(parsed.searchParams.getAll("userId")).toEqual(["42", "42"])
-    } finally {
-      globalThis.fetch = orig
-    }
-  })
-
-  it("appends params block values after inline URL values when both differ", async () => {
+  it("params block replaces inline URL value for same key", async () => {
     let captured: string | undefined
     const orig = globalThis.fetch
     globalThis.fetch = mock(async (url: RequestInfo | URL) => {
@@ -55,7 +34,33 @@ describe("send — param deduplication", () => {
       })
       await send(req)
       const parsed = new URL(captured!)
-      expect(parsed.searchParams.getAll("userId")).toEqual(["42", "99"])
+      expect(parsed.searchParams.get("userId")).toBe("99")
+      expect(parsed.searchParams.getAll("userId")).toEqual(["99"])
+    } finally {
+      globalThis.fetch = orig
+    }
+  })
+
+  it("replaces same-key inline param with multiple params block entries", async () => {
+    let captured: string | undefined
+    const orig = globalThis.fetch
+    globalThis.fetch = mock(async (url: RequestInfo | URL) => {
+      captured = url.toString()
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      const req = makeReq({
+        url: "https://api.example.com/posts?id=1&sort=asc",
+        params: [
+          { name: "id", value: "a", enabled: true },
+          { name: "id", value: "b", enabled: true },
+        ],
+      })
+      await send(req)
+      const parsed = new URL(captured!)
+      expect(parsed.searchParams.get("sort")).toBe("asc")
+      expect(parsed.searchParams.getAll("id")).toEqual(["a", "b"])
     } finally {
       globalThis.fetch = orig
     }
