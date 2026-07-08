@@ -27,14 +27,15 @@ export function serializeRequest(req: Request): string {
     }
   }
 
-  if (Object.keys(req.params).length > 0) {
+  if (req.params.length > 0) {
     out += "params:\n"
-    for (const [k, v] of Object.entries(req.params)) {
-      const val = yamlVal(v.value)
-      if (v.enabled) {
-        out += `  ${k}: ${val}\n`
+    for (const entry of req.params) {
+      const nameVal = yamlVal(entry.name)
+      const valVal = yamlVal(entry.value)
+      if (entry.enabled) {
+        out += `  - name: ${nameVal}\n    value: ${valVal}\n`
       } else {
-        out += `  ${k}: { value: ${val}, enabled: false }\n`
+        out += `  - name: ${nameVal}\n    value: ${valVal}\n    enabled: ${entry.enabled}\n`
       }
     }
   }

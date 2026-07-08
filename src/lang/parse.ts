@@ -5,6 +5,7 @@ import type {
   FormEntry,
   KvEntry,
   Method,
+  ParamEntry,
   Request,
 } from "../schema"
 
@@ -108,7 +109,7 @@ export function parseRequest(id: string, yamlText: string): Request {
   }
 
   const headers = parseKvMap(raw.headers, "headers")
-  const params = parseKvMap(raw.params, "params")
+  const params = parseParams(raw.params, "params")
 
   let body: string | undefined
   if (raw.body !== undefined) {
@@ -248,6 +249,51 @@ export function parseKvMap(
     }
   }
   return out
+}
+
+function parseParams(
+  value: unknown,
+  field: string,
+  prefix = "lang.parseRequest",
+): ParamEntry[] {
+  if (value === undefined) return []
+  if (Array.isArray(value)) {
+    return value.map((item: unknown, i: number) => {
+      if (typeof item !== "object" || item === null || Array.isArray(item)) {
+        throw new Error(`${prefix}: ${field}[${i}] must be an object`)
+      }
+      const obj = item as Record<string, unknown>
+      if (typeof obj.name !== "string") {
+        throw new Error(`${prefix}: ${field}[${i}].name must be a string`)
+      }
+      if (typeof obj.value !== "string") {
+        throw new Error(`${prefix}: ${field}[${i}].value must be a string`)
+      }
+      const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
+      return { name: obj.name, value: obj.value, enabled }
+    })
+  }
+  if (typeof value === "object" && value !== null) {
+    const out: ParamEntry[] = []
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === "string") {
+        out.push({ name: k, value: v, enabled: true })
+      } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
+        const obj = v as Record<string, unknown>
+        if (typeof obj.value !== "string") {
+          throw new Error(`${prefix}: ${field}.${k} must have string "value"`)
+        }
+        const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
+        out.push({ name: k, value: obj.value, enabled })
+      } else {
+        throw new Error(
+          `${prefix}: ${field}.${k} must be a string or {value, enabled} object`,
+        )
+      }
+    }
+    return out
+  }
+  throw new Error(`${prefix}: ${field} must be a map or array`)
 }
 
 function parseAuth(value: unknown): Auth {
