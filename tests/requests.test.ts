@@ -10,7 +10,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     method: "POST",
     url: "https://example.com/api",
     headers: {},
-    params: {},
+    params: [],
     timeout: 0,
     followRedirects: true,
     maxRedirects: 5,

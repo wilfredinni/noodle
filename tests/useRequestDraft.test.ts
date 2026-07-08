@@ -13,7 +13,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     method: "GET",
     url: "https://example.com",
     headers: {},
-    params: {},
+    params: [],
     timeout: 0,
     followRedirects: true,
     maxRedirects: 5,
@@ -104,8 +104,8 @@ describe("requestEquals", () => {
   it("differing params → false", () => {
     expect(
       requestEquals(
-        makeReq({ params: { q: { value: "1", enabled: true } } }),
-        makeReq({ params: { q: { value: "2", enabled: true } } }),
+        makeReq({ params: [{ name: "q", value: "1", enabled: true }] }),
+        makeReq({ params: [{ name: "q", value: "2", enabled: true }] }),
       ),
     ).toBe(false)
   })
@@ -311,7 +311,7 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.headers).toEqual({})
   })
   it("setParamRow / addParamRow / removeParamRow mirror headers", () => {
-    const original = makeReq({ params: { q: { value: "1", enabled: true } } })
+    const original = makeReq({ params: [{ name: "q", value: "1", enabled: true }] })
     const map = new Map<string, Request>()
     let next = applyDraft(map, "r1", original, {
       kind: "setParamRow",
@@ -319,21 +319,21 @@ describe("applyDraft", () => {
       key: "q",
       value: "2",
     })
-    expect(next.get("r1")!.params).toEqual({ q: { value: "2", enabled: true } })
+    expect(next.get("r1")!.params).toEqual([{ name: "q", value: "2", enabled: true }])
     next = applyDraft(next, "r1", original, {
       kind: "addParamRow",
       key: "p",
       value: "3",
     })
-    expect(next.get("r1")!.params).toEqual({
-      q: { value: "2", enabled: true },
-      p: { value: "3", enabled: true },
-    })
+    expect(next.get("r1")!.params).toEqual([
+      { name: "q", value: "2", enabled: true },
+      { name: "p", value: "3", enabled: true },
+    ])
     next = applyDraft(next, "r1", original, {
       kind: "removeParamRow",
       index: 0,
     })
-    expect(next.get("r1")!.params).toEqual({ p: { value: "3", enabled: true } })
+    expect(next.get("r1")!.params).toEqual([{ name: "p", value: "3", enabled: true }])
   })
   it("revertField body restores body from original", () => {
     const original = makeReq({ body: "orig" })
@@ -467,16 +467,16 @@ describe("applyDraft", () => {
   })
   it("toggleParamRow flips enabled", () => {
     const original = makeReq({
-      params: { q: { value: "search", enabled: true } },
+      params: [{ name: "q", value: "search", enabled: true }],
     })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "toggleParamRow",
       index: 0,
     })
-    expect(next.get("r1")!.params).toEqual({
-      q: { value: "search", enabled: false },
-    })
+    expect(next.get("r1")!.params).toEqual([
+      { name: "q", value: "search", enabled: false },
+    ])
   })
   it("toggle on out-of-range index is no-op", () => {
     const original = makeReq({ headers: { A: { value: "1", enabled: true } } })
@@ -563,26 +563,26 @@ describe("applyDraft", () => {
 
 describe("syncUrlParams", () => {
   it("sets url to base URL and params from query string", () => {
-    const original = makeReq({ url: "https://example.com/posts", params: {} })
+    const original = makeReq({ url: "https://example.com/posts", params: [] })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "syncUrlParams",
       rawUrl: "https://example.com/posts?userId=1&limit=10",
     })
     expect(next.get("r1")!.url).toBe("https://example.com/posts")
-    expect(next.get("r1")!.params).toEqual({
-      userId: { value: "1", enabled: true },
-      limit: { value: "10", enabled: true },
-    })
+    expect(next.get("r1")!.params).toEqual([
+      { name: "userId", value: "1", enabled: true },
+      { name: "limit", value: "10", enabled: true },
+    ])
   })
 
   it("replaces existing params with those from URL query", () => {
     const original = makeReq({
       url: "https://example.com/posts",
-      params: {
-        old: { value: "x", enabled: true },
-        stale: { value: "y", enabled: true },
-      },
+      params: [
+        { name: "old", value: "x", enabled: true },
+        { name: "stale", value: "y", enabled: true },
+      ],
     })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
@@ -590,15 +590,15 @@ describe("syncUrlParams", () => {
       rawUrl: "https://example.com/posts?new=z",
     })
     expect(next.get("r1")!.url).toBe("https://example.com/posts")
-    expect(next.get("r1")!.params).toEqual({
-      new: { value: "z", enabled: true },
-    })
+    expect(next.get("r1")!.params).toEqual([
+      { name: "new", value: "z", enabled: true },
+    ])
   })
 
   it("clears params when URL has no query string", () => {
     const original = makeReq({
       url: "https://example.com/old?x=1",
-      params: { y: { value: "2", enabled: true } },
+      params: [{ name: "y", value: "2", enabled: true }],
     })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
@@ -606,7 +606,7 @@ describe("syncUrlParams", () => {
       rawUrl: "https://example.com/clean",
     })
     expect(next.get("r1")!.url).toBe("https://example.com/clean")
-    expect(next.get("r1")!.params).toEqual({})
+    expect(next.get("r1")!.params).toEqual([])
   })
 
   it("preserves other draft fields unchanged", () => {
@@ -629,22 +629,22 @@ describe("syncUrlParams", () => {
   })
 
   it("handles single query param", () => {
-    const original = makeReq({ url: "https://example.com", params: {} })
+    const original = makeReq({ url: "https://example.com", params: [] })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "syncUrlParams",
       rawUrl: "https://example.com?q=hello",
     })
     expect(next.get("r1")!.url).toBe("https://example.com")
-    expect(next.get("r1")!.params).toEqual({
-      q: { value: "hello", enabled: true },
-    })
+    expect(next.get("r1")!.params).toEqual([
+      { name: "q", value: "hello", enabled: true },
+    ])
   })
 
   it("handles URL with existing query and explicit params (both replaced)", () => {
     const original = makeReq({
       url: "https://example.com/api?old=1",
-      params: { manual: { value: "2", enabled: true } },
+      params: [{ name: "manual", value: "2", enabled: true }],
     })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
@@ -652,13 +652,13 @@ describe("syncUrlParams", () => {
       rawUrl: "https://example.com/api?v=3",
     })
     expect(next.get("r1")!.url).toBe("https://example.com/api")
-    expect(next.get("r1")!.params).toEqual({
-      v: { value: "3", enabled: true },
-    })
+    expect(next.get("r1")!.params).toEqual([
+      { name: "v", value: "3", enabled: true },
+    ])
   })
 
   it("never mutates input map", () => {
-    const original = makeReq({ url: "https://example.com", params: {} })
+    const original = makeReq({ url: "https://example.com", params: [] })
     const map = new Map<string, Request>()
     const next = applyDraft(map, "r1", original, {
       kind: "syncUrlParams",
@@ -669,8 +669,8 @@ describe("syncUrlParams", () => {
   })
 
   it("never mutates original request", () => {
-    const original = makeReq({ url: "https://example.com", params: {} })
-    const originalCopy = { ...original, params: { ...original.params } }
+    const original = makeReq({ url: "https://example.com", params: [] })
+    const originalCopy = { ...original, params: [...original.params] }
     const map = new Map<string, Request>()
     applyDraft(map, "r1", original, {
       kind: "syncUrlParams",

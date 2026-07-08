@@ -25,7 +25,7 @@ function makeRequest(i: number): Request {
     method: i % 2 === 0 ? "GET" : "POST",
     url: `http://example.com/${i}`,
     headers: {},
-    params: {},
+    params: [],
     timeout: 0,
     followRedirects: true,
     maxRedirects: 5,
@@ -87,14 +87,14 @@ describe("RequestPane scrollbox", () => {
       manyHeaders[`X-Header-${i}`] = { value: `value-${i}`, enabled: true }
     }
 
-    const request = {
+    const request: Request = {
       id: "test",
       name: "Test",
-      method: "GET" as const,
+      method: "GET",
       url: "http://example.com",
       headers: manyHeaders,
-      params: {} as Record<string, KvEntry>,
-      body: "" as string | undefined,
+      params: [],
+      body: "",
       timeout: 0,
     }
 
@@ -133,14 +133,14 @@ describe("RequestPane scrollbox", () => {
       Authorization: { value: "Bearer token", enabled: true },
     }
 
-    const request = {
+    const request: Request = {
       id: "test",
       name: "Test",
-      method: "GET" as const,
+      method: "GET",
       url: "http://example.com",
       headers,
-      params: {} as Record<string, KvEntry>,
-      body: "" as string | undefined,
+      params: [],
+      body: "",
       timeout: 0,
     }
 
@@ -302,14 +302,14 @@ describe("App layout stability", () => {
       manyHeaders[`X-Header-${i}`] = { value: `value-${i}`, enabled: true }
     }
 
-    const request = {
+    const request: Request = {
       id: "req-0",
       name: "Request 0",
-      method: "GET" as const,
+      method: "GET",
       url: "http://example.com",
       headers: manyHeaders,
-      params: {} as Record<string, KvEntry>,
-      body: "" as string | undefined,
+      params: [],
+      body: "",
       timeout: 0,
     }
 

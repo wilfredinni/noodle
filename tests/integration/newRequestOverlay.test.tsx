@@ -26,7 +26,7 @@ describe("NewRequestOverlay integration", () => {
       followRedirects: true,
       maxRedirects: 5,
       headers: {},
-      params: {},
+      params: [],
       auth: { type: "none" },
       bodyType: "none",
       body: "",
@@ -57,7 +57,7 @@ describe("NewRequestOverlay integration", () => {
       url: "/test",
       timeout: 0,
       headers: {},
-      params: {},
+      params: [],
     }
 
     const yaml = lang.serializeRequest(req)

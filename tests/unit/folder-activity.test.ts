@@ -11,7 +11,7 @@ function makeEntry(overrides: Partial<TimelineEntry> = {}): TimelineEntry {
       method: "GET" as Method,
       url: "https://api.example.com/users",
       headers: {},
-      params: {},
+      params: [],
     },
     response: {
       status: 200,

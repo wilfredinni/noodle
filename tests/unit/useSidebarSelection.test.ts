@@ -8,8 +8,9 @@ function makeRequest(id: string): Request {
     method: "GET",
     url: "https://example.com/" + id,
     headers: {},
-    params: {},
-  } as Request
+    params: [],
+    timeout: 0,
+  }
 }
 
 function clampBase(prev: number, len: number): number {
