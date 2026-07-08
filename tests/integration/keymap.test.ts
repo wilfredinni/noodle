@@ -183,7 +183,7 @@ describe("keymap dispatch", () => {
     cleanup()
   })
 
-  it("dispatches tab to focus.next even without mode gating", () => {
+  it("dispatches tab to focus.next without mode gating but blocked by overlay", () => {
     const { keymap, host, cleanup } = setup()
     let called = false
 
@@ -191,6 +191,10 @@ describe("keymap dispatch", () => {
       commands: [
         {
           name: "focus.next",
+          enabled: () => {
+            const overlay = keymap.getData("app.overlay") as string
+            return overlay === "none"
+          },
           run: () => {
             called = true
           },
@@ -199,8 +203,49 @@ describe("keymap dispatch", () => {
       bindings: [{ key: "tab", cmd: "focus.next" }],
     })
 
+    // works with no overlay
     host.press("tab")
     expect(called).toBe(true)
+
+    // blocked when overlay is active
+    called = false
+    keymap.setData("app.overlay", "help")
+    host.press("tab")
+    expect(called).toBe(false)
+
+    cleanup()
+  })
+
+  it("dispatches shift+tab to focus.prev without mode gating but blocked by overlay", () => {
+    const { keymap, host, cleanup } = setup()
+    let called = false
+
+    keymap.registerLayer({
+      commands: [
+        {
+          name: "focus.prev",
+          enabled: () => {
+            const overlay = keymap.getData("app.overlay") as string
+            return overlay === "none"
+          },
+          run: () => {
+            called = true
+          },
+        },
+      ],
+      bindings: [{ key: "shift+tab", cmd: "focus.prev" }],
+    })
+
+    // works with no overlay
+    host.press("tab", { shift: true })
+    expect(called).toBe(true)
+
+    // blocked when overlay is active
+    called = false
+    keymap.setData("app.overlay", "help")
+    host.press("tab", { shift: true })
+    expect(called).toBe(false)
+
     cleanup()
   })
 
