@@ -312,6 +312,7 @@ export function useCollectionFileActions({
       savePromise
         .then(() => {
           setCollectionReloadToken((n) => n + 1)
+          setSelectedId(newId)
           setEditRequestVisible(false)
           setFocus("sidebar")
           if (newFolder) expandFolder(newFolder)
@@ -329,6 +330,7 @@ export function useCollectionFileActions({
       setCollectionReloadToken,
       setEditRequestVisible,
       setFocus,
+      setSelectedId,
       showError,
       showSaveResult,
     ],

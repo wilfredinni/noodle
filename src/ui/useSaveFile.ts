@@ -54,7 +54,7 @@ export function useSaveFile(
         clearSaveTimer()
         setSaveState({
           kind: "success",
-          message: `Successfully edited ${requestId}`,
+          message: `Successfully edited ${req.name}`,
         })
         saveTimerRef.current = setTimeout(() => {
           setSaveState({ kind: "idle" })

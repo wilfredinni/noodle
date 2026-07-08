@@ -36,6 +36,7 @@ import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
+import type { SubstitutedRequest } from "../requests/substitute"
 import { getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import {
@@ -469,17 +470,17 @@ export function AppInner({
     (_req: NoodleRequest, _result: SendCompleteResult) => {},
   )
   onCompleteRef.current = (req: NoodleRequest, result: SendCompleteResult) => {
-    let resolvedUrl: string | undefined
+    let substituted: SubstitutedRequest | undefined
     const activeEnv = envStateRef.current.activeEnv
     if (activeEnv) {
       try {
-        resolvedUrl = substitute(req, activeEnv).url
+        substituted = substitute(req, activeEnv)
       } catch {
-        resolvedUrl = undefined
+        substituted = undefined
       }
     }
     timelineAppendRef.current(
-      buildTimelineEntry(req, result, envNameRef.current, resolvedUrl),
+      buildTimelineEntry(req, result, envNameRef.current, substituted),
     )
   }
 

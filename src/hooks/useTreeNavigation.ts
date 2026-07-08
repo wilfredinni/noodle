@@ -58,6 +58,7 @@ export function useTreeNavigation(
   cursorIndexRef.current = cursorIndex
 
   const initialCursorSet = useRef(false)
+  const prevSelectedIdRef = useRef(selectedId)
 
   const flatReqs = flattenRequests(items)
 
@@ -127,10 +128,13 @@ export function useTreeNavigation(
         }
       }
       if (selectedId) {
-        const idx = vis.findIndex(
-          (n) => n.type === "request" && n.id === selectedId,
-        )
-        if (idx >= 0) setCursorIndex(idx)
+        const currentNode = visRef.current[cursorIndexRef.current]
+        if (currentNode?.type !== "folder") {
+          const idx = vis.findIndex(
+            (n) => n.type === "request" && n.id === selectedId,
+          )
+          if (idx >= 0) setCursorIndex(idx)
+        }
       }
     } else {
       setSelectedIdState(null)
@@ -138,6 +142,9 @@ export function useTreeNavigation(
   }, [items])
 
   useEffect(() => {
+    const selectedIdChanged = prevSelectedIdRef.current !== selectedId
+    prevSelectedIdRef.current = selectedId
+
     if (initialCursorSet.current) return
     if (vis.length === 0) return
 
@@ -158,6 +165,8 @@ export function useTreeNavigation(
     }
 
     if (!selectedId) return
+    const currentNode = visRef.current[cursorIndexRef.current]
+    if (currentNode?.type === "folder" && !selectedIdChanged) return
     const idx = vis.findIndex(
       (n) => n.type === "request" && n.id === selectedId,
     )

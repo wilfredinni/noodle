@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
+import { useKeymap } from "@opentui/keymap/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { SendState } from "./sendState"
 import type { TimelineEntry } from "../schema"
@@ -37,6 +38,7 @@ export function ResponsePane({
   expandHint?: string
 }) {
   const theme = useTheme()
+  const keymap = useKeymap()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
 
@@ -50,6 +52,7 @@ export function ResponsePane({
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (!isDone) return
+    if (keymap.getData("app.overlay") !== "none") return
     if (key.name === "left")
       setActiveTab((prev) => {
         const ids = ["body", "headers", "timeline"] as const

@@ -63,7 +63,6 @@ export function parseFolder(yamlText: string): {
 
 type RawFolderAuth =
   | { type: "none"; [k: string]: unknown }
-  | { type: "inherit"; [k: string]: unknown }
   | { type: "bearer"; token: string; [k: string]: unknown }
   | { type: "basic"; user: string; pass: string; [k: string]: unknown }
   | {
@@ -81,7 +80,6 @@ function parseFolderAuth(value: unknown): Auth {
   }
   const a = value as RawFolderAuth
   if (a.type === "none") return { type: "none" }
-  if (a.type === "inherit") return { type: "inherit" }
   if (a.type === "bearer") {
     if (typeof a.token !== "string")
       throw new Error('lang.parseFolder: auth.bearer requires "token"')
@@ -149,8 +147,6 @@ export function serializeFolder(folder: Folder): string {
       out += "auth:\n"
       if (o.auth.type === "none") {
         out += "  type: none\n"
-      } else if (o.auth.type === "inherit") {
-        out += "  type: inherit\n"
       } else if (o.auth.type === "bearer") {
         out += "  type: bearer\n"
         out += `  token: ${yamlVal(o.auth.token)}\n`

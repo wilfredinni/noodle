@@ -11,6 +11,12 @@ import { initialEditState } from "../src/ui/editMode"
 import type { EditState } from "../src/ui/editMode"
 
 import { ThemeProvider } from "../src/ui/theme"
+import type { Keymap } from "@opentui/keymap"
+import type { Renderable, KeyEvent } from "@opentui/core"
+import { KeymapProvider } from "@opentui/keymap/react"
+import { createTestKeymap } from "@opentui/keymap/testing"
+
+type OpenTuiKeymap = Keymap<Renderable, KeyEvent>
 
 function makeRequest(i: number): Request {
   return {
@@ -51,8 +57,13 @@ describe("ResponsePane scrollbox", () => {
       },
     } satisfies SendState
 
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
     const { renderOnce, captureCharFrame } = await testRender(
-      <ResponsePane state={state} focused={true} />,
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane state={state} focused={true} />
+      </KeymapProvider>,
       { width: 80, height: 12 },
     )
     await renderOnce()
@@ -323,34 +334,39 @@ describe("App layout stability", () => {
       },
     } satisfies SendState
 
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
     const { renderOnce, captureCharFrame } = await testRender(
-      <box style={{ width: "100%", height: "100%", flexDirection: "column" }}>
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
-          <Sidebar
-            items={items}
-            loading={false}
-            error={null}
-            visibleItems={visibleItems}
-            cursorIndex={3}
-            selectedId="req-3"
-            expanded={new Set()}
-            focused={false}
-          />
-          <box style={{ flexDirection: "column", flexGrow: 1 }}>
-            <RequestPane
-              request={request}
-              editState={initialEditState()}
-              editKey=""
-              editValue=""
-              setEditKey={() => {}}
-              setEditValue={() => {}}
+      <KeymapProvider keymap={keymap}>
+        <box style={{ width: "100%", height: "100%", flexDirection: "column" }}>
+          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+            <Sidebar
+              items={items}
+              loading={false}
+              error={null}
+              visibleItems={visibleItems}
+              cursorIndex={3}
+              selectedId="req-3"
+              expanded={new Set()}
               focused={false}
-              activeTab="headers"
             />
-            <ResponsePane state={responseState} focused={false} />
+            <box style={{ flexDirection: "column", flexGrow: 1 }}>
+              <RequestPane
+                request={request}
+                editState={initialEditState()}
+                editKey=""
+                editValue=""
+                setEditKey={() => {}}
+                setEditValue={() => {}}
+                focused={false}
+                activeTab="headers"
+              />
+              <ResponsePane state={responseState} focused={false} />
+            </box>
           </box>
         </box>
-      </box>,
+      </KeymapProvider>,
       { width: 80, height: 24 },
     )
     await renderOnce()

@@ -292,12 +292,15 @@ describe("buildTimelineEntry", () => {
       request: req,
       envName: "dev",
     }
-    const entry = buildTimelineEntry(
-      req,
-      result,
-      "dev",
-      "https://api.example.com/v1/path",
-    )
+    const entry = buildTimelineEntry(req, result, "dev", {
+      id: req.id,
+      name: req.name,
+      method: req.method,
+      url: "https://api.example.com/v1/path",
+      timeout: req.timeout,
+      headers: {},
+      params: {},
+    })
     expect(entry.request.url).toBe("https://api.example.com/v1/path")
   })
 

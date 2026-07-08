@@ -1,6 +1,7 @@
 import type { TimelineEntry, Method } from "../../schema"
 import type { Request } from "../../schema"
 import type { SendCompleteResult } from "../../hooks/useResponse"
+import type { SubstitutedRequest } from "../../requests/substitute"
 
 const MAX_BODY_LENGTH = 10_000
 
@@ -21,7 +22,7 @@ export function buildTimelineEntry(
   req: Request,
   result: SendCompleteResult,
   envName?: string,
-  resolvedUrl?: string,
+  substituted?: SubstitutedRequest,
 ): TimelineEntry {
   return {
     timestamp: Date.now(),
@@ -30,11 +31,25 @@ export function buildTimelineEntry(
       id: req.id,
       name: req.name,
       method: req.method,
-      url: resolvedUrl ?? req.url,
-      headers: { ...req.headers },
-      params: { ...req.params },
-      body: truncateBody(req.body),
-      auth: req.auth ? { ...req.auth } : undefined,
+      url: substituted?.url ?? req.url,
+      headers: substituted
+        ? Object.fromEntries(
+            Object.entries(substituted.headers).map(([k, v]) => [
+              k,
+              { value: v, enabled: true },
+            ]),
+          )
+        : { ...req.headers },
+      params: substituted
+        ? Object.fromEntries(
+            Object.entries(substituted.params).map(([k, v]) => [
+              k,
+              { value: v, enabled: true },
+            ]),
+          )
+        : { ...req.params },
+      body: truncateBody(substituted?.body ?? req.body),
+      auth: substituted?.auth ?? (req.auth ? { ...req.auth } : undefined),
     },
     response:
       result.status === "done"
