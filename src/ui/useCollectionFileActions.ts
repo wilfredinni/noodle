@@ -128,7 +128,7 @@ export function useCollectionFileActions({
         followRedirects: true,
         maxRedirects: 5,
         headers: {},
-        params: {},
+        params: [],
         auth: { type: "none" },
         bodyType: "none",
         body: "",

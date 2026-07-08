@@ -16,6 +16,7 @@ import type {
   Environment,
   FormEntry,
   KvEntry,
+  ParamEntry,
   Request,
 } from "../../schema"
 import type { ImportResult } from "../index"
@@ -108,13 +109,13 @@ function mapHeaders(
 
 function mapParams(
   query: PropertyList<QueryParam> | undefined,
-): Record<string, KvEntry> {
-  const out: Record<string, KvEntry> = {}
+): ParamEntry[] {
+  const out: ParamEntry[] = []
   if (!query) return out
   query.each((p: QueryParam) => {
     const key = p.key.trim()
     if (key !== "") {
-      out[key] = { value: convertTpl(p.value), enabled: !p.disabled }
+      out.push({ name: key, value: convertTpl(p.value), enabled: !p.disabled })
     }
   })
   return out
@@ -227,7 +228,7 @@ function mapRequest(
       url: "$base_url",
       timeout: 0,
       headers: {},
-      params: {},
+      params: [],
     }
   }
 

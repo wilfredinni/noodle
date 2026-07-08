@@ -5,6 +5,7 @@ import type {
   Environment,
   FormEntry,
   KvEntry,
+  ParamEntry,
   Request,
 } from "../../schema"
 import type { ImportResult } from "../index"
@@ -311,11 +312,14 @@ export function mapCollection(n: Normalized): ImportResult {
 
       const collected = collectParams(pi.parameters, op.parameters)
       const headers: Record<string, KvEntry> = {}
-      const params: Record<string, KvEntry> = {}
+      const params: ParamEntry[] = []
       for (const p of collected) {
         const val = p.default ?? ""
-        if (p.in === "query") params[p.name] = { value: val, enabled: true }
-        else if (p.in === "header")
+        if (p.in === "query") {
+          const idx = params.findIndex((e) => e.name === p.name)
+          if (idx >= 0) params.splice(idx, 1)
+          params.push({ name: p.name, value: val, enabled: true })
+        } else if (p.in === "header")
           headers[p.name] = { value: val, enabled: true }
       }
 
@@ -388,8 +392,8 @@ export function mapCollection(n: Normalized): ImportResult {
       const m = kv.value.match(/\$(\w+)/)
       if (m) envVarsFound.add(m[1])
     }
-    for (const [, kv] of Object.entries(r.params)) {
-      const m = kv.value.match(/\$(\w+)/)
+    for (const entry of r.params) {
+      const m = entry.value.match(/\$(\w+)/)
       if (m) envVarsFound.add(m[1])
     }
     if (r.body) {
