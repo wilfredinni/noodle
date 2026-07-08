@@ -30,10 +30,10 @@ function formatRequestHeaders(entry: TimelineEntryType): string[] {
 function formatRequestUrl(entry: TimelineEntryType): string {
   const u = entry.request.url
   const params = entry.request.params
-  const enabled = Object.entries(params).filter(([, v]) => v.enabled)
+  const enabled = params.filter((p) => p.enabled)
   if (enabled.length === 0) return u
   const qs = enabled
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v.value)}`)
+    .map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
     .join("&")
   if (u.includes("?")) return `${u}&${qs}`
   return `${u}?${qs}`

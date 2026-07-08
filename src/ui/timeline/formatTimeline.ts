@@ -41,13 +41,8 @@ export function buildTimelineEntry(
           )
         : { ...req.headers },
       params: substituted
-        ? Object.fromEntries(
-            Object.entries(substituted.params).map(([k, v]) => [
-              k,
-              { value: v, enabled: true },
-            ]),
-          )
-        : { ...req.params },
+        ? substituted.params.map((p) => ({ ...p }))
+        : [...req.params],
       body: truncateBody(substituted?.body ?? req.body),
       auth: substituted?.auth ?? (req.auth ? { ...req.auth } : undefined),
     },
