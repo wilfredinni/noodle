@@ -21,6 +21,12 @@ export interface KvEntry {
   enabled: boolean
 }
 
+export interface ParamEntry {
+  name: string
+  value: string
+  enabled: boolean
+}
+
 export interface FolderMeta {
   name?: string
   seq?: number
@@ -65,7 +71,7 @@ export interface Request {
   followRedirects?: boolean
   maxRedirects?: number
   headers: Record<string, KvEntry>
-  params: Record<string, KvEntry>
+  params: ParamEntry[]
   body?: string
   bodyType?: BodyType
   formData?: FormEntry[]
@@ -103,7 +109,7 @@ export interface TimelineEntry {
     method: Method
     url: string
     headers: Record<string, KvEntry>
-    params: Record<string, KvEntry>
+    params: ParamEntry[]
     body?: string
     auth?: Auth
   }
