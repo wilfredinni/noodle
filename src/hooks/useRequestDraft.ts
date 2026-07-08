@@ -6,6 +6,7 @@ import type {
   Auth,
   Method,
   KvEntry,
+  ParamEntry,
 } from "../schema"
 import type { FieldKind } from "../ui/editMode"
 import { parseUrlAndParams } from "../ui/urlParams"
@@ -121,7 +122,7 @@ export function requestEquals(a: Request, b: Request): boolean {
   if ((a.bodyType ?? "json") !== (b.bodyType ?? "json")) return false
   if (a.filePath !== b.filePath) return false
   if (!recordsEqual(a.headers, b.headers)) return false
-  if (!recordsEqual(a.params, b.params)) return false
+  if (!paramEntriesEqual(a.params, b.params)) return false
   if (!authEqual(a.auth, b.auth)) return false
   const fa = a.formData ?? []
   const fb = b.formData ?? []
@@ -217,6 +218,76 @@ function toggleRow(
     }
   }
   return out
+}
+
+function replaceParam(
+  params: ParamEntry[],
+  index: number,
+  name: string,
+  value: string,
+): ParamEntry[] {
+  const entry = params[index]
+  if (!entry) return params
+  if (name === "") return params.filter((_, i) => i !== index)
+  return params.map((e, i) =>
+    i === index ? { name, value, enabled: e.enabled } : e,
+  )
+}
+
+function addParam(
+  params: ParamEntry[],
+  name: string,
+  value: string,
+): ParamEntry[] {
+  if (name === "") return params
+  return [...params, { name, value, enabled: true }]
+}
+
+function removeParam(
+  params: ParamEntry[],
+  index: number,
+): ParamEntry[] {
+  const entry = params[index]
+  if (!entry) return params
+  return params.filter((_, i) => i !== index)
+}
+
+function revertParam(
+  params: ParamEntry[],
+  originalParams: ParamEntry[],
+  index: number,
+): ParamEntry[] {
+  const origEntry = originalParams[index]
+  if (!origEntry) {
+    return removeParam(params, index)
+  }
+  const out = [...params]
+  out[index] = { ...origEntry }
+  return out
+}
+
+function toggleParam(
+  params: ParamEntry[],
+  index: number,
+): ParamEntry[] {
+  const entry = params[index]
+  if (!entry) return params
+  return params.map((e, i) =>
+    i === index ? { ...e, enabled: !e.enabled } : e,
+  )
+}
+
+function paramEntriesEqual(a: ParamEntry[], b: ParamEntry[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i]!.name !== b[i]!.name ||
+      a[i]!.value !== b[i]!.value ||
+      a[i]!.enabled !== b[i]!.enabled
+    )
+      return false
+  }
+  return true
 }
 
 function formEntriesEqual(a: FormEntry[], b: FormEntry[]): boolean {
@@ -338,21 +409,17 @@ export function applyDraft(
       break
     case "setParamRow": {
       const { key, value } = op
-      if (key === "") {
-        draft.params = removeRow(current.params, op.index)
-      } else {
-        draft.params = replaceRow(current.params, op.index, key, value)
-      }
+      draft.params = replaceParam(current.params, op.index, key, value)
       break
     }
     case "addParamRow":
-      draft.params = addRow(current.params, op.key, op.value)
+      draft.params = addParam(current.params, op.key, op.value)
       break
     case "removeParamRow":
-      draft.params = removeRow(current.params, op.index)
+      draft.params = removeParam(current.params, op.index)
       break
     case "toggleParamRow":
-      draft.params = toggleRow(current.params, op.index)
+      draft.params = toggleParam(current.params, op.index)
       break
     case "setTimeout":
       draft.timeout = op.timeout
@@ -421,7 +488,7 @@ export function applyDraft(
       } else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {
-        draft.params = revertRow(current.params, original.params, op.row)
+        draft.params = revertParam(current.params, original.params, op.row)
       } else if (op.field === "auth") {
         if (op.row === undefined || op.row === 0) {
           draft.auth = original.auth
