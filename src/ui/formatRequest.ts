@@ -1,4 +1,4 @@
-import type { Auth, KvEntry, Method } from "../schema"
+import type { Auth, KvEntry, Method, ParamEntry } from "../schema"
 import type { Theme } from "./theme"
 
 export function methodColor(method: Method, theme: Theme): string {
@@ -15,10 +15,10 @@ export function formatHeaders(headers: Record<string, KvEntry>): string[] {
   return entries.map(([k, v]) => `${k}: ${v.value}`)
 }
 
-export function formatParams(params: Record<string, KvEntry>): string[] {
-  const entries = Object.entries(params)
+export function formatParams(params: ParamEntry[]): string[] {
+  const entries = params.map((p) => [p.name, p.value] as [string, string])
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return entries.map(([k, v]) => `${k}: ${v.value}`)
+  return entries.map(([k, v]) => `${k}: ${v}`)
 }
 
 export function formatBody(body?: string): string {

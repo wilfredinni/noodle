@@ -3,7 +3,7 @@ import { Badge } from "./Badge"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
-import type { Method, KvEntry, Environment } from "../schema"
+import type { Method, ParamEntry, Environment } from "../schema"
 import { buildDisplayUrl } from "./urlParams"
 import { VarText } from "./VarText"
 
@@ -18,7 +18,7 @@ export function UrlBar({
 }: {
   method: string
   url: string
-  params: Record<string, KvEntry>
+  params: ParamEntry[]
   setUrl: (url: string) => void
   onDefocus: (rawUrl: string) => void
   focused?: boolean
