@@ -9,4 +9,5 @@ params:
     value: val1
   - name: key
     value: val2
+    enabled: false
 body_type: none

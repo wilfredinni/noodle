@@ -24,11 +24,14 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     headers[k] = resolve(v.value, `headers.${k}`)
   }
 
-  const params: ParamEntry[] = req.params.map((entry, i) => ({
-    name: resolve(entry.name, `params[${i}].name`),
-    value: resolve(entry.value, `params[${i}].value`),
-    enabled: entry.enabled,
-  }))
+  const params: ParamEntry[] = req.params.map((entry, i) => {
+    if (!entry.enabled) return { ...entry }
+    return {
+      name: resolve(entry.name, `params[${i}].name`),
+      value: resolve(entry.value, `params[${i}].value`),
+      enabled: entry.enabled,
+    }
+  })
 
   const auth =
     req.auth === undefined ? undefined : substituteAuth(req.auth, resolve)

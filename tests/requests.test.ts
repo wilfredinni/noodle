@@ -133,6 +133,58 @@ describe("substitute — formData", () => {
   })
 })
 
+describe("substitute — params", () => {
+  it("substitutes $var in param name and value", () => {
+    const env: Environment = {
+      name: "dev",
+      vars: { K: "userId", V: "42" },
+    }
+    const req = makeReq({
+      params: [{ name: "$K", value: "$V", enabled: true }],
+    })
+    const result = substitute(req, env)
+    expect(result.params).toEqual([
+      { name: "userId", value: "42", enabled: true },
+    ])
+  })
+
+  it("does not throw on disabled param with unresolved $var", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      params: [
+        { name: "good", value: "1", enabled: true },
+        { name: "bad", value: "$MISSING", enabled: false },
+      ],
+    })
+    expect(() => substitute(req, env)).not.toThrow()
+  })
+
+  it("throws on enabled param with unresolved $var", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      params: [{ name: "bad", value: "$MISSING", enabled: true }],
+    })
+    expect(() => substitute(req, env)).toThrow(
+      'requests.substitute: unresolved variable "MISSING" in params[0].value',
+    )
+  })
+
+  it("preserves disabled params without substitution", () => {
+    const env: Environment = { name: "dev", vars: { X: "y" } }
+    const req = makeReq({
+      params: [
+        { name: "a", value: "$X", enabled: false },
+        { name: "b", value: "$X", enabled: true },
+      ],
+    })
+    const result = substitute(req, env)
+    expect(result.params).toEqual([
+      { name: "a", value: "$X", enabled: false },
+      { name: "b", value: "y", enabled: true },
+    ])
+  })
+})
+
 describe("bodyForSend — bodyType routing", () => {
   it("returns undefined when bodyType is none", async () => {
     const h = new Headers()
