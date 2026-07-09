@@ -112,8 +112,15 @@ export function AppInner({
     visible: boolean
     filePath: string
     requestName: string
+    requestId: string
     returnFocus: Focus
-  }>({ visible: false, filePath: "", requestName: "", returnFocus: "sidebar" })
+  }>({
+    visible: false,
+    filePath: "",
+    requestName: "",
+    requestId: "",
+    returnFocus: "sidebar",
+  })
 
   const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
   const envDeletePendingRef = useRef(envDeletePending)
@@ -875,6 +882,7 @@ export function AppInner({
           yamlEditor={yamlEditor}
           setYamlEditor={setYamlEditor}
           setCollectionReloadToken={setCollectionReloadToken}
+          resetRequestDraft={draft.resetRequestDraft}
           setFocus={setFocus}
           setSaveState={setSaveState}
           clearSaveTimer={clearSaveTimer}

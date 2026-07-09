@@ -34,6 +34,7 @@ interface YamlEditorState {
   visible: boolean
   filePath: string
   requestName: string
+  requestId: string
   returnFocus: Focus
 }
 
@@ -62,6 +63,7 @@ interface AppOverlaysProps {
   yamlEditor: YamlEditorState
   setYamlEditor: (state: YamlEditorState) => void
   setCollectionReloadToken: (fn: (n: number) => number) => void
+  resetRequestDraft: (id: string) => void
   setFocus: (focus: Focus) => void
   setSaveState: (state: SaveState) => void
   clearSaveTimer: () => void
@@ -107,6 +109,7 @@ export function AppOverlays({
   yamlEditor,
   setYamlEditor,
   setCollectionReloadToken,
+  resetRequestDraft,
   setFocus,
   setSaveState,
   clearSaveTimer,
@@ -188,11 +191,13 @@ export function AppOverlays({
           filePath={yamlEditor.filePath}
           requestName={yamlEditor.requestName}
           onSaved={() => {
+            resetRequestDraft(yamlEditor.requestId)
             setCollectionReloadToken((n) => n + 1)
             setYamlEditor({
               visible: false,
               filePath: "",
               requestName: "",
+              requestId: "",
               returnFocus: "sidebar",
             })
             setFocus(yamlEditor.returnFocus)
@@ -210,6 +215,7 @@ export function AppOverlays({
               visible: false,
               filePath: "",
               requestName: "",
+              requestId: "",
               returnFocus: "sidebar",
             })
             setFocus(yamlEditor.returnFocus)
