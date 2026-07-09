@@ -230,11 +230,17 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     ref.current!.setName("new-env")
     await renderOnce()
 
-    ref.current!.addVar()
+    ref.current!.enterBrowse()
     await renderOnce()
 
-    ref.current!.updateVarKey(0, "key")
-    ref.current!.updateVarValue(0, "value")
+    ref.current!.enterEdit()
+    await renderOnce()
+
+    ref.current!.setEditKey("key")
+    ref.current!.setEditValue("value")
+    await renderOnce()
+
+    ref.current!.commitEdit()
     await renderOnce()
 
     console.log("draft before save:", JSON.stringify(ref.current!.draft))

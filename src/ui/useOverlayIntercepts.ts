@@ -623,7 +623,7 @@ export function useOverlayIntercepts(opts: {
         const f = focusRef.current
 
         if (f === "env-sidebar") {
-          if (e.name === "up" && ee.editingField === null) {
+          if (e.name === "up" && ee.draft !== null) {
             e.preventDefault()
             e.stopPropagation()
             const names = ee.envNames
@@ -634,7 +634,7 @@ export function useOverlayIntercepts(opts: {
             if (names[prev]) ee.selectEnv(names[prev]!)
             return
           }
-          if (e.name === "down" && ee.editingField === null) {
+          if (e.name === "down" && ee.draft !== null) {
             e.preventDefault()
             e.stopPropagation()
             const names = ee.envNames
@@ -657,6 +657,7 @@ export function useOverlayIntercepts(opts: {
             } else {
               headerFieldRef.current = "name"
               setFocus("env-vars")
+              ee.enterBrowse()
             }
             return
           }
@@ -670,105 +671,6 @@ export function useOverlayIntercepts(opts: {
               headerFieldRef.current = "color"
               setFocus("env-sidebar")
             }
-            return
-          }
-        }
-
-        if (f === "env-vars") {
-          const inEdit = ee.editingField !== null
-          const rows = ee.draft?.varRows.length ?? 0
-
-          if (e.name === "up" && !inEdit) {
-            e.preventDefault()
-            e.stopPropagation()
-            const prev = Math.max(0, ee.selectedRowIndex - 1)
-            ee.selectRow(prev)
-            return
-          }
-          if (e.name === "down" && !inEdit) {
-            e.preventDefault()
-            e.stopPropagation()
-            if (ee.selectedRowIndex >= rows - 1) {
-              if (ee.selectedRowIndex >= rows) {
-                ee.addVar()
-              } else {
-                ee.selectRow(rows)
-              }
-            } else {
-              ee.selectRow(ee.selectedRowIndex + 1)
-            }
-            return
-          }
-
-          if (e.name === "return") {
-            e.preventDefault()
-            e.stopPropagation()
-            if (rows === 0) {
-              ee.addVar()
-              return
-            }
-            if (ee.selectedRowIndex >= rows) {
-              ee.addVar()
-              return
-            }
-            if (ee.editingField === null) {
-              ee.editField("key")
-            } else if (ee.editingField === "key") {
-              ee.editField("value")
-            } else {
-              const next = ee.selectedRowIndex + 1
-              if (next < rows) {
-                ee.selectRow(next)
-                ee.editField("key")
-              } else {
-                ee.editField(null)
-              }
-            }
-            return
-          }
-
-          if (e.name === "tab" && !e.shift && inEdit) {
-            e.preventDefault()
-            e.stopPropagation()
-            if (ee.editingField === "key") {
-              ee.editField("value")
-            } else {
-              ee.editField("key")
-            }
-            return
-          }
-
-          if (e.name === "escape") {
-            if (inEdit) {
-              e.preventDefault()
-              e.stopPropagation()
-              ee.editField(null)
-              return
-            }
-            if (ee.selectedRowIndex >= rows) {
-              e.preventDefault()
-              e.stopPropagation()
-              ee.selectRow(Math.max(0, rows - 1))
-              return
-            }
-          }
-
-          if (
-            e.name === "d" &&
-            e.ctrl &&
-            !inEdit &&
-            ee.selectedRowIndex < rows
-          ) {
-            e.preventDefault()
-            e.stopPropagation()
-            ee.deleteVar(ee.selectedRowIndex)
-            return
-          }
-
-          if (e.name === "space" && !inEdit && ee.selectedRowIndex < rows) {
-            e.preventDefault()
-            e.stopPropagation()
-            ee.toggleVar(ee.selectedRowIndex)
             return
           }
         }

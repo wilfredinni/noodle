@@ -173,6 +173,8 @@ export function useAppKeymap(
             )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
+            if (next === "env-vars" && refs.viewRef.current === "env-editor")
+              refs.envEditorRef.current.enterBrowse()
             return next
           }),
       },
@@ -208,6 +210,8 @@ export function useAppKeymap(
             )
             if (next === "request" && refs.viewRef.current === "main")
               refs.ebRef.current.enterBrowse()
+            if (next === "env-vars" && refs.viewRef.current === "env-editor")
+              refs.envEditorRef.current.enterBrowse()
             return next
           }),
       },
@@ -733,6 +737,95 @@ export function useAppKeymap(
       { key: keybinds.env_new, cmd: "env.new" },
       { key: keybinds.env_clone, cmd: "env.clone" },
       { key: keybinds.env_delete, cmd: "env.delete" },
+    ],
+  }))
+  // ── Keymap: Env Editor Browse Layer ──────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.view") === "env-editor" &&
+      keymap.getData("app.focus") === "env-vars" &&
+      keymap.getData("app.mode") === "browse" &&
+      keymap.getData("app.overlay") === "none",
+    commands: [
+      {
+        name: "env-browse.up",
+        run: () => refs.envEditorRef.current.browseUp(),
+      },
+      {
+        name: "env-browse.down",
+        run: () => refs.envEditorRef.current.browseDown(),
+      },
+      {
+        name: "env-browse.enter",
+        run: () => refs.envEditorRef.current.enterEdit(),
+      },
+      {
+        name: "env-browse.escape",
+        run: () => refs.envEditorRef.current.exitBrowse(),
+      },
+      {
+        name: "env-browse.toggle",
+        run: () => {
+          const state = refs.envEditorRef.current.editState
+          if (!state.addingRow && state.row >= 0) {
+            refs.envEditorRef.current.toggleVar(state.row)
+          }
+        },
+      },
+      {
+        name: "env-browse.revert",
+        run: () => {
+          const state = refs.envEditorRef.current.editState
+          if (!state.addingRow && state.row >= 0) {
+            refs.envEditorRef.current.revertVar(state.row)
+          }
+        },
+      },
+      {
+        name: "env.save",
+        run: () => refs.envEditorRef.current.save(),
+      },
+    ],
+    bindings: [
+      { key: "up", cmd: "env-browse.up" },
+      { key: "down", cmd: "env-browse.down" },
+      { key: "return", cmd: "env-browse.enter" },
+      { key: "escape", cmd: "env-browse.escape" },
+      { key: "space", cmd: "env-browse.toggle" },
+      { key: keybinds.browse_delete, cmd: "env-browse.revert" },
+      { key: keybinds.env_save, cmd: "env.save" },
+    ],
+  }))
+  // ── Keymap: Env Editor Edit Layer ────────────────────────────────────
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.view") === "env-editor" &&
+      keymap.getData("app.focus") === "env-vars" &&
+      keymap.getData("app.mode") === "edit" &&
+      keymap.getData("app.overlay") === "none",
+    commands: [
+      {
+        name: "env-edit.commit",
+        run: () => refs.envEditorRef.current.commitEdit(),
+      },
+      {
+        name: "env-edit.cancel",
+        run: () => refs.envEditorRef.current.cancelEdit(),
+      },
+      {
+        name: "env-edit.tab",
+        run: () => refs.envEditorRef.current.browseTab(),
+      },
+      {
+        name: "env.save",
+        run: () => refs.envEditorRef.current.save(),
+      },
+    ],
+    bindings: [
+      { key: "return", cmd: "env-edit.commit" },
+      { key: "escape", cmd: "env-edit.cancel" },
+      { key: "tab", cmd: "env-edit.tab" },
+      { key: keybinds.env_save, cmd: "env.save" },
     ],
   }))
 }

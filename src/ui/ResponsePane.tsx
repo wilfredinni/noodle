@@ -195,19 +195,19 @@ export function ResponsePane({
                 scrollbarOptions={{ visible: false }}
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
-                  {activeTab === "body" ? (
-                    <box style={{ flexDirection: "column", gap: 1 }}>
-                      {formattedBody === "" ? (
-                        <text fg={theme.textMuted}>(no body)</text>
-                      ) : (
-                        <JsonBodyViewer
-                          key={formattedBody}
-                          body={formattedBody}
-                          theme={theme}
-                          readOnly
-                        />
-                      )}
-                    </box>
+                {activeTab === "body" ? (
+                  <box style={{ flexDirection: "column", gap: 1 }}>
+                    {formattedBody === "" ? (
+                      <text fg={theme.textMuted}>(no body)</text>
+                    ) : (
+                      <JsonBodyViewer
+                        key={formattedBody}
+                        body={formattedBody}
+                        theme={theme}
+                        readOnly
+                      />
+                    )}
+                  </box>
                 ) : (
                   responseHeaders.map(({ key, value }, i) => {
                     if (i < responseHeaders.length - 1) {

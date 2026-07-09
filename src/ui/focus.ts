@@ -64,7 +64,13 @@ export function hintForFocus(
       return "[Tab] · [Enter] toggle field · [^N] new env · [^S] save · [^K] clone · [^W] delete env"
     }
     if (focus === "env-vars") {
-      return "[↑/↓] navigate · [Enter] edit · [^x] toggle · [^d] delete · [^N] new env · [^K] clone · [^W] delete env"
+      if (mode === "browsing") {
+        return "[↑/↓] navigate · [Enter] edit · [Esc] back · [Space] toggle · [^D] revert"
+      }
+      if (mode === "editing") {
+        return "[Enter] commit · [Esc] cancel · [Tab] next field"
+      }
+      return "[Enter] browse · [Tab] next · [^S] save · [Esc] back"
     }
     return "[Tab] next · [^S] save · [Esc] back"
   }
