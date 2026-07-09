@@ -15,7 +15,11 @@ export function createYamlSyntaxStyle(theme: Theme): SyntaxStyle {
   })
 }
 
-function styleIdForFg(fg: string, theme: Theme, style: SyntaxStyle): number {
+export function styleIdForFg(
+  fg: string,
+  theme: Theme,
+  style: SyntaxStyle,
+): number {
   if (fg === theme.secondary) return style.getStyleId("yaml.key") ?? 0
   if (fg === theme.success) return style.getStyleId("yaml.string") ?? 0
   if (fg === theme.warning) return style.getStyleId("yaml.number") ?? 0
@@ -24,12 +28,12 @@ function styleIdForFg(fg: string, theme: Theme, style: SyntaxStyle): number {
   return style.getStyleId("yaml.text") ?? 0
 }
 
-interface Span {
+export interface Span {
   text: string
   fg: string
 }
 
-function tokenizeYamlLine(line: string, theme: Theme): Span[] {
+export function tokenizeYamlLine(line: string, theme: Theme): Span[] {
   const trimmed = line.trimStart()
   const indent = line.slice(0, line.length - trimmed.length)
 
