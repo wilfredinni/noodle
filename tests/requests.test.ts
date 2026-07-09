@@ -60,7 +60,7 @@ describe("substitute — formData", () => {
     ])
   })
 
-  it("preserves disabled entries after substitution", () => {
+  it("preserves disabled entries without substitution", () => {
     const env: Environment = { name: "dev", vars: { X: "y" } }
     const req = makeReq({
       bodyType: "urlencoded",
@@ -71,9 +71,21 @@ describe("substitute — formData", () => {
     })
     const result = substitute(req, env)
     expect(result.formData).toEqual([
-      { name: "a", value: "y", enabled: false, type: "text" },
+      { name: "a", value: "$X", enabled: false, type: "text" },
       { name: "b", value: "y", enabled: true, type: "text" },
     ])
+  })
+
+  it("does not throw on disabled formData with unresolved $var", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      bodyType: "urlencoded",
+      formData: [
+        { name: "good", value: "v", enabled: true, type: "text" },
+        { name: "bad", value: "$MISSING", enabled: false, type: "text" },
+      ],
+    })
+    expect(() => substitute(req, env)).not.toThrow()
   })
 
   it("throws on unresolved $var in formData name", () => {
