@@ -70,29 +70,29 @@ export interface UseAppKeymapSetters {
       | "env-editor"
       | ((prev: "main" | "env-editor") => "main" | "env-editor"),
   ) => void
-      setYamlEditor: (
-        v:
-          | {
-              visible: boolean
-              filePath: string
-              requestName: string
-              requestId: string
-              returnFocus: Focus
-            }
-          | ((prev: {
-              visible: boolean
-              filePath: string
-              requestName: string
-              requestId: string
-              returnFocus: Focus
-            }) => {
-              visible: boolean
-              filePath: string
-              requestName: string
-              requestId: string
-              returnFocus: Focus
-            }),
-      ) => void
+  setYamlEditor: (
+    v:
+      | {
+          visible: boolean
+          filePath: string
+          requestName: string
+          requestId: string
+          returnFocus: Focus
+        }
+      | ((prev: {
+          visible: boolean
+          filePath: string
+          requestName: string
+          requestId: string
+          returnFocus: Focus
+        }) => {
+          visible: boolean
+          filePath: string
+          requestName: string
+          requestId: string
+          returnFocus: Focus
+        }),
+  ) => void
   setCollectionReloadToken: (n: number | ((prev: number) => number)) => void
   setPreviewIndex: (
     n: number | null | ((prev: number | null) => number | null),

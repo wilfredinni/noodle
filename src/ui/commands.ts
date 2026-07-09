@@ -75,29 +75,29 @@ export interface CommandBuilderContext {
   setCollectionSwitcherVisible: (
     v: boolean | ((prev: boolean) => boolean),
   ) => void
-      setYamlEditor: (
-        v:
-          | {
-              visible: boolean
-              filePath: string
-              requestName: string
-              requestId: string
-              returnFocus: Focus
-            }
-          | ((prev: {
-              visible: boolean
-              filePath: string
-              requestName: string
-              requestId: string
-              returnFocus: Focus
-            }) => {
-              visible: boolean
-              filePath: string
-              requestName: string
-              requestId: string
-              returnFocus: Focus
-            }),
-      ) => void
+  setYamlEditor: (
+    v:
+      | {
+          visible: boolean
+          filePath: string
+          requestName: string
+          requestId: string
+          returnFocus: Focus
+        }
+      | ((prev: {
+          visible: boolean
+          filePath: string
+          requestName: string
+          requestId: string
+          returnFocus: Focus
+        }) => {
+          visible: boolean
+          filePath: string
+          requestName: string
+          requestId: string
+          returnFocus: Focus
+        }),
+  ) => void
   setView: (
     v:
       | "main"

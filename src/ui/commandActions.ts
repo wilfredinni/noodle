@@ -70,9 +70,7 @@ export function editRequestYaml(c: CommandActionsConfig): boolean {
   return true
 }
 
-export function getEditRequestYamlFile(
-  c: CommandActionsConfig,
-): {
+export function getEditRequestYamlFile(c: CommandActionsConfig): {
   filePath: string
   requestName: string
   requestId: string

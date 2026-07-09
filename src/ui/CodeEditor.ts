@@ -319,6 +319,17 @@ export class CodeEditorRenderable extends TextareaRenderable {
       }
     }
 
+    if (!key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
+      if (key.name === "f5") {
+        this.foldAll()
+        return true
+      }
+      if (key.name === "f6") {
+        this.unfoldAll()
+        return true
+      }
+    }
+
     if (
       key.ctrl &&
       key.shift &&
@@ -654,7 +665,12 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.syntaxStyle = style
 
     for (const token of tokens) {
-      const styleId = styleIdForJsonToken(token.kind, token.fg, this._theme, style)
+      const styleId = styleIdForJsonToken(
+        token.kind,
+        token.fg,
+        this._theme,
+        style,
+      )
       this.addHighlightByCharRange({
         start: token.offset,
         end: token.offset + token.text.length,

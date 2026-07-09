@@ -60,14 +60,12 @@ export function YamlEditorOverlay({
     const editor = editorRef.current
     if (!editor) return
     setSaveError(null)
-    let yamlText = editor.plainText
+    const yamlText = editor.plainText
     try {
       lang.parseRequest(basename(filePath, ".yml"), yamlText)
     } catch (e) {
       if (!mountedRef.current) return
-      setSaveError(
-        e instanceof Error ? e.message : String(e),
-      )
+      setSaveError(e instanceof Error ? e.message : String(e))
       return
     }
 

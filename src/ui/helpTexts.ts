@@ -53,6 +53,14 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
       ],
     },
     {
+      title: "Code Editor",
+      keys: [
+        { key: "^g", description: "Toggle fold at cursor" },
+        { key: "f5", description: "Fold all" },
+        { key: "f6", description: "Unfold all" },
+      ],
+    },
+    {
       title: "Actions",
       keys: [
         {

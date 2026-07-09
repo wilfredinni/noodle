@@ -8,6 +8,26 @@ import { opencodeTheme } from "../../src/ui/theme-data"
 extend({ "code-editor": CodeEditorRenderable })
 
 describe("CodeEditorRenderable", () => {
+  function keyEvent(
+    name: string,
+    modifiers: Partial<
+      Pick<KeyEvent, "ctrl" | "meta" | "shift" | "option" | "super" | "hyper">
+    > = {},
+  ): KeyEvent {
+    return {
+      name,
+      sequence: name,
+      raw: name,
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+      super: false,
+      hyper: false,
+      ...modifiers,
+    } as KeyEvent
+  }
+
   function computeFolds(editor: CodeEditorRenderable): void {
     ;(
       editor as unknown as { computeFoldRanges: () => void }
@@ -62,6 +82,51 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.plainText).toBe(content)
     expect(editor!.getHiddenLineNumbers()).toEqual(new Set())
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
+  it("uses f5 to fold all and f6 to unfold all", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `{
+  "first": 1,
+  "second": {
+    "nested": true
+  }
+}`
+    const originalLineCount = content.split("\n").length
+
+    const { renderOnce } = await testRender(
+      <box width={48} height={8}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 48, height: 8 },
+    )
+
+    await renderOnce()
+    expect(editor).toBeDefined()
+    computeFolds(editor!)
+
+    const folded = editor!.handleKeyPress(keyEvent("f5"))
+    expect(folded).toBe(true)
+    await renderOnce()
+    expect(editor!.lineCount).toBeLessThan(originalLineCount)
+
+    const unfolded = editor!.handleKeyPress(keyEvent("f6"))
+    expect(unfolded).toBe(true)
+    await renderOnce()
+    expect(editor!.lineCount).toBe(originalLineCount)
+    expect(editor!.plainText).toBe(content)
   })
 
   it("folds nested JSON ranges by their own start line", async () => {

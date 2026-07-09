@@ -64,7 +64,9 @@ function tokenizeLine(line: string, theme: Theme): SpanPart[] {
       },
       { text: value, fg: theme.success, kind: "string" },
       ...(comma
-        ? ([{ text: comma, fg: theme.textMuted, kind: "bracket" }] as SpanPart[])
+        ? ([
+            { text: comma, fg: theme.textMuted, kind: "bracket" },
+          ] as SpanPart[])
         : []),
     ]
   }
