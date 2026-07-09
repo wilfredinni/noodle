@@ -1,4 +1,4 @@
-import { type LineNumberRenderable } from "@opentui/core"
+import { type LineNumberRenderable, type LineSign } from "@opentui/core"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { basename, dirname } from "node:path"
@@ -7,6 +7,8 @@ import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import { lang } from "../lang"
+
+const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 
 export interface YamlEditorOverlayProps {
   visible: boolean
@@ -115,7 +117,7 @@ export function YamlEditorOverlay({
     const ed = editorRef.current
     const ln = lineNumberRef.current
     if (ed && ln) {
-      ln.setLineSigns(ed.getFoldSigns())
+      ln.setLineSigns(new Map([...RESERVED_FOLD_SIGN, ...ed.getFoldSigns()]))
       ln.setHideLineNumbers(ed.getHiddenLineNumbers())
     }
   }, [])
@@ -169,6 +171,7 @@ export function YamlEditorOverlay({
             paddingRight={1}
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
+            lineSigns={RESERVED_FOLD_SIGN}
             style={{ height: "100%", minHeight: 0 }}
             width="100%"
           >

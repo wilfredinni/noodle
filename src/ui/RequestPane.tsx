@@ -1,4 +1,8 @@
-import type { ScrollBoxRenderable, LineNumberRenderable } from "@opentui/core"
+import type {
+  ScrollBoxRenderable,
+  LineNumberRenderable,
+  LineSign,
+} from "@opentui/core"
 import type { Highlight } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
@@ -47,6 +51,12 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "auth", label: "Auth" },
   { id: "settings", label: "Settings" },
 ]
+
+const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
+
+function reserveFoldSigns(signs: Map<number, LineSign>): Map<number, LineSign> {
+  return new Map([...RESERVED_FOLD_SIGN, ...signs])
+}
 
 export function RequestPane({
   request,
@@ -446,7 +456,7 @@ function BodySection({
     const ed = editorRef.current
     const ln = lineNumberRef.current
     if (ed && ln) {
-      ln.setLineSigns(ed.getFoldSigns())
+      ln.setLineSigns(reserveFoldSigns(ed.getFoldSigns()))
       ln.setHideLineNumbers(ed.getHiddenLineNumbers())
     }
   }, [])
@@ -495,6 +505,7 @@ function BodySection({
             paddingRight={1}
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
+            lineSigns={RESERVED_FOLD_SIGN}
             style={{ flexGrow: 1 }}
             width="100%"
           >
