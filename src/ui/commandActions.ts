@@ -81,7 +81,7 @@ export function getEditRequestYamlFile(
   const r = findRequestById(col.items, sid)
   if (!r) return null
   return {
-    filePath: join(c.collectionDir, `${sid}.yml`),
+    filePath: join(c.collectionDir, `${r.id}.yml`),
     requestName: r.name,
     returnFocus: c.focusRef.current,
   }
