@@ -1,10 +1,12 @@
 import { type LineNumberRenderable } from "@opentui/core"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import { readFile, writeFile } from "node:fs/promises"
+import { basename, dirname } from "node:path"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
 import type { CodeEditorRenderable } from "./CodeEditor"
+import { lang } from "../lang"
 
 export interface YamlEditorOverlayProps {
   visible: boolean
@@ -58,7 +60,19 @@ export function YamlEditorOverlay({
     const editor = editorRef.current
     if (!editor) return
     setSaveError(null)
-    writeFile(filePath, editor.plainText, "utf8")
+    let yamlText = editor.plainText
+    try {
+      lang.parseRequest(basename(filePath, ".yml"), yamlText)
+    } catch (e) {
+      if (!mountedRef.current) return
+      setSaveError(
+        e instanceof Error ? e.message : String(e),
+      )
+      return
+    }
+
+    mkdir(dirname(filePath), { recursive: true })
+      .then(() => writeFile(filePath, yamlText, "utf8"))
       .then(() => {
         if (!mountedRef.current) return
         onSaved()

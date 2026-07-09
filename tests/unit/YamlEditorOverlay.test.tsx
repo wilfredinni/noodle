@@ -1,5 +1,6 @@
 import { describe, it, expect, mock } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
+import { extend } from "@opentui/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerEnabledFields,
@@ -10,9 +11,12 @@ import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { YamlEditorOverlay } from "../../src/ui/YamlEditorOverlay"
 import { ConfirmOverlay } from "../../src/ui/ConfirmOverlay"
+import { CodeEditorRenderable } from "../../src/ui/CodeEditor"
+
+extend({ "code-editor": CodeEditorRenderable })
 
 function setupKeymap() {
-  const { keymap, cleanup: hostCleanup } = createTestKeymap()
+  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
   const disposeEnabled = registerEnabledFields(keymap)
   const disposeKeys = registerDefaultKeys(keymap)
   keymap.setData("app.mode", "base")
@@ -20,6 +24,7 @@ function setupKeymap() {
   keymap.setData("app.overlay", "none")
   return {
     keymap: keymap as unknown as KeymapProviderProps["keymap"],
+    host,
     cleanup: () => {
       disposeEnabled()
       disposeKeys()
@@ -29,10 +34,15 @@ function setupKeymap() {
 }
 
 const MOCK_YAML = "name: test\nmethod: GET\nurl: https://example.com\n"
+let mockedContent = MOCK_YAML
+let writeCallCount = 0
 
 mock.module("node:fs/promises", () => ({
-  readFile: () => Promise.resolve(MOCK_YAML),
-  writeFile: () => Promise.resolve(),
+  readFile: () => Promise.resolve(mockedContent),
+  writeFile: () => {
+    writeCallCount++
+    return Promise.resolve()
+  },
 }))
 
 describe("YamlEditorOverlay", () => {
@@ -155,6 +165,39 @@ describe("YamlEditorOverlay", () => {
     const frame = captureCharFrame()
     expect(frame).toMatch(/\^S.*save.*esc.*close/)
     cleanup()
+  })
+
+  it("rejects invalid YAML on save", async () => {
+    mockedContent = "name: test\nmethod: GET\nurl: [broken\n"
+    writeCallCount = 0
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <YamlEditorOverlay
+            visible
+            filePath="/tmp/test.yml"
+            requestName="get-users"
+            onSaved={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 30 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 20))
+    await renderOnce()
+
+    host.press("s", { ctrl: true })
+    await new Promise((r) => setTimeout(r, 20))
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("Save error:")
+    expect(writeCallCount).toBe(0)
+    cleanup()
+    mockedContent = MOCK_YAML
   })
 })
 
