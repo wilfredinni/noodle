@@ -43,16 +43,37 @@ interface SourceCursor {
 
 function createTsSyntaxStyle(theme: Theme): SyntaxStyle {
   return SyntaxStyle.fromStyles({
+    "json.key": { fg: theme.secondary },
+    "json.string": { fg: theme.success },
+    "json.number": { fg: theme.warning },
+    "json.boolean": { fg: theme.info },
+    "json.null": { fg: theme.info },
+    "json.bracket": { fg: theme.textMuted },
+    "json.text": { fg: theme.text },
+    "yaml.key": { fg: theme.secondary },
+    "yaml.string": { fg: theme.success },
+    "yaml.number": { fg: theme.warning },
+    "yaml.boolean": { fg: theme.info },
+    "yaml.null": { fg: theme.info },
+    "yaml.punctuation": { fg: theme.textMuted },
+    "yaml.comment": { fg: theme.textMuted },
+    "yaml.text": { fg: theme.text },
     string: { fg: theme.success },
     number: { fg: theme.warning },
     boolean: { fg: theme.info },
     constant: { fg: theme.info },
+    "constant.builtin": { fg: theme.info },
     property: { fg: theme.secondary },
     comment: { fg: theme.textMuted },
     punctuation: { fg: theme.textMuted },
+    "punctuation.delimiter": { fg: theme.textMuted },
+    "punctuation.bracket": { fg: theme.textMuted },
+    "punctuation.special": { fg: theme.textMuted },
     keyword: { fg: theme.info },
+    "keyword.directive": { fg: theme.info },
     label: { fg: theme.info },
     type: { fg: theme.info },
+    "string.escape": { fg: theme.success },
     "env.resolved": { fg: theme.primary },
     "env.missing": { fg: theme.error },
   })
@@ -533,6 +554,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   private scheduleHighlight(): void {
+    this._highlightSnapshotId++
     if (this._highlightTimer) {
       clearTimeout(this._highlightTimer)
     }
@@ -546,7 +568,15 @@ export class CodeEditorRenderable extends TextareaRenderable {
     const snapshotId = ++this._highlightSnapshotId
     const content = this.plainText
 
-    if (content.length === 0 || content.length > 100_000) return
+    if (content.length === 0 || content.length > 100_000) {
+      this.clearAllHighlights()
+      if (this._folds.size > 0) {
+        this._folds.clear()
+        this._onFoldsChange?.()
+        this.requestRender()
+      }
+      return
+    }
     if (this.isFoldedDisplay()) return
 
     let tsSuccess = false
@@ -571,6 +601,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (snapshotId !== this._highlightSnapshotId) return
     if (this.isDestroyed) return
     if (this.isFoldedDisplay()) return
+
+    if (!tsSuccess) {
+      this.clearAllHighlights()
+    }
 
     if (!tsSuccess) {
       if (this._filetype === "json") {
@@ -620,15 +654,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.syntaxStyle = style
 
     for (const token of tokens) {
-      let styleName: string
-      if (token.fg === this._theme.secondary) styleName = "property"
-      else if (token.fg === this._theme.success) styleName = "string"
-      else if (token.fg === this._theme.warning) styleName = "number"
-      else if (token.fg === this._theme.info) styleName = "boolean"
-      else if (token.fg === this._theme.textMuted) styleName = "punctuation"
-      else styleName = "string"
-
-      const styleId = style.getStyleId(styleName) ?? 0
+      const styleId = styleIdForJsonToken(token.kind, token.fg, this._theme, style)
       this.addHighlightByCharRange({
         start: token.offset,
         end: token.offset + token.text.length,
@@ -862,6 +888,29 @@ function buildByteToDisplayOffsets(content: string): number[] {
     offsets[byteOffset] = displayOffset
   }
   return offsets
+}
+
+function styleIdForJsonToken(
+  kind: string | undefined,
+  fg: string,
+  theme: Theme,
+  style: SyntaxStyle,
+): number {
+  if (kind === "key") return style.getStyleId("json.key") ?? 0
+  if (kind === "string") return style.getStyleId("json.string") ?? 0
+  if (kind === "number") return style.getStyleId("json.number") ?? 0
+  if (kind === "boolean") return style.getStyleId("json.boolean") ?? 0
+  if (kind === "null") return style.getStyleId("json.null") ?? 0
+  if (kind === "bracket") return style.getStyleId("json.bracket") ?? 0
+  if (kind === "punctuation") return style.getStyleId("json.bracket") ?? 0
+  if (kind === "text") return style.getStyleId("json.text") ?? 0
+
+  if (fg === theme.secondary) return style.getStyleId("json.key") ?? 0
+  if (fg === theme.success) return style.getStyleId("json.string") ?? 0
+  if (fg === theme.warning) return style.getStyleId("json.number") ?? 0
+  if (fg === theme.info) return style.getStyleId("json.boolean") ?? 0
+  if (fg === theme.textMuted) return style.getStyleId("json.bracket") ?? 0
+  return style.getStyleId("json.text") ?? 0
 }
 
 function byteOffsetToDisplayOffset(
