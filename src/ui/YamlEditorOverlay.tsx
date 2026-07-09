@@ -1,13 +1,10 @@
-import {
-  type TextareaRenderable,
-  type LineNumberRenderable,
-} from "@opentui/core"
+import { type LineNumberRenderable } from "@opentui/core"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
-import { highlightYaml } from "./yamlSyntax"
+import type { CodeEditorRenderable } from "./CodeEditor"
 
 export interface YamlEditorOverlayProps {
   visible: boolean
@@ -26,7 +23,7 @@ export function YamlEditorOverlay({
 }: YamlEditorOverlayProps) {
   const theme = useTheme()
   const keymap = useKeymap()
-  const textareaRef = useRef<TextareaRenderable | null>(null)
+  const editorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
@@ -57,26 +54,11 @@ export function YamlEditorOverlay({
       })
   }, [visible, filePath])
 
-  useEffect(() => {
-    if (content !== null && textareaRef.current) {
-      highlightYaml(textareaRef.current, content, theme)
-    }
-  }, [content, theme])
-
-  const handleContentChange = useCallback(() => {
-    const ta = textareaRef.current
-    if (ta) {
-      const text = ta.plainText
-      setContent(text)
-      highlightYaml(ta, text, theme)
-    }
-  }, [theme])
-
   const handleSave = useCallback(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
+    const editor = editorRef.current
+    if (!editor) return
     setSaveError(null)
-    writeFile(filePath, textarea.plainText, "utf8")
+    writeFile(filePath, editor.plainText, "utf8")
       .then(() => {
         if (!mountedRef.current) return
         onSaved()
@@ -110,6 +92,12 @@ export function YamlEditorOverlay({
     )
     return dispose
   }, [visible, handleSave, handleClose, keymap])
+
+  useEffect(() => {
+    if (visible && editorRef.current) {
+      editorRef.current.focus()
+    }
+  }, [visible])
 
   if (!visible) return null
 
@@ -163,15 +151,15 @@ export function YamlEditorOverlay({
             style={{ height: "100%", minHeight: 0 }}
             width="100%"
           >
-            <textarea
-              ref={textareaRef}
+            <code-editor
+              ref={editorRef}
+              filetype="yaml"
+              theme={theme}
               initialValue={content}
-              onContentChange={handleContentChange}
               backgroundColor={theme.backgroundPanel}
               focusedBackgroundColor={theme.backgroundPanel}
               textColor={theme.text}
               cursorColor={theme.primary}
-              focused
             />
           </line-number>
         </box>

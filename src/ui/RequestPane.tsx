@@ -1,21 +1,19 @@
-import type {
-  ScrollBoxRenderable,
-  TextareaRenderable,
-  LineNumberRenderable,
-} from "@opentui/core"
+import type { ScrollBoxRenderable, LineNumberRenderable } from "@opentui/core"
+import type { Highlight } from "@opentui/core"
+import { SyntaxStyle } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
+import type { CodeEditorRenderable } from "./CodeEditor"
 
 import { CenterText } from "./CenterText"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
-import { useJsonHighlight } from "../hooks/useJsonHighlight"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { VarInput } from "./VarInput"
 import { KeyValueSection } from "./KeyValueSection"
@@ -413,15 +411,45 @@ function BodySection({
   const isBinaryMode = bodyType === "binary"
 
   const body = useMemo(() => formatBody(request.body), [request.body])
-  const textareaRef = useRef<TextareaRenderable | null>(null)
+  const editorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
-  const { handleContentChange } = useJsonHighlight(
-    textareaRef,
-    lineNumberRef,
-    theme,
-    setEditValue,
+  const envStyle = useMemo(() => {
+    const s = SyntaxStyle.fromStyles({
+      "env.resolved": { fg: theme.primary },
+      "env.missing": { fg: theme.error },
+    })
+    return {
+      resolvedId: s.getStyleId("env.resolved") ?? 0,
+      missingId: s.getStyleId("env.missing") ?? 0,
+    }
+  }, [theme])
+
+  const extraHighlights = useCallback(
+    (content: string): Highlight[] => {
+      if (!activeEnv) return []
+      const results: Highlight[] = []
+      const varRe = /\$\w+/g
+      let match: RegExpExecArray | null
+      while ((match = varRe.exec(content)) !== null) {
+        const varName = match[0].slice(1)
+        const exists = varName in activeEnv.vars
+        results.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          styleId: exists ? envStyle.resolvedId : envStyle.missingId,
+          priority: 2,
+        })
+      }
+      return results
+    },
+    [activeEnv, envStyle],
   )
+
+  const handleContentChange = useCallback(() => {
+    const ed = editorRef.current
+    if (ed) setEditValue(ed.plainText)
+  }, [setEditValue])
 
   const editingBody = inEdit && editState.cursor.field === "body"
 
@@ -464,18 +492,17 @@ function BodySection({
             style={{ flexGrow: 1 }}
             width="100%"
           >
-            <textarea
-              ref={textareaRef}
-              id="body-field"
+            <code-editor
+              ref={editorRef}
+              filetype="json"
+              theme={theme}
               initialValue={formatBody(editValue)}
+              extraHighlights={activeEnv ? extraHighlights : undefined}
               onContentChange={handleContentChange}
-              keyBindings={[{ name: "return", shift: true, action: "newline" }]}
               backgroundColor={theme.backgroundPanel}
               focusedBackgroundColor={theme.backgroundPanel}
               textColor={theme.text}
               cursorColor={theme.primary}
-              focused
-              style={{ flexGrow: 1 }}
             />
           </line-number>
         )
