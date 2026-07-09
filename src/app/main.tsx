@@ -10,31 +10,14 @@ import { loadLastRequest } from "../ui/tabs/uiState"
 import { createNoodleKeymap } from "../hooks/useKeymap"
 import { parseOverrides } from "../ui/keybind"
 import { showToast } from "../ui/Toast"
-import { join, resolve, dirname } from "node:path"
+import { join, resolve } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
-import { fileURLToPath } from "node:url"
 import { loadConfig } from "../hooks/useConfig"
 import { CodeEditorRenderable } from "../ui/CodeEditor"
+import { codeEditorParsers } from "../ui/codeEditorParsers"
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-addDefaultParsers([
-  {
-    filetype: "json",
-    wasm: resolve(__dirname, "../lang/parsers/json/tree-sitter-json.wasm"),
-    queries: {
-      highlights: [resolve(__dirname, "../lang/parsers/json/highlights.scm")],
-    },
-  },
-  {
-    filetype: "yaml",
-    wasm: resolve(__dirname, "../lang/parsers/yaml/tree-sitter-yaml.wasm"),
-    queries: {
-      highlights: [resolve(__dirname, "../lang/parsers/yaml/highlights.scm")],
-    },
-  },
-])
+addDefaultParsers([...codeEditorParsers])
 
 // Register custom components
 extend({ "code-editor": CodeEditorRenderable })

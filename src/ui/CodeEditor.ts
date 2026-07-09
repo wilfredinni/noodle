@@ -168,6 +168,14 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   set foldable(value: boolean) {
+    const extmarks = this.editorView.extmarks
+    if (extmarks) {
+      for (const fold of this._folds.values()) {
+        if (fold.extmarkId !== undefined) {
+          extmarks.delete(fold.extmarkId)
+        }
+      }
+    }
     this._foldable = value
     this._folds.clear()
     this._foldVisualRows.clear()
@@ -272,14 +280,21 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   override handleKeyPress(key: KeyEvent): boolean {
-    if (key.ctrl && !key.meta && !key.alt && !key.super && !key.hyper) {
+    if (key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
       if (key.name === "g" && !key.shift) {
         this.toggleFold(this.logicalCursor.row)
         return true
       }
     }
 
-    if (key.ctrl && key.shift && !key.meta && !key.alt && !key.super && !key.hyper) {
+    if (
+      key.ctrl &&
+      key.shift &&
+      !key.meta &&
+      !key.option &&
+      !key.super &&
+      !key.hyper
+    ) {
       if (key.name === "[") {
         this.foldAll()
         return true
@@ -448,27 +463,16 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
     const style = this._tsStyle
     this.syntaxStyle = style
-
-    const newlinesAt: number[] = []
-    for (let i = 0; i < content.length; i++) {
-      if (content[i] === "\n") newlinesAt.push(i)
-    }
+    const displayOffsets = buildByteToDisplayOffsets(content)
 
     for (const [start, end, group] of highlights) {
       if (start >= end) continue
       const styleId = style.getStyleId(group)
       if (styleId === null) continue
 
-      let displayStart = start
-      let displayEnd = end
-      if (newlinesAt.length > 0) {
-        displayStart = start - countNewlinesBefore(newlinesAt, start)
-        displayEnd = end - countNewlinesBefore(newlinesAt, end)
-      }
-
       this.addHighlightByCharRange({
-        start: displayStart,
-        end: displayEnd,
+        start: byteOffsetToDisplayOffset(displayOffsets, start),
+        end: byteOffsetToDisplayOffset(displayOffsets, end),
         styleId,
         priority: 1,
       })
@@ -552,6 +556,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (!this._foldable) return
 
     const content = this.plainText
+    const extmarks = this.editorView.extmarks
+    const prevFolds = this._folds
     const newFolds = new Map<number, FoldInfo>()
 
     if (this._filetype === "json") {
@@ -560,15 +566,39 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.computeYamlFoldRanges(content, newFolds)
     }
 
-    const prevFolds = this._folds
     this._folds = newFolds
 
+    for (const [line, fold] of newFolds) {
+      const previous = prevFolds.get(line)
+      if (!previous?.folded || !extmarks) continue
+
+      if (previous.extmarkId !== undefined) {
+        extmarks.delete(previous.extmarkId)
+      }
+
+      fold.folded = true
+      fold.extmarkId = extmarks.create({
+        start: fold.startOffset,
+        end: fold.endOffset,
+        virtual: true,
+        priority: 10,
+        typeId: getFoldTypeId(),
+        metadata: { foldStartLine: fold.startLine },
+      })
+    }
+
     for (const [line, fold] of prevFolds) {
-      if (fold.folded && !newFolds.has(line)) {
-        this.unfold(fold)
+      if (
+        fold.folded &&
+        !newFolds.has(line) &&
+        extmarks &&
+        fold.extmarkId !== undefined
+      ) {
+        extmarks.delete(fold.extmarkId)
       }
     }
     this._onFoldsChange?.()
+    this.requestRender()
   }
 
   private computeJsonFoldRanges(
@@ -699,11 +729,41 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 }
 
-function countNewlinesBefore(newlinesAt: number[], offset: number): number {
-  let count = 0
-  for (const pos of newlinesAt) {
-    if (pos < offset) count++
-    else break
+function buildByteToDisplayOffsets(content: string): number[] {
+  const offsets: number[] = []
+  offsets[0] = 0
+  let displayOffset = 0
+  let byteOffset = 0
+
+  for (const char of content) {
+    const codePoint = char.codePointAt(0)
+    if (codePoint === undefined) continue
+
+    byteOffset += utf8ByteLength(codePoint)
+    if (char !== "\n") {
+      displayOffset++
+    }
+
+    offsets[byteOffset] = displayOffset
   }
-  return count
+  return offsets
+}
+
+function byteOffsetToDisplayOffset(
+  offsets: number[],
+  byteOffset: number,
+): number {
+  if (byteOffset <= 0) return 0
+  for (let i = byteOffset; i >= 0; i--) {
+    const value = offsets[i]
+    if (value !== undefined) return value
+  }
+  return 0
+}
+
+function utf8ByteLength(codePoint: number): number {
+  if (codePoint <= 0x7f) return 1
+  if (codePoint <= 0x7ff) return 2
+  if (codePoint <= 0xffff) return 3
+  return 4
 }
