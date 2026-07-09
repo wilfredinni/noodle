@@ -125,6 +125,12 @@ export class CodeEditorRenderable extends TextareaRenderable {
     })
 
     if (this.plainText.length > 0) {
+      const content = this.plainText
+      if (this._filetype === "json") {
+        this.applyJsonHighlights(content)
+      } else if (this._filetype === "yaml") {
+        this.applyYamlHighlights(content)
+      }
       this.scheduleHighlight()
     }
   }
@@ -421,7 +427,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
       }
     }
 
-    this.applyExtraHighlights(content)
+    try {
+      this.applyExtraHighlights(content)
+    } catch {
+      // extraHighlights callback may throw on malformed content
+    }
     this.computeFoldRanges()
   }
 
@@ -432,6 +442,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.clearAllHighlights()
 
     const style = this._tsStyle
+    this.syntaxStyle = style
+
     const newlinesAt: number[] = []
     for (let i = 0; i < content.length; i++) {
       if (content[i] === "\n") newlinesAt.push(i)
@@ -463,6 +475,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
     const tokens = highlightJsonTokens(content, this._theme)
     const style = this._tsStyle
+    this.syntaxStyle = style
 
     for (const token of tokens) {
       let styleName: string

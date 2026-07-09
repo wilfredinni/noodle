@@ -1,6 +1,5 @@
 import type { ScrollBoxRenderable, LineNumberRenderable } from "@opentui/core"
 import type { Highlight } from "@opentui/core"
-import { SyntaxStyle } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -414,20 +413,12 @@ function BodySection({
   const editorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
-  const envStyle = useMemo(() => {
-    const s = SyntaxStyle.fromStyles({
-      "env.resolved": { fg: theme.primary },
-      "env.missing": { fg: theme.error },
-    })
-    return {
-      resolvedId: s.getStyleId("env.resolved") ?? 0,
-      missingId: s.getStyleId("env.missing") ?? 0,
-    }
-  }, [theme])
-
   const extraHighlights = useCallback(
     (content: string): Highlight[] => {
-      if (!activeEnv) return []
+      const ed = editorRef.current
+      if (!activeEnv?.vars || !ed) return []
+      const resolvedId = ed.envResolvedStyleId
+      const missingId = ed.envMissingStyleId
       const results: Highlight[] = []
       const varRe = /\$\w+/g
       let match: RegExpExecArray | null
@@ -437,13 +428,13 @@ function BodySection({
         results.push({
           start: match.index,
           end: match.index + match[0].length,
-          styleId: exists ? envStyle.resolvedId : envStyle.missingId,
+          styleId: exists ? resolvedId : missingId,
           priority: 2,
         })
       }
       return results
     },
-    [activeEnv, envStyle],
+    [activeEnv],
   )
 
   const handleContentChange = useCallback(() => {
