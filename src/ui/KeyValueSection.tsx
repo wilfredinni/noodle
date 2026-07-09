@@ -87,11 +87,7 @@ export function KeyValueSection({
             const dimmed = (inEdit && !isEditingThisRow) || !kv.enabled
 
             const keyBaseColor = dimmed ? theme.textMuted : theme.text
-            const valueBaseColor = dimmed
-              ? theme.textMuted
-              : cursorOnThisRow
-                ? theme.text
-                : theme.textMuted
+            const valueBaseColor = dimmed ? theme.textMuted : theme.text
 
             return (
               <box
