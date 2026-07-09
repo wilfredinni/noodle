@@ -1,10 +1,14 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
+import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
+import { CodeEditorRenderable } from "../src/ui/CodeEditor"
 import type { Request } from "../src/schema"
 import { setupKeymap } from "./unit/_helpers"
+
+extend({ "code-editor": CodeEditorRenderable })
 
 const testRequest: Request = {
   id: "test",
