@@ -174,7 +174,14 @@ export function RequestPane({
       {request ? (
         <>
           <Tabs tabs={tabs} activeId={activeTab}>
-            <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0, gap: 1 }}>
+            <box
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                minHeight: 0,
+                gap: 1,
+              }}
+            >
               {activeTab === "body" && (
                 <BodyTypeSelector
                   request={request}
@@ -185,7 +192,10 @@ export function RequestPane({
                   onSelectOpenChange={onSelectOpenChange}
                 />
               )}
-              <scrollbox scrollY={false} style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}>
+              <scrollbox
+                scrollY={false}
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
                 {activeTab === "body" ? (
                   <BodySection
                     request={request}
@@ -206,65 +216,65 @@ export function RequestPane({
                     style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
                   >
                     {activeTab === "headers" && (
-                <KeyValueSection
-                  kind="headers"
-                  entries={Object.entries(request?.headers ?? {}).map(
-                    ([key, value]) => ({ key, value }),
-                  )}
-                  editState={editState}
-                  editKey={editKey}
-                  editValue={editValue}
-                  setEditKey={setEditKey}
-                  setEditValue={setEditValue}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                />
-              )}
-              {activeTab === "params" && (
-                <KeyValueSection
-                  kind="params"
-                  entries={(request?.params ?? []).map((p) => ({
-                    key: p.name,
-                    value: { value: p.value, enabled: p.enabled },
-                  }))}
-                  editState={editState}
-                  editKey={editKey}
-                  editValue={editValue}
-                  setEditKey={setEditKey}
-                  setEditValue={setEditValue}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                />
-              )}
-              {activeTab === "auth" && (
-                <AuthEditor
-                  auth={request?.auth ?? { type: "none" }}
-                  editState={editState}
-                  inEdit={inEdit}
-                  browseActive={browseActive}
-                  setEditValue={setEditValue}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                  onAuthTypeChange={onAuthTypeChange ?? (() => {})}
-                  onApiKeyPlacementChange={
-                    onApiKeyPlacementChange ?? (() => {})
-                  }
-                  onSelectOpenChange={handleSelectOpenChange}
-                  showInherit={true}
-                />
-              )}
-              {activeTab === "settings" && (
-                <SettingsSection
-                  request={request}
-                  editState={editState}
-                  setEditValue={setEditValue}
-                  inEdit={inEdit}
-                  browseActive={browseActive}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                />
-              )}
-            </scrollbox>
+                      <KeyValueSection
+                        kind="headers"
+                        entries={Object.entries(request?.headers ?? {}).map(
+                          ([key, value]) => ({ key, value }),
+                        )}
+                        editState={editState}
+                        editKey={editKey}
+                        editValue={editValue}
+                        setEditKey={setEditKey}
+                        setEditValue={setEditValue}
+                        theme={theme}
+                        activeEnv={activeEnv}
+                      />
+                    )}
+                    {activeTab === "params" && (
+                      <KeyValueSection
+                        kind="params"
+                        entries={(request?.params ?? []).map((p) => ({
+                          key: p.name,
+                          value: { value: p.value, enabled: p.enabled },
+                        }))}
+                        editState={editState}
+                        editKey={editKey}
+                        editValue={editValue}
+                        setEditKey={setEditKey}
+                        setEditValue={setEditValue}
+                        theme={theme}
+                        activeEnv={activeEnv}
+                      />
+                    )}
+                    {activeTab === "auth" && (
+                      <AuthEditor
+                        auth={request?.auth ?? { type: "none" }}
+                        editState={editState}
+                        inEdit={inEdit}
+                        browseActive={browseActive}
+                        setEditValue={setEditValue}
+                        theme={theme}
+                        activeEnv={activeEnv}
+                        onAuthTypeChange={onAuthTypeChange ?? (() => {})}
+                        onApiKeyPlacementChange={
+                          onApiKeyPlacementChange ?? (() => {})
+                        }
+                        onSelectOpenChange={handleSelectOpenChange}
+                        showInherit={true}
+                      />
+                    )}
+                    {activeTab === "settings" && (
+                      <SettingsSection
+                        request={request}
+                        editState={editState}
+                        setEditValue={setEditValue}
+                        inEdit={inEdit}
+                        browseActive={browseActive}
+                        theme={theme}
+                        activeEnv={activeEnv}
+                      />
+                    )}
+                  </scrollbox>
                 )}
               </scrollbox>
             </box>
@@ -417,7 +427,6 @@ function BodySection({
 
   return (
     <box style={{ flexDirection: "column", gap: 1, flexGrow: 1, minHeight: 0 }}>
-
       {bodyType === "none" ? null : editingBody ? (
         isFormMode ? (
           <FormEditor
