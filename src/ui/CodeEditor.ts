@@ -148,7 +148,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   set extraHighlights(value: ((content: string) => Highlight[]) | undefined) {
     this._extraHighlights = value
-    this.scheduleHighlight()
+    if (this.isFoldedDisplay()) {
+      this.applyFoldedDisplayHighlights(super.plainText)
+    } else {
+      this.scheduleHighlight()
+    }
   }
 
   get foldable(): boolean {
@@ -201,7 +205,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._tsStyle = createTsSyntaxStyle(this._theme)
     this._envResolvedStyleId = this._tsStyle.getStyleId("env.resolved") ?? 0
     this._envMissingStyleId = this._tsStyle.getStyleId("env.missing") ?? 0
-    this.scheduleHighlight()
+    if (this.isFoldedDisplay()) {
+      this.applyFoldedDisplayHighlights(super.plainText)
+    } else {
+      this.scheduleHighlight()
+    }
   }
 
   get envResolvedStyleId(): number {
@@ -355,8 +363,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._displayMode = "folded"
     this._sourceLineToDisplayLine = sourceToDisplay
     this._displayLineToSourceLine = displayToSource
-    this.setDisplayedText(displayLines.join("\n"))
-    this.clearAllHighlights()
+    const foldedDisplayText = displayLines.join("\n")
+    this.setDisplayedText(foldedDisplayText)
+    this.applyFoldedDisplayHighlights(foldedDisplayText)
     this.moveCursorToSourceLine(preferredSourceLine)
   }
 
@@ -376,6 +385,27 @@ export class CodeEditorRenderable extends TextareaRenderable {
       super.setText(text)
     } finally {
       this._suppressContentChanged = false
+    }
+  }
+
+  private applyFoldedDisplayHighlights(displayText: string): void {
+    if (displayText.length === 0) {
+      this.clearAllHighlights()
+      return
+    }
+
+    if (this._filetype === "json") {
+      this.applyJsonHighlights(displayText)
+    } else if (this._filetype === "yaml") {
+      this.applyYamlHighlights(displayText)
+    } else {
+      this.clearAllHighlights()
+    }
+
+    try {
+      this.applyExtraHighlights(displayText)
+    } catch {
+      // extraHighlights callback may throw on malformed content
     }
   }
 

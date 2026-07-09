@@ -14,6 +14,14 @@ describe("CodeEditorRenderable", () => {
     ).computeFoldRanges()
   }
 
+  function getHighlightCount(editor: CodeEditorRenderable): number {
+    let count = 0
+    for (let line = 0; line < editor.lineCount; line++) {
+      count += editor.getLineHighlights(line).length
+    }
+    return count
+  }
+
   it("collapses folded rows into the fold summary", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `{
@@ -53,6 +61,7 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.lineCount).toBeLessThan(originalLineCount)
     expect(editor!.plainText).toBe(content)
     expect(editor!.getHiddenLineNumbers()).toEqual(new Set())
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 
   it("folds nested JSON ranges by their own start line", async () => {
@@ -206,5 +215,48 @@ describe("CodeEditorRenderable", () => {
     expect(frame).toContain('"category"')
     expect(editor!.lineCount).toBe(originalLineCount - 4)
     expect(editor!.plainText).toBe(content)
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
+  it("keeps YAML highlighting when folded", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `name: demo
+headers:
+  accept: application/json
+  x-enabled: true
+body:
+  title: hello
+  published: true`
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <box width={80} height={10}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="yaml"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    expect(editor).toBeDefined()
+    computeFolds(editor!)
+    editor!.toggleFold(1)
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("headers:")
+    expect(frame).not.toContain("accept")
+    expect(frame).toContain("body:")
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 })
