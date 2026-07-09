@@ -116,6 +116,11 @@ export function ResponsePane({
     return new TextEncoder().encode(state.response.body).length
   }, [state.status, state.status === "done" ? state.response.body : null])
 
+  const formattedBody = useMemo(() => {
+    if (state.status !== "done") return ""
+    return formatBody(state.response)
+  }, [state.status, state.status === "done" ? state.response.body : null])
+
   const headerLeft = (
     <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
   )
@@ -190,22 +195,19 @@ export function ResponsePane({
                 scrollbarOptions={{ visible: false }}
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
-                {activeTab === "body" ? (
-                  <box style={{ flexDirection: "column", gap: 1 }}>
-                    {(() => {
-                      const body = formatBody(state.response)
-                      if (body === "")
-                        return <text fg={theme.textMuted}>(no body)</text>
-                      return (
+                  {activeTab === "body" ? (
+                    <box style={{ flexDirection: "column", gap: 1 }}>
+                      {formattedBody === "" ? (
+                        <text fg={theme.textMuted}>(no body)</text>
+                      ) : (
                         <JsonBodyViewer
-                          key={body}
-                          body={body}
+                          key={formattedBody}
+                          body={formattedBody}
                           theme={theme}
                           readOnly
                         />
-                      )
-                    })()}
-                  </box>
+                      )}
+                    </box>
                 ) : (
                   responseHeaders.map(({ key, value }, i) => {
                     if (i < responseHeaders.length - 1) {

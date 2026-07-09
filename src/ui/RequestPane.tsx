@@ -320,7 +320,7 @@ function BodySection({
   const isFormMode = bodyType === "multipart" || bodyType === "urlencoded"
   const isBinaryMode = bodyType === "binary"
 
-  const body = formatBody(request.body)
+  const body = useMemo(() => formatBody(request.body), [request.body])
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
