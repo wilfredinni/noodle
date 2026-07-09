@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useTheme } from "./theme"
-import { PaneBorder } from "./borders"
+import { FullBorder } from "./borders"
 
 type ToastVariant = "info" | "success" | "warning" | "error"
 
@@ -35,15 +35,15 @@ export function Toast() {
   return (
     <box
       position="absolute"
-      top={2}
+      bottom={2}
       right={2}
       paddingLeft={2}
       paddingRight={2}
       paddingTop={1}
       paddingBottom={1}
       backgroundColor={theme.backgroundPanel}
-      border={[...PaneBorder.border]}
-      customBorderChars={PaneBorder.customBorderChars}
+      border={[...FullBorder.border]}
+      customBorderChars={FullBorder.customBorderChars}
       borderColor={theme.primary}
     >
       <text fg={theme.text}>{state.message}</text>
