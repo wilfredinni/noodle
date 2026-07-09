@@ -3,6 +3,8 @@ import type {
   TextareaRenderable,
   LineNumberRenderable,
 } from "@opentui/core"
+import { useKeyboard } from "@opentui/react"
+import { useKeymap } from "@opentui/keymap/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
@@ -71,6 +73,18 @@ export function RequestPane({
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const keymap = useKeymap()
+
+  const focusedRef = useRef(focused)
+  focusedRef.current = focused
+
+  useKeyboard((key) => {
+    if (!focusedRef.current) return
+    if (keymap.getData("app.overlay") !== "none") return
+    if (editState.mode !== "browsing") return
+    if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
+    else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
+  })
 
   useEffect(() => {
     if (editState.mode !== "browsing") return
@@ -160,12 +174,38 @@ export function RequestPane({
       {request ? (
         <>
           <Tabs tabs={tabs} activeId={activeTab}>
-            <scrollbox
-              ref={scrollRef}
-              scrollY
-              style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
-            >
-              {activeTab === "headers" && (
+            <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
+              {activeTab === "body" && (
+                <BodyTypeSelector
+                  request={request}
+                  editState={editState}
+                  browseActive={browseActive}
+                  theme={theme}
+                  onBodyTypeChange={onBodyTypeChange ?? (() => {})}
+                  onSelectOpenChange={onSelectOpenChange}
+                />
+              )}
+              <box style={{ flexGrow: 1, minHeight: 0, overflow: "hidden" }}>
+                {activeTab === "body" ? (
+                  <BodySection
+                    request={request}
+                    editState={editState}
+                    editKey={editKey}
+                    editValue={editValue}
+                    setEditKey={setEditKey}
+                    setEditValue={setEditValue}
+                    inEdit={inEdit}
+                    browseActive={browseActive}
+                    theme={theme}
+                    activeEnv={activeEnv}
+                  />
+                ) : (
+                  <scrollbox
+                    ref={scrollRef}
+                    scrollY
+                    style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+                  >
+                    {activeTab === "headers" && (
                 <KeyValueSection
                   kind="headers"
                   entries={Object.entries(request?.headers ?? {}).map(
@@ -194,22 +234,6 @@ export function RequestPane({
                   setEditValue={setEditValue}
                   theme={theme}
                   activeEnv={activeEnv}
-                />
-              )}
-              {activeTab === "body" && (
-                <BodySection
-                  request={request}
-                  editState={editState}
-                  editKey={editKey}
-                  editValue={editValue}
-                  setEditKey={setEditKey}
-                  setEditValue={setEditValue}
-                  inEdit={inEdit}
-                  browseActive={browseActive}
-                  theme={theme}
-                  activeEnv={activeEnv}
-                  onBodyTypeChange={onBodyTypeChange ?? (() => {})}
-                  onSelectOpenChange={onSelectOpenChange}
                 />
               )}
               {activeTab === "auth" && (
@@ -241,6 +265,9 @@ export function RequestPane({
                 />
               )}
             </scrollbox>
+                )}
+              </box>
+            </box>
           </Tabs>
         </>
       ) : error ? (
@@ -280,30 +307,18 @@ export function RequestPane({
   )
 }
 
-function BodySection({
+function BodyTypeSelector({
   request,
   editState,
-  editKey,
-  editValue,
-  setEditKey,
-  setEditValue,
-  inEdit,
   browseActive,
   theme,
-  activeEnv,
   onBodyTypeChange,
   onSelectOpenChange,
 }: {
   request: Request
   editState: EditState
-  editKey: string
-  editValue: string
-  setEditKey: (v: string) => void
-  setEditValue: (v: string) => void
-  inEdit: boolean
   browseActive: boolean
   theme: Theme
-  activeEnv?: Environment | null
   onBodyTypeChange: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
 }) {
@@ -316,6 +331,73 @@ function BodySection({
     { id: "urlencoded", label: "Form URL-Encoded" },
     { id: "binary", label: "Binary" },
   ]
+
+  const [typeSelectOpen, setTypeSelectOpen] = useState(false)
+
+  const handleBodyTypeSelectOpen = useCallback(
+    (open: boolean) => {
+      setTypeSelectOpen(open)
+      onSelectOpenChange?.(open)
+    },
+    [onSelectOpenChange],
+  )
+
+  return (
+    <box
+      id="body-type"
+      style={{
+        zIndex: typeSelectOpen ? 1 : undefined,
+        backgroundColor:
+          browseActive &&
+          editState.cursor.field === "body" &&
+          editState.cursor.row === 0
+            ? theme.backgroundElement
+            : undefined,
+      }}
+    >
+      <Select
+        items={bodyTypeItems}
+        value={bodyType}
+        onChange={(v) => {
+          if (v === bodyType) return
+          onBodyTypeChange(v as BodyType)
+        }}
+        focused={
+          browseActive &&
+          editState.cursor.field === "body" &&
+          editState.cursor.row === 0
+        }
+        badge={false}
+        onOpenChange={handleBodyTypeSelectOpen}
+      />
+    </box>
+  )
+}
+
+function BodySection({
+  request,
+  editState,
+  editKey,
+  editValue,
+  setEditKey,
+  setEditValue,
+  inEdit,
+  browseActive,
+  theme,
+  activeEnv,
+}: {
+  request: Request
+  editState: EditState
+  editKey: string
+  editValue: string
+  setEditKey: (v: string) => void
+  setEditValue: (v: string) => void
+  inEdit: boolean
+  browseActive: boolean
+  theme: Theme
+  activeEnv?: Environment | null
+}) {
+  const bodyType = request.bodyType ?? "json"
 
   const isFormMode = bodyType === "multipart" || bodyType === "urlencoded"
   const isBinaryMode = bodyType === "binary"
@@ -331,47 +413,10 @@ function BodySection({
     setEditValue,
   )
 
-  const [typeSelectOpen, setTypeSelectOpen] = useState(false)
-
-  const handleBodyTypeSelectOpen = useCallback(
-    (open: boolean) => {
-      setTypeSelectOpen(open)
-      onSelectOpenChange?.(open)
-    },
-    [onSelectOpenChange],
-  )
-
   const editingBody = inEdit && editState.cursor.field === "body"
 
   return (
-    <box style={{ flexDirection: "column", gap: 1 }}>
-      <box
-        style={{
-          zIndex: typeSelectOpen ? 1 : undefined,
-          backgroundColor:
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row === 0
-              ? theme.backgroundElement
-              : undefined,
-        }}
-      >
-        <Select
-          items={bodyTypeItems}
-          value={bodyType}
-          onChange={(v) => {
-            if (v === bodyType) return
-            onBodyTypeChange(v as BodyType)
-          }}
-          focused={
-            browseActive &&
-            editState.cursor.field === "body" &&
-            editState.cursor.row === 0
-          }
-          badge={false}
-          onOpenChange={handleBodyTypeSelectOpen}
-        />
-      </box>
+    <box style={{ flexDirection: "column", gap: 1, flexGrow: 1, minHeight: 0 }}>
 
       {bodyType === "none" ? null : editingBody ? (
         isFormMode ? (
