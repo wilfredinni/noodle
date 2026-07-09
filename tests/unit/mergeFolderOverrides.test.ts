@@ -9,7 +9,7 @@ function makeRequest(overrides?: Partial<Request>): Request {
     method: "GET",
     url: "https://example.com",
     headers: {},
-    params: {},
+    params: [],
     auth: { type: "none" },
     bodyType: "none",
     body: "",

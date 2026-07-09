@@ -1,9 +1,6 @@
-import type { KvEntry } from "../schema"
+import type { ParamEntry } from "../schema"
 
-export function buildDisplayUrl(
-  url: string,
-  params: Record<string, KvEntry>,
-): string {
+export function buildDisplayUrl(url: string, params: ParamEntry[]): string {
   if (!url) return url
 
   let baseUrl: string
@@ -30,17 +27,22 @@ export function buildDisplayUrl(
     }
   }
 
+  const paramKeys = new Set<string>()
+  for (const entry of params) {
+    paramKeys.add(entry.name)
+  }
+
   const merged: Array<[string, string]> = []
 
   for (const [k, v] of existingParams) {
-    if (!(k in params)) {
+    if (!paramKeys.has(k)) {
       merged.push([k, v])
     }
   }
 
-  for (const [k, entry] of Object.entries(params)) {
+  for (const entry of params) {
     if (!entry.enabled) continue
-    merged.push([k, entry.value])
+    merged.push([entry.name, entry.value])
   }
 
   if (merged.length === 0) return baseUrl
@@ -58,32 +60,32 @@ function encQuery(s: string): string {
 
 export function parseUrlAndParams(raw: string): {
   baseUrl: string
-  params: Record<string, KvEntry>
+  params: ParamEntry[]
 } {
-  if (!raw) return { baseUrl: raw, params: {} }
+  if (!raw) return { baseUrl: raw, params: [] }
 
   try {
     const u = new URL(raw)
     const baseUrl = normBaseUrl(u.origin, u.pathname)
-    const params: Record<string, KvEntry> = {}
+    const params: ParamEntry[] = []
     u.searchParams.forEach((v, k) => {
-      params[k] = { value: v, enabled: true }
+      params.push({ name: k, value: v, enabled: true })
     })
     return { baseUrl, params }
   } catch {
     const questionIdx = raw.indexOf("?")
-    if (questionIdx === -1) return { baseUrl: raw, params: {} }
+    if (questionIdx === -1) return { baseUrl: raw, params: [] }
     const baseUrl = raw.slice(0, questionIdx)
     const qs = raw.slice(questionIdx + 1)
-    const params: Record<string, KvEntry> = {}
+    const params: ParamEntry[] = []
     if (qs) {
       try {
         const sp = new URLSearchParams(qs)
         sp.forEach((v, k) => {
-          params[k] = { value: v, enabled: true }
+          params.push({ name: k, value: v, enabled: true })
         })
       } catch {
-        return { baseUrl, params: {} }
+        return { baseUrl, params: [] }
       }
     }
     return { baseUrl, params }

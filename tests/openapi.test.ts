@@ -274,7 +274,7 @@ describe("mapCollection — operations & methods", () => {
     )
     const r = reqs(c)[0]
     expect(r.headers).toEqual({})
-    expect(r.params).toEqual({})
+    expect(r.params).toEqual([])
     expect(r.body).toBeUndefined()
     expect(r.auth).toEqual({ type: "none" })
   })
@@ -601,10 +601,10 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      q: { value: "", enabled: true },
-      limit: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "q", value: "", enabled: true },
+      { name: "limit", value: "", enabled: true },
+    ])
   })
 
   it("translates in:header params to headers as $name placeholders", () => {
@@ -639,7 +639,7 @@ describe("mapCollection — parameters", () => {
       }),
     )
     expect(reqs(c)[0].headers).toEqual({})
-    expect(reqs(c)[0].params).toEqual({})
+    expect(reqs(c)[0].params).toEqual([])
   })
 
   it("does not duplicate path params (in:path is a no-op; already in url)", () => {
@@ -659,7 +659,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({})
+    expect(reqs(c)[0].params).toEqual([])
     expect(reqs(c)[0].headers).toEqual({})
     expect(reqs(c)[0].url).toBe("/users/$id/items/$itemId")
   })
@@ -677,9 +677,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      good: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "good", value: "", enabled: true },
+    ])
   })
 
   it("skips a param with non-string name", () => {
@@ -698,9 +698,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      good: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "good", value: "", enabled: true },
+    ])
   })
 
   it("skips a param with invalid in", () => {
@@ -719,9 +719,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      good: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "good", value: "", enabled: true },
+    ])
   })
 
   it("skips a param that is not a mapping", () => {
@@ -737,9 +737,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      good: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "good", value: "", enabled: true },
+    ])
   })
 
   it("skips a param with empty-string name", () => {
@@ -758,9 +758,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      good: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "good", value: "", enabled: true },
+    ])
   })
 
   it("applies pathItem-level parameters to all ops in that pathItem", () => {
@@ -775,12 +775,12 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      shared: { value: "", enabled: true },
-    })
-    expect(reqs(c)[1].params).toEqual({
-      shared: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "shared", value: "", enabled: true },
+    ])
+    expect(reqs(c)[1].params).toEqual([
+      { name: "shared", value: "", enabled: true },
+    ])
   })
 
   it("op-level params override pathItem-level params by name+in", () => {
@@ -800,10 +800,10 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      shared: { value: "", enabled: true },
-      extra: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "shared", value: "", enabled: true },
+      { name: "extra", value: "", enabled: true },
+    ])
   })
 
   it("op-level param does NOT override pathItem-level when in differs (different slot)", () => {
@@ -820,9 +820,9 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(reqs(c)[0].params).toEqual({
-      alpha: { value: "", enabled: true },
-    })
+    expect(reqs(c)[0].params).toEqual([
+      { name: "alpha", value: "", enabled: true },
+    ])
     expect(reqs(c)[0].headers).toEqual({
       alpha: { value: "", enabled: true },
     })
@@ -844,7 +844,7 @@ describe("mapCollection — parameters", () => {
         },
       }),
     )
-    expect(Object.keys(reqs(c)[0].params)).toEqual(["dup"])
+    expect(reqs(c)[0].params.map((p) => p.name)).toEqual(["dup"])
   })
 })
 
@@ -904,9 +904,9 @@ describe("mapCollection — end-to-end integration", () => {
     expect(getPet.name).toBe("getPet")
     expect(getPet.method).toBe("GET")
     expect(getPet.url).toBe("https://$host/v1/pets/$petId")
-    expect(getPet.params).toEqual({
-      verbose: { value: "", enabled: true },
-    })
+    expect(getPet.params).toEqual([
+      { name: "verbose", value: "", enabled: true },
+    ])
     expect(getPet.headers).toEqual({
       "X-Trace": { value: "", enabled: true },
     })
@@ -924,9 +924,9 @@ describe("mapCollection — end-to-end integration", () => {
 
     const listPets = reqs(c)[2]
     expect(listPets.id).toBe("get-pets")
-    expect(listPets.params).toEqual({
-      limit: { value: "", enabled: true },
-    })
+    expect(listPets.params).toEqual([
+      { name: "limit", value: "", enabled: true },
+    ])
     expect(listPets.auth).toEqual({ type: "bearer", token: "$token" })
 
     const createPet = reqs(c)[3]

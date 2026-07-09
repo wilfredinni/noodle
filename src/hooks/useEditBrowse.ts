@@ -34,7 +34,7 @@ function rowCount(req: Request | null): SectionRowCount {
         : 2
   return {
     headers: Object.keys(req.headers).length,
-    params: Object.keys(req.params).length,
+    params: req.params.length,
     body,
     auth: authRows,
     settings: 3,
@@ -94,12 +94,16 @@ function currentValueFor(
     if (row === 2) return String(draft.maxRedirects ?? 5)
     return ""
   }
-  if (field === "headers" || field === "params") {
+  if (field === "headers") {
     if (addingRow) return ""
-    const rec = field === "headers" ? draft.headers : draft.params
-    const entries = Object.entries(rec)
+    const entries = Object.entries(draft.headers)
     const entry = entries[row]
     return entry ? `${entry[0]}: ${entry[1].value}` : ""
+  }
+  if (field === "params") {
+    if (addingRow) return ""
+    const entry = draft.params[row]
+    return entry ? `${entry.name}: ${entry.value}` : ""
   }
   return ""
 }
@@ -112,12 +116,19 @@ function currentKeyValueFor(
 ): { key: string; value: string } {
   if (!draft) return { key: "", value: "" }
   if (addingRow) return { key: "", value: "" }
-  if (field === "headers" || field === "params") {
-    const rec = field === "headers" ? draft.headers : draft.params
-    const entries = Object.entries(rec)
+  if (field === "headers") {
+    if (addingRow) return { key: "", value: "" }
+    const entries = Object.entries(draft.headers)
     const entry = entries[row]
     return entry
       ? { key: entry[0], value: entry[1].value }
+      : { key: "", value: "" }
+  }
+  if (field === "params") {
+    if (addingRow) return { key: "", value: "" }
+    const entry = draft.params[row]
+    return entry
+      ? { key: entry.name, value: entry.value }
       : { key: "", value: "" }
   }
   if (field === "settings") {

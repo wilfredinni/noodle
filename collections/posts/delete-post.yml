@@ -4,4 +4,10 @@ url: $base_url/posts/$post_id
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+params:
+  - name: key
+    value: val1
+  - name: key
+    value: val2
+    enabled: false
 body_type: none

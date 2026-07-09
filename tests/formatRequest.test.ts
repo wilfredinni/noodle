@@ -16,7 +16,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     method: "GET",
     url: "https://example.com",
     headers: {},
-    params: {},
+    params: [],
     timeout: 0,
     followRedirects: true,
     maxRedirects: 5,
@@ -81,20 +81,20 @@ describe("formatHeaders", () => {
 
 describe("formatParams", () => {
   it("returns empty array when no params", () => {
-    expect(formatParams({})).toEqual([])
+    expect(formatParams([])).toEqual([])
   })
   it("renders single param as 'Key: Value'", () => {
-    expect(formatParams({ verbose: { value: "true", enabled: true } })).toEqual(
-      ["verbose: true"],
-    )
+    expect(
+      formatParams([{ name: "verbose", value: "true", enabled: true }]),
+    ).toEqual(["verbose: true"])
   })
   it("sorts multiple params alphabetically by key", () => {
     expect(
-      formatParams({
-        "z-last": { value: "3", enabled: true },
-        "a-first": { value: "1", enabled: true },
-        "m-middle": { value: "2", enabled: true },
-      }),
+      formatParams([
+        { name: "z-last", value: "3", enabled: true },
+        { name: "a-first", value: "1", enabled: true },
+        { name: "m-middle", value: "2", enabled: true },
+      ]),
     ).toEqual(["a-first: 1", "m-middle: 2", "z-last: 3"])
   })
 })

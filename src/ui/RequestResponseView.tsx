@@ -78,7 +78,7 @@ export function RequestResponseView({
       <UrlBar
         method={draft.draft?.method ?? ""}
         url={draft.draft?.url ?? ""}
-        params={draft.draft?.params ?? {}}
+        params={draft.draft?.params ?? []}
         setUrl={draft.setUrl}
         onDefocus={draft.syncUrlParams}
         focused={focus === "urlbar"}

@@ -29,7 +29,7 @@ function makeEntry(over: Partial<TimelineEntry> = {}): TimelineEntry {
       method: "GET",
       url: "https://example.com",
       headers: {},
-      params: {},
+      params: [],
     },
     ...over,
   }
@@ -120,7 +120,7 @@ describe("saveTimelineEntry", () => {
         headers: {
           "content-type": { value: "application/json", enabled: true },
         },
-        params: { q: { value: "test", enabled: true } },
+        params: [{ name: "q", value: "test", enabled: true }],
         body: '{"key":"val"}',
         auth: { type: "bearer", token: "tok" },
       },
