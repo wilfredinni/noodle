@@ -442,6 +442,14 @@ function BodySection({
     if (ed) setEditValue(ed.plainText)
   }, [setEditValue])
 
+  const handleFoldsChange = useCallback(() => {
+    const ed = editorRef.current
+    const ln = lineNumberRef.current
+    if (ed && ln) {
+      ln.setLineSigns(ed.getFoldSigns())
+    }
+  }, [])
+
   const editingBody = inEdit && editState.cursor.field === "body"
 
   useEffect(() => {
@@ -496,6 +504,7 @@ function BodySection({
               initialValue={formatBody(editValue)}
               extraHighlights={activeEnv ? extraHighlights : undefined}
               onContentChange={handleContentChange}
+              onFoldsChange={handleFoldsChange}
               backgroundColor={theme.backgroundPanel}
               focusedBackgroundColor={theme.backgroundPanel}
               textColor={theme.text}

@@ -99,6 +99,14 @@ export function YamlEditorOverlay({
     }
   }, [visible, content])
 
+  const handleFoldsChange = useCallback(() => {
+    const ed = editorRef.current
+    const ln = lineNumberRef.current
+    if (ed && ln) {
+      ln.setLineSigns(ed.getFoldSigns())
+    }
+  }, [])
+
   if (!visible) return null
 
   return (
@@ -156,6 +164,7 @@ export function YamlEditorOverlay({
               filetype="yaml"
               theme={theme}
               initialValue={content}
+              onFoldsChange={handleFoldsChange}
               backgroundColor={theme.backgroundPanel}
               focusedBackgroundColor={theme.backgroundPanel}
               textColor={theme.text}

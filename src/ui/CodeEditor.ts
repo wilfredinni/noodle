@@ -31,6 +31,7 @@ export interface CodeEditorOptions {
   initialValue?: string
   extraHighlights?: (content: string) => Highlight[]
   onContentChange?: () => void
+  onFoldsChange?: () => void
   backgroundColor?: string
   textColor?: string
   focusedBackgroundColor?: string
@@ -84,6 +85,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _highlightSnapshotId: number = 0
   private _foldVisualRows: Map<number, number[]> = new Map()
   private _onContentChange?: () => void
+  private _onFoldsChange?: () => void
   private _envResolvedStyleId: number = 0
   private _envMissingStyleId: number = 0
   private _tsClient: TreeSitterClient
@@ -106,6 +108,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._foldable = options.foldable ?? true
     this._extraHighlights = options.extraHighlights
     this._onContentChange = options.onContentChange
+    this._onFoldsChange = options.onFoldsChange
     this._tsClient = getTreeSitterClient()
     this._tsStyle = createTsSyntaxStyle(this._theme)
     this._envResolvedStyleId = this._tsStyle.getStyleId("env.resolved") ?? 0
@@ -231,6 +234,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     fold.extmarkId = extmarkId
     this._folds.set(fold.startLine, fold)
     this._foldVisualRows.clear()
+    this._onFoldsChange?.()
   }
 
   private unfold(fold: FoldInfo): void {
@@ -245,6 +249,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     fold.extmarkId = undefined
     this._folds.set(fold.startLine, fold)
     this._foldVisualRows.clear()
+    this._onFoldsChange?.()
   }
 
   foldAll(): void {
@@ -267,19 +272,19 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   override handleKeyPress(key: KeyEvent): boolean {
-    if (key.ctrl && !key.meta && !key.super && !key.hyper) {
-      if (key.name === "m" && !key.shift) {
+    if (key.ctrl && !key.meta && !key.alt && !key.super && !key.hyper) {
+      if (key.name === "g" && !key.shift) {
         this.toggleFold(this.logicalCursor.row)
         return true
       }
     }
 
-    if (key.ctrl && key.shift && !key.meta && !key.super && !key.hyper) {
-      if (key.name === "m") {
+    if (key.ctrl && key.shift && !key.meta && !key.alt && !key.super && !key.hyper) {
+      if (key.name === "[") {
         this.foldAll()
         return true
       }
-      if (key.name === "n") {
+      if (key.name === "]") {
         this.unfoldAll()
         return true
       }
@@ -563,6 +568,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
         this.unfold(fold)
       }
     }
+    this._onFoldsChange?.()
   }
 
   private computeJsonFoldRanges(
