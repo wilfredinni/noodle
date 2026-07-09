@@ -174,7 +174,7 @@ export function RequestPane({
       {request ? (
         <>
           <Tabs tabs={tabs} activeId={activeTab}>
-            <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
+            <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0, gap: 1 }}>
               {activeTab === "body" && (
                 <BodyTypeSelector
                   request={request}
