@@ -185,7 +185,7 @@ export function RequestPane({
                   onSelectOpenChange={onSelectOpenChange}
                 />
               )}
-              <box style={{ flexGrow: 1, minHeight: 0, overflow: "hidden" }}>
+              <scrollbox scrollY={false} style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}>
                 {activeTab === "body" ? (
                   <BodySection
                     request={request}
@@ -266,7 +266,7 @@ export function RequestPane({
               )}
             </scrollbox>
                 )}
-              </box>
+              </scrollbox>
             </box>
           </Tabs>
         </>
