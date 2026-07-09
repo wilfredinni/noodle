@@ -30,9 +30,7 @@ describe("buildDisplayUrl", () => {
   })
 
   it("merges params with existing URL query string (params override)", () => {
-    const params: ParamEntry[] = [
-      { name: "page", value: "2", enabled: true },
-    ]
+    const params: ParamEntry[] = [{ name: "page", value: "2", enabled: true }]
     const result = buildDisplayUrl(
       "https://example.com/posts?page=1&sort=asc",
       params,
@@ -43,18 +41,14 @@ describe("buildDisplayUrl", () => {
   })
 
   it("preserves existing query when no params override", () => {
-    const params: ParamEntry[] = [
-      { name: "limit", value: "10", enabled: true },
-    ]
+    const params: ParamEntry[] = [{ name: "limit", value: "10", enabled: true }]
     expect(buildDisplayUrl("https://example.com/posts?sort=asc", params)).toBe(
       "https://example.com/posts?sort=asc&limit=10",
     )
   })
 
   it("strips query string when all params disabled and URL had query", () => {
-    const params: ParamEntry[] = [
-      { name: "page", value: "1", enabled: false },
-    ]
+    const params: ParamEntry[] = [{ name: "page", value: "1", enabled: false }]
     expect(buildDisplayUrl("https://example.com/posts?page=1", params)).toBe(
       "https://example.com/posts",
     )
@@ -70,15 +64,13 @@ describe("buildDisplayUrl", () => {
   })
 
   it("returns empty string for empty url", () => {
-    expect(buildDisplayUrl("", [{ name: "userId", value: "1", enabled: true }])).toBe(
-      "",
-    )
+    expect(
+      buildDisplayUrl("", [{ name: "userId", value: "1", enabled: true }]),
+    ).toBe("")
   })
 
   it("appends params to any string accepted as URL by runtime", () => {
-    const params: ParamEntry[] = [
-      { name: "x", value: "1", enabled: true },
-    ]
+    const params: ParamEntry[] = [{ name: "x", value: "1", enabled: true }]
     const result = buildDisplayUrl("just-a-string", params)
     expect(result).toBe("just-a-string?x=1")
   })
@@ -93,9 +85,7 @@ describe("buildDisplayUrl", () => {
   })
 
   it("handles multiple params with same key (last wins)", () => {
-    const params: ParamEntry[] = [
-      { name: "id", value: "1", enabled: true },
-    ]
+    const params: ParamEntry[] = [{ name: "id", value: "1", enabled: true }]
     const result = buildDisplayUrl("https://example.com?sort=asc", params)
     const u = new URL(result)
     expect(u.searchParams.getAll("id")).toEqual(["1"])
@@ -135,9 +125,7 @@ describe("parseUrlAndParams", () => {
       "https://example.com/search?q=hello",
     )
     expect(baseUrl).toBe("https://example.com/search")
-    expect(params).toEqual([
-      { name: "q", value: "hello", enabled: true },
-    ])
+    expect(params).toEqual([{ name: "q", value: "hello", enabled: true }])
   })
 
   it("returns empty params for malformed URL without query", () => {
@@ -151,9 +139,7 @@ describe("parseUrlAndParams", () => {
       "https://example.com:8080/api?key=val",
     )
     expect(baseUrl).toBe("https://example.com:8080/api")
-    expect(params).toEqual([
-      { name: "key", value: "val", enabled: true },
-    ])
+    expect(params).toEqual([{ name: "key", value: "val", enabled: true }])
   })
 
   it("handles empty raw string", () => {
@@ -165,9 +151,7 @@ describe("parseUrlAndParams", () => {
   it("handles URL with no protocol (fallback path)", () => {
     const { baseUrl, params } = parseUrlAndParams("/api/users?page=1")
     expect(baseUrl).toBe("/api/users")
-    expect(params).toEqual([
-      { name: "page", value: "1", enabled: true },
-    ])
+    expect(params).toEqual([{ name: "page", value: "1", enabled: true }])
   })
 
   it("handles URL with empty query string (?)", () => {
@@ -181,9 +165,7 @@ describe("parseUrlAndParams", () => {
       "https://example.com?name=John%20Doe",
     )
     expect(baseUrl).toBe("https://example.com")
-    expect(params).toEqual([
-      { name: "name", value: "John Doe", enabled: true },
-    ])
+    expect(params).toEqual([{ name: "name", value: "John Doe", enabled: true }])
   })
 
   it("handles URL with fragment (fragment is stripped)", () => {
@@ -191,9 +173,7 @@ describe("parseUrlAndParams", () => {
       "https://example.com?key=val#section",
     )
     expect(baseUrl).toBe("https://example.com")
-    expect(params).toEqual([
-      { name: "key", value: "val", enabled: true },
-    ])
+    expect(params).toEqual([{ name: "key", value: "val", enabled: true }])
   })
 
   it("handles URL with hash (no query)", () => {

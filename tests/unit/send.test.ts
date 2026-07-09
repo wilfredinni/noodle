@@ -126,7 +126,10 @@ describe("send — param deduplication", () => {
       })
       await send(req)
       const parsed = new URL(captured!)
-      expect(parsed.searchParams.getAll("filter")).toEqual(["active", "pending"])
+      expect(parsed.searchParams.getAll("filter")).toEqual([
+        "active",
+        "pending",
+      ])
     } finally {
       globalThis.fetch = orig
     }

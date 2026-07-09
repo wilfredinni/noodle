@@ -243,10 +243,7 @@ function addParam(
   return [...params, { name, value, enabled: true }]
 }
 
-function removeParam(
-  params: ParamEntry[],
-  index: number,
-): ParamEntry[] {
+function removeParam(params: ParamEntry[], index: number): ParamEntry[] {
   const entry = params[index]
   if (!entry) return params
   return params.filter((_, i) => i !== index)
@@ -266,15 +263,10 @@ function revertParam(
   return out
 }
 
-function toggleParam(
-  params: ParamEntry[],
-  index: number,
-): ParamEntry[] {
+function toggleParam(params: ParamEntry[], index: number): ParamEntry[] {
   const entry = params[index]
   if (!entry) return params
-  return params.map((e, i) =>
-    i === index ? { ...e, enabled: !e.enabled } : e,
-  )
+  return params.map((e, i) => (i === index ? { ...e, enabled: !e.enabled } : e))
 }
 
 function paramEntriesEqual(a: ParamEntry[], b: ParamEntry[]): boolean {

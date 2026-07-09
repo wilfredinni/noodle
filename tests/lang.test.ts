@@ -75,7 +75,9 @@ describe("lang.parseRequest — defaults", () => {
     expect(req.headers).toEqual({
       Accept: { value: "application/json", enabled: true },
     })
-    expect(req.params).toEqual([{ name: "verbose", value: "true", enabled: true }])
+    expect(req.params).toEqual([
+      { name: "verbose", value: "true", enabled: true },
+    ])
     expect(req.body).toBe('{"limit": 10}')
   })
 })

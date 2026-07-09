@@ -311,7 +311,9 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.headers).toEqual({})
   })
   it("setParamRow / addParamRow / removeParamRow mirror headers", () => {
-    const original = makeReq({ params: [{ name: "q", value: "1", enabled: true }] })
+    const original = makeReq({
+      params: [{ name: "q", value: "1", enabled: true }],
+    })
     const map = new Map<string, Request>()
     let next = applyDraft(map, "r1", original, {
       kind: "setParamRow",
@@ -319,7 +321,9 @@ describe("applyDraft", () => {
       key: "q",
       value: "2",
     })
-    expect(next.get("r1")!.params).toEqual([{ name: "q", value: "2", enabled: true }])
+    expect(next.get("r1")!.params).toEqual([
+      { name: "q", value: "2", enabled: true },
+    ])
     next = applyDraft(next, "r1", original, {
       kind: "addParamRow",
       key: "p",
@@ -333,7 +337,9 @@ describe("applyDraft", () => {
       kind: "removeParamRow",
       index: 0,
     })
-    expect(next.get("r1")!.params).toEqual([{ name: "p", value: "3", enabled: true }])
+    expect(next.get("r1")!.params).toEqual([
+      { name: "p", value: "3", enabled: true },
+    ])
   })
   it("revertField body restores body from original", () => {
     const original = makeReq({ body: "orig" })

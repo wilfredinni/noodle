@@ -23,8 +23,7 @@ function migrateParams(params: unknown): ParamEntry[] {
         out.push({ name: k, value: v, enabled: true })
       } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
         const obj = v as Record<string, unknown>
-        const enabled =
-          obj.enabled === undefined ? true : Boolean(obj.enabled)
+        const enabled = obj.enabled === undefined ? true : Boolean(obj.enabled)
         out.push({ name: k, value: String(obj.value ?? ""), enabled })
       }
     }

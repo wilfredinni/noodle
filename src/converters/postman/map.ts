@@ -107,9 +107,7 @@ function mapHeaders(
   return out
 }
 
-function mapParams(
-  query: PropertyList<QueryParam> | undefined,
-): ParamEntry[] {
+function mapParams(query: PropertyList<QueryParam> | undefined): ParamEntry[] {
   const out: ParamEntry[] = []
   if (!query) return out
   query.each((p: QueryParam) => {

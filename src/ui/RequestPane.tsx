@@ -183,9 +183,10 @@ export function RequestPane({
               {activeTab === "params" && (
                 <KeyValueSection
                   kind="params"
-                  entries={(request?.params ?? []).map(
-                    (p) => ({ key: p.name, value: { value: p.value, enabled: p.enabled } }),
-                  )}
+                  entries={(request?.params ?? []).map((p) => ({
+                    key: p.name,
+                    value: { value: p.value, enabled: p.enabled },
+                  }))}
                   editState={editState}
                   editKey={editKey}
                   editValue={editValue}

@@ -84,9 +84,9 @@ describe("formatParams", () => {
     expect(formatParams([])).toEqual([])
   })
   it("renders single param as 'Key: Value'", () => {
-    expect(formatParams([{ name: "verbose", value: "true", enabled: true }])).toEqual(
-      ["verbose: true"],
-    )
+    expect(
+      formatParams([{ name: "verbose", value: "true", enabled: true }]),
+    ).toEqual(["verbose: true"])
   })
   it("sorts multiple params alphabetically by key", () => {
     expect(
