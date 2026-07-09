@@ -94,10 +94,10 @@ export function YamlEditorOverlay({
   }, [visible, handleSave, handleClose, keymap])
 
   useEffect(() => {
-    if (visible && editorRef.current) {
+    if (visible && content !== null && editorRef.current) {
       editorRef.current.focus()
     }
-  }, [visible])
+  }, [visible, content])
 
   if (!visible) return null
 

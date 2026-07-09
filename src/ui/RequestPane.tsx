@@ -453,6 +453,12 @@ function BodySection({
 
   const editingBody = inEdit && editState.cursor.field === "body"
 
+  useEffect(() => {
+    if (editingBody && editorRef.current) {
+      editorRef.current.focus()
+    }
+  }, [editingBody])
+
   return (
     <box style={{ flexDirection: "column", gap: 1, flexGrow: 1, minHeight: 0 }}>
       {bodyType === "none" ? null : editingBody ? (
