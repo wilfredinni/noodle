@@ -530,6 +530,13 @@ function BodySection({
             theme={theme}
             id="body-field"
             activeEnv={activeEnv ?? null}
+            backgroundColor={
+              browseActive &&
+              editState.cursor.field === "body" &&
+              editState.cursor.row >= 1
+                ? theme.backgroundElement
+                : undefined
+            }
           />
         </box>
       )}
