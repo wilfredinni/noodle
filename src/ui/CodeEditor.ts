@@ -36,6 +36,11 @@ export interface CodeEditorOptions {
   cursorColor?: string
 }
 
+interface SourceCursor {
+  line: number
+  col: number
+}
+
 function createTsSyntaxStyle(theme: Theme): SyntaxStyle {
   return SyntaxStyle.fromStyles({
     string: { fg: theme.success },
@@ -255,16 +260,30 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   unfoldAll(): void {
+    const sourceCursor = this.isFoldedDisplay()
+      ? this.getSourceCursorFromDisplay()
+      : undefined
     for (const fold of this._folds.values()) {
       if (fold.folded) this.unfold(fold)
     }
-    this.restoreSourceDisplay()
+    this.restoreSourceDisplay(undefined, sourceCursor)
     this.scheduleHighlight()
     this.requestRender()
   }
 
   override handlePaste(event: PasteEvent): void {
-    if (this.hasFoldedRanges()) {
+    if (this.hasFoldedRanges() && this.isFoldedDisplay()) {
+      const sourceCursor = this.getSourceCursorFromDisplay()
+      if (!this.isFoldedSummaryLine(sourceCursor.line)) {
+        this.restoreSourceDisplay(undefined, sourceCursor)
+        super.handlePaste(event)
+        const editedSourceCursor = this.getSourceCursorFromDisplay()
+        this.syncSourceTextFromDisplayedBuffer()
+        this.computeFoldRanges()
+        this.applyFoldDisplay(editedSourceCursor)
+        this.scheduleHighlight()
+        return
+      }
       this.unfoldAll()
     }
     super.handlePaste(event)
@@ -298,6 +317,21 @@ export class CodeEditorRenderable extends TextareaRenderable {
     }
 
     if (this.hasFoldedRanges() && this.isPotentialEditKey(key)) {
+      if (this.isFoldedDisplay()) {
+        const sourceCursor = this.getSourceCursorFromDisplay()
+        if (!this.isFoldedSummaryLine(sourceCursor.line)) {
+          this.restoreSourceDisplay(undefined, sourceCursor)
+          const handled = super.handleKeyPress(key)
+          if (handled) {
+            const editedSourceCursor = this.getSourceCursorFromDisplay()
+            this.syncSourceTextFromDisplayedBuffer()
+            this.computeFoldRanges()
+            this.applyFoldDisplay(editedSourceCursor)
+            this.scheduleHighlight()
+          }
+          return handled
+        }
+      }
       this.unfoldAll()
     }
 
@@ -331,9 +365,13 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return this._displayMode === "folded"
   }
 
-  private applyFoldDisplay(preferredSourceLine?: number): void {
+  private applyFoldDisplay(preferredSourceLine?: number | SourceCursor): void {
     if (!this.hasFoldedRanges()) {
-      this.restoreSourceDisplay(preferredSourceLine)
+      if (typeof preferredSourceLine === "object") {
+        this.restoreSourceDisplay(undefined, preferredSourceLine)
+      } else {
+        this.restoreSourceDisplay(preferredSourceLine)
+      }
       return
     }
 
@@ -366,17 +404,28 @@ export class CodeEditorRenderable extends TextareaRenderable {
     const foldedDisplayText = displayLines.join("\n")
     this.setDisplayedText(foldedDisplayText)
     this.applyFoldedDisplayHighlights(foldedDisplayText)
-    this.moveCursorToSourceLine(preferredSourceLine)
+    if (typeof preferredSourceLine === "object") {
+      this.moveCursorToSourceCursor(preferredSourceLine)
+    } else {
+      this.moveCursorToSourceLine(preferredSourceLine)
+    }
   }
 
-  private restoreSourceDisplay(preferredSourceLine?: number): void {
+  private restoreSourceDisplay(
+    preferredSourceLine?: number,
+    preferredSourceCursor?: SourceCursor,
+  ): void {
     const wasFolded = this._displayMode === "folded"
     this._displayMode = "source"
     this.rebuildSourceDisplayMaps(this._sourceText)
     if (wasFolded || super.plainText !== this._sourceText) {
       this.setDisplayedText(this._sourceText)
     }
-    this.moveCursorToSourceLine(preferredSourceLine)
+    if (preferredSourceCursor) {
+      this.moveCursorToSourceCursor(preferredSourceCursor)
+    } else {
+      this.moveCursorToSourceLine(preferredSourceLine)
+    }
   }
 
   private setDisplayedText(text: string): void {
@@ -386,6 +435,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
     } finally {
       this._suppressContentChanged = false
     }
+  }
+
+  private syncSourceTextFromDisplayedBuffer(): void {
+    this._sourceText = super.plainText
+    this.rebuildSourceDisplayMaps(this._sourceText)
   }
 
   private applyFoldedDisplayHighlights(displayText: string): void {
@@ -424,11 +478,33 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return this._displayLineToSourceLine.get(displayLine) ?? displayLine
   }
 
+  private isFoldedSummaryLine(sourceLine: number): boolean {
+    return this._folds.get(sourceLine)?.folded ?? false
+  }
+
+  private getSourceCursorFromDisplay(): SourceCursor {
+    const cursor = this.logicalCursor
+    return {
+      line: this.displayLineToSourceLine(cursor.row),
+      col: cursor.col,
+    }
+  }
+
   private moveCursorToSourceLine(sourceLine?: number): void {
     if (sourceLine === undefined) return
     const displayLine = this._sourceLineToDisplayLine.get(sourceLine)
     if (displayLine === undefined) return
     this.editBuffer.setCursor(displayLine, 0)
+  }
+
+  private moveCursorToSourceCursor(sourceCursor: SourceCursor): void {
+    const displayLine = this._sourceLineToDisplayLine.get(sourceCursor.line)
+    if (displayLine === undefined) return
+    const sourceLineText = this._sourceText.split("\n")[sourceCursor.line] ?? ""
+    this.editBuffer.setCursor(
+      displayLine,
+      Math.min(sourceCursor.col, sourceLineText.length),
+    )
   }
 
   private isPotentialEditKey(key: KeyEvent): boolean {

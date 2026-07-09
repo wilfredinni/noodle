@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
-import type { LineNumberRenderable } from "@opentui/core"
+import type { KeyEvent, LineNumberRenderable } from "@opentui/core"
 import { CodeEditorRenderable } from "../../src/ui/CodeEditor"
 import { opencodeTheme } from "../../src/ui/theme-data"
 
@@ -258,5 +258,60 @@ body:
     expect(frame).not.toContain("accept")
     expect(frame).toContain("body:")
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
+  it("preserves cursor position when typing on an unfolded line while YAML is folded", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `name: demo
+body:
+  title: hello
+  published: true
+body_type: json`
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <box width={80} height={10}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="yaml"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    expect(editor).toBeDefined()
+    computeFolds(editor!)
+    editor!.toggleFold(1)
+    await renderOnce()
+
+    editor!.setCursor(2, "body_type: ".length)
+    editor!.handleKeyPress({
+      name: "1",
+      sequence: "1",
+      raw: "1",
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+      super: false,
+      hyper: false,
+    } as KeyEvent)
+    await renderOnce()
+
+    expect(editor!.plainText).toContain("body_type: 1json")
+    expect(editor!.plainText.startsWith("1name:")).toBe(false)
+    expect(editor!.lineCount).toBe(3)
+    const frame = captureCharFrame()
+    expect(frame).toContain("body:")
+    expect(frame).not.toContain("title: hello")
   })
 })
