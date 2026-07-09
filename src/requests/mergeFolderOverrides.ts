@@ -53,11 +53,7 @@ export function mergeFolderOverrides(
   if (requestAuth.type === "inherit") {
     const reversed = [...folders].reverse()
     for (const folder of reversed) {
-      if (
-        folder.overrides?.auth &&
-        folder.overrides.auth.type !== "none" &&
-        folder.overrides.auth.type !== "inherit"
-      ) {
+      if (folder.overrides?.auth && folder.overrides.auth.type !== "none") {
         return {
           ...request,
           headers: { ...mergedHeaders, ...request.headers },

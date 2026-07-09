@@ -13,7 +13,7 @@ const testRequest: Request = {
   url: "https://example.com/api",
   body: '{"name":"hello","count":42}',
   headers: {},
-  params: {},
+  params: [],
   timeout: 0,
 }
 
@@ -191,7 +191,7 @@ describe("BodySection — FormEditor browse mode", () => {
     method: "POST",
     url: "https://example.com/api",
     headers: {},
-    params: {},
+    params: [],
     timeout: 0,
     bodyType: "multipart",
     formData: [

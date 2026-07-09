@@ -15,7 +15,7 @@ describe("lang.parseRequest — required fields", () => {
       followRedirects: true,
       maxRedirects: 5,
       headers: {},
-      params: {},
+      params: [],
       auth: { type: "none" },
     })
   })
@@ -54,9 +54,9 @@ describe("lang.parseRequest — defaults", () => {
     expect(lang.parseRequest("x", yaml).headers).toEqual({})
   })
 
-  it("defaults params to {} when omitted", () => {
+  it("defaults params to [] when omitted", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\n`
-    expect(lang.parseRequest("x", yaml).params).toEqual({})
+    expect(lang.parseRequest("x", yaml).params).toEqual([])
   })
 
   it("defaults auth to { type: none } when omitted", () => {
@@ -75,7 +75,9 @@ describe("lang.parseRequest — defaults", () => {
     expect(req.headers).toEqual({
       Accept: { value: "application/json", enabled: true },
     })
-    expect(req.params).toEqual({ verbose: { value: "true", enabled: true } })
+    expect(req.params).toEqual([
+      { name: "verbose", value: "true", enabled: true },
+    ])
     expect(req.body).toBe('{"limit": 10}')
   })
 })
@@ -185,10 +187,10 @@ describe("lang.parseRequest — KvEntry parsing", () => {
   it("parses params with explicit enabled flag", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nparams:\n  debug: { value: "1", enabled: false }\n  verbose: "true"\n`
     const req = lang.parseRequest("x", yaml)
-    expect(req.params).toEqual({
-      debug: { value: "1", enabled: false },
-      verbose: { value: "true", enabled: true },
-    })
+    expect(req.params).toEqual([
+      { name: "debug", value: "1", enabled: false },
+      { name: "verbose", value: "true", enabled: true },
+    ])
   })
 
   it("throws on header value object missing 'value'", () => {
@@ -399,7 +401,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     method: "GET",
     url: "https://api.example.com/users/1",
     headers: {},
-    params: {},
+    params: [],
     timeout: 0,
     followRedirects: true,
     maxRedirects: 5,
@@ -429,9 +431,9 @@ describe("lang.serializeRequest — canonical output", () => {
 
   it("emits params when non-empty", () => {
     const out = lang.serializeRequest(
-      makeReq({ params: { verbose: { value: "true", enabled: true } } }),
+      makeReq({ params: [{ name: "verbose", value: "true", enabled: true }] }),
     )
-    expect(out).toContain("params:\n  verbose: 'true'\n")
+    expect(out).toContain("params:\n  - name: verbose\n    value: 'true'\n")
     expect(out).not.toContain("headers")
     expect(out).not.toContain("body")
     expect(out).not.toContain("auth")
@@ -496,7 +498,7 @@ describe("lang.serializeRequest — canonical key order", () => {
     const out = lang.serializeRequest(
       makeReq({
         headers: { Accept: { value: "application/json", enabled: true } },
-        params: { verbose: { value: "true", enabled: true } },
+        params: [{ name: "verbose", value: "true", enabled: true }],
         body: '{"limit": 10}',
         auth: { type: "bearer", token: "abc123" },
       }),
@@ -535,14 +537,14 @@ describe("lang.serializeRequest — disabled entries", () => {
   it("serializes disabled param as {value, enabled: false} flow mapping", () => {
     const out = lang.serializeRequest(
       makeReq({
-        params: {
-          verbose: { value: "true", enabled: true },
-          debug: { value: "1", enabled: false },
-        },
+        params: [
+          { name: "verbose", value: "true", enabled: true },
+          { name: "debug", value: "1", enabled: false },
+        ],
       }),
     )
-    expect(out).toContain("verbose: 'true'")
-    expect(out).toContain("debug: { value: '1', enabled: false }")
+    expect(out).toContain("- name: verbose\n    value: 'true'\n")
+    expect(out).toContain("- name: debug\n    value: '1'\n    enabled: false")
   })
 })
 
@@ -560,7 +562,7 @@ describe("lang — semantic round-trip", () => {
         "Content-Type": { value: "application/json", enabled: true },
         Authorization: { value: "Bearer $token", enabled: true },
       },
-      params: { draft: { value: "true", enabled: true } },
+      params: [{ name: "draft", value: "true", enabled: true }],
       body: '{"title": "hello", "body": "world"}',
       auth: { type: "bearer", token: "$token" },
     }
@@ -578,7 +580,7 @@ describe("lang — semantic round-trip", () => {
       method: "GET",
       url: "https://example.com",
       headers: {},
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
@@ -596,7 +598,7 @@ describe("lang — semantic round-trip", () => {
       method: "DELETE",
       url: "https://example.com/item/1",
       headers: {},
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
@@ -614,7 +616,7 @@ describe("lang — semantic round-trip", () => {
       method: "GET",
       url: "https://example.com/data",
       headers: {},
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
@@ -640,7 +642,7 @@ describe("lang — semantic round-trip", () => {
         Accept: { value: "application/json", enabled: true },
         "X-Debug": { value: "true", enabled: false },
       },
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
@@ -718,7 +720,7 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
       method: "POST",
       url: "https://example.com/upload",
       headers: {},
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
@@ -746,7 +748,7 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
       method: "POST",
       url: "https://example.com/upload",
       headers: {},
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
@@ -766,7 +768,7 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
       method: "POST",
       url: "https://example.com/login",
       headers: {},
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
@@ -789,7 +791,7 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
       method: "POST",
       url: "https://example.com",
       headers: { "Content-Type": { value: "application/json", enabled: true } },
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,

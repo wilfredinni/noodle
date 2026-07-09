@@ -1,5 +1,9 @@
-import { describe, it, expect } from "bun:test"
-import { applyDraftOp, folderEqual } from "../../src/hooks/useFolderDraft"
+import { describe, it, expect, beforeEach } from "bun:test"
+import {
+  applyDraftOp,
+  clearFolderAuthTypeCache,
+  folderEqual,
+} from "../../src/hooks/useFolderDraft"
 import type { Folder } from "../../src/schema"
 
 function makeFolder(overrides?: Partial<Folder>): Folder {
@@ -13,6 +17,10 @@ function makeFolder(overrides?: Partial<Folder>): Folder {
 }
 
 describe("applyDraftOp", () => {
+  beforeEach(() => {
+    clearFolderAuthTypeCache()
+  })
+
   it("setName changes folder name", () => {
     const f = makeFolder({ name: "Old" })
     const r = applyDraftOp(f, { kind: "setName", name: "New" })
@@ -85,12 +93,6 @@ describe("applyDraftOp", () => {
     const f = makeFolder()
     const r = applyDraftOp(f, { kind: "setAuthType", authType: "none" })
     expect(r?.overrides?.auth).toEqual({ type: "none" })
-  })
-
-  it("setAuthType sets auth to inherit", () => {
-    const f = makeFolder()
-    const r = applyDraftOp(f, { kind: "setAuthType", authType: "inherit" })
-    expect(r?.overrides?.auth).toEqual({ type: "inherit" })
   })
 
   it("setAuthField updates token for bearer", () => {
@@ -181,6 +183,104 @@ describe("applyDraftOp", () => {
     const f = makeFolder()
     const r = applyDraftOp(f, { kind: "markSaved" })
     expect(r).toBe(f)
+  })
+
+  it("setAuthType saves current auth to cache and restores it on switch back", () => {
+    const f = makeFolder({
+      path: "cache-save-restore",
+      overrides: { auth: { type: "basic", user: "admin", pass: "secret" } },
+    })
+    const bearer = applyDraftOp(f, { kind: "setAuthType", authType: "bearer" })
+    expect(bearer?.overrides?.auth).toEqual({ type: "bearer", token: "" })
+
+    const backToBasic = applyDraftOp(bearer, {
+      kind: "setAuthType",
+      authType: "basic",
+    })
+    expect(backToBasic?.overrides?.auth).toEqual({
+      type: "basic",
+      user: "admin",
+      pass: "secret",
+    })
+  })
+
+  it("setAuthType restores cached auth across multiple switches", () => {
+    const f = makeFolder({
+      path: "multi-switch",
+      overrides: { auth: { type: "basic", user: "u", pass: "p" } },
+    })
+    const apiKey = applyDraftOp(f, { kind: "setAuthType", authType: "api_key" })
+    expect(apiKey?.overrides?.auth).toEqual({
+      type: "api_key",
+      key: "",
+      value: "",
+      placement: "header",
+    })
+
+    const bearer = applyDraftOp(apiKey, {
+      kind: "setAuthType",
+      authType: "bearer",
+    })
+    expect(bearer?.overrides?.auth).toEqual({ type: "bearer", token: "" })
+
+    const backToBasic = applyDraftOp(bearer, {
+      kind: "setAuthType",
+      authType: "basic",
+    })
+    expect(backToBasic?.overrides?.auth).toEqual({
+      type: "basic",
+      user: "u",
+      pass: "p",
+    })
+
+    const backToApiKey = applyDraftOp(backToBasic, {
+      kind: "setAuthType",
+      authType: "api_key",
+    })
+    expect(backToApiKey?.overrides?.auth).toEqual({
+      type: "api_key",
+      key: "",
+      value: "",
+      placement: "header",
+    })
+  })
+
+  it("setAuthType falls back to original auth when cache misses", () => {
+    const original = makeFolder({
+      path: "orig-fallback",
+      overrides: {
+        auth: { type: "basic", user: "saved-user", pass: "saved-pass" },
+      },
+    })
+    const current = makeFolder({
+      path: "orig-fallback",
+      overrides: { auth: { type: "bearer", token: "unsaved" } },
+    })
+    const result = applyDraftOp(
+      current,
+      { kind: "setAuthType", authType: "basic" },
+      original,
+    )
+    expect(result?.overrides?.auth).toEqual({
+      type: "basic",
+      user: "saved-user",
+      pass: "saved-pass",
+    })
+  })
+
+  it("setAuthType saves none-auth override does not cache", () => {
+    const f = makeFolder({
+      path: "none-no-cache",
+      overrides: { auth: { type: "none" } },
+    })
+    const bearer = applyDraftOp(f, { kind: "setAuthType", authType: "bearer" })
+    expect(bearer?.overrides?.auth).toEqual({ type: "bearer", token: "" })
+
+    const backToNone = applyDraftOp(bearer, {
+      kind: "setAuthType",
+      authType: "none",
+    })
+    expect(backToNone?.overrides?.auth).toEqual({ type: "none" })
   })
 })
 

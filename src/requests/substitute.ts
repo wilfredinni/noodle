@@ -1,10 +1,10 @@
-import type { Auth, Environment, Request } from "../schema"
+import type { Auth, Environment, ParamEntry, Request } from "../schema"
 
 const VAR_RE = /\$(\w+)/g
 
 export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
   headers: Record<string, string>
-  params: Record<string, string>
+  params: ParamEntry[]
 }
 
 export function substitute(req: Request, env: Environment): SubstitutedRequest {
@@ -24,23 +24,29 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     headers[k] = resolve(v.value, `headers.${k}`)
   }
 
-  const params: Record<string, string> = {}
-  for (const [k, v] of Object.entries(req.params)) {
-    if (!v.enabled) continue
-    params[k] = resolve(v.value, `params.${k}`)
-  }
+  const params: ParamEntry[] = req.params.map((entry, i) => {
+    if (!entry.enabled) return { ...entry }
+    return {
+      name: resolve(entry.name, `params[${i}].name`),
+      value: resolve(entry.value, `params[${i}].value`),
+      enabled: entry.enabled,
+    }
+  })
 
   const auth =
     req.auth === undefined ? undefined : substituteAuth(req.auth, resolve)
 
   const formData =
     req.formData !== undefined
-      ? req.formData.map((entry, i) => ({
-          name: resolve(entry.name, `formData[${i}].name`),
-          value: resolve(entry.value, `formData[${i}].value`),
-          enabled: entry.enabled,
-          type: entry.type,
-        }))
+      ? req.formData.map((entry, i) => {
+          if (!entry.enabled) return { ...entry }
+          return {
+            name: resolve(entry.name, `formData[${i}].name`),
+            value: resolve(entry.value, `formData[${i}].value`),
+            enabled: entry.enabled,
+            type: entry.type,
+          }
+        })
       : req.formData
 
   const filePath =

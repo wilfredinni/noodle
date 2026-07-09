@@ -15,7 +15,7 @@ function req(id: string): CollectionItem {
       method: "GET",
       url: "https://example.com",
       headers: {},
-      params: {},
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,

@@ -72,7 +72,8 @@ describe("import — integration", () => {
     expect(createUserYml).toContain("name: createUser")
     expect(createUserYml).toContain("method: POST")
     expect(createUserYml).toContain("params:")
-    expect(createUserYml).toContain("name: ''")
+    expect(createUserYml).toContain("- name: name")
+    expect(createUserYml).toContain("value: ''")
     expect(createUserYml).toContain("X-Token: ''")
 
     expect(existsSync(join(collDir, "users", "folder.yml"))).toBe(true)

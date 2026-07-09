@@ -10,7 +10,7 @@ function makeReq(over: Partial<Request> = {}): Request {
     method: "POST",
     url: "https://example.com/api",
     headers: {},
-    params: {},
+    params: [],
     timeout: 0,
     followRedirects: true,
     maxRedirects: 5,
@@ -60,7 +60,7 @@ describe("substitute — formData", () => {
     ])
   })
 
-  it("preserves disabled entries after substitution", () => {
+  it("preserves disabled entries without substitution", () => {
     const env: Environment = { name: "dev", vars: { X: "y" } }
     const req = makeReq({
       bodyType: "urlencoded",
@@ -71,9 +71,21 @@ describe("substitute — formData", () => {
     })
     const result = substitute(req, env)
     expect(result.formData).toEqual([
-      { name: "a", value: "y", enabled: false, type: "text" },
+      { name: "a", value: "$X", enabled: false, type: "text" },
       { name: "b", value: "y", enabled: true, type: "text" },
     ])
+  })
+
+  it("does not throw on disabled formData with unresolved $var", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      bodyType: "urlencoded",
+      formData: [
+        { name: "good", value: "v", enabled: true, type: "text" },
+        { name: "bad", value: "$MISSING", enabled: false, type: "text" },
+      ],
+    })
+    expect(() => substitute(req, env)).not.toThrow()
   })
 
   it("throws on unresolved $var in formData name", () => {
@@ -130,6 +142,58 @@ describe("substitute — formData", () => {
     const req = makeReq({ bodyType: "binary" })
     const result = substitute(req, env)
     expect(result.filePath).toBeUndefined()
+  })
+})
+
+describe("substitute — params", () => {
+  it("substitutes $var in param name and value", () => {
+    const env: Environment = {
+      name: "dev",
+      vars: { K: "userId", V: "42" },
+    }
+    const req = makeReq({
+      params: [{ name: "$K", value: "$V", enabled: true }],
+    })
+    const result = substitute(req, env)
+    expect(result.params).toEqual([
+      { name: "userId", value: "42", enabled: true },
+    ])
+  })
+
+  it("does not throw on disabled param with unresolved $var", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      params: [
+        { name: "good", value: "1", enabled: true },
+        { name: "bad", value: "$MISSING", enabled: false },
+      ],
+    })
+    expect(() => substitute(req, env)).not.toThrow()
+  })
+
+  it("throws on enabled param with unresolved $var", () => {
+    const env: Environment = { name: "dev", vars: {} }
+    const req = makeReq({
+      params: [{ name: "bad", value: "$MISSING", enabled: true }],
+    })
+    expect(() => substitute(req, env)).toThrow(
+      'requests.substitute: unresolved variable "MISSING" in params[0].value',
+    )
+  })
+
+  it("preserves disabled params without substitution", () => {
+    const env: Environment = { name: "dev", vars: { X: "y" } }
+    const req = makeReq({
+      params: [
+        { name: "a", value: "$X", enabled: false },
+        { name: "b", value: "$X", enabled: true },
+      ],
+    })
+    const result = substitute(req, env)
+    expect(result.params).toEqual([
+      { name: "a", value: "$X", enabled: false },
+      { name: "b", value: "y", enabled: true },
+    ])
   })
 })
 

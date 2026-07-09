@@ -100,7 +100,7 @@ export function RequestPane({
   const tabs = useMemo(() => {
     if (!request) return BASE_TAB_DEFS
     const headerActive = Object.values(request.headers).some((e) => e.enabled)
-    const paramActive = Object.values(request.params).some((e) => e.enabled)
+    const paramActive = request.params.some((e) => e.enabled)
     const hasBody =
       (request.body !== undefined && request.body !== "") ||
       (request.formData !== undefined && request.formData.length > 0) ||
@@ -183,9 +183,10 @@ export function RequestPane({
               {activeTab === "params" && (
                 <KeyValueSection
                   kind="params"
-                  entries={Object.entries(request?.params ?? {}).map(
-                    ([key, value]) => ({ key, value }),
-                  )}
+                  entries={(request?.params ?? []).map((p) => ({
+                    key: p.name,
+                    value: { value: p.value, enabled: p.enabled },
+                  }))}
                   editState={editState}
                   editKey={editKey}
                   editValue={editValue}

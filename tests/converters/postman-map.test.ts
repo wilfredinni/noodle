@@ -72,7 +72,7 @@ describe("mapCollection — flat collection, single request", () => {
     expect(r.url).toBe("http://example.com/hello")
     expect(r.timeout).toBe(0)
     expect(r.headers).toEqual({})
-    expect(r.params).toEqual({})
+    expect(r.params).toEqual([])
     expect(r.body).toBeUndefined()
     expect(r.bodyType).toBeUndefined()
     expect(r.auth).toEqual({ type: "none" })

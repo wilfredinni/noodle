@@ -47,6 +47,25 @@ brew install noodle
 
 Installs to `~/.local/bin/noodle` (curl) or your Homebrew prefix. Make sure the install directory is in your PATH.
 
+### npx skills (AI agents)
+
+Teach your AI coding agent to create, organize, audit, import, and convert noodle collections. Supports OpenCode, Claude Code, Cursor, Copilot, and 70+ other agents.
+
+```bash
+npx skills add wilfredinni/noodle --skill noodle-use -g
+```
+
+Example prompts:
+- "Scaffold a noodle collection for the Stripe API with auth and a few endpoints"
+- "Audit my collection for security issues and REST best practices"
+- "Convert this Insomnia export to a noodle collection"
+- "Change the expand layout keybinding to Alt+I"
+- "Set Catppuccin as my theme"
+- "How many requests are in the Stripe API collection?"
+- "What's the average response time for the login request on my Stripe collection?"
+- "Order the folders on the Stripe collection from Z to A"
+- "Set up basic auth on the Posts folder for $basic_user and $basic_password"
+
 ## Roadmap
 
 See the [public roadmap](https://app.notion.com/p/39128d9edba9809da834f351332baf57?v=39228d9edba98042ad07000cdbe5d751&source=copy_link) for upcoming features and improvements.

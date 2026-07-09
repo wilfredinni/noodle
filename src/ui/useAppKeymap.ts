@@ -158,6 +158,8 @@ export function useAppKeymap(
             const f = e.editState.cursor.field
             if (f === "headers" || f === "params") return false
           }
+          const overlay = keymap.getData("app.overlay") as string
+          if (overlay !== "none") return false
           return true
         },
         run: () =>
@@ -191,6 +193,8 @@ export function useAppKeymap(
             const f = e.editState.cursor.field
             if (f === "headers" || f === "params") return false
           }
+          const overlay = keymap.getData("app.overlay") as string
+          if (overlay !== "none") return false
           return true
         },
         run: () =>

@@ -1,0 +1,71 @@
+---
+name: noodle-use
+description: Teach agents to create, organize, maintain, evaluate, import, and convert noodle terminal REST client collections via file-level operations on YAML and dotenv files.
+---
+
+# noodle-use
+
+Terminal REST client. YAML files on disk. Dotenv environments. File-level operations only — no Bun dependency.
+
+## Quick routing
+
+| Intent | Read |
+|--------|------|
+| Create new collection, request, folder, or environment | [workflows/create.md](workflows/create.md) |
+| Refactor, rename, restructure existing collection | [workflows/organize.md](workflows/organize.md) |
+| Audit collection for REST best practices and security | [workflows/evaluate.md](workflows/evaluate.md) |
+| Import from OpenAPI or Postman via CLI | [workflows/import.md](workflows/import.md) |
+| Convert from Insomnia or Swagger 2.0 at file level | [workflows/convert.md](workflows/convert.md) |
+| Understand file formats, schemas, field rules | [schema.md](schema.md) |
+| Understand naming conventions, ID rules, variable syntax | [reference/conventions.md](reference/conventions.md) |
+| Read/write ~/.config/noodle/ settings | [reference/config.md](reference/config.md) |
+| See annotated example files | [reference/examples.md](reference/examples.md) |
+
+## Critical rules
+
+These apply to ALL operations. Read before any workflow.
+
+### File-level only
+Operate on `.yml` and `.env` files directly. Do NOT import noodle's internal modules. Do NOT run `bun`. The ONLY allowed CLI invocation is `noodle import`. Never run `noodle` in TUI mode — that's for humans.
+
+### Variable syntax
+`$VARNAME` (no braces). Regex `/\$(\w+)/g`. Applied to: url, headers, params, body, formData, filePath, auth fields. Unresolved variables cause noodle to throw at runtime — always verify all `$var` references resolve to an env declaration.
+
+### File extension
+`.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.
+
+### ID convention
+File at `auth/login.yml` → ID = `"auth/login"` (relative path minus `.yml`). Used for: tree navigation, file I/O, timeline storage, UI state.
+
+### Environment format
+Dotenv-style `.env` files in `<collection>/.environments/`. `KEY=value` declares a variable. `# KEY=value` disables it. `_color=<name>` sets sidebar badge color. Valid colors: primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, borderSubtle.
+
+### Folder inheritance
+- Headers merge additively: folder header only applies if child request doesn't have the same header key.
+- Auth: request with `type: inherit` uses nearest parent folder's auth override. Walk up the tree until a folder with an auth override is found.
+- `folder.yml` format:
+```yaml
+meta:
+  name: Display Name
+  seq: 5
+headers:
+  X-API-Key: $API_KEY
+auth:
+  type: bearer
+  token: $TOKEN
+```
+`meta` is optional. `meta.seq` controls sort order (lower = first, undefined = last). `meta.name` overrides display name (defaults to directory name).
+
+### Collection settings
+`settings.yml` at collection root: `environment: <name>` sets the default active environment. Single field only.
+
+### Path safety
+When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, or backslashes.
+
+### Authorization
+Auth types: `none`, `inherit`, `bearer`, `basic`, `api_key`.
+- `none`: No auth. Omit the `auth` field entirely (don't write `{ type: none }`).
+- `inherit`: Use parent folder's auth override. Only valid when a parent folder defines auth.
+- `bearer`: `{ type: bearer, token: "$TOKEN" }`
+- `basic`: `{ type: basic, user: "$USER", pass: "$PASS" }`
+- `api_key`: `{ type: api_key, key: "X-API-Key", value: "$KEY", placement: "header" }`. Placement is `"header"` or `"query"`.
