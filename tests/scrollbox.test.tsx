@@ -98,17 +98,22 @@ describe("RequestPane scrollbox", () => {
       timeout: 0,
     }
 
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
     const { renderOnce, captureCharFrame } = await testRender(
-      <RequestPane
-        request={request}
-        editState={initialEditState()}
-        editKey=""
-        editValue=""
-        setEditKey={() => {}}
-        setEditValue={() => {}}
-        focused={true}
-        activeTab="headers"
-      />,
+      <KeymapProvider keymap={keymap}>
+        <RequestPane
+          request={request}
+          editState={initialEditState()}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused={true}
+          activeTab="headers"
+        />
+      </KeymapProvider>,
       { width: 80, height: 12 },
     )
     await renderOnce()
@@ -150,19 +155,24 @@ describe("RequestPane scrollbox", () => {
       editingRow: -1,
     }
 
+    const raw2 = createTestKeymap()
+    const keymap2 = raw2.keymap as unknown as OpenTuiKeymap
+    keymap2.setData("app.overlay", "none")
     const { renderOnce, captureCharFrame, captureSpans } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <RequestPane
-          request={request}
-          editState={editState}
-          editKey=""
-          editValue=""
-          setEditKey={() => {}}
-          setEditValue={() => {}}
-          focused={true}
-          activeTab="headers"
-        />
-      </ThemeProvider>,
+      <KeymapProvider keymap={keymap2}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <RequestPane
+            request={request}
+            editState={editState}
+            editKey=""
+            editValue=""
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            focused={true}
+            activeTab="headers"
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
       { width: 80, height: 12 },
     )
     await renderOnce()

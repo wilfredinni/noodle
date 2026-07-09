@@ -10,12 +10,14 @@ export function JsonBodyViewer({
   id,
   readOnly = false,
   activeEnv,
+  backgroundColor,
 }: {
   body: string
   theme: Theme
   id?: string
   readOnly?: boolean
   activeEnv?: Environment | null
+  backgroundColor?: string
 }) {
   const ref = useRef<TextareaRenderable | null>(null)
 
@@ -29,12 +31,14 @@ export function JsonBodyViewer({
     }
   }, [body, theme, readOnly, activeEnv])
 
+  const bg = backgroundColor ?? theme.backgroundPanel
+
   return (
     <line-number
       minWidth={5}
       paddingRight={1}
       fg={theme.textMuted}
-      bg={theme.backgroundPanel}
+      bg={bg}
       style={{ flexGrow: 1 }}
       width="100%"
     >
@@ -42,7 +46,7 @@ export function JsonBodyViewer({
         ref={ref}
         id={id}
         initialValue={body}
-        backgroundColor={theme.backgroundPanel}
+        backgroundColor={bg}
         textColor={theme.text}
         style={{ flexGrow: 1 }}
       />
