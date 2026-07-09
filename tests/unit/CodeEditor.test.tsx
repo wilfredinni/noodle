@@ -129,6 +129,39 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.plainText).toBe(content)
   })
 
+  it("inserts a newline on shift+return", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `{"name":"hello"}`
+
+    const { renderOnce } = await testRender(
+      <box width={40} height={8}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 8 },
+    )
+
+    await renderOnce()
+    expect(editor).toBeDefined()
+    editor!.setCursor(0, content.length)
+
+    const handled = editor!.handleKeyPress(keyEvent("return", { shift: true }))
+    expect(handled).toBe(true)
+    await renderOnce()
+    expect(editor!.plainText).toBe(`${content}\n`)
+  })
+
   it("folds nested JSON ranges by their own start line", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `{

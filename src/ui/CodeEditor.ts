@@ -312,6 +312,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   override handleKeyPress(key: KeyEvent): boolean {
+    const normalizedKey: KeyEvent =
+      key.name === "return" && key.shift
+        ? ({ ...key, shift: false } as KeyEvent)
+        : key
+
     if (key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
       if (key.name === "g" && !key.shift) {
         this.toggleFold(this.logicalCursor.row)
@@ -353,7 +358,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
         const sourceCursor = this.getSourceCursorFromDisplay()
         if (!this.isFoldedSummaryLine(sourceCursor.line)) {
           this.restoreSourceDisplay(undefined, sourceCursor)
-          const handled = super.handleKeyPress(key)
+          const handled = super.handleKeyPress(normalizedKey)
           if (handled) {
             const editedSourceCursor = this.getSourceCursorFromDisplay()
             this.syncSourceTextFromDisplayedBuffer()
@@ -367,7 +372,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.unfoldAll()
     }
 
-    const handled = super.handleKeyPress(key)
+    const handled = super.handleKeyPress(normalizedKey)
     if (handled) {
       this.scheduleHighlight()
     }
