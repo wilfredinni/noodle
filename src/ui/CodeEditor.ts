@@ -1,12 +1,10 @@
 import type { KeyEvent, PasteEvent } from "@opentui/core"
 import {
   SyntaxStyle,
-  parseColor,
   TextareaRenderable,
   getTreeSitterClient,
 } from "@opentui/core"
-import type { RenderContext, Highlight, LineInfo } from "@opentui/core"
-import type { OptimizedBuffer } from "@opentui/core"
+import type { RenderContext, Highlight } from "@opentui/core"
 import type { SimpleHighlight } from "@opentui/core"
 import type { TreeSitterClient } from "@opentui/core"
 import type { Theme } from "./theme-data"
@@ -20,7 +18,6 @@ export interface FoldInfo {
   endOffset: number
   summary: string
   folded: boolean
-  extmarkId?: number
 }
 
 export interface CodeEditorOptions {
@@ -37,24 +34,6 @@ export interface CodeEditorOptions {
   focusedBackgroundColor?: string
   focusedTextColor?: string
   cursorColor?: string
-}
-
-const FOLD_TYPE_NAME = "code-editor-fold"
-
-let _foldTypeIdRegistered = false
-let _sharedFoldTypeId = 0
-
-function getFoldTypeId(): number {
-  return _sharedFoldTypeId
-}
-
-function setFoldTypeId(id: number): void {
-  _sharedFoldTypeId = id
-  _foldTypeIdRegistered = true
-}
-
-function isFoldTypeRegistered(): boolean {
-  return _foldTypeIdRegistered
 }
 
 function createTsSyntaxStyle(theme: Theme): SyntaxStyle {
@@ -83,7 +62,6 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null
   private _extraHighlights?: (content: string) => Highlight[]
   private _highlightSnapshotId: number = 0
-  private _foldVisualRows: Map<number, number[]> = new Map()
   private _onContentChange?: () => void
   private _onFoldsChange?: () => void
   private _envResolvedStyleId: number = 0
@@ -91,6 +69,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _tsClient: TreeSitterClient
   private _tsStyle: SyntaxStyle
   private _lastTsError: boolean = false
+  private _sourceText: string = ""
+  private _displayMode: "source" | "folded" = "source"
+  private _suppressContentChanged: boolean = false
+  private _sourceLineToDisplayLine: Map<number, number> = new Map()
+  private _displayLineToSourceLine: Map<number, number> = new Map()
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
     super(ctx, {
@@ -113,22 +96,23 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._tsStyle = createTsSyntaxStyle(this._theme)
     this._envResolvedStyleId = this._tsStyle.getStyleId("env.resolved") ?? 0
     this._envMissingStyleId = this._tsStyle.getStyleId("env.missing") ?? 0
-
-    const extmarks = this.editorView.extmarks
-    if (extmarks && !isFoldTypeRegistered()) {
-      setFoldTypeId(extmarks.registerType(FOLD_TYPE_NAME))
-    }
+    this._sourceText = super.plainText
+    this.rebuildSourceDisplayMaps(this._sourceText)
 
     this.editBuffer.on("content-changed", () => {
       if (!this.isDestroyed) {
+        if (this._suppressContentChanged) return
+        if (this._displayMode === "folded") return
+        this._displayMode = "source"
+        this._sourceText = super.plainText
+        this.rebuildSourceDisplayMaps(this._sourceText)
         this.scheduleHighlight()
-        this._foldVisualRows.clear()
         this._onContentChange?.()
       }
     })
 
-    if (this.plainText.length > 0) {
-      const content = this.plainText
+    if (this._sourceText.length > 0) {
+      const content = this._sourceText
       if (this._filetype === "json") {
         this.applyJsonHighlights(content)
       } else if (this._filetype === "yaml") {
@@ -140,6 +124,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   get filetype(): string {
     return this._filetype
+  }
+
+  override get plainText(): string {
+    return this._sourceText
   }
 
   set filetype(value: string) {
@@ -168,17 +156,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   set foldable(value: boolean) {
-    const extmarks = this.editorView.extmarks
-    if (extmarks) {
-      for (const fold of this._folds.values()) {
-        if (fold.extmarkId !== undefined) {
-          extmarks.delete(fold.extmarkId)
-        }
-      }
-    }
     this._foldable = value
     this._folds.clear()
-    this._foldVisualRows.clear()
+    this.restoreSourceDisplay()
     this.requestRender()
   }
 
@@ -189,12 +169,31 @@ export class CodeEditorRenderable extends TextareaRenderable {
   getFoldSigns(): Map<number, { before: string; beforeColor: string }> {
     const signs = new Map<number, { before: string; beforeColor: string }>()
     for (const [line, fold] of this._folds) {
-      signs.set(line, {
+      if (this.isSourceLineHiddenByFold(line)) continue
+      const displayLine =
+        this._displayMode === "folded"
+          ? this._sourceLineToDisplayLine.get(line)
+          : line
+      if (displayLine === undefined) continue
+      signs.set(displayLine, {
         before: fold.folded ? "▶" : "▼",
         beforeColor: "#888888",
       })
     }
     return signs
+  }
+
+  getHiddenLineNumbers(): Set<number> {
+    if (this._displayMode === "folded") return new Set()
+
+    const hidden = new Set<number>()
+    for (const fold of this._folds.values()) {
+      if (!fold.folded) continue
+      for (let line = fold.startLine + 1; line <= fold.endLine; line++) {
+        hidden.add(line)
+      }
+    }
+    return hidden
   }
 
   set theme(value: Theme) {
@@ -214,7 +213,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   toggleFold(line: number): void {
-    const fold = this._folds.get(line)
+    const sourceLine = this.displayLineToSourceLine(line)
+    const fold = this._folds.get(sourceLine)
     if (!fold) return
 
     if (fold.folded) {
@@ -222,41 +222,19 @@ export class CodeEditorRenderable extends TextareaRenderable {
     } else {
       this.fold(fold)
     }
+    this.applyFoldDisplay(sourceLine)
     this.requestRender()
   }
 
   private fold(fold: FoldInfo): void {
-    const extmarks = this.editorView.extmarks
-    if (!extmarks) return
-
-    const extmarkId = extmarks.create({
-      start: fold.startOffset,
-      end: fold.endOffset,
-      virtual: true,
-      priority: 10,
-      typeId: getFoldTypeId(),
-      metadata: { foldStartLine: fold.startLine },
-    })
-
     fold.folded = true
-    fold.extmarkId = extmarkId
     this._folds.set(fold.startLine, fold)
-    this._foldVisualRows.clear()
     this._onFoldsChange?.()
   }
 
   private unfold(fold: FoldInfo): void {
-    const extmarks = this.editorView.extmarks
-    if (!extmarks) return
-
-    if (fold.extmarkId !== undefined) {
-      extmarks.delete(fold.extmarkId)
-    }
-
     fold.folded = false
-    fold.extmarkId = undefined
     this._folds.set(fold.startLine, fold)
-    this._foldVisualRows.clear()
     this._onFoldsChange?.()
   }
 
@@ -264,6 +242,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     for (const fold of this._folds.values()) {
       if (!fold.folded) this.fold(fold)
     }
+    this.applyFoldDisplay()
     this.requestRender()
   }
 
@@ -271,10 +250,15 @@ export class CodeEditorRenderable extends TextareaRenderable {
     for (const fold of this._folds.values()) {
       if (fold.folded) this.unfold(fold)
     }
+    this.restoreSourceDisplay()
+    this.scheduleHighlight()
     this.requestRender()
   }
 
   override handlePaste(event: PasteEvent): void {
+    if (this.hasFoldedRanges()) {
+      this.unfoldAll()
+    }
     super.handlePaste(event)
     this.scheduleHighlight()
   }
@@ -305,6 +289,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
       }
     }
 
+    if (this.hasFoldedRanges() && this.isPotentialEditKey(key)) {
+      this.unfoldAll()
+    }
+
     const handled = super.handleKeyPress(key)
     if (handled) {
       this.scheduleHighlight()
@@ -312,73 +300,119 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return handled
   }
 
-  protected override renderSelf(buffer: OptimizedBuffer): void {
-    super.renderSelf(buffer)
-
-    if (this._foldable) {
-      this.renderFoldOverlays(buffer)
-    }
-  }
-
-  private renderFoldOverlays(buffer: OptimizedBuffer): void {
-    const screenX = this._screenX
-    const screenY = this._screenY
-    const lineInfo = this.lineInfo
-
+  private isSourceLineHiddenByFold(line: number): boolean {
     for (const fold of this._folds.values()) {
       if (!fold.folded) continue
-
-      const visualRows = this.getVisualRowsForFold(fold, lineInfo)
-      if (visualRows.length <= 1) continue
-
-      for (let i = 1; i < visualRows.length; i++) {
-        const visualRow = visualRows[i]
-        if (visualRow < 0 || visualRow >= this.height) continue
-        buffer.fillRect(
-          screenX,
-          screenY + visualRow,
-          this.width,
-          1,
-          parseColor("transparent"),
-        )
-      }
-
-      const firstVisualRow = visualRows[0]
-      const visibleRowY = screenY + firstVisualRow
-      if (visibleRowY >= screenY && visibleRowY < screenY + this.height) {
-        buffer.drawText(
-          `▶ ${fold.summary}`,
-          screenX,
-          visibleRowY,
-          parseColor("#888888"),
-          parseColor("transparent"),
-        )
-      }
+      if (line > fold.startLine && line <= fold.endLine) return true
     }
-  }
-
-  private getVisualRowsForFold(fold: FoldInfo, lineInfo: LineInfo): number[] {
-    const cacheKey = fold.startLine
-    const cached = this._foldVisualRows.get(cacheKey)
-    if (cached) return cached
-
-    if (!lineInfo || !lineInfo.lineSources) return []
-
-    const sources = lineInfo.lineSources
-    const rows: number[] = []
-    for (let i = 0; i < sources.length; i++) {
-      if (sources[i] >= fold.startLine && sources[i] <= fold.endLine) {
-        rows.push(i)
-      }
-    }
-
-    this._foldVisualRows.set(cacheKey, rows)
-    return rows
+    return false
   }
 
   protected override onResize(width: number, height: number): void {
     super.onResize(width, height)
-    this._foldVisualRows.clear()
+  }
+
+  private hasFoldedRanges(): boolean {
+    for (const fold of this._folds.values()) {
+      if (fold.folded) return true
+    }
+    return false
+  }
+
+  private isFoldedDisplay(): boolean {
+    return this._displayMode === "folded"
+  }
+
+  private applyFoldDisplay(preferredSourceLine?: number): void {
+    if (!this.hasFoldedRanges()) {
+      this.restoreSourceDisplay(preferredSourceLine)
+      return
+    }
+
+    const lines = this._sourceText.split("\n")
+    const displayLines: string[] = []
+    const sourceToDisplay = new Map<number, number>()
+    const displayToSource = new Map<number, number>()
+
+    for (let sourceLine = 0; sourceLine < lines.length; ) {
+      const displayLine = displayLines.length
+      const fold = this._folds.get(sourceLine)
+
+      if (fold?.folded) {
+        sourceToDisplay.set(sourceLine, displayLine)
+        displayToSource.set(displayLine, sourceLine)
+        displayLines.push(`${getLineIndent(lines[sourceLine])}${fold.summary}`)
+        sourceLine = fold.endLine + 1
+        continue
+      }
+
+      sourceToDisplay.set(sourceLine, displayLine)
+      displayToSource.set(displayLine, sourceLine)
+      displayLines.push(lines[sourceLine])
+      sourceLine++
+    }
+
+    this._displayMode = "folded"
+    this._sourceLineToDisplayLine = sourceToDisplay
+    this._displayLineToSourceLine = displayToSource
+    this.setDisplayedText(displayLines.join("\n"))
+    this.clearAllHighlights()
+    this.moveCursorToSourceLine(preferredSourceLine)
+  }
+
+  private restoreSourceDisplay(preferredSourceLine?: number): void {
+    const wasFolded = this._displayMode === "folded"
+    this._displayMode = "source"
+    this.rebuildSourceDisplayMaps(this._sourceText)
+    if (wasFolded || super.plainText !== this._sourceText) {
+      this.setDisplayedText(this._sourceText)
+    }
+    this.moveCursorToSourceLine(preferredSourceLine)
+  }
+
+  private setDisplayedText(text: string): void {
+    this._suppressContentChanged = true
+    try {
+      super.setText(text)
+    } finally {
+      this._suppressContentChanged = false
+    }
+  }
+
+  private rebuildSourceDisplayMaps(content: string): void {
+    const lines = content.split("\n")
+    this._sourceLineToDisplayLine = new Map()
+    this._displayLineToSourceLine = new Map()
+    for (let line = 0; line < lines.length; line++) {
+      this._sourceLineToDisplayLine.set(line, line)
+      this._displayLineToSourceLine.set(line, line)
+    }
+  }
+
+  private displayLineToSourceLine(displayLine: number): number {
+    if (this._displayMode !== "folded") return displayLine
+    return this._displayLineToSourceLine.get(displayLine) ?? displayLine
+  }
+
+  private moveCursorToSourceLine(sourceLine?: number): void {
+    if (sourceLine === undefined) return
+    const displayLine = this._sourceLineToDisplayLine.get(sourceLine)
+    if (displayLine === undefined) return
+    this.editBuffer.setCursor(displayLine, 0)
+  }
+
+  private isPotentialEditKey(key: KeyEvent): boolean {
+    if (key.name === "backspace" || key.name === "delete") return true
+    if (key.name === "return" || key.name === "linefeed") return true
+
+    if (key.ctrl) {
+      return ["d", "k", "u", "w", "z", ".", "-"].includes(key.name)
+    }
+
+    if (key.meta || key.option || key.super || key.hyper) return false
+    if (!key.sequence) return false
+
+    return key.sequence.length > 0 && key.sequence.charCodeAt(0) >= 32
   }
 
   override destroy(): void {
@@ -387,17 +421,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this._highlightTimer = null
     }
 
-    const extmarks = this.editorView.extmarks
-    if (extmarks) {
-      for (const fold of this._folds.values()) {
-        if (fold.extmarkId !== undefined) {
-          extmarks.delete(fold.extmarkId)
-        }
-      }
-    }
-
     this._folds.clear()
-    this._foldVisualRows.clear()
 
     super.destroy()
   }
@@ -417,6 +441,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     const content = this.plainText
 
     if (content.length === 0 || content.length > 100_000) return
+    if (this.isFoldedDisplay()) return
 
     let tsSuccess = false
 
@@ -425,6 +450,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
       if (snapshotId !== this._highlightSnapshotId) return
       if (this.isDestroyed) return
+      if (this.isFoldedDisplay()) return
 
       const highlights = result.highlights
       if (highlights && highlights.length > 0) {
@@ -438,6 +464,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
     if (snapshotId !== this._highlightSnapshotId) return
     if (this.isDestroyed) return
+    if (this.isFoldedDisplay()) return
 
     if (!tsSuccess) {
       if (this._filetype === "json") {
@@ -556,7 +583,6 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (!this._foldable) return
 
     const content = this.plainText
-    const extmarks = this.editorView.extmarks
     const prevFolds = this._folds
     const newFolds = new Map<number, FoldInfo>()
 
@@ -570,33 +596,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
     for (const [line, fold] of newFolds) {
       const previous = prevFolds.get(line)
-      if (!previous?.folded || !extmarks) continue
-
-      if (previous.extmarkId !== undefined) {
-        extmarks.delete(previous.extmarkId)
-      }
-
-      fold.folded = true
-      fold.extmarkId = extmarks.create({
-        start: fold.startOffset,
-        end: fold.endOffset,
-        virtual: true,
-        priority: 10,
-        typeId: getFoldTypeId(),
-        metadata: { foldStartLine: fold.startLine },
-      })
+      fold.folded = previous?.folded ?? fold.folded
     }
 
-    for (const [line, fold] of prevFolds) {
-      if (
-        fold.folded &&
-        !newFolds.has(line) &&
-        extmarks &&
-        fold.extmarkId !== undefined
-      ) {
-        extmarks.delete(fold.extmarkId)
-      }
-    }
+    if (this.hasFoldedRanges()) this.applyFoldDisplay()
     this._onFoldsChange?.()
     this.requestRender()
   }
@@ -638,7 +641,12 @@ export class CodeEditorRenderable extends TextareaRenderable {
             if (stack[k].char === expected) {
               const startLine = stack[k].line
               if (startLine < i) {
-                const summary = this.getJsonFoldSummary(lines, startLine, i)
+                const summary = this.getJsonFoldSummary(
+                  lines,
+                  startLine,
+                  i,
+                  stack[k].char,
+                )
                 folds.set(startLine, {
                   startLine,
                   endLine: i,
@@ -709,9 +717,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
     lines: string[],
     startLine: number,
     endLine: number,
+    openingChar: string,
   ): string {
     const firstLine = lines[startLine].trim()
-    const bracket = firstLine[0] === "{" ? "}" : "]"
+    const bracket = openingChar === "{" ? "}" : "]"
     const lineCount = endLine - startLine
     return `${firstLine.slice(0, 30)}... ${bracket} (${lineCount} lines)`
   }
@@ -759,6 +768,11 @@ function byteOffsetToDisplayOffset(
     if (value !== undefined) return value
   }
   return 0
+}
+
+function getLineIndent(line: string): string {
+  const match = /^\s*/.exec(line)
+  return match?.[0] ?? ""
 }
 
 function utf8ByteLength(codePoint: number): number {

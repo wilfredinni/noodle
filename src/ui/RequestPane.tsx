@@ -447,6 +447,7 @@ function BodySection({
     const ln = lineNumberRef.current
     if (ed && ln) {
       ln.setLineSigns(ed.getFoldSigns())
+      ln.setHideLineNumbers(ed.getHiddenLineNumbers())
     }
   }, [])
 
