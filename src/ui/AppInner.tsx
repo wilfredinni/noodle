@@ -414,41 +414,6 @@ export function AppInner({
     keymap.setData("app.view", view)
   }, [view, keymap])
 
-  useEffect(() => {
-    const requestMode =
-      eb.editState.mode === "browsing"
-        ? "browse"
-        : eb.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    const folderMode =
-      folderEb.editState.mode === "browsing"
-        ? "browse"
-        : folderEb.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    keymap.setData("app.mode", focus === "folder" ? folderMode : requestMode)
-  }, [eb.editState.mode, folderEb.editState.mode, focus, keymap])
-
-  useEffect(() => {
-    if (focus !== "request") {
-      const state = eb.editState
-      if (state.mode === "editing") eb.cancelEdit()
-      else if (state.mode === "browsing") eb.exitBrowse()
-    }
-    if (focus !== "folder") {
-      const state = folderEb.editState
-      if (state.mode === "editing") folderEb.cancelEdit()
-      else if (state.mode === "browsing") folderEb.exitBrowse()
-    }
-  }, [focus, eb, folderEb])
-
-  useEffect(() => {
-    if (focus === "folder" && folderEb.editState.mode === "inactive") {
-      folderEb.enterBrowse()
-    }
-  }, [focus, folderEb])
-
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
     environmentsDir,
@@ -515,6 +480,69 @@ export function AppInner({
       envStateRef.current.reloadActiveEnv().catch(() => {})
     },
   })
+
+  // ── Sync edit mode to keymap ───────────────────────────────────────
+  useEffect(() => {
+    const requestMode =
+      eb.editState.mode === "browsing"
+        ? "browse"
+        : eb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    const folderMode =
+      folderEb.editState.mode === "browsing"
+        ? "browse"
+        : folderEb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    const envEditMode =
+      envEditor.editState.mode === "browsing"
+        ? "browse"
+        : envEditor.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    if (view === "env-editor" && focus === "env-vars") {
+      keymap.setData("app.mode", envEditMode)
+    } else if (focus === "folder") {
+      keymap.setData("app.mode", folderMode)
+    } else {
+      keymap.setData("app.mode", requestMode)
+    }
+  }, [
+    eb.editState.mode,
+    folderEb.editState.mode,
+    envEditor.editState.mode,
+    focus,
+    view,
+    keymap,
+  ])
+
+  useEffect(() => {
+    if (focus !== "request") {
+      const state = eb.editState
+      if (state.mode === "editing") eb.cancelEdit()
+      else if (state.mode === "browsing") eb.exitBrowse()
+    }
+    if (focus !== "folder") {
+      const state = folderEb.editState
+      if (state.mode === "editing") folderEb.cancelEdit()
+      else if (state.mode === "browsing") folderEb.exitBrowse()
+    }
+    if (focus !== "env-vars") {
+      const state = envEditor.editState
+      if (state.mode === "editing") envEditor.cancelEdit()
+      else if (state.mode === "browsing") envEditor.exitBrowse()
+    }
+  }, [focus, eb, folderEb, envEditor])
+
+  useEffect(() => {
+    if (focus === "folder" && folderEb.editState.mode === "inactive") {
+      folderEb.enterBrowse()
+    }
+    if (focus === "env-vars" && envEditor.editState.mode === "inactive") {
+      envEditor.enterBrowse()
+    }
+  }, [focus, folderEb, envEditor])
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)

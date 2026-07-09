@@ -92,6 +92,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     const text = selection.getSelectedText()
     if (text) {
       renderer.copyToClipboardOSC52(text)
+      renderer.clearSelection()
       showToast("Copied to clipboard", "info")
     }
   })

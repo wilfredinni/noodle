@@ -16,6 +16,18 @@ export interface EnvDraft {
   varRows: VarRow[]
 }
 
+export interface EnvEditState {
+  mode: "inactive" | "browsing" | "editing"
+  row: number
+  addingRow: boolean
+  subfield?: "key" | "value"
+  editingRow: number
+}
+
+function initialEditState(): EnvEditState {
+  return { mode: "inactive", row: -1, addingRow: false, editingRow: -1 }
+}
+
 interface OriginalEnv {
   name: string
   color: string | undefined
@@ -38,8 +50,11 @@ export interface UseEnvironmentEditorResult {
   selectedEnvName: string | null
   draft: EnvDraft | null
   dirty: boolean
-  selectedRowIndex: number
-  editingField: "key" | "value" | null
+  editState: EnvEditState
+  editKey: string
+  editValue: string
+  setEditKey: (v: string) => void
+  setEditValue: (v: string) => void
   saving: boolean
   error: string | null
 
@@ -48,13 +63,16 @@ export interface UseEnvironmentEditorResult {
   selectEnv: (name: string) => Promise<void>
   setName: (name: string) => void
   setColor: (color: string | undefined) => void
-  selectRow: (index: number) => void
-  editField: (field: "key" | "value" | null) => void
-  updateVarKey: (index: number, key: string) => void
-  updateVarValue: (index: number, value: string) => void
+  enterBrowse: () => void
+  exitBrowse: () => void
+  browseUp: () => void
+  browseDown: () => void
+  enterEdit: () => void
+  commitEdit: () => void
+  cancelEdit: () => void
+  browseTab: () => void
   toggleVar: (index: number) => void
-  deleteVar: (index: number) => void
-  addVar: () => void
+  revertVar: (index: number) => void
   save: () => Promise<void>
   deleteEnv: () => Promise<void>
   cloneEnv: (targetName: string) => Promise<void>
@@ -135,8 +153,9 @@ export function useEnvironmentEditor({
   const [selectedEnvName, setSelectedEnvName] = useState<string | null>(null)
   const [draft, setDraft] = useState<EnvDraft | null>(null)
   const [original, setOriginal] = useState<OriginalEnv | null>(null)
-  const [selectedRowIndex, setSelectedRowIndex] = useState(-1)
-  const [editingField, setEditingField] = useState<"key" | "value" | null>(null)
+  const [editState, setEditState] = useState<EnvEditState>(initialEditState())
+  const [editKey, setEditKey] = useState("")
+  const [editValue, setEditValue] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -154,6 +173,12 @@ export function useEnvironmentEditor({
   onActiveEnvChangedRef.current = onActiveEnvChanged
   const localNamesRef = useRef(localNames)
   localNamesRef.current = localNames
+  const editStateRef = useRef(editState)
+  editStateRef.current = editState
+  const editKeyRef = useRef(editKey)
+  editKeyRef.current = editKey
+  const editValueRef = useRef(editValue)
+  editValueRef.current = editValue
 
   const loadEnv = useCallback(
     async (name: string) => {
@@ -176,8 +201,9 @@ export function useEnvironmentEditor({
         originalRef.current = nextOriginal
         setOriginal(nextOriginal)
         setSelectedEnvName(name)
-        setSelectedRowIndex(-1)
-        setEditingField(null)
+        setEditState(initialEditState())
+        setEditKey("")
+        setEditValue("")
         setError(null)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -195,8 +221,9 @@ export function useEnvironmentEditor({
       originalRef.current = null
       setDraft(null)
       setOriginal(null)
-      setSelectedRowIndex(-1)
-      setEditingField(null)
+      setEditState(initialEditState())
+      setEditKey("")
+      setEditValue("")
 
       if (name) {
         await loadEnv(name)
@@ -207,7 +234,6 @@ export function useEnvironmentEditor({
         originalRef.current = null
         setOriginal(null)
         setSelectedEnvName(null)
-        setSelectedRowIndex(-1)
       }
     },
     [activeEnvName, envNames, loadEnv],
@@ -220,8 +246,9 @@ export function useEnvironmentEditor({
     setDraft(null)
     setOriginal(null)
     setSelectedEnvName(null)
-    setSelectedRowIndex(-1)
-    setEditingField(null)
+    setEditState(initialEditState())
+    setEditKey("")
+    setEditValue("")
     setError(null)
     setSaving(false)
   }, [])
@@ -250,37 +277,137 @@ export function useEnvironmentEditor({
     setDraft(next)
   }, [])
 
-  const selectRow = useCallback((index: number) => {
-    setSelectedRowIndex(index)
-    setEditingField(null)
+  // -- Edit state machine --
+
+  const enterBrowse = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "inactive") return prev
+      const rows = draftRef.current?.varRows.length ?? 0
+      if (rows === 0) {
+        return {
+          mode: "browsing" as const,
+          row: -1,
+          addingRow: true,
+          editingRow: -1,
+        }
+      }
+      return {
+        mode: "browsing" as const,
+        row: 0,
+        addingRow: false,
+        editingRow: -1,
+      }
+    })
   }, [])
 
-  const editField = useCallback((field: "key" | "value" | null) => {
-    setEditingField(field)
+  const exitBrowse = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return initialEditState()
+    })
   }, [])
 
-  const updateVarKey = useCallback((index: number, key: string) => {
+  const browseUp = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      if (prev.addingRow) {
+        const rows = draftRef.current?.varRows.length ?? 0
+        return { ...prev, row: Math.max(0, rows - 1), addingRow: false }
+      }
+      if (prev.row <= 0) return prev
+      return { ...prev, row: prev.row - 1 }
+    })
+  }, [])
+
+  const browseDown = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      const rows = draftRef.current?.varRows.length ?? 0
+      if (prev.addingRow) return prev
+      if (prev.row >= rows - 1) {
+        return { ...prev, row: -1, addingRow: true }
+      }
+      return { ...prev, row: prev.row + 1 }
+    })
+  }, [])
+
+  const enterEdit = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "browsing") return
+    const currentDraft = draftRef.current
+    if (state.addingRow) {
+      setEditKey("")
+      setEditValue("")
+    } else {
+      const row = currentDraft?.varRows[state.row]
+      setEditKey(row?.key ?? "")
+      setEditValue(row?.value ?? "")
+    }
+    setEditState({
+      mode: "editing",
+      row: state.row,
+      addingRow: state.addingRow,
+      subfield: "key",
+      editingRow: state.addingRow ? -1 : state.row,
+    })
+  }, [])
+
+  const commitEdit = useCallback(() => {
+    const state = editStateRef.current
+    if (state.mode !== "editing") return
     const prev = draftRef.current
     if (!prev) return
-    const rows = [...prev.varRows]
-    if (index >= 0 && index < rows.length) {
-      rows[index] = { ...rows[index]!, key }
+    const key = editKeyRef.current.trim()
+    const value = editValueRef.current
+    let rows = [...prev.varRows]
+
+    if (state.addingRow) {
+      if (key !== "") {
+        rows = [...rows, { id: nextVarId++, key, value, enabled: true }]
+      }
+    } else {
+      if (key === "") {
+        rows = rows.filter((_, i) => i !== state.editingRow)
+      } else {
+        rows = rows.map((r, i) =>
+          i === state.editingRow ? { ...r, key, value } : r,
+        )
+      }
     }
+
     const next = { ...prev, varRows: rows }
     draftRef.current = next
     setDraft(next)
+    setEditKey("")
+    setEditValue("")
+    setEditState({
+      mode: "browsing",
+      row: state.row,
+      addingRow: state.addingRow && key !== "",
+      editingRow: -1,
+    })
   }, [])
 
-  const updateVarValue = useCallback((index: number, value: string) => {
-    const prev = draftRef.current
-    if (!prev) return
-    const rows = [...prev.varRows]
-    if (index >= 0 && index < rows.length) {
-      rows[index] = { ...rows[index]!, value }
-    }
-    const next = { ...prev, varRows: rows }
-    draftRef.current = next
-    setDraft(next)
+  const cancelEdit = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "editing") return prev
+      return {
+        mode: "browsing" as const,
+        row: prev.row,
+        addingRow: prev.addingRow,
+        editingRow: -1,
+      }
+    })
+    setEditKey("")
+    setEditValue("")
+  }, [])
+
+  const browseTab = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "editing") return prev
+      const next: "key" | "value" = prev.subfield === "key" ? "value" : "key"
+      return { ...prev, subfield: next }
+    })
   }, [])
 
   const toggleVar = useCallback((index: number) => {
@@ -295,7 +422,7 @@ export function useEnvironmentEditor({
     setDraft(next)
   }, [])
 
-  const deleteVar = useCallback((index: number) => {
+  const revertVar = useCallback((index: number) => {
     const prev = draftRef.current
     if (!prev) return
     const next = {
@@ -304,27 +431,17 @@ export function useEnvironmentEditor({
     }
     draftRef.current = next
     setDraft(next)
-    setSelectedRowIndex((prev) => {
-      if (prev > index) return prev - 1
-      if (prev === index) return Math.max(0, index - 1)
-      return prev
+    setEditState((es) => {
+      if (es.mode !== "browsing") return es
+      const newRows = prev.varRows.length - 1
+      if (newRows === 0) {
+        return { mode: "browsing", row: -1, addingRow: true, editingRow: -1 }
+      }
+      if (es.row >= newRows) {
+        return { ...es, row: newRows - 1, addingRow: false }
+      }
+      return es
     })
-  }, [])
-
-  const addVar = useCallback(() => {
-    const prev = draftRef.current
-    if (!prev) return
-    const newRow: VarRow = {
-      id: nextVarId++,
-      key: "",
-      value: "",
-      enabled: true,
-    }
-    const next = { ...prev, varRows: [...prev.varRows, newRow] }
-    draftRef.current = next
-    setDraft(next)
-    setSelectedRowIndex(prev.varRows.length)
-    setEditingField("key")
   }, [])
 
   const save = useCallback(async () => {
@@ -458,8 +575,9 @@ export function useEnvironmentEditor({
     setDraft(null)
     setOriginal(null)
     setSelectedEnvName(null)
-    setSelectedRowIndex(-1)
-    setEditingField(null)
+    setEditState(initialEditState())
+    setEditKey("")
+    setEditValue("")
     setError(null)
   }, [])
 
@@ -476,8 +594,11 @@ export function useEnvironmentEditor({
     selectedEnvName,
     draft,
     dirty,
-    selectedRowIndex,
-    editingField,
+    editState,
+    editKey,
+    editValue,
+    setEditKey,
+    setEditValue,
     saving,
     error,
 
@@ -486,13 +607,16 @@ export function useEnvironmentEditor({
     selectEnv,
     setName,
     setColor,
-    selectRow,
-    editField,
-    updateVarKey,
-    updateVarValue,
+    enterBrowse,
+    exitBrowse,
+    browseUp,
+    browseDown,
+    enterEdit,
+    commitEdit,
+    cancelEdit,
+    browseTab,
     toggleVar,
-    deleteVar,
-    addVar,
+    revertVar,
     save,
     deleteEnv: deleteEnvAction,
     cloneEnv: cloneEnvAction,

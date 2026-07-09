@@ -1,31 +1,31 @@
+import type { Environment } from "../schema"
+import type { EnvDraft, EnvEditState } from "../hooks/useEnvironmentEditor"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
-import type { EnvDraft } from "../hooks/useEnvironmentEditor"
 import { Checkbox } from "./Checkbox"
+import { VarInput } from "./VarInput"
 
 export function EnvEditorPane({
   draft,
-  selectedRowIndex,
-  editingField,
+  editState,
+  editKey,
+  editValue,
+  setEditKey,
+  setEditValue,
   saving,
   error,
-  onSelectRow: _onSelectRow,
-  onUpdateVarKey,
-  onUpdateVarValue,
-  onToggleVar: _onToggleVar,
-  onDeleteVar: _onDeleteVar,
+  activeEnv,
   focused: _focused,
 }: {
   draft: EnvDraft | null
-  selectedRowIndex: number
-  editingField: "key" | "value" | null
+  editState: EnvEditState
+  editKey: string
+  editValue: string
+  setEditKey: (v: string) => void
+  setEditValue: (v: string) => void
   saving: boolean
   error: string | null
-  onSelectRow: (index: number) => void
-  onUpdateVarKey: (index: number, key: string) => void
-  onUpdateVarValue: (index: number, value: string) => void
-  onToggleVar: (index: number) => void
-  onDeleteVar: (index: number) => void
+  activeEnv: Environment | null
   focused: boolean
 }) {
   const theme = useTheme()
@@ -63,6 +63,11 @@ export function EnvEditorPane({
   const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
 
   const rows = draft.varRows
+  const inEdit = editState.mode === "editing"
+  const inBrowse = editState.mode === "browsing"
+  const editingRow = inEdit && !editState.addingRow ? editState.editingRow : -1
+  const editingAdd = inEdit && editState.addingRow
+
   return (
     <box
       style={{
@@ -90,9 +95,14 @@ export function EnvEditorPane({
         }}
       >
         {rows.map((row, i) => {
-          const isSelected = i === selectedRowIndex
-          const editing =
-            isSelected && editingField !== null ? editingField : null
+          const isEditingThisRow = editingRow === i
+          const cursorOnThisRow =
+            inBrowse && !editState.addingRow && editState.row === i
+          const dimmed = (inEdit && !isEditingThisRow) || !row.enabled
+
+          const keyBaseColor = dimmed ? theme.textMuted : theme.text
+          const valueBaseColor = dimmed ? theme.textMuted : theme.text
+
           return (
             <box
               key={row.id}
@@ -101,7 +111,7 @@ export function EnvEditorPane({
                 flexDirection: "row",
                 gap: 0,
                 backgroundColor:
-                  isSelected && editingField === null
+                  cursorOnThisRow || isEditingThisRow
                     ? theme.backgroundElement
                     : i % 2 !== 0
                       ? stripeBg
@@ -109,46 +119,30 @@ export function EnvEditorPane({
               }}
             >
               <Checkbox checked={row.enabled} theme={theme} />
-              <input
-                value={editing === "key" ? row.key : row.key}
-                placeholder="Key"
-                onInput={(v) => onUpdateVarKey(i, v)}
-                focused={editing === "key"}
+              <VarInput
+                value={isEditingThisRow ? editKey : row.key}
+                env={activeEnv}
+                isEditing={isEditingThisRow}
+                onChange={setEditKey}
+                isFocused={isEditingThisRow && editState.subfield === "key"}
+                baseColor={keyBaseColor}
                 backgroundColor={
-                  isSelected && editing !== null
-                    ? theme.backgroundElement
-                    : undefined
+                  isEditingThisRow ? theme.backgroundElement : undefined
                 }
                 focusedBackgroundColor={theme.borderSubtle}
-                textColor={
-                  isSelected && editingField !== null
-                    ? theme.text
-                    : row.enabled
-                      ? theme.text
-                      : theme.textMuted
-                }
-                cursorColor={theme.primary}
                 style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
               />
-              <input
-                value={editing === "value" ? row.value : row.value}
-                placeholder="Value"
-                onInput={(v) => onUpdateVarValue(i, v)}
-                focused={editing === "value"}
+              <VarInput
+                value={isEditingThisRow ? editValue : row.value}
+                env={activeEnv}
+                isEditing={isEditingThisRow}
+                onChange={setEditValue}
+                isFocused={isEditingThisRow && editState.subfield === "value"}
+                baseColor={valueBaseColor}
                 backgroundColor={
-                  isSelected && editing !== null
-                    ? theme.backgroundElement
-                    : undefined
+                  isEditingThisRow ? theme.backgroundElement : undefined
                 }
                 focusedBackgroundColor={theme.borderSubtle}
-                textColor={
-                  isSelected && editingField !== null
-                    ? theme.text
-                    : row.enabled
-                      ? theme.text
-                      : theme.textMuted
-                }
-                cursorColor={theme.primary}
                 style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
               />
             </box>
@@ -160,24 +154,42 @@ export function EnvEditorPane({
             flexDirection: "row",
             gap: 0,
             backgroundColor:
-              selectedRowIndex === rows.length && editingField === null
+              inBrowse && editState.addingRow
                 ? theme.backgroundElement
-                : undefined,
+                : editingAdd
+                  ? theme.backgroundElement
+                  : undefined,
           }}
         >
           <Checkbox checked={false} theme={theme} />
-          <input
-            value=""
-            placeholder="Key"
-            textColor={theme.textMuted}
-            cursorColor={theme.primary}
+          <VarInput
+            value={editingAdd ? editKey : ""}
+            env={activeEnv}
+            isEditing={editingAdd}
+            onChange={setEditKey}
+            isFocused={editingAdd && editState.subfield === "key"}
+            baseColor={
+              editingAdd || (inBrowse && editState.addingRow)
+                ? theme.text
+                : theme.textMuted
+            }
+            backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+            focusedBackgroundColor={theme.borderSubtle}
             style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
           />
-          <input
-            value=""
-            placeholder="Value"
-            textColor={theme.textMuted}
-            cursorColor={theme.primary}
+          <VarInput
+            value={editingAdd ? editValue : ""}
+            env={activeEnv}
+            isEditing={editingAdd}
+            onChange={setEditValue}
+            isFocused={editingAdd && editState.subfield === "value"}
+            baseColor={
+              editingAdd || (inBrowse && editState.addingRow)
+                ? theme.text
+                : theme.textMuted
+            }
+            backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+            focusedBackgroundColor={theme.borderSubtle}
             style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
           />
         </box>

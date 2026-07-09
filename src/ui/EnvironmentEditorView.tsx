@@ -72,15 +72,14 @@ export function EnvironmentEditorView({
         />
         <EnvEditorPane
           draft={envEditor.draft}
-          selectedRowIndex={envEditor.selectedRowIndex}
-          editingField={envEditor.editingField}
+          editState={envEditor.editState}
+          editKey={envEditor.editKey}
+          editValue={envEditor.editValue}
+          setEditKey={envEditor.setEditKey}
+          setEditValue={envEditor.setEditValue}
           saving={envEditor.saving}
           error={envEditor.error}
-          onSelectRow={envEditor.selectRow}
-          onUpdateVarKey={envEditor.updateVarKey}
-          onUpdateVarValue={envEditor.updateVarValue}
-          onToggleVar={envEditor.toggleVar}
-          onDeleteVar={envEditor.deleteVar}
+          activeEnv={activeEnv}
           focused={focus === "env-vars"}
         />
       </box>

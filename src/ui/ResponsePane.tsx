@@ -116,6 +116,11 @@ export function ResponsePane({
     return new TextEncoder().encode(state.response.body).length
   }, [state.status, state.status === "done" ? state.response.body : null])
 
+  const formattedBody = useMemo(() => {
+    if (state.status !== "done") return ""
+    return formatBody(state.response)
+  }, [state.status, state.status === "done" ? state.response.body : null])
+
   const headerLeft = (
     <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
   )
@@ -192,19 +197,16 @@ export function ResponsePane({
               >
                 {activeTab === "body" ? (
                   <box style={{ flexDirection: "column", gap: 1 }}>
-                    {(() => {
-                      const body = formatBody(state.response)
-                      if (body === "")
-                        return <text fg={theme.textMuted}>(no body)</text>
-                      return (
-                        <JsonBodyViewer
-                          key={body}
-                          body={body}
-                          theme={theme}
-                          readOnly
-                        />
-                      )
-                    })()}
+                    {formattedBody === "" ? (
+                      <text fg={theme.textMuted}>(no body)</text>
+                    ) : (
+                      <JsonBodyViewer
+                        key={formattedBody}
+                        body={formattedBody}
+                        theme={theme}
+                        readOnly
+                      />
+                    )}
                   </box>
                 ) : (
                   responseHeaders.map(({ key, value }, i) => {
