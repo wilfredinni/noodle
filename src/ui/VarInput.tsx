@@ -94,12 +94,15 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       const text = editable?.plainText ?? value
       const cursorOffset = editable?.cursorOffset ?? value.length
       const token = getVariableToken(text, cursorOffset)
-      return {
-        token,
-        suggestions: token
-          ? getVariableSuggestions(suggestionNames, token.prefix)
-          : [],
-      }
+      const suggestions = token
+        ? getVariableSuggestions(suggestionNames, token.prefix)
+        : []
+      const tokenText = token ? text.slice(token.start + 1, token.end) : ""
+      const isComplete =
+        suggestions.length === 1 &&
+        cursorOffset === token?.end &&
+        suggestions[0] === tokenText
+      return { token, suggestions, isComplete }
     }, [getEditable, suggestionNames, value])
 
     const applyHighlights = useCallback(() => {
@@ -138,13 +141,14 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
     const syncCompletionAnchor = useCallback(() => {
       const editable = getEditable()
-      const { token, suggestions } = getCompletion()
+      const { token, suggestions, isComplete } = getCompletion()
       if (
         !isEditing ||
         !editable ||
         completionDismissed ||
         !token ||
-        suggestions.length === 0
+        suggestions.length === 0 ||
+        isComplete
       ) {
         setCompletionAnchor((current) => (current === null ? current : null))
         return
@@ -189,13 +193,17 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         ) {
           return false
         }
-        const { token, suggestions } = getCompletion()
-        if (!token || suggestions.length === 0) return false
+        const { token, suggestions, isComplete } = getCompletion()
+        if (!token || suggestions.length === 0 || isComplete) return false
 
         if (key.name === "up" || key.name === "down") {
+          const maxVisible = Math.min(suggestions.length, 10)
           setCompletionIndex((current) => {
             const delta = key.name === "up" ? -1 : 1
-            return (current + delta + suggestions.length) % suggestions.length
+            const next = current + delta
+            if (next < 0) return maxVisible - 1
+            if (next >= maxVisible) return 0
+            return next
           })
           return true
         } else if (key.name === "tab" || key.name === "return") {
@@ -226,14 +234,15 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     )
 
     useEffect(() => {
-      const { token, suggestions } = getCompletion()
+      const { token, suggestions, isComplete } = getCompletion()
       const editable = getEditable()
       if (
         !isEditing ||
         !editable?.focused ||
         completionDismissed ||
         !token ||
-        suggestions.length === 0
+        suggestions.length === 0 ||
+        isComplete
       ) {
         return
       }
@@ -253,13 +262,14 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       }
     })
 
-    const { token, suggestions } = getCompletion()
+    const { token, suggestions, isComplete } = getCompletion()
 
     const completionMenu =
       isEditing &&
       !completionDismissed &&
       token &&
       suggestions.length > 0 &&
+      !isComplete &&
       completionAnchor
         ? createPortal(
             <box
@@ -279,7 +289,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
               borderStyle="single"
               borderColor={theme.borderActive}
             >
-              {suggestions.slice(0, 6).map((name, index) => (
+              {suggestions.slice(0, 10).map((name, index) => (
                 <box
                   key={name}
                   style={{
