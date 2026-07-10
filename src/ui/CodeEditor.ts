@@ -650,21 +650,33 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
     let tsSuccess = false
 
-    try {
-      const result = await this._tsClient.highlightOnce(content, this._filetype)
+    if (this._filetype === "json") {
+      // JSON requests may contain Noodle variables, which are intentionally
+      // not valid JSON until send-time substitution. The local tokenizer
+      // still highlights keys, strings, numbers, and punctuation correctly.
+      this.applyJsonHighlights(content)
+      tsSuccess = true
+      this._lastTsError = false
+    } else {
+      try {
+        const result = await this._tsClient.highlightOnce(
+          content,
+          this._filetype,
+        )
 
-      if (snapshotId !== this._highlightSnapshotId) return
-      if (this.isDestroyed) return
-      if (this.isFoldedDisplay()) return
+        if (snapshotId !== this._highlightSnapshotId) return
+        if (this.isDestroyed) return
+        if (this.isFoldedDisplay()) return
 
-      const highlights = result.highlights
-      if (highlights && highlights.length > 0) {
-        this.applyTsHighlights(highlights, content)
-        tsSuccess = true
-        this._lastTsError = false
+        const highlights = result.highlights
+        if (highlights && highlights.length > 0) {
+          this.applyTsHighlights(highlights, content)
+          tsSuccess = true
+          this._lastTsError = false
+        }
+      } catch {
+        this._lastTsError = true
       }
-    } catch {
-      this._lastTsError = true
     }
 
     if (snapshotId !== this._highlightSnapshotId) return
