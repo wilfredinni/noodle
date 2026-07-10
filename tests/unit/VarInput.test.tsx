@@ -1,15 +1,34 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
+import { act } from "react"
+import { useState } from "react"
+import { createTestKeymap } from "@opentui/keymap/testing"
+import { KeymapProvider } from "@opentui/keymap/react"
+import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { VarInput } from "../../src/ui/VarInput"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import type { Environment } from "../../src/schema"
+import { VariableCompletionInterceptor } from "../../src/ui/variableCompletionInterceptor"
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test-env", vars }
 }
 
 const theme = THEMES[0]!
+
+function CompletionHarness({ environment }: { environment: Environment }) {
+  const [value, setValue] = useState("")
+  return (
+    <VarInput
+      value={value}
+      env={environment}
+      isEditing
+      isFocused
+      onChange={setValue}
+    />
+  )
+}
 
 function hexToRgba(hex: string): RGBA {
   return RGBA.fromInts(
@@ -141,6 +160,95 @@ describe("VarInput — display mode (isEditing=false)", () => {
 })
 
 describe("VarInput — edit mode (isEditing=true)", () => {
+  it("shows filtered suggestions after typing a variable prefix", async () => {
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <CompletionHarness
+          environment={env({ host: "localhost", token: "secret" })}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$ho")
+    })
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("$host")
+    expect(frame).not.toContain("$token")
+  })
+
+  it("accepts a suggestion with Tab", async () => {
+    const { keymap, host, cleanup } = createTestKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider
+        keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <VariableCompletionInterceptor />
+          <CompletionHarness
+            environment={env({ host: "localhost", token: "secret" })}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$ho")
+    })
+    await renderOnce()
+    await act(async () => {
+      host.press("tab")
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("$host")
+    cleanup()
+  })
+
+  it("highlights resolved variables while editing", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarInput
+          value="$host"
+          env={env({ host: "localhost" })}
+          isEditing
+          isFocused
+          onChange={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 5 },
+    )
+    await renderOnce()
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const variable = spans.find((span) => span.text.includes("$host"))
+    expect(variable).toBeDefined()
+    expect(variable!.fg.equals(hexToRgba(theme.primary))).toBe(true)
+  })
+
+  it("highlights missing variables while editing", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarInput
+          value="$missing"
+          env={env({})}
+          isEditing
+          isFocused
+          onChange={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 5 },
+    )
+    await renderOnce()
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const variable = spans.find((span) => span.text.includes("$missing"))
+    expect(variable).toBeDefined()
+    expect(variable!.fg.equals(hexToRgba(theme.error))).toBe(true)
+  })
+
   it("renders input element with value", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>

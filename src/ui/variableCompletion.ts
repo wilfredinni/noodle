@@ -1,0 +1,70 @@
+import type { Environment } from "../schema"
+
+const VAR_RE = /\$(\w+)/g
+
+export interface VariableToken {
+  start: number
+  end: number
+  prefix: string
+}
+
+export interface VariableHighlight {
+  start: number
+  end: number
+  exists: boolean
+}
+
+export function getVariableToken(
+  value: string,
+  cursorOffset: number,
+): VariableToken | null {
+  const cursor = Math.max(0, Math.min(cursorOffset, value.length))
+  let start = cursor
+  while (start > 0 && /\w/.test(value[start - 1]!)) start--
+  if (start === 0 || value[start - 1] !== "$") return null
+
+  start--
+  let end = cursor
+  while (end < value.length && /\w/.test(value[end]!)) end++
+
+  return { start, end, prefix: value.slice(start + 1, cursor) }
+}
+
+export function getVariableSuggestions(
+  names: Iterable<string>,
+  prefix: string,
+): string[] {
+  const normalizedPrefix = prefix.toLowerCase()
+  return [...new Set(names)]
+    .filter((name) => name.toLowerCase().startsWith(normalizedPrefix))
+    .sort((a, b) => a.localeCompare(b))
+}
+
+export function replaceVariableToken(
+  value: string,
+  token: VariableToken,
+  name: string,
+): { value: string; cursorOffset: number } {
+  const replacement = `$${name}`
+  return {
+    value: value.slice(0, token.start) + replacement + value.slice(token.end),
+    cursorOffset: token.start + replacement.length,
+  }
+}
+
+export function getVariableHighlights(
+  value: string,
+  env: Environment | null,
+): VariableHighlight[] {
+  VAR_RE.lastIndex = 0
+  const highlights: VariableHighlight[] = []
+  let match: RegExpExecArray | null
+  while ((match = VAR_RE.exec(value)) !== null) {
+    highlights.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      exists: env !== null && match[1]! in env.vars,
+    })
+  }
+  return highlights
+}

@@ -46,6 +46,7 @@ import {
 } from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
+import { VariableCompletionInterceptor } from "./variableCompletionInterceptor"
 
 export function AppInner({
   collectionDir,
@@ -807,6 +808,7 @@ export function AppInner({
         backgroundColor: theme.background,
       }}
     >
+      <VariableCompletionInterceptor />
       <box
         style={{
           flexDirection: "column",

@@ -63,6 +63,9 @@ export function EnvEditorPane({
   const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
 
   const rows = draft.varRows
+  const variableNames = rows
+    .filter((row) => row.enabled && row.key !== "")
+    .map((row) => row.key)
   const inEdit = editState.mode === "editing"
   const inBrowse = editState.mode === "browsing"
   const editingRow = inEdit && !editState.addingRow ? editState.editingRow : -1
@@ -131,6 +134,7 @@ export function EnvEditorPane({
                 }
                 focusedBackgroundColor={theme.borderSubtle}
                 style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+                variableNames={variableNames}
               />
               <VarInput
                 value={isEditingThisRow ? editValue : row.value}
@@ -144,6 +148,7 @@ export function EnvEditorPane({
                 }
                 focusedBackgroundColor={theme.borderSubtle}
                 style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+                variableNames={variableNames}
               />
             </box>
           )
@@ -176,6 +181,7 @@ export function EnvEditorPane({
             backgroundColor={editingAdd ? theme.backgroundElement : undefined}
             focusedBackgroundColor={theme.borderSubtle}
             style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+            variableNames={variableNames}
           />
           <VarInput
             value={editingAdd ? editValue : ""}
@@ -191,6 +197,7 @@ export function EnvEditorPane({
             backgroundColor={editingAdd ? theme.backgroundElement : undefined}
             focusedBackgroundColor={theme.borderSubtle}
             style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+            variableNames={variableNames}
           />
         </box>
       </scrollbox>

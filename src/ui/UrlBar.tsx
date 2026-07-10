@@ -5,6 +5,7 @@ import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import type { Method, ParamEntry, Environment } from "../schema"
 import { buildDisplayUrl } from "./urlParams"
+import { VarInput } from "./VarInput"
 import { VarText } from "./VarText"
 
 export function UrlBar({
@@ -92,15 +93,16 @@ export function UrlBar({
           </Badge>
           {focused ? (
             <box style={{ flexGrow: 1 }}>
-              <input
+              <VarInput
                 value={inputValue}
-                onInput={handleInput}
+                env={activeEnv ?? null}
+                isEditing
+                onChange={handleInput}
+                isFocused
                 backgroundColor={theme.backgroundElement}
                 focusedBackgroundColor={theme.borderSubtle}
-                textColor={theme.text}
-                cursorColor={theme.primary}
                 paddingX={1}
-                focused
+                style={{ flexGrow: 1 }}
               />
             </box>
           ) : (
