@@ -534,6 +534,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.setDisplayedText(this._sourceText)
       this.applyFoldedDisplayHighlights(this._sourceText)
     }
+    if (wasFolded) {
+      this.scheduleHighlight()
+    }
     if (preferredSourceCursor) {
       this.moveCursorToSourceCursor(preferredSourceCursor)
     } else {
