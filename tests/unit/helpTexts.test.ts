@@ -5,18 +5,19 @@ import { bindingDefaults } from "../../src/ui/keybind"
 const defaults = bindingDefaults()
 
 describe("getHelpSections", () => {
-  it("returns exactly 5 sections", () => {
+  it("returns exactly 6 sections", () => {
     const sections = getHelpSections(defaults)
-    expect(sections).toHaveLength(5)
+    expect(sections).toHaveLength(6)
   })
 
-  it("section titles are NAVIGATION, REQUEST EDITING, ACTIONS, SYSTEM, ENV EDITOR", () => {
+  it("section titles are NAVIGATION, REQUEST EDITING, CODE EDITOR, ACTIONS, SYSTEM, ENV EDITOR", () => {
     const sections = getHelpSections(defaults)
     expect(sections[0]!.title).toBe("Navigation")
     expect(sections[1]!.title).toBe("Request Editing")
-    expect(sections[2]!.title).toBe("Actions")
-    expect(sections[3]!.title).toBe("System")
-    expect(sections[4]!.title).toBe("Env Editor")
+    expect(sections[2]!.title).toBe("Code Editor")
+    expect(sections[3]!.title).toBe("Actions")
+    expect(sections[4]!.title).toBe("System")
+    expect(sections[5]!.title).toBe("Env Editor")
   })
 
   it("each section has at least 1 key entry", () => {
@@ -54,6 +55,15 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^r")
     expect(keys).toContain("^e")
     expect(keys).toContain("^t")
+  })
+
+  it("CODE EDITOR section shows ^g, f5, and f6", () => {
+    const sections = getHelpSections(defaults)
+    const editor = sections.find((s) => s.title === "Code Editor")!
+    const keys = editor.keys.map((k) => k.key)
+    expect(keys).toContain("^g")
+    expect(keys).toContain("f5")
+    expect(keys).toContain("f6")
   })
 
   it("ACTIONS section shows ^return / ^j, ^s, ^n, ^k, ^w, ^shift+p, ^l", () => {

@@ -1,13 +1,15 @@
-import {
-  type TextareaRenderable,
-  type LineNumberRenderable,
-} from "@opentui/core"
-import { useEffect, useRef, useState, useCallback } from "react"
+import { type LineNumberRenderable, type LineSign } from "@opentui/core"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import { readFile, writeFile } from "node:fs/promises"
+import { basename, dirname } from "node:path"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
-import { highlightYaml } from "./yamlSyntax"
+import type { CodeEditorRenderable } from "./CodeEditor"
+import { ValidationNotice } from "./ValidationNotice"
+import { lang } from "../lang"
+
+const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 
 export interface YamlEditorOverlayProps {
   visible: boolean
@@ -26,9 +28,10 @@ export function YamlEditorOverlay({
 }: YamlEditorOverlayProps) {
   const theme = useTheme()
   const keymap = useKeymap()
-  const textareaRef = useRef<TextareaRenderable | null>(null)
+  const editorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const [content, setContent] = useState<string | null>(null)
+  const [draftContent, setDraftContent] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const mountedRef = useRef(true)
@@ -42,6 +45,7 @@ export function YamlEditorOverlay({
   useEffect(() => {
     if (!visible) {
       setContent(null)
+      setDraftContent(null)
       return
     }
     setReadError(null)
@@ -49,7 +53,10 @@ export function YamlEditorOverlay({
 
     readFile(filePath, "utf8")
       .then((v) => {
-        if (mountedRef.current) setContent(v)
+        if (mountedRef.current) {
+          setContent(v)
+          setDraftContent(v)
+        }
       })
       .catch((e) => {
         if (mountedRef.current)
@@ -57,26 +64,21 @@ export function YamlEditorOverlay({
       })
   }, [visible, filePath])
 
-  useEffect(() => {
-    if (content !== null && textareaRef.current) {
-      highlightYaml(textareaRef.current, content, theme)
-    }
-  }, [content, theme])
-
-  const handleContentChange = useCallback(() => {
-    const ta = textareaRef.current
-    if (ta) {
-      const text = ta.plainText
-      setContent(text)
-      highlightYaml(ta, text, theme)
-    }
-  }, [theme])
-
   const handleSave = useCallback(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
+    const editor = editorRef.current
+    if (!editor) return
     setSaveError(null)
-    writeFile(filePath, textarea.plainText, "utf8")
+    const yamlText = editor.plainText
+    try {
+      lang.parseRequest(basename(filePath, ".yml"), yamlText)
+    } catch (e) {
+      if (!mountedRef.current) return
+      setSaveError(e instanceof Error ? e.message : String(e))
+      return
+    }
+
+    mkdir(dirname(filePath), { recursive: true })
+      .then(() => writeFile(filePath, yamlText, "utf8"))
       .then(() => {
         if (!mountedRef.current) return
         onSaved()
@@ -86,6 +88,34 @@ export function YamlEditorOverlay({
         setSaveError(e instanceof Error ? e.message : String(e))
       })
   }, [filePath, onSaved])
+
+  const validateContent = useCallback(
+    (content: string): string | null => {
+      try {
+        lang.parseRequest(basename(filePath, ".yml"), content)
+        return null
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return `Invalid request YAML: ${message}`
+      }
+    },
+    [filePath],
+  )
+
+  const handleContentChange = useCallback(() => {
+    const editor = editorRef.current
+    if (editor) setDraftContent(editor.plainText)
+  }, [])
+
+  const validationNotice = useMemo(() => {
+    if (draftContent === null) return null
+    const error = validateContent(draftContent)
+    if (!error) return null
+    return {
+      title: "Invalid request YAML",
+      detail: error.replace(/^Invalid request YAML: /, ""),
+    }
+  }, [draftContent, validateContent])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -110,6 +140,21 @@ export function YamlEditorOverlay({
     )
     return dispose
   }, [visible, handleSave, handleClose, keymap])
+
+  useEffect(() => {
+    if (visible && content !== null && editorRef.current) {
+      editorRef.current.focus()
+    }
+  }, [visible, content])
+
+  const handleFoldsChange = useCallback(() => {
+    const ed = editorRef.current
+    const ln = lineNumberRef.current
+    if (ed && ln) {
+      ln.setLineSigns(new Map([...RESERVED_FOLD_SIGN, ...ed.getFoldSigns()]))
+      ln.setHideLineNumbers(ed.getHiddenLineNumbers())
+    }
+  }, [])
 
   if (!visible) return null
 
@@ -152,6 +197,8 @@ export function YamlEditorOverlay({
             paddingLeft: 1,
             paddingRight: 1,
             flexGrow: 1,
+            flexDirection: "column",
+            gap: 1,
           }}
         >
           <line-number
@@ -160,20 +207,30 @@ export function YamlEditorOverlay({
             paddingRight={1}
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
-            style={{ height: "100%", minHeight: 0 }}
+            lineSigns={RESERVED_FOLD_SIGN}
+            style={{ flexGrow: 1, minHeight: 0 }}
             width="100%"
           >
-            <textarea
-              ref={textareaRef}
+            <code-editor
+              ref={editorRef}
+              filetype="yaml"
+              theme={theme}
               initialValue={content}
+              validateContent={validateContent}
               onContentChange={handleContentChange}
+              onFoldsChange={handleFoldsChange}
               backgroundColor={theme.backgroundPanel}
               focusedBackgroundColor={theme.backgroundPanel}
               textColor={theme.text}
               cursorColor={theme.primary}
-              focused
             />
           </line-number>
+          {validationNotice && (
+            <ValidationNotice
+              title={validationNotice.title}
+              detail={validationNotice.detail}
+            />
+          )}
         </box>
       ) : (
         <text fg={theme.textMuted}>Loading...</text>

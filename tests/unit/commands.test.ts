@@ -3,6 +3,8 @@ import type { CliRenderer } from "@opentui/core"
 import { buildCommandPaletteCommands } from "../../src/ui/commands"
 import type { CommandBuilderContext } from "../../src/ui/commands"
 import { bindingDefaults } from "../../src/ui/keybind"
+import type { Collection } from "../../src/schema"
+import { getEditRequestYamlFile } from "../../src/ui/commandActions"
 
 function minimalContext(): CommandBuilderContext {
   const keybinds = bindingDefaults()
@@ -187,5 +189,44 @@ describe("buildCommandPaletteCommands", () => {
     const expand = commands.find((c) => c.id === "pane.expand")!
     expand.run()
     expect(called).toBe(false)
+  })
+
+  it("edit request YAML uses the full request id path", () => {
+    const ctx = minimalContext()
+    ctx.selectedIdRef = { current: "users/login" } as never
+    ctx.collectionRef = {
+      current: {
+        id: "collection",
+        name: "collection",
+        items: [
+          {
+            type: "folder",
+            data: {
+              id: "users",
+              name: "users",
+              path: "users",
+              children: [
+                {
+                  type: "request",
+                  data: {
+                    id: "users/login",
+                    name: "Login",
+                    method: "GET",
+                    url: "https://example.com",
+                    timeout: 0,
+                    headers: {},
+                    params: [],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      } as Collection,
+    } as never
+
+    const file = getEditRequestYamlFile(ctx)
+    expect(file?.filePath).toBe("/tmp/collections/users/login.yml")
+    expect(file?.requestName).toBe("Login")
   })
 })

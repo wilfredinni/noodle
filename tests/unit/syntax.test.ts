@@ -53,6 +53,7 @@ describe("highlightJsonTokens", () => {
     const nullToken = tokens.find((t) => t.text === "null")
     expect(nullToken).toBeDefined()
     expect(nullToken!.fg).toBe(opencodeTheme.info)
+    expect(nullToken!.kind).toBe("null")
   })
 
   it("tokens have correct sequential offsets", () => {
@@ -74,6 +75,7 @@ describe("highlightJsonTokens", () => {
     const commaToken = tokens.find((t) => t.text === ",")
     expect(commaToken).toBeDefined()
     expect(commaToken!.fg).toBe(opencodeTheme.textMuted)
+    expect(commaToken!.kind).toBe("bracket")
   })
 
   it("handles non-JSON text gracefully", () => {

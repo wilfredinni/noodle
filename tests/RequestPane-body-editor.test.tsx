@@ -1,10 +1,14 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
+import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
+import { CodeEditorRenderable } from "../src/ui/CodeEditor"
 import type { Request } from "../src/schema"
 import { setupKeymap } from "./unit/_helpers"
+
+extend({ "code-editor": CodeEditorRenderable })
 
 const testRequest: Request = {
   id: "test",
@@ -180,6 +184,37 @@ describe("BodySection — edit mode", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("raw text content")
+    cleanup()
+  })
+
+  it("shows inline validation errors for malformed JSON while editing", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const invalidRequest: Request = {
+      ...testRequest,
+      body: '{"name":',
+    }
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={invalidRequest}
+              editState={editStateEditing}
+              editKey=""
+              editValue={invalidRequest.body!}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Invalid JSON")
     cleanup()
   })
 })

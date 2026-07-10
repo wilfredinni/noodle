@@ -1,21 +1,22 @@
 import type {
   ScrollBoxRenderable,
-  TextareaRenderable,
   LineNumberRenderable,
+  LineSign,
 } from "@opentui/core"
+import type { Highlight } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
+import type { CodeEditorRenderable } from "./CodeEditor"
 
 import { CenterText } from "./CenterText"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import type { Theme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
-import { useJsonHighlight } from "../hooks/useJsonHighlight"
 import { JsonBodyViewer } from "./JsonBodyViewer"
 import { VarInput } from "./VarInput"
 import { KeyValueSection } from "./KeyValueSection"
@@ -23,6 +24,7 @@ import { Checkbox } from "./Checkbox"
 import { AuthEditor } from "./AuthEditor"
 import { Select, type SelectItem } from "./Select"
 import { FormEditor } from "./FormEditor"
+import { ValidationNotice } from "./ValidationNotice"
 import type { BodyType } from "../schema"
 
 interface Props {
@@ -50,6 +52,12 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "auth", label: "Auth" },
   { id: "settings", label: "Settings" },
 ]
+
+const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
+
+function reserveFoldSigns(signs: Map<number, LineSign>): Map<number, LineSign> {
+  return new Map([...RESERVED_FOLD_SIGN, ...signs])
+}
 
 export function RequestPane({
   request,
@@ -413,17 +421,80 @@ function BodySection({
   const isBinaryMode = bodyType === "binary"
 
   const body = useMemo(() => formatBody(request.body), [request.body])
-  const textareaRef = useRef<TextareaRenderable | null>(null)
+  const editorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
-  const { handleContentChange } = useJsonHighlight(
-    textareaRef,
-    lineNumberRef,
-    theme,
-    setEditValue,
+  const extraHighlights = useCallback(
+    (content: string): Highlight[] => {
+      const ed = editorRef.current
+      if (!activeEnv?.vars || !ed) return []
+      const resolvedId = ed.envResolvedStyleId
+      const missingId = ed.envMissingStyleId
+      const results: Highlight[] = []
+      const varRe = /\$\w+/g
+      let match: RegExpExecArray | null
+      while ((match = varRe.exec(content)) !== null) {
+        const varName = match[0].slice(1)
+        const exists = varName in activeEnv.vars
+        results.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          styleId: exists ? resolvedId : missingId,
+          priority: 2,
+        })
+      }
+      return results
+    },
+    [activeEnv],
   )
 
+  const validateContent = useCallback((content: string): string | null => {
+    if (content.trim() === "") return null
+    try {
+      JSON.parse(content)
+      return null
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return `Invalid JSON: ${message}`
+    }
+  }, [])
+
+  const handleContentChange = useCallback(() => {
+    const ed = editorRef.current
+    if (ed) setEditValue(ed.plainText)
+  }, [setEditValue])
+
+  const handleFoldsChange = useCallback(() => {
+    const ed = editorRef.current
+    const ln = lineNumberRef.current
+    if (ed && ln) {
+      ln.setLineSigns(reserveFoldSigns(ed.getFoldSigns()))
+      ln.setHideLineNumbers(ed.getHiddenLineNumbers())
+    }
+  }, [])
+
   const editingBody = inEdit && editState.cursor.field === "body"
+
+  const validationNotice = useMemo(() => {
+    if (!editingBody || isFormMode || isBinaryMode) return null
+    if (editValue.trim() === "") return null
+    try {
+      JSON.parse(editValue)
+      return null
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return {
+        title: "Invalid JSON",
+        detail: message,
+      }
+    }
+  }, [editingBody, editValue, isBinaryMode, isFormMode])
+
+  useEffect(() => {
+    if (editingBody && editorRef.current) {
+      editorRef.current.focus()
+    }
+  }, [editingBody])
 
   return (
     <box style={{ flexDirection: "column", gap: 1, flexGrow: 1, minHeight: 0 }}>
@@ -455,29 +526,46 @@ function BodySection({
             focusedBackgroundColor={theme.borderSubtle}
           />
         ) : (
-          <line-number
-            ref={lineNumberRef}
-            minWidth={3}
-            paddingRight={1}
-            fg={theme.textMuted}
-            bg={theme.backgroundPanel}
-            style={{ flexGrow: 1 }}
-            width="100%"
+          <box
+            style={{
+              flexDirection: "column",
+              gap: 1,
+              flexGrow: 1,
+              minHeight: 0,
+            }}
           >
-            <textarea
-              ref={textareaRef}
-              id="body-field"
-              initialValue={formatBody(editValue)}
-              onContentChange={handleContentChange}
-              keyBindings={[{ name: "return", shift: true, action: "newline" }]}
-              backgroundColor={theme.backgroundPanel}
-              focusedBackgroundColor={theme.backgroundPanel}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-              focused
+            <line-number
+              ref={lineNumberRef}
+              minWidth={3}
+              paddingRight={1}
+              fg={theme.textMuted}
+              bg={theme.backgroundPanel}
+              lineSigns={RESERVED_FOLD_SIGN}
               style={{ flexGrow: 1 }}
-            />
-          </line-number>
+              width="100%"
+            >
+              <code-editor
+                ref={editorRef}
+                filetype="json"
+                theme={theme}
+                initialValue={formatBody(editValue)}
+                extraHighlights={activeEnv ? extraHighlights : undefined}
+                validateContent={validateContent}
+                onContentChange={handleContentChange}
+                onFoldsChange={handleFoldsChange}
+                backgroundColor={theme.backgroundPanel}
+                focusedBackgroundColor={theme.backgroundPanel}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+              />
+            </line-number>
+            {validationNotice && (
+              <ValidationNotice
+                title={validationNotice.title}
+                detail={validationNotice.detail}
+              />
+            )}
+          </box>
         )
       ) : isFormMode ? (
         <FormEditor

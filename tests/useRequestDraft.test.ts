@@ -3,6 +3,7 @@ import {
   parseRow,
   requestEquals,
   applyDraft,
+  removeRequestDraftEntry,
 } from "../src/hooks/useRequestDraft"
 import type { Request } from "../src/schema"
 
@@ -564,6 +565,19 @@ describe("applyDraft", () => {
       A: { value: "1", enabled: true },
       B: { value: "2", enabled: false },
     })
+  })
+})
+
+describe("removeRequestDraftEntry", () => {
+  it("deletes a specific draft entry without touching others", () => {
+    const map = new Map<string, number>([
+      ["a", 1],
+      ["b", 2],
+    ])
+    const next = removeRequestDraftEntry(map, "a")
+    expect(next.has("a")).toBe(false)
+    expect(next.get("b")).toBe(2)
+    expect(map.has("a")).toBe(true)
   })
 })
 

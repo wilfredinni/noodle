@@ -1,5 +1,6 @@
 import { createCliRenderer } from "@opentui/core"
-import { createRoot } from "@opentui/react"
+import { createRoot, extend } from "@opentui/react"
+import { addDefaultParsers } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { RendererProvider } from "../ui/RendererContext"
 import { App } from "../ui/App"
@@ -9,11 +10,17 @@ import { loadLastRequest } from "../ui/tabs/uiState"
 import { createNoodleKeymap } from "../hooks/useKeymap"
 import { parseOverrides } from "../ui/keybind"
 import { showToast } from "../ui/Toast"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
 import { loadConfig } from "../hooks/useConfig"
+import { CodeEditorRenderable } from "../ui/CodeEditor"
+import { codeEditorParsers } from "../ui/codeEditorParsers"
+
+addDefaultParsers([...codeEditorParsers])
+
+// Register custom components
+extend({ "code-editor": CodeEditorRenderable })
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 

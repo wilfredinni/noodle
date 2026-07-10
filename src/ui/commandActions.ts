@@ -70,9 +70,12 @@ export function editRequestYaml(c: CommandActionsConfig): boolean {
   return true
 }
 
-export function getEditRequestYamlFile(
-  c: CommandActionsConfig,
-): { filePath: string; requestName: string; returnFocus: Focus } | null {
+export function getEditRequestYamlFile(c: CommandActionsConfig): {
+  filePath: string
+  requestName: string
+  requestId: string
+  returnFocus: Focus
+} | null {
   if (c.focusedFolderPathRef.current) return null
   const sid = c.selectedIdRef.current
   if (!sid || !c.collectionDir) return null
@@ -81,8 +84,9 @@ export function getEditRequestYamlFile(
   const r = findRequestById(col.items, sid)
   if (!r) return null
   return {
-    filePath: join(c.collectionDir, `${sid}.yml`),
+    filePath: join(c.collectionDir, `${r.id}.yml`),
     requestName: r.name,
+    requestId: r.id,
     returnFocus: c.focusRef.current,
   }
 }

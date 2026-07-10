@@ -68,6 +68,16 @@ interface CachedBody {
 }
 const bodyCache = new Map<string, Record<string, CachedBody>>()
 
+export function removeRequestDraftEntry<T>(
+  map: Map<string, T>,
+  id: string,
+): Map<string, T> {
+  if (!map.has(id)) return map
+  const next = new Map(map)
+  next.delete(id)
+  return next
+}
+
 export function parseRow(input: string): { key: string; value: string } {
   const trimmed = input.trim()
   if (trimmed === "") return { key: "", value: "" }
@@ -530,6 +540,7 @@ export interface UseRequestDraftResult {
   toggleFormRow: (index: number) => void
   setFilePath: (path: string) => void
   markSaved: () => void
+  resetRequestDraft: (id: string) => void
   revertAllRequests: () => void
 }
 
@@ -689,6 +700,13 @@ export function useRequestDraft(
     })
   }, [selectedRequest])
 
+  const resetRequestDraft = useCallback((id: string) => {
+    authTypeCache.delete(id)
+    bodyCache.delete(id)
+    setMap((prev) => removeRequestDraftEntry(prev, id))
+    setOriginalMap((prev) => removeRequestDraftEntry(prev, id))
+  }, [])
+
   const draft = selectedRequest
     ? (map.get(selectedRequest.id) ?? selectedRequest)
     : null
@@ -743,6 +761,7 @@ export function useRequestDraft(
       toggleFormRow: toggleFormRowCb,
       setFilePath: setFilePathCb,
       markSaved,
+      resetRequestDraft,
     }),
     [
       draft,
@@ -775,6 +794,7 @@ export function useRequestDraft(
       toggleFormRowCb,
       setFilePathCb,
       markSaved,
+      resetRequestDraft,
     ],
   )
 }

@@ -81,17 +81,20 @@ export interface CommandBuilderContext {
           visible: boolean
           filePath: string
           requestName: string
+          requestId: string
           returnFocus: Focus
         }
       | ((prev: {
           visible: boolean
           filePath: string
           requestName: string
+          requestId: string
           returnFocus: Focus
         }) => {
           visible: boolean
           filePath: string
           requestName: string
+          requestId: string
           returnFocus: Focus
         }),
   ) => void
@@ -216,6 +219,7 @@ export function buildCommandPaletteCommands(
           visible: true,
           filePath: file.filePath,
           requestName: file.requestName,
+          requestId: file.requestId,
           returnFocus: file.returnFocus,
         })
         return true
