@@ -316,6 +316,55 @@ describe("CodeEditorRenderable", () => {
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 
+  it("converts extra highlight offsets across multiline content", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = '{\n  "url": "$base_url"\n}'
+
+    const { renderOnce } = await testRender(
+      <box width={40} height={4}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          extraHighlights={(value) => {
+            if (!editor) return []
+            const start = value.indexOf("$base_url")
+            return [
+              {
+                start,
+                end: start + 9,
+                styleId: editor.envResolvedStyleId,
+                priority: 2,
+              },
+            ]
+          }}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 4 },
+    )
+
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    const highlights = editor!.getLineHighlights(1)
+    expect(
+      highlights.some(
+        (highlight) =>
+          highlight.styleId === editor!.envResolvedStyleId &&
+          highlight.start === 10 &&
+          highlight.end === 19,
+      ),
+    ).toBe(true)
+  })
+
   it("keeps YAML highlighting when folded", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `name: demo

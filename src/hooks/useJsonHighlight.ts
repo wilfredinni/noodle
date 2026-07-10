@@ -4,6 +4,10 @@ import type { TextareaRenderable, LineNumberRenderable } from "@opentui/core"
 import type { Theme } from "../ui/theme-data"
 import { highlightJsonTokens } from "../ui/syntax"
 import type { Environment } from "../schema"
+import {
+  buildCharToDisplayOffsets,
+  charOffsetToDisplayOffset,
+} from "../ui/highlightOffsets"
 
 function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
   return SyntaxStyle.fromStyles({
@@ -58,6 +62,7 @@ export function highlightTextarea(
 
   if (env) {
     const varRe = /\$\w+/g
+    const displayOffsets = buildCharToDisplayOffsets(content)
     let match: RegExpExecArray | null
     while ((match = varRe.exec(content)) !== null) {
       const varName = match[0].slice(1)
@@ -66,8 +71,11 @@ export function highlightTextarea(
         ? style.getStyleId("env.resolved")!
         : style.getStyleId("env.missing")!
       textarea.addHighlightByCharRange({
-        start: match.index,
-        end: match.index + match[0].length,
+        start: charOffsetToDisplayOffset(displayOffsets, match.index),
+        end: charOffsetToDisplayOffset(
+          displayOffsets,
+          match.index + match[0].length,
+        ),
         styleId,
         priority: 2,
       })

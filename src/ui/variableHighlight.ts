@@ -3,6 +3,10 @@ import type { InputRenderable, TextareaRenderable } from "@opentui/core"
 import type { Environment } from "../schema"
 import type { Theme } from "./theme"
 import { getVariableHighlights } from "./variableCompletion"
+import {
+  buildCharToDisplayOffsets,
+  charOffsetToDisplayOffset,
+} from "./highlightOffsets"
 
 export function highlightVariables(
   input: InputRenderable | TextareaRenderable,
@@ -16,11 +20,12 @@ export function highlightVariables(
   })
   input.clearAllHighlights()
   input.syntaxStyle = style
+  const displayOffsets = buildCharToDisplayOffsets(value)
 
   for (const highlight of getVariableHighlights(value, env)) {
     input.addHighlightByCharRange({
-      start: highlight.start,
-      end: highlight.end,
+      start: charOffsetToDisplayOffset(displayOffsets, highlight.start),
+      end: charOffsetToDisplayOffset(displayOffsets, highlight.end),
       styleId: style.getStyleId(
         highlight.exists ? "env.resolved" : "env.missing",
       )!,

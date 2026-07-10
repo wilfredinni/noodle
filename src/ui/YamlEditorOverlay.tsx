@@ -120,13 +120,14 @@ export function YamlEditorOverlay({
       const highlights = []
       for (const match of value.matchAll(/\$(\w+)/g)) {
         const name = match[1]!
+        const styleId =
+          name in activeEnv.vars
+            ? editor.envResolvedStyleId
+            : editor.envMissingStyleId
         highlights.push({
           start: match.index,
           end: match.index + match[0].length,
-          styleId:
-            name in activeEnv.vars
-              ? editor.envResolvedStyleId
-              : editor.envMissingStyleId,
+          styleId,
           priority: 2,
         })
       }

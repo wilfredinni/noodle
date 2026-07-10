@@ -440,10 +440,11 @@ function BodySection({
       while ((match = varRe.exec(content)) !== null) {
         const varName = match[0].slice(1)
         const exists = varName in activeEnv.vars
+        const styleId = exists ? resolvedId : missingId
         results.push({
           start: match.index,
           end: match.index + match[0].length,
-          styleId: exists ? resolvedId : missingId,
+          styleId,
           priority: 2,
         })
       }

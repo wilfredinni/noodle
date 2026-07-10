@@ -10,6 +10,10 @@ import type { TreeSitterClient } from "@opentui/core"
 import type { Theme } from "./theme-data"
 import { highlightJsonTokens } from "./syntax"
 import { tokenizeYamlLine } from "./yamlSyntax"
+import {
+  buildCharToDisplayOffsets,
+  charOffsetToDisplayOffset,
+} from "./highlightOffsets"
 
 export interface FoldInfo {
   startLine: number
@@ -771,10 +775,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (!this._extraHighlights) return
 
     const extras = this._extraHighlights(content)
+    const displayOffsets = buildCharToDisplayOffsets(content)
     for (const hl of extras) {
       this.addHighlightByCharRange({
-        start: hl.start,
-        end: hl.end,
+        start: charOffsetToDisplayOffset(displayOffsets, hl.start),
+        end: charOffsetToDisplayOffset(displayOffsets, hl.end),
         styleId: hl.styleId,
         priority: hl.priority ?? 2,
       })
