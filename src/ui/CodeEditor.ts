@@ -106,6 +106,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _suppressContentChanged: boolean = false
   private _sourceLineToDisplayLine: Map<number, number> = new Map()
   private _displayLineToSourceLine: Map<number, number> = new Map()
+  private _renderSuppressed = false
   private _validateContent?: (content: string) => string | null
   private _validationError: string | null = null
   private _onValidationChange?: (error: string | null) => void
@@ -277,6 +278,22 @@ export class CodeEditorRenderable extends TextareaRenderable {
     void this.highlight()
   }
 
+  override requestRender(): void {
+    if (this._renderSuppressed) return
+    super.requestRender()
+  }
+
+  private withRenderSuppressed(action: () => void): void {
+    const wasSuppressed = this._renderSuppressed
+    this._renderSuppressed = true
+    try {
+      action()
+    } finally {
+      this._renderSuppressed = wasSuppressed
+      if (!wasSuppressed) super.requestRender()
+    }
+  }
+
   toggleFold(line: number): void {
     const sourceLine = this.displayLineToSourceLine(line)
     const fold = this._folds.get(sourceLine)
@@ -288,39 +305,46 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.fold(fold)
     }
     this.applyFoldDisplay(sourceLine)
-    this.requestRender()
+    this._onFoldsChange?.()
   }
 
   private fold(fold: FoldInfo): void {
     fold.folded = true
     this._folds.set(fold.startLine, fold)
-    this._onFoldsChange?.()
   }
 
   private unfold(fold: FoldInfo): void {
     fold.folded = false
     this._folds.set(fold.startLine, fold)
-    this._onFoldsChange?.()
   }
 
   foldAll(): void {
+    let changed = false
     for (const fold of this._folds.values()) {
-      if (!fold.folded) this.fold(fold)
+      if (!fold.folded) {
+        this.fold(fold)
+        changed = true
+      }
     }
+    if (!changed) return
     this.applyFoldDisplay()
-    this.requestRender()
+    this._onFoldsChange?.()
   }
 
   unfoldAll(): void {
     const sourceCursor = this.isFoldedDisplay()
       ? this.getSourceCursorFromDisplay()
       : undefined
+    let changed = false
     for (const fold of this._folds.values()) {
-      if (fold.folded) this.unfold(fold)
+      if (fold.folded) {
+        this.unfold(fold)
+        changed = true
+      }
     }
+    if (!changed) return
     this.restoreSourceDisplay(undefined, sourceCursor)
-    this.scheduleHighlight()
-    this.requestRender()
+    this._onFoldsChange?.()
   }
 
   override handlePaste(event: PasteEvent): void {
@@ -434,6 +458,14 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   private applyFoldDisplay(preferredSourceLine?: number | SourceCursor): void {
+    this.withRenderSuppressed(() => {
+      this.applyFoldDisplayInternal(preferredSourceLine)
+    })
+  }
+
+  private applyFoldDisplayInternal(
+    preferredSourceLine?: number | SourceCursor,
+  ): void {
     if (!this.hasFoldedRanges()) {
       if (typeof preferredSourceLine === "object") {
         this.restoreSourceDisplay(undefined, preferredSourceLine)
@@ -483,11 +515,24 @@ export class CodeEditorRenderable extends TextareaRenderable {
     preferredSourceLine?: number,
     preferredSourceCursor?: SourceCursor,
   ): void {
+    this.withRenderSuppressed(() => {
+      this.restoreSourceDisplayInternal(
+        preferredSourceLine,
+        preferredSourceCursor,
+      )
+    })
+  }
+
+  private restoreSourceDisplayInternal(
+    preferredSourceLine?: number,
+    preferredSourceCursor?: SourceCursor,
+  ): void {
     const wasFolded = this._displayMode === "folded"
     this._displayMode = "source"
     this.rebuildSourceDisplayMaps(this._sourceText)
     if (wasFolded || super.plainText !== this._sourceText) {
       this.setDisplayedText(this._sourceText)
+      this.applyFoldedDisplayHighlights(this._sourceText)
     }
     if (preferredSourceCursor) {
       this.moveCursorToSourceCursor(preferredSourceCursor)
@@ -499,7 +544,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private setDisplayedText(text: string): void {
     this._suppressContentChanged = true
     try {
-      super.setText(text)
+      // Update the backing buffer without the immediate render requested by
+      // TextareaRenderable.setText(). Folded text and its highlights must be
+      // published together to avoid a transient unstyled frame.
+      this.editBuffer.setText(text)
+      this.yogaNode.markDirty()
     } finally {
       this._suppressContentChanged = false
     }
@@ -822,9 +871,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
       fold.folded = previous?.folded ?? fold.folded
     }
 
-    if (this.hasFoldedRanges()) this.applyFoldDisplay()
+    const hasFoldedRanges = this.hasFoldedRanges()
+    if (hasFoldedRanges) this.applyFoldDisplay()
     this._onFoldsChange?.()
-    this.requestRender()
+    if (!hasFoldedRanges) this.requestRender()
   }
 
   private computeJsonFoldRanges(
