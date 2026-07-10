@@ -48,6 +48,21 @@ export function CodeEditorCompletion({
     return { token, suggestions, isComplete }
   }, [editor, env?.vars, revision, value])
 
+  const getCompletion = useCallback(() => {
+    const text = editor?.plainText ?? ""
+    const cursorOffset = editor?.cursorOffset ?? text.length
+    const token = getVariableToken(text, cursorOffset)
+    const suggestions = token
+      ? getVariableSuggestions(Object.keys(env?.vars ?? {}), token.prefix)
+      : []
+    const tokenText = token ? text.slice(token.start + 1, token.end) : ""
+    const isComplete =
+      suggestions.length === 1 &&
+      cursorOffset === token?.end &&
+      suggestions[0] === tokenText
+    return { token, suggestions, isComplete }
+  }, [editor, env?.vars, value])
+
   const handleKey = useCallback(
     (key: {
       name: string
@@ -64,7 +79,7 @@ export function CodeEditorCompletion({
         key.defaultPrevented
       )
         return false
-      const { token, suggestions, isComplete } = completion
+      const { token, suggestions, isComplete } = getCompletion()
       if (!token || suggestions.length === 0 || isComplete) return false
       if (key.name === "up" || key.name === "down") {
         const max = Math.min(suggestions.length, 10)
@@ -75,7 +90,11 @@ export function CodeEditorCompletion({
         return true
       }
       if (key.name === "tab" || key.name === "return") {
-        const name = suggestions[completionIndex] ?? suggestions[0]!
+        const idx = Math.min(
+          completionIndex,
+          Math.min(suggestions.length, 10) - 1,
+        )
+        const name = suggestions[idx] ?? suggestions[0]!
         const result = replaceVariableToken(editor.plainText, token, name)
         editor.replaceText(result.value)
         editor.cursorOffset = result.cursorOffset
@@ -89,7 +108,7 @@ export function CodeEditorCompletion({
       }
       return false
     },
-    [completion, completionDismissed, completionIndex, editor, isEditing],
+    [completionDismissed, completionIndex, editor, getCompletion, isEditing],
   )
 
   useEffect(() => {
