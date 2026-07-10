@@ -11,6 +11,7 @@ import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 import type { CodeEditorRenderable } from "./CodeEditor"
+import { CodeEditorCompletion } from "./CodeEditorCompletion"
 
 import { CenterText } from "./CenterText"
 import { Tabs, type TabDef } from "./Tabs"
@@ -422,6 +423,8 @@ function BodySection({
 
   const body = useMemo(() => formatBody(request.body), [request.body])
   const editorRef = useRef<CodeEditorRenderable | null>(null)
+  const [editorInstance, setEditorInstance] =
+    useState<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
   const extraHighlights = useCallback(
@@ -545,7 +548,10 @@ function BodySection({
               width="100%"
             >
               <code-editor
-                ref={editorRef}
+                ref={(editor) => {
+                  editorRef.current = editor
+                  setEditorInstance(editor)
+                }}
                 filetype="json"
                 theme={theme}
                 initialValue={formatBody(editValue)}
@@ -559,6 +565,12 @@ function BodySection({
                 cursorColor={theme.primary}
               />
             </line-number>
+            <CodeEditorCompletion
+              editor={editorInstance}
+              env={activeEnv ?? null}
+              isEditing={editingBody}
+              value={editValue}
+            />
             {validationNotice && (
               <ValidationNotice
                 title={validationNotice.title}

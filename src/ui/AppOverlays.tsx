@@ -190,6 +190,7 @@ export function AppOverlays({
           visible
           filePath={yamlEditor.filePath}
           requestName={yamlEditor.requestName}
+          activeEnv={activeEnv}
           onSaved={() => {
             resetRequestDraft(yamlEditor.requestId)
             setCollectionReloadToken((n) => n + 1)
