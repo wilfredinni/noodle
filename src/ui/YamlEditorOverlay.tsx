@@ -1,11 +1,12 @@
 import { type LineNumberRenderable, type LineSign } from "@opentui/core"
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { basename, dirname } from "node:path"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "./theme"
 import { Overlay } from "./Overlay"
 import type { CodeEditorRenderable } from "./CodeEditor"
+import { ValidationNotice } from "./ValidationNotice"
 import { lang } from "../lang"
 
 const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
@@ -30,6 +31,7 @@ export function YamlEditorOverlay({
   const editorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const [content, setContent] = useState<string | null>(null)
+  const [draftContent, setDraftContent] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const mountedRef = useRef(true)
@@ -43,6 +45,7 @@ export function YamlEditorOverlay({
   useEffect(() => {
     if (!visible) {
       setContent(null)
+      setDraftContent(null)
       return
     }
     setReadError(null)
@@ -50,7 +53,10 @@ export function YamlEditorOverlay({
 
     readFile(filePath, "utf8")
       .then((v) => {
-        if (mountedRef.current) setContent(v)
+        if (mountedRef.current) {
+          setContent(v)
+          setDraftContent(v)
+        }
       })
       .catch((e) => {
         if (mountedRef.current)
@@ -82,6 +88,34 @@ export function YamlEditorOverlay({
         setSaveError(e instanceof Error ? e.message : String(e))
       })
   }, [filePath, onSaved])
+
+  const validateContent = useCallback(
+    (content: string): string | null => {
+      try {
+        lang.parseRequest(basename(filePath, ".yml"), content)
+        return null
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return `Invalid request YAML: ${message}`
+      }
+    },
+    [filePath],
+  )
+
+  const handleContentChange = useCallback(() => {
+    const editor = editorRef.current
+    if (editor) setDraftContent(editor.plainText)
+  }, [])
+
+  const validationNotice = useMemo(() => {
+    if (draftContent === null) return null
+    const error = validateContent(draftContent)
+    if (!error) return null
+    return {
+      title: "Invalid request YAML",
+      detail: error.replace(/^Invalid request YAML: /, ""),
+    }
+  }, [draftContent, validateContent])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -163,6 +197,8 @@ export function YamlEditorOverlay({
             paddingLeft: 1,
             paddingRight: 1,
             flexGrow: 1,
+            flexDirection: "column",
+            gap: 1,
           }}
         >
           <line-number
@@ -172,7 +208,7 @@ export function YamlEditorOverlay({
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
             lineSigns={RESERVED_FOLD_SIGN}
-            style={{ height: "100%", minHeight: 0 }}
+            style={{ flexGrow: 1, minHeight: 0 }}
             width="100%"
           >
             <code-editor
@@ -180,6 +216,8 @@ export function YamlEditorOverlay({
               filetype="yaml"
               theme={theme}
               initialValue={content}
+              validateContent={validateContent}
+              onContentChange={handleContentChange}
               onFoldsChange={handleFoldsChange}
               backgroundColor={theme.backgroundPanel}
               focusedBackgroundColor={theme.backgroundPanel}
@@ -187,6 +225,12 @@ export function YamlEditorOverlay({
               cursorColor={theme.primary}
             />
           </line-number>
+          {validationNotice && (
+            <ValidationNotice
+              title={validationNotice.title}
+              detail={validationNotice.detail}
+            />
+          )}
         </box>
       ) : (
         <text fg={theme.textMuted}>Loading...</text>

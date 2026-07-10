@@ -27,6 +27,8 @@ export interface CodeEditorOptions {
   foldable?: boolean
   initialValue?: string
   extraHighlights?: (content: string) => Highlight[]
+  validateContent?: (content: string) => string | null
+  onValidationChange?: (error: string | null) => void
   onContentChange?: () => void
   onFoldsChange?: () => void
   backgroundColor?: string
@@ -100,6 +102,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _suppressContentChanged: boolean = false
   private _sourceLineToDisplayLine: Map<number, number> = new Map()
   private _displayLineToSourceLine: Map<number, number> = new Map()
+  private _validateContent?: (content: string) => string | null
+  private _validationError: string | null = null
+  private _onValidationChange?: (error: string | null) => void
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
     super(ctx, {
@@ -116,6 +121,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._debounceMs = options.debounceMs ?? 200
     this._foldable = options.foldable ?? true
     this._extraHighlights = options.extraHighlights
+    this._validateContent = options.validateContent
+    this._onValidationChange = options.onValidationChange
     this._onContentChange = options.onContentChange
     this._onFoldsChange = options.onFoldsChange
     this._tsClient = getTreeSitterClient()
@@ -124,6 +131,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._envMissingStyleId = this._tsStyle.getStyleId("env.missing") ?? 0
     this._sourceText = super.plainText
     this.rebuildSourceDisplayMaps(this._sourceText)
+    this.refreshValidation(this._sourceText)
 
     this.editBuffer.on("content-changed", () => {
       if (!this.isDestroyed) {
@@ -132,6 +140,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
         this._displayMode = "source"
         this._sourceText = super.plainText
         this.rebuildSourceDisplayMaps(this._sourceText)
+        this.refreshValidation(this._sourceText)
         this.scheduleHighlight()
         this._onContentChange?.()
       }
@@ -163,9 +172,23 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this._tsStyle = createTsSyntaxStyle(this._theme)
       this._envResolvedStyleId = this._tsStyle.getStyleId("env.resolved") ?? 0
       this._envMissingStyleId = this._tsStyle.getStyleId("env.missing") ?? 0
+      this.refreshValidation(this._sourceText)
       this.scheduleHighlight()
       this.computeFoldRanges()
     }
+  }
+
+  get validateContent(): ((content: string) => string | null) | undefined {
+    return this._validateContent
+  }
+
+  set validateContent(value: ((content: string) => string | null) | undefined) {
+    this._validateContent = value
+    this.refreshValidation(this._sourceText)
+  }
+
+  get validationError(): string | null {
+    return this._validationError
   }
 
   get extraHighlights(): ((content: string) => Highlight[]) | undefined {
@@ -477,6 +500,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private syncSourceTextFromDisplayedBuffer(): void {
     this._sourceText = super.plainText
     this.rebuildSourceDisplayMaps(this._sourceText)
+    this.refreshValidation(this._sourceText)
   }
 
   private applyFoldedDisplayHighlights(displayText: string): void {
@@ -517,6 +541,31 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   private isFoldedSummaryLine(sourceLine: number): boolean {
     return this._folds.get(sourceLine)?.folded ?? false
+  }
+
+  private refreshValidation(content: string): void {
+    const nextError = this.resolveValidationError(content)
+    if (nextError === this._validationError) return
+    this._validationError = nextError
+    this._onValidationChange?.(nextError)
+  }
+
+  private resolveValidationError(content: string): string | null {
+    if (this._validateContent) {
+      return this._validateContent(content)
+    }
+
+    if (this._filetype === "json") {
+      if (content.trim() === "") return null
+      try {
+        JSON.parse(content)
+        return null
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error)
+      }
+    }
+
+    return null
   }
 
   private getSourceCursorFromDisplay(): SourceCursor {

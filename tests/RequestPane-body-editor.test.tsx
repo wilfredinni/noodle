@@ -186,6 +186,37 @@ describe("BodySection — edit mode", () => {
     expect(frame).toContain("raw text content")
     cleanup()
   })
+
+  it("shows inline validation errors for malformed JSON while editing", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const invalidRequest: Request = {
+      ...testRequest,
+      body: '{"name":',
+    }
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={invalidRequest}
+              editState={editStateEditing}
+              editKey=""
+              editValue={invalidRequest.body!}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Invalid JSON")
+    cleanup()
+  })
 })
 
 describe("BodySection — FormEditor browse mode", () => {

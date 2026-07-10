@@ -24,6 +24,7 @@ import { Checkbox } from "./Checkbox"
 import { AuthEditor } from "./AuthEditor"
 import { Select, type SelectItem } from "./Select"
 import { FormEditor } from "./FormEditor"
+import { ValidationNotice } from "./ValidationNotice"
 import type { BodyType } from "../schema"
 
 interface Props {
@@ -447,6 +448,17 @@ function BodySection({
     [activeEnv],
   )
 
+  const validateContent = useCallback((content: string): string | null => {
+    if (content.trim() === "") return null
+    try {
+      JSON.parse(content)
+      return null
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return `Invalid JSON: ${message}`
+    }
+  }, [])
+
   const handleContentChange = useCallback(() => {
     const ed = editorRef.current
     if (ed) setEditValue(ed.plainText)
@@ -462,6 +474,21 @@ function BodySection({
   }, [])
 
   const editingBody = inEdit && editState.cursor.field === "body"
+
+  const validationNotice = useMemo(() => {
+    if (!editingBody || isFormMode || isBinaryMode) return null
+    if (editValue.trim() === "") return null
+    try {
+      JSON.parse(editValue)
+      return null
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return {
+        title: "Invalid JSON",
+        detail: message,
+      }
+    }
+  }, [editingBody, editValue, isBinaryMode, isFormMode])
 
   useEffect(() => {
     if (editingBody && editorRef.current) {
@@ -499,30 +526,46 @@ function BodySection({
             focusedBackgroundColor={theme.borderSubtle}
           />
         ) : (
-          <line-number
-            ref={lineNumberRef}
-            minWidth={3}
-            paddingRight={1}
-            fg={theme.textMuted}
-            bg={theme.backgroundPanel}
-            lineSigns={RESERVED_FOLD_SIGN}
-            style={{ flexGrow: 1 }}
-            width="100%"
+          <box
+            style={{
+              flexDirection: "column",
+              gap: 1,
+              flexGrow: 1,
+              minHeight: 0,
+            }}
           >
-            <code-editor
-              ref={editorRef}
-              filetype="json"
-              theme={theme}
-              initialValue={formatBody(editValue)}
-              extraHighlights={activeEnv ? extraHighlights : undefined}
-              onContentChange={handleContentChange}
-              onFoldsChange={handleFoldsChange}
-              backgroundColor={theme.backgroundPanel}
-              focusedBackgroundColor={theme.backgroundPanel}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-            />
-          </line-number>
+            <line-number
+              ref={lineNumberRef}
+              minWidth={3}
+              paddingRight={1}
+              fg={theme.textMuted}
+              bg={theme.backgroundPanel}
+              lineSigns={RESERVED_FOLD_SIGN}
+              style={{ flexGrow: 1 }}
+              width="100%"
+            >
+              <code-editor
+                ref={editorRef}
+                filetype="json"
+                theme={theme}
+                initialValue={formatBody(editValue)}
+                extraHighlights={activeEnv ? extraHighlights : undefined}
+                validateContent={validateContent}
+                onContentChange={handleContentChange}
+                onFoldsChange={handleFoldsChange}
+                backgroundColor={theme.backgroundPanel}
+                focusedBackgroundColor={theme.backgroundPanel}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+              />
+            </line-number>
+            {validationNotice && (
+              <ValidationNotice
+                title={validationNotice.title}
+                detail={validationNotice.detail}
+              />
+            )}
+          </box>
         )
       ) : isFormMode ? (
         <FormEditor
