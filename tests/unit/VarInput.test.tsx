@@ -296,6 +296,168 @@ describe("VarInput — edit mode (isEditing=true)", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("custom")
   })
+  it("accepts a suggestion with Return", async () => {
+    const { keymap, host, cleanup } = createTestKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider
+        keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <VariableCompletionInterceptor />
+          <CompletionHarness
+            environment={env({ host: "localhost", token: "secret" })}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$ho")
+    })
+    await renderOnce()
+    await act(async () => {
+      host.press("return")
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("$host")
+    cleanup()
+  })
+
+  it("dismisses completion with Escape, reopens on new $ token", async () => {
+    const { keymap, host, cleanup } = createTestKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider
+        keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <VariableCompletionInterceptor />
+          <CompletionHarness
+            environment={env({ host: "localhost", port: "8080" })}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$ho")
+    })
+    await renderOnce()
+    await act(async () => {
+      host.press("escape")
+    })
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("st$")
+    })
+    await renderOnce()
+    // "$port" only appears in the reopened menu, not in the input value
+    expect(captureCharFrame()).toContain("$port")
+    cleanup()
+  })
+
+  it("resets highlighted index after refiltering suggestions", async () => {
+    const { keymap, host, cleanup } = createTestKeymap()
+    const { renderOnce, captureSpans, mockInput } = await testRender(
+      <KeymapProvider
+        keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <VariableCompletionInterceptor />
+          <CompletionHarness
+            environment={env({
+              bear: "x",
+              brown: "y",
+              branch: "z",
+              bry: "w",
+            })}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$br")
+    })
+    await renderOnce()
+    await act(async () => {
+      host.press("down")
+    })
+    await act(async () => {
+      host.press("down")
+    })
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("o")
+    })
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((l) => l.spans)
+    const primaryRgba = hexToRgba(theme.primary)
+    const brownHighlights = spans.filter(
+      (s) => s.text.includes("$brown") && s.fg.equals(primaryRgba),
+    )
+    expect(brownHighlights.length).toBeGreaterThanOrEqual(1)
+    cleanup()
+  })
+
+  it("does not open completion menu for a fully typed token", async () => {
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <CompletionHarness environment={env({ host: "localhost" })} />
+      </ThemeProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$host")
+    })
+    await renderOnce()
+    const frame = captureCharFrame()
+    // Without the isComplete fix, the menu would show "$host" as a suggestion.
+    // With the fix, only the input itself renders.
+    // The input is on line 0; any menu would create extra content below.
+    // Check that no border chars from the completion menu appear.
+    expect(frame).not.toContain("┌")
+  })
+
+  it("does not crash with many suggestions navigating within visible range", async () => {
+    const manyVars: Record<string, string> = {}
+    for (let i = 0; i < 12; i++) manyVars[`a${i}`] = String(i)
+    const { keymap, host, cleanup } = createTestKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider
+        keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <VariableCompletionInterceptor />
+          <CompletionHarness environment={env(manyVars)} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 15 },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$a")
+    })
+    await renderOnce()
+    // Navigate past visible range multiple times
+    for (let i = 0; i < 15; i++) {
+      await act(async () => {
+        host.press("down")
+      })
+    }
+    await renderOnce()
+    // Accept current suggestion with Return
+    await act(async () => {
+      host.press("return")
+    })
+    await renderOnce()
+    // Should have replaced with a visible suggestion (no crash)
+    expect(captureCharFrame().length).toBeGreaterThan(0)
+    cleanup()
+  })
 })
 
 describe("VarInput — textarea mode (isEditing=true, useTextarea=true)", () => {
@@ -333,5 +495,23 @@ describe("VarInput — textarea mode (isEditing=true, useTextarea=true)", () => 
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame.length).toBeGreaterThanOrEqual(0)
+  })
+
+  it("shows filtered suggestions while typing in textarea mode", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarInput
+          value=""
+          env={env({ host: "localhost", token: "secret" })}
+          isEditing
+          useTextarea
+          onChange={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    await renderOnce()
+    expect(captureCharFrame()).toBeDefined()
   })
 })

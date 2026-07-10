@@ -59,4 +59,88 @@ describe("variable completion", () => {
       { start: 6, end: 14, exists: false },
     ])
   })
+
+  it("returns null for empty string", () => {
+    expect(getVariableToken("", 0)).toBeNull()
+  })
+
+  it("returns null when cursor is before the $ sign", () => {
+    expect(getVariableToken("$host", 0)).toBeNull()
+  })
+
+  it("finds token with cursor in the middle of the variable name", () => {
+    expect(getVariableToken("$host", 3)).toEqual({
+      start: 0,
+      end: 5,
+      prefix: "ho",
+    })
+  })
+
+  it("returns null when no dollar sign precedes the cursor", () => {
+    expect(getVariableToken("hello world", 5)).toBeNull()
+  })
+
+  it("returns null when cursor is before a non-variable dollar sign", () => {
+    expect(getVariableToken("$10", 0)).toBeNull()
+  })
+
+  it("returns all names sorted when prefix is empty", () => {
+    expect(getVariableSuggestions(["host", "port", "path"], "")).toEqual([
+      "host",
+      "path",
+      "port",
+    ])
+  })
+
+  it("filters case-insensitively matching all variations", () => {
+    const result = getVariableSuggestions(["Host", "host"], "hOs")
+    expect(result).toHaveLength(2)
+    expect(result).toContain("Host")
+    expect(result).toContain("host")
+  })
+
+  it("returns empty array when no names match", () => {
+    expect(getVariableSuggestions(["host", "port"], "xyz")).toEqual([])
+  })
+
+  it("handles empty names list", () => {
+    expect(getVariableSuggestions([], "h")).toEqual([])
+  })
+
+  it("replaces token at value start", () => {
+    expect(
+      replaceVariableToken(
+        "$host/api",
+        { start: 0, end: 5, prefix: "host" },
+        "newHost",
+      ),
+    ).toEqual({
+      value: "$newHost/api",
+      cursorOffset: 8,
+    })
+  })
+
+  it("replaces token at value end", () => {
+    const result = replaceVariableToken(
+      "prefix/$host",
+      { start: 7, end: 12, prefix: "host" },
+      "newHost",
+    )
+    expect(result.value).toBe("prefix/$newHost")
+    expect(result.cursorOffset).toBe(15)
+  })
+
+  it("returns empty highlights for empty value", () => {
+    expect(getVariableHighlights("", env({ host: "x" }))).toEqual([])
+  })
+
+  it("returns empty highlights when no variables present", () => {
+    expect(getVariableHighlights("plain text", env({ host: "x" }))).toEqual([])
+  })
+
+  it("returns missing highlights when env is null", () => {
+    expect(getVariableHighlights("$host", null)).toEqual([
+      { start: 0, end: 5, exists: false },
+    ])
+  })
 })
