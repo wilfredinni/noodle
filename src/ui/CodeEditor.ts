@@ -273,6 +273,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return this._envMissingStyleId
   }
 
+  refreshHighlights(): void {
+    void this.highlight()
+  }
+
   toggleFold(line: number): void {
     const sourceLine = this.displayLineToSourceLine(line)
     const fold = this._folds.get(sourceLine)

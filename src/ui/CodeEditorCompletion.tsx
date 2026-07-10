@@ -107,6 +107,7 @@ export function CodeEditorCompletion({
 
   useEffect(() => {
     if (!isEditing || !editor) return
+    editor.refreshHighlights()
     const onChange = () => {
       setCompletionDismissed(false)
       setRevision((value) => value + 1)
