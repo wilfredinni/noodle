@@ -7,7 +7,12 @@ import {
   useState,
 } from "react"
 import type { InputRenderable, TextareaRenderable } from "@opentui/core"
-import { createPortal, useKeyboard, useRenderer } from "@opentui/react"
+import {
+  createPortal,
+  useKeyboard,
+  useRenderer,
+  useTerminalDimensions,
+} from "@opentui/react"
 import { useTheme } from "./theme"
 import { VarText } from "./VarText"
 import type { Environment } from "../schema"
@@ -66,11 +71,14 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
   ) {
     const theme = useTheme()
     const renderer = useRenderer()
+    const { width: terminalWidth, height: terminalHeight } =
+      useTerminalDimensions()
     const defaultColor = baseColor ?? theme.text
     const inputRef = useRef<InputRenderable | null>(null)
     const textareaRef = useRef<TextareaRenderable | null>(null)
     const [completionDismissed, setCompletionDismissed] = useState(false)
     const [completionIndex, setCompletionIndex] = useState(0)
+    const [cursorVersion, setCursorVersion] = useState(0)
     const [completionAnchor, setCompletionAnchor] = useState<{
       x: number
       y: number
@@ -128,10 +136,11 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       applyHighlights()
     }, [applyHighlights, isEditing, value])
 
-    useEffect(() => {
+    const syncCompletionAnchor = useCallback(() => {
       const editable = getEditable()
       const { token, suggestions } = getCompletion()
       if (
+        !isEditing ||
         !editable ||
         completionDismissed ||
         !token ||
@@ -140,11 +149,29 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         setCompletionAnchor((current) => (current === null ? current : null))
         return
       }
-      const next = { x: editable.x, y: editable.y + editable.height }
+      const cursor = editable.visualCursor
+      const next = {
+        x: editable.x + cursor.visualCol,
+        y: editable.y + cursor.visualRow + 1,
+      }
       setCompletionAnchor((current) =>
-        current?.x === next.x && current.y === next.y ? current : next,
+        current?.x === next.x && current?.y === next.y ? current : next,
       )
-    }, [completionDismissed, isEditing, value])
+    }, [completionDismissed, getCompletion, getEditable, isEditing])
+
+    useEffect(() => {
+      syncCompletionAnchor()
+    }, [
+      cursorVersion,
+      syncCompletionAnchor,
+      terminalHeight,
+      terminalWidth,
+      value,
+    ])
+
+    const handleCursorChange = useCallback(() => {
+      setCursorVersion((version) => version + 1)
+    }, [])
 
     const handleCompletionKey = useCallback(
       (key: {
@@ -288,6 +315,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
               initialValue={value}
               placeholder={placeholder}
               onContentChange={handleTextareaChange}
+              onCursorChange={handleCursorChange}
               backgroundColor={backgroundColor ?? theme.backgroundPanel}
               focusedBackgroundColor={
                 focusedBackgroundColor ?? theme.backgroundPanel
@@ -315,6 +343,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             value={value}
             placeholder={placeholder}
             onInput={handleInput}
+            onCursorChange={handleCursorChange}
             focused={isFocused ?? false}
             backgroundColor={backgroundColor}
             focusedBackgroundColor={
