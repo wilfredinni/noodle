@@ -14,7 +14,6 @@ export function EnvEditorPane({
   setEditValue,
   saving,
   error,
-  activeEnv,
   focused: _focused,
 }: {
   draft: EnvDraft | null
@@ -25,7 +24,6 @@ export function EnvEditorPane({
   setEditValue: (v: string) => void
   saving: boolean
   error: string | null
-  activeEnv: Environment | null
   focused: boolean
 }) {
   const theme = useTheme()
@@ -66,6 +64,14 @@ export function EnvEditorPane({
   const variableNames = rows
     .filter((row) => row.enabled && row.key !== "")
     .map((row) => row.key)
+  const draftEnv: Environment = {
+    name: draft.name,
+    vars: Object.fromEntries(
+      rows
+        .filter((row) => row.enabled && row.key !== "")
+        .map((row) => [row.key, row.value]),
+    ),
+  }
   const inEdit = editState.mode === "editing"
   const inBrowse = editState.mode === "browsing"
   const editingRow = inEdit && !editState.addingRow ? editState.editingRow : -1
@@ -124,7 +130,7 @@ export function EnvEditorPane({
               <Checkbox checked={row.enabled} theme={theme} />
               <VarInput
                 value={isEditingThisRow ? editKey : row.key}
-                env={activeEnv}
+                env={draftEnv}
                 isEditing={isEditingThisRow}
                 onChange={setEditKey}
                 isFocused={isEditingThisRow && editState.subfield === "key"}
@@ -138,7 +144,7 @@ export function EnvEditorPane({
               />
               <VarInput
                 value={isEditingThisRow ? editValue : row.value}
-                env={activeEnv}
+                env={draftEnv}
                 isEditing={isEditingThisRow}
                 onChange={setEditValue}
                 isFocused={isEditingThisRow && editState.subfield === "value"}
@@ -169,7 +175,7 @@ export function EnvEditorPane({
           <Checkbox checked={false} theme={theme} />
           <VarInput
             value={editingAdd ? editKey : ""}
-            env={activeEnv}
+            env={draftEnv}
             isEditing={editingAdd}
             onChange={setEditKey}
             isFocused={editingAdd && editState.subfield === "key"}
@@ -185,7 +191,7 @@ export function EnvEditorPane({
           />
           <VarInput
             value={editingAdd ? editValue : ""}
-            env={activeEnv}
+            env={draftEnv}
             isEditing={editingAdd}
             onChange={setEditValue}
             isFocused={editingAdd && editState.subfield === "value"}

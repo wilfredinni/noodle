@@ -78,6 +78,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     const textareaRef = useRef<TextareaRenderable | null>(null)
     const [completionDismissed, setCompletionDismissed] = useState(false)
     const [completionIndex, setCompletionIndex] = useState(0)
+    const prevPrefixRef = useRef("")
     const [cursorVersion, setCursorVersion] = useState(0)
     const [completionAnchor, setCompletionAnchor] = useState<{
       x: number
@@ -154,14 +155,26 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         return
       }
       const cursor = editable.visualCursor
+      const visibleCount = Math.min(suggestions.length, 10)
+      const menuHeight = visibleCount + 2
+      const menuWidth = 18
+      const rawX = editable.x + cursor.visualCol
+      const rawY = editable.y + cursor.visualRow + 1
       const next = {
-        x: editable.x + cursor.visualCol,
-        y: editable.y + cursor.visualRow + 1,
+        x: Math.max(0, Math.min(rawX, terminalWidth - menuWidth)),
+        y: Math.max(0, Math.min(rawY, terminalHeight - menuHeight)),
       }
       setCompletionAnchor((current) =>
         current?.x === next.x && current?.y === next.y ? current : next,
       )
-    }, [completionDismissed, getCompletion, getEditable, isEditing])
+    }, [
+      completionDismissed,
+      getCompletion,
+      getEditable,
+      isEditing,
+      terminalHeight,
+      terminalWidth,
+    ])
 
     useEffect(() => {
       syncCompletionAnchor()
@@ -263,6 +276,14 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     })
 
     const { token, suggestions, isComplete } = getCompletion()
+
+    useEffect(() => {
+      const prefix = token?.prefix ?? ""
+      if (prefix !== prevPrefixRef.current) {
+        setCompletionIndex(0)
+        prevPrefixRef.current = prefix
+      }
+    }, [token?.prefix])
 
     const completionMenu =
       isEditing &&
