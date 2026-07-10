@@ -3,13 +3,13 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react"
 import type { InputRenderable, TextareaRenderable } from "@opentui/core"
 import {
   createPortal,
-  useKeyboard,
   useRenderer,
   useTerminalDimensions,
 } from "@opentui/react"
@@ -20,6 +20,7 @@ import {
   getVariableSuggestions,
   getVariableToken,
   replaceVariableToken,
+  type VariableToken,
 } from "./variableCompletion"
 import { highlightVariables } from "./variableHighlight"
 import { registerVariableCompletion } from "./variableCompletionInterceptor"
@@ -70,26 +71,21 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     ref,
   ) {
     const theme = useTheme()
-    const renderer = useRenderer()
-    const { width: terminalWidth, height: terminalHeight } =
-      useTerminalDimensions()
     const defaultColor = baseColor ?? theme.text
     const inputRef = useRef<InputRenderable | null>(null)
     const textareaRef = useRef<TextareaRenderable | null>(null)
     const [completionDismissed, setCompletionDismissed] = useState(false)
     const [completionIndex, setCompletionIndex] = useState(0)
     const prevPrefixRef = useRef("")
-    const [cursorVersion, setCursorVersion] = useState(0)
-    const [completionAnchor, setCompletionAnchor] = useState<{
-      x: number
-      y: number
-    } | null>(null)
 
     const getEditable = useCallback(() => {
       const editable = inputRef.current ?? textareaRef.current
       return editable && !editable.isDestroyed ? editable : null
     }, [])
-    const suggestionNames = variableNames ?? Object.keys(env?.vars ?? {})
+    const suggestionNames = useMemo(() => {
+      if (variableNames != null) return [...variableNames]
+      return Object.keys(env?.vars ?? {})
+    }, [variableNames, env?.vars])
     const getCompletion = useCallback(() => {
       const editable = getEditable()
       const text = editable?.plainText ?? value
@@ -139,56 +135,6 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       if (!isEditing) return
       applyHighlights()
     }, [applyHighlights, isEditing, value])
-
-    const syncCompletionAnchor = useCallback(() => {
-      const editable = getEditable()
-      const { token, suggestions, isComplete } = getCompletion()
-      if (
-        !isEditing ||
-        !editable ||
-        completionDismissed ||
-        !token ||
-        suggestions.length === 0 ||
-        isComplete
-      ) {
-        setCompletionAnchor((current) => (current === null ? current : null))
-        return
-      }
-      const cursor = editable.visualCursor
-      const visibleCount = Math.min(suggestions.length, 10)
-      const menuHeight = visibleCount + 2
-      const menuWidth = 18
-      const rawX = editable.x + cursor.visualCol
-      const rawY = editable.y + cursor.visualRow + 1
-      const next = {
-        x: Math.max(0, Math.min(rawX, terminalWidth - menuWidth)),
-        y: Math.max(0, Math.min(rawY, terminalHeight - menuHeight)),
-      }
-      setCompletionAnchor((current) =>
-        current?.x === next.x && current?.y === next.y ? current : next,
-      )
-    }, [
-      completionDismissed,
-      getCompletion,
-      getEditable,
-      isEditing,
-      terminalHeight,
-      terminalWidth,
-    ])
-
-    useEffect(() => {
-      syncCompletionAnchor()
-    }, [
-      cursorVersion,
-      syncCompletionAnchor,
-      terminalHeight,
-      terminalWidth,
-      value,
-    ])
-
-    const handleCursorChange = useCallback(() => {
-      setCursorVersion((version) => version + 1)
-    }, [])
 
     const handleCompletionKey = useCallback(
       (key: {
@@ -246,8 +192,9 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       ],
     )
 
+    const { token, suggestions, isComplete } = getCompletion()
+
     useEffect(() => {
-      const { token, suggestions, isComplete } = getCompletion()
       const editable = getEditable()
       if (
         !isEditing ||
@@ -262,20 +209,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       return registerVariableCompletion(handleCompletionKey)
     }, [
       completionDismissed,
-      getCompletion,
       getEditable,
       handleCompletionKey,
+      isComplete,
       isEditing,
+      suggestions.length,
+      token,
     ])
-
-    useKeyboard((key) => {
-      if (handleCompletionKey(key)) {
-        key.preventDefault()
-        key.stopPropagation()
-      }
-    })
-
-    const { token, suggestions, isComplete } = getCompletion()
 
     useEffect(() => {
       const prefix = token?.prefix ?? ""
@@ -285,53 +225,12 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       }
     }, [token?.prefix])
 
-    const completionMenu =
+    const showCompletion =
       isEditing &&
       !completionDismissed &&
       token &&
       suggestions.length > 0 &&
-      !isComplete &&
-      completionAnchor
-        ? createPortal(
-            <box
-              id="var-completion-menu"
-              style={{
-                position: "absolute",
-                top: completionAnchor.y,
-                left: completionAnchor.x,
-                zIndex: 10000,
-                flexDirection: "column",
-                flexShrink: 0,
-                minWidth: 16,
-                backgroundColor: theme.backgroundPanel,
-                paddingLeft: 1,
-                paddingRight: 1,
-              }}
-              borderStyle="single"
-              borderColor={theme.borderActive}
-            >
-              {suggestions.slice(0, 10).map((name, index) => (
-                <box
-                  key={name}
-                  style={{
-                    backgroundColor:
-                      index === completionIndex
-                        ? theme.backgroundElement
-                        : undefined,
-                  }}
-                >
-                  <text
-                    fg={index === completionIndex ? theme.primary : theme.text}
-                  >
-                    ${name}
-                  </text>
-                </box>
-              ))}
-            </box>,
-            renderer.root,
-            null,
-          )
-        : null
+      !isComplete
 
     if (isEditing) {
       if (useTextarea) {
@@ -346,7 +245,6 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
               initialValue={value}
               placeholder={placeholder}
               onContentChange={handleTextareaChange}
-              onCursorChange={handleCursorChange}
               backgroundColor={backgroundColor ?? theme.backgroundPanel}
               focusedBackgroundColor={
                 focusedBackgroundColor ?? theme.backgroundPanel
@@ -356,7 +254,18 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
               paddingX={paddingX}
               focused
             />
-            {completionMenu}
+            {showCompletion && (
+              <CompletionPopup
+                token={token}
+                suggestions={suggestions}
+                isComplete={isComplete}
+                completionDismissed={completionDismissed}
+                completionIndex={completionIndex}
+                isEditing={isEditing}
+                getEditable={getEditable}
+                value={value}
+              />
+            )}
           </box>
         )
       }
@@ -374,7 +283,6 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             value={value}
             placeholder={placeholder}
             onInput={handleInput}
-            onCursorChange={handleCursorChange}
             focused={isFocused ?? false}
             backgroundColor={backgroundColor}
             focusedBackgroundColor={
@@ -384,7 +292,18 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             cursorColor={theme.primary}
             paddingX={paddingX}
           />
-          {completionMenu}
+          {showCompletion && (
+            <CompletionPopup
+              token={token}
+              suggestions={suggestions}
+              isComplete={isComplete}
+              completionDismissed={completionDismissed}
+              completionIndex={completionIndex}
+              isEditing={isEditing}
+              getEditable={getEditable}
+              value={value}
+            />
+          )}
         </box>
       )
     }
@@ -407,3 +326,116 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     )
   },
 )
+
+function CompletionPopup({
+  token,
+  suggestions,
+  isComplete,
+  completionDismissed,
+  completionIndex,
+  isEditing,
+  getEditable,
+  value,
+}: {
+  token: VariableToken | null
+  suggestions: string[]
+  isComplete: boolean
+  completionDismissed: boolean
+  completionIndex: number
+  isEditing: boolean
+  getEditable: () => (InputRenderable | TextareaRenderable) | null
+  value: string
+}) {
+  const renderer = useRenderer()
+  const { width: terminalWidth, height: terminalHeight } =
+    useTerminalDimensions()
+  const theme = useTheme()
+  const [completionAnchor, setCompletionAnchor] = useState<{
+    x: number
+    y: number
+  } | null>(null)
+
+  useEffect(() => {
+    const editable = getEditable()
+    if (
+      !isEditing ||
+      !editable ||
+      completionDismissed ||
+      !token ||
+      suggestions.length === 0 ||
+      isComplete
+    ) {
+      setCompletionAnchor((current) => (current === null ? current : null))
+      return
+    }
+    const cursor = editable.visualCursor
+    const visibleCount = Math.min(suggestions.length, 10)
+    const menuHeight = visibleCount + 2
+    const menuWidth = 18
+    const rawX = editable.x + cursor.visualCol
+    const rawY = editable.y + cursor.visualRow + 1
+    const next = {
+      x: Math.max(0, Math.min(rawX, terminalWidth - menuWidth)),
+      y: Math.max(0, Math.min(rawY, terminalHeight - menuHeight)),
+    }
+    setCompletionAnchor((current) =>
+      current?.x === next.x && current?.y === next.y ? current : next,
+    )
+  }, [
+    completionDismissed,
+    getEditable,
+    isComplete,
+    isEditing,
+    suggestions.length,
+    terminalHeight,
+    terminalWidth,
+    token,
+    value,
+  ])
+
+  if (
+    completionDismissed ||
+    !token ||
+    suggestions.length === 0 ||
+    isComplete ||
+    !completionAnchor
+  ) {
+    return null
+  }
+
+  return createPortal(
+    <box
+      id="var-completion-menu"
+      style={{
+        position: "absolute",
+        top: completionAnchor.y,
+        left: completionAnchor.x,
+        zIndex: 10000,
+        flexDirection: "column",
+        flexShrink: 0,
+        minWidth: 16,
+        backgroundColor: theme.backgroundPanel,
+        paddingLeft: 1,
+        paddingRight: 1,
+      }}
+      borderStyle="single"
+      borderColor={theme.borderActive}
+    >
+      {suggestions.slice(0, 10).map((name, index) => (
+        <box
+          key={name}
+          style={{
+            backgroundColor:
+              index === completionIndex ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={index === completionIndex ? theme.primary : theme.text}>
+            ${name}
+          </text>
+        </box>
+      ))}
+    </box>,
+    renderer.root,
+    null,
+  )
+}

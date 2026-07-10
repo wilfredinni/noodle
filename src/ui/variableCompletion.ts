@@ -1,7 +1,5 @@
 import type { Environment } from "../schema"
 
-const VAR_RE = /\$(\w+)/g
-
 export interface VariableToken {
   start: number
   end: number
@@ -56,10 +54,8 @@ export function getVariableHighlights(
   value: string,
   env: Environment | null,
 ): VariableHighlight[] {
-  VAR_RE.lastIndex = 0
   const highlights: VariableHighlight[] = []
-  let match: RegExpExecArray | null
-  while ((match = VAR_RE.exec(value)) !== null) {
+  for (const match of value.matchAll(/\$(\w+)/g)) {
     highlights.push({
       start: match.index,
       end: match.index + match[0].length,

@@ -1,6 +1,6 @@
 name: Create Post
 method: POST
-url: $base_url/posts
+url: $base_url/posts/
 timeout: 0
 followRedirects: true
 maxRedirects: 5
