@@ -4,14 +4,14 @@ import { useKeymap } from "@opentui/keymap/react"
 
 type CompletionHandler = (event: KeyEvent) => boolean
 
-let activeHandler: CompletionHandler | null = null
+const activeHandlers = new Set<CompletionHandler>()
 
 export function registerVariableCompletion(
   handler: CompletionHandler,
 ): () => void {
-  activeHandler = handler
+  activeHandlers.add(handler)
   return () => {
-    if (activeHandler === handler) activeHandler = null
+    activeHandlers.delete(handler)
   }
 }
 
@@ -22,9 +22,12 @@ export function VariableCompletionInterceptor() {
     return keymap.intercept(
       "key",
       (ctx) => {
-        if (activeHandler?.(ctx.event)) {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
+        for (const handler of activeHandlers) {
+          if (handler(ctx.event)) {
+            ctx.event.preventDefault()
+            ctx.event.stopPropagation()
+            return
+          }
         }
       },
       { priority: 200 },
