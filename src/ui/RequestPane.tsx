@@ -27,6 +27,7 @@ import { Select, type SelectItem } from "./Select"
 import { FormEditor } from "./FormEditor"
 import { ValidationNotice } from "./ValidationNotice"
 import type { BodyType } from "../schema"
+import { validateJsonContent } from "./jsonValidation"
 
 interface Props {
   request: Request | null
@@ -451,16 +452,11 @@ function BodySection({
     [activeEnv],
   )
 
-  const validateContent = useCallback((content: string): string | null => {
-    if (content.trim() === "") return null
-    try {
-      JSON.parse(content)
-      return null
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      return `Invalid JSON: ${message}`
-    }
-  }, [])
+  const validateContent = useCallback(
+    (content: string): string | null =>
+      validateJsonContent(content, activeEnv ?? null),
+    [activeEnv],
+  )
 
   const handleContentChange = useCallback(() => {
     const ed = editorRef.current
@@ -480,18 +476,13 @@ function BodySection({
 
   const validationNotice = useMemo(() => {
     if (!editingBody || isFormMode || isBinaryMode) return null
-    if (editValue.trim() === "") return null
-    try {
-      JSON.parse(editValue)
-      return null
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      return {
-        title: "Invalid JSON",
-        detail: message,
-      }
+    const error = validateJsonContent(editValue, activeEnv ?? null)
+    if (!error) return null
+    return {
+      title: "Invalid JSON",
+      detail: error.replace(/^Invalid JSON:\s*/, ""),
     }
-  }, [editingBody, editValue, isBinaryMode, isFormMode])
+  }, [activeEnv, editingBody, editValue, isBinaryMode, isFormMode])
 
   useEffect(() => {
     if (editingBody && editorRef.current) {

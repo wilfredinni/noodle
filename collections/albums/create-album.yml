@@ -10,6 +10,7 @@ body: |-
   {
     "title": "my album",
     "userId": $user_id,
-    "test": "$base_url"
+    "test": "$base_url",
+    "bad": "$base_url"
   }
 body_type: json
