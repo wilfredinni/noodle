@@ -42,22 +42,17 @@ export function highlightTextarea(
   textarea.clearAllHighlights()
   textarea.syntaxStyle = style
 
-  try {
-    JSON.parse(content)
-    if (content.length <= 100_000) {
-      const tokens = highlightJsonTokens(content, theme)
-      for (const token of tokens) {
-        const styleId = styleIdForFg(token.fg, theme, style)
-        textarea.addHighlightByCharRange({
-          start: token.offset,
-          end: token.offset + token.text.length,
-          styleId,
-          priority: 1,
-        })
-      }
+  if (content.length <= 100_000) {
+    const tokens = highlightJsonTokens(content, theme)
+    for (const token of tokens) {
+      const styleId = styleIdForFg(token.fg, theme, style)
+      textarea.addHighlightByCharRange({
+        start: token.offset,
+        end: token.offset + token.text.length,
+        styleId,
+        priority: 1,
+      })
     }
-  } catch {
-    // not valid JSON — still add $var highlights below
   }
 
   if (env) {
