@@ -65,7 +65,11 @@ export default defineCommand({
         throw new Error(`HTTP ${response.status}`)
       }
       const json = await response.json()
-      if (!json || typeof json.tag_name !== "string" || !Array.isArray(json.assets)) {
+      if (
+        !json ||
+        typeof json.tag_name !== "string" ||
+        !Array.isArray(json.assets)
+      ) {
         throw new Error("Invalid release data")
       }
       releaseData = json as ReleaseData
