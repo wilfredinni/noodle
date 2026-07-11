@@ -1,6 +1,6 @@
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
-import type { CommandItem } from "./CommandPaletteOverlay"
+import type { CommandItem } from "./overlays/CommandPaletteOverlay"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { Focus } from "./focus"
@@ -215,26 +215,6 @@ export function buildCommandPaletteCommands(
       },
     },
     {
-      id: "request.edit-yaml",
-      label: "Edit Request YAML",
-      section: "Request",
-      keybinding: displayKey(keybinds.request_edit_yaml),
-      run: () => {
-        const file = getEditRequestYamlFile(c)
-        if (!file) return false
-        setYamlEditor({
-          visible: true,
-          kind: "request",
-          filePath: file.filePath,
-          requestName: file.requestName,
-          requestId: file.requestId,
-          folderPath: "",
-          returnFocus: file.returnFocus,
-        })
-        return true
-      },
-    },
-    {
       id: "request.new",
       label: "New Request",
       section: "Request",
@@ -375,21 +355,35 @@ export function buildCommandPaletteCommands(
       },
     },
     {
-      id: "folder.edit-yaml",
-      label: "Edit Folder YAML",
+      id: "workspace.edit-yaml",
+      label: "Edit Request/Folder YAML",
       section: "Workspace",
       keybinding: displayKey(keybinds.request_edit_yaml),
       run: () => {
-        const result = getEditFolderYamlFile(c)
-        if (!result) return false
+        if (c.focusedFolderPathRef.current) {
+          const result = getEditFolderYamlFile(c)
+          if (!result) return false
+          setYamlEditor({
+            visible: true,
+            kind: "folder",
+            filePath: result.filePath,
+            requestName: result.folderName,
+            requestId: "",
+            folderPath: result.folderPath,
+            returnFocus: result.returnFocus,
+          })
+          return true
+        }
+        const file = getEditRequestYamlFile(c)
+        if (!file) return false
         setYamlEditor({
           visible: true,
-          kind: "folder",
-          filePath: result.filePath,
-          requestName: result.folderName,
-          requestId: "",
-          folderPath: result.folderPath,
-          returnFocus: result.returnFocus,
+          kind: "request",
+          filePath: file.filePath,
+          requestName: file.requestName,
+          requestId: file.requestId,
+          folderPath: "",
+          returnFocus: file.returnFocus,
         })
         return true
       },

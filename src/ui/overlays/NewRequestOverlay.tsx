@@ -6,11 +6,11 @@ import {
   useState,
 } from "react"
 import type { InputRenderable } from "@opentui/core"
-import { VarInput, type VarInputHandle } from "./VarInput"
+import { VarInput, type VarInputHandle } from "../VarInput"
 import { Overlay } from "./Overlay"
-import { Select, type SelectItem } from "./Select"
-import { useTheme } from "./theme"
-import type { Method, Environment } from "../schema"
+import { Select, type SelectItem } from "../Select"
+import { useTheme } from "../theme"
+import type { Method, Environment } from "../../schema"
 
 export interface NewRequestOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void

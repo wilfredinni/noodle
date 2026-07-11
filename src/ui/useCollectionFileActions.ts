@@ -13,7 +13,7 @@ import {
   saveFolder,
   deleteFolder,
 } from "../filestore/save"
-import { slugify } from "./NewRequestOverlay"
+import { slugify } from "./overlays/NewRequestOverlay"
 import { updateFolderByPath } from "./tree"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"

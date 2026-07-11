@@ -1,4 +1,4 @@
-import { useTheme } from "./theme"
+import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 
 export interface ConfirmOverlayProps {

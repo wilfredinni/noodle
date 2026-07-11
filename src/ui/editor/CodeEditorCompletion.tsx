@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import type { Environment } from "../../schema"
-import { registerVariableCompletion } from "../variableCompletionInterceptor"
+import { registerVariableCompletion } from "../variable-completion/variableCompletionInterceptor"
 import {
   createPortal,
   useRenderer,
@@ -11,7 +11,7 @@ import { useTheme } from "../theme"
 import {
   useVariableCompletion,
   MAX_COMPLETION_VISIBLE,
-} from "../useVariableCompletion"
+} from "../variable-completion/useVariableCompletion"
 
 export function CodeEditorCompletion({
   editor,

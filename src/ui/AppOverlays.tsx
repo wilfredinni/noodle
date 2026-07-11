@@ -1,25 +1,25 @@
 import type { RefObject } from "react"
-import { HelpOverlay } from "./HelpOverlay"
-import { ConfirmOverlay } from "./ConfirmOverlay"
+import { HelpOverlay } from "./overlays/HelpOverlay"
+import { ConfirmOverlay } from "./overlays/ConfirmOverlay"
 import {
   CommandPaletteOverlay,
   type CommandItem,
-} from "./CommandPaletteOverlay"
-import { CollectionSwitcherOverlay } from "./CollectionSwitcherOverlay"
+} from "./overlays/CommandPaletteOverlay"
+import { CollectionSwitcherOverlay } from "./overlays/CollectionSwitcherOverlay"
 import { ThemePickerOverlay } from "./theme"
 import { YamlEditorOverlay } from "./editor/YamlEditorOverlay"
 import {
   NewRequestOverlay,
   type NewRequestOverlayHandle,
-} from "./NewRequestOverlay"
+} from "./overlays/NewRequestOverlay"
 import {
   CloneRequestOverlay,
   type CloneRequestOverlayHandle,
-} from "./CloneRequestOverlay"
+} from "./overlays/CloneRequestOverlay"
 import {
   NewFolderOverlay,
   type NewFolderOverlayHandle,
-} from "./NewFolderOverlay"
+} from "./overlays/NewFolderOverlay"
 import type { Environment, Request as NoodleRequest } from "../schema"
 import type { Keybinds } from "./keybind"
 import type { Focus } from "./focus"

@@ -10,7 +10,7 @@ import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { YamlEditorOverlay } from "../../src/ui/editor/YamlEditorOverlay"
-import { ConfirmOverlay } from "../../src/ui/ConfirmOverlay"
+import { ConfirmOverlay } from "../../src/ui/overlays/ConfirmOverlay"
 import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 
 extend({ "code-editor": CodeEditorRenderable })

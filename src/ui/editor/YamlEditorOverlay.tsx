@@ -4,13 +4,13 @@ import { useKeymap } from "@opentui/keymap/react"
 import { basename, dirname } from "node:path"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "../theme"
-import { Overlay } from "../Overlay"
+import { Overlay } from "../overlays/Overlay"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import { ValidationNotice } from "./ValidationNotice"
 import { lang } from "../../lang"
 import type { Environment } from "../../schema"
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
-import { getEnvVarHighlights } from "../variableCompletion"
+import { getEnvVarHighlights } from "../variable-completion/variableCompletion"
 
 const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 

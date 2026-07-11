@@ -1,4 +1,4 @@
-import type { Environment } from "../schema"
+import type { Environment } from "../../schema"
 
 const VAR_RE = /\$(\w+)/g
 

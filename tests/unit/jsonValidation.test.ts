@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { Environment } from "../../src/schema"
-import { validateJsonContent } from "../../src/ui/jsonValidation"
+import { validateJsonContent } from "../../src/ui/editor/jsonValidation"
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test", vars }

@@ -1,9 +1,9 @@
-import type { Environment } from "../schema"
-import type { EnvDraft, EnvEditState } from "../hooks/useEnvironmentEditor"
-import { useTheme } from "./theme"
-import { FullBorder } from "./borders"
-import { Checkbox } from "./Checkbox"
-import { VarInput } from "./VarInput"
+import type { Environment } from "../../schema"
+import type { EnvDraft, EnvEditState } from "../../hooks/useEnvironmentEditor"
+import { useTheme } from "../theme"
+import { FullBorder } from "../borders"
+import { Checkbox } from "../Checkbox"
+import { VarInput } from "../VarInput"
 
 export function EnvEditorPane({
   draft,

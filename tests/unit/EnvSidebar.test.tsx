@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
-import { EnvSidebar } from "../../src/ui/EnvSidebar"
+import { EnvSidebar } from "../../src/ui/env-editor/EnvSidebar"
 
 describe("EnvSidebar", () => {
   it("renders env names", async () => {

@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { splitEnvVars } from "./envHighlight"
+import { splitEnvVars } from "./variable-completion/envHighlight"
 import { useTheme } from "./theme"
 import type { Environment } from "../schema"
 

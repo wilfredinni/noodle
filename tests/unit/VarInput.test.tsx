@@ -9,7 +9,7 @@ import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { VarInput } from "../../src/ui/VarInput"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import type { Environment } from "../../src/schema"
-import { VariableCompletionInterceptor } from "../../src/ui/variableCompletionInterceptor"
+import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/variableCompletionInterceptor"
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test-env", vars }

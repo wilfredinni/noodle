@@ -1,4 +1,4 @@
-import type { Environment } from "../schema"
+import type { Environment } from "../../schema"
 import type { Highlight } from "@opentui/core"
 
 export interface VariableToken {

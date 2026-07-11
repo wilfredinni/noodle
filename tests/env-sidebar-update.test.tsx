@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { useEffect, useState } from "react"
 import { ThemeProvider } from "../src/ui/theme"
-import { EnvSidebar } from "../src/ui/EnvSidebar"
+import { EnvSidebar } from "../src/ui/env-editor/EnvSidebar"
 
 function Harness({ initial, next }: { initial: string[]; next: string[] }) {
   const [names, setNames] = useState(initial)

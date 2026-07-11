@@ -16,12 +16,12 @@ import {
 import { useTheme } from "./theme"
 import { VarText } from "./VarText"
 import type { Environment } from "../schema"
-import { highlightVariables } from "./variableHighlight"
-import { registerVariableCompletion } from "./variableCompletionInterceptor"
+import { highlightVariables } from "./variable-completion/variableHighlight"
+import { registerVariableCompletion } from "./variable-completion/variableCompletionInterceptor"
 import {
   useVariableCompletion,
   MAX_COMPLETION_VISIBLE,
-} from "./useVariableCompletion"
+} from "./variable-completion/useVariableCompletion"
 
 export interface VarInputStyle {
   flexGrow?: number

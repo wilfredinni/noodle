@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { basename } from "node:path"
 import { TextAttributes } from "@opentui/core"
 import { PickerOverlay } from "./PickerOverlay"
-import { useTheme } from "./theme"
+import { useTheme } from "../theme"
 
 export interface CollectionSwitcherOverlayProps {
   visible: boolean

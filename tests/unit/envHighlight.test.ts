@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { splitEnvVars } from "../../src/ui/envHighlight"
+import { splitEnvVars } from "../../src/ui/variable-completion/envHighlight"
 import type { Environment } from "../../src/schema"
 
 function env(vars: Record<string, string>): Environment {
