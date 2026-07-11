@@ -42,26 +42,100 @@ noodle update
 
 ```
 src/
-├── schema/        # Types: Method, Auth, Request, Collection, Response, Environment
+├── schema/        # Types: Method, Auth, Request, Collection, Response, Environment, ParamEntry, FormEntry, KvEntry
 ├── lang/          # YAML request language: parse + serialize
+│   └── parsers/   # Tree-sitter WASM + highlights.scm for JSON and YAML
+│       ├── json/  # tree-sitter-json.wasm, highlights.scm
+│       └── yaml/  # tree-sitter-yaml.wasm, highlights.scm
 ├── filestore/     # loadCollection(dir) / saveRequest(dir, req) — disk I/O
 ├── env/           # loadEnvironment, listEnvironments — env file I/O + validation
 ├── requests/      # executor.send + substitute ($var replacement)
-├── hooks/         # React hooks: useCollection, useRequestDraft, useEnvironments, etc.
+├── hooks/         # React hooks (13 total)
+│   ├── useCollection.ts, useTreeNavigation.ts, useSidebarSelection.ts
+│   ├── useRequestDraft.ts, useFolderDraft.ts
+│   ├── useEditBrowse.ts, useFolderEditBrowse.ts
+│   ├── useResponse.ts, useEnvironments.ts, useEnvironmentEditor.ts
+│   ├── useConfig.ts, useJsonHighlight.ts
+│   └── useKeymap.ts
 ├── converters/
-│   └── openapi/   # OpenAPI 3.0 → Collection importer (CLI only)
+│   ├── index.ts   # Importer registry, detectFormat, getImporter
+│   ├── openapi/   # OpenAPI 3.0 → Collection importer
+│   └── postman/   # Postman 2.1 → Collection importer (uses postman-collection npm pkg)
 ├── app/           # CLI args parsing, entry point (src/app/cli.ts)
 └── ui/            # React components + hooks + pure helpers
-    ├── App.tsx    # Root component: focus, keyboard, state wiring
-    ├── AppInner.tsx
-    ├── Sidebar.tsx
-    ├── RequestPane.tsx    # Full request detail + inline editing
-    ├── ResponsePane.tsx   # Response rendering (idle/sending/done/error)
-    ├── HelpOverlay.tsx    # F1 keybinding cheatsheet overlay
-    └── ...                # Hooks + pure helpers
+    ├── App.tsx              # Root component: state wiring, theme, config, env list
+    ├── AppInner.tsx         # Core logic: hooks, overlays, keymap, timeline, file actions
+    ├── AppOverlays.tsx      # All overlay rendering (15 overlay slots)
+    ├── MainView.tsx         # Main vs folder view dispatch (sidebar + content pane)
+    ├── RequestResponseView.tsx # UrlBar + RequestPane + ResponsePane layout
+    ├── EnvironmentEditorView.tsx # Env editor top-level view
+    ├── Sidebar.tsx          # Tree sidebar: requests, folders, dirty indicators, method badges
+    ├── RequestPane.tsx      # Full request detail + inline editing (5 tabs)
+    ├── ResponsePane.tsx     # Response rendering (idle/sending/done/error) + timeline
+    ├── FolderPane.tsx       # Folder editor: meta, headers, auth overrides, activity
+    ├── FolderMetaTab.tsx    # Folder name/seq editing
+    ├── FolderActivityTab.tsx # Per-request activity stats in folder
+    ├── UrlBar.tsx           # URL editing bar with env substitution
+    ├── VarInput.tsx         # Variable-aware input/textarea with completion popup
+    ├── VarText.tsx          # Variable-highlighted read-only text rendering
+    ├── KeyValueSection.tsx  # Key/Value pair editor (headers/params)
+    ├── AuthEditor.tsx       # Auth type selector + fields (none/inherit/bearer/basic/api_key)
+    ├── FormEditor.tsx       # Multipart/urlencoded form editor with text/file toggle
+    ├── JsonBodyViewer.tsx   # JSON body viewer with line numbers + syntax highlighting
+    ├── Checkbox.tsx, Select.tsx, Tabs.tsx, Frame.tsx, Badge.tsx, GradientBadge.tsx
+    ├── CenterText.tsx, Toast.tsx, Tips.tsx
+    ├── [overlays]
+    │   ├── PickerOverlay.tsx           # Generic searchable picker overlay (base)
+    │   ├── CommandPaletteOverlay.tsx   # Command palette: fuzzy-searchable, sectioned
+    │   ├── CollectionSwitcherOverlay.tsx # Collection directory picker
+    │   ├── HelpOverlay.tsx             # F1 keybinding cheatsheet overlay
+    │   ├── ConfirmOverlay.tsx          # Yes/No confirmation dialog
+    │   ├── YamlEditorOverlay.tsx       # YAML code editor with syntax highlighting + folding
+    │   ├── NewRequestOverlay.tsx, CloneRequestOverlay.tsx, NewFolderOverlay.tsx
+    │   ├── Overlay.tsx                 # Generic overlay (modal) container
+    │   └── ValidationNotice.tsx        # Validation error bar
+    ├── [code editor]
+    │   ├── CodeEditor.ts              # CodeEditorRenderable class (tree-sitter highlight, folding, validation)
+    │   ├── CodeEditorCompletion.tsx    # Variable completion list tied to CodeEditor
+    │   └── codeEditorParsers.ts       # Registers tree-sitter JSON + YAML parsers
+    ├── [variable completion]
+    │   ├── variableCompletion.ts       # getVariableToken, getVariableSuggestions, replaceVariableToken
+    │   ├── useVariableCompletion.ts    # Cursor-aware $var completion hook
+    │   ├── variableCompletionInterceptor.tsx # High-priority key interceptor for completion
+    │   ├── variableHighlight.ts        # $var highlighting (resolved/missing) for Input/Textarea
+    │   ├── highlightOffsets.ts         # Char-to-display offset mapping for emoji/wide chars
+    │   └── envHighlight.ts             # splitEnvVars — segments text into plain/resolved $var
+    ├── [themes]
+    │   ├── theme.tsx                   # ThemeProvider, useTheme, ThemePickerOverlay
+    │   └── theme-data.ts              # 32 themes, Theme interface, THEMES array
+    ├── [infrastructure]
+    │   ├── keybind.ts                  # Keybinding definitions, CommandMap, parseOverrides
+    │   ├── helpTexts.ts                # Help overlay section/keys builder
+    │   ├── useAppKeymap.ts             # All keymap layers (12 layers)
+    │   ├── focus.ts                    # Focus type, cycleFocus, toggleExpand
+    │   ├── commands.ts                 # buildCommandPaletteCommands
+    │   ├── commandActions.ts           # All command action implementations
+    │   ├── useCollectionFileActions.ts # Create/save/delete request/folder file operations
+    │   ├── clipboard.ts                # copyToClipboard (pbcopy/xclip/wl-copy/clip.exe + OSC 52)
+    │   ├── syntax.ts, yamlSyntax.ts    # JSON + YAML syntax highlighting
+    │   ├── format.ts, formatRequest.ts # Display formatting helpers
+    │   ├── urlParams.ts                # buildDisplayUrl, parseUrlAndParams
+    │   ├── tree.ts                     # Tree helpers (findRequestById, visibleNodes, etc.)
+    │   ├── selection.ts                # Clamped index navigation
+    │   ├── borders.ts                  # Border presets (FullBorder, LeftBar, PaneBorder)
+    │   ├── useOverlayIntercepts.ts     # All overlay keyboard intercepts
+    │   └── useSaveFile.ts              # Save file logic with timeout, confirming state
+    ├── tabs/                           # UI state persistence
+    │   ├── uiState.ts                  # ResponseTabKind, save/load last-request, expanded-folders
+    │   └── useUIState.ts               # Per-request tab index state
+    └── timeline/                       # Timeline viewer
+        ├── TimelineEntry.tsx           # Single timeline entry renderer
+        ├── TimelineTab.tsx             # Full timeline tab
+        ├── formatTimeline.ts           # Timeline display formatting
+        └── useTimeline.ts              # Per-request response history hook
 collections/       # Sample request .yml files + .environments/
 tests/             # bun:test suites
-tests/unit/        # Unit tests for pure helpers
+tests/unit/        # Unit tests for pure helpers + components
 tests/integration/ # Integration tests
 ```
 
@@ -91,6 +165,9 @@ tests/integration/ # Integration tests
 - **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.
 - **UI features require loading the `opentui` skill**. The skill lives at `.agents/skills/opentui/SKILL.md`.
+- **Command actions are centralized** in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. Never duplicate command logic.
+- **Command palette commands return boolean**: `run()` returns `true` (close palette) or `false` (stay open).
+- **PickerOverlay isNavigable**: Pass to skip non-selectable items (section headers) during up/down/return navigation.
 
 ## Keybindings (defaults; customizable via `~/.config/noodle/keybinds.yml`)
 
@@ -119,6 +196,8 @@ command_palette: ctrl+p
 | `Ctrl+Alt+E` | Edit request YAML in overlay |
 | `Ctrl+B` | Copy response body |
 | `Ctrl+Alt+N` | New folder |
+| `Ctrl+O` | Open collection switcher |
+| `Ctrl+Z` | Undo all unsaved changes |
 | `e` | Open environment editor |
 | `Ctrl+C` | Quit (copies selection first if text is selected) |
 
@@ -140,6 +219,14 @@ command_palette: ctrl+p
 | `Escape` | Cancel edit |
 | `Tab` | Move to next field |
 
+### Code editor (YAML overlay + JSON body editor)
+| Key | Action |
+|-----|--------|
+| `Ctrl+G` | Toggle fold at current line |
+| `F5` | Fold all foldable regions |
+| `F6` | Unfold all regions |
+| `Shift+Return` | Insert newline |
+
 ### Env editor mode
 | Key | Action |
 |-----|--------|
@@ -150,7 +237,13 @@ command_palette: ctrl+p
 
 ## Focus model
 
-3 panes (sidebar, request, response) cycle with Tab/Shift+Tab. Active pane gets cyan border + `▸` prefix. Global keys work regardless of focus. Context-dependent bindings (`Ctrl+S`, `Ctrl+N`, `Ctrl+K`, `Ctrl+W`, `Ctrl+T`) dispatch to the appropriate action based on which pane is focused.
+3 pane cycles controlled by the active view (main, folder, env editor):
+
+- **Main view:** `sidebar → urlbar → request → response` (4 panes). Tab/Shift+Tab wraps.
+- **Folder view:** `sidebar → folder` (2 panes, when a folder is the selected item).
+- **Env editor:** `env-sidebar → env-header → env-vars` (3 panes).
+
+Active pane gets cyan border + `▸` prefix. Global keys work regardless of focus. Context-dependent bindings (`Ctrl+S`, `Ctrl+N`, `Ctrl+K`, `Ctrl+W`, `Ctrl+T`) dispatch to the appropriate action based on which pane is focused. Skips hidden panes when expanded mode (F2) collapses request or response.
 
 ## Testing
 

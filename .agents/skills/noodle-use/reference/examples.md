@@ -10,6 +10,7 @@ method: GET
 url: $base_url/posts
 body_type: none
 timeout: 0
+followRedirects: true
 ```
 
 Minimal valid request. Fields: name, method, url, timeout. `followRedirects` and `maxRedirects` omitted (use defaults: true, 5). `body_type` explicitly `none` since no body. No `headers`, `params`, `auth`, `body` — omitted when not needed.
@@ -94,12 +95,15 @@ method: GET
 url: $base_url/posts
 body_type: none
 timeout: 0
+followRedirects: true
 params:
-  userId: $user_id
-  _limit: "10"
+  - name: userId
+    value: $user_id
+  - name: _limit
+    value: "10"
 ```
 
-`params` become query string: `$base_url/posts?userId=1&_limit=10`. Values with `$` are substituted from env. Plain strings (like `"10"`) are sent literally.
+`params` use the array format: each entry has `name`, `value`, and optional `enabled` (defaults to `true`). This supports multiple values for the same param name. Values with `$` are substituted from env. Plain strings (like `"10"`) are sent literally.
 
 ## Multipart form upload
 

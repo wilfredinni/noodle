@@ -98,24 +98,32 @@ Check if the collection already has a folder with auth overrides:
 
 ### Step 4: Generate the YAML
 
-For a GET request with inherited auth:
+For a GET request with inherited auth and query params:
 ```yaml
 name: Get Users
 method: GET
 url: $base_url/users
 body_type: none
 timeout: 0
+followRedirects: true
+maxRedirects: 5
+params:
+  - name: page
+    value: "1"
+  - name: _limit
+    value: "10"
 auth:
   type: inherit
 ```
 
-For a POST request with body:
+For a POST request with JSON body:
 ```yaml
 name: Create User
 method: POST
 url: $base_url/users
 body_type: json
 timeout: 0
+followRedirects: true
 headers:
   Content-Type: application/json
 auth:
@@ -126,6 +134,8 @@ body: |-
     "email": ""
   }
 ```
+
+`followRedirects` (default `true`) and `maxRedirects` (default `5`) are optional. Omit them to use defaults. `timeout` in ms — `0` = no timeout. Params use the array format: each entry has `name`, `value`, and optional `enabled` (default `true`).
 
 ### Step 5: Create parent folder if needed
 

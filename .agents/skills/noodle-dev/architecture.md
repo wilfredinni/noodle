@@ -112,12 +112,121 @@ Follow existing patterns:
 - **New hidden directory**: Add name to `SKIP_DIRS` in `load.ts` so `walk()` skips it
 - **Global user config**: Use `~/.config/noodle/config.yml` via `useConfig` hook
 
+## Code editor architecture
+
+`CodeEditorRenderable` (`src/ui/CodeEditor.ts`) extends OpenTUI's `TextareaRenderable` with:
+
+### Tree-sitter highlighting
+- Parsers registered via `codeEditorParsers.ts`: JSON (`tree-sitter-json.wasm` + `highlights.scm`), YAML (`tree-sitter-yaml.wasm` + `highlights.scm`)
+- Async highlight with 200ms debounce
+- Fallback local tokenizers when tree-sitter fails (JSON: `syntax.ts`, YAML: `yamlSyntax.ts`)
+- Theme-synced syntax styles (`json.key`, `json.string`, `yaml.key`, etc.)
+- Variable highlighting: `env.resolved` (primary color) / `env.missing` (error color) via `extraHighlights` callback
+- Byte-to-display offset mapping via `highlightOffsets.ts` for emoji/wide characters
+
+### Code folding
+- `toggleFold(line)` — fold/unfold by Ctrl+G at cursor line
+- `foldAll()` / `unfoldAll()` — F5/F6 global fold/unfold
+- Fold sign indicators (▶/▼) in line gutter, hidden line numbers for folded content
+- Auto-unfold on edit in folded region
+- Preserves cursor position during fold/unfold operations
+- Fold state persisted across content changes
+
+### Validation
+- `validateContent` callback — inline JSON/YAML validation
+- Error notice displayed via `ValidationNotice.tsx` component
+
+### Component registration
+- Custom `<code-editor>` JSX element declared in `src/ui/jsx-types.d.ts`
+- Registered at startup via component registration in `src/ui/CodeEditor.ts`
+
+## Variable completion architecture
+
+Cursor-aware `$variable` completion system across all text inputs:
+
+### Core (src/ui/variableCompletion.ts)
+- `getVariableToken(value, cursorOffset)` — parses `$`-prefixed word at cursor position
+- `getVariableSuggestions(vars, prefix)` — filters env var names by typed prefix
+- `replaceVariableToken(value, cursorOffset, name)` — replaces `$pre` → `$name`, returns new cursor position
+
+### Hook (src/ui/useVariableCompletion.ts)
+- `useVariableCompletion(variableNames)` — returns `{ completion, getCompletion, makeHandleKey }`
+- `completion` state: `{ suggestions, selectedIndex, visible }` or `null`
+- `getCompletion(value, cursorOffset)` — triggers completion, anchored at cursor position
+- `makeHandleKey()` — returns key handler for up/down/tab/return/escape in completion context
+- Max 10 suggestions visible (`MAX_COMPLETION_VISIBLE`)
+
+### Integration (src/ui/variableCompletionInterceptor.tsx)
+- `VariableCompletionInterceptor` component registers high-priority (200) key interceptor on keymap
+- `registerVariableCompletion(handler)` — adds to Set, returns cleanup
+- Multiple handlers supported — env editor, code editor, VarInput each register their own
+
+### UI (src/ui/VarInput.tsx)
+- 3 modes: `<input>` (single-line), `<textarea>` (multi-line), read-only `<VarText>`
+- Completion popup rendered as portal (z-index 10000) anchored to cursor position
+- Navigate suggestions with up/down, accept with tab/return, dismiss with escape
+
+### Highlighting (src/ui/variableHighlight.ts, src/ui/envHighlight.ts)
+- `highlightVariables()` — applies `env.resolved`/`env.missing` styles to Input/Textarea
+- `splitEnvVars(text, env)` — segments text into plain + `$var` segments with resolved/missing flags
+
+## Command palette architecture
+
+### Building commands (src/ui/commands.ts)
+- `buildCommandPaletteCommands(view, ...)` — assembles command arrays by view context:
+  - Main view: Request commands, Response commands, Environment commands, Workspace commands, System commands
+  - Env editor: Environment commands (different set), Workspace, System
+- Each `CommandItem`: `{ id, label, shortcut, run: () => boolean, type: "command" }`
+- Section headers: `{ label, type: "header" }` — skipped by navigation via `isNavigable`
+
+### Executing commands (src/ui/commandActions.ts)
+- All command logic centralized in exported functions:
+  `sendRequest`, `saveRequest`, `editRequestOverlay`, `editRequestYaml`,
+  `newRequest`, `cloneRequest`, `deleteRequest`, `deleteFolder`,
+  `copyResponseBody`, `cycleEnvironment`, `openEnvironmentEditor`,
+  `saveEnvironment`, `newEnvironment`, `cloneEnvironment`, `deleteEnvironment`,
+  `newFolder`, `toggleLayout`, `togglePaneExpand`, `undoAll`,
+  `toggleHelp`, `openThemePicker`, `openCollectionSwitcher`
+- Both `useAppKeymap.ts` and `commands.ts` import from here — never duplicate logic
+- `run()` returns `true` (close palette) or `false` (stay open)
+
+### Picker (src/ui/PickerOverlay.tsx)
+- Generic `<PickerOverlay<T>>` renders search input + filtered list
+- `isNavigable` prop skips non-selectable items (section headers) during up/down/return
+- Used by: `CommandPaletteOverlay`, `CollectionSwitcherOverlay`, `ThemePickerOverlay`
+- Keyboard: up/down navigate, return select, escape close
+
+## Theme architecture
+
+### Theme data (src/ui/theme-data.ts)
+- 32 themes defined in `THEMES[]` array
+- `Theme` interface: `{ name, primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, borderSubtle, borderDimmest }`
+
+### Theme provider (src/ui/theme.tsx)
+- `ThemeProvider` — React context, supports preview index (`previewIndex` prop)
+- `useTheme()` — reads current theme from context
+- `ThemePickerOverlay` — searchable theme picker with live preview, ● indicator for active theme, uses `PickerOverlay`
+- Theme persisted to `~/.config/noodle/config.yml` via `useConfig` hook
+
+### Syntax styling
+- Syntax highlight style IDs (`json.key`, `yaml.string`, etc.) mapped to theme colors
+- `styleIdForFg(color)` in `yamlSyntax.ts` — creates style entry
+- Both CodeEditor and VarInput use theme-aware syntax styles
+
+## Clipboard architecture
+
+`copyToClipboard(text, renderer)` in `src/ui/clipboard.ts`:
+1. Tries native clipboard commands: `pbcopy` (macOS), `xclip` (X11), `wl-copy` (Wayland), `clip.exe` (Windows)
+2. Falls back to OSC 52 escape sequence via `renderer.copyToClipboardOSC52()`
+3. Returns boolean success — used by `copyResponseBody` action to show toast on success/failure
+
 ## Module dependency flow
 
 ```
-schema/          ← Zero-dependency types: Request, Folder, Auth, Response, Environment
+schema/          ← Zero-dependency types: Request, Folder, Auth, Response, Environment, TimelineEntry
   ↓
 lang/            ← YAML ↔ typed objects: parseRequest, serializeRequest, parseFolder
+  │   (also: tree-sitter WASM parsers for JSON/YAML in lang/parsers/)
   ↓
 filestore/       ← Disk I/O: loadCollection, saveRequest, deleteRequest, timeline, settings
   ↓
@@ -125,9 +234,16 @@ env/             ← Dotenv files: loadEnvironment, listEnvironments, save, clon
   ↓
 requests/        ← HTTP layer: send, substitute, mergeFolderOverrides, authHeader
   ↓
-hooks/           ← React state: useCollection, useRequestDraft, useResponse, useEditBrowse, useEnvironments
+hooks/           ← React state: useCollection, useRequestDraft, useResponse, useEditBrowse, useEnvironments,
+  │                 useConfig, useTimeline, useEnvironmentEditor, useFolderDraft, etc.
   ↓
 ui/              ← OpenTUI components + pure helpers + keymap layers
+  │   ├── CodeEditor.ts — tree-sitter highlighting, folding, validation
+  │   ├── variableCompletion.ts — $var autocompletion engine
+  │   ├── commands.ts / commandActions.ts — command palette infrastructure
+  │   ├── theme.tsx / theme-data.ts — 32 themes with live preview
+  │   ├── clipboard.ts — multi-platform clipboard + OSC 52 fallback
+  │   └── codeEditorParsers.ts — tree-sitter parser registration
   ↓
 app/             ← CLI entry: parseArgs → createCliRenderer → createRoot → <App>
 ```
@@ -169,25 +285,39 @@ App (src/ui/App.tsx)
     Toast
     AppInner (src/ui/AppInner.tsx)
       ├── Sidebar              ← Collection tree, cursor navigation
-      ├── FolderPane           ← Tabs: meta/headers/auth/activity
-      ├── [request view]
-      │   ├── UrlBar
-      │   ├── RequestPane      ← Tabs: headers/params/body/auth/settings
-      │   │   └── KeyValueSection / JsonBodyViewer / AuthEditor / FormEditor / Select / Checkbox
-      │   └── ResponsePane     ← Tabs: body/headers/timeline
-      ├── [overlays]
-      │   ├── PickerOverlay (generic base), ThemePickerOverlay (uses PickerOverlay)
-      │   ├── HelpOverlay, YamlEditorOverlay
+      ├── MainView             ← Dispatches folder vs request view
+      │   ├── [folder mode]
+      │   │   └── FolderPane           ← Tabs: meta/headers/auth/activity
+      │   │       ├── FolderMetaTab
+      │   │       └── FolderActivityTab
+      │   └── [request mode]
+      │       └── RequestResponseView
+      │           ├── UrlBar
+      │           ├── RequestPane      ← Tabs: headers/params/body/auth/settings
+      │           │   ├── KeyValueSection / JsonBodyViewer / AuthEditor / FormEditor / Select / Checkbox
+      │           │   └── [body tab] CodeEditor (JSON) or FormEditor or VarInput
+      │           └── ResponsePane     ← Tabs: body/headers/timeline
+      ├── EnvironmentEditorView  ← 3-pane env editor (sidebar + header + vars)
+      │   ├── EnvSidebar
+      │   ├── EnvHeaderPane
+      │   └── EnvEditorPane
+      ├── [overlays] (rendered in AppOverlays.tsx)
+      │   ├── PickerOverlay (generic base) → used by CommandPalette, CollectionSwitcher, ThemePicker
+      │   ├── HelpOverlay, YamlEditorOverlay (CodeEditor for YAML)
       │   ├── NewRequestOverlay, CloneRequestOverlay, NewFolderOverlay
-      │   └── ConfirmOverlay
+      │   ├── CommandPaletteOverlay, CollectionSwitcherOverlay
+      │   ├── ConfirmOverlay (save, delete, undo-all, collection-switch)
+      │   └── ValidationNotice
       └── StatusBar
 ```
 
 **Focus model** (src/ui/focus.ts):
-- Main cycle: `sidebar → urlbar → request → response` (wraps)
-- Folder cycle: `sidebar ↔ folder` (2 elements, skips urlbar/request/response)
-- Env editor cycle: `env-sidebar → env-header → env-vars`
+- Main cycle: `sidebar → urlbar → request → response` (4 panes, wraps)
+- Folder cycle: `sidebar → folder` (2 panes, when selected item is a folder)
+- Env editor cycle: `env-sidebar → env-header → env-vars` (3 panes)
 - Active pane gets **cyan border** (`theme.primary`) via `borders.ts` FullBorder/LeftBar presets
+- `toggleExpand()` switches between null, `"request"`, `"response"` — F2 expands/collapses focused pane
+- `hintForFocus()` returns mode-specific status bar hints per focus + mode
 
 ## CLI flow
 
@@ -230,12 +360,16 @@ createMain(main) — citty argparse
 | `useCollection` | `src/hooks/useCollection.ts` | `{collection, loading, error}` — loaded from disk |
 | `useTreeNavigation` | `src/hooks/useTreeNavigation.ts` | `{selectedId, expanded, cursorIndex, visibleItems}` |
 | `useRequestDraft` | `src/hooks/useRequestDraft.ts` | `Map<id, Request>` (drafts), `Map<id, Request>` (originals), `isDirty` |
+| `useFolderDraft` | `src/hooks/useFolderDraft.ts` | Folder draft state — name, seq, headers, auth overrides, dirty tracking |
 | `useEditBrowse` | `src/hooks/useEditBrowse.ts` | `EditState` — `{mode, cursor: {field, row, subfield, addingRow}}` |
+| `useFolderEditBrowse` | `src/hooks/useFolderEditBrowse.ts` | Edit/browse for folder fields (meta/headers/auth/activity) |
 | `useResponse` | `src/hooks/useResponse.ts` | `SendState` — `{status, response, error}` |
 | `useEnvironments` | `src/hooks/useEnvironments.ts` | `{activeIndex, activeEnv, names}` |
 | `useEnvironmentEditor` | `src/hooks/useEnvironmentEditor.ts` | Full env CRUD state for editor pane |
-| `useConfig` | `src/hooks/useConfig.ts` | `{theme, layout, confirm_undo_all}` persisted to `~/.config/noodle/config.yml` |
+| `useConfig` | `src/hooks/useConfig.ts` | `{theme, layout, confirm_undo_all, collections}` persisted to `~/.config/noodle/config.yml` |
 | `useTimeline` | `src/hooks/useTimeline.ts` | `TimelineEntry[]` per-request response history |
+| `useJsonHighlight` | `src/hooks/useJsonHighlight.ts` | `highlightTextarea` — JSON + env variable highlighting for response body |
+| `useUIState` | `src/ui/tabs/useUIState.ts` | Per-request tab index state |
 
 ## Keymap layer architecture
 
@@ -243,13 +377,18 @@ createMain(main) — citty argparse
 
 | Layer | Condition | What it handles |
 |-------|-----------|-----------------|
-| Always-On | No editing constraint | focus cycle, layout toggle, help, yaml editor, expand/collapse |
-| Base | `mode=base`, `overlay=none` | send, save, env cycle, theme, new/clone/delete, env editor open |
-| Request Focus | `focus=request`, `mode=base` | Enter to edit, Tab for tab switching |
-| Browse | `mode=browse` | Arrow navigation, Enter/Escape, Space toggle, delete, revert |
-| Edit | `mode=edit` | Commit (Return), Cancel (Escape), Tab next field |
-| Folder Browse/Edit | `focus=folder` + mode | Per-folder equivalents of browse/edit |
-| Env Editor | `view=env-editor` | save/new/clone/delete environment |
+| Always-On | No editing constraint | Focus cycle, layout toggle, help, yaml editor, expand/collapse, copy body, theme, command palette, collection switcher, undo all |
+| Base | `mode=base`, `overlay=none`, `view!=env-editor`, `focus!=folder` | Send, save, env cycle, new/clone/delete, edit overlay, folder new, env editor open |
+| Request Focus | `focus=request`, `mode=base`, `overlay=none`, `view!=env-editor` | Enter edit, tab prev/next |
+| Browse | `mode=browse`, `focus!=folder`, `overlay=none`, `view!=env-editor` | Arrow navigation, enter/escape, space toggle, delete, revert all, send, save, toggle form type |
+| Edit | `mode=edit`, `focus!=folder`, `overlay=none`, `view!=env-editor` | Commit (Return), Cancel (Escape), Tab next field |
+| Folder Init | `mode=base`, `focus=folder`, `overlay=none`, `view!=env-editor` | Enter edit, tab prev/next, new/clone request, new folder |
+| Folder Focus | `focus=folder`, `overlay=none`, `view!=env-editor` | Folder save, folder delete |
+| Folder Browse | `focus=folder`, `mode=browse`, `overlay=none`, `view!=env-editor` | Arrow nav, enter/escape, toggle, revert field/all |
+| Folder Edit | `focus=folder`, `mode=edit`, `overlay=none`, `view!=env-editor` | Commit, cancel, tab |
+| Env Editor | `view=env-editor`, `overlay=none` | Save/new/clone/delete environment |
+| Env Browse | `view=env-editor`, `focus=env-vars`, `mode=browse`, `overlay=none` | Arrow nav, enter/escape, toggle, revert |
+| Env Edit | `view=env-editor`, `focus=env-vars`, `mode=edit`, `overlay=none` | Commit, cancel, tab, save |
 
 State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mode", ...)`, `keymap.setData("app.overlay", ...)`, `keymap.setData("app.view", ...)`.
 
@@ -259,13 +398,20 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 |---------|-------|
 | Types | `src/schema/index.ts` |
 | YAML parse/serialize | `src/lang/parse.ts`, `src/lang/serialize.ts`, `src/lang/folder.ts` |
+| Tree-sitter parsers | `src/lang/parsers/json/`, `src/lang/parsers/yaml/`, `src/ui/codeEditorParsers.ts` |
 | File I/O | `src/filestore/load.ts`, `src/filestore/save.ts`, `src/filestore/timeline.ts` |
 | Environments | `src/env/load.ts`, `src/env/save.ts` |
 | HTTP execution | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts` |
 | Hooks | `src/hooks/*.ts` |
-| CLI | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` (import cmd), `src/app/import.ts` (importer logic) |
-| UI entry | `src/ui/App.tsx`, `src/ui/AppInner.tsx` |
+| Code editor | `src/ui/CodeEditor.ts`, `src/ui/CodeEditorCompletion.tsx` |
+| Variable completion | `src/ui/variableCompletion.ts`, `src/ui/useVariableCompletion.ts`, `src/ui/variableCompletionInterceptor.tsx`, `src/ui/variableHighlight.ts`, `src/ui/highlightOffsets.ts` |
+| Command palette | `src/ui/commands.ts`, `src/ui/commandActions.ts`, `src/ui/CommandPaletteOverlay.tsx` |
+| Themes | `src/ui/theme.tsx`, `src/ui/theme-data.ts` |
+| Clipboard | `src/ui/clipboard.ts` |
+| CLI | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` (import cmd), `src/app/commands/update.ts` (update cmd), `src/app/import.ts` (importer logic) |
+| Importers | `src/converters/index.ts`, `src/converters/openapi/`, `src/converters/postman/` |
+| UI entry | `src/ui/App.tsx`, `src/ui/AppInner.tsx`, `src/ui/AppOverlays.tsx`, `src/ui/MainView.tsx` |
 | Focus | `src/ui/focus.ts` |
-| Keybindings | `src/ui/keybind.ts`, `src/ui/useAppKeymap.ts` |
+| Keybindings | `src/ui/keybind.ts`, `src/ui/useAppKeymap.ts`, `src/ui/useOverlayIntercepts.ts` |
 | Borders | `src/ui/borders.ts` |
-| Pure helpers | `src/ui/*.ts` (non-JSX files) |
+| Pure helpers | `src/ui/*.ts` (non-JSX files: `format.ts`, `formatRequest.ts`, `urlParams.ts`, `tree.ts`, `syntax.ts`, `yamlSyntax.ts`, `jsonValidation.ts`, `envHighlight.ts`, `selection.ts`) |

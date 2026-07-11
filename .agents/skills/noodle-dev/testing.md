@@ -68,8 +68,26 @@ expect(saveHandler).toHaveBeenCalled()
 | Folder overrides | `tests/unit/mergeFolderOverrides.test.ts` |
 | Pure helper function | `tests/unit/<name>.test.ts` |
 | UI component rendering | `tests/<ComponentName>.test.tsx` |
+| Variable completion | `tests/unit/variableCompletion.test.ts`, `tests/unit/UrlBar.test.tsx` |
+| Code Editor | `tests/unit/CodeEditor.test.tsx`, `tests/unit/highlightOffsets.test.ts`, `tests/unit/variableHighlight.test.tsx` |
+| Code Editor completion | `tests/unit/CodeEditorCompletion.test.tsx` |
+| Command palette | `tests/unit/commands.test.ts`, `tests/unit/CommandPaletteOverlay.test.tsx` |
+| Collection switcher | `tests/unit/CollectionSwitcherOverlay.test.tsx` |
+| JSON body viewer / validation | `tests/JsonBodyViewer.test.tsx`, `tests/unit/jsonValidation.test.ts` |
+| Clipboard | `tests/unit/clipboard.test.ts` |
 | Keymap/keybindings | `tests/integration/keymap.test.ts` |
 | State/hook logic | `tests/unit/<hookName>.test.ts` |
+
+### Factory functions
+```ts
+// Common across test files — create minimal valid objects
+function makeReq(overrides?: Partial<Request>): Request
+function makeFolder(overrides?: Partial<Folder>): Folder
+function makeRes(overrides?: Partial<Response>): Response
+function makeParamEntry(name: string, value: string): ParamEntry
+function makeFormEntry(name: string, value: string, type?: "text" | "file"): FormEntry
+function makeTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry
+```
 
 ## Test conventions
 

@@ -242,3 +242,101 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 **Test:** Add test in `tests/cli.test.ts`. Test command definition types and integration via `Bun.spawnSync`.
 
 **Verify:** `bun test tests/cli.test.ts && bun run lint && bun run typecheck`
+
+---
+
+## Add a command palette command
+
+**Locate:**
+- `src/ui/commandActions.ts` — all command action implementations (shared across keymap + palette)
+- `src/ui/commands.ts` — `buildCommandPaletteCommands(view, ...)` assembles command arrays by view context
+- `src/ui/CommandPaletteOverlay.tsx` — PickerOverlay for command palette
+
+**Follow:** Actions live in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from there. Never duplicate logic. Each `CommandItem` has `label`, `shortcut`, `run()` returning `boolean` (`true` to close palette, `false` to stay open). Unavailable commands (e.g., save when nothing dirty) return `false`.
+
+**Implement:**
+1. Add action function to `commandActions.ts` — export a named function
+2. Add `CommandItem` to the correct view-specific array in `buildCommandPaletteCommands()`:
+   - `requestCommands` — request actions (send, save, edit, new, clone, delete)
+   - `responseCommands` — response actions (copy body)
+   - `mainEnvCommands` — env actions in main view (cycle, open editor)
+   - `editorEnvCommands` — env actions in env editor (save, new, clone, delete)
+   - `workspaceCommands` — layout/expand/folder commands
+   - `systemCommands` — help, theme, collection switcher, undo all
+3. Use contextual arrays — `view === "main"` appends one set, `view === "env-editor"` appends another. Don't add view guards inside `run()`.
+4. Section headers use `{ label: "...", type: "header" }` with `isNavigable={(item) => item.type === "command"}` in PickerOverlay.
+
+**Test:** Add command to `tests/unit/commands.test.ts` — call `buildCommandPaletteCommands("main", ...)`, verify command present. Add action test for the new function.
+
+**Verify:** `bun test tests/unit/commands.test.ts && bun run lint && bun run typecheck`
+
+---
+
+## Add a new theme
+
+**Locate:**
+- `src/ui/theme-data.ts` — `Theme` interface, `THEMES` array (32 themes)
+- `src/ui/theme.tsx` — `ThemeProvider`, `useTheme()`, `ThemePickerOverlay`
+- `src/ui/yamlSyntax.ts` — `createYamlSyntaxStyle(theme, name)` creates per-theme syntax styles
+
+**Follow:** Each theme is a `Theme` object with 16 color fields. Syntax styles reference theme colors — no per-theme style config needed.
+
+**Implement:**
+1. Add a new `Theme` object to `THEMES` array in `theme-data.ts`
+2. Theme is auto-available in ThemePickerOverlay (no registration needed)
+3. Syntax highlighting uses theme colors via `styleIdForFg()` and `createYamlSyntaxStyle()` — re-creates styles when theme changes
+
+**Test:** Theme data is pure data — no tests typically needed. If adding special rendering, add component test.
+
+**Verify:** `bun run lint && bun run typecheck`
+
+---
+
+## Add variable completion to a new input
+
+**Locate:**
+- `src/ui/variableCompletion.ts` — `getVariableToken`, `getVariableSuggestions`, `replaceVariableToken`
+- `src/ui/useVariableCompletion.ts` — hook returning `{ completion, getCompletion, makeHandleKey }`
+- `src/ui/variableCompletionInterceptor.tsx` — registers high-priority (200) key interceptor on keymap
+- `src/ui/VarInput.tsx` — fully integrated variable-aware input component (reuse this if possible)
+
+**Follow:** `VarInput` already handles completion for Input and Textarea. If your new component needs completions but can't use VarInput directly, register a new handler.
+
+**Implement (new standalone input):**
+1. Import `useVariableCompletion()` and call it with `variableNames` (env var keys or custom list)
+2. On each keystroke, call `getCompletion(value, cursorOffset)` to update completion state
+3. For keyboard handling, call `makeHandleKey()` which returns a handler for up/down/tab/return/escape
+4. Use `VariableCompletionInterceptor` component near the input to register the handler
+5. Render `<CodeEditorCompletion>` component with the completion state to show the popup
+
+**Implement (with VarInput):**
+1. Use `<VarInput>` component directly — it handles completion, highlighting, and popup rendering internally
+2. Pass `variableNames` prop to control available completions (defaults to active env vars)
+
+**Test:** Add to `tests/unit/UrlBar.test.tsx` or `tests/unit/variableCompletion.test.ts`. Test completion popup appears on `$`, navigates with up/down, closes on escape.
+
+**Verify:** `bun test && bun run lint && bun run typecheck`
+
+---
+
+## Add tree-sitter highlighting for a new language
+
+**Locate:**
+- `src/lang/parsers/json/` — example: `tree-sitter-json.wasm` + `highlights.scm`
+- `src/lang/parsers/yaml/` — second example
+- `src/ui/codeEditorParsers.ts` — parser registration
+- `src/types/assets.d.ts` — `*.wasm` and `*.scm` type declarations (file paths)
+- `src/ui/CodeEditor.ts` — `CodeEditorRenderable` class that consumes registered parsers
+
+**Follow:** Each language needs a tree-sitter `.wasm` parser + `highlights.scm` query file. Register in `codeEditorParsers.ts`.
+
+**Implement:**
+1. Create `src/lang/parsers/<lang>/` directory
+2. Add `tree-sitter-<lang>.wasm` and `highlights.scm`
+3. Register in `src/ui/codeEditorParsers.ts` — add entry to the parsers map
+4. Add syntax style IDs for the new language in the CodeEditor theme sync logic (e.g., `highlight/token.ts`)
+5. Add a local tokenizer fallback in `syntax.ts` or a new file for when tree-sitter fails
+
+**Test:** Add test for highlight tokens, parser registration, and highlight application.
+
+**Verify:** `bun test && bun run lint && bun run typecheck`

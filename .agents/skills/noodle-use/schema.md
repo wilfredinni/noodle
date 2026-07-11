@@ -16,15 +16,32 @@ One request per file. Fields:
 | `maxRedirects` | no | number | `5` | Maximum redirect chain length |
 | `body_type` | no | string | `"none"` | Body encoding: `none`, `json`, `multipart`, `urlencoded`, `binary` |
 | `headers` | no | map | `{}` | Request headers. Omit if empty |
-| `params` | no | map | `{}` | URL query parameters. Omit if empty |
+| `params` | no | list | `[]` | URL query parameters. Omit if empty. See format below. |
 | `body` | no | string | — | Raw request body. Omit if no body |
 | `form_data` | no | list | — | Multipart form entries. Omit if empty |
 | `file_path` | no | string | — | Path to file for binary uploads |
 | `auth` | no | map | — | Auth config. Omit for no auth |
 
+### Params
+
+Array of entries. Each entry: `name` (string, required), `value` (string, required), `enabled` (boolean, default `true`).
+
+```yaml
+params:
+  - name: userId
+    value: $user_id
+  - name: _limit
+    value: "10"
+  - name: disabled_param
+    value: value
+    enabled: false
+```
+
+Legacy map format (key: value) is still accepted on read but not recommended — prefer the array format for multi-value support with the same param name.
+
 ### Header and param values
 
-Two formats accepted:
+Two formats accepted for individual values:
 
 **Simple string** (enabled):
 ```yaml
@@ -39,6 +56,8 @@ headers:
 ```
 
 The simple string form is shorthand for `{ value: "...", enabled: true }`. Use the expanded form only when `enabled: false`.
+
+Params use the dedicated array format shown above.
 
 ### Form data
 
