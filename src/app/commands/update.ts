@@ -61,7 +61,14 @@ export default defineCommand({
       const response = await fetch(getReleaseApiUrl(), {
         headers: { Accept: "application/vnd.github+json" },
       })
-      releaseData = (await response.json()) as ReleaseData
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      const json = await response.json()
+      if (!json || typeof json.tag_name !== "string" || !Array.isArray(json.assets)) {
+        throw new Error("Invalid release data")
+      }
+      releaseData = json as ReleaseData
     } catch {
       console.log("Failed to check for updates.")
       return
