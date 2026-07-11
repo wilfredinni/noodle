@@ -741,12 +741,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
     if (!tsSuccess) {
       this.clearAllHighlights()
-    }
-
-    if (!tsSuccess) {
-      if (this._filetype === "json") {
-        this.applyJsonHighlights(content)
-      } else if (this._filetype === "yaml") {
+      if (this._filetype === "yaml") {
         this.applyYamlHighlights(content)
       }
     }

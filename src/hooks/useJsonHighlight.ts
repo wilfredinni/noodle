@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef } from "react"
 import { SyntaxStyle } from "@opentui/core"
-import type { TextareaRenderable, LineNumberRenderable } from "@opentui/core"
+import type { TextareaRenderable } from "@opentui/core"
 import type { Theme } from "../ui/theme-data"
 import { highlightJsonTokens } from "../ui/syntax"
 import type { Environment } from "../schema"
@@ -76,44 +75,4 @@ export function highlightTextarea(
       })
     }
   }
-}
-
-export interface JsonValidation {
-  valid: boolean
-}
-
-const DEBOUNCE_MS = 150
-
-export function useJsonHighlight(
-  textareaRef: { current: TextareaRenderable | null },
-  _lineNumberRef: { current: LineNumberRenderable | null },
-  theme: Theme,
-  setEditValue: (v: string) => void,
-): {
-  validation: JsonValidation
-  handleContentChange: () => void
-} {
-  const timeoutRef = useRef<Timer | null>(null)
-
-  const handleContentChange = useCallback(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    timeoutRef.current = setTimeout(() => {
-      const ta = textareaRef.current
-      if (!ta) return
-      const content = ta.plainText
-      setEditValue(content)
-      highlightTextarea(ta, content, theme)
-    }, DEBOUNCE_MS)
-  }, [textareaRef, theme, setEditValue])
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [])
-
-  return { validation: { valid: true }, handleContentChange }
 }

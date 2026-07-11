@@ -35,15 +35,6 @@ export function formatBody(res: Response): string {
   if (res.body === "") return ""
   const jsonParseError = formatJsonParseErrorBody(res.body)
   if (jsonParseError !== null) return jsonParseError
-  const contentType = lookupContentType(res.headers)
-  const looksJson = contentType !== null && contentType.includes("json")
-  if (looksJson) {
-    try {
-      return JSON.stringify(JSON.parse(res.body), null, 2)
-    } catch {
-      return res.body
-    }
-  }
   try {
     return JSON.stringify(JSON.parse(res.body), null, 2)
   } catch {
@@ -66,11 +57,4 @@ function formatJsonParseErrorBody(body: string): string | null {
   ]
     .filter((line): line is string => line !== null)
     .join("\n")
-}
-
-function lookupContentType(headers: Record<string, string>): string | null {
-  for (const k of Object.keys(headers)) {
-    if (k.toLowerCase() === "content-type") return headers[k]
-  }
-  return null
 }
