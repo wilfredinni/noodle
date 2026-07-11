@@ -59,15 +59,21 @@ export function editRequestOverlay(c: CommandActionsConfig): boolean {
   return true
 }
 
-export function editRequestYaml(c: CommandActionsConfig): boolean {
-  if (c.focusedFolderPathRef.current) return false
-  const sid = c.selectedIdRef.current
-  if (!sid || !c.collectionDir) return false
-  const col = c.collectionRef.current
-  if (!col) return false
-  const r = findRequestById(col.items, sid)
-  if (!r) return false
-  return true
+export function getEditFolderYamlFile(c: CommandActionsConfig): {
+  filePath: string
+  folderName: string
+  folderPath: string
+  returnFocus: Focus
+} | null {
+  const folderPath = c.focusedFolderPathRef.current
+  const folderName = c.focusedFolderNameRef.current
+  if (!folderPath || !folderName || !c.collectionDir) return null
+  return {
+    filePath: join(c.collectionDir, folderPath, "folder.yml"),
+    folderName,
+    folderPath,
+    returnFocus: c.focusRef.current,
+  }
 }
 
 export function getEditRequestYamlFile(c: CommandActionsConfig): {

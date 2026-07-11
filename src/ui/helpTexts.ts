@@ -31,7 +31,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
         {
           key: displayKey(keybinds.request_edit_yaml),
-          description: "Edit request YAML",
+          description: "Edit YAML",
         },
         {
           key: keybinds.browse_escape,
