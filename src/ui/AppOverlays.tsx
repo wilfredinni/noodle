@@ -7,7 +7,7 @@ import {
 } from "./CommandPaletteOverlay"
 import { CollectionSwitcherOverlay } from "./CollectionSwitcherOverlay"
 import { ThemePickerOverlay } from "./theme"
-import { YamlEditorOverlay } from "./YamlEditorOverlay"
+import { YamlEditorOverlay } from "./editor/YamlEditorOverlay"
 import {
   NewRequestOverlay,
   type NewRequestOverlayHandle,
@@ -35,7 +35,9 @@ interface YamlEditorState {
   filePath: string
   requestName: string
   requestId: string
+  kind: "request" | "folder"
   returnFocus: Focus
+  folderPath: string
 }
 
 interface AppOverlaysProps {
@@ -64,6 +66,7 @@ interface AppOverlaysProps {
   setYamlEditor: (state: YamlEditorState) => void
   setCollectionReloadToken: (fn: (n: number) => number) => void
   resetRequestDraft: (id: string) => void
+  resetFolderDraftByPath: (path: string) => void
   setFocus: (focus: Focus) => void
   setSaveState: (state: SaveState) => void
   clearSaveTimer: () => void
@@ -110,6 +113,7 @@ export function AppOverlays({
   setYamlEditor,
   setCollectionReloadToken,
   resetRequestDraft,
+  resetFolderDraftByPath,
   setFocus,
   setSaveState,
   clearSaveTimer,
@@ -191,15 +195,22 @@ export function AppOverlays({
           filePath={yamlEditor.filePath}
           requestName={yamlEditor.requestName}
           activeEnv={activeEnv}
+          kind={yamlEditor.kind}
           onSaved={() => {
-            resetRequestDraft(yamlEditor.requestId)
+            if (yamlEditor.kind === "folder") {
+              resetFolderDraftByPath(yamlEditor.folderPath)
+            } else {
+              resetRequestDraft(yamlEditor.requestId)
+            }
             setCollectionReloadToken((n) => n + 1)
             setYamlEditor({
               visible: false,
               filePath: "",
               requestName: "",
               requestId: "",
+              kind: "request",
               returnFocus: "sidebar",
+              folderPath: "",
             })
             setFocus(yamlEditor.returnFocus)
             setSaveState({
@@ -217,7 +228,9 @@ export function AppOverlays({
               filePath: "",
               requestName: "",
               requestId: "",
+              kind: "request",
               returnFocus: "sidebar",
+              folderPath: "",
             })
             setFocus(yamlEditor.returnFocus)
           }}

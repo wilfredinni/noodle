@@ -271,6 +271,7 @@ export interface UseFolderDraftResult {
   revertAll: () => void
   markSaved: () => void
   revertAllFolders: () => void
+  clearFolderDraft: (path: string) => void
 }
 
 export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
@@ -386,6 +387,14 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     authTypeCache.clear()
     setDraftMap(new Map())
   }, [])
+  const clearFolderDraft = useCallback((path: string) => {
+    authTypeCache.delete(path)
+    setDraftMap((prev) => {
+      const next = new Map(prev)
+      next.delete(path)
+      return next
+    })
+  }, [])
 
   return useMemo(
     () => ({
@@ -405,6 +414,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       revertAll,
       markSaved,
       revertAllFolders,
+      clearFolderDraft,
     }),
     [
       folderDraft,
@@ -424,6 +434,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       revertAll,
       markSaved,
       revertAllFolders,
+      clearFolderDraft,
     ],
   )
 }

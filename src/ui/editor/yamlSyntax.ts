@@ -1,4 +1,4 @@
-import type { Theme } from "./theme-data"
+import type { Theme } from "../theme-data"
 import { SyntaxStyle } from "@opentui/core"
 import type { TextareaRenderable } from "@opentui/core"
 

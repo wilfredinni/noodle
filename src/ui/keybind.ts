@@ -36,7 +36,7 @@ export const Definitions = {
   layout_toggle: keybind("ctrl+l", "Toggle layout (stacked/side-by-side)"),
   pane_expand: keybind("f2", "Expand/collapse focused pane"),
   response_copy_body: keybind("ctrl+b", "Copy response body"),
-  request_edit_yaml: keybind("ctrl+alt+e", "Edit request YAML"),
+  request_edit_yaml: keybind("ctrl+alt+e", "Edit request/folder YAML"),
   request_edit_overlay: keybind("ctrl+e", "Edit request"),
   request_edit: keybind("return", "Enter edit-browse (request pane)", true),
   browse_up: keybind("up", "Cursor up (browse)", true),

@@ -14,8 +14,8 @@ import { join, resolve } from "node:path"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../hooks/useConfig"
-import { CodeEditorRenderable } from "../ui/CodeEditor"
-import { codeEditorParsers } from "../ui/codeEditorParsers"
+import { CodeEditorRenderable } from "../ui/editor/CodeEditor"
+import { codeEditorParsers } from "../ui/editor/codeEditorParsers"
 
 addDefaultParsers([...codeEditorParsers])
 

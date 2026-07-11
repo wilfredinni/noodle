@@ -1,4 +1,4 @@
-import type { Theme } from "./theme-data"
+import type { Theme } from "../theme-data"
 
 export interface SpanPart {
   text: string

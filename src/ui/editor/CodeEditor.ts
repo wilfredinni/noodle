@@ -7,13 +7,13 @@ import {
 import type { RenderContext, Highlight } from "@opentui/core"
 import type { SimpleHighlight } from "@opentui/core"
 import type { TreeSitterClient } from "@opentui/core"
-import type { Theme } from "./theme-data"
+import type { Theme } from "../theme-data"
 import { highlightJsonTokens } from "./syntax"
 import { tokenizeYamlLine } from "./yamlSyntax"
 import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
-} from "./highlightOffsets"
+} from "../highlightOffsets"
 
 export interface FoldInfo {
   startLine: number
@@ -83,6 +83,24 @@ function createTsSyntaxStyle(theme: Theme): SyntaxStyle {
     "env.resolved": { fg: theme.primary },
     "env.missing": { fg: theme.error },
   })
+}
+
+const OPEN_TO_CLOSE: Record<string, string> = {
+  '"': '"',
+  "'": "'",
+  "(": ")",
+  "{": "}",
+  "[": "]",
+  "<": ">",
+}
+
+const CLOSE_TO_OPEN: Record<string, string> = {
+  '"': '"',
+  "'": "'",
+  ")": "(",
+  "}": "{",
+  "]": "[",
+  ">": "<",
 }
 
 export class CodeEditorRenderable extends TextareaRenderable {
@@ -353,11 +371,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       if (!this.isFoldedSummaryLine(sourceCursor.line)) {
         this.restoreSourceDisplay(undefined, sourceCursor)
         super.handlePaste(event)
-        const editedSourceCursor = this.getSourceCursorFromDisplay()
-        this.syncSourceTextFromDisplayedBuffer()
-        this.computeFoldRanges()
-        this.applyFoldDisplay(editedSourceCursor)
-        this.scheduleHighlight()
+        this.syncFoldDisplayAfterEdit()
         return
       }
       this.unfoldAll()
@@ -408,6 +422,32 @@ export class CodeEditorRenderable extends TextareaRenderable {
       }
     }
 
+    if (!key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
+      if (this.shouldAutoSkip(key)) {
+        this.editBuffer.moveCursorRight()
+        return true
+      }
+
+      const closeChar = OPEN_TO_CLOSE[key.sequence]
+      if (closeChar !== undefined) {
+        if (this.hasFoldedRanges() && this.isPotentialEditKey(key)) {
+          if (this.isFoldedDisplay()) {
+            const sourceCursor = this.getSourceCursorFromDisplay()
+            if (!this.isFoldedSummaryLine(sourceCursor.line)) {
+              this.restoreSourceDisplay(undefined, sourceCursor)
+              this.insertAutoClosePair(key.sequence, closeChar)
+              this.syncFoldDisplayAfterEdit()
+              return true
+            }
+          }
+          this.unfoldAll()
+        }
+        this.insertAutoClosePair(key.sequence, closeChar)
+        this.scheduleHighlight()
+        return true
+      }
+    }
+
     if (this.hasFoldedRanges() && this.isPotentialEditKey(key)) {
       if (this.isFoldedDisplay()) {
         const sourceCursor = this.getSourceCursorFromDisplay()
@@ -415,11 +455,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
           this.restoreSourceDisplay(undefined, sourceCursor)
           const handled = super.handleKeyPress(normalizedKey)
           if (handled) {
-            const editedSourceCursor = this.getSourceCursorFromDisplay()
-            this.syncSourceTextFromDisplayedBuffer()
-            this.computeFoldRanges()
-            this.applyFoldDisplay(editedSourceCursor)
-            this.scheduleHighlight()
+            this.syncFoldDisplayAfterEdit()
           }
           return handled
         }
@@ -432,6 +468,36 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.scheduleHighlight()
     }
     return handled
+  }
+
+  private shouldAutoSkip(key: KeyEvent): boolean {
+    if (this.isFoldedDisplay()) return false
+    if (key.ctrl || key.meta || key.option || key.super || key.hyper)
+      return false
+    const seq = key.sequence
+    if (!seq || seq.length !== 1) return false
+    if (!CLOSE_TO_OPEN[seq]) return false
+
+    const cursor = this.logicalCursor
+    const offset = this.editBuffer.positionToOffset(cursor.row, cursor.col)
+    const text = this.editBuffer.getText()
+    if (offset >= text.length) return false
+    return text[offset] === seq
+  }
+
+  private insertAutoClosePair(openChar: string, closeChar: string): void {
+    if (this.hasSelection()) {
+      const sel = this.getSelection()
+      if (sel) {
+        const selectedText = this.getTextRange(sel.start, sel.end)
+        this.insertText(openChar + selectedText + closeChar)
+        this.editBuffer.moveCursorLeft()
+        return
+      }
+    }
+
+    this.insertText(openChar + closeChar)
+    this.editBuffer.moveCursorLeft()
   }
 
   private isSourceLineHiddenByFold(line: number): boolean {
@@ -551,6 +617,14 @@ export class CodeEditorRenderable extends TextareaRenderable {
     } finally {
       this._suppressContentChanged = false
     }
+  }
+
+  private syncFoldDisplayAfterEdit(): void {
+    const editedSourceCursor = this.getSourceCursorFromDisplay()
+    this.syncSourceTextFromDisplayedBuffer()
+    this.computeFoldRanges()
+    this.applyFoldDisplay(editedSourceCursor)
+    this.scheduleHighlight()
   }
 
   private syncSourceTextFromDisplayedBuffer(): void {

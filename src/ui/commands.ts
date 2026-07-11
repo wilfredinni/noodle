@@ -13,6 +13,7 @@ import type { SendState } from "./sendState"
 import {
   saveRequest,
   getEditRequestYamlFile,
+  getEditFolderYamlFile,
   cloneRequest,
   deleteRequest,
   deleteFolder,
@@ -82,20 +83,26 @@ export interface CommandBuilderContext {
           filePath: string
           requestName: string
           requestId: string
+          kind: "request" | "folder"
           returnFocus: Focus
+          folderPath: string
         }
       | ((prev: {
           visible: boolean
           filePath: string
           requestName: string
           requestId: string
+          kind: "request" | "folder"
           returnFocus: Focus
+          folderPath: string
         }) => {
           visible: boolean
           filePath: string
           requestName: string
           requestId: string
+          kind: "request" | "folder"
           returnFocus: Focus
+          folderPath: string
         }),
   ) => void
   setView: (
@@ -217,9 +224,11 @@ export function buildCommandPaletteCommands(
         if (!file) return false
         setYamlEditor({
           visible: true,
+          kind: "request",
           filePath: file.filePath,
           requestName: file.requestName,
           requestId: file.requestId,
+          folderPath: "",
           returnFocus: file.returnFocus,
         })
         return true
@@ -362,6 +371,26 @@ export function buildCommandPaletteCommands(
         if (!result) return false
         c.folderDeletePathRef.current = result.folderPath
         setFolderDeletePending(result.folderName)
+        return true
+      },
+    },
+    {
+      id: "folder.edit-yaml",
+      label: "Edit Folder YAML",
+      section: "Workspace",
+      keybinding: displayKey(keybinds.request_edit_yaml),
+      run: () => {
+        const result = getEditFolderYamlFile(c)
+        if (!result) return false
+        setYamlEditor({
+          visible: true,
+          kind: "folder",
+          filePath: result.filePath,
+          requestName: result.folderName,
+          requestId: "",
+          folderPath: result.folderPath,
+          returnFocus: result.returnFocus,
+        })
         return true
       },
     },

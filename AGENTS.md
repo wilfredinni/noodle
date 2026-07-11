@@ -55,7 +55,7 @@ src/
 │   ├── useRequestDraft.ts, useFolderDraft.ts
 │   ├── useEditBrowse.ts, useFolderEditBrowse.ts
 │   ├── useResponse.ts, useEnvironments.ts, useEnvironmentEditor.ts
-│   ├── useConfig.ts, useJsonHighlight.ts
+│   ├── useConfig.ts
 │   └── useKeymap.ts
 ├── converters/
 │   ├── index.ts   # Importer registry, detectFormat, getImporter
@@ -81,7 +81,6 @@ src/
     ├── KeyValueSection.tsx  # Key/Value pair editor (headers/params)
     ├── AuthEditor.tsx       # Auth type selector + fields (none/inherit/bearer/basic/api_key)
     ├── FormEditor.tsx       # Multipart/urlencoded form editor with text/file toggle
-    ├── JsonBodyViewer.tsx   # JSON body viewer with line numbers + syntax highlighting
     ├── Checkbox.tsx, Select.tsx, Tabs.tsx, Frame.tsx, Badge.tsx, GradientBadge.tsx
     ├── CenterText.tsx, Toast.tsx, Tips.tsx
     ├── [overlays]
@@ -90,14 +89,18 @@ src/
     │   ├── CollectionSwitcherOverlay.tsx # Collection directory picker
     │   ├── HelpOverlay.tsx             # F1 keybinding cheatsheet overlay
     │   ├── ConfirmOverlay.tsx          # Yes/No confirmation dialog
-    │   ├── YamlEditorOverlay.tsx       # YAML code editor with syntax highlighting + folding
     │   ├── NewRequestOverlay.tsx, CloneRequestOverlay.tsx, NewFolderOverlay.tsx
-    │   ├── Overlay.tsx                 # Generic overlay (modal) container
-    │   └── ValidationNotice.tsx        # Validation error bar
-    ├── [code editor]
+    │   └── Overlay.tsx                 # Generic overlay (modal) container
+    ├── [editor]
     │   ├── CodeEditor.ts              # CodeEditorRenderable class (tree-sitter highlight, folding, validation)
     │   ├── CodeEditorCompletion.tsx    # Variable completion list tied to CodeEditor
-    │   └── codeEditorParsers.ts       # Registers tree-sitter JSON + YAML parsers
+    │   ├── codeEditorParsers.ts       # Registers tree-sitter JSON + YAML parsers
+    │   ├── useJsonHighlight.ts        # JSON syntax + env var highlighting for textareas
+    │   ├── syntax.ts                  # JSON tokenizer
+    │   ├── yamlSyntax.ts              # YAML tokenizer
+    │   ├── JsonBodyViewer.tsx         # JSON body viewer with line numbers + syntax highlighting
+    │   ├── YamlEditorOverlay.tsx      # YAML code editor with syntax highlighting + folding
+    │   └── ValidationNotice.tsx       # Validation error bar
     ├── [variable completion]
     │   ├── variableCompletion.ts       # getVariableToken, getVariableSuggestions, replaceVariableToken
     │   ├── useVariableCompletion.ts    # Cursor-aware $var completion hook
@@ -117,7 +120,6 @@ src/
     │   ├── commandActions.ts           # All command action implementations
     │   ├── useCollectionFileActions.ts # Create/save/delete request/folder file operations
     │   ├── clipboard.ts                # copyToClipboard (pbcopy/xclip/wl-copy/clip.exe + OSC 52)
-    │   ├── syntax.ts, yamlSyntax.ts    # JSON + YAML syntax highlighting
     │   ├── format.ts, formatRequest.ts # Display formatting helpers
     │   ├── urlParams.ts                # buildDisplayUrl, parseUrlAndParams
     │   ├── tree.ts                     # Tree helpers (findRequestById, visibleNodes, etc.)

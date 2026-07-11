@@ -32,6 +32,13 @@ export function parseFolder(yamlText: string): {
 
   const raw = doc as RawFolder
 
+  const knownKeys = new Set(["meta", "headers", "auth"])
+  for (const key of Object.keys(raw)) {
+    if (!knownKeys.has(key)) {
+      throw new Error(`lang.parseFolder: unknown field "${key}"`)
+    }
+  }
+
   let meta: FolderMeta | undefined
   if (raw.meta !== undefined) {
     if (

@@ -16,6 +16,6 @@ describe("HelpOverlay", () => {
     await renderOnce()
     const frame = captureCharFrame()
 
-    expect(frame).toContain("^alt+e          Edit request YAML")
+    expect(frame).toContain("^alt+e          Edit YAML")
   })
 })

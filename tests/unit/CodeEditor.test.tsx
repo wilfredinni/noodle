@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import type { KeyEvent, LineNumberRenderable } from "@opentui/core"
-import { CodeEditorRenderable } from "../../src/ui/CodeEditor"
+import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import { opencodeTheme } from "../../src/ui/theme-data"
 
 extend({ "code-editor": CodeEditorRenderable })
@@ -553,5 +553,253 @@ body:
     await new Promise((resolve) => setTimeout(resolve, 30))
     await renderOnce()
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
+  describe("auto-close pairs", () => {
+    async function setupEditor(
+      content = "",
+      filetype = "json",
+    ): Promise<[CodeEditorRenderable, () => Promise<void>]> {
+      let editor: CodeEditorRenderable | null = null
+      const { renderOnce } = await testRender(
+        <box width={40} height={8}>
+          <code-editor
+            ref={(r) => {
+              editor = r
+            }}
+            filetype={filetype}
+            theme={opencodeTheme}
+            initialValue={content}
+            debounceMs={0}
+            backgroundColor={opencodeTheme.backgroundPanel}
+            focusedBackgroundColor={opencodeTheme.backgroundPanel}
+            textColor={opencodeTheme.text}
+            cursorColor={opencodeTheme.primary}
+          />
+        </box>,
+        { width: 40, height: 8 },
+      )
+      await renderOnce()
+      return [editor!, renderOnce]
+    }
+
+    it("inserts {} for { and places cursor between", async () => {
+      const [editor, renderOnce] = await setupEditor()
+      const handled = editor.handleKeyPress(keyEvent("{"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("{}")
+      expect(editor.logicalCursor.row).toBe(0)
+      expect(editor.logicalCursor.col).toBe(1)
+    })
+
+    it("inserts () for ( and places cursor between", async () => {
+      const [editor, renderOnce] = await setupEditor()
+      const handled = editor.handleKeyPress(keyEvent("("))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("()")
+      expect(editor.logicalCursor.col).toBe(1)
+    })
+
+    it("inserts [] for [ and places cursor between", async () => {
+      const [editor, renderOnce] = await setupEditor()
+      const handled = editor.handleKeyPress(keyEvent("["))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("[]")
+      expect(editor.logicalCursor.col).toBe(1)
+    })
+
+    it("inserts <> for < and places cursor between", async () => {
+      const [editor, renderOnce] = await setupEditor()
+      const handled = editor.handleKeyPress(keyEvent("<"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("<>")
+      expect(editor.logicalCursor.col).toBe(1)
+    })
+
+    it('inserts "" for double quote and places cursor between', async () => {
+      const [editor, renderOnce] = await setupEditor()
+      const handled = editor.handleKeyPress(keyEvent('"'))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe('""')
+      expect(editor.logicalCursor.col).toBe(1)
+    })
+
+    it("inserts '' for single quote and places cursor between", async () => {
+      const [editor, renderOnce] = await setupEditor()
+      const handled = editor.handleKeyPress(keyEvent("'"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("''")
+      expect(editor.logicalCursor.col).toBe(1)
+    })
+
+    it("auto-skips closing } when next char is }", async () => {
+      const [editor] = await setupEditor("{}")
+      editor.setCursor(0, 1)
+      const handled = editor.handleKeyPress(keyEvent("}"))
+      expect(handled).toBe(true)
+      expect(editor.plainText).toBe("{}")
+      expect(editor.logicalCursor.col).toBe(2)
+    })
+
+    it("auto-skips closing ) when next char is )", async () => {
+      const [editor] = await setupEditor("()")
+      editor.setCursor(0, 1)
+      const handled = editor.handleKeyPress(keyEvent(")"))
+      expect(handled).toBe(true)
+      expect(editor.plainText).toBe("()")
+      expect(editor.logicalCursor.col).toBe(2)
+    })
+
+    it("auto-skips closing ] when next char is ]", async () => {
+      const [editor] = await setupEditor("[]")
+      editor.setCursor(0, 1)
+      const handled = editor.handleKeyPress(keyEvent("]"))
+      expect(handled).toBe(true)
+      expect(editor.plainText).toBe("[]")
+      expect(editor.logicalCursor.col).toBe(2)
+    })
+
+    it('auto-skips closing " when next char is "', async () => {
+      const [editor] = await setupEditor('""')
+      editor.setCursor(0, 1)
+      const handled = editor.handleKeyPress(keyEvent('"'))
+      expect(handled).toBe(true)
+      expect(editor.plainText).toBe('""')
+      expect(editor.logicalCursor.col).toBe(2)
+    })
+
+    it("does not auto-skip when next char differs", async () => {
+      const [editor, renderOnce] = await setupEditor("{}")
+      editor.setCursor(0, 0)
+      const handled = editor.handleKeyPress(keyEvent("}"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("}{}")
+    })
+
+    it("wraps selection with brackets", async () => {
+      const [editor, renderOnce] = await setupEditor("abc")
+      editor.setSelection(0, 3)
+      const handled = editor.handleKeyPress(keyEvent("{"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("{abc}")
+    })
+
+    it("wraps selection with quotes", async () => {
+      const [editor, renderOnce] = await setupEditor("hello")
+      editor.setSelection(0, 5)
+      const handled = editor.handleKeyPress(keyEvent('"'))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe('"hello"')
+    })
+
+    it("auto-skips closing > when next char is >", async () => {
+      const [editor] = await setupEditor("<>")
+      editor.setCursor(0, 1)
+      const handled = editor.handleKeyPress(keyEvent(">"))
+      expect(handled).toBe(true)
+      expect(editor.plainText).toBe("<>")
+      expect(editor.logicalCursor.col).toBe(2)
+    })
+
+    it("auto-skips closing ' when next char is '", async () => {
+      const [editor] = await setupEditor("''")
+      editor.setCursor(0, 1)
+      const handled = editor.handleKeyPress(keyEvent("'"))
+      expect(handled).toBe(true)
+      expect(editor.plainText).toBe("''")
+      expect(editor.logicalCursor.col).toBe(2)
+    })
+
+    it("wraps selection with parentheses", async () => {
+      const [editor, renderOnce] = await setupEditor("abc")
+      editor.setSelection(0, 3)
+      const handled = editor.handleKeyPress(keyEvent("("))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("(abc)")
+    })
+
+    it("wraps selection with square brackets", async () => {
+      const [editor, renderOnce] = await setupEditor("abc")
+      editor.setSelection(0, 3)
+      const handled = editor.handleKeyPress(keyEvent("["))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("[abc]")
+    })
+
+    it("wraps selection with angle brackets", async () => {
+      const [editor, renderOnce] = await setupEditor("abc")
+      editor.setSelection(0, 3)
+      const handled = editor.handleKeyPress(keyEvent("<"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("<abc>")
+    })
+
+    it("wraps selection with single quotes", async () => {
+      const [editor, renderOnce] = await setupEditor("hello")
+      editor.setSelection(0, 5)
+      const handled = editor.handleKeyPress(keyEvent("'"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("'hello'")
+    })
+
+    it("inserts {} in middle of existing content", async () => {
+      const [editor, renderOnce] = await setupEditor("abc")
+      editor.setCursor(0, 1)
+      const handled = editor.handleKeyPress(keyEvent("{"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toBe("a{}bc")
+      expect(editor.logicalCursor.row).toBe(0)
+      expect(editor.logicalCursor.col).toBe(2)
+    })
+
+    it("does not auto-skip close bracket in folded display", async () => {
+      const content = `{
+  "a": 1,
+  "b": 2
+}`
+      const [editor, renderOnce] = await setupEditor(content, "json")
+      computeFolds(editor)
+      editor.toggleFold(0)
+      await renderOnce()
+
+      editor.setCursor(0, 3)
+      const handled = editor.handleKeyPress(keyEvent("}"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.lineCount).toBeGreaterThanOrEqual(
+        content.split("\n").length,
+      )
+    })
+
+    it("inserts auto-close pair on visible line while folded", async () => {
+      const content = `{
+  "a": 1,
+  "b": 2
+}`
+      const [editor, renderOnce] = await setupEditor(content, "json")
+      computeFolds(editor)
+      editor.toggleFold(0)
+      await renderOnce()
+
+      editor.setCursor(1, 0)
+      const handled = editor.handleKeyPress(keyEvent("{"))
+      expect(handled).toBe(true)
+      await renderOnce()
+      expect(editor.plainText).toContain("{}")
+    })
   })
 })

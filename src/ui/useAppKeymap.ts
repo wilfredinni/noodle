@@ -14,6 +14,7 @@ import { useRenderer } from "./RendererContext"
 import { findRequestById } from "./tree"
 import {
   getEditRequestYamlFile,
+  getEditFolderYamlFile,
   copyResponseBody,
   deleteEnvironment,
   togglePaneExpand,
@@ -77,20 +78,26 @@ export interface UseAppKeymapSetters {
           filePath: string
           requestName: string
           requestId: string
+          kind: "request" | "folder"
           returnFocus: Focus
+          folderPath: string
         }
       | ((prev: {
           visible: boolean
           filePath: string
           requestName: string
           requestId: string
+          kind: "request" | "folder"
           returnFocus: Focus
+          folderPath: string
         }) => {
           visible: boolean
           filePath: string
           requestName: string
           requestId: string
+          kind: "request" | "folder"
           returnFocus: Focus
+          folderPath: string
         }),
   ) => void
   setCollectionReloadToken: (n: number | ((prev: number) => number)) => void
@@ -225,14 +232,29 @@ export function useAppKeymap(
       {
         name: "request.edit-yaml",
         run: () => {
-          if (refs.focusedFolderPathRef.current) return
+          if (refs.focusedFolderPathRef.current) {
+            const file = getEditFolderYamlFile(actionsConfig)
+            if (!file) return
+            setters.setYamlEditor({
+              visible: true,
+              kind: "folder",
+              filePath: file.filePath,
+              requestName: file.folderName,
+              requestId: "",
+              folderPath: file.folderPath,
+              returnFocus: file.returnFocus,
+            })
+            return
+          }
           const file = getEditRequestYamlFile(actionsConfig)
           if (!file) return
           setters.setYamlEditor({
             visible: true,
+            kind: "request",
             filePath: file.filePath,
             requestName: file.requestName,
             requestId: file.requestId,
+            folderPath: "",
             returnFocus: file.returnFocus,
           })
         },

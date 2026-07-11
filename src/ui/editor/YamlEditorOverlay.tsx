@@ -3,14 +3,14 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { basename, dirname } from "node:path"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { useTheme } from "./theme"
-import { Overlay } from "./Overlay"
+import { useTheme } from "../theme"
+import { Overlay } from "../Overlay"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import { ValidationNotice } from "./ValidationNotice"
-import { lang } from "../lang"
-import type { Environment } from "../schema"
+import { lang } from "../../lang"
+import type { Environment } from "../../schema"
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
-import { getEnvVarHighlights } from "./variableCompletion"
+import { getEnvVarHighlights } from "../variableCompletion"
 
 const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 
@@ -21,6 +21,7 @@ export interface YamlEditorOverlayProps {
   onSaved: () => void
   onClose: () => void
   activeEnv?: Environment | null
+  kind?: "request" | "folder"
 }
 
 export function YamlEditorOverlay({
@@ -30,6 +31,7 @@ export function YamlEditorOverlay({
   onSaved,
   onClose,
   activeEnv = null,
+  kind = "request",
 }: YamlEditorOverlayProps) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -66,8 +68,13 @@ export function YamlEditorOverlay({
         }
       })
       .catch((e) => {
-        if (mountedRef.current)
+        if (!mountedRef.current) return
+        if (kind === "folder" && (e as { code?: string }).code === "ENOENT") {
+          setContent("")
+          setDraftContent("")
+        } else {
           setReadError(e instanceof Error ? e.message : String(e))
+        }
       })
   }, [visible, filePath])
 
@@ -77,7 +84,11 @@ export function YamlEditorOverlay({
     setSaveError(null)
     const yamlText = editor.plainText
     try {
-      lang.parseRequest(basename(filePath, ".yml"), yamlText)
+      if (kind === "folder") {
+        lang.parseFolder(yamlText)
+      } else {
+        lang.parseRequest(basename(filePath, ".yml"), yamlText)
+      }
     } catch (e) {
       if (!mountedRef.current) return
       setSaveError(e instanceof Error ? e.message : String(e))
@@ -94,19 +105,25 @@ export function YamlEditorOverlay({
         if (!mountedRef.current) return
         setSaveError(e instanceof Error ? e.message : String(e))
       })
-  }, [filePath, onSaved])
+  }, [filePath, onSaved, kind])
 
   const validateContent = useCallback(
     (content: string): string | null => {
       try {
-        lang.parseRequest(basename(filePath, ".yml"), content)
+        if (kind === "folder") {
+          lang.parseFolder(content)
+        } else {
+          lang.parseRequest(basename(filePath, ".yml"), content)
+        }
         return null
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        return `Invalid request YAML: ${message}`
+        const prefix =
+          kind === "folder" ? "Invalid folder YAML" : "Invalid request YAML"
+        return `${prefix}: ${message}`
       }
     },
-    [filePath],
+    [filePath, kind],
   )
 
   const handleContentChange = useCallback(() => {
@@ -132,11 +149,16 @@ export function YamlEditorOverlay({
     if (draftContent === null) return null
     const error = validateContent(draftContent)
     if (!error) return null
+    const prefix =
+      kind === "folder" ? "Invalid folder YAML" : "Invalid request YAML"
     return {
-      title: "Invalid request YAML",
-      detail: error.replace(/^Invalid request YAML: /, ""),
+      title: prefix,
+      detail: error.replace(
+        new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}: `),
+        "",
+      ),
     }
-  }, [draftContent, validateContent])
+  }, [draftContent, validateContent, kind])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -197,7 +219,11 @@ export function YamlEditorOverlay({
           paddingX: 2,
         }}
       >
-        <text fg={theme.text}>{requestName}.yml</text>
+        <text fg={theme.text}>
+          {kind === "folder"
+            ? `${requestName}/folder.yml`
+            : `${requestName}.yml`}
+        </text>
         <text fg={theme.textMuted}>esc</text>
       </box>
       {readError ? (

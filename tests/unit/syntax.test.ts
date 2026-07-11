@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { highlightJsonTokens } from "../../src/ui/syntax"
+import { highlightJsonTokens } from "../../src/ui/editor/syntax"
 import { opencodeTheme } from "../../src/ui/theme-data"
 
 describe("highlightJsonTokens", () => {

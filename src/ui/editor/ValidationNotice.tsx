@@ -1,5 +1,5 @@
-import { LeftBar } from "./borders"
-import { useTheme } from "./theme"
+import { LeftBar } from "../borders"
+import { useTheme } from "../theme"
 
 interface Props {
   title: string

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react"
 import type { TextareaRenderable } from "@opentui/core"
-import type { Theme } from "./theme-data"
-import { highlightTextarea } from "../hooks/useJsonHighlight"
-import type { Environment } from "../schema"
+import type { Theme } from "../theme-data"
+import { highlightTextarea } from "./useJsonHighlight"
+import type { Environment } from "../../schema"
 
 export function JsonBodyViewer({
   body,
