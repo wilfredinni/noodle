@@ -50,7 +50,7 @@ src/
 ├── filestore/     # loadCollection(dir) / saveRequest(dir, req) — disk I/O
 ├── env/           # loadEnvironment, listEnvironments — env file I/O + validation
 ├── requests/      # executor.send + substitute ($var replacement)
-├── hooks/         # React hooks (13 total)
+├── hooks/         # React hooks (12 total)
 │   ├── useCollection.ts, useTreeNavigation.ts, useSidebarSelection.ts
 │   ├── useRequestDraft.ts, useFolderDraft.ts
 │   ├── useEditBrowse.ts, useFolderEditBrowse.ts
@@ -68,7 +68,11 @@ src/
     ├── AppOverlays.tsx      # All overlay rendering (15 overlay slots)
     ├── MainView.tsx         # Main vs folder view dispatch (sidebar + content pane)
     ├── RequestResponseView.tsx # UrlBar + RequestPane + ResponsePane layout
-    ├── EnvironmentEditorView.tsx # Env editor top-level view
+    ├── [env-editor]
+    │   ├── EnvironmentEditorView.tsx # Env editor top-level view
+    │   ├── EnvSidebar.tsx
+    │   ├── EnvHeaderPane.tsx
+    │   └── EnvEditorPane.tsx
     ├── Sidebar.tsx          # Tree sidebar: requests, folders, dirty indicators, method badges
     ├── RequestPane.tsx      # Full request detail + inline editing (5 tabs)
     ├── ResponsePane.tsx     # Response rendering (idle/sending/done/error) + timeline

@@ -55,7 +55,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 ## Add a new overlay
 
 **Locate:**
-- Existing overlays: `src/ui/PickerOverlay.tsx` (generic base), `src/ui/ThemePickerOverlay.tsx` (uses PickerOverlay), `src/ui/YamlEditorOverlay.tsx`, `src/ui/ConfirmOverlay.tsx`
+- Existing overlays: `src/ui/overlays/PickerOverlay.tsx` (generic base), `src/ui/theme.tsx` (ThemePickerOverlay), `src/ui/editor/YamlEditorOverlay.tsx`, `src/ui/overlays/ConfirmOverlay.tsx`
 - `src/ui/AppInner.tsx` — overlay rendering gated on `overlay` state
 - `src/ui/useAppKeymap.ts` — overlay keymap layers (Close/Cancel)
 
@@ -295,9 +295,9 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 ## Add variable completion to a new input
 
 **Locate:**
-- `src/ui/variableCompletion.ts` — `getVariableToken`, `getVariableSuggestions`, `replaceVariableToken`
-- `src/ui/useVariableCompletion.ts` — hook returning `{ completion, getCompletion, makeHandleKey }`
-- `src/ui/variableCompletionInterceptor.tsx` — registers high-priority (200) key interceptor on keymap
+- `src/ui/variable-completion/variableCompletion.ts` — `getVariableToken`, `getVariableSuggestions`, `replaceVariableToken`
+- `src/ui/variable-completion/useVariableCompletion.ts` — hook returning `{ completion, getCompletion, makeHandleKey }`
+- `src/ui/variable-completion/variableCompletionInterceptor.tsx` — registers high-priority (200) key interceptor on keymap
 - `src/ui/VarInput.tsx` — fully integrated variable-aware input component (reuse this if possible)
 
 **Follow:** `VarInput` already handles completion for Input and Textarea. If your new component needs completions but can't use VarInput directly, register a new handler.
@@ -324,18 +324,18 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 **Locate:**
 - `src/lang/parsers/json/` — example: `tree-sitter-json.wasm` + `highlights.scm`
 - `src/lang/parsers/yaml/` — second example
-- `src/ui/codeEditorParsers.ts` — parser registration
+- `src/ui/editor/codeEditorParsers.ts` — parser registration
 - `src/types/assets.d.ts` — `*.wasm` and `*.scm` type declarations (file paths)
-- `src/ui/CodeEditor.ts` — `CodeEditorRenderable` class that consumes registered parsers
+- `src/ui/editor/CodeEditor.ts` — `CodeEditorRenderable` class that consumes registered parsers
 
-**Follow:** Each language needs a tree-sitter `.wasm` parser + `highlights.scm` query file. Register in `codeEditorParsers.ts`.
+**Follow:** Each language needs a tree-sitter `.wasm` parser + `highlights.scm` query file. Register in `src/ui/editor/codeEditorParsers.ts`.
 
 **Implement:**
 1. Create `src/lang/parsers/<lang>/` directory
 2. Add `tree-sitter-<lang>.wasm` and `highlights.scm`
-3. Register in `src/ui/codeEditorParsers.ts` — add entry to the parsers map
+3. Register in `src/ui/editor/codeEditorParsers.ts` — add entry to the parsers map
 4. Add syntax style IDs for the new language in the CodeEditor theme sync logic (e.g., `highlight/token.ts`)
-5. Add a local tokenizer fallback in `syntax.ts` or a new file for when tree-sitter fails
+5. Add a local tokenizer fallback in `src/ui/editor/syntax.ts` or a new file for when tree-sitter fails
 
 **Test:** Add test for highlight tokens, parser registration, and highlight application.
 

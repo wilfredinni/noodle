@@ -111,15 +111,15 @@ Follow existing patterns:
 
 ## Code editor architecture
 
-`CodeEditorRenderable` (`src/ui/CodeEditor.ts`) extends OpenTUI's `TextareaRenderable` with:
+`CodeEditorRenderable` (`src/ui/editor/CodeEditor.ts`) extends OpenTUI's `TextareaRenderable` with:
 
 ### Tree-sitter highlighting
-- Parsers registered via `codeEditorParsers.ts`: JSON (`tree-sitter-json.wasm` + `highlights.scm`), YAML (`tree-sitter-yaml.wasm` + `highlights.scm`)
+- Parsers registered via `src/ui/editor/codeEditorParsers.ts`: JSON (`tree-sitter-json.wasm` + `highlights.scm`), YAML (`tree-sitter-yaml.wasm` + `highlights.scm`)
 - Async highlight with 200ms debounce
-- Fallback local tokenizers when tree-sitter fails (JSON: `syntax.ts`, YAML: `yamlSyntax.ts`)
+- Fallback local tokenizers when tree-sitter fails (JSON: `src/ui/editor/syntax.ts`, YAML: `src/ui/editor/yamlSyntax.ts`)
 - Theme-synced syntax styles (`json.key`, `json.string`, `yaml.key`, etc.)
 - Variable highlighting: `env.resolved` (primary color) / `env.missing` (error color) via `extraHighlights` callback
-- Byte-to-display offset mapping via `highlightOffsets.ts` for emoji/wide characters
+- Byte-to-display offset mapping via `src/ui/variable-completion/highlightOffsets.ts` for emoji/wide characters
 
 ### Code folding
 - `toggleFold(line)` — fold/unfold by Ctrl+G at cursor line
@@ -131,29 +131,29 @@ Follow existing patterns:
 
 ### Validation
 - `validateContent` callback — inline JSON/YAML validation
-- Error notice displayed via `ValidationNotice.tsx` component
+- Error notice displayed via `src/ui/editor/ValidationNotice.tsx` component
 
 ### Component registration
 - Custom `<code-editor>` JSX element declared in `src/ui/jsx-types.d.ts`
-- Registered at startup via component registration in `src/ui/CodeEditor.ts`
+- Registered at startup via component registration in `src/ui/editor/CodeEditor.ts`
 
 ## Variable completion architecture
 
 Cursor-aware `$variable` completion system across all text inputs:
 
-### Core (src/ui/variableCompletion.ts)
+### Core (src/ui/variable-completion/variableCompletion.ts)
 - `getVariableToken(value, cursorOffset)` — parses `$`-prefixed word at cursor position
 - `getVariableSuggestions(vars, prefix)` — filters env var names by typed prefix
 - `replaceVariableToken(value, cursorOffset, name)` — replaces `$pre` → `$name`, returns new cursor position
 
-### Hook (src/ui/useVariableCompletion.ts)
+### Hook (src/ui/variable-completion/useVariableCompletion.ts)
 - `useVariableCompletion(variableNames)` — returns `{ completion, getCompletion, makeHandleKey }`
 - `completion` state: `{ suggestions, selectedIndex, visible }` or `null`
 - `getCompletion(value, cursorOffset)` — triggers completion, anchored at cursor position
 - `makeHandleKey()` — returns key handler for up/down/tab/return/escape in completion context
 - Max 10 suggestions visible (`MAX_COMPLETION_VISIBLE`)
 
-### Integration (src/ui/variableCompletionInterceptor.tsx)
+### Integration (src/ui/variable-completion/variableCompletionInterceptor.tsx)
 - `VariableCompletionInterceptor` component registers high-priority (200) key interceptor on keymap
 - `registerVariableCompletion(handler)` — adds to Set, returns cleanup
 - Multiple handlers supported — env editor, code editor, VarInput each register their own
@@ -163,7 +163,7 @@ Cursor-aware `$variable` completion system across all text inputs:
 - Completion popup rendered as portal (z-index 10000) anchored to cursor position
 - Navigate suggestions with up/down, accept with tab/return, dismiss with escape
 
-### Highlighting (src/ui/variableHighlight.ts, src/ui/envHighlight.ts)
+### Highlighting (src/ui/variable-completion/variableHighlight.ts, src/ui/variable-completion/envHighlight.ts)
 - `highlightVariables()` — applies `env.resolved`/`env.missing` styles to Input/Textarea
 - `splitEnvVars(text, env)` — segments text into plain + `$var` segments with resolved/missing flags
 
@@ -187,7 +187,7 @@ Cursor-aware `$variable` completion system across all text inputs:
 - Both `useAppKeymap.ts` and `commands.ts` import from here — never duplicate logic
 - `run()` returns `true` (close palette) or `false` (stay open)
 
-### Picker (src/ui/PickerOverlay.tsx)
+### Picker (src/ui/overlays/PickerOverlay.tsx)
 - Generic `<PickerOverlay<T>>` renders search input + filtered list
 - `isNavigable` prop skips non-selectable items (section headers) during up/down/return
 - Used by: `CommandPaletteOverlay`, `CollectionSwitcherOverlay`, `ThemePickerOverlay`
@@ -207,7 +207,7 @@ Cursor-aware `$variable` completion system across all text inputs:
 
 ### Syntax styling
 - Syntax highlight style IDs (`json.key`, `yaml.string`, etc.) mapped to theme colors
-- `styleIdForFg(color)` in `yamlSyntax.ts` — creates style entry
+- `styleIdForFg(color)` in `src/ui/editor/yamlSyntax.ts` — creates style entry
 - Both CodeEditor and VarInput use theme-aware syntax styles
 
 ## Clipboard architecture
@@ -235,12 +235,13 @@ hooks/           ← React state: useCollection, useRequestDraft, useResponse, u
   │                 useConfig, useTimeline, useEnvironmentEditor, useFolderDraft, etc.
   ↓
 ui/              ← OpenTUI components + pure helpers + keymap layers
-  │   ├── CodeEditor.ts — tree-sitter highlighting, folding, validation
-  │   ├── variableCompletion.ts — $var autocompletion engine
+  │   ├── editor/CodeEditor.ts — tree-sitter highlighting, folding, validation
+  │   ├── variable-completion/variableCompletion.ts — $var autocompletion engine
   │   ├── commands.ts / commandActions.ts — command palette infrastructure
   │   ├── theme.tsx / theme-data.ts — 32 themes with live preview
   │   ├── clipboard.ts — multi-platform clipboard + OSC 52 fallback
-  │   └── codeEditorParsers.ts — tree-sitter parser registration
+  │   ├── editor/codeEditorParsers.ts — tree-sitter parser registration
+  │   └── editor/yamlSyntax.ts — YAML syntax styling
   ↓
 app/             ← CLI entry: parseArgs → createCliRenderer → createRoot → <App>
 ```
@@ -364,8 +365,7 @@ createMain(main) — citty argparse
 | `useEnvironments` | `src/hooks/useEnvironments.ts` | `{activeIndex, activeEnv, names}` |
 | `useEnvironmentEditor` | `src/hooks/useEnvironmentEditor.ts` | Full env CRUD state for editor pane |
 | `useConfig` | `src/hooks/useConfig.ts` | `{theme, layout, confirm_undo_all, collections}` persisted to `~/.config/noodle/config.yml` |
-| `useTimeline` | `src/hooks/useTimeline.ts` | `TimelineEntry[]` per-request response history |
-| `useJsonHighlight` | `src/hooks/useJsonHighlight.ts` | `highlightTextarea` — JSON + env variable highlighting for response body |
+| `useTimeline` | `src/ui/timeline/useTimeline.ts` | `TimelineEntry[]` per-request response history |
 | `useUIState` | `src/ui/tabs/useUIState.ts` | Per-request tab index state |
 
 ## Keymap layer architecture
@@ -395,13 +395,13 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 |---------|-------|
 | Types | `src/schema/index.ts` |
 | YAML parse/serialize | `src/lang/parse.ts`, `src/lang/serialize.ts`, `src/lang/folder.ts` |
-| Tree-sitter parsers | `src/lang/parsers/json/`, `src/lang/parsers/yaml/`, `src/ui/codeEditorParsers.ts` |
+| Tree-sitter parsers | `src/lang/parsers/json/`, `src/lang/parsers/yaml/`, `src/ui/editor/codeEditorParsers.ts` |
 | File I/O | `src/filestore/load.ts`, `src/filestore/save.ts`, `src/filestore/timeline.ts` |
 | Environments | `src/env/load.ts`, `src/env/save.ts` |
 | HTTP execution | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts` |
 | Hooks | `src/hooks/*.ts` |
-| Code editor | `src/ui/CodeEditor.ts`, `src/ui/CodeEditorCompletion.tsx` |
-| Variable completion | `src/ui/variableCompletion.ts`, `src/ui/useVariableCompletion.ts`, `src/ui/variableCompletionInterceptor.tsx`, `src/ui/variableHighlight.ts`, `src/ui/highlightOffsets.ts` |
+| Code editor | `src/ui/editor/CodeEditor.ts`, `src/ui/editor/CodeEditorCompletion.tsx`, `src/ui/editor/codeEditorParsers.ts`, `src/ui/editor/YamlEditorOverlay.tsx`, `src/ui/editor/ValidationNotice.tsx` |
+| Variable completion | `src/ui/variable-completion/variableCompletion.ts`, `src/ui/variable-completion/useVariableCompletion.ts`, `src/ui/variable-completion/variableCompletionInterceptor.tsx`, `src/ui/variable-completion/variableHighlight.ts`, `src/ui/variable-completion/highlightOffsets.ts`, `src/ui/variable-completion/envHighlight.ts` |
 | Command palette | `src/ui/commands.ts`, `src/ui/commandActions.ts`, `src/ui/CommandPaletteOverlay.tsx` |
 | Themes | `src/ui/theme.tsx`, `src/ui/theme-data.ts` |
 | Clipboard | `src/ui/clipboard.ts` |
@@ -411,4 +411,4 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Focus | `src/ui/focus.ts` |
 | Keybindings | `src/ui/keybind.ts`, `src/ui/useAppKeymap.ts`, `src/ui/useOverlayIntercepts.ts` |
 | Borders | `src/ui/borders.ts` |
-| Pure helpers | `src/ui/*.ts` (non-JSX files: `format.ts`, `formatRequest.ts`, `urlParams.ts`, `tree.ts`, `syntax.ts`, `yamlSyntax.ts`, `jsonValidation.ts`, `envHighlight.ts`, `selection.ts`) |
+| Pure helpers | `src/ui/*.ts` (non-JSX files: `format.ts`, `formatRequest.ts`, `urlParams.ts`, `tree.ts`, `selection.ts`) |
