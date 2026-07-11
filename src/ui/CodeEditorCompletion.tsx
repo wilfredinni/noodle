@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import type { Environment } from "../schema"
-import {
-  getVariableSuggestions,
-  getVariableToken,
-  replaceVariableToken,
-} from "./variableCompletion"
 import { registerVariableCompletion } from "./variableCompletionInterceptor"
 import {
   createPortal,
@@ -13,6 +8,10 @@ import {
   useTerminalDimensions,
 } from "@opentui/react"
 import { useTheme } from "./theme"
+import {
+  useVariableCompletion,
+  MAX_COMPLETION_VISIBLE,
+} from "./useVariableCompletion"
 
 export function CodeEditorCompletion({
   editor,
@@ -31,84 +30,31 @@ export function CodeEditorCompletion({
     useTerminalDimensions()
   const [completionDismissed, setCompletionDismissed] = useState(false)
   const [completionIndex, setCompletionIndex] = useState(0)
-  const [revision, setRevision] = useState(0)
 
-  const completion = useMemo(() => {
-    const text = editor?.plainText ?? ""
-    const cursorOffset = editor?.cursorOffset ?? text.length
-    const token = getVariableToken(text, cursorOffset)
-    const suggestions = token
-      ? getVariableSuggestions(Object.keys(env?.vars ?? {}), token.prefix)
-      : []
-    const tokenText = token ? text.slice(token.start + 1, token.end) : ""
-    const isComplete =
-      suggestions.length === 1 &&
-      cursorOffset === token?.end &&
-      suggestions[0] === tokenText
-    return { token, suggestions, isComplete }
-  }, [editor, env?.vars, revision, value])
+  const getEditor = useCallback(() => {
+    if (!editor || editor.isDestroyed) return null
+    return editor
+  }, [editor])
 
-  const getCompletion = useCallback(() => {
-    const text = editor?.plainText ?? ""
-    const cursorOffset = editor?.cursorOffset ?? text.length
-    const token = getVariableToken(text, cursorOffset)
-    const suggestions = token
-      ? getVariableSuggestions(Object.keys(env?.vars ?? {}), token.prefix)
-      : []
-    const tokenText = token ? text.slice(token.start + 1, token.end) : ""
-    const isComplete =
-      suggestions.length === 1 &&
-      cursorOffset === token?.end &&
-      suggestions[0] === tokenText
-    return { token, suggestions, isComplete }
-  }, [editor, env?.vars, value])
+  const variableNames = useMemo(() => Object.keys(env?.vars ?? {}), [env?.vars])
 
-  const handleKey = useCallback(
-    (key: {
-      name: string
-      preventDefault: () => void
-      stopPropagation: () => void
-      defaultPrevented?: boolean
-    }) => {
-      if (
-        !isEditing ||
-        !editor ||
-        editor.isDestroyed ||
-        !editor.focused ||
-        completionDismissed ||
-        key.defaultPrevented
-      )
-        return false
-      const { token, suggestions, isComplete } = getCompletion()
-      if (!token || suggestions.length === 0 || isComplete) return false
-      if (key.name === "up" || key.name === "down") {
-        const max = Math.min(suggestions.length, 10)
-        setCompletionIndex((current) => {
-          const next = current + (key.name === "up" ? -1 : 1)
-          return next < 0 ? max - 1 : next >= max ? 0 : next
-        })
-        return true
-      }
-      if (key.name === "tab" || key.name === "return") {
-        const idx = Math.min(
-          completionIndex,
-          Math.min(suggestions.length, 10) - 1,
-        )
-        const name = suggestions[idx] ?? suggestions[0]!
-        const result = replaceVariableToken(editor.plainText, token, name)
-        editor.replaceText(result.value)
-        editor.cursorOffset = result.cursorOffset
-        setCompletionDismissed(true)
-        setRevision((value) => value + 1)
-        return true
-      }
-      if (key.name === "escape") {
-        setCompletionDismissed(true)
-        return true
-      }
-      return false
-    },
-    [completionDismissed, completionIndex, editor, getCompletion, isEditing],
+  const { completion, makeHandleKey } = useVariableCompletion({
+    getEditor,
+    variableNames,
+    value,
+    isEditing,
+  })
+
+  const handleKey = useMemo(
+    () =>
+      makeHandleKey({
+        completionDismissed,
+        completionIndex,
+        setCompletionIndex,
+        setCompletionDismissed,
+        onAccept: () => {},
+      }),
+    [completionDismissed, completionIndex, makeHandleKey],
   )
 
   useEffect(() => {
@@ -129,7 +75,6 @@ export function CodeEditorCompletion({
     editor.refreshHighlights()
     const onChange = () => {
       setCompletionDismissed(false)
-      setRevision((value) => value + 1)
     }
     editor.on("content-changed", onChange)
     return () => {
@@ -176,19 +121,21 @@ export function CodeEditorCompletion({
       borderStyle="single"
       borderColor={theme.borderActive}
     >
-      {completion.suggestions.slice(0, 10).map((name, index) => (
-        <box
-          key={name}
-          style={{
-            backgroundColor:
-              index === completionIndex ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={index === completionIndex ? theme.primary : theme.text}>
-            ${name}
-          </text>
-        </box>
-      ))}
+      {completion.suggestions
+        .slice(0, MAX_COMPLETION_VISIBLE)
+        .map((name, index) => (
+          <box
+            key={name}
+            style={{
+              backgroundColor:
+                index === completionIndex ? theme.backgroundElement : undefined,
+            }}
+          >
+            <text fg={index === completionIndex ? theme.primary : theme.text}>
+              ${name}
+            </text>
+          </box>
+        ))}
     </box>,
     renderer.root,
     null,

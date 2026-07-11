@@ -1,4 +1,5 @@
 import type { Environment } from "../schema"
+import type { Highlight } from "@opentui/core"
 
 export interface VariableToken {
   start: number
@@ -60,6 +61,25 @@ export function getVariableHighlights(
       start: match.index,
       end: match.index + match[0].length,
       exists: env !== null && match[1]! in env.vars,
+    })
+  }
+  return highlights
+}
+
+export function getEnvVarHighlights(
+  value: string,
+  env: Environment,
+  resolvedStyleId: number,
+  missingStyleId: number,
+): Highlight[] {
+  const highlights: Highlight[] = []
+  for (const match of value.matchAll(/\$(\w+)/g)) {
+    const name = match[1]!
+    highlights.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      styleId: name in env.vars ? resolvedStyleId : missingStyleId,
+      priority: 2,
     })
   }
   return highlights

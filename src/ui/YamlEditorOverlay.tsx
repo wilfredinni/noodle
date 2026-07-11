@@ -10,6 +10,7 @@ import { ValidationNotice } from "./ValidationNotice"
 import { lang } from "../lang"
 import type { Environment } from "../schema"
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
+import { getEnvVarHighlights } from "./variableCompletion"
 
 const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 
@@ -117,21 +118,12 @@ export function YamlEditorOverlay({
     (value: string) => {
       const editor = editorRef.current
       if (!editor || !activeEnv) return []
-      const highlights = []
-      for (const match of value.matchAll(/\$(\w+)/g)) {
-        const name = match[1]!
-        const styleId =
-          name in activeEnv.vars
-            ? editor.envResolvedStyleId
-            : editor.envMissingStyleId
-        highlights.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          styleId,
-          priority: 2,
-        })
-      }
-      return highlights
+      return getEnvVarHighlights(
+        value,
+        activeEnv,
+        editor.envResolvedStyleId,
+        editor.envMissingStyleId,
+      )
     },
     [activeEnv],
   )

@@ -251,14 +251,14 @@ export function AppOverlays({
         <ConfirmOverlay
           visible
           message={`Delete folder "${folderDeletePending}" and all requests inside?`}
-          selectedIndex={0}
+          selectedIndex={deleteConfirmSelection}
         />
       )}
       {requestDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete "${requestDeletePending}"?`}
-          selectedIndex={0}
+          selectedIndex={deleteConfirmSelection}
         />
       )}
     </>

@@ -28,6 +28,7 @@ import { FormEditor } from "./FormEditor"
 import { ValidationNotice } from "./ValidationNotice"
 import type { BodyType } from "../schema"
 import { validateJsonContent } from "./jsonValidation"
+import { getEnvVarHighlights } from "./variableCompletion"
 
 interface Props {
   request: Request | null
@@ -432,23 +433,12 @@ function BodySection({
     (content: string): Highlight[] => {
       const ed = editorRef.current
       if (!activeEnv?.vars || !ed) return []
-      const resolvedId = ed.envResolvedStyleId
-      const missingId = ed.envMissingStyleId
-      const results: Highlight[] = []
-      const varRe = /\$\w+/g
-      let match: RegExpExecArray | null
-      while ((match = varRe.exec(content)) !== null) {
-        const varName = match[0].slice(1)
-        const exists = varName in activeEnv.vars
-        const styleId = exists ? resolvedId : missingId
-        results.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          styleId,
-          priority: 2,
-        })
-      }
-      return results
+      return getEnvVarHighlights(
+        content,
+        activeEnv,
+        ed.envResolvedStyleId,
+        ed.envMissingStyleId,
+      )
     },
     [activeEnv],
   )

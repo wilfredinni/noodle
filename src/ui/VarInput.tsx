@@ -16,14 +16,10 @@ import {
 import { useTheme } from "./theme"
 import { VarText } from "./VarText"
 import type { Environment } from "../schema"
-import {
-  getVariableSuggestions,
-  getVariableToken,
-  replaceVariableToken,
-  type VariableToken,
-} from "./variableCompletion"
+import type { VariableToken } from "./variableCompletion"
 import { highlightVariables } from "./variableHighlight"
 import { registerVariableCompletion } from "./variableCompletionInterceptor"
+import { useVariableCompletion } from "./useVariableCompletion"
 
 export interface VarInputStyle {
   flexGrow?: number
@@ -86,21 +82,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       if (variableNames != null) return [...variableNames]
       return Object.keys(env?.vars ?? {})
     }, [variableNames, env?.vars])
-    const getCompletion = useCallback(() => {
-      const editable = getEditable()
-      const text = editable?.plainText ?? value
-      const cursorOffset = editable?.cursorOffset ?? value.length
-      const token = getVariableToken(text, cursorOffset)
-      const suggestions = token
-        ? getVariableSuggestions(suggestionNames, token.prefix)
-        : []
-      const tokenText = token ? text.slice(token.start + 1, token.end) : ""
-      const isComplete =
-        suggestions.length === 1 &&
-        cursorOffset === token?.end &&
-        suggestions[0] === tokenText
-      return { token, suggestions, isComplete }
-    }, [getEditable, suggestionNames, value])
+
+    const { completion, makeHandleKey } = useVariableCompletion({
+      getEditor: getEditable,
+      variableNames: suggestionNames,
+      value,
+      isEditing,
+    })
 
     const applyHighlights = useCallback(() => {
       const editable = getEditable()
@@ -136,66 +124,34 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       applyHighlights()
     }, [applyHighlights, isEditing, value])
 
-    const handleCompletionKey = useCallback(
-      (key: {
-        name: string
-        preventDefault: () => void
-        stopPropagation: () => void
-        defaultPrevented?: boolean
-      }): boolean => {
-        const editable = getEditable()
-        if (
-          !isEditing ||
-          !editable?.focused ||
-          completionDismissed ||
-          key.defaultPrevented
-        ) {
-          return false
-        }
-        const { token, suggestions, isComplete } = getCompletion()
-        if (!token || suggestions.length === 0 || isComplete) return false
-
-        if (key.name === "up" || key.name === "down") {
-          const maxVisible = Math.min(suggestions.length, 10)
-          setCompletionIndex((current) => {
-            const delta = key.name === "up" ? -1 : 1
-            const next = current + delta
-            if (next < 0) return maxVisible - 1
-            if (next >= maxVisible) return 0
-            return next
-          })
-          return true
-        } else if (key.name === "tab" || key.name === "return") {
-          const name =
-            suggestions[
-              Math.min(completionIndex, Math.min(suggestions.length, 10) - 1)
-            ] ?? suggestions[0]!
-          const result = replaceVariableToken(editable.plainText, token, name)
-          editable.replaceText(result.value)
-          editable.cursorOffset = result.cursorOffset
-          onChange?.(result.value)
-          highlightVariables(editable, result.value, theme, env)
-          setCompletionDismissed(true)
-          return true
-        } else if (key.name === "escape") {
-          setCompletionDismissed(true)
-          return true
-        }
-        return false
-      },
+    const handleCompletionKey = useMemo(
+      () =>
+        makeHandleKey({
+          completionDismissed,
+          completionIndex,
+          setCompletionIndex,
+          setCompletionDismissed,
+          onAccept: () => {
+            const editable = getEditable()
+            if (editable) {
+              const text = editable.plainText
+              onChange?.(text)
+              highlightVariables(editable, text, theme, env)
+            }
+          },
+        }),
       [
         completionDismissed,
         completionIndex,
         env,
-        getCompletion,
         getEditable,
-        isEditing,
+        makeHandleKey,
         onChange,
         theme,
       ],
     )
 
-    const { token, suggestions, isComplete } = getCompletion()
+    const { token, suggestions, isComplete } = completion
 
     useEffect(() => {
       const editable = getEditable()
