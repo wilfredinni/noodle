@@ -4,7 +4,7 @@ import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
-import { CodeEditorRenderable } from "../src/ui/CodeEditor"
+import { CodeEditorRenderable } from "../src/ui/editor/CodeEditor"
 import type { Request } from "../src/schema"
 import { setupKeymap } from "./unit/_helpers"
 

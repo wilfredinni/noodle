@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { CodeEditorRenderable } from "./CodeEditor"
-import type { Environment } from "../schema"
-import { registerVariableCompletion } from "./variableCompletionInterceptor"
+import type { Environment } from "../../schema"
+import { registerVariableCompletion } from "../variableCompletionInterceptor"
 import {
   createPortal,
   useRenderer,
   useTerminalDimensions,
 } from "@opentui/react"
-import { useTheme } from "./theme"
+import { useTheme } from "../theme"
 import {
   useVariableCompletion,
   MAX_COMPLETION_VISIBLE,
-} from "./useVariableCompletion"
+} from "../useVariableCompletion"
 
 export function CodeEditorCompletion({
   editor,

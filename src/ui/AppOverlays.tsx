@@ -7,7 +7,7 @@ import {
 } from "./CommandPaletteOverlay"
 import { CollectionSwitcherOverlay } from "./CollectionSwitcherOverlay"
 import { ThemePickerOverlay } from "./theme"
-import { YamlEditorOverlay } from "./YamlEditorOverlay"
+import { YamlEditorOverlay } from "./editor/YamlEditorOverlay"
 import {
   NewRequestOverlay,
   type NewRequestOverlayHandle,

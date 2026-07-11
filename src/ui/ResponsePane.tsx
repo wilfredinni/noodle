@@ -8,7 +8,7 @@ import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
-import { JsonBodyViewer } from "./JsonBodyViewer"
+import { JsonBodyViewer } from "./editor/JsonBodyViewer"
 import { Tips } from "./Tips"
 import { Frame } from "./Frame"
 

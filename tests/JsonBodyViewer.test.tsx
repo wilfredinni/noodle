@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
 import { ThemeProvider, THEMES } from "../src/ui/theme"
-import { JsonBodyViewer } from "../src/ui/JsonBodyViewer"
+import { JsonBodyViewer } from "../src/ui/editor/JsonBodyViewer"
 
 describe("JsonBodyViewer", () => {
   it("keeps JSON syntax highlighting when variables make raw JSON invalid", async () => {

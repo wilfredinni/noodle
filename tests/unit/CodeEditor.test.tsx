@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import type { KeyEvent, LineNumberRenderable } from "@opentui/core"
-import { CodeEditorRenderable } from "../../src/ui/CodeEditor"
+import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import { opencodeTheme } from "../../src/ui/theme-data"
 
 extend({ "code-editor": CodeEditorRenderable })

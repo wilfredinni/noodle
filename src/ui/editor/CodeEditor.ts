@@ -7,13 +7,13 @@ import {
 import type { RenderContext, Highlight } from "@opentui/core"
 import type { SimpleHighlight } from "@opentui/core"
 import type { TreeSitterClient } from "@opentui/core"
-import type { Theme } from "./theme-data"
+import type { Theme } from "../theme-data"
 import { highlightJsonTokens } from "./syntax"
 import { tokenizeYamlLine } from "./yamlSyntax"
 import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
-} from "./highlightOffsets"
+} from "../highlightOffsets"
 
 export interface FoldInfo {
   startLine: number
