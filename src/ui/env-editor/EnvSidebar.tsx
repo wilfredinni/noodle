@@ -1,8 +1,8 @@
-import { useTheme } from "./theme"
-import { FullBorder, LeftBar } from "./borders"
+import { useTheme } from "../theme"
+import { FullBorder, LeftBar } from "../borders"
 import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
-import { VALID_COLORS } from "../env/constants"
+import { VALID_COLORS } from "../../env/constants"
 
 export function EnvSidebar({
   envNames,

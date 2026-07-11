@@ -6,11 +6,11 @@ import {
   useState,
   forwardRef,
 } from "react"
-import { useTheme } from "./theme"
-import { FullBorder } from "./borders"
+import { useTheme } from "../theme"
+import { FullBorder } from "../borders"
 import type { InputRenderable } from "@opentui/core"
-import { Select, type SelectItem } from "./Select"
-import { VALID_COLORS } from "../env/constants"
+import { Select, type SelectItem } from "../Select"
+import { VALID_COLORS } from "../../env/constants"
 
 export interface EnvHeaderPaneHandle {
   focusName: () => void

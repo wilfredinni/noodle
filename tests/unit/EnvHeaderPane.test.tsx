@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
-import { EnvHeaderPane } from "../../src/ui/EnvHeaderPane"
+import { EnvHeaderPane } from "../../src/ui/env-editor/EnvHeaderPane"
 import { setupKeymap } from "./_helpers"
 
 describe("EnvHeaderPane", () => {

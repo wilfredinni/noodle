@@ -2,9 +2,9 @@ import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
 import type { RefObject } from "react"
-import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
-import type { Environment } from "../schema"
-import type { Focus } from "./focus"
+import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
+import type { Environment } from "../../schema"
+import type { Focus } from "../focus"
 
 interface EnvironmentEditorViewProps {
   envEditor: UseEnvironmentEditorResult
