@@ -13,7 +13,7 @@ export function buildCharToDisplayOffsets(content: string): number[] {
     }
 
     index += width
-    if (codePoint !== 0x0a) displayOffset++
+    if (codePoint !== 0x0a && codePoint !== 0x0d) displayOffset++
   }
 
   offsets[content.length] = displayOffset

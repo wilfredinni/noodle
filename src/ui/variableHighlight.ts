@@ -1,7 +1,7 @@
 import { SyntaxStyle } from "@opentui/core"
 import type { InputRenderable, TextareaRenderable } from "@opentui/core"
 import type { Environment } from "../schema"
-import type { Theme } from "./theme"
+import type { Theme } from "./theme-data"
 import { getVariableHighlights } from "./variableCompletion"
 import {
   buildCharToDisplayOffsets,

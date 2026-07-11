@@ -60,7 +60,7 @@ export function getVariableHighlights(
     highlights.push({
       start: match.index,
       end: match.index + match[0].length,
-      exists: env !== null && match[1]! in env.vars,
+      exists: env !== null && Object.hasOwn(env.vars, match[1]!),
     })
   }
   return highlights
@@ -78,7 +78,7 @@ export function getEnvVarHighlights(
     highlights.push({
       start: match.index,
       end: match.index + match[0].length,
-      styleId: name in env.vars ? resolvedStyleId : missingStyleId,
+      styleId: Object.hasOwn(env.vars, name) ? resolvedStyleId : missingStyleId,
       priority: 2,
     })
   }

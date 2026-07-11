@@ -1,6 +1,6 @@
 import type { Environment } from "../schema"
 
-const VAR_RE = /\$(\w+)/g
+const VAR_RE = /\$(\w+)/
 
 /**
  * Validates the JSON that will actually be sent after Noodle's textual
@@ -17,7 +17,7 @@ export function validateJsonContent(
   if (env !== null) {
     try {
       substituted = content.replace(VAR_RE, (match, name: string) => {
-        if (!(name in env.vars)) {
+        if (!Object.hasOwn(env.vars, name)) {
           throw new Error(`unresolved variable "${name}"`)
         }
         return env.vars[name]!

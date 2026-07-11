@@ -16,10 +16,12 @@ import {
 import { useTheme } from "./theme"
 import { VarText } from "./VarText"
 import type { Environment } from "../schema"
-import type { VariableToken } from "./variableCompletion"
 import { highlightVariables } from "./variableHighlight"
 import { registerVariableCompletion } from "./variableCompletionInterceptor"
-import { useVariableCompletion } from "./useVariableCompletion"
+import {
+  useVariableCompletion,
+  MAX_COMPLETION_VISIBLE,
+} from "./useVariableCompletion"
 
 export interface VarInputStyle {
   flexGrow?: number
@@ -215,10 +217,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             />
             {showCompletion && (
               <CompletionPopup
-                token={token}
                 suggestions={suggestions}
-                isComplete={isComplete}
-                completionDismissed={completionDismissed}
                 completionIndex={completionIndex}
                 isEditing={isEditing}
                 getEditable={getEditable}
@@ -253,10 +252,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           />
           {showCompletion && (
             <CompletionPopup
-              token={token}
               suggestions={suggestions}
-              isComplete={isComplete}
-              completionDismissed={completionDismissed}
               completionIndex={completionIndex}
               isEditing={isEditing}
               getEditable={getEditable}
@@ -287,19 +283,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 )
 
 function CompletionPopup({
-  token,
   suggestions,
-  isComplete,
-  completionDismissed,
   completionIndex,
   isEditing,
   getEditable,
   value,
 }: {
-  token: VariableToken | null
   suggestions: string[]
-  isComplete: boolean
-  completionDismissed: boolean
   completionIndex: number
   isEditing: boolean
   getEditable: () => (InputRenderable | TextareaRenderable) | null
@@ -316,19 +306,12 @@ function CompletionPopup({
 
   useEffect(() => {
     const editable = getEditable()
-    if (
-      !isEditing ||
-      !editable ||
-      completionDismissed ||
-      !token ||
-      suggestions.length === 0 ||
-      isComplete
-    ) {
+    if (!isEditing || !editable) {
       setCompletionAnchor((current) => (current === null ? current : null))
       return
     }
     const cursor = editable.visualCursor
-    const visibleCount = Math.min(suggestions.length, 10)
+    const visibleCount = Math.min(suggestions.length, MAX_COMPLETION_VISIBLE)
     const menuHeight = visibleCount + 2
     const menuWidth = 18
     const rawX = editable.x + cursor.visualCol
@@ -341,24 +324,15 @@ function CompletionPopup({
       current?.x === next.x && current?.y === next.y ? current : next,
     )
   }, [
-    completionDismissed,
     getEditable,
-    isComplete,
     isEditing,
     suggestions.length,
     terminalHeight,
     terminalWidth,
-    token,
     value,
   ])
 
-  if (
-    completionDismissed ||
-    !token ||
-    suggestions.length === 0 ||
-    isComplete ||
-    !completionAnchor
-  ) {
+  if (!completionAnchor) {
     return null
   }
 
@@ -380,7 +354,7 @@ function CompletionPopup({
       borderStyle="single"
       borderColor={theme.borderActive}
     >
-      {suggestions.slice(0, 10).map((name, index) => (
+      {suggestions.slice(0, MAX_COMPLETION_VISIBLE).map((name, index) => (
         <box
           key={name}
           style={{

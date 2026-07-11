@@ -60,7 +60,7 @@ export function highlightTextarea(
     let match: RegExpExecArray | null
     while ((match = varRe.exec(content)) !== null) {
       const varName = match[0].slice(1)
-      const exists = varName in env.vars
+      const exists = Object.hasOwn(env.vars, varName)
       const styleId = exists
         ? style.getStyleId("env.resolved")!
         : style.getStyleId("env.missing")!

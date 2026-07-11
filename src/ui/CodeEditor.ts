@@ -442,10 +442,6 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return false
   }
 
-  protected override onResize(width: number, height: number): void {
-    super.onResize(width, height)
-  }
-
   private hasFoldedRanges(): boolean {
     for (const fold of this._folds.values()) {
       if (fold.folded) return true

@@ -58,12 +58,21 @@ describe("buildCharToDisplayOffsets", () => {
     expect(offsets[2]).toBe(1)
   })
 
-  it("treats carriage return as a display character", () => {
+  it("treats carriage return as zero-width like newline", () => {
     const offsets = buildCharToDisplayOffsets("a\rb")
     expect(offsets[0]).toBe(0)
     expect(offsets[1]).toBe(1)
-    expect(offsets[2]).toBe(2)
-    expect(offsets[3]).toBe(3)
+    expect(offsets[2]).toBe(1)
+    expect(offsets[3]).toBe(2)
+  })
+
+  it("handles CRLF as two zero-width chars", () => {
+    const offsets = buildCharToDisplayOffsets("a\r\nb")
+    expect(offsets[0]).toBe(0)
+    expect(offsets[1]).toBe(1)
+    expect(offsets[2]).toBe(1)
+    expect(offsets[3]).toBe(1)
+    expect(offsets[4]).toBe(2)
   })
 
   it("handles surrogate pairs as single display column", () => {

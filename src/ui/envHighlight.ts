@@ -25,7 +25,7 @@ export function splitEnvVars(
       })
     }
     const varName = match[1]!
-    const exists = env !== null && varName in env.vars
+    const exists = env !== null && Object.hasOwn(env.vars, varName)
     segments.push({ text: match[0], isVar: true, exists })
     lastEnd = match.index + match[0].length
   }

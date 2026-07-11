@@ -93,7 +93,8 @@ export function CodeEditorCompletion({
     return null
 
   const cursor = editor.visualCursor
-  const menuHeight = Math.min(completion.suggestions.length, 10) + 2
+  const menuHeight =
+    Math.min(completion.suggestions.length, MAX_COMPLETION_VISIBLE) + 2
   const menuWidth = 18
   const x = Math.max(
     0,
