@@ -84,15 +84,16 @@ export function RequestResponseView({
         focused={focus === "urlbar"}
         activeEnv={activeEnv}
       />
-      {layout === "side-by-side" ? (
-        <box
-          style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}
-        >
-          {content}
-        </box>
-      ) : (
-        content
-      )}
+      <box
+        style={{
+          flexDirection: layout === "side-by-side" ? "row" : "column",
+          flexGrow: 1,
+          gap: layout === "side-by-side" ? 1 : 0,
+          minHeight: 0,
+        }}
+      >
+        {content}
+      </box>
     </>
   )
 }
