@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { TextAttributes } from "@opentui/core"
 import { THEMES } from "./theme-data"
 import type { Theme } from "./theme-data"
-import { PickerOverlay } from "./PickerOverlay"
+import { PickerOverlay } from "./overlays/PickerOverlay"
 
 export {
   THEMES,

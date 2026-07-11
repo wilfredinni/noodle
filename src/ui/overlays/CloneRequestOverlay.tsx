@@ -7,37 +7,38 @@ import {
 } from "react"
 import type { InputRenderable } from "@opentui/core"
 import { Overlay } from "./Overlay"
-import { useTheme } from "./theme"
+import { useTheme } from "../theme"
 
-export interface NewFolderOverlayHandle {
+export interface CloneRequestOverlayHandle {
   confirm: () => string | null
 }
 
-interface NewFolderOverlayProps {
+interface CloneRequestOverlayProps {
   visible: boolean
+  initialName: string
 }
 
-export const NewFolderOverlay = forwardRef<
-  NewFolderOverlayHandle,
-  NewFolderOverlayProps
->(function NewFolderOverlay({ visible }, ref) {
+export const CloneRequestOverlay = forwardRef<
+  CloneRequestOverlayHandle,
+  CloneRequestOverlayProps
+>(function CloneRequestOverlay({ visible, initialName }, ref) {
   const theme = useTheme()
-  const [name, setName] = useState("")
+  const [name, setName] = useState(initialName)
   const [errorText, setErrorText] = useState<string | null>(null)
   const nameRef = useRef<InputRenderable | null>(null)
 
   useEffect(() => {
     if (visible) {
-      setName("")
+      setName(initialName)
       setErrorText(null)
       nameRef.current?.focus()
     }
-  }, [visible])
+  }, [visible, initialName])
 
   useImperativeHandle(ref, () => ({
     confirm: () => {
       if (name.trim() === "") {
-        setErrorText("Folder name is required")
+        setErrorText("Request name is required")
         return null
       }
       setErrorText(null)
@@ -55,16 +56,16 @@ export const NewFolderOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.text}>New Folder</text>
+        <text fg={theme.text}>Clone Request</text>
         <text fg={theme.textMuted}>esc</text>
       </box>
 
       <box style={{ paddingX: 2, flexDirection: "column", paddingBottom: 1 }}>
-        <text fg={theme.textMuted}>Folder Name</text>
+        <text fg={theme.textMuted}>Request Name</text>
         <input
           ref={nameRef}
           value={name}
-          placeholder="Folder Name"
+          placeholder="Request Name"
           onInput={setName}
           focused
           backgroundColor={theme.backgroundElement}
@@ -89,10 +90,10 @@ export const NewFolderOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>^S</text>
+        <text fg={theme.text}>^S</text>
         <text fg={theme.textMuted}>save</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={theme.primary}>esc</text>
+        <text fg={theme.text}>esc</text>
         <text fg={theme.textMuted}>close</text>
       </box>
     </Overlay>

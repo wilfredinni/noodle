@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
-} from "../../src/ui/highlightOffsets"
+} from "../../src/ui/variable-completion/highlightOffsets"
 
 describe("buildCharToDisplayOffsets", () => {
   it("maps empty string to a single-element array", () => {

@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { Overlay } from "./Overlay"
-import { useTheme } from "./theme"
+import { useTheme } from "../theme"
 
 export interface PickerOverlayProps<T> {
   visible: boolean

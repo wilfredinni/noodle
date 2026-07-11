@@ -12,7 +12,7 @@ import { ThemeProvider } from "../../src/ui/theme"
 import {
   CommandPaletteOverlay,
   type CommandItem,
-} from "../../src/ui/CommandPaletteOverlay"
+} from "../../src/ui/overlays/CommandPaletteOverlay"
 
 function setupKeymap() {
   const { keymap, host, cleanup: hostCleanup } = createTestKeymap()

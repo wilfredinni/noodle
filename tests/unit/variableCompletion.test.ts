@@ -4,7 +4,7 @@ import {
   getVariableSuggestions,
   getVariableToken,
   replaceVariableToken,
-} from "../../src/ui/variableCompletion"
+} from "../../src/ui/variable-completion/variableCompletion"
 import type { Environment } from "../../src/schema"
 
 function env(vars: Record<string, string>): Environment {

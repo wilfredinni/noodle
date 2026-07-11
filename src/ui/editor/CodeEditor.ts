@@ -13,7 +13,7 @@ import { tokenizeYamlLine } from "./yamlSyntax"
 import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
-} from "../highlightOffsets"
+} from "../variable-completion/highlightOffsets"
 
 export interface FoldInfo {
   startLine: number

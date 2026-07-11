@@ -1,6 +1,6 @@
 import { RGBA } from "@opentui/core"
 import type { ReactNode } from "react"
-import { useTheme } from "./theme"
+import { useTheme } from "../theme"
 
 export interface OverlayProps {
   visible: boolean

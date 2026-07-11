@@ -6,7 +6,7 @@ import type { Environment } from "../../schema"
 import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
-} from "../highlightOffsets"
+} from "../variable-completion/highlightOffsets"
 
 function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
   return SyntaxStyle.fromStyles({

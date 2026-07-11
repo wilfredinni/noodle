@@ -9,7 +9,7 @@ import {
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
-import { CollectionSwitcherOverlay } from "../../src/ui/CollectionSwitcherOverlay"
+import { CollectionSwitcherOverlay } from "../../src/ui/overlays/CollectionSwitcherOverlay"
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()

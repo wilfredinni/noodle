@@ -12,7 +12,7 @@ import {
   slugify,
   METHOD_ITEMS,
   NewRequestOverlay,
-} from "../../src/ui/NewRequestOverlay"
+} from "../../src/ui/overlays/NewRequestOverlay"
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()

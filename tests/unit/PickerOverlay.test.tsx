@@ -8,7 +8,7 @@ import {
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
-import { PickerOverlay } from "../../src/ui/PickerOverlay"
+import { PickerOverlay } from "../../src/ui/overlays/PickerOverlay"
 
 function setupKeymap() {
   const { keymap, host, cleanup: hostCleanup } = createTestKeymap()

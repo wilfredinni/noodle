@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import { TextAttributes } from "@opentui/core"
 import { PickerOverlay } from "./PickerOverlay"
-import { useTheme } from "./theme"
+import { useTheme } from "../theme"
 
 export interface CommandItem {
   id: string

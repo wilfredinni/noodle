@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { ThemeProvider } from "../../src/ui/theme"
-import { HelpOverlay } from "../../src/ui/HelpOverlay"
+import { HelpOverlay } from "../../src/ui/overlays/HelpOverlay"
 import { bindingDefaults } from "../../src/ui/keybind"
 
 describe("HelpOverlay", () => {

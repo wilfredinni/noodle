@@ -1,6 +1,6 @@
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
-import type { CommandItem } from "./CommandPaletteOverlay"
+import type { CommandItem } from "./overlays/CommandPaletteOverlay"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { Focus } from "./focus"

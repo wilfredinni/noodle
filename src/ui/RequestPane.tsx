@@ -28,7 +28,7 @@ import { FormEditor } from "./FormEditor"
 import { ValidationNotice } from "./editor/ValidationNotice"
 import type { BodyType } from "../schema"
 import { validateJsonContent } from "./jsonValidation"
-import { getEnvVarHighlights } from "./variableCompletion"
+import { getEnvVarHighlights } from "./variable-completion/variableCompletion"
 
 interface Props {
   request: Request | null

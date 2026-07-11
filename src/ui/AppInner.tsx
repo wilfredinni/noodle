@@ -18,9 +18,9 @@ import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import { type Focus } from "./focus"
-import { type NewRequestOverlayHandle } from "./NewRequestOverlay"
-import { type CloneRequestOverlayHandle } from "./CloneRequestOverlay"
-import { type NewFolderOverlayHandle } from "./NewFolderOverlay"
+import { type NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
+import { type CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
+import { type NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
@@ -46,7 +46,7 @@ import {
 } from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
-import { VariableCompletionInterceptor } from "./variableCompletionInterceptor"
+import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 
 export function AppInner({
   collectionDir,
