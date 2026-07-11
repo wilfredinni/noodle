@@ -124,6 +124,22 @@ describe("formatBody", () => {
   it("returns empty string for empty body", () => {
     expect(formatBody(makeRes({ body: "" }))).toBe("")
   })
+
+  it("replaces body-parser JSON stack traces with a helpful message", () => {
+    const body = `SyntaxError: Unexpected token h in JSON at position 99
+    at JSON.parse (<anonymous>)
+    at parse (/app/node_modules/body-parser/lib/types/json.js:89:19)`
+    expect(formatBody(makeRes({ body }))).toBe(
+      "The server rejected the request because the submitted JSON is invalid.\n" +
+        "Details: Unexpected token h in JSON at position 99",
+    )
+  })
+
+  it("does not rewrite unrelated error bodies", () => {
+    expect(formatBody(makeRes({ body: "SyntaxError: invalid input" }))).toBe(
+      "SyntaxError: invalid input",
+    )
+  })
   it("pretty-prints when content-type is json even if body is already formatted", () => {
     const res = makeRes({
       headers: { "content-type": "application/json; charset=utf-8" },

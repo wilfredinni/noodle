@@ -8,6 +8,9 @@ import { Overlay } from "./Overlay"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import { ValidationNotice } from "./ValidationNotice"
 import { lang } from "../lang"
+import type { Environment } from "../schema"
+import { CodeEditorCompletion } from "./CodeEditorCompletion"
+import { getEnvVarHighlights } from "./variableCompletion"
 
 const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 
@@ -17,6 +20,7 @@ export interface YamlEditorOverlayProps {
   requestName: string
   onSaved: () => void
   onClose: () => void
+  activeEnv?: Environment | null
 }
 
 export function YamlEditorOverlay({
@@ -25,10 +29,13 @@ export function YamlEditorOverlay({
   requestName,
   onSaved,
   onClose,
+  activeEnv = null,
 }: YamlEditorOverlayProps) {
   const theme = useTheme()
   const keymap = useKeymap()
   const editorRef = useRef<CodeEditorRenderable | null>(null)
+  const [editorInstance, setEditorInstance] =
+    useState<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [draftContent, setDraftContent] = useState<string | null>(null)
@@ -106,6 +113,20 @@ export function YamlEditorOverlay({
     const editor = editorRef.current
     if (editor) setDraftContent(editor.plainText)
   }, [])
+
+  const extraHighlights = useCallback(
+    (value: string) => {
+      const editor = editorRef.current
+      if (!editor || !activeEnv) return []
+      return getEnvVarHighlights(
+        value,
+        activeEnv,
+        editor.envResolvedStyleId,
+        editor.envMissingStyleId,
+      )
+    },
+    [activeEnv],
+  )
 
   const validationNotice = useMemo(() => {
     if (draftContent === null) return null
@@ -212,10 +233,14 @@ export function YamlEditorOverlay({
             width="100%"
           >
             <code-editor
-              ref={editorRef}
+              ref={(editor) => {
+                editorRef.current = editor
+                setEditorInstance(editor)
+              }}
               filetype="yaml"
               theme={theme}
               initialValue={content}
+              extraHighlights={activeEnv ? extraHighlights : undefined}
               validateContent={validateContent}
               onContentChange={handleContentChange}
               onFoldsChange={handleFoldsChange}
@@ -225,6 +250,12 @@ export function YamlEditorOverlay({
               cursorColor={theme.primary}
             />
           </line-number>
+          <CodeEditorCompletion
+            editor={editorInstance}
+            env={activeEnv}
+            isEditing
+            value={draftContent ?? content ?? ""}
+          />
           {validationNotice && (
             <ValidationNotice
               title={validationNotice.title}

@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef } from "react"
 import { SyntaxStyle } from "@opentui/core"
-import type { TextareaRenderable, LineNumberRenderable } from "@opentui/core"
+import type { TextareaRenderable } from "@opentui/core"
 import type { Theme } from "../ui/theme-data"
 import { highlightJsonTokens } from "../ui/syntax"
 import type { Environment } from "../schema"
+import {
+  buildCharToDisplayOffsets,
+  charOffsetToDisplayOffset,
+} from "../ui/highlightOffsets"
 
 function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
   return SyntaxStyle.fromStyles({
@@ -38,79 +41,38 @@ export function highlightTextarea(
   textarea.clearAllHighlights()
   textarea.syntaxStyle = style
 
-  try {
-    JSON.parse(content)
-    if (content.length <= 100_000) {
-      const tokens = highlightJsonTokens(content, theme)
-      for (const token of tokens) {
-        const styleId = styleIdForFg(token.fg, theme, style)
-        textarea.addHighlightByCharRange({
-          start: token.offset,
-          end: token.offset + token.text.length,
-          styleId,
-          priority: 1,
-        })
-      }
+  if (content.length <= 100_000) {
+    const tokens = highlightJsonTokens(content, theme)
+    for (const token of tokens) {
+      const styleId = styleIdForFg(token.fg, theme, style)
+      textarea.addHighlightByCharRange({
+        start: token.offset,
+        end: token.offset + token.text.length,
+        styleId,
+        priority: 1,
+      })
     }
-  } catch {
-    // not valid JSON — still add $var highlights below
   }
 
   if (env) {
     const varRe = /\$\w+/g
+    const displayOffsets = buildCharToDisplayOffsets(content)
     let match: RegExpExecArray | null
     while ((match = varRe.exec(content)) !== null) {
       const varName = match[0].slice(1)
-      const exists = varName in env.vars
+      const exists = Object.hasOwn(env.vars, varName)
       const styleId = exists
         ? style.getStyleId("env.resolved")!
         : style.getStyleId("env.missing")!
       textarea.addHighlightByCharRange({
-        start: match.index,
-        end: match.index + match[0].length,
+        start: charOffsetToDisplayOffset(displayOffsets, match.index),
+        end: charOffsetToDisplayOffset(
+          displayOffsets,
+          match.index + match[0].length,
+        ),
         styleId,
         priority: 2,
       })
     }
   }
-}
-
-export interface JsonValidation {
-  valid: boolean
-}
-
-const DEBOUNCE_MS = 150
-
-export function useJsonHighlight(
-  textareaRef: { current: TextareaRenderable | null },
-  _lineNumberRef: { current: LineNumberRenderable | null },
-  theme: Theme,
-  setEditValue: (v: string) => void,
-): {
-  validation: JsonValidation
-  handleContentChange: () => void
-} {
-  const timeoutRef = useRef<Timer | null>(null)
-
-  const handleContentChange = useCallback(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    timeoutRef.current = setTimeout(() => {
-      const ta = textareaRef.current
-      if (!ta) return
-      const content = ta.plainText
-      setEditValue(content)
-      highlightTextarea(ta, content, theme)
-    }, DEBOUNCE_MS)
-  }, [textareaRef, theme, setEditValue])
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [])
-
-  return { validation: { valid: true }, handleContentChange }
 }

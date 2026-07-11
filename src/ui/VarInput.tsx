@@ -1,8 +1,27 @@
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react"
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import type { InputRenderable, TextareaRenderable } from "@opentui/core"
+import {
+  createPortal,
+  useRenderer,
+  useTerminalDimensions,
+} from "@opentui/react"
 import { useTheme } from "./theme"
 import { VarText } from "./VarText"
 import type { Environment } from "../schema"
+import { highlightVariables } from "./variableHighlight"
+import { registerVariableCompletion } from "./variableCompletionInterceptor"
+import {
+  useVariableCompletion,
+  MAX_COMPLETION_VISIBLE,
+} from "./useVariableCompletion"
 
 export interface VarInputStyle {
   flexGrow?: number
@@ -27,6 +46,7 @@ export interface VarInputProps {
   focusedBackgroundColor?: string
   paddingX?: number
   style?: VarInputStyle
+  variableNames?: Iterable<string>
 }
 
 export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
@@ -44,6 +64,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       focusedBackgroundColor,
       paddingX,
       style,
+      variableNames,
     },
     ref,
   ) {
@@ -51,6 +72,30 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     const defaultColor = baseColor ?? theme.text
     const inputRef = useRef<InputRenderable | null>(null)
     const textareaRef = useRef<TextareaRenderable | null>(null)
+    const [completionDismissed, setCompletionDismissed] = useState(false)
+    const [completionIndex, setCompletionIndex] = useState(0)
+    const prevPrefixRef = useRef("")
+
+    const getEditable = useCallback(() => {
+      const editable = inputRef.current ?? textareaRef.current
+      return editable && !editable.isDestroyed ? editable : null
+    }, [])
+    const suggestionNames = useMemo(() => {
+      if (variableNames != null) return [...variableNames]
+      return Object.keys(env?.vars ?? {})
+    }, [variableNames, env?.vars])
+
+    const { completion, makeHandleKey } = useVariableCompletion({
+      getEditor: getEditable,
+      variableNames: suggestionNames,
+      value,
+      isEditing,
+    })
+
+    const applyHighlights = useCallback(() => {
+      const editable = getEditable()
+      if (editable) highlightVariables(editable, editable.plainText, theme, env)
+    }, [env, getEditable, theme])
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -61,47 +106,160 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
     const handleTextareaChange = useCallback(() => {
       const ta = textareaRef.current
-      if (ta) onChange?.(ta.plainText)
-    }, [onChange])
+      if (!ta) return
+      onChange?.(ta.plainText)
+      setCompletionDismissed(false)
+      applyHighlights()
+    }, [applyHighlights, onChange])
+
+    const handleInput = useCallback(
+      (nextValue: string) => {
+        onChange?.(nextValue)
+        setCompletionDismissed(false)
+        applyHighlights()
+      },
+      [applyHighlights, onChange],
+    )
+
+    useEffect(() => {
+      if (!isEditing) return
+      applyHighlights()
+    }, [applyHighlights, isEditing, value])
+
+    const handleCompletionKey = useMemo(
+      () =>
+        makeHandleKey({
+          completionDismissed,
+          completionIndex,
+          setCompletionIndex,
+          setCompletionDismissed,
+          onAccept: () => {
+            const editable = getEditable()
+            if (editable) {
+              const text = editable.plainText
+              onChange?.(text)
+              highlightVariables(editable, text, theme, env)
+            }
+          },
+        }),
+      [
+        completionDismissed,
+        completionIndex,
+        env,
+        getEditable,
+        makeHandleKey,
+        onChange,
+        theme,
+      ],
+    )
+
+    const { token, suggestions, isComplete } = completion
+
+    useEffect(() => {
+      const editable = getEditable()
+      if (
+        !isEditing ||
+        !editable?.focused ||
+        completionDismissed ||
+        !token ||
+        suggestions.length === 0 ||
+        isComplete
+      ) {
+        return
+      }
+      return registerVariableCompletion(handleCompletionKey)
+    }, [
+      completionDismissed,
+      getEditable,
+      handleCompletionKey,
+      isComplete,
+      isEditing,
+      suggestions.length,
+      token,
+    ])
+
+    useEffect(() => {
+      const prefix = token?.prefix ?? ""
+      if (prefix !== prevPrefixRef.current) {
+        setCompletionIndex(0)
+        prevPrefixRef.current = prefix
+      }
+    }, [token?.prefix])
+
+    const showCompletion =
+      isEditing &&
+      !completionDismissed &&
+      token &&
+      suggestions.length > 0 &&
+      !isComplete
 
     if (isEditing) {
       if (useTextarea) {
         return (
-          <textarea
-            ref={textareaRef}
-            initialValue={value}
-            placeholder={placeholder}
-            onContentChange={handleTextareaChange}
-            backgroundColor={backgroundColor ?? theme.backgroundPanel}
-            focusedBackgroundColor={
-              focusedBackgroundColor ?? theme.backgroundPanel
-            }
-            textColor={defaultColor}
-            cursorColor={theme.primary}
-            paddingX={paddingX}
-            focused
-          />
+          <box
+            style={{
+              flexGrow: style?.flexGrow,
+            }}
+          >
+            <textarea
+              ref={textareaRef}
+              initialValue={value}
+              placeholder={placeholder}
+              onContentChange={handleTextareaChange}
+              backgroundColor={backgroundColor ?? theme.backgroundPanel}
+              focusedBackgroundColor={
+                focusedBackgroundColor ?? theme.backgroundPanel
+              }
+              textColor={defaultColor}
+              cursorColor={theme.primary}
+              paddingX={paddingX}
+              focused
+            />
+            {showCompletion && (
+              <CompletionPopup
+                suggestions={suggestions}
+                completionIndex={completionIndex}
+                isEditing={isEditing}
+                getEditable={getEditable}
+                value={value}
+              />
+            )}
+          </box>
         )
       }
 
       return (
-        <input
-          ref={inputRef}
-          value={value}
-          placeholder={placeholder}
-          onInput={onChange}
-          focused={isFocused ?? false}
-          backgroundColor={backgroundColor}
-          focusedBackgroundColor={focusedBackgroundColor ?? theme.borderSubtle}
-          textColor={defaultColor}
-          cursorColor={theme.primary}
-          paddingX={paddingX}
+        <box
           style={{
             flexGrow: style?.flexGrow,
             flexShrink: style?.flexShrink,
             flexBasis: style?.flexBasis,
           }}
-        />
+        >
+          <input
+            ref={inputRef}
+            value={value}
+            placeholder={placeholder}
+            onInput={handleInput}
+            focused={isFocused ?? false}
+            backgroundColor={backgroundColor}
+            focusedBackgroundColor={
+              focusedBackgroundColor ?? theme.borderSubtle
+            }
+            textColor={defaultColor}
+            cursorColor={theme.primary}
+            paddingX={paddingX}
+          />
+          {showCompletion && (
+            <CompletionPopup
+              suggestions={suggestions}
+              completionIndex={completionIndex}
+              isEditing={isEditing}
+              getEditable={getEditable}
+              value={value}
+            />
+          )}
+        </box>
       )
     }
 
@@ -123,3 +281,94 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     )
   },
 )
+
+function CompletionPopup({
+  suggestions,
+  completionIndex,
+  isEditing,
+  getEditable,
+  value,
+}: {
+  suggestions: string[]
+  completionIndex: number
+  isEditing: boolean
+  getEditable: () => (InputRenderable | TextareaRenderable) | null
+  value: string
+}) {
+  const renderer = useRenderer()
+  const { width: terminalWidth, height: terminalHeight } =
+    useTerminalDimensions()
+  const theme = useTheme()
+  const [completionAnchor, setCompletionAnchor] = useState<{
+    x: number
+    y: number
+  } | null>(null)
+
+  useEffect(() => {
+    const editable = getEditable()
+    if (!isEditing || !editable) {
+      setCompletionAnchor((current) => (current === null ? current : null))
+      return
+    }
+    const cursor = editable.visualCursor
+    const visibleCount = Math.min(suggestions.length, MAX_COMPLETION_VISIBLE)
+    const menuHeight = visibleCount + 2
+    const menuWidth = 18
+    const rawX = editable.x + cursor.visualCol
+    const rawY = editable.y + cursor.visualRow + 1
+    const next = {
+      x: Math.max(0, Math.min(rawX, terminalWidth - menuWidth)),
+      y: Math.max(0, Math.min(rawY, terminalHeight - menuHeight)),
+    }
+    setCompletionAnchor((current) =>
+      current?.x === next.x && current?.y === next.y ? current : next,
+    )
+  }, [
+    getEditable,
+    isEditing,
+    suggestions.length,
+    terminalHeight,
+    terminalWidth,
+    value,
+  ])
+
+  if (!completionAnchor) {
+    return null
+  }
+
+  return createPortal(
+    <box
+      id="var-completion-menu"
+      style={{
+        position: "absolute",
+        top: completionAnchor.y,
+        left: completionAnchor.x,
+        zIndex: 10000,
+        flexDirection: "column",
+        flexShrink: 0,
+        minWidth: 16,
+        backgroundColor: theme.backgroundPanel,
+        paddingLeft: 1,
+        paddingRight: 1,
+      }}
+      borderStyle="single"
+      borderColor={theme.borderActive}
+    >
+      {suggestions.slice(0, MAX_COMPLETION_VISIBLE).map((name, index) => (
+        <box
+          key={name}
+          style={{
+            backgroundColor:
+              index === completionIndex ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={index === completionIndex ? theme.primary : theme.text}>
+            ${name}
+          </text>
+        </box>
+      ))}
+    </box>,
+    renderer.root,
+    null,
+  )
+}

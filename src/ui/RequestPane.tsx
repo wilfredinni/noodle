@@ -11,6 +11,7 @@ import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
 import type { CodeEditorRenderable } from "./CodeEditor"
+import { CodeEditorCompletion } from "./CodeEditorCompletion"
 
 import { CenterText } from "./CenterText"
 import { Tabs, type TabDef } from "./Tabs"
@@ -26,6 +27,8 @@ import { Select, type SelectItem } from "./Select"
 import { FormEditor } from "./FormEditor"
 import { ValidationNotice } from "./ValidationNotice"
 import type { BodyType } from "../schema"
+import { validateJsonContent } from "./jsonValidation"
+import { getEnvVarHighlights } from "./variableCompletion"
 
 interface Props {
   request: Request | null
@@ -422,42 +425,29 @@ function BodySection({
 
   const body = useMemo(() => formatBody(request.body), [request.body])
   const editorRef = useRef<CodeEditorRenderable | null>(null)
+  const [editorInstance, setEditorInstance] =
+    useState<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
 
   const extraHighlights = useCallback(
     (content: string): Highlight[] => {
       const ed = editorRef.current
       if (!activeEnv?.vars || !ed) return []
-      const resolvedId = ed.envResolvedStyleId
-      const missingId = ed.envMissingStyleId
-      const results: Highlight[] = []
-      const varRe = /\$\w+/g
-      let match: RegExpExecArray | null
-      while ((match = varRe.exec(content)) !== null) {
-        const varName = match[0].slice(1)
-        const exists = varName in activeEnv.vars
-        results.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          styleId: exists ? resolvedId : missingId,
-          priority: 2,
-        })
-      }
-      return results
+      return getEnvVarHighlights(
+        content,
+        activeEnv,
+        ed.envResolvedStyleId,
+        ed.envMissingStyleId,
+      )
     },
     [activeEnv],
   )
 
-  const validateContent = useCallback((content: string): string | null => {
-    if (content.trim() === "") return null
-    try {
-      JSON.parse(content)
-      return null
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      return `Invalid JSON: ${message}`
-    }
-  }, [])
+  const validateContent = useCallback(
+    (content: string): string | null =>
+      validateJsonContent(content, activeEnv ?? null),
+    [activeEnv],
+  )
 
   const handleContentChange = useCallback(() => {
     const ed = editorRef.current
@@ -477,18 +467,13 @@ function BodySection({
 
   const validationNotice = useMemo(() => {
     if (!editingBody || isFormMode || isBinaryMode) return null
-    if (editValue.trim() === "") return null
-    try {
-      JSON.parse(editValue)
-      return null
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      return {
-        title: "Invalid JSON",
-        detail: message,
-      }
+    const error = validateJsonContent(editValue, activeEnv ?? null)
+    if (!error) return null
+    return {
+      title: "Invalid JSON",
+      detail: error.replace(/^Invalid JSON:\s*/, ""),
     }
-  }, [editingBody, editValue, isBinaryMode, isFormMode])
+  }, [activeEnv, editingBody, editValue, isBinaryMode, isFormMode])
 
   useEffect(() => {
     if (editingBody && editorRef.current) {
@@ -545,7 +530,10 @@ function BodySection({
               width="100%"
             >
               <code-editor
-                ref={editorRef}
+                ref={(editor) => {
+                  editorRef.current = editor
+                  setEditorInstance(editor)
+                }}
                 filetype="json"
                 theme={theme}
                 initialValue={formatBody(editValue)}
@@ -559,6 +547,12 @@ function BodySection({
                 cursorColor={theme.primary}
               />
             </line-number>
+            <CodeEditorCompletion
+              editor={editorInstance}
+              env={activeEnv ?? null}
+              isEditing={editingBody}
+              value={editValue}
+            />
             {validationNotice && (
               <ValidationNotice
                 title={validationNotice.title}

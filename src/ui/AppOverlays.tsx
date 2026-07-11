@@ -190,6 +190,7 @@ export function AppOverlays({
           visible
           filePath={yamlEditor.filePath}
           requestName={yamlEditor.requestName}
+          activeEnv={activeEnv}
           onSaved={() => {
             resetRequestDraft(yamlEditor.requestId)
             setCollectionReloadToken((n) => n + 1)
@@ -250,14 +251,14 @@ export function AppOverlays({
         <ConfirmOverlay
           visible
           message={`Delete folder "${folderDeletePending}" and all requests inside?`}
-          selectedIndex={0}
+          selectedIndex={deleteConfirmSelection}
         />
       )}
       {requestDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete "${requestDeletePending}"?`}
-          selectedIndex={0}
+          selectedIndex={deleteConfirmSelection}
         />
       )}
     </>

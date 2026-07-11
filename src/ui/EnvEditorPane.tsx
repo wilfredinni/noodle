@@ -14,7 +14,6 @@ export function EnvEditorPane({
   setEditValue,
   saving,
   error,
-  activeEnv,
   focused: _focused,
 }: {
   draft: EnvDraft | null
@@ -25,7 +24,6 @@ export function EnvEditorPane({
   setEditValue: (v: string) => void
   saving: boolean
   error: string | null
-  activeEnv: Environment | null
   focused: boolean
 }) {
   const theme = useTheme()
@@ -63,6 +61,17 @@ export function EnvEditorPane({
   const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
 
   const rows = draft.varRows
+  const variableNames = rows
+    .filter((row) => row.enabled && row.key !== "")
+    .map((row) => row.key)
+  const draftEnv: Environment = {
+    name: draft.name,
+    vars: Object.fromEntries(
+      rows
+        .filter((row) => row.enabled && row.key !== "")
+        .map((row) => [row.key, row.value]),
+    ),
+  }
   const inEdit = editState.mode === "editing"
   const inBrowse = editState.mode === "browsing"
   const editingRow = inEdit && !editState.addingRow ? editState.editingRow : -1
@@ -121,7 +130,7 @@ export function EnvEditorPane({
               <Checkbox checked={row.enabled} theme={theme} />
               <VarInput
                 value={isEditingThisRow ? editKey : row.key}
-                env={activeEnv}
+                env={draftEnv}
                 isEditing={isEditingThisRow}
                 onChange={setEditKey}
                 isFocused={isEditingThisRow && editState.subfield === "key"}
@@ -131,10 +140,11 @@ export function EnvEditorPane({
                 }
                 focusedBackgroundColor={theme.borderSubtle}
                 style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+                variableNames={variableNames}
               />
               <VarInput
                 value={isEditingThisRow ? editValue : row.value}
-                env={activeEnv}
+                env={draftEnv}
                 isEditing={isEditingThisRow}
                 onChange={setEditValue}
                 isFocused={isEditingThisRow && editState.subfield === "value"}
@@ -144,6 +154,7 @@ export function EnvEditorPane({
                 }
                 focusedBackgroundColor={theme.borderSubtle}
                 style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+                variableNames={variableNames}
               />
             </box>
           )
@@ -164,7 +175,7 @@ export function EnvEditorPane({
           <Checkbox checked={false} theme={theme} />
           <VarInput
             value={editingAdd ? editKey : ""}
-            env={activeEnv}
+            env={draftEnv}
             isEditing={editingAdd}
             onChange={setEditKey}
             isFocused={editingAdd && editState.subfield === "key"}
@@ -176,10 +187,11 @@ export function EnvEditorPane({
             backgroundColor={editingAdd ? theme.backgroundElement : undefined}
             focusedBackgroundColor={theme.borderSubtle}
             style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+            variableNames={variableNames}
           />
           <VarInput
             value={editingAdd ? editValue : ""}
-            env={activeEnv}
+            env={draftEnv}
             isEditing={editingAdd}
             onChange={setEditValue}
             isFocused={editingAdd && editState.subfield === "value"}
@@ -191,6 +203,7 @@ export function EnvEditorPane({
             backgroundColor={editingAdd ? theme.backgroundElement : undefined}
             focusedBackgroundColor={theme.borderSubtle}
             style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+            variableNames={variableNames}
           />
         </box>
       </scrollbox>

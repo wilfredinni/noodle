@@ -1,6 +1,6 @@
 name: Create Post
 method: POST
-url: $base_url/posts
+url: $base_url/posts/
 timeout: 0
 followRedirects: true
 maxRedirects: 5
@@ -9,6 +9,7 @@ headers:
   x-api-key: $x_api_key
 body: |-
   {
+    "url": "$base_url",
     "title": "My First Blog Post",
     "slug": "my-first-blog-post",
     "excerpt": "This is a brief excerpt of the blog post that gives readers a preview of the content that follows.",

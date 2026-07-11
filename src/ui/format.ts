@@ -33,15 +33,8 @@ export function formatHeaders(res: Response): HeaderEntry[] {
 
 export function formatBody(res: Response): string {
   if (res.body === "") return ""
-  const contentType = lookupContentType(res.headers)
-  const looksJson = contentType !== null && contentType.includes("json")
-  if (looksJson) {
-    try {
-      return JSON.stringify(JSON.parse(res.body), null, 2)
-    } catch {
-      return res.body
-    }
-  }
+  const jsonParseError = formatJsonParseErrorBody(res.body)
+  if (jsonParseError !== null) return jsonParseError
   try {
     return JSON.stringify(JSON.parse(res.body), null, 2)
   } catch {
@@ -49,9 +42,19 @@ export function formatBody(res: Response): string {
   }
 }
 
-function lookupContentType(headers: Record<string, string>): string | null {
-  for (const k of Object.keys(headers)) {
-    if (k.toLowerCase() === "content-type") return headers[k]
+function formatJsonParseErrorBody(body: string): string | null {
+  if (
+    !body.includes("body-parser/lib/types/json") ||
+    !body.includes("SyntaxError:")
+  ) {
+    return null
   }
-  return null
+
+  const detail = body.match(/SyntaxError:\s*([^\r\n]+)/)?.[1]?.trim()
+  return [
+    "The server rejected the request because the submitted JSON is invalid.",
+    detail ? `Details: ${detail}` : null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n")
 }

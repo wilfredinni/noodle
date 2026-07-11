@@ -79,7 +79,6 @@ export function EnvironmentEditorView({
           setEditValue={envEditor.setEditValue}
           saving={envEditor.saving}
           error={envEditor.error}
-          activeEnv={activeEnv}
           focused={focus === "env-vars"}
         />
       </box>

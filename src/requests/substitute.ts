@@ -10,7 +10,7 @@ export type SubstitutedRequest = Omit<Request, "headers" | "params"> & {
 export function substitute(req: Request, env: Environment): SubstitutedRequest {
   const resolve = (s: string, field: string): string =>
     s.replace(VAR_RE, (_, name) => {
-      if (!(name in env.vars)) {
+      if (!Object.hasOwn(env.vars, name)) {
         throw new Error(
           `requests.substitute: unresolved variable "${name}" in ${field}`,
         )
