@@ -7,11 +7,11 @@ Example collection on disk:
 ```
 my-collection/
 ├── settings.yml              ← { environment: "dev" }
-├── folder.yml                ← (root level, optional) root folder meta + overrides
+├── folder.yml                ← (root level, optional) root folder meta, headers, auth
 ├── list-users.yml            ← Request file: id = "list-users"
 ├── get-user.yml              ← Request file: id = "get-user"
 ├── auth/
-│   ├── folder.yml            ← { meta: { name: "Auth", seq: 1 }, overrides: { headers: [...] } }
+│   ├── folder.yml            ← { meta: { name: "Auth", seq: 1 }, headers: {...} }
 │   ├── login.yml             ← Request: id = "auth/login"
 │   └── refresh.yml           ← Request: id = "auth/refresh"
 ├── .environments/
@@ -55,14 +55,11 @@ Request IDs are their **relative path from collection root, minus the `.yml` ext
 meta:
   name: My Folder        # Display name (defaults to directory name)
   seq: 1                 # Sort order (lower = first, undefined = last)
-overrides:
-  headers:               # Merged additively: folder header only if request doesn't have same key
-    - name: X-API-Key
-      value: $API_KEY
-      enabled: true
-  auth:
-    type: bearer          # Used when request auth is "inherit"
-    token: $TOKEN
+headers:                 # Merged additively: folder header only if request doesn't have same key
+  X-API-Key: $API_KEY
+auth:
+  type: bearer          # Used when request auth is "inherit"
+  token: $TOKEN
 ```
 
 Folder overrides are resolved in `requests/mergeFolderOverrides.ts` — walks ancestor folders bottom-up.
