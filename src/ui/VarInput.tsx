@@ -166,7 +166,10 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           })
           return true
         } else if (key.name === "tab" || key.name === "return") {
-          const name = suggestions[completionIndex] ?? suggestions[0]!
+          const name =
+            suggestions[
+              Math.min(completionIndex, Math.min(suggestions.length, 10) - 1)
+            ] ?? suggestions[0]!
           const result = replaceVariableToken(editable.plainText, token, name)
           editable.replaceText(result.value)
           editable.cursorOffset = result.cursorOffset
