@@ -461,4 +461,97 @@ body_type: json`
     expect(frame).toContain("body:")
     expect(frame).not.toContain("title: hello")
   })
+
+  it("restores source text and highlights after YAML toggleFold unfolds the last fold", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `name: demo
+body:
+  title: hello
+  published: true`
+    const originalLineCount = content.split("\n").length
+
+    const { renderOnce } = await testRender(
+      <box width={80} height={10}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="yaml"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    expect(editor).toBeDefined()
+    computeFolds(editor!)
+
+    editor!.toggleFold(1)
+    await renderOnce()
+    expect(editor!.lineCount).toBeLessThan(originalLineCount)
+
+    editor!.toggleFold(1)
+    await renderOnce()
+    expect(editor!.lineCount).toBe(originalLineCount)
+    expect(editor!.plainText).toBe(content)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
+  it("restores source text and highlights after YAML unfoldAll", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `name: demo
+headers:
+  accept: application/json
+  x-enabled: true
+body:
+  title: hello
+  published: true`
+    const originalLineCount = content.split("\n").length
+
+    const { renderOnce } = await testRender(
+      <box width={80} height={10}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="yaml"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    expect(editor).toBeDefined()
+    computeFolds(editor!)
+
+    editor!.foldAll()
+    await renderOnce()
+    expect(editor!.lineCount).toBeLessThan(originalLineCount)
+
+    editor!.unfoldAll()
+    await renderOnce()
+    expect(editor!.lineCount).toBe(originalLineCount)
+    expect(editor!.plainText).toBe(content)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
 })
