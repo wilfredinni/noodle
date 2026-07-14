@@ -1,11 +1,5 @@
 export type Method =
-  | "GET"
-  | "POST"
-  | "PUT"
-  | "PATCH"
-  | "DELETE"
-  | "HEAD"
-  | "OPTIONS"
+  "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS"
 
 export type BodyType = "none" | "json" | "multipart" | "urlencoded" | "binary"
 
@@ -47,8 +41,7 @@ export interface Folder {
 }
 
 export type CollectionItem =
-  | { type: "request"; data: Request }
-  | { type: "folder"; data: Folder }
+  { type: "request"; data: Request } | { type: "folder"; data: Folder }
 
 export type Auth =
   | { type: "none" }

@@ -14,6 +14,7 @@ import {
 } from "../src/app/services"
 import { collection as collectionCommand } from "../src/app/commands/automation"
 import { env } from "../src/env"
+import { executor } from "../src/requests"
 
 let dir: string
 beforeEach(async () => {
@@ -108,9 +109,62 @@ describe("automation services", () => {
     expect(await readFile(join(dir, "bad.yml"), "utf8")).toBe(original)
   })
 
-  it("rejects traversal request IDs", () => {
-    expect(() => validateId("../secret")).toThrow(
-      'invalid request id "../secret"',
+  it("uses the collection default environment when running requests", async () => {
+    await writeFile(join(dir, "settings.yml"), "environment: development\n")
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: { BASE_URL: "https://example.com" },
+    })
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: $BASE_URL\n",
     )
+    const send = executor.send
+    executor.send = async (_request, environment) => {
+      expect(environment?.name).toBe("development")
+      expect(environment?.vars.BASE_URL).toBe("https://example.com")
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(dir)
+      expect(result.failed).toBe(false)
+      expect(result.results[0]).toMatchObject({
+        url: "https://example.com",
+        ok: true,
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("does not audit nested settings files as collection settings", async () => {
+    await mkdir(join(dir, "folder"))
+    await writeFile(join(dir, "settings.yml"), "{}\n")
+    await writeFile(join(dir, "folder", "settings.yml"), "environment: prod\n")
+    const result = await collectionAudit(dir, true)
+    expect(result.issues).toEqual([
+      {
+        path: "settings.yml",
+        kind: "settings",
+        message: "canonicalized",
+        fixed: true,
+      },
+    ])
+    expect(await readFile(join(dir, "folder", "settings.yml"), "utf8")).toBe(
+      "environment: prod\n",
+    )
+    expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe("{}\n")
+  })
+
+  it("rejects traversal, empty-segment, and hidden request IDs", () => {
+    for (const id of ["../secret", "nested/", "nested//request", ".hidden"]) {
+      expect(() => validateId(id)).toThrow(`invalid request id "${id}"`)
+    }
   })
 })

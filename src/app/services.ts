@@ -39,6 +39,8 @@ export function validateId(id: string): void {
     id.includes("\\")
   )
     throw new Error(`invalid request id "${id}"`)
+  if (id.split("/").some((segment) => !segment || segment.startsWith(".")))
+    throw new Error(`invalid request id "${id}"`)
 }
 export function validateCollectionName(name: string): void {
   if (
@@ -294,9 +296,10 @@ export async function collectionAudit(
       )
         await auditFile(file, root, fix, issues)
       else if (
-        entry.name === "settings.yml" ||
-        entry.name === "folder.yml" ||
-        entry.name.endsWith(".yml")
+        (entry.name === "settings.yml" &&
+          file === join(root, "settings.yml")) ||
+        (entry.name !== "settings.yml" &&
+          (entry.name === "folder.yml" || entry.name.endsWith(".yml")))
       )
         await auditFile(file, root, fix, issues)
     }
@@ -309,8 +312,9 @@ async function environmentFor(
   dir: string,
   name?: string,
 ): Promise<Environment | undefined> {
-  return name
-    ? env.loadEnvironment(join(dir, ".environments"), name)
+  const environmentName = name ?? (await loadSettings(dir)).environment
+  return environmentName
+    ? env.loadEnvironment(join(dir, ".environments"), environmentName)
     : undefined
 }
 async function runRequest(
