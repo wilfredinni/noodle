@@ -56,6 +56,7 @@ npx skills add wilfredinni/noodle --skill noodle-use -g
 ```
 
 Example prompts:
+
 - "Scaffold a noodle collection for the Stripe API with auth and a few endpoints"
 - "Audit my collection for security issues and REST best practices"
 - "Convert this Insomnia export to a noodle collection"
@@ -76,6 +77,18 @@ Import requests from OpenAPI 3.0 specs or Postman collections:
 
 ```bash
 bun run dev -- --source ./specs/api.yaml
+```
+
+## Automation CLI
+
+`noodle` without a subcommand remains the interactive TUI. Scripts can use the resource commands: `workspace list`, `collection create|list|inspect|audit|run`, `request create|run`, and `environment set`. Collection paths are filesystem paths; request IDs are collection-relative paths without `.yml`.
+
+Every non-interactive command accepts `--json` and emits exactly one `{ status, data, errors }` envelope. Successful commands exit 0; invalid input and failed runs exit nonzero. For example:
+
+```bash
+noodle collection create demo
+noodle request create users/list --url https://api.example.com/users --collection ./demo
+noodle collection run ./demo --json
 ```
 
 By default the imported collection is written to the `--collection` directory. Use `--output` to set a custom destination:
