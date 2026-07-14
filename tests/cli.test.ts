@@ -50,8 +50,10 @@ describe("update command", () => {
     expect(updateMeta?.description).toBeTruthy()
   })
 
-  it("has no required args", () => {
-    expect(updateCommand.args).toBeUndefined()
+  it("has optional JSON output", () => {
+    const args = updateCommand.args as ArgsDef | undefined
+    const json = args?.json as StringArgDef | undefined
+    expect(json?.required).not.toBe(true)
   })
 
   it("has run handler", () => {

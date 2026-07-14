@@ -48,11 +48,14 @@ export interface ImportOptions {
   source: string
   format?: string
   outputDir?: string
+  silent?: boolean
 }
 
 let _importersRegistered = false
 
-export async function runImport(options: ImportOptions): Promise<void> {
+export async function runImport(
+  options: ImportOptions,
+): Promise<{ path: string; name: string }> {
   if (!_importersRegistered) {
     const { openApiImporter } = await import("../converters/openapi/index")
     const { postmanImporter } = await import("../converters/postman/index")
@@ -66,28 +69,25 @@ export async function runImport(options: ImportOptions): Promise<void> {
     content = readFileSync(source, "utf-8")
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    process.stderr.write(`error: cannot read source file "${source}": ${msg}\n`)
-    process.exit(1)
+    throw new Error(`cannot read source file "${source}": ${msg}`, { cause: e })
   }
 
   let importerType = format
   if (!importerType) {
     const detected = detectFormat(content)
     if (!detected) {
-      process.stderr.write(
-        `error: cannot detect format of "${source}". Supported: ${supportedFormats().join(", ")}\n`,
+      throw new Error(
+        `cannot detect format of "${source}". Supported: ${supportedFormats().join(", ")}`,
       )
-      process.exit(1)
     }
     importerType = detected
   }
 
   const importer = getImporter(importerType)
   if (!importer) {
-    process.stderr.write(
-      `error: unknown import format "${importerType}". Supported: ${supportedFormats().join(", ")}\n`,
+    throw new Error(
+      `unknown import format "${importerType}". Supported: ${supportedFormats().join(", ")}`,
     )
-    process.exit(1)
   }
 
   let result: ImportResult
@@ -95,15 +95,11 @@ export async function runImport(options: ImportOptions): Promise<void> {
     result = importer.import(content)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    process.stderr.write(`error: ${msg}\n`)
-    process.exit(1)
+    throw new Error(msg, { cause: e })
   }
 
   if (result.collection.items.length === 0) {
-    process.stderr.write(
-      "error: nothing to import — spec contains no operations\n",
-    )
-    process.exit(1)
+    throw new Error("nothing to import — spec contains no operations")
   }
 
   const collDir = join(outputDir, result.collection.id)
@@ -112,8 +108,7 @@ export async function runImport(options: ImportOptions): Promise<void> {
     await writeCollection(collDir, result.collection)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    process.stderr.write(`error: failed to write collection: ${msg}\n`)
-    process.exit(1)
+    throw new Error(`failed to write collection: ${msg}`, { cause: e })
   }
 
   if (result.environments.length > 0) {
@@ -128,5 +123,7 @@ export async function runImport(options: ImportOptions): Promise<void> {
     }
   }
 
-  process.stdout.write(`Imported ${result.collection.name} → ${collDir}\n`)
+  if (!options.silent)
+    process.stdout.write(`Imported ${result.collection.name} → ${collDir}\n`)
+  return { path: collDir, name: result.collection.name }
 }
