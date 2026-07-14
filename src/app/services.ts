@@ -57,7 +57,34 @@ export function flattenRequests(items: CollectionItem[]): Request[] {
     item.type === "request" ? [item.data] : flattenRequests(item.data.children),
   )
 }
-export function collectionTree(items: CollectionItem[]): unknown[] {
+export type CollectionTreeItem =
+  | {
+      type: "request"
+      id: string
+      name: string
+      method: Request["method"]
+      url: string
+    }
+  | {
+      type: "folder"
+      path: string
+      name: string
+      children: CollectionTreeItem[]
+    }
+
+export interface CollectionListResult {
+  path: string
+  tree: CollectionTreeItem[]
+}
+export interface CollectionInspectResult {
+  path: string
+  requestCount: number
+  folderCount: number
+  environments: string[]
+  settings: { environment?: string }
+  tree: CollectionTreeItem[]
+}
+export function collectionTree(items: CollectionItem[]): CollectionTreeItem[] {
   return items.map((item) =>
     item.type === "request"
       ? {
@@ -133,7 +160,7 @@ async function requireCollectionRoot(path: string): Promise<string> {
 
 export async function collectionList(
   path: string,
-): Promise<{ path: string; tree: unknown[] }> {
+): Promise<CollectionListResult> {
   const absolutePath = resolve(path)
   if (!(await isCollectionRoot(absolutePath))) {
     return { path: absolutePath, tree: [] }
@@ -143,7 +170,7 @@ export async function collectionList(
 }
 export async function collectionInspect(
   path: string,
-): Promise<Record<string, unknown>> {
+): Promise<CollectionInspectResult> {
   const absolutePath = await requireCollectionRoot(path)
   const collection = await filestore.loadCollection(absolutePath)
   const requests = flattenRequests(collection.items)
@@ -165,7 +192,7 @@ export async function collectionInspect(
   }
 }
 
-interface AuditIssue {
+export interface AuditIssue {
   path: string
   kind: "request" | "folder" | "settings" | "environment"
   message: string
@@ -317,12 +344,32 @@ async function environmentFor(
     ? env.loadEnvironment(join(dir, ".environments"), environmentName)
     : undefined
 }
+export interface RequestRunResult {
+  id: string
+  method: Request["method"]
+  url: string
+  ok: boolean
+  response?: {
+    status: number
+    statusText: string
+    headers: Record<string, string>
+    body: string
+    timeMs: number
+  }
+  error?: string
+}
+export interface CollectionRunResult {
+  results: RequestRunResult[]
+  failed: boolean
+}
+export type RunProgress = (completed: number, total: number) => void
+
 async function runRequest(
   collection: Collection,
   dir: string,
   request: Request,
   environment?: Environment,
-): Promise<Record<string, unknown>> {
+): Promise<RequestRunResult> {
   try {
     const response = await executor.send(
       request,
@@ -358,13 +405,18 @@ async function runRequest(
 export async function collectionRun(
   path: string,
   environmentName?: string,
-): Promise<{ results: Record<string, unknown>[]; failed: boolean }> {
+  onProgress?: RunProgress,
+): Promise<CollectionRunResult> {
   const dir = await requireCollectionRoot(path)
   const collection = await filestore.loadCollection(dir)
   const environment = await environmentFor(dir, environmentName)
-  const results = []
-  for (const request of flattenRequests(collection.items))
+  const requests = flattenRequests(collection.items)
+  const results: RequestRunResult[] = []
+  onProgress?.(0, requests.length)
+  for (const request of requests) {
     results.push(await runRequest(collection, dir, request, environment))
+    onProgress?.(results.length, requests.length)
+  }
   return { results, failed: results.some((result) => result.ok === false) }
 }
 export async function requestCreate(
@@ -394,7 +446,8 @@ export async function requestRun(
   id: string,
   collectionDir: string,
   environmentName?: string,
-): Promise<{ result: Record<string, unknown>; failed: boolean }> {
+  onProgress?: RunProgress,
+): Promise<{ result: RequestRunResult; failed: boolean }> {
   validateId(id)
   const dir = await requireCollectionRoot(collectionDir)
   const collection = await filestore.loadCollection(dir)
@@ -402,12 +455,14 @@ export async function requestRun(
     (item) => item.id === id,
   )
   if (!request) throw new Error(`request not found: ${id}`)
+  onProgress?.(0, 1)
   const result = await runRequest(
     collection,
     dir,
     request,
     await environmentFor(dir, environmentName),
   )
+  onProgress?.(1, 1)
   return { result, failed: result.ok === false }
 }
 export async function environmentSet(

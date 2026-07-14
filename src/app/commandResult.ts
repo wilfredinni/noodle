@@ -3,9 +3,12 @@ export interface CommandResult<T> {
   failed?: boolean
 }
 
+export type HumanFormatter<T> = (data: T) => string
+
 export async function emitCommand<T>(
   json: boolean,
   action: () => Promise<CommandResult<T>>,
+  formatHuman?: HumanFormatter<T>,
 ): Promise<void> {
   try {
     const result = await action()
@@ -14,6 +17,7 @@ export async function emitCommand<T>(
       process.stdout.write(
         `${JSON.stringify({ status, data: result.data, errors: result.failed ? ["command failed"] : [] })}\n`,
       )
+    else if (formatHuman) process.stdout.write(`${formatHuman(result.data)}\n`)
     else
       process.stdout.write(
         `${result.failed ? "error: " : ""}${JSON.stringify(result.data, null, 2)}\n`,

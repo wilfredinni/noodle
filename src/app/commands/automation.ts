@@ -1,6 +1,18 @@
 import { defineCommand } from "citty"
 import { emitCommand } from "../commandResult"
 import {
+  createRunProgressReporter,
+  formatCollectionAudit,
+  formatCollectionCreate,
+  formatCollectionInspect,
+  formatCollectionList,
+  formatCollectionRun,
+  formatEnvironmentSet,
+  formatRequestCreate,
+  formatRequestRun,
+  formatWorkspaceList,
+} from "../humanOutput"
+import {
   collectionAudit,
   collectionCreate,
   collectionInspect,
@@ -40,7 +52,11 @@ const workspace = defineCommand({
       meta: { name: "list", description: "List registered collections" },
       args: { json: jsonArg },
       run: ({ args }) =>
-        emitCommand(args.json, async () => ({ data: await workspaceList() })),
+        emitCommand(
+          args.json,
+          async () => ({ data: await workspaceList() }),
+          formatWorkspaceList,
+        ),
     }),
   },
 })
@@ -61,25 +77,37 @@ const collection = defineCommand({
         json: jsonArg,
       },
       run: ({ args }) =>
-        emitCommand(args.json, async () => ({
-          data: await collectionCreate(args.name, args.output),
-        })),
+        emitCommand(
+          args.json,
+          async () => ({
+            data: await collectionCreate(args.name, args.output),
+          }),
+          formatCollectionCreate,
+        ),
     }),
     list: defineCommand({
       meta: { name: "list", description: "Print a collection tree" },
       args: { path: { type: "positional", required: true }, json: jsonArg },
       run: ({ args }) =>
-        emitCommand(args.json, async () => ({
-          data: await collectionList(args.path),
-        })),
+        emitCommand(
+          args.json,
+          async () => ({
+            data: await collectionList(args.path),
+          }),
+          formatCollectionList,
+        ),
     }),
     inspect: defineCommand({
       meta: { name: "inspect", description: "Inspect a collection" },
       args: { path: { type: "positional", required: true }, json: jsonArg },
       run: ({ args }) =>
-        emitCommand(args.json, async () => ({
-          data: await collectionInspect(args.path),
-        })),
+        emitCommand(
+          args.json,
+          async () => ({
+            data: await collectionInspect(args.path),
+          }),
+          formatCollectionInspect,
+        ),
     }),
     audit: defineCommand({
       meta: { name: "audit", description: "Validate all collection files" },
@@ -89,10 +117,14 @@ const collection = defineCommand({
         json: jsonArg,
       },
       run: ({ args }) =>
-        emitCommand(args.json, async () => {
-          const data = await collectionAudit(args.path, args.fix)
-          return { data, failed: !data.valid }
-        }),
+        emitCommand(
+          args.json,
+          async () => {
+            const data = await collectionAudit(args.path, args.fix)
+            return { data, failed: !data.valid }
+          },
+          formatCollectionAudit,
+        ),
     }),
     run: defineCommand({
       meta: { name: "run", description: "Run every request in a collection" },
@@ -102,10 +134,23 @@ const collection = defineCommand({
         json: jsonArg,
       },
       run: ({ args }) =>
-        emitCommand(args.json, async () => {
-          const data = await collectionRun(args.path, args.env)
-          return { data, failed: data.failed }
-        }),
+        emitCommand(
+          args.json,
+          async () => {
+            const progress = args.json ? undefined : createRunProgressReporter()
+            try {
+              const data = await collectionRun(
+                args.path,
+                args.env,
+                progress?.update,
+              )
+              return { data, failed: data.failed }
+            } finally {
+              progress?.finish()
+            }
+          },
+          formatCollectionRun,
+        ),
     }),
   },
 })
@@ -122,18 +167,22 @@ const request = defineCommand({
         json: jsonArg,
       },
       run: ({ args }) =>
-        emitCommand(args.json, async () => {
-          if (!methods.includes(args.method as Method))
-            throw new Error(`invalid HTTP method "${args.method}"`)
-          return {
-            data: await requestCreate(
-              args.id,
-              args.url,
-              args.method as Method,
-              args.collection,
-            ),
-          }
-        }),
+        emitCommand(
+          args.json,
+          async () => {
+            if (!methods.includes(args.method as Method))
+              throw new Error(`invalid HTTP method "${args.method}"`)
+            return {
+              data: await requestCreate(
+                args.id,
+                args.url,
+                args.method as Method,
+                args.collection,
+              ),
+            }
+          },
+          formatRequestCreate,
+        ),
     }),
     run: defineCommand({
       meta: { name: "run", description: "Run one request" },
@@ -144,10 +193,24 @@ const request = defineCommand({
         json: jsonArg,
       },
       run: ({ args }) =>
-        emitCommand(args.json, async () => {
-          const data = await requestRun(args.id, args.collection, args.env)
-          return { data, failed: data.failed }
-        }),
+        emitCommand(
+          args.json,
+          async () => {
+            const progress = args.json ? undefined : createRunProgressReporter()
+            try {
+              const data = await requestRun(
+                args.id,
+                args.collection,
+                args.env,
+                progress?.update,
+              )
+              return { data, failed: data.failed }
+            } finally {
+              progress?.finish()
+            }
+          },
+          formatRequestRun,
+        ),
     }),
   },
 })
@@ -164,14 +227,18 @@ const environment = defineCommand({
         json: jsonArg,
       },
       run: ({ args }) =>
-        emitCommand(args.json, async () => ({
-          data: await environmentSet(
-            args.key,
-            args.value,
-            args.env,
-            args.collection,
-          ),
-        })),
+        emitCommand(
+          args.json,
+          async () => ({
+            data: await environmentSet(
+              args.key,
+              args.value,
+              args.env,
+              args.collection,
+            ),
+          }),
+          formatEnvironmentSet,
+        ),
     }),
   },
 })

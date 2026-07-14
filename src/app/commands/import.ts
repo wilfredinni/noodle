@@ -1,5 +1,6 @@
 import { defineCommand } from "citty"
 import { emitCommand } from "../commandResult"
+import { formatImport } from "../humanOutput"
 
 export default defineCommand({
   meta: {
@@ -41,13 +42,17 @@ export default defineCommand({
           silent: true,
         }),
       }))
-    await emitCommand(false, async () => ({
-      data: await runImport({
-        source: args.source,
-        format: args.format,
-        outputDir: args.output,
-        silent: true,
+    await emitCommand(
+      false,
+      async () => ({
+        data: await runImport({
+          source: args.source,
+          format: args.format,
+          outputDir: args.output,
+          silent: true,
+        }),
       }),
-    }))
+      formatImport,
+    )
   },
 })

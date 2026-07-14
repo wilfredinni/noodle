@@ -143,6 +143,34 @@ describe("automation services", () => {
     }
   })
 
+  it("reports run progress before and after each collection request", async () => {
+    await writeFile(join(dir, "settings.yml"), "{}\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "",
+      timeMs: 1,
+    })
+    const progress: Array<[number, number]> = []
+    try {
+      await collectionRun(dir, undefined, (completed, total) =>
+        progress.push([completed, total]),
+      )
+      expect(progress).toEqual([
+        [0, 1],
+        [1, 1],
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
   it("does not audit nested settings files as collection settings", async () => {
     await mkdir(join(dir, "folder"))
     await writeFile(join(dir, "settings.yml"), "{}\n")
