@@ -1,7 +1,6 @@
 name: Update Comment
 method: PATCH
 url: $base_url/comments/1
-body_type: json
 timeout: 0
 followRedirects: true
 maxRedirects: 5
@@ -11,3 +10,4 @@ body: |-
   {
     "name": "updated comment"
   }
+body_type: json

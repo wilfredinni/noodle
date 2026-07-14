@@ -1,7 +1,6 @@
 name: Create Photo
 method: POST
 url: $base_url/photos
-body_type: json
 timeout: 0
 followRedirects: true
 maxRedirects: 5
@@ -14,3 +13,4 @@ body: |-
     "url": "https://via.placeholder.com/600/92c952",
     "thumbnailUrl": "https://via.placeholder.com/150/92c952"
   }
+body_type: json

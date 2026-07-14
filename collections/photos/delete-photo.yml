@@ -1,7 +1,7 @@
 name: Delete Photo
 method: DELETE
 url: $base_url/photos/1
-body_type: none
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+body_type: none

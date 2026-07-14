@@ -1,7 +1,7 @@
 name: Get Album by ID
 method: GET
 url: $base_url/albums/1
-body_type: none
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+body_type: none

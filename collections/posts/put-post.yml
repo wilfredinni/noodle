@@ -4,7 +4,8 @@ url: $base_url/posts/$post_id
 timeout: 0
 followRedirects: true
 maxRedirects: 5
-body_type: json
+headers:
+  Content-Type: application/json
 body: |
   {
     "id": 1,
@@ -12,9 +13,4 @@ body: |
     "body": "replaced body",
     "userId": 1
   }
-headers:
-  Content-Type:
-    value: application/json
-    enabled: true
-auth:
-  type: none
+body_type: json
