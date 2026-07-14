@@ -4,17 +4,27 @@ Audit noodle collections for REST best practices, security issues, naming conven
 
 ## Audit process
 
-### Step 1: Load the entire collection
+### Step 1: Validate the collection format
+
+Run the built-in structural audit before the semantic review:
+
+```bash
+noodle collection audit <collection-dir> --json
+```
+
+Use `--fix` only when the user authorizes canonicalizing valid collection files. The audit validates noodle file formats; it does not replace the security and REST-practice checks below.
+
+### Step 2: Load the entire collection
 
 Read every `.yml` file in the collection directory (recursively, excluding hidden dirs). Parse each file to extract its fields.
 
-### Step 2: Load all environments
+### Step 3: Load all environments
 
 Read every `.env` file in `.environments/`. Extract declared vars, disabled vars, and `_color`.
 
-### Step 3: Run each check below
+### Step 4: Run each check below
 
-### Step 4: Report findings with severity
+### Step 5: Report findings with severity
 
 Each finding gets: **severity** (critical / warning / info), **file**, **issue**, **suggestion**. Group by severity, then by file. Present as a readable list.
 

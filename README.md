@@ -81,17 +81,31 @@ bun run dev -- --source ./specs/api.yaml
 
 ## Automation CLI
 
-`noodle` without a subcommand remains the interactive TUI. Scripts can use the resource commands: `workspace list`, `collection create|list|inspect|audit|run`, `request create|run`, and `environment set`. Collection paths are filesystem paths; request IDs are collection-relative paths without `.yml`.
+`noodle` without a subcommand remains the interactive TUI. Use the automation commands in scripts and agent workflows; collection paths are filesystem paths and request IDs are collection-relative paths without `.yml`.
 
-Every non-interactive command accepts `--json` and emits exactly one `{ status, data, errors }` envelope. Successful commands exit 0; invalid input and failed runs exit nonzero. For example:
+| Command | Purpose |
+| --- | --- |
+| `workspace list` | List collections registered in Noodle's global config. |
+| `collection create <name> [-o <dir>]` | Create and register a starter collection. |
+| `collection list|inspect <path>` | Print a collection tree or its metadata, environments, and tree. |
+| `collection audit <path> [--fix]` | Validate collection files; `--fix` canonicalizes valid files. |
+| `collection run <path> [-e <env>]` | Run every request and fail if any request fails. |
+| `request create <id> --url <url> [--method <method>] [--collection <dir>]` | Create a minimal request. |
+| `request run <id> [--collection <dir>] [-e <env>]` | Run one request. |
+| `environment set <key> <value> --env <name> [--collection <dir>]` | Set and enable an existing environment variable. |
+
+Every automation command accepts `--json`, which emits exactly one `{ status, data, errors }` envelope. Successful commands exit 0; invalid input and failed runs exit nonzero. Run commands use `--env` when supplied, otherwise the environment named in the collection's `settings.yml`.
+
+Request IDs must be safe relative paths (for example `users/list`): no `.yml` suffix, traversal, empty path segments, or hidden segments. For example:
 
 ```bash
 noodle collection create demo
 noodle request create users/list --url https://api.example.com/users --collection ./demo
+noodle environment set base_url https://api.example.com --env development --collection ./demo
 noodle collection run ./demo --json
 ```
 
-By default the imported collection is written to the `--collection` directory. Use `--output` to set a custom destination:
+By default an imported collection is written beneath `./collections`. Use `--output` to set its parent directory:
 
 ```bash
 bun run dev -- --source ./specs/api.yaml --output ./my-collection

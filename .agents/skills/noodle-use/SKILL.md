@@ -1,17 +1,18 @@
 ---
 name: noodle-use
-description: Teach agents to create, organize, maintain, evaluate, import, and convert noodle terminal REST client collections via file-level operations on YAML and dotenv files.
+description: Teach agents to create, organize, maintain, evaluate, import, convert, and automate noodle terminal REST client collections using supported CLI commands plus YAML and dotenv files.
 ---
 
 # noodle-use
 
-Terminal REST client. YAML files on disk. Dotenv environments. File-level operations only — no Bun dependency.
+Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported non-interactive automation commands; use file-level operations for richer collection edits. No Bun dependency.
 
 ## Quick routing
 
 | Intent | Read |
 |--------|------|
 | Create new collection, request, folder, or environment | [workflows/create.md](workflows/create.md) |
+| Script collection discovery, validation, execution, or simple mutations | [workflows/automation.md](workflows/automation.md) |
 | Refactor, rename, restructure existing collection | [workflows/organize.md](workflows/organize.md) |
 | Audit collection for REST best practices and security | [workflows/evaluate.md](workflows/evaluate.md) |
 | Import from OpenAPI or Postman via CLI | [workflows/import.md](workflows/import.md) |
@@ -25,8 +26,8 @@ Terminal REST client. YAML files on disk. Dotenv environments. File-level operat
 
 These apply to ALL operations. Read before any workflow.
 
-### File-level only
-Operate on `.yml` and `.env` files directly. Do NOT import noodle's internal modules. Do NOT run `bun`. The ONLY allowed CLI invocation is `noodle import`. Never run `noodle` in TUI mode — that's for humans.
+### Non-interactive CLI first
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode — that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, and `import`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies/auth/headers/params, new environment files, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
 `$VARNAME` (no braces). Regex `/\$(\w+)/g`. Applied to: url, headers, params, body, formData, filePath, auth fields. Unresolved variables cause noodle to throw at runtime — always verify all `$var` references resolve to an env declaration.
@@ -60,7 +61,7 @@ auth:
 `settings.yml` at collection root: `environment: <name>` sets the default active environment. Single field only.
 
 ### Path safety
-When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, or backslashes.
+When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, backslashes, empty path segments, or hidden path segments.
 
 ### Authorization
 Auth types: `none`, `inherit`, `bearer`, `basic`, `api_key`.

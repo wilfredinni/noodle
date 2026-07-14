@@ -30,19 +30,29 @@ When asked to create a new collection:
 
 Ask the user where to create it. Default: `./collections`. If they say "a collection for the Stripe API", suggest `./stripe-api/`.
 
-### Step 2: Create the directory structure
+### Step 2: Create the starter collection
+
+Use the automation CLI when a starter collection is sufficient:
+
+```bash
+noodle collection create <name> --output <parent-dir> --json
+```
+
+It creates the collection, `settings.yml`, an empty `development` environment, an example request, and registers the absolute path. For a customized scaffold, create the files directly as described below.
+
+### Step 3: Create the directory structure
 
 ```bash
 mkdir -p <dir>/.environments
 ```
 
-### Step 3: Create settings.yml
+### Step 4: Create settings.yml
 
 ```yaml
 environment: development
 ```
 
-### Step 4: Create a default environment
+### Step 5: Create a default environment
 
 File: `<dir>/.environments/development.env`:
 ```
@@ -52,7 +62,7 @@ base_url=http://localhost:3000
 
 `base_url` is the standard name for the root API URL. Adjust based on the API being scaffolded.
 
-### Step 5: Register in noodle config
+### Step 6: Register in noodle config
 
 Write the absolute path to `~/.config/noodle/config.yml` so the collection appears in noodle's workspace switcher. Read the existing config, prepend the new path to `collections`, write back:
 
@@ -64,7 +74,7 @@ collections:
 
 If `collections` doesn't exist yet, create it with the new path. Paths must be absolute and resolved. See [config.md](reference/config.md) for the full config schema.
 
-### Step 6: Report what was created
+### Step 7: Report what was created
 
 List all files/dirs created so the user can verify.
 
@@ -149,6 +159,12 @@ mkdir -p <dir>/<folder-path>
 Write the YAML content to `<dir>/<folder-path>/<file-name>.yml`.
 
 ### Step 7: Ensure the env declares needed vars
+
+For an existing environment and a single variable, prefer:
+
+```bash
+noodle environment set <key> <value> --env <environment> --collection <dir> --json
+```
 
 If the request uses `$base_url` or other env vars, verify they exist in the active environment. If not, add them with placeholder values.
 

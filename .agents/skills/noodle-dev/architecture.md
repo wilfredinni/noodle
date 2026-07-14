@@ -328,11 +328,17 @@ createMain(main) — citty argparse
   │     ├── --env/-e
   │     └── run() → bootstrap(options) in main.tsx
   │
-  └── "import" → commands/import.ts
+  ├── "import" → commands/import.ts
         ├── source (positional, required)
         ├── --format/-i (auto-detect if omitted)
         ├── --output/-o (default: ./collections)
         └── run() → lazy-load importers, runImport(options)
+  │
+  └── "workspace" | "collection" | "request" | "environment"
+        └── commands/automation.ts → services.ts → filestore/env/executor
+              ├── non-interactive resource operations
+              ├── optional --json result envelope via commandResult.ts
+              └── collection/request run resolves --env, then settings.yml
 ```
 
 **Bootstrap** (`src/app/main.tsx`): Extracted `bootstrap()` function that:
@@ -342,6 +348,8 @@ createMain(main) — citty argparse
 - Mounts root React component
 
 **Import mode** (`src/app/import.ts`): Called via `import` subcommand. Lazy-loads importers on first call (reduces startup cost). Detects format, converts, writes output.
+
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, and setting existing environment variables. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
 **Config files** (read during startup):
 - `~/.config/noodle/keybinds.yml` — user keybinding overrides

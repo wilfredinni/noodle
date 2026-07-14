@@ -32,22 +32,28 @@ If the user doesn't specify a format:
 ### Step 3: Run the import
 
 ```bash
-noodle import <source-path> --format <openapi|postman> --output <target-dir>
+noodle import <source-path> --format <openapi|postman> --output <target-dir> --json
 ```
 
-The `--output` flag specifies where to write the collection. Defaults to `./collections` if omitted. Use a dedicated directory for the imported collection (e.g., `./my-api/`).
+The `--output` flag specifies the parent directory. Defaults to `./collections` if omitted. Read `data.path` from the JSON result; it is the created collection directory.
 
 ### Step 4: Verify the output
 
-Check what was created:
+Inspect the created collection with the automation CLI:
 
 ```bash
-ls -R <target-dir>/
+noodle collection inspect <data.path> --json
+```
+
+Its on-disk layout should resemble:
+
+```bash
+ls -R <data.path>/
 ```
 
 Expected structure:
 ```
-<target-dir>/
+<data.path>/
 ├── settings.yml
 ├── folder.yml                 (if root-level auth/headers were detected)
 ├── <resource>/                (one folder per tag/path group)
