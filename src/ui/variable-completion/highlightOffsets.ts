@@ -2,7 +2,7 @@ export function buildCharToDisplayOffsets(content: string): number[] {
   const offsets = new Array<number>(content.length + 1)
   let displayOffset = 0
 
-  for (let index = 0; index < content.length; ) {
+  for (let index = 0; index < content.length;) {
     offsets[index] = displayOffset
     const codePoint = content.codePointAt(index)
     if (codePoint === undefined) break

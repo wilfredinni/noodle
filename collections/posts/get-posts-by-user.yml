@@ -5,8 +5,6 @@ timeout: 0
 followRedirects: true
 maxRedirects: 5
 params:
-  userId: "1"
-headers: {}
-auth:
-  type: none
+  - name: userId
+    value: '1'
 body_type: none

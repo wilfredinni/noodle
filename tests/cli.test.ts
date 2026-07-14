@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
 import defaultCommand from "../src/app/commands/default"
@@ -50,8 +52,10 @@ describe("update command", () => {
     expect(updateMeta?.description).toBeTruthy()
   })
 
-  it("has no required args", () => {
-    expect(updateCommand.args).toBeUndefined()
+  it("has optional JSON output", () => {
+    const args = updateCommand.args as ArgsDef | undefined
+    const json = args?.json as StringArgDef | undefined
+    expect(json?.required).not.toBe(true)
   })
 
   it("has run handler", () => {
@@ -129,5 +133,49 @@ describe("CLI integration", () => {
     expect(proc.exitCode).not.toBe(0)
     const err = proc.stderr.toString()
     expect(err).toContain("SOURCE")
+  })
+
+  it("uses readable text by default and preserves the JSON envelope", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-output-"))
+    try {
+      await writeFile(join(dir, "settings.yml"), "{}\n")
+      await writeFile(
+        join(dir, "ping.yml"),
+        "name: Ping\nmethod: GET\nurl: https://example.com/ping\n",
+      )
+      const human = Bun.spawnSync(["bun", CLI, "collection", "list", dir])
+      expect(human.exitCode).toBe(0)
+      expect(human.stdout.toString()).toBe(
+        `Collection: ${dir}\n└─ GET Ping https://example.com/ping\n`,
+      )
+
+      const json = Bun.spawnSync([
+        "bun",
+        CLI,
+        "collection",
+        "list",
+        dir,
+        "--json",
+      ])
+      expect(json.exitCode).toBe(0)
+      expect(JSON.parse(json.stdout.toString())).toEqual({
+        status: "success",
+        data: {
+          path: dir,
+          tree: [
+            {
+              type: "request",
+              id: "ping",
+              name: "Ping",
+              method: "GET",
+              url: "https://example.com/ping",
+            },
+          ],
+        },
+        errors: [],
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

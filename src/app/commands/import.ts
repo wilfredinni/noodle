@@ -1,4 +1,6 @@
 import { defineCommand } from "citty"
+import { emitCommand } from "../commandResult"
+import { formatImport } from "../humanOutput"
 
 export default defineCommand({
   meta: {
@@ -23,13 +25,34 @@ export default defineCommand({
       default: "./collections",
       description: "Output directory",
     },
+    json: {
+      type: "boolean",
+      default: false,
+      description: "Write one JSON result envelope to stdout",
+    },
   },
   async run({ args }) {
     const { runImport } = await import("../import")
-    await runImport({
-      source: args.source,
-      format: args.format,
-      outputDir: args.output,
-    })
+    if (args.json)
+      return emitCommand(true, async () => ({
+        data: await runImport({
+          source: args.source,
+          format: args.format,
+          outputDir: args.output,
+          silent: true,
+        }),
+      }))
+    await emitCommand(
+      false,
+      async () => ({
+        data: await runImport({
+          source: args.source,
+          format: args.format,
+          outputDir: args.output,
+          silent: true,
+        }),
+      }),
+      formatImport,
+    )
   },
 })

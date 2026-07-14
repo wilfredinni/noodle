@@ -1,7 +1,6 @@
 name: Create Comment
 method: POST
 url: $base_url/comments
-body_type: json
 timeout: 0
 followRedirects: true
 maxRedirects: 5
@@ -14,3 +13,4 @@ body: |-
     "email": "test@example.com",
     "body": "comment body"
   }
+body_type: json

@@ -1,7 +1,6 @@
 name: Update Album
 method: PATCH
 url: $base_url/albums/1
-body_type: json
 timeout: 0
 followRedirects: true
 maxRedirects: 5
@@ -11,3 +10,4 @@ body: |-
   {
     "title": "updated album"
   }
+body_type: json

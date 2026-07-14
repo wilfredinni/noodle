@@ -1,10 +1,10 @@
 name: Update Post
 method: PATCH
 url: $base_url/posts/1
-body_type: json
 timeout: 0
 followRedirects: true
 maxRedirects: 5
 headers:
   Content-Type: application/json
 body: '{"title":"updated title"}'
+body_type: json

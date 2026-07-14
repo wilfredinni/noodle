@@ -542,7 +542,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     const sourceToDisplay = new Map<number, number>()
     const displayToSource = new Map<number, number>()
 
-    for (let sourceLine = 0; sourceLine < lines.length; ) {
+    for (let sourceLine = 0; sourceLine < lines.length;) {
       const displayLine = displayLines.length
       const fold = this._folds.get(sourceLine)
 

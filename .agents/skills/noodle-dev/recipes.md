@@ -228,6 +228,9 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 **Locate:**
 - `src/app/commands/default.ts` — citty `defineCommand` for TUI mode (args + run handler)
 - `src/app/commands/import.ts` — citty `defineCommand` for import subcommand
+- `src/app/commands/automation.ts` — citty resource-command definitions
+- `src/app/services.ts` — automation behavior; keep filesystem, environment, and executor work here
+- `src/app/commandResult.ts` — shared JSON-envelope and exit-code handling
 - `src/app/cli.ts` — main entry, defines subcommands
 - `src/app/main.tsx` — `bootstrap()` function, wires flags into app
 
@@ -237,7 +240,8 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 1. Add arg to the appropriate `defineCommand()` command definition
 2. For startup flags: pass to `bootstrap()` in command's `run()` handler
 3. Wire into app via `BootstrapOptions` in `src/app/main.tsx`
-4. If flag affects subcommand behavior: use in command's `run()` handler directly
+4. If a flag affects resource-command behavior: use it in the automation command handler and pass the work to `services.ts`
+5. Preserve `--json`'s one-envelope stdout contract; represent operational failures with a nonzero exit code
 
 **Test:** Add test in `tests/cli.test.ts`. Test command definition types and integration via `Bun.spawnSync`.
 

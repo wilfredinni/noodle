@@ -1,11 +1,5 @@
 export type FieldKind =
-  | "headers"
-  | "params"
-  | "body"
-  | "auth"
-  | "settings"
-  | "meta"
-  | "activity"
+  "headers" | "params" | "body" | "auth" | "settings" | "meta" | "activity"
 export type FolderFieldKind = "activity" | "meta" | "headers" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 

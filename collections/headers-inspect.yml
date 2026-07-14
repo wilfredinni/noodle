@@ -5,12 +5,6 @@ timeout: 0
 followRedirects: true
 maxRedirects: 5
 headers:
-  X-Custom-Header:
-    value: noodle-test
-    enabled: true
-  Accept-Language:
-    value: en-US
-    enabled: true
-auth:
-  type: none
+  X-Custom-Header: noodle-test
+  Accept-Language: en-US
 body_type: none

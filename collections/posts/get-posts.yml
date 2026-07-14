@@ -1,7 +1,7 @@
 name: Get Posts
 method: GET
 url: $base_url/posts
-body_type: none
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+body_type: none
