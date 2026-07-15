@@ -131,6 +131,8 @@ export interface CommandBuilderContext {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
+  setCollectionReloadToken: (fn: (n: number) => number) => void
+  onReloadCollection: () => void
 }
 
 function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
@@ -464,6 +466,15 @@ export function buildCommandPaletteCommands(
       run: () => {
         if (!openCollectionSwitcher(view)) return false
         setCollectionSwitcherVisible(true)
+        return true
+      },
+    },
+    {
+      id: "collection.reload",
+      label: "Reload Collection",
+      section: "System",
+      run: () => {
+        ctx.onReloadCollection()
         return true
       },
     },

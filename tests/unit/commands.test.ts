@@ -49,13 +49,15 @@ function minimalContext(): CommandBuilderContext {
     setPreviewIndexProp: () => {},
     setEnvDeletePending: () => {},
     setDeleteConfirmSelection: () => {},
+    setCollectionReloadToken: () => {},
+    onReloadCollection: () => {},
   }
 }
 
 describe("buildCommandPaletteCommands", () => {
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
-    expect(commands.length).toBe(19)
+    expect(commands.length).toBe(20)
     for (const cmd of commands) {
       expect(cmd.id).toBeTruthy()
       expect(cmd.label).toBeTruthy()
@@ -241,5 +243,18 @@ describe("buildCommandPaletteCommands", () => {
     const file = getEditRequestYamlFile(ctx)
     expect(file?.filePath).toBe("/tmp/collections/users/login.yml")
     expect(file?.requestName).toBe("Login")
+  })
+
+  it("collection.reload calls onReloadCollection", () => {
+    const ctx = minimalContext()
+    let reloaded = false
+    ctx.onReloadCollection = () => {
+      reloaded = true
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "collection.reload")!
+    const result = cmd.run()
+    expect(result).toBe(true)
+    expect(reloaded).toBe(true)
   })
 })

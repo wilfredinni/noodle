@@ -35,6 +35,7 @@ export function App({
   )
   const [activeCollectionDir, setActiveCollectionDir] =
     useState(initialCollectionDir)
+  const [reloadKey, setReloadKey] = useState(0)
   const [settingsEnv, setSettingsEnv] = useState<string | undefined>(
     initialSettingsEnv,
   )
@@ -116,6 +117,10 @@ export function App({
     [activeCollectionDir],
   )
 
+  const handleReloadCollection = useCallback(() => {
+    setReloadKey((k) => k + 1)
+  }, [])
+
   const handleCollectionChange = useCallback(
     async (nextDir: string) => {
       if (switchingRef.current) return
@@ -189,7 +194,7 @@ export function App({
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
       <Toast />
       <AppInner
-        key={activeCollectionDir}
+        key={`${activeCollectionDir}__${reloadKey}`}
         collectionDir={activeCollectionDir}
         environmentsDir={activeEnvironmentsDir}
         envNames={envNames}
@@ -209,6 +214,7 @@ export function App({
         initialLastRequestId={lastRequestId}
         collectionPaths={collectionPaths}
         onCollectionChange={handleCollectionChange}
+        onReloadCollection={handleReloadCollection}
       />
     </ThemeProvider>
   )

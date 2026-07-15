@@ -68,6 +68,7 @@ export function AppInner({
   initialLastRequestId,
   collectionPaths,
   onCollectionChange,
+  onReloadCollection,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -88,6 +89,7 @@ export function AppInner({
   initialLastRequestId?: string
   collectionPaths: string[]
   onCollectionChange: (collectionDir: string) => void
+  onReloadCollection: () => void
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -798,6 +800,8 @@ export function AppInner({
         setPreviewIndexProp,
         setEnvDeletePending,
         setDeleteConfirmSelection,
+        setCollectionReloadToken,
+        onReloadCollection,
       }),
     [
       keybinds,
@@ -805,6 +809,8 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
+      setCollectionReloadToken,
+      onReloadCollection,
       view,
     ],
   )
