@@ -29,6 +29,7 @@ import {
   togglePaneExpand,
   undoAll,
   openThemePicker,
+  openAbout,
   openCollectionSwitcher,
   type CommandActionsConfig,
 } from "./commandActions"
@@ -63,6 +64,7 @@ export interface CommandBuilderContext {
   ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setAboutVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -176,6 +178,7 @@ export function buildCommandPaletteCommands(
     getKeymapFocus,
     getView,
     setHelpVisible,
+    setAboutVisible,
     setPreviewIndexProp,
     setCollectionSwitcherVisible,
     setEnvDeletePending,
@@ -432,6 +435,15 @@ export function buildCommandPaletteCommands(
       run: () => {
         setHelpVisible((prev: boolean) => !prev)
         return true
+      },
+    },
+    {
+      id: "app.about",
+      label: "About Noodle",
+      section: "System",
+      run: () => {
+        setAboutVisible(true)
+        return openAbout()
       },
     },
     {

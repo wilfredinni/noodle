@@ -5,13 +5,7 @@
       "source": "anomalyco/opentui",
       "sourceType": "github",
       "skillPath": "packages/web/src/content/SKILL.md",
-      "computedHash": "1bdc3b78601e9a38acea372ad0ca6173b1fbe9fde315e5f13c7c52bf99789205"
-    },
-    "vercel-react-best-practices": {
-      "source": "vercel-labs/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/react-best-practices/SKILL.md",
-      "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
+      "computedHash": "91564dd09a740dde98c81e0668664d32c2ed77551c3139e3552d4906b8e3ecba"
     }
   }
 }

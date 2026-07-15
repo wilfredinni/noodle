@@ -1,5 +1,6 @@
 import type { RefObject } from "react"
 import { HelpOverlay } from "./overlays/HelpOverlay"
+import { AboutOverlay } from "./overlays/AboutOverlay"
 import { ConfirmOverlay } from "./overlays/ConfirmOverlay"
 import {
   CommandPaletteOverlay,
@@ -43,6 +44,7 @@ interface YamlEditorState {
 interface AppOverlaysProps {
   keybinds: Keybinds
   helpVisible: boolean
+  aboutVisible: boolean
   saveState: SaveState
   confirmSelection: number
   envDeletePending: string | null
@@ -90,6 +92,7 @@ interface AppOverlaysProps {
 export function AppOverlays({
   keybinds,
   helpVisible,
+  aboutVisible,
   saveState,
   confirmSelection,
   envDeletePending,
@@ -136,6 +139,7 @@ export function AppOverlays({
   return (
     <>
       {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
+      {aboutVisible && <AboutOverlay visible />}
       {saveState.kind === "confirming" && (
         <ConfirmOverlay
           visible

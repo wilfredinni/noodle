@@ -100,6 +100,7 @@ export function AppInner({
   const viewRef = useRef(view)
   viewRef.current = view
   const [helpVisible, setHelpVisible] = useState(false)
+  const [aboutVisible, setAboutVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
@@ -378,35 +379,38 @@ export function AppInner({
       ? "command-palette"
       : helpVisible
         ? "help"
-        : previewIndex !== null
-          ? "theme"
-          : saveState.kind === "confirming"
-            ? "confirm"
-            : undoAllPending
-              ? "undo-all"
-              : collectionSwitchPending !== null
-                ? "collection-switch-confirm"
-                : collectionSwitcherVisible
-                  ? "collection-switcher"
-                  : yamlEditor.visible
-                    ? "yaml-editor"
-                    : newRequestVisible
-                      ? "new-request"
-                      : editRequestVisible
-                        ? "edit-request"
-                        : cloneRequestVisible
-                          ? "clone-request"
-                          : newFolderVisible
-                            ? "new-folder"
-                            : folderDeletePending !== null
-                              ? "delete-folder"
-                              : requestDeletePending !== null
-                                ? "request-delete"
-                                : "none"
+        : aboutVisible
+          ? "about"
+          : previewIndex !== null
+            ? "theme"
+            : saveState.kind === "confirming"
+              ? "confirm"
+              : undoAllPending
+                ? "undo-all"
+                : collectionSwitchPending !== null
+                  ? "collection-switch-confirm"
+                  : collectionSwitcherVisible
+                    ? "collection-switcher"
+                    : yamlEditor.visible
+                      ? "yaml-editor"
+                      : newRequestVisible
+                        ? "new-request"
+                        : editRequestVisible
+                          ? "edit-request"
+                          : cloneRequestVisible
+                            ? "clone-request"
+                            : newFolderVisible
+                              ? "new-folder"
+                              : folderDeletePending !== null
+                                ? "delete-folder"
+                                : requestDeletePending !== null
+                                  ? "request-delete"
+                                  : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     commandPaletteVisible,
     helpVisible,
+    aboutVisible,
     previewIndex,
     saveState.kind,
     yamlEditor.visible,
@@ -693,6 +697,8 @@ export function AppInner({
     saveTimerRef,
     helpVisible,
     setHelpVisible,
+    aboutVisible,
+    setAboutVisible,
     view,
     setView,
     focusRef,
@@ -776,6 +782,7 @@ export function AppInner({
         setLayout,
         onLayoutChange,
         setHelpVisible,
+        setAboutVisible,
         setNewRequestVisible,
         setNewFolderVisible,
         setCloneRequestVisible,
@@ -866,6 +873,7 @@ export function AppInner({
         <AppOverlays
           keybinds={keybinds}
           helpVisible={helpVisible}
+          aboutVisible={aboutVisible}
           saveState={saveState}
           confirmSelection={confirmSelection}
           envDeletePending={envDeletePending}
