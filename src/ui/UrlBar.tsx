@@ -35,31 +35,41 @@ export function UrlBar({
   const [methodSelectOpen, setMethodSelectOpen] = useState(false)
   const prevFocused = useRef(focused)
   const initDisplayRef = useRef("")
+  const inputValueRef = useRef(inputValue)
+  inputValueRef.current = inputValue
 
   useEffect(() => {
     if (focused && !prevFocused.current) {
       const displayUrl = buildDisplayUrl(url, params)
       setInputValue(displayUrl)
+      inputValueRef.current = displayUrl
       initDisplayRef.current = displayUrl
     }
     if (!focused && prevFocused.current) {
       const displayUrl = buildDisplayUrl(url, params)
-      if (inputValue !== displayUrl) {
-        onDefocus(inputValue)
+      if (inputValueRef.current !== displayUrl) {
+        onDefocus(inputValueRef.current)
       }
     }
     prevFocused.current = focused
-  }, [focused])
+  }, [focused, onDefocus, params, url])
 
   useEffect(() => {
     if (!focused) {
       setInputValue(url)
+      inputValueRef.current = url
+    } else if (inputValueRef.current === initDisplayRef.current) {
+      const displayUrl = buildDisplayUrl(url, params)
+      setInputValue(displayUrl)
+      inputValueRef.current = displayUrl
+      initDisplayRef.current = displayUrl
     }
-  }, [url, focused])
+  }, [url, params, focused])
 
   const handleInput = useCallback(
     (val: string) => {
       setInputValue(val)
+      inputValueRef.current = val
       if (val === initDisplayRef.current) return
       setUrl(val)
     },
