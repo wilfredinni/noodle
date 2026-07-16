@@ -1,5 +1,6 @@
 import type { RefObject } from "react"
 import { HelpOverlay } from "./overlays/HelpOverlay"
+import { AboutOverlay } from "./overlays/AboutOverlay"
 import { ConfirmOverlay } from "./overlays/ConfirmOverlay"
 import {
   CommandPaletteOverlay,
@@ -20,7 +21,12 @@ import {
   NewFolderOverlay,
   type NewFolderOverlayHandle,
 } from "./overlays/NewFolderOverlay"
-import type { Environment, Request as NoodleRequest } from "../schema"
+import type {
+  Environment,
+  Request as NoodleRequest,
+  TimelineEntry,
+} from "../schema"
+import { TimelineDetailOverlay } from "./overlays/TimelineDetailOverlay"
 import type { Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
@@ -43,6 +49,7 @@ interface YamlEditorState {
 interface AppOverlaysProps {
   keybinds: Keybinds
   helpVisible: boolean
+  aboutVisible: boolean
   saveState: SaveState
   confirmSelection: number
   envDeletePending: string | null
@@ -85,11 +92,15 @@ interface AppOverlaysProps {
   newFolderRef: RefObject<NewFolderOverlayHandle | null>
   folderDeletePending: string | null
   requestDeletePending: string | null
+  timelineDetailEntry: TimelineEntry | null
+  setTimelineDetailEntry: (entry: TimelineEntry | null) => void
+  envColors: Record<string, string | undefined>
 }
 
 export function AppOverlays({
   keybinds,
   helpVisible,
+  aboutVisible,
   saveState,
   confirmSelection,
   envDeletePending,
@@ -132,10 +143,14 @@ export function AppOverlays({
   newFolderRef,
   folderDeletePending,
   requestDeletePending,
+  timelineDetailEntry,
+  setTimelineDetailEntry,
+  envColors,
 }: AppOverlaysProps) {
   return (
     <>
       {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
+      {aboutVisible && <AboutOverlay visible />}
       {saveState.kind === "confirming" && (
         <ConfirmOverlay
           visible
@@ -272,6 +287,14 @@ export function AppOverlays({
           visible
           message={`Delete "${requestDeletePending}"?`}
           selectedIndex={deleteConfirmSelection}
+        />
+      )}
+      {timelineDetailEntry !== null && (
+        <TimelineDetailOverlay
+          visible
+          entry={timelineDetailEntry}
+          onClose={() => setTimelineDetailEntry(null)}
+          envColors={envColors}
         />
       )}
     </>

@@ -682,6 +682,7 @@ export function useRequestDraft(
     authTypeCache.clear()
     bodyCache.clear()
     setMap(new Map())
+    setOriginalMap(new Map())
   }, [])
 
   const mapRef = useRef(map)

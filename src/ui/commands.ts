@@ -29,6 +29,7 @@ import {
   togglePaneExpand,
   undoAll,
   openThemePicker,
+  openAbout,
   openCollectionSwitcher,
   type CommandActionsConfig,
 } from "./commandActions"
@@ -63,6 +64,7 @@ export interface CommandBuilderContext {
   ) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setAboutVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -129,6 +131,7 @@ export interface CommandBuilderContext {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
+  onReloadCollection: () => void
 }
 
 function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
@@ -176,6 +179,7 @@ export function buildCommandPaletteCommands(
     getKeymapFocus,
     getView,
     setHelpVisible,
+    setAboutVisible,
     setPreviewIndexProp,
     setCollectionSwitcherVisible,
     setEnvDeletePending,
@@ -435,6 +439,15 @@ export function buildCommandPaletteCommands(
       },
     },
     {
+      id: "app.about",
+      label: "About Noodle",
+      section: "System",
+      run: () => {
+        setAboutVisible(true)
+        return openAbout()
+      },
+    },
+    {
       id: "app.theme",
       label: "Open Theme Picker",
       section: "System",
@@ -452,6 +465,15 @@ export function buildCommandPaletteCommands(
       run: () => {
         if (!openCollectionSwitcher(view)) return false
         setCollectionSwitcherVisible(true)
+        return true
+      },
+    },
+    {
+      id: "collection.reload",
+      label: "Reload Collection",
+      section: "System",
+      run: () => {
+        ctx.onReloadCollection()
         return true
       },
     },

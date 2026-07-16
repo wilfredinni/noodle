@@ -10,7 +10,7 @@ import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { deriveRequestParentFolder, getFolderPaths } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest, Method } from "../schema"
+import type { Request as NoodleRequest, Method, TimelineEntry } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -68,6 +68,7 @@ export function AppInner({
   initialLastRequestId,
   collectionPaths,
   onCollectionChange,
+  onReloadCollection,
 }: {
   collectionDir: string
   environmentsDir: string
@@ -88,6 +89,7 @@ export function AppInner({
   initialLastRequestId?: string
   collectionPaths: string[]
   onCollectionChange: (collectionDir: string) => void
+  onReloadCollection: () => void
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -100,6 +102,7 @@ export function AppInner({
   const viewRef = useRef(view)
   viewRef.current = view
   const [helpVisible, setHelpVisible] = useState(false)
+  const [aboutVisible, setAboutVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
@@ -150,6 +153,8 @@ export function AppInner({
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
+  const [timelineDetailEntry, setTimelineDetailEntry] =
+    useState<TimelineEntry | null>(null)
   const [collectionSwitcherVisible, setCollectionSwitcherVisible] =
     useState(false)
   const [collectionSwitchPending, setCollectionSwitchPending] = useState<
@@ -378,35 +383,40 @@ export function AppInner({
       ? "command-palette"
       : helpVisible
         ? "help"
-        : previewIndex !== null
-          ? "theme"
-          : saveState.kind === "confirming"
-            ? "confirm"
-            : undoAllPending
-              ? "undo-all"
-              : collectionSwitchPending !== null
-                ? "collection-switch-confirm"
-                : collectionSwitcherVisible
-                  ? "collection-switcher"
-                  : yamlEditor.visible
-                    ? "yaml-editor"
-                    : newRequestVisible
-                      ? "new-request"
-                      : editRequestVisible
-                        ? "edit-request"
-                        : cloneRequestVisible
-                          ? "clone-request"
-                          : newFolderVisible
-                            ? "new-folder"
-                            : folderDeletePending !== null
-                              ? "delete-folder"
-                              : requestDeletePending !== null
-                                ? "request-delete"
-                                : "none"
+        : aboutVisible
+          ? "about"
+          : previewIndex !== null
+            ? "theme"
+            : saveState.kind === "confirming"
+              ? "confirm"
+              : undoAllPending
+                ? "undo-all"
+                : collectionSwitchPending !== null
+                  ? "collection-switch-confirm"
+                  : collectionSwitcherVisible
+                    ? "collection-switcher"
+                    : yamlEditor.visible
+                      ? "yaml-editor"
+                      : newRequestVisible
+                        ? "new-request"
+                        : editRequestVisible
+                          ? "edit-request"
+                          : cloneRequestVisible
+                            ? "clone-request"
+                            : newFolderVisible
+                              ? "new-folder"
+                              : folderDeletePending !== null
+                                ? "delete-folder"
+                                : requestDeletePending !== null
+                                  ? "request-delete"
+                                  : timelineDetailEntry !== null
+                                    ? "timeline-detail"
+                                    : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     commandPaletteVisible,
     helpVisible,
+    aboutVisible,
     previewIndex,
     saveState.kind,
     yamlEditor.visible,
@@ -419,6 +429,7 @@ export function AppInner({
     undoAllPending,
     collectionSwitchPending,
     collectionSwitcherVisible,
+    timelineDetailEntry,
     keymap,
   ])
 
@@ -693,6 +704,8 @@ export function AppInner({
     saveTimerRef,
     helpVisible,
     setHelpVisible,
+    aboutVisible,
+    setAboutVisible,
     view,
     setView,
     focusRef,
@@ -776,6 +789,7 @@ export function AppInner({
         setLayout,
         onLayoutChange,
         setHelpVisible,
+        setAboutVisible,
         setNewRequestVisible,
         setNewFolderVisible,
         setCloneRequestVisible,
@@ -791,6 +805,7 @@ export function AppInner({
         setPreviewIndexProp,
         setEnvDeletePending,
         setDeleteConfirmSelection,
+        onReloadCollection,
       }),
     [
       keybinds,
@@ -798,6 +813,7 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
+      onReloadCollection,
       view,
     ],
   )
@@ -848,6 +864,7 @@ export function AppInner({
             timelineEntries={timeline.entries}
             initialResponseTab={initialResponseTab}
             onResponseTabChange={onResponseTabChange}
+            onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
             setSelectOpen={setSelectOpen}
             expandHint={expandHint}
           />
@@ -866,6 +883,7 @@ export function AppInner({
         <AppOverlays
           keybinds={keybinds}
           helpVisible={helpVisible}
+          aboutVisible={aboutVisible}
           saveState={saveState}
           confirmSelection={confirmSelection}
           envDeletePending={envDeletePending}
@@ -908,6 +926,9 @@ export function AppInner({
           newFolderRef={newFolderRef}
           folderDeletePending={folderDeletePending}
           requestDeletePending={requestDeletePending}
+          timelineDetailEntry={timelineDetailEntry}
+          setTimelineDetailEntry={setTimelineDetailEntry}
+          envColors={envColors}
         />
       </box>
       <StatusBar

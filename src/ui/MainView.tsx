@@ -34,6 +34,7 @@ interface MainViewProps {
   timelineEntries: import("../schema").TimelineEntry[]
   initialResponseTab?: import("./tabs/uiState").ResponseTabKind
   onResponseTabChange: (tab: import("./tabs/uiState").ResponseTabKind) => void
+  onOpenTimelineEntry?: (entry: import("../schema").TimelineEntry) => void
   setSelectOpen: (open: boolean) => void
   expandHint: string
 }
@@ -61,6 +62,7 @@ export function MainView({
   timelineEntries,
   initialResponseTab,
   onResponseTabChange,
+  onOpenTimelineEntry,
   setSelectOpen,
   expandHint,
 }: MainViewProps) {
@@ -119,6 +121,7 @@ export function MainView({
             timelineEntries={timelineEntries}
             initialResponseTab={initialResponseTab}
             onResponseTabChange={onResponseTabChange}
+            onOpenTimelineEntry={onOpenTimelineEntry}
             setSelectOpen={setSelectOpen}
             expandHint={expandHint}
           />

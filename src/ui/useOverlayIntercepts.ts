@@ -28,6 +28,8 @@ export function useOverlayIntercepts(opts: {
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
   helpVisible: boolean
   setHelpVisible: (v: boolean) => void
+  aboutVisible: boolean
+  setAboutVisible: (v: boolean) => void
   view: "main" | "env-editor"
   setView: (v: "main" | "env-editor") => void
   focusRef: RefObject<Focus>
@@ -93,6 +95,8 @@ export function useOverlayIntercepts(opts: {
     saveTimerRef,
     helpVisible,
     setHelpVisible,
+    aboutVisible,
+    setAboutVisible,
     view,
     setView,
     focusRef,
@@ -319,6 +323,23 @@ export function useOverlayIntercepts(opts: {
     )
     return dispose
   }, [helpVisible, keymap, setHelpVisible])
+
+  // ── Overlay: About ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!aboutVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setAboutVisible(false)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [aboutVisible, keymap, setAboutVisible])
 
   // ── Overlay: New Request ──────────────────────────────────────────
   useEffect(() => {

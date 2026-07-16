@@ -8,6 +8,9 @@ import {
   entrySize,
   entryIsError,
   buildTimelineEntry,
+  shortMethod,
+  formatRequestUrl,
+  authSummary,
 } from "../src/ui/timeline/formatTimeline"
 import type { TimelineEntry } from "../src/schema"
 
@@ -231,6 +234,80 @@ describe("entrySize", () => {
 
   it("returns null for error entries", () => {
     expect(entrySize(makeEntry({ error: { message: "fail" } }))).toBeNull()
+  })
+})
+
+describe("shortMethod", () => {
+  it("shortens DELETE and preserves other methods", () => {
+    expect(shortMethod("DELETE")).toBe("DEL")
+    expect(shortMethod("GET")).toBe("GET")
+    expect(shortMethod("PATCH")).toBe("PATCH")
+    expect(shortMethod("POST")).toBe("POST")
+  })
+})
+
+describe("formatRequestUrl", () => {
+  it("returns URL when no params are enabled", () => {
+    expect(
+      formatRequestUrl({
+        ...makeEntry(),
+        request: {
+          ...makeEntry().request,
+          params: [{ name: "skip", value: "x", enabled: false }],
+        },
+      }),
+    ).toBe("https://example.com")
+  })
+
+  it("appends enabled params and encodes values", () => {
+    expect(
+      formatRequestUrl({
+        ...makeEntry(),
+        request: {
+          ...makeEntry().request,
+          params: [
+            { name: "q", value: "hello world", enabled: true },
+            { name: "skip", value: "x", enabled: false },
+            { name: "tag", value: "a&b", enabled: true },
+          ],
+        },
+      }),
+    ).toBe("https://example.com?q=hello%20world&tag=a%26b")
+  })
+
+  it("uses ampersand when URL already has a query", () => {
+    expect(
+      formatRequestUrl({
+        ...makeEntry(),
+        request: {
+          ...makeEntry().request,
+          url: "https://example.com?existing=1",
+          params: [{ name: "next", value: "2", enabled: true }],
+        },
+      }),
+    ).toBe("https://example.com?existing=1&next=2")
+  })
+})
+
+describe("authSummary", () => {
+  it("summarizes supported auth types without exposing secrets", () => {
+    expect(authSummary(undefined)).toBeNull()
+    expect(authSummary({ type: "none" })).toBeNull()
+    expect(authSummary({ type: "inherit" })).toBeNull()
+    expect(authSummary({ type: "bearer", token: "secret" })).toBe(
+      "Bearer token",
+    )
+    expect(authSummary({ type: "basic", user: "alice", pass: "secret" })).toBe(
+      "Basic alice:****",
+    )
+    expect(
+      authSummary({
+        type: "api_key",
+        key: "X-API-Key",
+        value: "secret",
+        placement: "header",
+      }),
+    ).toBe("X-API-Key: ••••")
   })
 })
 

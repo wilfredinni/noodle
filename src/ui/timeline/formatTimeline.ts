@@ -104,3 +104,37 @@ export function entryTiming(entry: TimelineEntry): string {
 export function entryIsError(entry: TimelineEntry): boolean {
   return entry.error !== undefined
 }
+
+export function shortMethod(m: string): string {
+  return m === "DELETE" ? "DEL" : m
+}
+
+export function formatRequestHeaders(entry: TimelineEntry): string[] {
+  const lines: string[] = []
+  for (const [k, v] of Object.entries(entry.request.headers)) {
+    if (v.enabled) lines.push(`${k}: ${v.value}`)
+  }
+  return lines.sort()
+}
+
+export function formatRequestUrl(entry: TimelineEntry): string {
+  const u = entry.request.url
+  const params = entry.request.params
+  const enabled = params.filter((p) => p.enabled)
+  if (enabled.length === 0) return u
+  const qs = enabled
+    .map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+    .join("&")
+  if (u.includes("?")) return `${u}&${qs}`
+  return `${u}?${qs}`
+}
+
+export function authSummary(
+  auth: TimelineEntry["request"]["auth"],
+): string | null {
+  if (!auth || auth.type === "none") return null
+  if (auth.type === "bearer") return "Bearer token"
+  if (auth.type === "basic") return `Basic ${auth.user}:****`
+  if (auth.type === "api_key") return `${auth.key}: ••••`
+  return null
+}

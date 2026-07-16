@@ -20,6 +20,7 @@ interface RequestResponseViewProps {
   timelineEntries: TimelineEntry[]
   initialResponseTab?: ResponseTabKind
   onResponseTabChange: (tab: ResponseTabKind) => void
+  onOpenTimelineEntry?: (entry: TimelineEntry) => void
   setSelectOpen: (open: boolean) => void
   expandHint: string
 }
@@ -36,6 +37,7 @@ export function RequestResponseView({
   timelineEntries,
   initialResponseTab,
   onResponseTabChange,
+  onOpenTimelineEntry,
   setSelectOpen,
   expandHint,
 }: RequestResponseViewProps) {
@@ -67,6 +69,7 @@ export function RequestResponseView({
           timelineEntries={timelineEntries}
           initialTab={initialResponseTab}
           onTabChange={onResponseTabChange}
+          onOpenTimelineEntry={onOpenTimelineEntry}
           expandHint={expandHint}
         />
       )}

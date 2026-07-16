@@ -250,6 +250,10 @@ export function openThemePicker(): boolean {
   return true
 }
 
+export function openAbout(): boolean {
+  return true
+}
+
 export function openCollectionSwitcher(view: string): boolean {
   if (view === "env-editor") {
     showToast("Cannot switch collections from environment editor", "warning")

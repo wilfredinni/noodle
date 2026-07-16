@@ -16,8 +16,9 @@ export function useTimeline(
 ): UseTimelineResult {
   const [entries, setEntries] = useState<TimelineEntry[]>([])
   const [loading, setLoading] = useState(false)
-  const lastReqIdRef = useRef<string | undefined>(undefined)
+  const lastKeyRef = useRef("")
   const mountedRef = useRef(true)
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     mountedRef.current = true
@@ -45,16 +46,21 @@ export function useTimeline(
   }, [collectionDir, requestId])
 
   useEffect(() => {
-    if (requestId !== lastReqIdRef.current) {
-      lastReqIdRef.current = requestId
+    const key = `${collectionDir ?? ""}||${requestId ?? ""}`
+    if (key !== lastKeyRef.current) {
+      lastKeyRef.current = key
       doLoad()
     }
-  }, [requestId, doLoad])
+  }, [collectionDir, requestId, doLoad])
 
   const appendEntry = useCallback(
     async (entry: TimelineEntry) => {
       if (!collectionDir || !requestId) return
-      await saveTimelineEntry(collectionDir, requestId, entry, maxEntries)
+      const save = saveChainRef.current.then(() =>
+        saveTimelineEntry(collectionDir, requestId, entry, maxEntries),
+      )
+      saveChainRef.current = save.catch(() => {})
+      await save
       setEntries((prev) => {
         const next = [entry, ...prev]
         return next.length > maxEntries ? next.slice(0, maxEntries) : next

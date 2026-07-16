@@ -33,6 +33,7 @@ function minimalContext(): CommandBuilderContext {
     setLayout: () => {},
     onLayoutChange: () => {},
     setHelpVisible: () => {},
+    setAboutVisible: () => {},
     setNewRequestVisible: () => {},
     setNewFolderVisible: () => {},
     setCloneRequestVisible: () => {},
@@ -48,13 +49,14 @@ function minimalContext(): CommandBuilderContext {
     setPreviewIndexProp: () => {},
     setEnvDeletePending: () => {},
     setDeleteConfirmSelection: () => {},
+    onReloadCollection: () => {},
   }
 }
 
 describe("buildCommandPaletteCommands", () => {
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
-    expect(commands.length).toBe(18)
+    expect(commands.length).toBe(20)
     for (const cmd of commands) {
       expect(cmd.id).toBeTruthy()
       expect(cmd.label).toBeTruthy()
@@ -113,6 +115,18 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(ctx)
     const cmd = commands.find((c) => c.id === "collection.switcher")!
     cmd.run()
+    expect(opened).toBe(true)
+  })
+
+  it("app.about opens the about overlay", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.setAboutVisible = () => {
+      opened = true
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "app.about")!
+    expect(cmd.run()).toBe(true)
     expect(opened).toBe(true)
   })
 
@@ -228,5 +242,18 @@ describe("buildCommandPaletteCommands", () => {
     const file = getEditRequestYamlFile(ctx)
     expect(file?.filePath).toBe("/tmp/collections/users/login.yml")
     expect(file?.requestName).toBe("Login")
+  })
+
+  it("collection.reload calls onReloadCollection", () => {
+    const ctx = minimalContext()
+    let reloaded = false
+    ctx.onReloadCollection = () => {
+      reloaded = true
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "collection.reload")!
+    const result = cmd.run()
+    expect(result).toBe(true)
+    expect(reloaded).toBe(true)
   })
 })
