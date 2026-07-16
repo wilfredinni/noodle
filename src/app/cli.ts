@@ -4,6 +4,7 @@ import pkg from "../../package.json" with { type: "json" }
 import defaultCommand from "./commands/default"
 import importCommand from "./commands/import"
 import updateCommand from "./commands/update"
+import { getUserArgsStart } from "./argv"
 import {
   workspace,
   collection,
@@ -26,13 +27,7 @@ const KNOWN_SUBCOMMANDS = new Set([
   "environment",
 ])
 
-let userArgsStart = 1
-for (let i = 1; i < process.argv.length; i++) {
-  if (process.argv[i]!.endsWith(".ts")) {
-    userArgsStart = i + 1
-    break
-  }
-}
+const userArgsStart = getUserArgsStart(process.argv)
 const firstUserArg = process.argv[userArgsStart]
 
 function isTuiFlag(arg: string): boolean {
@@ -62,6 +57,8 @@ if (
 const main = defineCommand({
   meta: {
     name: "noodle",
+    description:
+      "Terminal REST client. Inspect, send, and iterate on HTTP requests.",
     version: pkg.version,
   },
   subCommands: {

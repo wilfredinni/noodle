@@ -7,6 +7,7 @@ import defaultCommand from "../src/app/commands/default"
 import importCommand from "../src/app/commands/import"
 import updateCommand from "../src/app/commands/update"
 import { classifyPath } from "../src/app/main"
+import { getUserArgsStart } from "../src/app/argv"
 
 const CLI = join(import.meta.dir, "../src/app/cli.ts")
 const defaultMeta = defaultCommand.meta as CommandMeta | undefined
@@ -96,6 +97,33 @@ describe("import command", () => {
 })
 
 describe("CLI integration", () => {
+  it("finds user args after source and compiled Bun entrypoints", () => {
+    expect(getUserArgsStart(["bun", "src/app/cli.ts", "--help"])).toBe(2)
+    expect(
+      getUserArgsStart(["./noodle", "/$bunfs/root/noodle", "--help"]),
+    ).toBe(2)
+    expect(getUserArgsStart(["./noodle", "--help"])).toBe(2)
+  })
+
+  it("works from a compiled Bun binary", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-compiled-"))
+    const binary = join(dir, "noodle")
+    try {
+      const build = Bun.spawnSync(
+        ["bun", "build", "--compile", CLI, "--outfile", binary],
+        { cwd: dir },
+      )
+      expect(build.exitCode).toBe(0)
+
+      const proc = Bun.spawnSync([binary, "--help"])
+      expect(proc.exitCode).toBe(0)
+      expect(proc.stdout.toString()).toContain("Terminal REST client")
+      expect(proc.stderr.toString()).not.toContain("Unknown command")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("shows available subcommands with --help", () => {
     const proc = Bun.spawnSync(["bun", CLI, "--help"], {})
     expect(proc.exitCode).toBe(0)
