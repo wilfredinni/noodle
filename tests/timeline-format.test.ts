@@ -10,7 +10,7 @@ import {
   buildTimelineEntry,
   shortMethod,
   formatRequestUrl,
-  authSummary,
+  maskedAuthHeader,
 } from "../src/ui/timeline/formatTimeline"
 import type { TimelineEntry } from "../src/schema"
 
@@ -289,25 +289,37 @@ describe("formatRequestUrl", () => {
   })
 })
 
-describe("authSummary", () => {
-  it("summarizes supported auth types without exposing secrets", () => {
-    expect(authSummary(undefined)).toBeNull()
-    expect(authSummary({ type: "none" })).toBeNull()
-    expect(authSummary({ type: "inherit" })).toBeNull()
-    expect(authSummary({ type: "bearer", token: "secret" })).toBe(
-      "Bearer token",
-    )
-    expect(authSummary({ type: "basic", user: "alice", pass: "secret" })).toBe(
-      "Basic alice:****",
-    )
+describe("maskedAuthHeader", () => {
+  it("returns masked header for supported auth types, null for none/inherit", () => {
+    expect(maskedAuthHeader(undefined)).toBeNull()
+    expect(maskedAuthHeader({ type: "none" })).toBeNull()
+    expect(maskedAuthHeader({ type: "inherit" })).toBeNull()
+    expect(maskedAuthHeader({ type: "bearer", token: "secret" })).toEqual({
+      key: "Authorization",
+      value: "Bearer ••••••••",
+    })
     expect(
-      authSummary({
+      maskedAuthHeader({ type: "basic", user: "alice", pass: "secret" }),
+    ).toEqual({
+      key: "Authorization",
+      value: "Basic ••••••••",
+    })
+    expect(
+      maskedAuthHeader({
         type: "api_key",
         key: "X-API-Key",
         value: "secret",
         placement: "header",
       }),
-    ).toBe("X-API-Key: ••••")
+    ).toEqual({ key: "X-API-Key", value: "••••••••" })
+    expect(
+      maskedAuthHeader({
+        type: "api_key",
+        key: "api_key",
+        value: "secret",
+        placement: "query",
+      }),
+    ).toBeNull()
   })
 })
 

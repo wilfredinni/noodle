@@ -109,14 +109,6 @@ export function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
 }
 
-export function formatRequestHeaders(entry: TimelineEntry): string[] {
-  const lines: string[] = []
-  for (const [k, v] of Object.entries(entry.request.headers)) {
-    if (v.enabled) lines.push(`${k}: ${v.value}`)
-  }
-  return lines.sort()
-}
-
 export function formatRequestUrl(entry: TimelineEntry): string {
   const u = entry.request.url
   const params = entry.request.params
@@ -129,12 +121,16 @@ export function formatRequestUrl(entry: TimelineEntry): string {
   return `${u}?${qs}`
 }
 
-export function authSummary(
+export function maskedAuthHeader(
   auth: TimelineEntry["request"]["auth"],
-): string | null {
-  if (!auth || auth.type === "none") return null
-  if (auth.type === "bearer") return "Bearer token"
-  if (auth.type === "basic") return `Basic ${auth.user}:****`
-  if (auth.type === "api_key") return `${auth.key}: ••••`
+): { key: string; value: string } | null {
+  if (!auth || auth.type === "none" || auth.type === "inherit") return null
+  if (auth.type === "bearer")
+    return { key: "Authorization", value: "Bearer ••••••••" }
+  if (auth.type === "basic")
+    return { key: "Authorization", value: "Basic ••••••••" }
+  if (auth.type === "api_key" && auth.placement === "header") {
+    return { key: auth.key, value: "••••••••" }
+  }
   return null
 }
