@@ -152,7 +152,18 @@ export async function workspaceAudit(
       })
       continue
     }
-    if (!(await isCollectionRoot(path))) {
+    let collectionRoot
+    try {
+      collectionRoot = await isCollectionRoot(path)
+    } catch {
+      issues.push({
+        path,
+        message: "not accessible",
+        fixed: fix,
+      })
+      continue
+    }
+    if (!collectionRoot) {
       issues.push({
         path,
         message: "not a collection root",
@@ -228,8 +239,7 @@ export async function collectionInit(path: string): Promise<{ path: string }> {
 
 async function isDirectory(path: string): Promise<boolean> {
   try {
-    await readdir(path)
-    return true
+    return (await stat(path)).isDirectory()
   } catch {
     return false
   }

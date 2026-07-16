@@ -56,6 +56,7 @@ interface AppOverlaysProps {
   deleteConfirmSelection: number
   undoAllPending: boolean
   initPending: boolean
+  initConfirmSelection: number
   collectionSwitchPending: string | null
   collectionSwitchSelection: number
   commandPaletteVisible: boolean
@@ -108,6 +109,7 @@ export function AppOverlays({
   deleteConfirmSelection,
   undoAllPending,
   initPending,
+  initConfirmSelection,
   collectionSwitchPending,
   collectionSwitchSelection,
   commandPaletteVisible,
@@ -178,7 +180,7 @@ export function AppOverlays({
         <ConfirmOverlay
           visible
           message={`Initialize collection in ${collectionDir}? (y/n)`}
-          selectedIndex={0}
+          selectedIndex={initConfirmSelection}
         />
       )}
       {collectionSwitchPending !== null && (

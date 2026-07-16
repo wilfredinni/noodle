@@ -160,6 +160,7 @@ export function AppInner({
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
   const [initPending, setInitPending] = useState(false)
+  const [initConfirmSelection, setInitConfirmSelection] = useState(0)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
     useState<TimelineEntry | null>(null)
@@ -760,6 +761,8 @@ export function AppInner({
     undoAllPending,
     setUndoAllPending,
     initPending,
+    initConfirmSelection,
+    setInitConfirmSelection,
     setInitPending,
     onInitConfirm: () => executeInitPending(),
     draftRef,
@@ -915,6 +918,7 @@ export function AppInner({
           deleteConfirmSelection={deleteConfirmSelection}
           undoAllPending={undoAllPending}
           initPending={initPending}
+          initConfirmSelection={initConfirmSelection}
           collectionSwitchPending={collectionSwitchPending}
           collectionSwitchSelection={collectionSwitchSelection}
           commandPaletteVisible={commandPaletteVisible}

@@ -75,6 +75,8 @@ export function useOverlayIntercepts(opts: {
   undoAllPending: boolean
   setUndoAllPending: (v: boolean) => void
   initPending: boolean
+  initConfirmSelection: number
+  setInitConfirmSelection: (n: number) => void
   setInitPending: (v: boolean) => void
   onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
@@ -136,6 +138,8 @@ export function useOverlayIntercepts(opts: {
     undoAllPending,
     setUndoAllPending,
     initPending,
+    initConfirmSelection,
+    setInitConfirmSelection,
     setInitPending,
     onInitConfirm,
     draftRef,
@@ -608,21 +612,40 @@ export function useOverlayIntercepts(opts: {
       "key",
       (ctx) => {
         const name = ctx.event.name
-        if (name === "y" || name === "return") {
+        if (name === "y" || (name === "return" && initConfirmSelection === 0)) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           onInitConfirm()
           setInitPending(false)
-        } else if (name === "n" || name === "escape") {
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && initConfirmSelection === 1)
+        ) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           setInitPending(false)
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setInitConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setInitConfirmSelection(1)
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [initPending, keymap, setInitPending, onInitConfirm])
+  }, [
+    initPending,
+    initConfirmSelection,
+    keymap,
+    onInitConfirm,
+    setInitConfirmSelection,
+    setInitPending,
+  ])
 
   // ── Overlay: New Folder ───────────────────────────────────────────
   useEffect(() => {
