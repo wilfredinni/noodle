@@ -615,6 +615,7 @@ export function useOverlayIntercepts(opts: {
         if (name === "y" || (name === "return" && initConfirmSelection === 0)) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
+          setInitConfirmSelection(0)
           onInitConfirm()
           setInitPending(false)
         } else if (
@@ -624,6 +625,7 @@ export function useOverlayIntercepts(opts: {
         ) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
+          setInitConfirmSelection(0)
           setInitPending(false)
         } else if (name === "left" || name === "up") {
           ctx.event.preventDefault()
