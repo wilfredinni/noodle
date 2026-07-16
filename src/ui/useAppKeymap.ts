@@ -236,6 +236,7 @@ export function useAppKeymap(
       },
       {
         name: "request.edit-yaml",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           if (refs.focusedFolderPathRef.current) {
             const file = getEditFolderYamlFile(actionsConfig)
@@ -565,6 +566,7 @@ export function useAppKeymap(
       },
       {
         name: "browse.save",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const d = refs.draftRef.current
           if (!refs.savingRef.current && d.draft && d.isDirty) {
@@ -623,6 +625,7 @@ export function useAppKeymap(
       },
       {
         name: "request.clone",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const sid = refs.selectedIdRef.current
           if (!sid) return
@@ -653,10 +656,12 @@ export function useAppKeymap(
     commands: [
       {
         name: "folder.save",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderSaveRef.current(),
       },
       {
         name: "folder.delete",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const folderPath = refs.focusedFolderPathRef.current
           const folderName = refs.focusedFolderNameRef.current

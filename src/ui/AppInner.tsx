@@ -836,6 +836,7 @@ export function AppInner({
       setCollectionSwitcherVisible,
       onReloadCollection,
       view,
+      mode,
     ],
   )
 

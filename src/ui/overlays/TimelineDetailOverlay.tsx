@@ -80,10 +80,16 @@ export function TimelineDetailOverlay({
       : theme.info
 
   const authHeader = maskedAuthHeader(entry.request.auth)
+  const authSkipKeys = new Set<string>()
+  if (authHeader) {
+    authSkipKeys.add(authHeader.key.toLowerCase())
+  }
   const requestHeaders = [
     ...(authHeader ? [authHeader] : []),
     ...Object.entries(entry.request.headers)
-      .filter(([, value]) => value.enabled)
+      .filter(
+        ([key, value]) => value.enabled && !authSkipKeys.has(key.toLowerCase()),
+      )
       .map(([key, value]) => ({ key, value: value.value })),
   ].sort((a, b) => a.key.localeCompare(b.key))
   const responseHeaders = entry.response ? formatHeaders(entry.response) : []
