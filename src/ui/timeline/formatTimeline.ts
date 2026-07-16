@@ -134,3 +134,24 @@ export function maskedAuthHeader(
   }
   return null
 }
+
+export function buildDetailRequestHeaders(
+  auth: TimelineEntry["request"]["auth"],
+  headers: TimelineEntry["request"]["headers"],
+): { key: string; value: string }[] {
+  const authHeader = maskedAuthHeader(auth)
+  const skipKeys = new Set<string>()
+  if (authHeader) {
+    skipKeys.add(authHeader.key.toLowerCase())
+  }
+  const merged = [
+    ...(authHeader ? [authHeader] : []),
+    ...Object.entries(headers)
+      .filter(
+        ([key, value]) => value.enabled && !skipKeys.has(key.toLowerCase()),
+      )
+      .map(([key, value]) => ({ key, value: value.value })),
+  ]
+  merged.sort((a, b) => a.key.localeCompare(b.key))
+  return merged
+}

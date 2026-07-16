@@ -130,6 +130,78 @@ describe("TimelineDetailOverlay", () => {
     expect(captureCharFrame()).toContain("response")
     cleanup()
   })
+
+  it("masks bearer token when explicit Authorization header present", async () => {
+    const entry = makeEntry({
+      request: {
+        id: "req-auth",
+        name: "Auth test",
+        method: "GET",
+        url: "https://example.com",
+        headers: {
+          Authorization: {
+            value: "Bearer secret-leak-123",
+            enabled: true,
+          },
+          "Content-Type": {
+            value: "application/json",
+            enabled: true,
+          },
+        },
+        params: [],
+        auth: { type: "bearer", token: "secret-leak-123" },
+      },
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "{}",
+        timeMs: 5,
+        size: 2,
+      },
+    })
+    const { renderOnce, captureCharFrame, mockInput, cleanup } =
+      await renderOverlay(entry, () => {})
+    await renderOnce()
+    await act(async () => mockInput.pressKey("ARROW_LEFT"))
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Bearer ")
+    expect(frame).not.toContain("secret-leak-123")
+    expect(frame).toContain("Content-Type")
+    expect(frame).toContain("application/json")
+    cleanup()
+  })
+
+  it("masks api_key header when raw key matches auth config", async () => {
+    const entry = makeEntry({
+      request: {
+        id: "req-apikey",
+        name: "API Key test",
+        method: "GET",
+        url: "https://example.com",
+        headers: {
+          "X-API-Key": { value: "secret-api-key", enabled: true },
+        },
+        params: [],
+        auth: {
+          type: "api_key",
+          key: "X-API-Key",
+          value: "secret-api-key",
+          placement: "header",
+        },
+      },
+    })
+    const { renderOnce, captureCharFrame, mockInput, cleanup } =
+      await renderOverlay(entry, () => {})
+    await renderOnce()
+    await act(async () => mockInput.pressKey("ARROW_LEFT"))
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("X-API-Key")
+    expect(frame).not.toContain("secret-api-key")
+    cleanup()
+  })
 })
 
 function TimelineDetailHarness({
