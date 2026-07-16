@@ -11,6 +11,7 @@ import {
   formatEnvironmentSet,
   formatRequestCreate,
   formatRequestRun,
+  formatWorkspaceAudit,
   formatWorkspaceList,
 } from "../humanOutput"
 import {
@@ -23,6 +24,7 @@ import {
   environmentSet,
   requestCreate,
   requestRun,
+  workspaceAudit,
   workspaceList,
 } from "../services"
 import type { Method } from "../../schema"
@@ -58,6 +60,19 @@ const workspace = defineCommand({
           args.json,
           async () => ({ data: await workspaceList() }),
           formatWorkspaceList,
+        ),
+    }),
+    audit: defineCommand({
+      meta: { name: "audit", description: "Validate registered collections" },
+      args: { fix: { type: "boolean", default: false }, json: jsonArg },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => {
+            const data = await workspaceAudit(args.fix)
+            return { data, failed: !data.valid }
+          },
+          formatWorkspaceAudit,
         ),
     }),
   },

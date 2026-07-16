@@ -12,6 +12,7 @@ import {
   requestCreate,
   requestRun,
   validateId,
+  workspaceAudit,
 } from "../src/app/services"
 import { collection as collectionCommand } from "../src/app/commands/automation"
 import { env } from "../src/env"
@@ -205,6 +206,56 @@ describe("automation services", () => {
       "environment: prod\n",
     )
     expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe("{}\n")
+  })
+
+  it("reports invalid registered collections without changing config", async () => {
+    const configDir = join(dir, "config")
+    const missing = join(dir, "missing")
+    const uninitialized = join(dir, "uninitialized")
+    await mkdir(configDir)
+    await mkdir(uninitialized)
+    await writeFile(
+      join(configDir, "config.yml"),
+      `collections:\n  - ${missing}\n  - ${uninitialized}\n`,
+      "utf8",
+    )
+
+    const result = await workspaceAudit(false, configDir)
+
+    expect(result.valid).toBe(false)
+    expect(result.collections).toEqual([missing, uninitialized])
+    expect(result.issues).toEqual([
+      { path: missing, message: "directory does not exist", fixed: false },
+      { path: uninitialized, message: "not a collection root", fixed: false },
+    ])
+    expect(await readFile(join(configDir, "config.yml"), "utf8")).toContain(
+      missing,
+    )
+  })
+
+  it("removes invalid registered collections when fixed", async () => {
+    const configDir = join(dir, "config")
+    const missing = join(dir, "missing")
+    const valid = join(dir, "valid")
+    await mkdir(configDir)
+    await mkdir(valid)
+    await writeFile(join(valid, "settings.yml"), "{}\n", "utf8")
+    await writeFile(
+      join(configDir, "config.yml"),
+      `collections:\n  - ${missing}\n  - ${valid}\n`,
+      "utf8",
+    )
+
+    const result = await workspaceAudit(true, configDir)
+
+    expect(result.valid).toBe(true)
+    expect(result.collections).toEqual([valid])
+    expect(result.issues).toEqual([
+      { path: missing, message: "directory does not exist", fixed: true },
+    ])
+    expect(await readFile(join(configDir, "config.yml"), "utf8")).not.toContain(
+      missing,
+    )
   })
 
   it("rejects traversal, empty-segment, and hidden request IDs", () => {

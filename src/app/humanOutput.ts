@@ -5,6 +5,7 @@ import type {
   CollectionRunResult,
   CollectionTreeItem,
   RequestRunResult,
+  WorkspaceAuditResult,
 } from "./services"
 
 type Color = "red" | "green" | "yellow" | "cyan" | "dim"
@@ -47,6 +48,22 @@ export function formatWorkspaceList(data: { collections: string[] }): string {
   return [
     `Collections (${data.collections.length})`,
     ...data.collections.map((path) => `  ${path}`),
+  ].join("\n")
+}
+
+export function formatWorkspaceAudit(data: WorkspaceAuditResult): string {
+  if (data.issues.length === 0)
+    return `${color("✓", "green")} All registered collections are valid`
+  const fixed = data.issues.filter((issue) => issue.fixed).length
+  const headline = data.valid
+    ? `${color("✓", "green")} Removed ${fixed} invalid collection${fixed === 1 ? "" : "s"}`
+    : `${color("✗", "red")} Found ${data.issues.length} invalid collection${data.issues.length === 1 ? "" : "s"}`
+  return [
+    headline,
+    ...data.issues.map(
+      (issue) =>
+        `  ${issue.fixed ? color("removed", "green") : color("error", "red")} ${issue.path}: ${issue.message}`,
+    ),
   ].join("\n")
 }
 

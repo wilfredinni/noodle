@@ -107,6 +107,64 @@ export function collectionTree(items: CollectionItem[]): CollectionTreeItem[] {
 export async function workspaceList(): Promise<{ collections: string[] }> {
   return { collections: loadConfig(CONFIG_DIR).collections }
 }
+export interface WorkspaceAuditIssue {
+  path: string
+  message: string
+  fixed: boolean
+}
+export interface WorkspaceAuditResult {
+  valid: boolean
+  collections: string[]
+  issues: WorkspaceAuditIssue[]
+}
+export async function workspaceAudit(
+  fix: boolean,
+  configDir = CONFIG_DIR,
+): Promise<WorkspaceAuditResult> {
+  const config = loadConfig(configDir)
+  const issues: WorkspaceAuditIssue[] = []
+  const validCollections: string[] = []
+
+  for (const path of config.collections) {
+    if (!existsSync(path)) {
+      issues.push({
+        path,
+        message: "directory does not exist",
+        fixed: fix,
+      })
+      continue
+    }
+    if (!(await isDirectory(path))) {
+      issues.push({
+        path,
+        message: "not a directory",
+        fixed: fix,
+      })
+      continue
+    }
+    if (!(await isCollectionRoot(path))) {
+      issues.push({
+        path,
+        message: "not a collection root",
+        fixed: fix,
+      })
+      continue
+    }
+    validCollections.push(path)
+  }
+
+  if (fix && issues.length > 0)
+    saveConfig(configDir, {
+      ...config,
+      collections: validCollections,
+    })
+
+  return {
+    valid: issues.every((issue) => issue.fixed),
+    collections: fix ? validCollections : config.collections,
+    issues,
+  }
+}
 export async function collectionCreate(
   name: string,
   output: string,
