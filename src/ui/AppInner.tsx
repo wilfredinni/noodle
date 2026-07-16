@@ -17,7 +17,7 @@ import { useFolderDraft } from "../hooks/useFolderDraft"
 import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
-import { type Focus } from "./focus"
+import { type Focus, type UrlBarSubFocus } from "./focus"
 import { type NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import { type CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import { type NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
@@ -96,6 +96,9 @@ export function AppInner({
 
   // ── State ───────────────────────────────────────────────────────────
   const [focus, setFocus] = useState<Focus>("sidebar")
+  const [urlbarSubFocus, setUrlbarSubFocus] = useState<UrlBarSubFocus>("select")
+  const urlbarSubFocusRef = useRef(urlbarSubFocus)
+  urlbarSubFocusRef.current = urlbarSubFocus
   const focusRef = useRef(focus)
   focusRef.current = focus
   const [view, setView] = useState<"main" | "env-editor">("main")
@@ -647,6 +650,7 @@ export function AppInner({
       trySendRef,
       doSaveRef,
       focusRef,
+      urlbarSubFocusRef,
       viewRef,
       activeIndexRef,
       savingRef,
@@ -662,6 +666,7 @@ export function AppInner({
     },
     {
       setFocus,
+      setUrlbarSubFocus,
       setHelpVisible,
       setLayout,
       setView,
@@ -866,6 +871,7 @@ export function AppInner({
             onResponseTabChange={onResponseTabChange}
             onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
             setSelectOpen={setSelectOpen}
+            urlbarSubFocus={urlbarSubFocus}
             expandHint={expandHint}
           />
         ) : (

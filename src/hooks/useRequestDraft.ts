@@ -12,6 +12,7 @@ import type { FieldKind } from "../ui/editMode"
 import { parseUrlAndParams } from "../ui/urlParams"
 
 export type DraftOp =
+  | { kind: "setMethod"; method: Method }
   | { kind: "setUrl"; url: string }
   | { kind: "setBody"; body: string }
   | { kind: "setHeaderRow"; index: number; key: string; value: string }
@@ -320,6 +321,9 @@ export function applyDraft(
   }
   const draft: Request = { ...current }
   switch (op.kind) {
+    case "setMethod":
+      draft.method = op.method
+      break
     case "setUrl":
       draft.url = op.url
       break
@@ -509,6 +513,7 @@ export interface UseRequestDraftResult {
   draft: Request | null
   isDirty: boolean
   dirtyRequestIds: Set<string>
+  setMethod: (method: Method) => void
   setUrl: (url: string) => void
   syncUrlParams: (rawUrl: string) => void
   setBody: (body: string) => void
@@ -574,6 +579,10 @@ export function useRequestDraft(
 
   const setUrl = useCallback(
     (url: string) => apply({ kind: "setUrl", url }),
+    [apply],
+  )
+  const setMethod = useCallback(
+    (method: Method) => apply({ kind: "setMethod", method }),
     [apply],
   )
   const syncUrlParams = useCallback(
@@ -735,6 +744,7 @@ export function useRequestDraft(
       draft,
       isDirty,
       dirtyRequestIds,
+      setMethod,
       setUrl,
       syncUrlParams,
       setBody,
@@ -768,6 +778,7 @@ export function useRequestDraft(
       draft,
       isDirty,
       dirtyRequestIds,
+      setMethod,
       setUrl,
       syncUrlParams,
       setBody,

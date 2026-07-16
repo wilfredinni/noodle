@@ -1,32 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Badge } from "./Badge"
-import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import type { Method, ParamEntry, Environment } from "../schema"
 import { buildDisplayUrl } from "./urlParams"
 import { VarInput } from "./VarInput"
 import { VarText } from "./VarText"
+import { Select } from "./Select"
+import { METHOD_ITEMS } from "./methodItems"
+import type { UrlBarSubFocus } from "./focus"
 
 export function UrlBar({
   method,
   url,
   params,
   setUrl,
+  setMethod = () => {},
   onDefocus,
   focused = false,
   activeEnv,
+  subFocus = "select",
 }: {
-  method: string
+  method: Method
   url: string
   params: ParamEntry[]
   setUrl: (url: string) => void
+  setMethod?: (method: Method) => void
   onDefocus: (rawUrl: string) => void
   focused?: boolean
   activeEnv?: Environment | null
+  subFocus?: UrlBarSubFocus
 }) {
   const theme = useTheme()
   const [inputValue, setInputValue] = useState(url)
+  const [methodSelectOpen, setMethodSelectOpen] = useState(false)
   const prevFocused = useRef(focused)
   const initDisplayRef = useRef("")
 
@@ -68,6 +74,7 @@ export function UrlBar({
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
+        zIndex: methodSelectOpen ? 1 : undefined,
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
@@ -85,13 +92,17 @@ export function UrlBar({
         </box>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
-          <Badge
-            bg={methodColor(method as Method, theme)}
-            fg={theme.background}
-          >
-            {method === "DELETE" ? "DEL" : method}
-          </Badge>
-          {focused ? (
+          <Select
+            items={METHOD_ITEMS}
+            value={method}
+            onChange={(value) => setMethod(value as Method)}
+            focused={focused && subFocus === "select"}
+            badge
+            width={8}
+            maxDropdownHeight={10}
+            onOpenChange={setMethodSelectOpen}
+          />
+          {focused && subFocus === "text" ? (
             <box style={{ flexGrow: 1 }}>
               <VarInput
                 value={inputValue}

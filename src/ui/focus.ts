@@ -9,6 +9,7 @@ export type Focus =
   | "env-vars"
 
 export type ExpandTarget = "request" | "response" | null
+export type UrlBarSubFocus = "select" | "text"
 
 export function toggleExpand(
   current: ExpandTarget,
@@ -78,7 +79,7 @@ export function hintForFocus(
     return "[↑/↓] select · [s] send · [w] save · [Tab] next"
   }
   if (focus === "urlbar") {
-    return "[Tab] next · [s] send · [w] save"
+    return "[Tab] method/url · [Enter] method · [s] send · [w] save"
   }
   if (focus === "request") {
     if (mode === "inactive") {

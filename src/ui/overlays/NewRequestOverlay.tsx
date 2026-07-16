@@ -11,6 +11,9 @@ import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "../Select"
 import { useTheme } from "../theme"
 import type { Method, Environment } from "../../schema"
+import { METHOD_ITEMS } from "../methodItems"
+
+export { METHOD_ITEMS } from "../methodItems"
 
 export interface NewRequestOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void
@@ -34,16 +37,6 @@ interface NewRequestOverlayProps {
   initialFolderPath?: string
   activeEnv?: Environment | null
 }
-
-export const METHOD_ITEMS: SelectItem[] = [
-  { id: "GET", label: "GET", color: "success" },
-  { id: "POST", label: "POST", color: "warning" },
-  { id: "PUT", label: "PUT", color: "warning" },
-  { id: "PATCH", label: "PATCH", color: "warning" },
-  { id: "DELETE", label: "DEL", color: "error" },
-  { id: "HEAD", label: "HEAD", color: "textMuted" },
-  { id: "OPTIONS", label: "OPTIONS", color: "textMuted" },
-]
 
 function slugify(name: string): string {
   return name
