@@ -242,7 +242,7 @@ export function App({
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
       <Toast />
       <AppInner
-        key={`${activeCollectionDir}__${reloadKey}`}
+        key={`${activeCollectionDir}__${reloadKey}__${mode}`}
         collectionDir={activeCollectionDir}
         environmentsDir={activeEnvironmentsDir}
         envNames={envNames}

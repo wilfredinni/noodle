@@ -44,9 +44,8 @@ export function useCollection(
         if (!cancelled) {
           if (browse) {
             setCollection({ id: dir, name: dir, items: [] })
-          } else {
-            setError(e instanceof Error ? e : new Error(String(e)))
           }
+          setError(e instanceof Error ? e : new Error(String(e)))
           setLoading(false)
         }
       })

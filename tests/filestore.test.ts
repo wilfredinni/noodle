@@ -642,4 +642,11 @@ describe("loadCollectionBrowse", () => {
     const col = await loadCollectionBrowse("/tmp/noodle-browse-nonexistent")
     expect(col.items).toHaveLength(0)
   })
+
+  it("reports filesystem errors while browsing", async () => {
+    const { loadCollectionBrowse } = await import("../src/filestore/load")
+    const file = join(dir, "not-a-directory")
+    await writeFile(file, "content")
+    await expect(loadCollectionBrowse(file)).rejects.toThrow()
+  })
 })

@@ -1,5 +1,12 @@
 import { existsSync } from "node:fs"
-import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  stat,
+  writeFile,
+} from "node:fs/promises"
 import { basename, join, relative, resolve } from "node:path"
 import * as yaml from "js-yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
@@ -126,7 +133,10 @@ export async function workspaceAudit(
   const validCollections: string[] = []
 
   for (const path of config.collections) {
-    if (!existsSync(path)) {
+    let pathStat
+    try {
+      pathStat = await stat(path)
+    } catch {
       issues.push({
         path,
         message: "directory does not exist",
@@ -134,7 +144,7 @@ export async function workspaceAudit(
       })
       continue
     }
-    if (!(await isDirectory(path))) {
+    if (!pathStat.isDirectory()) {
       issues.push({
         path,
         message: "not a directory",

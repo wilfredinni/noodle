@@ -182,8 +182,11 @@ export async function loadCollectionBrowse(dir: string): Promise<Collection> {
       tolerant: true,
     })
     return { id, name: id, items }
-  } catch {
-    return { id, name: id, items: [] }
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return { id, name: id, items: [] }
+    }
+    throw e
   }
 }
 

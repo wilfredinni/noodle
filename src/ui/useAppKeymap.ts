@@ -576,6 +576,7 @@ export function useAppKeymap(
       },
       {
         name: "browse.toggle-form-type",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.ebRef.current.toggleFormRowType(),
       },
       {
@@ -721,6 +722,7 @@ export function useAppKeymap(
       },
       {
         name: "folder-browse.enter",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.enterEdit(),
       },
       {
@@ -732,6 +734,7 @@ export function useAppKeymap(
       },
       {
         name: "folder-browse.toggle",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.toggleRow(),
       },
       {
@@ -766,6 +769,7 @@ export function useAppKeymap(
     commands: [
       {
         name: "folder-edit.commit",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.commitEdit(),
       },
       {
@@ -774,6 +778,7 @@ export function useAppKeymap(
       },
       {
         name: "folder-edit.tab",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.browseTab(),
       },
     ],
