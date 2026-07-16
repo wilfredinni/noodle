@@ -108,6 +108,18 @@ describe("saveTimelineEntry", () => {
     expect(content).toContain("method: GET")
   })
 
+  it("self-heals a corrupt timeline file on save", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises")
+    await mkdir(join(dir, ".timeline"), { recursive: true })
+    await writeFile(join(dir, ".timeline", "corrupt.yml"), "{: invalid", "utf8")
+
+    await saveTimelineEntry(dir, "corrupt", makeEntry({ timestamp: 42 }))
+
+    const result = await loadTimeline(dir, "corrupt")
+    expect(result).toHaveLength(1)
+    expect(result[0]?.timestamp).toBe(42)
+  })
+
   it("appends new entry as first in list (newest first)", async () => {
     await saveTimelineEntry(dir, "req-1", makeEntry({ timestamp: 1 }))
     await saveTimelineEntry(dir, "req-1", makeEntry({ timestamp: 2 }))

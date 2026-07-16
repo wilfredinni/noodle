@@ -43,15 +43,31 @@ function migrateEntry(entry: Record<string, unknown>): TimelineEntry {
   } as TimelineEntry
 }
 
+function parseTimeline(raw: string): TimelineEntry[] {
+  const data = yaml.load(raw)
+  if (!Array.isArray(data)) return []
+  return (data as Record<string, unknown>[]).map(migrateEntry)
+}
+
+async function readTimelineEntries(
+  colDir: string,
+  reqId: string,
+): Promise<TimelineEntry[]> {
+  try {
+    const raw = await readFile(timelinePath(colDir, reqId), "utf8")
+    return parseTimeline(raw)
+  } catch {
+    return []
+  }
+}
+
 export async function loadTimeline(
   colDir: string,
   reqId: string,
 ): Promise<TimelineEntry[]> {
   try {
     const raw = await readFile(timelinePath(colDir, reqId), "utf8")
-    const data = yaml.load(raw)
-    if (!Array.isArray(data)) return []
-    return (data as Record<string, unknown>[]).map(migrateEntry)
+    return parseTimeline(raw)
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return []
     throw new Error(
@@ -72,7 +88,7 @@ export async function saveTimelineEntry(
   const filePath = timelinePath(colDir, reqId)
   await mkdir(dirname(filePath), { recursive: true })
 
-  const current = await loadTimeline(colDir, reqId)
+  const current = await readTimelineEntries(colDir, reqId)
   current.unshift(entry)
 
   if (current.length > maxEntries) {
