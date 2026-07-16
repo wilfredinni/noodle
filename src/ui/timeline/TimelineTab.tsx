@@ -70,7 +70,10 @@ export function TimelineTab({
         return next
       })
     } else if (key.name === "return") {
-      onOpenEntry?.(entries[selectedIdx])
+      setSelectedIdx((prev) => {
+        onOpenEntry?.(entries[prev])
+        return prev
+      })
     }
   })
 

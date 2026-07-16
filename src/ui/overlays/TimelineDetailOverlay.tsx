@@ -49,7 +49,7 @@ export function TimelineDetailOverlay({
 
   useEffect(() => {
     if (visible) setActiveTab("response")
-  }, [visible, entry?.timestamp])
+  }, [visible])
 
   useKeyboard((key) => {
     if (!visible || !entry) return

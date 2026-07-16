@@ -54,7 +54,12 @@ export async function loadTimeline(
     return (data as Record<string, unknown>[]).map(migrateEntry)
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return []
-    return []
+    throw new Error(
+      `filestore.loadTimeline: failed to load timeline for ${reqId}`,
+      {
+        cause: e,
+      },
+    )
   }
 }
 

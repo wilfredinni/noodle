@@ -135,6 +135,6 @@ export function authSummary(
   if (!auth || auth.type === "none") return null
   if (auth.type === "bearer") return "Bearer token"
   if (auth.type === "basic") return `Basic ${auth.user}:****`
-  if (auth.type === "api_key") return `${auth.key}: ${auth.value}`
+  if (auth.type === "api_key") return `${auth.key}: ••••`
   return null
 }

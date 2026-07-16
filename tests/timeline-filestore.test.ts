@@ -63,8 +63,38 @@ describe("loadTimeline", () => {
     const { join } = await import("node:path")
     await mkdir(join(dir, ".timeline"), { recursive: true })
     await writeFile(join(dir, ".timeline", "bad.yml"), "{: invalid", "utf8")
-    const result = await loadTimeline(dir, "bad")
-    expect(result).toEqual([])
+    expect(loadTimeline(dir, "bad")).rejects.toThrow(
+      "filestore.loadTimeline: failed to load timeline",
+    )
+  })
+
+  it("migrates legacy object-form params", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises")
+    await mkdir(join(dir, ".timeline"), { recursive: true })
+    await writeFile(
+      join(dir, ".timeline", "legacy.yml"),
+      `- timestamp: 1\n  request:\n    id: legacy\n    name: Legacy\n    method: GET\n    url: https://example.com\n    headers: {}\n    params:\n      q: hello\n      disabled:\n        value: no\n        enabled: false\n      count: 42\n`,
+      "utf8",
+    )
+
+    const result = await loadTimeline(dir, "legacy")
+    expect(result[0]?.request.params).toEqual([
+      { name: "q", value: "hello", enabled: true },
+      { name: "disabled", value: "no", enabled: false },
+    ])
+  })
+
+  it("preserves array-form params during migration", async () => {
+    const entry = makeEntry({
+      request: {
+        ...makeEntry().request,
+        params: [{ name: "q", value: "hello", enabled: true }],
+      },
+    })
+    await saveTimelineEntry(dir, "array", entry)
+
+    const result = await loadTimeline(dir, "array")
+    expect(result[0]?.request.params).toEqual(entry.request.params)
   })
 })
 
