@@ -56,6 +56,7 @@ export interface CommandBuilderContext {
   folderDeletePathRef: RefObject<string | null>
   getKeymapFocus: () => string
   getView: () => string
+  getCollectionMode: () => "collection" | "browse" | "empty"
   setLayout: (
     v:
       | "stacked"
@@ -184,10 +185,12 @@ export function buildCommandPaletteCommands(
     setCollectionSwitcherVisible,
     setEnvDeletePending,
     setDeleteConfirmSelection,
+    getCollectionMode,
   } = ctx
 
   const c = toConfig(ctx)
   const view = getView()
+  const mode = getCollectionMode()
 
   const requestCommands: CommandItem[] = [
     {
@@ -205,7 +208,10 @@ export function buildCommandPaletteCommands(
       label: "Save Request",
       section: "Request",
       keybinding: displayKey(keybinds.request_save),
-      run: () => saveRequest(c),
+      run: () => {
+        if (mode !== "collection") return false
+        return saveRequest(c)
+      },
     },
     {
       id: "request.edit-overlay",
@@ -213,6 +219,7 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_edit_overlay),
       run: () => {
+        if (mode !== "collection") return false
         if (!cloneRequest(c)) return false
         setEditRequestVisible(true)
         return true
@@ -234,6 +241,7 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_clone),
       run: () => {
+        if (mode !== "collection") return false
         if (!cloneRequest(c)) return false
         setCloneRequestVisible(true)
         return true
@@ -245,6 +253,7 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
+        if (mode !== "collection") return false
         const result = deleteRequest(c)
         if (!result) return false
         setRequestDeletePending(result.requestName)
@@ -351,6 +360,7 @@ export function buildCommandPaletteCommands(
       section: "Workspace",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
+        if (mode !== "collection") return false
         const result = deleteFolder(c)
         if (!result) return false
         c.folderDeletePathRef.current = result.folderPath
@@ -364,6 +374,7 @@ export function buildCommandPaletteCommands(
       section: "Workspace",
       keybinding: displayKey(keybinds.request_edit_yaml),
       run: () => {
+        if (mode !== "collection") return false
         if (c.focusedFolderPathRef.current) {
           const result = getEditFolderYamlFile(c)
           if (!result) return false
@@ -481,7 +492,7 @@ export function buildCommandPaletteCommands(
 
   if (view === "env-editor") {
     return [
-      ...editorEnvCommands,
+      ...(mode === "collection" ? editorEnvCommands : []),
       ...workspaceCommands,
       ...globalCommands,
       ...systemCommands,
@@ -491,7 +502,7 @@ export function buildCommandPaletteCommands(
   return [
     ...requestCommands,
     ...responseCommands,
-    ...mainEnvCommands,
+    ...(mode === "collection" ? mainEnvCommands : []),
     ...workspaceCommands,
     ...mainOnlyCommands,
     ...globalCommands,

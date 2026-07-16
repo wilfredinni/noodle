@@ -30,6 +30,7 @@ function minimalContext(): CommandBuilderContext {
     folderDeletePathRef: { current: null } as never,
     getKeymapFocus: () => "sidebar",
     getView: () => "main",
+    getCollectionMode: () => "collection",
     setLayout: () => {},
     onLayoutChange: () => {},
     setHelpVisible: () => {},
@@ -255,5 +256,40 @@ describe("buildCommandPaletteCommands", () => {
     const result = cmd.run()
     expect(result).toBe(true)
     expect(reloaded).toBe(true)
+  })
+
+  it("excludes Environment section when collection mode is empty", () => {
+    const ctx = minimalContext()
+    ctx.getCollectionMode = () => "empty"
+    const commands = buildCommandPaletteCommands(ctx)
+    const sections = [...new Set(commands.map((c) => c.section))]
+    expect(sections).not.toContain("Environment")
+    expect(sections).toEqual(["Request", "Response", "Workspace", "System"])
+  })
+
+  it("excludes env.editor-open command when mode is empty", () => {
+    const ctx = minimalContext()
+    ctx.getCollectionMode = () => "empty"
+    const commands = buildCommandPaletteCommands(ctx)
+    const envCmds = commands.filter((c) => c.id.startsWith("env."))
+    expect(envCmds).toHaveLength(0)
+  })
+
+  it("env editor view shows env commands only in collection mode", () => {
+    const ctx = minimalContext()
+    ctx.getCollectionMode = () => "collection"
+    ctx.getView = () => "env-editor"
+    const commands = buildCommandPaletteCommands(ctx)
+    const sections = [...new Set(commands.map((c) => c.section))]
+    expect(sections).toContain("Environment")
+  })
+
+  it("env editor view excludes env commands when mode is empty", () => {
+    const ctx = minimalContext()
+    ctx.getCollectionMode = () => "empty"
+    ctx.getView = () => "env-editor"
+    const commands = buildCommandPaletteCommands(ctx)
+    const sections = [...new Set(commands.map((c) => c.section))]
+    expect(sections).not.toContain("Environment")
   })
 })

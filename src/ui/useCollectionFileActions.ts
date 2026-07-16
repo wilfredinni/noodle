@@ -1,4 +1,6 @@
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import type { Dispatch, MutableRefObject, SetStateAction } from "react"
 import type {
   Collection,
@@ -12,11 +14,22 @@ import {
   deleteRequest,
   saveFolder,
   deleteFolder,
-} from "../filestore/save"
+  ensureCollectionBootstrapped,
+} from "../filestore"
 import { slugify } from "./overlays/NewRequestOverlay"
 import { updateFolderByPath } from "./tree"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
+
+interface InitPendingAction {
+  kind: "request"
+  name: string
+  methodString: string
+  url: string
+  folder?: string
+  id: string
+  isFolder?: boolean
+}
 
 interface UseCollectionFileActionsOptions {
   collectionDir: string
@@ -39,6 +52,8 @@ interface UseCollectionFileActionsOptions {
   setEditRequestVisible: Dispatch<SetStateAction<boolean>>
   setRequestDeletePending: Dispatch<SetStateAction<string | null>>
   setFolderDeletePending: Dispatch<SetStateAction<string | null>>
+  onCollectionBootstrapped: (dir: string) => void
+  onInitRequested?: () => void
 }
 
 export function useCollectionFileActions({
@@ -62,7 +77,11 @@ export function useCollectionFileActions({
   setEditRequestVisible,
   setRequestDeletePending,
   setFolderDeletePending,
+  onCollectionBootstrapped,
+  onInitRequested,
 }: UseCollectionFileActionsOptions) {
+  const initPendingRef = useRef<InitPendingAction | null>(null)
+
   const showSaveResult = useCallback(
     (state: SaveState) => {
       setSaveState(state)
@@ -119,6 +138,22 @@ export function useCollectionFileActions({
       const folder = newRequestFolderRef.current
       const id = folder ? `${folder}/${baseId}` : baseId
 
+      const settingsPath = join(collectionDir, "settings.yml")
+      const needsBootstrap = !existsSync(settingsPath)
+
+      if (needsBootstrap && onInitRequested) {
+        initPendingRef.current = {
+          kind: "request",
+          name,
+          methodString: method,
+          url,
+          folder: folder ?? undefined,
+          id,
+        }
+        onInitRequested()
+        return
+      }
+
       const req: NoodleRequest = {
         id,
         name,
@@ -134,8 +169,17 @@ export function useCollectionFileActions({
         body: "",
       }
 
-      saveRequest(collectionDir, req)
+      const savePromise = needsBootstrap
+        ? ensureCollectionBootstrapped(collectionDir).then(() =>
+            saveRequest(collectionDir, req),
+          )
+        : saveRequest(collectionDir, req)
+
+      savePromise
         .then(() => {
+          if (needsBootstrap) {
+            onCollectionBootstrapped(collectionDir)
+          }
           if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
           setSelectedId(id)
@@ -152,6 +196,8 @@ export function useCollectionFileActions({
       collectionDir,
       expandFolder,
       newRequestFolderRef,
+      onCollectionBootstrapped,
+      onInitRequested,
       setCollectionReloadToken,
       setFocus,
       setNewRequestVisible,
@@ -212,6 +258,23 @@ export function useCollectionFileActions({
       const folder = newRequestFolderRef.current
       const path = folder ? `${folder}/${baseId}` : baseId
 
+      const settingsPath = join(collectionDir, "settings.yml")
+      const needsBootstrap = !existsSync(settingsPath)
+
+      if (needsBootstrap && onInitRequested) {
+        initPendingRef.current = {
+          kind: "request",
+          name,
+          methodString: "GET",
+          url: "",
+          folder: folder ?? undefined,
+          id: path,
+          isFolder: true,
+        }
+        onInitRequested()
+        return
+      }
+
       const newFolder: Folder = {
         id: baseId,
         name,
@@ -219,8 +282,17 @@ export function useCollectionFileActions({
         children: [],
       }
 
-      saveFolder(collectionDir, newFolder)
+      const savePromise = needsBootstrap
+        ? ensureCollectionBootstrapped(collectionDir).then(() =>
+            saveFolder(collectionDir, newFolder),
+          )
+        : saveFolder(collectionDir, newFolder)
+
+      savePromise
         .then(() => {
+          if (needsBootstrap) {
+            onCollectionBootstrapped(collectionDir)
+          }
           if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
           setNewFolderVisible(false)
@@ -236,6 +308,8 @@ export function useCollectionFileActions({
       collectionDir,
       expandFolder,
       newRequestFolderRef,
+      onCollectionBootstrapped,
+      onInitRequested,
       setCollectionReloadToken,
       setFocus,
       setNewFolderVisible,
@@ -361,6 +435,68 @@ export function useCollectionFileActions({
     showSaveResult,
   ])
 
+  const executeInitPending = useCallback(async () => {
+    const action = initPendingRef.current
+    if (!action) return
+    initPendingRef.current = null
+
+    try {
+      await ensureCollectionBootstrapped(collectionDir)
+      onCollectionBootstrapped(collectionDir)
+
+      if (action.isFolder) {
+        const newFolder: Folder = {
+          id: action.id,
+          name: action.name,
+          path: action.id,
+          children: [],
+        }
+        await saveFolder(collectionDir, newFolder)
+        if (action.folder) expandFolder(action.folder)
+        setNewFolderVisible(false)
+      } else {
+        const req: NoodleRequest = {
+          id: action.id,
+          name: action.name,
+          method: action.methodString as Method,
+          url: action.url,
+          timeout: 0,
+          followRedirects: true,
+          maxRedirects: 5,
+          headers: {},
+          params: [],
+          auth: { type: "none" },
+          bodyType: "none",
+          body: "",
+        }
+        await saveRequest(collectionDir, req)
+        if (action.folder) expandFolder(action.folder)
+        setNewRequestVisible(false)
+      }
+
+      setCollectionReloadToken((n) => n + 1)
+      setSelectedId(action.id)
+      setFocus("sidebar")
+      showSaveResult({
+        kind: "success",
+        message: `Successfully created ${action.name}`,
+      })
+    } catch (e: unknown) {
+      showError(e)
+    }
+  }, [
+    collectionDir,
+    expandFolder,
+    onCollectionBootstrapped,
+    setCollectionReloadToken,
+    setFocus,
+    setNewFolderVisible,
+    setNewRequestVisible,
+    setSelectedId,
+    showError,
+    showSaveResult,
+  ])
+
   return {
     handleFolderSave,
     handleNewRequestConfirm,
@@ -369,5 +505,7 @@ export function useCollectionFileActions({
     handleFolderDeleteConfirm,
     handleEditRequestConfirm,
     handleRequestDeleteConfirm,
+    initPendingRef,
+    executeInitPending,
   }
 }

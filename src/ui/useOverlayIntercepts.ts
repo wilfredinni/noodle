@@ -74,6 +74,9 @@ export function useOverlayIntercepts(opts: {
   onCollectionSwitchConfirm: (collectionDir: string) => void
   undoAllPending: boolean
   setUndoAllPending: (v: boolean) => void
+  initPending: boolean
+  setInitPending: (v: boolean) => void
+  onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
 }): void {
@@ -132,6 +135,9 @@ export function useOverlayIntercepts(opts: {
     onCollectionSwitchConfirm,
     undoAllPending,
     setUndoAllPending,
+    initPending,
+    setInitPending,
+    onInitConfirm,
     draftRef,
     folderDraftRef,
   } = opts
@@ -594,6 +600,29 @@ export function useOverlayIntercepts(opts: {
     folderDraftRef,
     envEditorRef,
   ])
+
+  // ── Overlay: Init Confirm ─────────────────────────────────────────
+  useEffect(() => {
+    if (!initPending) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onInitConfirm()
+          setInitPending(false)
+        } else if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setInitPending(false)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [initPending, keymap, setInitPending, onInitConfirm])
 
   // ── Overlay: New Folder ───────────────────────────────────────────
   useEffect(() => {

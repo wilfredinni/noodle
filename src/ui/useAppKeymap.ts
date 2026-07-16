@@ -46,6 +46,7 @@ export interface UseAppKeymapRefs {
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
   responseStateRef: RefObject<SendState>
+  modeRef: RefObject<"collection" | "browse" | "empty">
 }
 
 export interface UseAppKeymapSetters {
@@ -399,7 +400,9 @@ export function useAppKeymap(
     commands: [
       {
         name: "env.editor-open",
-        enabled: () => keymap.getData("app.focus") === "sidebar",
+        enabled: () =>
+          keymap.getData("app.focus") === "sidebar" &&
+          refs.modeRef.current === "collection",
         run: () => {
           const name = refs.envStateRef.current.activeEnv?.name
           refs.envEditorRef.current.openEditor(name)
@@ -413,6 +416,7 @@ export function useAppKeymap(
       },
       {
         name: "request.save",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const d = refs.draftRef.current
           if (!refs.savingRef.current && d.draft && d.isDirty) {
@@ -422,6 +426,7 @@ export function useAppKeymap(
       },
       {
         name: "env.cycle",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.envStateRef.current.cycle(1),
       },
       {
@@ -434,6 +439,7 @@ export function useAppKeymap(
       },
       {
         name: "request.edit-overlay",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           if (refs.focusedFolderPathRef.current) return
           const sid = refs.selectedIdRef.current
@@ -447,6 +453,7 @@ export function useAppKeymap(
       },
       {
         name: "request.clone",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const sid = refs.selectedIdRef.current
           if (!sid) return
@@ -459,6 +466,7 @@ export function useAppKeymap(
       },
       {
         name: "request.delete",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const folderPath = refs.focusedFolderPathRef.current
           const folderName = refs.focusedFolderNameRef.current
