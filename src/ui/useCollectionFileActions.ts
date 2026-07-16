@@ -21,15 +21,21 @@ import { updateFolderByPath } from "./tree"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 
-interface InitPendingAction {
-  kind: "request"
-  name: string
-  methodString: string
-  url: string
-  folder?: string
-  id: string
-  isFolder?: boolean
-}
+type InitPendingAction =
+  | {
+      kind: "request"
+      name: string
+      method: Method
+      url: string
+      folder?: string
+      id: string
+    }
+  | {
+      kind: "folder"
+      name: string
+      folder?: string
+      id: string
+    }
 
 interface UseCollectionFileActionsOptions {
   collectionDir: string
@@ -145,7 +151,7 @@ export function useCollectionFileActions({
         initPendingRef.current = {
           kind: "request",
           name,
-          methodString: method,
+          method,
           url,
           folder: folder ?? undefined,
           id,
@@ -263,13 +269,10 @@ export function useCollectionFileActions({
 
       if (needsBootstrap && onInitRequested) {
         initPendingRef.current = {
-          kind: "request",
+          kind: "folder",
           name,
-          methodString: "GET",
-          url: "",
           folder: folder ?? undefined,
           id: path,
-          isFolder: true,
         }
         onInitRequested()
         return
@@ -444,7 +447,7 @@ export function useCollectionFileActions({
       await ensureCollectionBootstrapped(collectionDir)
       onCollectionBootstrapped(collectionDir)
 
-      if (action.isFolder) {
+      if (action.kind === "folder") {
         const newFolder: Folder = {
           id: action.id,
           name: action.name,
@@ -458,7 +461,7 @@ export function useCollectionFileActions({
         const req: NoodleRequest = {
           id: action.id,
           name: action.name,
-          method: action.methodString as Method,
+          method: action.method,
           url: action.url,
           timeout: 0,
           followRedirects: true,
