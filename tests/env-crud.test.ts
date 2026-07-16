@@ -16,50 +16,53 @@ afterEach(async () => {
 })
 
 describe("environment CRUD", () => {
-  itOnCI("full lifecycle: create → list → read → update → rename → delete", async () => {
-    // 1. Create
-    await env.saveEnvironment(dir, {
-      name: "dev",
-      vars: { port: "3000", host: "localhost" },
-      color: "success",
-    })
-    let names = await env.listEnvironments(dir)
-    expect(names).toEqual(["dev"])
+  itOnCI(
+    "full lifecycle: create → list → read → update → rename → delete",
+    async () => {
+      // 1. Create
+      await env.saveEnvironment(dir, {
+        name: "dev",
+        vars: { port: "3000", host: "localhost" },
+        color: "success",
+      })
+      let names = await env.listEnvironments(dir)
+      expect(names).toEqual(["dev"])
 
-    // 2. Read
-    let loaded = await env.loadEnvironment(dir, "dev")
-    expect(loaded.vars).toEqual({ port: "3000", host: "localhost" })
-    expect(loaded.color).toBe("success")
+      // 2. Read
+      let loaded = await env.loadEnvironment(dir, "dev")
+      expect(loaded.vars).toEqual({ port: "3000", host: "localhost" })
+      expect(loaded.color).toBe("success")
 
-    // 3. Clone (implied rename)
-    await env.cloneEnvironment(dir, "dev", "dev-staging")
-    names = await env.listEnvironments(dir)
-    expect(names).toEqual(["dev", "dev-staging"])
+      // 3. Clone (implied rename)
+      await env.cloneEnvironment(dir, "dev", "dev-staging")
+      names = await env.listEnvironments(dir)
+      expect(names).toEqual(["dev", "dev-staging"])
 
-    // 4. Update — add var, change color
-    await env.saveEnvironment(dir, {
-      name: "dev",
-      vars: { port: "3000", host: "localhost", debug: "true" },
-      color: "warning",
-    })
-    loaded = await env.loadEnvironment(dir, "dev")
-    expect(loaded.vars).toEqual({
-      port: "3000",
-      host: "localhost",
-      debug: "true",
-    })
-    expect(loaded.color).toBe("warning")
+      // 4. Update — add var, change color
+      await env.saveEnvironment(dir, {
+        name: "dev",
+        vars: { port: "3000", host: "localhost", debug: "true" },
+        color: "warning",
+      })
+      loaded = await env.loadEnvironment(dir, "dev")
+      expect(loaded.vars).toEqual({
+        port: "3000",
+        host: "localhost",
+        debug: "true",
+      })
+      expect(loaded.color).toBe("warning")
 
-    // 5. Delete cloned
-    await env.deleteEnvironment(dir, "dev-staging")
-    names = await env.listEnvironments(dir)
-    expect(names).toEqual(["dev"])
+      // 5. Delete cloned
+      await env.deleteEnvironment(dir, "dev-staging")
+      names = await env.listEnvironments(dir)
+      expect(names).toEqual(["dev"])
 
-    // 6. Delete original
-    await env.deleteEnvironment(dir, "dev")
-    names = await env.listEnvironments(dir)
-    expect(names).toEqual([])
-  })
+      // 6. Delete original
+      await env.deleteEnvironment(dir, "dev")
+      names = await env.listEnvironments(dir)
+      expect(names).toEqual([])
+    },
+  )
 
   it("preserves disabled vars on round-trip", async () => {
     await env.saveEnvironment(dir, {
