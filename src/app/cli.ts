@@ -17,6 +17,48 @@ if (rawArgs.length === 1 && ["-v", "--version"].includes(rawArgs[0])) {
   process.exit(0)
 }
 
+const KNOWN_SUBCOMMANDS = new Set([
+  "import",
+  "update",
+  "workspace",
+  "collection",
+  "request",
+  "environment",
+])
+
+let userArgsStart = 1
+for (let i = 1; i < process.argv.length; i++) {
+  if (process.argv[i]!.endsWith(".ts")) {
+    userArgsStart = i + 1
+    break
+  }
+}
+const firstUserArg = process.argv[userArgsStart]
+
+function isTuiFlag(arg: string): boolean {
+  return (
+    arg === "-c" ||
+    arg === "-e" ||
+    arg.startsWith("-c=") ||
+    arg.startsWith("-e=") ||
+    arg === "--collection" ||
+    arg === "--env" ||
+    arg.startsWith("--collection=") ||
+    arg.startsWith("--env=")
+  )
+}
+
+if (
+  firstUserArg &&
+  firstUserArg !== "noodle" &&
+  !KNOWN_SUBCOMMANDS.has(firstUserArg) &&
+  !firstUserArg.startsWith("-")
+) {
+  process.argv.splice(userArgsStart, 0, "noodle")
+} else if (firstUserArg && isTuiFlag(firstUserArg)) {
+  process.argv.splice(userArgsStart, 0, "noodle")
+}
+
 const main = defineCommand({
   meta: {
     name: "noodle",

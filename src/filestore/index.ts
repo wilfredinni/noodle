@@ -1,11 +1,12 @@
 import type { Collection, CollectionSettings, Request } from "../schema"
-import { loadCollection, loadSettings } from "./load"
+import { loadCollection, loadCollectionBrowse, loadSettings } from "./load"
 import {
   saveRequest,
   saveSettings,
   deleteRequest,
   saveFolder,
   deleteFolder,
+  ensureCollectionBootstrapped,
 } from "./save"
 import {
   loadTimeline,
@@ -16,11 +17,13 @@ import {
 
 export {
   loadSettings,
+  loadCollectionBrowse,
   saveSettings,
   saveRequest,
   deleteRequest,
   saveFolder,
   deleteFolder,
+  ensureCollectionBootstrapped,
   loadTimeline,
   saveTimelineEntry,
   clearTimelineForRequest,

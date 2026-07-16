@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { filestore } from "../filestore"
+import { loadCollectionBrowse } from "../filestore"
 import type { Collection } from "../schema"
 
 export interface UseCollectionResult {
@@ -12,18 +13,27 @@ export interface UseCollectionResult {
 export function useCollection(
   dir: string,
   reloadToken = 0,
+  skip = false,
+  browse = false,
 ): UseCollectionResult {
   const [collection, setCollection] = useState<Collection | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!skip)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
+    if (skip) {
+      setCollection(null)
+      setLoading(false)
+      setError(null)
+      return
+    }
     setLoading(true)
     setError(null)
     let cancelled = false
 
-    filestore
-      .loadCollection(dir)
+    const loader = browse ? loadCollectionBrowse : filestore.loadCollection
+
+    loader(dir)
       .then((c) => {
         if (!cancelled) {
           setCollection(c)
@@ -32,7 +42,11 @@ export function useCollection(
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e : new Error(String(e)))
+          if (browse) {
+            setCollection({ id: dir, name: dir, items: [] })
+          } else {
+            setError(e instanceof Error ? e : new Error(String(e)))
+          }
           setLoading(false)
         }
       })
@@ -40,7 +54,7 @@ export function useCollection(
     return () => {
       cancelled = true
     }
-  }, [dir, reloadToken])
+  }, [dir, reloadToken, skip, browse])
 
   return { collection, loading, error, updateCollection: setCollection }
 }
