@@ -315,7 +315,11 @@ export function useAppKeymap(
         enabled: () => {
           const mode = keymap.getData("app.mode") as string
           const overlay = keymap.getData("app.overlay") as string
-          return mode !== "edit" && overlay === "none"
+          return (
+            refs.modeRef.current === "collection" &&
+            mode !== "edit" &&
+            overlay === "none"
+          )
         },
         run: () => {
           if (!undoAll(actionsConfig)) return
@@ -413,6 +417,7 @@ export function useAppKeymap(
       },
       {
         name: "request.send",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.trySendRef.current?.(),
       },
       {
@@ -432,10 +437,12 @@ export function useAppKeymap(
       },
       {
         name: "request.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewRequestVisible(true),
       },
       {
         name: "folder.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewFolderVisible(true),
       },
       {
@@ -515,6 +522,7 @@ export function useAppKeymap(
     commands: [
       {
         name: "request.edit-enter",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           refs.ebRef.current.enterBrowse()
           setters.setFocus("request")
@@ -548,16 +556,22 @@ export function useAppKeymap(
       { name: "browse.down", run: () => refs.ebRef.current.browseDown() },
       { name: "browse.left", run: () => refs.ebRef.current.browseLeft() },
       { name: "browse.right", run: () => refs.ebRef.current.browseRight() },
-      { name: "browse.enter", run: () => refs.ebRef.current.enterEdit() },
+      {
+        name: "browse.enter",
+        enabled: () => refs.modeRef.current === "collection",
+        run: () => refs.ebRef.current.enterEdit(),
+      },
       { name: "browse.escape", run: () => refs.ebRef.current.exitBrowse() },
       { name: "browse.delete", run: () => refs.ebRef.current.revertField() },
       { name: "browse.revert-all", run: () => refs.ebRef.current.revertAll() },
       {
         name: "browse.toggle",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.ebRef.current.toggleRow(),
       },
       {
         name: "browse.send",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.trySendRef.current?.(),
       },
       {
@@ -602,6 +616,7 @@ export function useAppKeymap(
     commands: [
       {
         name: "folder.edit-enter",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           refs.folderEbRef.current?.enterBrowse()
           setters.setFocus("folder")
@@ -617,10 +632,12 @@ export function useAppKeymap(
       },
       {
         name: "request.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewRequestVisible(true),
       },
       {
         name: "folder.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewFolderVisible(true),
       },
       {

@@ -46,6 +46,7 @@ function minimalContext(): CommandBuilderContext {
     setView: () => {},
     setFocus: () => {},
     setUndoAllPending: () => {},
+    setInitPending: () => {},
     setExpanded: () => {},
     setPreviewIndexProp: () => {},
     setEnvDeletePending: () => {},
@@ -264,7 +265,7 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(ctx)
     const sections = [...new Set(commands.map((c) => c.section))]
     expect(sections).not.toContain("Environment")
-    expect(sections).toEqual(["Request", "Response", "Workspace", "System"])
+    expect(sections).toEqual(["Response", "Collection", "Workspace", "System"])
   })
 
   it("excludes env.editor-open command when mode is empty", () => {

@@ -109,7 +109,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     let fromConfig: string | undefined
     try {
       const cfg = loadConfig(CONFIG_DIR)
-      fromConfig = cfg.collections[0]
+      fromConfig = cfg.collections.find(isDirectoryPath)
     } catch {
       // config unavailable
     }

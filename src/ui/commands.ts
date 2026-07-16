@@ -116,6 +116,7 @@ export interface CommandBuilderContext {
   ) => void
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void
   setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
+  setInitPending: (v: boolean | ((prev: boolean) => boolean)) => void
   setExpanded: (
     v:
       | "request"
@@ -171,6 +172,7 @@ export function buildCommandPaletteCommands(
     setRequestDeletePending,
     setFolderDeletePending,
     setUndoAllPending,
+    setInitPending,
     setView,
     setFocus,
     setLayout,
@@ -438,6 +440,18 @@ export function buildCommandPaletteCommands(
     },
   ]
 
+  const readOnlyCommands: CommandItem[] = [
+    {
+      id: "collection.init",
+      label: "Initialize Collection",
+      section: "Collection",
+      run: () => {
+        setInitPending(true)
+        return true
+      },
+    },
+  ]
+
   const systemCommands: CommandItem[] = [
     {
       id: "app.help",
@@ -492,18 +506,18 @@ export function buildCommandPaletteCommands(
 
   if (view === "env-editor") {
     return [
-      ...(mode === "collection" ? editorEnvCommands : []),
-      ...workspaceCommands,
+      ...(mode === "collection" ? editorEnvCommands : readOnlyCommands),
+      ...(mode === "collection" ? workspaceCommands : []),
       ...globalCommands,
       ...systemCommands,
     ]
   }
 
   return [
-    ...requestCommands,
+    ...(mode === "collection" ? requestCommands : []),
     ...responseCommands,
     ...(mode === "collection" ? mainEnvCommands : []),
-    ...workspaceCommands,
+    ...(mode === "collection" ? workspaceCommands : readOnlyCommands),
     ...mainOnlyCommands,
     ...globalCommands,
     ...systemCommands,

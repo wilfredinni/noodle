@@ -5,6 +5,7 @@ import { join } from "node:path"
 import {
   collectionAudit,
   collectionInspect,
+  collectionInit,
   collectionList,
   collectionRun,
   environmentSet,
@@ -59,6 +60,22 @@ describe("automation services", () => {
       create: { args: { output: { default: string } } }
     }
     expect(subCommands.create.args.output.default).toBe(".")
+  })
+
+  it("initializes an existing non-collection directory", async () => {
+    const result = await collectionInit(dir)
+    expect(result.path).toBe(dir)
+    expect(await readFile(join(dir, "settings.yml"), "utf8")).toContain(
+      "environment: development",
+    )
+    expect(await env.listEnvironments(join(dir, ".environments"))).toEqual([
+      "development",
+    ])
+  })
+
+  it("rejects initializing an existing collection", async () => {
+    await writeFile(join(dir, "settings.yml"), "{}\n", "utf8")
+    await expect(collectionInit(dir)).rejects.toThrow("already a collection")
   })
 
   it("creates collection-relative requests and reports them during inspection", async () => {

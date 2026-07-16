@@ -5,6 +5,7 @@ import {
   formatCollectionAudit,
   formatCollectionCreate,
   formatCollectionInspect,
+  formatCollectionInit,
   formatCollectionList,
   formatCollectionRun,
   formatEnvironmentSet,
@@ -15,6 +16,7 @@ import {
 import {
   collectionAudit,
   collectionCreate,
+  collectionInit,
   collectionInspect,
   collectionList,
   collectionRun,
@@ -83,6 +85,22 @@ const collection = defineCommand({
             data: await collectionCreate(args.name, args.output),
           }),
           formatCollectionCreate,
+        ),
+    }),
+    init: defineCommand({
+      meta: {
+        name: "init",
+        description: "Initialize an existing directory as a collection",
+      },
+      args: {
+        path: { type: "positional", required: true },
+        json: jsonArg,
+      },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({ data: await collectionInit(args.path) }),
+          formatCollectionInit,
         ),
     }),
     list: defineCommand({

@@ -385,7 +385,6 @@ export function AppInner({
     setRequestDeletePending,
     setFolderDeletePending,
     onCollectionBootstrapped,
-    onInitRequested: () => setInitPending(true),
   })
 
   folderSaveRef.current = handleFolderSave
@@ -822,6 +821,7 @@ export function AppInner({
         setView,
         setFocus,
         setUndoAllPending,
+        setInitPending,
         setExpanded,
         setPreviewIndexProp,
         setEnvDeletePending,
@@ -889,7 +889,7 @@ export function AppInner({
             onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
-            urlbarInteractive={activeOverlay === "none"}
+            urlbarInteractive={activeOverlay === "none" && !isReadOnly}
             expandHint={expandHint}
             mode={mode}
           />

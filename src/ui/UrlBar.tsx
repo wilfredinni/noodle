@@ -17,6 +17,7 @@ export function UrlBar({
   setMethod = () => {},
   onDefocus,
   focused = false,
+  interactive = true,
   activeEnv,
   subFocus = "select",
 }: {
@@ -27,6 +28,7 @@ export function UrlBar({
   setMethod?: (method: Method) => void
   onDefocus: (rawUrl: string) => void
   focused?: boolean
+  interactive?: boolean
   activeEnv?: Environment | null
   subFocus?: UrlBarSubFocus
 }) {
@@ -106,13 +108,14 @@ export function UrlBar({
             items={METHOD_ITEMS}
             value={method}
             onChange={(value) => setMethod(value as Method)}
-            focused={focused && subFocus === "select"}
+            focused={focused && interactive && subFocus === "select"}
+            visualFocused={focused && subFocus === "select"}
             badge
             width={8}
             maxDropdownHeight={10}
             onOpenChange={setMethodSelectOpen}
           />
-          {focused && subFocus === "text" ? (
+          {focused && subFocus === "text" && interactive ? (
             <box style={{ flexGrow: 1 }}>
               <VarInput
                 value={inputValue}
@@ -129,7 +132,10 @@ export function UrlBar({
           ) : (
             <box
               style={{
-                backgroundColor: theme.backgroundElement,
+                backgroundColor:
+                  focused && subFocus === "text"
+                    ? theme.borderSubtle
+                    : theme.backgroundElement,
                 flexGrow: 1,
                 overflow: "hidden",
               }}

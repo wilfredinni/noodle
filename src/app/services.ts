@@ -9,6 +9,7 @@ import {
   loadSettings,
   saveRequest,
   saveSettings,
+  ensureCollectionBootstrapped,
 } from "../filestore"
 import { lang } from "../lang"
 import { executor, substitute } from "../requests"
@@ -134,6 +135,36 @@ export async function collectionCreate(
     collections: upsertCollectionPath(config.collections, path),
   })
   return { path, name }
+}
+
+export async function collectionInit(path: string): Promise<{ path: string }> {
+  const absolutePath = resolve(path)
+  if (!existsSync(absolutePath)) {
+    throw new Error(`directory not found: ${absolutePath}`)
+  }
+  if (!(await isDirectory(absolutePath))) {
+    throw new Error(`not a directory: ${absolutePath}`)
+  }
+  if (await isCollectionRoot(absolutePath)) {
+    throw new Error(`already a collection: ${absolutePath}`)
+  }
+
+  await ensureCollectionBootstrapped(absolutePath)
+  const config = loadConfig(CONFIG_DIR)
+  saveConfig(CONFIG_DIR, {
+    ...config,
+    collections: upsertCollectionPath(config.collections, absolutePath),
+  })
+  return { path: absolutePath }
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    await readdir(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function isCollectionRoot(path: string): Promise<boolean> {

@@ -57,6 +57,10 @@ export function formatCollectionCreate(data: {
   return `${color("✓", "green")} Created collection ${data.name}\n  ${data.path}`
 }
 
+export function formatCollectionInit(data: { path: string }): string {
+  return `${color("✓", "green")} Initialized collection\n  ${data.path}`
+}
+
 export function formatCollectionList(data: CollectionListResult): string {
   if (data.tree.length === 0) return `Collection is empty: ${data.path}`
   return [`Collection: ${data.path}`, ...formatTree(data.tree)].join("\n")
