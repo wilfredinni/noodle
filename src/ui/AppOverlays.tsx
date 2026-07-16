@@ -21,7 +21,12 @@ import {
   NewFolderOverlay,
   type NewFolderOverlayHandle,
 } from "./overlays/NewFolderOverlay"
-import type { Environment, Request as NoodleRequest } from "../schema"
+import type {
+  Environment,
+  Request as NoodleRequest,
+  TimelineEntry,
+} from "../schema"
+import { TimelineDetailOverlay } from "./overlays/TimelineDetailOverlay"
 import type { Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
@@ -87,6 +92,9 @@ interface AppOverlaysProps {
   newFolderRef: RefObject<NewFolderOverlayHandle | null>
   folderDeletePending: string | null
   requestDeletePending: string | null
+  timelineDetailEntry: TimelineEntry | null
+  setTimelineDetailEntry: (entry: TimelineEntry | null) => void
+  envColors: Record<string, string | undefined>
 }
 
 export function AppOverlays({
@@ -135,6 +143,9 @@ export function AppOverlays({
   newFolderRef,
   folderDeletePending,
   requestDeletePending,
+  timelineDetailEntry,
+  setTimelineDetailEntry,
+  envColors,
 }: AppOverlaysProps) {
   return (
     <>
@@ -276,6 +287,14 @@ export function AppOverlays({
           visible
           message={`Delete "${requestDeletePending}"?`}
           selectedIndex={deleteConfirmSelection}
+        />
+      )}
+      {timelineDetailEntry !== null && (
+        <TimelineDetailOverlay
+          visible
+          entry={timelineDetailEntry}
+          onClose={() => setTimelineDetailEntry(null)}
+          envColors={envColors}
         />
       )}
     </>

@@ -10,7 +10,7 @@ import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { deriveRequestParentFolder, getFolderPaths } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest, Method } from "../schema"
+import type { Request as NoodleRequest, Method, TimelineEntry } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -153,6 +153,8 @@ export function AppInner({
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
+  const [timelineDetailEntry, setTimelineDetailEntry] =
+    useState<TimelineEntry | null>(null)
   const [collectionSwitcherVisible, setCollectionSwitcherVisible] =
     useState(false)
   const [collectionSwitchPending, setCollectionSwitchPending] = useState<
@@ -407,7 +409,9 @@ export function AppInner({
                                 ? "delete-folder"
                                 : requestDeletePending !== null
                                   ? "request-delete"
-                                  : "none"
+                                  : timelineDetailEntry !== null
+                                    ? "timeline-detail"
+                                    : "none"
     keymap.setData("app.overlay", overlay)
   }, [
     commandPaletteVisible,
@@ -425,6 +429,7 @@ export function AppInner({
     undoAllPending,
     collectionSwitchPending,
     collectionSwitcherVisible,
+    timelineDetailEntry,
     keymap,
   ])
 
@@ -861,6 +866,7 @@ export function AppInner({
             timelineEntries={timeline.entries}
             initialResponseTab={initialResponseTab}
             onResponseTabChange={onResponseTabChange}
+            onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
             setSelectOpen={setSelectOpen}
             expandHint={expandHint}
           />
@@ -922,6 +928,9 @@ export function AppInner({
           newFolderRef={newFolderRef}
           folderDeletePending={folderDeletePending}
           requestDeletePending={requestDeletePending}
+          timelineDetailEntry={timelineDetailEntry}
+          setTimelineDetailEntry={setTimelineDetailEntry}
+          envColors={envColors}
         />
       </box>
       <StatusBar

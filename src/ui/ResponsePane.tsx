@@ -28,6 +28,7 @@ export function ResponsePane({
   timelineEntries,
   initialTab,
   onTabChange,
+  onOpenTimelineEntry,
   expandHint,
 }: {
   state: SendState
@@ -35,6 +36,7 @@ export function ResponsePane({
   timelineEntries?: TimelineEntry[]
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
+  onOpenTimelineEntry?: (entry: TimelineEntry) => void
   expandHint?: string
 }) {
   const theme = useTheme()
@@ -187,7 +189,11 @@ export function ResponsePane({
         <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
           <Tabs tabs={TAB_DEFS} activeId={activeTab}>
             {activeTab === "timeline" ? (
-              <TimelineTab entries={timelineEntries ?? []} focused={focused} />
+              <TimelineTab
+                entries={timelineEntries ?? []}
+                focused={focused}
+                onOpenEntry={onOpenTimelineEntry}
+              />
             ) : (
               <scrollbox
                 ref={scrollRef}
