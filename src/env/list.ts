@@ -25,6 +25,6 @@ export async function listEnvironments(dir: string): Promise<string[]> {
       // skip unreadable entries
     }
   }
-  envs.sort((a, b) => a.created - b.created)
+  envs.sort((a, b) => a.created - b.created || a.name.localeCompare(b.name))
   return envs.map((e) => e.name)
 }
