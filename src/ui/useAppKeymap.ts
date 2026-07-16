@@ -46,7 +46,7 @@ export interface UseAppKeymapRefs {
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
   responseStateRef: RefObject<SendState>
-  modeRef: RefObject<"collection" | "browse" | "empty">
+  modeRef: RefObject<"collection" | "browse" | "empty" | "invalid">
 }
 
 export interface UseAppKeymapSetters {

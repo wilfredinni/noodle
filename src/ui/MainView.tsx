@@ -40,7 +40,7 @@ interface MainViewProps {
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
   expandHint: string
-  mode?: "collection" | "browse" | "empty"
+  mode?: "collection" | "browse" | "empty" | "invalid"
 }
 
 export function MainView({

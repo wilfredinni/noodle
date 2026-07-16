@@ -93,7 +93,7 @@ export function AppInner({
   onCollectionChange: (collectionDir: string) => void
   onReloadCollection: () => void
   onCollectionBootstrapped: (collectionDir: string) => void
-  mode?: "collection" | "browse" | "empty"
+  mode?: "collection" | "browse" | "empty" | "invalid"
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -605,7 +605,7 @@ export function AppInner({
   const collectionRef = useRef(collection)
   collectionRef.current = collection
 
-  const modeRef = useRef<"collection" | "browse" | "empty">(mode)
+  const modeRef = useRef<"collection" | "browse" | "empty" | "invalid">(mode)
   modeRef.current = mode
 
   const selectedIdRef = useRef(selectedId)
@@ -806,7 +806,7 @@ export function AppInner({
         folderDeletePathRef,
         getKeymapFocus: () => keymap.getData("app.focus") as string,
         getView: () => view,
-        getCollectionMode: () => mode,
+        getCollectionMode: () => (mode === "invalid" ? "empty" : mode),
         setLayout,
         onLayoutChange,
         setHelpVisible,

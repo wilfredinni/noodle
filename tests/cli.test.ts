@@ -254,12 +254,12 @@ describe("CLI integration", () => {
 })
 
 describe("classifyPath", () => {
-  it("returns empty for missing path", () => {
-    expect(classifyPath("/tmp/noodle-nonexistent-xyz")).toBe("empty")
+  it("returns invalid for missing path", () => {
+    expect(classifyPath("/tmp/noodle-nonexistent-xyz")).toBe("invalid")
   })
 
-  it("returns empty for a regular file path", () => {
-    expect(classifyPath(__filename)).toBe("empty")
+  it("returns invalid for a regular file path", () => {
+    expect(classifyPath(__filename)).toBe("invalid")
   })
 
   it("returns collection for path with settings.yml", async () => {

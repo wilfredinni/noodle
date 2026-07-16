@@ -24,7 +24,7 @@ extend({ "code-editor": CodeEditorRenderable })
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
-export type CollectionMode = "collection" | "browse" | "empty"
+export type CollectionMode = "collection" | "browse" | "empty" | "invalid"
 
 export interface BootstrapOptions {
   targetPath?: string
@@ -69,8 +69,8 @@ function hasNoodleContent(dir: string): boolean {
 }
 
 export function classifyPath(dir: string): CollectionMode {
-  if (!existsSync(dir)) return "empty"
-  if (!isDirectoryPath(dir)) return "empty"
+  if (!existsSync(dir)) return "invalid"
+  if (!isDirectoryPath(dir)) return "invalid"
 
   const envDir = join(dir, ".environments")
   if (existsSync(envDir)) return "collection"
@@ -121,6 +121,13 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
   }
 
   const mode: CollectionMode = classifyPath(collectionDir)
+  if (mode === "invalid") {
+    process.stderr.write(
+      `error: collection path is not a directory: ${collectionDir}\n`,
+    )
+    process.exit(1)
+    return
+  }
   const shouldRegister =
     mode === "collection" && (!!options.targetPath || !!options.collectionDir)
 
