@@ -374,6 +374,43 @@ export function AppInner({
   folderSaveRef.current = handleFolderSave
 
   // ── keymap.setData effects ─────────────────────────────────────────
+  const activeOverlay = useMemo(() => {
+    if (commandPaletteVisible) return "command-palette"
+    if (helpVisible) return "help"
+    if (aboutVisible) return "about"
+    if (previewIndex !== null) return "theme"
+    if (saveState.kind === "confirming") return "confirm"
+    if (undoAllPending) return "undo-all"
+    if (collectionSwitchPending !== null) return "collection-switch-confirm"
+    if (collectionSwitcherVisible) return "collection-switcher"
+    if (yamlEditor.visible) return "yaml-editor"
+    if (newRequestVisible) return "new-request"
+    if (editRequestVisible) return "edit-request"
+    if (cloneRequestVisible) return "clone-request"
+    if (newFolderVisible) return "new-folder"
+    if (folderDeletePending !== null) return "delete-folder"
+    if (requestDeletePending !== null) return "request-delete"
+    if (timelineDetailEntry !== null) return "timeline-detail"
+    return "none"
+  }, [
+    commandPaletteVisible,
+    helpVisible,
+    aboutVisible,
+    previewIndex,
+    saveState.kind,
+    undoAllPending,
+    collectionSwitchPending,
+    collectionSwitcherVisible,
+    yamlEditor.visible,
+    newRequestVisible,
+    editRequestVisible,
+    cloneRequestVisible,
+    newFolderVisible,
+    folderDeletePending,
+    requestDeletePending,
+    timelineDetailEntry,
+  ])
+
   useEffect(() => {
     keymap.setData("app.focus", focus)
     if (focus === "env-header") {
@@ -382,59 +419,8 @@ export function AppInner({
   }, [focus, keymap])
 
   useEffect(() => {
-    const overlay = commandPaletteVisible
-      ? "command-palette"
-      : helpVisible
-        ? "help"
-        : aboutVisible
-          ? "about"
-          : previewIndex !== null
-            ? "theme"
-            : saveState.kind === "confirming"
-              ? "confirm"
-              : undoAllPending
-                ? "undo-all"
-                : collectionSwitchPending !== null
-                  ? "collection-switch-confirm"
-                  : collectionSwitcherVisible
-                    ? "collection-switcher"
-                    : yamlEditor.visible
-                      ? "yaml-editor"
-                      : newRequestVisible
-                        ? "new-request"
-                        : editRequestVisible
-                          ? "edit-request"
-                          : cloneRequestVisible
-                            ? "clone-request"
-                            : newFolderVisible
-                              ? "new-folder"
-                              : folderDeletePending !== null
-                                ? "delete-folder"
-                                : requestDeletePending !== null
-                                  ? "request-delete"
-                                  : timelineDetailEntry !== null
-                                    ? "timeline-detail"
-                                    : "none"
-    keymap.setData("app.overlay", overlay)
-  }, [
-    commandPaletteVisible,
-    helpVisible,
-    aboutVisible,
-    previewIndex,
-    saveState.kind,
-    yamlEditor.visible,
-    newRequestVisible,
-    editRequestVisible,
-    cloneRequestVisible,
-    newFolderVisible,
-    folderDeletePending,
-    requestDeletePending,
-    undoAllPending,
-    collectionSwitchPending,
-    collectionSwitcherVisible,
-    timelineDetailEntry,
-    keymap,
-  ])
+    keymap.setData("app.overlay", activeOverlay)
+  }, [activeOverlay, keymap])
 
   useEffect(() => {
     keymap.setData("app.view", view)
@@ -823,24 +809,6 @@ export function AppInner({
     ],
   )
 
-  const overlayVisible =
-    commandPaletteVisible ||
-    helpVisible ||
-    aboutVisible ||
-    previewIndex !== null ||
-    saveState.kind === "confirming" ||
-    undoAllPending ||
-    collectionSwitchPending !== null ||
-    collectionSwitcherVisible ||
-    yamlEditor.visible ||
-    newRequestVisible ||
-    editRequestVisible ||
-    cloneRequestVisible ||
-    newFolderVisible ||
-    folderDeletePending !== null ||
-    requestDeletePending !== null ||
-    timelineDetailEntry !== null
-
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <box
@@ -890,7 +858,7 @@ export function AppInner({
             onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
-            urlbarInteractive={!overlayVisible}
+            urlbarInteractive={activeOverlay === "none"}
             expandHint={expandHint}
           />
         ) : (
