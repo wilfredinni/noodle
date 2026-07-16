@@ -1,12 +1,18 @@
 import type { Auth, KvEntry, Method, ParamEntry } from "../schema"
 import type { Theme } from "./theme"
 
-export function methodColor(method: Method, theme: Theme): string {
-  if (method === "GET") return theme.success
+export type MethodColorToken = "success" | "warning" | "error" | "textMuted"
+
+export function methodColorToken(method: Method): MethodColorToken {
+  if (method === "GET") return "success"
   if (method === "POST" || method === "PUT" || method === "PATCH")
-    return theme.warning
-  if (method === "DELETE") return theme.error
-  return theme.textMuted
+    return "warning"
+  if (method === "DELETE") return "error"
+  return "textMuted"
+}
+
+export function methodColor(method: Method, theme: Theme): string {
+  return theme[methodColorToken(method)]
 }
 
 export function formatHeaders(headers: Record<string, KvEntry>): string[] {

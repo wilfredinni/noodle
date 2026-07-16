@@ -78,6 +78,18 @@ describe("METHOD_ITEMS", () => {
     const del = METHOD_ITEMS.find((i) => i.id === "DELETE")
     expect(del?.label).toBe("DEL")
   })
+
+  it("uses sidebar method color tokens", () => {
+    expect(METHOD_ITEMS.map((item) => item.color)).toEqual([
+      "success",
+      "warning",
+      "warning",
+      "warning",
+      "error",
+      "textMuted",
+      "textMuted",
+    ])
+  })
 })
 
 describe("NewRequestOverlay mode prop", () => {

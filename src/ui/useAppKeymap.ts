@@ -1,6 +1,6 @@
 import { useBindings, useKeymap } from "@opentui/keymap/react"
 import type { RefObject } from "react"
-import { cycleFocus, type Focus } from "./focus"
+import { cycleFocus, type Focus, type UrlBarSubFocus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
@@ -35,6 +35,7 @@ export interface UseAppKeymapRefs {
   trySendRef: RefObject<(() => void) | undefined>
   doSaveRef: RefObject<() => void>
   focusRef: RefObject<Focus>
+  urlbarSubFocusRef: RefObject<UrlBarSubFocus>
   viewRef: RefObject<"main" | "env-editor">
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
@@ -49,6 +50,7 @@ export interface UseAppKeymapRefs {
 
 export interface UseAppKeymapSetters {
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void
+  setUrlbarSubFocus: (focus: UrlBarSubFocus) => void
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setLayout: (
     layout:
@@ -172,21 +174,22 @@ export function useAppKeymap(
           if (overlay !== "none") return false
           return true
         },
-        run: () =>
-          setters.setFocus((prev: Focus) => {
-            const next = cycleFocus(
-              prev,
-              1,
-              refs.viewRef.current,
-              refs.expandedRef.current,
-              refs.folderViewRef.current,
-            )
-            if (next === "request" && refs.viewRef.current === "main")
-              refs.ebRef.current.enterBrowse()
-            if (next === "env-vars" && refs.viewRef.current === "env-editor")
-              refs.envEditorRef.current.enterBrowse()
-            return next
-          }),
+        run: () => {
+          const prev = refs.focusRef.current
+          const next = cycleFocus(
+            prev,
+            1,
+            refs.viewRef.current,
+            refs.expandedRef.current,
+            refs.folderViewRef.current,
+          )
+          if (next === "urlbar") setters.setUrlbarSubFocus("select")
+          if (next === "request" && refs.viewRef.current === "main")
+            refs.ebRef.current.enterBrowse()
+          if (next === "env-vars" && refs.viewRef.current === "env-editor")
+            refs.envEditorRef.current.enterBrowse()
+          setters.setFocus(next)
+        },
       },
       {
         name: "layout.toggle",
@@ -209,21 +212,22 @@ export function useAppKeymap(
           if (overlay !== "none") return false
           return true
         },
-        run: () =>
-          setters.setFocus((prev: Focus) => {
-            const next = cycleFocus(
-              prev,
-              -1,
-              refs.viewRef.current,
-              refs.expandedRef.current,
-              refs.folderViewRef.current,
-            )
-            if (next === "request" && refs.viewRef.current === "main")
-              refs.ebRef.current.enterBrowse()
-            if (next === "env-vars" && refs.viewRef.current === "env-editor")
-              refs.envEditorRef.current.enterBrowse()
-            return next
-          }),
+        run: () => {
+          const prev = refs.focusRef.current
+          const next = cycleFocus(
+            prev,
+            -1,
+            refs.viewRef.current,
+            refs.expandedRef.current,
+            refs.folderViewRef.current,
+          )
+          if (next === "urlbar") setters.setUrlbarSubFocus("text")
+          if (next === "request" && refs.viewRef.current === "main")
+            refs.ebRef.current.enterBrowse()
+          if (next === "env-vars" && refs.viewRef.current === "env-editor")
+            refs.envEditorRef.current.enterBrowse()
+          setters.setFocus(next)
+        },
       },
       {
         name: "app.help",
@@ -331,6 +335,57 @@ export function useAppKeymap(
       { key: keybinds.command_palette, cmd: "app.command-palette" },
       { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
+    ],
+  }))
+
+  // URL bar has two tab stops: method select, then URL input.
+  useBindings(() => ({
+    enabled: () =>
+      keymap.getData("app.focus") === "urlbar" &&
+      keymap.getData("app.overlay") === "none" &&
+      keymap.getData("app.view") !== "env-editor",
+    commands: [
+      {
+        name: "urlbar.tab",
+        run: () => {
+          if (refs.urlbarSubFocusRef.current === "select") {
+            setters.setUrlbarSubFocus("text")
+            return
+          }
+          const next = cycleFocus(
+            "urlbar",
+            1,
+            refs.viewRef.current,
+            refs.expandedRef.current,
+            refs.folderViewRef.current,
+          )
+          if (next === "request" && refs.viewRef.current === "main")
+            refs.ebRef.current.enterBrowse()
+          setters.setFocus(next)
+        },
+      },
+      {
+        name: "urlbar.prev",
+        run: () => {
+          if (refs.urlbarSubFocusRef.current === "text") {
+            setters.setUrlbarSubFocus("select")
+            return
+          }
+          setters.setFocus(
+            cycleFocus(
+              "urlbar",
+              -1,
+              refs.viewRef.current,
+              refs.expandedRef.current,
+              refs.folderViewRef.current,
+            ),
+          )
+        },
+      },
+    ],
+    bindings: [
+      { key: "tab", cmd: "urlbar.tab" },
+      { key: "shift+tab", cmd: "urlbar.prev" },
     ],
   }))
 

@@ -7,6 +7,7 @@ import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { UseFolderEditBrowseResult } from "../hooks/useFolderEditBrowse"
 import type { Focus } from "./focus"
+import type { UrlBarSubFocus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
 import { RequestResponseView } from "./RequestResponseView"
@@ -36,6 +37,8 @@ interface MainViewProps {
   onResponseTabChange: (tab: import("./tabs/uiState").ResponseTabKind) => void
   onOpenTimelineEntry?: (entry: import("../schema").TimelineEntry) => void
   setSelectOpen: (open: boolean) => void
+  urlbarSubFocus: UrlBarSubFocus
+  urlbarInteractive: boolean
   expandHint: string
 }
 
@@ -64,6 +67,8 @@ export function MainView({
   onResponseTabChange,
   onOpenTimelineEntry,
   setSelectOpen,
+  urlbarSubFocus,
+  urlbarInteractive,
   expandHint,
 }: MainViewProps) {
   const theme = useTheme()
@@ -123,6 +128,8 @@ export function MainView({
             onResponseTabChange={onResponseTabChange}
             onOpenTimelineEntry={onOpenTimelineEntry}
             setSelectOpen={setSelectOpen}
+            urlbarSubFocus={urlbarSubFocus}
+            urlbarInteractive={urlbarInteractive}
             expandHint={expandHint}
           />
         )}

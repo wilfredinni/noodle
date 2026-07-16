@@ -165,6 +165,18 @@ describe("requestEquals", () => {
 })
 
 describe("applyDraft", () => {
+  it("setMethod updates method and preserves the request", () => {
+    const original = makeReq({ method: "GET" })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setMethod",
+      method: "POST",
+    })
+    expect(next.get("r1")!.method).toBe("POST")
+    expect(next.get("r1")!.url).toBe(original.url)
+    expect(requestEquals(next.get("r1")!, original)).toBe(false)
+  })
+
   it("setUrl updates url, leaves rest", () => {
     const original = makeReq({ url: "https://a.com" })
     const map = new Map<string, Request>()

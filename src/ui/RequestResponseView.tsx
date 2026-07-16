@@ -5,6 +5,7 @@ import type { Environment, TimelineEntry } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { Focus } from "./focus"
+import type { UrlBarSubFocus } from "./focus"
 import type { ResponseTabKind } from "./tabs/uiState"
 import type { SendState } from "./sendState"
 
@@ -22,6 +23,8 @@ interface RequestResponseViewProps {
   onResponseTabChange: (tab: ResponseTabKind) => void
   onOpenTimelineEntry?: (entry: TimelineEntry) => void
   setSelectOpen: (open: boolean) => void
+  urlbarSubFocus: UrlBarSubFocus
+  urlbarInteractive: boolean
   expandHint: string
 }
 
@@ -39,6 +42,8 @@ export function RequestResponseView({
   onResponseTabChange,
   onOpenTimelineEntry,
   setSelectOpen,
+  urlbarSubFocus,
+  urlbarInteractive,
   expandHint,
 }: RequestResponseViewProps) {
   const content = (
@@ -79,12 +84,14 @@ export function RequestResponseView({
   return (
     <>
       <UrlBar
-        method={draft.draft?.method ?? ""}
+        method={draft.draft?.method ?? "GET"}
         url={draft.draft?.url ?? ""}
         params={draft.draft?.params ?? []}
         setUrl={draft.setUrl}
+        setMethod={draft.setMethod}
         onDefocus={draft.syncUrlParams}
-        focused={focus === "urlbar"}
+        focused={focus === "urlbar" && urlbarInteractive}
+        subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
       />
       <box
