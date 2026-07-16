@@ -79,9 +79,7 @@ export function TimelineDetailOverlay({
         theme.info)
       : theme.info
 
-  const authHeader = entry.request.auth
-    ? maskedAuthHeader(entry.request.auth)
-    : null
+  const authHeader = maskedAuthHeader(entry.request.auth)
   const requestHeaders = [
     ...(authHeader ? [authHeader] : []),
     ...Object.entries(entry.request.headers)
