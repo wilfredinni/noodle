@@ -11,11 +11,11 @@ import { formatBody, formatHeaders, formatSize, statusColor } from "../format"
 import { methodColor } from "../formatRequest"
 import { JsonBodyViewer } from "../editor/JsonBodyViewer"
 import {
-  authSummary,
   entryMethod,
   entryStatus,
   entryTiming,
   formatRequestUrl,
+  maskedAuthHeader,
   shortMethod,
 } from "../timeline/formatTimeline"
 
@@ -79,10 +79,15 @@ export function TimelineDetailOverlay({
         theme.info)
       : theme.info
 
-  const requestHeaders = Object.entries(entry.request.headers)
-    .filter(([, value]) => value.enabled)
-    .map(([key, value]) => ({ key, value: value.value }))
-    .sort((a, b) => a.key.localeCompare(b.key))
+  const authHeader = entry.request.auth
+    ? maskedAuthHeader(entry.request.auth)
+    : null
+  const requestHeaders = [
+    ...(authHeader ? [authHeader] : []),
+    ...Object.entries(entry.request.headers)
+      .filter(([, value]) => value.enabled)
+      .map(([key, value]) => ({ key, value: value.value })),
+  ].sort((a, b) => a.key.localeCompare(b.key))
   const responseHeaders = entry.response ? formatHeaders(entry.response) : []
   const requestMaxKeyLen = requestHeaders.reduce(
     (max, header) => Math.max(max, header.key.length),
@@ -149,11 +154,6 @@ export function TimelineDetailOverlay({
                     {entry.request.id}
                   </text>
                 </box>
-                {authSummary(entry.request.auth) && (
-                  <text fg={theme.textMuted}>
-                    {authSummary(entry.request.auth)}
-                  </text>
-                )}
                 <box
                   border={["bottom"]}
                   borderColor={theme.borderSubtle}
