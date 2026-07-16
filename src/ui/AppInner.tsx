@@ -805,7 +805,6 @@ export function AppInner({
         setPreviewIndexProp,
         setEnvDeletePending,
         setDeleteConfirmSelection,
-        setCollectionReloadToken,
         onReloadCollection,
       }),
     [
@@ -814,7 +813,6 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
-      setCollectionReloadToken,
       onReloadCollection,
       view,
     ],

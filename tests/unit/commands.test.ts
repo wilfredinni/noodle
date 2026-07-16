@@ -49,7 +49,6 @@ function minimalContext(): CommandBuilderContext {
     setPreviewIndexProp: () => {},
     setEnvDeletePending: () => {},
     setDeleteConfirmSelection: () => {},
-    setCollectionReloadToken: () => {},
     onReloadCollection: () => {},
   }
 }

@@ -131,7 +131,6 @@ export interface CommandBuilderContext {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
-  setCollectionReloadToken: (fn: (n: number) => number) => void
   onReloadCollection: () => void
 }
 
