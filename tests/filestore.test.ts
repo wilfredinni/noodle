@@ -608,3 +608,45 @@ describe("filestore — symlink handling", () => {
     expect(col.items.some((i) => i.type === "folder")).toBe(true)
   })
 })
+
+describe("loadCollectionBrowse", () => {
+  it("loads requests without migration writes", async () => {
+    await writeFile(
+      join(dir, "old-request.yml"),
+      yamlTmpl(makeReq({ id: "old-request", name: "Legacy" })),
+    )
+    const { loadCollectionBrowse } = await import("../src/filestore/load")
+    const col = await loadCollectionBrowse(dir)
+    expect(col.items).toHaveLength(1)
+    expect(col.items[0]!.type).toBe("request")
+    expect(col.items[0]!.data.name).toBe("Legacy")
+  })
+
+  it("tolerates invalid YAML files", async () => {
+    await writeFile(
+      join(dir, "bad.yml"),
+      "this is not valid yaml: : :\n\tbroken indentation",
+    )
+    await writeFile(
+      join(dir, "good.yml"),
+      yamlTmpl(makeReq({ id: "good", name: "Good" })),
+    )
+    const { loadCollectionBrowse } = await import("../src/filestore/load")
+    const col = await loadCollectionBrowse(dir)
+    expect(col.items).toHaveLength(1)
+    expect(col.items[0]!.data.name).toBe("Good")
+  })
+
+  it("returns empty items for non-existent directory", async () => {
+    const { loadCollectionBrowse } = await import("../src/filestore/load")
+    const col = await loadCollectionBrowse("/tmp/noodle-browse-nonexistent")
+    expect(col.items).toHaveLength(0)
+  })
+
+  it("reports filesystem errors while browsing", async () => {
+    const { loadCollectionBrowse } = await import("../src/filestore/load")
+    const file = join(dir, "not-a-directory")
+    await writeFile(file, "content")
+    await expect(loadCollectionBrowse(file)).rejects.toThrow()
+  })
+})

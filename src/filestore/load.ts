@@ -12,11 +12,17 @@ import type {
 
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
 
+export interface LoadOptions {
+  readOnly?: boolean
+  tolerant?: boolean
+}
+
 async function walk(
   absDir: string,
   relPath: string,
   visited = new Set<string>(),
   root?: string,
+  opts: LoadOptions = {},
 ): Promise<CollectionItem[]> {
   let resolved: string
   try {
@@ -79,7 +85,7 @@ async function walk(
         }
       }
 
-      const children = await walk(childAbs, childRel, visited, root)
+      const children = await walk(childAbs, childRel, visited, root, opts)
       const folder: Folder = {
         id: entry.name,
         name: folderMeta.meta?.name ?? entry.name,
@@ -107,6 +113,7 @@ async function walk(
       try {
         req = lang.parseRequest(reqId, content)
       } catch (e) {
+        if (opts.tolerant) continue
         const msg = e instanceof Error ? e.message : String(e)
         throw new Error(
           `filestore.loadCollection: failed to parse "${entry.name}": ${msg}`,
@@ -115,7 +122,7 @@ async function walk(
       }
       requests.push({ item: { type: "request", data: req }, name: entry.name })
 
-      if (!/^timeout:\s/m.test(content)) {
+      if (!opts.readOnly && !/^timeout:\s/m.test(content)) {
         try {
           await writeFile(
             join(absDir, entry.name),
@@ -164,6 +171,23 @@ export async function loadCollection(dir: string): Promise<Collection> {
   const root = await realpath(dir)
   const items = await walk(dir, "", new Set(), root)
   return { id, name: id, items }
+}
+
+export async function loadCollectionBrowse(dir: string): Promise<Collection> {
+  const id = basename(dir)
+  try {
+    const root = await realpath(dir)
+    const items = await walk(dir, "", new Set(), root, {
+      readOnly: true,
+      tolerant: true,
+    })
+    return { id, name: id, items }
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return { id, name: id, items: [] }
+    }
+    throw e
+  }
 }
 
 export async function loadSettings(dir: string): Promise<CollectionSettings> {

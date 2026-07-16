@@ -12,7 +12,8 @@ import {
   deleteRequest,
   saveFolder,
   deleteFolder,
-} from "../filestore/save"
+  ensureCollectionBootstrapped,
+} from "../filestore"
 import { slugify } from "./overlays/NewRequestOverlay"
 import { updateFolderByPath } from "./tree"
 import type { Focus } from "./focus"
@@ -39,6 +40,7 @@ interface UseCollectionFileActionsOptions {
   setEditRequestVisible: Dispatch<SetStateAction<boolean>>
   setRequestDeletePending: Dispatch<SetStateAction<string | null>>
   setFolderDeletePending: Dispatch<SetStateAction<string | null>>
+  onCollectionBootstrapped: (dir: string) => void
 }
 
 export function useCollectionFileActions({
@@ -62,6 +64,7 @@ export function useCollectionFileActions({
   setEditRequestVisible,
   setRequestDeletePending,
   setFolderDeletePending,
+  onCollectionBootstrapped,
 }: UseCollectionFileActionsOptions) {
   const showSaveResult = useCallback(
     (state: SaveState) => {
@@ -361,6 +364,28 @@ export function useCollectionFileActions({
     showSaveResult,
   ])
 
+  const executeInitPending = useCallback(async () => {
+    try {
+      await ensureCollectionBootstrapped(collectionDir)
+      onCollectionBootstrapped(collectionDir)
+      setCollectionReloadToken((n) => n + 1)
+      setFocus("sidebar")
+      showSaveResult({
+        kind: "success",
+        message: "Collection initialized",
+      })
+    } catch (e: unknown) {
+      showError(e)
+    }
+  }, [
+    collectionDir,
+    onCollectionBootstrapped,
+    setCollectionReloadToken,
+    setFocus,
+    showError,
+    showSaveResult,
+  ])
+
   return {
     handleFolderSave,
     handleNewRequestConfirm,
@@ -369,5 +394,6 @@ export function useCollectionFileActions({
     handleFolderDeleteConfirm,
     handleEditRequestConfirm,
     handleRequestDeleteConfirm,
+    executeInitPending,
   }
 }

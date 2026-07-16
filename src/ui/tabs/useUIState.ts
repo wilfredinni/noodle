@@ -23,6 +23,7 @@ const DEFAULTS: TabPrefs = { requestTab: "headers", responseTab: "body" }
 export function useUIState(
   collectionDir: string,
   requestIds: string[],
+  skip = false,
 ): UseUIStateResult {
   const [state, setState] = useState<Map<string, TabPrefs>>(new Map())
   const mapRef = useRef(state)
@@ -34,10 +35,11 @@ export function useUIState(
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (skip) return
     loadUIState(collectionDir).then((m) => {
       setState(m)
     })
-  }, [collectionDir])
+  }, [collectionDir, skip])
 
   useEffect(() => {
     return () => {
@@ -54,6 +56,7 @@ export function useUIState(
 
   const setTab = useCallback(
     (requestId: string, pane: Pane, value: FieldKind | ResponseTabKind) => {
+      if (skip) return
       const next = new Map(mapRef.current)
       const prefs = next.get(requestId) ?? { ...DEFAULTS }
       if (pane === "request") {
@@ -74,7 +77,7 @@ export function useUIState(
         )
       }, 300)
     },
-    [collectionDir],
+    [collectionDir, skip],
   )
 
   return { getTab, setTab }

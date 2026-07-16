@@ -1,11 +1,12 @@
 import { describe, it, expect } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
 import defaultCommand from "../src/app/commands/default"
 import importCommand from "../src/app/commands/import"
 import updateCommand from "../src/app/commands/update"
+import { classifyPath } from "../src/app/main"
 
 const CLI = join(import.meta.dir, "../src/app/cli.ts")
 const defaultMeta = defaultCommand.meta as CommandMeta | undefined
@@ -174,6 +175,174 @@ describe("CLI integration", () => {
         },
         errors: [],
       })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("adds noodle subcommand when positional path is given", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "./collections", "--help"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("TARGETPATH")
+  })
+
+  it("rejects both positional path and --collection flag", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-conflict-"))
+    try {
+      // Create settings.yml so the run handler doesn't try to init an
+      // empty directory (we just want the argument conflict error).
+      await writeFile(join(dir, "settings.yml"), "environment: development\n")
+      const proc = Bun.spawnSync(["bun", CLI, dir, "--collection", dir])
+      const err = proc.stderr.toString()
+      expect(err).toContain("cannot supply both")
+      expect(proc.exitCode).not.toBe(0)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("accepts --collection with -c alias", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "-c", "./collections", "--help"])
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("collection")
+  })
+
+  it("accepts --collection with --collection= form", () => {
+    const proc = Bun.spawnSync([
+      "bun",
+      CLI,
+      "--collection=./collections",
+      "--help",
+    ])
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("collection")
+  })
+
+  it("accepts --env with -e alias", () => {
+    const proc = Bun.spawnSync([
+      "bun",
+      CLI,
+      "-e",
+      "development",
+      "--collection",
+      "./collections",
+      "--help",
+    ])
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("env")
+  })
+
+  it("handles regular file path without crashing", () => {
+    const proc = Bun.spawnSync(["bun", CLI, __filename, "--help"])
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    // Should still show help for the default command even with a file path
+    expect(out).toContain("Terminal REST client")
+  })
+
+  it("does not inject noodle subcommand for known subcommands", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "import", "--help"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("SOURCE")
+    expect(out).toContain("format")
+  })
+})
+
+describe("classifyPath", () => {
+  it("returns invalid for missing path", () => {
+    expect(classifyPath("/tmp/noodle-nonexistent-xyz")).toBe("invalid")
+  })
+
+  it("returns invalid for a regular file path", () => {
+    expect(classifyPath(__filename)).toBe("invalid")
+  })
+
+  it("returns collection for path with settings.yml", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-classify-"))
+    try {
+      await writeFile(join(dir, "settings.yml"), "environment: dev\n")
+      expect(classifyPath(dir)).toBe("collection")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns collection for path with .environments", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-classify-"))
+    try {
+      await mkdir(join(dir, ".environments"))
+      expect(classifyPath(dir)).toBe("collection")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns collection for path with root request .yml", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-classify-"))
+    try {
+      await writeFile(
+        join(dir, "ping.yml"),
+        "name: Ping\nmethod: GET\nurl: https://example.com\n",
+      )
+      expect(classifyPath(dir)).toBe("collection")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns browse for path with nested request only", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-classify-"))
+    try {
+      await mkdir(join(dir, "api"))
+      await writeFile(
+        join(dir, "api", "ping.yml"),
+        "name: Ping\nmethod: GET\nurl: https://example.com\n",
+      )
+      expect(classifyPath(dir)).toBe("browse")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns empty for truly empty directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-classify-"))
+    try {
+      expect(classifyPath(dir)).toBe("empty")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns browse for directory with non-dot subdirs containing requests", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-classify-"))
+    try {
+      await mkdir(join(dir, "src"))
+      await mkdir(join(dir, "src", "lib"))
+      await mkdir(join(dir, "collections"))
+      await writeFile(
+        join(dir, "collections", "ping.yml"),
+        "name: Ping\nmethod: GET\nurl: https://example.com\n",
+      )
+      expect(classifyPath(dir)).toBe("browse")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("skips dot-prefixed dirs when checking for nested content", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-classify-"))
+    try {
+      await mkdir(join(dir, ".noodle"))
+      await writeFile(
+        join(dir, ".noodle", "data.yml"),
+        "name: Nope\nmethod: GET\nurl: https://example.com\n",
+      )
+      expect(classifyPath(dir)).toBe("empty")
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

@@ -90,7 +90,8 @@ export function RequestResponseView({
         setUrl={draft.setUrl}
         setMethod={draft.setMethod}
         onDefocus={draft.syncUrlParams}
-        focused={focus === "urlbar" && urlbarInteractive}
+        focused={focus === "urlbar"}
+        interactive={urlbarInteractive}
         subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
       />

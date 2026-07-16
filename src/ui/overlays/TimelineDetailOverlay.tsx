@@ -15,7 +15,7 @@ import {
   entryStatus,
   entryTiming,
   formatRequestUrl,
-  maskedAuthHeader,
+  buildDetailRequestHeaders,
   shortMethod,
 } from "../timeline/formatTimeline"
 
@@ -79,13 +79,10 @@ export function TimelineDetailOverlay({
         theme.info)
       : theme.info
 
-  const authHeader = maskedAuthHeader(entry.request.auth)
-  const requestHeaders = [
-    ...(authHeader ? [authHeader] : []),
-    ...Object.entries(entry.request.headers)
-      .filter(([, value]) => value.enabled)
-      .map(([key, value]) => ({ key, value: value.value })),
-  ].sort((a, b) => a.key.localeCompare(b.key))
+  const requestHeaders = buildDetailRequestHeaders(
+    entry.request.auth,
+    entry.request.headers,
+  )
   const responseHeaders = entry.response ? formatHeaders(entry.response) : []
   const requestMaxKeyLen = requestHeaders.reduce(
     (max, header) => Math.max(max, header.key.length),

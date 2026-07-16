@@ -46,6 +46,7 @@ export interface UseAppKeymapRefs {
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
   responseStateRef: RefObject<SendState>
+  modeRef: RefObject<"collection" | "browse" | "empty" | "invalid">
 }
 
 export interface UseAppKeymapSetters {
@@ -235,6 +236,7 @@ export function useAppKeymap(
       },
       {
         name: "request.edit-yaml",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           if (refs.focusedFolderPathRef.current) {
             const file = getEditFolderYamlFile(actionsConfig)
@@ -313,7 +315,11 @@ export function useAppKeymap(
         enabled: () => {
           const mode = keymap.getData("app.mode") as string
           const overlay = keymap.getData("app.overlay") as string
-          return mode !== "edit" && overlay === "none"
+          return (
+            refs.modeRef.current === "collection" &&
+            mode !== "edit" &&
+            overlay === "none"
+          )
         },
         run: () => {
           if (!undoAll(actionsConfig)) return
@@ -399,7 +405,9 @@ export function useAppKeymap(
     commands: [
       {
         name: "env.editor-open",
-        enabled: () => keymap.getData("app.focus") === "sidebar",
+        enabled: () =>
+          keymap.getData("app.focus") === "sidebar" &&
+          refs.modeRef.current === "collection",
         run: () => {
           const name = refs.envStateRef.current.activeEnv?.name
           refs.envEditorRef.current.openEditor(name)
@@ -409,10 +417,12 @@ export function useAppKeymap(
       },
       {
         name: "request.send",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.trySendRef.current?.(),
       },
       {
         name: "request.save",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const d = refs.draftRef.current
           if (!refs.savingRef.current && d.draft && d.isDirty) {
@@ -422,18 +432,22 @@ export function useAppKeymap(
       },
       {
         name: "env.cycle",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.envStateRef.current.cycle(1),
       },
       {
         name: "request.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewRequestVisible(true),
       },
       {
         name: "folder.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewFolderVisible(true),
       },
       {
         name: "request.edit-overlay",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           if (refs.focusedFolderPathRef.current) return
           const sid = refs.selectedIdRef.current
@@ -447,6 +461,7 @@ export function useAppKeymap(
       },
       {
         name: "request.clone",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const sid = refs.selectedIdRef.current
           if (!sid) return
@@ -459,6 +474,7 @@ export function useAppKeymap(
       },
       {
         name: "request.delete",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const folderPath = refs.focusedFolderPathRef.current
           const folderName = refs.focusedFolderNameRef.current
@@ -506,6 +522,7 @@ export function useAppKeymap(
     commands: [
       {
         name: "request.edit-enter",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           refs.ebRef.current.enterBrowse()
           setters.setFocus("request")
@@ -539,24 +556,32 @@ export function useAppKeymap(
       { name: "browse.down", run: () => refs.ebRef.current.browseDown() },
       { name: "browse.left", run: () => refs.ebRef.current.browseLeft() },
       { name: "browse.right", run: () => refs.ebRef.current.browseRight() },
-      { name: "browse.enter", run: () => refs.ebRef.current.enterEdit() },
+      {
+        name: "browse.enter",
+        enabled: () => refs.modeRef.current === "collection",
+        run: () => refs.ebRef.current.enterEdit(),
+      },
       { name: "browse.escape", run: () => refs.ebRef.current.exitBrowse() },
       { name: "browse.delete", run: () => refs.ebRef.current.revertField() },
       { name: "browse.revert-all", run: () => refs.ebRef.current.revertAll() },
       {
         name: "browse.toggle",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.ebRef.current.toggleRow(),
       },
       {
         name: "browse.send",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.trySendRef.current?.(),
       },
       {
         name: "browse.toggle-form-type",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.ebRef.current.toggleFormRowType(),
       },
       {
         name: "browse.save",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const d = refs.draftRef.current
           if (!refs.savingRef.current && d.draft && d.isDirty) {
@@ -592,6 +617,7 @@ export function useAppKeymap(
     commands: [
       {
         name: "folder.edit-enter",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           refs.folderEbRef.current?.enterBrowse()
           setters.setFocus("folder")
@@ -607,14 +633,17 @@ export function useAppKeymap(
       },
       {
         name: "request.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewRequestVisible(true),
       },
       {
         name: "folder.new",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => setters.setNewFolderVisible(true),
       },
       {
         name: "request.clone",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const sid = refs.selectedIdRef.current
           if (!sid) return
@@ -645,10 +674,12 @@ export function useAppKeymap(
     commands: [
       {
         name: "folder.save",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderSaveRef.current(),
       },
       {
         name: "folder.delete",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => {
           const folderPath = refs.focusedFolderPathRef.current
           const folderName = refs.focusedFolderNameRef.current
@@ -691,6 +722,7 @@ export function useAppKeymap(
       },
       {
         name: "folder-browse.enter",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.enterEdit(),
       },
       {
@@ -702,6 +734,7 @@ export function useAppKeymap(
       },
       {
         name: "folder-browse.toggle",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.toggleRow(),
       },
       {
@@ -736,6 +769,7 @@ export function useAppKeymap(
     commands: [
       {
         name: "folder-edit.commit",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.commitEdit(),
       },
       {
@@ -744,6 +778,7 @@ export function useAppKeymap(
       },
       {
         name: "folder-edit.tab",
+        enabled: () => refs.modeRef.current === "collection",
         run: () => refs.folderEbRef.current?.browseTab(),
       },
     ],

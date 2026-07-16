@@ -1,5 +1,12 @@
 import { existsSync } from "node:fs"
-import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  stat,
+  writeFile,
+} from "node:fs/promises"
 import { basename, join, relative, resolve } from "node:path"
 import * as yaml from "js-yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
@@ -9,6 +16,7 @@ import {
   loadSettings,
   saveRequest,
   saveSettings,
+  ensureCollectionBootstrapped,
 } from "../filestore"
 import { lang } from "../lang"
 import { executor, substitute } from "../requests"
@@ -106,6 +114,78 @@ export function collectionTree(items: CollectionItem[]): CollectionTreeItem[] {
 export async function workspaceList(): Promise<{ collections: string[] }> {
   return { collections: loadConfig(CONFIG_DIR).collections }
 }
+export interface WorkspaceAuditIssue {
+  path: string
+  message: string
+  fixed: boolean
+}
+export interface WorkspaceAuditResult {
+  valid: boolean
+  collections: string[]
+  issues: WorkspaceAuditIssue[]
+}
+export async function workspaceAudit(
+  fix: boolean,
+  configDir = CONFIG_DIR,
+): Promise<WorkspaceAuditResult> {
+  const config = loadConfig(configDir)
+  const issues: WorkspaceAuditIssue[] = []
+  const validCollections: string[] = []
+
+  for (const path of config.collections) {
+    let pathStat
+    try {
+      pathStat = await stat(path)
+    } catch {
+      issues.push({
+        path,
+        message: "directory does not exist",
+        fixed: fix,
+      })
+      continue
+    }
+    if (!pathStat.isDirectory()) {
+      issues.push({
+        path,
+        message: "not a directory",
+        fixed: fix,
+      })
+      continue
+    }
+    let collectionRoot
+    try {
+      collectionRoot = await isCollectionRoot(path)
+    } catch {
+      issues.push({
+        path,
+        message: "not accessible",
+        fixed: fix,
+      })
+      continue
+    }
+    if (!collectionRoot) {
+      issues.push({
+        path,
+        message: "not a collection root",
+        fixed: fix,
+      })
+      continue
+    }
+    validCollections.push(path)
+  }
+
+  if (fix && issues.length > 0)
+    saveConfig(configDir, {
+      ...config,
+      collections: validCollections,
+    })
+
+  return {
+    valid: issues.every((issue) => issue.fixed),
+    collections: fix ? validCollections : config.collections,
+    issues,
+  }
+}
 export async function collectionCreate(
   name: string,
   output: string,
@@ -134,6 +214,35 @@ export async function collectionCreate(
     collections: upsertCollectionPath(config.collections, path),
   })
   return { path, name }
+}
+
+export async function collectionInit(path: string): Promise<{ path: string }> {
+  const absolutePath = resolve(path)
+  if (!existsSync(absolutePath)) {
+    throw new Error(`directory not found: ${absolutePath}`)
+  }
+  if (!(await isDirectory(absolutePath))) {
+    throw new Error(`not a directory: ${absolutePath}`)
+  }
+  if (await isCollectionRoot(absolutePath)) {
+    throw new Error(`already a collection: ${absolutePath}`)
+  }
+
+  await ensureCollectionBootstrapped(absolutePath)
+  const config = loadConfig(CONFIG_DIR)
+  saveConfig(CONFIG_DIR, {
+    ...config,
+    collections: upsertCollectionPath(config.collections, absolutePath),
+  })
+  return { path: absolutePath }
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 async function isCollectionRoot(path: string): Promise<boolean> {

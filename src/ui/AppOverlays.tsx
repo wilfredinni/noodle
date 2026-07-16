@@ -55,6 +55,8 @@ interface AppOverlaysProps {
   envDeletePending: string | null
   deleteConfirmSelection: number
   undoAllPending: boolean
+  initPending: boolean
+  initConfirmSelection: number
   collectionSwitchPending: string | null
   collectionSwitchSelection: number
   commandPaletteVisible: boolean
@@ -106,6 +108,8 @@ export function AppOverlays({
   envDeletePending,
   deleteConfirmSelection,
   undoAllPending,
+  initPending,
+  initConfirmSelection,
   collectionSwitchPending,
   collectionSwitchSelection,
   commandPaletteVisible,
@@ -170,6 +174,13 @@ export function AppOverlays({
           visible
           message="Discard all unsaved changes? (y/n)"
           selectedIndex={confirmSelection}
+        />
+      )}
+      {initPending && (
+        <ConfirmOverlay
+          visible
+          message={`Initialize collection in ${collectionDir}? (y/n)`}
+          selectedIndex={initConfirmSelection}
         />
       )}
       {collectionSwitchPending !== null && (

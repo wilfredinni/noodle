@@ -56,6 +56,7 @@ export interface CommandBuilderContext {
   folderDeletePathRef: RefObject<string | null>
   getKeymapFocus: () => string
   getView: () => string
+  getCollectionMode: () => "collection" | "browse" | "empty"
   setLayout: (
     v:
       | "stacked"
@@ -115,6 +116,7 @@ export interface CommandBuilderContext {
   ) => void
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void
   setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
+  setInitPending: (v: boolean | ((prev: boolean) => boolean)) => void
   setExpanded: (
     v:
       | "request"
@@ -170,6 +172,7 @@ export function buildCommandPaletteCommands(
     setRequestDeletePending,
     setFolderDeletePending,
     setUndoAllPending,
+    setInitPending,
     setView,
     setFocus,
     setLayout,
@@ -184,10 +187,12 @@ export function buildCommandPaletteCommands(
     setCollectionSwitcherVisible,
     setEnvDeletePending,
     setDeleteConfirmSelection,
+    getCollectionMode,
   } = ctx
 
   const c = toConfig(ctx)
   const view = getView()
+  const mode = getCollectionMode()
 
   const requestCommands: CommandItem[] = [
     {
@@ -205,7 +210,10 @@ export function buildCommandPaletteCommands(
       label: "Save Request",
       section: "Request",
       keybinding: displayKey(keybinds.request_save),
-      run: () => saveRequest(c),
+      run: () => {
+        if (mode !== "collection") return false
+        return saveRequest(c)
+      },
     },
     {
       id: "request.edit-overlay",
@@ -213,6 +221,7 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_edit_overlay),
       run: () => {
+        if (mode !== "collection") return false
         if (!cloneRequest(c)) return false
         setEditRequestVisible(true)
         return true
@@ -234,6 +243,7 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_clone),
       run: () => {
+        if (mode !== "collection") return false
         if (!cloneRequest(c)) return false
         setCloneRequestVisible(true)
         return true
@@ -245,6 +255,7 @@ export function buildCommandPaletteCommands(
       section: "Request",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
+        if (mode !== "collection") return false
         const result = deleteRequest(c)
         if (!result) return false
         setRequestDeletePending(result.requestName)
@@ -351,6 +362,7 @@ export function buildCommandPaletteCommands(
       section: "Workspace",
       keybinding: displayKey(keybinds.request_delete),
       run: () => {
+        if (mode !== "collection") return false
         const result = deleteFolder(c)
         if (!result) return false
         c.folderDeletePathRef.current = result.folderPath
@@ -364,6 +376,7 @@ export function buildCommandPaletteCommands(
       section: "Workspace",
       keybinding: displayKey(keybinds.request_edit_yaml),
       run: () => {
+        if (mode !== "collection") return false
         if (c.focusedFolderPathRef.current) {
           const result = getEditFolderYamlFile(c)
           if (!result) return false
@@ -427,6 +440,18 @@ export function buildCommandPaletteCommands(
     },
   ]
 
+  const readOnlyCommands: CommandItem[] = [
+    {
+      id: "collection.init",
+      label: "Initialize Collection",
+      section: "Collection",
+      run: () => {
+        setInitPending(true)
+        return true
+      },
+    },
+  ]
+
   const systemCommands: CommandItem[] = [
     {
       id: "app.help",
@@ -481,18 +506,18 @@ export function buildCommandPaletteCommands(
 
   if (view === "env-editor") {
     return [
-      ...editorEnvCommands,
-      ...workspaceCommands,
+      ...(mode === "collection" ? editorEnvCommands : readOnlyCommands),
+      ...(mode === "collection" ? workspaceCommands : []),
       ...globalCommands,
       ...systemCommands,
     ]
   }
 
   return [
-    ...requestCommands,
+    ...(mode === "collection" ? requestCommands : []),
     ...responseCommands,
-    ...mainEnvCommands,
-    ...workspaceCommands,
+    ...(mode === "collection" ? mainEnvCommands : []),
+    ...(mode === "collection" ? workspaceCommands : readOnlyCommands),
     ...mainOnlyCommands,
     ...globalCommands,
     ...systemCommands,

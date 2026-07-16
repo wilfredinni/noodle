@@ -11,6 +11,7 @@ import {
   shortMethod,
   formatRequestUrl,
   maskedAuthHeader,
+  buildDetailRequestHeaders,
 } from "../src/ui/timeline/formatTimeline"
 import type { TimelineEntry } from "../src/schema"
 
@@ -320,6 +321,110 @@ describe("maskedAuthHeader", () => {
         placement: "query",
       }),
     ).toBeNull()
+  })
+})
+
+describe("buildDetailRequestHeaders", () => {
+  it("includes masked auth header and filters matching raw header (bearer)", () => {
+    const headers = buildDetailRequestHeaders(
+      { type: "bearer", token: "secret12345" },
+      {
+        Authorization: { value: "Bearer secret12345", enabled: true },
+        "Content-Type": { value: "application/json", enabled: true },
+      },
+    )
+    expect(headers).toEqual([
+      { key: "Authorization", value: "Bearer ••••••••" },
+      { key: "Content-Type", value: "application/json" },
+    ])
+  })
+
+  it("includes masked auth header and filters matching raw header (basic)", () => {
+    const headers = buildDetailRequestHeaders(
+      { type: "basic", user: "alice", pass: "s3cret" },
+      {
+        Authorization: { value: "Basic YWxpY2U6czNjcmV0", enabled: true },
+        "Content-Type": { value: "application/json", enabled: true },
+      },
+    )
+    expect(headers).toEqual([
+      { key: "Authorization", value: "Basic ••••••••" },
+      { key: "Content-Type", value: "application/json" },
+    ])
+  })
+
+  it("includes masked api_key header and filters the matching raw key", () => {
+    const headers = buildDetailRequestHeaders(
+      {
+        type: "api_key",
+        key: "X-API-Key",
+        value: "my-secret",
+        placement: "header",
+      },
+      {
+        "X-API-Key": { value: "my-secret", enabled: true },
+        Accept: { value: "application/json", enabled: true },
+      },
+    )
+    expect(headers).toEqual([
+      { key: "Accept", value: "application/json" },
+      { key: "X-API-Key", value: "••••••••" },
+    ])
+  })
+
+  it("case-insensitive filter when raw header key differs in case", () => {
+    const headers = buildDetailRequestHeaders(
+      { type: "bearer", token: "tok" },
+      {
+        authorization: { value: "Bearer tok", enabled: true },
+        "Content-Type": { value: "text/plain", enabled: true },
+      },
+    )
+    expect(headers).toEqual([
+      { key: "Authorization", value: "Bearer ••••••••" },
+      { key: "Content-Type", value: "text/plain" },
+    ])
+  })
+
+  it("does not filter api_key when placement is query", () => {
+    const headers = buildDetailRequestHeaders(
+      { type: "api_key", key: "api_key", value: "secret", placement: "query" },
+      {
+        api_key: { value: "secret", enabled: true },
+      },
+    )
+    expect(headers).toEqual([{ key: "api_key", value: "secret" }])
+  })
+
+  it("returns empty array when no headers or auth", () => {
+    const headers = buildDetailRequestHeaders(undefined, {})
+    expect(headers).toEqual([])
+  })
+
+  it("returns only raw headers when auth is none", () => {
+    const headers = buildDetailRequestHeaders(
+      { type: "none" },
+      {
+        Authorization: { value: "Bearer explicit", enabled: true },
+      },
+    )
+    expect(headers).toEqual([
+      { key: "Authorization", value: "Bearer explicit" },
+    ])
+  })
+
+  it("skips disabled headers", () => {
+    const headers = buildDetailRequestHeaders(
+      { type: "bearer", token: "tok" },
+      {
+        Authorization: { value: "Bearer tok", enabled: false },
+        "Content-Type": { value: "application/json", enabled: true },
+      },
+    )
+    expect(headers).toEqual([
+      { key: "Authorization", value: "Bearer ••••••••" },
+      { key: "Content-Type", value: "application/json" },
+    ])
   })
 })
 

@@ -74,6 +74,11 @@ export function useOverlayIntercepts(opts: {
   onCollectionSwitchConfirm: (collectionDir: string) => void
   undoAllPending: boolean
   setUndoAllPending: (v: boolean) => void
+  initPending: boolean
+  initConfirmSelection: number
+  setInitConfirmSelection: (n: number) => void
+  setInitPending: (v: boolean) => void
+  onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
 }): void {
@@ -132,6 +137,11 @@ export function useOverlayIntercepts(opts: {
     onCollectionSwitchConfirm,
     undoAllPending,
     setUndoAllPending,
+    initPending,
+    initConfirmSelection,
+    setInitConfirmSelection,
+    setInitPending,
+    onInitConfirm,
     draftRef,
     folderDraftRef,
   } = opts
@@ -593,6 +603,50 @@ export function useOverlayIntercepts(opts: {
     draftRef,
     folderDraftRef,
     envEditorRef,
+  ])
+
+  // ── Overlay: Init Confirm ─────────────────────────────────────────
+  useEffect(() => {
+    if (!initPending) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || (name === "return" && initConfirmSelection === 0)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setInitConfirmSelection(0)
+          onInitConfirm()
+          setInitPending(false)
+        } else if (
+          name === "n" ||
+          name === "escape" ||
+          (name === "return" && initConfirmSelection === 1)
+        ) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setInitConfirmSelection(0)
+          setInitPending(false)
+        } else if (name === "left" || name === "up") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setInitConfirmSelection(0)
+        } else if (name === "right" || name === "down") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setInitConfirmSelection(1)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    initPending,
+    initConfirmSelection,
+    keymap,
+    onInitConfirm,
+    setInitConfirmSelection,
+    setInitPending,
   ])
 
   // ── Overlay: New Folder ───────────────────────────────────────────

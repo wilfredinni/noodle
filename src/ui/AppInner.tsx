@@ -69,6 +69,8 @@ export function AppInner({
   collectionPaths,
   onCollectionChange,
   onReloadCollection,
+  onCollectionBootstrapped,
+  mode = "empty",
 }: {
   collectionDir: string
   environmentsDir: string
@@ -90,6 +92,8 @@ export function AppInner({
   collectionPaths: string[]
   onCollectionChange: (collectionDir: string) => void
   onReloadCollection: () => void
+  onCollectionBootstrapped: (collectionDir: string) => void
+  mode?: "collection" | "browse" | "empty" | "invalid"
 }) {
   const keymap = useKeymap()
   const theme = useTheme()
@@ -155,6 +159,8 @@ export function AppInner({
   )
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
+  const [initPending, setInitPending] = useState(false)
+  const [initConfirmSelection, setInitConfirmSelection] = useState(0)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
     useState<TimelineEntry | null>(null)
@@ -169,18 +175,25 @@ export function AppInner({
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
+  const isCollection = mode === "collection"
+  const isBrowse = mode === "browse"
+  const isReadOnly = mode !== "collection"
+  const skipCollection = mode === "empty"
   const { collection, loading, error, updateCollection } = useCollection(
     collectionDir,
     collectionReloadToken,
+    skipCollection,
+    isBrowse,
   )
   const items = collection?.items ?? []
 
   const requestIds = useMemo(() => getRequestIds(items), [items])
-  const { getTab, setTab } = useUIState(collectionDir, requestIds)
+  const { getTab, setTab } = useUIState(collectionDir, requestIds, isReadOnly)
 
   useEffect(() => {
+    if (!isCollection) return
     loadExpandedFolders(collectionDir).then(setInitialExpandedFolders)
-  }, [collectionDir])
+  }, [collectionDir, isCollection])
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const {
@@ -249,6 +262,7 @@ export function AppInner({
   const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (!isCollection) return
     if (!saveLastReqRef.current) {
       saveLastReqRef.current = true
       return
@@ -266,12 +280,13 @@ export function AppInner({
     return () => {
       if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
     }
-  }, [selectedId, focusedFolderPath])
+  }, [selectedId, focusedFolderPath, isCollection])
 
   const expandedSaveRef = useRef(false)
   const expandedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (!isCollection) return
     if (!expandedSaveRef.current) {
       expandedSaveRef.current = true
       return
@@ -287,7 +302,7 @@ export function AppInner({
     return () => {
       if (expandedDebounceRef.current) clearTimeout(expandedDebounceRef.current)
     }
-  }, [expandedFolders, collectionDir])
+  }, [expandedFolders, collectionDir, isCollection])
 
   const draft = useRequestDraft(selectedRequest)
 
@@ -348,6 +363,7 @@ export function AppInner({
     handleFolderDeleteConfirm,
     handleEditRequestConfirm,
     handleRequestDeleteConfirm,
+    executeInitPending,
   } = useCollectionFileActions({
     collection,
     collectionDir,
@@ -369,6 +385,7 @@ export function AppInner({
     setEditRequestVisible,
     setRequestDeletePending,
     setFolderDeletePending,
+    onCollectionBootstrapped,
   })
 
   folderSaveRef.current = handleFolderSave
@@ -381,6 +398,7 @@ export function AppInner({
     if (previewIndex !== null) return "theme"
     if (saveState.kind === "confirming") return "confirm"
     if (undoAllPending) return "undo-all"
+    if (initPending) return "init-confirm"
     if (collectionSwitchPending !== null) return "collection-switch-confirm"
     if (collectionSwitcherVisible) return "collection-switcher"
     if (yamlEditor.visible) return "yaml-editor"
@@ -399,6 +417,7 @@ export function AppInner({
     previewIndex,
     saveState.kind,
     undoAllPending,
+    initPending,
     collectionSwitchPending,
     collectionSwitcherVisible,
     yamlEditor.visible,
@@ -439,7 +458,10 @@ export function AppInner({
     envNameRef.current = envState.activeEnv?.name
   }, [envState.activeEnv?.name])
 
-  const timeline = useTimeline(collectionDir, selectedRequest?.id)
+  const timeline = useTimeline(
+    isCollection ? collectionDir : undefined,
+    selectedRequest?.id,
+  )
   const timelineAppendRef = useRef(timeline.appendEntry)
   timelineAppendRef.current = timeline.appendEntry
 
@@ -583,6 +605,9 @@ export function AppInner({
   const collectionRef = useRef(collection)
   collectionRef.current = collection
 
+  const modeRef = useRef<"collection" | "browse" | "empty" | "invalid">(mode)
+  modeRef.current = mode
+
   const selectedIdRef = useRef(selectedId)
   selectedIdRef.current = selectedId
 
@@ -649,6 +674,7 @@ export function AppInner({
       focusedFolderNameRef,
       folderDeletePathRef,
       responseStateRef,
+      modeRef,
     },
     {
       setFocus,
@@ -734,6 +760,11 @@ export function AppInner({
     onCollectionSwitchConfirm: confirmCollectionSwitch,
     undoAllPending,
     setUndoAllPending,
+    initPending,
+    initConfirmSelection,
+    setInitConfirmSelection,
+    setInitPending,
+    onInitConfirm: () => executeInitPending(),
     draftRef,
     folderDraftRef,
   })
@@ -777,6 +808,7 @@ export function AppInner({
         folderDeletePathRef,
         getKeymapFocus: () => keymap.getData("app.focus") as string,
         getView: () => view,
+        getCollectionMode: () => (mode === "invalid" ? "empty" : mode),
         setLayout,
         onLayoutChange,
         setHelpVisible,
@@ -792,6 +824,7 @@ export function AppInner({
         setView,
         setFocus,
         setUndoAllPending,
+        setInitPending,
         setExpanded,
         setPreviewIndexProp,
         setEnvDeletePending,
@@ -806,6 +839,7 @@ export function AppInner({
       setCollectionSwitcherVisible,
       onReloadCollection,
       view,
+      mode,
     ],
   )
 
@@ -858,10 +892,11 @@ export function AppInner({
             onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
-            urlbarInteractive={activeOverlay === "none"}
+            urlbarInteractive={activeOverlay === "none" && !isReadOnly}
             expandHint={expandHint}
+            mode={mode}
           />
-        ) : (
+        ) : mode === "collection" ? (
           <EnvironmentEditorView
             envEditor={envEditor}
             activeEnv={envState.activeEnv}
@@ -872,7 +907,7 @@ export function AppInner({
             setEnvDeletePending={setEnvDeletePending}
             setDeleteConfirmSelection={setDeleteConfirmSelection}
           />
-        )}
+        ) : null}
         <AppOverlays
           keybinds={keybinds}
           helpVisible={helpVisible}
@@ -882,6 +917,8 @@ export function AppInner({
           envDeletePending={envDeletePending}
           deleteConfirmSelection={deleteConfirmSelection}
           undoAllPending={undoAllPending}
+          initPending={initPending}
+          initConfirmSelection={initConfirmSelection}
           collectionSwitchPending={collectionSwitchPending}
           collectionSwitchSelection={collectionSwitchSelection}
           commandPaletteVisible={commandPaletteVisible}

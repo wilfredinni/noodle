@@ -17,6 +17,7 @@ export interface SelectProps {
   value?: string
   onChange?: (id: string) => void
   focused?: boolean
+  visualFocused?: boolean
   placeholder?: string
   width?: number
   maxDropdownHeight?: number
@@ -30,6 +31,7 @@ export function Select({
   value,
   onChange,
   focused = false,
+  visualFocused = focused,
   placeholder = "Select...",
   width,
   maxDropdownHeight = 16,
@@ -186,7 +188,7 @@ export function Select({
               ? selectedBadgeBg
               : open
                 ? theme.primary
-                : focused
+                : visualFocused
                   ? theme.borderSubtle
                   : theme.backgroundElement,
           }}

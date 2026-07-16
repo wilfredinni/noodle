@@ -5,22 +5,26 @@ import {
   formatCollectionAudit,
   formatCollectionCreate,
   formatCollectionInspect,
+  formatCollectionInit,
   formatCollectionList,
   formatCollectionRun,
   formatEnvironmentSet,
   formatRequestCreate,
   formatRequestRun,
+  formatWorkspaceAudit,
   formatWorkspaceList,
 } from "../humanOutput"
 import {
   collectionAudit,
   collectionCreate,
+  collectionInit,
   collectionInspect,
   collectionList,
   collectionRun,
   environmentSet,
   requestCreate,
   requestRun,
+  workspaceAudit,
   workspaceList,
 } from "../services"
 import type { Method } from "../../schema"
@@ -58,6 +62,19 @@ const workspace = defineCommand({
           formatWorkspaceList,
         ),
     }),
+    audit: defineCommand({
+      meta: { name: "audit", description: "Validate registered collections" },
+      args: { fix: { type: "boolean", default: false }, json: jsonArg },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => {
+            const data = await workspaceAudit(args.fix)
+            return { data, failed: !data.valid }
+          },
+          formatWorkspaceAudit,
+        ),
+    }),
   },
 })
 const collection = defineCommand({
@@ -83,6 +100,22 @@ const collection = defineCommand({
             data: await collectionCreate(args.name, args.output),
           }),
           formatCollectionCreate,
+        ),
+    }),
+    init: defineCommand({
+      meta: {
+        name: "init",
+        description: "Initialize an existing directory as a collection",
+      },
+      args: {
+        path: { type: "positional", required: true },
+        json: jsonArg,
+      },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({ data: await collectionInit(args.path) }),
+          formatCollectionInit,
         ),
     }),
     list: defineCommand({

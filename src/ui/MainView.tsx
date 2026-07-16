@@ -40,6 +40,7 @@ interface MainViewProps {
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
   expandHint: string
+  mode?: "collection" | "browse" | "empty" | "invalid"
 }
 
 export function MainView({
@@ -70,6 +71,7 @@ export function MainView({
   urlbarSubFocus,
   urlbarInteractive,
   expandHint,
+  mode = "collection",
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -96,6 +98,13 @@ export function MainView({
           minHeight: 0,
         }}
       >
+        {mode !== "collection" && (
+          <box style={{ paddingLeft: 1, paddingRight: 1 }}>
+            <text fg={theme.warning}>
+              Read-only folder. Initialize collection to edit or send requests.
+            </text>
+          </box>
+        )}
         {focusedFolderPresent ? (
           <FolderPane
             collectionDir={collectionDir}

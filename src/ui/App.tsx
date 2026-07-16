@@ -9,6 +9,8 @@ import { Toast, showToast } from "./Toast"
 import { loadSettings, saveSettings } from "../filestore"
 import { loadLastRequest } from "./tabs/uiState"
 import type { Keybinds } from "./keybind"
+import type { CollectionMode } from "../app/main"
+import { classifyPath } from "../app/main"
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
@@ -19,6 +21,8 @@ export function App({
   settingsEnv: initialSettingsEnv,
   keybinds: keybinds,
   lastRequestId: initialLastRequestId,
+  shouldRegister = false,
+  mode: initialMode = "empty",
 }: {
   collectionDir: string
   envList: string[]
@@ -26,6 +30,8 @@ export function App({
   settingsEnv?: string
   keybinds: Keybinds
   lastRequestId?: string
+  shouldRegister?: boolean
+  mode?: CollectionMode
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
   const switchingRef = useRef(false)
@@ -35,6 +41,7 @@ export function App({
   )
   const [activeCollectionDir, setActiveCollectionDir] =
     useState(initialCollectionDir)
+  const [mode, setMode] = useState<CollectionMode>(initialMode)
   const [reloadKey, setReloadKey] = useState(0)
   const [settingsEnv, setSettingsEnv] = useState<string | undefined>(
     initialSettingsEnv,
@@ -63,13 +70,18 @@ export function App({
   )
 
   useEffect(() => {
-    if (config.collections[0] === activeCollectionDir) return
-    updateConfig((prev) => ({
-      collections: upsertCollectionPath(prev.collections, activeCollectionDir),
-    }))
-  }, [activeCollectionDir, config.collections, updateConfig])
+    if (shouldRegister && mode === "collection") {
+      updateConfig((prev) => ({
+        collections: upsertCollectionPath(
+          prev.collections,
+          activeCollectionDir,
+        ),
+      }))
+    }
+  }, [])
 
   useEffect(() => {
+    if (mode !== "collection") return
     let cancelled = false
     listEnvironmentsWithColors(activeEnvironmentsDir).then((items) => {
       if (cancelled) return
@@ -81,7 +93,7 @@ export function App({
     return () => {
       cancelled = true
     }
-  }, [activeEnvironmentsDir])
+  }, [activeEnvironmentsDir, mode])
 
   const handleThemeChange = useCallback(
     (index: number) => {
@@ -99,27 +111,49 @@ export function App({
   )
 
   const handleEnvListChanged = useCallback(async () => {
+    if (mode !== "collection") return
     const items = await listEnvironmentsWithColors(activeEnvironmentsDir)
     setEnvNames(items.map((i) => i.name))
     const colors: Record<string, string | undefined> = {}
     for (const item of items) colors[item.name] = item.color
     setEnvColors(colors)
-  }, [activeEnvironmentsDir])
+  }, [activeEnvironmentsDir, mode])
 
   const handleEnvChange = useCallback(
     (name: string | null) => {
       const envName = name ?? undefined
       setSettingsEnv(envName)
-      saveSettings(activeCollectionDir, { environment: envName }).catch(
-        () => {},
-      )
+      if (mode === "collection") {
+        saveSettings(activeCollectionDir, { environment: envName }).catch(
+          () => {},
+        )
+      }
     },
-    [activeCollectionDir],
+    [activeCollectionDir, mode],
   )
 
   const handleReloadCollection = useCallback(() => {
     setReloadKey((k) => k + 1)
   }, [])
+
+  const handleCollectionBootstrapped = useCallback(
+    (bootstrappedDir: string) => {
+      const resolved = resolve(bootstrappedDir)
+      setMode("collection")
+      updateConfig((prev) => ({
+        collections: upsertCollectionPath(prev.collections, resolved),
+      }))
+      listEnvironmentsWithColors(join(resolved, ".environments"))
+        .then((items) => {
+          setEnvNames(items.map((i) => i.name))
+          const colors: Record<string, string | undefined> = {}
+          for (const item of items) colors[item.name] = item.color
+          setEnvColors(colors)
+        })
+        .catch(() => {})
+    },
+    [updateConfig],
+  )
 
   const handleCollectionChange = useCallback(
     async (nextDir: string) => {
@@ -141,32 +175,40 @@ export function App({
           return
         }
 
+        const nextMode = classifyPath(normalized)
         let nextEnvNames: string[] = []
         const nextEnvColors: Record<string, string | undefined> = {}
-        try {
-          const items = await listEnvironmentsWithColors(
-            join(normalized, ".environments"),
-          )
-          nextEnvNames = items.map((item) => item.name)
-          for (const item of items) {
-            nextEnvColors[item.name] = item.color
+
+        if (nextMode === "collection") {
+          try {
+            const items = await listEnvironmentsWithColors(
+              join(normalized, ".environments"),
+            )
+            nextEnvNames = items.map((item) => item.name)
+            for (const item of items) {
+              nextEnvColors[item.name] = item.color
+            }
+          } catch {
+            // Collection env metadata is optional.
           }
-        } catch {
-          // Collection env metadata is optional.
         }
 
         let nextSettingsEnv: string | undefined
-        try {
-          nextSettingsEnv = (await loadSettings(normalized)).environment
-        } catch {
-          nextSettingsEnv = undefined
+        if (nextMode === "collection") {
+          try {
+            nextSettingsEnv = (await loadSettings(normalized)).environment
+          } catch {
+            nextSettingsEnv = undefined
+          }
         }
 
         let nextLastRequestId: string | undefined
-        try {
-          nextLastRequestId = await loadLastRequest(normalized)
-        } catch {
-          nextLastRequestId = undefined
+        if (nextMode === "collection") {
+          try {
+            nextLastRequestId = await loadLastRequest(normalized)
+          } catch {
+            nextLastRequestId = undefined
+          }
         }
 
         setEnvNames(nextEnvNames)
@@ -175,9 +217,12 @@ export function App({
         setLastRequestId(nextLastRequestId)
         setInitialEnvNameState(undefined)
         setActiveCollectionDir(normalized)
-        updateConfig((prev) => ({
-          collections: upsertCollectionPath(prev.collections, normalized),
-        }))
+        setMode(nextMode)
+        if (nextMode === "collection") {
+          updateConfig((prev) => ({
+            collections: upsertCollectionPath(prev.collections, normalized),
+          }))
+        }
       } finally {
         switchingRef.current = false
       }
@@ -186,15 +231,18 @@ export function App({
   )
 
   const collectionPaths = useMemo(
-    () => upsertCollectionPath(config.collections, activeCollectionDir),
-    [config.collections, activeCollectionDir],
+    () =>
+      mode === "collection"
+        ? upsertCollectionPath(config.collections, activeCollectionDir)
+        : config.collections,
+    [config.collections, activeCollectionDir, mode],
   )
 
   return (
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
       <Toast />
       <AppInner
-        key={`${activeCollectionDir}__${reloadKey}`}
+        key={`${activeCollectionDir}__${reloadKey}__${mode}`}
         collectionDir={activeCollectionDir}
         environmentsDir={activeEnvironmentsDir}
         envNames={envNames}
@@ -215,6 +263,8 @@ export function App({
         collectionPaths={collectionPaths}
         onCollectionChange={handleCollectionChange}
         onReloadCollection={handleReloadCollection}
+        onCollectionBootstrapped={handleCollectionBootstrapped}
+        mode={mode}
       />
     </ThemeProvider>
   )

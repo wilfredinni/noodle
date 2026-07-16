@@ -1,8 +1,10 @@
 import { mkdir, writeFile, unlink, rm } from "node:fs/promises"
+import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
 import type { CollectionSettings, Folder, Request } from "../schema"
+import { env } from "../env"
 
 function validatePathId(id: string | undefined): void {
   if (!id) {
@@ -112,5 +114,18 @@ export async function saveSettings(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveSettings: ${msg}`, { cause: e })
+  }
+}
+
+export async function ensureCollectionBootstrapped(dir: string): Promise<void> {
+  const envDir = join(dir, ".environments")
+  const settingsPath = join(dir, "settings.yml")
+
+  if (!existsSync(settingsPath)) {
+    await saveSettings(dir, { environment: "development" })
+  }
+  if (!existsSync(envDir)) {
+    await mkdir(envDir, { recursive: true })
+    await env.saveEnvironment(envDir, { name: "development", vars: {} })
   }
 }

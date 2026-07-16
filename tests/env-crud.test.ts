@@ -5,7 +5,6 @@ import { join } from "node:path"
 import { env } from "../src/env"
 
 let dir: string
-
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-crud-"))
 })

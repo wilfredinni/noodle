@@ -11,6 +11,7 @@ import { createNoodleKeymap } from "../hooks/useKeymap"
 import { parseOverrides } from "../ui/keybind"
 import { showToast } from "../ui/Toast"
 import { join, resolve } from "node:path"
+import { existsSync, readdirSync, statSync } from "node:fs"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../hooks/useConfig"
@@ -19,39 +20,124 @@ import { codeEditorParsers } from "../ui/editor/codeEditorParsers"
 
 addDefaultParsers([...codeEditorParsers])
 
-// Register custom components
 extend({ "code-editor": CodeEditorRenderable })
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
+export type CollectionMode = "collection" | "browse" | "empty" | "invalid"
+
 export interface BootstrapOptions {
+  targetPath?: string
   collectionDir?: string
   envName?: string
 }
 
+function isDirectoryPath(dir: string): boolean {
+  try {
+    return statSync(dir).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+function hasNoodleContent(dir: string): boolean {
+  try {
+    const entries = readdirSync(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue
+      if (
+        entry.isFile() &&
+        entry.name.endsWith(".yml") &&
+        entry.name !== "settings.yml"
+      ) {
+        return true
+      }
+      if (entry.isDirectory()) {
+        if (
+          !entry.name.startsWith(".") &&
+          entry.name !== "node_modules" &&
+          hasNoodleContent(join(dir, entry.name))
+        ) {
+          return true
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false
+}
+
+export function classifyPath(dir: string): CollectionMode {
+  if (!existsSync(dir)) return "invalid"
+  if (!isDirectoryPath(dir)) return "invalid"
+
+  const envDir = join(dir, ".environments")
+  if (existsSync(envDir)) return "collection"
+  const settingsPath = join(dir, "settings.yml")
+  if (existsSync(settingsPath)) return "collection"
+
+  let entries
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return "empty"
+  }
+
+  const hasRootRequest = entries.some(
+    (entry) =>
+      entry.isFile() &&
+      entry.name.endsWith(".yml") &&
+      entry.name !== "folder.yml" &&
+      entry.name !== "settings.yml",
+  )
+  if (hasRootRequest) return "collection"
+
+  if (hasNoodleContent(dir)) return "browse"
+
+  return "empty"
+}
+
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
   let collectionDir: string
-  if (options.collectionDir) {
-    collectionDir = resolve(options.collectionDir)
+
+  if (options.targetPath) {
+    collectionDir = options.targetPath
+  } else if (options.collectionDir) {
+    collectionDir = options.collectionDir
   } else {
-    let fallback: string | undefined
+    let fromConfig: string | undefined
     try {
-      const config = loadConfig(CONFIG_DIR)
-      fallback = config.collections[0]
+      const cfg = loadConfig(CONFIG_DIR)
+      fromConfig = cfg.collections.find(isDirectoryPath)
     } catch {
       // config unavailable
     }
-    collectionDir = resolve(fallback ?? "./collections")
+    if (fromConfig) {
+      collectionDir = resolve(fromConfig)
+    } else {
+      collectionDir = resolve("./collections")
+    }
   }
+
+  const mode: CollectionMode = classifyPath(collectionDir)
+  if (mode === "invalid") {
+    process.stderr.write(
+      `error: collection path is not a directory: ${collectionDir}\n`,
+    )
+    process.exit(1)
+    return
+  }
+  const shouldRegister =
+    mode === "collection" && (!!options.targetPath || !!options.collectionDir)
+
   const environmentsDir = join(collectionDir, ".environments")
 
   let envList: string[]
   try {
     envList = await env.listEnvironments(environmentsDir)
-  } catch (e) {
-    const reason = e instanceof Error ? e.message : String(e)
-    process.stderr.write(`error: ${reason}\n`)
-    process.exit(1)
+  } catch {
+    envList = []
   }
 
   let initialEnvName: string | undefined
@@ -67,18 +153,22 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
   }
 
   let settingsEnv: string | undefined
-  try {
-    const settings = await loadSettings(collectionDir)
-    settingsEnv = settings.environment
-  } catch {
-    // settings.yml missing or invalid — ignore, use defaults
+  if (mode === "collection") {
+    try {
+      const settings = await loadSettings(collectionDir)
+      settingsEnv = settings.environment
+    } catch {
+      // settings.yml missing or invalid — ignore, use defaults
+    }
   }
 
   let lastRequestId: string | undefined
-  try {
-    lastRequestId = await loadLastRequest(collectionDir)
-  } catch {
-    // ignore — fall through to undefined
+  if (mode === "collection") {
+    try {
+      lastRequestId = await loadLastRequest(collectionDir)
+    } catch {
+      // ignore
+    }
   }
 
   const KEYBINDS_PATH = `${process.env.HOME ?? "~"}/.config/noodle/keybinds.yml`
@@ -132,6 +222,8 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
           settingsEnv={settingsEnv}
           keybinds={keybinds}
           lastRequestId={lastRequestId}
+          shouldRegister={shouldRegister}
+          mode={mode}
         />
       </RendererProvider>
     </KeymapProvider>,
