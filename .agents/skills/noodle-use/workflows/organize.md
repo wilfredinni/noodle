@@ -101,7 +101,7 @@ mv <dir>/create-user.yml <dir>/users/create-user.yml
 
 ### Step 3: Check for shared auth
 
-If multiple groups use the same auth pattern, suggest creating a root `folder.yml` with the auth override and updating all requests to use `type: inherit`.
+If multiple groups use the same auth pattern, suggest creating a shared parent folder with `folder.yml` and updating descendant requests to use `type: inherit`. Root-level `folder.yml` is ignored.
 
 ### Step 4: Add folder display names
 

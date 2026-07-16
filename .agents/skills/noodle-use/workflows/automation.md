@@ -7,7 +7,10 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Need | Command |
 | --- | --- |
 | Find registered collections | `noodle workspace list --json` |
+| Validate registered collection paths | `noodle workspace audit --json` |
+| Remove invalid registered paths | `noodle workspace audit --fix --json` |
 | Create a starter collection | `noodle collection create <name> --output <parent> --json` |
+| Initialize an existing directory | `noodle collection init <dir> --json` |
 | Inspect files and environments | `noodle collection inspect <dir> --json` |
 | Validate file formats | `noodle collection audit <dir> --json` |
 | Canonicalize valid files | `noodle collection audit <dir> --fix --json` |
@@ -18,6 +21,8 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 ## Rules
 
 - Read `status`, `data`, and `errors` from the one JSON envelope. A nonzero exit status means invalid input or a failed run.
+- `workspace audit` checks registered paths for existence, directory access, and collection-root markers. `--fix` removes invalid paths from global config; authorize this mutation before running it.
+- `collection init` only accepts an existing, non-collection directory. It creates missing `settings.yml` and `.environments/development.env` bootstrap files, then registers the absolute path. Existing markers are preserved.
 - Request IDs are relative paths without `.yml`, such as `users/list`. Do not use traversal, empty segments, or hidden segments.
 - `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment; ensure referenced `$vars` exist there.
 - `collection audit --fix` writes canonical forms for valid files. Obtain user authorization before running it.

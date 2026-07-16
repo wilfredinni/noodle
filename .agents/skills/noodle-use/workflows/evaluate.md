@@ -234,7 +234,7 @@ headers:
 
 **Why it's bad**: Root-level requests can't share auth with siblings. Each one repeats the same config.
 
-**Fix**: Move into a folder or create root `folder.yml` with shared overrides.
+**Fix**: Move into a folder with `folder.yml`, or define auth and headers directly on each root-level request. Root-level `folder.yml` is ignored.
 
 **Severity**: info
 
@@ -251,6 +251,10 @@ meta:
 ```
 
 **Severity**: info
+
+## Timeline security
+
+Timeline history stores substituted request data, including resolved variable values, on disk under `.timeline/`. Detail views mask configured bearer, basic, and header API-key auth, but this is display masking, not storage redaction. Treat `.timeline/` as sensitive data and avoid committing it.
 
 ## Environment checks
 

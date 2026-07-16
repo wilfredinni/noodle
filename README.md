@@ -76,17 +76,28 @@ See the [public roadmap](https://app.notion.com/p/39128d9edba9809da834f351332baf
 Import requests from OpenAPI 3.0 specs or Postman collections:
 
 ```bash
-bun run dev -- --source ./specs/api.yaml
+noodle import ./specs/api.yaml
 ```
 
 ## Automation CLI
 
 `noodle` without a subcommand remains the interactive TUI. Use the automation commands in scripts and agent workflows; collection paths are filesystem paths and request IDs are collection-relative paths without `.yml`.
 
+Open a collection explicitly with a positional path or `--collection`:
+
+```bash
+noodle .
+noodle --collection ./collections --env development
+```
+
+Without either option, noodle uses the first existing collection registered in `~/.config/noodle/config.yml`, then falls back to `./collections`. A directory with request YAML but no collection markers opens in read-only browse mode; an empty directory opens in read-only empty mode. Initialize either mode from the command palette before editing or sending requests.
+
 | Command | Purpose |
 | --- | --- |
 | `workspace list` | List collections registered in Noodle's global config. |
+| `workspace audit [--fix]` | Validate registered collection paths; `--fix` removes invalid entries. |
 | `collection create <name> [-o <dir>]` | Create and register a starter collection. |
+| `collection init <path>` | Initialize an existing directory and register it as a collection. |
 | `collection list|inspect <path>` | Print a collection tree or its metadata, environments, and tree. |
 | `collection audit <path> [--fix]` | Validate collection files; `--fix` canonicalizes valid files. |
 | `collection run <path> [-e <env>]` | Run every request and fail if any request fails. |
@@ -108,7 +119,7 @@ noodle collection run ./demo --json
 By default an imported collection is written beneath `./collections`. Use `--output` to set its parent directory:
 
 ```bash
-bun run dev -- --source ./specs/api.yaml --output ./my-collection
+noodle import ./specs/api.yaml --output ./my-collection
 ```
 
 ## Development

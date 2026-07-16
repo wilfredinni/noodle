@@ -42,6 +42,7 @@ File at `auth/login.yml` → ID = `"auth/login"` (relative path minus `.yml`). U
 Dotenv-style `.env` files in `<collection>/.environments/`. `KEY=value` declares a variable. `# KEY=value` disables it. `_color=<name>` sets sidebar badge color. Valid colors: primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, borderSubtle.
 
 ### Folder inheritance
+- `folder.yml` applies only inside its folder directory. A root-level `folder.yml` is ignored by the loader.
 - Headers merge additively: folder header only applies if child request doesn't have the same header key.
 - Auth: request with `type: inherit` uses nearest parent folder's auth override. Walk up the tree until a folder with an auth override is found.
 - `folder.yml` format:

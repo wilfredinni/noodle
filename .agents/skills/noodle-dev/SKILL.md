@@ -26,10 +26,12 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - **YAML files:** `.yml` extension (not `.yaml`). Requests stored one-per-file in collection dir.
 - **Environments:** Dotenv-style `.env` files in `<collection>/.environments/`. `_color=<name>` sets sidebar badge.
 - **Draft pattern:** `useRequestDraft` holds `Map<id, Request>` of dirty edits. `DraftOp` discriminated union for mutations. Compare with `isDirty` via deep equality.
-- **Focus model:** `"sidebar" → "urlbar" → "request" → "response"` (main). `"env-sidebar" → "env-header" → "env-vars" (env editor). Skips hidden panes.
+- **Focus model:** `"sidebar" → "urlbar" → "request" → "response"` (main). URL bar has method and URL sub-focuses. `"env-sidebar" → "env-header" → "env-vars"` (env editor). Skips hidden panes.
 - **Keymap layers:** `useAppKeymap.ts` defines layered bindings gated on `focus`, `mode`, `overlay`, `view` state. `useBindings()` from `@opentui/keymap`.
 - **Edit/Browse FSM:** Three modes — `inactive → browsing → editing`. `useEditBrowse` hook manages cursor, commit, cancel.
-- **File I/O:** All writes use `validatePathId()` preventing traversal. Atomic writes via `.tmp` + `rename()`.
+- **File I/O:** Save/delete operations validate path IDs to prevent traversal. Environment saves are atomic via `.tmp` + `rename()`; request, folder, and settings writes are direct writes.
+- **Collection modes:** TUI opens collection roots in editable collection mode, request-containing uninitialized directories in read-only browse mode, and empty directories in read-only empty mode. Initialize through the command palette before editing or sending.
+- **Timeline security:** Timeline entries persist substituted request data on disk. Detail views mask configured bearer, basic, and header API-key auth, but timeline files are not secret-redacted storage.
 - **Imports:** Module singletons (`filestore`, `lang`, `env`, `executor`). Types from `schema/index.ts`.
 - **Command actions:** Shared command logic lives in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. If you add a new action, add it to `commandActions.ts` and call from both places. Do not duplicate logic.
 - **CommandItem.run returns boolean:** Palette commands return `true` (close palette) or `false` (stay open). Unavailable commands (save when not dirty, copy body when no response) return `false`.

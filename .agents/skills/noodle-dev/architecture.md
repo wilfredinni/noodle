@@ -7,7 +7,6 @@ Example collection on disk:
 ```
 my-collection/
 ├── settings.yml              ← { environment: "dev" }
-├── folder.yml                ← (root level, optional) root folder meta, headers, auth
 ├── list-users.yml            ← Request file: id = "list-users"
 ├── get-user.yml              ← Request file: id = "get-user"
 ├── auth/
@@ -62,7 +61,7 @@ auth:
   token: $TOKEN
 ```
 
-Folder overrides are resolved in `requests/mergeFolderOverrides.ts` — walks ancestor folders bottom-up.
+Folder overrides are resolved in `requests/mergeFolderOverrides.ts` — walks ancestor folders bottom-up. A root-level `folder.yml` is skipped by the loader and does not apply to root requests.
 
 ### Hidden state files (`.noodle/`)
 
@@ -83,15 +82,16 @@ Falls back to empty object `{}` when file is missing or invalid.
 
 ### Timeline (`.timeline/`)
 
-Per-request response history stored as YAML arrays of `TimelineEntry` objects. Max 50 entries per request (FIFO — `unshift` + truncate). Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`.
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Max 50 entries per request (FIFO — `unshift` + truncate). Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Entries contain substituted request data, so timeline files can contain resolved secrets. The detail view masks configured bearer, basic, and header API-key auth for display, but does not redact storage.
 
 ### File write conventions
 
 - **`saveRequest()`**: `validatePathId()` → `mkdir` parent → write `.yml` file. Non-atomic (direct write).
 - **`saveFolder()`**: `validatePathId()` → `mkdir` dir → write `folder.yml`. Non-atomic.
 - **`saveEnvironment()`** (`env/save.ts`): Atomic — writes to `.tmp` then `rename()`.
+- **`saveSettings()`**: Direct write to `settings.yml`; not atomic.
 - **`deleteFolder()`**: `rm(path, { recursive: true, force: true })` — wipes entire folder including .yml files and subdirs.
-- **Migration** (in `walk()`): If `.yml` file lacks `timeout:` field, auto-serializes and writes the request back. Non-critical (caught errors are ignored).
+- **Migration** (in `walk()`): If a normal collection `.yml` file lacks `timeout:` field, auto-serializes and writes the request back. Browse mode disables migration and tolerates invalid request YAML.
 
 ### `validatePathId()` rules
 
@@ -324,7 +324,8 @@ App (src/ui/App.tsx)
 createMain(main) — citty argparse
   │
   ├── "noodle" (default) → commands/default.ts
-  │     ├── --collection/-c (default: ./collections)
+   │     ├── positional target path (overrides --collection)
+   │     ├── --collection/-c (fallback: registered collection, then ./collections)
   │     ├── --env/-e
   │     └── run() → bootstrap(options) in main.tsx
   │
@@ -340,6 +341,17 @@ createMain(main) — citty argparse
               ├── optional --json result envelope via commandResult.ts
               └── collection/request run resolves --env, then settings.yml
 ```
+
+### TUI path classification
+
+`bootstrap()` classifies the selected directory before loading it:
+
+- `collection`: `.environments`, `settings.yml`, or root request `.yml` exists. Loads normally and enables editing, saving, and sending.
+- `browse`: request `.yml` exists somewhere below the directory, but no collection marker exists. Loads tolerantly and read-only for inspection.
+- `empty`: directory has no request YAML or collection marker. Opens read-only until initialized.
+- `invalid`: missing path or non-directory. Prints an error and exits nonzero.
+
+Browse and empty modes allow global inspection actions such as help, theme, layout, reload, and command palette. Collection-only actions remain unavailable until initialization creates `settings.yml` and a development environment.
 
 **Bootstrap** (`src/app/main.tsx`): Extracted `bootstrap()` function that:
 - Lists environments, validates `--env` flag

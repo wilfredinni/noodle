@@ -140,9 +140,9 @@ Swagger `securityDefinitions` define auth schemes:
 | `apiKey` (in: "query") | `{ type: api_key, key: "...", value: "$api_key", placement: "query" }` |
 | `oauth2` | `{ type: bearer, token: "$access_token" }` (simplified mapping) |
 
-The `security` array at top level or per-operation specifies which definitions apply. Use the first one as the root `folder.yml` auth override if the whole API uses the same auth.
+The `security` array at top level or per-operation specifies which definitions apply. If the whole API uses the same auth, create a shared folder containing `folder.yml` and place converted requests beneath it. Root-level `folder.yml` is ignored.
 
-Write to root `folder.yml`:
+Write to the shared folder's `folder.yml`:
 ```yaml
 auth:
   type: bearer

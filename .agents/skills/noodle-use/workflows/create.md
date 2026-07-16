@@ -20,7 +20,7 @@ Extract the directory name from each path. If the user asks for "the stripe coll
 
 ### Step 3: If not found
 
-If no collection matches, proceed to create a new one below. The new collection will be registered in config so future lookups find it.
+If no collection matches, use `collection init` for an existing directory or proceed to create a new one below. Both paths register the collection in config so future lookups find it.
 
 ## Create a new collection
 
@@ -29,6 +29,16 @@ When asked to create a new collection:
 ### Step 1: Determine the collection directory
 
 Ask the user where to create it. Default: `./collections`. If they say "a collection for the Stripe API", suggest `./stripe-api/`.
+
+### Initialize an existing directory
+
+If directory already contains request YAML or other project files, prefer:
+
+```bash
+noodle collection init <dir> --json
+```
+
+This preserves existing files, creates missing collection markers, and registers absolute path. It refuses missing paths, files, and directories already recognized as collections.
 
 ### Step 2: Create the starter collection
 
@@ -174,7 +184,7 @@ When asked to set up shared auth or headers:
 
 ### Step 1: Determine the folder
 
-Where should the override apply? Root of collection? Specific subfolder?
+Where should the override apply? Specific subfolder. Root-level `folder.yml` is ignored by noodle; root requests cannot receive folder overrides.
 
 ### Step 2: Write folder.yml
 

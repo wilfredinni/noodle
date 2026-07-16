@@ -23,7 +23,7 @@ Avoid generic names like `get.yml` or `post.yml` — they're ambiguous when read
 - **Group by resource** (recommended): `users/`, `posts/`, `comments/`
 - **Group by domain** (large APIs): `billing/`, `identity/`, `catalog/`
 - **Max depth 3**: `domain/resource/request.yml`. Deeper nesting is hard to navigate.
-- **Auth at top level**: Put auth overrides in root `folder.yml` or a shared ancestor, not in every subfolder.
+- **Shared auth**: Put auth overrides in a specific folder's `folder.yml` or repeat auth on root-level requests. Root-level `folder.yml` is ignored.
 
 ## Environment conventions
 
