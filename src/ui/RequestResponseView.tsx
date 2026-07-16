@@ -24,6 +24,7 @@ interface RequestResponseViewProps {
   onOpenTimelineEntry?: (entry: TimelineEntry) => void
   setSelectOpen: (open: boolean) => void
   urlbarSubFocus: UrlBarSubFocus
+  urlbarInteractive: boolean
   expandHint: string
 }
 
@@ -42,6 +43,7 @@ export function RequestResponseView({
   onOpenTimelineEntry,
   setSelectOpen,
   urlbarSubFocus,
+  urlbarInteractive,
   expandHint,
 }: RequestResponseViewProps) {
   const content = (
@@ -88,7 +90,7 @@ export function RequestResponseView({
         setUrl={draft.setUrl}
         setMethod={draft.setMethod}
         onDefocus={draft.syncUrlParams}
-        focused={focus === "urlbar"}
+        focused={focus === "urlbar" && urlbarInteractive}
         subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
       />

@@ -38,6 +38,7 @@ interface MainViewProps {
   onOpenTimelineEntry?: (entry: import("../schema").TimelineEntry) => void
   setSelectOpen: (open: boolean) => void
   urlbarSubFocus: UrlBarSubFocus
+  urlbarInteractive: boolean
   expandHint: string
 }
 
@@ -67,6 +68,7 @@ export function MainView({
   onOpenTimelineEntry,
   setSelectOpen,
   urlbarSubFocus,
+  urlbarInteractive,
   expandHint,
 }: MainViewProps) {
   const theme = useTheme()
@@ -127,6 +129,7 @@ export function MainView({
             onOpenTimelineEntry={onOpenTimelineEntry}
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
+            urlbarInteractive={urlbarInteractive}
             expandHint={expandHint}
           />
         )}

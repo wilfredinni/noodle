@@ -13,7 +13,7 @@ import { useTheme } from "../theme"
 import type { Method, Environment } from "../../schema"
 import { METHOD_ITEMS } from "../methodItems"
 
-export { METHOD_ITEMS } from "../methodItems"
+export { METHOD_ITEMS }
 
 export interface NewRequestOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void

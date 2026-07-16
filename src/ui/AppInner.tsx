@@ -823,6 +823,24 @@ export function AppInner({
     ],
   )
 
+  const overlayVisible =
+    commandPaletteVisible ||
+    helpVisible ||
+    aboutVisible ||
+    previewIndex !== null ||
+    saveState.kind === "confirming" ||
+    undoAllPending ||
+    collectionSwitchPending !== null ||
+    collectionSwitcherVisible ||
+    yamlEditor.visible ||
+    newRequestVisible ||
+    editRequestVisible ||
+    cloneRequestVisible ||
+    newFolderVisible ||
+    folderDeletePending !== null ||
+    requestDeletePending !== null ||
+    timelineDetailEntry !== null
+
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <box
@@ -872,6 +890,7 @@ export function AppInner({
             onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
+            urlbarInteractive={!overlayVisible}
             expandHint={expandHint}
           />
         ) : (
