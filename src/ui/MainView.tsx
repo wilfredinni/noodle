@@ -40,6 +40,7 @@ interface MainViewProps {
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
   expandHint: string
+  mode?: "collection" | "browse" | "empty"
 }
 
 export function MainView({
@@ -70,8 +71,27 @@ export function MainView({
   urlbarSubFocus,
   urlbarInteractive,
   expandHint,
+  mode = "collection",
 }: MainViewProps) {
   const theme = useTheme()
+
+  if (mode === "empty") {
+    return (
+      <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
+        <box
+          style={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+          }}
+        >
+          <text fg={theme.textMuted}>No collection here.</text>
+          <text fg={theme.textMuted}>Ctrl+N to create a request.</text>
+        </box>
+      </box>
+    )
+  }
 
   return (
     <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
