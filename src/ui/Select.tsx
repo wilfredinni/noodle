@@ -182,10 +182,10 @@ export function Select({
             alignItems: "center",
             paddingLeft: 1,
             paddingRight: 1,
-            backgroundColor: open
-              ? theme.primary
-              : selectedBadgeBg
-                ? selectedBadgeBg
+            backgroundColor: selectedBadgeBg
+              ? selectedBadgeBg
+              : open
+                ? theme.primary
                 : focused
                   ? theme.borderSubtle
                   : theme.backgroundElement,
@@ -229,6 +229,11 @@ export function Select({
               <box style={{ flexDirection: "column" }}>
                 {items.map((item, i) => {
                   const isHighlighted = i === highlightIndex
+                  const itemColor = item.color
+                    ? ((theme as unknown as Record<string, string>)[
+                        item.color
+                      ] ?? theme.text)
+                    : theme.text
                   return (
                     <box
                       key={item.id}
@@ -248,13 +253,9 @@ export function Select({
                       <box style={{ flexDirection: "column", flexGrow: 1 }}>
                         {renderLabel(
                           item.label,
-                          item.id === value
+                          item.id === value && !item.color
                             ? theme.primary
-                            : item.color
-                              ? ((theme as unknown as Record<string, string>)[
-                                  item.color
-                                ] ?? theme.text)
-                              : theme.text,
+                            : itemColor,
                           isHighlighted ? TextAttributes.BOLD : undefined,
                         )}
                         {item.description && (
