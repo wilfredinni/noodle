@@ -28,9 +28,7 @@ function fuzzyMatch(value: string, token: string): boolean {
 }
 
 function fieldRank(value: string, token: string, weight: number): number {
-  const index = value.indexOf(token)
-  if (index >= 0) return weight + index
-  return weight * 10 + value.length
+  return weight + value.indexOf(token)
 }
 
 function scoreRequest(
