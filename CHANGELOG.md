@@ -4,6 +4,24 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-07-17
+
+### Features
+
+- Fall back to the current directory when no existing registered collection is available at startup.
+
+### Fixes
+
+- Explain clearly when a workspace audit has no registered collections.
+
+### Refactors
+
+- Generate tagged release notes from `CHANGELOG.md` and validate them during release checks.
+
+### Documentation
+
+- Document the current-directory startup fallback in the README and CLI reference.
+
 ## [0.4.7] - 2026-07-17
 
 ### Features
@@ -24,5 +42,6 @@ All notable changes to Noodle are documented in this file.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.4.8...HEAD
+[0.4.8]: https://github.com/wilfredinni/noodle/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/wilfredinni/noodle/compare/v0.4.6...v0.4.7
