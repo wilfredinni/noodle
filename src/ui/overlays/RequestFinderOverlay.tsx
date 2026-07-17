@@ -43,16 +43,13 @@ export function RequestFinderOverlay({
     [],
   )
   const filter = useCallback(
-    (item: RequestFinderItem, query: string) =>
-      searchRequests(items, query).some(
-        (result) => result.request.id === item.request.id,
-      ),
-    [items],
+    (_item: RequestFinderItem, _query: string) => true,
+    [],
   )
   const sortItems = useCallback(
-    (_matches: RequestFinderItem[], query: string) =>
-      searchRequests(items, query),
-    [items],
+    (matches: RequestFinderItem[], query: string) =>
+      searchRequests(matches, query),
+    [],
   )
   const highlightedItem = useMemo(
     () =>
