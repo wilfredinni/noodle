@@ -10,7 +10,6 @@ import { showToast } from "../Toast"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "../Select"
-import { Checkbox } from "../Checkbox"
 import { highlightGeneratedCode } from "./codeSyntax"
 
 const TARGET_ITEMS: SelectItem[] = CODE_TARGETS.map((t) => ({
@@ -112,11 +111,7 @@ export function CodeGeneratorOverlay({
         <box style={{ flexGrow: 1 }} />
         <text fg={theme.textMuted}>esc</text>
       </box>
-      <box
-        paddingLeft={4}
-        paddingRight={4}
-        style={{ zIndex: selectOpen ? 1 : undefined }}
-      >
+      <box paddingLeft={4} paddingRight={4}>
         <Select
           items={TARGET_ITEMS}
           value={targetId}
@@ -128,19 +123,7 @@ export function CodeGeneratorOverlay({
           width={32}
         />
       </box>
-      <box
-        paddingLeft={4}
-        paddingRight={4}
-        style={{ flexDirection: "row", alignItems: "center" }}
-      >
-        <Checkbox checked={interpolate} theme={theme} />
-        <text fg={interpolate ? theme.primary : theme.textMuted}>
-          Interpolate variables
-        </text>
-        <text fg={theme.textMuted}> (i)</text>
-        {envName ? <text fg={theme.textMuted}> · {envName}</text> : null}
-      </box>
-      {result.error ? (
+      {!selectOpen && result.error ? (
         <box
           border={["left"]}
           borderColor={theme.error}
@@ -148,7 +131,8 @@ export function CodeGeneratorOverlay({
         >
           <text fg={theme.error}>{result.error}</text>
         </box>
-      ) : (
+      ) : null}
+      {!selectOpen && !result.error ? (
         <scrollbox
           ref={scrollRef}
           scrollY
@@ -172,30 +156,36 @@ export function CodeGeneratorOverlay({
             ))}
           </box>
         </scrollbox>
-      )}
+      ) : null}
+      {selectOpen ? <box style={{ flexGrow: 1 }} /> : null}
       <box
         style={{
           flexDirection: "row",
           flexShrink: 0,
         }}
       >
+        <box paddingLeft={2} style={{ flexDirection: "row" }}>
+          {envName ? <text fg={theme.textMuted}>env:{envName}</text> : null}
+        </box>
         <box
           style={{
             flexDirection: "row",
             justifyContent: "flex-end",
             paddingX: 2,
             flexGrow: 1,
-            gap: 1,
           }}
         >
-          <text fg={theme.text}>c</text>
-          <text fg={theme.textMuted}>copy</text>
-          <text fg={theme.textMuted}> · </text>
           <text fg={theme.text}>i</text>
-          <text fg={theme.textMuted}>interpolate</text>
-          <text fg={theme.textMuted}> · </text>
+          <text fg={interpolate ? theme.primary : theme.textMuted}>
+            {" "}
+            interpolate{" "}
+          </text>
+          <text fg={theme.textMuted}>· </text>
+          <text fg={theme.text}>c</text>
+          <text fg={theme.textMuted}> copy </text>
+          <text fg={theme.textMuted}>· </text>
           <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}>close</text>
+          <text fg={theme.textMuted}> close</text>
         </box>
       </box>
     </Overlay>

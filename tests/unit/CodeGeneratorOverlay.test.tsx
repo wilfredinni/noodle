@@ -48,7 +48,7 @@ describe("CodeGeneratorOverlay", () => {
     cleanup()
   })
 
-  it("shows the interpolate variables toggle", async () => {
+  it("shows the interpolate variables toggle in the bottom bar", async () => {
     const { keymap, cleanup } = setupKeymap()
     const render = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -66,11 +66,11 @@ describe("CodeGeneratorOverlay", () => {
     )
     await render.renderOnce()
     const frame = render.captureCharFrame()
-    expect(frame).toContain("Interpolate variables")
+    expect(frame).toContain("interpolate")
     cleanup()
   })
 
-  it("shows env name when provided", async () => {
+  it("shows env name in the bottom bar when provided", async () => {
     const { keymap, cleanup } = setupKeymap()
     const render = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -89,7 +89,7 @@ describe("CodeGeneratorOverlay", () => {
     )
     await render.renderOnce()
     const frame = render.captureCharFrame()
-    expect(frame).toContain("staging")
+    expect(frame).toContain("env:staging")
     cleanup()
   })
 
@@ -113,7 +113,7 @@ describe("CodeGeneratorOverlay", () => {
     await act(async () => host.press("return"))
     await render.renderOnce()
     const frame = render.captureCharFrame()
-    expect(frame).toContain("Libcurl")
+    expect(frame).toContain("Clojure")
     cleanup()
   })
 })
