@@ -43,7 +43,7 @@ jobs:
             echo "Tag $tag does not match package.json version $package_version" >&2
             exit 1
           fi
-          git fetch origin main --depth=1
+          git fetch origin main
           tag_commit="$(git rev-list -n 1 "$tag")"
           if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
             echo "Tag $tag must point to a commit already integrated into main" >&2
