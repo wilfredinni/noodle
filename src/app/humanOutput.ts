@@ -52,6 +52,8 @@ export function formatWorkspaceList(data: { collections: string[] }): string {
 }
 
 export function formatWorkspaceAudit(data: WorkspaceAuditResult): string {
+  if (data.collections.length === 0 && data.issues.length === 0)
+    return "No registered collections."
   if (data.issues.length === 0)
     return `${color("✓", "green")} All registered collections are valid`
   const fixed = data.issues.filter((issue) => issue.fixed).length

@@ -98,27 +98,26 @@ export function classifyPath(dir: string): CollectionMode {
   return "empty"
 }
 
-export async function bootstrap(options: BootstrapOptions): Promise<void> {
-  let collectionDir: string
+export function resolveStartupCollectionDir(
+  options: BootstrapOptions,
+  collectionPaths: string[],
+  cwd = process.cwd(),
+): string {
+  if (options.targetPath) return resolve(options.targetPath)
+  if (options.collectionDir) return resolve(options.collectionDir)
 
-  if (options.targetPath) {
-    collectionDir = options.targetPath
-  } else if (options.collectionDir) {
-    collectionDir = options.collectionDir
-  } else {
-    let fromConfig: string | undefined
-    try {
-      const cfg = loadConfig(CONFIG_DIR)
-      fromConfig = cfg.collections.find(isDirectoryPath)
-    } catch {
-      // config unavailable
-    }
-    if (fromConfig) {
-      collectionDir = resolve(fromConfig)
-    } else {
-      collectionDir = resolve("./collections")
-    }
+  const fromConfig = collectionPaths.find(isDirectoryPath)
+  return fromConfig ? resolve(fromConfig) : resolve(cwd)
+}
+
+export async function bootstrap(options: BootstrapOptions): Promise<void> {
+  let collectionPaths: string[] = []
+  try {
+    collectionPaths = loadConfig(CONFIG_DIR).collections
+  } catch {
+    // config unavailable
   }
+  const collectionDir = resolveStartupCollectionDir(options, collectionPaths)
 
   const mode: CollectionMode = classifyPath(collectionDir)
   if (mode === "invalid") {

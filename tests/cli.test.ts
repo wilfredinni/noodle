@@ -6,7 +6,7 @@ import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
 import defaultCommand from "../src/app/commands/default"
 import importCommand from "../src/app/commands/import"
 import updateCommand from "../src/app/commands/update"
-import { classifyPath } from "../src/app/main"
+import { classifyPath, resolveStartupCollectionDir } from "../src/app/main"
 import { getUserArgsStart } from "../src/app/argv"
 
 const CLI = join(import.meta.dir, "../src/app/cli.ts")
@@ -380,5 +380,42 @@ describe("classifyPath", () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe("resolveStartupCollectionDir", () => {
+  it("uses the current directory when no registered collection exists", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-startup-"))
+    try {
+      expect(resolveStartupCollectionDir({}, [], dir)).toBe(dir)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("uses the first existing registered collection before the current directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-startup-"))
+    const collection = join(dir, "collection")
+    await mkdir(collection)
+    try {
+      expect(
+        resolveStartupCollectionDir(
+          {},
+          [join(dir, "missing"), collection],
+          dir,
+        ),
+      ).toBe(collection)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("keeps an explicit collection path even when it does not exist", () => {
+    expect(
+      resolveStartupCollectionDir(
+        { collectionDir: "/tmp/noodle-explicit-missing" },
+        [],
+      ),
+    ).toBe("/tmp/noodle-explicit-missing")
   })
 })
