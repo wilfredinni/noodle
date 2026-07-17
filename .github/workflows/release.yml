@@ -138,7 +138,12 @@ jobs:
           TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           set -euo pipefail
-          (cd release-assets && sha256sum noodle-* | sort) > SHA256SUMS
+          (cd release-assets && sha256sum noodle-* | LC_ALL=C sort -k2,2) > release-assets/SHA256SUMS
+          test -s release-assets/SHA256SUMS
+          test "$(wc -l < release-assets/SHA256SUMS | tr -d ' ')" = 3
+          for binary in noodle-macos-arm64 noodle-linux-x86_64 noodle-linux-arm64; do
+            grep -Eq "^[[:xdigit:]]{64}[[:space:]]{2}${binary}$" release-assets/SHA256SUMS
+          done
           gh release upload "$TAG" release-assets/SHA256SUMS --clobber
           gh release edit "$TAG" --draft=false
 
