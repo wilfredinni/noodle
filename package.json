@@ -16,9 +16,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@opentui/core": "^0.4.3",
-    "@opentui/keymap": "^0.4.3",
-    "@opentui/react": "^0.4.3",
+    "@opentui/core": "^0.4.5",
+    "@opentui/keymap": "^0.4.5",
+    "@opentui/react": "^0.4.5",
     "citty": "^0.2.2",
     "js-yaml": "^4.3.0",
     "postman-collection": "^5.3.0",
