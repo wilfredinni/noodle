@@ -132,3 +132,8 @@ bun run lint
 bun run typecheck
 bunx prettier --check ./src ./tests
 ```
+
+Git hooks are installed automatically by `bun install`. The pre-commit hook
+formats and lints staged source and test files; the pre-push hook runs the
+typecheck and full test suite. Hooks can be bypassed for an exceptional commit
+or push with Git's `--no-verify` option, while CI remains the required check.
