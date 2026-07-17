@@ -59,6 +59,12 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
       - id: tag
         run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
       - name: Create draft release
@@ -67,10 +73,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
+          bun scripts/release-notes.ts --tag "$TAG" > release-notes.md
           if gh release view "$TAG" &>/dev/null; then
-            echo "Release already exists, reusing it."
+            gh release edit "$TAG" --title "$TAG" --notes-file release-notes.md
           else
-            gh release create "$TAG" --draft --title "$TAG" --generate-notes
+            gh release create "$TAG" --draft --title "$TAG" --notes-file release-notes.md
           fi
 
   build:

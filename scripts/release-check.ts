@@ -47,6 +47,13 @@ if (requestedTag && requestedTag !== `v${packageFile.version}`) {
   process.exit(1)
 }
 
+if (requestedTag) {
+  checks.unshift({
+    label: "release notes",
+    command: ["bun", "scripts/release-notes.ts", "--tag", requestedTag],
+  })
+}
+
 let failed = false
 for (const check of checks) {
   if (run(check) !== 0) failed = true
