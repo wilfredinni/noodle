@@ -13,6 +13,8 @@ bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
 bunx prettier --check ./src ./tests   # format check (prettier 3, --check only src+tests)
 bun run build:bin                    # compile standalone binary via bun build --compile
+bun run release:context              # summarize public surfaces changed since the latest tag
+bun run release:check -- --tag vX.Y.Z # validate code, docs site, and release readiness
 ```
 
 ## CLI usage

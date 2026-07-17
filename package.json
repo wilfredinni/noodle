@@ -11,6 +11,8 @@
     "dev": "bun --watch src/app/cli.ts",
     "test": "bun test",
     "build:bin": "bun build --compile src/app/cli.ts --outfile noodle",
+    "release:context": "bun scripts/release-context.ts",
+    "release:check": "bun scripts/release-check.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit"
