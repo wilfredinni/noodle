@@ -79,6 +79,7 @@ export interface CommandBuilderContext {
   setCollectionSwitcherVisible: (
     v: boolean | ((prev: boolean) => boolean),
   ) => void
+  setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setYamlEditor: (
     v:
       | {
@@ -185,6 +186,7 @@ export function buildCommandPaletteCommands(
     setAboutVisible,
     setPreviewIndexProp,
     setCollectionSwitcherVisible,
+    setRequestFinderVisible,
     setEnvDeletePending,
     setDeleteConfirmSelection,
     getCollectionMode,
@@ -195,6 +197,17 @@ export function buildCommandPaletteCommands(
   const mode = getCollectionMode()
 
   const requestCommands: CommandItem[] = [
+    {
+      id: "request.find",
+      label: "Find Request",
+      section: "Request",
+      keybinding: displayKey(keybinds.request_find),
+      run: () => {
+        if (view !== "main") return false
+        setRequestFinderVisible(true)
+        return true
+      },
+    },
     {
       id: "request.send",
       label: "Send Request",

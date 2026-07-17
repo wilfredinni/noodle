@@ -37,7 +37,7 @@ import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
 import type { SubstitutedRequest } from "../requests/substitute"
-import { getRequestIds, findFolderByPath } from "./tree"
+import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import {
   saveLastRequest,
@@ -162,6 +162,7 @@ export function AppInner({
   const [initPending, setInitPending] = useState(false)
   const [initConfirmSelection, setInitConfirmSelection] = useState(0)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
+  const [requestFinderVisible, setRequestFinderVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
     useState<TimelineEntry | null>(null)
   const [collectionSwitcherVisible, setCollectionSwitcherVisible] =
@@ -205,12 +206,23 @@ export function AppInner({
     focusedFolderPath,
     focusedFolderName,
     setSelectedId,
+    revealRequest,
     expandFolder,
   } = useTreeNavigation(
     items,
     () => focus === "sidebar" && keymap.getData("app.overlay") === "none",
     initialLastRequestId,
     initialExpandedFolders ?? undefined,
+  )
+
+  const requests = useMemo(() => flattenRequests(items), [items])
+  const findRequest = useCallback(
+    (requestId: string) => {
+      revealRequest(requestId)
+      setFocus("sidebar")
+      setRequestFinderVisible(false)
+    },
+    [revealRequest],
   )
 
   const focusedFolder = useMemo(
@@ -393,6 +405,7 @@ export function AppInner({
   // ── keymap.setData effects ─────────────────────────────────────────
   const activeOverlay = useMemo(() => {
     if (commandPaletteVisible) return "command-palette"
+    if (requestFinderVisible) return "request-finder"
     if (helpVisible) return "help"
     if (aboutVisible) return "about"
     if (previewIndex !== null) return "theme"
@@ -412,6 +425,7 @@ export function AppInner({
     return "none"
   }, [
     commandPaletteVisible,
+    requestFinderVisible,
     helpVisible,
     aboutVisible,
     previewIndex,
@@ -695,6 +709,7 @@ export function AppInner({
       setFolderDeletePending,
       setUndoAllPending,
       setCommandPaletteVisible,
+      setRequestFinderVisible,
       setCollectionSwitcherVisible,
       onLayoutChange,
       setExpanded,
@@ -820,6 +835,7 @@ export function AppInner({
         setRequestDeletePending,
         setFolderDeletePending,
         setCollectionSwitcherVisible,
+        setRequestFinderVisible,
         setYamlEditor,
         setView,
         setFocus,
@@ -924,6 +940,10 @@ export function AppInner({
           commandPaletteVisible={commandPaletteVisible}
           commandPaletteCommands={commandPaletteCommands}
           setCommandPaletteVisible={setCommandPaletteVisible}
+          requestFinderVisible={requestFinderVisible}
+          requests={requests}
+          onFindRequest={findRequest}
+          setRequestFinderVisible={setRequestFinderVisible}
           collectionSwitcherVisible={collectionSwitcherVisible}
           collectionPaths={collectionPaths}
           collectionDir={collectionDir}

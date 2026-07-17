@@ -1,0 +1,112 @@
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { TextAttributes } from "@opentui/core"
+import type { Environment, Request } from "../../schema"
+import { methodColor } from "../formatRequest"
+import {
+  requestFinderItems,
+  searchRequests,
+  type RequestFinderItem,
+} from "../requestFinder"
+import { useTheme } from "../theme"
+import { PickerOverlay } from "./PickerOverlay"
+
+function truncate(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`
+}
+
+export function RequestFinderOverlay({
+  visible,
+  requests,
+  activeEnv,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean
+  requests: Request[]
+  activeEnv: Environment | null
+  onSelect: (requestId: string) => void
+  onClose: () => void
+}) {
+  const theme = useTheme()
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const items = useMemo(
+    () => requestFinderItems(requests, activeEnv),
+    [requests, activeEnv],
+  )
+
+  useEffect(() => {
+    if (visible) setHighlightedId(items[0]?.request.id ?? null)
+  }, [visible, items])
+
+  const keyExtractor = useCallback(
+    (item: RequestFinderItem) => item.request.id,
+    [],
+  )
+  const filter = useCallback(
+    (_item: RequestFinderItem, _query: string) => true,
+    [],
+  )
+  const sortItems = useCallback(
+    (matches: RequestFinderItem[], query: string) =>
+      searchRequests(matches, query),
+    [],
+  )
+  const highlightedItem = useMemo(
+    () =>
+      items.find((item) => item.request.id === highlightedId) ??
+      items[0] ??
+      null,
+    [items, highlightedId],
+  )
+  const handleHighlightChange = useCallback(
+    (item: RequestFinderItem | null) =>
+      setHighlightedId(item?.request.id ?? null),
+    [],
+  )
+  const renderItem = useCallback(
+    (
+      item: RequestFinderItem,
+      { highlighted }: { highlighted: boolean; active: boolean },
+    ) => {
+      const fg = highlighted ? "#1a1a1a" : theme.text
+      const mutedFg = highlighted ? "#333333" : theme.textMuted
+      return (
+        <box flexDirection="row" flexGrow={1}>
+          <text
+            fg={
+              highlighted ? "#333333" : methodColor(item.request.method, theme)
+            }
+          >
+            {item.request.method.padEnd(8)}
+          </text>
+          <text fg={fg} attributes={TextAttributes.BOLD} wrapMode="none">
+            {truncate(item.request.name, 30)}
+          </text>
+          <box flexGrow={1} />
+          <text fg={mutedFg} wrapMode="none">
+            {item.folderPath}
+          </text>
+        </box>
+      )
+    },
+    [theme],
+  )
+
+  return (
+    <PickerOverlay
+      visible={visible}
+      title="Find Request"
+      width={68}
+      placeholder="Search requests..."
+      items={items}
+      keyExtractor={keyExtractor}
+      filter={filter}
+      sortItems={sortItems}
+      renderItem={renderItem}
+      highlightedItem={highlightedItem}
+      onHighlightChange={handleHighlightChange}
+      onSelect={(item) => onSelect(item.request.id)}
+      onClose={onClose}
+    />
+  )
+}

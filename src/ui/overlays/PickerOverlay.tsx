@@ -13,6 +13,7 @@ export interface PickerOverlayProps<T> {
   items: T[]
   keyExtractor: (item: T) => string
   filter: (item: T, query: string) => boolean
+  sortItems?: (items: T[], query: string) => T[]
   renderItem: (
     item: T,
     helpers: {
@@ -35,6 +36,7 @@ export function PickerOverlay<T>({
   items,
   keyExtractor,
   filter,
+  sortItems,
   renderItem,
   highlightedItem,
   activeItem,
@@ -60,10 +62,10 @@ export function PickerOverlay<T>({
     if (input) queueMicrotask(() => input.focus())
   }, [])
 
-  const filtered = useMemo(
-    () => items.filter((item) => filter(item, search)),
-    [items, filter, search],
-  )
+  const filtered = useMemo(() => {
+    const matches = items.filter((item) => filter(item, search))
+    return sortItems ? sortItems(matches, search) : matches
+  }, [items, filter, sortItems, search])
 
   const navigableFiltered = useMemo(
     () => (isNavigable ? filtered.filter(isNavigable) : filtered),

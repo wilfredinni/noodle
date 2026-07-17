@@ -123,6 +123,7 @@ export interface UseAppKeymapSetters {
   onLayoutChange: (layout: "stacked" | "side-by-side") => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCommandPaletteVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setFolderDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
@@ -302,6 +303,19 @@ export function useAppKeymap(
         run: () => setters.setCommandPaletteVisible((prev: boolean) => !prev),
       },
       {
+        name: "request.find",
+        enabled: () => {
+          const overlay = keymap.getData("app.overlay") as string
+          const mode = keymap.getData("app.mode") as string
+          return (
+            overlay === "none" &&
+            mode !== "edit" &&
+            refs.viewRef.current === "main"
+          )
+        },
+        run: () => setters.setRequestFinderVisible(true),
+      },
+      {
         name: "collection.switcher",
         enabled: () => {
           const overlay = keymap.getData("app.overlay") as string
@@ -339,6 +353,7 @@ export function useAppKeymap(
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.command_palette, cmd: "app.command-palette" },
+      { key: keybinds.request_find, cmd: "request.find" },
       { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
     ],

@@ -7,6 +7,7 @@ import {
   type CommandItem,
 } from "./overlays/CommandPaletteOverlay"
 import { CollectionSwitcherOverlay } from "./overlays/CollectionSwitcherOverlay"
+import { RequestFinderOverlay } from "./overlays/RequestFinderOverlay"
 import { ThemePickerOverlay } from "./theme"
 import { YamlEditorOverlay } from "./editor/YamlEditorOverlay"
 import {
@@ -62,6 +63,10 @@ interface AppOverlaysProps {
   commandPaletteVisible: boolean
   commandPaletteCommands: CommandItem[]
   setCommandPaletteVisible: (visible: boolean) => void
+  requestFinderVisible: boolean
+  requests: NoodleRequest[]
+  onFindRequest: (requestId: string) => void
+  setRequestFinderVisible: (visible: boolean) => void
   collectionSwitcherVisible: boolean
   collectionPaths: string[]
   collectionDir: string
@@ -115,6 +120,10 @@ export function AppOverlays({
   commandPaletteVisible,
   commandPaletteCommands,
   setCommandPaletteVisible,
+  requestFinderVisible,
+  requests,
+  onFindRequest,
+  setRequestFinderVisible,
   collectionSwitcherVisible,
   collectionPaths,
   collectionDir,
@@ -195,6 +204,15 @@ export function AppOverlays({
           visible
           commands={commandPaletteCommands}
           onClose={() => setCommandPaletteVisible(false)}
+        />
+      )}
+      {requestFinderVisible && (
+        <RequestFinderOverlay
+          visible
+          requests={requests}
+          activeEnv={activeEnv}
+          onSelect={onFindRequest}
+          onClose={() => setRequestFinderVisible(false)}
         />
       )}
       {collectionSwitcherVisible && (

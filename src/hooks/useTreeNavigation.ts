@@ -17,6 +17,7 @@ export interface UseTreeNavigationResult {
   visibleItems: VisibleNode[]
   cursorIndex: number
   setSelectedId: (id: string) => void
+  revealRequest: (id: string) => void
   toggleFolder: (path: string) => void
   expandFolder: (path: string) => void
   collapseFolder: (path: string) => void
@@ -64,6 +65,25 @@ export function useTreeNavigation(
 
   const setSelectedId = useCallback((id: string) => {
     setSelectedIdState(id)
+  }, [])
+
+  const revealRequest = useCallback((id: string) => {
+    const request = findRequestById(itemsRef.current, id)
+    if (!request) return
+
+    const nextExpanded = new Set(expandedRef.current)
+    const parts = id.split("/")
+    for (let i = 1; i < parts.length; i++) {
+      nextExpanded.add(parts.slice(0, i).join("/"))
+    }
+    const nextVisible = visibleNodes(itemsRef.current, nextExpanded)
+    const nextCursor = nextVisible.findIndex(
+      (node) => node.type === "request" && node.id === id,
+    )
+
+    setExpanded(nextExpanded)
+    setSelectedIdState(id)
+    if (nextCursor >= 0) setCursorIndex(nextCursor)
   }, [])
 
   const toggleFolder = useCallback((path: string) => {
@@ -246,6 +266,7 @@ export function useTreeNavigation(
     visibleItems: vis,
     cursorIndex: clampedCursor,
     setSelectedId,
+    revealRequest,
     toggleFolder,
     expandFolder,
     collapseFolder,
