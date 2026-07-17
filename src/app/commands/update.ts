@@ -311,7 +311,7 @@ export async function runUpdate(
         currentVersion,
         cache.latestTag,
       )
-      if (cachedComparison === 0) {
+      if (cachedComparison === 0 || cachedComparison === -1) {
         output("Already up to date.")
         return {
           data: {
@@ -320,6 +320,18 @@ export async function runUpdate(
             cached: "true",
           },
         }
+      }
+      if (cachedComparison === 1) {
+        output(`Using cached release ${cache.latestTag}.`)
+        return downloadAndInstall(
+          cache.latestTag,
+          getReleaseDownloadUrl(
+            cache.latestTag,
+            getAssetName(deps.platform, deps.arch),
+          ),
+          deps,
+          output,
+        )
       }
     }
   }
@@ -403,13 +415,28 @@ export async function runUpdate(
     return { data: { status: "asset_missing", platform }, failed: true }
   }
 
-  output(`Downloading ${releaseData.tag_name} for ${platform}...`)
+  return downloadAndInstall(
+    releaseData.tag_name,
+    asset.browser_download_url,
+    deps,
+    output,
+  )
+}
 
+async function downloadAndInstall(
+  tag: string,
+  binaryUrl: string,
+  deps: UpdateDependencies,
+  output: (message: string) => void,
+): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  const assetName = getAssetName(deps.platform, deps.arch)
+  const platform = getPlatformString(deps.platform, deps.arch)
+  output(`Downloading ${tag} for ${platform}...`)
   let stagingDir: string | undefined
   try {
     const [binaryResponse, checksumResponse] = await Promise.all([
-      deps.fetcher(asset.browser_download_url),
-      deps.fetcher(getReleaseDownloadUrl(releaseData.tag_name, "SHA256SUMS")),
+      deps.fetcher(binaryUrl),
+      deps.fetcher(getReleaseDownloadUrl(tag, "SHA256SUMS")),
     ])
     if (!binaryResponse.ok || !checksumResponse.ok)
       throw new Error(
@@ -430,8 +457,8 @@ export async function runUpdate(
     await writeFile(stagedPath, binary, { mode: 0o755 })
     await chmod(stagedPath, 0o755)
     await rename(stagedPath, deps.execPath)
-    output(`Updated to ${releaseData.tag_name}`)
-    return { data: { status: "updated", version: releaseData.tag_name } }
+    output(`Updated to ${tag}`)
+    return { data: { status: "updated", version: tag } }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     output(`Failed to update: ${reason}`)

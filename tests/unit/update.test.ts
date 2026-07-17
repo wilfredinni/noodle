@@ -182,6 +182,43 @@ describe("update cache", () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+
+  it("uses a fresh newer cached release without checking GitHub again", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-cache-"))
+    const path = join(dir, "update-cache.json")
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    let githubCalls = 0
+    try {
+      await writeFile(
+        path,
+        JSON.stringify({ latestTag: "v0.4.7", checkedAt: 1000 }),
+      )
+      await writeFile(executable, "old")
+      const result = await runUpdate(true, false, {
+        cachePath: path,
+        now: () => 1000,
+        execPath: executable,
+        platform: "darwin",
+        arch: "arm64",
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.includes("api.github.com")) {
+            githubCalls += 1
+            return new Response(null, { status: 500 })
+          }
+          if (url.endsWith("noodle-macos-arm64")) return new Response(binary)
+          return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
+        },
+      })
+      expect(result.data).toEqual({ status: "updated", version: "v0.4.7" })
+      expect(githubCalls).toBe(0)
+      expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
 })
 
 describe("update release discovery", () => {

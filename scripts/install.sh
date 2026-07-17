@@ -51,7 +51,8 @@ mkdir -p "$INSTALL_DIR"
 
 TMP_FILE=$(mktemp)
 CHECKSUM_FILE=$(mktemp)
-trap 'rm -f "$TMP_FILE" "$CHECKSUM_FILE"' EXIT
+STAGED_FILE=""
+trap 'rm -f "$TMP_FILE" "$CHECKSUM_FILE" "$STAGED_FILE"' EXIT
 
 echo "Downloading $DOWNLOAD_URL..."
 if ! curl -LsSf "$DOWNLOAD_URL" -o "$TMP_FILE"; then
@@ -90,8 +91,14 @@ if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
   exit 1
 fi
 
-chmod +x "$TMP_FILE"
-mv "$TMP_FILE" "$INSTALL_DIR/$BIN_NAME"
+# Stage in the destination directory so the final rename replaces an existing
+# installation atomically. A system temporary directory can be on another
+# filesystem, where mv would otherwise fall back to a non-atomic copy.
+STAGED_FILE=$(mktemp "$INSTALL_DIR/.noodle-install.XXXXXX")
+cp "$TMP_FILE" "$STAGED_FILE"
+chmod 755 "$STAGED_FILE"
+mv "$STAGED_FILE" "$INSTALL_DIR/$BIN_NAME"
+STAGED_FILE=""
 
 printf '%b\n' "${GREEN}Installed to $INSTALL_DIR/$BIN_NAME${NC}"
 
