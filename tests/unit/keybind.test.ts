@@ -166,6 +166,20 @@ describe("collection_switcher", () => {
   })
 })
 
+describe("request_find", () => {
+  it("has default ctrl+f", () => {
+    expect(Definitions.request_find.default).toBe("ctrl+f")
+  })
+
+  it("is configurable and appears in defaults", () => {
+    expect(Definitions.request_find.fixed).toBe(false)
+    expect(parseOverrides({ request_find: "ctrl+g" }).request_find).toBe(
+      "ctrl+g",
+    )
+    expect(bindingDefaults().request_find).toBe("ctrl+f")
+  })
+})
+
 describe("displayKey", () => {
   it("transforms ctrl+return to ^return", () => {
     expect(displayKey("ctrl+return")).toBe("^return")

@@ -39,6 +39,7 @@ interface Props {
     setSelectedId: (id: string) => void,
     setItems: (items: CollectionItem[]) => void,
     expandFolder: (path: string) => void,
+    revealRequest: (id: string) => void,
   ) => void
 }
 
@@ -48,11 +49,16 @@ function Harness({
   afterMount,
 }: Props): ReactNode {
   const [items, setItems] = useState(initialItems)
-  const { selectedId, setSelectedId, expandFolder, cursorIndex } =
-    useTreeNavigation(items, () => true, initialSelectedId)
+  const {
+    selectedId,
+    setSelectedId,
+    expandFolder,
+    revealRequest,
+    cursorIndex,
+  } = useTreeNavigation(items, () => true, initialSelectedId)
 
   useEffect(() => {
-    afterMount?.(setSelectedId, setItems, expandFolder)
+    afterMount?.(setSelectedId, setItems, expandFolder, revealRequest)
   }, [])
 
   return <text>{`s:${selectedId ?? ""}|c:${cursorIndex}`}</text>
@@ -139,5 +145,32 @@ describe("useTreeNavigation", () => {
 
     expect(frame).toContain("s:users/list")
     expect(frame).toContain("c:1")
+  })
+
+  it("reveals a request inside collapsed ancestor folders", async () => {
+    const items = [
+      fld("users", [fld("users/admin", [req("users/admin/list")])]),
+    ]
+    const { renderOnce, captureCharFrame } = await render(
+      <Harness
+        initialItems={items}
+        afterMount={(
+          _setSelectedId,
+          _setItems,
+          _expandFolder,
+          revealRequest,
+        ) => {
+          setTimeout(() => revealRequest("users/admin/list"), 5)
+        }}
+      />,
+    )
+
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    const frame = captureCharFrame()
+
+    expect(frame).toContain("s:users/admin/list")
+    expect(frame).toContain("c:2")
   })
 })

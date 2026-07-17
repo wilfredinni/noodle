@@ -1205,6 +1205,63 @@ describe("command palette", () => {
   })
 })
 
+describe("request finder", () => {
+  it("dispatches request.find when ctrl+f is pressed in the main view", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    let opened = false
+
+    keymap.registerLayer({
+      enabled: () => true,
+      commands: [
+        {
+          name: "request.find",
+          enabled: () =>
+            keymap.getData("app.overlay") === "none" &&
+            keymap.getData("app.mode") !== "edit" &&
+            keymap.getData("app.view") === "main",
+          run: () => {
+            opened = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+f", cmd: "request.find" }],
+    })
+
+    host.press("f", { ctrl: true })
+    expect(opened).toBe(true)
+    cleanup()
+  })
+
+  it("does not dispatch while another overlay is active", () => {
+    const { keymap, host, cleanup } = setup()
+    keymap.setData("app.view", "main")
+    keymap.setData("app.overlay", "help")
+    let opened = false
+
+    keymap.registerLayer({
+      enabled: () => true,
+      commands: [
+        {
+          name: "request.find",
+          enabled: () =>
+            keymap.getData("app.overlay") === "none" &&
+            keymap.getData("app.mode") !== "edit" &&
+            keymap.getData("app.view") === "main",
+          run: () => {
+            opened = true
+          },
+        },
+      ],
+      bindings: [{ key: "ctrl+f", cmd: "request.find" }],
+    })
+
+    host.press("f", { ctrl: true })
+    expect(opened).toBe(false)
+    cleanup()
+  })
+})
+
 describe("collection switcher", () => {
   it("dispatches collection.switcher when ctrl+o pressed", () => {
     const { keymap, host, cleanup } = setup()

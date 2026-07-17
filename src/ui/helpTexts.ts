@@ -124,6 +124,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           description: "Switch collection",
         },
         {
+          key: displayKey(keybinds.request_find),
+          description: "Find request",
+        },
+        {
           key: displayKey(keybinds.global_undo_all),
           description: "Undo all unsaved changes",
         },
