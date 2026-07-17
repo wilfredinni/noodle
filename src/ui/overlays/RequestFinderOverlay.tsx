@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { TextAttributes } from "@opentui/core"
-import type { Request } from "../../schema"
+import type { Environment, Request } from "../../schema"
 import { methodColor } from "../formatRequest"
 import {
   requestFinderItems,
@@ -17,17 +17,22 @@ function truncate(value: string, maxLength: number): string {
 export function RequestFinderOverlay({
   visible,
   requests,
+  activeEnv,
   onSelect,
   onClose,
 }: {
   visible: boolean
   requests: Request[]
+  activeEnv: Environment | null
   onSelect: (requestId: string) => void
   onClose: () => void
 }) {
   const theme = useTheme()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
-  const items = useMemo(() => requestFinderItems(requests), [requests])
+  const items = useMemo(
+    () => requestFinderItems(requests, activeEnv),
+    [requests, activeEnv],
+  )
 
   useEffect(() => {
     if (visible) setHighlightedId(items[0]?.request.id ?? null)

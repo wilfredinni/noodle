@@ -210,6 +210,7 @@ export function AppOverlays({
         <RequestFinderOverlay
           visible
           requests={requests}
+          activeEnv={activeEnv}
           onSelect={onFindRequest}
           onClose={() => setRequestFinderVisible(false)}
         />

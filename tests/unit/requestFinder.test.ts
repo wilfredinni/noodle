@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test"
-import type { Request } from "../../src/schema"
-import { requestFinderItems, searchRequests } from "../../src/ui/requestFinder"
+import type { Environment, Request } from "../../src/schema"
+import {
+  requestFinderItems,
+  resolveFinderUrl,
+  searchRequests,
+} from "../../src/ui/requestFinder"
 
 const requests: Request[] = [
   {
@@ -31,6 +35,11 @@ const requests: Request[] = [
     timeout: 0,
   },
 ]
+
+const devEnv: Environment = {
+  name: "development",
+  vars: { API_HOST: "dev.api.example.com", USER_ID: "42" },
+}
 
 describe("requestFinder", () => {
   it("shows all requests for an empty query and derives folders", () => {
@@ -70,5 +79,29 @@ describe("requestFinder", () => {
       },
     ])
     expect(searchRequests(items, "users")[0]?.request.name).toBe("Users status")
+  })
+
+  it("matches a URL resolved with the active environment", () => {
+    const items = requestFinderItems(
+      [{ ...requests[0]!, url: "https://$API_HOST/users/$USER_ID" }],
+      devEnv,
+    )
+    expect(items[0]?.resolvedUrl).toBe("https://dev.api.example.com/users/42")
+    expect(searchRequests(items, "dev.api")[0]?.request.id).toBe(
+      "users/get-user",
+    )
+  })
+
+  it("keeps missing variables searchable and does not require an environment", () => {
+    const url = "https://$MISSING.example.com/$USER_ID"
+    expect(resolveFinderUrl(url, devEnv)).toBe(
+      "https://$MISSING.example.com/42",
+    )
+    expect(resolveFinderUrl(url, null)).toBe(url)
+
+    const items = requestFinderItems([{ ...requests[0]!, url }], devEnv)
+    expect(searchRequests(items, "missing")[0]?.request.id).toBe(
+      "users/get-user",
+    )
   })
 })

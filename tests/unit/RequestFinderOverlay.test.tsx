@@ -31,7 +31,7 @@ const requests = [
     id: "users/get",
     name: "Get User",
     method: "GET" as const,
-    url: "https://api.example.com/users/1",
+    url: "https://$API_HOST/users/1",
     headers: {},
     params: [],
     timeout: 0,
@@ -48,6 +48,10 @@ describe("RequestFinderOverlay", () => {
           <RequestFinderOverlay
             visible
             requests={requests}
+            activeEnv={{
+              name: "dev",
+              vars: { API_HOST: "dev.api.example.com" },
+            }}
             onSelect={(id) => {
               selected = id
             }}
@@ -63,7 +67,8 @@ describe("RequestFinderOverlay", () => {
     expect(frame).toContain("GET")
     expect(frame).toContain("Get User")
     expect(frame).toContain("users")
-    expect(frame).toContain("api.example.com")
+    expect(frame).toContain("$API_HOST")
+    expect(frame).not.toContain("dev.api.example.com")
     host.press("return")
     expect(selected).toBe("users/get")
     cleanup()
@@ -77,6 +82,7 @@ describe("RequestFinderOverlay", () => {
           <RequestFinderOverlay
             visible
             requests={[]}
+            activeEnv={null}
             onSelect={() => {}}
             onClose={() => {}}
           />

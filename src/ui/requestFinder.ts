@@ -1,8 +1,21 @@
-import type { Request } from "../schema"
+import type { Environment, Request } from "../schema"
+
+const VAR_RE = /\$(\w+)/g
 
 export interface RequestFinderItem {
   request: Request
   folderPath: string
+  resolvedUrl: string
+}
+
+export function resolveFinderUrl(
+  url: string,
+  activeEnv: Environment | null,
+): string {
+  if (activeEnv === null) return url
+  return url.replace(VAR_RE, (match, name: string) =>
+    Object.hasOwn(activeEnv.vars, name) ? activeEnv.vars[name]! : match,
+  )
 }
 
 function fuzzyMatch(value: string, token: string): boolean {
@@ -20,12 +33,17 @@ function fieldRank(value: string, token: string, weight: number): number {
   return weight * 10 + value.length
 }
 
-function scoreRequest(request: Request, tokens: string[]): number | null {
+function scoreRequest(
+  item: RequestFinderItem,
+  tokens: string[],
+): number | null {
+  const { request } = item
   const fields = [
     { value: request.name.toLowerCase(), weight: 0 },
     { value: request.id.toLowerCase(), weight: 100 },
     { value: request.method.toLowerCase(), weight: 200 },
     { value: request.url.toLowerCase(), weight: 300 },
+    { value: item.resolvedUrl.toLowerCase(), weight: 300 },
   ]
   let score = 0
 
@@ -42,12 +60,16 @@ function scoreRequest(request: Request, tokens: string[]): number | null {
   return score
 }
 
-export function requestFinderItems(requests: Request[]): RequestFinderItem[] {
+export function requestFinderItems(
+  requests: Request[],
+  activeEnv: Environment | null = null,
+): RequestFinderItem[] {
   return requests.map((request) => ({
     request,
     folderPath: request.id.includes("/")
       ? request.id.slice(0, request.id.lastIndexOf("/"))
       : "(root)",
+    resolvedUrl: resolveFinderUrl(request.url, activeEnv),
   }))
 }
 
@@ -59,7 +81,7 @@ export function searchRequests(
   if (tokens.length === 0) return items
 
   return items
-    .map((item) => ({ item, score: scoreRequest(item.request, tokens) }))
+    .map((item) => ({ item, score: scoreRequest(item, tokens) }))
     .filter(
       (result): result is { item: RequestFinderItem; score: number } =>
         result.score !== null,
