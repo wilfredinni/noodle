@@ -44,6 +44,35 @@ esac
   await chmod(path, 0o755)
 }
 
+async function writeFailingCurl(directory: string): Promise<void> {
+  const path = join(directory, "curl")
+  await writeFile(
+    path,
+    `#!/usr/bin/env bash
+echo "simulated download failure" >&2
+exit 1
+`,
+  )
+  await chmod(path, 0o755)
+}
+
+async function writeStrictRm(directory: string): Promise<void> {
+  const path = join(directory, "rm")
+  await writeFile(
+    path,
+    `#!/usr/bin/env bash
+for path in "$@"; do
+  if [ -z "$path" ]; then
+    echo "rm: empty path" >&2
+    exit 1
+  fi
+done
+exec /bin/rm "$@"
+`,
+  )
+  await chmod(path, 0o755)
+}
+
 async function runInstaller(
   installDir: string,
   binDir: string,
@@ -93,6 +122,25 @@ describe("install script", () => {
       expect(result.exitCode).not.toBe(0)
       expect(await readFile(join(installDir, "noodle"), "utf8")).toBe(
         "old binary",
+      )
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it("does not pass an empty staged path to cleanup after download failure", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "noodle-install-"))
+    const binDir = join(directory, "bin")
+    const installDir = join(directory, "install")
+    try {
+      await mkdir(binDir, { recursive: true })
+      await Promise.all([writeFailingCurl(binDir), writeStrictRm(binDir)])
+
+      const result = await runInstaller(installDir, binDir)
+
+      expect(result.exitCode).not.toBe(0)
+      expect(new TextDecoder().decode(result.stderr)).not.toContain(
+        "rm: empty path",
       )
     } finally {
       await rm(directory, { recursive: true, force: true })

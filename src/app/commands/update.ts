@@ -51,7 +51,7 @@ export function isNewerVersion(current: string, latest: string): boolean {
 export function isHomebrewInstall(execPath: string): boolean {
   return (
     execPath.includes("/homebrew/bin/") ||
-    execPath.includes("/linuxbrew/.linuxbrew/bin/") ||
+    execPath.includes("/.linuxbrew/bin/") ||
     execPath.includes("/brew/bin/")
   )
 }

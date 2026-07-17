@@ -52,7 +52,7 @@ mkdir -p "$INSTALL_DIR"
 TMP_FILE=$(mktemp)
 CHECKSUM_FILE=$(mktemp)
 STAGED_FILE=""
-trap 'rm -f "$TMP_FILE" "$CHECKSUM_FILE" "$STAGED_FILE"' EXIT
+trap 'rm -f "$TMP_FILE" "$CHECKSUM_FILE"; if [ -n "$STAGED_FILE" ]; then rm -f "$STAGED_FILE"; fi' EXIT
 
 echo "Downloading $DOWNLOAD_URL..."
 if ! curl -LsSf "$DOWNLOAD_URL" -o "$TMP_FILE"; then
