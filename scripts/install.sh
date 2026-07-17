@@ -18,7 +18,7 @@ detect_platform() {
     Darwin) os="macos" ;;
     Linux)  os="linux" ;;
     *)
-      echo -e "${RED}Error: Unsupported OS: $(uname -s)${NC}" >&2
+      printf '%b\n' "${RED}Error: Unsupported OS: $(uname -s)${NC}" >&2
       echo "noodle supports macOS and Linux only." >&2
       exit 1
       ;;
@@ -28,7 +28,7 @@ detect_platform() {
     x86_64|amd64)   arch="x86_64" ;;
     aarch64|arm64)  arch="arm64" ;;
     *)
-      echo -e "${RED}Error: Unsupported architecture: $(uname -m)${NC}" >&2
+      printf '%b\n' "${RED}Error: Unsupported architecture: $(uname -m)${NC}" >&2
       echo "noodle supports x86_64 and arm64 only." >&2
       exit 1
       ;;
@@ -45,7 +45,7 @@ else
   DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BIN_NAME}-${PLATFORM}"
 fi
 
-echo -e "${GREEN}Installing noodle ${VERSION} for ${PLATFORM}...${NC}"
+printf '%b\n' "${GREEN}Installing noodle ${VERSION} for ${PLATFORM}...${NC}"
 
 mkdir -p "$INSTALL_DIR"
 
@@ -55,7 +55,7 @@ trap 'rm -f "$TMP_FILE" "$CHECKSUM_FILE"' EXIT
 
 echo "Downloading $DOWNLOAD_URL..."
 if ! curl -LsSf "$DOWNLOAD_URL" -o "$TMP_FILE"; then
-  echo -e "${RED}Error: Failed to download from $DOWNLOAD_URL${NC}" >&2
+  printf '%b\n' "${RED}Error: Failed to download from $DOWNLOAD_URL${NC}" >&2
   echo "Check that the version exists and your platform is supported." >&2
   exit 1
 fi
@@ -67,13 +67,13 @@ else
   CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/SHA256SUMS"
 fi
 if ! curl -LsSf "$CHECKSUM_URL" -o "$CHECKSUM_FILE"; then
-  echo -e "${RED}Error: Failed to download SHA256SUMS${NC}" >&2
+  printf '%b\n' "${RED}Error: Failed to download SHA256SUMS${NC}" >&2
   exit 1
 fi
 
 EXPECTED_HASH=$(awk -v name="${BIN_NAME}-${PLATFORM}" '$2 == name { print $1; exit }' "$CHECKSUM_FILE")
 if ! printf '%s' "$EXPECTED_HASH" | grep -Eq '^[[:xdigit:]]{64}$'; then
-  echo -e "${RED}Error: No valid checksum found for ${BIN_NAME}-${PLATFORM}${NC}" >&2
+  printf '%b\n' "${RED}Error: No valid checksum found for ${BIN_NAME}-${PLATFORM}${NC}" >&2
   exit 1
 fi
 
@@ -82,21 +82,21 @@ if command -v shasum >/dev/null 2>&1; then
 elif command -v sha256sum >/dev/null 2>&1; then
   ACTUAL_HASH=$(sha256sum "$TMP_FILE" | awk '{print $1}')
 else
-  echo -e "${RED}Error: Neither shasum nor sha256sum is available${NC}" >&2
+  printf '%b\n' "${RED}Error: Neither shasum nor sha256sum is available${NC}" >&2
   exit 1
 fi
 if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
-  echo -e "${RED}Error: Download checksum mismatch${NC}" >&2
+  printf '%b\n' "${RED}Error: Download checksum mismatch${NC}" >&2
   exit 1
 fi
 
 chmod +x "$TMP_FILE"
 mv "$TMP_FILE" "$INSTALL_DIR/$BIN_NAME"
 
-echo -e "${GREEN}Installed to $INSTALL_DIR/$BIN_NAME${NC}"
+printf '%b\n' "${GREEN}Installed to $INSTALL_DIR/$BIN_NAME${NC}"
 
 if ! echo "$PATH" | tr ':' '\n' | grep -qxF "$INSTALL_DIR"; then
-  echo -e "${YELLOW}Warning: $INSTALL_DIR is not in your PATH.${NC}"
+  printf '%b\n' "${YELLOW}Warning: $INSTALL_DIR is not in your PATH.${NC}"
   echo "Add this to your shell config (~/.bashrc, ~/.zshrc, etc.):"
   echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
 fi

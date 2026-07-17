@@ -1,9 +1,12 @@
 import { describe, it, expect } from "bun:test"
 import {
   getPlatformString,
+  compareStableVersions,
   getAssetName,
   isNewerVersion,
   isHomebrewInstall,
+  parseChecksumManifest,
+  sha256,
 } from "../../src/app/commands/update"
 
 describe("getPlatformString", () => {
@@ -19,16 +22,26 @@ describe("getPlatformString", () => {
     expect(getPlatformString("linux", "x64")).toBe("linux-x86_64")
   })
 
-  it("returns linux-x86_64 for linux + ia32", () => {
-    expect(getPlatformString("linux", "ia32")).toBe("linux-x86_64")
+  it("rejects unsupported 32-bit architectures", () => {
+    expect(() => getPlatformString("linux", "ia32")).toThrow(
+      "Unsupported platform",
+    )
   })
 
   it("returns linux-arm64 for linux + arm64", () => {
     expect(getPlatformString("linux", "arm64")).toBe("linux-arm64")
   })
 
-  it("maps unknown architectures to x86_64", () => {
-    expect(getPlatformString("linux", "mips")).toBe("linux-x86_64")
+  it("rejects unsupported architectures", () => {
+    expect(() => getPlatformString("linux", "mips")).toThrow(
+      "Unsupported platform",
+    )
+  })
+
+  it("rejects unsupported operating systems", () => {
+    expect(() => getPlatformString("freebsd", "x64")).toThrow(
+      "Unsupported platform",
+    )
   })
 })
 
@@ -44,10 +57,57 @@ describe("isNewerVersion", () => {
     expect(isNewerVersion("v0.1.0", "v0.1.0")).toBe(false)
   })
 
-  it("returns true when latest is different", () => {
+  it("returns true only when latest is newer", () => {
     expect(isNewerVersion("v0.1.0", "v0.2.0")).toBe(true)
     expect(isNewerVersion("v0.1.0", "v1.0.0")).toBe(true)
-    expect(isNewerVersion("v0.1.0", "v0.0.9")).toBe(true)
+    expect(isNewerVersion("v0.1.0", "v0.0.9")).toBe(false)
+    expect(isNewerVersion("v0.1.0", "v0.1.0-beta.1")).toBe(false)
+    expect(isNewerVersion("v0.1.0", "release")).toBe(false)
+  })
+})
+
+describe("compareStableVersions", () => {
+  it("returns ordering for v-prefixed stable versions", () => {
+    expect(compareStableVersions("v0.4.6", "v0.4.7")).toBe(1)
+    expect(compareStableVersions("v0.4.7", "v0.4.6")).toBe(-1)
+    expect(compareStableVersions("v0.4.6", "v0.4.6")).toBe(0)
+  })
+
+  it("returns null for malformed or prerelease tags", () => {
+    expect(compareStableVersions("v0.4.6", "0.4.7")).toBeNull()
+    expect(compareStableVersions("v0.4.6", "v0.4.7-beta.1")).toBeNull()
+  })
+})
+
+describe("checksum helpers", () => {
+  it("finds the exact asset checksum", () => {
+    expect(
+      parseChecksumManifest(
+        "a".repeat(64) +
+          "  noodle-linux-arm64\n" +
+          "b".repeat(64) +
+          "  noodle-linux-x86_64\n",
+        "noodle-linux-x86_64",
+      ),
+    ).toBe("b".repeat(64))
+  })
+
+  it("rejects missing and malformed checksums", () => {
+    expect(
+      parseChecksumManifest(
+        "not-a-checksum  noodle-linux-arm64",
+        "noodle-linux-arm64",
+      ),
+    ).toBeNull()
+    expect(
+      parseChecksumManifest("a".repeat(64) + "  other", "noodle-linux-arm64"),
+    ).toBeNull()
+  })
+
+  it("calculates SHA-256", () => {
+    expect(sha256(new TextEncoder().encode("noodle"))).toBe(
+      "49742b4b8dd3a7ff2a2a32410e34f55a57d09a2327edb26d726a30e400960966",
+    )
   })
 })
 
