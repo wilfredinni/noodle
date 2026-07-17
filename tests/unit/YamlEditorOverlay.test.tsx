@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
@@ -12,6 +12,9 @@ import { ThemeProvider } from "../../src/ui/theme"
 import { YamlEditorOverlay } from "../../src/ui/editor/YamlEditorOverlay"
 import { ConfirmOverlay } from "../../src/ui/overlays/ConfirmOverlay"
 import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 extend({ "code-editor": CodeEditorRenderable })
 
@@ -34,16 +37,18 @@ function setupKeymap() {
 }
 
 const MOCK_YAML = "name: test\nmethod: GET\nurl: https://example.com\n"
-let mockedContent = MOCK_YAML
-let writeCallCount = 0
+let testDir: string
+let filePath: string
 
-mock.module("node:fs/promises", () => ({
-  readFile: () => Promise.resolve(mockedContent),
-  writeFile: () => {
-    writeCallCount++
-    return Promise.resolve()
-  },
-}))
+beforeEach(async () => {
+  testDir = await mkdtemp(join(tmpdir(), "noodle-yaml-editor-"))
+  filePath = join(testDir, "test.yml")
+  await writeFile(filePath, MOCK_YAML)
+})
+
+afterEach(async () => {
+  await rm(testDir, { recursive: true, force: true })
+})
 
 describe("YamlEditorOverlay", () => {
   it("renders title with request name", async () => {
@@ -53,7 +58,7 @@ describe("YamlEditorOverlay", () => {
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <YamlEditorOverlay
             visible
-            filePath="/tmp/test.yml"
+            filePath={filePath}
             requestName="get-users"
             onSaved={() => {}}
             onClose={() => {}}
@@ -78,7 +83,7 @@ describe("YamlEditorOverlay", () => {
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <YamlEditorOverlay
             visible
-            filePath="/tmp/test.yml"
+            filePath={filePath}
             requestName="get-users"
             onSaved={() => {}}
             onClose={() => {}}
@@ -106,7 +111,7 @@ describe("YamlEditorOverlay", () => {
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <YamlEditorOverlay
             visible={false}
-            filePath="/tmp/test.yml"
+            filePath={filePath}
             requestName="get-users"
             onSaved={() => {}}
             onClose={() => {}}
@@ -128,7 +133,7 @@ describe("YamlEditorOverlay", () => {
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <YamlEditorOverlay
             visible={false}
-            filePath="/tmp/test.yml"
+            filePath={filePath}
             requestName="get-users"
             onSaved={() => {}}
             onClose={() => {}}
@@ -150,7 +155,7 @@ describe("YamlEditorOverlay", () => {
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <YamlEditorOverlay
             visible
-            filePath="/tmp/test.yml"
+            filePath={filePath}
             requestName="get-users"
             onSaved={() => {}}
             onClose={() => {}}
@@ -168,15 +173,15 @@ describe("YamlEditorOverlay", () => {
   })
 
   it("rejects invalid YAML on save", async () => {
-    mockedContent = "name: test\nmethod: GET\nurl: [broken\n"
-    writeCallCount = 0
+    const invalidYaml = "name: test\nmethod: GET\nurl: [broken\n"
+    await writeFile(filePath, invalidYaml)
     const { keymap, host, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <YamlEditorOverlay
             visible
-            filePath="/tmp/test.yml"
+            filePath={filePath}
             requestName="get-users"
             onSaved={() => {}}
             onClose={() => {}}
@@ -195,9 +200,8 @@ describe("YamlEditorOverlay", () => {
 
     const frame = captureCharFrame()
     expect(frame).toContain("Save error:")
-    expect(writeCallCount).toBe(0)
+    expect(await readFile(filePath, "utf8")).toBe(invalidYaml)
     cleanup()
-    mockedContent = MOCK_YAML
   })
 })
 
