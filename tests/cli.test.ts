@@ -60,6 +60,12 @@ describe("update command", () => {
     expect(json?.required).not.toBe(true)
   })
 
+  it("has an optional force flag", () => {
+    const args = updateCommand.args as ArgsDef | undefined
+    const force = args?.force as StringArgDef | undefined
+    expect(force?.required).not.toBe(true)
+  })
+
   it("has run handler", () => {
     expect(typeof updateCommand.run).toBe("function")
   })
