@@ -6,6 +6,7 @@ import {
   formatCollectionList,
   formatImport,
   formatRequestRun,
+  formatWorkspaceAudit,
   formatWorkspaceList,
 } from "../src/app/humanOutput"
 
@@ -21,6 +22,16 @@ describe("human CLI output", () => {
     expect(formatWorkspaceList({ collections: [] })).toBe(
       "No registered collections.",
     )
+  })
+
+  it("explains when an audit has no registered collections", () => {
+    expect(
+      formatWorkspaceAudit({
+        valid: true,
+        collections: [],
+        issues: [],
+      }),
+    ).toBe("No registered collections.")
   })
 
   it("renders collection trees for list and inspect", () => {

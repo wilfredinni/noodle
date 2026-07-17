@@ -98,7 +98,7 @@ noodle .
 noodle --collection ./collections --env development
 ```
 
-Without either option, noodle uses the first existing collection registered in `~/.config/noodle/config.yml`, then falls back to `./collections`. A directory with request YAML but no collection markers opens in read-only browse mode; an empty directory opens in read-only empty mode. Initialize either mode from the command palette before editing or sending requests.
+Without either option, noodle uses the first existing collection registered in `~/.config/noodle/config.yml`, then falls back to the current directory. A directory with request YAML but no collection markers opens in read-only browse mode; an empty directory opens in read-only empty mode. Initialize either mode from the command palette before editing or sending requests.
 
 | Command | Purpose |
 | --- | --- |

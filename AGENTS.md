@@ -29,7 +29,7 @@ noodle request <create|run> ... [--json]
 noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
 ```
 
-- **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, and `--env/-e`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then `./collections`.
+- **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, and `--env/-e`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then the current directory.
 - **Import subcommand**: `source` (positional, required), `--format/-i` (openapi/postman, auto-detected if omitted), `--output/-o` (default: ./collections)
 - **Update subcommand**: Self-update. Checks GitHub for latest release and replaces binary. Detects Homebrew installs and redirects to `brew upgrade`.
 - **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `audit [--fix]`, `run [--env]`; `request create --url --method --collection`, `run [--env]`; and `environment set`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
