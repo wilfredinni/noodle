@@ -154,6 +154,7 @@ function getDefaultCachePath(): string {
 
 export interface UpdateDependencies {
   fetcher: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  runProcess: (args: string[], captureOutput: boolean) => Promise<ProcessResult>
   execPath: string
   platform: string
   arch: string
@@ -162,11 +163,33 @@ export interface UpdateDependencies {
   now: () => number
 }
 
+export interface ProcessResult {
+  exitCode: number
+}
+
+async function runProcess(
+  args: string[],
+  captureOutput: boolean,
+): Promise<ProcessResult> {
+  const child = Bun.spawn(args, {
+    stdout: captureOutput ? "pipe" : "inherit",
+    stderr: captureOutput ? "pipe" : "inherit",
+  })
+  if (!captureOutput) return { exitCode: await child.exited }
+  await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ])
+  return { exitCode: child.exitCode ?? 1 }
+}
+
 function getUpdateDeps(
   overrides: Partial<UpdateDependencies>,
 ): UpdateDependencies {
   return {
     fetcher: globalThis.fetch,
+    runProcess,
     execPath: process.execPath,
     platform: process.platform,
     arch: process.arch,
@@ -180,6 +203,40 @@ function getUpdateDeps(
 class RateLimitError extends Error {
   constructor(readonly retryAt?: string) {
     super("GitHub API rate limit reached")
+  }
+}
+
+async function runHomebrewUpdate(
+  silent: boolean,
+  deps: UpdateDependencies,
+): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  const output = (message: string) => {
+    if (!silent) console.log(message)
+  }
+  output("Updating noodle via Homebrew...")
+  try {
+    const result = await deps.runProcess(["brew", "upgrade", "noodle"], silent)
+    if (result.exitCode !== 0) {
+      output(`Homebrew upgrade failed (exit code ${result.exitCode}).`)
+      return {
+        data: {
+          status: "homebrew_failed",
+          command: "brew upgrade noodle",
+          exit_code: String(result.exitCode),
+        },
+        failed: true,
+      }
+    }
+    output("Homebrew upgrade completed.")
+    return {
+      data: { status: "homebrew_updated", command: "brew upgrade noodle" },
+    }
+  } catch {
+    output("Unable to run Homebrew. Is `brew` installed and available on PATH?")
+    return {
+      data: { status: "homebrew_failed", command: "brew upgrade noodle" },
+      failed: true,
+    }
   }
 }
 
@@ -232,9 +289,7 @@ export async function runUpdate(
     if (!silent) console.log(message)
   }
   if (isHomebrewInstall(deps.execPath)) {
-    output("noodle was installed via Homebrew.")
-    output("Run: brew upgrade noodle")
-    return { data: { status: "homebrew", command: "brew upgrade noodle" } }
+    return runHomebrewUpdate(silent, deps)
   }
 
   let platform: string

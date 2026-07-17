@@ -371,6 +371,81 @@ describe("update release discovery", () => {
   })
 })
 
+describe("Homebrew updates", () => {
+  const brewDeps = (
+    runProcess: (
+      args: string[],
+      captureOutput: boolean,
+    ) => Promise<{ exitCode: number }>,
+  ) => ({
+    cachePath: "/tmp/noodle-homebrew-cache.json",
+    now: () => 1000,
+    execPath: "/opt/homebrew/bin/noodle",
+    platform: "darwin",
+    arch: "arm64",
+    env: {},
+    runProcess,
+  })
+
+  it("runs brew upgrade noodle and captures output in JSON mode", async () => {
+    let receivedArgs: string[] | undefined
+    let captured: boolean | undefined
+    let fetchCalled = false
+    const result = await runUpdate(true, false, {
+      ...brewDeps(async (args, captureOutput) => {
+        receivedArgs = args
+        captured = captureOutput
+        return { exitCode: 0 }
+      }),
+      fetcher: async () => {
+        fetchCalled = true
+        return new Response()
+      },
+    })
+    expect(result).toEqual({
+      data: { status: "homebrew_updated", command: "brew upgrade noodle" },
+    })
+    expect(receivedArgs).toEqual(["brew", "upgrade", "noodle"])
+    expect(captured).toBe(true)
+    expect(fetchCalled).toBe(false)
+  })
+
+  it("lets human mode stream Brew output", async () => {
+    let captured: boolean | undefined
+    const result = await runUpdate(false, false, {
+      ...brewDeps(async (_args, captureOutput) => {
+        captured = captureOutput
+        return { exitCode: 0 }
+      }),
+    })
+    expect(result.data.status).toBe("homebrew_updated")
+    expect(captured).toBe(false)
+  })
+
+  it("reports Brew failures and unavailable Brew", async () => {
+    const failed = await runUpdate(true, false, {
+      ...brewDeps(async () => ({ exitCode: 1 })),
+    })
+    const unavailable = await runUpdate(true, false, {
+      ...brewDeps(async () => {
+        throw new Error("spawn failed")
+      }),
+    })
+    expect(failed).toEqual({
+      data: {
+        status: "homebrew_failed",
+        command: "brew upgrade noodle",
+        exit_code: "1",
+      },
+      failed: true,
+    })
+    expect(unavailable).toEqual({
+      data: { status: "homebrew_failed", command: "brew upgrade noodle" },
+      failed: true,
+    })
+  })
+})
+
 describe("isHomebrewInstall", () => {
   it("detects homebrew prefix", () => {
     expect(isHomebrewInstall("/opt/homebrew/bin/noodle")).toBe(true)
