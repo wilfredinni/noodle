@@ -45,7 +45,15 @@ brew trust wilfredinni/noodle
 brew install noodle
 ```
 
-Installs to `~/.local/bin/noodle` (curl) or your Homebrew prefix. Make sure the install directory is in your PATH.
+Installs to `~/.local/bin/noodle` (curl) or your Homebrew prefix. The curl installer verifies the release SHA-256 checksum before replacing an existing binary. Make sure the install directory is in your PATH.
+
+### Updating
+
+```bash
+noodle update
+```
+
+Non-Homebrew installs download and verify the latest release before replacing the binary. Checks are cached for one hour; use `noodle update --force` to check immediately. Homebrew installs run `brew upgrade noodle` instead.
 
 ### npx skills (AI agents)
 

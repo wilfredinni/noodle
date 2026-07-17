@@ -166,9 +166,9 @@ tests/integration/ # Integration tests
 | **Homebrew** | `brew tap wilfredinni/noodle && brew trust wilfredinni/noodle && brew install noodle` |
 | **Source** | `bun install && bun run build:bin` |
 
-- Install script at `scripts/install.sh` — detects OS/arch, downloads binary from GitHub Releases
+- Install script at `scripts/install.sh` — detects OS/arch, downloads and verifies the binary from GitHub Releases
 - Homebrew tap at `github.com/wilfredinni/homebrew-noodle` — formula auto-updates SHA256 on release
-- Release workflow at `.github/workflows/release.yml` — triggered by `git tag v*`, cross-compiles binaries for macos-arm64, linux-x86_64, linux-arm64
+- Release workflow at `.github/workflows/release.yml` — triggered by `git tag v*`, cross-compiles binaries for macos-arm64, linux-x86_64, linux-arm64, publishes `SHA256SUMS`, and notifies the Homebrew tap
 
 ## Key conventions
 
