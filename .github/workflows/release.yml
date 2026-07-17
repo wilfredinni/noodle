@@ -4,27 +4,73 @@ on:
   push:
     tags:
       - "v*"
-  release:
-    types: [published]
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  quality:
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ github.sha }}
+
+  validate-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Validate tag and package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $tag (expected vX.Y.Z)" >&2
+            exit 1
+          fi
+          package_version="$(bun -e 'const pkg = await Bun.file("package.json").json(); console.log(pkg.version)')"
+          if [[ "v$package_version" != "$tag" ]]; then
+            echo "Tag $tag does not match package.json version $package_version" >&2
+            exit 1
+          fi
+          git fetch origin main --depth=1
+          tag_commit="$(git rev-list -n 1 "$tag")"
+          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+            echo "Tag $tag must point to a commit already integrated into main" >&2
+            exit 1
+          fi
+
   create-release:
+    needs: [quality, validate-release]
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      contents: write
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
       - id: tag
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-      - run: |
-          gh release view "$TAG" &>/dev/null && echo "Release already exists, skipping creation." || gh release create "$TAG" --title "$TAG" --generate-notes
+        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+      - name: Create draft release
         env:
           GITHUB_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" &>/dev/null; then
+            echo "Release already exists, reusing it."
+          else
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes
+          fi
 
   build:
     needs: create-release
@@ -40,11 +86,13 @@ jobs:
             target: linux-arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.3.14
       - uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
@@ -52,19 +100,63 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - run: bun build --compile src/app/cli.ts --outfile noodle-${{ matrix.target }}
-      - run: gh release upload "$TAG" noodle-${{ matrix.target }} --clobber
+      - name: Smoke test compiled binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(bun -e 'const pkg = await Bun.file("package.json").json(); console.log(pkg.version)')"
+          actual="$(./noodle-${{ matrix.target }} --version)"
+          test "$actual" = "$expected" || {
+            echo "Compiled binary reported $actual, expected $expected" >&2
+            exit 1
+          }
+      - name: Upload binary
         env:
           GITHUB_TOKEN: ${{ github.token }}
           TAG: ${{ needs.create-release.outputs.tag }}
+        run: gh release upload "$TAG" "noodle-${{ matrix.target }}" --clobber
+
+  checksums:
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Download release binaries
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir release-assets
+          gh release download "$TAG" --pattern 'noodle-*' --dir release-assets
+          test "$(find release-assets -maxdepth 1 -type f -name 'noodle-*' | wc -l | tr -d ' ')" = 3
+      - name: Generate checksums and publish release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          (cd release-assets && sha256sum noodle-* | sort) > SHA256SUMS
+          gh release upload "$TAG" release-assets/SHA256SUMS --clobber
+          gh release edit "$TAG" --draft=false
 
   notify-homebrew:
-    needs: [create-release, build]
+    needs: [create-release, checksums]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - run: |
-          curl -X POST \
+      - name: Notify Homebrew tap
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          test -n "$TOKEN" || { echo "HOMEBREW_TAP_TOKEN is not configured" >&2; exit 1; }
+          curl --fail-with-body -sS -X POST \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.HOMEBREW_TAP_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $TOKEN" \
             "https://api.github.com/repos/wilfredinni/homebrew-noodle/dispatches" \
-            -d '{"event_type": "new-release", "client_payload": {"version": "${{ needs.create-release.outputs.tag }}"}}'
+            -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
