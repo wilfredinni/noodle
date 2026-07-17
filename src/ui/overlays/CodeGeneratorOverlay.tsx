@@ -1,50 +1,60 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
-import type { Collection, Request } from "../../schema"
-import { CODE_LANGUAGES, generateCode, type CodeLanguage } from "../../codegen"
+import type { Collection, Environment, Request } from "../../schema"
+import { generateCode, findCodeTarget } from "../../codegen"
+import { CODE_TARGETS } from "../../codegen/targets"
 import { copyToClipboard } from "../clipboard"
 import { useRenderer } from "../RendererContext"
 import { showToast } from "../Toast"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "../Select"
+import { Checkbox } from "../Checkbox"
 import { highlightGeneratedCode } from "./codeSyntax"
 
-const LANGUAGE_ITEMS: SelectItem[] = [
-  { id: "curl", label: "cURL", description: "Shell command" },
-  { id: "httpie", label: "HTTPie", description: "HTTPie command" },
-  { id: "wget", label: "Wget", description: "Wget command" },
-  { id: "javascript", label: "JavaScript", description: "Fetch API" },
-  { id: "python", label: "Python", description: "requests" },
-  { id: "go", label: "Go", description: "net/http" },
-]
+const TARGET_ITEMS: SelectItem[] = CODE_TARGETS.map((t) => ({
+  id: t.id,
+  label: t.label,
+}))
+
+const DEFAULT_TARGET = CODE_TARGETS[0]!
 
 export function CodeGeneratorOverlay({
   visible,
   request,
   collection,
+  env,
+  envName,
   onClose,
 }: {
   visible: boolean
   request: Request
   collection?: Collection
+  env?: Environment
+  envName?: string
   onClose: () => void
 }) {
   const theme = useTheme()
   const renderer = useRenderer()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const [language, setLanguage] = useState<CodeLanguage>("curl")
-  const [languageSelectOpen, setLanguageSelectOpen] = useState(false)
+  const [targetId, setTargetId] = useState(DEFAULT_TARGET.id)
+  const [interpolate, setInterpolate] = useState(false)
+  const [selectOpen, setSelectOpen] = useState(false)
+
+  const target = findCodeTarget(targetId) ?? DEFAULT_TARGET
 
   useEffect(() => {
-    if (visible) setLanguage("curl")
+    if (visible) {
+      setTargetId(DEFAULT_TARGET.id)
+      setInterpolate(false)
+    }
   }, [visible, request.id])
 
   const result = useMemo(() => {
     try {
       return {
-        generated: generateCode(request, language, collection),
+        generated: generateCode(request, target, collection, env, interpolate),
         error: null,
       }
     } catch (e) {
@@ -56,7 +66,7 @@ export function CodeGeneratorOverlay({
             : String(e),
       }
     }
-  }, [request, language, collection])
+  }, [request, target, collection, env, interpolate])
 
   const highlightedCode = useMemo(
     () =>
@@ -70,7 +80,9 @@ export function CodeGeneratorOverlay({
   useKeyboard((key) => {
     if (!visible) return
     if (key.name === "escape") onClose()
-    else if (key.name === "c" && !key.ctrl && result.generated) {
+    else if (key.name === "i" && !key.ctrl) {
+      setInterpolate((prev) => !prev)
+    } else if (key.name === "c" && !key.ctrl && result.generated) {
       if (copyToClipboard(result.generated.code, renderer))
         showToast("Generated code copied", "success")
       else showToast("Failed to copy generated code", "error")
@@ -103,19 +115,30 @@ export function CodeGeneratorOverlay({
       <box
         paddingLeft={4}
         paddingRight={4}
-        style={{ zIndex: languageSelectOpen ? 1 : undefined }}
+        style={{ zIndex: selectOpen ? 1 : undefined }}
       >
         <Select
-          items={LANGUAGE_ITEMS}
-          value={language}
+          items={TARGET_ITEMS}
+          value={targetId}
           onChange={(value) => {
-            if ((CODE_LANGUAGES as readonly string[]).includes(value))
-              setLanguage(value as CodeLanguage)
+            if (findCodeTarget(value)) setTargetId(value)
           }}
-          onOpenChange={setLanguageSelectOpen}
+          onOpenChange={setSelectOpen}
           focused
-          width={28}
+          width={32}
         />
+      </box>
+      <box
+        paddingLeft={4}
+        paddingRight={4}
+        style={{ flexDirection: "row", alignItems: "center" }}
+      >
+        <Checkbox checked={interpolate} theme={theme} />
+        <text fg={interpolate ? theme.primary : theme.textMuted}>
+          Interpolate variables
+        </text>
+        <text fg={theme.textMuted}> (i)</text>
+        {envName ? <text fg={theme.textMuted}> · {envName}</text> : null}
       </box>
       {result.error ? (
         <box
@@ -126,50 +149,29 @@ export function CodeGeneratorOverlay({
           <text fg={theme.error}>{result.error}</text>
         </box>
       ) : (
-        <>
-          {result.generated?.warnings.length ? (
-            <box
-              border={["left"]}
-              borderColor={theme.warning}
-              style={{
-                flexDirection: "column",
-                marginLeft: 4,
-                marginRight: 4,
-                paddingLeft: 1,
-              }}
-            >
-              <text fg={theme.warning}>Conversion warnings</text>
-              {result.generated.warnings.map((warning) => (
-                <text key={warning} fg={theme.textMuted}>
-                  • {warning}
+        <scrollbox
+          ref={scrollRef}
+          scrollY
+          paddingLeft={4}
+          paddingRight={4}
+          style={{ flexGrow: 1, minHeight: 0 }}
+          scrollbarOptions={{ visible: false }}
+        >
+          <box style={{ flexDirection: "column" }}>
+            {highlightedCode.map((line, index) => (
+              <box key={index} style={{ flexDirection: "row" }}>
+                <text fg={theme.textMuted} wrapMode="none">
+                  {String(index + 1).padStart(lineNumberWidth, " ")}{" "}
                 </text>
-              ))}
-            </box>
-          ) : null}
-          <scrollbox
-            ref={scrollRef}
-            scrollY
-            paddingLeft={4}
-            paddingRight={4}
-            style={{ flexGrow: 1, minHeight: 0 }}
-            scrollbarOptions={{ visible: false }}
-          >
-            <box style={{ flexDirection: "column" }}>
-              {highlightedCode.map((line, index) => (
-                <box key={index} style={{ flexDirection: "row" }}>
-                  <text fg={theme.textMuted} wrapMode="none">
-                    {String(index + 1).padStart(lineNumberWidth, " ")}{" "}
+                {line.map((span, spanIndex) => (
+                  <text key={spanIndex} fg={span.fg} wrapMode="char">
+                    {span.text}
                   </text>
-                  {line.map((span, spanIndex) => (
-                    <text key={spanIndex} fg={span.fg} wrapMode="char">
-                      {span.text}
-                    </text>
-                  ))}
-                </box>
-              ))}
-            </box>
-          </scrollbox>
-        </>
+                ))}
+              </box>
+            ))}
+          </box>
+        </scrollbox>
       )}
       <box
         style={{
@@ -188,6 +190,9 @@ export function CodeGeneratorOverlay({
         >
           <text fg={theme.text}>c</text>
           <text fg={theme.textMuted}>copy</text>
+          <text fg={theme.textMuted}> · </text>
+          <text fg={theme.text}>i</text>
+          <text fg={theme.textMuted}>interpolate</text>
           <text fg={theme.textMuted}> · </text>
           <text fg={theme.text}>esc</text>
           <text fg={theme.textMuted}>close</text>

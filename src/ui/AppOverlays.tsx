@@ -68,6 +68,8 @@ interface AppOverlaysProps {
   codeGeneratorVisible: boolean
   setCodeGeneratorVisible: (visible: boolean) => void
   codeGeneratorRequest: NoodleRequest | null
+  codeGeneratorEnv?: Environment | null
+  codeGeneratorEnvName?: string
   collection: Collection | null
   requestFinderVisible: boolean
   requests: NoodleRequest[]
@@ -129,6 +131,8 @@ export function AppOverlays({
   codeGeneratorVisible,
   setCodeGeneratorVisible,
   codeGeneratorRequest,
+  codeGeneratorEnv,
+  codeGeneratorEnvName,
   collection,
   requestFinderVisible,
   requests,
@@ -221,6 +225,8 @@ export function AppOverlays({
           visible
           request={codeGeneratorRequest}
           collection={collection ?? undefined}
+          env={codeGeneratorEnv ?? undefined}
+          envName={codeGeneratorEnvName}
           onClose={() => setCodeGeneratorVisible(false)}
         />
       )}

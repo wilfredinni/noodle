@@ -947,6 +947,8 @@ export function AppInner({
           codeGeneratorVisible={codeGeneratorVisible}
           setCodeGeneratorVisible={setCodeGeneratorVisible}
           codeGeneratorRequest={draft.draft}
+          codeGeneratorEnv={envState.activeEnv}
+          codeGeneratorEnvName={envState.activeEnv?.name}
           collection={collection}
           requestFinderVisible={requestFinderVisible}
           requests={requests}

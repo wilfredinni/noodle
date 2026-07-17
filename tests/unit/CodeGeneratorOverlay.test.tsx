@@ -8,6 +8,16 @@ import { RendererProvider } from "../../src/ui/RendererContext"
 import { CodeGeneratorOverlay } from "../../src/ui/overlays/CodeGeneratorOverlay"
 import { setupKeymap } from "./_helpers"
 
+const baseRequest = {
+  id: "users",
+  name: "Users",
+  method: "GET" as const,
+  url: "https://api.example.com/users",
+  timeout: 0,
+  headers: {},
+  params: [],
+}
+
 describe("CodeGeneratorOverlay", () => {
   it("renders a cURL preview by default", async () => {
     const { keymap, cleanup } = setupKeymap()
@@ -21,15 +31,7 @@ describe("CodeGeneratorOverlay", () => {
           <ThemeProvider activeIndex={0} previewIndex={null}>
             <CodeGeneratorOverlay
               visible
-              request={{
-                id: "users",
-                name: "Users",
-                method: "GET",
-                url: "https://api.example.com/users",
-                timeout: 0,
-                headers: {},
-                params: [],
-              }}
+              request={baseRequest}
               onClose={() => {}}
             />
           </ThemeProvider>
@@ -41,9 +43,53 @@ describe("CodeGeneratorOverlay", () => {
     await render.renderOnce()
     const frame = render.captureCharFrame()
     expect(frame).toContain("Generate code")
-    expect(frame).toContain("cURL")
-    expect(frame).toContain("curl \\")
-    expect(frame).toContain("--request GET")
+    expect(frame).toContain("Shell")
+    expect(frame).toContain("curl")
+    cleanup()
+  })
+
+  it("shows the interpolate variables toggle", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RendererProvider renderer={{} as unknown as CliRenderer}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CodeGeneratorOverlay
+              visible
+              request={baseRequest}
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </RendererProvider>
+      </KeymapProvider>,
+      { width: 100, height: 32 },
+    )
+    await render.renderOnce()
+    const frame = render.captureCharFrame()
+    expect(frame).toContain("Interpolate variables")
+    cleanup()
+  })
+
+  it("shows env name when provided", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RendererProvider renderer={{} as unknown as CliRenderer}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CodeGeneratorOverlay
+              visible
+              request={baseRequest}
+              envName="staging"
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </RendererProvider>
+      </KeymapProvider>,
+      { width: 100, height: 32 },
+    )
+    await render.renderOnce()
+    const frame = render.captureCharFrame()
+    expect(frame).toContain("staging")
     cleanup()
   })
 
@@ -55,15 +101,7 @@ describe("CodeGeneratorOverlay", () => {
           <ThemeProvider activeIndex={0} previewIndex={null}>
             <CodeGeneratorOverlay
               visible
-              request={{
-                id: "users",
-                name: "Users",
-                method: "GET",
-                url: "https://api.example.com/users",
-                timeout: 0,
-                headers: {},
-                params: [],
-              }}
+              request={baseRequest}
               onClose={() => {}}
             />
           </ThemeProvider>
@@ -75,7 +113,7 @@ describe("CodeGeneratorOverlay", () => {
     await act(async () => host.press("return"))
     await render.renderOnce()
     const frame = render.captureCharFrame()
-    expect(frame).toContain("JavaScript")
+    expect(frame).toContain("Libcurl")
     cleanup()
   })
 })
