@@ -23,6 +23,7 @@
     "@opentui/keymap": "^0.4.5",
     "@opentui/react": "^0.4.5",
     "citty": "^0.2.2",
+    "curlconverter": "4.12.0",
     "js-yaml": "^4.3.0",
     "postman-collection": "^5.3.0",
     "react": "^19.2.7"
@@ -52,5 +53,8 @@
       "eslint --fix",
       "prettier --write"
     ]
+  },
+  "patchedDependencies": {
+    "curlconverter@4.12.0": "patches/curlconverter@4.12.0.patch"
   }
 }

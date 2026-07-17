@@ -147,6 +147,12 @@ export function copyResponseBody(c: CommandActionsConfig): boolean {
   }
 }
 
+export function canGenerateClientCode(c: CommandActionsConfig): boolean {
+  return (
+    c.focusedFolderPathRef.current === null && c.draftRef.current.draft !== null
+  )
+}
+
 export function cycleEnvironment(c: CommandActionsConfig): boolean {
   c.envStateRef.current.cycle(1)
   return true

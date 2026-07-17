@@ -172,6 +172,8 @@ export function Select({
     <box
       style={{
         flexDirection: "column",
+        position: "relative",
+        zIndex: open ? 100 : 0,
         ...(width !== undefined ? { width } : {}),
       }}
     >

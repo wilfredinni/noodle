@@ -23,11 +23,13 @@ import {
   type NewFolderOverlayHandle,
 } from "./overlays/NewFolderOverlay"
 import type {
+  Collection,
   Environment,
   Request as NoodleRequest,
   TimelineEntry,
 } from "../schema"
 import { TimelineDetailOverlay } from "./overlays/TimelineDetailOverlay"
+import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
 import type { Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
@@ -63,6 +65,10 @@ interface AppOverlaysProps {
   commandPaletteVisible: boolean
   commandPaletteCommands: CommandItem[]
   setCommandPaletteVisible: (visible: boolean) => void
+  codeGeneratorVisible: boolean
+  setCodeGeneratorVisible: (visible: boolean) => void
+  codeGeneratorRequest: NoodleRequest | null
+  collection: Collection | null
   requestFinderVisible: boolean
   requests: NoodleRequest[]
   onFindRequest: (requestId: string) => void
@@ -120,6 +126,10 @@ export function AppOverlays({
   commandPaletteVisible,
   commandPaletteCommands,
   setCommandPaletteVisible,
+  codeGeneratorVisible,
+  setCodeGeneratorVisible,
+  codeGeneratorRequest,
+  collection,
   requestFinderVisible,
   requests,
   onFindRequest,
@@ -204,6 +214,14 @@ export function AppOverlays({
           visible
           commands={commandPaletteCommands}
           onClose={() => setCommandPaletteVisible(false)}
+        />
+      )}
+      {codeGeneratorVisible && codeGeneratorRequest && (
+        <CodeGeneratorOverlay
+          visible
+          request={codeGeneratorRequest}
+          collection={collection ?? undefined}
+          onClose={() => setCodeGeneratorVisible(false)}
         />
       )}
       {requestFinderVisible && (
