@@ -1,7 +1,16 @@
 import { defineCommand } from "citty"
 import { createHash } from "node:crypto"
-import { chmod, mkdtemp, rename, rm, writeFile } from "node:fs/promises"
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { dirname, join } from "node:path"
+import { homedir } from "node:os"
 import pkg from "../../../package.json" with { type: "json" }
 import { emitCommand } from "../commandResult"
 
@@ -67,6 +76,60 @@ export function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex")
 }
 
+export const UPDATE_CACHE_TTL_MS = 60 * 60 * 1000
+
+export interface UpdateCache {
+  latestTag: string
+  checkedAt: number
+}
+
+export function parseUpdateCache(value: unknown): UpdateCache | null {
+  if (!value || typeof value !== "object") return null
+  const cache = value as Record<string, unknown>
+  if (
+    typeof cache.latestTag !== "string" ||
+    compareStableVersions(cache.latestTag, cache.latestTag) !== 0 ||
+    typeof cache.checkedAt !== "number" ||
+    !Number.isFinite(cache.checkedAt) ||
+    cache.checkedAt < 0
+  )
+    return null
+  return { latestTag: cache.latestTag, checkedAt: cache.checkedAt }
+}
+
+export function isFreshUpdateCache(cache: UpdateCache, now: number): boolean {
+  return now >= cache.checkedAt && now - cache.checkedAt <= UPDATE_CACHE_TTL_MS
+}
+
+export async function loadUpdateCache(
+  cachePath: string,
+): Promise<UpdateCache | null> {
+  try {
+    return parseUpdateCache(JSON.parse(await readFile(cachePath, "utf8")))
+  } catch {
+    return null
+  }
+}
+
+export async function saveUpdateCache(
+  cachePath: string,
+  cache: UpdateCache,
+): Promise<void> {
+  const cacheDir = dirname(cachePath)
+  await mkdir(cacheDir, { recursive: true })
+  const tempDir = await mkdtemp(join(cacheDir, ".update-cache-"))
+  const tempPath = join(tempDir, "update-cache.json")
+  try {
+    await writeFile(tempPath, `${JSON.stringify(cache)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    })
+    await rename(tempPath, cachePath)
+  } finally {
+    await rm(tempDir, { recursive: true, force: true })
+  }
+}
+
 interface ReleaseAsset {
   name: string
   browser_download_url: string
@@ -85,6 +148,56 @@ function getReleaseDownloadUrl(tag: string, name: string): string {
   return `https://github.com/wilfredinni/noodle/releases/download/${tag}/${name}`
 }
 
+function getDefaultCachePath(): string {
+  return join(homedir(), ".config", "noodle", "update-cache.json")
+}
+
+export interface UpdateDependencies {
+  fetcher: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  execPath: string
+  platform: string
+  arch: string
+  env: Record<string, string | undefined>
+  cachePath: string
+  now: () => number
+}
+
+function getUpdateDeps(
+  overrides: Partial<UpdateDependencies>,
+): UpdateDependencies {
+  return {
+    fetcher: globalThis.fetch,
+    execPath: process.execPath,
+    platform: process.platform,
+    arch: process.arch,
+    env: process.env,
+    cachePath: getDefaultCachePath(),
+    now: Date.now,
+    ...overrides,
+  }
+}
+
+class RateLimitError extends Error {
+  constructor(readonly retryAt?: string) {
+    super("GitHub API rate limit reached")
+  }
+}
+
+function getRateLimitError(response: Response): RateLimitError | null {
+  const remaining = response.headers.get("x-ratelimit-remaining")
+  if (
+    response.status !== 429 &&
+    !(response.status === 403 && remaining === "0")
+  )
+    return null
+  const reset = Number(response.headers.get("x-ratelimit-reset"))
+  return new RateLimitError(
+    Number.isFinite(reset) && reset > 0
+      ? new Date(reset * 1000).toISOString()
+      : undefined,
+  )
+}
+
 export default defineCommand({
   meta: {
     name: "update",
@@ -96,20 +209,29 @@ export default defineCommand({
       default: false,
       description: "Write one JSON result envelope to stdout",
     },
+    force: {
+      type: "boolean",
+      default: false,
+      description: "Ignore the one-hour update check cache",
+    },
   },
   async run({ args }) {
-    if (args.json) return emitCommand(true, () => runUpdate(true))
-    await runUpdate(false)
+    const force = args.force === true
+    if (args.json) return emitCommand(true, () => runUpdate(true, force))
+    await runUpdate(false, force)
   },
 })
 
-async function runUpdate(
+export async function runUpdate(
   silent: boolean,
+  force = false,
+  dependencyOverrides: Partial<UpdateDependencies> = {},
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  const deps = getUpdateDeps(dependencyOverrides)
   const output = (message: string) => {
     if (!silent) console.log(message)
   }
-  if (isHomebrewInstall(process.execPath)) {
+  if (isHomebrewInstall(deps.execPath)) {
     output("noodle was installed via Homebrew.")
     output("Run: brew upgrade noodle")
     return { data: { status: "homebrew", command: "brew upgrade noodle" } }
@@ -117,9 +239,9 @@ async function runUpdate(
 
   let platform: string
   try {
-    platform = getPlatformString(process.platform, process.arch)
+    platform = getPlatformString(deps.platform, deps.arch)
   } catch {
-    output(`Unsupported platform: ${process.platform}-${process.arch}`)
+    output(`Unsupported platform: ${deps.platform}-${deps.arch}`)
     return { data: { status: "unsupported_platform" }, failed: true }
   }
   const currentVersion = `v${pkg.version}`
@@ -127,13 +249,40 @@ async function runUpdate(
   output(`noodle ${currentVersion} (${platform})`)
   output("Checking for updates...")
 
+  if (!force) {
+    const cache = await loadUpdateCache(deps.cachePath)
+    if (cache && isFreshUpdateCache(cache, deps.now())) {
+      const cachedComparison = compareStableVersions(
+        currentVersion,
+        cache.latestTag,
+      )
+      if (cachedComparison === 0) {
+        output("Already up to date.")
+        return {
+          data: {
+            status: "up_to_date",
+            version: currentVersion,
+            cached: "true",
+          },
+        }
+      }
+    }
+  }
+
   let releaseData: ReleaseData
 
   try {
-    const response = await fetch(getReleaseApiUrl(), {
-      headers: { Accept: "application/vnd.github+json" },
+    const token = deps.env.GH_TOKEN || deps.env.GITHUB_TOKEN
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+    }
+    if (token) headers.Authorization = `Bearer ${token}`
+    const response = await deps.fetcher(getReleaseApiUrl(), {
+      headers,
     })
     if (!response.ok) {
+      const rateLimitError = getRateLimitError(response)
+      if (rateLimitError) throw rateLimitError
       throw new Error(`HTTP ${response.status}`)
     }
     const json = await response.json()
@@ -152,7 +301,25 @@ async function runUpdate(
       throw new Error("Invalid release data")
     }
     releaseData = json as ReleaseData
-  } catch {
+    const cache: UpdateCache = {
+      latestTag: releaseData.tag_name,
+      checkedAt: deps.now(),
+    }
+    if (parseUpdateCache(cache)) {
+      try {
+        await saveUpdateCache(deps.cachePath, cache)
+      } catch {
+        // A cache write must never prevent a valid update check.
+      }
+    }
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      output("GitHub API rate limit reached.")
+      if (error.retryAt) output(`Retry after ${error.retryAt}.`)
+      const data: Record<string, string> = { status: "rate_limited" }
+      if (error.retryAt) data.retry_at = error.retryAt
+      return { data, failed: true }
+    }
     output("Failed to check for updates.")
     return { data: { status: "check_failed" }, failed: true }
   }
@@ -170,7 +337,7 @@ async function runUpdate(
     return { data: { status: "up_to_date", version: currentVersion } }
   }
 
-  const assetName = getAssetName(process.platform, process.arch)
+  const assetName = getAssetName(deps.platform, deps.arch)
   const asset = releaseData.assets.find((a) => a.name === assetName)
 
   if (!asset) {
@@ -186,8 +353,8 @@ async function runUpdate(
   let stagingDir: string | undefined
   try {
     const [binaryResponse, checksumResponse] = await Promise.all([
-      fetch(asset.browser_download_url),
-      fetch(getReleaseDownloadUrl(releaseData.tag_name, "SHA256SUMS")),
+      deps.fetcher(asset.browser_download_url),
+      deps.fetcher(getReleaseDownloadUrl(releaseData.tag_name, "SHA256SUMS")),
     ])
     if (!binaryResponse.ok || !checksumResponse.ok)
       throw new Error(
@@ -202,12 +369,12 @@ async function runUpdate(
     if (!expectedHash || sha256(binary) !== expectedHash)
       throw new Error("checksum mismatch")
 
-    const executableDir = dirname(process.execPath)
+    const executableDir = dirname(deps.execPath)
     stagingDir = await mkdtemp(join(executableDir, ".noodle-update-"))
     const stagedPath = join(stagingDir, assetName)
     await writeFile(stagedPath, binary, { mode: 0o755 })
     await chmod(stagedPath, 0o755)
-    await rename(stagedPath, process.execPath)
+    await rename(stagedPath, deps.execPath)
     output(`Updated to ${releaseData.tag_name}`)
     return { data: { status: "updated", version: releaseData.tag_name } }
   } catch (error) {

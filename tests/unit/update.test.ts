@@ -1,4 +1,7 @@
 import { describe, it, expect } from "bun:test"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import {
   getPlatformString,
   compareStableVersions,
@@ -6,7 +9,13 @@ import {
   isNewerVersion,
   isHomebrewInstall,
   parseChecksumManifest,
+  isFreshUpdateCache,
+  loadUpdateCache,
+  parseUpdateCache,
+  runUpdate,
+  saveUpdateCache,
   sha256,
+  UPDATE_CACHE_TTL_MS,
 } from "../../src/app/commands/update"
 
 describe("getPlatformString", () => {
@@ -108,6 +117,257 @@ describe("checksum helpers", () => {
     expect(sha256(new TextEncoder().encode("noodle"))).toBe(
       "49742b4b8dd3a7ff2a2a32410e34f55a57d09a2327edb26d726a30e400960966",
     )
+  })
+})
+
+describe("update cache", () => {
+  it("validates and expires cache entries", () => {
+    const cache = parseUpdateCache({ latestTag: "v0.4.6", checkedAt: 1000 })
+    expect(cache).toEqual({ latestTag: "v0.4.6", checkedAt: 1000 })
+    expect(UPDATE_CACHE_TTL_MS).toBe(60 * 60 * 1000)
+    expect(isFreshUpdateCache(cache!, 1000 + UPDATE_CACHE_TTL_MS)).toBe(true)
+    expect(isFreshUpdateCache(cache!, 1001 + UPDATE_CACHE_TTL_MS)).toBe(false)
+    expect(
+      parseUpdateCache({ latestTag: "v0.4.6-beta.1", checkedAt: 1000 }),
+    ).toBeNull()
+    expect(parseUpdateCache({ latestTag: "v0.4.6", checkedAt: -1 })).toBeNull()
+  })
+
+  it("saves and loads cache atomically", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-cache-"))
+    const path = join(dir, "nested", "update-cache.json")
+    try {
+      await saveUpdateCache(path, { latestTag: "v0.4.6", checkedAt: 42 })
+      expect(await loadUpdateCache(path)).toEqual({
+        latestTag: "v0.4.6",
+        checkedAt: 42,
+      })
+      expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
+        latestTag: "v0.4.6",
+        checkedAt: 42,
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("uses a fresh matching cache without calling GitHub", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-cache-"))
+    const path = join(dir, "update-cache.json")
+    let calls = 0
+    try {
+      await writeFile(
+        path,
+        JSON.stringify({ latestTag: "v0.4.6", checkedAt: 1000 }),
+      )
+      const result = await runUpdate(true, false, {
+        cachePath: path,
+        now: () => 1000,
+        execPath: "/tmp/noodle",
+        platform: "darwin",
+        arch: "arm64",
+        env: {},
+        fetcher: async () => {
+          calls += 1
+          return new Response()
+        },
+      })
+      expect(result.data).toEqual({
+        status: "up_to_date",
+        version: "v0.4.6",
+        cached: "true",
+      })
+      expect(calls).toBe(0)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("update release discovery", () => {
+  const baseDeps = (cachePath: string) => ({
+    cachePath,
+    now: () => 1000,
+    execPath: "/tmp/noodle",
+    platform: "darwin",
+    arch: "arm64",
+  })
+
+  it("bypasses cache with --force and sends GH_TOKEN first", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-force-"))
+    const path = join(dir, "update-cache.json")
+    let request: RequestInit | undefined
+    try {
+      const result = await runUpdate(true, true, {
+        ...baseDeps(path),
+        env: { GH_TOKEN: "gh-token", GITHUB_TOKEN: "github-token" },
+        fetcher: async (_url, init) => {
+          request = init
+          return Response.json({ tag_name: "v0.4.6", assets: [] })
+        },
+      })
+      expect(result.data.status).toBe("up_to_date")
+      expect((request?.headers as Record<string, string>).Authorization).toBe(
+        "Bearer gh-token",
+      )
+      expect(await loadUpdateCache(path)).toEqual({
+        latestTag: "v0.4.6",
+        checkedAt: 1000,
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("uses GITHUB_TOKEN when GH_TOKEN is absent", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-auth-"))
+    let request: RequestInit | undefined
+    try {
+      await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: { GITHUB_TOKEN: "github-token" },
+        fetcher: async (_url, init) => {
+          request = init
+          return Response.json({ tag_name: "v0.4.6", assets: [] })
+        },
+      })
+      expect((request?.headers as Record<string, string>).Authorization).toBe(
+        "Bearer github-token",
+      )
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("reports rate limits and reset time", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-rate-"))
+    try {
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: {},
+        fetcher: async () =>
+          new Response(null, {
+            status: 403,
+            headers: {
+              "x-ratelimit-remaining": "0",
+              "x-ratelimit-reset": "2000",
+            },
+          }),
+      })
+      expect(result).toEqual({
+        data: {
+          status: "rate_limited",
+          retry_at: "1970-01-01T00:33:20.000Z",
+        },
+        failed: true,
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("treats 429 as rate limited and ordinary 403 as a check failure", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-rate-"))
+    try {
+      const deps = baseDeps(join(dir, "cache.json"))
+      const rateLimited = await runUpdate(true, true, {
+        ...deps,
+        env: {},
+        fetcher: async () => new Response(null, { status: 429 }),
+      })
+      const forbidden = await runUpdate(true, true, {
+        ...deps,
+        env: {},
+        fetcher: async () =>
+          new Response(null, {
+            status: 403,
+            headers: { "x-ratelimit-remaining": "10" },
+          }),
+      })
+      expect(rateLimited.data.status).toBe("rate_limited")
+      expect(forbidden.data.status).toBe("check_failed")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not send an authorization header without a token", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-auth-"))
+    let request: RequestInit | undefined
+    try {
+      await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: {},
+        fetcher: async (_url, init) => {
+          request = init
+          return Response.json({ tag_name: "v0.4.6", assets: [] })
+        },
+      })
+      expect(request?.headers).toEqual({
+        Accept: "application/vnd.github+json",
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("replaces the binary after a verified download", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-success-"))
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    try {
+      await writeFile(executable, "old")
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        execPath: executable,
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.includes("api.github.com"))
+            return Response.json({
+              tag_name: "v0.4.7",
+              assets: [
+                { name: "noodle-macos-arm64", browser_download_url: "binary" },
+              ],
+            })
+          if (url === "binary") return new Response(binary)
+          return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
+        },
+      })
+      expect(result.data).toEqual({ status: "updated", version: "v0.4.7" })
+      expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not replace the binary when checksum verification fails", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-checksum-"))
+    const executable = join(dir, "noodle")
+    try {
+      await writeFile(executable, "old")
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        execPath: executable,
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.includes("api.github.com"))
+            return Response.json({
+              tag_name: "v0.4.7",
+              assets: [
+                { name: "noodle-macos-arm64", browser_download_url: "binary" },
+              ],
+            })
+          if (url === "binary") return new Response("new")
+          return new Response("0".repeat(64) + "  noodle-macos-arm64\n")
+        },
+      })
+      expect(result.data.status).toBe("update_failed")
+      expect(await readFile(executable, "utf8")).toBe("old")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
 
