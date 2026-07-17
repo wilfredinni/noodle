@@ -149,6 +149,7 @@ describe("useTreeNavigation", () => {
 
   it("reveals a request inside collapsed ancestor folders", async () => {
     const items = [
+      req("root/list"),
       fld("users", [fld("users/admin", [req("users/admin/list")])]),
     ]
     const { renderOnce, captureCharFrame } = await render(
@@ -171,6 +172,8 @@ describe("useTreeNavigation", () => {
     const frame = captureCharFrame()
 
     expect(frame).toContain("s:users/admin/list")
-    expect(frame).toContain("c:2")
+    // Finder selection must reveal both collapsed ancestors and move the
+    // sidebar cursor to the selected request.
+    expect(frame).toContain("c:3")
   })
 })

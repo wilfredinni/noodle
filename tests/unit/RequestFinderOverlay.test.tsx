@@ -39,7 +39,7 @@ const requests = [
 ]
 
 describe("RequestFinderOverlay", () => {
-  it("renders request details and selects the highlighted request", async () => {
+  it("renders a compact request row and selects the highlighted request", async () => {
     const { keymap, host, cleanup } = setup()
     let selected = ""
     const { renderOnce, captureCharFrame } = await testRender(
@@ -67,7 +67,7 @@ describe("RequestFinderOverlay", () => {
     expect(frame).toContain("GET")
     expect(frame).toContain("Get User")
     expect(frame).toContain("users")
-    expect(frame).toContain("$API_HOST")
+    expect(frame).not.toContain("$API_HOST")
     expect(frame).not.toContain("dev.api.example.com")
     host.press("return")
     expect(selected).toBe("users/get")
@@ -92,6 +92,66 @@ describe("RequestFinderOverlay", () => {
     )
     await renderOnce()
     expect(captureCharFrame()).toContain("No results found")
+    cleanup()
+  })
+
+  it("closes without selecting when escape is pressed", async () => {
+    const { keymap, host, cleanup } = setup()
+    let closed = false
+    let selected = false
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <RequestFinderOverlay
+            visible
+            requests={requests}
+            activeEnv={null}
+            onSelect={() => {
+              selected = true
+            }}
+            onClose={() => {
+              closed = true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 24 },
+    )
+    await renderOnce()
+
+    host.press("escape")
+
+    expect(closed).toBe(true)
+    expect(selected).toBe(false)
+    cleanup()
+  })
+
+  it("truncates a long request name without displacing its folder", async () => {
+    const { keymap, cleanup } = setup()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <RequestFinderOverlay
+            visible
+            requests={[
+              {
+                ...requests[0],
+                name: "This is a request with a very very long name",
+              },
+            ]}
+            activeEnv={null}
+            onSelect={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("This is a request with a very…")
+    expect(frame).not.toContain("This is a request with a very very long name")
+    expect(frame).toContain("users")
     cleanup()
   })
 })

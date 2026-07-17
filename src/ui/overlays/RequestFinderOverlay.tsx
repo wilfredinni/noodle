@@ -74,24 +74,21 @@ export function RequestFinderOverlay({
       const fg = highlighted ? "#1a1a1a" : theme.text
       const mutedFg = highlighted ? "#333333" : theme.textMuted
       return (
-        <box flexDirection="column" flexGrow={1}>
-          <box flexDirection="row">
-            <text
-              fg={
-                highlighted
-                  ? "#333333"
-                  : methodColor(item.request.method, theme)
-              }
-            >
-              {item.request.method.padEnd(7)}
-            </text>
-            <text fg={fg} attributes={TextAttributes.BOLD}>
-              {item.request.name}
-            </text>
-            <box flexGrow={1} />
-            <text fg={mutedFg}>{item.folderPath}</text>
-          </box>
-          <text fg={mutedFg}>{truncate(item.request.url, 62)}</text>
+        <box flexDirection="row" flexGrow={1}>
+          <text
+            fg={
+              highlighted ? "#333333" : methodColor(item.request.method, theme)
+            }
+          >
+            {item.request.method.padEnd(8)}
+          </text>
+          <text fg={fg} attributes={TextAttributes.BOLD} wrapMode="none">
+            {truncate(item.request.name, 30)}
+          </text>
+          <box flexGrow={1} />
+          <text fg={mutedFg} wrapMode="none">
+            {item.folderPath}
+          </text>
         </box>
       )
     },
@@ -102,7 +99,7 @@ export function RequestFinderOverlay({
     <PickerOverlay
       visible={visible}
       title="Find Request"
-      width={82}
+      width={68}
       placeholder="Search requests..."
       items={items}
       keyExtractor={keyExtractor}
