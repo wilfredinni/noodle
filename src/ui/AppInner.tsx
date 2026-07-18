@@ -49,6 +49,7 @@ import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 import { parseCurl } from "../converters/curl/parse"
+import type { ResponseQueryController } from "./responseQuery"
 
 export function AppInner({
   collectionDir,
@@ -522,6 +523,8 @@ export function AppInner({
 
   const responseStateRef = useRef(responseState)
   responseStateRef.current = responseState
+  const responseQueryRef = useRef<ResponseQueryController | null>(null)
+  const responseBodyForCopyRef = useRef<string | null>(null)
 
   const envEditor = useEnvironmentEditor({
     environmentsDir,
@@ -699,6 +702,8 @@ export function AppInner({
       focusedFolderNameRef,
       folderDeletePathRef,
       responseStateRef,
+      responseQueryRef,
+      responseBodyForCopyRef,
       modeRef,
     },
     {
@@ -820,6 +825,11 @@ export function AppInner({
     [keybinds.pane_expand],
   )
 
+  const queryHint = useMemo(
+    () => `${displayKey(keybinds.response_query)} query`,
+    [keybinds.response_query],
+  )
+
   const renderer = useRenderer()
 
   const commandPaletteCommands = useMemo(
@@ -838,6 +848,8 @@ export function AppInner({
         selectedIdRef,
         focusRef,
         responseStateRef,
+        responseQueryRef,
+        responseBodyForCopyRef,
         activeIndexRef,
         savingRef,
         doSaveRef,
@@ -935,6 +947,9 @@ export function AppInner({
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={activeOverlay === "none" && !isReadOnly}
             expandHint={expandHint}
+            queryHint={queryHint}
+            responseQueryRef={responseQueryRef}
+            responseBodyForCopyRef={responseBodyForCopyRef}
             mode={mode}
           />
         ) : mode === "collection" ? (

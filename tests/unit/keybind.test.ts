@@ -61,6 +61,11 @@ describe("bindingDefaults", () => {
     const defaults = bindingDefaults()
     expect(defaults.layout_toggle).toBe("ctrl+l")
   })
+
+  it("includes response_query with default key /", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.response_query).toBe("/")
+  })
 })
 
 describe("CommandMap", () => {

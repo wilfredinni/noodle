@@ -10,6 +10,7 @@ import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import type { SendState } from "./sendState"
+import type { ResponseQueryController } from "./responseQuery"
 import {
   saveRequest,
   getEditRequestYamlFile,
@@ -18,6 +19,7 @@ import {
   deleteRequest,
   deleteFolder,
   copyResponseBody,
+  openResponseQuery,
   canGenerateClientCode,
   cycleEnvironment,
   openEnvironmentEditor,
@@ -49,6 +51,8 @@ export interface CommandBuilderContext {
   selectedIdRef: RefObject<string | null>
   focusRef: RefObject<Focus>
   responseStateRef: RefObject<SendState>
+  responseQueryRef: RefObject<ResponseQueryController | null>
+  responseBodyForCopyRef: RefObject<string | null>
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
   doSaveRef: RefObject<() => void>
@@ -154,6 +158,8 @@ function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
     selectedIdRef: ctx.selectedIdRef,
     focusRef: ctx.focusRef,
     responseStateRef: ctx.responseStateRef,
+    responseQueryRef: ctx.responseQueryRef,
+    responseBodyForCopyRef: ctx.responseBodyForCopyRef,
     activeIndexRef: ctx.activeIndexRef,
     savingRef: ctx.savingRef,
     doSaveRef: ctx.doSaveRef,
@@ -303,6 +309,14 @@ export function buildCommandPaletteCommands(
   ]
 
   const responseCommands: CommandItem[] = [
+    {
+      id: "response.query",
+      label: "Filter Response with JSONPath",
+      section: "Response",
+      keybinding: displayKey(keybinds.response_query),
+      run: () =>
+        c.responseQueryRef.current?.canOpen() ? openResponseQuery(c) : false,
+    },
     {
       id: "response.copy-body",
       label: "Copy Response Body",

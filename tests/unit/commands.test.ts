@@ -22,6 +22,8 @@ function minimalContext(): CommandBuilderContext {
     selectedIdRef: { current: null } as never,
     focusRef: { current: null } as never,
     responseStateRef: { current: null } as never,
+    responseQueryRef: { current: null } as never,
+    responseBodyForCopyRef: { current: null } as never,
     activeIndexRef: { current: 0 } as never,
     savingRef: { current: false } as never,
     doSaveRef: { current: () => {} } as never,
@@ -80,6 +82,34 @@ describe("buildCommandPaletteCommands", () => {
       "Workspace",
       "System",
     ])
+  })
+
+  it("includes the JSONPath response query command", () => {
+    const command = buildCommandPaletteCommands(minimalContext()).find(
+      (item) => item.id === "response.query",
+    )
+    expect(command?.label).toBe("Filter Response with JSONPath")
+    expect(command?.keybinding).toBe("/")
+  })
+
+  it("keeps the palette open when response filtering is unavailable", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.responseQueryRef = {
+      current: {
+        canOpen: () => false,
+        open: () => {
+          opened = true
+          return true
+        },
+      },
+    } as never
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "response.query",
+    )!
+    expect(command.run()).toBe(false)
+    expect(opened).toBe(false)
   })
 
   it("each section has contiguous commands", () => {

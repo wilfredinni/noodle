@@ -212,6 +212,7 @@ command_palette: ctrl+p
 | `Ctrl+E` | Edit request in overlay |
 | `Ctrl+Alt+E` | Edit request YAML in overlay |
 | `Ctrl+B` | Copy response body |
+| `/` | Filter response body with JSONPath (when the response pane is focused) |
 | `Ctrl+Alt+N` | New folder |
 | `Ctrl+O` | Open collection switcher |
 | `Ctrl+Z` | Undo all unsaved changes |
