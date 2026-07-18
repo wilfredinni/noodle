@@ -213,7 +213,7 @@ export function buildCommandPaletteCommands(
     },
     {
       id: "request.generate-client-code",
-      label: "Generate Client Code",
+      label: "Generate Code",
       section: "Request",
       run: () => {
         if (view !== "main" || !canGenerateClientCode(c)) return false

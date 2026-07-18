@@ -182,14 +182,18 @@ export function CodeGeneratorOverlay({
           <box style={{ flexDirection: "column" }}>
             {highlightedCode.map((line, index) => (
               <box key={index} style={{ flexDirection: "row" }}>
-                <text fg={theme.textMuted} wrapMode="none">
-                  {String(index + 1).padStart(lineNumberWidth, " ")}{" "}
+                <text
+                  fg={theme.textMuted}
+                  wrapMode="none"
+                  style={{ minWidth: lineNumberWidth + 2 }}
+                >
+                  {String(index + 1).padStart(lineNumberWidth, " ")}
                 </text>
-                {line.map((span, spanIndex) => (
-                  <text key={spanIndex} fg={span.fg} wrapMode="char">
-                    {span.text}
-                  </text>
-                ))}
+                <text
+                  content={line}
+                  wrapMode="word"
+                  style={{ flexShrink: 1, minWidth: 10 }}
+                />
               </box>
             ))}
           </box>

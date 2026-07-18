@@ -1,9 +1,6 @@
+import { RGBA, StyledText } from "@opentui/core"
+import type { TextChunk } from "@opentui/core"
 import type { Theme } from "../theme"
-
-export interface CodeSpan {
-  text: string
-  fg: string
-}
 
 const KEYWORDS = new Set([
   "abstract",
@@ -104,6 +101,20 @@ const KEYWORDS = new Set([
 
 const TRIPLE_QUOTE_RE = /(?:"""(?:[^"\\]|\\.)*"""|'''(?:[^'\\]|\\.)*''')/g
 
+const colorCache = new Map<string, RGBA>()
+
+function toRGBA(hex: string): RGBA {
+  const cached = colorCache.get(hex)
+  if (cached) return cached
+  const rgba = RGBA.fromHex(hex)
+  colorCache.set(hex, rgba)
+  return rgba
+}
+
+function chunk(text: string, color: string): TextChunk {
+  return { __isChunk: true as const, text, fg: toRGBA(color) }
+}
+
 function hideTripleQuotes(line: string): {
   cleaned: string
   restore: (line: string) => string
@@ -129,44 +140,36 @@ function hideTripleQuotes(line: string): {
 export function highlightGeneratedCode(
   code: string,
   theme: Theme,
-): CodeSpan[][] {
-  return code.split("\n").map((line) => highlightLine(line, theme))
-}
+): StyledText[] {
+  return code.split("\n").map((line) => {
+    const { cleaned, restore } = hideTripleQuotes(line)
+    const chunks: TextChunk[] = []
+    const tokenPattern =
+      /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/.*$|#.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b)/g
+    let cursor = 0
 
-function highlightLine(line: string, theme: Theme): CodeSpan[] {
-  const { cleaned, restore } = hideTripleQuotes(line)
+    for (const match of cleaned.matchAll(tokenPattern)) {
+      const index = match.index ?? 0
+      if (index > cursor)
+        chunks.push(chunk(restore(cleaned.slice(cursor, index)), theme.text))
+      const text = restore(match[0])
+      const fg =
+        text.startsWith("//") || text.startsWith("#")
+          ? theme.textMuted
+          : text.startsWith('"') || text.startsWith("'") || text.startsWith("`")
+            ? theme.success
+            : /^\d/.test(text)
+              ? theme.warning
+              : KEYWORDS.has(text)
+                ? theme.secondary
+                : theme.text
+      chunks.push(chunk(text, fg))
+      cursor = index + match[0].length
+    }
 
-  const spans: CodeSpan[] = []
-  const tokenPattern =
-    /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/.*$|#.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b)/g
-  let cursor = 0
+    if (cursor < cleaned.length || chunks.length === 0)
+      chunks.push(chunk(restore(cleaned.slice(cursor)), theme.text))
 
-  for (const match of cleaned.matchAll(tokenPattern)) {
-    const index = match.index ?? 0
-    if (index > cursor)
-      spans.push({ text: cleaned.slice(cursor, index), fg: theme.text })
-    const text = match[0]
-    const fg =
-      text.startsWith("//") || text.startsWith("#")
-        ? theme.textMuted
-        : text.startsWith('"') || text.startsWith("'") || text.startsWith("`")
-          ? theme.success
-          : /^\d/.test(text)
-            ? theme.warning
-            : KEYWORDS.has(text)
-              ? theme.secondary
-              : theme.text
-    spans.push({ text, fg })
-    cursor = index + text.length
-  }
-
-  if (cursor < cleaned.length || spans.length === 0)
-    spans.push({ text: cleaned.slice(cursor), fg: theme.text })
-
-  const restored = spans.map((span) => ({
-    ...span,
-    text: restore(span.text),
-  }))
-
-  return restored
+    return new StyledText(chunks)
+  })
 }
