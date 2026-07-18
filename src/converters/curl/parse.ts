@@ -12,6 +12,7 @@ export type ImportedCurlRequest = Omit<Request, "id" | "name">
 interface DataPart {
   value: string
   urlencoded: boolean
+  binary: boolean
 }
 
 const METHODS = new Set<Method>([
@@ -48,6 +49,7 @@ export function parseCurl(command: string): ImportedCurlRequest {
   let uploadFile: string | undefined
   let followRedirects = false
   let maxRedirects = 5
+  let hasExplicitMaxRedirects = false
   let timeout = 0
   let auth: Auth = { type: "none" }
   const headers: Record<string, KvEntry> = {}
@@ -74,7 +76,7 @@ export function parseCurl(command: string): ImportedCurlRequest {
     if (IGNORED_FLAGS.has(token)) continue
     if (token === "-L" || token === "--location") {
       followRedirects = true
-      maxRedirects = 50
+      if (!hasExplicitMaxRedirects) maxRedirects = 50
       continue
     }
     if (token === "--no-location") {
@@ -122,32 +124,31 @@ export function parseCurl(command: string): ImportedCurlRequest {
         auth = { type: "bearer", token: value }
       },
       "-d": (value) => {
-        data.push({ value, urlencoded: false })
+        data.push({ value, urlencoded: false, binary: false })
         hasBody = true
       },
       "--data": (value) => {
-        data.push({ value, urlencoded: false })
+        data.push({ value, urlencoded: false, binary: false })
         hasBody = true
       },
       "--data-raw": (value) => {
-        data.push({ value, urlencoded: false })
+        data.push({ value, urlencoded: false, binary: false })
         hasBody = true
       },
       "--data-ascii": (value) => {
-        data.push({ value, urlencoded: false })
+        data.push({ value, urlencoded: false, binary: false })
         hasBody = true
       },
       "--data-urlencode": (value) => {
-        data.push({ value, urlencoded: true })
+        data.push({ value, urlencoded: true, binary: false })
         hasBody = true
       },
       "--data-binary": (value) => {
-        if (!value.startsWith("@")) {
-          throw new Error(
-            "--data-binary is supported only with a file path (@file)",
-          )
+        if (value.startsWith("@")) {
+          uploadFile = value.slice(1)
+        } else {
+          data.push({ value, urlencoded: false, binary: true })
         }
-        uploadFile = value.slice(1)
         hasBody = true
       },
       "-F": (value) => {
@@ -172,6 +173,7 @@ export function parseCurl(command: string): ImportedCurlRequest {
           throw new Error("--max-redirs must be a non-negative integer")
         }
         maxRedirects = parsed
+        hasExplicitMaxRedirects = true
       },
       "--max-time": (value) => {
         const seconds = Number(value)
@@ -391,7 +393,7 @@ function applyDataBody(
   if (
     data.some((part) => part.urlencoded) ||
     contentType?.includes("application/x-www-form-urlencoded") ||
-    value.includes("=")
+    (value.includes("=") && !data.some((part) => part.binary))
   ) {
     request.bodyType = "urlencoded"
     request.formData = toParams(value).map((entry) => ({

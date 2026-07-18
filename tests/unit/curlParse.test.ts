@@ -70,6 +70,15 @@ describe("parseCurl", () => {
     ])
   })
 
+  it("preserves an explicit redirect limit before --location", () => {
+    const request = parseCurl(
+      "curl --max-redirs 3 --location https://api.example.com/users",
+    )
+
+    expect(request.followRedirects).toBe(true)
+    expect(request.maxRedirects).toBe(3)
+  })
+
   it("accumulates repeated cookie flags", () => {
     const request = parseCurl(
       "curl -b 'session=abc' --cookie 'csrf=xyz' https://api.example.com/users",
@@ -105,6 +114,12 @@ describe("parseCurl", () => {
     )
     expect(binary.bodyType).toBe("binary")
     expect(binary.filePath).toBe("./payload.bin")
+
+    const inlineBinaryJson = parseCurl(
+      "curl --data-binary '{\"token\":\"abc=def\"}' -H 'Content-Type: application/json' https://api.example.com/users",
+    )
+    expect(inlineBinaryJson.bodyType).toBe("json")
+    expect(inlineBinaryJson.body).toBe('{"token":"abc=def"}')
   })
 
   it("rejects unsafe, unsupported, and invalid commands", () => {
