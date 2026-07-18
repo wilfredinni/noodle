@@ -121,3 +121,40 @@ describe("repro: S1 — multi-line triple-quoted string highlighting", () => {
     expect(result.length).toBe(1)
   })
 })
+
+describe("repro: CVE-2026-12143 — CRLF injection in multipart form field names", () => {
+  const poisoned = 'email"\r\nX-Injected: true\r\nfaked="'
+
+  it("does not throw when generating code with CRLF in field names", () => {
+    const request = makeRequest({
+      method: "POST",
+      url: "https://api.example.com/upload",
+      bodyType: "multipart",
+      body: undefined,
+      formData: [
+        { name: poisoned, value: "x@x.com", enabled: true, type: "text" },
+      ],
+    })
+    expect(() => generateCode(request, curlTarget())).not.toThrow()
+    expect(() =>
+      generateCode(request, findCodeTarget("python-requests")!),
+    ).not.toThrow()
+  })
+
+  it("encodes CRLF in Content-Disposition names for raw-body targets", () => {
+    const request = makeRequest({
+      method: "POST",
+      url: "https://api.example.com/upload",
+      bodyType: "multipart",
+      body: undefined,
+      formData: [
+        { name: poisoned, value: "x@x.com", enabled: true, type: "text" },
+      ],
+    })
+    const result = generateCode(request, findCodeTarget("python-requests")!)
+    expect(result.code).toContain("%0D%0A")
+    expect(result.code).toContain("%22")
+    // the patch prevents literal CRLF from appearing as a new part boundary
+    expect(result.code).not.toContain("\r\nContent-Disposition")
+  })
+})
