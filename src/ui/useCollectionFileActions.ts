@@ -35,6 +35,7 @@ interface UseCollectionFileActionsOptions {
   setSelectedId: (id: string) => void
   expandFolder: (path: string) => void
   setNewRequestVisible: Dispatch<SetStateAction<boolean>>
+  setImportCurlVisible: Dispatch<SetStateAction<boolean>>
   setCloneRequestVisible: Dispatch<SetStateAction<boolean>>
   setNewFolderVisible: Dispatch<SetStateAction<boolean>>
   setEditRequestVisible: Dispatch<SetStateAction<boolean>>
@@ -59,6 +60,7 @@ export function useCollectionFileActions({
   setSelectedId,
   expandFolder,
   setNewRequestVisible,
+  setImportCurlVisible,
   setCloneRequestVisible,
   setNewFolderVisible,
   setEditRequestVisible,
@@ -202,6 +204,43 @@ export function useCollectionFileActions({
       setCloneRequestVisible,
       setCollectionReloadToken,
       setFocus,
+      setSelectedId,
+      showError,
+      showSaveResult,
+    ],
+  )
+
+  const handleImportCurlConfirm = useCallback(
+    (
+      name: string,
+      folderPath: string,
+      imported: Omit<NoodleRequest, "id" | "name">,
+    ) => {
+      const baseId = slugify(name)
+      if (!baseId) return
+      const id = folderPath ? `${folderPath}/${baseId}` : baseId
+      const request: NoodleRequest = { ...imported, id, name }
+
+      saveRequest(collectionDir, request)
+        .then(() => {
+          if (folderPath) expandFolder(folderPath)
+          setCollectionReloadToken((n) => n + 1)
+          setSelectedId(id)
+          setImportCurlVisible(false)
+          setFocus("sidebar")
+          showSaveResult({
+            kind: "success",
+            message: `Successfully imported ${name}`,
+          })
+        })
+        .catch(showError)
+    },
+    [
+      collectionDir,
+      expandFolder,
+      setCollectionReloadToken,
+      setFocus,
+      setImportCurlVisible,
       setSelectedId,
       showError,
       showSaveResult,
@@ -389,6 +428,7 @@ export function useCollectionFileActions({
   return {
     handleFolderSave,
     handleNewRequestConfirm,
+    handleImportCurlConfirm,
     handleCloneRequestConfirm,
     handleNewFolderConfirm,
     handleFolderDeleteConfirm,
