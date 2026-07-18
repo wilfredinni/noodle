@@ -160,7 +160,7 @@ describe("ResponsePane scrollbox", () => {
         status: 200,
         statusText: "OK",
         headers: {},
-        body: JSON.stringify({ data: [] }),
+        body: JSON.stringify({ data: [{ id: 1 }] }),
         timeMs: 1,
       },
     } satisfies SendState
@@ -184,7 +184,7 @@ describe("ResponsePane scrollbox", () => {
     })
     await renderOnce()
     await act(async () => {
-      await mockInput.typeText("$.data[")
+      await mockInput.typeText("$.data[?(")
     })
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 175))
@@ -225,7 +225,7 @@ describe("ResponsePane scrollbox", () => {
     })
     await renderOnce()
 
-    expect(captureCharFrame()).toContain("Error")
+    expect(captureCharFrame()).toContain("Response body is not valid JSON")
   })
 
   it("keeps response metadata on the bottom border", async () => {

@@ -333,7 +333,9 @@ export function ResponsePane({
                             {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
                           </text>
                         ) : parsedResponseBody?.kind === "invalid-json" ? (
-                          <text fg={theme.warning}>Error</text>
+                          <text fg={theme.warning}>
+                            {parsedResponseBody.message}
+                          </text>
                         ) : queryResult?.kind === "invalid-expression" ? (
                           <text fg={theme.warning}>Invalid query syntax</text>
                         ) : query.trim() === "" ? (

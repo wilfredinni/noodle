@@ -314,7 +314,8 @@ export function buildCommandPaletteCommands(
       label: "Filter Response with JSONPath",
       section: "Response",
       keybinding: displayKey(keybinds.response_query),
-      run: () => openResponseQuery(c),
+      run: () =>
+        c.responseQueryRef.current?.canOpen() ? openResponseQuery(c) : false,
     },
     {
       id: "response.copy-body",

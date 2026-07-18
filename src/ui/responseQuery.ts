@@ -39,7 +39,6 @@ export function queryParsedResponseBody(
   expression: string,
 ): Exclude<ResponseQueryResult, { kind: "invalid-json" }> {
   try {
-    validateQuerySyntax(expression)
     const matches = JSONPath({
       path: expression,
       json: value as never,
@@ -55,34 +54,5 @@ export function queryParsedResponseBody(
       kind: "invalid-expression",
       message: `Invalid JSONPath: ${error instanceof Error ? error.message : String(error)}`,
     }
-  }
-}
-
-function validateQuerySyntax(expression: string): void {
-  const delimiters: string[] = []
-  let quote: string | null = null
-  let escaped = false
-
-  for (const char of expression) {
-    if (quote !== null) {
-      if (escaped) escaped = false
-      else if (char === "\\") escaped = true
-      else if (char === quote) quote = null
-      continue
-    }
-
-    if (char === "'" || char === '"' || char === String.fromCharCode(96)) {
-      quote = char
-    } else if (char === "[" || char === "(" || char === "{") {
-      delimiters.push(char)
-    } else if (char === "]" || char === ")" || char === "}") {
-      const opening = delimiters.pop()
-      const expected = char === "]" ? "[" : char === ")" ? "(" : "{"
-      if (opening !== expected) throw new Error("unbalanced delimiters")
-    }
-  }
-
-  if (quote !== null || delimiters.length > 0) {
-    throw new Error("unbalanced delimiters")
   }
 }

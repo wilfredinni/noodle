@@ -63,7 +63,7 @@ describe("queryResponseBody", () => {
   })
 
   it("reports invalid expressions without throwing", () => {
-    const result = queryResponseBody(body, "$.data[")
+    const result = queryResponseBody(body, "$.data[?(@.id == )]")
     expect(result.kind).toBe("invalid-expression")
     if (result.kind === "invalid-expression") {
       expect(result.message).toStartWith("Invalid JSONPath:")

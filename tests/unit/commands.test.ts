@@ -92,6 +92,26 @@ describe("buildCommandPaletteCommands", () => {
     expect(command?.keybinding).toBe("/")
   })
 
+  it("keeps the palette open when response filtering is unavailable", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.responseQueryRef = {
+      current: {
+        canOpen: () => false,
+        open: () => {
+          opened = true
+          return true
+        },
+      },
+    } as never
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "response.query",
+    )!
+    expect(command.run()).toBe(false)
+    expect(opened).toBe(false)
+  })
+
   it("each section has contiguous commands", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
     let lastSection = commands[0]!.section
