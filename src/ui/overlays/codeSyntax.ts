@@ -99,8 +99,6 @@ const KEYWORDS = new Set([
   "yield",
 ])
 
-const TRIPLE_QUOTE_RE = /(?:"""(?:[^"\\]|\\.)*"""|'''(?:[^'\\]|\\.)*''')/g
-
 const colorCache = new Map<string, RGBA>()
 
 function toRGBA(hex: string): RGBA {
@@ -115,60 +113,98 @@ function chunk(text: string, color: string): TextChunk {
   return { __isChunk: true as const, text, fg: toRGBA(color) }
 }
 
-function hideTripleQuotes(line: string): {
-  cleaned: string
-  restore: (line: string) => string
-} {
-  const replaced: string[] = []
-  const cleaned = line.replace(TRIPLE_QUOTE_RE, (match) => {
-    const idx = replaced.length
-    replaced.push(match)
-    return `___N_TRIPLE_${idx}___`
-  })
-  return {
-    cleaned,
-    restore: (s: string) => {
-      let result = s
-      for (let i = 0; i < replaced.length; i++) {
-        result = result.replace(`___N_TRIPLE_${i}___`, replaced[i]!)
-      }
-      return result
-    },
+function tokenizeSegment(
+  segment: string,
+  chunks: TextChunk[],
+  theme: Theme,
+): void {
+  const tokenPattern =
+    /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b)/g
+  let cursor = 0
+
+  for (const match of segment.matchAll(tokenPattern)) {
+    const index = match.index!
+    if (index > cursor)
+      chunks.push(chunk(segment.slice(cursor, index), theme.text))
+    const text = match[0]
+    const fg = text.startsWith("//")
+      ? theme.textMuted
+      : text.startsWith('"') || text.startsWith("'") || text.startsWith("`")
+        ? theme.success
+        : /^\d/.test(text)
+          ? theme.warning
+          : KEYWORDS.has(text)
+            ? theme.secondary
+            : theme.text
+    chunks.push(chunk(text, fg))
+    cursor = index + text.length
   }
+
+  if (cursor < segment.length)
+    chunks.push(chunk(segment.slice(cursor), theme.text))
 }
 
 export function highlightGeneratedCode(
   code: string,
   theme: Theme,
 ): StyledText[] {
-  return code.split("\n").map((line) => {
-    const { cleaned, restore } = hideTripleQuotes(line)
+  const lines = code.split("\n")
+  let inTripleQuote: "none" | "double" | "single" = "none"
+
+  return lines.map((line) => {
     const chunks: TextChunk[] = []
-    const tokenPattern =
-      /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/.*$|#.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b)/g
     let cursor = 0
 
-    for (const match of cleaned.matchAll(tokenPattern)) {
-      const index = match.index ?? 0
-      if (index > cursor)
-        chunks.push(chunk(restore(cleaned.slice(cursor, index)), theme.text))
-      const text = restore(match[0])
-      const fg =
-        text.startsWith("//") || text.startsWith("#")
-          ? theme.textMuted
-          : text.startsWith('"') || text.startsWith("'") || text.startsWith("`")
-            ? theme.success
-            : /^\d/.test(text)
-              ? theme.warning
-              : KEYWORDS.has(text)
-                ? theme.secondary
-                : theme.text
-      chunks.push(chunk(text, fg))
-      cursor = index + match[0].length
+    if (inTripleQuote !== "none") {
+      const closing = inTripleQuote === "double" ? '"""' : "'''"
+      const closeIdx = line.indexOf(closing)
+      if (closeIdx !== -1) {
+        const before = line.slice(cursor, closeIdx + 3)
+        if (before) chunks.push(chunk(before, theme.success))
+        cursor = closeIdx + 3
+        inTripleQuote = "none"
+      } else {
+        chunks.push(chunk(line, theme.success))
+        return new StyledText(chunks)
+      }
     }
 
-    if (cursor < cleaned.length || chunks.length === 0)
-      chunks.push(chunk(restore(cleaned.slice(cursor)), theme.text))
+    if (cursor < line.length) {
+      const rest = line.slice(cursor)
+      const dqOpen = rest.indexOf('"""')
+      const sqOpen = rest.indexOf("'''")
+      let openIdx: number
+      let openDelim: "double" | "single"
+
+      if (dqOpen !== -1 && (sqOpen === -1 || dqOpen <= sqOpen)) {
+        openIdx = dqOpen
+        openDelim = "double"
+      } else if (sqOpen !== -1) {
+        openIdx = sqOpen
+        openDelim = "single"
+      } else {
+        // no triple-quote on this line — tokenize normally
+        tokenizeSegment(rest, chunks, theme)
+        return new StyledText(chunks)
+      }
+
+      const before = rest.slice(0, openIdx)
+      if (before) tokenizeSegment(before, chunks, theme)
+
+      const fromOpen = rest.slice(openIdx)
+      const closing = openDelim === "double" ? '"""' : "'''"
+      const closeIdx = fromOpen.indexOf(closing, 3)
+
+      if (closeIdx !== -1) {
+        const inDoc = fromOpen.slice(0, closeIdx + 3)
+        if (inDoc) chunks.push(chunk(inDoc, theme.success))
+        const after = fromOpen.slice(closeIdx + 3)
+        if (after) tokenizeSegment(after, chunks, theme)
+      } else {
+        chunks.push(chunk(fromOpen, theme.success))
+        inTripleQuote = openDelim
+      }
+    }
 
     return new StyledText(chunks)
   })

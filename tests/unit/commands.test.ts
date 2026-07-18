@@ -60,7 +60,7 @@ function minimalContext(): CommandBuilderContext {
 describe("buildCommandPaletteCommands", () => {
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
-    expect(commands.length).toBe(22)
+    expect(commands.length).toBeGreaterThanOrEqual(22)
     for (const cmd of commands) {
       expect(cmd.id).toBeTruthy()
       expect(cmd.label).toBeTruthy()

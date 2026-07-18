@@ -101,16 +101,19 @@ function interpolateRequest(req: Request, env: Environment): Request {
 
   const auth = substituteAuth(req.auth, resolveVar)
 
+  const formBodyTypes = new Set(["multipart", "urlencoded"])
   const formData =
-    req.formData?.map((entry) => {
-      if (!entry.enabled) return { ...entry }
-      return {
-        name: resolveVar(entry.name),
-        value: resolveVar(entry.value),
-        enabled: entry.enabled,
-        type: entry.type,
-      }
-    }) ?? req.formData
+    formBodyTypes.has(req.bodyType ?? "json") && req.formData
+      ? req.formData.map((entry) => {
+          if (!entry.enabled) return { ...entry }
+          return {
+            name: resolveVar(entry.name),
+            value: resolveVar(entry.value),
+            enabled: entry.enabled,
+            type: entry.type,
+          }
+        })
+      : req.formData
 
   const filePath =
     req.filePath !== undefined ? resolveVar(req.filePath) : req.filePath

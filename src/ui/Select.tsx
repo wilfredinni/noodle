@@ -9,6 +9,8 @@ import { createPortal, useRenderer } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useTheme, contrastOnPrimary } from "./theme"
 
+let nextSelectId = 0
+
 export interface SelectItem {
   id: string
   label: ReactNode
@@ -50,6 +52,7 @@ export function Select({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const triggerRef = useRef<BoxRenderable | null>(null)
   const [open, setOpen] = useState(false)
+  const [uid] = useState(() => `s-${nextSelectId++}-`)
   const [highlightIndex, setHighlightIndex] = useState(0)
   const contrastColor = useMemo(() => contrastOnPrimary(theme), [theme])
 
@@ -77,7 +80,7 @@ export function Select({
     if (open) {
       const idx = Math.min(highlightIndex, Math.max(0, items.length - 1))
       const id = items[idx]?.id
-      if (id) scrollRef.current?.scrollChildIntoView(`select-item-${id}`)
+      if (id) scrollRef.current?.scrollChildIntoView(`${uid}${id}`)
     }
   }, [highlightIndex, open, items])
 
@@ -221,72 +224,59 @@ export function Select({
 
         {open &&
           (() => {
-            const dropdown = (
-              <box
-                style={{
-                  position: "absolute",
-                  ...(dropdownAlign === "right" ? { right: 0 } : { left: 0 }),
-                  width: dropdownWidth,
-                  zIndex: 10000,
-                  backgroundColor: theme.background,
-                  borderStyle: "single",
-                  borderColor: theme.primary,
-                }}
+            const renderList = (ref: typeof scrollRef) => (
+              <scrollbox
+                ref={ref}
+                scrollY
+                maxHeight={dropdownMaxHeight}
+                scrollbarOptions={{ visible: false }}
               >
-                <scrollbox
-                  ref={scrollRef}
-                  scrollY
-                  maxHeight={dropdownMaxHeight}
-                  scrollbarOptions={{ visible: false }}
-                >
-                  <box style={{ flexDirection: "column" }}>
-                    {items.map((item, i) => {
-                      const isHighlighted = i === highlightIndex
-                      const itemColor = item.color
-                        ? ((theme as unknown as Record<string, string>)[
-                            item.color
-                          ] ?? theme.text)
-                        : theme.text
-                      return (
-                        <box
-                          key={item.id}
-                          id={`select-item-${item.id}`}
-                          opacity={item.disabled ? 0.4 : 1}
-                          style={{
-                            flexDirection: "row",
-                            gap: 1,
-                            paddingLeft: 1,
-                            paddingRight: 1,
-                            height: item.description ? 2 : 1,
-                            backgroundColor: isHighlighted
-                              ? theme.backgroundElement
-                              : undefined,
-                          }}
-                        >
-                          <box style={{ flexDirection: "column", flexGrow: 1 }}>
-                            {renderLabel(
-                              item.label,
-                              item.id === value && !item.color
-                                ? theme.primary
-                                : itemColor,
-                              isHighlighted ? TextAttributes.BOLD : undefined,
-                            )}
-                            {item.description && (
-                              <text fg={theme.textMuted}>
-                                {item.description}
-                              </text>
-                            )}
-                          </box>
-                          {item.id === value && !item.disabled && (
-                            <text fg={theme.primary}>●</text>
+                <box style={{ flexDirection: "column" }}>
+                  {items.map((item, i) => {
+                    const isHighlighted = i === highlightIndex
+                    const itemColor = item.color
+                      ? ((theme as unknown as Record<string, string>)[
+                          item.color
+                        ] ?? theme.text)
+                      : theme.text
+                    return (
+                      <box
+                        key={item.id}
+                        id={`${uid}${item.id}`}
+                        opacity={item.disabled ? 0.4 : 1}
+                        style={{
+                          flexDirection: "row",
+                          gap: 1,
+                          paddingLeft: 1,
+                          paddingRight: 1,
+                          height: item.description ? 2 : 1,
+                          backgroundColor: isHighlighted
+                            ? theme.backgroundElement
+                            : undefined,
+                        }}
+                      >
+                        <box style={{ flexDirection: "column", flexGrow: 1 }}>
+                          {renderLabel(
+                            item.label,
+                            item.id === value && !item.color
+                              ? theme.primary
+                              : itemColor,
+                            isHighlighted ? TextAttributes.BOLD : undefined,
+                          )}
+                          {item.description && (
+                            <text fg={theme.textMuted}>{item.description}</text>
                           )}
                         </box>
-                      )
-                    })}
-                  </box>
-                </scrollbox>
-              </box>
+                        {item.id === value && !item.disabled && (
+                          <text fg={theme.primary}>●</text>
+                        )}
+                      </box>
+                    )
+                  })}
+                </box>
+              </scrollbox>
             )
+
             const root = renderer?.root as unknown as
               { add: (...args: unknown[]) => void } | undefined
             if (root && triggerRef.current) {
@@ -309,66 +299,27 @@ export function Select({
                     borderColor: theme.primary,
                   }}
                 >
-                  <scrollbox
-                    ref={scrollRef}
-                    scrollY
-                    maxHeight={dropdownMaxHeight}
-                    scrollbarOptions={{ visible: false }}
-                  >
-                    <box style={{ flexDirection: "column" }}>
-                      {items.map((item, i) => {
-                        const isHighlighted = i === highlightIndex
-                        const itemColor = item.color
-                          ? ((theme as unknown as Record<string, string>)[
-                              item.color
-                            ] ?? theme.text)
-                          : theme.text
-                        return (
-                          <box
-                            key={item.id}
-                            id={`select-item-${item.id}`}
-                            opacity={item.disabled ? 0.4 : 1}
-                            style={{
-                              flexDirection: "row",
-                              gap: 1,
-                              paddingLeft: 1,
-                              paddingRight: 1,
-                              height: item.description ? 2 : 1,
-                              backgroundColor: isHighlighted
-                                ? theme.backgroundElement
-                                : undefined,
-                            }}
-                          >
-                            <box
-                              style={{ flexDirection: "column", flexGrow: 1 }}
-                            >
-                              {renderLabel(
-                                item.label,
-                                item.id === value && !item.color
-                                  ? theme.primary
-                                  : itemColor,
-                                isHighlighted ? TextAttributes.BOLD : undefined,
-                              )}
-                              {item.description && (
-                                <text fg={theme.textMuted}>
-                                  {item.description}
-                                </text>
-                              )}
-                            </box>
-                            {item.id === value && !item.disabled && (
-                              <text fg={theme.primary}>●</text>
-                            )}
-                          </box>
-                        )
-                      })}
-                    </box>
-                  </scrollbox>
+                  {renderList(scrollRef)}
                 </box>,
                 root,
                 null,
               )
             }
-            return dropdown
+            return (
+              <box
+                style={{
+                  position: "absolute",
+                  ...(dropdownAlign === "right" ? { right: 0 } : { left: 0 }),
+                  width: dropdownWidth,
+                  zIndex: 10000,
+                  backgroundColor: theme.background,
+                  borderStyle: "single",
+                  borderColor: theme.primary,
+                }}
+              >
+                {renderList(scrollRef)}
+              </box>
+            )
           })()}
       </box>
     </box>

@@ -97,11 +97,24 @@ export function CodeGeneratorOverlay({
     if (key.name === "escape") onClose()
     else if (key.name === "tab") {
       if (key.shift) {
-        setFocus(focus === "library" && hasClients ? "language" : "library")
+        setFocus(
+          !hasClients
+            ? "language"
+            : focus === "library"
+              ? "language"
+              : "library",
+        )
       } else {
-        setFocus(focus === "language" && hasClients ? "library" : "language")
+        setFocus(
+          !hasClients
+            ? "language"
+            : focus === "language"
+              ? "library"
+              : "language",
+        )
       }
     } else if (key.name === "i" && !key.ctrl) {
+      if (!env) return
       setInterpolate((prev) => !prev)
     } else if (key.name === "c" && !key.ctrl && result.generated) {
       if (copyToClipboard(result.generated.code, renderer))
@@ -217,9 +230,17 @@ export function CodeGeneratorOverlay({
           }}
         >
           <text fg={theme.text}>i</text>
-          <text fg={interpolate ? theme.primary : theme.textMuted}>
+          <text
+            fg={
+              !env
+                ? theme.border
+                : interpolate
+                  ? theme.primary
+                  : theme.textMuted
+            }
+          >
             {" "}
-            interpolate{" "}
+            interpolate{!env ? " (no env)" : ""}{" "}
           </text>
           <text fg={theme.textMuted}>· </text>
           <text fg={theme.text}>c</text>
