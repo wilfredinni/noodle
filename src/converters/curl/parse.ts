@@ -195,10 +195,19 @@ export function parseCurl(command: string): ImportedCurlRequest {
   }
 
   if (!url) throw new Error("cURL command must include a URL")
+  let parsedUrl: URL
   try {
-    new URL(url)
+    parsedUrl = new URL(url)
   } catch (e) {
     throw new Error(`invalid cURL URL: ${url}`, { cause: e })
+  }
+
+  if (parsedUrl.search) {
+    for (const [name, value] of parsedUrl.searchParams) {
+      params.push({ name, value, enabled: true })
+    }
+    parsedUrl.search = ""
+    url = parsedUrl.toString()
   }
 
   if (useGet) {

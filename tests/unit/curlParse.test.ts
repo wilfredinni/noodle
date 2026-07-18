@@ -24,10 +24,11 @@ describe("parseCurl", () => {
 
   it("maps query data, basic auth, timeout, and redirect limits", () => {
     const request = parseCurl(
-      "curl -G -u alice:secret --max-time 1.5 --location --max-redirs 3 -d 'page=2&tag=rest' https://api.example.com/users",
+      "curl -G -u alice:secret --max-time 1.5 --location --max-redirs 3 -d 'page=2&tag=rest' 'https://api.example.com/users?limit=10&tag=api'",
     )
 
     expect(request.method).toBe("GET")
+    expect(request.url).toBe("https://api.example.com/users")
     expect(request.timeout).toBe(1500)
     expect(request.followRedirects).toBe(true)
     expect(request.maxRedirects).toBe(3)
@@ -37,6 +38,8 @@ describe("parseCurl", () => {
       pass: "secret",
     })
     expect(request.params).toEqual([
+      { name: "limit", value: "10", enabled: true },
+      { name: "tag", value: "api", enabled: true },
       { name: "page", value: "2", enabled: true },
       { name: "tag", value: "rest", enabled: true },
     ])
