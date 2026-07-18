@@ -75,15 +75,36 @@ describe("buildHar", () => {
     })
   })
 
-  it("strips query from the URL to avoid httpsnippet merge bugs", () => {
+  it("strips query from the URL and includes inline params in queryString", () => {
     const { har } = buildHar(
       makeRequest({
         url: "https://api.example.com/path?a=1&b=2",
         bodyType: "none",
         body: undefined,
+        params: [],
       }),
     )
     expect(har.url).toBe("https://api.example.com/path")
+    expect(har.queryString).toContainEqual({ name: "a", value: "1" })
+    expect(har.queryString).toContainEqual({ name: "b", value: "2" })
+  })
+
+  it("favors explicit req.params over inline URL query string params", () => {
+    const { har } = buildHar(
+      makeRequest({
+        url: "https://api.example.com/users?stale=inline&only-inline=yes",
+        params: [{ name: "stale", value: "explicit", enabled: true }],
+      }),
+    )
+    expect(har.queryString).toContainEqual({ name: "stale", value: "explicit" })
+    expect(har.queryString).toContainEqual({
+      name: "only-inline",
+      value: "yes",
+    })
+    expect(har.queryString).not.toContainEqual({
+      name: "stale",
+      value: "inline",
+    })
   })
 
   it("handles api_key query placement in queryString", () => {
@@ -149,7 +170,15 @@ describe("buildHar", () => {
       }),
     )
     expect(har.postData?.mimeType).toBe("application/x-www-form-urlencoded")
-    expect(har.postData?.text).toContain("email=a%40b.com")
+    expect(har.postData?.text).toBeUndefined()
+    expect(har.postData?.params).toContainEqual({
+      name: "email",
+      value: "a@b.com",
+    })
+    expect(har.postData?.params).not.toContainEqual({
+      name: "hidden",
+      value: "x",
+    })
   })
 
   it("builds multipart postData with file entries", () => {

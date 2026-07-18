@@ -86,7 +86,7 @@ export function CodeGeneratorOverlay({
   const highlightedCode = useMemo(
     () =>
       result.generated
-        ? highlightGeneratedCode(result.generated.code, theme)
+        ? highlightGeneratedCode(result.generated.code, theme, target?.target)
         : [],
     [result.generated, theme],
   )

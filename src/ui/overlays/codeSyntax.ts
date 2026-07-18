@@ -99,6 +99,8 @@ const KEYWORDS = new Set([
   "yield",
 ])
 
+const HASH_COMMENT_TARGETS = new Set(["python", "ruby", "shell", "php"])
+
 const colorCache = new Map<string, RGBA>()
 
 function toRGBA(hex: string): RGBA {
@@ -117,9 +119,11 @@ function tokenizeSegment(
   segment: string,
   chunks: TextChunk[],
   theme: Theme,
+  hashComments?: boolean,
 ): void {
-  const tokenPattern =
-    /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b)/g
+  const tokenPattern = hashComments
+    ? /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|#.*$|\/\/.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b)/g
+    : /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/.*$|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b)/g
   let cursor = 0
 
   for (const match of segment.matchAll(tokenPattern)) {
@@ -127,15 +131,17 @@ function tokenizeSegment(
     if (index > cursor)
       chunks.push(chunk(segment.slice(cursor, index), theme.text))
     const text = match[0]
-    const fg = text.startsWith("//")
+    const fg = text.startsWith("#")
       ? theme.textMuted
-      : text.startsWith('"') || text.startsWith("'") || text.startsWith("`")
-        ? theme.success
-        : /^\d/.test(text)
-          ? theme.warning
-          : KEYWORDS.has(text)
-            ? theme.secondary
-            : theme.text
+      : text.startsWith("//")
+        ? theme.textMuted
+        : text.startsWith('"') || text.startsWith("'") || text.startsWith("`")
+          ? theme.success
+          : /^\d/.test(text)
+            ? theme.warning
+            : KEYWORDS.has(text)
+              ? theme.secondary
+              : theme.text
     chunks.push(chunk(text, fg))
     cursor = index + text.length
   }
@@ -147,7 +153,9 @@ function tokenizeSegment(
 export function highlightGeneratedCode(
   code: string,
   theme: Theme,
+  target?: string,
 ): StyledText[] {
+  const hashComments = target != null ? HASH_COMMENT_TARGETS.has(target) : false
   const lines = code.split("\n")
   let inTripleQuote: "none" | "double" | "single" = "none"
 
@@ -184,12 +192,12 @@ export function highlightGeneratedCode(
         openDelim = "single"
       } else {
         // no triple-quote on this line — tokenize normally
-        tokenizeSegment(rest, chunks, theme)
+        tokenizeSegment(rest, chunks, theme, hashComments)
         return new StyledText(chunks)
       }
 
       const before = rest.slice(0, openIdx)
-      if (before) tokenizeSegment(before, chunks, theme)
+      if (before) tokenizeSegment(before, chunks, theme, hashComments)
 
       const fromOpen = rest.slice(openIdx)
       const closing = openDelim === "double" ? '"""' : "'''"
@@ -199,7 +207,7 @@ export function highlightGeneratedCode(
         const inDoc = fromOpen.slice(0, closeIdx + 3)
         if (inDoc) chunks.push(chunk(inDoc, theme.success))
         const after = fromOpen.slice(closeIdx + 3)
-        if (after) tokenizeSegment(after, chunks, theme)
+        if (after) tokenizeSegment(after, chunks, theme, hashComments)
       } else {
         chunks.push(chunk(fromOpen, theme.success))
         inTripleQuote = openDelim

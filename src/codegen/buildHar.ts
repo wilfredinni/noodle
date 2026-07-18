@@ -209,9 +209,41 @@ function requestAuthHeader(
 
 function buildQueryString(req: Request): HarQueryParam[] {
   const query: HarQueryParam[] = []
+  const seen = new Set<string>()
 
   for (const param of req.params) {
-    if (param.enabled) query.push({ name: param.name, value: param.value })
+    if (param.enabled) {
+      query.push({ name: param.name, value: param.value })
+      seen.add(param.name)
+    }
+  }
+
+  const qIdx = req.url.indexOf("?")
+  if (qIdx !== -1) {
+    const frag = req.url.slice(qIdx + 1)
+    const hashIdx = frag.indexOf("#")
+    const qs = hashIdx === -1 ? frag : frag.slice(0, hashIdx)
+    if (qs) {
+      for (const pair of qs.split("&")) {
+        if (!pair) continue
+        const eq = pair.indexOf("=")
+        const rawName = eq === -1 ? pair : pair.slice(0, eq)
+        const rawValue = eq === -1 ? "" : pair.slice(eq + 1)
+        let name: string
+        let value: string
+        try {
+          name = decodeURIComponent(rawName)
+          value = decodeURIComponent(rawValue)
+        } catch {
+          name = rawName
+          value = rawValue
+        }
+        if (!seen.has(name)) {
+          query.push({ name, value })
+          seen.add(name)
+        }
+      }
+    }
   }
 
   if (req.auth?.type === "api_key" && req.auth.placement === "query") {
@@ -232,13 +264,8 @@ function buildPostData(req: Request): HarPostData | undefined {
     case "urlencoded": {
       const entries = (req.formData ?? []).filter((e) => e.enabled)
       if (entries.length === 0) return undefined
-      const searchParams = new URLSearchParams()
-      for (const entry of entries) {
-        searchParams.append(entry.name, entry.value)
-      }
       return {
         mimeType: "application/x-www-form-urlencoded",
-        text: searchParams.toString(),
         params: entries.map((e) => ({ name: e.name, value: e.value })),
       }
     }
