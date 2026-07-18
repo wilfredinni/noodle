@@ -22,6 +22,10 @@ import {
   NewFolderOverlay,
   type NewFolderOverlayHandle,
 } from "./overlays/NewFolderOverlay"
+import {
+  ImportCurlOverlay,
+  type ImportCurlOverlayHandle,
+} from "./overlays/ImportCurlOverlay"
 import type {
   Collection,
   Environment,
@@ -95,6 +99,9 @@ interface AppOverlaysProps {
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
+  importCurlVisible: boolean
+  importCurlRef: RefObject<ImportCurlOverlayHandle | null>
+  importCurlInitialFolder: string
   activeEnv: Environment | null
   editRequestVisible: boolean
   selectedRequest: NoodleRequest | null
@@ -158,6 +165,9 @@ export function AppOverlays({
   saveTimerRef,
   newRequestVisible,
   newRequestRef,
+  importCurlVisible,
+  importCurlRef,
+  importCurlInitialFolder,
   activeEnv,
   editRequestVisible,
   selectedRequest,
@@ -306,6 +316,14 @@ export function AppOverlays({
       )}
       {newRequestVisible && (
         <NewRequestOverlay visible ref={newRequestRef} activeEnv={activeEnv} />
+      )}
+      {importCurlVisible && (
+        <ImportCurlOverlay
+          visible
+          ref={importCurlRef}
+          folderPaths={folderPaths}
+          initialFolderPath={importCurlInitialFolder}
+        />
       )}
       {editRequestVisible && (
         <NewRequestOverlay

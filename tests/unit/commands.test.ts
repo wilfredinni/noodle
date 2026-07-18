@@ -36,6 +36,7 @@ function minimalContext(): CommandBuilderContext {
     setHelpVisible: () => {},
     setAboutVisible: () => {},
     setNewRequestVisible: () => {},
+    setImportCurlVisible: () => {},
     setNewFolderVisible: () => {},
     setCloneRequestVisible: () => {},
     setEditRequestVisible: () => {},
@@ -132,6 +133,19 @@ describe("buildCommandPaletteCommands", () => {
     const cmd = commands.find((c) => c.id === "request.find")!
     expect(cmd.keybinding).toBe("^f")
     expect(cmd.run()).toBe(true)
+    expect(opened).toBe(true)
+  })
+
+  it("opens the cURL import overlay in collection mode", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.setImportCurlVisible = (value) => {
+      opened = value === true
+    }
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "request.import-curl",
+    )
+    expect(command?.run()).toBe(true)
     expect(opened).toBe(true)
   })
 

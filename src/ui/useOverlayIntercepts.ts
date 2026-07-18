@@ -8,6 +8,7 @@ import type { EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
+import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 
@@ -43,6 +44,14 @@ export function useOverlayIntercepts(opts: {
     name: string
     method: string
     url: string
+  }) => void
+  importCurlVisible: boolean
+  importCurlRef: RefObject<ImportCurlOverlayHandle | null>
+  setImportCurlVisible: (v: boolean) => void
+  onImportCurlConfirm: (values: {
+    command: string
+    name: string
+    folderPath: string
   }) => void
   editRequestVisible: boolean
   editRequestRef: RefObject<NewRequestOverlayHandle | null>
@@ -112,6 +121,10 @@ export function useOverlayIntercepts(opts: {
     newRequestRef,
     setNewRequestVisible,
     onNewRequestConfirm,
+    importCurlVisible,
+    importCurlRef,
+    setImportCurlVisible,
+    onImportCurlConfirm,
     editRequestVisible,
     editRequestRef,
     setEditRequestVisible,
@@ -411,6 +424,45 @@ export function useOverlayIntercepts(opts: {
     setNewRequestVisible,
     onNewRequestConfirm,
     keymap,
+  ])
+
+  // ── Overlay: Import cURL ─────────────────────────────────────────
+  useEffect(() => {
+    if (!importCurlVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const event = ctx.event
+        const handle = importCurlRef.current
+        if (!handle) return
+        if (event.name === "tab") {
+          event.preventDefault()
+          event.stopPropagation()
+          handle.cycleFocus(event.shift ? -1 : 1)
+          return
+        }
+        if (event.name === "s" && event.ctrl) {
+          event.preventDefault()
+          event.stopPropagation()
+          const result = handle.confirm()
+          if (result) onImportCurlConfirm(result)
+          return
+        }
+        if (event.name === "escape") {
+          event.preventDefault()
+          event.stopPropagation()
+          setImportCurlVisible(false)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    importCurlVisible,
+    importCurlRef,
+    keymap,
+    onImportCurlConfirm,
+    setImportCurlVisible,
   ])
 
   // ── Overlay: Edit Request ──────────────────────────────────────────

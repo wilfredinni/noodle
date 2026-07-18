@@ -21,6 +21,7 @@ import { type Focus, type UrlBarSubFocus } from "./focus"
 import { type NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import { type CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import { type NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
+import { type ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
@@ -47,6 +48,7 @@ import {
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
+import { parseCurl } from "../converters/curl/parse"
 
 export function AppInner({
   collectionDir,
@@ -145,6 +147,8 @@ export function AppInner({
   const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
+  const [importCurlVisible, setImportCurlVisible] = useState(false)
+  const importCurlRef = useRef<ImportCurlOverlayHandle>(null)
   const [editRequestVisible, setEditRequestVisible] = useState(false)
   const editRequestRef = useRef<NewRequestOverlayHandle>(null)
   const [cloneRequestVisible, setCloneRequestVisible] = useState(false)
@@ -371,6 +375,7 @@ export function AppInner({
   const {
     handleFolderSave,
     handleNewRequestConfirm,
+    handleImportCurlConfirm,
     handleCloneRequestConfirm,
     handleNewFolderConfirm,
     handleFolderDeleteConfirm,
@@ -393,6 +398,7 @@ export function AppInner({
     setSelectedId,
     expandFolder,
     setNewRequestVisible,
+    setImportCurlVisible,
     setCloneRequestVisible,
     setNewFolderVisible,
     setEditRequestVisible,
@@ -418,6 +424,7 @@ export function AppInner({
     if (collectionSwitcherVisible) return "collection-switcher"
     if (yamlEditor.visible) return "yaml-editor"
     if (newRequestVisible) return "new-request"
+    if (importCurlVisible) return "import-curl"
     if (editRequestVisible) return "edit-request"
     if (cloneRequestVisible) return "clone-request"
     if (newFolderVisible) return "new-folder"
@@ -439,6 +446,7 @@ export function AppInner({
     collectionSwitcherVisible,
     yamlEditor.visible,
     newRequestVisible,
+    importCurlVisible,
     editRequestVisible,
     cloneRequestVisible,
     newFolderVisible,
@@ -752,6 +760,18 @@ export function AppInner({
     setNewRequestVisible,
     onNewRequestConfirm: (v) =>
       handleNewRequestConfirm(v.name, v.method as Method, v.url),
+    importCurlVisible,
+    importCurlRef,
+    setImportCurlVisible,
+    onImportCurlConfirm: (v) => {
+      try {
+        handleImportCurlConfirm(v.name, v.folderPath, parseCurl(v.command))
+      } catch (e: unknown) {
+        importCurlRef.current?.setError(
+          e instanceof Error ? e.message : String(e),
+        )
+      }
+    },
     editRequestVisible,
     editRequestRef,
     setEditRequestVisible,
@@ -832,6 +852,7 @@ export function AppInner({
         setHelpVisible,
         setAboutVisible,
         setNewRequestVisible,
+        setImportCurlVisible,
         setNewFolderVisible,
         setCloneRequestVisible,
         setEditRequestVisible,
@@ -974,6 +995,9 @@ export function AppInner({
           saveTimerRef={saveTimerRef}
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
+          importCurlVisible={importCurlVisible}
+          importCurlRef={importCurlRef}
+          importCurlInitialFolder={requestParentFolder ?? ""}
           activeEnv={envState.activeEnv}
           editRequestVisible={editRequestVisible}
           selectedRequest={selectedRequest}

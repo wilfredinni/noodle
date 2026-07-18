@@ -68,6 +68,7 @@ export interface CommandBuilderContext {
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setAboutVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setImportCurlVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEditRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -171,6 +172,7 @@ export function buildCommandPaletteCommands(
     setEditRequestVisible,
     setYamlEditor,
     setNewRequestVisible,
+    setImportCurlVisible,
     setCloneRequestVisible,
     setRequestDeletePending,
     setFolderDeletePending,
@@ -260,6 +262,16 @@ export function buildCommandPaletteCommands(
       keybinding: displayKey(keybinds.request_new),
       run: () => {
         setNewRequestVisible(true)
+        return true
+      },
+    },
+    {
+      id: "request.import-curl",
+      label: "Import cURL Request",
+      section: "Request",
+      run: () => {
+        if (mode !== "collection") return false
+        setImportCurlVisible(true)
         return true
       },
     },
