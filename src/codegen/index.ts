@@ -2,10 +2,10 @@ import { HTTPSnippet, type TargetId } from "httpsnippet"
 import type { Environment, Collection, Request } from "../schema"
 import { mergeFolderOverrides } from "../requests/mergeFolderOverrides"
 import { buildHar } from "./buildHar"
-import { findCodeTarget } from "./targets"
+import { findCodeTarget, getCodeTarget } from "./targets"
 import { CODE_TARGETS, type CodeTarget, isCodeTarget } from "./targets"
 
-export { CODE_TARGETS, isCodeTarget, findCodeTarget }
+export { CODE_TARGETS, isCodeTarget, findCodeTarget, getCodeTarget }
 export type { CodeTarget }
 
 export interface GeneratedCode {

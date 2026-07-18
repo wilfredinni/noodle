@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { Collection, Environment, Request } from "../../schema"
-import { generateCode, findCodeTarget } from "../../codegen"
-import { CODE_TARGETS } from "../../codegen/targets"
+import { generateCode, getCodeTarget } from "../../codegen"
+import { CODE_LANGUAGES } from "../../codegen/targets"
 import { copyToClipboard } from "../clipboard"
 import { useRenderer } from "../RendererContext"
 import { showToast } from "../Toast"
@@ -12,12 +12,21 @@ import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "../Select"
 import { highlightGeneratedCode } from "./codeSyntax"
 
-const TARGET_ITEMS: SelectItem[] = CODE_TARGETS.map((t) => ({
-  id: t.id,
-  label: t.label,
+const LANG_ITEMS: SelectItem[] = CODE_LANGUAGES.map((l) => ({
+  id: l.key,
+  label: l.title,
 }))
 
-const DEFAULT_TARGET = CODE_TARGETS[0]!
+function buildClientItems(languageKey: string): SelectItem[] {
+  const lang = CODE_LANGUAGES.find((l) => l.key === languageKey)
+  if (!lang || lang.clients.length <= 1) return []
+  return lang.clients.map((c) => ({
+    id: c.id,
+    label: c.title,
+  }))
+}
+
+const DEFAULT_LANG = CODE_LANGUAGES[0]!
 
 export function CodeGeneratorOverlay({
   visible,
@@ -37,20 +46,30 @@ export function CodeGeneratorOverlay({
   const theme = useTheme()
   const renderer = useRenderer()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const [targetId, setTargetId] = useState(DEFAULT_TARGET.id)
+  const [languageKey, setLanguageKey] = useState(DEFAULT_LANG.key)
+  const [clientId, setClientId] = useState(DEFAULT_LANG.defaultClientId)
+  const [focus, setFocus] = useState<"language" | "library">("language")
+  const [langOpen, setLangOpen] = useState(false)
+  const [libOpen, setLibOpen] = useState(false)
   const [interpolate, setInterpolate] = useState(false)
-  const [selectOpen, setSelectOpen] = useState(false)
+  const selectOpen = langOpen || libOpen
 
-  const target = findCodeTarget(targetId) ?? DEFAULT_TARGET
+  const clientItems = buildClientItems(languageKey)
+  const hasClients = clientItems.length > 0
+
+  const target = getCodeTarget(languageKey, clientId)
 
   useEffect(() => {
     if (visible) {
-      setTargetId(DEFAULT_TARGET.id)
+      setLanguageKey(DEFAULT_LANG.key)
+      setClientId(DEFAULT_LANG.defaultClientId)
+      setFocus("language")
       setInterpolate(false)
     }
   }, [visible, request.id])
 
   const result = useMemo(() => {
+    if (!target) return { generated: null, error: "Unknown target" }
     try {
       return {
         generated: generateCode(request, target, collection, env, interpolate),
@@ -79,7 +98,13 @@ export function CodeGeneratorOverlay({
   useKeyboard((key) => {
     if (!visible) return
     if (key.name === "escape") onClose()
-    else if (key.name === "i" && !key.ctrl) {
+    else if (key.name === "tab") {
+      if (key.shift) {
+        setFocus(focus === "library" && hasClients ? "language" : "library")
+      } else {
+        setFocus(focus === "language" && hasClients ? "library" : "language")
+      }
+    } else if (key.name === "i" && !key.ctrl) {
       setInterpolate((prev) => !prev)
     } else if (key.name === "c" && !key.ctrl && result.generated) {
       if (copyToClipboard(result.generated.code, renderer))
@@ -111,17 +136,36 @@ export function CodeGeneratorOverlay({
         <box style={{ flexGrow: 1 }} />
         <text fg={theme.textMuted}>esc</text>
       </box>
-      <box paddingLeft={4} paddingRight={4}>
+      <box
+        paddingLeft={4}
+        paddingRight={4}
+        style={{ flexDirection: "row", gap: 1 }}
+      >
         <Select
-          items={TARGET_ITEMS}
-          value={targetId}
+          items={LANG_ITEMS}
+          value={languageKey}
           onChange={(value) => {
-            if (findCodeTarget(value)) setTargetId(value)
+            const lang = CODE_LANGUAGES.find((l) => l.key === value)
+            if (!lang) return
+            setLanguageKey(value)
+            setClientId(lang.defaultClientId)
           }}
-          onOpenChange={setSelectOpen}
-          focused
-          width={32}
+          onOpenChange={setLangOpen}
+          focused={focus === "language"}
+          width={22}
         />
+        {hasClients && (
+          <Select
+            items={clientItems}
+            value={clientId}
+            onChange={(value) => {
+              setClientId(value)
+            }}
+            onOpenChange={setLibOpen}
+            focused={focus === "library"}
+            width={24}
+          />
+        )}
       </box>
       {!selectOpen && result.error ? (
         <box
