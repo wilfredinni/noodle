@@ -195,6 +195,9 @@ export function parseCurl(command: string): ImportedCurlRequest {
   }
 
   if (!url) throw new Error("cURL command must include a URL")
+  const detectedAuth = authFromAuthorizationHeader(headers)
+  if (detectedAuth) auth = detectedAuth
+
   let parsedUrl: URL
   try {
     parsedUrl = new URL(url)
@@ -296,6 +299,34 @@ function basicAuth(value: string): Auth {
     type: "basic",
     user: separator === -1 ? value : value.slice(0, separator),
     pass: separator === -1 ? "" : value.slice(separator + 1),
+  }
+}
+
+function authFromAuthorizationHeader(
+  headers: Record<string, KvEntry>,
+): Auth | null {
+  const authorization = Object.entries(headers).find(
+    ([name]) => name.toLowerCase() === "authorization",
+  )
+  if (!authorization) return null
+
+  const [name, entry] = authorization
+  const bearer = /^Bearer\s+(.+)$/i.exec(entry.value)
+  if (bearer?.[1].trim()) {
+    delete headers[name]
+    return { type: "bearer", token: bearer[1].trim() }
+  }
+
+  const basic = /^Basic\s+([A-Za-z0-9+/]+={0,2})$/i.exec(entry.value)
+  if (!basic?.[1]) return null
+  const decoded = Buffer.from(basic[1], "base64").toString("utf8")
+  const separator = decoded.indexOf(":")
+  if (separator < 0) return null
+  delete headers[name]
+  return {
+    type: "basic",
+    user: decoded.slice(0, separator),
+    pass: decoded.slice(separator + 1),
   }
 }
 

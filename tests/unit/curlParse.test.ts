@@ -6,6 +6,7 @@ describe("parseCurl", () => {
     const request = parseCurl(`curl --location \\
       --request POST 'https://api.example.com/users' \\
       --header 'X-Client: noodle' \\
+      --header 'Authorization: Bearer token_123' \\
       --header 'Content-Type: application/json' \\
       --data '{"name":"Ada"}'`)
 
@@ -20,6 +21,21 @@ describe("parseCurl", () => {
         "X-Client": { value: "noodle", enabled: true },
       },
     })
+    expect(request.auth).toEqual({ type: "bearer", token: "token_123" })
+    expect(request.headers.Authorization).toBeUndefined()
+  })
+
+  it("converts decodable Basic authorization headers to auth", () => {
+    const request = parseCurl(
+      "curl -H 'Authorization: Basic YWRhOnNlY3JldA==' https://api.example.com/users",
+    )
+
+    expect(request.auth).toEqual({
+      type: "basic",
+      user: "ada",
+      pass: "secret",
+    })
+    expect(request.headers.Authorization).toBeUndefined()
   })
 
   it("maps query data, basic auth, timeout, and redirect limits", () => {
