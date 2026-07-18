@@ -8,6 +8,8 @@ import type { Focus } from "./focus"
 import type { UrlBarSubFocus } from "./focus"
 import type { ResponseTabKind } from "./tabs/uiState"
 import type { SendState } from "./sendState"
+import type { RefObject } from "react"
+import type { ResponseQueryController } from "./responseQuery"
 
 interface RequestResponseViewProps {
   draft: UseRequestDraftResult
@@ -26,6 +28,9 @@ interface RequestResponseViewProps {
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
   expandHint: string
+  responseKey?: string | null
+  responseQueryRef?: RefObject<ResponseQueryController | null>
+  responseBodyForCopyRef?: RefObject<string | null>
 }
 
 export function RequestResponseView({
@@ -45,6 +50,9 @@ export function RequestResponseView({
   urlbarSubFocus,
   urlbarInteractive,
   expandHint,
+  responseKey,
+  responseQueryRef,
+  responseBodyForCopyRef,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -76,6 +84,9 @@ export function RequestResponseView({
           onTabChange={onResponseTabChange}
           onOpenTimelineEntry={onOpenTimelineEntry}
           expandHint={expandHint}
+          responseKey={responseKey}
+          responseQueryRef={responseQueryRef}
+          responseBodyForCopyRef={responseBodyForCopyRef}
         />
       )}
     </>

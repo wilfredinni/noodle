@@ -10,6 +10,7 @@ import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import type { SendState } from "./sendState"
+import type { ResponseQueryController } from "./responseQuery"
 import { useRenderer } from "./RendererContext"
 import { findRequestById } from "./tree"
 import {
@@ -46,6 +47,8 @@ export interface UseAppKeymapRefs {
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
   responseStateRef: RefObject<SendState>
+  responseQueryRef: RefObject<ResponseQueryController | null>
+  responseBodyForCopyRef: RefObject<string | null>
   modeRef: RefObject<"collection" | "browse" | "empty" | "invalid">
 }
 
@@ -153,6 +156,8 @@ export function useAppKeymap(
     selectedIdRef: refs.selectedIdRef,
     focusRef: refs.focusRef,
     responseStateRef: refs.responseStateRef,
+    responseQueryRef: refs.responseQueryRef,
+    responseBodyForCopyRef: refs.responseBodyForCopyRef,
     activeIndexRef: refs.activeIndexRef,
     savingRef: refs.savingRef,
     doSaveRef: refs.doSaveRef,
@@ -288,6 +293,21 @@ export function useAppKeymap(
         },
       },
       {
+        name: "response.query",
+        enabled: () => {
+          const overlay = keymap.getData("app.overlay") as string
+          return (
+            overlay === "none" &&
+            keymap.getData("app.focus") === "response" &&
+            refs.responseStateRef.current.status === "done" &&
+            (refs.responseQueryRef.current?.canOpen() ?? false)
+          )
+        },
+        run: () => {
+          refs.responseQueryRef.current?.open()
+        },
+      },
+      {
         name: "app.theme",
         run: () => {
           setters.setPreviewIndex(refs.activeIndexRef.current)
@@ -351,6 +371,7 @@ export function useAppKeymap(
       { key: keybinds.request_edit_yaml, cmd: "request.edit-yaml" },
       { key: keybinds.pane_expand, cmd: "request.expand-toggle" },
       { key: keybinds.response_copy_body, cmd: "response.copy-body" },
+      { key: keybinds.response_query, cmd: "response.query" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.command_palette, cmd: "app.command-palette" },
       { key: keybinds.request_find, cmd: "request.find" },

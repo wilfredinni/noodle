@@ -12,6 +12,7 @@ import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import type { SendState } from "./sendState"
+import type { ResponseQueryController } from "./responseQuery"
 
 export interface CommandActionsConfig {
   collectionDir: string
@@ -26,6 +27,8 @@ export interface CommandActionsConfig {
   selectedIdRef: RefObject<string | null>
   focusRef: RefObject<Focus>
   responseStateRef: RefObject<SendState>
+  responseQueryRef: RefObject<ResponseQueryController | null>
+  responseBodyForCopyRef: RefObject<string | null>
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
   doSaveRef: RefObject<() => void>
@@ -137,7 +140,7 @@ export function deleteFolder(c: CommandActionsConfig): {
 export function copyResponseBody(c: CommandActionsConfig): boolean {
   const s = c.responseStateRef.current
   if (s?.status !== "done") return false
-  const body = s.response.body
+  const body = c.responseBodyForCopyRef.current ?? s.response.body
   if (copyToClipboard(body, c.renderer)) {
     showToast("Response body copied", "success")
     return true
@@ -145,6 +148,10 @@ export function copyResponseBody(c: CommandActionsConfig): boolean {
     showToast("Failed to copy response body", "error")
     return false
   }
+}
+
+export function openResponseQuery(c: CommandActionsConfig): boolean {
+  return c.responseQueryRef.current?.open() ?? false
 }
 
 export function canGenerateClientCode(c: CommandActionsConfig): boolean {

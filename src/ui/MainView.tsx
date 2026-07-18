@@ -11,6 +11,8 @@ import type { UrlBarSubFocus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
 import { RequestResponseView } from "./RequestResponseView"
+import type { RefObject } from "react"
+import type { ResponseQueryController } from "./responseQuery"
 
 interface MainViewProps {
   items: CollectionItem[]
@@ -40,6 +42,8 @@ interface MainViewProps {
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
   expandHint: string
+  responseQueryRef?: RefObject<ResponseQueryController | null>
+  responseBodyForCopyRef?: RefObject<string | null>
   mode?: "collection" | "browse" | "empty" | "invalid"
 }
 
@@ -71,6 +75,8 @@ export function MainView({
   urlbarSubFocus,
   urlbarInteractive,
   expandHint,
+  responseQueryRef,
+  responseBodyForCopyRef,
   mode = "collection",
 }: MainViewProps) {
   const theme = useTheme()
@@ -140,6 +146,9 @@ export function MainView({
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={urlbarInteractive}
             expandHint={expandHint}
+            responseKey={selectedId}
+            responseQueryRef={responseQueryRef}
+            responseBodyForCopyRef={responseBodyForCopyRef}
           />
         )}
       </box>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
-import type { ScrollBoxRenderable } from "@opentui/core"
+import type { InputRenderable, ScrollBoxRenderable } from "@opentui/core"
+import type { RefObject } from "react"
 import type { SendState } from "./sendState"
 import type { TimelineEntry } from "../schema"
 import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
@@ -11,6 +12,10 @@ import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./editor/JsonBodyViewer"
 import { Tips } from "./Tips"
 import { Frame } from "./Frame"
+import {
+  queryResponseBody,
+  type ResponseQueryController,
+} from "./responseQuery"
 
 import { TimelineTab } from "./timeline/TimelineTab"
 
@@ -30,6 +35,9 @@ export function ResponsePane({
   onTabChange,
   onOpenTimelineEntry,
   expandHint,
+  responseKey,
+  responseQueryRef,
+  responseBodyForCopyRef,
 }: {
   state: SendState
   focused?: boolean
@@ -38,6 +46,9 @@ export function ResponsePane({
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   onOpenTimelineEntry?: (entry: TimelineEntry) => void
   expandHint?: string
+  responseKey?: string | null
+  responseQueryRef?: RefObject<ResponseQueryController | null>
+  responseBodyForCopyRef?: RefObject<string | null>
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -48,13 +59,18 @@ export function ResponsePane({
     initialTab ?? "body",
   )
   const [spinnerIdx, setSpinnerIdx] = useState(0)
+  const [queryVisible, setQueryVisible] = useState(false)
+  const [query, setQuery] = useState("")
+  const [settledQuery, setSettledQuery] = useState("")
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const queryInputRef = useRef<InputRenderable | null>(null)
 
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (!isDone) return
     if (keymap.getData("app.overlay") !== "none") return
+    if (queryVisible) return
     if (key.name === "left")
       setActiveTab((prev) => {
         const ids = ["body", "headers", "timeline"] as const
@@ -73,6 +89,23 @@ export function ResponsePane({
     else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
     else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
   })
+
+  useEffect(() => {
+    if (!queryVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        if (ctx.event.name !== "escape") return
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
+        setQueryVisible(false)
+        setQuery("")
+        setSettledQuery("")
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [keymap, queryVisible])
 
   // Sync activeTab when initialTab prop changes (request switch)
   const syncVersionRef = useRef(0)
@@ -105,6 +138,23 @@ export function ResponsePane({
     return () => clearInterval(id)
   }, [state.status])
 
+  useEffect(() => {
+    setQueryVisible(false)
+    setQuery("")
+    setSettledQuery("")
+  }, [responseKey, state.status, isDone ? state.response.body : null])
+
+  useEffect(() => {
+    if (!queryVisible) return
+    queryInputRef.current?.focus()
+  }, [queryVisible])
+
+  useEffect(() => {
+    if (!queryVisible) return
+    const timer = setTimeout(() => setSettledQuery(query.trim()), 150)
+    return () => clearTimeout(timer)
+  }, [query, queryVisible])
+
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   const responseHeaders = isDone ? formatHeaders(state.response) : []
@@ -122,6 +172,49 @@ export function ResponsePane({
     if (state.status !== "done") return ""
     return formatBody(state.response)
   }, [state.status, state.status === "done" ? state.response.body : null])
+
+  const queryResult = useMemo(() => {
+    if (!isDone || !queryVisible || settledQuery === "") return null
+    return queryResponseBody(state.response.body, settledQuery)
+  }, [isDone, queryVisible, settledQuery, isDone ? state.response.body : null])
+
+  const queryAvailability = useMemo(() => {
+    if (!isDone || !queryVisible) return null
+    return queryResponseBody(state.response.body, "$")
+  }, [isDone, queryVisible, isDone ? state.response.body : null])
+
+  const displayedBody =
+    queryResult?.kind === "success" ? queryResult.body : formattedBody
+
+  useEffect(() => {
+    if (!responseBodyForCopyRef) return
+    responseBodyForCopyRef.current =
+      queryResult?.kind === "success"
+        ? queryResult.body
+        : isDone
+          ? state.response.body
+          : null
+  }, [
+    responseBodyForCopyRef,
+    queryResult,
+    isDone,
+    isDone ? state.response.body : null,
+  ])
+
+  useEffect(() => {
+    if (!responseQueryRef) return
+    responseQueryRef.current = {
+      canOpen: () => isDone && activeTab === "body" && !queryVisible,
+      open: () => {
+        if (!isDone || activeTab !== "body") return false
+        setQueryVisible(true)
+        return true
+      },
+    }
+    return () => {
+      responseQueryRef.current = null
+    }
+  }, [responseQueryRef, isDone, activeTab, queryVisible])
 
   const headerLeft = (
     <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
@@ -204,12 +297,46 @@ export function ResponsePane({
               >
                 {activeTab === "body" ? (
                   <box style={{ flexDirection: "column", gap: 1 }}>
-                    {formattedBody === "" ? (
+                    {queryVisible && (
+                      <box style={{ flexDirection: "column", gap: 1 }}>
+                        <box style={{ flexDirection: "row", gap: 1 }}>
+                          <input
+                            ref={queryInputRef}
+                            value={query}
+                            placeholder="$.data.items[*].id"
+                            onInput={setQuery}
+                            backgroundColor={theme.background}
+                            focusedBackgroundColor={theme.background}
+                            textColor={theme.text}
+                            cursorColor={theme.primary}
+                            style={{ flexGrow: 1 }}
+                          />
+                          <text fg={theme.textMuted}>esc</text>
+                        </box>
+                        {queryResult?.kind === "success" ? (
+                          <text fg={theme.success}>
+                            {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
+                          </text>
+                        ) : queryResult ? (
+                          <text fg={theme.error}>{queryResult.message}</text>
+                        ) : queryAvailability?.kind === "invalid-json" ? (
+                          <text fg={theme.warning}>
+                            JSONPath filtering is unavailable:{" "}
+                            {queryAvailability.message}
+                          </text>
+                        ) : query.trim() === "" ? (
+                          <text fg={theme.textMuted}>
+                            Enter a JSONPath expression to filter this response
+                          </text>
+                        ) : null}
+                      </box>
+                    )}
+                    {displayedBody === "" ? (
                       <text fg={theme.textMuted}>(no body)</text>
                     ) : (
                       <JsonBodyViewer
-                        key={formattedBody}
-                        body={formattedBody}
+                        key={displayedBody}
+                        body={displayedBody}
                         theme={theme}
                         readOnly
                       />
