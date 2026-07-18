@@ -18,6 +18,7 @@ import {
   deleteRequest,
   deleteFolder,
   copyResponseBody,
+  canGenerateClientCode,
   cycleEnvironment,
   openEnvironmentEditor,
   saveEnvironment,
@@ -80,6 +81,7 @@ export interface CommandBuilderContext {
     v: boolean | ((prev: boolean) => boolean),
   ) => void
   setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setCodeGeneratorVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setYamlEditor: (
     v:
       | {
@@ -187,6 +189,7 @@ export function buildCommandPaletteCommands(
     setPreviewIndexProp,
     setCollectionSwitcherVisible,
     setRequestFinderVisible,
+    setCodeGeneratorVisible,
     setEnvDeletePending,
     setDeleteConfirmSelection,
     getCollectionMode,
@@ -205,6 +208,16 @@ export function buildCommandPaletteCommands(
       run: () => {
         if (view !== "main") return false
         setRequestFinderVisible(true)
+        return true
+      },
+    },
+    {
+      id: "request.generate-client-code",
+      label: "Generate Code",
+      section: "Request",
+      run: () => {
+        if (view !== "main" || !canGenerateClientCode(c)) return false
+        setCodeGeneratorVisible(true)
         return true
       },
     },

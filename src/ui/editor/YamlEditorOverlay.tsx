@@ -206,7 +206,7 @@ export function YamlEditorOverlay({
       visible={visible}
       width={90}
       height="80%"
-      padding={2}
+      padding={1}
       gap={1}
       overflow="hidden"
     >
@@ -216,7 +216,7 @@ export function YamlEditorOverlay({
           justifyContent: "space-between",
           flexShrink: 0,
           paddingBottom: 1,
-          paddingX: 2,
+          paddingX: 4,
         }}
       >
         <text fg={theme.text}>
@@ -241,8 +241,8 @@ export function YamlEditorOverlay({
           style={{
             height: "100%",
             minHeight: 0,
-            paddingLeft: 1,
-            paddingRight: 1,
+            paddingLeft: 4,
+            paddingRight: 4,
             flexGrow: 1,
             flexDirection: "column",
             gap: 1,

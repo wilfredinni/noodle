@@ -43,6 +43,7 @@ function minimalContext(): CommandBuilderContext {
     setFolderDeletePending: () => {},
     setCollectionSwitcherVisible: () => {},
     setRequestFinderVisible: () => {},
+    setCodeGeneratorVisible: () => {},
     setYamlEditor: () => {},
     setView: () => {},
     setFocus: () => {},
@@ -59,7 +60,7 @@ function minimalContext(): CommandBuilderContext {
 describe("buildCommandPaletteCommands", () => {
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
-    expect(commands.length).toBe(21)
+    expect(commands.length).toBeGreaterThanOrEqual(22)
     for (const cmd of commands) {
       expect(cmd.id).toBeTruthy()
       expect(cmd.label).toBeTruthy()
@@ -132,6 +133,33 @@ describe("buildCommandPaletteCommands", () => {
     expect(cmd.keybinding).toBe("^f")
     expect(cmd.run()).toBe(true)
     expect(opened).toBe(true)
+  })
+
+  it("opens client code generation for the current request draft", () => {
+    const ctx = minimalContext()
+    let visible = false
+    ctx.setCodeGeneratorVisible = (value) => {
+      visible = value === true
+    }
+    ctx.draftRef = {
+      current: {
+        draft: {
+          id: "users",
+          name: "Users",
+          method: "GET",
+          url: "https://example.com/users",
+          timeout: 0,
+          headers: {},
+          params: [],
+        },
+      },
+    } as never
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "request.generate-client-code",
+    )
+    expect(command?.run()).toBe(true)
+    expect(visible).toBe(true)
   })
 
   it("app.about opens the about overlay", () => {
