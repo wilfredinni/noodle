@@ -290,7 +290,19 @@ function addHeader(headers: Record<string, KvEntry>, value: string): void {
   if (separator <= 0) throw new Error(`invalid header: ${value}`)
   const name = value.slice(0, separator).trim()
   if (!name) throw new Error(`invalid header: ${value}`)
-  headers[name] = { value: value.slice(separator + 1).trim(), enabled: true }
+  const headerValue = value.slice(separator + 1).trim()
+  const existingName = Object.keys(headers).find(
+    (key) => key.toLowerCase() === name.toLowerCase(),
+  )
+  const existing = existingName ? headers[existingName] : undefined
+  if (existing && name.toLowerCase() === "cookie") {
+    headers[existingName!] = {
+      value: `${existing.value}; ${headerValue}`,
+      enabled: true,
+    }
+    return
+  }
+  headers[name] = { value: headerValue, enabled: true }
 }
 
 function basicAuth(value: string): Auth {
@@ -366,6 +378,16 @@ function applyDataBody(
   const contentType = Object.entries(headers)
     .find(([name]) => name.toLowerCase() === "content-type")?.[1]
     .value.toLowerCase()
+  if (contentType?.includes("application/json") || /^[{[]/.test(value.trim())) {
+    try {
+      JSON.parse(value)
+    } catch (e) {
+      throw new Error("JSON request body is invalid", { cause: e })
+    }
+    request.bodyType = "json"
+    request.body = value
+    return
+  }
   if (
     data.some((part) => part.urlencoded) ||
     contentType?.includes("application/x-www-form-urlencoded") ||
@@ -376,16 +398,6 @@ function applyDataBody(
       ...entry,
       type: "text",
     }))
-    return
-  }
-  if (contentType?.includes("application/json") || /^[{[]/.test(value.trim())) {
-    try {
-      JSON.parse(value)
-    } catch (e) {
-      throw new Error("JSON request body is invalid", { cause: e })
-    }
-    request.bodyType = "json"
-    request.body = value
     return
   }
   throw new Error(

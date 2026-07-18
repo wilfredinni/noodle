@@ -38,6 +38,15 @@ describe("parseCurl", () => {
     expect(request.headers.Authorization).toBeUndefined()
   })
 
+  it("keeps JSON bodies with equals signs as JSON", () => {
+    const request = parseCurl(
+      "curl -H 'Content-Type: application/json' -d '{\"token\":\"abc=def\"}' https://api.example.com/users",
+    )
+
+    expect(request.bodyType).toBe("json")
+    expect(request.body).toBe('{"token":"abc=def"}')
+  })
+
   it("maps query data, basic auth, timeout, and redirect limits", () => {
     const request = parseCurl(
       "curl -G -u alice:secret --max-time 1.5 --location --max-redirs 3 -d 'page=2&tag=rest' 'https://api.example.com/users?limit=10&tag=api'",
@@ -59,6 +68,17 @@ describe("parseCurl", () => {
       { name: "page", value: "2", enabled: true },
       { name: "tag", value: "rest", enabled: true },
     ])
+  })
+
+  it("accumulates repeated cookie flags", () => {
+    const request = parseCurl(
+      "curl -b 'session=abc' --cookie 'csrf=xyz' https://api.example.com/users",
+    )
+
+    expect(request.headers.Cookie).toEqual({
+      value: "session=abc; csrf=xyz",
+      enabled: true,
+    })
   })
 
   it("maps URL-encoded, multipart, and binary bodies", () => {
