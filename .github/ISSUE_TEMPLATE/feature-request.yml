@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest an enhancement for noodle.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before you start:** Read [CONTRIBUTING.md](https://github.com/wilfredinni/noodle/blob/main/CONTRIBUTING.md).
+
+        For UI changes, interaction patterns, or product-direction changes, start a [Discussion](https://github.com/wilfredinni/noodle/discussions) first. Feature requests that change noodle's feel or workflow may be redirected to Discussions.
+
+        Keep it short. Write in your own voice. No AI-generated walls of text.
+
+  - type: checkboxes
+    id: confirmed
+    attributes:
+      label: Verified
+      options:
+        - label: I have verified this feature hasn't been requested before.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? What feels awkward or missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What would you like noodle to support or change?
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this helps
+      description: How would this improve your workflow?
+    validations:
+      required: true

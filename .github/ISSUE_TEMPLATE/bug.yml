@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a reproducible bug in noodle.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before you start:** Read [CONTRIBUTING.md](https://github.com/wilfredinni/noodle/blob/main/CONTRIBUTING.md).
+
+        Issues for bugs only. Feature requests use the feature request template. Questions and ideas belong in [Discussions](https://github.com/wilfredinni/noodle/discussions).
+
+        Keep it short. Write in your own voice. Do not add root cause analysis, proposed fixes, or AI-generated walls of text unless a maintainer asks.
+
+  - type: checkboxes
+    id: bug-confirmation
+    attributes:
+      label: Is this a reproducible bug?
+      description: Feature requests, ideas, questions, and proposals belong in Discussions or the feature request template.
+      options:
+        - label: I confirm this is a reproducible bug, not a feature request, idea, or question.
+          required: true
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current behavior
+      description: What is happening? Describe what you observed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What should happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Shortest exact steps or commands that show the problem.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: How does this affect your workflow?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Noodle version, operating system, and terminal are required.
+      value: |
+        - Noodle version:
+        - Operating system:
+        - Terminal:
+        - Shell, if relevant:
+    validations:
+      required: true
