@@ -89,7 +89,7 @@ describe("buildCommandPaletteCommands", () => {
       (item) => item.id === "response.query",
     )
     expect(command?.label).toBe("Filter Response with JSONPath")
-    expect(command?.keybinding).toBe("q")
+    expect(command?.keybinding).toBe("/")
   })
 
   it("each section has contiguous commands", () => {

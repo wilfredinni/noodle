@@ -13,7 +13,8 @@ import { JsonBodyViewer } from "./editor/JsonBodyViewer"
 import { Tips } from "./Tips"
 import { Frame } from "./Frame"
 import {
-  queryResponseBody,
+  parseResponseBody,
+  queryParsedResponseBody,
   type ResponseQueryController,
 } from "./responseQuery"
 
@@ -103,11 +104,20 @@ export function ResponsePane({
         setQueryVisible(false)
         setQuery("")
         setSettledQuery("")
+        if (responseBodyForCopyRef) {
+          responseBodyForCopyRef.current = isDone ? state.response.body : null
+        }
       },
       { priority: 100 },
     )
     return dispose
-  }, [keymap, queryVisible])
+  }, [
+    keymap,
+    queryVisible,
+    responseBodyForCopyRef,
+    isDone,
+    isDone ? state.response.body : null,
+  ])
 
   // Sync activeTab when initialTab prop changes (request switch)
   const syncVersionRef = useRef(0)
@@ -175,15 +185,16 @@ export function ResponsePane({
     return formatBody(state.response)
   }, [state.status, state.status === "done" ? state.response.body : null])
 
-  const queryResult = useMemo(() => {
-    if (!isDone || !queryVisible || settledQuery === "") return null
-    return queryResponseBody(state.response.body, settledQuery)
-  }, [isDone, queryVisible, settledQuery, isDone ? state.response.body : null])
-
-  const queryAvailability = useMemo(() => {
+  const parsedResponseBody = useMemo(() => {
     if (!isDone || !queryVisible) return null
-    return queryResponseBody(state.response.body, "$")
+    return parseResponseBody(state.response.body)
   }, [isDone, queryVisible, isDone ? state.response.body : null])
+
+  const queryResult = useMemo(() => {
+    if (settledQuery === "" || parsedResponseBody?.kind !== "success")
+      return null
+    return queryParsedResponseBody(parsedResponseBody.value, settledQuery)
+  }, [parsedResponseBody, settledQuery])
 
   const displayedBody =
     queryResult?.kind === "success" ? queryResult.body : formattedBody
@@ -303,7 +314,7 @@ export function ResponsePane({
                 {activeTab === "body" ? (
                   <box style={{ flexDirection: "column", gap: 1 }}>
                     {queryVisible && (
-                      <box style={{ flexDirection: "column", gap: 1 }}>
+                      <box style={{ flexDirection: "column", gap: 0 }}>
                         <box style={{ flexDirection: "row", gap: 1 }}>
                           <input
                             ref={queryInputRef}
@@ -321,11 +332,10 @@ export function ResponsePane({
                           <text fg={theme.success}>
                             {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
                           </text>
-                        ) : queryAvailability?.kind === "invalid-json" ? (
-                          <text fg={theme.warning}>
-                            JSONPath filtering is unavailable:{" "}
-                            {queryAvailability.message}
-                          </text>
+                        ) : parsedResponseBody?.kind === "invalid-json" ? (
+                          <text fg={theme.warning}>Error</text>
+                        ) : queryResult?.kind === "invalid-expression" ? (
+                          <text fg={theme.warning}>Invalid query syntax</text>
                         ) : query.trim() === "" ? (
                           <text fg={theme.textMuted}>
                             Enter a JSONPath expression to filter this response
