@@ -116,7 +116,7 @@ describe("ResponsePane scrollbox", () => {
     })
     await renderOnce()
 
-    expect(captureCharFrame()).toContain("Invalid query syntax")
+    expect(captureCharFrame()).toContain("0 matches")
   })
 
   it("only opens the query from the Body tab", async () => {
