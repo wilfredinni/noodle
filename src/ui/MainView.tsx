@@ -42,6 +42,7 @@ interface MainViewProps {
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
   expandHint: string
+  queryHint?: string
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   mode?: "collection" | "browse" | "empty" | "invalid"
@@ -75,6 +76,7 @@ export function MainView({
   urlbarSubFocus,
   urlbarInteractive,
   expandHint,
+  queryHint,
   responseQueryRef,
   responseBodyForCopyRef,
   mode = "collection",
@@ -146,6 +148,7 @@ export function MainView({
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={urlbarInteractive}
             expandHint={expandHint}
+            queryHint={queryHint}
             responseKey={selectedId}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}

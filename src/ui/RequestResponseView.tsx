@@ -28,6 +28,7 @@ interface RequestResponseViewProps {
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
   expandHint: string
+  queryHint?: string
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
@@ -50,6 +51,7 @@ export function RequestResponseView({
   urlbarSubFocus,
   urlbarInteractive,
   expandHint,
+  queryHint,
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
@@ -84,6 +86,7 @@ export function RequestResponseView({
           onTabChange={onResponseTabChange}
           onOpenTimelineEntry={onOpenTimelineEntry}
           expandHint={expandHint}
+          queryHint={queryHint}
           responseKey={responseKey}
           responseQueryRef={responseQueryRef}
           responseBodyForCopyRef={responseBodyForCopyRef}

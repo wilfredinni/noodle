@@ -825,6 +825,11 @@ export function AppInner({
     [keybinds.pane_expand],
   )
 
+  const queryHint = useMemo(
+    () => `${displayKey(keybinds.response_query)} query`,
+    [keybinds.response_query],
+  )
+
   const renderer = useRenderer()
 
   const commandPaletteCommands = useMemo(
@@ -942,6 +947,7 @@ export function AppInner({
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={activeOverlay === "none" && !isReadOnly}
             expandHint={expandHint}
+            queryHint={queryHint}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             mode={mode}

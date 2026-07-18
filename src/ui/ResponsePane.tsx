@@ -35,6 +35,7 @@ export function ResponsePane({
   onTabChange,
   onOpenTimelineEntry,
   expandHint,
+  queryHint,
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
@@ -46,6 +47,7 @@ export function ResponsePane({
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   onOpenTimelineEntry?: (entry: TimelineEntry) => void
   expandHint?: string
+  queryHint?: string
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
@@ -227,7 +229,10 @@ export function ResponsePane({
   ) : undefined
 
   const footerLeft = focused ? (
-    <text fg={theme.primary}>{expandHint}</text>
+    <text fg={theme.primary}>
+      {expandHint}
+      {queryHint ? ` · ${queryHint}` : ""}
+    </text>
   ) : undefined
 
   const footerRight = isDone ? (
@@ -311,14 +316,11 @@ export function ResponsePane({
                             cursorColor={theme.primary}
                             style={{ flexGrow: 1 }}
                           />
-                          <text fg={theme.textMuted}>esc</text>
                         </box>
                         {queryResult?.kind === "success" ? (
                           <text fg={theme.success}>
                             {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
                           </text>
-                        ) : queryResult ? (
-                          <text fg={theme.error}>{queryResult.message}</text>
                         ) : queryAvailability?.kind === "invalid-json" ? (
                           <text fg={theme.warning}>
                             JSONPath filtering is unavailable:{" "}
