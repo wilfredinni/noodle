@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test"
+import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA, TextAttributes } from "@opentui/core"
 import type { Request, KvEntry, CollectionItem } from "../src/schema"
@@ -9,6 +10,7 @@ import { ResponsePane } from "../src/ui/ResponsePane"
 import type { SendState } from "../src/ui/sendState"
 import { initialEditState } from "../src/ui/editMode"
 import type { EditState } from "../src/ui/editMode"
+import type { ResponseQueryController } from "../src/ui/responseQuery"
 
 import { ThemeProvider } from "../src/ui/theme"
 import type { Keymap } from "@opentui/keymap"
@@ -34,6 +36,52 @@ function makeRequest(i: number): Request {
 }
 
 describe("ResponsePane scrollbox", () => {
+  it("filters the body through the JSONPath query bar and exposes the visible result for copying", async () => {
+    const state = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: JSON.stringify({ data: { items: [{ id: 1 }, { id: 2 }] } }),
+        timeMs: 1,
+      },
+    } satisfies SendState
+    const queryController = { current: null as ResponseQueryController | null }
+    const copyBody = { current: null as string | null }
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={state}
+          focused
+          responseKey="request-1"
+          responseQueryRef={queryController}
+          responseBodyForCopyRef={copyBody}
+        />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      expect(queryController.current?.open()).toBe(true)
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("JSONPath")
+
+    await act(async () => mockInput.typeText("$.data.items[*].id"))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 175))
+    })
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("2 matches")
+    expect(copyBody.current).toBe("[\n  1,\n  2\n]")
+  })
+
   it("keeps response metadata on the bottom border", async () => {
     const state = {
       status: "done" as const,
