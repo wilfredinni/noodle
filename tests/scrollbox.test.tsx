@@ -34,6 +34,38 @@ function makeRequest(i: number): Request {
 }
 
 describe("ResponsePane scrollbox", () => {
+  it("keeps response metadata on the bottom border", async () => {
+    const state = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "x".repeat(120),
+        timeMs: 42,
+      },
+    } satisfies SendState
+
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <box style={{ width: "100%", height: "100%" }}>
+          <ResponsePane state={state} focused expandHint="f2 expand" />
+        </box>
+      </KeymapProvider>,
+      { width: 40, height: 8 },
+    )
+    await renderOnce()
+
+    const metadataLine = captureCharFrame()
+      .split("\n")
+      .find((line: string) => line.includes("120B") && line.includes("42ms"))
+    expect(metadataLine).toBeDefined()
+    expect(metadataLine ?? "").toContain("└")
+  })
+
   it("renders with large response body without overflowing", async () => {
     const longBody = JSON.stringify(
       {
