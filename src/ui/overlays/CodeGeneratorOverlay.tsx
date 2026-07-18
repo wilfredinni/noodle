@@ -49,10 +49,7 @@ export function CodeGeneratorOverlay({
   const [languageKey, setLanguageKey] = useState(DEFAULT_LANG.key)
   const [clientId, setClientId] = useState(DEFAULT_LANG.defaultClientId)
   const [focus, setFocus] = useState<"language" | "library">("language")
-  const [langOpen, setLangOpen] = useState(false)
-  const [libOpen, setLibOpen] = useState(false)
   const [interpolate, setInterpolate] = useState(false)
-  const selectOpen = langOpen || libOpen
 
   const clientItems = buildClientItems(languageKey)
   const hasClients = clientItems.length > 0
@@ -150,7 +147,6 @@ export function CodeGeneratorOverlay({
             setLanguageKey(value)
             setClientId(lang.defaultClientId)
           }}
-          onOpenChange={setLangOpen}
           focused={focus === "language"}
           width={22}
         />
@@ -161,13 +157,12 @@ export function CodeGeneratorOverlay({
             onChange={(value) => {
               setClientId(value)
             }}
-            onOpenChange={setLibOpen}
             focused={focus === "library"}
             width={24}
           />
         )}
       </box>
-      {!selectOpen && result.error ? (
+      {result.error ? (
         <box
           border={["left"]}
           borderColor={theme.error}
@@ -175,8 +170,7 @@ export function CodeGeneratorOverlay({
         >
           <text fg={theme.error}>{result.error}</text>
         </box>
-      ) : null}
-      {!selectOpen && !result.error ? (
+      ) : (
         <scrollbox
           ref={scrollRef}
           scrollY
@@ -200,8 +194,7 @@ export function CodeGeneratorOverlay({
             ))}
           </box>
         </scrollbox>
-      ) : null}
-      {selectOpen ? <box style={{ flexGrow: 1 }} /> : null}
+      )}
       <box
         style={{
           flexDirection: "row",

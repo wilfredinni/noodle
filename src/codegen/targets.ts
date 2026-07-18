@@ -65,10 +65,14 @@ function buildLanguages(): CodeLanguage[] {
       const info = target.clientsById[clientId]!.info
       return { id: clientId, title: info.title }
     })
+    const clientKeys = clients.map((c) => c.id)
+    const defaultClientId = clientKeys.includes(target.info.default)
+      ? target.info.default
+      : (clientKeys[0] ?? "")
     langs.push({
       key,
       title,
-      defaultClientId: target.info.default,
+      defaultClientId,
       clients,
     })
   }
