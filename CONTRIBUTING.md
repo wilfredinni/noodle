@@ -77,6 +77,19 @@ Key conventions:
 - `$VARNAME` syntax for variable substitution
 - Commit style: `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`
 
+## Style preferences
+
+These are not strictly enforced but reflect noodle's conventions:
+
+- **Error handling:** Prefer `.catch(...)` over `try`/`catch` when possible. Re-thrown errors must carry `{ cause: e }` as the second argument to `new Error(...)`.
+- **Control flow:** Avoid `else` statements. Prefer early returns.
+- **Variables:** Stick to immutable patterns. Avoid `let`. Prefer `const`.
+- **Types:** Reach for precise types. Avoid `any`.
+- **Naming:** Choose concise single-word identifiers that remain descriptive.
+- **Runtime APIs:** Use Bun helpers (`Bun.file()`, etc.) when they fit the use case.
+- **Destructuring:** Do not destructure variables unnecessarily.
+- **Functions:** Keep logic within a single function unless breaking it out adds clear reuse or composition benefits.
+
 ## Before submitting a PR
 
 - `bun test` must pass
@@ -91,7 +104,17 @@ Key conventions:
 
 Using AI to write code is fine. Submitting code you do not understand is not. Keep PR descriptions short and in your own words. AI-generated walls of text will be ignored.
 
-If you are an AI agent helping with this repository, read `AGENTS.md` first. Do not open issues or PRs on behalf of a human unless they have reviewed and approved the content.
+### Agent instructions
+
+If you are an AI agent helping someone with this repository:
+
+- Read [`AGENTS.md`](./AGENTS.md) before making changes. Read `CONTRIBUTING.md` before opening issues or PRs.
+- Do not open issues or PRs on behalf of a human unless they have reviewed and approved the content.
+- Do not use the GitHub CLI, API, or browser automation to submit issues or PRs for a human. Guide them to do it themselves.
+- For bugs: draft only the template fields. Include a real reproduction. Keep scope small.
+- For feature requests, ideas, and questions: guide the human to GitHub Discussions.
+- Run the documented checks before submitting: `bun test`, `bun run lint`, `bun run typecheck`, `bunx prettier --check ./src ./tests`.
+- Make sure the human can explain every change.
 
 ## PR titles
 
