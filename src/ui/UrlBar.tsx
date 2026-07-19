@@ -111,7 +111,6 @@ export function UrlBar({
             focused={focused && interactive && subFocus === "select"}
             visualFocused={focused && subFocus === "select"}
             badge
-            width={8}
             maxDropdownHeight={10}
             onOpenChange={setMethodSelectOpen}
           />

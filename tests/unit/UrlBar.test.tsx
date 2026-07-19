@@ -4,19 +4,22 @@ import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { UrlBar } from "../../src/ui/UrlBar"
+import type { Method } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
 
 function UrlBarHarness({
   subFocus = "text",
   focused = true,
+  initialMethod = "GET",
   onMethodChange,
 }: {
   subFocus?: "select" | "text"
   focused?: boolean
+  initialMethod?: Method
   onMethodChange?: (method: string) => void
 }) {
   const [url, setUrl] = useState("https://example.com")
-  const [method, setMethod] = useState<"GET" | "POST">("GET")
+  const [method, setMethod] = useState<Method>(initialMethod)
   return (
     <UrlBar
       method={method}
@@ -24,7 +27,7 @@ function UrlBarHarness({
       params={[]}
       setUrl={setUrl}
       setMethod={(next) => {
-        setMethod(next as "GET" | "POST")
+        setMethod(next)
         onMethodChange?.(next)
       }}
       onDefocus={() => {}}
@@ -72,6 +75,54 @@ describe("UrlBar", () => {
     await renderOnce()
 
     expect(captureCharFrame()).toContain("GET")
+    cleanup()
+  })
+
+  it("shows the complete PATCH label and dropdown indicator", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness subFocus="select" initialMethod="PATCH" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("PATCH")
+    expect(captureCharFrame()).toContain("▼")
+
+    act(() => {
+      host.press("return")
+    })
+    await renderOnce()
+    act(() => {
+      host.press("escape")
+    })
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("PATCH")
+    expect(captureCharFrame()).toContain("▼")
+    cleanup()
+  })
+
+  it("sizes the method selector for the widest method", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness subFocus="select" initialMethod="OPTIONS" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("OPTIONS")
+    expect(captureCharFrame()).toContain("▼")
     cleanup()
   })
 

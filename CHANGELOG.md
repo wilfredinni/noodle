@@ -20,6 +20,7 @@ All notable changes to Noodle are documented in this file.
 - Include inline URL query parameters and correctly represent form-data bodies in generated code.
 - Keep response metadata visible at the bottom of the response pane and position selection menus correctly in overlays.
 - Prevent keyboard events from modal overlays leaking into underlying panes, including Generate Code and Timeline Detail, while preserving editable fields and Select menus.
+- Keep the URL bar method selector wide enough to show complete method names and its dropdown indicator after opening.
 
 ### 🔧 Refactors
 
