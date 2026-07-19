@@ -294,6 +294,7 @@ export function YamlEditorOverlay({
       )}
       {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
       <box
+        paddingBottom={1}
         style={{
           flexDirection: "row",
           flexShrink: 0,

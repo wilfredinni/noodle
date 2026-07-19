@@ -151,7 +151,7 @@ export function CodeGeneratorOverlay({
       height="80%"
       gap={1}
       padding={1}
-      overflow="visible"
+      overflow="hidden"
     >
       <box
         paddingLeft={4}
@@ -207,7 +207,13 @@ export function CodeGeneratorOverlay({
           scrollY
           paddingLeft={4}
           paddingRight={4}
-          style={{ flexGrow: 1, minHeight: 0 }}
+          style={{
+            flexGrow: 1,
+            flexShrink: 1,
+            flexBasis: 0,
+            height: 0,
+            minHeight: 0,
+          }}
           scrollbarOptions={{ visible: false }}
         >
           <box style={{ flexDirection: "column" }}>
@@ -231,6 +237,7 @@ export function CodeGeneratorOverlay({
         </scrollbox>
       )}
       <box
+        paddingBottom={1}
         style={{
           flexDirection: "row",
           flexShrink: 0,
