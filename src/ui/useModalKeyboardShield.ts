@@ -32,24 +32,21 @@ export function useModalKeyboardShield(activeOverlay: string): void {
   const keymap = useKeymap()
 
   useEffect(() => {
-    if (activeOverlay === "none") return
-    const editable = EDITABLE_OVERLAYS.has(activeOverlay)
+    if (activeOverlay === "none" || EDITABLE_OVERLAYS.has(activeOverlay)) {
+      return
+    }
     const hardBlocking = HARD_BLOCKING_OVERLAYS.has(activeOverlay)
-    if (!editable && !hardBlocking) {
+    if (!hardBlocking) {
       console.warn(
         `useModalKeyboardShield: unknown overlay "${activeOverlay}"; treating it as editable`,
       )
+      return
     }
     return keymap.intercept(
       "key",
       (ctx) => {
-        // Unknown overlays must remain editable-safe until explicitly classified.
-        if (editable || !hardBlocking) {
-          ctx.event.stopPropagation()
-        } else {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-        }
+        ctx.event.preventDefault()
+        ctx.event.stopPropagation()
       },
       { priority: 90 },
     )

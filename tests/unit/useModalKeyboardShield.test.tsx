@@ -14,15 +14,9 @@ function Shield({ activeOverlay }: { activeOverlay: string }) {
 }
 
 describe("useModalKeyboardShield", () => {
-  it("blocks lower-priority handlers for every editable overlay", async () => {
+  it("allows input for every editable overlay", async () => {
     for (const activeOverlay of EDITABLE_OVERLAYS) {
       const { keymap, host, cleanup } = setupKeymap()
-      const backgroundKeys: string[] = []
-      const dispose = keymap.intercept(
-        "key",
-        (ctx) => backgroundKeys.push(ctx.event.name),
-        { priority: 0 },
-      )
       const render = await testRender(
         <KeymapProvider keymap={keymap}>
           <Shield activeOverlay={activeOverlay} />
@@ -31,9 +25,9 @@ describe("useModalKeyboardShield", () => {
       )
 
       await render.renderOnce()
-      host.press("e")
-      expect(backgroundKeys).toEqual([])
-      dispose()
+      const event = host.press("e")
+      expect(event.defaultPrevented).toBe(false)
+      expect(event.propagationStopped).toBe(false)
       cleanup()
     }
   })
@@ -74,7 +68,7 @@ describe("useModalKeyboardShield", () => {
     await render.renderOnce()
     const event = host.press("e")
     expect(event.defaultPrevented).toBe(false)
-    expect(event.propagationStopped).toBe(true)
+    expect(event.propagationStopped).toBe(false)
     cleanup()
   })
 })
