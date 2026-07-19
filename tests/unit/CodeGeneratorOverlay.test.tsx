@@ -20,6 +20,40 @@ const baseRequest = {
 }
 
 describe("CodeGeneratorOverlay", () => {
+  it("keeps the modal vertical spacing stable for large previews", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RendererProvider renderer={{} as unknown as CliRenderer}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CodeGeneratorOverlay
+              visible
+              request={{
+                ...baseRequest,
+                body: JSON.stringify({ value: "x".repeat(4000) }),
+                bodyType: "json",
+              }}
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </RendererProvider>
+      </KeymapProvider>,
+      { width: 100, height: 32 },
+    )
+
+    await render.renderOnce()
+    const rows = render
+      .captureCharFrame()
+      .split("\n")
+      .map((row) => row.replace(/\s+$/, ""))
+    expect(rows.findIndex((row) => row.includes("Generate code"))).toBe(4)
+    expect(rows.findIndex((row) => row.includes("close"))).toBe(26)
+    await act(async () => host.press("down"))
+    await render.renderOnce()
+    expect(render.captureCharFrame()).not.toContain("1  curl --request GET")
+    cleanup()
+  })
+
   it("renders a cURL preview by default", async () => {
     const { keymap, cleanup } = setupKeymap()
     const render = await testRender(

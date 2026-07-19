@@ -42,6 +42,7 @@ export function Overlay({
       <box
         style={{
           width,
+          flexShrink: 0,
           ...(height !== undefined && { height }),
           backgroundColor: theme.backgroundPanel,
           flexDirection: "column",
