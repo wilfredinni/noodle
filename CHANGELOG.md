@@ -6,6 +6,8 @@ All notable changes to Noodle are documented in this file.
 
 ## [0.5.0] - 2026-07-19
 
+![timeline](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/findrequest.png)
+
 ### ✨ Features
 
 - Find requests from anywhere in the TUI with a fuzzy search that also matches resolved environment-variable URLs.
