@@ -23,7 +23,7 @@ export const HARD_BLOCKING_OVERLAYS = new Set([
   "init-confirm",
   "collection-switch-confirm",
   "code-generator",
-  "folder-delete",
+  "delete-folder",
   "request-delete",
   "timeline-detail",
 ])
