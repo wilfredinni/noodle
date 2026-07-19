@@ -119,6 +119,7 @@ export const ImportCurlOverlay = forwardRef<
             onChange={setFolderPath}
             focused={focus === "folder"}
             onOpenChange={setFolderSelectOpen}
+            triggerPriority={110}
           />
         </box>
 

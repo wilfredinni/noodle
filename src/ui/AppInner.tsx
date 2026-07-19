@@ -33,6 +33,7 @@ import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
+import { useModalKeyboardShield } from "./useModalKeyboardShield"
 import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
@@ -419,6 +420,7 @@ export function AppInner({
     if (aboutVisible) return "about"
     if (previewIndex !== null) return "theme"
     if (saveState.kind === "confirming") return "confirm"
+    if (envDeletePending !== null) return "env-delete"
     if (undoAllPending) return "undo-all"
     if (initPending) return "init-confirm"
     if (collectionSwitchPending !== null) return "collection-switch-confirm"
@@ -441,6 +443,7 @@ export function AppInner({
     aboutVisible,
     previewIndex,
     saveState.kind,
+    envDeletePending,
     undoAllPending,
     initPending,
     collectionSwitchPending,
@@ -466,6 +469,8 @@ export function AppInner({
   useEffect(() => {
     keymap.setData("app.overlay", activeOverlay)
   }, [activeOverlay, keymap])
+
+  useModalKeyboardShield(activeOverlay)
 
   useEffect(() => {
     keymap.setData("app.view", view)
@@ -736,6 +741,7 @@ export function AppInner({
 
   // ── Overlay intercepts ────────────────────────────────────────────
   useOverlayIntercepts({
+    activeOverlay,
     cancelSendRef,
     saveState,
     confirmSelection,

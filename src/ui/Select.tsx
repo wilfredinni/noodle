@@ -31,6 +31,7 @@ export interface SelectProps {
   dropdownAlign?: "left" | "right"
   badge?: boolean
   onOpenChange?: (open: boolean) => void
+  triggerPriority?: number
 }
 
 export function Select({
@@ -45,6 +46,7 @@ export function Select({
   dropdownAlign = "left",
   badge = false,
   onOpenChange,
+  triggerPriority = 50,
 }: SelectProps) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -96,10 +98,10 @@ export function Select({
           setOpen(true)
         }
       },
-      { priority: 50 },
+      { priority: triggerPriority },
     )
     return dispose
-  }, [open, focused, keymap])
+  }, [open, focused, keymap, triggerPriority])
 
   useEffect(() => {
     if (!open) return

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { act } from "react"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -6,6 +6,7 @@ import type { CliRenderer } from "@opentui/core"
 import { ThemeProvider } from "../../src/ui/theme"
 import { RendererProvider } from "../../src/ui/RendererContext"
 import { CodeGeneratorOverlay } from "../../src/ui/overlays/CodeGeneratorOverlay"
+import * as clipboard from "../../src/ui/clipboard"
 import { setupKeymap } from "./_helpers"
 
 const baseRequest = {
@@ -114,6 +115,47 @@ describe("CodeGeneratorOverlay", () => {
     await render.renderOnce()
     const frame = render.captureCharFrame()
     expect(frame).toContain("Clojure")
+    cleanup()
+  })
+
+  it("consumes modal keys before background handlers", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const backgroundKeys: string[] = []
+    const disposeBackground = keymap.intercept(
+      "key",
+      (ctx) => {
+        backgroundKeys.push(ctx.event.name)
+      },
+      { priority: 0 },
+    )
+    const copySpy = spyOn(clipboard, "copyToClipboard").mockReturnValue(true)
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RendererProvider renderer={{} as unknown as CliRenderer}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CodeGeneratorOverlay
+              visible
+              request={baseRequest}
+              env={{ name: "staging", vars: {} }}
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </RendererProvider>
+      </KeymapProvider>,
+      { width: 100, height: 32 },
+    )
+
+    await render.renderOnce()
+    await act(async () => {
+      host.press("i")
+      host.press("e")
+      host.press("c")
+    })
+
+    expect(backgroundKeys).toEqual([])
+    expect(copySpy).toHaveBeenCalled()
+    disposeBackground()
+    copySpy.mockRestore()
     cleanup()
   })
 })

@@ -27,7 +27,7 @@ async function renderOverlay(
   onClose: () => void,
   visible = true,
 ) {
-  const { keymap, cleanup } = setupKeymap()
+  const { keymap, host, cleanup } = setupKeymap()
   ;(
     keymap as unknown as { setData: (key: string, value: string) => void }
   ).setData("app.overlay", "none")
@@ -43,7 +43,7 @@ async function renderOverlay(
     </KeymapProvider>,
     { width: 80, height: 30 },
   )
-  return { ...render, cleanup, keymap }
+  return { ...render, cleanup, keymap, host }
 }
 
 describe("TimelineDetailOverlay", () => {
@@ -81,12 +81,41 @@ describe("TimelineDetailOverlay", () => {
   })
 
   it("switches to request tab with left arrow", async () => {
-    const { renderOnce, captureCharFrame, mockInput, cleanup } =
-      await renderOverlay(makeEntry(), () => {})
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry(),
+      () => {},
+    )
     await renderOnce()
-    await act(async () => mockInput.pressKey("ARROW_LEFT"))
+    await act(async () => host.press("left"))
     await renderOnce()
     expect(captureCharFrame()).toContain("request-1")
+    cleanup()
+  })
+
+  it("consumes modal keys before background handlers", async () => {
+    let closed = false
+    const { renderOnce, host, keymap, cleanup } = await renderOverlay(
+      makeEntry(),
+      () => {
+        closed = true
+      },
+    )
+    const backgroundKeys: string[] = []
+    const disposeBackground = keymap.intercept(
+      "key",
+      (ctx) => backgroundKeys.push(ctx.event.name),
+      { priority: 0 },
+    )
+
+    await renderOnce()
+    await act(async () => {
+      host.press("e")
+      host.press("escape")
+    })
+
+    expect(closed).toBe(true)
+    expect(backgroundKeys).toEqual([])
+    disposeBackground()
     cleanup()
   })
 
@@ -101,7 +130,7 @@ describe("TimelineDetailOverlay", () => {
         size: 8,
       },
     })
-    const { keymap, cleanup } = setupKeymap()
+    const { keymap, host, cleanup } = setupKeymap()
     ;(
       keymap as unknown as { setData: (key: string, value: string) => void }
     ).setData("app.overlay", "none")
@@ -117,9 +146,9 @@ describe("TimelineDetailOverlay", () => {
       </KeymapProvider>,
       { width: 80, height: 30 },
     )
-    const { renderOnce, captureCharFrame, mockInput } = render
+    const { renderOnce, captureCharFrame } = render
     await renderOnce()
-    await act(async () => mockInput.pressKey("ARROW_LEFT"))
+    await act(async () => host.press("left"))
     await renderOnce()
     expect(captureCharFrame()).toContain("request-1")
 
@@ -160,10 +189,12 @@ describe("TimelineDetailOverlay", () => {
         size: 2,
       },
     })
-    const { renderOnce, captureCharFrame, mockInput, cleanup } =
-      await renderOverlay(entry, () => {})
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      entry,
+      () => {},
+    )
     await renderOnce()
-    await act(async () => mockInput.pressKey("ARROW_LEFT"))
+    await act(async () => host.press("left"))
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Bearer ")
@@ -192,10 +223,12 @@ describe("TimelineDetailOverlay", () => {
         },
       },
     })
-    const { renderOnce, captureCharFrame, mockInput, cleanup } =
-      await renderOverlay(entry, () => {})
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      entry,
+      () => {},
+    )
     await renderOnce()
-    await act(async () => mockInput.pressKey("ARROW_LEFT"))
+    await act(async () => host.press("left"))
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("X-API-Key")

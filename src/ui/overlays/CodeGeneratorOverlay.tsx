@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useKeyboard } from "@opentui/react"
+import { useKeymap } from "@opentui/keymap/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { Collection, Environment, Request } from "../../schema"
 import { generateCode, getCodeTarget } from "../../codegen"
@@ -45,6 +45,7 @@ export function CodeGeneratorOverlay({
 }) {
   const theme = useTheme()
   const renderer = useRenderer()
+  const keymap = useKeymap()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [languageKey, setLanguageKey] = useState(DEFAULT_LANG.key)
   const [clientId, setClientId] = useState(DEFAULT_LANG.defaultClientId)
@@ -92,39 +93,54 @@ export function CodeGeneratorOverlay({
   )
   const lineNumberWidth = String(Math.max(1, highlightedCode.length)).length
 
-  useKeyboard((key) => {
+  useEffect(() => {
     if (!visible) return
-    if (key.name === "escape") onClose()
-    else if (key.name === "tab") {
-      if (key.shift) {
-        setFocus(
-          !hasClients
-            ? "language"
-            : focus === "library"
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const key = ctx.event
+        key.preventDefault()
+        key.stopPropagation()
+
+        if (key.name === "escape") onClose()
+        else if (key.name === "tab") {
+          setFocus(
+            !hasClients
               ? "language"
-              : "library",
-        )
-      } else {
-        setFocus(
-          !hasClients
-            ? "language"
-            : focus === "language"
-              ? "library"
-              : "language",
-        )
-      }
-    } else if (key.name === "i" && !key.ctrl) {
-      if (!env) return
-      setInterpolate((prev) => !prev)
-    } else if (key.name === "c" && !key.ctrl && result.generated) {
-      if (copyToClipboard(result.generated.code, renderer))
-        showToast("Generated code copied", "success")
-      else showToast("Failed to copy generated code", "error")
-    } else if (key.name === "up") scrollRef.current?.scrollBy(-1)
-    else if (key.name === "down") scrollRef.current?.scrollBy(1)
-    else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
-    else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
-  })
+              : key.shift
+                ? focus === "library"
+                  ? "language"
+                  : "library"
+                : focus === "language"
+                  ? "library"
+                  : "language",
+          )
+        } else if (key.name === "i" && !key.ctrl) {
+          if (env) setInterpolate((prev) => !prev)
+        } else if (key.name === "c" && !key.ctrl && result.generated) {
+          if (copyToClipboard(result.generated.code, renderer))
+            showToast("Generated code copied", "success")
+          else showToast("Failed to copy generated code", "error")
+        } else if (key.name === "up") scrollRef.current?.scrollBy(-1)
+        else if (key.name === "down") scrollRef.current?.scrollBy(1)
+        else if (key.name === "pageup")
+          scrollRef.current?.scrollBy(-1, "viewport")
+        else if (key.name === "pagedown")
+          scrollRef.current?.scrollBy(1, "viewport")
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [
+    visible,
+    keymap,
+    onClose,
+    hasClients,
+    focus,
+    env,
+    result.generated,
+    renderer,
+  ])
 
   if (!visible) return null
 
@@ -161,6 +177,7 @@ export function CodeGeneratorOverlay({
             setClientId(lang.defaultClientId)
           }}
           focused={focus === "language"}
+          triggerPriority={110}
           width={22}
         />
         {hasClients && (
@@ -171,6 +188,7 @@ export function CodeGeneratorOverlay({
               setClientId(value)
             }}
             focused={focus === "library"}
+            triggerPriority={110}
             width={24}
           />
         )}

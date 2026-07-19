@@ -6,28 +6,30 @@ All notable changes to Noodle are documented in this file.
 
 ## [0.5.0] - 2026-07-19
 
-### Features
+### ✨ Features
 
 - Find requests from anywhere in the TUI with a fuzzy search that also matches resolved environment-variable URLs.
 - Import a cURL command into a new request from the command palette, including headers, authentication, query parameters, bodies, forms, uploads, redirects, and timeouts supported by the importer.
 - Generate client code for the selected request from the command palette, choosing a language and supported library, with optional environment-variable interpolation.
 - Filter JSON response bodies with JSONPath from the response pane or command palette.
 
-### Fixes
+### 🐞 Fixes
 
 - Preserve explicit redirect limits and correctly import inline binary data, query parameters, Authorization headers, JSON bodies containing equals signs, and repeated Cookie headers from cURL commands.
 - Display a clear error when a response body is not valid JSON and prevent opening JSONPath filtering when it cannot run.
 - Include inline URL query parameters and correctly represent form-data bodies in generated code.
 - Keep response metadata visible at the bottom of the response pane and position selection menus correctly in overlays.
+- Prevent keyboard events from modal overlays leaking into underlying panes, including Generate Code and Timeline Detail, while preserving editable fields and Select menus.
 
-### Refactors
+### 🔧 Refactors
 
 - Generate snippets through HAR with `httpsnippet`, replacing the previous code-generation converter.
 - Separate JSON response parsing from JSONPath evaluation.
 
-### Documentation
+### 📚 Documentation
 
 - Add contributor guidelines, security reporting guidance, and GitHub issue, discussion, and pull-request templates.
+- Document modal keyboard-isolation conventions and regression-test patterns for future overlay work.
 
 ## [0.4.8] - 2026-07-17
 

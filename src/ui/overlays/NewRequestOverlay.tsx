@@ -181,6 +181,7 @@ export const NewRequestOverlay = forwardRef<
               onChange={setFolderPath}
               focused={focus === "folder"}
               onOpenChange={setFolderSelectOpen}
+              triggerPriority={110}
             />
           </box>
         )}
@@ -210,6 +211,7 @@ export const NewRequestOverlay = forwardRef<
               onChange={(id) => setMethod(id as Method)}
               focused={focus === "method"}
               badge
+              triggerPriority={110}
             />
             <VarInput
               ref={urlRef}
