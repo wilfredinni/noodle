@@ -205,6 +205,7 @@ command_palette: ctrl+p
 | `Ctrl+W` | Delete request |
 | `Ctrl+U` | Cycle environment |
 | `Ctrl+P` | Open command palette |
+| `Ctrl+F` | Find request |
 | `Ctrl+L` | Toggle layout (stacked / side-by-side) |
 | `F2` | Expand/collapse focused pane |
 | `F1` | Toggle help overlay |
@@ -220,6 +221,8 @@ command_palette: ctrl+p
 | `Ctrl+C` | Quit (copies selection first if text is selected) |
 
 In browse or empty mode, collection-only actions above are unavailable. Command palette still exposes inspection, reload, layout, theme, help, and collection initialization actions.
+
+The command palette also provides **Import cURL Request** and **Generate Code** for the selected request. Code generation supports choosing a language and library, and can optionally interpolate the active environment.
 
 ### Browse mode (request pane focused, not editing)
 | Key | Action |

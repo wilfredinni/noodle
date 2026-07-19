@@ -180,7 +180,8 @@ Cursor-aware `$variable` completion system across all text inputs:
 - All command logic centralized in exported functions:
   `sendRequest`, `saveRequest`, `editRequestOverlay`, `editRequestYaml`,
   `newRequest`, `cloneRequest`, `deleteRequest`, `deleteFolder`,
-  `copyResponseBody`, `cycleEnvironment`, `openEnvironmentEditor`,
+  `copyResponseBody`, `openResponseQuery`, `canGenerateClientCode`,
+  `cycleEnvironment`, `openEnvironmentEditor`,
   `saveEnvironment`, `newEnvironment`, `cloneEnvironment`, `deleteEnvironment`,
   `newFolder`, `toggleLayout`, `togglePaneExpand`, `undoAll`,
   `toggleHelp`, `openThemePicker`, `openCollectionSwitcher`
@@ -300,10 +301,11 @@ App (src/ui/App.tsx)
       │   ├── EnvHeaderPane
       │   └── EnvEditorPane
       ├── [overlays] (rendered in AppOverlays.tsx)
-      │   ├── PickerOverlay (generic base) → used by CommandPalette, CollectionSwitcher, ThemePicker
+      │   ├── PickerOverlay (generic base) → used by CommandPalette, CollectionSwitcher, ThemePicker, RequestFinder
       │   ├── HelpOverlay, YamlEditorOverlay (CodeEditor for YAML)
       │   ├── NewRequestOverlay, CloneRequestOverlay, NewFolderOverlay
-      │   ├── CommandPaletteOverlay, CollectionSwitcherOverlay
+      │   ├── CommandPaletteOverlay, CollectionSwitcherOverlay, RequestFinderOverlay
+      │   ├── ImportCurlOverlay, CodeGeneratorOverlay
       │   ├── ConfirmOverlay (save, delete, undo-all, collection-switch)
       │   └── ValidationNotice
       └── StatusBar
@@ -423,6 +425,10 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Code editor | `src/ui/editor/CodeEditor.ts`, `src/ui/editor/CodeEditorCompletion.tsx`, `src/ui/editor/codeEditorParsers.ts`, `src/ui/editor/YamlEditorOverlay.tsx`, `src/ui/editor/ValidationNotice.tsx` |
 | Variable completion | `src/ui/variable-completion/variableCompletion.ts`, `src/ui/variable-completion/useVariableCompletion.ts`, `src/ui/variable-completion/variableCompletionInterceptor.tsx`, `src/ui/variable-completion/variableHighlight.ts`, `src/ui/variable-completion/highlightOffsets.ts`, `src/ui/variable-completion/envHighlight.ts` |
 | Command palette | `src/ui/commands.ts`, `src/ui/commandActions.ts`, `src/ui/CommandPaletteOverlay.tsx` |
+| Request finder | `src/ui/requestFinder.ts`, `src/ui/overlays/RequestFinderOverlay.tsx` |
+| cURL import (TUI) | `src/converters/curl/parse.ts`, `src/ui/overlays/ImportCurlOverlay.tsx`, `src/ui/useOverlayIntercepts.ts` |
+| Code generation | `src/codegen/buildHar.ts`, `src/codegen/targets.ts`, `src/codegen/variableHash.ts`, `src/ui/overlays/CodeGeneratorOverlay.tsx` |
+| JSONPath response filtering | `src/ui/responseQuery.ts`, `src/ui/ResponsePane.tsx` |
 | Themes | `src/ui/theme.tsx`, `src/ui/theme-data.ts` |
 | Clipboard | `src/ui/clipboard.ts` |
 | CLI | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` (import cmd), `src/app/commands/update.ts` (update cmd), `src/app/import.ts` (importer logic) |
