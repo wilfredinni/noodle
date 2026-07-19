@@ -57,6 +57,20 @@ host.press("ctrl+s")
 expect(saveHandler).toHaveBeenCalled()
 ```
 
+### Modal keyboard-isolation testing
+```ts
+const backgroundKeys: string[] = []
+keymap.intercept("key", (ctx) => {
+  backgroundKeys.push(ctx.event.name)
+}, { priority: 0 })
+
+host.press("i") // overlay shortcut
+host.press("e") // unused printable key
+expect(backgroundKeys).toEqual([])
+```
+
+Mount the visible overlay before pressing keys. Its shield should have higher priority than background handlers; non-editable overlays call both `preventDefault()` and `stopPropagation()`, while editable overlays call `stopPropagation()` without preventing the focused input’s default behavior.
+
 ## Where to put tests
 
 | What changed | Test file |

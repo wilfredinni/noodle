@@ -59,7 +59,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - `src/ui/AppInner.tsx` — overlay rendering gated on `overlay` state
 - `src/ui/useAppKeymap.ts` — overlay keymap layers (Close/Cancel)
 
-**Follow:** For picker-style overlays (search + filter + list + selection), reuse `PickerOverlay<T>` with render props. Others use `Modal` from OpenTUI directly. State is managed via a `useState` in `AppInner.tsx` or a dedicated hook.
+**Follow:** For picker-style overlays (search + filter + list + selection), reuse `PickerOverlay<T>` with render props. Others use `Modal` from OpenTUI directly. State is managed via a `useState` in `AppInner.tsx` or a dedicated hook. Add its state name to `activeOverlay` so `useModalKeyboardShield` blocks background handlers. Give modal-owned controls that need first access to keys a priority above the shield; non-editable overlays still consume their own unhandled keys at priority 100.
 
 **Implement (picker-style):**
 1. Define item type and use `PickerOverlay<T>` with `keyExtractor`, `filter`, `renderItem` props
@@ -75,7 +75,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 5. Modal auto-grabs focus; Close/Cancel keys (Escape) dismiss
 6. If overlay writes to collection (e.g., new request), call `filestore.saveRequest` then reload collection
 
-**Test:** Component test verifying overlay renders, form submission works, cancel dismisses.
+**Test:** Component test verifying overlay renders, form submission works, cancel dismisses, and a lower-priority background key handler does not receive an overlay shortcut or an unused printable key.
 
 **Verify:** `bun test && bun run lint && bun run typecheck`
 

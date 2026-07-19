@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { act } from "react"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -6,6 +6,7 @@ import type { CliRenderer } from "@opentui/core"
 import { ThemeProvider } from "../../src/ui/theme"
 import { RendererProvider } from "../../src/ui/RendererContext"
 import { CodeGeneratorOverlay } from "../../src/ui/overlays/CodeGeneratorOverlay"
+import * as clipboard from "../../src/ui/clipboard"
 import { setupKeymap } from "./_helpers"
 
 const baseRequest = {
@@ -127,19 +128,10 @@ describe("CodeGeneratorOverlay", () => {
       },
       { priority: 0 },
     )
-    let copied = false
+    const copySpy = spyOn(clipboard, "copyToClipboard").mockReturnValue(true)
     const render = await testRender(
       <KeymapProvider keymap={keymap}>
-        <RendererProvider
-          renderer={
-            {
-              copyToClipboardOSC52: () => {
-                copied = true
-                return true
-              },
-            } as unknown as CliRenderer
-          }
-        >
+        <RendererProvider renderer={{} as unknown as CliRenderer}>
           <ThemeProvider activeIndex={0} previewIndex={null}>
             <CodeGeneratorOverlay
               visible
@@ -161,8 +153,9 @@ describe("CodeGeneratorOverlay", () => {
     })
 
     expect(backgroundKeys).toEqual([])
-    expect(copied).toBe(true)
+    expect(copySpy).toHaveBeenCalled()
     disposeBackground()
+    copySpy.mockRestore()
     cleanup()
   })
 })

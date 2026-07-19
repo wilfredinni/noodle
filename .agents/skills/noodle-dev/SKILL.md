@@ -37,6 +37,7 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - **CommandItem.run returns boolean:** Palette commands return `true` (close palette) or `false` (stay open). Unavailable commands (save when not dirty, copy body when no response) return `false`.
 - **Commands are contextual by view:** Build them in view-specific arrays (`requestCommands`, `mainEnvCommands`, `editorEnvCommands`, `workspaceCommands`, `systemCommands`, etc.) in `buildCommandPaletteCommands`. The function appends the right arrays based on `view === "main"` vs `view === "env-editor"`. Don't add guards inside `run()` — use the array structure.
 - **PickerOverlay isNavigable:** If items include non-selectable entries (like section headers), pass `isNavigable={(item) => item.type === "command"}`. PickerOverlay skips non-navigable items during up/down/return.
+- **Modal keyboard isolation:** `useModalKeyboardShield` blocks lower-priority handlers for every active modal. Non-editable modals consume unused keys; editable modals only stop propagation so focused inputs keep working. Modal-owned controls that must receive keys first (for example, an open `Select` menu) use a priority above the shield.
 - **getView reads React state, not keymap:** In `AppInner.tsx`, `getView: () => keymap.getData("app.view")` is stale during render. Use `getView: () => view` where `view` is the React state variable.
 
 ## Common pitfalls
@@ -50,3 +51,4 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - Adding command logic inline instead of in `commandActions.ts` — will drift from keymap layer and vice versa
 - Using `run: () => void` instead of `run: () => boolean` — palette won't close correctly
 - Adding vanilla `run()` with early `return` instead of `return false` — palette closes on unavailable commands
+- Handling modal keys only with `useKeyboard` — events can leak to obscured panes; consume them through a keymap interceptor instead
