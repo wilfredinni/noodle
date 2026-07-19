@@ -46,11 +46,24 @@ describe("CodeGeneratorOverlay", () => {
       .captureCharFrame()
       .split("\n")
       .map((row) => row.replace(/\s+$/, ""))
-    expect(rows.findIndex((row) => row.includes("Generate code"))).toBe(4)
-    expect(rows.findIndex((row) => row.includes("close"))).toBe(26)
+    const headerRow = rows.findIndex((row) => row.includes("Generate code"))
+    const footerRow = rows.findIndex((row) => row.includes("close"))
+    expect(headerRow).toBeGreaterThanOrEqual(0)
+    expect(footerRow).toBeGreaterThan(headerRow)
+
     await act(async () => host.press("down"))
     await render.renderOnce()
-    expect(render.captureCharFrame()).not.toContain("1  curl --request GET")
+    const scrolledRows = render
+      .captureCharFrame()
+      .split("\n")
+      .map((row) => row.replace(/\s+$/, ""))
+    expect(scrolledRows.findIndex((row) => row.includes("Generate code"))).toBe(
+      headerRow,
+    )
+    expect(scrolledRows.findIndex((row) => row.includes("close"))).toBe(
+      footerRow,
+    )
+    expect(scrolledRows.join("\n")).not.toContain("1  curl --request GET")
     cleanup()
   })
 
