@@ -12,7 +12,19 @@ import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 
+export function shouldCancelSend(
+  activeOverlay: string,
+  event: { name: string; eventType?: string },
+): boolean {
+  return (
+    activeOverlay === "none" &&
+    event.name === "escape" &&
+    event.eventType === "press"
+  )
+}
+
 export function useOverlayIntercepts(opts: {
+  activeOverlay: string
   cancelSendRef: RefObject<() => void>
   saveState: SaveState
   confirmSelection: number
@@ -93,6 +105,7 @@ export function useOverlayIntercepts(opts: {
 }): void {
   const keymap = useKeymap()
   const {
+    activeOverlay,
     cancelSendRef,
     saveState,
     confirmSelection,
@@ -164,14 +177,14 @@ export function useOverlayIntercepts(opts: {
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
-        if (ctx.event.name === "escape" && ctx.event.eventType === "press") {
+        if (shouldCancelSend(activeOverlay, ctx.event)) {
           cancelSendRef.current()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [keymap, cancelSendRef])
+  }, [activeOverlay, keymap, cancelSendRef])
 
   // ── Overlay: Save Confirm ──────────────────────────────────────────
   useEffect(() => {

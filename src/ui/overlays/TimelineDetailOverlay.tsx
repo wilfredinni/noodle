@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useKeyboard } from "@opentui/react"
+import { useKeymap } from "@opentui/keymap/react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineEntry } from "../../schema"
 import { VALID_COLORS } from "../../env/constants"
@@ -44,6 +44,7 @@ export function TimelineDetailOverlay({
   envColors?: Record<string, string | undefined>
 }) {
   const theme = useTheme()
+  const keymap = useKeymap()
   const [activeTab, setActiveTab] = useState<"request" | "response">("response")
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
@@ -51,22 +52,28 @@ export function TimelineDetailOverlay({
     if (visible) setActiveTab("response")
   }, [visible])
 
-  useKeyboard((key) => {
+  useEffect(() => {
     if (!visible || !entry) return
-    if (key.name === "escape") {
-      onClose()
-    } else if (key.name === "left" || key.name === "right") {
-      setActiveTab((prev) => (prev === "request" ? "response" : "request"))
-    } else if (key.name === "up") {
-      scrollRef.current?.scrollBy(-1)
-    } else if (key.name === "down") {
-      scrollRef.current?.scrollBy(1)
-    } else if (key.name === "pageup") {
-      scrollRef.current?.scrollBy(-1, "viewport")
-    } else if (key.name === "pagedown") {
-      scrollRef.current?.scrollBy(1, "viewport")
-    }
-  })
+    return keymap.intercept(
+      "key",
+      (ctx) => {
+        const key = ctx.event
+        key.preventDefault()
+        key.stopPropagation()
+
+        if (key.name === "escape") onClose()
+        else if (key.name === "left" || key.name === "right") {
+          setActiveTab((prev) => (prev === "request" ? "response" : "request"))
+        } else if (key.name === "up") scrollRef.current?.scrollBy(-1)
+        else if (key.name === "down") scrollRef.current?.scrollBy(1)
+        else if (key.name === "pageup")
+          scrollRef.current?.scrollBy(-1, "viewport")
+        else if (key.name === "pagedown")
+          scrollRef.current?.scrollBy(1, "viewport")
+      },
+      { priority: 100 },
+    )
+  }, [visible, entry, keymap, onClose])
 
   if (!visible || !entry) return null
 
