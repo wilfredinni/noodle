@@ -116,4 +116,53 @@ describe("CodeGeneratorOverlay", () => {
     expect(frame).toContain("Clojure")
     cleanup()
   })
+
+  it("consumes modal keys before background handlers", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const backgroundKeys: string[] = []
+    const disposeBackground = keymap.intercept(
+      "key",
+      (ctx) => {
+        backgroundKeys.push(ctx.event.name)
+      },
+      { priority: 0 },
+    )
+    let copied = false
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RendererProvider
+          renderer={
+            {
+              copyToClipboardOSC52: () => {
+                copied = true
+                return true
+              },
+            } as unknown as CliRenderer
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CodeGeneratorOverlay
+              visible
+              request={baseRequest}
+              env={{ name: "staging", vars: {} }}
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </RendererProvider>
+      </KeymapProvider>,
+      { width: 100, height: 32 },
+    )
+
+    await render.renderOnce()
+    await act(async () => {
+      host.press("i")
+      host.press("e")
+      host.press("c")
+    })
+
+    expect(backgroundKeys).toEqual([])
+    expect(copied).toBe(true)
+    disposeBackground()
+    cleanup()
+  })
 })
