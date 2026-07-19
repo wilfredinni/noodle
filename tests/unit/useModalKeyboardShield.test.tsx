@@ -1,35 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
-import { useModalKeyboardShield } from "../../src/ui/useModalKeyboardShield"
+import {
+  HARD_BLOCKING_OVERLAYS,
+  EDITABLE_OVERLAYS,
+  useModalKeyboardShield,
+} from "../../src/ui/useModalKeyboardShield"
 import { setupKeymap } from "./_helpers"
-
-const EDITABLE_OVERLAYS = [
-  "command-palette",
-  "request-finder",
-  "collection-switcher",
-  "theme",
-  "yaml-editor",
-  "new-request",
-  "import-curl",
-  "edit-request",
-  "clone-request",
-  "new-folder",
-]
-
-const HARD_OVERLAYS = [
-  "help",
-  "about",
-  "confirm",
-  "env-delete",
-  "undo-all",
-  "init-confirm",
-  "collection-switch-confirm",
-  "code-generator",
-  "folder-delete",
-  "request-delete",
-  "timeline-detail",
-]
 
 function Shield({ activeOverlay }: { activeOverlay: string }) {
   useModalKeyboardShield(activeOverlay)
@@ -62,7 +39,7 @@ describe("useModalKeyboardShield", () => {
   })
 
   it("blocks lower-priority handlers for every non-editable overlay", async () => {
-    for (const activeOverlay of HARD_OVERLAYS) {
+    for (const activeOverlay of HARD_BLOCKING_OVERLAYS) {
       const { keymap, host, cleanup } = setupKeymap()
       const backgroundKeys: string[] = []
       const dispose = keymap.intercept(
@@ -83,5 +60,21 @@ describe("useModalKeyboardShield", () => {
       dispose()
       cleanup()
     }
+  })
+
+  it("does not hard-block unknown overlays", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <Shield activeOverlay="future-overlay" />
+      </KeymapProvider>,
+      { width: 1, height: 1 },
+    )
+
+    await render.renderOnce()
+    const event = host.press("e")
+    expect(event.defaultPrevented).toBe(false)
+    expect(event.propagationStopped).toBe(true)
+    cleanup()
   })
 })
