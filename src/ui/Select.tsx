@@ -8,6 +8,7 @@ import {
 import { createPortal, useRenderer } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useTheme, contrastOnPrimary } from "./theme"
+import { lerpColor } from "./gradient"
 
 let nextSelectId = 0
 
@@ -154,11 +155,42 @@ export function Select({
       ? (theme as unknown as Record<string, string>)[selectedItem.color]
       : undefined
 
-  const indicatorColor = selectedItem
-    ? open || selectedBadgeBg
+  const softBadgeBg = useMemo(() => {
+    if (!selectedBadgeBg) return undefined
+    try {
+      return lerpColor(theme.backgroundElement, selectedBadgeBg, 0.3)
+    } catch {
+      return theme.borderSubtle
+    }
+  }, [theme.backgroundElement, selectedBadgeBg])
+
+  const selectBg = selectedBadgeBg
+    ? visualFocused
+      ? softBadgeBg
+      : selectedBadgeBg
+    : open
+      ? theme.primary
+      : visualFocused
+        ? theme.borderSubtle
+        : theme.backgroundElement
+
+  const labelColor = selectedBadgeBg
+    ? visualFocused
+      ? selectedBadgeBg
+      : contrastColor
+    : open
       ? contrastColor
       : theme.text
-    : theme.textMuted
+
+  const indicatorColor = selectedBadgeBg
+    ? visualFocused
+      ? selectedBadgeBg
+      : contrastColor
+    : selectedItem
+      ? open
+        ? contrastColor
+        : theme.text
+      : theme.textMuted
 
   const dropdownWidth = useMemo(() => {
     let maxLabel = 0
@@ -199,13 +231,7 @@ export function Select({
             alignItems: "center",
             paddingLeft: 1,
             paddingRight: 1,
-            backgroundColor: selectedBadgeBg
-              ? selectedBadgeBg
-              : open
-                ? theme.primary
-                : visualFocused
-                  ? theme.borderSubtle
-                  : theme.backgroundElement,
+            backgroundColor: selectBg,
           }}
         >
           <box style={{ flexDirection: "row", flexGrow: 1 }}>
@@ -214,7 +240,7 @@ export function Select({
                 badge && selectedBadgeBg
                   ? extractText(selectedItem.label)
                   : selectedItem.label,
-                open || selectedBadgeBg ? contrastColor : theme.text,
+                labelColor,
                 focused && selectedBadgeBg ? TextAttributes.BOLD : undefined,
               )
             ) : (
