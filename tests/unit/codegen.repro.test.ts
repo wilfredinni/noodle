@@ -120,6 +120,16 @@ describe("repro: S1 — multi-line triple-quoted string highlighting", () => {
     const result = highlightGeneratedCode(code, THEMES[0]!)
     expect(result.length).toBe(1)
   })
+
+  it("handles CRLF line endings by stripping carriage returns from highlighted output", () => {
+    const code = "GET / HTTP/1.1\r\nHost: api.example.com\r\n\r\n"
+    const result = highlightGeneratedCode(code, THEMES[0]!)
+    expect(result.length).toBe(4)
+    for (const styledText of result) {
+      const plainText = styledText.chunks.map((chunk) => chunk.text).join("")
+      expect(plainText).not.toContain("\r")
+    }
+  })
 })
 
 describe("repro: CVE-2026-12143 — CRLF injection in multipart form field names", () => {
