@@ -34,10 +34,11 @@ export function TimelineEntry({
   const urlStr = formatRequestUrl(entry)
   const timingStr = hasError ? "ERR" : entryTiming(entry)
   const reltimeStr = relativeTime(entry.timestamp)
+  const rightStr = timingStr + " " + reltimeStr
 
   const ROW_PADDING = 2
-  // icon (2) + method box (6) + status box (4) + timing/reltime (13) = 25
-  const FIXED_ELEMENTS = 25
+  // icon (2) + method box (6) + status box (4) = 12
+  const FIXED_ELEMENTS = 12 + rightStr.length
   const urlMaxLength =
     containerWidth > 0
       ? Math.max(10, containerWidth - ROW_PADDING - FIXED_ELEMENTS)
@@ -97,7 +98,7 @@ export function TimelineEntry({
           wrapMode="none"
           style={{ flexShrink: 0 }}
         >
-          {timingStr + " " + reltimeStr}
+          {rightStr}
         </text>
       </box>
     </box>
