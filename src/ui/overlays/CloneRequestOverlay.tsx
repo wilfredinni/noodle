@@ -65,7 +65,7 @@ export const CloneRequestOverlay = forwardRef<
         <input
           ref={nameRef}
           value={name}
-          placeholder="Request Name"
+          placeholder="e.g. Get Users"
           onInput={setName}
           focused
           backgroundColor={theme.backgroundElement}

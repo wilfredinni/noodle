@@ -40,6 +40,8 @@ export function ResponsePane({
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
+  layout,
+  expanded,
 }: {
   state: SendState
   focused?: boolean
@@ -52,6 +54,8 @@ export function ResponsePane({
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
+  layout?: "stacked" | "side-by-side"
+  expanded?: "request" | "response" | null
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -303,7 +307,65 @@ export function ResponsePane({
                 entries={timelineEntries ?? []}
                 focused={focused}
                 onOpenEntry={onOpenTimelineEntry}
+                layout={layout}
+                expanded={expanded}
               />
+            ) : activeTab === "body" ? (
+              <box
+                style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}
+              >
+                {queryVisible && (
+                  <box
+                    style={{ flexDirection: "column", gap: 0, flexShrink: 0 }}
+                  >
+                    <box style={{ flexDirection: "row", gap: 1 }}>
+                      <input
+                        ref={queryInputRef}
+                        value={query}
+                        placeholder="$.data.items[*].id"
+                        onInput={setQuery}
+                        backgroundColor={theme.background}
+                        focusedBackgroundColor={theme.background}
+                        textColor={theme.text}
+                        cursorColor={theme.primary}
+                        style={{ flexGrow: 1 }}
+                      />
+                    </box>
+                    {queryResult?.kind === "success" ? (
+                      <text fg={theme.success}>
+                        {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
+                      </text>
+                    ) : parsedResponseBody?.kind === "invalid-json" ? (
+                      <text fg={theme.warning}>
+                        {parsedResponseBody.message}
+                      </text>
+                    ) : queryResult?.kind === "invalid-expression" ? (
+                      <text fg={theme.warning}>Invalid query syntax</text>
+                    ) : query.trim() === "" ? (
+                      <text fg={theme.textMuted}>
+                        Enter a JSONPath expression to filter this response
+                      </text>
+                    ) : null}
+                  </box>
+                )}
+                <scrollbox
+                  ref={scrollRef}
+                  scrollY
+                  scrollbarOptions={{ visible: false }}
+                  style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+                >
+                  {displayedBody === "" ? (
+                    <text fg={theme.textMuted}>(no body)</text>
+                  ) : (
+                    <JsonBodyViewer
+                      key={displayedBody}
+                      body={displayedBody}
+                      theme={theme}
+                      readOnly
+                    />
+                  )}
+                </scrollbox>
+              </box>
             ) : (
               <scrollbox
                 ref={scrollRef}
@@ -311,89 +373,42 @@ export function ResponsePane({
                 scrollbarOptions={{ visible: false }}
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
-                {activeTab === "body" ? (
-                  <box style={{ flexDirection: "column", gap: 1 }}>
-                    {queryVisible && (
-                      <box style={{ flexDirection: "column", gap: 0 }}>
-                        <box style={{ flexDirection: "row", gap: 1 }}>
-                          <input
-                            ref={queryInputRef}
-                            value={query}
-                            placeholder="$.data.items[*].id"
-                            onInput={setQuery}
-                            backgroundColor={theme.background}
-                            focusedBackgroundColor={theme.background}
-                            textColor={theme.text}
-                            cursorColor={theme.primary}
-                            style={{ flexGrow: 1 }}
-                          />
-                        </box>
-                        {queryResult?.kind === "success" ? (
-                          <text fg={theme.success}>
-                            {`${queryResult.matchCount} match${queryResult.matchCount === 1 ? "" : "es"}`}
-                          </text>
-                        ) : parsedResponseBody?.kind === "invalid-json" ? (
-                          <text fg={theme.warning}>
-                            {parsedResponseBody.message}
-                          </text>
-                        ) : queryResult?.kind === "invalid-expression" ? (
-                          <text fg={theme.warning}>Invalid query syntax</text>
-                        ) : query.trim() === "" ? (
-                          <text fg={theme.textMuted}>
-                            Enter a JSONPath expression to filter this response
-                          </text>
-                        ) : null}
-                      </box>
-                    )}
-                    {displayedBody === "" ? (
-                      <text fg={theme.textMuted}>(no body)</text>
-                    ) : (
-                      <JsonBodyViewer
-                        key={displayedBody}
-                        body={displayedBody}
-                        theme={theme}
-                        readOnly
-                      />
-                    )}
-                  </box>
-                ) : (
-                  responseHeaders.map(({ key, value }, i) => {
-                    if (i < responseHeaders.length - 1) {
-                      return (
-                        <box
-                          key={key}
-                          border={["bottom"]}
-                          borderColor={theme.borderDimmest}
-                          style={{ flexDirection: "row" }}
-                        >
-                          <text
-                            fg={theme.textMuted}
-                            style={{ minWidth: maxKeyLen + 1, paddingLeft: 1 }}
-                          >
-                            {key.padEnd(maxKeyLen)}
-                          </text>
-                          <text
-                            fg={theme.textMuted}
-                            wrapMode="none"
-                            style={{ flexShrink: 1, minWidth: 5 }}
-                          >
-                            : {value}
-                          </text>
-                        </box>
-                      )
-                    }
+                {responseHeaders.map(({ key, value }, i) => {
+                  if (i < responseHeaders.length - 1) {
                     return (
-                      <text
+                      <box
                         key={key}
-                        fg={theme.textMuted}
-                        wrapMode="none"
-                        style={{ paddingLeft: 1 }}
+                        border={["bottom"]}
+                        borderColor={theme.borderDimmest}
+                        style={{ flexDirection: "row" }}
                       >
-                        {key.padEnd(maxKeyLen)} : {value}
-                      </text>
+                        <text
+                          fg={theme.textMuted}
+                          style={{ minWidth: maxKeyLen + 1, paddingLeft: 1 }}
+                        >
+                          {key.padEnd(maxKeyLen)}
+                        </text>
+                        <text
+                          fg={theme.textMuted}
+                          wrapMode="none"
+                          style={{ flexShrink: 1, minWidth: 5 }}
+                        >
+                          : {value}
+                        </text>
+                      </box>
                     )
-                  })
-                )}
+                  }
+                  return (
+                    <text
+                      key={key}
+                      fg={theme.textMuted}
+                      wrapMode="none"
+                      style={{ paddingLeft: 1 }}
+                    >
+                      {key.padEnd(maxKeyLen)} : {value}
+                    </text>
+                  )
+                })}
               </scrollbox>
             )}
           </Tabs>

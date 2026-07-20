@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import type { ScrollBoxRenderable } from "@opentui/core"
+import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineEntry } from "../../schema"
 import { VALID_COLORS } from "../../env/constants"
 import { useTheme } from "../theme"
@@ -17,6 +17,7 @@ import {
   formatRequestUrl,
   buildDetailRequestHeaders,
   shortMethod,
+  truncateUrl,
 } from "../timeline/formatTimeline"
 
 const TAB_DEFS: TabDef[] = [
@@ -108,8 +109,8 @@ export function TimelineDetailOverlay({
     <Overlay visible width={70} gap={1} padding={1}>
       <box
         style={{
-          paddingLeft: 4,
-          paddingRight: 4,
+          paddingLeft: 2,
+          paddingRight: 2,
           flexDirection: "column",
           flexGrow: 1,
           minHeight: 0,
@@ -129,19 +130,11 @@ export function TimelineDetailOverlay({
           >
             {activeTab === "request" && (
               <box style={{ flexDirection: "column", gap: 0, paddingTop: 1 }}>
-                <box style={{ flexDirection: "row" }}>
-                  <text fg={methodColor(method, theme)}>
-                    {shortMethod(method)}
-                  </text>
-                  <text
-                    fg={theme.primary}
-                    wrapMode="none"
-                    style={{ flexShrink: 1, minWidth: 10 }}
-                  >
-                    {" "}
-                    {formatRequestUrl(entry)}
-                  </text>
-                </box>
+                <text
+                  wrapMode="char"
+                  style={{ flexShrink: 1, minWidth: 10 }}
+                  content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
+                />
                 <box
                   style={{
                     flexDirection: "row",
@@ -153,7 +146,7 @@ export function TimelineDetailOverlay({
                     wrapMode="none"
                     style={{ flexShrink: 1, minWidth: 10 }}
                   >
-                    {entry.request.id}
+                    {truncateUrl(entry.request.id, 60)}
                   </text>
                 </box>
                 <box

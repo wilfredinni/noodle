@@ -181,7 +181,9 @@ export function highlightYaml(
   const lines = content.split("\n")
 
   for (let i = 0; i < lines.length; i++) {
-    const spans = tokenizeYamlLine(lines[i], theme)
+    const line = lines[i]!
+    const cleanLine = line.endsWith("\r") ? line.slice(0, -1) : line
+    const spans = tokenizeYamlLine(cleanLine, theme)
     for (const span of spans) {
       if (span.text.length > 0) {
         const styleId = styleIdForFg(span.fg, theme, style)

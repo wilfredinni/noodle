@@ -109,4 +109,31 @@ describe("highlightJsonTokens", () => {
     expect(numToken!.fg).toBe(opencodeTheme.warning)
     expect(boolToken!.fg).toBe(opencodeTheme.info)
   })
+
+  it("handles CRLF line endings in highlightJsonTokens", () => {
+    const body = '{\r\n  "name": "hello",\r\n  "active": true\r\n}'
+    const tokens = highlightJsonTokens(body, opencodeTheme)
+
+    const nameToken = tokens.find((t) => t.text.includes('"name"'))
+    const valueToken = tokens.find((t) => t.text.includes("hello"))
+    const activeToken = tokens.find((t) => t.text.includes('"active"'))
+    const boolToken = tokens.find((t) => t.text.includes("true"))
+
+    expect(nameToken).toBeDefined()
+    expect(nameToken!.fg).toBe(opencodeTheme.secondary)
+    expect(valueToken).toBeDefined()
+    expect(valueToken!.fg).toBe(opencodeTheme.success)
+    expect(activeToken).toBeDefined()
+    expect(activeToken!.fg).toBe(opencodeTheme.secondary)
+    expect(boolToken).toBeDefined()
+    expect(boolToken!.fg).toBe(opencodeTheme.info)
+
+    expect(tokens[0]!.offset).toBe(0) // "{"
+    expect(tokens[1]!.offset).toBe(1) // "  "
+    expect(tokens[2]!.offset).toBe(3) // "\"name\": "
+
+    for (const t of tokens) {
+      expect(t.text).not.toContain("\r")
+    }
+  })
 })

@@ -156,7 +156,7 @@ export function highlightGeneratedCode(
   target?: string,
 ): StyledText[] {
   const hashComments = target != null ? HASH_COMMENT_TARGETS.has(target) : false
-  const lines = code.split("\n")
+  const lines = code.split(/\r?\n/)
   let inTripleQuote: "none" | "double" | "single" = "none"
 
   return lines.map((line) => {
