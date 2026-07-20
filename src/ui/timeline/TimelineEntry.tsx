@@ -31,18 +31,13 @@ export function TimelineEntry({
   const rowFg = isSelected ? theme.text : theme.textMuted
 
   const method = entryMethod(entry)
-  const methodStr =
-    method === "PATCH"
-      ? shortMethod(method).padEnd(7)
-      : shortMethod(method).padEnd(5)
-  const statusStr =
-    status !== null ? (status === 0 ? "ERR " : `${status} `) : "--- "
   const urlStr = formatRequestUrl(entry)
   const timingStr = hasError ? "ERR" : entryTiming(entry)
   const reltimeStr = relativeTime(entry.timestamp)
 
   const ROW_PADDING = 2
-  const FIXED_ELEMENTS = 24
+  // icon (2) + method box (6) + status box (4) + timing/reltime (13) = 25
+  const FIXED_ELEMENTS = 25
   const urlMaxLength =
     containerWidth > 0
       ? Math.max(10, containerWidth - ROW_PADDING - FIXED_ELEMENTS)
@@ -74,13 +69,21 @@ export function TimelineEntry({
             overflow: "hidden",
           }}
         >
-          <text fg={rowFg}>⏎ </text>
-          <text fg={methodColor(method, theme)}>{methodStr}</text>
-          {status !== null ? (
-            <text fg={statusColor(status, theme)}>{statusStr}</text>
-          ) : (
-            <text fg={theme.textMuted}>{statusStr}</text>
-          )}
+          <text fg={rowFg} style={{ marginRight: 1 }}>
+            ⏎
+          </text>
+          <box style={{ width: 5, marginRight: 1 }}>
+            <text fg={methodColor(method, theme)}>{shortMethod(method)}</text>
+          </box>
+          <box style={{ width: 3, marginRight: 1 }}>
+            {status !== null ? (
+              <text fg={statusColor(status, theme)}>
+                {status === 0 ? "ERR" : status}
+              </text>
+            ) : (
+              <text fg={theme.textMuted}>---</text>
+            )}
+          </box>
           <text
             fg={theme.text}
             wrapMode="none"
@@ -89,7 +92,11 @@ export function TimelineEntry({
             {truncateUrl(urlStr, urlMaxLength)}
           </text>
         </box>
-        <text fg={hasError ? theme.error : theme.textMuted}>
+        <text
+          fg={hasError ? theme.error : theme.textMuted}
+          wrapMode="none"
+          style={{ flexShrink: 0 }}
+        >
           {timingStr + " " + reltimeStr}
         </text>
       </box>

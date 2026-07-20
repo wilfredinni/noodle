@@ -9,10 +9,14 @@ export function TimelineTab({
   entries,
   focused,
   onOpenEntry,
+  layout,
+  expanded,
 }: {
   entries: TimelineEntryType[]
   focused: boolean
   onOpenEntry?: (entry: TimelineEntryType) => void
+  layout?: "stacked" | "side-by-side"
+  expanded?: "request" | "response" | null
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -46,7 +50,7 @@ export function TimelineTab({
     return () => {
       active = false
     }
-  }, [termWidth])
+  }, [termWidth, layout, expanded])
 
   useEffect(() => {
     setSelectedIdx(0)

@@ -90,6 +90,8 @@ export function RequestResponseView({
           responseKey={responseKey}
           responseQueryRef={responseQueryRef}
           responseBodyForCopyRef={responseBodyForCopyRef}
+          layout={layout}
+          expanded={expanded}
         />
       )}
     </>

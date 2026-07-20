@@ -40,6 +40,8 @@ export function ResponsePane({
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
+  layout,
+  expanded,
 }: {
   state: SendState
   focused?: boolean
@@ -52,6 +54,8 @@ export function ResponsePane({
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
+  layout?: "stacked" | "side-by-side"
+  expanded?: "request" | "response" | null
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -303,6 +307,8 @@ export function ResponsePane({
                 entries={timelineEntries ?? []}
                 focused={focused}
                 onOpenEntry={onOpenTimelineEntry}
+                layout={layout}
+                expanded={expanded}
               />
             ) : (
               <scrollbox
