@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import type { ScrollBoxRenderable } from "@opentui/core"
+import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineEntry } from "../../schema"
 import { VALID_COLORS } from "../../env/constants"
 import { useTheme } from "../theme"
@@ -130,18 +130,11 @@ export function TimelineDetailOverlay({
           >
             {activeTab === "request" && (
               <box style={{ flexDirection: "column", gap: 0, paddingTop: 1 }}>
-                <box style={{ flexDirection: "row" }}>
-                  <text fg={methodColor(method, theme)}>
-                    {shortMethod(method) + " "}
-                  </text>
-                  <text
-                    fg={theme.primary}
-                    wrapMode="none"
-                    style={{ flexShrink: 1, minWidth: 10 }}
-                  >
-                    {truncateUrl(formatRequestUrl(entry), 58)}
-                  </text>
-                </box>
+                <text
+                  wrapMode="char"
+                  style={{ flexShrink: 1, minWidth: 10 }}
+                  content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
+                />
                 <box
                   style={{
                     flexDirection: "row",
