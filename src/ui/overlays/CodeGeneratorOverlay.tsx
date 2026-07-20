@@ -216,9 +216,9 @@ export function CodeGeneratorOverlay({
           }}
           scrollbarOptions={{ visible: false }}
         >
-          <box style={{ flexDirection: "column" }}>
+          <box style={{ flexDirection: "column", width: 82 }}>
             {highlightedCode.map((line, index) => (
-              <box key={index} style={{ flexDirection: "row" }}>
+              <box key={index} style={{ flexDirection: "row", width: "100%" }}>
                 <text
                   fg={theme.textMuted}
                   wrapMode="none"
@@ -229,7 +229,7 @@ export function CodeGeneratorOverlay({
                 <text
                   content={line}
                   wrapMode="word"
-                  style={{ flexShrink: 1, minWidth: 10 }}
+                  style={{ flexGrow: 1, flexShrink: 1, minWidth: 10 }}
                 />
               </box>
             ))}

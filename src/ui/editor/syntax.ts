@@ -95,7 +95,10 @@ export function highlightJson(
   formatted: string,
   theme: Theme,
 ): HighlightedLine[] {
-  return formatted.split("\n").map((line) => tokenizeLine(line, theme))
+  return formatted.split("\n").map((line) => {
+    const cleanLine = line.endsWith("\r") ? line.slice(0, -1) : line
+    return tokenizeLine(cleanLine, theme)
+  })
 }
 
 export function highlightJsonTokens(
@@ -107,7 +110,9 @@ export function highlightJsonTokens(
   let offset = 0
 
   for (let i = 0; i < lines.length; i++) {
-    const parts = tokenizeLine(lines[i], theme)
+    const line = lines[i]!
+    const cleanLine = line.endsWith("\r") ? line.slice(0, -1) : line
+    const parts = tokenizeLine(cleanLine, theme)
     for (const part of parts) {
       if (part.text.length > 0) {
         tokens.push({
@@ -131,7 +136,6 @@ export function highlightJsonTokens(
         offset += part.text.length
       }
     }
-    // newline has no character position in addHighlightByCharRange
   }
 
   return tokens

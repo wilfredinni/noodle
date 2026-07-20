@@ -882,7 +882,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     const lines = content.split("\n")
 
     for (const line of lines) {
-      const spans = tokenizeYamlLine(line, this._theme)
+      const cleanLine = line.endsWith("\r") ? line.slice(0, -1) : line
+      const spans = tokenizeYamlLine(cleanLine, this._theme)
       for (const span of spans) {
         if (span.text.length > 0) {
           let tsName = "string"
