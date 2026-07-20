@@ -191,7 +191,7 @@ export const NewRequestOverlay = forwardRef<
           <input
             ref={nameRef}
             value={name}
-            placeholder="Request Name"
+            placeholder="e.g. Get Users"
             onInput={setName}
             focused={focus === "name"}
             backgroundColor={theme.backgroundElement}
@@ -220,7 +220,7 @@ export const NewRequestOverlay = forwardRef<
               isEditing={focus === "url"}
               onChange={setUrl}
               isFocused
-              placeholder="Request URL"
+              placeholder="https://api.example.com/users"
               backgroundColor={theme.backgroundElement}
               focusedBackgroundColor={theme.borderSubtle}
               paddingX={1}

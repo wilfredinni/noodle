@@ -64,7 +64,7 @@ export const NewFolderOverlay = forwardRef<
         <input
           ref={nameRef}
           value={name}
-          placeholder="Folder Name"
+          placeholder="e.g. Users"
           onInput={setName}
           focused
           backgroundColor={theme.backgroundElement}
