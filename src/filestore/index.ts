@@ -10,6 +10,8 @@ import {
 } from "./save"
 import {
   loadTimeline,
+  loadTimelineBody,
+  exportTimelineBody,
   saveTimelineEntry,
   clearTimelineForRequest,
   clearAllTimeline,
@@ -25,6 +27,8 @@ export {
   deleteFolder,
   ensureCollectionBootstrapped,
   loadTimeline,
+  loadTimelineBody,
+  exportTimelineBody,
   saveTimelineEntry,
   clearTimelineForRequest,
   clearAllTimeline,

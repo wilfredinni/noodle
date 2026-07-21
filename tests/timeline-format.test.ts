@@ -522,7 +522,7 @@ describe("buildTimelineEntry", () => {
     expect(entry.response).toBeUndefined()
   })
 
-  it("truncates request body longer than 10_000 chars", () => {
+  it("preserves request body longer than 10_000 chars for sidecar storage", () => {
     const longBody = "x".repeat(15_000)
     const req = {
       id: "req-trunc",
@@ -548,11 +548,11 @@ describe("buildTimelineEntry", () => {
       envName: undefined,
     }
     const entry = buildTimelineEntry(req, result)
-    expect(entry.request.body?.length).toBe(10_000)
-    expect(entry.request.body).toBe("x".repeat(10_000))
+    expect(entry.request.body?.length).toBe(15_000)
+    expect(entry.request.body).toBe(longBody)
   })
 
-  it("truncates response body longer than 10_000 chars", () => {
+  it("preserves response body longer than 10_000 chars for sidecar storage", () => {
     const longBody = "y".repeat(20_000)
     const req = {
       id: "req-resp-trunc",
@@ -578,8 +578,8 @@ describe("buildTimelineEntry", () => {
       envName: undefined,
     }
     const entry = buildTimelineEntry(req, result)
-    expect(entry.response?.body.length).toBe(10_000)
-    expect(entry.response?.body).toBe("y".repeat(10_000))
+    expect(entry.response?.body?.length).toBe(20_000)
+    expect(entry.response?.body).toBe(longBody)
     expect(entry.response?.size).toBe(20_000)
   })
 

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   loadTimeline,
+  loadTimelineBody,
   saveTimelineEntry,
   clearTimelineForRequest,
   clearAllTimeline,
@@ -99,6 +100,36 @@ describe("loadTimeline", () => {
 })
 
 describe("saveTimelineEntry", () => {
+  it("stores bodies larger than 10KB in compressed sidecars", async () => {
+    const requestBody = "request-".repeat(2_000)
+    const responseBody = JSON.stringify({ data: "response-".repeat(2_000) })
+    const entry = makeEntry({
+      request: { ...makeEntry().request, body: requestBody },
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: responseBody,
+        timeMs: 1,
+        size: new TextEncoder().encode(responseBody).length,
+      },
+    })
+
+    const persisted = await saveTimelineEntry(dir, "large", entry)
+    expect(persisted.request.body).toBeUndefined()
+    expect(persisted.request.bodyRef).toBeDefined()
+    expect(persisted.response?.body).toBeUndefined()
+    expect(persisted.response?.bodyRef).toBeDefined()
+
+    const loaded = await loadTimeline(dir, "large")
+    expect(
+      await loadTimelineBody(dir, "large", loaded[0]!.request.bodyRef!),
+    ).toBe(requestBody)
+    expect(
+      await loadTimelineBody(dir, "large", loaded[0]!.response!.bodyRef!),
+    ).toBe(responseBody)
+  })
+
   it("creates .timeline dir and writes YAML file", async () => {
     const entry = makeEntry({ timestamp: 42 })
     await saveTimelineEntry(dir, "req-a", entry)
@@ -138,6 +169,20 @@ describe("saveTimelineEntry", () => {
     expect(result[0].timestamp).toBe(9)
     expect(result[1].timestamp).toBe(8)
     expect(result[2].timestamp).toBe(7)
+  })
+
+  it("removes sidecars for entries evicted by retention", async () => {
+    const body = "x".repeat(12_000)
+    const first = await saveTimelineEntry(
+      dir,
+      "evict",
+      makeEntry({ request: { ...makeEntry().request, body } }),
+      1,
+    )
+    await saveTimelineEntry(dir, "evict", makeEntry({ timestamp: 2 }), 1)
+    expect(
+      loadTimelineBody(dir, "evict", first.request.bodyRef!),
+    ).rejects.toThrow()
   })
 
   it("uses default max of 50 when not specified", async () => {

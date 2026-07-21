@@ -94,6 +94,7 @@ export interface Environment {
 }
 
 export interface TimelineEntry {
+  id?: string
   timestamp: number
   envName?: string
   request: {
@@ -104,19 +105,29 @@ export interface TimelineEntry {
     headers: Record<string, KvEntry>
     params: ParamEntry[]
     body?: string
+    bodyRef?: TimelineBodyRef
+    bodyTruncated?: boolean
     auth?: Auth
   }
   response?: {
     status: number
     statusText: string
     headers: Record<string, string>
-    body: string
+    body?: string
+    bodyRef?: TimelineBodyRef
+    bodyTruncated?: boolean
     timeMs: number
     size: number
   }
   error?: {
     message: string
   }
+}
+
+export interface TimelineBodyRef {
+  file: string
+  encoding: "gzip"
+  size: number
 }
 
 export interface CollectionSettings {

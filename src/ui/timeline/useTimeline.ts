@@ -59,10 +59,10 @@ export function useTimeline(
       const save = saveChainRef.current.then(() =>
         saveTimelineEntry(collectionDir, requestId, entry, maxEntries),
       )
-      saveChainRef.current = save.catch(() => {})
-      await save
+      saveChainRef.current = save.then(() => {}).catch(() => {})
+      const persisted = await save
       setEntries((prev) => {
-        const next = [entry, ...prev]
+        const next = [persisted, ...prev]
         return next.length > maxEntries ? next.slice(0, maxEntries) : next
       })
     },

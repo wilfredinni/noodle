@@ -7,6 +7,21 @@ import { tokenizeLine, type SpanPart } from "./syntax"
 import type { Environment } from "../../schema"
 
 const VIEWPORT_HEIGHT = 35
+const LARGE_BODY_BYTES = 1024 * 1024
+const RAW_CHUNK_LENGTH = 1_000
+
+function viewerLines(body: string): string[] {
+  const lines = body.split(/\r?\n/)
+  if (body.length <= LARGE_BODY_BYTES) return lines
+  return lines.flatMap((line) => {
+    if (line.length <= RAW_CHUNK_LENGTH) return [line]
+    const chunks: string[] = []
+    for (let start = 0; start < line.length; start += RAW_CHUNK_LENGTH) {
+      chunks.push(line.slice(start, start + RAW_CHUNK_LENGTH))
+    }
+    return chunks
+  })
+}
 
 function highlightEnvVarsInParts(
   parts: SpanPart[],
@@ -63,7 +78,7 @@ export function VirtualizedBodyViewer({
   backgroundColor?: string
   scrollRef?: RefObject<ScrollBoxRenderable | null>
 }) {
-  const lines = useMemo(() => body.split(/\r?\n/), [body])
+  const lines = useMemo(() => viewerLines(body), [body])
   const totalLines = lines.length
   const [scrollTop, setScrollTop] = useState(0)
 
@@ -186,7 +201,7 @@ export function JsonBodyViewer({
     }
   }, [body, theme, readOnly, activeEnv])
 
-  if (lineCount > 150) {
+  if (lineCount > 150 || body.length > LARGE_BODY_BYTES) {
     return (
       <VirtualizedBodyViewer
         body={body}

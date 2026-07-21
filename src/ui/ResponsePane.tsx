@@ -22,6 +22,7 @@ import { HeaderTable } from "./HeaderTable"
 import { TimelineTab } from "./timeline/TimelineTab"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
 
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
@@ -70,6 +71,7 @@ export function ResponsePane({
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")
   const [settledQuery, setSettledQuery] = useState("")
+  const [showLargeBody, setShowLargeBody] = useState(false)
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
@@ -91,6 +93,7 @@ export function ResponsePane({
         const idx = ids.indexOf(prev)
         return ids[(idx + 1) % ids.length]
       })
+    else if (key.name === "v" && activeTab === "body") setShowLargeBody(true)
     else if (activeTab === "timeline") return
     else if (key.name === "down") scrollRef.current?.scrollBy(1)
     else if (key.name === "up") scrollRef.current?.scrollBy(-1)
@@ -168,6 +171,7 @@ export function ResponsePane({
     setQueryVisible(false)
     setQuery("")
     setSettledQuery("")
+    setShowLargeBody(false)
   }, [responseKey, state.status, isDone ? state.response.body : null])
 
   useEffect(() => {
@@ -192,8 +196,16 @@ export function ResponsePane({
 
   const formattedBody = useMemo(() => {
     if (state.status !== "done") return ""
+    if (bodySize > AUTO_RENDER_LIMIT) {
+      return showLargeBody ? state.response.body : ""
+    }
     return formatBody(state.response)
-  }, [state.status, state.status === "done" ? state.response.body : null])
+  }, [
+    state.status,
+    state.status === "done" ? state.response.body : null,
+    bodySize,
+    showLargeBody,
+  ])
 
   const parsedResponseBody = useMemo(() => {
     if (!isDone || !queryVisible) return null
@@ -360,7 +372,14 @@ export function ResponsePane({
                   scrollbarOptions={{ visible: false }}
                   style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
                 >
-                  {displayedBody === "" ? (
+                  {isDone && bodySize > AUTO_RENDER_LIMIT && !showLargeBody ? (
+                    <box style={{ flexDirection: "column" }}>
+                      <text
+                        fg={theme.warning}
+                      >{`Body is ${formatSize(bodySize)}. It was not rendered automatically.`}</text>
+                      <text fg={theme.textMuted}>v view raw · ctrl+b copy</text>
+                    </box>
+                  ) : displayedBody === "" ? (
                     <text fg={theme.textMuted}>(no body)</text>
                   ) : (
                     <JsonBodyViewer

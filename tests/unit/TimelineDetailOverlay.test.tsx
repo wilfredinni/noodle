@@ -68,6 +68,65 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("keeps a large body visible when scrolling past headers", async () => {
+    const body = JSON.stringify(
+      {
+        data: Array.from({ length: 1_000 }, (_, i) => ({
+          id: i,
+          name: `item-${i}`,
+        })),
+      },
+      null,
+      2,
+    )
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: Object.fromEntries(
+            Array.from({ length: 12 }, (_, i) => [
+              `x-header-${i}`,
+              `value-${i}`,
+            ]),
+          ),
+          body,
+          timeMs: 12,
+          size: body.length,
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("end"))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain('"name": "item-999"')
+    cleanup()
+  })
+
+  it("requires an explicit view action for bodies larger than 5MB", async () => {
+    const body = "x".repeat(5 * 1024 * 1024 + 1)
+    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body,
+          timeMs: 12,
+          size: body.length,
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("not rendered automatically")
+    cleanup()
+  })
+
   it("renders error details", async () => {
     const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
       makeEntry({ error: { message: "Connection refused" } }),

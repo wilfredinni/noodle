@@ -1,9 +1,15 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { randomUUID } from "node:crypto"
+import { gzip, gunzip } from "node:zlib"
+import { promisify } from "node:util"
+import { mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises"
+import { basename, dirname, join } from "node:path"
 import * as yaml from "js-yaml"
-import type { ParamEntry, TimelineEntry } from "../schema"
+import type { ParamEntry, TimelineBodyRef, TimelineEntry } from "../schema"
 
 const DEFAULT_MAX_ENTRIES = 50
+const INLINE_BODY_LIMIT = 10_000
+const gzipAsync = promisify(gzip)
+const gunzipAsync = promisify(gunzip)
 
 function timelineDir(colDir: string): string {
   return join(colDir, ".timeline")
@@ -11,6 +17,24 @@ function timelineDir(colDir: string): string {
 
 function timelinePath(colDir: string, reqId: string): string {
   return join(timelineDir(colDir), `${reqId}.yml`)
+}
+
+function bodyDir(colDir: string, reqId: string): string {
+  return `${timelinePath(colDir, reqId)}.bodies`
+}
+
+function byteSize(body: string): number {
+  return new TextEncoder().encode(body).length
+}
+
+function bodyFile(entryId: string, kind: "request" | "response"): string {
+  return `${entryId}-${kind}.gz`
+}
+
+function isSafeBodyFile(file: string): boolean {
+  return (
+    basename(file) === file && /^[a-f0-9-]+-(request|response)\.gz$/i.test(file)
+  )
 }
 
 function migrateParams(params: unknown): ParamEntry[] {
@@ -34,12 +58,32 @@ function migrateParams(params: unknown): ParamEntry[] {
 
 function migrateEntry(entry: Record<string, unknown>): TimelineEntry {
   const req = (entry.request ?? {}) as Record<string, unknown>
+  const response = entry.response as Record<string, unknown> | undefined
+  const requestBody = typeof req.body === "string" ? req.body : undefined
+  const responseBody =
+    typeof response?.body === "string" ? response.body : undefined
   return {
     ...entry,
     request: {
       ...req,
       params: migrateParams(req.params),
+      bodyTruncated:
+        requestBody?.length === INLINE_BODY_LIMIT && req.bodyRef === undefined
+          ? true
+          : undefined,
     },
+    response: response
+      ? {
+          ...response,
+          bodyTruncated:
+            responseBody?.length === INLINE_BODY_LIMIT &&
+            typeof response.size === "number" &&
+            response.size > INLINE_BODY_LIMIT &&
+            response.bodyRef === undefined
+              ? true
+              : undefined,
+        }
+      : undefined,
   } as TimelineEntry
 }
 
@@ -61,6 +105,92 @@ async function readTimelineEntries(
   }
 }
 
+async function writeBody(
+  colDir: string,
+  reqId: string,
+  entryId: string,
+  kind: "request" | "response",
+  body: string,
+): Promise<TimelineBodyRef> {
+  const file = bodyFile(entryId, kind)
+  const dir = bodyDir(colDir, reqId)
+  await mkdir(dir, { recursive: true })
+  await writeFile(join(dir, file), await gzipAsync(Buffer.from(body, "utf8")))
+  return { file, encoding: "gzip", size: byteSize(body) }
+}
+
+async function removeBody(
+  colDir: string,
+  reqId: string,
+  ref: TimelineBodyRef | undefined,
+): Promise<void> {
+  if (!ref || !isSafeBodyFile(ref.file)) return
+  await unlink(join(bodyDir(colDir, reqId), ref.file)).catch(() => {})
+}
+
+async function removeEntryBodies(
+  colDir: string,
+  reqId: string,
+  entry: TimelineEntry,
+): Promise<void> {
+  await Promise.all([
+    removeBody(colDir, reqId, entry.request.bodyRef),
+    removeBody(colDir, reqId, entry.response?.bodyRef),
+  ])
+}
+
+async function persistBodies(
+  colDir: string,
+  reqId: string,
+  source: TimelineEntry,
+): Promise<{ entry: TimelineEntry; refs: TimelineBodyRef[] }> {
+  const id = source.id ?? randomUUID()
+  const entry: TimelineEntry = {
+    ...source,
+    id,
+    request: { ...source.request },
+    response: source.response ? { ...source.response } : undefined,
+  }
+  const refs: TimelineBodyRef[] = []
+
+  try {
+    if (
+      entry.request.body &&
+      byteSize(entry.request.body) > INLINE_BODY_LIMIT
+    ) {
+      const ref = await writeBody(
+        colDir,
+        reqId,
+        id,
+        "request",
+        entry.request.body,
+      )
+      entry.request.bodyRef = ref
+      entry.request.body = undefined
+      refs.push(ref)
+    }
+    if (
+      entry.response?.body &&
+      byteSize(entry.response.body) > INLINE_BODY_LIMIT
+    ) {
+      const ref = await writeBody(
+        colDir,
+        reqId,
+        id,
+        "response",
+        entry.response.body,
+      )
+      entry.response.bodyRef = ref
+      entry.response.body = undefined
+      refs.push(ref)
+    }
+  } catch (e) {
+    await Promise.all(refs.map((ref) => removeBody(colDir, reqId, ref)))
+    throw e
+  }
+  return { entry, refs }
+}
+
 export async function loadTimeline(
   colDir: string,
   reqId: string,
@@ -72,6 +202,25 @@ export async function loadTimeline(
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return []
     throw new Error(
       `filestore.loadTimeline: failed to load timeline for ${reqId}`,
+      { cause: e },
+    )
+  }
+}
+
+export async function loadTimelineBody(
+  colDir: string,
+  reqId: string,
+  ref: TimelineBodyRef,
+): Promise<string> {
+  if (!isSafeBodyFile(ref.file)) {
+    throw new Error("filestore.loadTimelineBody: invalid body reference")
+  }
+  try {
+    const compressed = await readFile(join(bodyDir(colDir, reqId), ref.file))
+    return (await gunzipAsync(compressed)).toString("utf8")
+  } catch (e) {
+    throw new Error(
+      "filestore.loadTimelineBody: failed to load timeline body",
       {
         cause: e,
       },
@@ -79,34 +228,58 @@ export async function loadTimeline(
   }
 }
 
+export async function exportTimelineBody(
+  colDir: string,
+  entry: TimelineEntry,
+  kind: "request" | "response",
+  body: string,
+): Promise<string> {
+  const file = `${entry.id ?? entry.timestamp}-${kind}.body`
+  const dir = join(timelineDir(colDir), "exports")
+  await mkdir(dir, { recursive: true })
+  const path = join(dir, file)
+  await writeFile(path, body, "utf8")
+  return path
+}
+
 export async function saveTimelineEntry(
   colDir: string,
   reqId: string,
   entry: TimelineEntry,
   maxEntries = DEFAULT_MAX_ENTRIES,
-): Promise<void> {
+): Promise<TimelineEntry> {
   const filePath = timelinePath(colDir, reqId)
   await mkdir(dirname(filePath), { recursive: true })
-
+  const { entry: persisted, refs } = await persistBodies(colDir, reqId, entry)
   const current = await readTimelineEntries(colDir, reqId)
-  current.unshift(entry)
+  const next = [persisted, ...current]
+  const evicted = next.splice(maxEntries)
 
-  if (current.length > maxEntries) {
-    current.length = maxEntries
+  try {
+    await writeFile(filePath, yaml.dump(next), "utf8")
+  } catch (e) {
+    await Promise.all(refs.map((ref) => removeBody(colDir, reqId, ref)))
+    throw new Error(
+      "filestore.saveTimelineEntry: failed to save timeline entry",
+      {
+        cause: e,
+      },
+    )
   }
 
-  const yamlText = yaml.dump(current)
-  await writeFile(filePath, yamlText, "utf8")
+  await Promise.all(evicted.map((old) => removeEntryBodies(colDir, reqId, old)))
+  return persisted
 }
 
 export async function clearTimelineForRequest(
   colDir: string,
   reqId: string,
 ): Promise<void> {
-  const filePath = join(timelineDir(colDir), `${reqId}.yml`)
+  const filePath = timelinePath(colDir, reqId)
   try {
     await mkdir(dirname(filePath), { recursive: true })
     await writeFile(filePath, yaml.dump([]), "utf8")
+    await rm(bodyDir(colDir, reqId), { recursive: true, force: true })
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return
     throw e
@@ -116,13 +289,8 @@ export async function clearTimelineForRequest(
 export async function clearAllTimeline(colDir: string): Promise<void> {
   const dir = timelineDir(colDir)
   try {
+    await rm(dir, { recursive: true, force: true })
     await mkdir(dir, { recursive: true })
-    const entries = await readdir(dir, { withFileTypes: true })
-    await Promise.all(
-      entries
-        .filter((e) => e.isFile() && e.name.endsWith(".yml"))
-        .map((e) => writeFile(join(dir, e.name), yaml.dump([]), "utf8")),
-    )
   } catch {
     // ignore
   }
