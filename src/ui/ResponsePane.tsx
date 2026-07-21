@@ -18,6 +18,7 @@ import {
   type ResponseQueryController,
 } from "./responseQuery"
 
+import { HeaderTable } from "./HeaderTable"
 import { TimelineTab } from "./timeline/TimelineTab"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -174,10 +175,6 @@ export function ResponsePane({
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   const responseHeaders = isDone ? formatHeaders(state.response) : []
-  const maxKeyLen =
-    responseHeaders.length > 0
-      ? Math.max(...responseHeaders.map((h) => h.key.length))
-      : 0
 
   const bodySize = useMemo(() => {
     if (state.status !== "done") return 0
@@ -373,42 +370,7 @@ export function ResponsePane({
                 scrollbarOptions={{ visible: false }}
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
-                {responseHeaders.map(({ key, value }, i) => {
-                  if (i < responseHeaders.length - 1) {
-                    return (
-                      <box
-                        key={key}
-                        border={["bottom"]}
-                        borderColor={theme.borderDimmest}
-                        style={{ flexDirection: "row" }}
-                      >
-                        <text
-                          fg={theme.textMuted}
-                          style={{ minWidth: maxKeyLen + 1, paddingLeft: 1 }}
-                        >
-                          {key.padEnd(maxKeyLen)}
-                        </text>
-                        <text
-                          fg={theme.textMuted}
-                          wrapMode="none"
-                          style={{ flexShrink: 1, minWidth: 5 }}
-                        >
-                          : {value}
-                        </text>
-                      </box>
-                    )
-                  }
-                  return (
-                    <text
-                      key={key}
-                      fg={theme.textMuted}
-                      wrapMode="none"
-                      style={{ paddingLeft: 1 }}
-                    >
-                      {key.padEnd(maxKeyLen)} : {value}
-                    </text>
-                  )
-                })}
+                <HeaderTable entries={responseHeaders} theme={theme} />
               </scrollbox>
             )}
           </Tabs>
