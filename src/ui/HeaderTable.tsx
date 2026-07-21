@@ -58,7 +58,7 @@ export function HeaderTable({
           <text
             fg={theme.textMuted}
             wrapMode="none"
-            style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
+            style={{ flexGrow: 1, flexShrink: 1, minWidth: 5 }}
           >
             {entry.value}
           </text>
