@@ -10,6 +10,7 @@ import { Badge } from "../Badge"
 import { formatBody, formatHeaders, formatSize, statusColor } from "../format"
 import { methodColor } from "../formatRequest"
 import { JsonBodyViewer } from "../editor/JsonBodyViewer"
+import { HeaderTable } from "../HeaderTable"
 import {
   entryMethod,
   entryStatus,
@@ -92,14 +93,6 @@ export function TimelineDetailOverlay({
     entry.request.headers,
   )
   const responseHeaders = entry.response ? formatHeaders(entry.response) : []
-  const requestMaxKeyLen = requestHeaders.reduce(
-    (max, header) => Math.max(max, header.key.length),
-    0,
-  )
-  const responseMaxKeyLen = responseHeaders.reduce(
-    (max, header) => Math.max(max, header.key.length),
-    0,
-  )
   const requestBody = entry.request.body
     ? formatRequestBody(entry.request.body)
     : ""
@@ -156,30 +149,7 @@ export function TimelineDetailOverlay({
                 >
                   <text fg={theme.text}>Headers</text>
                 </box>
-                {requestHeaders.length === 0 ? (
-                  <text fg={theme.textMuted}>(no headers)</text>
-                ) : (
-                  requestHeaders.map(({ key, value }, index) => (
-                    <box
-                      key={key}
-                      border={
-                        index < requestHeaders.length - 1 ? ["bottom"] : []
-                      }
-                      borderColor={theme.borderDimmest}
-                      style={{ flexDirection: "row" }}
-                    >
-                      <text
-                        fg={theme.textMuted}
-                        style={{ minWidth: requestMaxKeyLen + 1 }}
-                      >
-                        {key.padEnd(requestMaxKeyLen)}
-                      </text>
-                      <text fg={theme.textMuted} wrapMode="none">
-                        : {value}
-                      </text>
-                    </box>
-                  ))
-                )}
+                <HeaderTable entries={requestHeaders} theme={theme} />
                 <box
                   border={["bottom"]}
                   borderColor={theme.borderSubtle}
@@ -246,30 +216,7 @@ export function TimelineDetailOverlay({
                 <box border={["bottom"]} borderColor={theme.borderSubtle}>
                   <text fg={theme.text}>Headers</text>
                 </box>
-                {responseHeaders.length === 0 ? (
-                  <text fg={theme.textMuted}>(no headers)</text>
-                ) : (
-                  responseHeaders.map(({ key, value }, index) => (
-                    <box
-                      key={key}
-                      border={
-                        index < responseHeaders.length - 1 ? ["bottom"] : []
-                      }
-                      borderColor={theme.borderDimmest}
-                      style={{ flexDirection: "row" }}
-                    >
-                      <text
-                        fg={theme.textMuted}
-                        style={{ minWidth: responseMaxKeyLen + 1 }}
-                      >
-                        {key.padEnd(responseMaxKeyLen)}
-                      </text>
-                      <text fg={theme.textMuted} wrapMode="none">
-                        : {value}
-                      </text>
-                    </box>
-                  ))
-                )}
+                <HeaderTable entries={responseHeaders} theme={theme} />
                 <box
                   border={["bottom"]}
                   borderColor={theme.borderSubtle}
