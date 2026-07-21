@@ -286,7 +286,7 @@ describe("ResponsePane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ResponsePane state={state} focused={true} />
       </KeymapProvider>,
@@ -303,6 +303,16 @@ describe("ResponsePane scrollbox", () => {
       .filter((l: string) => l.includes("item-"))
     expect(bodyLines.length).toBeGreaterThan(0)
     expect(bodyLines.length).toBeLessThan(100)
+
+    await act(async () => mockInput.pressKey("END"))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("item-99")
+
+    await act(async () => mockInput.pressKey("HOME"))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("item-0")
   })
 })
 

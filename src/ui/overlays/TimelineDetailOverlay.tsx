@@ -72,6 +72,14 @@ export function TimelineDetailOverlay({
           scrollRef.current?.scrollBy(-1, "viewport")
         else if (key.name === "pagedown")
           scrollRef.current?.scrollBy(1, "viewport")
+        else if (key.name === "home") scrollRef.current?.scrollTo(0)
+        else if (key.name === "end")
+          scrollRef.current?.scrollTo(
+            Math.max(
+              0,
+              scrollRef.current.scrollHeight - scrollRef.current.height,
+            ),
+          )
       },
       { priority: 100 },
     )
@@ -163,6 +171,7 @@ export function TimelineDetailOverlay({
                     body={requestBody}
                     theme={theme}
                     readOnly
+                    scrollRef={scrollRef}
                   />
                 ) : (
                   <text fg={theme.textMuted}>(no body)</text>
@@ -231,6 +240,7 @@ export function TimelineDetailOverlay({
                       body={responseBody}
                       theme={theme}
                       readOnly
+                      scrollRef={scrollRef}
                     />
                   ) : (
                     <text fg={theme.textMuted}>(empty body)</text>

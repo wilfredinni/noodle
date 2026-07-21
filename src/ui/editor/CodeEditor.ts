@@ -763,7 +763,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     const snapshotId = ++this._highlightSnapshotId
     const content = this.plainText
 
-    if (content.length === 0 || content.length > 10_000_000) {
+    if (content.length === 0 || content.length > 100_000) {
       this.clearAllHighlights()
       if (this._folds.size > 0) {
         this._folds.clear()

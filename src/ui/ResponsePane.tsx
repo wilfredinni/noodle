@@ -96,6 +96,15 @@ export function ResponsePane({
     else if (key.name === "up") scrollRef.current?.scrollBy(-1)
     else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
     else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
+    else if (key.name === "home") {
+      key.preventDefault()
+      scrollRef.current?.scrollTo(0)
+    } else if (key.name === "end") {
+      key.preventDefault()
+      scrollRef.current?.scrollTo(
+        Math.max(0, scrollRef.current.scrollHeight - scrollRef.current.height),
+      )
+    }
   })
 
   useEffect(() => {

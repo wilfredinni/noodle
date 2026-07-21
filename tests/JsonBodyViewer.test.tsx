@@ -1,6 +1,8 @@
+import { act } from "react"
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { ThemeProvider, THEMES } from "../src/ui/theme"
 import { JsonBodyViewer } from "../src/ui/editor/JsonBodyViewer"
 
@@ -43,7 +45,7 @@ describe("JsonBodyViewer", () => {
     const items = new Array(3000).fill(item).join(",\n")
     const largeBody = `{\n  "results": [\n${items}\n  ]\n}`
 
-    const { renderOnce } = await testRender(
+    const { renderOnce, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <JsonBodyViewer body={largeBody} theme={theme} readOnly />
       </ThemeProvider>,
@@ -54,5 +56,40 @@ describe("JsonBodyViewer", () => {
     // Wait for chunked async highlights to complete
     await new Promise((resolve) => setTimeout(resolve, 50))
     await renderOnce()
+    await act(async () => renderer.destroy())
+  })
+
+  it("renders the scrolled window for large bodies", async () => {
+    const theme = THEMES[0]!
+    const body = Array.from({ length: 300 }, (_, i) => `{"line": ${i}}`).join(
+      "\n",
+    )
+    const scrollRef = { current: null as ScrollBoxRenderable | null }
+
+    const { renderOnce, captureCharFrame, renderer } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <scrollbox ref={scrollRef} style={{ height: 10 }}>
+          <JsonBodyViewer
+            body={body}
+            theme={theme}
+            readOnly
+            scrollRef={scrollRef}
+          />
+        </scrollbox>
+      </ThemeProvider>,
+      { width: 40, height: 10 },
+    )
+
+    await renderOnce()
+    expect(captureCharFrame()).toContain('"line": 0')
+
+    await act(async () => {
+      scrollRef.current!.scrollTop = 290
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain('"line": 299')
+    await act(async () => renderer.destroy())
   })
 })

@@ -58,7 +58,7 @@ function applyEnvHighlights(
   }
 }
 
-export const MAX_HIGHLIGHT_SIZE = 10_000_000
+export const MAX_HIGHLIGHT_SIZE = 100_000
 
 export function highlightTextarea(
   textarea: TextareaRenderable,

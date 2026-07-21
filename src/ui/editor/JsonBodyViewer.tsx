@@ -75,18 +75,17 @@ export function VirtualizedBodyViewer({
   }, [body, scrollRef])
 
   useEffect(() => {
-    let animId: number
     const checkScroll = () => {
       const sb = scrollRef?.current
       if (sb) {
         const top = Math.max(0, Math.floor(sb.scrollTop))
         setScrollTop((prev) => (prev !== top ? top : prev))
       }
-      animId = requestAnimationFrame(checkScroll)
     }
     checkScroll()
+    const intervalId = setInterval(checkScroll, 16)
     return () => {
-      cancelAnimationFrame(animId)
+      clearInterval(intervalId)
     }
   }, [scrollRef])
 
@@ -102,19 +101,17 @@ export function VirtualizedBodyViewer({
       style={{
         height: totalLines,
         width: "100%",
-        position: "relative",
+        flexDirection: "column",
         backgroundColor: bg,
       }}
     >
       <box
         style={{
-          position: "absolute",
-          top: scrollTop,
-          left: 0,
-          right: 0,
-          flexDirection: "column",
+          height: scrollTop,
+          flexShrink: 0,
         }}
-      >
+      />
+      <box style={{ flexDirection: "column" }}>
         {visibleLines.map((lineText, offset) => {
           const lineNum = startIdx + offset + 1
           const cleanLine = lineText.endsWith("\r")
@@ -177,18 +174,6 @@ export function JsonBodyViewer({
     return count
   }, [body])
 
-  if (lineCount > 150) {
-    return (
-      <VirtualizedBodyViewer
-        body={body}
-        theme={theme}
-        activeEnv={activeEnv}
-        backgroundColor={backgroundColor}
-        scrollRef={scrollRef}
-      />
-    )
-  }
-
   const ref = useRef<TextareaRenderable | null>(null)
 
   useEffect(() => {
@@ -200,6 +185,18 @@ export function JsonBodyViewer({
       return highlightTextarea(ta, body, theme, activeEnv ?? null)
     }
   }, [body, theme, readOnly, activeEnv])
+
+  if (lineCount > 150) {
+    return (
+      <VirtualizedBodyViewer
+        body={body}
+        theme={theme}
+        activeEnv={activeEnv}
+        backgroundColor={backgroundColor}
+        scrollRef={scrollRef}
+      />
+    )
+  }
 
   const bg = backgroundColor ?? theme.backgroundPanel
 
