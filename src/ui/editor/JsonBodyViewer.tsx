@@ -3,24 +3,90 @@ import type { TextareaRenderable, ScrollBoxRenderable } from "@opentui/core"
 import type { RefObject } from "react"
 import type { Theme } from "../theme-data"
 import { highlightTextarea } from "./useJsonHighlight"
-import { tokenizeLine, type SpanPart } from "./syntax"
+import {
+  highlightJsonTokens,
+  tokenizeLine,
+  type JsonToken,
+  type SpanPart,
+} from "./syntax"
 import type { Environment } from "../../schema"
 
 const VIEWPORT_HEIGHT = 35
 const LARGE_BODY_BYTES = 1024 * 1024
 const RAW_CHUNK_LENGTH = 1_000
 
-function viewerLines(body: string): string[] {
-  const lines = body.split(/\r?\n/)
-  if (body.length <= LARGE_BODY_BYTES) return lines
-  return lines.flatMap((line) => {
-    if (line.length <= RAW_CHUNK_LENGTH) return [line]
-    const chunks: string[] = []
-    for (let start = 0; start < line.length; start += RAW_CHUNK_LENGTH) {
-      chunks.push(line.slice(start, start + RAW_CHUNK_LENGTH))
+interface ViewerLine {
+  text: string
+  offset: number
+}
+
+function viewerLines(body: string): ViewerLine[] {
+  const lines: ViewerLine[] = []
+  for (let start = 0; start <= body.length;) {
+    const newline = body.indexOf("\n", start)
+    const end = newline === -1 ? body.length : newline
+    const line = body.slice(start, end)
+    if (body.length <= LARGE_BODY_BYTES || line.length <= RAW_CHUNK_LENGTH) {
+      lines.push({ text: line, offset: start })
+    } else {
+      for (
+        let chunkStart = 0;
+        chunkStart < line.length;
+        chunkStart += RAW_CHUNK_LENGTH
+      ) {
+        lines.push({
+          text: line.slice(chunkStart, chunkStart + RAW_CHUNK_LENGTH),
+          offset: start + chunkStart,
+        })
+      }
     }
-    return chunks
-  })
+    if (newline === -1) break
+    start = newline + 1
+  }
+  return lines
+}
+
+function tokenPartsForRange(
+  body: string,
+  tokens: JsonToken[],
+  start: number,
+  end: number,
+  theme: Theme,
+): SpanPart[] {
+  const parts: SpanPart[] = []
+  let lower = 0
+  let upper = tokens.length
+  while (lower < upper) {
+    const middle = Math.floor((lower + upper) / 2)
+    const token = tokens[middle]!
+    if (token.offset + token.text.length <= start) lower = middle + 1
+    else upper = middle
+  }
+
+  let cursor = start
+  for (let index = lower; index < tokens.length; index++) {
+    const token = tokens[index]!
+    if (token.offset >= end) break
+    const tokenStart = Math.max(start, token.offset)
+    const tokenEnd = Math.min(end, token.offset + token.text.length)
+    if (tokenStart > cursor) {
+      parts.push({
+        text: body.slice(cursor, tokenStart),
+        fg: theme.text,
+        kind: "text",
+      })
+    }
+    parts.push({
+      text: body.slice(tokenStart, tokenEnd),
+      fg: token.fg,
+      kind: token.kind,
+    })
+    cursor = tokenEnd
+  }
+  if (cursor < end) {
+    parts.push({ text: body.slice(cursor, end), fg: theme.text, kind: "text" })
+  }
+  return parts
 }
 
 function highlightEnvVarsInParts(
@@ -79,6 +145,11 @@ export function VirtualizedBodyViewer({
   scrollRef?: RefObject<ScrollBoxRenderable | null>
 }) {
   const lines = useMemo(() => viewerLines(body), [body])
+  const tokens = useMemo(
+    () =>
+      body.length > LARGE_BODY_BYTES ? highlightJsonTokens(body, theme) : null,
+    [body, theme],
+  )
   const totalLines = lines.length
   const [scrollTop, setScrollTop] = useState(0)
 
@@ -127,12 +198,20 @@ export function VirtualizedBodyViewer({
         }}
       />
       <box style={{ flexDirection: "column" }}>
-        {visibleLines.map((lineText, offset) => {
+        {visibleLines.map((line, offset) => {
           const lineNum = startIdx + offset + 1
-          const cleanLine = lineText.endsWith("\r")
-            ? lineText.slice(0, -1)
-            : lineText
-          let parts = tokenizeLine(cleanLine, theme)
+          const cleanLine = line.text.endsWith("\r")
+            ? line.text.slice(0, -1)
+            : line.text
+          let parts = tokens
+            ? tokenPartsForRange(
+                body,
+                tokens,
+                line.offset,
+                line.offset + cleanLine.length,
+                theme,
+              )
+            : tokenizeLine(cleanLine, theme)
           if (activeEnv) {
             parts = highlightEnvVarsInParts(parts, activeEnv, theme)
           }

@@ -58,8 +58,6 @@ function applyEnvHighlights(
   }
 }
 
-export const MAX_HIGHLIGHT_SIZE = 100_000
-
 export function highlightTextarea(
   textarea: TextareaRenderable,
   content: string,
@@ -72,19 +70,17 @@ export function highlightTextarea(
   textarea.clearAllHighlights()
   textarea.syntaxStyle = style
 
-  if (content.length > MAX_HIGHLIGHT_SIZE) {
-    return () => {
-      cancelled = true
-    }
-  }
-
+  const displayOffsets = buildCharToDisplayOffsets(content)
   if (content.length <= 20_000) {
     const tokens = highlightJsonTokens(content, theme)
     for (const token of tokens) {
       const styleId = styleIdForFg(token.fg, theme, style)
       textarea.addHighlightByCharRange({
-        start: token.offset,
-        end: token.offset + token.text.length,
+        start: charOffsetToDisplayOffset(displayOffsets, token.offset),
+        end: charOffsetToDisplayOffset(
+          displayOffsets,
+          token.offset + token.text.length,
+        ),
         styleId,
         priority: 1,
       })
@@ -97,30 +93,29 @@ export function highlightTextarea(
     }
   }
 
-  const lines = content.split("\n")
-  const CHUNK_LINES = 400
+  const tokens = highlightJsonTokens(content, theme)
+  const CHUNK_SIZE = 20_000
 
   ;(async () => {
-    let lineOffset = 0
-    for (let i = 0; i < lines.length; i += CHUNK_LINES) {
+    for (let i = 0; i < tokens.length;) {
       if (cancelled) return
 
-      const chunkLines = lines.slice(i, i + CHUNK_LINES)
-      const chunkText = chunkLines.join("\n")
-      const tokens = highlightJsonTokens(chunkText, theme)
-
-      for (const token of tokens) {
+      const chunkEnd = tokens[i]!.offset + CHUNK_SIZE
+      while (i < tokens.length && tokens[i]!.offset < chunkEnd) {
+        const token = tokens[i]!
         if (cancelled) return
         const styleId = styleIdForFg(token.fg, theme, style)
         textarea.addHighlightByCharRange({
-          start: lineOffset + token.offset,
-          end: lineOffset + token.offset + token.text.length,
+          start: charOffsetToDisplayOffset(displayOffsets, token.offset),
+          end: charOffsetToDisplayOffset(
+            displayOffsets,
+            token.offset + token.text.length,
+          ),
           styleId,
           priority: 1,
         })
+        i++
       }
-
-      lineOffset += chunkText.length + 1
 
       // Yield to the event loop so the UI remains fluid and never freezes
       await new Promise((resolve) => setTimeout(resolve, 0))

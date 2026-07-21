@@ -97,6 +97,21 @@ describe("loadTimeline", () => {
     const result = await loadTimeline(dir, "array")
     expect(result[0]?.request.params).toEqual(entry.request.params)
   })
+
+  it("keeps an exact 10KB legacy request body available", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises")
+    const body = "x".repeat(10_000)
+    await mkdir(join(dir, ".timeline"), { recursive: true })
+    await writeFile(
+      join(dir, ".timeline", "legacy-full.yml"),
+      `- timestamp: 1\n  request:\n    id: legacy\n    name: Legacy\n    method: GET\n    url: https://example.com\n    headers: {}\n    params: []\n    body: ${body}\n`,
+      "utf8",
+    )
+
+    const result = await loadTimeline(dir, "legacy-full")
+    expect(result[0]?.request.body).toBe(body)
+    expect(result[0]?.request.bodyTruncated).toBeUndefined()
+  })
 })
 
 describe("saveTimelineEntry", () => {

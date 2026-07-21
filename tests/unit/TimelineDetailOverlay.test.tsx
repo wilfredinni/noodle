@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { act, useState } from "react"
+import { act, useState, type ComponentProps } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -26,6 +26,12 @@ async function renderOverlay(
   entry: TimelineEntry,
   onClose: () => void,
   visible = true,
+  actions: Partial<
+    Pick<
+      ComponentProps<typeof TimelineDetailOverlay>,
+      "onLoadBody" | "onCopyBody" | "onExportBody"
+    >
+  > = {},
 ) {
   const { keymap, host, cleanup } = setupKeymap()
   ;(
@@ -38,6 +44,7 @@ async function renderOverlay(
           visible={visible}
           entry={entry}
           onClose={onClose}
+          {...actions}
         />
       </ThemeProvider>
     </KeymapProvider>,
@@ -124,6 +131,45 @@ describe("TimelineDetailOverlay", () => {
     )
     await renderOnce()
     expect(captureCharFrame()).toContain("not rendered automatically")
+    cleanup()
+  })
+
+  it("loads a sidecar body before copying or exporting it", async () => {
+    const copied: string[] = []
+    const exported: string[] = []
+    const { renderOnce, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          bodyRef: {
+            file: "entry-response.gz",
+            encoding: "gzip",
+            size: 20_000,
+          },
+          timeMs: 1,
+          size: 20_000,
+        },
+      }),
+      () => {},
+      true,
+      {
+        onLoadBody: async () => "saved sidecar body",
+        onCopyBody: (body) => copied.push(body),
+        onExportBody: async (_entry, _kind, body) => {
+          exported.push(body)
+        },
+      },
+    )
+    await renderOnce()
+    await act(async () => {
+      host.press("c")
+      host.press("s")
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(copied).toEqual(["saved sidecar body"])
+    expect(exported).toEqual(["saved sidecar body"])
     cleanup()
   })
 

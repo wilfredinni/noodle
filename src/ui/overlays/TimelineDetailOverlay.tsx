@@ -42,21 +42,21 @@ function bodyInfo(
   entry: TimelineEntry,
   tab: DetailTab,
 ): {
-  body: string
+  body?: string
   ref?: TimelineBodyRef
   size: number
   truncated: boolean
 } {
   if (tab === "request") {
     return {
-      body: entry.request.body ?? "",
+      body: entry.request.body,
       ref: entry.request.bodyRef,
       size: entry.request.bodyRef?.size ?? entry.request.body?.length ?? 0,
       truncated: entry.request.bodyTruncated === true,
     }
   }
   return {
-    body: entry.response?.body ?? "",
+    body: entry.response?.body,
     ref: entry.response?.bodyRef,
     size: entry.response?.bodyRef?.size ?? entry.response?.size ?? 0,
     truncated: entry.response?.bodyTruncated === true,

@@ -59,7 +59,6 @@ function migrateParams(params: unknown): ParamEntry[] {
 function migrateEntry(entry: Record<string, unknown>): TimelineEntry {
   const req = (entry.request ?? {}) as Record<string, unknown>
   const response = entry.response as Record<string, unknown> | undefined
-  const requestBody = typeof req.body === "string" ? req.body : undefined
   const responseBody =
     typeof response?.body === "string" ? response.body : undefined
   return {
@@ -67,10 +66,6 @@ function migrateEntry(entry: Record<string, unknown>): TimelineEntry {
     request: {
       ...req,
       params: migrateParams(req.params),
-      bodyTruncated:
-        requestBody?.length === INLINE_BODY_LIMIT && req.bodyRef === undefined
-          ? true
-          : undefined,
     },
     response: response
       ? {
