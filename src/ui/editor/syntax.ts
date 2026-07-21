@@ -15,7 +15,7 @@ export interface JsonToken {
   kind: "key" | "string" | "number" | "boolean" | "null" | "bracket" | "text"
 }
 
-function tokenizeLine(line: string, theme: Theme): SpanPart[] {
+export function tokenizeLine(line: string, theme: Theme): SpanPart[] {
   if (line.trim() === "") return []
 
   if (/^\s*(\[|\]|\{|\})\s*,?\s*$/.test(line)) {

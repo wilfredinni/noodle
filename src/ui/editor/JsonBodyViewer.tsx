@@ -1,8 +1,155 @@
-import { useEffect, useRef } from "react"
-import type { TextareaRenderable } from "@opentui/core"
+import { useEffect, useMemo, useState, useRef } from "react"
+import type { TextareaRenderable, ScrollBoxRenderable } from "@opentui/core"
+import type { RefObject } from "react"
 import type { Theme } from "../theme-data"
 import { highlightTextarea } from "./useJsonHighlight"
+import { tokenizeLine, type SpanPart } from "./syntax"
 import type { Environment } from "../../schema"
+
+const VIEWPORT_HEIGHT = 35
+
+function highlightEnvVarsInParts(
+  parts: SpanPart[],
+  env: Environment,
+  theme: Theme,
+): SpanPart[] {
+  const result: SpanPart[] = []
+  const varRe = /\$\w+/g
+
+  for (const part of parts) {
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    varRe.lastIndex = 0
+
+    while ((match = varRe.exec(part.text)) !== null) {
+      if (match.index > lastIndex) {
+        result.push({
+          text: part.text.slice(lastIndex, match.index),
+          fg: part.fg,
+          kind: part.kind,
+        })
+      }
+      const varName = match[0].slice(1)
+      const exists = Object.hasOwn(env.vars, varName)
+      result.push({
+        text: match[0],
+        fg: exists ? theme.primary : theme.error,
+      })
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < part.text.length) {
+      result.push({
+        text: part.text.slice(lastIndex),
+        fg: part.fg,
+        kind: part.kind,
+      })
+    }
+  }
+
+  return result
+}
+
+export function VirtualizedBodyViewer({
+  body,
+  theme,
+  activeEnv,
+  backgroundColor,
+  scrollRef,
+}: {
+  body: string
+  theme: Theme
+  activeEnv?: Environment | null
+  backgroundColor?: string
+  scrollRef?: RefObject<ScrollBoxRenderable | null>
+}) {
+  const lines = useMemo(() => body.split(/\r?\n/), [body])
+  const totalLines = lines.length
+  const [scrollTop, setScrollTop] = useState(0)
+
+  useEffect(() => {
+    setScrollTop(0)
+    if (scrollRef?.current) {
+      scrollRef.current.scrollTop = 0
+    }
+  }, [body, scrollRef])
+
+  useEffect(() => {
+    let animId: number
+    const checkScroll = () => {
+      const sb = scrollRef?.current
+      if (sb) {
+        const top = Math.max(0, Math.floor(sb.scrollTop))
+        setScrollTop((prev) => (prev !== top ? top : prev))
+      }
+      animId = requestAnimationFrame(checkScroll)
+    }
+    checkScroll()
+    return () => {
+      cancelAnimationFrame(animId)
+    }
+  }, [scrollRef])
+
+  const bg = backgroundColor ?? theme.backgroundPanel
+  const maxDigits = Math.max(3, String(totalLines).length)
+
+  const startIdx = Math.max(0, scrollTop)
+  const endIdx = Math.min(totalLines, scrollTop + VIEWPORT_HEIGHT)
+  const visibleLines = lines.slice(startIdx, endIdx)
+
+  return (
+    <box
+      style={{
+        height: totalLines,
+        width: "100%",
+        position: "relative",
+        backgroundColor: bg,
+      }}
+    >
+      <box
+        style={{
+          position: "absolute",
+          top: scrollTop,
+          left: 0,
+          right: 0,
+          flexDirection: "column",
+        }}
+      >
+        {visibleLines.map((lineText, offset) => {
+          const lineNum = startIdx + offset + 1
+          const cleanLine = lineText.endsWith("\r")
+            ? lineText.slice(0, -1)
+            : lineText
+          let parts = tokenizeLine(cleanLine, theme)
+          if (activeEnv) {
+            parts = highlightEnvVarsInParts(parts, activeEnv, theme)
+          }
+
+          return (
+            <box key={lineNum} style={{ flexDirection: "row", height: 1 }}>
+              <text fg={theme.textMuted} bg={bg}>
+                {String(lineNum).padStart(maxDigits, " ")}{" "}
+              </text>
+              <box style={{ flexDirection: "row", flexGrow: 1 }}>
+                {parts.length === 0 ? (
+                  <text fg={theme.text} bg={bg}>
+                    {" "}
+                  </text>
+                ) : (
+                  parts.map((part, pIdx) => (
+                    <text key={pIdx} fg={part.fg} bg={bg}>
+                      {part.text}
+                    </text>
+                  ))
+                )}
+              </box>
+            </box>
+          )
+        })}
+      </box>
+    </box>
+  )
+}
 
 export function JsonBodyViewer({
   body,
@@ -11,6 +158,7 @@ export function JsonBodyViewer({
   readOnly = false,
   activeEnv,
   backgroundColor,
+  scrollRef,
 }: {
   body: string
   theme: Theme
@@ -18,16 +166,38 @@ export function JsonBodyViewer({
   readOnly?: boolean
   activeEnv?: Environment | null
   backgroundColor?: string
+  focused?: boolean
+  scrollRef?: RefObject<ScrollBoxRenderable | null>
 }) {
+  const lineCount = useMemo(() => {
+    let count = 1
+    for (let i = 0; i < body.length; i++) {
+      if (body.charCodeAt(i) === 10) count++
+    }
+    return count
+  }, [body])
+
+  if (lineCount > 150) {
+    return (
+      <VirtualizedBodyViewer
+        body={body}
+        theme={theme}
+        activeEnv={activeEnv}
+        backgroundColor={backgroundColor}
+        scrollRef={scrollRef}
+      />
+    )
+  }
+
   const ref = useRef<TextareaRenderable | null>(null)
 
   useEffect(() => {
     const ta = ref.current
     if (ta) {
-      highlightTextarea(ta, body, theme, activeEnv ?? null)
       if (readOnly) {
         ta.focusable = false
       }
+      return highlightTextarea(ta, body, theme, activeEnv ?? null)
     }
   }, [body, theme, readOnly, activeEnv])
 

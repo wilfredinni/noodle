@@ -31,17 +31,54 @@ function styleIdForFg(fg: string, theme: Theme, style: SyntaxStyle): number {
   return style.getStyleId("json.text") ?? 0
 }
 
+function applyEnvHighlights(
+  textarea: TextareaRenderable,
+  content: string,
+  env: Environment,
+  style: SyntaxStyle,
+): void {
+  const varRe = /\$\w+/g
+  const displayOffsets = buildCharToDisplayOffsets(content)
+  let match: RegExpExecArray | null
+  while ((match = varRe.exec(content)) !== null) {
+    const varName = match[0].slice(1)
+    const exists = Object.hasOwn(env.vars, varName)
+    const styleId = exists
+      ? style.getStyleId("env.resolved")!
+      : style.getStyleId("env.missing")!
+    textarea.addHighlightByCharRange({
+      start: charOffsetToDisplayOffset(displayOffsets, match.index),
+      end: charOffsetToDisplayOffset(
+        displayOffsets,
+        match.index + match[0].length,
+      ),
+      styleId,
+      priority: 2,
+    })
+  }
+}
+
+export const MAX_HIGHLIGHT_SIZE = 10_000_000
+
 export function highlightTextarea(
   textarea: TextareaRenderable,
   content: string,
   theme: Theme,
   env?: Environment | null,
-): void {
+): () => void {
+  let cancelled = false
+
   const style = createJsonSyntaxStyle(theme)
   textarea.clearAllHighlights()
   textarea.syntaxStyle = style
 
-  if (content.length <= 100_000) {
+  if (content.length > MAX_HIGHLIGHT_SIZE) {
+    return () => {
+      cancelled = true
+    }
+  }
+
+  if (content.length <= 20_000) {
     const tokens = highlightJsonTokens(content, theme)
     for (const token of tokens) {
       const styleId = styleIdForFg(token.fg, theme, style)
@@ -52,27 +89,49 @@ export function highlightTextarea(
         priority: 1,
       })
     }
+    if (env) {
+      applyEnvHighlights(textarea, content, env, style)
+    }
+    return () => {
+      cancelled = true
+    }
   }
 
-  if (env) {
-    const varRe = /\$\w+/g
-    const displayOffsets = buildCharToDisplayOffsets(content)
-    let match: RegExpExecArray | null
-    while ((match = varRe.exec(content)) !== null) {
-      const varName = match[0].slice(1)
-      const exists = Object.hasOwn(env.vars, varName)
-      const styleId = exists
-        ? style.getStyleId("env.resolved")!
-        : style.getStyleId("env.missing")!
-      textarea.addHighlightByCharRange({
-        start: charOffsetToDisplayOffset(displayOffsets, match.index),
-        end: charOffsetToDisplayOffset(
-          displayOffsets,
-          match.index + match[0].length,
-        ),
-        styleId,
-        priority: 2,
-      })
+  const lines = content.split("\n")
+  const CHUNK_LINES = 400
+
+  ;(async () => {
+    let lineOffset = 0
+    for (let i = 0; i < lines.length; i += CHUNK_LINES) {
+      if (cancelled) return
+
+      const chunkLines = lines.slice(i, i + CHUNK_LINES)
+      const chunkText = chunkLines.join("\n")
+      const tokens = highlightJsonTokens(chunkText, theme)
+
+      for (const token of tokens) {
+        if (cancelled) return
+        const styleId = styleIdForFg(token.fg, theme, style)
+        textarea.addHighlightByCharRange({
+          start: lineOffset + token.offset,
+          end: lineOffset + token.offset + token.text.length,
+          styleId,
+          priority: 1,
+        })
+      }
+
+      lineOffset += chunkText.length + 1
+
+      // Yield to the event loop so the UI remains fluid and never freezes
+      await new Promise((resolve) => setTimeout(resolve, 0))
     }
+
+    if (!cancelled && env) {
+      applyEnvHighlights(textarea, content, env, style)
+    }
+  })()
+
+  return () => {
+    cancelled = true
   }
 }

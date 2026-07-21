@@ -35,4 +35,24 @@ describe("JsonBodyViewer", () => {
     expect(variable).toBeDefined()
     expect(variable!.fg.equals(RGBA.fromHex(theme.primary))).toBe(true)
   })
+
+  it("handles large JSON payloads (>200KB) in JsonBodyViewer without freezing or errors", async () => {
+    const theme = THEMES[0]!
+    const item =
+      '    {\n      "id": "1288d7d4-3c95-4dbe-9d74-c34977478ee8",\n      "status": "completed"\n    }'
+    const items = new Array(3000).fill(item).join(",\n")
+    const largeBody = `{\n  "results": [\n${items}\n  ]\n}`
+
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <JsonBodyViewer body={largeBody} theme={theme} readOnly />
+      </ThemeProvider>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    // Wait for chunked async highlights to complete
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+  })
 })

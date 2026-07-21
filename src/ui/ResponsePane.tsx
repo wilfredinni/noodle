@@ -359,6 +359,8 @@ export function ResponsePane({
                       body={displayedBody}
                       theme={theme}
                       readOnly
+                      focused={focused}
+                      scrollRef={scrollRef}
                     />
                   )}
                 </scrollbox>

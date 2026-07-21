@@ -70,6 +70,20 @@ describe("highlightJsonTokens", () => {
     expect(tokens[4]!.text).toBe("}")
   })
 
+  it("highlights large JSON payloads (>200KB) correctly", () => {
+    const item =
+      '    {\n      "id": "1288d7d4-3c95-4dbe-9d74-c34977478ee8",\n      "status": "completed",\n      "consumed": true,\n      "count": 100\n    }'
+    const items = new Array(3000).fill(item).join(",\n")
+    const largeBody = `{\n  "results": [\n${items}\n  ]\n}`
+    expect(largeBody.length).toBeGreaterThan(200_000)
+
+    const tokens = highlightJsonTokens(largeBody, opencodeTheme)
+    expect(tokens.length).toBeGreaterThan(10_000)
+    const boolToken = tokens.find((t) => t.text === "true")
+    expect(boolToken).toBeDefined()
+    expect(boolToken!.fg).toBe(opencodeTheme.info)
+  })
+
   it("highlights comma as textMuted", () => {
     const tokens = highlightJsonTokens('[\n  "x",\n  "y"\n]', opencodeTheme)
     const commaToken = tokens.find((t) => t.text === ",")
