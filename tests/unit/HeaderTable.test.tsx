@@ -39,4 +39,18 @@ describe("HeaderTable", () => {
     expect(keyFound).toBe(true)
     expect(valFound).toBe(true)
   })
+
+  it("reserves minimum width for values even with long keys in narrow container", async () => {
+    const entries = [{ key: "X-Very-Long-Header-Name", value: "val" }]
+    const { renderOnce, captureSpans } = await testRender(
+      <HeaderTable entries={entries} theme={theme} />,
+      { width: 35, height: 5 },
+    )
+    await renderOnce()
+    const frame = captureSpans()
+    const valSpanFound = frame.lines.some((l) =>
+      l.spans.some((s) => s.text.includes("val")),
+    )
+    expect(valSpanFound).toBe(true)
+  })
 })
