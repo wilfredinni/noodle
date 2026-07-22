@@ -238,8 +238,8 @@ export function TimelineDetailOverlay({
     <Overlay visible width={70} height="80%" gap={1} padding={1}>
       <box
         style={{
-          paddingLeft: 2,
-          paddingRight: 2,
+          paddingLeft: 4,
+          paddingRight: 4,
           flexDirection: "column",
           flexGrow: 1,
           minHeight: 0,
@@ -259,15 +259,18 @@ export function TimelineDetailOverlay({
             }}
           >
             {activeTab === "request" ? (
-              <box style={{ flexDirection: "column", marginBottom: 1 }}>
-                <text
-                  wrapMode="char"
-                  style={{ flexShrink: 1, minWidth: 10 }}
-                  content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
-                />
-                <text fg={theme.textMuted} wrapMode="none">
-                  {truncateUrl(entry.request.id, 60)}
-                </text>
+              <box style={{ flexDirection: "column", marginBottom: 2 }}>
+                <box style={{ flexDirection: "row", flexShrink: 0 }}>
+                  <text
+                    wrapMode="none"
+                    content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
+                  />
+                </box>
+                <box style={{ flexDirection: "row", flexShrink: 0 }}>
+                  <text fg={theme.textMuted} wrapMode="none">
+                    {truncateUrl(entry.request.id, 60)}
+                  </text>
+                </box>
               </box>
             ) : entry.error ? (
               <box
@@ -316,7 +319,12 @@ export function TimelineDetailOverlay({
               scrollY
               height={headerHeight}
               maxHeight={7}
-              scrollbarOptions={{ visible: false }}
+              verticalScrollbarOptions={{
+                trackOptions: {
+                  backgroundColor: theme.background,
+                  foregroundColor: theme.borderActive,
+                },
+              }}
               style={{ flexShrink: 0 }}
             >
               <HeaderTable entries={headers} theme={theme} />
@@ -348,7 +356,12 @@ export function TimelineDetailOverlay({
               <scrollbox
                 ref={bodyScrollRef}
                 scrollY
-                scrollbarOptions={{ visible: false }}
+                verticalScrollbarOptions={{
+                  trackOptions: {
+                    backgroundColor: theme.background,
+                    foregroundColor: theme.borderActive,
+                  },
+                }}
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
                 <JsonBodyViewer

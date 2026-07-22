@@ -194,13 +194,17 @@ describe("TimelineDetailOverlay", () => {
     await act(async () => host.press("left"))
     await renderOnce()
     const lines = captureCharFrame().split("\n")
+    const methodUrlLine = lines.findIndex(
+      (line) => line.includes("GET") && line.includes("https://example.com"),
+    )
     const requestNameLine = lines.findIndex((line) =>
       line.includes("request-1"),
     )
     const headersTitleLine = lines.findIndex(
       (line) => line.trim() === "Headers",
     )
-    expect(requestNameLine).toBeGreaterThanOrEqual(0)
+    expect(methodUrlLine).toBeGreaterThanOrEqual(0)
+    expect(requestNameLine).toBe(methodUrlLine + 1)
     expect(headersTitleLine - requestNameLine).toBeGreaterThanOrEqual(2)
     cleanup()
   })
