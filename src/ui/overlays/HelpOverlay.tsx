@@ -30,19 +30,19 @@ export function HelpOverlay({
         if (key.name === "up" || (key.name === "k" && !key.ctrl)) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          scrollRef.current?.scrollBy(-1)
+          scrollRef.current?.scrollBy(-1 / 5, "viewport")
         } else if (key.name === "down" || (key.name === "j" && !key.ctrl)) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          scrollRef.current?.scrollBy(1)
+          scrollRef.current?.scrollBy(1 / 5, "viewport")
         } else if (key.name === "pageup") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          scrollRef.current?.scrollBy(-1, "viewport")
+          scrollRef.current?.scrollBy(-1 / 2, "viewport")
         } else if (key.name === "pagedown") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          scrollRef.current?.scrollBy(1, "viewport")
+          scrollRef.current?.scrollBy(1 / 2, "viewport")
         } else if (key.name === "home") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()

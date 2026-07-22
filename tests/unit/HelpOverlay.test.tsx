@@ -26,7 +26,7 @@ describe("HelpOverlay", () => {
     cleanup()
   })
 
-  it("handles arrow key scrolling without errors", async () => {
+  it("scrolls to bottom with end and back to top with home", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -38,27 +38,43 @@ describe("HelpOverlay", () => {
     )
 
     await renderOnce()
-    expect(captureCharFrame()).toContain("Request Editing")
+    let frame = captureCharFrame()
+    expect(frame).toContain("Request Editing")
+
+    for (let i = 0; i < 3; i++) {
+      act(() => {
+        host.press("down")
+      })
+      await renderOnce()
+    }
+    frame = captureCharFrame()
+    expect(frame).toContain("Code Editor")
 
     act(() => {
-      host.press("down")
+      host.press("end")
     })
     await renderOnce()
+    frame = captureCharFrame()
+    expect(frame).toContain("Env Editor")
 
     act(() => {
-      host.press("up")
+      host.press("home")
     })
     await renderOnce()
+    frame = captureCharFrame()
+    expect(frame).toContain("Request Editing")
 
     act(() => {
-      host.press("j")
+      host.press("pagedown")
     })
     await renderOnce()
-
+    frame = captureCharFrame()
+    const pagedownFrame = frame
     act(() => {
-      host.press("k")
+      host.press("pageup")
     })
     await renderOnce()
+    expect(captureCharFrame()).not.toBe(pagedownFrame)
 
     cleanup()
   })
