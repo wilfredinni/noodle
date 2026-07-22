@@ -37,6 +37,7 @@ export function VarText({
               : defaultColor
           }
           wrapMode="none"
+          style={{ flexShrink: 0 }}
         >
           {seg.text}
         </text>

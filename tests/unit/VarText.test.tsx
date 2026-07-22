@@ -184,6 +184,26 @@ describe("VarText", () => {
     expect(varSpan).toBeDefined()
     expect(varSpan!.fg.equals(primaryRgba)).toBe(true)
   })
+
+  it("does not shrink individual segments in long text within narrow containers", async () => {
+    const longUrl =
+      "$base_url/v1/releases/dom$domain/custom-patches?vcfRelease=4.0.1.0&productType=e.g. VCENTER"
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarText
+          text={longUrl}
+          env={env({ base_url: "http://example.com", domain: "test" })}
+        />
+      </ThemeProvider>,
+      { width: 40, height: 5 },
+    )
+    await renderOnce()
+    const frame = captureSpans()
+    const spans = frame.lines.flatMap((l) => l.spans)
+    const baseUrlSpan = spans.find((s) => s.text.includes("$base_url"))
+    expect(baseUrlSpan).toBeDefined()
+    expect(baseUrlSpan!.text).toBe("$base_url")
+  })
 })
 
 function hexToRgba(hex: string): RGBA {
