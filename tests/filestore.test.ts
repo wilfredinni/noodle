@@ -175,6 +175,24 @@ describe("filestore.loadCollection — file selection and order", () => {
     }
   })
 
+  it("accumulates folder.yml parse errors alongside request parse errors", async () => {
+    const { extractFileErrors } = await import("../src/filestore/load")
+    await mkdir(join(dir, "sub"))
+    await writeFile(join(dir, "sub", "folder.yml"), "meta:\n  : : :\n")
+    await writeFile(join(dir, "sub", "bad.yml"), "name: Bar\n  : : :\n")
+
+    try {
+      await filestore.loadCollection(dir)
+      expect(true).toBe(false)
+    } catch (e) {
+      const err = e as Error
+      const fileErrors = extractFileErrors(err)
+      expect(fileErrors).toHaveLength(2)
+      expect(fileErrors.map((f) => f.file)).toContain("sub/folder.yml")
+      expect(fileErrors.map((f) => f.file)).toContain("sub/bad.yml")
+    }
+  })
+
   it("collapses trailing slash in dir basename", async () => {
     await writeFile(join(dir, "x.yml"), yamlTmpl(makeReq()))
     const col = await filestore.loadCollection(dir + "/")

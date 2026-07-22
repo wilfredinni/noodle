@@ -166,8 +166,12 @@ async function walk(
       if (folderYmlContent) {
         try {
           folderMeta = lang.parseFolder(folderYmlContent)
-        } catch {
-          // ignore invalid folder.yml, use defaults
+        } catch (e) {
+          if (!opts.tolerant) {
+            const msg = e instanceof Error ? e.message : String(e)
+            const folderYmlRel = `${childRel}/folder.yml`
+            fileErrors.push(parseUserFriendlyFileError(folderYmlRel, msg))
+          }
         }
       }
 
