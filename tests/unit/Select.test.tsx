@@ -357,4 +357,26 @@ describe("Select", () => {
     expect(frame).toContain("PUT")
     cleanup()
   })
+
+  it("does not shrink when placed next to a long input in a row container", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ flexDirection: "row", width: 30 }}>
+            <Select items={testItems} value="get" badge />
+            <text style={{ flexGrow: 1 }}>
+              https://very-long-domain-name.com/api/v1/resource/endpoint
+            </text>
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 30, height: 5 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("GET")
+    expect(frame).toContain("▼")
+    cleanup()
+  })
 })

@@ -115,7 +115,7 @@ export function UrlBar({
             onOpenChange={setMethodSelectOpen}
           />
           {focused && subFocus === "text" && interactive ? (
-            <box style={{ flexGrow: 1 }}>
+            <box style={{ flexGrow: 1, flexShrink: 1 }}>
               <VarInput
                 value={inputValue}
                 env={activeEnv ?? null}
@@ -125,7 +125,7 @@ export function UrlBar({
                 backgroundColor={theme.backgroundElement}
                 focusedBackgroundColor={theme.borderSubtle}
                 paddingX={1}
-                style={{ flexGrow: 1 }}
+                style={{ flexGrow: 1, flexShrink: 1 }}
               />
             </box>
           ) : (

@@ -218,10 +218,11 @@ export function Select({
         flexDirection: "column",
         position: "relative",
         zIndex: open ? 100 : 0,
+        flexShrink: 0,
         ...(width !== undefined ? { width } : {}),
       }}
     >
-      <box style={{ position: "relative" }}>
+      <box style={{ position: "relative", flexShrink: 0 }}>
         <box
           ref={triggerRef}
           height={1}
@@ -232,9 +233,10 @@ export function Select({
             paddingLeft: 1,
             paddingRight: 1,
             backgroundColor: selectBg,
+            flexShrink: 0,
           }}
         >
-          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+          <box style={{ flexDirection: "row", flexGrow: 1, flexShrink: 0 }}>
             {selectedItem ? (
               renderLabel(
                 badge && selectedBadgeBg
