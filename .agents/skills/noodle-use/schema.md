@@ -172,7 +172,7 @@ Sets the default active environment name. Must match an env file in `.environmen
 
 ## Timeline file (`.timeline/<request-id>.yml`)
 
-Response history for each request. Stored in `<collection>/.timeline/`, one file per request. Max 50 entries, newest first (prepended on save). YAML array:
+Response history for each request. Stored in `<collection>/.timeline/`, one file per request. Max 50 entries, newest first (prepended on save). Bodies larger than 10 KB are stored without truncation as gzip sidecars in `<request-id>.yml.bodies/`; their YAML field is replaced by a `bodyRef`. Treat timeline YAML and sidecars as generated, sensitive data. YAML array:
 
 ```yaml
 - timestamp: 1783374564216
@@ -203,8 +203,11 @@ Each entry has:
 | `timestamp` | number | Unix timestamp in ms when the request was sent |
 | `envName` | string | Name of the active environment when sent |
 | `request` | object | Snapshot of the request at send time (id, name, method, url, headers, params, auth, body if present) |
-| `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string), `timeMs` (number — response time in ms), `size` (number — response body size in bytes) |
+| `id` | string | Unique entry ID, used to name large-body sidecars |
+| `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number — response time in ms), `size` (number — response body size in bytes) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
+
+The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
 **Useful queries agents can answer from timeline data:**
 - Average response time for a request: sum all `response.timeMs` / count

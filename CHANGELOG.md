@@ -4,6 +4,33 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-22
+
+### ✨ Features
+
+- Preserve complete large request and response bodies in compressed timeline sidecars, so timeline detail views can load the full exchange instead of a truncated snapshot.
+- Inspect, copy, or save a timeline request or response body from its detail view, including sidecar-backed bodies.
+
+### 🐞 Fixes
+
+- Keep generated YAML valid when long or multiline parameter, form, folder, and authentication values wrap.
+- Report all invalid request and folder YAML files found while loading a collection with clear file and location context.
+- Keep full timeline bodies available through retention and clearing, and identify snapshots that were truncated by older Noodle versions.
+- Keep large response bodies, Unicode-safe JSON syntax highlighting, tail rendering, scrolling, and Home/End navigation reliable across the response, timeline, help, and environment views.
+- Require an explicit action before rendering a response or timeline body larger than 5 MB, while retaining copy and export access.
+- Restore New Request input focus, prevent modal and form focus leaks, and keep Help overlay scrolling within the overlay.
+- Preserve Select, response-header, and timeline layouts at narrow widths; show response status in a readable colored badge; and keep long URLs and request names readable in request and timeline views.
+- Handle CRLF line endings and constrained layout correctly in generated-code previews.
+- Improve Synthwave84 unfocused-border contrast and overlay shortcut-key colors.
+
+### 🔧 Refactors
+
+- Virtualize JSON response rendering and consolidate response-header presentation.
+
+### 📚 Documentation
+
+- Document compressed timeline body sidecars and their storage implications for users and agents.
+
 ## [0.5.0] - 2026-07-19
 
 ![timeline](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/findrequest.png)
@@ -73,7 +100,8 @@ All notable changes to Noodle are documented in this file.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/wilfredinni/noodle/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wilfredinni/noodle/compare/v0.4.8...v0.5.0
 [0.4.8]: https://github.com/wilfredinni/noodle/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/wilfredinni/noodle/compare/v0.4.6...v0.4.7

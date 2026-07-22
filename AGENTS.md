@@ -143,7 +143,7 @@ src/
     ├── tabs/                           # UI state persistence
     │   ├── uiState.ts                  # ResponseTabKind, save/load last-request, expanded-folders
     │   └── useUIState.ts               # Per-request tab index state
-    └── timeline/                       # Timeline viewer
+    └── timeline/                       # Timeline viewer; large bodies load from compressed sidecars
         ├── TimelineEntry.tsx           # Single timeline entry renderer
         ├── TimelineTab.tsx             # Full timeline tab
         ├── formatTimeline.ts           # Timeline display formatting
@@ -228,6 +228,7 @@ The command palette also provides **Import cURL Request** and **Generate Code** 
 | Key | Action |
 |-----|--------|
 | `↑/↓/←/→` | Navigate fields |
+| `Home` / `End` | Jump to first / last field |
 | `Return` | Enter edit mode |
 | `Escape` | Exit browse mode |
 | `Space` | Toggle header/param enabled/disabled |
@@ -249,6 +250,13 @@ The command palette also provides **Import cURL Request** and **Generate Code** 
 | `F5` | Fold all foldable regions |
 | `F6` | Unfold all regions |
 | `Shift+Return` | Insert newline |
+
+### Help overlay
+| Key | Action |
+|-----|--------|
+| `↑/↓` or `j/k` | Scroll |
+| `PageUp` / `PageDown` | Page scroll |
+| `Home` / `End` | Jump to top / bottom |
 
 ### Env editor mode
 | Key | Action |

@@ -23,6 +23,8 @@ my-collection/
 │       └── auth/login.yml    ← Per-request state: { tabIndex: 2 }
 ├── .timeline/                ← Per-request response history (max 50 entries each)
 │   ├── list-users.yml
+│   ├── list-users.yml.bodies/  ← Gzip sidecars for bodies over 10 KB
+│       └── <entry-id>-response.gz
 │   └── auth/
 │       └── login.yml
 └── .git/                     ← Skipped by walk()
@@ -82,7 +84,7 @@ Falls back to empty object `{}` when file is missing or invalid.
 
 ### Timeline (`.timeline/`)
 
-Per-request response history stored as YAML arrays of `TimelineEntry` objects. Max 50 entries per request (FIFO — `unshift` + truncate). Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Entries contain substituted request data, so timeline files can contain resolved secrets. The detail view masks configured bearer, basic, and header API-key auth for display, but does not redact storage.
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Max 50 entries per request (FIFO — `unshift` + truncate). Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Entries contain substituted request data, so timeline files and sidecars can contain resolved secrets. The detail view masks configured bearer, basic, and header API-key auth for display, but does not redact storage.
 
 ### File write conventions
 

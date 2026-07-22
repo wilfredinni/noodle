@@ -36,7 +36,7 @@ Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI 
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.
 
 ### ID convention
-File at `auth/login.yml` → ID = `"auth/login"` (relative path minus `.yml`). Used for: tree navigation, file I/O, timeline storage, UI state.
+File at `auth/login.yml` → ID = `"auth/login"` (relative path minus `.yml`). Used for: tree navigation, file I/O, timeline storage, and UI state. Timeline YAML lives at `.timeline/auth/login.yml`; large bodies may be stored beside it in `.timeline/auth/login.yml.bodies/`. Treat both as generated, sensitive data and do not edit body references manually.
 
 ### Environment format
 Dotenv-style `.env` files in `<collection>/.environments/`. `KEY=value` declares a variable. `# KEY=value` disables it. `_color=<name>` sets sidebar badge color. Valid colors: primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, borderSubtle.

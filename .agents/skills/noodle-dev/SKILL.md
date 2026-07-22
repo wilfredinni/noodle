@@ -31,7 +31,7 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - **Edit/Browse FSM:** Three modes — `inactive → browsing → editing`. `useEditBrowse` hook manages cursor, commit, cancel.
 - **File I/O:** Save/delete operations validate path IDs to prevent traversal. Environment saves are atomic via `.tmp` + `rename()`; request, folder, and settings writes are direct writes.
 - **Collection modes:** TUI opens collection roots in editable collection mode, request-containing uninitialized directories in read-only browse mode, and empty directories in read-only empty mode. Initialize through the command palette before editing or sending.
-- **Timeline security:** Timeline entries persist substituted request data on disk. Detail views mask configured bearer, basic, and header API-key auth, but timeline files are not secret-redacted storage.
+- **Timeline storage and security:** Timeline entries persist substituted request data on disk. Bodies larger than 10 KB are moved to gzip sidecars under `.timeline/<request-id>.yml.bodies/`; YAML entries retain a `bodyRef`. Detail views mask configured bearer, basic, and header API-key auth, but neither entries nor sidecars are secret-redacted storage.
 - **Imports:** Module singletons (`filestore`, `lang`, `env`, `executor`). Types from `schema/index.ts`.
 - **Command actions:** Shared command logic lives in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. If you add a new action, add it to `commandActions.ts` and call from both places. Do not duplicate logic.
 - **CommandItem.run returns boolean:** Palette commands return `true` (close palette) or `false` (stay open). Unavailable commands (save when not dirty, copy body when no response) return `false`.
