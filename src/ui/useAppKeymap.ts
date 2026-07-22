@@ -590,6 +590,8 @@ export function useAppKeymap(
     commands: [
       { name: "browse.up", run: () => refs.ebRef.current.browseUp() },
       { name: "browse.down", run: () => refs.ebRef.current.browseDown() },
+      { name: "browse.first", run: () => refs.ebRef.current.browseFirst() },
+      { name: "browse.last", run: () => refs.ebRef.current.browseLast() },
       { name: "browse.left", run: () => refs.ebRef.current.browseLeft() },
       { name: "browse.right", run: () => refs.ebRef.current.browseRight() },
       {
@@ -629,6 +631,8 @@ export function useAppKeymap(
     bindings: [
       { key: "up", cmd: "browse.up" },
       { key: "down", cmd: "browse.down" },
+      { key: "home", cmd: "browse.first" },
+      { key: "end", cmd: "browse.last" },
       { key: "left", cmd: "browse.left" },
       { key: "right", cmd: "browse.right" },
       { key: "return", cmd: "browse.enter" },
