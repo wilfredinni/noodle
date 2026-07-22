@@ -291,9 +291,8 @@ export function ResponsePane({
       })()
     : undefined
 
-  const bottomTitle = focused
-    ? `${expandHint}${queryHint ? ` · ${queryHint}` : ""}`
-    : undefined
+  const hints = [expandHint, queryHint].filter(Boolean).join(" · ")
+  const bottomTitle = focused && hints !== "" ? hints : undefined
 
   return (
     <Frame
