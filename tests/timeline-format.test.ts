@@ -10,6 +10,7 @@ import {
   buildTimelineEntry,
   shortMethod,
   formatRequestUrl,
+  formatRequestDisplayName,
   maskedAuthHeader,
   buildDetailRequestHeaders,
 } from "../src/ui/timeline/formatTimeline"
@@ -287,6 +288,76 @@ describe("formatRequestUrl", () => {
         },
       }),
     ).toBe("https://example.com?existing=1&next=2")
+  })
+})
+
+describe("formatRequestDisplayName", () => {
+  it("combines folder path from id with request name when present", () => {
+    expect(
+      formatRequestDisplayName(
+        makeEntry({
+          request: {
+            id: "leads/get-leads",
+            name: "Get Leads",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+          },
+        }),
+      ),
+    ).toBe("leads/Get Leads")
+  })
+
+  it("handles multi-level folder path", () => {
+    expect(
+      formatRequestDisplayName(
+        makeEntry({
+          request: {
+            id: "api/v1/leads/get-leads",
+            name: "Get Leads",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+          },
+        }),
+      ),
+    ).toBe("api/v1/leads/Get Leads")
+  })
+
+  it("returns request name alone when no folder in id", () => {
+    expect(
+      formatRequestDisplayName(
+        makeEntry({
+          request: {
+            id: "get-leads",
+            name: "Get Leads",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+          },
+        }),
+      ),
+    ).toBe("Get Leads")
+  })
+
+  it("falls back to file slug if request name is empty", () => {
+    expect(
+      formatRequestDisplayName(
+        makeEntry({
+          request: {
+            id: "leads/get-leads",
+            name: "",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+          },
+        }),
+      ),
+    ).toBe("leads/get-leads")
   })
 })
 

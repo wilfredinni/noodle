@@ -15,6 +15,7 @@ import {
   entryMethod,
   entryStatus,
   entryTiming,
+  formatRequestDisplayName,
   formatRequestUrl,
   buildDetailRequestHeaders,
   shortMethod,
@@ -261,16 +262,16 @@ export function TimelineDetailOverlay({
             }}
           >
             {activeTab === "request" ? (
-              <box style={{ flexDirection: "column", marginBottom: 2 }}>
+              <box style={{ flexDirection: "column", marginBottom: 1 }}>
                 <box style={{ flexDirection: "row", flexShrink: 0 }}>
                   <text
-                    wrapMode="none"
+                    wrapMode="word"
                     content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
                   />
                 </box>
                 <box style={{ flexDirection: "row", flexShrink: 0 }}>
                   <text fg={theme.textMuted} wrapMode="none">
-                    {truncateUrl(entry.request.id, 60)}
+                    {truncateUrl(formatRequestDisplayName(entry), 60)}
                   </text>
                 </box>
               </box>
