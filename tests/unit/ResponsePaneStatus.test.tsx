@@ -7,7 +7,7 @@ import { ThemeProvider } from "../../src/ui/theme"
 import type { SendState } from "../../src/ui/sendState"
 
 describe("ResponsePane status text truncation and layout tests", () => {
-  it("renders short status text unchanged and truncates status text > 5 chars with ellipsis", async () => {
+  const createTestProps = () => {
     const keymap = createTestKeymap()
     const draft = {
       draft: {
@@ -37,8 +37,11 @@ describe("ResponsePane status text truncation and layout tests", () => {
       setEditValue: () => {},
       activeTab: "body" as const,
     }
+    return { keymap, draft, eb }
+  }
 
-    // Test 1: Short statusText "OK" (<= 5 chars)
+  it("renders short status text (≤5 chars) unchanged", async () => {
+    const { keymap, draft, eb } = createTestProps()
     const responseOK: SendState = {
       status: "done",
       response: {
@@ -49,51 +52,50 @@ describe("ResponsePane status text truncation and layout tests", () => {
         timeMs: 123,
       },
     }
-    {
-      const { renderOnce, captureCharFrame } = await testRender(
-        <KeymapProvider
-          keymap={
-            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
-          }
-        >
-          <ThemeProvider activeIndex={0} previewIndex={null}>
-            <box style={{ width: 100, height: 20, flexDirection: "column" }}>
-              <RequestResponseView
-                draft={
-                  draft as unknown as Parameters<
-                    typeof RequestResponseView
-                  >[0]["draft"]
-                }
-                eb={
-                  eb as unknown as Parameters<
-                    typeof RequestResponseView
-                  >[0]["eb"]
-                }
-                error={null}
-                focus="response"
-                layout="stacked"
-                expanded={null}
-                activeEnv={null}
-                responseState={responseOK}
-                timelineEntries={[]}
-                onResponseTabChange={() => {}}
-                setSelectOpen={() => {}}
-                urlbarSubFocus="text"
-                urlbarInteractive={true}
-                expandHint="f2 expand"
-                queryHint="/ query"
-              />
-            </box>
-          </ThemeProvider>
-        </KeymapProvider>,
-        { width: 100, height: 20 },
-      )
-      await renderOnce()
-      const frame = captureCharFrame()
-      expect(frame).toContain("200 OK")
-    }
 
-    // Test 2: Long statusText "Internal Server Error" (> 5 chars) -> "Inter…"
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 100, height: 20, flexDirection: "column" }}>
+            <RequestResponseView
+              draft={
+                draft as unknown as Parameters<
+                  typeof RequestResponseView
+                >[0]["draft"]
+              }
+              eb={
+                eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]
+              }
+              error={null}
+              focus="response"
+              layout="stacked"
+              expanded={null}
+              activeEnv={null}
+              responseState={responseOK}
+              timelineEntries={[]}
+              onResponseTabChange={() => {}}
+              setSelectOpen={() => {}}
+              urlbarSubFocus="text"
+              urlbarInteractive={true}
+              expandHint="f2 expand"
+              queryHint="/ query"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("200 OK")
+  })
+
+  it("truncates status text > 5 chars with ellipsis", async () => {
+    const { keymap, draft, eb } = createTestProps()
     const responseErr: SendState = {
       status: "done",
       response: {
@@ -104,48 +106,45 @@ describe("ResponsePane status text truncation and layout tests", () => {
         timeMs: 456,
       },
     }
-    {
-      const { renderOnce, captureCharFrame } = await testRender(
-        <KeymapProvider
-          keymap={
-            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
-          }
-        >
-          <ThemeProvider activeIndex={0} previewIndex={null}>
-            <box style={{ width: 100, height: 20, flexDirection: "column" }}>
-              <RequestResponseView
-                draft={
-                  draft as unknown as Parameters<
-                    typeof RequestResponseView
-                  >[0]["draft"]
-                }
-                eb={
-                  eb as unknown as Parameters<
-                    typeof RequestResponseView
-                  >[0]["eb"]
-                }
-                error={null}
-                focus="response"
-                layout="stacked"
-                expanded={null}
-                activeEnv={null}
-                responseState={responseErr}
-                timelineEntries={[]}
-                onResponseTabChange={() => {}}
-                setSelectOpen={() => {}}
-                urlbarSubFocus="text"
-                urlbarInteractive={true}
-                expandHint="f2 expand"
-                queryHint="/ query"
-              />
-            </box>
-          </ThemeProvider>
-        </KeymapProvider>,
-        { width: 100, height: 20 },
-      )
-      await renderOnce()
-      const frame = captureCharFrame()
-      expect(frame).toContain("500 Inter…")
-    }
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 100, height: 20, flexDirection: "column" }}>
+            <RequestResponseView
+              draft={
+                draft as unknown as Parameters<
+                  typeof RequestResponseView
+                >[0]["draft"]
+              }
+              eb={
+                eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]
+              }
+              error={null}
+              focus="response"
+              layout="stacked"
+              expanded={null}
+              activeEnv={null}
+              responseState={responseErr}
+              timelineEntries={[]}
+              onResponseTabChange={() => {}}
+              setSelectOpen={() => {}}
+              urlbarSubFocus="text"
+              urlbarInteractive={true}
+              expandHint="f2 expand"
+              queryHint="/ query"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("500 Inter…")
   })
 })

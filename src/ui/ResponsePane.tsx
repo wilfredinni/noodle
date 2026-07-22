@@ -271,7 +271,7 @@ export function ResponsePane({
 
   const headerRight = isDone
     ? (() => {
-        const rawText = state.response.statusText ?? ""
+        const rawText = state.response.statusText
         const truncatedStatusText =
           rawText.length > 5 ? `${rawText.slice(0, 5)}…` : rawText
         const statusStr = `${state.response.status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
@@ -292,7 +292,7 @@ export function ResponsePane({
     : undefined
 
   const bottomTitle = focused
-    ? `${expandHint}${queryHint ? ` - ${queryHint}` : ""}`
+    ? `${expandHint}${queryHint ? ` · ${queryHint}` : ""}`
     : undefined
 
   return (
