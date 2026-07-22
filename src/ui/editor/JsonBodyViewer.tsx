@@ -147,6 +147,8 @@ export class JsonBodyRenderable extends TextBufferRenderable {
     this._highlightGeneration++
     if (this._highlightTimer) clearTimeout(this._highlightTimer)
     this._highlightTimer = null
+    this.textBuffer.clearAllHighlights()
+    this._highlightedJobs = new Uint8Array(this._highlightJobs.length)
     this.resetHighlightCursor()
     this.scheduleHighlights(this._highlightGeneration)
   }
