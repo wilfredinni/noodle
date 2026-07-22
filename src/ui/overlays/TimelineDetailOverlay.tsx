@@ -293,13 +293,14 @@ export function TimelineDetailOverlay({
             ) : (
               <text fg={theme.textMuted}>No response</text>
             )}
+            <box style={{ height: 1 }}>
+              <text fg={theme.text}>Headers</text>
+            </box>
             <box
               border={["bottom"]}
               borderColor={theme.borderSubtle}
-              style={{ paddingBottom: 1 }}
-            >
-              <text fg={theme.text}>Headers</text>
-            </box>
+              style={{ height: 1 }}
+            />
             <scrollbox
               scrollY
               height={headerHeight}
@@ -309,13 +310,14 @@ export function TimelineDetailOverlay({
             >
               <HeaderTable entries={headers} theme={theme} />
             </scrollbox>
+            <box style={{ height: 1, marginTop: 1 }}>
+              <text fg={theme.text}>Body</text>
+            </box>
             <box
               border={["bottom"]}
               borderColor={theme.borderSubtle}
-              style={{ marginTop: 1, paddingBottom: 1 }}
-            >
-              <text fg={theme.text}>Body</text>
-            </box>
+              style={{ height: 1 }}
+            />
             {info.truncated ? (
               <text fg={theme.warning}>
                 Saved body was truncated by an older Noodle version.
