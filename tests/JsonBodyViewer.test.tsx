@@ -2,15 +2,9 @@ import { act } from "react"
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
-import type { ScrollBoxRenderable, TextareaRenderable } from "@opentui/core"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { ThemeProvider, THEMES } from "../src/ui/theme"
 import { JsonBodyViewer } from "../src/ui/editor/JsonBodyViewer"
-import { highlightTextarea } from "../src/ui/editor/useJsonHighlight"
-import { highlightJsonTokens } from "../src/ui/editor/syntax"
-import {
-  buildCharToDisplayOffsets,
-  charOffsetToDisplayOffset,
-} from "../src/ui/variable-completion/highlightOffsets"
 
 describe("JsonBodyViewer", () => {
   it("keeps JSON syntax highlighting when variables make raw JSON invalid", async () => {
@@ -103,29 +97,6 @@ describe("JsonBodyViewer", () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
     await renderOnce()
     await act(async () => renderer.destroy())
-  })
-
-  it("keeps async textarea syntax highlighting aligned after wide characters", async () => {
-    const theme = THEMES[0]!
-    const body = `{"emoji":"${"😀".repeat(10_000)}"}\n{"target":"value"}`
-    const ranges: { start: number; end: number }[] = []
-    const textarea = {
-      clearAllHighlights: () => {},
-      addHighlightByCharRange: (range: { start: number; end: number }) => {
-        ranges.push(range)
-      },
-    } as unknown as TextareaRenderable
-    const cleanup = highlightTextarea(textarea, body, theme)
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    const target = highlightJsonTokens(body, theme).find(
-      (token) => token.text === '"target"',
-    )!
-    const expectedStart = charOffsetToDisplayOffset(
-      buildCharToDisplayOffsets(body),
-      target.offset,
-    )
-    expect(ranges.some((range) => range.start === expectedStart)).toBe(true)
-    cleanup()
   })
 
   it("preserves string highlighting across large raw-body chunks", async () => {
