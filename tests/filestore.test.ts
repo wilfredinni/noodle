@@ -146,6 +146,35 @@ describe("filestore.loadCollection — file selection and order", () => {
     )
   })
 
+  it("accumulates multiple file parse errors with user-friendly formatting", async () => {
+    const { parseUserFriendlyFileError, extractFileErrors } =
+      await import("../src/filestore/load")
+    await writeFile(
+      join(dir, "bad1.yml"),
+      "name: Foo\nparams:\n  - name: x\n    value: '1'\n    dsfsdf (10:11)",
+    )
+    await writeFile(join(dir, "bad2.yml"), "name: Bar\n  : : :\n")
+
+    try {
+      await filestore.loadCollection(dir)
+      expect(true).toBe(false)
+    } catch (e) {
+      const err = e as Error
+      const fileErrors = extractFileErrors(err)
+      expect(fileErrors).toHaveLength(2)
+      expect(fileErrors.map((f) => f.file)).toContain("bad1.yml")
+      expect(fileErrors.map((f) => f.file)).toContain("bad2.yml")
+
+      const parsedErr = parseUserFriendlyFileError(
+        "delete-v1-alb-clusters-id.yml",
+        "can not read an implicit mapping pair; a colon is missed (10:11)",
+      )
+      expect(parsedErr.message).toBe(
+        "Line 10, Col 11: Missing colon after key name",
+      )
+    }
+  })
+
   it("collapses trailing slash in dir basename", async () => {
     await writeFile(join(dir, "x.yml"), yamlTmpl(makeReq()))
     const col = await filestore.loadCollection(dir + "/")

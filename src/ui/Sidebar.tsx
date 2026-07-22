@@ -7,6 +7,8 @@ import { FullBorder, LeftBar } from "./borders"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
 
+import { extractFileErrors } from "../filestore/load"
+
 function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
 }
@@ -50,6 +52,8 @@ export function Sidebar({
     }
   }, [cursorIndex, visibleItems])
 
+  const fileErrors = error ? extractFileErrors(error) : []
+
   return (
     <box
       style={{
@@ -80,7 +84,57 @@ export function Sidebar({
         >
           <text fg={theme.textMuted}>Loading...</text>
         </box>
-      ) : error || visibleItems.length === 0 ? (
+      ) : error ? (
+        <box
+          style={{
+            flexGrow: 1,
+            flexDirection: "column",
+            paddingTop: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
+            gap: 1,
+          }}
+        >
+          <text fg={theme.error}>
+            Collection {fileErrors.length > 1 ? "Errors" : "Error"} (
+            {fileErrors.length})
+          </text>
+          <scrollbox
+            scrollY
+            style={{ flexGrow: 1 }}
+            verticalScrollbarOptions={{
+              trackOptions: {
+                backgroundColor: theme.background,
+                foregroundColor: theme.borderActive,
+              },
+            }}
+          >
+            {fileErrors.map((err, idx) => (
+              <box
+                key={idx}
+                style={{
+                  flexDirection: "column",
+                  marginBottom: 1,
+                }}
+              >
+                <text fg={theme.primary} wrapMode="none">
+                  {err.file}
+                </text>
+                <text fg={theme.warning}>{err.message}</text>
+                {err.snippet && (
+                  <box style={{ flexDirection: "column", marginTop: 1 }}>
+                    {err.snippet.split("\n").map((line, lIdx) => (
+                      <text key={lIdx} fg={theme.textMuted} wrapMode="none">
+                        {line}
+                      </text>
+                    ))}
+                  </box>
+                )}
+              </box>
+            ))}
+          </scrollbox>
+        </box>
+      ) : visibleItems.length === 0 ? (
         <box
           style={{
             flexGrow: 1,
