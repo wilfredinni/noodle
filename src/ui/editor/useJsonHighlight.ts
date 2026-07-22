@@ -8,7 +8,7 @@ import {
   charOffsetToDisplayOffset,
 } from "../variable-completion/highlightOffsets"
 
-function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
+export function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
   return SyntaxStyle.fromStyles({
     "json.key": { fg: theme.secondary },
     "json.string": { fg: theme.success },
@@ -22,7 +22,11 @@ function createJsonSyntaxStyle(theme: Theme): SyntaxStyle {
   })
 }
 
-function styleIdForFg(fg: string, theme: Theme, style: SyntaxStyle): number {
+export function styleIdForFg(
+  fg: string,
+  theme: Theme,
+  style: SyntaxStyle,
+): number {
   if (fg === theme.secondary) return style.getStyleId("json.key") ?? 0
   if (fg === theme.success) return style.getStyleId("json.string") ?? 0
   if (fg === theme.warning) return style.getStyleId("json.number") ?? 0
