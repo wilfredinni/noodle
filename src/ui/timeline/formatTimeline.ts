@@ -100,6 +100,16 @@ export function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
 }
 
+export function formatRequestDisplayName(entry: TimelineEntry): string {
+  const { id, name } = entry.request
+  const slashIdx = id.lastIndexOf("/")
+  if (slashIdx !== -1) {
+    const folder = id.slice(0, slashIdx)
+    return `${folder}/${name || id.slice(slashIdx + 1)}`
+  }
+  return name || id
+}
+
 export function formatRequestUrl(entry: TimelineEntry): string {
   const u = entry.request.url
   const params = entry.request.params

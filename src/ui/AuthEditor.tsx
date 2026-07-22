@@ -151,9 +151,6 @@ export function AuthEditor({
         id={`${idPrefix}-field`}
         style={{
           zIndex: typeSelectOpen ? 1 : undefined,
-          backgroundColor: isTypeSelectorActive
-            ? theme.backgroundElement
-            : undefined,
         }}
       >
         <Select

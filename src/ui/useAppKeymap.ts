@@ -113,7 +113,6 @@ export interface UseAppKeymapSetters {
   setEnvDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
-  setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEditRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -884,7 +883,6 @@ export function useAppKeymap(
           const result = deleteEnvironment(actionsConfig)
           if (!result) return
           setters.setEnvDeletePending(result.envName)
-          setters.setDeleteConfirmSelection(0)
         },
       },
     ],

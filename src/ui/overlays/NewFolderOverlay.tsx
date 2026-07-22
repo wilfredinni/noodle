@@ -89,10 +89,10 @@ export const NewFolderOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.primary}>^S</text>
+        <text fg={theme.text}>^S</text>
         <text fg={theme.textMuted}>save</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={theme.primary}>esc</text>
+        <text fg={theme.text}>esc</text>
         <text fg={theme.textMuted}>close</text>
       </box>
     </Overlay>

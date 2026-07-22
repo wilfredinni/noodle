@@ -210,14 +210,46 @@ describe("TimelineDetailOverlay", () => {
       (line) => line.includes("GET") && line.includes("https://example.com"),
     )
     const requestNameLine = lines.findIndex((line) =>
-      line.includes("request-1"),
+      line.includes("Test request"),
     )
     const headersTitleLine = lines.findIndex(
       (line) => line.trim() === "Headers",
     )
     expect(methodUrlLine).toBeGreaterThanOrEqual(0)
     expect(requestNameLine).toBe(methodUrlLine + 1)
-    expect(headersTitleLine - requestNameLine).toBeGreaterThanOrEqual(2)
+    expect(headersTitleLine - requestNameLine).toBe(2)
+    cleanup()
+  })
+
+  it("wraps long request URL onto lines below method", async () => {
+    const longUrl =
+      "https://gci-leadhub.planok.dev/api/v1/leads/?status=incomplete&page=1&limit=50"
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        request: {
+          id: "leads/get-leads",
+          name: "Get Leads",
+          method: "GET",
+          url: longUrl,
+          headers: {},
+          params: [],
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("left"))
+    await renderOnce()
+    const frame = captureCharFrame()
+    const lines = frame.split("\n")
+    const methodLineIndex = lines.findIndex((l) =>
+      l.includes("GET https://gci-leadhub.planok.dev"),
+    )
+    const headersLineIndex = lines.findIndex((l) => l.trim() === "Headers")
+    expect(methodLineIndex).toBeGreaterThanOrEqual(0)
+    expect(lines[methodLineIndex + 1]).toContain("status=incomplete")
+    expect(lines[methodLineIndex + 2]).toContain("leads/Get Leads")
+    expect(headersLineIndex - (methodLineIndex + 2)).toBe(2)
     cleanup()
   })
 
@@ -306,7 +338,7 @@ describe("TimelineDetailOverlay", () => {
     await renderOnce()
     await act(async () => host.press("left"))
     await renderOnce()
-    expect(captureCharFrame()).toContain("request-1")
+    expect(captureCharFrame()).toContain("Test request")
 
     await act(async () => setVisible?.(false))
     await renderOnce()

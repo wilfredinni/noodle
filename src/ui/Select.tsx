@@ -220,7 +220,8 @@ export function Select({
         : extractText(selectedItem.label)
     : placeholder
 
-  const triggerWidth = width !== undefined ? width : selectedText.length + 4
+  const triggerWidth =
+    width !== undefined ? width : badge ? selectedText.length + 4 : "100%"
 
   return (
     <box

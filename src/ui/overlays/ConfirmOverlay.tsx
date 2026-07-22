@@ -4,14 +4,9 @@ import { Overlay } from "./Overlay"
 export interface ConfirmOverlayProps {
   visible: boolean
   message: string
-  selectedIndex: number
 }
 
-export function ConfirmOverlay({
-  visible,
-  message,
-  selectedIndex,
-}: ConfirmOverlayProps) {
+export function ConfirmOverlay({ visible, message }: ConfirmOverlayProps) {
   const theme = useTheme()
 
   return (
@@ -38,10 +33,10 @@ export function ConfirmOverlay({
           paddingX: 2,
         }}
       >
-        <text fg={selectedIndex === 0 ? theme.primary : theme.text}>y</text>
+        <text fg={theme.text}>y</text>
         <text fg={theme.textMuted}>confirm</text>
         <text fg={theme.textMuted}> · </text>
-        <text fg={selectedIndex === 1 ? theme.primary : theme.text}>n</text>
+        <text fg={theme.text}>n</text>
         <text fg={theme.textMuted}>cancel</text>
       </box>
     </Overlay>

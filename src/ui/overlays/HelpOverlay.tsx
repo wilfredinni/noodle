@@ -4,7 +4,8 @@ import { Overlay } from "./Overlay"
 import type { Keybinds } from "../keybind"
 import { TextAttributes } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
+import { useKeymap } from "@opentui/keymap/react"
 
 const keyColumnWidth = 16
 
@@ -16,8 +17,51 @@ export function HelpOverlay({
   keybinds: Keybinds
 }) {
   const theme = useTheme()
+  const keymap = useKeymap()
   const sections = getHelpSections(keybinds)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  useEffect(() => {
+    if (!visible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const key = ctx.event
+        if (key.name === "up" || (key.name === "k" && !key.ctrl)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          scrollRef.current?.scrollBy(-1 / 5, "viewport")
+        } else if (key.name === "down" || (key.name === "j" && !key.ctrl)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          scrollRef.current?.scrollBy(1 / 5, "viewport")
+        } else if (key.name === "pageup") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          scrollRef.current?.scrollBy(-1 / 2, "viewport")
+        } else if (key.name === "pagedown") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          scrollRef.current?.scrollBy(1 / 2, "viewport")
+        } else if (key.name === "home") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          scrollRef.current?.scrollTo(0)
+        } else if (key.name === "end") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          const maxScroll = Math.max(
+            0,
+            (scrollRef.current?.scrollHeight ?? 0) -
+              (scrollRef.current?.height ?? 0),
+          )
+          scrollRef.current?.scrollTo(maxScroll)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [visible, keymap])
 
   return (
     <Overlay visible={visible} width={60} gap={1} padding={1}>

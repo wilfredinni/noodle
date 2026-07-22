@@ -123,7 +123,6 @@ export function AppInner({
   const [expanded, setExpanded] = useState<"request" | "response" | null>(null)
   const expandedRef = useRef(expanded)
   expandedRef.current = expanded
-  const [confirmSelection, setConfirmSelection] = useState(0)
   const [collectionReloadToken, setCollectionReloadToken] = useState(0)
   const [, setSelectOpen] = useState(false)
   const [yamlEditor, setYamlEditor] = useState<{
@@ -149,7 +148,6 @@ export function AppInner({
   useEffect(() => {
     envDeletePendingRef.current = envDeletePending
   }, [envDeletePending])
-  const [deleteConfirmSelection, setDeleteConfirmSelection] = useState(0)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
   const [importCurlVisible, setImportCurlVisible] = useState(false)
@@ -169,7 +167,6 @@ export function AppInner({
   const folderDeletePathRef = useRef<string | null>(null)
   const [undoAllPending, setUndoAllPending] = useState(false)
   const [initPending, setInitPending] = useState(false)
-  const [initConfirmSelection, setInitConfirmSelection] = useState(0)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [codeGeneratorVisible, setCodeGeneratorVisible] = useState(false)
   const [requestFinderVisible, setRequestFinderVisible] = useState(false)
@@ -180,7 +177,6 @@ export function AppInner({
   const [collectionSwitchPending, setCollectionSwitchPending] = useState<
     string | null
   >(null)
-  const [collectionSwitchSelection, setCollectionSwitchSelection] = useState(0)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -659,16 +655,13 @@ export function AppInner({
       setCollectionSwitcherVisible(false)
       if (normalized === collectionDirRef.current) {
         setCollectionSwitchPending(null)
-        setCollectionSwitchSelection(0)
         return
       }
       if (draft.isDirty || folderDraft.isDirty || envEditor.dirty) {
         setCollectionSwitchPending(normalized)
-        setCollectionSwitchSelection(0)
         return
       }
       setCollectionSwitchPending(null)
-      setCollectionSwitchSelection(0)
       onCollectionChange(normalized)
     },
     [draft.isDirty, folderDraft.isDirty, envEditor.dirty, onCollectionChange],
@@ -677,7 +670,6 @@ export function AppInner({
   const confirmCollectionSwitch = useCallback(
     (nextDir: string) => {
       setCollectionSwitchPending(null)
-      setCollectionSwitchSelection(0)
       setCollectionSwitcherVisible(false)
       onCollectionChange(nextDir)
     },
@@ -724,7 +716,6 @@ export function AppInner({
       setCollectionReloadToken,
       setPreviewIndex: setPreviewIndexProp,
       setEnvDeletePending,
-      setDeleteConfirmSelection,
       setNewRequestVisible,
       setEditRequestVisible,
       setCloneRequestVisible,
@@ -747,15 +738,11 @@ export function AppInner({
     activeOverlay,
     cancelSendRef,
     saveState,
-    confirmSelection,
-    setConfirmSelection,
     setSaveState,
     doSave,
     envDeletePending,
     envDeletePendingRef,
     setEnvDeletePending,
-    deleteConfirmSelection,
-    setDeleteConfirmSelection,
     envEditorRef,
     clearSaveTimer,
     saveTimerRef,
@@ -806,15 +793,11 @@ export function AppInner({
     setFolderDeletePending,
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
     collectionSwitchPending,
-    collectionSwitchSelection,
-    setCollectionSwitchSelection,
     setCollectionSwitchPending,
     onCollectionSwitchConfirm: confirmCollectionSwitch,
     undoAllPending,
     setUndoAllPending,
     initPending,
-    initConfirmSelection,
-    setInitConfirmSelection,
     setInitPending,
     onInitConfirm: () => executeInitPending(),
     draftRef,
@@ -915,7 +898,6 @@ export function AppInner({
         setExpanded,
         setPreviewIndexProp,
         setEnvDeletePending,
-        setDeleteConfirmSelection,
         onReloadCollection,
       }),
     [
@@ -995,7 +977,6 @@ export function AppInner({
             envHeaderRef={envHeaderRef}
             setFocus={setFocus}
             setEnvDeletePending={setEnvDeletePending}
-            setDeleteConfirmSelection={setDeleteConfirmSelection}
           />
         ) : null}
         <AppOverlays
@@ -1003,14 +984,10 @@ export function AppInner({
           helpVisible={helpVisible}
           aboutVisible={aboutVisible}
           saveState={saveState}
-          confirmSelection={confirmSelection}
           envDeletePending={envDeletePending}
-          deleteConfirmSelection={deleteConfirmSelection}
           undoAllPending={undoAllPending}
           initPending={initPending}
-          initConfirmSelection={initConfirmSelection}
           collectionSwitchPending={collectionSwitchPending}
-          collectionSwitchSelection={collectionSwitchSelection}
           commandPaletteVisible={commandPaletteVisible}
           commandPaletteCommands={commandPaletteCommands}
           setCommandPaletteVisible={setCommandPaletteVisible}

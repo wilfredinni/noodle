@@ -33,11 +33,7 @@ describe("Delete confirmation", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ConfirmOverlay
-            visible
-            message='Delete environment "staging"?'
-            selectedIndex={0}
-          />
+          <ConfirmOverlay visible message='Delete environment "staging"?' />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 10 },
@@ -60,7 +56,6 @@ describe("Delete confirmation", () => {
           <ConfirmOverlay
             visible={false}
             message='Delete environment "staging"?'
-            selectedIndex={0}
           />
         </ThemeProvider>
       </KeymapProvider>,
@@ -77,7 +72,7 @@ describe("Delete confirmation", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ConfirmOverlay visible message="Delete?" selectedIndex={0} />
+          <ConfirmOverlay visible message="Delete?" />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 10 },
@@ -94,7 +89,7 @@ describe("Delete confirmation", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ConfirmOverlay visible message="Delete?" selectedIndex={0} />
+          <ConfirmOverlay visible message="Delete?" />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 10 },

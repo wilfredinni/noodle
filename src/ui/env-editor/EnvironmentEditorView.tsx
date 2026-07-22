@@ -14,7 +14,6 @@ interface EnvironmentEditorViewProps {
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
   setFocus: (focus: Focus) => void
   setEnvDeletePending: (name: string | null) => void
-  setDeleteConfirmSelection: (selection: number) => void
 }
 
 export function EnvironmentEditorView({
@@ -25,7 +24,6 @@ export function EnvironmentEditorView({
   envHeaderRef,
   setFocus,
   setEnvDeletePending,
-  setDeleteConfirmSelection,
 }: EnvironmentEditorViewProps) {
   return (
     <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
@@ -49,7 +47,6 @@ export function EnvironmentEditorView({
         onDelete={() => {
           if (envEditor.selectedEnvName) {
             setEnvDeletePending(envEditor.selectedEnvName)
-            setDeleteConfirmSelection(0)
           }
         }}
         focused={focus === "env-sidebar"}
