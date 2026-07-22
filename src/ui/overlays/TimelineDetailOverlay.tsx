@@ -109,6 +109,7 @@ export function TimelineDetailOverlay({
     setLoading(false)
     setShowLargeBody(false)
     setHighlightPriority("start")
+    bodyScrollRef.current?.scrollTo(0)
   }, [visible, entry])
 
   useEffect(() => {
@@ -139,6 +140,7 @@ export function TimelineDetailOverlay({
 
   useEffect(() => {
     setHighlightPriority("start")
+    bodyScrollRef.current?.scrollTo(0)
   }, [renderedBody])
 
   useEffect(() => {

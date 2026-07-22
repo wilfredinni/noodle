@@ -231,6 +231,10 @@ export function ResponsePane({
   }, [displayedBody])
 
   useEffect(() => {
+    if (displayedBody) scrollRef.current?.scrollTo(0)
+  }, [displayedBody])
+
+  useEffect(() => {
     if (!responseBodyForCopyRef) return
     responseBodyForCopyRef.current =
       queryResult?.kind === "success"
