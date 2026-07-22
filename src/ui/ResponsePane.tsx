@@ -265,27 +265,25 @@ export function ResponsePane({
   }, [responseQueryRef, isDone, activeTab, queryVisible])
 
   const headerLeft = (
-    <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
+    <box style={{ flexDirection: "row" }}>
+      <text fg={focused ? theme.primary : theme.borderSubtle}>Response</text>
+      {isDone ? (
+        <text fg={statusColor(state.response.status, theme)}>
+          {` ${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}`}
+        </text>
+      ) : null}
+    </box>
   )
 
   const headerRight = isDone ? (
-    <text fg={statusColor(state.response.status, theme)}>
-      {`${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}`}
-    </text>
-  ) : undefined
-
-  const footerLeft = focused ? (
-    <text fg={theme.primary}>
-      {expandHint}
-      {queryHint ? ` · ${queryHint}` : ""}
-    </text>
-  ) : undefined
-
-  const footerRight = isDone ? (
     <text fg={focused ? theme.primary : theme.textMuted}>
       {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms`}
     </text>
   ) : undefined
+
+  const bottomTitle = focused
+    ? `${expandHint}${queryHint ? ` - ${queryHint}` : ""}`
+    : undefined
 
   return (
     <Frame
@@ -294,7 +292,7 @@ export function ResponsePane({
         flexDirection: "column",
         paddingLeft: 1,
         paddingRight: 1,
-        paddingBottom: 1,
+        paddingBottom: 0,
         flexBasis: 0,
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,
@@ -304,8 +302,9 @@ export function ResponsePane({
       borderColor={borderColor}
       titleLeft={headerLeft}
       titleRight={headerRight}
-      bottomLeft={footerLeft}
-      bottomRight={footerRight}
+      bottomTitle={bottomTitle}
+      bottomTitleColor={focused ? theme.primary : theme.textMuted}
+      bottomTitleAlignment="left"
     >
       {state.status === "idle" ? (
         <Tips />
