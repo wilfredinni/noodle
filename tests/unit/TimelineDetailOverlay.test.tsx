@@ -37,20 +37,32 @@ async function renderOverlay(
   ;(
     keymap as unknown as { setData: (key: string, value: string) => void }
   ).setData("app.overlay", "none")
-  const render = await testRender(
-    <KeymapProvider keymap={keymap}>
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <TimelineDetailOverlay
-          visible={visible}
-          entry={entry}
-          onClose={onClose}
-          {...actions}
-        />
-      </ThemeProvider>
-    </KeymapProvider>,
-    { width: 80, height: 30 },
+  const render = await act(async () =>
+    testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TimelineDetailOverlay
+            visible={visible}
+            entry={entry}
+            onClose={onClose}
+            {...actions}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 30 },
+    ),
   )
-  return { ...render, cleanup, keymap, host }
+  return {
+    ...render,
+    cleanup: () => {
+      cleanup()
+      act(() => {
+        render.renderer.destroy()
+      })
+    },
+    keymap,
+    host,
+  }
 }
 
 describe("TimelineDetailOverlay", () => {
