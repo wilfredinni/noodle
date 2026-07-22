@@ -200,7 +200,9 @@ export function Select({
       if (item.description)
         maxLabel = Math.max(maxLabel, item.description.length)
     }
-    return width !== undefined ? Math.max(width, maxLabel + 6) : maxLabel + 6
+    return typeof width === "number"
+      ? Math.max(width, maxLabel + 6)
+      : maxLabel + 6
   }, [items, width])
 
   const dropdownMaxHeight = useMemo(
@@ -220,7 +222,8 @@ export function Select({
         : extractText(selectedItem.label)
     : placeholder
 
-  const triggerWidth = width !== undefined ? width : selectedText.length + 4
+  const triggerWidth =
+    width !== undefined ? width : badge ? selectedText.length + 4 : "100%"
 
   return (
     <box

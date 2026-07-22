@@ -198,7 +198,6 @@ export function RequestPane({
                   request={request}
                   editState={editState}
                   browseActive={browseActive}
-                  theme={theme}
                   onBodyTypeChange={onBodyTypeChange ?? (() => {})}
                   onSelectOpenChange={onSelectOpenChange}
                 />
@@ -326,14 +325,12 @@ function BodyTypeSelector({
   request,
   editState,
   browseActive,
-  theme,
   onBodyTypeChange,
   onSelectOpenChange,
 }: {
   request: Request
   editState: EditState
   browseActive: boolean
-  theme: Theme
   onBodyTypeChange: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
 }) {
@@ -362,12 +359,6 @@ function BodyTypeSelector({
       id="body-type"
       style={{
         zIndex: typeSelectOpen ? 1 : undefined,
-        backgroundColor:
-          browseActive &&
-          editState.cursor.field === "body" &&
-          editState.cursor.row === 0
-            ? theme.backgroundElement
-            : undefined,
       }}
     >
       <Select

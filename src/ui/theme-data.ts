@@ -355,7 +355,7 @@ export const synthwave84Theme: Theme = {
   backgroundElement: "#2a2139",
   border: "#495495",
   borderActive: "#36f9f6",
-  borderSubtle: "#241b2f",
+  borderSubtle: "#495495",
 }
 
 export const catppuccinFrappeTheme: Theme = {
