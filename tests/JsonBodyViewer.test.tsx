@@ -35,11 +35,53 @@ describe("JsonBodyViewer", () => {
     await renderOnce()
 
     const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const key = spans.find((span) => span.text.includes("title"))
     const title = spans.find((span) => span.text.includes("my album"))
 
+    expect(key?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(true)
     expect(title).toBeDefined()
     expect(title!.fg.equals(RGBA.fromHex(theme.success))).toBe(true)
     expect(captureCharFrame()).toContain("$user_id")
+  })
+
+  it("keeps native colors aligned after multiple JSON lines", async () => {
+    const theme = THEMES[0]!
+    const body = `{
+  "first": "value",
+  "second": $resolved,
+  "third": false,
+  "fourth": null,
+  "fifth": 42
+}`
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <JsonBodyViewer
+          body={body}
+          theme={theme}
+          activeEnv={{ name: "production", vars: { resolved: "yes" } }}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const spanFor = (text: string) =>
+      spans.find((span) => span.text.includes(text))
+
+    expect(spanFor("first")?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(
+      true,
+    )
+    expect(spanFor("value")?.fg.equals(RGBA.fromHex(theme.success))).toBe(true)
+    expect(spanFor("second")?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(
+      true,
+    )
+    expect(spanFor("resolved")?.fg.equals(RGBA.fromHex(theme.primary))).toBe(
+      true,
+    )
+    expect(spanFor("false")?.fg.equals(RGBA.fromHex(theme.info))).toBe(true)
+    expect(spanFor("null")?.fg.equals(RGBA.fromHex(theme.info))).toBe(true)
+    expect(spanFor("42")?.fg.equals(RGBA.fromHex(theme.warning))).toBe(true)
   })
 
   it("handles large JSON payloads (>200KB) in JsonBodyViewer without freezing or errors", async () => {

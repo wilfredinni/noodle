@@ -9,7 +9,7 @@ import type { RefObject } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { Environment } from "../../schema"
 import type { Theme } from "../theme-data"
-import { createJsonSyntaxStyle, styleIdForFg } from "./useJsonHighlight"
+import { createJsonSyntaxStyle } from "./useJsonHighlight"
 import { highlightJsonTokens } from "./syntax"
 
 const HIGHLIGHT_BATCH_SIZE = 128
@@ -19,6 +19,38 @@ interface HighlightJob {
   end: number
   styleId: number
   priority: number
+}
+
+function styleIdForToken(
+  kind: ReturnType<typeof highlightJsonTokens>[number]["kind"],
+  style: SyntaxStyle,
+): number {
+  const styleName =
+    kind === "key"
+      ? "json.key"
+      : kind === "string"
+        ? "json.string"
+        : kind === "number"
+          ? "json.number"
+          : kind === "boolean"
+            ? "json.boolean"
+            : kind === "null"
+              ? "json.null"
+              : kind === "bracket"
+                ? "json.bracket"
+                : "json.text"
+  return style.getStyleId(styleName) ?? 0
+}
+
+function displayOffsetWithin(text: string, offset: number): number {
+  let displayOffset = 0
+  for (let index = 0; index < offset;) {
+    const codePoint = text.codePointAt(index)
+    if (codePoint === undefined) break
+    index += codePoint > 0xffff ? 2 : 1
+    if (codePoint !== 0x0a && codePoint !== 0x0d) displayOffset++
+  }
+  return displayOffset
 }
 
 export interface JsonBodyOptions extends RenderableOptions<JsonBodyRenderable> {
@@ -97,21 +129,40 @@ export class JsonBodyRenderable extends TextBufferRenderable {
   }
 
   private buildHighlightJobs(): HighlightJob[] {
-    const jobs = highlightJsonTokens(this._body, this._theme).map((token) => ({
-      start: token.offset,
-      end: token.offset + token.text.length,
-      styleId: styleIdForFg(token.fg, this._theme, this._syntaxStyle),
+    const tokens = highlightJsonTokens(this._body, this._theme)
+    const jobs = tokens.map((token) => ({
+      start: token.displayOffset,
+      end: token.displayEnd,
+      styleId: styleIdForToken(token.kind, this._syntaxStyle),
       priority: 1,
     }))
 
     if (!this._activeEnv) return jobs
 
     const varRe = /\$\w+/g
+    let tokenIndex = 0
     let match: RegExpExecArray | null
     while ((match = varRe.exec(this._body)) !== null) {
+      while (
+        tokenIndex < tokens.length &&
+        tokens[tokenIndex]!.offset + tokens[tokenIndex]!.text.length <=
+          match.index
+      ) {
+        tokenIndex++
+      }
+      const token = tokens[tokenIndex]
+      if (
+        !token ||
+        match.index + match[0].length > token.offset + token.text.length
+      ) {
+        continue
+      }
+      const start =
+        token.displayOffset +
+        displayOffsetWithin(token.text, match.index - token.offset)
       jobs.push({
-        start: match.index,
-        end: match.index + match[0].length,
+        start,
+        end: start + match[0].length,
         styleId:
           this._syntaxStyle.getStyleId(
             Object.hasOwn(this._activeEnv.vars, match[0].slice(1))
