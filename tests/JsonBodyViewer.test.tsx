@@ -1,4 +1,4 @@
-import { act } from "react"
+import { act, useState } from "react"
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
@@ -154,24 +154,44 @@ describe("JsonBodyViewer", () => {
     await act(async () => renderer.destroy())
   })
 
-  it("prioritizes tail colors after an end jump", async () => {
+  it("repaints tail-first when highlightPriority flips to end after start", async () => {
     const theme = THEMES[0]!
     const body = Array.from({ length: 300 }, (_, i) => `{"line": ${i}}`).join(
       "\n",
     )
     const scrollRef = { current: null as ScrollBoxRenderable | null }
+
+    function Harness() {
+      const [priority, setPriority] = useState<"start" | "end">("start")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(globalThis as any).__flip = () => setPriority("end")
+      return (
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <scrollbox ref={scrollRef} style={{ height: 10 }}>
+            <JsonBodyViewer
+              body={body}
+              theme={theme}
+              highlightPriority={priority}
+            />
+          </scrollbox>
+        </ThemeProvider>
+      )
+    }
+
     const { renderOnce, captureSpans, renderer } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <scrollbox ref={scrollRef} style={{ height: 10 }}>
-          <JsonBodyViewer body={body} theme={theme} highlightPriority="end" />
-        </scrollbox>
-      </ThemeProvider>,
+      <Harness />,
       { width: 40, height: 10 },
     )
 
     await renderOnce()
     await act(async () => {
       scrollRef.current!.scrollTop = 290
+      await renderOnce()
+    })
+    await act(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(globalThis as any).__flip()
+      await new Promise((resolve) => setTimeout(resolve, 50))
       await renderOnce()
     })
 

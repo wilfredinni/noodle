@@ -396,7 +396,6 @@ export function ResponsePane({
                     <text fg={theme.textMuted}>(no body)</text>
                   ) : (
                     <JsonBodyViewer
-                      key={displayedBody}
                       body={displayedBody}
                       theme={theme}
                       highlightPriority={highlightPriority}

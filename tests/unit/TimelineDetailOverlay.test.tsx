@@ -391,6 +391,44 @@ describe("TimelineDetailOverlay", () => {
     expect(frame).not.toContain("secret-api-key")
     cleanup()
   })
+
+  it("scrolls back to body top when home is pressed", async () => {
+    const body = JSON.stringify(
+      { data: Array.from({ length: 500 }, (_, i) => ({ id: i })) },
+      null,
+      2,
+    )
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body,
+          timeMs: 12,
+          size: body.length,
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+
+    await act(async () => {
+      host.press("end")
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+    })
+    expect(captureCharFrame()).toContain('"id": 499')
+
+    await act(async () => {
+      host.press("home")
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+    })
+    expect(captureCharFrame()).toContain('"data"')
+    expect(captureCharFrame()).toContain('"id": 0')
+    cleanup()
+  })
 })
 
 function TimelineDetailHarness({

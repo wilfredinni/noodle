@@ -367,7 +367,6 @@ export function TimelineDetailOverlay({
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
                 <JsonBodyViewer
-                  key={renderedBody}
                   body={renderedBody}
                   theme={theme}
                   highlightPriority={highlightPriority}
