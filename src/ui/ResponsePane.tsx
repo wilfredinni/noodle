@@ -399,9 +399,6 @@ export function ResponsePane({
                       key={displayedBody}
                       body={displayedBody}
                       theme={theme}
-                      readOnly
-                      focused={focused}
-                      scrollRef={scrollRef}
                       highlightPriority={highlightPriority}
                     />
                   )}

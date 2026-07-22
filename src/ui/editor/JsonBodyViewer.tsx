@@ -5,8 +5,6 @@ import {
   type RenderableOptions,
   type SyntaxStyle,
 } from "@opentui/core"
-import type { RefObject } from "react"
-import type { ScrollBoxRenderable } from "@opentui/core"
 import type { Environment } from "../../schema"
 import type { Theme } from "../theme-data"
 import { createJsonSyntaxStyle } from "./useJsonHighlight"
@@ -258,13 +256,9 @@ export function JsonBodyViewer({
 }: {
   body: string
   theme: Theme
-  id?: string
-  readOnly?: boolean
   activeEnv?: Environment | null
   backgroundColor?: string
   highlightPriority?: "start" | "end"
-  focused?: boolean
-  scrollRef?: RefObject<ScrollBoxRenderable | null>
 }) {
   const bg = backgroundColor ?? theme.backgroundPanel
 

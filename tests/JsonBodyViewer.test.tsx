@@ -93,7 +93,7 @@ describe("JsonBodyViewer", () => {
 
     const { renderOnce, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <JsonBodyViewer body={largeBody} theme={theme} readOnly />
+        <JsonBodyViewer body={largeBody} theme={theme} />
       </ThemeProvider>,
       { width: 80, height: 10 },
     )
@@ -135,12 +135,7 @@ describe("JsonBodyViewer", () => {
     const { renderOnce, captureSpans, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <scrollbox ref={scrollRef} style={{ height: 10 }}>
-          <JsonBodyViewer
-            body={body}
-            theme={theme}
-            readOnly
-            scrollRef={scrollRef}
-          />
+          <JsonBodyViewer body={body} theme={theme} />
         </scrollbox>
       </ThemeProvider>,
       { width: 80, height: 10 },
@@ -169,12 +164,7 @@ describe("JsonBodyViewer", () => {
     const { renderOnce, captureCharFrame, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <scrollbox ref={scrollRef} style={{ height: 10 }}>
-          <JsonBodyViewer
-            body={body}
-            theme={theme}
-            readOnly
-            scrollRef={scrollRef}
-          />
+          <JsonBodyViewer body={body} theme={theme} />
         </scrollbox>
       </ThemeProvider>,
       { width: 40, height: 10 },
@@ -202,13 +192,7 @@ describe("JsonBodyViewer", () => {
     const { renderOnce, captureSpans, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <scrollbox ref={scrollRef} style={{ height: 10 }}>
-          <JsonBodyViewer
-            body={body}
-            theme={theme}
-            readOnly
-            scrollRef={scrollRef}
-            highlightPriority="end"
-          />
+          <JsonBodyViewer body={body} theme={theme} highlightPriority="end" />
         </scrollbox>
       </ThemeProvider>,
       { width: 40, height: 10 },

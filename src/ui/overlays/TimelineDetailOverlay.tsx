@@ -370,8 +370,6 @@ export function TimelineDetailOverlay({
                   key={renderedBody}
                   body={renderedBody}
                   theme={theme}
-                  readOnly
-                  scrollRef={bodyScrollRef}
                   highlightPriority={highlightPriority}
                 />
               </scrollbox>
