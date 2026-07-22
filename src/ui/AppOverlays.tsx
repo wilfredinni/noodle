@@ -31,6 +31,7 @@ import type {
   Environment,
   Request as NoodleRequest,
   TimelineEntry,
+  TimelineBodyRef,
 } from "../schema"
 import { TimelineDetailOverlay } from "./overlays/TimelineDetailOverlay"
 import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
@@ -117,6 +118,16 @@ interface AppOverlaysProps {
   timelineDetailEntry: TimelineEntry | null
   setTimelineDetailEntry: (entry: TimelineEntry | null) => void
   envColors: Record<string, string | undefined>
+  onLoadTimelineBody: (
+    entry: TimelineEntry,
+    ref: TimelineBodyRef,
+  ) => Promise<string>
+  onCopyTimelineBody: (body: string) => void
+  onExportTimelineBody: (
+    entry: TimelineEntry,
+    kind: "request" | "response",
+    body: string,
+  ) => Promise<void>
 }
 
 export function AppOverlays({
@@ -183,6 +194,9 @@ export function AppOverlays({
   timelineDetailEntry,
   setTimelineDetailEntry,
   envColors,
+  onLoadTimelineBody,
+  onCopyTimelineBody,
+  onExportTimelineBody,
 }: AppOverlaysProps) {
   return (
     <>
@@ -366,6 +380,9 @@ export function AppOverlays({
           entry={timelineDetailEntry}
           onClose={() => setTimelineDetailEntry(null)}
           envColors={envColors}
+          onLoadBody={(ref) => onLoadTimelineBody(timelineDetailEntry, ref)}
+          onCopyBody={onCopyTimelineBody}
+          onExportBody={onExportTimelineBody}
         />
       )}
     </>

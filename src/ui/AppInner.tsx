@@ -38,6 +38,9 @@ import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
+import { exportTimelineBody, loadTimelineBody } from "../filestore"
+import { copyToClipboard } from "./clipboard"
+import type { TimelineBodyRef } from "../schema"
 import type { SubstitutedRequest } from "../requests/substitute"
 import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
@@ -838,6 +841,31 @@ export function AppInner({
 
   const renderer = useRenderer()
 
+  const onLoadTimelineBody = useCallback(
+    (entry: TimelineEntry, ref: TimelineBodyRef) =>
+      loadTimelineBody(collectionDir, entry.request.id, ref),
+    [collectionDir],
+  )
+  const onCopyTimelineBody = useCallback(
+    (body: string) => {
+      if (copyToClipboard(body, renderer))
+        showToast("Timeline body copied", "success")
+      else showToast("Failed to copy timeline body", "error")
+    },
+    [renderer],
+  )
+  const onExportTimelineBody = useCallback(
+    async (
+      entry: TimelineEntry,
+      kind: "request" | "response",
+      body: string,
+    ) => {
+      const path = await exportTimelineBody(collectionDir, entry, kind, body)
+      showToast(`Timeline body saved to ${path}`, "success")
+    },
+    [collectionDir],
+  )
+
   const commandPaletteCommands = useMemo(
     () =>
       buildCommandPaletteCommands({
@@ -1034,6 +1062,9 @@ export function AppInner({
           timelineDetailEntry={timelineDetailEntry}
           setTimelineDetailEntry={setTimelineDetailEntry}
           envColors={envColors}
+          onLoadTimelineBody={onLoadTimelineBody}
+          onCopyTimelineBody={onCopyTimelineBody}
+          onExportTimelineBody={onExportTimelineBody}
         />
       </box>
       <StatusBar

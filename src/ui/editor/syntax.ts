@@ -15,7 +15,7 @@ export interface JsonToken {
   kind: "key" | "string" | "number" | "boolean" | "null" | "bracket" | "text"
 }
 
-function tokenizeLine(line: string, theme: Theme): SpanPart[] {
+export function tokenizeLine(line: string, theme: Theme): SpanPart[] {
   if (line.trim() === "") return []
 
   if (/^\s*(\[|\]|\{|\})\s*,?\s*$/.test(line)) {
@@ -106,36 +106,119 @@ export function highlightJsonTokens(
   theme: Theme,
 ): JsonToken[] {
   const tokens: JsonToken[] = []
-  const lines = formatted.split("\n")
-  let offset = 0
+  if (formatted.trim() === "") return tokens
+  const isWhitespace = (char: string) => /\s/.test(char)
+  const literalRe = /(?:true|false|null)(?!\w)/y
+  const numberRe = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?(?![\w.])/y
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!
-    const cleanLine = line.endsWith("\r") ? line.slice(0, -1) : line
-    const parts = tokenizeLine(cleanLine, theme)
-    for (const part of parts) {
-      if (part.text.length > 0) {
-        tokens.push({
-          text: part.text,
-          fg: part.fg,
-          offset,
-          kind:
-            part.kind ??
-            (part.fg === theme.secondary
-              ? "key"
-              : part.fg === theme.success
-                ? "string"
-                : part.fg === theme.warning
-                  ? "number"
-                  : part.fg === theme.info
-                    ? "boolean"
-                    : part.fg === theme.textMuted
-                      ? "bracket"
-                      : "text"),
-        })
-        offset += part.text.length
-      }
+  for (let offset = 0; offset < formatted.length;) {
+    const char = formatted[offset]!
+    if (char === "\n" || char === "\r") {
+      offset++
+      continue
     }
+
+    if (isWhitespace(char)) {
+      const start = offset
+      while (
+        offset < formatted.length &&
+        isWhitespace(formatted[offset]!) &&
+        formatted[offset] !== "\n" &&
+        formatted[offset] !== "\r"
+      ) {
+        offset++
+      }
+      tokens.push({
+        text: formatted.slice(start, offset),
+        fg: theme.text,
+        offset: start,
+        kind: "text",
+      })
+      continue
+    }
+
+    if (char === "," || char === ":") {
+      tokens.push({ text: char, fg: theme.textMuted, offset, kind: "bracket" })
+      offset++
+      continue
+    }
+
+    if ("{}[]".includes(char)) {
+      tokens.push({ text: char, fg: theme.textMuted, offset, kind: "bracket" })
+      offset++
+      continue
+    }
+
+    if (char === '"') {
+      const start = offset
+      offset++
+      while (offset < formatted.length) {
+        if (formatted[offset] === "\\") {
+          offset += 2
+          continue
+        }
+        if (formatted[offset] === '"') {
+          offset++
+          break
+        }
+        offset++
+      }
+      let next = offset
+      while (next < formatted.length && isWhitespace(formatted[next]!)) next++
+      tokens.push({
+        text: formatted.slice(start, offset),
+        fg:
+          next < formatted.length && formatted[next] === ":"
+            ? theme.secondary
+            : theme.success,
+        offset: start,
+        kind:
+          next < formatted.length && formatted[next] === ":" ? "key" : "string",
+      })
+      continue
+    }
+
+    literalRe.lastIndex = offset
+    const literal = literalRe.exec(formatted)
+    if (literal) {
+      const text = literal[0]
+      tokens.push({
+        text,
+        fg: theme.info,
+        offset,
+        kind: text === "null" ? "null" : "boolean",
+      })
+      offset += text.length
+      continue
+    }
+
+    numberRe.lastIndex = offset
+    const number = numberRe.exec(formatted)
+    if (number) {
+      tokens.push({
+        text: number[0],
+        fg: theme.warning,
+        offset,
+        kind: "number",
+      })
+      offset += number[0].length
+      continue
+    }
+
+    const start = offset
+    while (
+      offset < formatted.length &&
+      !isWhitespace(formatted[offset]!) &&
+      !'{}[],:"'.includes(formatted[offset]!)
+    ) {
+      offset++
+    }
+    tokens.push({
+      text: formatted.slice(start, offset),
+      fg: theme.text,
+      offset: start,
+      kind: "text",
+    })
   }
 
   return tokens

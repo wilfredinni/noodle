@@ -1,8 +1,16 @@
+import { act } from "react"
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
+import type { ScrollBoxRenderable, TextareaRenderable } from "@opentui/core"
 import { ThemeProvider, THEMES } from "../src/ui/theme"
 import { JsonBodyViewer } from "../src/ui/editor/JsonBodyViewer"
+import { highlightTextarea } from "../src/ui/editor/useJsonHighlight"
+import { highlightJsonTokens } from "../src/ui/editor/syntax"
+import {
+  buildCharToDisplayOffsets,
+  charOffsetToDisplayOffset,
+} from "../src/ui/variable-completion/highlightOffsets"
 
 describe("JsonBodyViewer", () => {
   it("keeps JSON syntax highlighting when variables make raw JSON invalid", async () => {
@@ -34,5 +42,114 @@ describe("JsonBodyViewer", () => {
     expect(title!.fg.equals(RGBA.fromHex(theme.success))).toBe(true)
     expect(variable).toBeDefined()
     expect(variable!.fg.equals(RGBA.fromHex(theme.primary))).toBe(true)
+  })
+
+  it("handles large JSON payloads (>200KB) in JsonBodyViewer without freezing or errors", async () => {
+    const theme = THEMES[0]!
+    const item =
+      '    {\n      "id": "1288d7d4-3c95-4dbe-9d74-c34977478ee8",\n      "status": "completed"\n    }'
+    const items = new Array(3000).fill(item).join(",\n")
+    const largeBody = `{\n  "results": [\n${items}\n  ]\n}`
+
+    const { renderOnce, renderer } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <JsonBodyViewer body={largeBody} theme={theme} readOnly />
+      </ThemeProvider>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    // Wait for chunked async highlights to complete
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    await act(async () => renderer.destroy())
+  })
+
+  it("keeps async textarea syntax highlighting aligned after wide characters", async () => {
+    const theme = THEMES[0]!
+    const body = `{"emoji":"${"😀".repeat(10_000)}"}\n{"target":"value"}`
+    const ranges: { start: number; end: number }[] = []
+    const textarea = {
+      clearAllHighlights: () => {},
+      addHighlightByCharRange: (range: { start: number; end: number }) => {
+        ranges.push(range)
+      },
+    } as unknown as TextareaRenderable
+    const cleanup = highlightTextarea(textarea, body, theme)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const target = highlightJsonTokens(body, theme).find(
+      (token) => token.text === '"target"',
+    )!
+    const expectedStart = charOffsetToDisplayOffset(
+      buildCharToDisplayOffsets(body),
+      target.offset,
+    )
+    expect(ranges.some((range) => range.start === expectedStart)).toBe(true)
+    cleanup()
+  })
+
+  it("preserves string highlighting across large raw-body chunks", async () => {
+    const theme = THEMES[0]!
+    const body = `{"payload":"${"a".repeat(1024 * 1024)}"}`
+    const scrollRef = { current: null as ScrollBoxRenderable | null }
+    const { renderOnce, captureSpans, renderer } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <scrollbox ref={scrollRef} style={{ height: 10 }}>
+          <JsonBodyViewer
+            body={body}
+            theme={theme}
+            readOnly
+            scrollRef={scrollRef}
+          />
+        </scrollbox>
+      </ThemeProvider>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    await act(async () => {
+      scrollRef.current!.scrollTop = 1
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+    })
+    const stringPart = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("a"))
+    expect(stringPart?.fg.equals(RGBA.fromHex(theme.success))).toBe(true)
+    await act(async () => renderer.destroy())
+  })
+
+  it("renders the scrolled window for large bodies", async () => {
+    const theme = THEMES[0]!
+    const body = Array.from({ length: 300 }, (_, i) => `{"line": ${i}}`).join(
+      "\n",
+    )
+    const scrollRef = { current: null as ScrollBoxRenderable | null }
+
+    const { renderOnce, captureCharFrame, renderer } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <scrollbox ref={scrollRef} style={{ height: 10 }}>
+          <JsonBodyViewer
+            body={body}
+            theme={theme}
+            readOnly
+            scrollRef={scrollRef}
+          />
+        </scrollbox>
+      </ThemeProvider>,
+      { width: 40, height: 10 },
+    )
+
+    await renderOnce()
+    expect(captureCharFrame()).toContain('"line": 0')
+
+    await act(async () => {
+      scrollRef.current!.scrollTop = 290
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain('"line": 299')
+    await act(async () => renderer.destroy())
   })
 })

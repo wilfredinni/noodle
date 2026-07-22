@@ -2,17 +2,7 @@ import type { TimelineEntry, Method } from "../../schema"
 import type { Request } from "../../schema"
 import type { SendCompleteResult } from "../../hooks/useResponse"
 import type { SubstitutedRequest } from "../../requests/substitute"
-
-const MAX_BODY_LENGTH = 10_000
-
-function truncateBody(body: string | undefined): string | undefined {
-  if (body === undefined || body === "") return body
-  return body.length <= MAX_BODY_LENGTH ? body : body.slice(0, MAX_BODY_LENGTH)
-}
-
-function truncateBodyString(body: string): string {
-  return body.length <= MAX_BODY_LENGTH ? body : body.slice(0, MAX_BODY_LENGTH)
-}
+import { randomUUID } from "node:crypto"
 
 function responseSize(body: string): number {
   return new TextEncoder().encode(body).length
@@ -25,6 +15,7 @@ export function buildTimelineEntry(
   substituted?: SubstitutedRequest,
 ): TimelineEntry {
   return {
+    id: randomUUID(),
     timestamp: Date.now(),
     envName,
     request: {
@@ -43,7 +34,7 @@ export function buildTimelineEntry(
       params: substituted
         ? substituted.params.map((p) => ({ ...p }))
         : [...req.params],
-      body: truncateBody(substituted?.body ?? req.body),
+      body: substituted?.body ?? req.body,
       auth: substituted?.auth ?? (req.auth ? { ...req.auth } : undefined),
     },
     response:
@@ -52,7 +43,7 @@ export function buildTimelineEntry(
             status: result.response.status,
             statusText: result.response.statusText,
             headers: { ...result.response.headers },
-            body: truncateBodyString(result.response.body),
+            body: result.response.body,
             timeMs: result.response.timeMs,
             size: responseSize(result.response.body),
           }

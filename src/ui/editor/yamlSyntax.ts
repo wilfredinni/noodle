@@ -167,12 +167,14 @@ function findCommentIndex(s: string): number {
   return -1
 }
 
+export const MAX_YAML_HIGHLIGHT_SIZE = 100_000
+
 export function highlightYaml(
   textarea: TextareaRenderable,
   content: string,
   theme: Theme,
 ): void {
-  if (content.length > 100_000) return
+  if (content.length > MAX_YAML_HIGHLIGHT_SIZE) return
   const style = createYamlSyntaxStyle(theme)
   textarea.clearAllHighlights()
   textarea.syntaxStyle = style

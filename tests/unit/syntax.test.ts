@@ -21,7 +21,7 @@ describe("highlightJsonTokens", () => {
     expect(tokens[0]!.offset).toBe(0)
     expect(tokens[1]!.fg).toBe(opencodeTheme.textMuted)
     expect(tokens[1]!.text).toBe("}")
-    expect(tokens[1]!.offset).toBe(1)
+    expect(tokens[1]!.offset).toBe(2)
   })
 
   it("highlights key:value lines with secondary for key and success for string value", () => {
@@ -61,13 +61,27 @@ describe("highlightJsonTokens", () => {
     const tokens = highlightJsonTokens(body, opencodeTheme)
     expect(tokens[0]!.offset).toBe(0)
     expect(tokens[0]!.text).toBe("{")
-    expect(tokens[1]!.offset).toBe(1)
+    expect(tokens[1]!.offset).toBe(2)
     expect(tokens[1]!.text).toBe("  ")
-    expect(tokens[2]!.offset).toBe(3)
-    expect(tokens[3]!.offset).toBe(8)
-    expect(tokens[3]!.text).toBe("1")
-    expect(tokens[4]!.offset).toBe(9)
-    expect(tokens[4]!.text).toBe("}")
+    expect(tokens[2]!.offset).toBe(4)
+    expect(tokens[5]!.offset).toBe(9)
+    expect(tokens[5]!.text).toBe("1")
+    expect(tokens[6]!.offset).toBe(11)
+    expect(tokens[6]!.text).toBe("}")
+  })
+
+  it("highlights large JSON payloads (>200KB) correctly", () => {
+    const item =
+      '    {\n      "id": "1288d7d4-3c95-4dbe-9d74-c34977478ee8",\n      "status": "completed",\n      "consumed": true,\n      "count": 100\n    }'
+    const items = new Array(3000).fill(item).join(",\n")
+    const largeBody = `{\n  "results": [\n${items}\n  ]\n}`
+    expect(largeBody.length).toBeGreaterThan(200_000)
+
+    const tokens = highlightJsonTokens(largeBody, opencodeTheme)
+    expect(tokens.length).toBeGreaterThan(10_000)
+    const boolToken = tokens.find((t) => t.text === "true")
+    expect(boolToken).toBeDefined()
+    expect(boolToken!.fg).toBe(opencodeTheme.info)
   })
 
   it("highlights comma as textMuted", () => {
@@ -129,8 +143,8 @@ describe("highlightJsonTokens", () => {
     expect(boolToken!.fg).toBe(opencodeTheme.info)
 
     expect(tokens[0]!.offset).toBe(0) // "{"
-    expect(tokens[1]!.offset).toBe(1) // "  "
-    expect(tokens[2]!.offset).toBe(3) // "\"name\": "
+    expect(tokens[1]!.offset).toBe(3) // "  "
+    expect(tokens[2]!.offset).toBe(5) // "\"name\""
 
     for (const t of tokens) {
       expect(t.text).not.toContain("\r")
