@@ -200,9 +200,7 @@ export function Select({
       if (item.description)
         maxLabel = Math.max(maxLabel, item.description.length)
     }
-    return typeof width === "number"
-      ? Math.max(width, maxLabel + 6)
-      : maxLabel + 6
+    return width !== undefined ? Math.max(width, maxLabel + 6) : maxLabel + 6
   }, [items, width])
 
   const dropdownMaxHeight = useMemo(
