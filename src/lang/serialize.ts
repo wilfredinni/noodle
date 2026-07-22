@@ -1,8 +1,14 @@
 import yaml from "js-yaml"
 import type { Auth, Request } from "../schema"
 
-function yamlVal(val: string): string {
-  return yaml.dump(val, { lineWidth: 0 }).trim()
+function yamlVal(val: string, indent = 0): string {
+  const dumped = yaml.dump(val, { lineWidth: -1 }).trim()
+  if (indent === 0 || !dumped.includes("\n")) {
+    return dumped
+  }
+  const lines = dumped.split("\n")
+  const pad = " ".repeat(indent)
+  return [lines[0], ...lines.slice(1).map((l) => pad + l)].join("\n")
 }
 
 export function serializeRequest(req: Request): string {
@@ -18,7 +24,7 @@ export function serializeRequest(req: Request): string {
   if (Object.keys(req.headers).length > 0) {
     out += "headers:\n"
     for (const [k, v] of Object.entries(req.headers)) {
-      const val = yamlVal(v.value)
+      const val = yamlVal(v.value, 2)
       if (v.enabled) {
         out += `  ${k}: ${val}\n`
       } else {
@@ -30,8 +36,8 @@ export function serializeRequest(req: Request): string {
   if (req.params.length > 0) {
     out += "params:\n"
     for (const entry of req.params) {
-      const nameVal = yamlVal(entry.name)
-      const valVal = yamlVal(entry.value)
+      const nameVal = yamlVal(entry.name, 4)
+      const valVal = yamlVal(entry.value, 4)
       if (entry.enabled) {
         out += `  - name: ${nameVal}\n    value: ${valVal}\n`
       } else {
@@ -51,8 +57,8 @@ export function serializeRequest(req: Request): string {
   if (req.formData !== undefined && req.formData.length > 0) {
     out += "form_data:\n"
     for (const entry of req.formData) {
-      const nameVal = yamlVal(entry.name)
-      const valVal = yamlVal(entry.value)
+      const nameVal = yamlVal(entry.name, 4)
+      const valVal = yamlVal(entry.value, 4)
       if (entry.enabled && entry.type === "text") {
         out += `  - name: ${nameVal}\n    value: ${valVal}\n`
       } else {
@@ -69,7 +75,14 @@ export function serializeRequest(req: Request): string {
     const authObj = authToObj(req.auth)
     out += "auth:\n"
     for (const [k, v] of Object.entries(authObj)) {
-      out += `  ${k}: ${yaml.dump(v, { lineWidth: 0 }).trim()}\n`
+      const dumped = yaml.dump(v, { lineWidth: -1 }).trim()
+      const valFormatted = dumped.includes("\n")
+        ? dumped
+            .split("\n")
+            .map((line, idx) => (idx === 0 ? line : `  ${line}`))
+            .join("\n")
+        : dumped
+      out += `  ${k}: ${valFormatted}\n`
     }
   }
 

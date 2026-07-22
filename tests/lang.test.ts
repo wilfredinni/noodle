@@ -802,4 +802,47 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
     const reparsed = lang.parseRequest(original.id, yaml)
     expect(reparsed).toEqual(original)
   })
+
+  it("serializes long parameter values without invalid YAML indentation and round-trips correctly", () => {
+    const longValue =
+      "e.g. VCENTER, NSX_T_MANAGER, SDDC_MANAGER, VRSLCM, VROPS, VCF_OPS_CLOUD_PROXY, VRA"
+    const original: Request = {
+      id: "long-param-req",
+      name: "Long param req",
+      method: "GET",
+      url: "https://example.com/api",
+      headers: {},
+      params: [{ name: "productType", value: longValue, enabled: true }],
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: { type: "none" },
+    }
+
+    const yamlStr = lang.serializeRequest(original)
+    expect(() => lang.parseRequest(original.id, yamlStr)).not.toThrow()
+    const reparsed = lang.parseRequest(original.id, yamlStr)
+    expect(reparsed.params[0].value).toBe(longValue)
+  })
+
+  it("serializes multiline parameter values with proper indentation and round-trips correctly", () => {
+    const multilineValue = "line 1\nline 2\nline 3"
+    const original: Request = {
+      id: "multiline-param-req",
+      name: "Multiline param req",
+      method: "GET",
+      url: "https://example.com/api",
+      headers: {},
+      params: [{ name: "description", value: multilineValue, enabled: true }],
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: { type: "none" },
+    }
+
+    const yamlStr = lang.serializeRequest(original)
+    expect(() => lang.parseRequest(original.id, yamlStr)).not.toThrow()
+    const reparsed = lang.parseRequest(original.id, yamlStr)
+    expect(reparsed.params[0].value).toBe(multilineValue)
+  })
 })
