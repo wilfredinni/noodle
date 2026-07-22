@@ -211,11 +211,7 @@ describe("ConfirmOverlay", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ConfirmOverlay
-            visible
-            message="Save changes to test?"
-            selectedIndex={0}
-          />
+          <ConfirmOverlay visible message="Save changes to test?" />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 20 },
@@ -238,11 +234,7 @@ describe("ConfirmOverlay", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ConfirmOverlay
-            visible
-            message="Save changes to test?"
-            selectedIndex={0}
-          />
+          <ConfirmOverlay visible message="Save changes to test?" />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 20 },

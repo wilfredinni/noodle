@@ -59,14 +59,10 @@ interface AppOverlaysProps {
   helpVisible: boolean
   aboutVisible: boolean
   saveState: SaveState
-  confirmSelection: number
   envDeletePending: string | null
-  deleteConfirmSelection: number
   undoAllPending: boolean
   initPending: boolean
-  initConfirmSelection: number
   collectionSwitchPending: string | null
-  collectionSwitchSelection: number
   commandPaletteVisible: boolean
   commandPaletteCommands: CommandItem[]
   setCommandPaletteVisible: (visible: boolean) => void
@@ -135,14 +131,10 @@ export function AppOverlays({
   helpVisible,
   aboutVisible,
   saveState,
-  confirmSelection,
   envDeletePending,
-  deleteConfirmSelection,
   undoAllPending,
   initPending,
-  initConfirmSelection,
   collectionSwitchPending,
-  collectionSwitchSelection,
   commandPaletteVisible,
   commandPaletteCommands,
   setCommandPaletteVisible,
@@ -206,35 +198,27 @@ export function AppOverlays({
         <ConfirmOverlay
           visible
           message={`Save changes to ${saveState.requestId}?`}
-          selectedIndex={confirmSelection}
         />
       )}
       {envDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete environment "${envDeletePending}"?`}
-          selectedIndex={deleteConfirmSelection}
         />
       )}
       {undoAllPending && (
-        <ConfirmOverlay
-          visible
-          message="Discard all unsaved changes? (y/n)"
-          selectedIndex={confirmSelection}
-        />
+        <ConfirmOverlay visible message="Discard all unsaved changes? (y/n)" />
       )}
       {initPending && (
         <ConfirmOverlay
           visible
           message={`Initialize collection in ${collectionDir}? (y/n)`}
-          selectedIndex={initConfirmSelection}
         />
       )}
       {collectionSwitchPending !== null && (
         <ConfirmOverlay
           visible
           message={`Switch to "${collectionSwitchPending}" and discard unsaved changes?`}
-          selectedIndex={collectionSwitchSelection}
         />
       )}
       {commandPaletteVisible && (
@@ -364,15 +348,10 @@ export function AppOverlays({
         <ConfirmOverlay
           visible
           message={`Delete folder "${folderDeletePending}" and all requests inside?`}
-          selectedIndex={deleteConfirmSelection}
         />
       )}
       {requestDeletePending !== null && (
-        <ConfirmOverlay
-          visible
-          message={`Delete "${requestDeletePending}"?`}
-          selectedIndex={deleteConfirmSelection}
-        />
+        <ConfirmOverlay visible message={`Delete "${requestDeletePending}"?`} />
       )}
       {timelineDetailEntry !== null && (
         <TimelineDetailOverlay

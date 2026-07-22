@@ -140,7 +140,6 @@ export interface CommandBuilderContext {
   setEnvDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
-  setDeleteConfirmSelection: (n: number | ((prev: number) => number)) => void
   onReloadCollection: () => void
 }
 
@@ -199,7 +198,6 @@ export function buildCommandPaletteCommands(
     setRequestFinderVisible,
     setCodeGeneratorVisible,
     setEnvDeletePending,
-    setDeleteConfirmSelection,
     getCollectionMode,
   } = ctx
 
@@ -390,7 +388,6 @@ export function buildCommandPaletteCommands(
         const result = deleteEnvironment(c)
         if (!result) return false
         setEnvDeletePending(result.envName)
-        setDeleteConfirmSelection(0)
         return true
       },
     },

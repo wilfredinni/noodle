@@ -27,15 +27,11 @@ export function useOverlayIntercepts(opts: {
   activeOverlay: string
   cancelSendRef: RefObject<() => void>
   saveState: SaveState
-  confirmSelection: number
-  setConfirmSelection: (n: number) => void
   setSaveState: (s: SaveState) => void
   doSave: () => void
   envDeletePending: string | null
   envDeletePendingRef: RefObject<string | null>
   setEnvDeletePending: (s: string | null) => void
-  deleteConfirmSelection: number
-  setDeleteConfirmSelection: (n: number) => void
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
@@ -89,15 +85,11 @@ export function useOverlayIntercepts(opts: {
   setFolderDeletePending: (s: string | null) => void
   onFolderDeleteConfirm: () => void
   collectionSwitchPending: string | null
-  collectionSwitchSelection: number
-  setCollectionSwitchSelection: (n: number) => void
   setCollectionSwitchPending: (s: string | null) => void
   onCollectionSwitchConfirm: (collectionDir: string) => void
   undoAllPending: boolean
   setUndoAllPending: (v: boolean) => void
   initPending: boolean
-  initConfirmSelection: number
-  setInitConfirmSelection: (n: number) => void
   setInitPending: (v: boolean) => void
   onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
@@ -108,15 +100,11 @@ export function useOverlayIntercepts(opts: {
     activeOverlay,
     cancelSendRef,
     saveState,
-    confirmSelection,
-    setConfirmSelection,
     setSaveState,
     doSave,
     envDeletePending,
     envDeletePendingRef,
     setEnvDeletePending,
-    deleteConfirmSelection,
-    setDeleteConfirmSelection,
     envEditorRef,
     clearSaveTimer,
     saveTimerRef,
@@ -157,15 +145,11 @@ export function useOverlayIntercepts(opts: {
     setFolderDeletePending,
     onFolderDeleteConfirm,
     collectionSwitchPending,
-    collectionSwitchSelection,
-    setCollectionSwitchSelection,
     setCollectionSwitchPending,
     onCollectionSwitchConfirm,
     undoAllPending,
     setUndoAllPending,
     initPending,
-    initConfirmSelection,
-    setInitConfirmSelection,
     setInitPending,
     onInitConfirm,
     draftRef,
@@ -193,39 +177,20 @@ export function useOverlayIntercepts(opts: {
       "key",
       (ctx) => {
         const name = ctx.event.name
-        if (name === "y" || (name === "return" && confirmSelection === 0)) {
+        if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           doSave()
-        } else if (
-          name === "n" ||
-          name === "escape" ||
-          (name === "return" && confirmSelection === 1)
-        ) {
+        } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           setSaveState({ kind: "idle" })
-        } else if (name === "left" || name === "up") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setConfirmSelection(0)
-        } else if (name === "right" || name === "down") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setConfirmSelection(1)
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [
-    saveState.kind,
-    confirmSelection,
-    doSave,
-    keymap,
-    setConfirmSelection,
-    setSaveState,
-  ])
+  }, [saveState.kind, doSave, keymap, setSaveState])
 
   // ── Overlay: Delete env confirmation ──────────────────────────────
   useEffect(() => {
@@ -235,10 +200,7 @@ export function useOverlayIntercepts(opts: {
       "key",
       (ctx) => {
         const name = ctx.event.name
-        if (
-          name === "y" ||
-          (name === "return" && deleteConfirmSelection === 0)
-        ) {
+        if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           const envName = envDeletePending
@@ -262,22 +224,10 @@ export function useOverlayIntercepts(opts: {
                 2000,
               )
             })
-        } else if (
-          name === "n" ||
-          name === "escape" ||
-          (name === "return" && deleteConfirmSelection === 1)
-        ) {
+        } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           setEnvDeletePending(null)
-        } else if (name === "left" || name === "up") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setDeleteConfirmSelection(0)
-        } else if (name === "right" || name === "down") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setDeleteConfirmSelection(1)
         }
       },
       { priority: 100 },
@@ -285,10 +235,8 @@ export function useOverlayIntercepts(opts: {
     return dispose
   }, [
     envDeletePending,
-    deleteConfirmSelection,
     keymap,
     setEnvDeletePending,
-    setDeleteConfirmSelection,
     setSaveState,
     clearSaveTimer,
     saveTimerRef,
@@ -302,33 +250,16 @@ export function useOverlayIntercepts(opts: {
       "key",
       (ctx) => {
         const name = ctx.event.name
-        if (
-          name === "y" ||
-          (name === "return" && collectionSwitchSelection === 0)
-        ) {
+        if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           const nextDir = collectionSwitchPending
           setCollectionSwitchPending(null)
-          setCollectionSwitchSelection(0)
           onCollectionSwitchConfirm(nextDir)
-        } else if (
-          name === "n" ||
-          name === "escape" ||
-          (name === "return" && collectionSwitchSelection === 1)
-        ) {
+        } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           setCollectionSwitchPending(null)
-          setCollectionSwitchSelection(0)
-        } else if (name === "left" || name === "up") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setCollectionSwitchSelection(0)
-        } else if (name === "right" || name === "down") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setCollectionSwitchSelection(1)
         }
       },
       { priority: 100 },
@@ -336,11 +267,9 @@ export function useOverlayIntercepts(opts: {
     return dispose
   }, [
     collectionSwitchPending,
-    collectionSwitchSelection,
     keymap,
     onCollectionSwitchConfirm,
     setCollectionSwitchPending,
-    setCollectionSwitchSelection,
   ])
 
   // ── Overlay: Help ──────────────────────────────────────────────────
@@ -677,42 +606,21 @@ export function useOverlayIntercepts(opts: {
       "key",
       (ctx) => {
         const name = ctx.event.name
-        if (name === "y" || (name === "return" && initConfirmSelection === 0)) {
+        if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setInitConfirmSelection(0)
           onInitConfirm()
           setInitPending(false)
-        } else if (
-          name === "n" ||
-          name === "escape" ||
-          (name === "return" && initConfirmSelection === 1)
-        ) {
+        } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setInitConfirmSelection(0)
           setInitPending(false)
-        } else if (name === "left" || name === "up") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setInitConfirmSelection(0)
-        } else if (name === "right" || name === "down") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          setInitConfirmSelection(1)
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [
-    initPending,
-    initConfirmSelection,
-    keymap,
-    onInitConfirm,
-    setInitConfirmSelection,
-    setInitPending,
-  ])
+  }, [initPending, keymap, onInitConfirm, setInitPending])
 
   // ── Overlay: New Folder ───────────────────────────────────────────
   useEffect(() => {

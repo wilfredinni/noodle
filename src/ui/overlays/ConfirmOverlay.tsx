@@ -4,14 +4,9 @@ import { Overlay } from "./Overlay"
 export interface ConfirmOverlayProps {
   visible: boolean
   message: string
-  selectedIndex: number
 }
 
-export function ConfirmOverlay({
-  visible,
-  message,
-  selectedIndex: _selectedIndex,
-}: ConfirmOverlayProps) {
+export function ConfirmOverlay({ visible, message }: ConfirmOverlayProps) {
   const theme = useTheme()
 
   return (
