@@ -20,6 +20,7 @@ import {
 
 import { HeaderTable } from "./HeaderTable"
 import { TimelineTab } from "./timeline/TimelineTab"
+import { Badge } from "./Badge"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -265,21 +266,30 @@ export function ResponsePane({
   }, [responseQueryRef, isDone, activeTab, queryVisible])
 
   const headerLeft = (
-    <box style={{ flexDirection: "row" }}>
-      <text fg={focused ? theme.primary : theme.borderSubtle}>Response</text>
-      {isDone ? (
-        <text fg={statusColor(state.response.status, theme)}>
-          {` ${state.response.status}${state.response.statusText !== "" ? ` ${state.response.statusText}` : ""}`}
-        </text>
-      ) : null}
-    </box>
+    <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
   )
 
-  const headerRight = isDone ? (
-    <text fg={focused ? theme.primary : theme.textMuted}>
-      {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms`}
-    </text>
-  ) : undefined
+  const headerRight = isDone
+    ? (() => {
+        const rawText = state.response.statusText ?? ""
+        const truncatedStatusText =
+          rawText.length > 5 ? `${rawText.slice(0, 5)}…` : rawText
+        const statusStr = `${state.response.status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
+        return (
+          <box style={{ flexDirection: "row" }}>
+            <text fg={focused ? theme.primary : theme.textMuted}>
+              {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms `}
+            </text>
+            <Badge
+              bg={statusColor(state.response.status, theme)}
+              fg={theme.backgroundPanel}
+            >
+              {statusStr}
+            </Badge>
+          </box>
+        )
+      })()
+    : undefined
 
   const bottomTitle = focused
     ? `${expandHint}${queryHint ? ` - ${queryHint}` : ""}`
@@ -303,7 +313,6 @@ export function ResponsePane({
       titleLeft={headerLeft}
       titleRight={headerRight}
       bottomTitle={bottomTitle}
-      bottomTitleColor={focused ? theme.primary : theme.textMuted}
       bottomTitleAlignment="left"
     >
       {state.status === "idle" ? (
