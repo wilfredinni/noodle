@@ -221,9 +221,10 @@ export function TimelineDetailOverlay({
         .map(([key, value]) => ({ key, value }))
     : []
   const headers = activeTab === "request" ? requestHeaders : responseHeaders
+  const headerHeight = Math.min(Math.max(headers.length, 1), 7)
 
   return (
-    <Overlay visible width={70} gap={1} padding={1}>
+    <Overlay visible width={70} height="80%" gap={1} padding={1}>
       <box
         style={{
           paddingLeft: 2,
@@ -247,7 +248,7 @@ export function TimelineDetailOverlay({
             }}
           >
             {activeTab === "request" ? (
-              <>
+              <box style={{ flexDirection: "column", marginBottom: 1 }}>
                 <text
                   wrapMode="char"
                   style={{ flexShrink: 1, minWidth: 10 }}
@@ -256,7 +257,7 @@ export function TimelineDetailOverlay({
                 <text fg={theme.textMuted} wrapMode="none">
                   {truncateUrl(entry.request.id, 60)}
                 </text>
-              </>
+              </box>
             ) : entry.error ? (
               <box
                 border={["left", "right", "top", "bottom"]}
@@ -297,6 +298,7 @@ export function TimelineDetailOverlay({
             </box>
             <scrollbox
               scrollY
+              height={headerHeight}
               maxHeight={7}
               scrollbarOptions={{ visible: false }}
               style={{ flexShrink: 0 }}
@@ -329,7 +331,6 @@ export function TimelineDetailOverlay({
               <scrollbox
                 ref={bodyScrollRef}
                 scrollY
-                maxHeight={12}
                 scrollbarOptions={{ visible: false }}
                 style={{ flexGrow: 1, minHeight: 0 }}
               >

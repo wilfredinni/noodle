@@ -193,7 +193,42 @@ describe("TimelineDetailOverlay", () => {
     await renderOnce()
     await act(async () => host.press("left"))
     await renderOnce()
-    expect(captureCharFrame()).toContain("request-1")
+    const lines = captureCharFrame().split("\n")
+    const requestNameLine = lines.findIndex((line) =>
+      line.includes("request-1"),
+    )
+    const headersTitleLine = lines.findIndex(
+      (line) => line.trim() === "Headers",
+    )
+    expect(requestNameLine).toBeGreaterThanOrEqual(0)
+    expect(headersTitleLine - requestNameLine).toBeGreaterThanOrEqual(2)
+    cleanup()
+  })
+
+  it("keeps the body directly below a short request header list", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        request: {
+          id: "request-1",
+          name: "Test request",
+          method: "GET",
+          url: "https://example.com",
+          headers: {
+            "X-Request-Id": { value: "abc123", enabled: true },
+          },
+          params: [],
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("left"))
+    await renderOnce()
+
+    const lines = captureCharFrame().split("\n")
+    const headerLine = lines.findIndex((line) => line.includes("X-Request-Id"))
+    const bodyLine = lines.findIndex((line) => line.trim() === "Body")
+    expect(bodyLine - headerLine).toBeLessThanOrEqual(3)
     cleanup()
   })
 

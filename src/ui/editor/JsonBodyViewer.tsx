@@ -280,7 +280,7 @@ export function JsonBodyViewer({
     }
   }, [body, theme, readOnly, activeEnv])
 
-  if (lineCount > 150 || body.length > LARGE_BODY_BYTES) {
+  if (readOnly || lineCount > 150 || body.length > LARGE_BODY_BYTES) {
     return (
       <VirtualizedBodyViewer
         body={body}
