@@ -10,6 +10,91 @@ import type {
   Request,
 } from "../schema"
 
+export interface CollectionFileError {
+  file: string
+  message: string
+  rawError: string
+  snippet?: string
+}
+
+export function parseUserFriendlyFileError(
+  file: string,
+  rawError: string,
+): CollectionFileError {
+  let msg = rawError
+    .replace(/^filestore\.loadCollection:\s*/, "")
+    .replace(/^failed to parse "[^"]+":\s*/, "")
+    .replace(/^lang\.parseRequest:\s*/, "")
+    .replace(/^lang\.parseFolder:\s*/, "")
+    .replace(/^YAML syntax:\s*/, "")
+    .trim()
+
+  let snippet: string | undefined
+  const snippetIdx = msg.search(/\n\s*\d+\s*\|/)
+  if (snippetIdx !== -1) {
+    snippet = msg.slice(snippetIdx).trim()
+    msg = msg.slice(0, snippetIdx).trim()
+  }
+
+  const posMatch = msg.match(/\((\d+):(\d+)\)$/)
+  let locationPrefix = ""
+  if (posMatch) {
+    const line = posMatch[1]
+    const col = posMatch[2]
+    locationPrefix = `Line ${line}, Col ${col}: `
+    msg = msg.replace(/\s*\(\d+:\d+\)$/, "").trim()
+  }
+
+  if (
+    msg.includes("can not read an implicit mapping pair; a colon is missed")
+  ) {
+    msg = "Missing colon after key name"
+  } else if (msg.includes("bad indentation of a mapping entry")) {
+    msg = "Bad indentation of YAML entry"
+  } else if (
+    msg.includes("end of the stream or a document separator is expected")
+  ) {
+    msg = "Unexpected YAML formatting or structure"
+  } else if (msg.includes("duplicated mapping key")) {
+    msg = "Duplicate key in YAML mapping"
+  } else if (msg.includes("incomplete explicit mapping pair")) {
+    msg = "Incomplete mapping pair"
+  }
+
+  return {
+    file,
+    message: locationPrefix ? `${locationPrefix}${msg}` : msg,
+    rawError,
+    snippet,
+  }
+}
+
+export function extractFileErrors(error: Error): CollectionFileError[] {
+  if (
+    Array.isArray(
+      (error as unknown as { fileErrors?: CollectionFileError[] }).fileErrors,
+    ) &&
+    (error as unknown as { fileErrors: CollectionFileError[] }).fileErrors
+      .length > 0
+  ) {
+    return (error as unknown as { fileErrors: CollectionFileError[] })
+      .fileErrors
+  }
+  const fileMatch = error.message.match(
+    /failed to parse "([^"]+)":\s*([\s\S]+)/,
+  )
+  if (fileMatch) {
+    return [parseUserFriendlyFileError(fileMatch[1], fileMatch[2])]
+  }
+  return [
+    {
+      file: "collection",
+      message: error.message.replace(/^filestore\.loadCollection:\s*/, ""),
+      rawError: error.message,
+    },
+  ]
+}
+
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
 
 export interface LoadOptions {
@@ -23,6 +108,7 @@ async function walk(
   visited = new Set<string>(),
   root?: string,
   opts: LoadOptions = {},
+  fileErrors: CollectionFileError[] = [],
 ): Promise<CollectionItem[]> {
   let resolved: string
   try {
@@ -80,12 +166,23 @@ async function walk(
       if (folderYmlContent) {
         try {
           folderMeta = lang.parseFolder(folderYmlContent)
-        } catch {
-          // ignore invalid folder.yml, use defaults
+        } catch (e) {
+          if (!opts.tolerant) {
+            const msg = e instanceof Error ? e.message : String(e)
+            const folderYmlRel = `${childRel}/folder.yml`
+            fileErrors.push(parseUserFriendlyFileError(folderYmlRel, msg))
+          }
         }
       }
 
-      const children = await walk(childAbs, childRel, visited, root, opts)
+      const children = await walk(
+        childAbs,
+        childRel,
+        visited,
+        root,
+        opts,
+        fileErrors,
+      )
       const folder: Folder = {
         id: entry.name,
         name: folderMeta.meta?.name ?? entry.name,
@@ -112,25 +209,29 @@ async function walk(
       let req: Request
       try {
         req = lang.parseRequest(reqId, content)
+        requests.push({
+          item: { type: "request", data: req },
+          name: entry.name,
+        })
       } catch (e) {
         if (opts.tolerant) continue
         const msg = e instanceof Error ? e.message : String(e)
-        throw new Error(
-          `filestore.loadCollection: failed to parse "${entry.name}": ${msg}`,
-          { cause: e },
-        )
+        const relFileName = relPath ? `${relPath}/${entry.name}` : entry.name
+        fileErrors.push(parseUserFriendlyFileError(relFileName, msg))
       }
-      requests.push({ item: { type: "request", data: req }, name: entry.name })
 
-      if (!opts.readOnly && !/^timeout:\s/m.test(content)) {
-        try {
-          await writeFile(
-            join(absDir, entry.name),
-            lang.serializeRequest(req),
-            "utf8",
-          )
-        } catch {
-          /* migration non-critical */
+      if (requests.length > 0 && !opts.readOnly) {
+        const lastReq = requests[requests.length - 1].item.data as Request
+        if (lastReq.id === reqId && !/^timeout:\s/m.test(content)) {
+          try {
+            await writeFile(
+              join(absDir, entry.name),
+              lang.serializeRequest(lastReq),
+              "utf8",
+            )
+          } catch {
+            /* migration non-critical */
+          }
         }
       }
     }
@@ -169,7 +270,22 @@ export async function loadCollection(dir: string): Promise<Collection> {
 
   const id = basename(dir)
   const root = await realpath(dir)
-  const items = await walk(dir, "", new Set(), root)
+  const fileErrors: CollectionFileError[] = []
+  const items = await walk(dir, "", new Set(), root, {}, fileErrors)
+
+  if (fileErrors.length > 0) {
+    const first = fileErrors[0]
+    const errMsg =
+      fileErrors.length === 1
+        ? `filestore.loadCollection: failed to parse "${first.file}": ${first.rawError}`
+        : `filestore.loadCollection: ${fileErrors.length} files failed to parse in collection:\n` +
+          fileErrors.map((f) => `• ${f.file}: ${f.message}`).join("\n")
+    const err = new Error(errMsg)
+    ;(err as unknown as { fileErrors: CollectionFileError[] }).fileErrors =
+      fileErrors
+    throw err
+  }
+
   return { id, name: id, items }
 }
 

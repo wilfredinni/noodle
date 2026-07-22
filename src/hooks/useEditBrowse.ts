@@ -6,6 +6,8 @@ import {
   exitEditBrowse,
   moveFieldCursor,
   moveRowCursor,
+  moveRowFirst,
+  moveRowLast,
   beginEditing,
   commitEditing,
   cancelEditing,
@@ -176,6 +178,8 @@ export interface UseEditBrowseResult {
   exitBrowse: () => void
   browseUp: () => void
   browseDown: () => void
+  browseFirst: () => void
+  browseLast: () => void
   browseLeft: () => void
   browseRight: () => void
   enterAndEdit: () => void
@@ -335,6 +339,22 @@ export function useEditBrowse(
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       return moveRowCursor(prev, +1, c)
+    })
+  }, [])
+
+  const browseFirst = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return moveRowFirst(prev, c)
+    })
+  }, [])
+
+  const browseLast = useCallback(() => {
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return moveRowLast(prev, c)
     })
   }, [])
 
@@ -592,6 +612,8 @@ export function useEditBrowse(
       exitBrowse,
       browseUp,
       browseDown,
+      browseFirst,
+      browseLast,
       browseLeft,
       browseRight,
       enterAndEdit,
@@ -614,6 +636,8 @@ export function useEditBrowse(
       exitBrowse,
       browseUp,
       browseDown,
+      browseFirst,
+      browseLast,
       browseLeft,
       browseRight,
       enterAndEdit,

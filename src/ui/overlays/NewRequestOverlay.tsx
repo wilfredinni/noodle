@@ -224,7 +224,7 @@ export const NewRequestOverlay = forwardRef<
               backgroundColor={theme.backgroundElement}
               focusedBackgroundColor={theme.borderSubtle}
               paddingX={1}
-              style={{ flexGrow: 1 }}
+              style={{ flexGrow: 1, flexShrink: 1 }}
             />
           </box>
         </box>

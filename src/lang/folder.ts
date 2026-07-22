@@ -119,8 +119,14 @@ function parseFolderAuth(value: unknown): Auth {
   throw new Error(`lang.parseFolder: invalid auth.type "${String(a.type)}"`)
 }
 
-function yamlVal(val: string): string {
-  return yaml.dump(val, { lineWidth: 0 }).trim()
+function yamlVal(val: string, indent = 0): string {
+  const dumped = yaml.dump(val, { lineWidth: -1 }).trim()
+  if (indent === 0 || !dumped.includes("\n")) {
+    return dumped
+  }
+  const lines = dumped.split("\n")
+  const pad = " ".repeat(indent)
+  return [lines[0], ...lines.slice(1).map((l) => pad + l)].join("\n")
 }
 
 export function serializeFolder(folder: Folder): string {
@@ -129,7 +135,7 @@ export function serializeFolder(folder: Folder): string {
   if (folder.seq !== undefined || folder.name !== folder.id) {
     out += "meta:\n"
     if (folder.name !== folder.id) {
-      out += `  name: ${yamlVal(folder.name)}\n`
+      out += `  name: ${yamlVal(folder.name, 2)}\n`
     }
     if (folder.seq !== undefined) {
       out += `  seq: ${String(folder.seq)}\n`
@@ -141,8 +147,8 @@ export function serializeFolder(folder: Folder): string {
     if (o.headers && Object.keys(o.headers).length > 0) {
       out += "headers:\n"
       for (const [k, v] of Object.entries(o.headers)) {
-        const key = yamlVal(k)
-        const val = yamlVal(v.value)
+        const key = yamlVal(k, 2)
+        const val = yamlVal(v.value, 2)
         if (v.enabled) {
           out += `  ${key}: ${val}\n`
         } else {
@@ -156,15 +162,15 @@ export function serializeFolder(folder: Folder): string {
         out += "  type: none\n"
       } else if (o.auth.type === "bearer") {
         out += "  type: bearer\n"
-        out += `  token: ${yamlVal(o.auth.token)}\n`
+        out += `  token: ${yamlVal(o.auth.token, 2)}\n`
       } else if (o.auth.type === "basic") {
         out += "  type: basic\n"
-        out += `  user: ${yamlVal(o.auth.user)}\n`
-        out += `  pass: ${yamlVal(o.auth.pass)}\n`
+        out += `  user: ${yamlVal(o.auth.user, 2)}\n`
+        out += `  pass: ${yamlVal(o.auth.pass, 2)}\n`
       } else if (o.auth.type === "api_key") {
         out += "  type: api_key\n"
-        out += `  key: ${yamlVal(o.auth.key)}\n`
-        out += `  value: ${yamlVal(o.auth.value)}\n`
+        out += `  key: ${yamlVal(o.auth.key, 2)}\n`
+        out += `  value: ${yamlVal(o.auth.value, 2)}\n`
         out += `  placement: ${o.auth.placement}\n`
       }
     }

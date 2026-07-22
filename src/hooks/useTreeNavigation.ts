@@ -223,6 +223,19 @@ export function useTreeNavigation(
       if (target && target.type === "request") {
         setSelectedIdState(target.id)
       }
+    } else if (key.name === "home") {
+      setCursorIndex(0)
+      const target = v[0]
+      if (target && target.type === "request") {
+        setSelectedIdState(target.id)
+      }
+    } else if (key.name === "end") {
+      const lastIdx = v.length - 1
+      setCursorIndex(lastIdx)
+      const target = v[lastIdx]
+      if (target && target.type === "request") {
+        setSelectedIdState(target.id)
+      }
     } else if (key.name === "right") {
       if (
         node &&

@@ -4,6 +4,8 @@ import { useTheme } from "../theme"
 import { FullBorder } from "../borders"
 import { Checkbox } from "../Checkbox"
 import { VarInput } from "../VarInput"
+import type { ScrollBoxRenderable } from "@opentui/core"
+import { useEffect, useRef } from "react"
 
 export function EnvEditorPane({
   draft,
@@ -27,6 +29,28 @@ export function EnvEditorPane({
   focused: boolean
 }) {
   const theme = useTheme()
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  const inEdit = editState?.mode === "editing"
+  const inBrowse = editState?.mode === "browsing"
+  const editingRow = inEdit && !editState.addingRow ? editState.editingRow : -1
+  const editingAdd = inEdit && editState.addingRow
+
+  const targetRowId = editState
+    ? editState.addingRow
+      ? "vrow-add"
+      : editingRow >= 0
+        ? `vrow-${editingRow}`
+        : inBrowse && editState.row >= 0
+          ? `vrow-${editState.row}`
+          : null
+    : null
+
+  useEffect(() => {
+    if (targetRowId) {
+      scrollRef.current?.scrollChildIntoView(targetRowId)
+    }
+  }, [targetRowId])
 
   if (!draft) {
     return (
@@ -34,6 +58,7 @@ export function EnvEditorPane({
         style={{
           flexDirection: "column",
           flexGrow: 1,
+          minHeight: 0,
           padding: 1,
           backgroundColor: theme.backgroundPanel,
         }}
@@ -72,16 +97,13 @@ export function EnvEditorPane({
         .map((row) => [row.key, row.value]),
     ),
   }
-  const inEdit = editState.mode === "editing"
-  const inBrowse = editState.mode === "browsing"
-  const editingRow = inEdit && !editState.addingRow ? editState.editingRow : -1
-  const editingAdd = inEdit && editState.addingRow
 
   return (
     <box
       style={{
         flexDirection: "column",
         flexGrow: 1,
+        minHeight: 0,
         padding: 1,
         gap: 1,
         backgroundColor: theme.backgroundPanel,
@@ -94,6 +116,7 @@ export function EnvEditorPane({
       titleAlignment="left"
     >
       <scrollbox
+        ref={scrollRef}
         scrollY
         style={{ flexGrow: 1, minHeight: 0 }}
         verticalScrollbarOptions={{
@@ -161,6 +184,7 @@ export function EnvEditorPane({
         })}
         <box
           key="add"
+          id="vrow-add"
           style={{
             flexDirection: "row",
             gap: 0,

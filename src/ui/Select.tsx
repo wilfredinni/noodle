@@ -212,16 +212,27 @@ export function Select({
     [maxDropdownHeight, items],
   )
 
+  const selectedText = selectedItem
+    ? badge && selectedBadgeBg
+      ? extractText(selectedItem.label)
+      : typeof selectedItem.label === "string"
+        ? selectedItem.label
+        : extractText(selectedItem.label)
+    : placeholder
+
+  const triggerWidth = width !== undefined ? width : selectedText.length + 4
+
   return (
     <box
       style={{
         flexDirection: "column",
         position: "relative",
         zIndex: open ? 100 : 0,
-        ...(width !== undefined ? { width } : {}),
+        flexShrink: 0,
+        width: width !== undefined ? width : triggerWidth,
       }}
     >
-      <box style={{ position: "relative" }}>
+      <box style={{ position: "relative", flexShrink: 0 }}>
         <box
           ref={triggerRef}
           height={1}
@@ -232,9 +243,11 @@ export function Select({
             paddingLeft: 1,
             paddingRight: 1,
             backgroundColor: selectBg,
+            flexShrink: 0,
+            width: width !== undefined ? width : triggerWidth,
           }}
         >
-          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+          <box style={{ flexDirection: "row", flexGrow: 1, flexShrink: 0 }}>
             {selectedItem ? (
               renderLabel(
                 badge && selectedBadgeBg
@@ -244,10 +257,15 @@ export function Select({
                 focused && selectedBadgeBg ? TextAttributes.BOLD : undefined,
               )
             ) : (
-              <text fg={theme.textMuted}>{placeholder}</text>
+              <text fg={theme.textMuted} style={{ flexShrink: 0 }}>
+                {placeholder}
+              </text>
             )}
           </box>
-          <text fg={indicatorColor}> ▼</text>
+          <text fg={indicatorColor} style={{ flexShrink: 0 }}>
+            {" "}
+            ▼
+          </text>
         </box>
 
         {open &&
@@ -361,7 +379,7 @@ function renderLabel(
 ): ReactNode {
   if (typeof label === "string") {
     return (
-      <text fg={fg} attributes={attributes}>
+      <text fg={fg} attributes={attributes} style={{ flexShrink: 0 }}>
         {label}
       </text>
     )

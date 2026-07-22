@@ -81,6 +81,7 @@ export const EnvHeaderPane = forwardRef<
         paddingRight: 1,
         backgroundColor: theme.backgroundPanel,
         zIndex: selectOpen ? 1 : undefined,
+        flexShrink: 0,
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}

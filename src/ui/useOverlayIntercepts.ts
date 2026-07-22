@@ -785,6 +785,21 @@ export function useOverlayIntercepts(opts: {
             if (names[next]) ee.selectEnv(names[next]!)
             return
           }
+          if (e.name === "home" && ee.draft !== null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            if (names[0]) ee.selectEnv(names[0])
+            return
+          }
+          if (e.name === "end" && ee.draft !== null) {
+            e.preventDefault()
+            e.stopPropagation()
+            const names = ee.envNames
+            const last = names[names.length - 1]
+            if (last) ee.selectEnv(last)
+            return
+          }
         }
 
         if (f === "env-header") {

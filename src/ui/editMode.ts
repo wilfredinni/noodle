@@ -281,6 +281,65 @@ export function moveRowCursor(
   return { ...prev, cursor: { field, row: next, addingRow: false } }
 }
 
+export function moveRowFirst(
+  prev: EditState,
+  counts: SectionRowCount,
+): EditState {
+  if (prev.mode !== "browsing") return prev
+  const { field } = prev.cursor
+  if (
+    field !== "headers" &&
+    field !== "params" &&
+    field !== "settings" &&
+    field !== "auth" &&
+    field !== "body"
+  )
+    return prev
+  let count = 0
+  if (field === "headers") count = counts.headers
+  else if (field === "params") count = counts.params
+  else if (field === "settings") count = counts.settings
+  else if (field === "auth") count = counts.auth
+  else if (field === "body") count = counts.body
+
+  if (count === 0) {
+    if (field === "headers" || field === "params") {
+      return { ...prev, cursor: { field, row: -1, addingRow: true } }
+    }
+    return prev
+  }
+
+  return { ...prev, cursor: { field, row: 0, addingRow: false } }
+}
+
+export function moveRowLast(
+  prev: EditState,
+  counts: SectionRowCount,
+): EditState {
+  if (prev.mode !== "browsing") return prev
+  const { field } = prev.cursor
+  if (
+    field !== "headers" &&
+    field !== "params" &&
+    field !== "settings" &&
+    field !== "auth" &&
+    field !== "body"
+  )
+    return prev
+  let count = 0
+  if (field === "headers") count = counts.headers
+  else if (field === "params") count = counts.params
+  else if (field === "settings") count = counts.settings
+  else if (field === "auth") count = counts.auth
+  else if (field === "body") count = counts.body
+
+  if (field === "headers" || field === "params") {
+    return { ...prev, cursor: { field, row: -1, addingRow: true } }
+  }
+  if (count === 0) return prev
+  return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
+}
+
 export function moveFolderRowCursor(
   prev: EditState,
   delta: 1 | -1,
