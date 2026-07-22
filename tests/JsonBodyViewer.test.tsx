@@ -191,9 +191,13 @@ describe("JsonBodyViewer", () => {
     await act(async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(globalThis as any).__flip()
-      await new Promise((resolve) => setTimeout(resolve, 50))
       await renderOnce()
     })
+
+    for (let i = 0; i < 20; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await renderOnce()
+    }
 
     const tailNumbers = captureSpans()
       .lines.flatMap((line) => line.spans)
