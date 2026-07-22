@@ -217,9 +217,9 @@ export const NewRequestOverlay = forwardRef<
               ref={urlRef}
               value={url || ""}
               env={activeEnv ?? null}
-              isEditing={focus === "url"}
+              isEditing
               onChange={setUrl}
-              isFocused
+              isFocused={focus === "url"}
               placeholder="https://api.example.com/users"
               backgroundColor={theme.backgroundElement}
               focusedBackgroundColor={theme.borderSubtle}
