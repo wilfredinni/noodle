@@ -268,7 +268,7 @@ export function TimelineDetailOverlay({
               </box>
             ) : entry.response ? (
               <box
-                style={{ flexDirection: "row", marginBottom: 1, minWidth: 0 }}
+                style={{ flexDirection: "row", marginBottom: 2, minWidth: 0 }}
               >
                 <box style={{ flexDirection: "row", flexShrink: 0 }}>
                   <Badge bg={statusColor(status!, theme)} fg={theme.background}>
@@ -293,7 +293,11 @@ export function TimelineDetailOverlay({
             ) : (
               <text fg={theme.textMuted}>No response</text>
             )}
-            <box border={["bottom"]} borderColor={theme.borderSubtle}>
+            <box
+              border={["bottom"]}
+              borderColor={theme.borderSubtle}
+              style={{ paddingBottom: 1 }}
+            >
               <text fg={theme.text}>Headers</text>
             </box>
             <scrollbox
@@ -308,7 +312,7 @@ export function TimelineDetailOverlay({
             <box
               border={["bottom"]}
               borderColor={theme.borderSubtle}
-              style={{ marginTop: 1 }}
+              style={{ marginTop: 1, paddingBottom: 1 }}
             >
               <text fg={theme.text}>Body</text>
             </box>
