@@ -12,6 +12,8 @@ export interface JsonToken {
   text: string
   fg: string
   offset: number
+  displayOffset: number
+  displayEnd: number
   kind: "key" | "string" | "number" | "boolean" | "null" | "bracket" | "text"
 }
 
@@ -110,115 +112,136 @@ export function highlightJsonTokens(
   const isWhitespace = (char: string) => /\s/.test(char)
   const literalRe = /(?:true|false|null)(?!\w)/y
   const numberRe = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?(?![\w.])/y
+  let displayOffset = 0
+  const advance = (offset: number): number => {
+    const codePoint = formatted.codePointAt(offset)
+    if (codePoint === undefined) return offset
+    if (codePoint !== 0x0a && codePoint !== 0x0d) displayOffset++
+    return offset + (codePoint > 0xffff ? 2 : 1)
+  }
+  const pushToken = (
+    start: number,
+    tokenDisplayOffset: number,
+    fg: string,
+    kind: JsonToken["kind"],
+    end: number,
+  ) => {
+    tokens.push({
+      text: formatted.slice(start, end),
+      fg,
+      offset: start,
+      displayOffset: tokenDisplayOffset,
+      displayEnd: displayOffset,
+      kind,
+    })
+  }
 
   for (let offset = 0; offset < formatted.length;) {
     const char = formatted[offset]!
     if (char === "\n" || char === "\r") {
-      offset++
+      offset = advance(offset)
       continue
     }
 
     if (isWhitespace(char)) {
       const start = offset
+      const tokenDisplayOffset = displayOffset
       while (
         offset < formatted.length &&
         isWhitespace(formatted[offset]!) &&
         formatted[offset] !== "\n" &&
         formatted[offset] !== "\r"
       ) {
-        offset++
+        offset = advance(offset)
       }
-      tokens.push({
-        text: formatted.slice(start, offset),
-        fg: theme.text,
-        offset: start,
-        kind: "text",
-      })
+      pushToken(start, tokenDisplayOffset, theme.text, "text", offset)
       continue
     }
 
     if (char === "," || char === ":") {
-      tokens.push({ text: char, fg: theme.textMuted, offset, kind: "bracket" })
-      offset++
+      const start = offset
+      const tokenDisplayOffset = displayOffset
+      offset = advance(offset)
+      pushToken(start, tokenDisplayOffset, theme.textMuted, "bracket", offset)
       continue
     }
 
     if ("{}[]".includes(char)) {
-      tokens.push({ text: char, fg: theme.textMuted, offset, kind: "bracket" })
-      offset++
+      const start = offset
+      const tokenDisplayOffset = displayOffset
+      offset = advance(offset)
+      pushToken(start, tokenDisplayOffset, theme.textMuted, "bracket", offset)
       continue
     }
 
     if (char === '"') {
       const start = offset
-      offset++
+      const tokenDisplayOffset = displayOffset
+      offset = advance(offset)
       while (offset < formatted.length) {
         if (formatted[offset] === "\\") {
-          offset += 2
+          offset = advance(offset)
+          offset = advance(offset)
           continue
         }
         if (formatted[offset] === '"') {
-          offset++
+          offset = advance(offset)
           break
         }
-        offset++
+        offset = advance(offset)
       }
       let next = offset
       while (next < formatted.length && isWhitespace(formatted[next]!)) next++
-      tokens.push({
-        text: formatted.slice(start, offset),
-        fg:
-          next < formatted.length && formatted[next] === ":"
-            ? theme.secondary
-            : theme.success,
-        offset: start,
-        kind:
-          next < formatted.length && formatted[next] === ":" ? "key" : "string",
-      })
+      const isKey = next < formatted.length && formatted[next] === ":"
+      pushToken(
+        start,
+        tokenDisplayOffset,
+        isKey ? theme.secondary : theme.success,
+        isKey ? "key" : "string",
+        offset,
+      )
       continue
     }
 
     literalRe.lastIndex = offset
     const literal = literalRe.exec(formatted)
     if (literal) {
+      const start = offset
+      const tokenDisplayOffset = displayOffset
       const text = literal[0]
-      tokens.push({
-        text,
-        fg: theme.info,
-        offset,
-        kind: text === "null" ? "null" : "boolean",
-      })
       offset += text.length
+      displayOffset += text.length
+      pushToken(
+        start,
+        tokenDisplayOffset,
+        theme.info,
+        text === "null" ? "null" : "boolean",
+        offset,
+      )
       continue
     }
 
     numberRe.lastIndex = offset
     const number = numberRe.exec(formatted)
     if (number) {
-      tokens.push({
-        text: number[0],
-        fg: theme.warning,
-        offset,
-        kind: "number",
-      })
+      const start = offset
+      const tokenDisplayOffset = displayOffset
       offset += number[0].length
+      displayOffset += number[0].length
+      pushToken(start, tokenDisplayOffset, theme.warning, "number", offset)
       continue
     }
 
     const start = offset
+    const tokenDisplayOffset = displayOffset
     while (
       offset < formatted.length &&
       !isWhitespace(formatted[offset]!) &&
       !'{}[],:"'.includes(formatted[offset]!)
     ) {
-      offset++
+      offset = advance(offset)
     }
-    tokens.push({
-      text: formatted.slice(start, offset),
-      fg: theme.text,
-      offset: start,
-      kind: "text",
-    })
+    pushToken(start, tokenDisplayOffset, theme.text, "text", offset)
   }
 
   return tokens

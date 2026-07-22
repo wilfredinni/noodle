@@ -93,6 +93,9 @@ export function TimelineDetailOverlay({
   const [bodyError, setBodyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showLargeBody, setShowLargeBody] = useState(false)
+  const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
+    "start",
+  )
   const bodyScrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   const info = entry ? bodyInfo(entry, activeTab) : null
@@ -105,6 +108,8 @@ export function TimelineDetailOverlay({
     setBodyError(null)
     setLoading(false)
     setShowLargeBody(false)
+    setHighlightPriority("start")
+    bodyScrollRef.current?.scrollTo(0)
   }, [visible, entry])
 
   useEffect(() => {
@@ -132,6 +137,11 @@ export function TimelineDetailOverlay({
     if (body === "" || isLarge) return body
     return formatJson(body)
   }, [loadedBody, info?.body, isLarge])
+
+  useEffect(() => {
+    setHighlightPriority("start")
+    bodyScrollRef.current?.scrollTo(0)
+  }, [renderedBody])
 
   useEffect(() => {
     if (!visible || !entry) return
@@ -176,8 +186,11 @@ export function TimelineDetailOverlay({
           bodyScrollRef.current?.scrollBy(-1, "viewport")
         else if (key.name === "pagedown")
           bodyScrollRef.current?.scrollBy(1, "viewport")
-        else if (key.name === "home") bodyScrollRef.current?.scrollTo(0)
-        else if (key.name === "end") {
+        else if (key.name === "home") {
+          setHighlightPriority("start")
+          bodyScrollRef.current?.scrollTo(0)
+        } else if (key.name === "end") {
+          setHighlightPriority("end")
           const bodyScroll = bodyScrollRef.current
           if (bodyScroll)
             bodyScroll.scrollTo(
@@ -221,13 +234,14 @@ export function TimelineDetailOverlay({
         .map(([key, value]) => ({ key, value }))
     : []
   const headers = activeTab === "request" ? requestHeaders : responseHeaders
+  const headerHeight = Math.min(Math.max(headers.length, 1), 7)
 
   return (
-    <Overlay visible width={70} gap={1} padding={1}>
+    <Overlay visible width={70} height="80%" gap={1} padding={1}>
       <box
         style={{
-          paddingLeft: 2,
-          paddingRight: 2,
+          paddingLeft: 4,
+          paddingRight: 4,
           flexDirection: "column",
           flexGrow: 1,
           minHeight: 0,
@@ -247,16 +261,19 @@ export function TimelineDetailOverlay({
             }}
           >
             {activeTab === "request" ? (
-              <>
-                <text
-                  wrapMode="char"
-                  style={{ flexShrink: 1, minWidth: 10 }}
-                  content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
-                />
-                <text fg={theme.textMuted} wrapMode="none">
-                  {truncateUrl(entry.request.id, 60)}
-                </text>
-              </>
+              <box style={{ flexDirection: "column", marginBottom: 2 }}>
+                <box style={{ flexDirection: "row", flexShrink: 0 }}>
+                  <text
+                    wrapMode="none"
+                    content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
+                  />
+                </box>
+                <box style={{ flexDirection: "row", flexShrink: 0 }}>
+                  <text fg={theme.textMuted} wrapMode="none">
+                    {truncateUrl(entry.request.id, 60)}
+                  </text>
+                </box>
+              </box>
             ) : entry.error ? (
               <box
                 border={["left", "right", "top", "bottom"]}
@@ -267,7 +284,7 @@ export function TimelineDetailOverlay({
               </box>
             ) : entry.response ? (
               <box
-                style={{ flexDirection: "row", marginBottom: 1, minWidth: 0 }}
+                style={{ flexDirection: "row", marginBottom: 2, minWidth: 0 }}
               >
                 <box style={{ flexDirection: "row", flexShrink: 0 }}>
                   <Badge bg={statusColor(status!, theme)} fg={theme.background}>
@@ -292,24 +309,36 @@ export function TimelineDetailOverlay({
             ) : (
               <text fg={theme.textMuted}>No response</text>
             )}
-            <box border={["bottom"]} borderColor={theme.borderSubtle}>
+            <box style={{ height: 1 }}>
               <text fg={theme.text}>Headers</text>
             </box>
+            <box
+              border={["bottom"]}
+              borderColor={theme.borderSubtle}
+              style={{ height: 1 }}
+            />
             <scrollbox
               scrollY
+              height={headerHeight}
               maxHeight={7}
-              scrollbarOptions={{ visible: false }}
+              verticalScrollbarOptions={{
+                trackOptions: {
+                  backgroundColor: theme.background,
+                  foregroundColor: theme.borderActive,
+                },
+              }}
               style={{ flexShrink: 0 }}
             >
               <HeaderTable entries={headers} theme={theme} />
             </scrollbox>
+            <box style={{ height: 1, marginTop: 1 }}>
+              <text fg={theme.text}>Body</text>
+            </box>
             <box
               border={["bottom"]}
               borderColor={theme.borderSubtle}
-              style={{ marginTop: 1 }}
-            >
-              <text fg={theme.text}>Body</text>
-            </box>
+              style={{ height: 1 }}
+            />
             {info.truncated ? (
               <text fg={theme.warning}>
                 Saved body was truncated by an older Noodle version.
@@ -329,16 +358,18 @@ export function TimelineDetailOverlay({
               <scrollbox
                 ref={bodyScrollRef}
                 scrollY
-                maxHeight={12}
-                scrollbarOptions={{ visible: false }}
+                verticalScrollbarOptions={{
+                  trackOptions: {
+                    backgroundColor: theme.background,
+                    foregroundColor: theme.borderActive,
+                  },
+                }}
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
                 <JsonBodyViewer
-                  key={renderedBody}
                   body={renderedBody}
                   theme={theme}
-                  readOnly
-                  scrollRef={bodyScrollRef}
+                  highlightPriority={highlightPriority}
                 />
               </scrollbox>
             ) : (

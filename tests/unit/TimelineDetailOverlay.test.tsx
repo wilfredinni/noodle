@@ -37,20 +37,32 @@ async function renderOverlay(
   ;(
     keymap as unknown as { setData: (key: string, value: string) => void }
   ).setData("app.overlay", "none")
-  const render = await testRender(
-    <KeymapProvider keymap={keymap}>
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <TimelineDetailOverlay
-          visible={visible}
-          entry={entry}
-          onClose={onClose}
-          {...actions}
-        />
-      </ThemeProvider>
-    </KeymapProvider>,
-    { width: 80, height: 30 },
+  const render = await act(async () =>
+    testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TimelineDetailOverlay
+            visible={visible}
+            entry={entry}
+            onClose={onClose}
+            {...actions}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 30 },
+    ),
   )
-  return { ...render, cleanup, keymap, host }
+  return {
+    ...render,
+    cleanup: () => {
+      cleanup()
+      act(() => {
+        render.renderer.destroy()
+      })
+    },
+    keymap,
+    host,
+  }
 }
 
 describe("TimelineDetailOverlay", () => {
@@ -193,7 +205,46 @@ describe("TimelineDetailOverlay", () => {
     await renderOnce()
     await act(async () => host.press("left"))
     await renderOnce()
-    expect(captureCharFrame()).toContain("request-1")
+    const lines = captureCharFrame().split("\n")
+    const methodUrlLine = lines.findIndex(
+      (line) => line.includes("GET") && line.includes("https://example.com"),
+    )
+    const requestNameLine = lines.findIndex((line) =>
+      line.includes("request-1"),
+    )
+    const headersTitleLine = lines.findIndex(
+      (line) => line.trim() === "Headers",
+    )
+    expect(methodUrlLine).toBeGreaterThanOrEqual(0)
+    expect(requestNameLine).toBe(methodUrlLine + 1)
+    expect(headersTitleLine - requestNameLine).toBeGreaterThanOrEqual(2)
+    cleanup()
+  })
+
+  it("keeps the body directly below a short request header list", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        request: {
+          id: "request-1",
+          name: "Test request",
+          method: "GET",
+          url: "https://example.com",
+          headers: {
+            "X-Request-Id": { value: "abc123", enabled: true },
+          },
+          params: [],
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("left"))
+    await renderOnce()
+
+    const lines = captureCharFrame().split("\n")
+    const headerLine = lines.findIndex((line) => line.includes("X-Request-Id"))
+    const bodyLine = lines.findIndex((line) => line.trim() === "Body")
+    expect(bodyLine - headerLine).toBeLessThanOrEqual(3)
     cleanup()
   })
 
@@ -338,6 +389,44 @@ describe("TimelineDetailOverlay", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("X-API-Key")
     expect(frame).not.toContain("secret-api-key")
+    cleanup()
+  })
+
+  it("scrolls back to body top when home is pressed", async () => {
+    const body = JSON.stringify(
+      { data: Array.from({ length: 500 }, (_, i) => ({ id: i })) },
+      null,
+      2,
+    )
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body,
+          timeMs: 12,
+          size: body.length,
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+
+    await act(async () => {
+      host.press("end")
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+    })
+    expect(captureCharFrame()).toContain('"id": 499')
+
+    await act(async () => {
+      host.press("home")
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+    })
+    expect(captureCharFrame()).toContain('"data"')
+    expect(captureCharFrame()).toContain('"id": 0')
     cleanup()
   })
 })

@@ -68,6 +68,10 @@ describe("highlightJsonTokens", () => {
     expect(tokens[5]!.text).toBe("1")
     expect(tokens[6]!.offset).toBe(11)
     expect(tokens[6]!.text).toBe("}")
+    expect(tokens[1]!.displayOffset).toBe(1)
+    expect(tokens[2]!.displayOffset).toBe(3)
+    expect(tokens[5]!.displayOffset).toBe(8)
+    expect(tokens[6]!.displayOffset).toBe(9)
   })
 
   it("highlights large JSON payloads (>200KB) correctly", () => {

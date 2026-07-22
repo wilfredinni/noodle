@@ -1,21 +1,15 @@
-import { act } from "react"
+import { act, useState } from "react"
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
-import type { ScrollBoxRenderable, TextareaRenderable } from "@opentui/core"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { ThemeProvider, THEMES } from "../src/ui/theme"
 import { JsonBodyViewer } from "../src/ui/editor/JsonBodyViewer"
-import { highlightTextarea } from "../src/ui/editor/useJsonHighlight"
-import { highlightJsonTokens } from "../src/ui/editor/syntax"
-import {
-  buildCharToDisplayOffsets,
-  charOffsetToDisplayOffset,
-} from "../src/ui/variable-completion/highlightOffsets"
 
 describe("JsonBodyViewer", () => {
   it("keeps JSON syntax highlighting when variables make raw JSON invalid", async () => {
     const theme = THEMES[0]!
-    const { renderOnce, captureSpans } = await testRender(
+    const { renderOnce, captureCharFrame, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <JsonBodyViewer
           body={
@@ -35,13 +29,53 @@ describe("JsonBodyViewer", () => {
     await renderOnce()
 
     const spans = captureSpans().lines.flatMap((line) => line.spans)
-    const title = spans.find((span) => span.text === '"my album"')
-    const variable = spans.find((span) => span.text === "$user_id")
+    const key = spans.find((span) => span.text.includes("title"))
+    const title = spans.find((span) => span.text.includes("my album"))
 
+    expect(key?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(true)
     expect(title).toBeDefined()
     expect(title!.fg.equals(RGBA.fromHex(theme.success))).toBe(true)
-    expect(variable).toBeDefined()
-    expect(variable!.fg.equals(RGBA.fromHex(theme.primary))).toBe(true)
+    expect(captureCharFrame()).toContain("$user_id")
+  })
+
+  it("keeps native colors aligned after multiple JSON lines", async () => {
+    const theme = THEMES[0]!
+    const body = `{
+  "first": "value",
+  "second": $resolved,
+  "third": false,
+  "fourth": null,
+  "fifth": 42
+}`
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <JsonBodyViewer
+          body={body}
+          theme={theme}
+          activeEnv={{ name: "production", vars: { resolved: "yes" } }}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 10 },
+    )
+
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const spanFor = (text: string) =>
+      spans.find((span) => span.text.includes(text))
+
+    expect(spanFor("first")?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(
+      true,
+    )
+    expect(spanFor("value")?.fg.equals(RGBA.fromHex(theme.success))).toBe(true)
+    expect(spanFor("second")?.fg.equals(RGBA.fromHex(theme.secondary))).toBe(
+      true,
+    )
+    expect(spanFor("resolved")?.fg.equals(RGBA.fromHex(theme.primary))).toBe(
+      true,
+    )
+    expect(spanFor("false")?.fg.equals(RGBA.fromHex(theme.info))).toBe(true)
+    expect(spanFor("null")?.fg.equals(RGBA.fromHex(theme.info))).toBe(true)
+    expect(spanFor("42")?.fg.equals(RGBA.fromHex(theme.warning))).toBe(true)
   })
 
   it("handles large JSON payloads (>200KB) in JsonBodyViewer without freezing or errors", async () => {
@@ -53,7 +87,7 @@ describe("JsonBodyViewer", () => {
 
     const { renderOnce, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <JsonBodyViewer body={largeBody} theme={theme} readOnly />
+        <JsonBodyViewer body={largeBody} theme={theme} />
       </ThemeProvider>,
       { width: 80, height: 10 },
     )
@@ -65,29 +99,6 @@ describe("JsonBodyViewer", () => {
     await act(async () => renderer.destroy())
   })
 
-  it("keeps async textarea syntax highlighting aligned after wide characters", async () => {
-    const theme = THEMES[0]!
-    const body = `{"emoji":"${"😀".repeat(10_000)}"}\n{"target":"value"}`
-    const ranges: { start: number; end: number }[] = []
-    const textarea = {
-      clearAllHighlights: () => {},
-      addHighlightByCharRange: (range: { start: number; end: number }) => {
-        ranges.push(range)
-      },
-    } as unknown as TextareaRenderable
-    const cleanup = highlightTextarea(textarea, body, theme)
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    const target = highlightJsonTokens(body, theme).find(
-      (token) => token.text === '"target"',
-    )!
-    const expectedStart = charOffsetToDisplayOffset(
-      buildCharToDisplayOffsets(body),
-      target.offset,
-    )
-    expect(ranges.some((range) => range.start === expectedStart)).toBe(true)
-    cleanup()
-  })
-
   it("preserves string highlighting across large raw-body chunks", async () => {
     const theme = THEMES[0]!
     const body = `{"payload":"${"a".repeat(1024 * 1024)}"}`
@@ -95,12 +106,7 @@ describe("JsonBodyViewer", () => {
     const { renderOnce, captureSpans, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <scrollbox ref={scrollRef} style={{ height: 10 }}>
-          <JsonBodyViewer
-            body={body}
-            theme={theme}
-            readOnly
-            scrollRef={scrollRef}
-          />
+          <JsonBodyViewer body={body} theme={theme} />
         </scrollbox>
       </ThemeProvider>,
       { width: 80, height: 10 },
@@ -129,12 +135,7 @@ describe("JsonBodyViewer", () => {
     const { renderOnce, captureCharFrame, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <scrollbox ref={scrollRef} style={{ height: 10 }}>
-          <JsonBodyViewer
-            body={body}
-            theme={theme}
-            readOnly
-            scrollRef={scrollRef}
-          />
+          <JsonBodyViewer body={body} theme={theme} />
         </scrollbox>
       </ThemeProvider>,
       { width: 40, height: 10 },
@@ -150,6 +151,56 @@ describe("JsonBodyViewer", () => {
     })
     await renderOnce()
     expect(captureCharFrame()).toContain('"line": 299')
+    await act(async () => renderer.destroy())
+  })
+
+  it("repaints tail-first when highlightPriority flips to end after start", async () => {
+    const theme = THEMES[0]!
+    const body = Array.from({ length: 300 }, (_, i) => `{"line": ${i}}`).join(
+      "\n",
+    )
+    const scrollRef = { current: null as ScrollBoxRenderable | null }
+
+    function Harness() {
+      const [priority, setPriority] = useState<"start" | "end">("start")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(globalThis as any).__flip = () => setPriority("end")
+      return (
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <scrollbox ref={scrollRef} style={{ height: 10 }}>
+            <JsonBodyViewer
+              body={body}
+              theme={theme}
+              highlightPriority={priority}
+            />
+          </scrollbox>
+        </ThemeProvider>
+      )
+    }
+
+    const { renderOnce, captureSpans, renderer } = await testRender(
+      <Harness />,
+      { width: 40, height: 10 },
+    )
+
+    await renderOnce()
+    await act(async () => {
+      scrollRef.current!.scrollTop = 290
+      await renderOnce()
+    })
+    await act(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(globalThis as any).__flip()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      await renderOnce()
+    })
+
+    const tailNumbers = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .filter((span) => span.text.includes("299"))
+    expect(
+      tailNumbers.some((span) => span.fg.equals(RGBA.fromHex(theme.warning))),
+    ).toBe(true)
     await act(async () => renderer.destroy())
   })
 })

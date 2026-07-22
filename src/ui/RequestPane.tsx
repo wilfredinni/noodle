@@ -7,7 +7,6 @@ import type { Highlight } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { RefObject } from "react"
 import type { Auth, Request, Environment } from "../schema"
 import { formatBody } from "./formatRequest"
 import type { EditState, FieldKind } from "./editMode"
@@ -230,7 +229,6 @@ export function RequestPane({
                     browseActive={browseActive}
                     theme={theme}
                     activeEnv={activeEnv}
-                    scrollRef={scrollRef}
                   />
                 ) : (
                   <scrollbox
@@ -418,7 +416,6 @@ function BodySection({
   browseActive,
   theme,
   activeEnv,
-  scrollRef,
 }: {
   request: Request
   editState: EditState
@@ -430,7 +427,6 @@ function BodySection({
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
-  scrollRef: RefObject<ScrollBoxRenderable | null>
 }) {
   const bodyType = request.bodyType ?? "json"
 
@@ -633,9 +629,7 @@ function BodySection({
           <JsonBodyViewer
             body={body}
             theme={theme}
-            id="body-field"
             activeEnv={activeEnv ?? null}
-            scrollRef={scrollRef}
             backgroundColor={
               browseActive &&
               editState.cursor.field === "body" &&
