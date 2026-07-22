@@ -256,4 +256,38 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     expect(spy).toHaveBeenCalled()
     expect(editor.envNames).toContain("new-env")
   })
+
+  it("navigates to first and last row using browseFirst and browseLast", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 50))
+    await renderOnce()
+
+    ref.current!.enterBrowse()
+    await new Promise((r) => setTimeout(r, 10))
+    await renderOnce()
+
+    expect(ref.current!.editState.mode).toBe("browsing")
+
+    // Go to last item (add row)
+    ref.current!.browseLast()
+    await new Promise((r) => setTimeout(r, 10))
+    await renderOnce()
+    expect(ref.current!.editState.addingRow).toBe(true)
+
+    // Go to first item (row 0)
+    ref.current!.browseFirst()
+    await new Promise((r) => setTimeout(r, 10))
+    await renderOnce()
+    expect(ref.current!.editState.row).toBe(0)
+    expect(ref.current!.editState.addingRow).toBe(false)
+  })
 })

@@ -908,6 +908,14 @@ export function useAppKeymap(
         run: () => refs.envEditorRef.current.browseDown(),
       },
       {
+        name: "env-browse.first",
+        run: () => refs.envEditorRef.current.browseFirst(),
+      },
+      {
+        name: "env-browse.last",
+        run: () => refs.envEditorRef.current.browseLast(),
+      },
+      {
         name: "env-browse.enter",
         run: () => refs.envEditorRef.current.enterEdit(),
       },
@@ -941,6 +949,8 @@ export function useAppKeymap(
     bindings: [
       { key: "up", cmd: "env-browse.up" },
       { key: "down", cmd: "env-browse.down" },
+      { key: "home", cmd: "env-browse.first" },
+      { key: "end", cmd: "env-browse.last" },
       { key: "return", cmd: "env-browse.enter" },
       { key: "escape", cmd: "env-browse.escape" },
       { key: "space", cmd: "env-browse.toggle" },

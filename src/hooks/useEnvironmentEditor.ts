@@ -67,6 +67,8 @@ export interface UseEnvironmentEditorResult {
   exitBrowse: () => void
   browseUp: () => void
   browseDown: () => void
+  browseFirst: () => void
+  browseLast: () => void
   enterEdit: () => void
   commitEdit: () => void
   cancelEdit: () => void
@@ -328,6 +330,24 @@ export function useEnvironmentEditor({
         return { ...prev, row: -1, addingRow: true }
       }
       return { ...prev, row: prev.row + 1 }
+    })
+  }, [])
+
+  const browseFirst = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      const rows = draftRef.current?.varRows.length ?? 0
+      if (rows === 0) {
+        return { ...prev, row: -1, addingRow: true }
+      }
+      return { ...prev, row: 0, addingRow: false }
+    })
+  }, [])
+
+  const browseLast = useCallback(() => {
+    setEditState((prev) => {
+      if (prev.mode !== "browsing") return prev
+      return { ...prev, row: -1, addingRow: true }
     })
   }, [])
 
@@ -611,6 +631,8 @@ export function useEnvironmentEditor({
     exitBrowse,
     browseUp,
     browseDown,
+    browseFirst,
+    browseLast,
     enterEdit,
     commitEdit,
     cancelEdit,
