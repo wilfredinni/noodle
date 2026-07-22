@@ -80,6 +80,7 @@ export function RequestPane({
   expandHint,
 }: Props) {
   const theme = useTheme()
+  const title = "Request"
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -94,15 +95,6 @@ export function RequestPane({
     if (editState.mode !== "browsing") return
     if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
     else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
-    else if (key.name === "home") {
-      key.preventDefault()
-      scrollRef.current?.scrollTo(0)
-    } else if (key.name === "end") {
-      key.preventDefault()
-      scrollRef.current?.scrollTo(
-        Math.max(0, scrollRef.current.scrollHeight - scrollRef.current.height),
-      )
-    }
   })
 
   useEffect(() => {
@@ -167,13 +159,15 @@ export function RequestPane({
     })
   }, [request])
 
-  const title = request ? request.name : "Request"
-
   return (
     <box
       style={{
         flexDirection: "column",
         flexGrow: 1,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 1,
+        paddingRight: 1,
         gap: 1,
         flexBasis: 0,
         minHeight: 0,

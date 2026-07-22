@@ -5,6 +5,8 @@ import {
   exitEditBrowse,
   moveFieldCursor,
   moveRowCursor,
+  moveRowFirst,
+  moveRowLast,
   beginEditing,
   commitEditing,
   cancelEditing,
@@ -190,6 +192,115 @@ describe("moveRowCursor", () => {
     s = moveFieldCursor(s, +1, c(2, 0))
     const editing = beginEditing(s)
     expect(moveRowCursor(editing, +1, c(2, 0))).toBe(editing)
+  })
+})
+
+describe("moveRowFirst", () => {
+  it("jumps to row 0 in headers section", () => {
+    let s = enterEditBrowse(inactive, c(3, 0))
+    s = moveRowCursor(s, +1, c(3, 0))
+    s = moveRowCursor(s, +1, c(3, 0))
+    expect(s.cursor.row).toBe(2)
+    const first = moveRowFirst(s, c(3, 0))
+    expect(first.cursor.row).toBe(0)
+    expect(first.cursor.addingRow).toBe(false)
+  })
+
+  it("empty headers/params section jumps to addingRow", () => {
+    const s = enterEditBrowse(inactive, c(0, 0))
+    const first = moveRowFirst(s, c(0, 0))
+    expect(first.cursor.addingRow).toBe(true)
+    expect(first.cursor.row).toBe(-1)
+  })
+
+  it("empty settings/auth/body section is no-op", () => {
+    let s = enterEditBrowse(inactive, c(2, 0))
+    // move to settings
+    s = moveFieldCursor(s, -1, {
+      headers: 2,
+      params: 0,
+      body: 0,
+      auth: 0,
+      settings: 0,
+    })
+    expect(s.cursor.field).toBe("settings")
+    const first = moveRowFirst(s, {
+      headers: 2,
+      params: 0,
+      body: 0,
+      auth: 0,
+      settings: 0,
+    })
+    // settings with 0 rows is no-op
+    expect(first).toBe(s)
+  })
+
+  it("no-op when not browsing", () => {
+    const first = moveRowFirst(inactive, c(2, 0))
+    expect(first).toBe(inactive)
+  })
+})
+
+describe("moveRowLast", () => {
+  it("jumps to last row in headers section", () => {
+    const s = enterEditBrowse(inactive, c(3, 0))
+    const last = moveRowLast(s, c(3, 0))
+    expect(last.cursor.addingRow).toBe(true)
+    expect(last.cursor.row).toBe(-1)
+  })
+
+  it("for params, last goes to addingRow", () => {
+    let s = enterEditBrowse(inactive, c(0, 2))
+    s = moveFieldCursor(s, +1, c(0, 2))
+    expect(s.cursor.field).toBe("params")
+    const last = moveRowLast(s, c(0, 2))
+    expect(last.cursor.addingRow).toBe(true)
+    expect(last.cursor.row).toBe(-1)
+  })
+
+  it("for settings, last goes to row N-1", () => {
+    let s = enterEditBrowse(inactive, c(0, 0))
+    s = moveFieldCursor(s, -1, c(0, 0))
+    expect(s.cursor.field).toBe("settings")
+    const last = moveRowLast(s, c(0, 0))
+    expect(last.cursor.row).toBe(2) // settings default count is 3, so row 2
+    expect(last.cursor.addingRow).toBe(false)
+  })
+
+  it("for auth, last goes to row N-1", () => {
+    const counts = { headers: 0, params: 0, body: 0, auth: 4, settings: 3 }
+    let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
+    expect(s.cursor.field).toBe("auth")
+    const last = moveRowLast(s, counts)
+    expect(last.cursor.row).toBe(3)
+    expect(last.cursor.addingRow).toBe(false)
+  })
+
+  it("empty settings/auth/body section is no-op", () => {
+    let s = enterEditBrowse(inactive, c(2, 0))
+    s = moveFieldCursor(s, -1, {
+      headers: 2,
+      params: 0,
+      body: 0,
+      auth: 0,
+      settings: 0,
+    })
+    expect(s.cursor.field).toBe("settings")
+    const last = moveRowLast(s, {
+      headers: 2,
+      params: 0,
+      body: 0,
+      auth: 0,
+      settings: 0,
+    })
+    expect(last).toBe(s)
+  })
+
+  it("no-op when not browsing", () => {
+    const last = moveRowLast(inactive, c(2, 0))
+    expect(last).toBe(inactive)
   })
 })
 

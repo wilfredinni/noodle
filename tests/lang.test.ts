@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import type { Request } from "../src/schema"
+import type { Folder, Request } from "../src/schema"
 import { lang } from "../src/lang"
 
 describe("lang.parseRequest — required fields", () => {
@@ -825,24 +825,122 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
     expect(reparsed.params[0].value).toBe(longValue)
   })
 
-  it("serializes multiline parameter values with proper indentation and round-trips correctly", () => {
-    const multilineValue = "line 1\nline 2\nline 3"
+  it("serializes multiline auth values with proper indentation and round-trips correctly", () => {
     const original: Request = {
-      id: "multiline-param-req",
-      name: "Multiline param req",
+      id: "multiline-auth-req",
+      name: "Multiline auth req",
       method: "GET",
       url: "https://example.com/api",
       headers: {},
-      params: [{ name: "description", value: multilineValue, enabled: true }],
+      params: [],
       timeout: 0,
       followRedirects: true,
       maxRedirects: 5,
-      auth: { type: "none" },
+      auth: {
+        type: "bearer",
+        token:
+          "eyJhbGciOiJSUzI1NiJ9.\neyJzdWIiOiJ1c2VyMTIzIn0.\nSflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+      },
     }
 
     const yamlStr = lang.serializeRequest(original)
     expect(() => lang.parseRequest(original.id, yamlStr)).not.toThrow()
     const reparsed = lang.parseRequest(original.id, yamlStr)
-    expect(reparsed.params[0].value).toBe(multilineValue)
+    expect(reparsed.auth).toEqual(original.auth)
+  })
+
+  it("serializes multiline basic auth credentials with proper indentation and round-trips correctly", () => {
+    const original: Request = {
+      id: "multiline-basic-auth-req",
+      name: "Multiline basic auth req",
+      method: "GET",
+      url: "https://example.com/api",
+      headers: {},
+      params: [],
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: {
+        type: "basic",
+        user: "multi\nline\nuser",
+        pass: "multi\nline\npass",
+      },
+    }
+
+    const yamlStr = lang.serializeRequest(original)
+    expect(() => lang.parseRequest(original.id, yamlStr)).not.toThrow()
+    const reparsed = lang.parseRequest(original.id, yamlStr)
+    expect(reparsed.auth).toEqual(original.auth)
+  })
+
+  it("serializes multiline api_key auth with proper indentation and round-trips correctly", () => {
+    const original: Request = {
+      id: "multiline-apikey-auth-req",
+      name: "Multiline apikey auth req",
+      method: "GET",
+      url: "https://example.com/api",
+      headers: {},
+      params: [],
+      timeout: 0,
+      followRedirects: true,
+      maxRedirects: 5,
+      auth: {
+        type: "api_key",
+        key: "X-API-Key",
+        value: "multi\nline\nsecret",
+        placement: "header",
+      },
+    }
+
+    const yamlStr = lang.serializeRequest(original)
+    expect(() => lang.parseRequest(original.id, yamlStr)).not.toThrow()
+    const reparsed = lang.parseRequest(original.id, yamlStr)
+    expect(reparsed.auth).toEqual(original.auth)
+  })
+})
+
+describe("lang.serializeFolder — multiline values", () => {
+  it("serializes multiline folder header values with proper indentation and round-trips correctly", () => {
+    const folder: Folder = {
+      id: "test-folder",
+      name: "Test Folder",
+      path: "/test-folder",
+      children: [],
+      overrides: {
+        headers: {
+          "X-Custom": { value: "line1\nline2\nline3", enabled: true },
+        },
+      },
+    }
+
+    const yamlStr = lang.serializeFolder(folder)
+    expect(() => lang.parseFolder(yamlStr)).not.toThrow()
+    const parsed = lang.parseFolder(yamlStr)
+    expect(parsed.overrides?.headers?.["X-Custom"]?.value).toBe(
+      "line1\nline2\nline3",
+    )
+  })
+
+  it("serializes multiline folder auth bearer token with proper indentation and round-trips correctly", () => {
+    const folder: Folder = {
+      id: "test-folder",
+      name: "Test Folder",
+      path: "/test-folder",
+      children: [],
+      overrides: {
+        auth: {
+          type: "bearer",
+          token: "line1\nline2\nline3",
+        },
+      },
+    }
+
+    const yamlStr = lang.serializeFolder(folder)
+    expect(() => lang.parseFolder(yamlStr)).not.toThrow()
+    const parsed = lang.parseFolder(yamlStr)
+    expect(parsed.overrides?.auth).toEqual({
+      type: "bearer",
+      token: "line1\nline2\nline3",
+    })
   })
 })
