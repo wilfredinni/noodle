@@ -58,6 +58,7 @@ export interface JsonBodyOptions extends RenderableOptions<JsonBodyRenderable> {
   theme: Theme
   activeEnv?: Environment | null
   backgroundColor?: string
+  highlightPriority?: "start" | "end"
 }
 
 export class JsonBodyRenderable extends TextBufferRenderable {
@@ -68,6 +69,11 @@ export class JsonBodyRenderable extends TextBufferRenderable {
   private _syntaxStyle: SyntaxStyle
   private _highlightGeneration = 0
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null
+  private _highlightJobs: HighlightJob[] = []
+  private _highlightedJobs = new Uint8Array(0)
+  private _highlightCursor = 0
+  private _highlightDirection = 1
+  private _highlightPriority: "start" | "end"
 
   constructor(ctx: RenderContext, options: JsonBodyOptions) {
     super(ctx, {
@@ -80,6 +86,7 @@ export class JsonBodyRenderable extends TextBufferRenderable {
     this._theme = options.theme
     this._activeEnv = options.activeEnv
     this._backgroundColor = options.backgroundColor
+    this._highlightPriority = options.highlightPriority ?? "start"
     this._syntaxStyle = createJsonSyntaxStyle(options.theme)
     this.textBuffer.setSyntaxStyle(this._syntaxStyle)
     this.renderBody()
@@ -115,6 +122,13 @@ export class JsonBodyRenderable extends TextBufferRenderable {
     this.bg = value ?? this._theme.backgroundPanel
   }
 
+  set highlightPriority(value: "start" | "end" | undefined) {
+    const next = value ?? "start"
+    if (this._highlightPriority === next) return
+    this._highlightPriority = next
+    this.restartHighlights()
+  }
+
   private renderBody() {
     this._highlightGeneration++
     if (this._highlightTimer) clearTimeout(this._highlightTimer)
@@ -122,10 +136,25 @@ export class JsonBodyRenderable extends TextBufferRenderable {
     this.textBuffer.setText(this._body)
     this.textBuffer.clearAllHighlights()
     this.updateTextInfo()
-    this.scheduleHighlights(
-      this._highlightGeneration,
-      this.buildHighlightJobs(),
-    )
+    this._highlightJobs = this.buildHighlightJobs()
+    this._highlightedJobs = new Uint8Array(this._highlightJobs.length)
+    this.resetHighlightCursor()
+    this.scheduleHighlights(this._highlightGeneration)
+  }
+
+  private restartHighlights() {
+    if (this._highlightJobs.length === 0) return
+    this._highlightGeneration++
+    if (this._highlightTimer) clearTimeout(this._highlightTimer)
+    this._highlightTimer = null
+    this.resetHighlightCursor()
+    this.scheduleHighlights(this._highlightGeneration)
+  }
+
+  private resetHighlightCursor() {
+    this._highlightDirection = this._highlightPriority === "end" ? -1 : 1
+    this._highlightCursor =
+      this._highlightPriority === "end" ? this._highlightJobs.length - 1 : 0
   }
 
   private buildHighlightJobs(): HighlightJob[] {
@@ -175,21 +204,33 @@ export class JsonBodyRenderable extends TextBufferRenderable {
     return jobs
   }
 
-  private scheduleHighlights(generation: number, jobs: HighlightJob[]) {
-    const applyBatch = (index: number) => {
+  private scheduleHighlights(generation: number) {
+    const applyBatch = () => {
       if (this.isDestroyed || generation !== this._highlightGeneration) return
-      const end = Math.min(index + HIGHLIGHT_BATCH_SIZE, jobs.length)
-      for (let current = index; current < end; current++) {
-        this.textBuffer.addHighlightByCharRange(jobs[current]!)
+      let applied = 0
+      while (
+        this._highlightCursor >= 0 &&
+        this._highlightCursor < this._highlightJobs.length &&
+        applied < HIGHLIGHT_BATCH_SIZE
+      ) {
+        const index = this._highlightCursor
+        this._highlightCursor += this._highlightDirection
+        if (this._highlightedJobs[index] === 1) continue
+        this.textBuffer.addHighlightByCharRange(this._highlightJobs[index]!)
+        this._highlightedJobs[index] = 1
+        applied++
       }
-      this.requestRender()
-      if (end < jobs.length) {
-        this._highlightTimer = setTimeout(() => applyBatch(end), 0)
+      if (applied > 0) this.requestRender()
+      if (
+        this._highlightCursor >= 0 &&
+        this._highlightCursor < this._highlightJobs.length
+      ) {
+        this._highlightTimer = setTimeout(applyBatch, 0)
       } else {
         this._highlightTimer = null
       }
     }
-    applyBatch(0)
+    applyBatch()
   }
 
   override destroy() {
@@ -211,6 +252,7 @@ export function JsonBodyViewer({
   theme,
   activeEnv,
   backgroundColor,
+  highlightPriority,
 }: {
   body: string
   theme: Theme
@@ -218,6 +260,7 @@ export function JsonBodyViewer({
   readOnly?: boolean
   activeEnv?: Environment | null
   backgroundColor?: string
+  highlightPriority?: "start" | "end"
   focused?: boolean
   scrollRef?: RefObject<ScrollBoxRenderable | null>
 }) {
@@ -237,6 +280,7 @@ export function JsonBodyViewer({
         theme={theme}
         activeEnv={activeEnv}
         backgroundColor={backgroundColor}
+        highlightPriority={highlightPriority}
         style={{ flexGrow: 1 }}
       />
     </line-number>

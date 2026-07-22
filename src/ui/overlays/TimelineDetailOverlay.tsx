@@ -93,6 +93,9 @@ export function TimelineDetailOverlay({
   const [bodyError, setBodyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showLargeBody, setShowLargeBody] = useState(false)
+  const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
+    "start",
+  )
   const bodyScrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   const info = entry ? bodyInfo(entry, activeTab) : null
@@ -105,6 +108,7 @@ export function TimelineDetailOverlay({
     setBodyError(null)
     setLoading(false)
     setShowLargeBody(false)
+    setHighlightPriority("start")
   }, [visible, entry])
 
   useEffect(() => {
@@ -132,6 +136,10 @@ export function TimelineDetailOverlay({
     if (body === "" || isLarge) return body
     return formatJson(body)
   }, [loadedBody, info?.body, isLarge])
+
+  useEffect(() => {
+    setHighlightPriority("start")
+  }, [renderedBody])
 
   useEffect(() => {
     if (!visible || !entry) return
@@ -176,8 +184,11 @@ export function TimelineDetailOverlay({
           bodyScrollRef.current?.scrollBy(-1, "viewport")
         else if (key.name === "pagedown")
           bodyScrollRef.current?.scrollBy(1, "viewport")
-        else if (key.name === "home") bodyScrollRef.current?.scrollTo(0)
-        else if (key.name === "end") {
+        else if (key.name === "home") {
+          setHighlightPriority("start")
+          bodyScrollRef.current?.scrollTo(0)
+        } else if (key.name === "end") {
+          setHighlightPriority("end")
           const bodyScroll = bodyScrollRef.current
           if (bodyScroll)
             bodyScroll.scrollTo(
@@ -346,6 +357,7 @@ export function TimelineDetailOverlay({
                   theme={theme}
                   readOnly
                   scrollRef={bodyScrollRef}
+                  highlightPriority={highlightPriority}
                 />
               </scrollbox>
             ) : (

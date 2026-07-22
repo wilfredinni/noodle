@@ -72,6 +72,9 @@ export function ResponsePane({
   const [query, setQuery] = useState("")
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
+  const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
+    "start",
+  )
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
@@ -101,9 +104,11 @@ export function ResponsePane({
     else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
     else if (key.name === "home") {
       key.preventDefault()
+      setHighlightPriority("start")
       scrollRef.current?.scrollTo(0)
     } else if (key.name === "end") {
       key.preventDefault()
+      setHighlightPriority("end")
       scrollRef.current?.scrollTo(
         Math.max(0, scrollRef.current.scrollHeight - scrollRef.current.height),
       )
@@ -220,6 +225,10 @@ export function ResponsePane({
 
   const displayedBody =
     queryResult?.kind === "success" ? queryResult.body : formattedBody
+
+  useEffect(() => {
+    setHighlightPriority("start")
+  }, [displayedBody])
 
   useEffect(() => {
     if (!responseBodyForCopyRef) return
@@ -389,6 +398,7 @@ export function ResponsePane({
                       readOnly
                       focused={focused}
                       scrollRef={scrollRef}
+                      highlightPriority={highlightPriority}
                     />
                   )}
                 </scrollbox>

@@ -192,4 +192,40 @@ describe("JsonBodyViewer", () => {
     expect(captureCharFrame()).toContain('"line": 299')
     await act(async () => renderer.destroy())
   })
+
+  it("prioritizes tail colors after an end jump", async () => {
+    const theme = THEMES[0]!
+    const body = Array.from({ length: 300 }, (_, i) => `{"line": ${i}}`).join(
+      "\n",
+    )
+    const scrollRef = { current: null as ScrollBoxRenderable | null }
+    const { renderOnce, captureSpans, renderer } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <scrollbox ref={scrollRef} style={{ height: 10 }}>
+          <JsonBodyViewer
+            body={body}
+            theme={theme}
+            readOnly
+            scrollRef={scrollRef}
+            highlightPriority="end"
+          />
+        </scrollbox>
+      </ThemeProvider>,
+      { width: 40, height: 10 },
+    )
+
+    await renderOnce()
+    await act(async () => {
+      scrollRef.current!.scrollTop = 290
+      await renderOnce()
+    })
+
+    const tailNumbers = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .filter((span) => span.text.includes("299"))
+    expect(
+      tailNumbers.some((span) => span.fg.equals(RGBA.fromHex(theme.warning))),
+    ).toBe(true)
+    await act(async () => renderer.destroy())
+  })
 })
