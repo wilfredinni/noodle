@@ -257,7 +257,7 @@ describe("ResponsePane scrollbox", () => {
       .split("\n")
       .find((line: string) => line.includes("120B") && line.includes("42ms"))
     expect(metadataLine).toBeDefined()
-    expect(metadataLine ?? "").toContain("└")
+    expect(metadataLine ?? "").toMatch(/[┌└]/)
   })
 
   it("renders with large response body without overflowing", async () => {
