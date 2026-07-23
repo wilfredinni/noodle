@@ -47,7 +47,6 @@ interface MainViewProps {
   responseBodyForCopyRef?: RefObject<string | null>
   mode?: "collection" | "browse" | "empty" | "invalid"
   jumpMode?: boolean
-  jumpBadgeKeys?: Set<string>
 }
 
 export function MainView({
@@ -83,7 +82,6 @@ export function MainView({
   responseBodyForCopyRef,
   mode = "collection",
   jumpMode = false,
-  jumpBadgeKeys,
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -102,7 +100,6 @@ export function MainView({
         dirtyRequestIds={draft.dirtyRequestIds}
         dirtyFolderPaths={folderDraft.dirtyPaths}
         jumpMode={jumpMode}
-        jumpBadgeKeys={jumpBadgeKeys}
       />
       <box
         style={{
@@ -160,7 +157,6 @@ export function MainView({
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             jumpMode={jumpMode}
-            jumpBadgeKeys={jumpBadgeKeys}
           />
         )}
       </box>

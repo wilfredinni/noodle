@@ -33,7 +33,6 @@ interface RequestResponseViewProps {
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   jumpMode?: boolean
-  jumpBadgeKeys?: Set<string>
 }
 
 export function RequestResponseView({
@@ -58,7 +57,6 @@ export function RequestResponseView({
   responseQueryRef,
   responseBodyForCopyRef,
   jumpMode = false,
-  jumpBadgeKeys,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -80,7 +78,6 @@ export function RequestResponseView({
           onSelectOpenChange={setSelectOpen}
           expandHint={expandHint}
           jumpMode={jumpMode}
-          jumpBadgeKeys={jumpBadgeKeys}
         />
       )}
       {expanded !== "request" && (
@@ -99,7 +96,6 @@ export function RequestResponseView({
           layout={layout}
           expanded={expanded}
           jumpMode={jumpMode}
-          jumpBadgeKeys={jumpBadgeKeys}
         />
       )}
     </>
@@ -118,8 +114,6 @@ export function RequestResponseView({
         interactive={urlbarInteractive}
         subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
-        jumpMode={jumpMode}
-        jumpBadgeKeys={jumpBadgeKeys}
       />
       <box
         style={{

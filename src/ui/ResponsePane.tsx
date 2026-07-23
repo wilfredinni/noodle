@@ -21,7 +21,6 @@ import {
 import { HeaderTable } from "./HeaderTable"
 import { TimelineTab } from "./timeline/TimelineTab"
 import { Badge } from "./Badge"
-import { RESPONSE_TAB_HINTS } from "./useJumpMode"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -47,7 +46,6 @@ export function ResponsePane({
   layout,
   expanded,
   jumpMode = false,
-  jumpBadgeKeys,
 }: {
   state: SendState
   focused?: boolean
@@ -63,7 +61,6 @@ export function ResponsePane({
   layout?: "stacked" | "side-by-side"
   expanded?: "request" | "response" | null
   jumpMode?: boolean
-  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -320,13 +317,7 @@ export function ResponsePane({
       bottomTitleAlignment="left"
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
-        <Tabs
-          tabs={TAB_DEFS}
-          activeId={activeTab}
-          hints={RESPONSE_TAB_HINTS}
-          jumpMode={jumpMode}
-          jumpBadgeKeys={jumpBadgeKeys}
-        >
+        <Tabs tabs={TAB_DEFS} activeId={activeTab}>
           {activeTab === "timeline" ? (
             <TimelineTab
               entries={timelineEntries ?? []}

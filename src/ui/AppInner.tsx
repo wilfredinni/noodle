@@ -343,12 +343,9 @@ export function AppInner({
       ),
     [draft.draft, expanded, focusedFolder],
   )
-  jumpTargetsRef.current = availableJumpTargets
-
-  const jumpBadgeKeys = useMemo(() => {
-    if (!jumpMode) return new Set<string>()
-    return new Set(availableJumpTargets.keys())
-  }, [jumpMode, availableJumpTargets])
+  useEffect(() => {
+    jumpTargetsRef.current = availableJumpTargets
+  }, [availableJumpTargets])
 
   const tabPrefs = getTab(selectedRequest?.id ?? "")
   const initialRequestTab = tabPrefs?.requestTab
@@ -1037,7 +1034,6 @@ export function AppInner({
             responseBodyForCopyRef={responseBodyForCopyRef}
             mode={mode}
             jumpMode={jumpMode}
-            jumpBadgeKeys={jumpBadgeKeys}
           />
         ) : mode === "collection" ? (
           <EnvironmentEditorView

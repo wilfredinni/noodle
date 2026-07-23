@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
@@ -6,6 +6,7 @@ import type { UseUIStateResult } from "./tabs/useUIState"
 import type { Focus, UrlBarSubFocus } from "./focus"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
+import type { Request } from "../schema"
 
 export type JumpTarget =
   | { kind: "sidebar" }
@@ -40,9 +41,6 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     triggerKey,
   } = opts
 
-  const exitRef = useRef(() => {})
-  exitRef.current = () => setJumpMode(false)
-
   useEffect(() => {
     keymap.setData("app.jump.trigger", triggerKey)
   }, [keymap, triggerKey])
@@ -57,7 +55,7 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
         event.stopPropagation()
         const trigger = keymap.getData("app.jump.trigger") as string | undefined
         if (event.name === "escape" || event.name === trigger) {
-          exitRef.current()
+          setJumpMode(false)
           return
         }
         const target = targetsRef.current.get(event.name)
@@ -85,7 +83,7 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
             break
           }
         }
-        exitRef.current()
+        setJumpMode(false)
       },
       { priority: 100 },
     )
@@ -131,20 +129,6 @@ export function getAvailableTargets(
   return targets
 }
 
-export const JUMP_TARGETS = new Map<string, JumpTarget>([
-  ["s", { kind: "sidebar" }],
-  ["m", { kind: "method" }],
-  ["u", { kind: "url" }],
-  ["h", { kind: "request-tab", field: "headers" }],
-  ["p", { kind: "request-tab", field: "params" }],
-  ["b", { kind: "request-tab", field: "body" }],
-  ["a", { kind: "request-tab", field: "auth" }],
-  ["t", { kind: "request-tab", field: "settings" }],
-  ["r", { kind: "response-tab", tab: "body" }],
-  ["e", { kind: "response-tab", tab: "headers" }],
-  ["l", { kind: "response-tab", tab: "timeline" }],
-])
-
 export const REQUEST_TAB_HINTS: Record<string, string> = {
   headers: "h",
   params: "p",
@@ -157,4 +141,36 @@ export const RESPONSE_TAB_HINTS: Record<string, string> = {
   body: "r",
   headers: "e",
   timeline: "l",
+}
+
+export function computeRequestTabLabels(request: Request | null): string[] {
+  if (!request) return ["Headers", "Params", "Body", "Auth", "Settings"]
+  const headerActive = Object.values(request.headers).some((e) => e.enabled)
+  const paramActive = request.params.some((e) => e.enabled)
+  const hasBody =
+    (request.body !== undefined && request.body !== "") ||
+    (request.formData !== undefined && request.formData.length > 0) ||
+    (request.filePath !== undefined && request.filePath !== "")
+  const hasAuth =
+    request.auth?.type !== undefined && request.auth.type !== "none"
+  const hasTimeout = request.timeout > 0
+  return [
+    headerActive ? "Headers \u2022" : "Headers",
+    paramActive ? "Params \u2022" : "Params",
+    hasBody ? "Body \u2022" : "Body",
+    hasAuth ? "Auth \u2022" : "Auth",
+    hasTimeout ? "Settings \u2022" : "Settings",
+  ]
+}
+
+export const RESPONSE_TAB_LABELS = ["Body", "Headers", "Timeline"]
+
+export function computeBadgeOffsets(labels: string[]): number[] {
+  const offsets: number[] = []
+  let pos = 2
+  for (const label of labels) {
+    offsets.push(pos)
+    pos += label.length + 3
+  }
+  return offsets
 }

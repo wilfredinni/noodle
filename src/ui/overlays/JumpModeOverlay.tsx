@@ -1,9 +1,19 @@
+import { useMemo } from "react"
 import { JumpBadge } from "../JumpBadge"
-import { REQUEST_TAB_HINTS, RESPONSE_TAB_HINTS } from "../useJumpMode"
+import {
+  computeRequestTabLabels,
+  RESPONSE_TAB_LABELS,
+  computeBadgeOffsets,
+} from "../useJumpMode"
+import { SIDEBAR_WIDTH } from "../Sidebar"
+import type { JumpTarget } from "../useJumpMode"
 import type { Request } from "../../schema"
 
+const REQUEST_HINT_ORDER = ["h", "p", "b", "a", "t"] as const
+const RESPONSE_HINT_ORDER = ["r", "e", "l"] as const
+
 interface JumpModeOverlayProps {
-  availableJumpTargets: Map<string, unknown>
+  availableJumpTargets: Map<string, JumpTarget>
   layout: "stacked" | "side-by-side"
   expanded: "request" | "response" | null
   focusedFolderPresent: boolean
@@ -19,9 +29,19 @@ export function JumpModeOverlay({
 }: JumpModeOverlayProps) {
   const has = (key: string) => availableJumpTargets.has(key)
 
-  const hasAuth = draftRequest?.auth?.type && draftRequest.auth.type !== "none"
-  const authWidth = 1 + (hasAuth ? 6 : 4) + 2
-  const settingsLeft = 28 + authWidth
+  const requestLabels = useMemo(
+    () => computeRequestTabLabels(draftRequest ?? null),
+    [draftRequest],
+  )
+
+  const requestOffsets = useMemo(
+    () => computeBadgeOffsets(requestLabels),
+    [requestLabels],
+  )
+  const responseOffsets = useMemo(
+    () => computeBadgeOffsets(RESPONSE_TAB_LABELS),
+    [],
+  )
 
   return (
     <box
@@ -42,7 +62,7 @@ export function JumpModeOverlay({
       {/* MainView flex container mirror */}
       <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
         {/* Sidebar container (width 38) */}
-        <box style={{ width: 38, position: "relative" }}>
+        <box style={{ width: SIDEBAR_WIDTH, position: "relative" }}>
           {has("s") && <JumpBadge letter="s" style={{ top: 0, left: 2 }} />}
         </box>
 
@@ -81,23 +101,15 @@ export function JumpModeOverlay({
                     position: "relative",
                   }}
                 >
-                  {has(REQUEST_TAB_HINTS.headers) && (
-                    <JumpBadge letter="h" style={{ top: 0, left: 2 }} />
-                  )}
-                  {has(REQUEST_TAB_HINTS.params) && (
-                    <JumpBadge letter="p" style={{ top: 0, left: 12 }} />
-                  )}
-                  {has(REQUEST_TAB_HINTS.body) && (
-                    <JumpBadge letter="b" style={{ top: 0, left: 21 }} />
-                  )}
-                  {has(REQUEST_TAB_HINTS.auth) && (
-                    <JumpBadge letter="a" style={{ top: 0, left: 28 }} />
-                  )}
-                  {has(REQUEST_TAB_HINTS.settings) && (
-                    <JumpBadge
-                      letter="t"
-                      style={{ top: 0, left: settingsLeft }}
-                    />
+                  {REQUEST_HINT_ORDER.map(
+                    (hint, i) =>
+                      has(hint) && (
+                        <JumpBadge
+                          key={hint}
+                          letter={hint}
+                          style={{ top: 0, left: requestOffsets[i] }}
+                        />
+                      ),
                   )}
                 </box>
               )}
@@ -112,14 +124,15 @@ export function JumpModeOverlay({
                     position: "relative",
                   }}
                 >
-                  {has(RESPONSE_TAB_HINTS.body) && (
-                    <JumpBadge letter="r" style={{ top: 0, left: 2 }} />
-                  )}
-                  {has(RESPONSE_TAB_HINTS.headers) && (
-                    <JumpBadge letter="e" style={{ top: 0, left: 9 }} />
-                  )}
-                  {has(RESPONSE_TAB_HINTS.timeline) && (
-                    <JumpBadge letter="l" style={{ top: 0, left: 19 }} />
+                  {RESPONSE_HINT_ORDER.map(
+                    (hint, i) =>
+                      has(hint) && (
+                        <JumpBadge
+                          key={hint}
+                          letter={hint}
+                          style={{ top: 0, left: responseOffsets[i] }}
+                        />
+                      ),
                   )}
                 </box>
               )}

@@ -11,17 +11,11 @@ export function Tabs({
   activeId,
   children,
   rightChildren,
-  hints: _hints,
-  jumpMode: _jumpMode = false,
-  jumpBadgeKeys: _jumpBadgeKeys,
 }: {
   tabs: TabDef[]
   activeId: string
   children: ReactNode
   rightChildren?: ReactNode
-  hints?: Record<string, string>
-  jumpMode?: boolean
-  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   return (
@@ -42,14 +36,12 @@ export function Tabs({
               style={{
                 flexDirection: "column",
                 flexShrink: 0,
-                position: "relative",
               }}
             >
               <box
                 style={{
                   paddingLeft: 1,
                   paddingRight: 2,
-                  flexDirection: "row",
                 }}
               >
                 <text fg={isActive ? theme.primary : theme.textMuted}>

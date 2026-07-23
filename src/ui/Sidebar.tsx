@@ -3,6 +3,8 @@ import { useEffect, useRef } from "react"
 import type { CollectionItem, Method } from "../schema"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
+
+export const SIDEBAR_WIDTH = 38
 import { FullBorder, LeftBar } from "./borders"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
@@ -30,7 +32,6 @@ export function Sidebar({
   dirtyRequestIds,
   dirtyFolderPaths,
   jumpMode = false,
-  jumpBadgeKeys: _jumpBadgeKeys,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -44,7 +45,6 @@ export function Sidebar({
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
   jumpMode?: boolean
-  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -61,7 +61,7 @@ export function Sidebar({
   return (
     <box
       style={{
-        width: 38,
+        width: SIDEBAR_WIDTH,
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
@@ -70,7 +70,6 @@ export function Sidebar({
         paddingLeft: 1,
         paddingRight: 1,
         gap: 1,
-        position: "relative",
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}

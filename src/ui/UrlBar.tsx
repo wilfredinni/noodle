@@ -20,8 +20,6 @@ export function UrlBar({
   interactive = true,
   activeEnv,
   subFocus = "select",
-  jumpMode: _jumpMode = false,
-  jumpBadgeKeys: _jumpBadgeKeys,
 }: {
   method: Method
   url: string
@@ -33,8 +31,6 @@ export function UrlBar({
   interactive?: boolean
   activeEnv?: Environment | null
   subFocus?: UrlBarSubFocus
-  jumpMode?: boolean
-  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   const [inputValue, setInputValue] = useState(url)
@@ -91,7 +87,6 @@ export function UrlBar({
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
         zIndex: methodSelectOpen ? 1 : undefined,
-        position: "relative",
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
@@ -109,19 +104,17 @@ export function UrlBar({
         </box>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
-          <box style={{ flexDirection: "column", position: "relative" }}>
-            <Select
-              items={METHOD_ITEMS}
-              value={method}
-              onChange={(value) => setMethod(value as Method)}
-              focused={focused && interactive && subFocus === "select"}
-              visualFocused={focused && subFocus === "select"}
-              badge
-              maxDropdownHeight={10}
-              onOpenChange={setMethodSelectOpen}
-            />
-          </box>
-          <box style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}>
+          <Select
+            items={METHOD_ITEMS}
+            value={method}
+            onChange={(value) => setMethod(value as Method)}
+            focused={focused && interactive && subFocus === "select"}
+            visualFocused={focused && subFocus === "select"}
+            badge
+            maxDropdownHeight={10}
+            onOpenChange={setMethodSelectOpen}
+          />
+          <box style={{ flexGrow: 1, flexShrink: 1 }}>
             {focused && subFocus === "text" && interactive ? (
               <VarInput
                 value={inputValue}

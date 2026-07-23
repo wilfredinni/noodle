@@ -29,7 +29,7 @@ import { ValidationNotice } from "./editor/ValidationNotice"
 import type { BodyType } from "../schema"
 import { validateJsonContent } from "./editor/jsonValidation"
 import { getEnvVarHighlights } from "./variable-completion/variableCompletion"
-import { REQUEST_TAB_HINTS } from "./useJumpMode"
+import { computeRequestTabLabels } from "./useJumpMode"
 
 interface Props {
   request: Request | null
@@ -48,7 +48,6 @@ interface Props {
   onSelectOpenChange?: (open: boolean) => void
   expandHint?: string
   jumpMode?: boolean
-  jumpBadgeKeys?: Set<string>
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -82,7 +81,6 @@ export function RequestPane({
   onSelectOpenChange,
   expandHint,
   jumpMode = false,
-  jumpBadgeKeys,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -128,40 +126,11 @@ export function RequestPane({
   )
 
   const tabs = useMemo(() => {
-    if (!request) return BASE_TAB_DEFS
-    const headerActive = Object.values(request.headers).some((e) => e.enabled)
-    const paramActive = request.params.some((e) => e.enabled)
-    const hasBody =
-      (request.body !== undefined && request.body !== "") ||
-      (request.formData !== undefined && request.formData.length > 0) ||
-      (request.filePath !== undefined && request.filePath !== "")
-    const hasAuth =
-      request.auth?.type !== undefined && request.auth.type !== "none"
-    const hasTimeout = request.timeout > 0
-    return BASE_TAB_DEFS.map((tab) => {
-      if (tab.id === "headers") {
-        return {
-          ...tab,
-          label: headerActive ? "Headers \u2022" : "Headers",
-        }
-      }
-      if (tab.id === "params") {
-        return {
-          ...tab,
-          label: paramActive ? "Params \u2022" : "Params",
-        }
-      }
-      if (tab.id === "body") {
-        return { ...tab, label: hasBody ? "Body \u2022" : "Body" }
-      }
-      if (tab.id === "auth") {
-        return { ...tab, label: hasAuth ? "Auth \u2022" : "Auth" }
-      }
-      if (tab.id === "settings") {
-        return { ...tab, label: hasTimeout ? "Settings \u2022" : "Settings" }
-      }
-      return tab
-    })
+    const labels = computeRequestTabLabels(request)
+    return BASE_TAB_DEFS.map((tab, i) => ({
+      ...tab,
+      label: labels[i],
+    }))
   }, [request])
 
   return (
@@ -189,13 +158,7 @@ export function RequestPane({
     >
       {request ? (
         <>
-          <Tabs
-            tabs={tabs}
-            activeId={activeTab}
-            hints={REQUEST_TAB_HINTS}
-            jumpMode={jumpMode}
-            jumpBadgeKeys={jumpBadgeKeys}
-          >
+          <Tabs tabs={tabs} activeId={activeTab}>
             <box
               style={{
                 flexDirection: "column",
