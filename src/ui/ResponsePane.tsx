@@ -47,6 +47,7 @@ export function ResponsePane({
   layout,
   expanded,
   jumpMode = false,
+  jumpBadgeKeys,
 }: {
   state: SendState
   focused?: boolean
@@ -62,6 +63,7 @@ export function ResponsePane({
   layout?: "stacked" | "side-by-side"
   expanded?: "request" | "response" | null
   jumpMode?: boolean
+  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -323,6 +325,7 @@ export function ResponsePane({
           activeId={activeTab}
           hints={RESPONSE_TAB_HINTS}
           jumpMode={jumpMode}
+          jumpBadgeKeys={jumpBadgeKeys}
         >
           {activeTab === "timeline" ? (
             <TimelineTab

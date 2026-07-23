@@ -48,6 +48,7 @@ interface Props {
   onSelectOpenChange?: (open: boolean) => void
   expandHint?: string
   jumpMode?: boolean
+  jumpBadgeKeys?: Set<string>
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -81,6 +82,7 @@ export function RequestPane({
   onSelectOpenChange,
   expandHint,
   jumpMode = false,
+  jumpBadgeKeys,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -192,6 +194,7 @@ export function RequestPane({
             activeId={activeTab}
             hints={REQUEST_TAB_HINTS}
             jumpMode={jumpMode}
+            jumpBadgeKeys={jumpBadgeKeys}
           >
             <box
               style={{

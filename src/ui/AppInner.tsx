@@ -32,7 +32,11 @@ import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
-import { useJumpMode, JUMP_TARGETS, type JumpTarget } from "./useJumpMode"
+import {
+  useJumpMode,
+  getAvailableTargets,
+  type JumpTarget,
+} from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useModalKeyboardShield } from "./useModalKeyboardShield"
@@ -171,7 +175,7 @@ export function AppInner({
   const [initPending, setInitPending] = useState(false)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [jumpMode, setJumpMode] = useState(false)
-  const jumpTargetsRef = useRef<Map<string, JumpTarget>>(JUMP_TARGETS)
+  const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
   const [codeGeneratorVisible, setCodeGeneratorVisible] = useState(false)
   const [requestFinderVisible, setRequestFinderVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
@@ -327,6 +331,22 @@ export function AppInner({
   }, [expandedFolders, collectionDir, isCollection])
 
   const draft = useRequestDraft(selectedRequest)
+
+  const availableJumpTargets = useMemo(
+    () =>
+      getAvailableTargets(
+        draft.draft !== null,
+        expanded,
+        focusedFolder !== null,
+      ),
+    [draft.draft, expanded, focusedFolder],
+  )
+  jumpTargetsRef.current = availableJumpTargets
+
+  const jumpBadgeKeys = useMemo(() => {
+    if (!jumpMode) return new Set<string>()
+    return new Set(availableJumpTargets.keys())
+  }, [jumpMode, availableJumpTargets])
 
   const tabPrefs = getTab(selectedRequest?.id ?? "")
   const initialRequestTab = tabPrefs?.requestTab
@@ -994,6 +1014,7 @@ export function AppInner({
             responseBodyForCopyRef={responseBodyForCopyRef}
             mode={mode}
             jumpMode={jumpMode}
+            jumpBadgeKeys={jumpBadgeKeys}
           />
         ) : mode === "collection" ? (
           <EnvironmentEditorView
@@ -1082,6 +1103,7 @@ export function AppInner({
         kb={keybinds}
         view={view}
         envStats={envStats}
+        jumpMode={jumpMode}
       />
     </box>
   )

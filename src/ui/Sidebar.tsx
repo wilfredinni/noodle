@@ -6,6 +6,7 @@ import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
+import { JumpBadge } from "./JumpBadge"
 
 import { extractFileErrors } from "../filestore/load"
 
@@ -30,6 +31,7 @@ export function Sidebar({
   dirtyRequestIds,
   dirtyFolderPaths,
   jumpMode = false,
+  jumpBadgeKeys,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -43,6 +45,7 @@ export function Sidebar({
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
   jumpMode?: boolean
+  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -68,6 +71,7 @@ export function Sidebar({
         paddingLeft: 1,
         paddingRight: 1,
         gap: 1,
+        position: "relative",
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
@@ -76,10 +80,8 @@ export function Sidebar({
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
     >
-      {jumpMode ? (
-        <box style={{ paddingLeft: 1, flexShrink: 0 }}>
-          <text fg={theme.primary}>{`[s]`}</text>
-        </box>
+      {jumpMode && jumpBadgeKeys?.has("s") ? (
+        <JumpBadge letter="S" style={{ top: -1, left: 2 }} />
       ) : null}
       {loading ? (
         <box

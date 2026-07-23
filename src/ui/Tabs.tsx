@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { useTheme } from "./theme"
+import { JumpBadge } from "./JumpBadge"
 
 export type TabDef = {
   id: string
@@ -13,6 +14,7 @@ export function Tabs({
   rightChildren,
   hints,
   jumpMode = false,
+  jumpBadgeKeys,
 }: {
   tabs: TabDef[]
   activeId: string
@@ -20,6 +22,7 @@ export function Tabs({
   rightChildren?: ReactNode
   hints?: Record<string, string>
   jumpMode?: boolean
+  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   return (
@@ -41,8 +44,12 @@ export function Tabs({
               style={{
                 flexDirection: "column",
                 flexShrink: 0,
+                position: "relative",
               }}
             >
+              {jumpMode && hint && jumpBadgeKeys?.has(hint) ? (
+                <JumpBadge letter={hint} style={{ top: -1, left: 0 }} />
+              ) : null}
               <box
                 style={{
                   paddingLeft: 1,
@@ -50,9 +57,6 @@ export function Tabs({
                   flexDirection: "row",
                 }}
               >
-                {jumpMode && hint ? (
-                  <text fg={theme.primary}>{`[${hint}] `}</text>
-                ) : null}
                 <text fg={isActive ? theme.primary : theme.textMuted}>
                   {tab.label}
                 </text>

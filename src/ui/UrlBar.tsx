@@ -8,6 +8,7 @@ import { VarText } from "./VarText"
 import { Select } from "./Select"
 import { METHOD_ITEMS } from "./methodItems"
 import type { UrlBarSubFocus } from "./focus"
+import { JumpBadge } from "./JumpBadge"
 
 export function UrlBar({
   method,
@@ -21,6 +22,7 @@ export function UrlBar({
   activeEnv,
   subFocus = "select",
   jumpMode = false,
+  jumpBadgeKeys,
 }: {
   method: Method
   url: string
@@ -33,6 +35,7 @@ export function UrlBar({
   activeEnv?: Environment | null
   subFocus?: UrlBarSubFocus
   jumpMode?: boolean
+  jumpBadgeKeys?: Set<string>
 }) {
   const theme = useTheme()
   const [inputValue, setInputValue] = useState(url)
@@ -89,6 +92,7 @@ export function UrlBar({
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
         zIndex: methodSelectOpen ? 1 : undefined,
+        position: "relative",
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
@@ -106,8 +110,10 @@ export function UrlBar({
         </box>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
-          <box style={{ flexDirection: "column" }}>
-            {jumpMode ? <text fg={theme.primary}>{`[m] `}</text> : null}
+          <box style={{ flexDirection: "column", position: "relative" }}>
+            {jumpMode && jumpBadgeKeys?.has("m") ? (
+              <JumpBadge letter="M" style={{ top: -1, left: 0 }} />
+            ) : null}
             <Select
               items={METHOD_ITEMS}
               value={method}
@@ -119,8 +125,10 @@ export function UrlBar({
               onOpenChange={setMethodSelectOpen}
             />
           </box>
-          <box style={{ flexGrow: 1, flexShrink: 1 }}>
-            {jumpMode ? <text fg={theme.primary}>{`[u] `}</text> : null}
+          <box style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}>
+            {jumpMode && jumpBadgeKeys?.has("u") ? (
+              <JumpBadge letter="U" style={{ top: -1, left: 0 }} />
+            ) : null}
             {focused && subFocus === "text" && interactive ? (
               <VarInput
                 value={inputValue}

@@ -101,6 +101,36 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
   ])
 }
 
+export function getAvailableTargets(
+  hasRequest: boolean,
+  expanded: "request" | "response" | null,
+  folderView: boolean,
+): Map<string, JumpTarget> {
+  const targets = new Map<string, JumpTarget>()
+  if (folderView) {
+    targets.set("s", { kind: "sidebar" })
+    return targets
+  }
+  targets.set("s", { kind: "sidebar" })
+  if (hasRequest) {
+    if (expanded !== "response") {
+      targets.set("m", { kind: "method" })
+      targets.set("u", { kind: "url" })
+      targets.set("h", { kind: "request-tab", field: "headers" })
+      targets.set("p", { kind: "request-tab", field: "params" })
+      targets.set("b", { kind: "request-tab", field: "body" })
+      targets.set("a", { kind: "request-tab", field: "auth" })
+      targets.set("t", { kind: "request-tab", field: "settings" })
+    }
+    if (expanded !== "request") {
+      targets.set("r", { kind: "response-tab", tab: "body" })
+      targets.set("e", { kind: "response-tab", tab: "headers" })
+      targets.set("l", { kind: "response-tab", tab: "timeline" })
+    }
+  }
+  return targets
+}
+
 export const JUMP_TARGETS = new Map<string, JumpTarget>([
   ["s", { kind: "sidebar" }],
   ["m", { kind: "method" }],
