@@ -46,7 +46,6 @@ export function Frame({
       bottomTitle={bottomTitle}
       bottomTitleAlignment={bottomTitleAlignment}
     >
-      {children}
       {titleLeft ? (
         <box style={{ position: "absolute", top: -1, left: 2 }}>
           {titleLeft}
@@ -67,6 +66,7 @@ export function Frame({
           {bottomRight}
         </box>
       ) : null}
+      {children}
     </box>
   )
 }

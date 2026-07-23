@@ -76,12 +76,12 @@ export function Sidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title="Requests"
+      title={jumpMode ? undefined : "Requests"}
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
     >
       {jumpMode && jumpBadgeKeys?.has("s") ? (
-        <JumpBadge letter="S" style={{ top: -1, left: 2 }} />
+        <JumpBadge letter="S" style={{ top: -1, left: 1 }} />
       ) : null}
       {loading ? (
         <box

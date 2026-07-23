@@ -314,7 +314,7 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
-      titleLeft={headerLeft}
+      titleLeft={jumpMode ? undefined : headerLeft}
       titleRight={headerRight}
       bottomTitle={bottomTitle}
       bottomTitleAlignment="left"

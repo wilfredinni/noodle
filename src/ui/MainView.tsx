@@ -135,6 +135,7 @@ export function MainView({
             onSelectOpenChange={setSelectOpen}
             activeEnv={activeEnv}
             theme={theme}
+            jumpMode={jumpMode}
           />
         ) : (
           <RequestResponseView

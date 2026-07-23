@@ -200,4 +200,63 @@ describe("ResponsePane status text truncation and layout tests", () => {
     const frame = captureCharFrame()
     expect(frame).not.toContain("undefined")
   })
+
+  it("renders jump mode key badges (R, E, L) on response pane tabs when jumpMode is true", async () => {
+    const { keymap, draft, eb } = createTestProps()
+    const responseOK: SendState = {
+      status: "done",
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: '{"ok":true}',
+        timeMs: 123,
+      },
+    }
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 100, height: 20, flexDirection: "column" }}>
+            <RequestResponseView
+              draft={
+                draft as unknown as Parameters<
+                  typeof RequestResponseView
+                >[0]["draft"]
+              }
+              eb={
+                eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]
+              }
+              error={null}
+              focus="response"
+              layout="stacked"
+              expanded={null}
+              activeEnv={null}
+              responseState={responseOK}
+              timelineEntries={[]}
+              onResponseTabChange={() => {}}
+              setSelectOpen={() => {}}
+              urlbarSubFocus="text"
+              urlbarInteractive={true}
+              expandHint="f2 expand"
+              jumpMode={true}
+              jumpBadgeKeys={
+                new Set(["r", "e", "l", "h", "p", "b", "a", "t", "s", "m", "u"])
+              }
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("R")
+    expect(frame).toContain("E")
+    expect(frame).toContain("L")
+  })
 })

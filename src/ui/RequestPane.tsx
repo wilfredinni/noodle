@@ -181,7 +181,7 @@ export function RequestPane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title={title}
+      title={jumpMode ? undefined : title}
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
       bottomTitle={focused ? expandHint : undefined}
