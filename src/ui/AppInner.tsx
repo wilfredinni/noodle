@@ -974,12 +974,11 @@ export function AppInner({
           flexGrow: 1,
           paddingLeft: 1,
           paddingRight: 1,
-          paddingTop: 1,
-          gap: 1,
+          gap: 0,
           position: "relative",
         }}
       >
-        <HeaderBar collectionName={collection?.name} kb={keybinds} />
+        <HeaderBar />
         {view === "main" ? (
           <MainView
             items={items}
