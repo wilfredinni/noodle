@@ -5,6 +5,7 @@ import { createTestKeymap } from "@opentui/keymap/testing"
 import { RequestResponseView } from "../../src/ui/RequestResponseView"
 import { ThemeProvider } from "../../src/ui/theme"
 import type { SendState } from "../../src/ui/sendState"
+import { JumpModeOverlay } from "../../src/ui/overlays/JumpModeOverlay"
 
 describe("ResponsePane status text truncation and layout tests", () => {
   const createTestProps = () => {
@@ -221,7 +222,14 @@ describe("ResponsePane status text truncation and layout tests", () => {
         }
       >
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box style={{ width: 100, height: 20, flexDirection: "column" }}>
+          <box
+            style={{
+              width: 100,
+              height: 20,
+              flexDirection: "column",
+              position: "relative",
+            }}
+          >
             <RequestResponseView
               draft={
                 draft as unknown as Parameters<
@@ -248,6 +256,26 @@ describe("ResponsePane status text truncation and layout tests", () => {
                 new Set(["r", "e", "l", "h", "p", "b", "a", "t", "s", "m", "u"])
               }
             />
+            <JumpModeOverlay
+              availableJumpTargets={
+                new Map([
+                  ["r", {}],
+                  ["e", {}],
+                  ["l", {}],
+                  ["h", {}],
+                  ["p", {}],
+                  ["b", {}],
+                  ["a", {}],
+                  ["t", {}],
+                  ["s", {}],
+                  ["m", {}],
+                  ["u", {}],
+                ])
+              }
+              layout="stacked"
+              expanded={null}
+              focusedFolderPresent={false}
+            />
           </box>
         </ThemeProvider>
       </KeymapProvider>,
@@ -255,8 +283,8 @@ describe("ResponsePane status text truncation and layout tests", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("R")
-    expect(frame).toContain("E")
-    expect(frame).toContain("L")
+    expect(frame).toContain("r")
+    expect(frame).toContain("e")
+    expect(frame).toContain("l")
   })
 })

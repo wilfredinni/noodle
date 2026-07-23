@@ -1,6 +1,5 @@
 import type { ReactNode } from "react"
 import { useTheme } from "./theme"
-import { JumpBadge } from "./JumpBadge"
 
 export type TabDef = {
   id: string
@@ -12,9 +11,9 @@ export function Tabs({
   activeId,
   children,
   rightChildren,
-  hints,
-  jumpMode = false,
-  jumpBadgeKeys,
+  hints: _hints,
+  jumpMode: _jumpMode = false,
+  jumpBadgeKeys: _jumpBadgeKeys,
 }: {
   tabs: TabDef[]
   activeId: string
@@ -37,7 +36,6 @@ export function Tabs({
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeId
-          const hint = hints?.[tab.id]
           return (
             <box
               key={tab.id}
@@ -47,9 +45,6 @@ export function Tabs({
                 position: "relative",
               }}
             >
-              {jumpMode && hint && jumpBadgeKeys?.has(hint) ? (
-                <JumpBadge letter={hint} style={{ top: -1, left: 0 }} />
-              ) : null}
               <box
                 style={{
                   paddingLeft: 1,

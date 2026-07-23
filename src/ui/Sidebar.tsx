@@ -6,7 +6,6 @@ import { useTheme } from "./theme"
 import { FullBorder, LeftBar } from "./borders"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
-import { JumpBadge } from "./JumpBadge"
 
 import { extractFileErrors } from "../filestore/load"
 
@@ -31,7 +30,7 @@ export function Sidebar({
   dirtyRequestIds,
   dirtyFolderPaths,
   jumpMode = false,
-  jumpBadgeKeys,
+  jumpBadgeKeys: _jumpBadgeKeys,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -80,9 +79,6 @@ export function Sidebar({
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
     >
-      {jumpMode && jumpBadgeKeys?.has("s") ? (
-        <JumpBadge letter="S" style={{ top: -1, left: 1 }} />
-      ) : null}
       {loading ? (
         <box
           style={{

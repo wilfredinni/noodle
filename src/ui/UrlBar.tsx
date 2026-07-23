@@ -8,7 +8,6 @@ import { VarText } from "./VarText"
 import { Select } from "./Select"
 import { METHOD_ITEMS } from "./methodItems"
 import type { UrlBarSubFocus } from "./focus"
-import { JumpBadge } from "./JumpBadge"
 
 export function UrlBar({
   method,
@@ -21,8 +20,8 @@ export function UrlBar({
   interactive = true,
   activeEnv,
   subFocus = "select",
-  jumpMode = false,
-  jumpBadgeKeys,
+  jumpMode: _jumpMode = false,
+  jumpBadgeKeys: _jumpBadgeKeys,
 }: {
   method: Method
   url: string
@@ -111,9 +110,6 @@ export function UrlBar({
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
           <box style={{ flexDirection: "column", position: "relative" }}>
-            {jumpMode && jumpBadgeKeys?.has("m") ? (
-              <JumpBadge letter="M" style={{ top: -1, left: 0 }} />
-            ) : null}
             <Select
               items={METHOD_ITEMS}
               value={method}
@@ -126,9 +122,6 @@ export function UrlBar({
             />
           </box>
           <box style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}>
-            {jumpMode && jumpBadgeKeys?.has("u") ? (
-              <JumpBadge letter="U" style={{ top: -1, left: 0 }} />
-            ) : null}
             {focused && subFocus === "text" && interactive ? (
               <VarInput
                 value={inputValue}

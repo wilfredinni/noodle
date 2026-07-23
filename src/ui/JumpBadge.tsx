@@ -1,4 +1,5 @@
 import { useTheme, contrastOnPrimary } from "./theme"
+import { TextAttributes } from "@opentui/core"
 
 export function JumpBadge({
   letter,
@@ -11,16 +12,19 @@ export function JumpBadge({
   const bg = theme.primary
   const fg = contrastOnPrimary(theme)
   return (
-    <box style={{ position: "absolute", ...style }}>
-      <box
-        style={{
-          backgroundColor: bg,
-          paddingLeft: 1,
-          paddingRight: 1,
-        }}
-      >
-        <text fg={fg}>{letter.toUpperCase()}</text>
-      </box>
+    <box
+      style={{
+        position: "absolute",
+        zIndex: 100,
+        backgroundColor: bg,
+        paddingLeft: 1,
+        paddingRight: 1,
+        ...style,
+      }}
+    >
+      <text fg={fg} attributes={TextAttributes.BOLD}>
+        {letter.toLowerCase()}
+      </text>
     </box>
   )
 }
