@@ -20,6 +20,7 @@ export function UrlBar({
   interactive = true,
   activeEnv,
   subFocus = "select",
+  jumpMode = false,
 }: {
   method: Method
   url: string
@@ -31,6 +32,7 @@ export function UrlBar({
   interactive?: boolean
   activeEnv?: Environment | null
   subFocus?: UrlBarSubFocus
+  jumpMode?: boolean
 }) {
   const theme = useTheme()
   const [inputValue, setInputValue] = useState(url)
@@ -104,18 +106,22 @@ export function UrlBar({
         </box>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
-          <Select
-            items={METHOD_ITEMS}
-            value={method}
-            onChange={(value) => setMethod(value as Method)}
-            focused={focused && interactive && subFocus === "select"}
-            visualFocused={focused && subFocus === "select"}
-            badge
-            maxDropdownHeight={10}
-            onOpenChange={setMethodSelectOpen}
-          />
-          {focused && subFocus === "text" && interactive ? (
-            <box style={{ flexGrow: 1, flexShrink: 1 }}>
+          <box style={{ flexDirection: "column" }}>
+            {jumpMode ? <text fg={theme.primary}>{`[m] `}</text> : null}
+            <Select
+              items={METHOD_ITEMS}
+              value={method}
+              onChange={(value) => setMethod(value as Method)}
+              focused={focused && interactive && subFocus === "select"}
+              visualFocused={focused && subFocus === "select"}
+              badge
+              maxDropdownHeight={10}
+              onOpenChange={setMethodSelectOpen}
+            />
+          </box>
+          <box style={{ flexGrow: 1, flexShrink: 1 }}>
+            {jumpMode ? <text fg={theme.primary}>{`[u] `}</text> : null}
+            {focused && subFocus === "text" && interactive ? (
               <VarInput
                 value={inputValue}
                 env={activeEnv ?? null}
@@ -127,21 +133,21 @@ export function UrlBar({
                 paddingX={1}
                 style={{ flexGrow: 1, flexShrink: 1 }}
               />
-            </box>
-          ) : (
-            <box
-              style={{
-                backgroundColor:
-                  focused && subFocus === "text"
-                    ? theme.borderSubtle
-                    : theme.backgroundElement,
-                flexGrow: 1,
-                overflow: "hidden",
-              }}
-            >
-              <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
-            </box>
-          )}
+            ) : (
+              <box
+                style={{
+                  backgroundColor:
+                    focused && subFocus === "text"
+                      ? theme.borderSubtle
+                      : theme.backgroundElement,
+                  flexGrow: 1,
+                  overflow: "hidden",
+                }}
+              >
+                <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
+              </box>
+            )}
+          </box>
         </box>
       )}
     </box>

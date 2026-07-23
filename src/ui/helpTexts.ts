@@ -20,6 +20,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         { key: "↑/↓", description: "Move cursor (browse) · request" },
         { key: keybinds.focus_next, description: "Next pane" },
         { key: keybinds.focus_prev, description: "Previous pane" },
+        {
+          key: keybinds.jump_mode,
+          description: "Jump mode: show hint, press letter to focus",
+        },
       ],
     },
     {

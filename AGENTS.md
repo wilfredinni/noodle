@@ -127,7 +127,8 @@ src/
     ├── [infrastructure]
     │   ├── keybind.ts                  # Keybinding definitions, CommandMap, parseOverrides
     │   ├── helpTexts.ts                # Help overlay section/keys builder
-    │   ├── useAppKeymap.ts             # All keymap layers (12 layers)
+    │   ├── useJumpMode.ts              # Jump mode hook (leader-key focus jumps)
+    │   ├── useAppKeymap.ts             # All keymap layers (13 layers)
     │   ├── focus.ts                    # Focus type, cycleFocus, toggleExpand
     │   ├── commands.ts                 # buildCommandPaletteCommands
     │   ├── commandActions.ts           # All command action implementations
@@ -217,12 +218,30 @@ command_palette: ctrl+p
 | `Ctrl+Alt+N` | New folder |
 | `Ctrl+O` | Open collection switcher |
 | `Ctrl+Z` | Undo all unsaved changes |
+| `g` | Enter jump mode (press a hint letter to focus that element; `Esc` exits) |
 | `e` | Open environment editor |
 | `Ctrl+C` | Quit (copies selection first if text is selected) |
 
 In browse or empty mode, collection-only actions above are unavailable. Command palette still exposes inspection, reload, layout, theme, help, and collection initialization actions.
 
 The command palette also provides **Import cURL Request** and **Generate Code** for the selected request. Code generation supports choosing a language and library, and can optionally interpolate the active environment.
+
+### Jump mode (leader-key focus jumps)
+Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable element; press a letter to focus that element, or `Esc` to cancel. Non-matching keys are swallowed (mode stays active).
+
+| Letter | Target |
+|--------|--------|
+| `s` | Sidebar pane |
+| `m` | URL bar method select |
+| `u` | URL bar URL field |
+| `h` | Request Headers tab |
+| `p` | Request Params tab |
+| `b` | Request Body tab |
+| `a` | Request Auth tab |
+| `t` | Request Settings tab |
+| `r` | Response Body tab |
+| `e` | Response Headers tab |
+| `l` | Response Timeline tab |
 
 ### Browse mode (request pane focused, not editing)
 | Key | Action |

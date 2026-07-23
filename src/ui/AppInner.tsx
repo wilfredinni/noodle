@@ -31,6 +31,7 @@ import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
+import { useJumpMode, JUMP_TARGETS, type JumpTarget } from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useModalKeyboardShield } from "./useModalKeyboardShield"
@@ -168,6 +169,8 @@ export function AppInner({
   const [undoAllPending, setUndoAllPending] = useState(false)
   const [initPending, setInitPending] = useState(false)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
+  const [jumpMode, setJumpMode] = useState(false)
+  const jumpTargetsRef = useRef<Map<string, JumpTarget>>(JUMP_TARGETS)
   const [codeGeneratorVisible, setCodeGeneratorVisible] = useState(false)
   const [requestFinderVisible, setRequestFinderVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
@@ -469,6 +472,14 @@ export function AppInner({
     keymap.setData("app.overlay", activeOverlay)
   }, [activeOverlay, keymap])
 
+  useEffect(() => {
+    keymap.setData("app.jump", jumpMode ? "active" : "none")
+  }, [jumpMode, keymap])
+
+  useEffect(() => {
+    if (activeOverlay !== "none" && jumpMode) setJumpMode(false)
+  }, [activeOverlay, jumpMode, setJumpMode])
+
   useModalKeyboardShield(activeOverlay)
 
   useEffect(() => {
@@ -728,10 +739,23 @@ export function AppInner({
       setCollectionSwitcherVisible,
       onLayoutChange,
       setExpanded,
+      setJumpMode,
     },
     collectionDir,
     confirmUndoAll,
   )
+
+  useJumpMode({
+    jumpMode,
+    setJumpMode,
+    setFocus,
+    setUrlbarSubFocus,
+    ebRef,
+    setTab,
+    selectedIdRef,
+    targetsRef: jumpTargetsRef,
+    triggerKey: keybinds.jump_mode,
+  })
 
   // ── Overlay intercepts ────────────────────────────────────────────
   useOverlayIntercepts({
@@ -967,6 +991,7 @@ export function AppInner({
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             mode={mode}
+            jumpMode={jumpMode}
           />
         ) : mode === "collection" ? (
           <EnvironmentEditorView

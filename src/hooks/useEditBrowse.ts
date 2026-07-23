@@ -192,6 +192,7 @@ export interface UseEditBrowseResult {
   toggleRow: () => void
   toggleFormRowType: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
+  enterBrowseAt: (field: FieldKind) => void
 }
 
 export interface UseEditBrowseOptions {
@@ -253,6 +254,15 @@ export function useEditBrowse(
       return enterEditBrowse(prev, c, tab)
     })
   }, [activeTab])
+
+  const enterBrowseAt = useCallback((field: FieldKind) => {
+    setInactiveTab(field)
+    const c = rowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "inactive") return prev
+      return enterEditBrowse(prev, c, field)
+    })
+  }, [])
 
   const enterAndEdit = useCallback(() => {
     if (activeTab === "activity") return
@@ -626,6 +636,7 @@ export function useEditBrowse(
       toggleRow,
       toggleFormRowType,
       cycleInactiveTab,
+      enterBrowseAt,
     }),
     [
       editState,
@@ -633,6 +644,7 @@ export function useEditBrowse(
       editKey,
       activeTab,
       enterBrowse,
+      enterBrowseAt,
       exitBrowse,
       browseUp,
       browseDown,

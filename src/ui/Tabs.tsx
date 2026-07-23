@@ -11,11 +11,15 @@ export function Tabs({
   activeId,
   children,
   rightChildren,
+  hints,
+  jumpMode = false,
 }: {
   tabs: TabDef[]
   activeId: string
   children: ReactNode
   rightChildren?: ReactNode
+  hints?: Record<string, string>
+  jumpMode?: boolean
 }) {
   const theme = useTheme()
   return (
@@ -30,6 +34,7 @@ export function Tabs({
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeId
+          const hint = hints?.[tab.id]
           return (
             <box
               key={tab.id}
@@ -38,7 +43,16 @@ export function Tabs({
                 flexShrink: 0,
               }}
             >
-              <box style={{ paddingLeft: 1, paddingRight: 2 }}>
+              <box
+                style={{
+                  paddingLeft: 1,
+                  paddingRight: 2,
+                  flexDirection: "row",
+                }}
+              >
+                {jumpMode && hint ? (
+                  <text fg={theme.primary}>{`[${hint}] `}</text>
+                ) : null}
                 <text fg={isActive ? theme.primary : theme.textMuted}>
                   {tab.label}
                 </text>

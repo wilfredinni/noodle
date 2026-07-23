@@ -29,6 +29,7 @@ import { ValidationNotice } from "./editor/ValidationNotice"
 import type { BodyType } from "../schema"
 import { validateJsonContent } from "./editor/jsonValidation"
 import { getEnvVarHighlights } from "./variable-completion/variableCompletion"
+import { REQUEST_TAB_HINTS } from "./useJumpMode"
 
 interface Props {
   request: Request | null
@@ -46,6 +47,7 @@ interface Props {
   onBodyTypeChange?: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
   expandHint?: string
+  jumpMode?: boolean
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -78,6 +80,7 @@ export function RequestPane({
   onBodyTypeChange,
   onSelectOpenChange,
   expandHint,
+  jumpMode = false,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -184,7 +187,12 @@ export function RequestPane({
     >
       {request ? (
         <>
-          <Tabs tabs={tabs} activeId={activeTab}>
+          <Tabs
+            tabs={tabs}
+            activeId={activeTab}
+            hints={REQUEST_TAB_HINTS}
+            jumpMode={jumpMode}
+          >
             <box
               style={{
                 flexDirection: "column",

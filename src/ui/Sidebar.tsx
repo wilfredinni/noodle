@@ -29,6 +29,7 @@ export function Sidebar({
   keybinds: _keybinds,
   dirtyRequestIds,
   dirtyFolderPaths,
+  jumpMode = false,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -41,6 +42,7 @@ export function Sidebar({
   keybinds?: Keybinds
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
+  jumpMode?: boolean
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -74,6 +76,11 @@ export function Sidebar({
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
     >
+      {jumpMode ? (
+        <box style={{ paddingLeft: 1, flexShrink: 0 }}>
+          <text fg={theme.primary}>{`[s]`}</text>
+        </box>
+      ) : null}
       {loading ? (
         <box
           style={{
