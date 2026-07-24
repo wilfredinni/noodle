@@ -145,14 +145,7 @@ export function CodeGeneratorOverlay({
   if (!visible) return null
 
   return (
-    <Overlay
-      visible
-      width={90}
-      height="80%"
-      gap={1}
-      padding={1}
-      overflow="hidden"
-    >
+    <Overlay visible width={90} gap={1} padding={1} overflow="hidden">
       <box
         paddingLeft={4}
         paddingRight={4}
@@ -207,13 +200,7 @@ export function CodeGeneratorOverlay({
           scrollY
           paddingLeft={4}
           paddingRight={4}
-          style={{
-            flexGrow: 1,
-            flexShrink: 1,
-            flexBasis: 0,
-            height: 0,
-            minHeight: 0,
-          }}
+          maxHeight={20}
           scrollbarOptions={{ visible: false }}
         >
           <box style={{ flexDirection: "column", width: 82 }}>
@@ -237,7 +224,6 @@ export function CodeGeneratorOverlay({
         </scrollbox>
       )}
       <box
-        paddingBottom={1}
         style={{
           flexDirection: "row",
           flexShrink: 0,

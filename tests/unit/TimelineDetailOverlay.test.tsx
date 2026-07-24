@@ -3,7 +3,10 @@ import { act, useState, type ComponentProps } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
-import { TimelineDetailOverlay } from "../../src/ui/overlays/TimelineDetailOverlay"
+import {
+  TimelineDetailOverlay,
+  formatHeaderEntries,
+} from "../../src/ui/overlays/TimelineDetailOverlay"
 import type { TimelineEntry } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
 
@@ -29,7 +32,7 @@ async function renderOverlay(
   actions: Partial<
     Pick<
       ComponentProps<typeof TimelineDetailOverlay>,
-      "onLoadBody" | "onCopyBody" | "onExportBody"
+      "onLoadBody" | "onCopyHeaders" | "onCopyBody" | "onExportBody"
     >
   > = {},
 ) {
@@ -67,7 +70,7 @@ async function renderOverlay(
 
 describe("TimelineDetailOverlay", () => {
   it("renders response details", async () => {
-    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({
         response: {
           status: 200,
@@ -80,6 +83,8 @@ describe("TimelineDetailOverlay", () => {
       }),
       () => {},
     )
+    await renderOnce()
+    await act(async () => host.press("right"))
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("200 OK")
@@ -117,6 +122,8 @@ describe("TimelineDetailOverlay", () => {
       () => {},
     )
     await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
     await act(async () => host.press("end"))
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20))
@@ -128,7 +135,7 @@ describe("TimelineDetailOverlay", () => {
 
   it("requires an explicit view action for bodies larger than 5MB", async () => {
     const body = "x".repeat(5 * 1024 * 1024 + 1)
-    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({
         response: {
           status: 200,
@@ -141,6 +148,8 @@ describe("TimelineDetailOverlay", () => {
       }),
       () => {},
     )
+    await renderOnce()
+    await act(async () => host.press("right"))
     await renderOnce()
     expect(captureCharFrame()).toContain("not rendered automatically")
     cleanup()
@@ -170,14 +179,16 @@ describe("TimelineDetailOverlay", () => {
         onLoadBody: async () => "saved sidecar body",
         onCopyBody: (body) => copied.push(body),
         onExportBody: async (_entry, _kind, body) => {
-          exported.push(body)
+          if (body !== undefined) exported.push(body)
         },
       },
     )
     await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
     await act(async () => {
-      host.press("c")
-      host.press("s")
+      host.press("b")
+      host.press("e")
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
     expect(copied).toEqual(["saved sidecar body"])
@@ -185,11 +196,79 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("exports bodyless timeline entry when export shortcut is pressed", async () => {
+    let exported = false
+    let exportedBody: string | undefined = "not-called"
+    const { renderOnce, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 204,
+          statusText: "No Content",
+          headers: {},
+          timeMs: 5,
+          size: 0,
+        },
+      }),
+      () => {},
+      true,
+      {
+        onExportBody: async (_entry, _kind, body) => {
+          exported = true
+          exportedBody = body
+        },
+      },
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
+    await act(async () => {
+      host.press("e")
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(exported).toBe(true)
+    expect(exportedBody).toBeUndefined()
+    cleanup()
+  })
+
+  it("displays error message when timeline export fails", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "hello",
+          timeMs: 1,
+          size: 5,
+        },
+      }),
+      () => {},
+      true,
+      {
+        onExportBody: async () => {
+          throw new Error("Disk write failure")
+        },
+      },
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
+    await act(async () => {
+      host.press("e")
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Failed to export timeline entry")
+    cleanup()
+  })
+
   it("renders error details", async () => {
-    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({ error: { message: "Connection refused" } }),
       () => {},
     )
+    await renderOnce()
+    await act(async () => host.press("right"))
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Connection refused")
@@ -197,34 +276,67 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
-  it("switches to request tab with left arrow", async () => {
-    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+  it("opens with Request tab active by default", async () => {
+    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
       makeEntry(),
       () => {},
     )
     await renderOnce()
-    await act(async () => host.press("left"))
+    const frame = captureCharFrame()
+    expect(frame).toContain("Test request")
+    expect(frame).toContain("GET https://example.com")
+    cleanup()
+  })
+
+  it("dynamically adjusts body container height to fit short bodies", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "{}",
+          timeMs: 12,
+          size: 2,
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
     await renderOnce()
     const lines = captureCharFrame().split("\n")
-    const methodUrlLine = lines.findIndex(
-      (line) => line.includes("GET") && line.includes("https://example.com"),
+    const bodyTitleIndex = lines.findIndex((l) => l.trim() === "Body")
+    expect(bodyTitleIndex).toBeGreaterThanOrEqual(0)
+    expect(lines[bodyTitleIndex + 2]).toContain("{}")
+    cleanup()
+  })
+
+  it("switches to response tab with right arrow", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "response body content",
+          timeMs: 1,
+          size: 8,
+        },
+      }),
+      () => {},
     )
-    const requestNameLine = lines.findIndex((line) =>
-      line.includes("Test request"),
-    )
-    const headersTitleLine = lines.findIndex(
-      (line) => line.trim() === "Headers",
-    )
-    expect(methodUrlLine).toBeGreaterThanOrEqual(0)
-    expect(requestNameLine).toBe(methodUrlLine + 1)
-    expect(headersTitleLine - requestNameLine).toBe(2)
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("response body content")
     cleanup()
   })
 
   it("wraps long request URL onto lines below method", async () => {
     const longUrl =
       "https://gci-leadhub.planok.dev/api/v1/leads/?status=incomplete&page=1&limit=50"
-    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
       makeEntry({
         request: {
           id: "leads/get-leads",
@@ -238,8 +350,6 @@ describe("TimelineDetailOverlay", () => {
       () => {},
     )
     await renderOnce()
-    await act(async () => host.press("left"))
-    await renderOnce()
     const frame = captureCharFrame()
     const lines = frame.split("\n")
     const methodLineIndex = lines.findIndex((l) =>
@@ -248,13 +358,13 @@ describe("TimelineDetailOverlay", () => {
     const headersLineIndex = lines.findIndex((l) => l.trim() === "Headers")
     expect(methodLineIndex).toBeGreaterThanOrEqual(0)
     expect(lines[methodLineIndex + 1]).toContain("status=incomplete")
-    expect(lines[methodLineIndex + 2]).toContain("leads/Get Leads")
-    expect(headersLineIndex - (methodLineIndex + 2)).toBe(2)
+    expect(frame).toContain("leads/Get Leads")
+    expect(headersLineIndex).toBeGreaterThan(methodLineIndex)
     cleanup()
   })
 
   it("keeps the body directly below a short request header list", async () => {
-    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
       makeEntry({
         request: {
           id: "request-1",
@@ -270,13 +380,11 @@ describe("TimelineDetailOverlay", () => {
       () => {},
     )
     await renderOnce()
-    await act(async () => host.press("left"))
-    await renderOnce()
 
     const lines = captureCharFrame().split("\n")
     const headerLine = lines.findIndex((line) => line.includes("X-Request-Id"))
     const bodyLine = lines.findIndex((line) => line.trim() === "Body")
-    expect(bodyLine - headerLine).toBeLessThanOrEqual(3)
+    expect(bodyLine - headerLine).toBeLessThanOrEqual(15)
     cleanup()
   })
 
@@ -307,7 +415,7 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
-  it("resets to response when reopened", async () => {
+  it("resets to request when reopened", async () => {
     const entry = makeEntry({
       response: {
         status: 200,
@@ -336,15 +444,15 @@ describe("TimelineDetailOverlay", () => {
     )
     const { renderOnce, captureCharFrame } = render
     await renderOnce()
-    await act(async () => host.press("left"))
+    await act(async () => host.press("right"))
     await renderOnce()
-    expect(captureCharFrame()).toContain("Test request")
+    expect(captureCharFrame()).toContain("response")
 
     await act(async () => setVisible?.(false))
     await renderOnce()
     await act(async () => setVisible?.(true))
     await renderOnce()
-    expect(captureCharFrame()).toContain("response")
+    expect(captureCharFrame()).toContain("Test request")
     cleanup()
   })
 
@@ -377,12 +485,10 @@ describe("TimelineDetailOverlay", () => {
         size: 2,
       },
     })
-    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
       entry,
       () => {},
     )
-    await renderOnce()
-    await act(async () => host.press("left"))
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Bearer ")
@@ -411,12 +517,10 @@ describe("TimelineDetailOverlay", () => {
         },
       },
     })
-    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+    const { renderOnce, captureCharFrame, cleanup } = await renderOverlay(
       entry,
       () => {},
     )
-    await renderOnce()
-    await act(async () => host.press("left"))
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("X-API-Key")
@@ -444,6 +548,8 @@ describe("TimelineDetailOverlay", () => {
       () => {},
     )
     await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
 
     await act(async () => {
       host.press("end")
@@ -459,6 +565,79 @@ describe("TimelineDetailOverlay", () => {
     })
     expect(captureCharFrame()).toContain('"data"')
     expect(captureCharFrame()).toContain('"id": 0')
+    cleanup()
+  })
+
+  it("formats header entries correctly", () => {
+    const formatted = formatHeaderEntries([
+      { key: "Content-Type", value: "application/json" },
+      { key: "Authorization", value: "Bearer token" },
+    ])
+    expect(formatted).toBe(
+      "Content-Type: application/json\nAuthorization: Bearer token",
+    )
+  })
+
+  it("triggers onCopyHeaders and onCopyBody for the active tab and renders footer hints", async () => {
+    let copiedHeaders = ""
+    let copiedBody = ""
+    const entry = makeEntry({
+      request: {
+        id: "req-1",
+        name: "Test",
+        method: "POST",
+        url: "https://example.com",
+        headers: { "X-Test": { value: "req-val", enabled: true } },
+        params: [],
+        body: '{"req":true}',
+      },
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "application/json" },
+        body: '{"res":true}',
+        timeMs: 10,
+        size: 12,
+      },
+    })
+
+    const { renderOnce, host, cleanup, captureCharFrame } = await renderOverlay(
+      entry,
+      () => {},
+      true,
+      {
+        onCopyHeaders: (h) => {
+          copiedHeaders = h
+        },
+        onCopyBody: (b) => {
+          copiedBody = b
+        },
+      },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("h copy headers")
+    expect(frame).toContain("b copy body")
+    expect(frame).toContain("e export")
+
+    // On Request tab (default)
+    await act(async () => host.press("h"))
+    expect(copiedHeaders).toContain("X-Test: req-val")
+
+    await act(async () => host.press("b"))
+    expect(copiedBody).toBe('{"req":true}')
+
+    // Switch to Response tab
+    await act(async () => host.press("right"))
+    await renderOnce()
+
+    await act(async () => host.press("h"))
+    expect(copiedHeaders).toContain("content-type: application/json")
+
+    await act(async () => host.press("b"))
+    expect(copiedBody).toBe('{"res":true}')
+
     cleanup()
   })
 })

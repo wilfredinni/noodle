@@ -1,3 +1,4 @@
+import { homedir } from "node:os"
 import { randomUUID } from "node:crypto"
 import { gzip, gunzip } from "node:zlib"
 import { promisify } from "node:util"
@@ -10,6 +11,31 @@ const DEFAULT_MAX_ENTRIES = 50
 const INLINE_BODY_LIMIT = 10_000
 const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
+
+export async function getDownloadsDir(): Promise<string> {
+  if (process.env.NOODLE_DOWNLOADS_DIR) {
+    return process.env.NOODLE_DOWNLOADS_DIR
+  }
+  const home = homedir()
+  if (process.platform === "linux") {
+    if (process.env.XDG_DOWNLOAD_DIR) {
+      return process.env.XDG_DOWNLOAD_DIR.replace("$HOME", home)
+    }
+    try {
+      const userDirs = await readFile(
+        join(home, ".config", "user-dirs.dirs"),
+        "utf8",
+      )
+      const match = userDirs.match(/^XDG_DOWNLOAD_DIR="?([^"\n]+)"?/m)
+      if (match && match[1]) {
+        return match[1].replace("$HOME", home)
+      }
+    } catch {
+      // Fallback if user-dirs.dirs doesn't exist
+    }
+  }
+  return join(home, "Downloads")
+}
 
 function timelineDir(colDir: string): string {
   return join(colDir, ".timeline")
@@ -223,18 +249,37 @@ export async function loadTimelineBody(
   }
 }
 
+export async function exportTimelineEntry(
+  colDir: string,
+  entry: TimelineEntry,
+  kind?: "request" | "response",
+  loadedBody?: string,
+): Promise<string> {
+  const dir = await getDownloadsDir()
+  await mkdir(dir, { recursive: true })
+
+  const exportData: TimelineEntry = JSON.parse(JSON.stringify(entry))
+  if (loadedBody !== undefined && kind) {
+    if (kind === "request") {
+      exportData.request.body = loadedBody
+    } else if (kind === "response" && exportData.response) {
+      exportData.response.body = loadedBody
+    }
+  }
+
+  const file = `${entry.id ?? entry.timestamp}.yml`
+  const path = join(dir, file)
+  await writeFile(path, yaml.dump(exportData), "utf8")
+  return path
+}
+
 export async function exportTimelineBody(
   colDir: string,
   entry: TimelineEntry,
   kind: "request" | "response",
   body: string,
 ): Promise<string> {
-  const file = `${entry.id ?? entry.timestamp}-${kind}.body`
-  const dir = join(timelineDir(colDir), "exports")
-  await mkdir(dir, { recursive: true })
-  const path = join(dir, file)
-  await writeFile(path, body, "utf8")
-  return path
+  return exportTimelineEntry(colDir, entry, kind, body)
 }
 
 export async function saveTimelineEntry(

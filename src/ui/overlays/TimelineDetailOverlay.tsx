@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineBodyRef, TimelineEntry } from "../../schema"
-import { VALID_COLORS } from "../../env/constants"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 import { Tabs, type TabDef } from "../Tabs"
@@ -25,8 +24,8 @@ import {
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
 
 const TAB_DEFS: TabDef[] = [
-  { id: "response", label: "Response" },
   { id: "request", label: "Request" },
+  { id: "response", label: "Response" },
 ]
 
 type DetailTab = "request" | "response"
@@ -64,14 +63,21 @@ function bodyInfo(
   }
 }
 
+export function formatHeaderEntries(
+  headers: { key: string; value: string }[],
+): string {
+  return headers.map((h) => `${h.key}: ${h.value}`).join("\n")
+}
+
 export function TimelineDetailOverlay({
   visible,
   entry,
   onClose,
-  envColors,
+  envColors: _envColors,
   onLoadBody = async () => {
     throw new Error("No timeline body loader configured")
   },
+  onCopyHeaders = () => {},
   onCopyBody = () => {},
   onExportBody = async () => {},
 }: {
@@ -80,16 +86,17 @@ export function TimelineDetailOverlay({
   onClose: () => void
   envColors?: Record<string, string | undefined>
   onLoadBody?: (ref: TimelineBodyRef) => Promise<string>
+  onCopyHeaders?: (headersText: string) => void
   onCopyBody?: (body: string) => void
   onExportBody?: (
     entry: TimelineEntry,
     kind: DetailTab,
-    body: string,
+    body?: string,
   ) => Promise<void>
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
-  const [activeTab, setActiveTab] = useState<DetailTab>("response")
+  const [activeTab, setActiveTab] = useState<DetailTab>("request")
   const [loadedBody, setLoadedBody] = useState<string | null>(null)
   const [bodyError, setBodyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -104,7 +111,7 @@ export function TimelineDetailOverlay({
 
   useEffect(() => {
     if (!visible) return
-    setActiveTab("response")
+    setActiveTab("request")
     setLoadedBody(null)
     setBodyError(null)
     setLoading(false)
@@ -159,7 +166,20 @@ export function TimelineDetailOverlay({
           setBodyError(null)
           setShowLargeBody(false)
         } else if (key.name === "v" && isLarge) setShowLargeBody(true)
-        else if (key.name === "c") {
+        else if (key.name === "h") {
+          const currentHeaders =
+            activeTab === "request"
+              ? buildDetailRequestHeaders(
+                  entry.request.auth,
+                  entry.request.headers,
+                )
+              : entry.response
+                ? Object.entries(entry.response.headers)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([key, value]) => ({ key, value }))
+                : []
+          onCopyHeaders(formatHeaderEntries(currentHeaders))
+        } else if (key.name === "b") {
           const body = loadedBody ?? info?.body
           if (body !== undefined) onCopyBody(body)
           else if (info?.ref) {
@@ -169,9 +189,11 @@ export function TimelineDetailOverlay({
                 setBodyError("Unable to load the saved response body"),
               )
           }
-        } else if (key.name === "s") {
-          const exportBody = (body: string) =>
-            onExportBody(entry, activeTab, body).catch(() => {})
+        } else if (key.name === "e") {
+          const exportBody = (body?: string) =>
+            onExportBody(entry, activeTab, body).catch(() =>
+              setBodyError("Failed to export timeline entry"),
+            )
           const body = loadedBody ?? info?.body
           if (body !== undefined) exportBody(body)
           else if (info?.ref) {
@@ -180,6 +202,8 @@ export function TimelineDetailOverlay({
               .catch(() =>
                 setBodyError("Unable to load the saved response body"),
               )
+          } else {
+            exportBody(undefined)
           }
         } else if (key.name === "up") bodyScrollRef.current?.scrollBy(-1)
         else if (key.name === "down") bodyScrollRef.current?.scrollBy(1)
@@ -209,6 +233,7 @@ export function TimelineDetailOverlay({
     isLarge,
     loadedBody,
     info,
+    onCopyHeaders,
     onCopyBody,
     onExportBody,
     onLoadBody,
@@ -219,12 +244,6 @@ export function TimelineDetailOverlay({
 
   const method = entryMethod(entry)
   const status = entryStatus(entry)
-  const envColorKey = entry.envName ? envColors?.[entry.envName] : undefined
-  const envBadgeBg =
-    envColorKey && VALID_COLORS.has(envColorKey)
-      ? ((theme as unknown as Record<string, string>)[envColorKey] ??
-        theme.info)
-      : theme.info
   const requestHeaders = buildDetailRequestHeaders(
     entry.request.auth,
     entry.request.headers,
@@ -235,10 +254,10 @@ export function TimelineDetailOverlay({
         .map(([key, value]) => ({ key, value }))
     : []
   const headers = activeTab === "request" ? requestHeaders : responseHeaders
-  const headerHeight = Math.min(Math.max(headers.length, 1), 7)
+  const headerHeight = 5
 
   return (
-    <Overlay visible width={70} height="80%" gap={1} padding={1}>
+    <Overlay visible width={70} gap={1} padding={1}>
       <box
         style={{
           paddingLeft: 4,
@@ -266,7 +285,7 @@ export function TimelineDetailOverlay({
                 <box style={{ flexDirection: "row", flexShrink: 0 }}>
                   <text
                     wrapMode="word"
-                    content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.primary)(formatRequestUrl(entry))}`}
+                    content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.text)(formatRequestUrl(entry))}`}
                   />
                 </box>
                 <box style={{ flexDirection: "row", flexShrink: 0 }}>
@@ -275,40 +294,50 @@ export function TimelineDetailOverlay({
                   </text>
                 </box>
               </box>
-            ) : entry.error ? (
-              <box
-                border={["left", "right", "top", "bottom"]}
-                borderColor={theme.error}
-                style={{ padding: 1, marginBottom: 1 }}
-              >
-                <text fg={theme.error}>{entry.error.message}</text>
-              </box>
-            ) : entry.response ? (
-              <box
-                style={{ flexDirection: "row", marginBottom: 2, minWidth: 0 }}
-              >
-                <box style={{ flexDirection: "row", flexShrink: 0 }}>
-                  <Badge bg={statusColor(status!, theme)} fg={theme.background}>
-                    {status}
-                    {entry.response.statusText
-                      ? ` ${entry.response.statusText}`
-                      : ""}
-                  </Badge>
-                  {entry.envName && (
-                    <box style={{ marginLeft: 1 }}>
-                      <Badge bg={envBadgeBg} fg={theme.background}>
-                        {entry.envName}
-                      </Badge>
-                    </box>
-                  )}
-                </box>
-                <box style={{ flexGrow: 1 }} />
-                <text fg={theme.textMuted} wrapMode="none">
-                  {formatSize(entry.response.size)} in {entryTiming(entry)}
-                </text>
-              </box>
             ) : (
-              <text fg={theme.textMuted}>No response</text>
+              <box style={{ flexDirection: "column", marginBottom: 1 }}>
+                {entry?.response
+                  ? (() => {
+                      const rawText = entry.response.statusText ?? ""
+                      const truncatedStatusText =
+                        rawText.length > 13
+                          ? `${rawText.slice(0, 13)}…`
+                          : rawText
+                      const statusStr = `${status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
+                      return (
+                        <box
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Badge
+                            bg={statusColor(status!, theme)}
+                            fg={theme.background}
+                          >
+                            {statusStr}
+                          </Badge>
+                          <Badge
+                            bg={theme.backgroundElement}
+                            fg={theme.textMuted}
+                          >
+                            {formatSize(entry.response.size)} in{" "}
+                            {entryTiming(entry)}
+                          </Badge>
+                        </box>
+                      )
+                    })()
+                  : null}
+                {entry?.error ? (
+                  <box
+                    border={["left", "right", "top", "bottom"]}
+                    borderColor={theme.error}
+                    style={{ padding: 1, marginTop: entry?.response ? 1 : 0 }}
+                  >
+                    <text fg={theme.error}>{entry.error.message}</text>
+                  </box>
+                ) : null}
+              </box>
             )}
             <box style={{ height: 1 }}>
               <text fg={theme.text}>Headers</text>
@@ -320,8 +349,7 @@ export function TimelineDetailOverlay({
             />
             <scrollbox
               scrollY
-              height={headerHeight}
-              maxHeight={7}
+              height={Math.min(Math.max(headers.length, 1), headerHeight)}
               verticalScrollbarOptions={{
                 trackOptions: {
                   backgroundColor: theme.background,
@@ -353,26 +381,33 @@ export function TimelineDetailOverlay({
                 <text
                   fg={theme.warning}
                 >{`Body is ${formatSize(info.size)}. It was not rendered automatically.`}</text>
-                <text fg={theme.textMuted}>v view raw · c copy · s save</text>
+                <text fg={theme.textMuted}>v view raw · b copy · e export</text>
               </box>
             ) : renderedBody ? (
-              <scrollbox
-                ref={bodyScrollRef}
-                scrollY
-                verticalScrollbarOptions={{
-                  trackOptions: {
-                    backgroundColor: theme.background,
-                    foregroundColor: theme.borderActive,
-                  },
-                }}
-                style={{ flexGrow: 1, minHeight: 0 }}
-              >
-                <JsonBodyViewer
-                  body={renderedBody}
-                  theme={theme}
-                  highlightPriority={highlightPriority}
-                />
-              </scrollbox>
+              (() => {
+                const bodyLines = renderedBody.split("\n").length
+                const computedBodyHeight = Math.min(Math.max(bodyLines, 1), 10)
+                return (
+                  <scrollbox
+                    ref={bodyScrollRef}
+                    scrollY
+                    height={computedBodyHeight}
+                    verticalScrollbarOptions={{
+                      trackOptions: {
+                        backgroundColor: theme.background,
+                        foregroundColor: theme.borderActive,
+                      },
+                    }}
+                    style={{ flexShrink: 0 }}
+                  >
+                    <JsonBodyViewer
+                      body={renderedBody}
+                      theme={theme}
+                      highlightPriority={highlightPriority}
+                    />
+                  </scrollbox>
+                )
+              })()
             ) : (
               <text fg={theme.textMuted}>
                 {entry.response ? "(empty body)" : "No response"}
@@ -380,6 +415,22 @@ export function TimelineDetailOverlay({
             )}
           </box>
         </Tabs>
+        <box
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            marginTop: 1,
+          }}
+        >
+          <text fg={theme.text}>h</text>
+          <text fg={theme.textMuted}> copy headers </text>
+          <text fg={theme.textMuted}>· </text>
+          <text fg={theme.text}>b</text>
+          <text fg={theme.textMuted}> copy body </text>
+          <text fg={theme.textMuted}>· </text>
+          <text fg={theme.text}>e</text>
+          <text fg={theme.textMuted}> export</text>
+        </box>
       </box>
     </Overlay>
   )
