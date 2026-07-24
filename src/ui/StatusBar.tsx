@@ -95,7 +95,7 @@ export function statusBarText(input: {
   }
 
   // ── RIGHT: global hints ────────────────────────────
-  const right = `[${displayKey(kb.request_send)}] send · [${displayKey(kb.request_save)}] save · [${displayKey(kb.request_new)}] new · [${displayKey(kb.request_edit_overlay)}] edit · [${displayKey(kb.request_delete)}] delete · [${displayKey(kb.env_cycle)}] env · [${displayKey(kb.command_palette)}] palette · [${kb.help_toggle}] help`
+  const right = `[${displayKey(kb.request_send)}] send · [${displayKey(kb.request_save)}] save · [${displayKey(kb.command_palette)}] palette · [${displayKey(kb.jump_mode)}] jump · [${displayKey(kb.help_toggle)}] help`
 
   return { left, center, right }
 }
