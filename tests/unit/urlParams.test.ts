@@ -1,5 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import { buildDisplayUrl, parseUrlAndParams } from "../../src/ui/urlParams"
+import {
+  buildDisplayUrl,
+  parseUrlAndParams,
+  syncParamsWithUrl,
+} from "../../src/ui/urlParams"
 import type { ParamEntry } from "../../src/schema"
 
 describe("buildDisplayUrl", () => {
@@ -202,5 +206,35 @@ describe("parseUrlAndParams", () => {
     expect(params).toEqual([
       { name: "token", value: "$API_KEY", enabled: true },
     ])
+  })
+})
+
+describe("syncParamsWithUrl", () => {
+  it("preserves disabled parameters when URL is synced", () => {
+    const current: ParamEntry[] = [
+      { name: "active", value: "1", enabled: true },
+      { name: "debug", value: "off", enabled: false },
+    ]
+    const { baseUrl, params } = syncParamsWithUrl(
+      current,
+      "https://example.com?active=1",
+    )
+    expect(baseUrl).toBe("https://example.com")
+    expect(params).toEqual([
+      { name: "active", value: "1", enabled: true },
+      { name: "debug", value: "off", enabled: false },
+    ])
+  })
+
+  it("overrides disabled parameter if explicitly enabled in URL", () => {
+    const current: ParamEntry[] = [
+      { name: "debug", value: "off", enabled: false },
+    ]
+    const { baseUrl, params } = syncParamsWithUrl(
+      current,
+      "https://example.com?debug=on",
+    )
+    expect(baseUrl).toBe("https://example.com")
+    expect(params).toEqual([{ name: "debug", value: "on", enabled: true }])
   })
 })

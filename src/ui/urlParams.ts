@@ -92,6 +92,26 @@ export function parseUrlAndParams(raw: string): {
   }
 }
 
+export function syncParamsWithUrl(
+  currentParams: ParamEntry[],
+  rawUrl: string,
+): {
+  baseUrl: string
+  params: ParamEntry[]
+} {
+  const parsed = parseUrlAndParams(rawUrl)
+  const newParams: ParamEntry[] = [...parsed.params]
+  const parsedKeys = new Set(newParams.map((p) => p.name))
+
+  for (const entry of currentParams) {
+    if (!entry.enabled && !parsedKeys.has(entry.name)) {
+      newParams.push({ ...entry })
+    }
+  }
+
+  return { baseUrl: parsed.baseUrl, params: newParams }
+}
+
 function normBaseUrl(origin: string, pathname: string): string {
   if (pathname === "/") return origin
   return origin + pathname

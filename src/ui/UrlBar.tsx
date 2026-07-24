@@ -48,7 +48,9 @@ export function UrlBar({
       initDisplayRef.current = displayUrl
     }
     if (!focused && prevFocused.current) {
-      onDefocus(inputValueRef.current)
+      if (inputValueRef.current !== initDisplayRef.current) {
+        onDefocus(inputValueRef.current)
+      }
     }
     prevFocused.current = focused
   }, [focused, onDefocus, params, url])
