@@ -997,6 +997,7 @@ export function AppInner({
               expanded={expanded}
               focusedFolderPresent={focusedFolder !== null}
               draftRequest={draft.draft}
+              mode={mode}
             />
           </>
         )}

@@ -12,6 +12,7 @@ import {
   commitEditing,
   cancelEditing,
   toggleSubfield,
+  cursorForField,
   FIELD_ORDER,
   type EditState,
   type SectionRowCount,
@@ -259,7 +260,14 @@ export function useEditBrowse(
     setInactiveTab(field)
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
-      if (prev.mode !== "inactive") return prev
+      if (prev.mode !== "inactive") {
+        return {
+          ...prev,
+          cursor: cursorForField(field, c),
+          mode: "browsing" as const,
+          editingRow: -1,
+        }
+      }
       return enterEditBrowse(prev, c, field)
     })
   }, [])

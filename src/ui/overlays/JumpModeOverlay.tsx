@@ -18,6 +18,7 @@ interface JumpModeOverlayProps {
   expanded: "request" | "response" | null
   focusedFolderPresent: boolean
   draftRequest?: Request | null
+  mode?: "collection" | "browse" | "empty" | "invalid"
 }
 
 export function JumpModeOverlay({
@@ -26,6 +27,7 @@ export function JumpModeOverlay({
   expanded,
   focusedFolderPresent,
   draftRequest,
+  mode = "collection",
 }: JumpModeOverlayProps) {
   const has = (key: string) => availableJumpTargets.has(key)
 
@@ -75,6 +77,9 @@ export function JumpModeOverlay({
             minHeight: 0,
           }}
         >
+          {/* Read-only banner (matches MainView) */}
+          {mode !== "collection" && <box style={{ height: 1 }} />}
+
           {/* UrlBar container */}
           <box style={{ height: 3, position: "relative" }}>
             {has("m") && <JumpBadge letter="m" style={{ top: 0, left: 2 }} />}
