@@ -37,6 +37,14 @@ export function AboutOverlay({ visible }: { visible: boolean }) {
           >
             Releases
           </a>
+          <span fg={theme.textMuted}> · </span>
+          <a href="https://noodlerest.dev/" fg={theme.primary}>
+            Website
+          </a>
+          <span fg={theme.textMuted}> · </span>
+          <a href="https://noodlerest.dev/docs/" fg={theme.primary}>
+            Docs
+          </a>
         </text>
       </box>
     </Overlay>
