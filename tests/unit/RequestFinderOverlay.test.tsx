@@ -52,8 +52,8 @@ describe("RequestFinderOverlay", () => {
               name: "dev",
               vars: { API_HOST: "dev.api.example.com" },
             }}
-            onSelect={(id) => {
-              selected = id
+            onSelect={(item) => {
+              selected = typeof item === "string" ? item : item.id
             }}
             onClose={() => {}}
           />
@@ -71,6 +71,45 @@ describe("RequestFinderOverlay", () => {
     expect(frame).not.toContain("dev.api.example.com")
     host.press("return")
     expect(selected).toBe("users/get")
+    cleanup()
+  })
+
+  it("renders folder items with FOLDER badge and request count", async () => {
+    const { keymap, cleanup } = setup()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <RequestFinderOverlay
+            visible
+            collectionItems={[
+              {
+                type: "folder",
+                data: {
+                  id: "auth-id",
+                  name: "Auth API",
+                  path: "auth",
+                  children: [
+                    {
+                      type: "request",
+                      data: requests[0]!,
+                    },
+                  ],
+                },
+              },
+            ]}
+            activeEnv={null}
+            onSelect={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 24 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("FOLDER")
+    expect(frame).toContain("Auth API")
+    expect(frame).toContain("(1 req)")
     cleanup()
   })
 
@@ -149,9 +188,38 @@ describe("RequestFinderOverlay", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("This is a request with a very…")
+    expect(frame).toContain("This is a request with a ve…")
     expect(frame).not.toContain("This is a request with a very very long name")
     expect(frame).toContain("users")
+    cleanup()
+  })
+
+  it("truncates a long folder path to prevent UI collision", async () => {
+    const { keymap, cleanup } = setup()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <RequestFinderOverlay
+            visible
+            requests={[
+              {
+                ...requests[0],
+                id: "versionaliasesforbundlecomponent/get",
+                name: "Get Alias",
+              },
+            ]}
+            activeEnv={null}
+            onSelect={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("versionaliasesforbu…")
+    expect(frame).not.toContain("versionaliasesforbundlecomponent")
     cleanup()
   })
 })

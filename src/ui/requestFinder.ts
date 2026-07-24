@@ -1,12 +1,27 @@
-import type { Environment, Request } from "../schema"
+import type { CollectionItem, Environment, Folder, Request } from "../schema"
+import { flattenRequests } from "./tree"
 
 const VAR_RE = /\$(\w+)/g
 
-export interface RequestFinderItem {
-  request: Request
-  folderPath: string
-  resolvedUrl: string
-}
+export type FinderItem =
+  | {
+      type: "request"
+      id: string
+      name: string
+      folderPath: string
+      request: Request
+      resolvedUrl: string
+    }
+  | {
+      type: "folder"
+      id: string
+      name: string
+      folderPath: string
+      folder: Folder
+      requestCount: number
+    }
+
+export type RequestFinderItem = FinderItem
 
 export function resolveFinderUrl(
   url: string,
@@ -31,18 +46,24 @@ function fieldRank(value: string, token: string, weight: number): number {
   return weight + value.indexOf(token)
 }
 
-function scoreRequest(
-  item: RequestFinderItem,
-  tokens: string[],
-): number | null {
-  const { request } = item
-  const fields: { value: string; weight: number; fuzzy?: boolean }[] = [
-    { value: request.name.toLowerCase(), weight: 0, fuzzy: true },
-    { value: request.id.toLowerCase(), weight: 100, fuzzy: true },
-    { value: request.method.toLowerCase(), weight: 200 },
-    { value: request.url.toLowerCase(), weight: 300 },
-    { value: item.resolvedUrl.toLowerCase(), weight: 300 },
-  ]
+function scoreItem(item: FinderItem, tokens: string[]): number | null {
+  const fields: { value: string; weight: number; fuzzy?: boolean }[] =
+    item.type === "request"
+      ? [
+          { value: item.request.name.toLowerCase(), weight: 0, fuzzy: true },
+          { value: item.request.id.toLowerCase(), weight: 100, fuzzy: true },
+          { value: item.request.method.toLowerCase(), weight: 200 },
+          { value: item.request.url.toLowerCase(), weight: 300 },
+          { value: item.resolvedUrl.toLowerCase(), weight: 300 },
+        ]
+      : [
+          { value: item.folder.name.toLowerCase(), weight: 0, fuzzy: true },
+          { value: item.folder.path.toLowerCase(), weight: 100, fuzzy: true },
+          { value: "folder", weight: 200 },
+          { value: "dir", weight: 200 },
+          { value: item.folderPath.toLowerCase(), weight: 300 },
+        ]
+
   let score = 0
 
   for (const token of tokens) {
@@ -60,37 +81,89 @@ function scoreRequest(
   return score
 }
 
+function collectFolderFinderItems(
+  items: CollectionItem[],
+  out: FinderItem[] = [],
+): FinderItem[] {
+  for (const item of items) {
+    if (item.type === "folder") {
+      const f = item.data
+      const parentPath = f.path.includes("/")
+        ? f.path.slice(0, f.path.lastIndexOf("/"))
+        : "(root)"
+      const reqs = flattenRequests(f.children)
+      out.push({
+        type: "folder",
+        id: f.path,
+        name: f.name,
+        folderPath: parentPath,
+        folder: f,
+        requestCount: reqs.length,
+      })
+      collectFolderFinderItems(f.children, out)
+    }
+  }
+  return out
+}
+
 export function requestFinderItems(
-  requests: Request[],
+  input: CollectionItem[] | Request[],
   activeEnv: Environment | null = null,
-): RequestFinderItem[] {
-  return requests.map((request) => ({
-    request,
+): FinderItem[] {
+  if (input.length === 0) return []
+
+  const first = input[0]!
+  if (
+    "type" in first &&
+    (first.type === "request" || first.type === "folder")
+  ) {
+    const items = input as CollectionItem[]
+    const reqs = flattenRequests(items)
+    const reqItems: FinderItem[] = reqs.map((request) => ({
+      type: "request",
+      id: request.id,
+      name: request.name,
+      folderPath: request.id.includes("/")
+        ? request.id.slice(0, request.id.lastIndexOf("/"))
+        : "(root)",
+      request,
+      resolvedUrl: resolveFinderUrl(request.url, activeEnv),
+    }))
+    const folderItems = collectFolderFinderItems(items)
+    return [...reqItems, ...folderItems]
+  }
+
+  const reqs = input as Request[]
+  return reqs.map((request) => ({
+    type: "request",
+    id: request.id,
+    name: request.name,
     folderPath: request.id.includes("/")
       ? request.id.slice(0, request.id.lastIndexOf("/"))
       : "(root)",
+    request,
     resolvedUrl: resolveFinderUrl(request.url, activeEnv),
   }))
 }
 
 export function searchRequests(
-  items: RequestFinderItem[],
+  items: FinderItem[],
   query: string,
-): RequestFinderItem[] {
+): FinderItem[] {
   const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return items
 
   return items
-    .map((item) => ({ item, score: scoreRequest(item, tokens) }))
+    .map((item) => ({ item, score: scoreItem(item, tokens) }))
     .filter(
-      (result): result is { item: RequestFinderItem; score: number } =>
+      (result): result is { item: FinderItem; score: number } =>
         result.score !== null,
     )
     .sort(
       (a, b) =>
         a.score - b.score ||
-        a.item.request.name.localeCompare(b.item.request.name) ||
-        a.item.request.id.localeCompare(b.item.request.id),
+        a.item.name.localeCompare(b.item.name) ||
+        a.item.id.localeCompare(b.item.id),
     )
     .map((result) => result.item)
 }
