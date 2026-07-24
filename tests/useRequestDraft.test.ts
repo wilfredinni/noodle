@@ -189,6 +189,21 @@ describe("applyDraft", () => {
     expect(draft.method).toBe(original.method)
     expect(draft.headers).toEqual(original.headers)
   })
+
+  it("setUrl parses query parameters into draft.params (two-way binding)", () => {
+    const original = makeReq({ url: "https://a.com", params: [] })
+    const map = new Map<string, Request>()
+    const next = applyDraft(map, "r1", original, {
+      kind: "setUrl",
+      url: "https://a.com/search?q=noodle&page=1",
+    })
+    const draft = next.get("r1")!
+    expect(draft.url).toBe("https://a.com/search")
+    expect(draft.params).toEqual([
+      { name: "q", value: "noodle", enabled: true },
+      { name: "page", value: "1", enabled: true },
+    ])
+  })
   it("setBody updates body", () => {
     const original = makeReq({ body: "x" })
     const map = new Map<string, Request>()

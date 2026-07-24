@@ -48,8 +48,7 @@ export function UrlBar({
       initDisplayRef.current = displayUrl
     }
     if (!focused && prevFocused.current) {
-      const displayUrl = buildDisplayUrl(url, params)
-      if (inputValueRef.current !== displayUrl) {
+      if (inputValueRef.current !== initDisplayRef.current) {
         onDefocus(inputValueRef.current)
       }
     }
@@ -57,11 +56,11 @@ export function UrlBar({
   }, [focused, onDefocus, params, url])
 
   useEffect(() => {
+    const displayUrl = buildDisplayUrl(url, params)
     if (!focused) {
-      setInputValue(url)
-      inputValueRef.current = url
+      setInputValue(displayUrl)
+      inputValueRef.current = displayUrl
     } else if (inputValueRef.current === initDisplayRef.current) {
-      const displayUrl = buildDisplayUrl(url, params)
       setInputValue(displayUrl)
       inputValueRef.current = displayUrl
       initDisplayRef.current = displayUrl

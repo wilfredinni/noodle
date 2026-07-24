@@ -9,7 +9,7 @@ import type {
   ParamEntry,
 } from "../schema"
 import type { FieldKind } from "../ui/editMode"
-import { parseUrlAndParams } from "../ui/urlParams"
+import { syncParamsWithUrl } from "../ui/urlParams"
 
 export type DraftOp =
   | { kind: "setMethod"; method: Method }
@@ -324,13 +324,16 @@ export function applyDraft(
     case "setMethod":
       draft.method = op.method
       break
-    case "setUrl":
-      draft.url = op.url
+    case "setUrl": {
+      const synced = syncParamsWithUrl(current.params, op.url)
+      draft.url = synced.baseUrl
+      draft.params = synced.params
       break
+    }
     case "syncUrlParams": {
-      const parsed = parseUrlAndParams(op.rawUrl)
-      draft.url = parsed.baseUrl
-      draft.params = parsed.params
+      const synced = syncParamsWithUrl(current.params, op.rawUrl)
+      draft.url = synced.baseUrl
+      draft.params = synced.params
       break
     }
     case "setBody":
