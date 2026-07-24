@@ -36,9 +36,9 @@ function scoreRequest(
   tokens: string[],
 ): number | null {
   const { request } = item
-  const fields = [
-    { value: request.name.toLowerCase(), weight: 0 },
-    { value: request.id.toLowerCase(), weight: 100 },
+  const fields: { value: string; weight: number; fuzzy?: boolean }[] = [
+    { value: request.name.toLowerCase(), weight: 0, fuzzy: true },
+    { value: request.id.toLowerCase(), weight: 100, fuzzy: true },
     { value: request.method.toLowerCase(), weight: 200 },
     { value: request.url.toLowerCase(), weight: 300 },
     { value: item.resolvedUrl.toLowerCase(), weight: 300 },
@@ -51,7 +51,9 @@ function scoreRequest(
       score += fieldRank(direct.value, token, direct.weight)
       continue
     }
-    const fuzzy = fields.find((field) => fuzzyMatch(field.value, token))
+    const fuzzy = fields.find(
+      (field) => field.fuzzy && fuzzyMatch(field.value, token),
+    )
     if (!fuzzy) return null
     score += fuzzy.weight * 10 + fuzzy.value.length
   }

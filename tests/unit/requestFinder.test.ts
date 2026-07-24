@@ -41,6 +41,11 @@ const devEnv: Environment = {
   vars: { API_HOST: "dev.api.example.com", USER_ID: "42" },
 }
 
+const jsonPlaceholderEnv: Environment = {
+  name: "jsonplaceholder",
+  vars: { base_url: "https://jsonplaceholder.typicode.com" },
+}
+
 describe("requestFinder", () => {
   it("shows all requests for an empty query and derives folders", () => {
     const items = requestFinderItems(requests)
@@ -103,5 +108,90 @@ describe("requestFinder", () => {
     expect(searchRequests(items, "missing")[0]?.request.id).toBe(
       "users/get-user",
     )
+  })
+
+  it("fuzzy-matches tokens spread across name", () => {
+    const items = requestFinderItems([
+      {
+        id: "a",
+        name: "Create User",
+        method: "GET",
+        url: "https://x.com/a",
+        headers: {},
+        params: [],
+        timeout: 0,
+      },
+      {
+        id: "b",
+        name: "Delete Item",
+        method: "GET",
+        url: "https://x.com/b",
+        headers: {},
+        params: [],
+        timeout: 0,
+      },
+    ])
+    expect(searchRequests(items, "crt")[0]?.request.id).toBe("a")
+  })
+
+  it("fuzzy-matches tokens spread across id", () => {
+    const items = requestFinderItems([
+      {
+        id: "users/create",
+        name: "Create",
+        method: "GET",
+        url: "https://x.com/a",
+        headers: {},
+        params: [],
+        timeout: 0,
+      },
+      {
+        id: "items/delete",
+        name: "Delete",
+        method: "GET",
+        url: "https://x.com/b",
+        headers: {},
+        params: [],
+        timeout: 0,
+      },
+    ])
+    expect(searchRequests(items, "crt")[0]?.request.id).toBe("users/create")
+  })
+
+  it("does NOT fuzzy-match on URL or resolvedUrl", () => {
+    const items = requestFinderItems(
+      [
+        {
+          id: "test",
+          name: "Example",
+          method: "GET",
+          url: "$base_url/todos",
+          headers: {},
+          params: [],
+          timeout: 0,
+        },
+      ],
+      jsonPlaceholderEnv,
+    )
+    expect(searchRequests(items, "todo")[0]?.request.id).toBe("test")
+    expect(searchRequests(items, "photo")).toEqual([])
+  })
+
+  it("direct substring still matches on URL and resolvedUrl", () => {
+    const items = requestFinderItems(
+      [
+        {
+          id: "test",
+          name: "Example",
+          method: "GET",
+          url: "$base_url/photos/1",
+          headers: {},
+          params: [],
+          timeout: 0,
+        },
+      ],
+      jsonPlaceholderEnv,
+    )
+    expect(searchRequests(items, "photo")[0]?.request.id).toBe("test")
   })
 })
