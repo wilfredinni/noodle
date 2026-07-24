@@ -230,7 +230,7 @@ export function YamlEditorOverlay({
         </box>
       ) : content !== null ? (
         <box
-          maxHeight={20}
+          height={20}
           style={{
             paddingLeft: 4,
             paddingRight: 4,
