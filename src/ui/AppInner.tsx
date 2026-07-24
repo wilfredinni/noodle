@@ -26,7 +26,6 @@ import { type NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import { type ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import { useTheme } from "./theme"
-import { HeaderBar } from "./HeaderBar"
 import { StatusBar } from "./StatusBar"
 import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
@@ -977,7 +976,6 @@ export function AppInner({
           position: "relative",
         }}
       >
-        <HeaderBar />
         {jumpMode && (
           <>
             <box

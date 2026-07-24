@@ -19,6 +19,9 @@ function truncName(name: string, max: number): string {
   return name.length <= max ? name : name.slice(0, max - 1) + "\u2026"
 }
 
+import { Frame } from "./Frame"
+import { Badge } from "./Badge"
+
 export function Sidebar({
   items: _items,
   loading,
@@ -59,7 +62,7 @@ export function Sidebar({
   const fileErrors = error ? extractFileErrors(error) : []
 
   return (
-    <box
+    <Frame
       style={{
         width: SIDEBAR_WIDTH,
         flexDirection: "column",
@@ -74,9 +77,16 @@ export function Sidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title={jumpMode ? undefined : "Requests"}
-      titleColor={focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
+      titleLeft={
+        jumpMode ? undefined : (
+          <Badge
+            bg={theme.backgroundPanel}
+            fg={focused ? theme.primary : theme.textMuted}
+          >
+            Requests
+          </Badge>
+        )
+      }
     >
       {loading ? (
         <box
@@ -224,6 +234,6 @@ export function Sidebar({
           })}
         </scrollbox>
       )}
-    </box>
+    </Frame>
   )
 }

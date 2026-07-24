@@ -1,3 +1,6 @@
+import { TextAttributes } from "@opentui/core"
+import { useTerminalDimensions } from "@opentui/react"
+import pkg from "../../package.json" with { type: "json" }
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
@@ -9,6 +12,26 @@ export interface StatusBarSections {
   left: string
   center: string
   right: string
+}
+
+function fitSegments(
+  segments: Array<{ key: string; word: string }>,
+  maxChars: number,
+): Array<{ key: string; word: string }> {
+  const visible: Array<{ key: string; word: string }> = []
+  let usedChars = 0
+
+  for (const seg of segments) {
+    const segLen =
+      seg.key.length +
+      (seg.word ? 1 + seg.word.length : 0) +
+      (visible.length > 0 ? 3 : 0)
+    if (usedChars + segLen > maxChars) break
+    visible.push(seg)
+    usedChars += segLen
+  }
+
+  return visible
 }
 
 function urlPath(url: string): string {
@@ -155,11 +178,21 @@ export function StatusBar(input: {
     { key: "Esc", word: "dismiss" },
   ]
 
+  const { width: termWidth = 100 } = useTerminalDimensions()
+
   const segments = input.jumpMode
     ? jumpSegments
     : isEnvEditor
       ? envEditorSegments
       : rightSegments
+
+  const brandingText = `Noodle v${pkg.version}`
+  const brandingWidth = brandingText.length + 3
+  const leftWidth = isEnvEditor
+    ? (input.envStats?.length || 10) + 4
+    : envText.length + 4
+  const maxShortcutChars = Math.max(0, termWidth - leftWidth - brandingWidth)
+  const visibleSegments = fitSegments(segments, maxShortcutChars)
 
   return (
     <box
@@ -181,14 +214,20 @@ export function StatusBar(input: {
           <text fg={envFg}>{envText}</text>
         )}
       </box>
-      <box style={{ flexDirection: "row" }}>
-        {segments.map((seg, i) => (
+      <box style={{ flexDirection: "row", alignItems: "center" }}>
+        {visibleSegments.map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>
-            {i > 0 ? <text fg={theme.textMuted}> · </text> : null}
             <text fg={theme.text}>{seg.key}</text>
-            <text fg={theme.textMuted}> {seg.word}</text>
+            {seg.word ? <text fg={theme.textMuted}> {seg.word}</text> : null}
+            <text fg={theme.textMuted}> · </text>
           </box>
         ))}
+        <box style={{ flexDirection: "row" }}>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+            Noodle
+          </text>
+          <text fg={theme.textMuted}> v{pkg.version}</text>
+        </box>
       </box>
     </box>
   )

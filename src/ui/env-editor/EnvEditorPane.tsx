@@ -4,8 +4,10 @@ import { useTheme } from "../theme"
 import { FullBorder } from "../borders"
 import { Checkbox } from "../Checkbox"
 import { VarInput } from "../VarInput"
-import type { ScrollBoxRenderable } from "@opentui/core"
+import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
+import { Frame } from "../Frame"
+import { Badge } from "../Badge"
 
 export function EnvEditorPane({
   draft,
@@ -54,7 +56,7 @@ export function EnvEditorPane({
 
   if (!draft) {
     return (
-      <box
+      <Frame
         style={{
           flexDirection: "column",
           flexGrow: 1,
@@ -65,12 +67,14 @@ export function EnvEditorPane({
         border={[...FullBorder.border]}
         customBorderChars={FullBorder.customBorderChars}
         borderColor={theme.borderSubtle}
-        title="Variables"
-        titleColor={theme.textMuted}
-        titleAlignment="left"
+        titleRight={
+          <Badge bg={theme.backgroundPanel} fg={theme.textMuted}>
+            Variables
+          </Badge>
+        }
       >
         <text fg={theme.textMuted}>Select an environment to edit</text>
-      </box>
+      </Frame>
     )
   }
 
@@ -99,7 +103,7 @@ export function EnvEditorPane({
   }
 
   return (
-    <box
+    <Frame
       style={{
         flexDirection: "column",
         flexGrow: 1,
@@ -111,9 +115,14 @@ export function EnvEditorPane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={_focused ? theme.primary : theme.borderSubtle}
-      title="Variables"
-      titleColor={_focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
+      titleRight={
+        <Badge
+          bg={theme.backgroundPanel}
+          fg={_focused ? theme.primary : theme.textMuted}
+        >
+          Variables
+        </Badge>
+      }
     >
       <scrollbox
         ref={scrollRef}
@@ -233,6 +242,6 @@ export function EnvEditorPane({
       </scrollbox>
       {error && <text fg={theme.error}>Error: {error}</text>}
       {saving && <text fg={theme.info}>Saving...</text>}
-    </box>
+    </Frame>
   )
 }

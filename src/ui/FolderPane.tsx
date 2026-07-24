@@ -9,6 +9,8 @@ import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
 import type { Theme } from "./theme"
 import { FullBorder } from "./borders"
+import { Frame } from "./Frame"
+import { Badge } from "./Badge"
 
 interface FolderPaneProps {
   collectionDir: string
@@ -78,7 +80,7 @@ export function FolderPane({
   }, [folder])
 
   return (
-    <box
+    <Frame
       style={{
         flexGrow: 1,
         flexDirection: "column",
@@ -94,9 +96,16 @@ export function FolderPane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title={jumpMode ? undefined : "Folder"}
-      titleColor={focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
+      titleRight={
+        jumpMode ? undefined : (
+          <Badge
+            bg={theme.backgroundPanel}
+            fg={focused ? theme.primary : theme.textMuted}
+          >
+            Folder
+          </Badge>
+        )
+      }
     >
       {folder ? (
         <>
@@ -171,6 +180,6 @@ export function FolderPane({
       ) : (
         <text fg={theme.textMuted}>(no folder selected)</text>
       )}
-    </box>
+    </Frame>
   )
 }
