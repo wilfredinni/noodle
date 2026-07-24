@@ -275,7 +275,7 @@ export function ResponsePane({
     ? (() => {
         const rawText = state.response.statusText
         const truncatedStatusText =
-          rawText.length > 5 ? `${rawText.slice(0, 5)}…` : rawText
+          rawText.length > 13 ? `${rawText.slice(0, 13)}…` : rawText
         const statusStr = `${state.response.status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
         return (
           <box style={{ flexDirection: "row" }}>
@@ -318,7 +318,22 @@ export function ResponsePane({
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-          {activeTab === "timeline" ? (
+          {state.status === "sending" ? (
+            <box
+              style={{
+                flexGrow: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <box style={{ flexDirection: "row", gap: 1 }}>
+                <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
+                <text fg={focused ? theme.primary : theme.textMuted}>
+                  Sending
+                </text>
+              </box>
+            </box>
+          ) : activeTab === "timeline" ? (
             <TimelineTab
               entries={timelineEntries ?? []}
               focused={focused}
@@ -329,21 +344,6 @@ export function ResponsePane({
           ) : activeTab === "body" ? (
             state.status === "idle" ? (
               <Tips />
-            ) : state.status === "sending" ? (
-              <box
-                style={{
-                  flexGrow: 1,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <box style={{ flexDirection: "row", gap: 1 }}>
-                  <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
-                  <text fg={focused ? theme.primary : theme.textMuted}>
-                    Sending
-                  </text>
-                </box>
-              </box>
             ) : state.status === "error" ? (
               <box
                 border={[...LeftBar.border]}

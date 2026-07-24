@@ -101,7 +101,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
     expect(frame).toContain("200 OK")
   })
 
-  it("truncates status text > 5 chars with ellipsis", async () => {
+  it("truncates status text > 13 chars with ellipsis", async () => {
     const { keymap, draft, eb } = createTestProps()
     const responseErr: SendState = {
       status: "done",
@@ -152,7 +152,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("500 Inter…")
+    expect(frame).toContain("500 Internal Serv…")
   })
 
   it("does not render 'undefined' when expandHint or queryHint is omitted", async () => {
