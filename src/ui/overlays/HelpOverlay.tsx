@@ -104,8 +104,19 @@ export function HelpOverlay({
                   paddingRight={4}
                   style={{ flexDirection: "row" }}
                 >
-                  <text fg={theme.text}>{k.key.padEnd(keyColumnWidth)}</text>
-                  <text fg={theme.textMuted}>{k.description}</text>
+                  <text
+                    fg={theme.text}
+                    style={{ minWidth: keyColumnWidth, flexShrink: 0 }}
+                  >
+                    {k.key.padEnd(keyColumnWidth)}
+                  </text>
+                  <text
+                    fg={theme.textMuted}
+                    wrapMode="word"
+                    style={{ flexGrow: 1, flexShrink: 1 }}
+                  >
+                    {k.description}
+                  </text>
                 </box>
               ))}
             </box>

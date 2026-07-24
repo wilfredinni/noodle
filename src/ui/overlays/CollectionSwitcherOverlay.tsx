@@ -90,7 +90,7 @@ export function CollectionSwitcherOverlay({
             {active ? "●" : " "}
           </text>
           <box flexDirection="column" flexGrow={1}>
-            <text fg={fg} attributes={active ? TextAttributes.BOLD : undefined}>
+            <text fg={fg} attributes={TextAttributes.BOLD}>
               {item.label}
             </text>
             <text fg={pathFg}>{item.path}</text>
