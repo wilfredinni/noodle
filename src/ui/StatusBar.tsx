@@ -1,3 +1,5 @@
+import { TextAttributes } from "@opentui/core"
+import pkg from "../../package.json" with { type: "json" }
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
@@ -181,14 +183,20 @@ export function StatusBar(input: {
           <text fg={envFg}>{envText}</text>
         )}
       </box>
-      <box style={{ flexDirection: "row" }}>
+      <box style={{ flexDirection: "row", alignItems: "center" }}>
         {segments.map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>
-            {i > 0 ? <text fg={theme.textMuted}> · </text> : null}
             <text fg={theme.text}>{seg.key}</text>
             <text fg={theme.textMuted}> {seg.word}</text>
+            <text fg={theme.textMuted}> · </text>
           </box>
         ))}
+        <box style={{ flexDirection: "row" }}>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+            Noodle
+          </text>
+          <text fg={theme.textMuted}> v{pkg.version}</text>
+        </box>
       </box>
     </box>
   )

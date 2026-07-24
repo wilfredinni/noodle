@@ -267,34 +267,58 @@ export function ResponsePane({
     }
   }, [responseQueryRef, isDone, activeTab, queryVisible])
 
-  const headerLeft = (
-    <text fg={focused ? theme.primary : theme.textMuted}>Response</text>
+  const headerRight = (
+    <box style={{ flexDirection: "row" }}>
+      {!jumpMode ? (
+        <Badge
+          bg={theme.backgroundPanel}
+          fg={focused ? theme.primary : theme.textMuted}
+        >
+          Response
+        </Badge>
+      ) : null}
+      {isDone
+        ? (() => {
+            const rawText = state.response.statusText
+            const truncatedStatusText =
+              rawText.length > 13 ? `${rawText.slice(0, 13)}…` : rawText
+            const statusStr = `${state.response.status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
+            return (
+              <box style={{ flexDirection: "row" }}>
+                <Badge
+                  bg={theme.backgroundElement}
+                  fg={focused ? theme.text : theme.textMuted}
+                >
+                  {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms`}
+                </Badge>
+                <Badge
+                  bg={statusColor(state.response.status, theme)}
+                  fg={theme.backgroundPanel}
+                >
+                  {statusStr}
+                </Badge>
+              </box>
+            )
+          })()
+        : null}
+    </box>
   )
 
-  const headerRight = isDone
-    ? (() => {
-        const rawText = state.response.statusText
-        const truncatedStatusText =
-          rawText.length > 13 ? `${rawText.slice(0, 13)}…` : rawText
-        const statusStr = `${state.response.status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
-        return (
-          <box style={{ flexDirection: "row" }}>
-            <text fg={focused ? theme.primary : theme.textMuted}>
-              {`${formatSize(bodySize)} in ${Math.round(state.response.timeMs)}ms `}
-            </text>
-            <Badge
-              bg={statusColor(state.response.status, theme)}
-              fg={theme.backgroundPanel}
-            >
-              {statusStr}
-            </Badge>
-          </box>
-        )
-      })()
-    : undefined
-
-  const hints = [expandHint, queryHint].filter(Boolean).join(" · ")
-  const bottomTitle = focused && hints !== "" ? hints : undefined
+  const bottomLeft =
+    focused && (expandHint || queryHint) ? (
+      <box style={{ flexDirection: "row", gap: 1 }}>
+        {expandHint ? (
+          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
+            {expandHint}
+          </Badge>
+        ) : null}
+        {queryHint ? (
+          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
+            {queryHint}
+          </Badge>
+        ) : null}
+      </box>
+    ) : undefined
 
   return (
     <Frame
@@ -311,10 +335,8 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
-      titleLeft={jumpMode ? undefined : headerLeft}
       titleRight={headerRight}
-      bottomTitle={bottomTitle}
-      bottomTitleAlignment="left"
+      bottomLeft={bottomLeft}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <Tabs tabs={TAB_DEFS} activeId={activeTab}>

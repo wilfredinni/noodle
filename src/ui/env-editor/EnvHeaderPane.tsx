@@ -11,6 +11,8 @@ import { FullBorder } from "../borders"
 import type { InputRenderable } from "@opentui/core"
 import { Select, type SelectItem } from "../Select"
 import { VALID_COLORS } from "../../env/constants"
+import { Frame } from "../Frame"
+import { Badge } from "../Badge"
 
 export interface EnvHeaderPaneHandle {
   focusName: () => void
@@ -71,7 +73,7 @@ export const EnvHeaderPane = forwardRef<
   }, [theme])
 
   return (
-    <box
+    <Frame
       style={{
         flexDirection: "row",
         gap: 1,
@@ -86,9 +88,14 @@ export const EnvHeaderPane = forwardRef<
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title="Environment"
-      titleColor={focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
+      titleRight={
+        <Badge
+          bg={theme.backgroundPanel}
+          fg={focused ? theme.primary : theme.textMuted}
+        >
+          Environment
+        </Badge>
+      }
     >
       <input
         ref={nameRef}
@@ -112,6 +119,6 @@ export const EnvHeaderPane = forwardRef<
         badge
         onOpenChange={setSelectOpen}
       />
-    </box>
+    </Frame>
   )
 })

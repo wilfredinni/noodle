@@ -58,9 +58,6 @@ export function JumpModeOverlay({
         zIndex: 100,
       }}
     >
-      {/* HeaderBar space: height 1 */}
-      <box style={{ height: 1 }} />
-
       {/* MainView flex container mirror */}
       <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
         {/* Sidebar container (width 38) */}

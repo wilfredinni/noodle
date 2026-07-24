@@ -30,6 +30,8 @@ import type { BodyType } from "../schema"
 import { validateJsonContent } from "./editor/jsonValidation"
 import { getEnvVarHighlights } from "./variable-completion/variableCompletion"
 import { computeRequestTabLabels } from "./useJumpMode"
+import { Frame } from "./Frame"
+import { Badge } from "./Badge"
 
 interface Props {
   request: Request | null
@@ -134,7 +136,7 @@ export function RequestPane({
   }, [request])
 
   return (
-    <box
+    <Frame
       style={{
         flexDirection: "column",
         flexGrow: 1,
@@ -150,11 +152,23 @@ export function RequestPane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title={jumpMode ? undefined : title}
-      titleColor={focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
-      bottomTitle={focused ? expandHint : undefined}
-      bottomTitleAlignment="left"
+      titleRight={
+        jumpMode ? undefined : (
+          <Badge
+            bg={theme.backgroundPanel}
+            fg={focused ? theme.primary : theme.textMuted}
+          >
+            {title}
+          </Badge>
+        )
+      }
+      bottomLeft={
+        focused && expandHint ? (
+          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
+            {expandHint}
+          </Badge>
+        ) : undefined
+      }
     >
       {request ? (
         <>
@@ -291,7 +305,7 @@ export function RequestPane({
           <text fg={theme.textMuted}>empty</text>
         </box>
       )}
-    </box>
+    </Frame>
   )
 }
 

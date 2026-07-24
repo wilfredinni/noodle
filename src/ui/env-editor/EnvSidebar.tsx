@@ -3,6 +3,8 @@ import { FullBorder, LeftBar } from "../borders"
 import { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import { VALID_COLORS } from "../../env/constants"
+import { Frame } from "../Frame"
+import { Badge } from "../Badge"
 
 export function EnvSidebar({
   envNames,
@@ -39,7 +41,7 @@ export function EnvSidebar({
   }, [selectedIndex])
 
   return (
-    <box
+    <Frame
       style={{
         width: 38,
         flexDirection: "column",
@@ -51,9 +53,14 @@ export function EnvSidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title="Environments"
-      titleColor={focused ? theme.primary : theme.textMuted}
-      titleAlignment="left"
+      titleLeft={
+        <Badge
+          bg={theme.backgroundPanel}
+          fg={focused ? theme.primary : theme.textMuted}
+        >
+          Environments
+        </Badge>
+      }
     >
       {envNames.length === 0 ? (
         <text fg={theme.textMuted}>(no environments)</text>
@@ -105,6 +112,6 @@ export function EnvSidebar({
           })}
         </scrollbox>
       )}
-    </box>
+    </Frame>
   )
 }
