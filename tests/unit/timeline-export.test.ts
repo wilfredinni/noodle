@@ -1,7 +1,7 @@
-import { describe, expect, it } from "bun:test"
-import { homedir } from "node:os"
+import { describe, expect, it, beforeEach, afterEach } from "bun:test"
+import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
-import { readFile, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
 import * as yaml from "js-yaml"
 import {
   getDownloadsDir,
@@ -11,12 +11,25 @@ import type { TimelineEntry } from "../../src/schema"
 
 describe("getDownloadsDir", () => {
   it("resolves home Downloads directory by default", async () => {
+    delete process.env.NOODLE_DOWNLOADS_DIR
     const downloads = await getDownloadsDir()
     expect(downloads).toBe(join(homedir(), "Downloads"))
   })
 })
 
 describe("exportTimelineEntry", () => {
+  let tempDir: string
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "noodle-downloads-"))
+    process.env.NOODLE_DOWNLOADS_DIR = tempDir
+  })
+
+  afterEach(async () => {
+    delete process.env.NOODLE_DOWNLOADS_DIR
+    await rm(tempDir, { recursive: true, force: true })
+  })
+
   it("exports full timeline entry as YAML into Downloads folder", async () => {
     const entry: TimelineEntry = {
       timestamp: 1000,
@@ -43,8 +56,7 @@ describe("exportTimelineEntry", () => {
       "response",
       '{"exported":true}',
     )
-    const expectedDir = await getDownloadsDir()
-    expect(path).toBe(join(expectedDir, "req-test-123.yml"))
+    expect(path).toBe(join(tempDir, "req-test-123.yml"))
 
     const content = await readFile(path, "utf8")
     const parsed = yaml.load(content) as TimelineEntry
@@ -52,8 +64,5 @@ describe("exportTimelineEntry", () => {
     expect(parsed.request.method).toBe("GET")
     expect(parsed.response?.status).toBe(200)
     expect(parsed.response?.body).toBe('{"exported":true}')
-
-    // Cleanup exported test file
-    await rm(path, { force: true })
   })
 })

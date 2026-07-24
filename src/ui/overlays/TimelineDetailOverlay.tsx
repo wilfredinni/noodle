@@ -91,7 +91,7 @@ export function TimelineDetailOverlay({
   onExportBody?: (
     entry: TimelineEntry,
     kind: DetailTab,
-    body: string,
+    body?: string,
   ) => Promise<void>
 }) {
   const theme = useTheme()
@@ -179,7 +179,7 @@ export function TimelineDetailOverlay({
                     .map(([key, value]) => ({ key, value }))
                 : []
           onCopyHeaders(formatHeaderEntries(currentHeaders))
-        } else if (key.name === "b" || key.name === "c") {
+        } else if (key.name === "b") {
           const body = loadedBody ?? info?.body
           if (body !== undefined) onCopyBody(body)
           else if (info?.ref) {
@@ -189,9 +189,11 @@ export function TimelineDetailOverlay({
                 setBodyError("Unable to load the saved response body"),
               )
           }
-        } else if (key.name === "e" || key.name === "s") {
-          const exportBody = (body: string) =>
-            onExportBody(entry, activeTab, body).catch(() => {})
+        } else if (key.name === "e") {
+          const exportBody = (body?: string) =>
+            onExportBody(entry, activeTab, body).catch(() =>
+              setBodyError("Failed to export timeline entry"),
+            )
           const body = loadedBody ?? info?.body
           if (body !== undefined) exportBody(body)
           else if (info?.ref) {
@@ -200,6 +202,8 @@ export function TimelineDetailOverlay({
               .catch(() =>
                 setBodyError("Unable to load the saved response body"),
               )
+          } else {
+            exportBody(undefined)
           }
         } else if (key.name === "up") bodyScrollRef.current?.scrollBy(-1)
         else if (key.name === "down") bodyScrollRef.current?.scrollBy(1)

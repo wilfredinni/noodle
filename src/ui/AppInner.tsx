@@ -898,7 +898,7 @@ export function AppInner({
     async (
       entry: TimelineEntry,
       kind: "request" | "response",
-      body: string,
+      body?: string,
     ) => {
       const path = await exportTimelineEntry(collectionDir, entry, kind, body)
       showToast(`Timeline entry exported to ${path}`, "success")

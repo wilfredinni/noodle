@@ -124,7 +124,7 @@ interface AppOverlaysProps {
   onExportTimelineBody: (
     entry: TimelineEntry,
     kind: "request" | "response",
-    body: string,
+    body?: string,
   ) => Promise<void>
 }
 

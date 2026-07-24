@@ -13,6 +13,9 @@ const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
 
 export async function getDownloadsDir(): Promise<string> {
+  if (process.env.NOODLE_DOWNLOADS_DIR) {
+    return process.env.NOODLE_DOWNLOADS_DIR
+  }
   const home = homedir()
   if (process.platform === "linux") {
     if (process.env.XDG_DOWNLOAD_DIR) {

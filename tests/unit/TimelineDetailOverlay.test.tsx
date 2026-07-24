@@ -179,7 +179,7 @@ describe("TimelineDetailOverlay", () => {
         onLoadBody: async () => "saved sidecar body",
         onCopyBody: (body) => copied.push(body),
         onExportBody: async (_entry, _kind, body) => {
-          exported.push(body)
+          if (body !== undefined) exported.push(body)
         },
       },
     )
@@ -187,12 +187,78 @@ describe("TimelineDetailOverlay", () => {
     await act(async () => host.press("right"))
     await renderOnce()
     await act(async () => {
-      host.press("c")
-      host.press("s")
+      host.press("b")
+      host.press("e")
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
     expect(copied).toEqual(["saved sidecar body"])
     expect(exported).toEqual(["saved sidecar body"])
+    cleanup()
+  })
+
+  it("exports bodyless timeline entry when export shortcut is pressed", async () => {
+    let exported = false
+    let exportedBody: string | undefined = "not-called"
+    const { renderOnce, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 204,
+          statusText: "No Content",
+          headers: {},
+          timeMs: 5,
+          size: 0,
+        },
+      }),
+      () => {},
+      true,
+      {
+        onExportBody: async (_entry, _kind, body) => {
+          exported = true
+          exportedBody = body
+        },
+      },
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
+    await act(async () => {
+      host.press("e")
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(exported).toBe(true)
+    expect(exportedBody).toBeUndefined()
+    cleanup()
+  })
+
+  it("displays error message when timeline export fails", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "hello",
+          timeMs: 1,
+          size: 5,
+        },
+      }),
+      () => {},
+      true,
+      {
+        onExportBody: async () => {
+          throw new Error("Disk write failure")
+        },
+      },
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await renderOnce()
+    await act(async () => {
+      host.press("e")
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Failed to export timeline entry")
     cleanup()
   })
 
