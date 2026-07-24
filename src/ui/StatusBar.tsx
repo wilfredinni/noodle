@@ -112,6 +112,7 @@ export function StatusBar(input: {
   spinnerFrame?: string
   view?: "main" | "env-editor"
   envStats?: string
+  jumpMode?: boolean
 }) {
   const theme = useTheme()
   const sections = statusBarText(input)
@@ -149,6 +150,17 @@ export function StatusBar(input: {
     { key: displayKey(input.kb.env_delete), word: "delete" },
   ]
 
+  const jumpSegments = [
+    { key: "Type key", word: "to jump" },
+    { key: "Esc", word: "dismiss" },
+  ]
+
+  const segments = input.jumpMode
+    ? jumpSegments
+    : isEnvEditor
+      ? envEditorSegments
+      : rightSegments
+
   return (
     <box
       style={{
@@ -170,7 +182,7 @@ export function StatusBar(input: {
         )}
       </box>
       <box style={{ flexDirection: "row" }}>
-        {(isEnvEditor ? envEditorSegments : rightSegments).map((seg, i) => (
+        {segments.map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>
             {i > 0 ? <text fg={theme.textMuted}> · </text> : null}
             <text fg={theme.text}>{seg.key}</text>

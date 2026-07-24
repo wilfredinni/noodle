@@ -32,6 +32,7 @@ interface RequestResponseViewProps {
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
+  jumpMode?: boolean
 }
 
 export function RequestResponseView({
@@ -55,6 +56,7 @@ export function RequestResponseView({
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
+  jumpMode = false,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -75,6 +77,7 @@ export function RequestResponseView({
           onBodyTypeChange={draft.setBodyType}
           onSelectOpenChange={setSelectOpen}
           expandHint={expandHint}
+          jumpMode={jumpMode}
         />
       )}
       {expanded !== "request" && (
@@ -92,6 +95,7 @@ export function RequestResponseView({
           responseBodyForCopyRef={responseBodyForCopyRef}
           layout={layout}
           expanded={expanded}
+          jumpMode={jumpMode}
         />
       )}
     </>

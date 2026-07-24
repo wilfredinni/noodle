@@ -110,7 +110,7 @@ export function folderFieldIndex(field: FolderFieldKind): number {
   return FOLDER_FIELD_ORDER.indexOf(field)
 }
 
-function cursorForField(
+export function cursorForField(
   field: FieldKind,
   counts: SectionRowCount,
 ): FieldCursor {

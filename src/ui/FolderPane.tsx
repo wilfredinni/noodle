@@ -25,6 +25,7 @@ interface FolderPaneProps {
   onSelectOpenChange?: (open: boolean) => void
   activeEnv: Environment | null
   theme: Theme
+  jumpMode?: boolean
 }
 
 export function FolderPane({
@@ -42,6 +43,7 @@ export function FolderPane({
   onSelectOpenChange,
   activeEnv,
   theme,
+  jumpMode = false,
 }: FolderPaneProps) {
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
@@ -92,7 +94,7 @@ export function FolderPane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title="Folder"
+      title={jumpMode ? undefined : "Folder"}
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
     >

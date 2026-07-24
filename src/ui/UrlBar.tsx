@@ -114,8 +114,8 @@ export function UrlBar({
             maxDropdownHeight={10}
             onOpenChange={setMethodSelectOpen}
           />
-          {focused && subFocus === "text" && interactive ? (
-            <box style={{ flexGrow: 1, flexShrink: 1 }}>
+          <box style={{ flexGrow: 1, flexShrink: 1 }}>
+            {focused && subFocus === "text" && interactive ? (
               <VarInput
                 value={inputValue}
                 env={activeEnv ?? null}
@@ -127,21 +127,21 @@ export function UrlBar({
                 paddingX={1}
                 style={{ flexGrow: 1, flexShrink: 1 }}
               />
-            </box>
-          ) : (
-            <box
-              style={{
-                backgroundColor:
-                  focused && subFocus === "text"
-                    ? theme.borderSubtle
-                    : theme.backgroundElement,
-                flexGrow: 1,
-                overflow: "hidden",
-              }}
-            >
-              <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
-            </box>
-          )}
+            ) : (
+              <box
+                style={{
+                  backgroundColor:
+                    focused && subFocus === "text"
+                      ? theme.borderSubtle
+                      : theme.backgroundElement,
+                  flexGrow: 1,
+                  overflow: "hidden",
+                }}
+              >
+                <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
+              </box>
+            )}
+          </box>
         </box>
       )}
     </box>

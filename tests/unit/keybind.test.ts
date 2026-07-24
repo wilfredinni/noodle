@@ -171,6 +171,30 @@ describe("collection_switcher", () => {
   })
 })
 
+describe("jump_mode", () => {
+  it("has default g", () => {
+    expect(Definitions.jump_mode.default).toBe("g")
+  })
+
+  it("is configurable (not fixed)", () => {
+    expect(Definitions.jump_mode.fixed).toBe(false)
+  })
+
+  it("is overrideable", () => {
+    const result = parseOverrides({ jump_mode: "'" })
+    expect(result.jump_mode).toBe("'")
+  })
+
+  it("appears in bindingDefaults", () => {
+    const defaults = bindingDefaults()
+    expect(defaults.jump_mode).toBe("g")
+  })
+
+  it("maps to jump.enter command", () => {
+    expect(CommandMap.jump_mode).toBe("jump.enter")
+  })
+})
+
 describe("request_find", () => {
   it("has default ctrl+f", () => {
     expect(Definitions.request_find.default).toBe("ctrl+f")

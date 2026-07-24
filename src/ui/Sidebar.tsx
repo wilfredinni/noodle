@@ -3,6 +3,8 @@ import { useEffect, useRef } from "react"
 import type { CollectionItem, Method } from "../schema"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
+
+export const SIDEBAR_WIDTH = 38
 import { FullBorder, LeftBar } from "./borders"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
@@ -29,6 +31,7 @@ export function Sidebar({
   keybinds: _keybinds,
   dirtyRequestIds,
   dirtyFolderPaths,
+  jumpMode = false,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -41,6 +44,7 @@ export function Sidebar({
   keybinds?: Keybinds
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
+  jumpMode?: boolean
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -57,7 +61,7 @@ export function Sidebar({
   return (
     <box
       style={{
-        width: 38,
+        width: SIDEBAR_WIDTH,
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
@@ -70,7 +74,7 @@ export function Sidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      title="Requests"
+      title={jumpMode ? undefined : "Requests"}
       titleColor={focused ? theme.primary : theme.textMuted}
       titleAlignment="left"
     >

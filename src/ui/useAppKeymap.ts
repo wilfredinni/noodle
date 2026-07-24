@@ -130,6 +130,7 @@ export interface UseAppKeymapSetters {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
+  setJumpMode: (v: boolean | ((prev: boolean) => boolean)) => void
 }
 
 export function useAppKeymap(
@@ -361,6 +362,26 @@ export function useAppKeymap(
           }
         },
       },
+      {
+        name: "jump.enter",
+        enabled: () => {
+          const overlay = keymap.getData("app.overlay") as string
+          const mode = keymap.getData("app.mode") as string
+          const view = keymap.getData("app.view") as string
+          const jump = keymap.getData("app.jump") as string
+          const focus = keymap.getData("app.focus") as string
+          const isEditingUrlText =
+            focus === "urlbar" && refs.urlbarSubFocusRef.current === "text"
+          return (
+            overlay === "none" &&
+            view !== "env-editor" &&
+            mode !== "edit" &&
+            jump !== "active" &&
+            !isEditingUrlText
+          )
+        },
+        run: () => setters.setJumpMode(true),
+      },
     ],
     bindings: [
       { key: "tab", cmd: "focus.next" },
@@ -376,6 +397,7 @@ export function useAppKeymap(
       { key: keybinds.request_find, cmd: "request.find" },
       { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
+      { key: keybinds.jump_mode, cmd: "jump.enter" },
     ],
   }))
 

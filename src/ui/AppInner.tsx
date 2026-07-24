@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { resolve } from "node:path"
+import { RGBA } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
 import { AppOverlays } from "./AppOverlays"
+import { JumpModeOverlay } from "./overlays/JumpModeOverlay"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { deriveRequestParentFolder, getFolderPaths } from "./tree"
@@ -24,6 +26,7 @@ import { type NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import { type ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import { useTheme } from "./theme"
+import { HeaderBar } from "./HeaderBar"
 import { StatusBar } from "./StatusBar"
 import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
@@ -31,6 +34,11 @@ import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
+import {
+  useJumpMode,
+  getAvailableTargets,
+  type JumpTarget,
+} from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useModalKeyboardShield } from "./useModalKeyboardShield"
@@ -168,6 +176,8 @@ export function AppInner({
   const [undoAllPending, setUndoAllPending] = useState(false)
   const [initPending, setInitPending] = useState(false)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
+  const [jumpMode, setJumpMode] = useState(false)
+  const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
   const [codeGeneratorVisible, setCodeGeneratorVisible] = useState(false)
   const [requestFinderVisible, setRequestFinderVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
@@ -324,6 +334,19 @@ export function AppInner({
 
   const draft = useRequestDraft(selectedRequest)
 
+  const availableJumpTargets = useMemo(
+    () =>
+      getAvailableTargets(
+        draft.draft !== null,
+        expanded,
+        focusedFolder !== null,
+      ),
+    [draft.draft, expanded, focusedFolder],
+  )
+  useEffect(() => {
+    jumpTargetsRef.current = availableJumpTargets
+  }, [availableJumpTargets])
+
   const tabPrefs = getTab(selectedRequest?.id ?? "")
   const initialRequestTab = tabPrefs?.requestTab
   const initialResponseTab = tabPrefs?.responseTab
@@ -468,6 +491,14 @@ export function AppInner({
   useEffect(() => {
     keymap.setData("app.overlay", activeOverlay)
   }, [activeOverlay, keymap])
+
+  useEffect(() => {
+    keymap.setData("app.jump", jumpMode ? "active" : "none")
+  }, [jumpMode, keymap])
+
+  useEffect(() => {
+    if (activeOverlay !== "none" && jumpMode) setJumpMode(false)
+  }, [activeOverlay, jumpMode, setJumpMode])
 
   useModalKeyboardShield(activeOverlay)
 
@@ -728,10 +759,23 @@ export function AppInner({
       setCollectionSwitcherVisible,
       onLayoutChange,
       setExpanded,
+      setJumpMode,
     },
     collectionDir,
     confirmUndoAll,
   )
+
+  useJumpMode({
+    jumpMode,
+    setJumpMode,
+    setFocus,
+    setUrlbarSubFocus,
+    ebRef,
+    setTab,
+    selectedIdRef,
+    targetsRef: jumpTargetsRef,
+    triggerKey: keybinds.jump_mode,
+  })
 
   // ── Overlay intercepts ────────────────────────────────────────────
   useOverlayIntercepts({
@@ -929,11 +973,34 @@ export function AppInner({
           flexGrow: 1,
           paddingLeft: 1,
           paddingRight: 1,
-          paddingTop: 1,
-          gap: 1,
+          gap: 0,
           position: "relative",
         }}
       >
+        <HeaderBar />
+        {jumpMode && (
+          <>
+            <box
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor: RGBA.fromInts(0, 0, 0, 150),
+                zIndex: 10,
+              }}
+            />
+            <JumpModeOverlay
+              availableJumpTargets={availableJumpTargets}
+              layout={layout}
+              expanded={expanded}
+              focusedFolderPresent={focusedFolder !== null}
+              draftRequest={draft.draft}
+              mode={mode}
+            />
+          </>
+        )}
         {view === "main" ? (
           <MainView
             items={items}
@@ -967,6 +1034,7 @@ export function AppInner({
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             mode={mode}
+            jumpMode={jumpMode}
           />
         ) : mode === "collection" ? (
           <EnvironmentEditorView
@@ -1055,6 +1123,7 @@ export function AppInner({
         kb={keybinds}
         view={view}
         envStats={envStats}
+        jumpMode={jumpMode}
       />
     </box>
   )

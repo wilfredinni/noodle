@@ -38,7 +38,12 @@ export function Tabs({
                 flexShrink: 0,
               }}
             >
-              <box style={{ paddingLeft: 1, paddingRight: 2 }}>
+              <box
+                style={{
+                  paddingLeft: 1,
+                  paddingRight: 2,
+                }}
+              >
                 <text fg={isActive ? theme.primary : theme.textMuted}>
                   {tab.label}
                 </text>

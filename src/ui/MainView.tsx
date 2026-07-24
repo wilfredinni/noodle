@@ -46,6 +46,7 @@ interface MainViewProps {
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   mode?: "collection" | "browse" | "empty" | "invalid"
+  jumpMode?: boolean
 }
 
 export function MainView({
@@ -80,6 +81,7 @@ export function MainView({
   responseQueryRef,
   responseBodyForCopyRef,
   mode = "collection",
+  jumpMode = false,
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -97,6 +99,7 @@ export function MainView({
         keybinds={keybinds}
         dirtyRequestIds={draft.dirtyRequestIds}
         dirtyFolderPaths={folderDraft.dirtyPaths}
+        jumpMode={jumpMode}
       />
       <box
         style={{
@@ -129,6 +132,7 @@ export function MainView({
             onSelectOpenChange={setSelectOpen}
             activeEnv={activeEnv}
             theme={theme}
+            jumpMode={jumpMode}
           />
         ) : (
           <RequestResponseView
@@ -152,6 +156,7 @@ export function MainView({
             responseKey={selectedId}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
+            jumpMode={jumpMode}
           />
         )}
       </box>

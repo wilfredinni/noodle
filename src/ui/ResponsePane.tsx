@@ -45,6 +45,7 @@ export function ResponsePane({
   responseBodyForCopyRef,
   layout,
   expanded,
+  jumpMode = false,
 }: {
   state: SendState
   focused?: boolean
@@ -59,6 +60,7 @@ export function ResponsePane({
   responseBodyForCopyRef?: RefObject<string | null>
   layout?: "stacked" | "side-by-side"
   expanded?: "request" | "response" | null
+  jumpMode?: boolean
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -309,46 +311,48 @@ export function ResponsePane({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
-      titleLeft={headerLeft}
+      titleLeft={jumpMode ? undefined : headerLeft}
       titleRight={headerRight}
       bottomTitle={bottomTitle}
       bottomTitleAlignment="left"
     >
-      {state.status === "idle" ? (
-        <Tips />
-      ) : state.status === "sending" ? (
-        <box
-          style={{
-            flexGrow: 1,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <box style={{ flexDirection: "row", gap: 1 }}>
-            <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
-            <text fg={focused ? theme.primary : theme.textMuted}>Sending</text>
-          </box>
-        </box>
-      ) : state.status === "error" ? (
-        <box
-          border={[...LeftBar.border]}
-          customBorderChars={LeftBar.customBorderChars}
-          borderColor={theme.error}
-        >
-          <text fg={theme.error}> {state.error.message}</text>
-        </box>
-      ) : (
-        <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
-          <Tabs tabs={TAB_DEFS} activeId={activeTab}>
-            {activeTab === "timeline" ? (
-              <TimelineTab
-                entries={timelineEntries ?? []}
-                focused={focused}
-                onOpenEntry={onOpenTimelineEntry}
-                layout={layout}
-                expanded={expanded}
-              />
-            ) : activeTab === "body" ? (
+      <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
+        <Tabs tabs={TAB_DEFS} activeId={activeTab}>
+          {activeTab === "timeline" ? (
+            <TimelineTab
+              entries={timelineEntries ?? []}
+              focused={focused}
+              onOpenEntry={onOpenTimelineEntry}
+              layout={layout}
+              expanded={expanded}
+            />
+          ) : activeTab === "body" ? (
+            state.status === "idle" ? (
+              <Tips />
+            ) : state.status === "sending" ? (
+              <box
+                style={{
+                  flexGrow: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <box style={{ flexDirection: "row", gap: 1 }}>
+                  <text fg={theme.info}>{SPINNER_FRAMES[spinnerIdx]}</text>
+                  <text fg={focused ? theme.primary : theme.textMuted}>
+                    Sending
+                  </text>
+                </box>
+              </box>
+            ) : state.status === "error" ? (
+              <box
+                border={[...LeftBar.border]}
+                customBorderChars={LeftBar.customBorderChars}
+                borderColor={theme.error}
+              >
+                <text fg={theme.error}> {state.error.message}</text>
+              </box>
+            ) : (
               <box
                 style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}
               >
@@ -410,19 +414,21 @@ export function ResponsePane({
                   )}
                 </scrollbox>
               </box>
-            ) : (
-              <scrollbox
-                ref={scrollRef}
-                scrollY
-                scrollbarOptions={{ visible: false }}
-                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
-              >
-                <HeaderTable entries={responseHeaders} theme={theme} />
-              </scrollbox>
-            )}
-          </Tabs>
-        </box>
-      )}
+            )
+          ) : state.status === "done" ? (
+            <scrollbox
+              ref={scrollRef}
+              scrollY
+              scrollbarOptions={{ visible: false }}
+              style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+            >
+              <HeaderTable entries={responseHeaders} theme={theme} />
+            </scrollbox>
+          ) : (
+            <Tips />
+          )}
+        </Tabs>
+      </box>
     </Frame>
   )
 }
