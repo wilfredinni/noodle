@@ -422,6 +422,24 @@ describe("VarInput — edit mode (isEditing=true)", () => {
     expect(frame).not.toContain("┌")
   })
 
+  it("does not show completion menu when isFocused is false", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarInput
+          value="$host"
+          env={env({ host: "localhost", host_alt: "127.0.0.1" })}
+          isEditing
+          isFocused={false}
+          onChange={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).not.toContain("┌")
+  })
+
   it("does not crash with many suggestions navigating within visible range", async () => {
     const manyVars: Record<string, string> = {}
     for (let i = 0; i < 12; i++) manyVars[`a${i}`] = String(i)

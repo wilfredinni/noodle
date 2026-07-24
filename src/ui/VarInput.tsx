@@ -85,11 +85,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       return Object.keys(env?.vars ?? {})
     }, [variableNames, env?.vars])
 
+    const inputFocused = isFocused ?? true
+
     const { completion, makeHandleKey } = useVariableCompletion({
       getEditor: getEditable,
       variableNames: suggestionNames,
       value,
-      isEditing,
+      isEditing: isEditing && inputFocused,
     })
 
     const applyHighlights = useCallback(() => {
@@ -159,6 +161,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       const editable = getEditable()
       if (
         !isEditing ||
+        !inputFocused ||
         !editable?.focused ||
         completionDismissed ||
         !token ||
@@ -172,6 +175,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       completionDismissed,
       getEditable,
       handleCompletionKey,
+      inputFocused,
       isComplete,
       isEditing,
       suggestions.length,
@@ -188,6 +192,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
     const showCompletion =
       isEditing &&
+      inputFocused &&
       !completionDismissed &&
       token &&
       suggestions.length > 0 &&
@@ -213,13 +218,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
               textColor={defaultColor}
               cursorColor={theme.primary}
               paddingX={paddingX}
-              focused
+              focused={inputFocused}
             />
             {showCompletion && (
               <CompletionPopup
                 suggestions={suggestions}
                 completionIndex={completionIndex}
-                isEditing={isEditing}
+                isEditing={isEditing && inputFocused}
                 getEditable={getEditable}
                 value={value}
               />
@@ -241,7 +246,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             value={value}
             placeholder={placeholder}
             onInput={handleInput}
-            focused={isFocused ?? false}
+            focused={inputFocused}
             backgroundColor={backgroundColor}
             focusedBackgroundColor={
               focusedBackgroundColor ?? theme.borderSubtle
@@ -254,7 +259,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             <CompletionPopup
               suggestions={suggestions}
               completionIndex={completionIndex}
-              isEditing={isEditing}
+              isEditing={isEditing && inputFocused}
               getEditable={getEditable}
               value={value}
             />
