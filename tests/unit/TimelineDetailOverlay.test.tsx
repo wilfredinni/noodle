@@ -3,7 +3,10 @@ import { act, useState, type ComponentProps } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
-import { TimelineDetailOverlay } from "../../src/ui/overlays/TimelineDetailOverlay"
+import {
+  TimelineDetailOverlay,
+  formatHeaderEntries,
+} from "../../src/ui/overlays/TimelineDetailOverlay"
 import type { TimelineEntry } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
 
@@ -29,7 +32,7 @@ async function renderOverlay(
   actions: Partial<
     Pick<
       ComponentProps<typeof TimelineDetailOverlay>,
-      "onLoadBody" | "onCopyBody" | "onExportBody"
+      "onLoadBody" | "onCopyHeaders" | "onCopyBody" | "onExportBody"
     >
   > = {},
 ) {
@@ -496,6 +499,79 @@ describe("TimelineDetailOverlay", () => {
     })
     expect(captureCharFrame()).toContain('"data"')
     expect(captureCharFrame()).toContain('"id": 0')
+    cleanup()
+  })
+
+  it("formats header entries correctly", () => {
+    const formatted = formatHeaderEntries([
+      { key: "Content-Type", value: "application/json" },
+      { key: "Authorization", value: "Bearer token" },
+    ])
+    expect(formatted).toBe(
+      "Content-Type: application/json\nAuthorization: Bearer token",
+    )
+  })
+
+  it("triggers onCopyHeaders and onCopyBody for the active tab and renders footer hints", async () => {
+    let copiedHeaders = ""
+    let copiedBody = ""
+    const entry = makeEntry({
+      request: {
+        id: "req-1",
+        name: "Test",
+        method: "POST",
+        url: "https://example.com",
+        headers: { "X-Test": { value: "req-val", enabled: true } },
+        params: [],
+        body: '{"req":true}',
+      },
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "application/json" },
+        body: '{"res":true}',
+        timeMs: 10,
+        size: 12,
+      },
+    })
+
+    const { renderOnce, host, cleanup, captureCharFrame } = await renderOverlay(
+      entry,
+      () => {},
+      true,
+      {
+        onCopyHeaders: (h) => {
+          copiedHeaders = h
+        },
+        onCopyBody: (b) => {
+          copiedBody = b
+        },
+      },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("h copy headers")
+    expect(frame).toContain("b copy body")
+    expect(frame).toContain("e export")
+
+    // On Request tab (default)
+    await act(async () => host.press("h"))
+    expect(copiedHeaders).toContain("X-Test: req-val")
+
+    await act(async () => host.press("b"))
+    expect(copiedBody).toBe('{"req":true}')
+
+    // Switch to Response tab
+    await act(async () => host.press("right"))
+    await renderOnce()
+
+    await act(async () => host.press("h"))
+    expect(copiedHeaders).toContain("content-type: application/json")
+
+    await act(async () => host.press("b"))
+    expect(copiedBody).toBe('{"res":true}')
+
     cleanup()
   })
 })

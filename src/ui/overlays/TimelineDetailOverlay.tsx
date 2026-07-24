@@ -63,6 +63,12 @@ function bodyInfo(
   }
 }
 
+export function formatHeaderEntries(
+  headers: { key: string; value: string }[],
+): string {
+  return headers.map((h) => `${h.key}: ${h.value}`).join("\n")
+}
+
 export function TimelineDetailOverlay({
   visible,
   entry,
@@ -71,6 +77,7 @@ export function TimelineDetailOverlay({
   onLoadBody = async () => {
     throw new Error("No timeline body loader configured")
   },
+  onCopyHeaders = () => {},
   onCopyBody = () => {},
   onExportBody = async () => {},
 }: {
@@ -79,6 +86,7 @@ export function TimelineDetailOverlay({
   onClose: () => void
   envColors?: Record<string, string | undefined>
   onLoadBody?: (ref: TimelineBodyRef) => Promise<string>
+  onCopyHeaders?: (headersText: string) => void
   onCopyBody?: (body: string) => void
   onExportBody?: (
     entry: TimelineEntry,
@@ -158,7 +166,20 @@ export function TimelineDetailOverlay({
           setBodyError(null)
           setShowLargeBody(false)
         } else if (key.name === "v" && isLarge) setShowLargeBody(true)
-        else if (key.name === "c") {
+        else if (key.name === "h") {
+          const currentHeaders =
+            activeTab === "request"
+              ? buildDetailRequestHeaders(
+                  entry.request.auth,
+                  entry.request.headers,
+                )
+              : entry.response
+                ? Object.entries(entry.response.headers)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([key, value]) => ({ key, value }))
+                : []
+          onCopyHeaders(formatHeaderEntries(currentHeaders))
+        } else if (key.name === "b" || key.name === "c") {
           const body = loadedBody ?? info?.body
           if (body !== undefined) onCopyBody(body)
           else if (info?.ref) {
@@ -168,7 +189,7 @@ export function TimelineDetailOverlay({
                 setBodyError("Unable to load the saved response body"),
               )
           }
-        } else if (key.name === "s") {
+        } else if (key.name === "e" || key.name === "s") {
           const exportBody = (body: string) =>
             onExportBody(entry, activeTab, body).catch(() => {})
           const body = loadedBody ?? info?.body
@@ -208,6 +229,7 @@ export function TimelineDetailOverlay({
     isLarge,
     loadedBody,
     info,
+    onCopyHeaders,
     onCopyBody,
     onExportBody,
     onLoadBody,
@@ -355,7 +377,7 @@ export function TimelineDetailOverlay({
                 <text
                   fg={theme.warning}
                 >{`Body is ${formatSize(info.size)}. It was not rendered automatically.`}</text>
-                <text fg={theme.textMuted}>v view raw · c copy · s save</text>
+                <text fg={theme.textMuted}>v view raw · b copy · e export</text>
               </box>
             ) : renderedBody ? (
               (() => {
@@ -389,6 +411,22 @@ export function TimelineDetailOverlay({
             )}
           </box>
         </Tabs>
+        <box
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            marginTop: 1,
+          }}
+        >
+          <text fg={theme.text}>h</text>
+          <text fg={theme.textMuted}> copy headers </text>
+          <text fg={theme.textMuted}>· </text>
+          <text fg={theme.text}>b</text>
+          <text fg={theme.textMuted}> copy body </text>
+          <text fg={theme.textMuted}>· </text>
+          <text fg={theme.text}>e</text>
+          <text fg={theme.textMuted}> export</text>
+        </box>
       </box>
     </Overlay>
   )

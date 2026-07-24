@@ -119,6 +119,7 @@ interface AppOverlaysProps {
     entry: TimelineEntry,
     ref: TimelineBodyRef,
   ) => Promise<string>
+  onCopyTimelineHeaders: (headersText: string) => void
   onCopyTimelineBody: (body: string) => void
   onExportTimelineBody: (
     entry: TimelineEntry,
@@ -188,6 +189,7 @@ export function AppOverlays({
   setTimelineDetailEntry,
   envColors,
   onLoadTimelineBody,
+  onCopyTimelineHeaders,
   onCopyTimelineBody,
   onExportTimelineBody,
 }: AppOverlaysProps) {
@@ -362,6 +364,7 @@ export function AppOverlays({
           onClose={() => setTimelineDetailEntry(null)}
           envColors={envColors}
           onLoadBody={(ref) => onLoadTimelineBody(timelineDetailEntry, ref)}
+          onCopyHeaders={onCopyTimelineHeaders}
           onCopyBody={onCopyTimelineBody}
           onExportBody={onExportTimelineBody}
         />

@@ -46,7 +46,7 @@ import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
-import { exportTimelineBody, loadTimelineBody } from "../filestore"
+import { exportTimelineEntry, loadTimelineBody } from "../filestore"
 import { copyToClipboard } from "./clipboard"
 import type { TimelineBodyRef } from "../schema"
 import type { SubstitutedRequest } from "../requests/substitute"
@@ -878,6 +878,14 @@ export function AppInner({
       loadTimelineBody(collectionDir, entry.request.id, ref),
     [collectionDir],
   )
+  const onCopyTimelineHeaders = useCallback(
+    (headersText: string) => {
+      if (copyToClipboard(headersText, renderer))
+        showToast("Timeline headers copied", "success")
+      else showToast("Failed to copy timeline headers", "error")
+    },
+    [renderer],
+  )
   const onCopyTimelineBody = useCallback(
     (body: string) => {
       if (copyToClipboard(body, renderer))
@@ -892,8 +900,8 @@ export function AppInner({
       kind: "request" | "response",
       body: string,
     ) => {
-      const path = await exportTimelineBody(collectionDir, entry, kind, body)
-      showToast(`Timeline body saved to ${path}`, "success")
+      const path = await exportTimelineEntry(collectionDir, entry, kind, body)
+      showToast(`Timeline entry exported to ${path}`, "success")
     },
     [collectionDir],
   )
@@ -1112,6 +1120,7 @@ export function AppInner({
           setTimelineDetailEntry={setTimelineDetailEntry}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}
+          onCopyTimelineHeaders={onCopyTimelineHeaders}
           onCopyTimelineBody={onCopyTimelineBody}
           onExportTimelineBody={onExportTimelineBody}
         />
