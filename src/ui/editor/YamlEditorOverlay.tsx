@@ -202,20 +202,12 @@ export function YamlEditorOverlay({
   if (!visible) return null
 
   return (
-    <Overlay
-      visible={visible}
-      width={90}
-      height="80%"
-      padding={1}
-      gap={1}
-      overflow="hidden"
-    >
+    <Overlay visible={visible} width={90} padding={1} gap={1} overflow="hidden">
       <box
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
           flexShrink: 0,
-          paddingBottom: 1,
           paddingX: 4,
         }}
       >
@@ -238,12 +230,10 @@ export function YamlEditorOverlay({
         </box>
       ) : content !== null ? (
         <box
+          maxHeight={20}
           style={{
-            height: "100%",
-            minHeight: 0,
             paddingLeft: 4,
             paddingRight: 4,
-            flexGrow: 1,
             flexDirection: "column",
             gap: 1,
           }}
@@ -294,7 +284,6 @@ export function YamlEditorOverlay({
       )}
       {saveError && <text fg={theme.error}>Save error: {saveError}</text>}
       <box
-        paddingBottom={1}
         style={{
           flexDirection: "row",
           flexShrink: 0,
