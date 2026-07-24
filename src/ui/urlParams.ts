@@ -101,11 +101,34 @@ export function syncParamsWithUrl(
 } {
   const parsed = parseUrlAndParams(rawUrl)
   const newParams: ParamEntry[] = [...parsed.params]
-  const parsedKeys = new Set(newParams.map((p) => p.name))
+
+  const enabledCounts = new Map<string, number>()
+  for (const p of currentParams) {
+    if (p.enabled) {
+      enabledCounts.set(p.name, (enabledCounts.get(p.name) ?? 0) + 1)
+    }
+  }
+
+  const parsedCounts = new Map<string, number>()
+  for (const p of parsed.params) {
+    parsedCounts.set(p.name, (parsedCounts.get(p.name) ?? 0) + 1)
+  }
+
+  const disabledConsumed = new Map<string, number>()
 
   for (const entry of currentParams) {
-    if (!entry.enabled && !parsedKeys.has(entry.name)) {
-      newParams.push({ ...entry })
+    if (!entry.enabled) {
+      const name = entry.name
+      const parsedCount = parsedCounts.get(name) ?? 0
+      const enabledCount = enabledCounts.get(name) ?? 0
+      const extraParsed = Math.max(0, parsedCount - enabledCount)
+      const consumed = disabledConsumed.get(name) ?? 0
+
+      if (consumed < extraParsed) {
+        disabledConsumed.set(name, consumed + 1)
+      } else {
+        newParams.push({ ...entry })
+      }
     }
   }
 

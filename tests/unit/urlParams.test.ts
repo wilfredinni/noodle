@@ -237,4 +237,20 @@ describe("syncParamsWithUrl", () => {
     expect(baseUrl).toBe("https://example.com")
     expect(params).toEqual([{ name: "debug", value: "on", enabled: true }])
   })
+
+  it("preserves disabled parameter when an enabled parameter with the same name exists", () => {
+    const current: ParamEntry[] = [
+      { name: "filter", value: "active", enabled: true },
+      { name: "filter", value: "pending", enabled: false },
+    ]
+    const { baseUrl, params } = syncParamsWithUrl(
+      current,
+      "https://example.com?filter=active",
+    )
+    expect(baseUrl).toBe("https://example.com")
+    expect(params).toEqual([
+      { name: "filter", value: "active", enabled: true },
+      { name: "filter", value: "pending", enabled: false },
+    ])
+  })
 })
