@@ -45,23 +45,29 @@ export function HeaderTable({
             gap: 0,
             paddingLeft: 1,
             paddingRight: 1,
-            backgroundColor: i % 2 !== 0 ? stripeBg : undefined,
           }}
         >
           <text
-            fg={theme.text}
+            fg={theme.primary}
             wrapMode="none"
             style={{ minWidth: keyWidth, flexShrink: 0 }}
           >
             {entry.key.padEnd(keyWidth)}
           </text>
-          <text
-            fg={theme.textMuted}
-            wrapMode="none"
-            style={{ flexGrow: 1, flexShrink: 1, minWidth: 5 }}
+          <box
+            style={{
+              flexGrow: 1,
+              flexShrink: 1,
+              minWidth: 5,
+              backgroundColor: i % 2 !== 0 ? stripeBg : undefined,
+              paddingLeft: 1,
+              paddingRight: 1,
+            }}
           >
-            {entry.value}
-          </text>
+            <text fg={theme.textMuted} wrapMode="none">
+              {entry.value}
+            </text>
+          </box>
         </box>
       ))}
     </box>

@@ -64,14 +64,17 @@ export function KeyValueSection({
             env={activeEnv ?? null}
             isEditing={false}
             baseColor={theme.textMuted}
-            style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+            paddingX={1}
+            style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
           />
           <VarInput
             value=""
             env={activeEnv ?? null}
             isEditing={false}
             baseColor={theme.textMuted}
-            style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+            backgroundColor={stripeBg}
+            paddingX={1}
+            style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
           />
         </box>
       ) : (
@@ -86,7 +89,7 @@ export function KeyValueSection({
               editState.cursor.row === i
             const dimmed = (inEdit && !isEditingThisRow) || !kv.enabled
 
-            const keyBaseColor = dimmed ? theme.textMuted : theme.text
+            const keyBaseColor = dimmed ? theme.textMuted : theme.primary
             const valueBaseColor = dimmed ? theme.textMuted : theme.text
 
             return (
@@ -99,9 +102,7 @@ export function KeyValueSection({
                   backgroundColor:
                     cursorOnThisRow || isEditingThisRow
                       ? theme.backgroundElement
-                      : i % 2 !== 0
-                        ? stripeBg
-                        : undefined,
+                      : undefined,
                 }}
               >
                 <Checkbox checked={kv.enabled} theme={theme} />
@@ -116,7 +117,8 @@ export function KeyValueSection({
                     isEditingThisRow ? theme.backgroundElement : undefined
                   }
                   focusedBackgroundColor={theme.borderSubtle}
-                  style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+                  paddingX={1}
+                  style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
                 />
                 <VarInput
                   value={isEditingThisRow ? editValue : kv.value}
@@ -126,10 +128,15 @@ export function KeyValueSection({
                   isFocused={editState.cursor.subfield === "value"}
                   baseColor={valueBaseColor}
                   backgroundColor={
-                    isEditingThisRow ? theme.backgroundElement : undefined
+                    isEditingThisRow || cursorOnThisRow
+                      ? theme.backgroundElement
+                      : i % 2 !== 0
+                        ? stripeBg
+                        : undefined
                   }
                   focusedBackgroundColor={theme.borderSubtle}
-                  style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+                  paddingX={1}
+                  style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
                 />
               </box>
             )
@@ -154,12 +161,17 @@ export function KeyValueSection({
               isFocused={editState.cursor.subfield === "key"}
               baseColor={
                 editingAdd || (cursorHere && editState.cursor.addingRow)
-                  ? theme.text
+                  ? theme.primary
                   : theme.textMuted
               }
-              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+              backgroundColor={
+                editingAdd || (cursorHere && editState.cursor.addingRow)
+                  ? theme.backgroundElement
+                  : undefined
+              }
               focusedBackgroundColor={theme.borderSubtle}
-              style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+              paddingX={1}
+              style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
             />
             <VarInput
               value={editingAdd ? editValue : ""}
@@ -172,9 +184,16 @@ export function KeyValueSection({
                   ? theme.text
                   : theme.textMuted
               }
-              backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+              backgroundColor={
+                editingAdd || (cursorHere && editState.cursor.addingRow)
+                  ? theme.backgroundElement
+                  : rows.length % 2 !== 0
+                    ? stripeBg
+                    : undefined
+              }
               focusedBackgroundColor={theme.borderSubtle}
-              style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+              paddingX={1}
+              style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
             />
           </box>
         </>

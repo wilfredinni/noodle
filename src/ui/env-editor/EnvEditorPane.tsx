@@ -141,7 +141,7 @@ export function EnvEditorPane({
             inBrowse && !editState.addingRow && editState.row === i
           const dimmed = (inEdit && !isEditingThisRow) || !row.enabled
 
-          const keyBaseColor = dimmed ? theme.textMuted : theme.text
+          const keyBaseColor = dimmed ? theme.textMuted : theme.primary
           const valueBaseColor = dimmed ? theme.textMuted : theme.text
 
           return (
@@ -154,9 +154,7 @@ export function EnvEditorPane({
                 backgroundColor:
                   cursorOnThisRow || isEditingThisRow
                     ? theme.backgroundElement
-                    : i % 2 !== 0
-                      ? stripeBg
-                      : undefined,
+                    : undefined,
               }}
             >
               <Checkbox checked={row.enabled} theme={theme} />
@@ -171,7 +169,8 @@ export function EnvEditorPane({
                   isEditingThisRow ? theme.backgroundElement : undefined
                 }
                 focusedBackgroundColor={theme.borderSubtle}
-                style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+                paddingX={1}
+                style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
                 variableNames={variableNames}
               />
               <VarInput
@@ -182,10 +181,15 @@ export function EnvEditorPane({
                 isFocused={isEditingThisRow && editState.subfield === "value"}
                 baseColor={valueBaseColor}
                 backgroundColor={
-                  isEditingThisRow ? theme.backgroundElement : undefined
+                  isEditingThisRow || cursorOnThisRow
+                    ? theme.backgroundElement
+                    : i % 2 !== 0
+                      ? stripeBg
+                      : undefined
                 }
                 focusedBackgroundColor={theme.borderSubtle}
-                style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+                paddingX={1}
+                style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
                 variableNames={variableNames}
               />
             </box>
@@ -214,12 +218,17 @@ export function EnvEditorPane({
             isFocused={editingAdd && editState.subfield === "key"}
             baseColor={
               editingAdd || (inBrowse && editState.addingRow)
-                ? theme.text
+                ? theme.primary
                 : theme.textMuted
             }
-            backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+            backgroundColor={
+              editingAdd || (inBrowse && editState.addingRow)
+                ? theme.backgroundElement
+                : undefined
+            }
             focusedBackgroundColor={theme.borderSubtle}
-            style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+            paddingX={1}
+            style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
             variableNames={variableNames}
           />
           <VarInput
@@ -233,9 +242,16 @@ export function EnvEditorPane({
                 ? theme.text
                 : theme.textMuted
             }
-            backgroundColor={editingAdd ? theme.backgroundElement : undefined}
+            backgroundColor={
+              editingAdd || (inBrowse && editState.addingRow)
+                ? theme.backgroundElement
+                : rows.length % 2 !== 0
+                  ? stripeBg
+                  : undefined
+            }
             focusedBackgroundColor={theme.borderSubtle}
-            style={{ flexGrow: 7, flexShrink: 1, flexBasis: 0 }}
+            paddingX={1}
+            style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
             variableNames={variableNames}
           />
         </box>
