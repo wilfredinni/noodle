@@ -369,11 +369,15 @@ export function useAppKeymap(
           const mode = keymap.getData("app.mode") as string
           const view = keymap.getData("app.view") as string
           const jump = keymap.getData("app.jump") as string
+          const focus = keymap.getData("app.focus") as string
+          const isEditingUrlText =
+            focus === "urlbar" && refs.urlbarSubFocusRef.current === "text"
           return (
             overlay === "none" &&
             view !== "env-editor" &&
             mode !== "edit" &&
-            jump !== "active"
+            jump !== "active" &&
+            !isEditingUrlText
           )
         },
         run: () => setters.setJumpMode(true),
