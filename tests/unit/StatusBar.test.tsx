@@ -28,4 +28,27 @@ describe("StatusBar component", () => {
     expect(frame).toContain("Noodle")
     expect(frame).toContain(`v${pkg.version}`)
   })
+
+  it("truncates shortcut segments on narrow terminal widths without clipping branding", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          method="GET"
+          url="/users"
+          isDirty={false}
+          sendState={{ status: "idle" }}
+          envLabel="dev"
+          saveState={{ kind: "idle" }}
+          kb={bindingDefaults()}
+        />
+      </ThemeProvider>,
+      { width: 45, height: 3 },
+    )
+
+    await renderOnce()
+    const frame = captureCharFrame()
+
+    expect(frame).toContain("Noodle")
+    expect(frame).toContain(`v${pkg.version}`)
+  })
 })
