@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { CollectionItem, Request } from "../schema"
 import {
+  findFolderByPath,
   findRequestById,
   flattenRequests,
   visibleNodes,
@@ -18,6 +19,7 @@ export interface UseTreeNavigationResult {
   cursorIndex: number
   setSelectedId: (id: string) => void
   revealRequest: (id: string) => void
+  revealFolder: (path: string) => void
   toggleFolder: (path: string) => void
   expandFolder: (path: string) => void
   collapseFolder: (path: string) => void
@@ -83,6 +85,24 @@ export function useTreeNavigation(
 
     setExpanded(nextExpanded)
     setSelectedIdState(id)
+    if (nextCursor >= 0) setCursorIndex(nextCursor)
+  }, [])
+
+  const revealFolder = useCallback((path: string) => {
+    const folder = findFolderByPath(itemsRef.current, path)
+    if (!folder) return
+
+    const nextExpanded = new Set(expandedRef.current)
+    const parts = path.split("/")
+    for (let i = 1; i < parts.length; i++) {
+      nextExpanded.add(parts.slice(0, i).join("/"))
+    }
+    const nextVisible = visibleNodes(itemsRef.current, nextExpanded)
+    const nextCursor = nextVisible.findIndex(
+      (node) => node.type === "folder" && node.id === path,
+    )
+
+    setExpanded(nextExpanded)
     if (nextCursor >= 0) setCursorIndex(nextCursor)
   }, [])
 
@@ -280,6 +300,7 @@ export function useTreeNavigation(
     cursorIndex: clampedCursor,
     setSelectedId,
     revealRequest,
+    revealFolder,
     toggleFolder,
     expandFolder,
     collapseFolder,

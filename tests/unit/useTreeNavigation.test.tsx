@@ -40,6 +40,7 @@ interface Props {
     setItems: (items: CollectionItem[]) => void,
     expandFolder: (path: string) => void,
     revealRequest: (id: string) => void,
+    revealFolder: (path: string) => void,
   ) => void
 }
 
@@ -54,11 +55,18 @@ function Harness({
     setSelectedId,
     expandFolder,
     revealRequest,
+    revealFolder,
     cursorIndex,
   } = useTreeNavigation(items, () => true, initialSelectedId)
 
   useEffect(() => {
-    afterMount?.(setSelectedId, setItems, expandFolder, revealRequest)
+    afterMount?.(
+      setSelectedId,
+      setItems,
+      expandFolder,
+      revealRequest,
+      revealFolder,
+    )
   }, [])
 
   return <text>{`s:${selectedId ?? ""}|c:${cursorIndex}`}</text>
@@ -175,5 +183,34 @@ describe("useTreeNavigation", () => {
     // Finder selection must reveal both collapsed ancestors and move the
     // sidebar cursor to the selected request.
     expect(frame).toContain("c:3")
+  })
+
+  it("reveals a folder inside collapsed ancestor folders and positions cursor on folder node", async () => {
+    const items = [
+      req("root/list"),
+      fld("users", [fld("users/admin", [req("users/admin/list")])]),
+    ]
+    const { renderOnce, captureCharFrame } = await render(
+      <Harness
+        initialItems={items}
+        afterMount={(
+          _setSelectedId,
+          _setItems,
+          _expandFolder,
+          _revealRequest,
+          revealFolder,
+        ) => {
+          setTimeout(() => revealFolder("users/admin"), 5)
+        }}
+      />,
+    )
+
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    const frame = captureCharFrame()
+
+    // Cursor position should land on users/admin folder (index 2: root/list=0, users=1, users/admin=2)
+    expect(frame).toContain("c:2")
   })
 })

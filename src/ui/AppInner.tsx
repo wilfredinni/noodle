@@ -30,6 +30,7 @@ import { StatusBar } from "./StatusBar"
 import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
+import type { FinderItem } from "./requestFinder"
 import { type Keybinds, displayKey } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
@@ -222,6 +223,7 @@ export function AppInner({
     focusedFolderName,
     setSelectedId,
     revealRequest,
+    revealFolder,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -232,12 +234,16 @@ export function AppInner({
 
   const requests = useMemo(() => flattenRequests(items), [items])
   const findRequest = useCallback(
-    (requestId: string) => {
-      revealRequest(requestId)
+    (item: FinderItem) => {
+      if (item.type === "request") {
+        revealRequest(item.id)
+      } else {
+        revealFolder(item.id)
+      }
       setFocus("sidebar")
       setRequestFinderVisible(false)
     },
-    [revealRequest],
+    [revealRequest, revealFolder],
   )
 
   const focusedFolder = useMemo(

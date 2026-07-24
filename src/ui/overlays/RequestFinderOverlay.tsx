@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { TextAttributes } from "@opentui/core"
-import type { Environment, Request } from "../../schema"
+import type { CollectionItem, Environment, Request } from "../../schema"
 import { methodColor } from "../formatRequest"
 import {
   requestFinderItems,
   searchRequests,
-  type RequestFinderItem,
+  type FinderItem,
 } from "../requestFinder"
 import { useTheme } from "../theme"
 import { PickerOverlay } from "./PickerOverlay"
@@ -16,75 +16,101 @@ function truncate(value: string, maxLength: number): string {
 
 export function RequestFinderOverlay({
   visible,
+  collectionItems,
   requests,
   activeEnv,
   onSelect,
   onClose,
 }: {
   visible: boolean
-  requests: Request[]
+  collectionItems?: CollectionItem[]
+  requests?: Request[]
   activeEnv: Environment | null
-  onSelect: (requestId: string) => void
+  onSelect: (item: FinderItem) => void
   onClose: () => void
 }) {
   const theme = useTheme()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const items = useMemo(
-    () => requestFinderItems(requests, activeEnv),
-    [requests, activeEnv],
+    () => requestFinderItems(collectionItems ?? requests ?? [], activeEnv),
+    [collectionItems, requests, activeEnv],
   )
 
   useEffect(() => {
-    if (visible) setHighlightedId(items[0]?.request.id ?? null)
+    if (visible) {
+      const first = items[0]
+      setHighlightedId(first ? `${first.type}:${first.id}` : null)
+    }
   }, [visible, items])
 
   const keyExtractor = useCallback(
-    (item: RequestFinderItem) => item.request.id,
+    (item: FinderItem) => `${item.type}:${item.id}`,
     [],
   )
-  const filter = useCallback(
-    (_item: RequestFinderItem, _query: string) => true,
-    [],
-  )
+  const filter = useCallback((_item: FinderItem, _query: string) => true, [])
   const sortItems = useCallback(
-    (matches: RequestFinderItem[], query: string) =>
-      searchRequests(matches, query),
+    (matches: FinderItem[], query: string) => searchRequests(matches, query),
     [],
   )
   const highlightedItem = useMemo(
     () =>
-      items.find((item) => item.request.id === highlightedId) ??
+      items.find((item) => `${item.type}:${item.id}` === highlightedId) ??
       items[0] ??
       null,
     [items, highlightedId],
   )
   const handleHighlightChange = useCallback(
-    (item: RequestFinderItem | null) =>
-      setHighlightedId(item?.request.id ?? null),
+    (item: FinderItem | null) =>
+      setHighlightedId(item ? `${item.type}:${item.id}` : null),
     [],
   )
   const renderItem = useCallback(
     (
-      item: RequestFinderItem,
+      item: FinderItem,
       { highlighted }: { highlighted: boolean; active: boolean },
     ) => {
       const fg = highlighted ? "#1a1a1a" : theme.text
       const mutedFg = highlighted ? "#333333" : theme.textMuted
+
+      if (item.type === "request") {
+        return (
+          <box flexDirection="row" flexGrow={1}>
+            <text
+              fg={
+                highlighted
+                  ? "#333333"
+                  : methodColor(item.request.method, theme)
+              }
+            >
+              {item.request.method.padEnd(8)}
+            </text>
+            <text fg={fg} attributes={TextAttributes.BOLD} wrapMode="none">
+              {truncate(item.name, 28)}
+            </text>
+            <box flexGrow={1} />
+            <text fg={mutedFg} wrapMode="none">
+              {truncate(item.folderPath, 20)}
+            </text>
+          </box>
+        )
+      }
+
+      const countSuffix = `(${item.requestCount} req${item.requestCount === 1 ? "" : "s"})`
+      const displayPath =
+        item.folderPath === "(root)" ? "" : `${truncate(item.folderPath, 14)} `
+      const rightText = `${displayPath}${countSuffix}`
+
       return (
         <box flexDirection="row" flexGrow={1}>
-          <text
-            fg={
-              highlighted ? "#333333" : methodColor(item.request.method, theme)
-            }
-          >
-            {item.request.method.padEnd(8)}
+          <text fg={highlighted ? "#333333" : theme.info}>
+            {"FOLDER".padEnd(8)}
           </text>
           <text fg={fg} attributes={TextAttributes.BOLD} wrapMode="none">
-            {truncate(item.request.name, 30)}
+            {truncate(item.name, 28)}
           </text>
           <box flexGrow={1} />
           <text fg={mutedFg} wrapMode="none">
-            {item.folderPath}
+            {truncate(rightText, 22)}
           </text>
         </box>
       )
@@ -105,7 +131,7 @@ export function RequestFinderOverlay({
       renderItem={renderItem}
       highlightedItem={highlightedItem}
       onHighlightChange={handleHighlightChange}
-      onSelect={(item) => onSelect(item.request.id)}
+      onSelect={onSelect}
       onClose={onClose}
     />
   )

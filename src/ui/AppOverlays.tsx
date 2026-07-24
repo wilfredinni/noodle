@@ -33,6 +33,7 @@ import type {
   TimelineEntry,
   TimelineBodyRef,
 } from "../schema"
+import type { FinderItem } from "./requestFinder"
 import { TimelineDetailOverlay } from "./overlays/TimelineDetailOverlay"
 import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
 import type { Keybinds } from "./keybind"
@@ -74,7 +75,7 @@ interface AppOverlaysProps {
   collection: Collection | null
   requestFinderVisible: boolean
   requests: NoodleRequest[]
-  onFindRequest: (requestId: string) => void
+  onFindRequest: (item: FinderItem) => void
   setRequestFinderVisible: (visible: boolean) => void
   collectionSwitcherVisible: boolean
   collectionPaths: string[]
@@ -241,6 +242,7 @@ export function AppOverlays({
       {requestFinderVisible && (
         <RequestFinderOverlay
           visible
+          collectionItems={collection?.items}
           requests={requests}
           activeEnv={activeEnv}
           onSelect={onFindRequest}
