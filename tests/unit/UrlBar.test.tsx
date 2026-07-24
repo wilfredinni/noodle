@@ -12,11 +12,13 @@ function UrlBarHarness({
   focused = true,
   initialMethod = "GET",
   onMethodChange,
+  onDefocus,
 }: {
   subFocus?: "select" | "text"
   focused?: boolean
   initialMethod?: Method
   onMethodChange?: (method: string) => void
+  onDefocus?: (rawUrl: string) => void
 }) {
   const [url, setUrl] = useState("https://example.com")
   const [method, setMethod] = useState<Method>(initialMethod)
@@ -30,7 +32,7 @@ function UrlBarHarness({
         setMethod(next)
         onMethodChange?.(next)
       }}
-      onDefocus={() => {}}
+      onDefocus={onDefocus ?? (() => {})}
       focused={focused}
       subFocus={subFocus}
       activeEnv={{
@@ -186,6 +188,43 @@ describe("UrlBar", () => {
     await renderOnce()
 
     expect(selectedMethod).toBe("")
+    cleanup()
+  })
+
+  it("triggers onDefocus callback when focus leaves UrlBar", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let defocusedUrl = ""
+    let toggleFocus: () => void = () => {}
+
+    function TestContainer() {
+      const [focused, setFocused] = useState(true)
+      toggleFocus = () => setFocused(false)
+      return (
+        <UrlBarHarness
+          focused={focused}
+          onDefocus={(rawUrl) => {
+            defocusedUrl = rawUrl
+          }}
+        />
+      )
+    }
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TestContainer />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+
+    await renderOnce()
+    act(() => {
+      toggleFocus()
+    })
+    await renderOnce()
+
+    expect(defocusedUrl).toBe("https://example.com")
     cleanup()
   })
 })

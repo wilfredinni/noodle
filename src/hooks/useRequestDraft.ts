@@ -324,9 +324,12 @@ export function applyDraft(
     case "setMethod":
       draft.method = op.method
       break
-    case "setUrl":
-      draft.url = op.url
+    case "setUrl": {
+      const parsed = parseUrlAndParams(op.url)
+      draft.url = parsed.baseUrl
+      draft.params = parsed.params
       break
+    }
     case "syncUrlParams": {
       const parsed = parseUrlAndParams(op.rawUrl)
       draft.url = parsed.baseUrl
