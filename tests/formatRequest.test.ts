@@ -34,11 +34,11 @@ describe("methodColor", () => {
   it("POST → warning", () => {
     expect(methodColor("POST", theme)).toBe("#f5a742")
   })
-  it("PUT → warning", () => {
-    expect(methodColor("PUT", theme)).toBe("#f5a742")
+  it("PUT → info", () => {
+    expect(methodColor("PUT", theme)).toBe("#56b6c2")
   })
-  it("PATCH → warning", () => {
-    expect(methodColor("PATCH", theme)).toBe("#f5a742")
+  it("PATCH → info", () => {
+    expect(methodColor("PATCH", theme)).toBe("#56b6c2")
   })
   it("DELETE → error", () => {
     expect(methodColor("DELETE", theme)).toBe("#e06c75")

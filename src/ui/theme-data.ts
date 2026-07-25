@@ -32,7 +32,7 @@ export const opencodeTheme: Theme = {
   background: "#0a0a0a",
   backgroundPanel: "#141414",
   borderDimmest: "#232323",
-  backgroundElement: "#1e1e1e",
+  backgroundElement: "#252525",
   border: "#484848",
   borderActive: "#606060",
   borderSubtle: "#3c3c3c",
@@ -75,7 +75,7 @@ export const draculaTheme: Theme = {
   backgroundElement: "#44475a",
   border: "#44475a",
   borderActive: "#bd93f9",
-  borderSubtle: "#191a21",
+  borderSubtle: "#383b48",
 }
 
 export const nordTheme: Theme = {
@@ -89,12 +89,12 @@ export const nordTheme: Theme = {
   info: "#88c0d0",
   text: "#eceff4",
   textMuted: "#8b95a7",
-  background: "#2e3440",
-  backgroundPanel: "#3b4252",
-  borderDimmest: "#434c5e",
-  backgroundElement: "#434c5e",
-  border: "#434c5e",
-  borderActive: "#4c566a",
+  background: "#242933",
+  backgroundPanel: "#2e3440",
+  borderDimmest: "#3b4252",
+  backgroundElement: "#3b4252",
+  border: "#3b4252",
+  borderActive: "#434c5e",
   borderSubtle: "#434c5e",
 }
 
@@ -112,7 +112,7 @@ export const tokyonightTheme: Theme = {
   background: "#1a1b26",
   backgroundPanel: "#1e2030",
   borderDimmest: "#2a2c41",
-  backgroundElement: "#222436",
+  backgroundElement: "#323556",
   border: "#737aa2",
   borderActive: "#9099b2",
   borderSubtle: "#545c7e",
@@ -129,11 +129,11 @@ export const gruvboxTheme: Theme = {
   info: "#fabd2f",
   text: "#ebdbb2",
   textMuted: "#928374",
-  background: "#282828",
-  backgroundPanel: "#3c3836",
-  borderDimmest: "#504945",
-  backgroundElement: "#504945",
-  border: "#665c54",
+  background: "#1d2021",
+  backgroundPanel: "#282828",
+  borderDimmest: "#3c3836",
+  backgroundElement: "#3c3836",
+  border: "#504945",
   borderActive: "#ebdbb2",
   borderSubtle: "#504945",
 }
@@ -152,7 +152,7 @@ export const ayuTheme: Theme = {
   background: "#0b0e14",
   backgroundPanel: "#0f131a",
   borderDimmest: "#0e1118",
-  backgroundElement: "#0d1017",
+  backgroundElement: "#1d2335",
   border: "#6c7380",
   borderActive: "#6c7380",
   borderSubtle: "#11151c",
@@ -192,7 +192,7 @@ export const solarizedTheme: Theme = {
   background: "#002b36",
   backgroundPanel: "#073642",
   borderDimmest: "#073642",
-  backgroundElement: "#073642",
+  backgroundElement: "#114e5c",
   border: "#073642",
   borderActive: "#586e75",
   borderSubtle: "#073642",
@@ -212,10 +212,10 @@ export const onedarkTheme: Theme = {
   background: "#282c34",
   backgroundPanel: "#21252b",
   borderDimmest: "#343a43",
-  backgroundElement: "#353b45",
+  backgroundElement: "#3c424e",
   border: "#393f4a",
   borderActive: "#61afef",
-  borderSubtle: "#2c313a",
+  borderSubtle: "#3c414c",
 }
 
 export const auraTheme: Theme = {
@@ -232,7 +232,7 @@ export const auraTheme: Theme = {
   background: "#0f0f0f",
   backgroundPanel: "#15141b",
   borderDimmest: "#19181e",
-  backgroundElement: "#15141b",
+  backgroundElement: "#282633",
   border: "#2d2d2d",
   borderActive: "#6d6d6d",
   borderSubtle: "#2d2d2d",
@@ -249,13 +249,13 @@ export const everforestTheme: Theme = {
   info: "#83c092",
   text: "#d3c6aa",
   textMuted: "#7a8478",
-  background: "#2d353b",
-  backgroundPanel: "#333c43",
-  borderDimmest: "#3f494c",
-  backgroundElement: "#343f44",
-  border: "#859289",
+  background: "#1c2226",
+  backgroundPanel: "#232a2f",
+  borderDimmest: "#2d353b",
+  backgroundElement: "#2d353b",
+  border: "#333c43",
   borderActive: "#9da9a0",
-  borderSubtle: "#7a8478",
+  borderSubtle: "#384348",
 }
 
 export const kanagawaTheme: Theme = {
@@ -272,10 +272,10 @@ export const kanagawaTheme: Theme = {
   background: "#1f1f28",
   backgroundPanel: "#2a2a37",
   borderDimmest: "#363646",
-  backgroundElement: "#363646",
+  backgroundElement: "#3e3e50",
   border: "#54546d",
   borderActive: "#c38d9d",
-  borderSubtle: "#363646",
+  borderSubtle: "#42425a",
 }
 
 export const rosepineTheme: Theme = {
@@ -292,10 +292,10 @@ export const rosepineTheme: Theme = {
   background: "#191724",
   backgroundPanel: "#1f1d2e",
   borderDimmest: "#252338",
-  backgroundElement: "#26233a",
+  backgroundElement: "#33304c",
   border: "#403d52",
   borderActive: "#9ccfd8",
-  borderSubtle: "#21202e",
+  borderSubtle: "#34324c",
 }
 
 export const materialTheme: Theme = {
@@ -332,10 +332,10 @@ export const carbonfoxTheme: Theme = {
   background: "#161616",
   backgroundPanel: "#1a1a1a",
   borderDimmest: "#1f1f1f",
-  backgroundElement: "#1e1e1e",
+  backgroundElement: "#2a2a2a",
   border: "#303030",
   borderActive: "#33b1ff",
-  borderSubtle: "#262626",
+  borderSubtle: "#303030",
 }
 
 export const synthwave84Theme: Theme = {
@@ -352,7 +352,7 @@ export const synthwave84Theme: Theme = {
   background: "#262335",
   backgroundPanel: "#1e1a29",
   borderDimmest: "#292038",
-  backgroundElement: "#2a2139",
+  backgroundElement: "#332a45",
   border: "#495495",
   borderActive: "#36f9f6",
   borderSubtle: "#495495",
@@ -372,7 +372,7 @@ export const catppuccinFrappeTheme: Theme = {
   background: "#303446",
   backgroundPanel: "#292c3c",
   borderDimmest: "#2c303f",
-  backgroundElement: "#232634",
+  backgroundElement: "#343852",
   border: "#414559",
   borderActive: "#51576d",
   borderSubtle: "#626880",
@@ -392,7 +392,7 @@ export const catppuccinMacchiatoTheme: Theme = {
   background: "#24273a",
   backgroundPanel: "#1e2030",
   borderDimmest: "#222432",
-  backgroundElement: "#181926",
+  backgroundElement: "#2a2d44",
   border: "#363a4f",
   borderActive: "#494d64",
   borderSubtle: "#5b6078",
@@ -415,7 +415,7 @@ export const cobalt2Theme: Theme = {
   backgroundElement: "#1f4662",
   border: "#1f4662",
   borderActive: "#0088ff",
-  borderSubtle: "#0e1e2e",
+  borderSubtle: "#1c405a",
 }
 
 export const cursorTheme: Theme = {
@@ -435,7 +435,7 @@ export const cursorTheme: Theme = {
   backgroundElement: "#262626",
   border: "#2d2d2d",
   borderActive: "#3a3a3a",
-  borderSubtle: "#0f0f0f",
+  borderSubtle: "#2d2d2d",
 }
 
 export const flexokiTheme: Theme = {
@@ -452,7 +452,7 @@ export const flexokiTheme: Theme = {
   background: "#100f0f",
   backgroundPanel: "#1c1b1a",
   borderDimmest: "#2c2a29",
-  backgroundElement: "#282726",
+  backgroundElement: "#302f2e",
   border: "#575653",
   borderActive: "#6f6e69",
   borderSubtle: "#403e3c",
@@ -492,10 +492,10 @@ export const matrixTheme: Theme = {
   background: "#0a0e0a",
   backgroundPanel: "#0e130d",
   borderDimmest: "#141c12",
-  backgroundElement: "#141c12",
+  backgroundElement: "#202d1d",
   border: "#1e2a1b",
   borderActive: "#2eff6a",
-  borderSubtle: "#141c12",
+  borderSubtle: "#1e2a1b",
 }
 
 export const mercuryTheme: Theme = {
@@ -515,7 +515,7 @@ export const mercuryTheme: Theme = {
   backgroundElement: "#272735",
   border: "#363644",
   borderActive: "#8da4f5",
-  borderSubtle: "#272735",
+  borderSubtle: "#2e2e3e",
 }
 
 export const nightowlTheme: Theme = {
@@ -532,10 +532,10 @@ export const nightowlTheme: Theme = {
   background: "#011627",
   backgroundPanel: "#0b253a",
   borderDimmest: "#183248",
-  backgroundElement: "#0b253a",
+  backgroundElement: "#1e3c54",
   border: "#5f7e97",
   borderActive: "#82aaff",
-  borderSubtle: "#5f7e97",
+  borderSubtle: "#3d5f7a",
 }
 
 export const orngTheme: Theme = {
@@ -552,7 +552,7 @@ export const orngTheme: Theme = {
   background: "#0a0a0a",
   backgroundPanel: "#141414",
   borderDimmest: "#232323",
-  backgroundElement: "#1e1e1e",
+  backgroundElement: "#252525",
   border: "#ec5b2b",
   borderActive: "#ee7948",
   borderSubtle: "#3c3c3c",
@@ -569,11 +569,11 @@ export const osakaJadeTheme: Theme = {
   info: "#2dd5b7",
   text: "#c1c497",
   textMuted: "#53685b",
-  background: "#111c18",
-  backgroundPanel: "#1a2520",
-  borderDimmest: "#23372b",
-  backgroundElement: "#23372b",
-  border: "#3d4a44",
+  background: "#0c1411",
+  backgroundPanel: "#111c18",
+  borderDimmest: "#1a2520",
+  backgroundElement: "#1a2520",
+  border: "#23372b",
   borderActive: "#2dd5b7",
   borderSubtle: "#23372b",
 }
@@ -632,10 +632,10 @@ export const vesperTheme: Theme = {
   background: "#101010",
   backgroundPanel: "#101010",
   borderDimmest: "#121212",
-  backgroundElement: "#101010",
+  backgroundElement: "#242424",
   border: "#282828",
   borderActive: "#ffc799",
-  borderSubtle: "#1c1c1c",
+  borderSubtle: "#2a2a2a",
 }
 
 export const zenburnTheme: Theme = {
@@ -652,7 +652,7 @@ export const zenburnTheme: Theme = {
   background: "#3f3f3f",
   backgroundPanel: "#4f4f4f",
   borderDimmest: "#5d5d5d",
-  backgroundElement: "#5f5f5f",
+  backgroundElement: "#777777",
   border: "#5f5f5f",
   borderActive: "#8cd0d3",
   borderSubtle: "#4f4f4f",

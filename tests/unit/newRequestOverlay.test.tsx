@@ -83,8 +83,8 @@ describe("METHOD_ITEMS", () => {
     expect(METHOD_ITEMS.map((item) => item.color)).toEqual([
       "success",
       "warning",
-      "warning",
-      "warning",
+      "info",
+      "info",
       "error",
       "textMuted",
       "textMuted",
