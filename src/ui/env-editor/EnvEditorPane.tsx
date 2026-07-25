@@ -143,6 +143,12 @@ export function EnvEditorPane({
 
           const keyBaseColor = dimmed ? theme.textMuted : theme.primary
           const valueBaseColor = dimmed ? theme.textMuted : theme.text
+          const rowBg =
+            cursorOnThisRow || isEditingThisRow
+              ? theme.backgroundElement
+              : i % 2 !== 0
+                ? stripeBg
+                : undefined
 
           return (
             <box
@@ -151,15 +157,13 @@ export function EnvEditorPane({
               style={{
                 flexDirection: "row",
                 gap: 0,
-                backgroundColor:
-                  cursorOnThisRow || isEditingThisRow
-                    ? theme.backgroundElement
-                    : undefined,
+                backgroundColor: rowBg,
               }}
             >
               <Checkbox checked={row.enabled} theme={theme} />
               <VarInput
                 value={isEditingThisRow ? editKey : row.key}
+                placeholder="Key..."
                 env={draftEnv}
                 isEditing={isEditingThisRow}
                 onChange={setEditKey}
@@ -175,17 +179,14 @@ export function EnvEditorPane({
               />
               <VarInput
                 value={isEditingThisRow ? editValue : row.value}
+                placeholder="Value..."
                 env={draftEnv}
                 isEditing={isEditingThisRow}
                 onChange={setEditValue}
                 isFocused={isEditingThisRow && editState.subfield === "value"}
                 baseColor={valueBaseColor}
                 backgroundColor={
-                  isEditingThisRow || cursorOnThisRow
-                    ? theme.backgroundElement
-                    : i % 2 !== 0
-                      ? stripeBg
-                      : undefined
+                  isEditingThisRow ? theme.backgroundElement : undefined
                 }
                 focusedBackgroundColor={theme.borderSubtle}
                 paddingX={1}
@@ -195,66 +196,68 @@ export function EnvEditorPane({
             </box>
           )
         })}
-        <box
-          key="add"
-          id="vrow-add"
-          style={{
-            flexDirection: "row",
-            gap: 0,
-            backgroundColor:
-              inBrowse && editState.addingRow
-                ? theme.backgroundElement
-                : editingAdd
-                  ? theme.backgroundElement
-                  : undefined,
-          }}
-        >
-          <Checkbox checked={false} theme={theme} />
-          <VarInput
-            value={editingAdd ? editKey : ""}
-            env={draftEnv}
-            isEditing={editingAdd}
-            onChange={setEditKey}
-            isFocused={editingAdd && editState.subfield === "key"}
-            baseColor={
-              editingAdd || (inBrowse && editState.addingRow)
-                ? theme.primary
-                : theme.textMuted
-            }
-            backgroundColor={
-              editingAdd || (inBrowse && editState.addingRow)
-                ? theme.backgroundElement
+        {(() => {
+          const addRowBg =
+            (inBrowse && editState.addingRow) || editingAdd
+              ? theme.backgroundElement
+              : rows.length % 2 !== 0
+                ? stripeBg
                 : undefined
-            }
-            focusedBackgroundColor={theme.borderSubtle}
-            paddingX={1}
-            style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-            variableNames={variableNames}
-          />
-          <VarInput
-            value={editingAdd ? editValue : ""}
-            env={draftEnv}
-            isEditing={editingAdd}
-            onChange={setEditValue}
-            isFocused={editingAdd && editState.subfield === "value"}
-            baseColor={
-              editingAdd || (inBrowse && editState.addingRow)
-                ? theme.text
-                : theme.textMuted
-            }
-            backgroundColor={
-              editingAdd || (inBrowse && editState.addingRow)
-                ? theme.backgroundElement
-                : rows.length % 2 !== 0
-                  ? stripeBg
-                  : undefined
-            }
-            focusedBackgroundColor={theme.borderSubtle}
-            paddingX={1}
-            style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-            variableNames={variableNames}
-          />
-        </box>
+
+          return (
+            <box
+              key="add"
+              id="vrow-add"
+              style={{
+                flexDirection: "row",
+                gap: 0,
+                backgroundColor: addRowBg,
+              }}
+            >
+              <Checkbox checked={false} theme={theme} />
+              <VarInput
+                value={editingAdd ? editKey : ""}
+                placeholder="Key..."
+                env={draftEnv}
+                isEditing={editingAdd}
+                onChange={setEditKey}
+                isFocused={editingAdd && editState.subfield === "key"}
+                baseColor={
+                  editingAdd || (inBrowse && editState.addingRow)
+                    ? theme.primary
+                    : theme.textMuted
+                }
+                backgroundColor={
+                  editingAdd ? theme.backgroundElement : undefined
+                }
+                focusedBackgroundColor={theme.borderSubtle}
+                paddingX={1}
+                style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
+                variableNames={variableNames}
+              />
+              <VarInput
+                value={editingAdd ? editValue : ""}
+                placeholder="Value..."
+                env={draftEnv}
+                isEditing={editingAdd}
+                onChange={setEditValue}
+                isFocused={editingAdd && editState.subfield === "value"}
+                baseColor={
+                  editingAdd || (inBrowse && editState.addingRow)
+                    ? theme.text
+                    : theme.textMuted
+                }
+                backgroundColor={
+                  editingAdd ? theme.backgroundElement : undefined
+                }
+                focusedBackgroundColor={theme.borderSubtle}
+                paddingX={1}
+                style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
+                variableNames={variableNames}
+              />
+            </box>
+          )
+        })()}
       </scrollbox>
       {error && <text fg={theme.error}>Error: {error}</text>}
       {saving && <text fg={theme.info}>Saving...</text>}
