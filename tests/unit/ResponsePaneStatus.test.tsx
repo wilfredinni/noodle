@@ -88,8 +88,6 @@ describe("ResponsePane status text truncation and layout tests", () => {
               setSelectOpen={() => {}}
               urlbarSubFocus="text"
               urlbarInteractive={true}
-              expandHint="f2 expand"
-              queryHint="/ query"
             />
           </box>
         </ThemeProvider>
@@ -142,8 +140,6 @@ describe("ResponsePane status text truncation and layout tests", () => {
               setSelectOpen={() => {}}
               urlbarSubFocus="text"
               urlbarInteractive={true}
-              expandHint="f2 expand"
-              queryHint="/ query"
             />
           </box>
         </ThemeProvider>
@@ -196,7 +192,6 @@ describe("ResponsePane status text truncation and layout tests", () => {
               setSelectOpen={() => {}}
               urlbarSubFocus="text"
               urlbarInteractive={true}
-              expandHint="f2 expand"
             />
           </box>
         </ThemeProvider>

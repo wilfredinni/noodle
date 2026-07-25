@@ -31,7 +31,7 @@ import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
 import type { FinderItem } from "./requestFinder"
-import { type Keybinds, displayKey } from "./keybind"
+import { type Keybinds } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import {
@@ -861,16 +861,6 @@ export function AppInner({
     return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
   }, [envEditor.draft])
 
-  const expandHint = useMemo(
-    () => `${displayKey(keybinds.pane_expand)} expand`,
-    [keybinds.pane_expand],
-  )
-
-  const queryHint = useMemo(
-    () => `${displayKey(keybinds.response_query)} query`,
-    [keybinds.response_query],
-  )
-
   const renderer = useRenderer()
 
   const onLoadTimelineBody = useCallback(
@@ -1041,8 +1031,6 @@ export function AppInner({
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={activeOverlay === "none" && !isReadOnly}
-            expandHint={expandHint}
-            queryHint={queryHint}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             mode={mode}

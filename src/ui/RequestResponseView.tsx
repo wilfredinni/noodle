@@ -27,8 +27,6 @@ interface RequestResponseViewProps {
   setSelectOpen: (open: boolean) => void
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
-  expandHint: string
-  queryHint?: string
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
@@ -51,8 +49,6 @@ export function RequestResponseView({
   setSelectOpen,
   urlbarSubFocus,
   urlbarInteractive,
-  expandHint,
-  queryHint,
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
@@ -76,7 +72,6 @@ export function RequestResponseView({
           onApiKeyPlacementChange={draft.setApiKeyPlacement}
           onBodyTypeChange={draft.setBodyType}
           onSelectOpenChange={setSelectOpen}
-          expandHint={expandHint}
           jumpMode={jumpMode}
         />
       )}
@@ -88,8 +83,6 @@ export function RequestResponseView({
           initialTab={initialResponseTab}
           onTabChange={onResponseTabChange}
           onOpenTimelineEntry={onOpenTimelineEntry}
-          expandHint={expandHint}
-          queryHint={queryHint}
           responseKey={responseKey}
           responseQueryRef={responseQueryRef}
           responseBodyForCopyRef={responseBodyForCopyRef}

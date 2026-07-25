@@ -48,7 +48,6 @@ interface Props {
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
   onBodyTypeChange?: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
-  expandHint?: string
   jumpMode?: boolean
 }
 
@@ -81,7 +80,6 @@ export function RequestPane({
   onApiKeyPlacementChange,
   onBodyTypeChange,
   onSelectOpenChange,
-  expandHint,
   jumpMode = false,
 }: Props) {
   const theme = useTheme()
@@ -161,13 +159,6 @@ export function RequestPane({
             {title}
           </Badge>
         )
-      }
-      bottomLeft={
-        focused && expandHint ? (
-          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
-            {expandHint}
-          </Badge>
-        ) : undefined
       }
     >
       {request ? (

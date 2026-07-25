@@ -38,8 +38,6 @@ export function ResponsePane({
   initialTab,
   onTabChange,
   onOpenTimelineEntry,
-  expandHint,
-  queryHint,
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
@@ -53,8 +51,6 @@ export function ResponsePane({
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   onOpenTimelineEntry?: (entry: TimelineEntry) => void
-  expandHint?: string
-  queryHint?: string
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
@@ -304,22 +300,6 @@ export function ResponsePane({
     </box>
   )
 
-  const bottomLeft =
-    focused && (expandHint || queryHint) ? (
-      <box style={{ flexDirection: "row", gap: 1 }}>
-        {expandHint ? (
-          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
-            {expandHint}
-          </Badge>
-        ) : null}
-        {queryHint ? (
-          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
-            {queryHint}
-          </Badge>
-        ) : null}
-      </box>
-    ) : undefined
-
   return (
     <Frame
       style={{
@@ -336,7 +316,6 @@ export function ResponsePane({
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
       titleRight={headerRight}
-      bottomLeft={bottomLeft}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <Tabs tabs={TAB_DEFS} activeId={activeTab}>
