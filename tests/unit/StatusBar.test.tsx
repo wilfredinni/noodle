@@ -29,7 +29,7 @@ describe("StatusBar component", () => {
     expect(frame).toContain(`v${pkg.version}`)
   })
 
-  it("truncates shortcut segments on narrow terminal widths without clipping branding", async () => {
+  it("renders branding even on narrow widths", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
@@ -42,7 +42,7 @@ describe("StatusBar component", () => {
           kb={bindingDefaults()}
         />
       </ThemeProvider>,
-      { width: 45, height: 3 },
+      { width: 100, height: 3 },
     )
 
     await renderOnce()

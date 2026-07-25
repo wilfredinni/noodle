@@ -583,6 +583,36 @@ export function AppInner({
     },
   })
 
+  const paneMode = useMemo((): "base" | "browse" | "edit" => {
+    if (view === "env-editor" && focus === "env-vars") {
+      return envEditor.editState.mode === "browsing"
+        ? "browse"
+        : envEditor.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    }
+    if (focus === "folder") {
+      return folderEb.editState.mode === "browsing"
+        ? "browse"
+        : folderEb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    }
+    return eb.editState.mode === "browsing"
+      ? "browse"
+      : eb.editState.mode === "editing"
+        ? "edit"
+        : "base"
+  }, [
+    view,
+    focus,
+    envEditor.editState.mode,
+    folderEb.editState.mode,
+    eb.editState.mode,
+  ])
+
+  const overlayActive = activeOverlay !== "none"
+
   // ── Sync edit mode to keymap ───────────────────────────────────────
   useEffect(() => {
     const requestMode =
@@ -1125,6 +1155,10 @@ export function AppInner({
         view={view}
         envStats={envStats}
         jumpMode={jumpMode}
+        focus={focus}
+        paneMode={paneMode}
+        collectionMode={mode}
+        overlayActive={overlayActive}
       />
     </box>
   )
