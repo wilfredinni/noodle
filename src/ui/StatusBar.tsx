@@ -136,6 +136,8 @@ export function getContextualSegments(input: {
   kb: Keybinds
   overlayActive: boolean
   tab?: string
+  bodyType?: string
+  responseQuery?: { canOpen: () => boolean } | null
 }): Array<{ key: string; word: string }> {
   const {
     focus,
@@ -146,6 +148,8 @@ export function getContextualSegments(input: {
     kb,
     overlayActive,
     tab,
+    bodyType,
+    responseQuery,
   } = input
   if (overlayActive) return []
 
@@ -205,7 +209,10 @@ export function getContextualSegments(input: {
     if (paneMode === "browse") {
       if (!col) return []
       const toggleSegments =
-        tab === "headers" || tab === "params" || tab === "body"
+        tab === "headers" ||
+        tab === "params" ||
+        (tab === "body" &&
+          (bodyType === "urlencoded" || bodyType === "multipart"))
           ? [{ key: "Space", word: "toggle" }]
           : []
       return [
@@ -220,6 +227,7 @@ export function getContextualSegments(input: {
 
   if (focus === "response") {
     if (sendState.status === "done" && tab === "body") {
+      if (responseQuery && !responseQuery.canOpen()) return []
       return [
         { key: displayKey(kb.response_copy_body), word: "copy" },
         { key: displayKey(kb.response_query), word: "filter" },
@@ -272,6 +280,8 @@ export function StatusBar(input: {
   collectionMode?: CollectionMode
   overlayActive?: boolean
   tab?: string
+  bodyType?: string
+  responseQueryRef?: { current: { canOpen: () => boolean } | null }
 }) {
   const theme = useTheme()
 
@@ -291,6 +301,8 @@ export function StatusBar(input: {
     kb: input.kb,
     overlayActive,
     tab: input.tab,
+    bodyType: input.bodyType,
+    responseQuery: input.responseQueryRef?.current ?? undefined,
   })
 
   const envText =

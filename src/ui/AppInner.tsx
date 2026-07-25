@@ -134,7 +134,8 @@ export function AppInner({
   expandedRef.current = expanded
   const [collectionReloadToken, setCollectionReloadToken] = useState(0)
   const [, setSelectOpen] = useState(false)
-  const [responseTab, setResponseTab] = useState<ResponseTabKind>("body")
+  const [userResponseTabOverride, setUserResponseTabOverride] =
+    useState<ResponseTabKind | null>(null)
   const [yamlEditor, setYamlEditor] = useState<{
     visible: boolean
     filePath: string
@@ -358,17 +359,11 @@ export function AppInner({
   const initialRequestTab = tabPrefs?.requestTab
   const initialResponseTab = tabPrefs?.responseTab
 
-  const userSwitchedResponseTabRef = useRef(false)
-
   useEffect(() => {
-    userSwitchedResponseTabRef.current = false
+    setUserResponseTabOverride(null)
   }, [selectedRequest?.id])
 
-  useEffect(() => {
-    if (!userSwitchedResponseTabRef.current) {
-      setResponseTab(initialResponseTab ?? "body")
-    }
-  }, [initialResponseTab])
+  const responseTab = userResponseTabOverride ?? initialResponseTab ?? "body"
 
   const onRequestTabChange = useCallback(
     (tab: FieldKind) => {
@@ -379,8 +374,7 @@ export function AppInner({
 
   const onResponseTabChange = useCallback(
     (tab: ResponseTabKind) => {
-      userSwitchedResponseTabRef.current = true
-      setResponseTab(tab)
+      setUserResponseTabOverride(tab)
       if (selectedRequest?.id) setTab(selectedRequest.id, "response", tab)
     },
     [selectedRequest?.id, setTab],
@@ -1190,6 +1184,8 @@ export function AppInner({
         collectionMode={mode}
         overlayActive={overlayActive}
         tab={displayTab}
+        bodyType={draft.draft?.bodyType}
+        responseQueryRef={responseQueryRef}
       />
     </box>
   )

@@ -28,6 +28,8 @@ function base(input: {
   sendState?: SendState
   overlayActive?: boolean
   tab?: string
+  bodyType?: string
+  responseQuery?: { canOpen: () => boolean } | null
 }) {
   return getContextualSegments({
     focus: input.focus,
@@ -38,6 +40,8 @@ function base(input: {
     kb,
     overlayActive: input.overlayActive ?? false,
     tab: input.tab,
+    bodyType: input.bodyType,
+    responseQuery: input.responseQuery,
   })
 }
 
@@ -118,10 +122,81 @@ describe("getContextualSegments", () => {
     ])
   })
 
-  it("request browse with body tab shows Space toggle", () => {
+  it("request browse with body tab and no bodyType hides Space toggle", () => {
     const r = base({ focus: "request", paneMode: "browse", tab: "body" })
     expect(r).toEqual([
+      seg("^d", "revert"),
+      seg("^r", "revert all"),
+      seg("^s", "save"),
+    ])
+  })
+
+  it("request browse with body urlencoded shows Space toggle", () => {
+    const r = base({
+      focus: "request",
+      paneMode: "browse",
+      tab: "body",
+      bodyType: "urlencoded",
+    })
+    expect(r).toEqual([
       seg("Space", "toggle"),
+      seg("^d", "revert"),
+      seg("^r", "revert all"),
+      seg("^s", "save"),
+    ])
+  })
+
+  it("request browse with body multipart shows Space toggle", () => {
+    const r = base({
+      focus: "request",
+      paneMode: "browse",
+      tab: "body",
+      bodyType: "multipart",
+    })
+    expect(r).toEqual([
+      seg("Space", "toggle"),
+      seg("^d", "revert"),
+      seg("^r", "revert all"),
+      seg("^s", "save"),
+    ])
+  })
+
+  it("request browse with body json hides Space toggle", () => {
+    const r = base({
+      focus: "request",
+      paneMode: "browse",
+      tab: "body",
+      bodyType: "json",
+    })
+    expect(r).toEqual([
+      seg("^d", "revert"),
+      seg("^r", "revert all"),
+      seg("^s", "save"),
+    ])
+  })
+
+  it("request browse with body none hides Space toggle", () => {
+    const r = base({
+      focus: "request",
+      paneMode: "browse",
+      tab: "body",
+      bodyType: "none",
+    })
+    expect(r).toEqual([
+      seg("^d", "revert"),
+      seg("^r", "revert all"),
+      seg("^s", "save"),
+    ])
+  })
+
+  it("request browse with body binary hides Space toggle", () => {
+    const r = base({
+      focus: "request",
+      paneMode: "browse",
+      tab: "body",
+      bodyType: "binary",
+    })
+    expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("^s", "save"),
@@ -180,6 +255,26 @@ describe("getContextualSegments", () => {
   it("response when done without tab returns empty", () => {
     const r = base({ focus: "response", sendState: done })
     expect(r).toEqual([])
+  })
+
+  it("response when done with open query hides filter", () => {
+    const r = base({
+      focus: "response",
+      sendState: done,
+      tab: "body",
+      responseQuery: { canOpen: () => false },
+    })
+    expect(r).toEqual([])
+  })
+
+  it("response when done with clsoed query shows filter", () => {
+    const r = base({
+      focus: "response",
+      sendState: done,
+      tab: "body",
+      responseQuery: { canOpen: () => true },
+    })
+    expect(r).toEqual([seg("^b", "copy"), seg("/", "filter")])
   })
 
   it("response when idle returns empty", () => {

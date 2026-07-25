@@ -65,9 +65,6 @@ export function ResponsePane({
   const isDoneRef = useRef(state.status === "done")
   isDoneRef.current = state.status === "done"
 
-  const onTabChangeRef = useRef(onTabChange)
-  onTabChangeRef.current = onTabChange
-
   const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
     initialTab ?? "body",
   )
@@ -92,17 +89,13 @@ export function ResponsePane({
       setActiveTab((prev) => {
         const ids = ["body", "headers", "timeline"] as const
         const idx = ids.indexOf(prev)
-        const next = ids[(idx - 1 + ids.length) % ids.length]
-        onTabChangeRef.current?.(next)
-        return next
+        return ids[(idx - 1 + ids.length) % ids.length]
       })
     else if (key.name === "right")
       setActiveTab((prev) => {
         const ids = ["body", "headers", "timeline"] as const
         const idx = ids.indexOf(prev)
-        const next = ids[(idx + 1) % ids.length]
-        onTabChangeRef.current?.(next)
-        return next
+        return ids[(idx + 1) % ids.length]
       })
     else if (key.name === "v" && activeTab === "body") setShowLargeBody(true)
     else if (activeTab === "timeline") return
@@ -150,10 +143,15 @@ export function ResponsePane({
   ])
 
   // Sync activeTab when initialTab prop changes (request switch)
+  const activeTabRef = useRef(activeTab)
+  activeTabRef.current = activeTab
   const syncVersionRef = useRef(0)
   useEffect(() => {
-    syncVersionRef.current += 1
-    setActiveTab(initialTab ?? "body")
+    const next = initialTab ?? "body"
+    if (next !== activeTabRef.current) {
+      syncVersionRef.current += 1
+    }
+    setActiveTab(next)
   }, [initialTab])
 
   // Notify parent on tab changes from user interaction (skip first render + sync)
