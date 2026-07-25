@@ -27,6 +27,7 @@ import { type ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
+import { Header } from "./Header"
 import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
@@ -1021,6 +1022,13 @@ export function AppInner({
         backgroundColor: theme.background,
       }}
     >
+      <Header
+        view={view}
+        isCollection={isCollection}
+        overlayActive={overlayActive}
+        jumpMode={jumpMode}
+        keybinds={keybinds}
+      />
       <VariableCompletionInterceptor />
       <box
         style={{

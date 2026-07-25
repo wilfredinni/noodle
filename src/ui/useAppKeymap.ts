@@ -593,11 +593,17 @@ export function useAppKeymap(
         name: "request.tab-next",
         run: () => refs.ebRef.current.cycleInactiveTab(1),
       },
+      {
+        name: "folder.new",
+        enabled: () => refs.modeRef.current === "collection",
+        run: () => setters.setNewFolderVisible(true),
+      },
     ],
     bindings: [
       { key: "return", cmd: "request.edit-enter" },
       { key: "left", cmd: "request.tab-prev" },
       { key: "right", cmd: "request.tab-next" },
+      { key: keybinds.folder_new, cmd: "folder.new" },
     ],
   }))
 

@@ -1,6 +1,4 @@
-import { TextAttributes } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
-import pkg from "../../package.json" with { type: "json" }
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
@@ -188,6 +186,7 @@ export function getContextualSegments(input: {
     return [
       { key: displayKey(kb.request_save), word: "save" },
       { key: displayKey(kb.request_new), word: "new" },
+      { key: displayKey(kb.folder_new), word: "new folder" },
       { key: displayKey(kb.request_delete), word: "delete" },
       { key: displayKey(kb.request_clone), word: "clone" },
     ]
@@ -294,15 +293,6 @@ export function StatusBar(input: {
     tab: input.tab,
   })
 
-  const pinned =
-    view === "env-editor"
-      ? [{ key: displayKey(input.kb.help_toggle), word: "help" }]
-      : [
-          { key: displayKey(input.kb.request_send), word: "send" },
-          { key: displayKey(input.kb.jump_mode), word: "jump" },
-          { key: displayKey(input.kb.help_toggle), word: "help" },
-        ]
-
   const envText =
     input.envLabel === "" || input.envLabel === "(no env)"
       ? "no env"
@@ -328,28 +318,30 @@ export function StatusBar(input: {
 
   const { width: termWidth = 100 } = useTerminalDimensions()
 
-  const segments = jumpMode ? jumpSegments : contextual
+  const sendPinned =
+    view === "main" &&
+    collectionMode === "collection" &&
+    !overlayActive &&
+    !jumpMode
+      ? [{ key: displayKey(input.kb.request_send), word: "send" }]
+      : []
 
-  const brandingText = `Noodle v${pkg.version}`
-  const brandingWidth = brandingText.length + 3
-
-  // compute pinned width (always visible, never truncated)
   let pinnedWidth = 0
-  for (const seg of pinned) {
-    const segLen = seg.key.length + (seg.word ? 1 + seg.word.length : 0) + 3
-    pinnedWidth += segLen
+  for (const seg of sendPinned) {
+    pinnedWidth += seg.key.length + (seg.word ? 1 + seg.word.length : 0) + 3
   }
+
+  const segments = jumpMode ? jumpSegments : contextual
 
   const leftWidth = isEnvEditor
     ? (input.envStats?.length || 10) + 4
     : envText.length + 4
-  const maxShortcutChars = Math.max(
-    0,
-    termWidth - leftWidth - pinnedWidth - brandingWidth,
-  )
+  const maxShortcutChars = Math.max(0, termWidth - leftWidth - pinnedWidth)
   const visibleSegments = jumpMode
     ? segments
     : fitSegments(segments, maxShortcutChars)
+
+  const allSegments = [...sendPinned, ...visibleSegments]
 
   return (
     <box
@@ -372,27 +364,15 @@ export function StatusBar(input: {
         )}
       </box>
       <box style={{ flexDirection: "row", alignItems: "center" }}>
-        {visibleSegments.map((seg, i) => (
+        {allSegments.map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>
             <text fg={theme.text}>{seg.key}</text>
             {seg.word ? <text fg={theme.textMuted}> {seg.word}</text> : null}
-            <text fg={theme.textMuted}> · </text>
+            {i < allSegments.length - 1 && (
+              <text fg={theme.textMuted}> · </text>
+            )}
           </box>
         ))}
-        {!jumpMode &&
-          pinned.map((seg, i) => (
-            <box key={`pin-${i}`} style={{ flexDirection: "row" }}>
-              <text fg={theme.text}>{seg.key}</text>
-              {seg.word ? <text fg={theme.textMuted}> {seg.word}</text> : null}
-              <text fg={theme.textMuted}> · </text>
-            </box>
-          ))}
-        <box style={{ flexDirection: "row" }}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD}>
-            Noodle
-          </text>
-          <text fg={theme.textMuted}> v{pkg.version}</text>
-        </box>
       </box>
     </box>
   )

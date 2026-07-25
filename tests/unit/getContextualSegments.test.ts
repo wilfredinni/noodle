@@ -54,6 +54,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^s", "save"),
       seg("^n", "new"),
+      seg("^alt+n", "new folder"),
       seg("^w", "delete"),
       seg("^k", "clone"),
     ])
