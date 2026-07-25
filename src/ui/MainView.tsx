@@ -105,7 +105,7 @@ export function MainView({
         style={{
           flexDirection: "column",
           flexGrow: 1,
-          gap: 1,
+          gap: 0,
           minHeight: 0,
         }}
       >
