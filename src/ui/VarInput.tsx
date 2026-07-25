@@ -268,6 +268,9 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       )
     }
 
+    const displayColor = value ? defaultColor : theme.textMuted
+    const displayText = value ? value : (placeholder ?? "")
+
     return (
       <box
         style={{
@@ -281,7 +284,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           paddingRight: paddingX,
         }}
       >
-        <VarText text={value} env={env} baseColor={defaultColor} />
+        <VarText text={displayText} env={env} baseColor={displayColor} />
       </box>
     )
   },
