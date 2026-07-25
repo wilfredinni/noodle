@@ -6,12 +6,14 @@ All notable changes to Noodle are documented in this file.
 
 ## [0.5.2] - 2026-07-25
 
+![timeline](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/jumpmode.png)
+
 ### ✨ Features
 
 - Jump mode: press `g` to show letter hints on focusable elements; press a letter to jump focus or `Esc` to dismiss. Badges render over a dark backdrop outside the pane layout.
 - Request finder (Ctrl+F) now includes folders in search results alongside requests, with fuzzy matching on name and ID fields.
 - Export timeline entries: copy request headers, copy response body, and export the full YAML entry from the timeline detail overlay.
-- Header bar and footer branding: the status bar shows the Noodle version, and the header displays the app name.
+- Footer branding: the status bar shows the Noodle version.
 - Website and docs links in the About overlay.
 
 ### 🐞 Fixes
