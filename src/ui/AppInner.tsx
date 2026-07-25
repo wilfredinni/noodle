@@ -133,6 +133,7 @@ export function AppInner({
   expandedRef.current = expanded
   const [collectionReloadToken, setCollectionReloadToken] = useState(0)
   const [, setSelectOpen] = useState(false)
+  const [responseTab, setResponseTab] = useState<ResponseTabKind>("body")
   const [yamlEditor, setYamlEditor] = useState<{
     visible: boolean
     filePath: string
@@ -356,6 +357,18 @@ export function AppInner({
   const initialRequestTab = tabPrefs?.requestTab
   const initialResponseTab = tabPrefs?.responseTab
 
+  const userSwitchedResponseTabRef = useRef(false)
+
+  useEffect(() => {
+    userSwitchedResponseTabRef.current = false
+  }, [selectedRequest?.id])
+
+  useEffect(() => {
+    if (!userSwitchedResponseTabRef.current) {
+      setResponseTab(initialResponseTab ?? "body")
+    }
+  }, [initialResponseTab])
+
   const onRequestTabChange = useCallback(
     (tab: FieldKind) => {
       if (selectedRequest?.id) setTab(selectedRequest.id, "request", tab)
@@ -365,6 +378,8 @@ export function AppInner({
 
   const onResponseTabChange = useCallback(
     (tab: ResponseTabKind) => {
+      userSwitchedResponseTabRef.current = true
+      setResponseTab(tab)
       if (selectedRequest?.id) setTab(selectedRequest.id, "response", tab)
     },
     [selectedRequest?.id, setTab],
@@ -612,6 +627,13 @@ export function AppInner({
   ])
 
   const overlayActive = activeOverlay !== "none"
+
+  const displayTab = useMemo((): string | undefined => {
+    if (focus === "request") return eb.activeTab
+    if (focus === "response") return responseTab
+    if (focus === "folder") return folderEb.activeTab
+    return undefined
+  }, [focus, eb.activeTab, responseTab, folderEb.activeTab])
 
   // ── Sync edit mode to keymap ───────────────────────────────────────
   useEffect(() => {
@@ -1159,6 +1181,7 @@ export function AppInner({
         paneMode={paneMode}
         collectionMode={mode}
         overlayActive={overlayActive}
+        tab={displayTab}
       />
     </box>
   )

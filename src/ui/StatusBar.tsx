@@ -137,6 +137,7 @@ export function getContextualSegments(input: {
   sendState: SendState
   kb: Keybinds
   overlayActive: boolean
+  tab?: string
 }): Array<{ key: string; word: string }> {
   const {
     focus,
@@ -146,6 +147,7 @@ export function getContextualSegments(input: {
     sendState,
     kb,
     overlayActive,
+    tab,
   } = input
   if (overlayActive) return []
 
@@ -203,8 +205,12 @@ export function getContextualSegments(input: {
     }
     if (paneMode === "browse") {
       if (!col) return []
+      const toggleSegments =
+        tab === "headers" || tab === "params" || tab === "body"
+          ? [{ key: "Space", word: "toggle" }]
+          : []
       return [
-        { key: "Space", word: "toggle" },
+        ...toggleSegments,
         { key: displayKey(kb.browse_delete), word: "revert" },
         { key: displayKey(kb.browse_revert_all), word: "revert all" },
         { key: displayKey(kb.request_save), word: "save" },
@@ -214,7 +220,7 @@ export function getContextualSegments(input: {
   }
 
   if (focus === "response") {
-    if (sendState.status === "done") {
+    if (sendState.status === "done" && tab === "body") {
       return [
         { key: displayKey(kb.response_copy_body), word: "copy" },
         { key: displayKey(kb.response_query), word: "filter" },
@@ -233,8 +239,11 @@ export function getContextualSegments(input: {
     }
     if (paneMode === "browse") {
       if (!col) return []
+      const toggleSegments =
+        tab === "headers" ? [{ key: "Space", word: "toggle" }] : []
+      if (tab === "activity") return []
       return [
-        { key: "Space", word: "toggle" },
+        ...toggleSegments,
         { key: displayKey(kb.browse_delete), word: "revert" },
         { key: displayKey(kb.browse_revert_all), word: "revert all" },
         { key: displayKey(kb.request_save), word: "save" },
@@ -263,6 +272,7 @@ export function StatusBar(input: {
   paneMode?: PaneMode
   collectionMode?: CollectionMode
   overlayActive?: boolean
+  tab?: string
 }) {
   const theme = useTheme()
 
@@ -281,6 +291,7 @@ export function StatusBar(input: {
     sendState: input.sendState,
     kb: input.kb,
     overlayActive,
+    tab: input.tab,
   })
 
   const pinned =

@@ -62,6 +62,11 @@ export function ResponsePane({
   const keymap = useKeymap()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
+  const isDoneRef = useRef(state.status === "done")
+  isDoneRef.current = state.status === "done"
+
+  const onTabChangeRef = useRef(onTabChange)
+  onTabChangeRef.current = onTabChange
 
   const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
     initialTab ?? "body",
@@ -80,20 +85,24 @@ export function ResponsePane({
 
   useKeyboard((key) => {
     if (!focusedRef.current) return
-    if (!isDone) return
+    if (!isDoneRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
     if (queryVisible) return
     if (key.name === "left")
       setActiveTab((prev) => {
         const ids = ["body", "headers", "timeline"] as const
         const idx = ids.indexOf(prev)
-        return ids[(idx - 1 + ids.length) % ids.length]
+        const next = ids[(idx - 1 + ids.length) % ids.length]
+        onTabChangeRef.current?.(next)
+        return next
       })
     else if (key.name === "right")
       setActiveTab((prev) => {
         const ids = ["body", "headers", "timeline"] as const
         const idx = ids.indexOf(prev)
-        return ids[(idx + 1) % ids.length]
+        const next = ids[(idx + 1) % ids.length]
+        onTabChangeRef.current?.(next)
+        return next
       })
     else if (key.name === "v" && activeTab === "body") setShowLargeBody(true)
     else if (activeTab === "timeline") return
