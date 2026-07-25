@@ -31,6 +31,7 @@ interface RequestResponseViewProps {
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   jumpMode?: boolean
+  onQueryVisibleChange?: (v: boolean) => void
 }
 
 export function RequestResponseView({
@@ -53,6 +54,7 @@ export function RequestResponseView({
   responseQueryRef,
   responseBodyForCopyRef,
   jumpMode = false,
+  onQueryVisibleChange,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -89,6 +91,7 @@ export function RequestResponseView({
           layout={layout}
           expanded={expanded}
           jumpMode={jumpMode}
+          onQueryVisibleChange={onQueryVisibleChange}
         />
       )}
     </>

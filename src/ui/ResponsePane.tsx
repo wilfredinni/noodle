@@ -44,6 +44,7 @@ export function ResponsePane({
   layout,
   expanded,
   jumpMode = false,
+  onQueryVisibleChange,
 }: {
   state: SendState
   focused?: boolean
@@ -57,6 +58,7 @@ export function ResponsePane({
   layout?: "stacked" | "side-by-side"
   expanded?: "request" | "response" | null
   jumpMode?: boolean
+  onQueryVisibleChange?: (v: boolean) => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -79,6 +81,10 @@ export function ResponsePane({
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
+
+  useEffect(() => {
+    onQueryVisibleChange?.(queryVisible)
+  }, [queryVisible, onQueryVisibleChange])
 
   useKeyboard((key) => {
     if (!focusedRef.current) return

@@ -136,6 +136,10 @@ export function AppInner({
   const [, setSelectOpen] = useState(false)
   const [userResponseTabOverride, setUserResponseTabOverride] =
     useState<ResponseTabKind | null>(null)
+  const [overrideRequestId, setOverrideRequestId] = useState<string | null>(
+    null,
+  )
+  const [queryVisible, setQueryVisible] = useState(false)
   const [yamlEditor, setYamlEditor] = useState<{
     visible: boolean
     filePath: string
@@ -359,11 +363,10 @@ export function AppInner({
   const initialRequestTab = tabPrefs?.requestTab
   const initialResponseTab = tabPrefs?.responseTab
 
-  useEffect(() => {
-    setUserResponseTabOverride(null)
-  }, [selectedRequest?.id])
-
-  const responseTab = userResponseTabOverride ?? initialResponseTab ?? "body"
+  const responseTab =
+    overrideRequestId === selectedRequest?.id && userResponseTabOverride
+      ? userResponseTabOverride
+      : (initialResponseTab ?? "body")
 
   const onRequestTabChange = useCallback(
     (tab: FieldKind) => {
@@ -375,6 +378,7 @@ export function AppInner({
   const onResponseTabChange = useCallback(
     (tab: ResponseTabKind) => {
       setUserResponseTabOverride(tab)
+      setOverrideRequestId(selectedRequest?.id ?? null)
       if (selectedRequest?.id) setTab(selectedRequest.id, "response", tab)
     },
     [selectedRequest?.id, setTab],
@@ -1087,6 +1091,7 @@ export function AppInner({
             urlbarInteractive={activeOverlay === "none" && !isReadOnly}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
+            onQueryVisibleChange={setQueryVisible}
             mode={mode}
             jumpMode={jumpMode}
           />
@@ -1185,7 +1190,7 @@ export function AppInner({
         overlayActive={overlayActive}
         tab={displayTab}
         bodyType={draft.draft?.bodyType}
-        responseQueryRef={responseQueryRef}
+        queryVisible={queryVisible}
       />
     </box>
   )

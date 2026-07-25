@@ -45,6 +45,7 @@ interface MainViewProps {
   responseBodyForCopyRef?: RefObject<string | null>
   mode?: "collection" | "browse" | "empty" | "invalid"
   jumpMode?: boolean
+  onQueryVisibleChange?: (v: boolean) => void
 }
 
 export function MainView({
@@ -78,6 +79,7 @@ export function MainView({
   responseBodyForCopyRef,
   mode = "collection",
   jumpMode = false,
+  onQueryVisibleChange,
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -151,6 +153,7 @@ export function MainView({
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             jumpMode={jumpMode}
+            onQueryVisibleChange={onQueryVisibleChange}
           />
         )}
       </box>

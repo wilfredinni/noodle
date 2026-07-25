@@ -29,7 +29,7 @@ function base(input: {
   overlayActive?: boolean
   tab?: string
   bodyType?: string
-  responseQuery?: { canOpen: () => boolean } | null
+  queryVisible?: boolean
 }) {
   return getContextualSegments({
     focus: input.focus,
@@ -41,7 +41,7 @@ function base(input: {
     overlayActive: input.overlayActive ?? false,
     tab: input.tab,
     bodyType: input.bodyType,
-    responseQuery: input.responseQuery,
+    queryVisible: input.queryVisible,
   })
 }
 
@@ -262,17 +262,26 @@ describe("getContextualSegments", () => {
       focus: "response",
       sendState: done,
       tab: "body",
-      responseQuery: { canOpen: () => false },
+      queryVisible: true,
     })
     expect(r).toEqual([])
   })
 
-  it("response when done with clsoed query shows filter", () => {
+  it("response when done with closed query shows filter", () => {
     const r = base({
       focus: "response",
       sendState: done,
       tab: "body",
-      responseQuery: { canOpen: () => true },
+      queryVisible: false,
+    })
+    expect(r).toEqual([seg("^b", "copy"), seg("/", "filter")])
+  })
+
+  it("response when done without queryVisible prop shows filter", () => {
+    const r = base({
+      focus: "response",
+      sendState: done,
+      tab: "body",
     })
     expect(r).toEqual([seg("^b", "copy"), seg("/", "filter")])
   })
