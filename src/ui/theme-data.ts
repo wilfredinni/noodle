@@ -635,7 +635,7 @@ export const vesperTheme: Theme = {
   backgroundElement: "#242424",
   border: "#282828",
   borderActive: "#ffc799",
-  borderSubtle: "#101010",
+  borderSubtle: "#2a2a2a",
 }
 
 export const zenburnTheme: Theme = {
