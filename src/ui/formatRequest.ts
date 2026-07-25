@@ -1,12 +1,13 @@
 import type { Auth, KvEntry, Method, ParamEntry } from "../schema"
 import type { Theme } from "./theme"
 
-export type MethodColorToken = "success" | "warning" | "error" | "textMuted"
+export type MethodColorToken =
+  "success" | "warning" | "error" | "info" | "textMuted"
 
 export function methodColorToken(method: Method): MethodColorToken {
   if (method === "GET") return "success"
-  if (method === "POST" || method === "PUT" || method === "PATCH")
-    return "warning"
+  if (method === "POST") return "warning"
+  if (method === "PUT" || method === "PATCH") return "info"
   if (method === "DELETE") return "error"
   return "textMuted"
 }
