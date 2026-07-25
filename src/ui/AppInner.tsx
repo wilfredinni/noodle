@@ -636,39 +636,8 @@ export function AppInner({
 
   // ── Sync edit mode to keymap ───────────────────────────────────────
   useEffect(() => {
-    const requestMode =
-      eb.editState.mode === "browsing"
-        ? "browse"
-        : eb.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    const folderMode =
-      folderEb.editState.mode === "browsing"
-        ? "browse"
-        : folderEb.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    const envEditMode =
-      envEditor.editState.mode === "browsing"
-        ? "browse"
-        : envEditor.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    if (view === "env-editor" && focus === "env-vars") {
-      keymap.setData("app.mode", envEditMode)
-    } else if (focus === "folder") {
-      keymap.setData("app.mode", folderMode)
-    } else {
-      keymap.setData("app.mode", requestMode)
-    }
-  }, [
-    eb.editState.mode,
-    folderEb.editState.mode,
-    envEditor.editState.mode,
-    focus,
-    view,
-    keymap,
-  ])
+    keymap.setData("app.mode", paneMode)
+  }, [paneMode, keymap])
 
   useEffect(() => {
     if (focus !== "request") {
