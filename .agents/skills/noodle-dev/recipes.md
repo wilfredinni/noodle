@@ -276,6 +276,29 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 ---
 
+## Add a jump mode target
+
+**Locate:**
+- `src/ui/useJumpMode.ts` -- `getAvailableTargets()`, `JumpTarget` union, `REQUEST_TAB_HINTS` / `RESPONSE_TAB_HINTS` letter-field maps
+- `src/ui/AppInner.tsx` -- `useJumpMode()` hook processes target selection, dispatches focus + tab changes
+- `src/ui/overlays/JumpModeOverlay.tsx` -- renders badge hints over panes
+
+**Follow:** Each `JumpTarget` kind (`sidebar`, `method`, `url`, `request-tab`, `response-tab`) follows a consistent pattern -- a letter maps to a kind, and `AppInner` translates that into `setFocus` / `setTab` calls. Badges use `REQUEST_TAB_HINTS` and `RESPONSE_TAB_HINTS` to map tabs to their assigned letters.
+
+**Implement:**
+1. Pick an unused letter for the new target
+2. If targeting a new focusable area: add a `JumpTarget` variant -- but first verify the area doesn't map cleanly to an existing kind
+3. Add a branch in `getAvailableTargets()` -- register the letter-target mapping, gated on the appropriate conditions (`hasRequest`, `expanded`, `folderView`)
+4. Handle the new target kind in `AppInner.tsx` inside the jump mode selection handler -- call `setFocus`, `setTab`, etc.
+5. If the target maps to a request or response tab, add the tab-letter entry in `REQUEST_TAB_HINTS` or `RESPONSE_TAB_HINTS` so badges render on the correct tab
+6. For a new pane or area, update `JumpModeOverlay.tsx` with badge rendering logic for the new kind
+
+**Test:** Add test in `tests/unit/ResponsePaneStatus.test.tsx` -- verify `getAvailableTargets()` returns the new target under correct conditions. Add integration dispatch test.
+
+**Verify:** `bun test tests/unit/ResponsePaneStatus.test.tsx tests/integration/keymap.test.ts && bun run lint && bun run typecheck`
+
+---
+
 ## Add a new theme
 
 **Locate:**

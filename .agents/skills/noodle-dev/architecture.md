@@ -309,6 +309,7 @@ App (src/ui/App.tsx)
       │   ├── CommandPaletteOverlay, CollectionSwitcherOverlay, RequestFinderOverlay
       │   ├── ImportCurlOverlay, CodeGeneratorOverlay
       │   ├── ConfirmOverlay (save, delete, undo-all, collection-switch)
+      │   ├── JumpModeOverlay       ← Leader-key focus jumps (g) with letter hints
       │   └── ValidationNotice
       └── StatusBar
 ```
@@ -398,7 +399,8 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 | Layer | Condition | What it handles |
 |-------|-----------|-----------------|
-| Always-On | No editing constraint | Focus cycle, layout toggle, help, yaml editor, expand/collapse, copy body, theme, command palette, collection switcher, undo all |
+| Always-On | No editing constraint | Focus cycle, layout toggle, help, yaml editor, expand/collapse, copy body, theme, command palette, collection switcher, undo all, jump mode enter |
+| URL Bar Focus | `focus=urlbar`, `overlay=none`, `view!=env-editor` | Tab between method select and URL text input |
 | Base | `mode=base`, `overlay=none`, `view!=env-editor`, `focus!=folder` | Send, save, env cycle, new/clone/delete, edit overlay, folder new, env editor open |
 | Request Focus | `focus=request`, `mode=base`, `overlay=none`, `view!=env-editor` | Enter edit, tab prev/next |
 | Browse | `mode=browse`, `focus!=folder`, `overlay=none`, `view!=env-editor` | Arrow navigation, enter/escape, space toggle, delete, revert all, send, save, toggle form type |
@@ -431,6 +433,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | cURL import (TUI) | `src/converters/curl/parse.ts`, `src/ui/overlays/ImportCurlOverlay.tsx`, `src/ui/useOverlayIntercepts.ts` |
 | Code generation | `src/codegen/buildHar.ts`, `src/codegen/targets.ts`, `src/codegen/variableHash.ts`, `src/ui/overlays/CodeGeneratorOverlay.tsx` |
 | JSONPath response filtering | `src/ui/responseQuery.ts`, `src/ui/ResponsePane.tsx` |
+| Jump mode | `src/ui/useJumpMode.ts`, `src/ui/overlays/JumpModeOverlay.tsx`, `src/ui/JumpBadge.tsx` |
 | Themes | `src/ui/theme.tsx`, `src/ui/theme-data.ts` |
 | Clipboard | `src/ui/clipboard.ts` |
 | CLI | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` (import cmd), `src/app/commands/update.ts` (update cmd), `src/app/import.ts` (importer logic) |

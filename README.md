@@ -26,6 +26,8 @@ Some notable features include:
 - ↔️ Layout switcher (stacked / side-by-side)
 - 🎨 Theme picker with 30+ built-in themes
 - 🛠️ Customizable keybindings
+- 🎯 Jump mode: press `g` then a letter to jump focus to any pane
+- 🔍 Fuzzy finder (`Ctrl+F`) to search requests and folders
 - 📦 Import from OpenAPI 3.0 and Postman collections
 - 📋 Copy response body to clipboard
 

@@ -158,7 +158,7 @@ describe("update cache", () => {
     try {
       await writeFile(
         path,
-        JSON.stringify({ latestTag: "v0.5.1", checkedAt: 1000 }),
+        JSON.stringify({ latestTag: "v0.5.2", checkedAt: 1000 }),
       )
       const result = await runUpdate(true, false, {
         cachePath: path,
@@ -174,7 +174,7 @@ describe("update cache", () => {
       })
       expect(result.data).toEqual({
         status: "up_to_date",
-        version: "v0.5.1",
+        version: "v0.5.2",
         cached: "true",
       })
       expect(calls).toBe(0)
@@ -192,7 +192,7 @@ describe("update cache", () => {
     try {
       await writeFile(
         path,
-        JSON.stringify({ latestTag: "v0.5.2", checkedAt: 1000 }),
+        JSON.stringify({ latestTag: "v0.5.3", checkedAt: 1000 }),
       )
       await writeFile(executable, "old")
       const result = await runUpdate(true, false, {
@@ -212,7 +212,7 @@ describe("update cache", () => {
           return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
         },
       })
-      expect(result.data).toEqual({ status: "updated", version: "v0.5.2" })
+      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
       expect(githubCalls).toBe(0)
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
@@ -362,7 +362,7 @@ describe("update release discovery", () => {
           const url = String(input)
           if (url.includes("api.github.com"))
             return Response.json({
-              tag_name: "v0.5.2",
+              tag_name: "v0.5.3",
               assets: [
                 { name: "noodle-macos-arm64", browser_download_url: "binary" },
               ],
@@ -371,7 +371,7 @@ describe("update release discovery", () => {
           return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
         },
       })
-      expect(result.data).toEqual({ status: "updated", version: "v0.5.2" })
+      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -391,7 +391,7 @@ describe("update release discovery", () => {
           const url = String(input)
           if (url.includes("api.github.com"))
             return Response.json({
-              tag_name: "v0.5.2",
+              tag_name: "v0.5.3",
               assets: [
                 { name: "noodle-macos-arm64", browser_download_url: "binary" },
               ],

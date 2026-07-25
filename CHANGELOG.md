@@ -4,6 +4,36 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-25
+
+### ✨ Features
+
+- Jump mode: press `g` to show letter hints on focusable elements; press a letter to jump focus or `Esc` to dismiss. Badges render over a dark backdrop outside the pane layout.
+- Request finder (Ctrl+F) now includes folders in search results alongside requests, with fuzzy matching on name and ID fields.
+- Export timeline entries: copy request headers, copy response body, and export the full YAML entry from the timeline detail overlay.
+- Header bar and footer branding: the status bar shows the Noodle version, and the header displays the app name.
+- Website and docs links in the About overlay.
+
+### 🐞 Fixes
+
+- Preserve disabled query parameters alongside enabled params with the same name, and keep them in sync with the URL bar.
+- Enable two-way binding for URL query parameters so the URL bar and params tab stay consistent.
+- Gate the variable-completion popup on input focus, preventing unintended triggers when the input is not focused.
+- Handle narrow terminal widths in the footer status bar by truncating shortcut hints while keeping the branding visible.
+- Show the send animation on all response tabs and truncate the status message at 13 characters to prevent overflow.
+- Restrict request-finder fuzzy matching to name and ID fields only.
+- Use a fixed height in the YAML editor overlay to prevent layout shifts.
+- Improve overlay text layout and styling consistency across the TUI.
+- Allow tab switching while browsing in jump mode, and align badges correctly in read-only modes.
+
+### 🔧 Refactors
+
+- Replace pane title text with badges and move app branding from the header to the footer status bar.
+- Simplify the status bar keyboard hints to show only the most-used actions.
+- Standardize auto-height overlay layouts and timeline detail tab rendering.
+- Remove collection name display from the header bar.
+- Refine key-value table row striping with primary-colored key columns and empty-row placeholders.
+
 ## [0.5.1] - 2026-07-22
 
 ### ✨ Features
@@ -100,7 +130,8 @@ All notable changes to Noodle are documented in this file.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/wilfredinni/noodle/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/wilfredinni/noodle/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wilfredinni/noodle/compare/v0.4.8...v0.5.0
 [0.4.8]: https://github.com/wilfredinni/noodle/compare/v0.4.7...v0.4.8
