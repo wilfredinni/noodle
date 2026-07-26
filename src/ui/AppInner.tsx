@@ -584,7 +584,7 @@ export function AppInner({
     if (update.installType === "brew") {
       installBrewUpdate().then((result) => {
         if (result.data.status === "homebrew_updated") {
-          showToast("Updated via Homebrew. Restart Noodle.", "success")
+          showToast("Updated via Homebrew", "success")
           setRestartVersion(update.version || "latest")
         } else {
           const msg = result.data.exit_code
@@ -600,7 +600,7 @@ export function AppInner({
       installBinaryUpdate(update.version, update.assetUrl).then((result) => {
         if (result.data.status === "updated") {
           showToast(
-            `Updated to ${result.data.version ?? update.version}. Restart Noodle.`,
+            `Updated to ${result.data.version ?? update.version}`,
             "success",
           )
           setRestartVersion(result.data.version ?? update.version)

@@ -62,14 +62,8 @@ export function Header({
         <text fg={theme.primary} attributes={TextAttributes.BOLD}>
           Noodle
         </text>
-        {restartVersion ? (
-          <>
-            {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
-            <text fg={theme.warning}> Restart to use {restartVersion}</text>
-          </>
-        ) : (
-          showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>
-        )}
+        {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
+        {restartVersion && <text fg={theme.warning}> Restart to update</text>}
       </box>
       {showHints && headerHints.length > 0 && (
         <box style={{ flexDirection: "row" }}>
