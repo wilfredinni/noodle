@@ -196,7 +196,6 @@ jobs:
           TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           set -euo pipefail
-          release_url="https://github.com/wilfredinni/noodle/releases/tag/${TAG}"
 
           sha256sums=$(cat SHA256SUMS)
           macos_hash=$(echo "$sha256sums" | grep 'noodle-macos-arm64\b' | awk '{print $1}')
@@ -208,16 +207,15 @@ jobs:
           test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
 
           cat > update.json <<EOF
-          {
-            "version": "${TAG}",
-            "releaseUrl": "${release_url}",
-            "assets": {
-              "macos-arm64": { "sha256": "${macos_hash}" },
-              "linux-x86_64": { "sha256": "${linux_x86_hash}" },
-              "linux-arm64": { "sha256": "${linux_arm_hash}" }
-            }
-          }
-          EOF
+{
+  "version": "${TAG}",
+  "assets": {
+    "macos-arm64": { "sha256": "${macos_hash}" },
+    "linux-x86_64": { "sha256": "${linux_x86_hash}" },
+    "linux-arm64": { "sha256": "${linux_arm_hash}" }
+  }
+}
+EOF
 
       - uses: actions/checkout@v7
         with:

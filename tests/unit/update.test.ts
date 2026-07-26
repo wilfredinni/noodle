@@ -16,6 +16,7 @@ import {
   saveUpdateCache,
   sha256,
   UPDATE_CACHE_TTL_MS,
+  UPDATE_CACHE_STALE_MS,
   checkForUpdates,
   installBinaryUpdate,
   installBrewUpdate,
@@ -29,7 +30,6 @@ function makeManifest(tag: string, checksums: Record<string, string>): string {
   }
   return JSON.stringify({
     version: tag,
-    releaseUrl: `https://github.com/wilfredinni/noodle/releases/tag/${tag}`,
     assets,
   })
 }
@@ -148,7 +148,6 @@ describe("parseManifest", () => {
   const MANIFEST = (version: string) =>
     JSON.stringify({
       version,
-      releaseUrl: `https://github.com/wilfredinni/noodle/releases/tag/${version}`,
       assets: {
         "macos-arm64": { sha256: "a".repeat(64) },
         "linux-x86_64": { sha256: "b".repeat(64) },
@@ -990,6 +989,66 @@ describe("installBinaryUpdate", () => {
     }
   })
 
+  it("preserves original binary when execPath has non-existent parent directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-nonexistent-"))
+    const binary = new TextEncoder().encode("new")
+    const stubExecPath = join(dir, "stub", "noodle")
+    try {
+      await writeFile(join(dir, "original-saved"), "old")
+      const result = await installBinaryUpdate(
+        "v0.5.3",
+        "https://example.com/noodle-binary",
+        sha256(binary),
+        {
+          execPath: stubExecPath,
+          platform: "darwin",
+          arch: "arm64",
+          env: {},
+          fetcher: async (input) => {
+            const url = String(input)
+            if (url === "https://example.com/noodle-binary")
+              return new Response(binary)
+            return new Response()
+          },
+        },
+      )
+      expect(result.data.status).toBe("update_failed")
+      expect(result.failed).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("preserves original binary after successful install", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-install-verify-"))
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    try {
+      await writeFile(executable, "old")
+      const result = await installBinaryUpdate(
+        "v0.5.3",
+        "https://example.com/noodle-binary",
+        sha256(binary),
+        {
+          execPath: executable,
+          platform: "darwin",
+          arch: "arm64",
+          env: {},
+          fetcher: async (input) => {
+            const url = String(input)
+            if (url === "https://example.com/noodle-binary")
+              return new Response(binary)
+            return new Response()
+          },
+        },
+      )
+      expect(result.data.status).toBe("updated")
+      expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("returns failure when running via bun runtime (dev mode)", async () => {
     const result = await installBinaryUpdate(
       "v0.5.3",
@@ -1060,5 +1119,154 @@ describe("installBrewUpdate", () => {
     expect(result.data.status).toBe("homebrew_failed")
     expect(result.failed).toBe(true)
     expect(processCalled).toBe(false)
+  })
+})
+
+describe("stale cache fallback", () => {
+  const checksums = { "macos-arm64": "a".repeat(64) }
+  const baseDeps = (cachePath: string) => ({
+    cachePath,
+    now: () => 1000,
+    execPath: "/tmp/noodle",
+    platform: "darwin",
+    arch: "arm64",
+  })
+
+  it("returns up_to_date from stale cache when manifest fails after retry", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-stale-equal-"))
+    const path = join(dir, "update-cache.json")
+    let networkCalls = 0
+    try {
+      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      const status = await checkForUpdates(true, {
+        ...baseDeps(path),
+        now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
+        env: {},
+        fetcher: async () => {
+          networkCalls += 1
+          throw new Error("network down")
+        },
+      })
+      expect(status.kind).toBe("up_to_date")
+      expect(networkCalls).toBe(2)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns update_available from stale cache when newer version cached", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-stale-newer-"))
+    const path = join(dir, "update-cache.json")
+    let networkCalls = 0
+    try {
+      await writeFile(path, makeCache("v99.0.0", 1000, checksums))
+      const status = await checkForUpdates(true, {
+        ...baseDeps(path),
+        now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
+        env: {},
+        fetcher: async () => {
+          networkCalls += 1
+          throw new Error("network down")
+        },
+      })
+      expect(status.kind).toBe("update_available")
+      expect(status.installType).toBe("binary")
+      if (
+        status.kind === "update_available" &&
+        status.installType === "binary"
+      ) {
+        expect(status.latestVersion).toBe("v99.0.0")
+        expect(status.expectedSha256).toBe("a".repeat(64))
+      }
+      expect(networkCalls).toBe(2)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("retries once on transient HTTP 500 then falls back to stale cache", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-stale-500-"))
+    const path = join(dir, "update-cache.json")
+    let networkCalls = 0
+    try {
+      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      const status = await checkForUpdates(true, {
+        ...baseDeps(path),
+        now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
+        env: {},
+        fetcher: async () => {
+          networkCalls += 1
+          return new Response(null, { status: 500 })
+        },
+      })
+      expect(status.kind).toBe("up_to_date")
+      expect(networkCalls).toBe(2)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not retry on non-transient HTTP 404", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-stale-404-"))
+    const path = join(dir, "update-cache.json")
+    let networkCalls = 0
+    try {
+      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      const status = await checkForUpdates(true, {
+        ...baseDeps(path),
+        now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
+        env: {},
+        fetcher: async () => {
+          networkCalls += 1
+          return new Response(null, { status: 404 })
+        },
+      })
+      expect(status.kind).toBe("up_to_date")
+      expect(networkCalls).toBe(1)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns error when no stale cache and manifest fails", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-stale-none-"))
+    const path = join(dir, "update-cache.json")
+    try {
+      const status = await checkForUpdates(true, {
+        ...baseDeps(path),
+        env: {},
+        fetcher: async () => {
+          throw new Error("network down")
+        },
+      })
+      expect(status.kind).toBe("error")
+      if (status.kind === "error") {
+        expect(status.message).toContain("Check failed")
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns error when cache beyond stale window (8 days)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-stale-expired-"))
+    const path = join(dir, "update-cache.json")
+    let networkCalls = 0
+    try {
+      await writeFile(path, makeCache("v99.0.0", 1000, checksums))
+      const status = await checkForUpdates(true, {
+        ...baseDeps(path),
+        now: () => 1000 + UPDATE_CACHE_STALE_MS + 1000,
+        env: {},
+        fetcher: async () => {
+          networkCalls += 1
+          throw new Error("network down")
+        },
+      })
+      expect(status.kind).toBe("error")
+      expect(networkCalls).toBe(2)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

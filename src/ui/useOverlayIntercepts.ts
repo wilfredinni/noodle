@@ -94,18 +94,9 @@ export function useOverlayIntercepts(opts: {
   onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
-  updatePending: {
-    version: string
-    installType: "brew" | "binary"
-    assetUrl?: string
-  } | null
-  setUpdatePending: (
-    s: {
-      version: string
-      installType: "brew" | "binary"
-      assetUrl?: string
-    } | null,
-  ) => void
+  updateConfirmVisible: boolean
+  onConfirmInstall: () => void
+  onCancelUpdate: () => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -166,8 +157,9 @@ export function useOverlayIntercepts(opts: {
     onInitConfirm,
     draftRef,
     folderDraftRef,
-    updatePending,
-    setUpdatePending,
+    updateConfirmVisible,
+    onConfirmInstall,
+    onCancelUpdate,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -638,7 +630,7 @@ export function useOverlayIntercepts(opts: {
 
   // ── Overlay: Update confirm ──────────────────────────────────────
   useEffect(() => {
-    if (!updatePending) return
+    if (!updateConfirmVisible) return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -646,18 +638,18 @@ export function useOverlayIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          return
+          onConfirmInstall()
         }
         if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setUpdatePending(null)
+          onCancelUpdate()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [updatePending, keymap, setUpdatePending])
+  }, [updateConfirmVisible, keymap, onConfirmInstall, onCancelUpdate])
 
   // ── Overlay: New Folder ───────────────────────────────────────────
   useEffect(() => {

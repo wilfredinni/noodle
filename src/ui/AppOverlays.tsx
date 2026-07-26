@@ -114,7 +114,7 @@ interface AppOverlaysProps {
   requestDeletePending: string | null
   timelineDetailEntry: TimelineEntry | null
   setTimelineDetailEntry: (entry: TimelineEntry | null) => void
-  updatePending: {
+  updateConfirm: {
     version: string
     installType: "brew" | "binary"
   } | null
@@ -191,7 +191,7 @@ export function AppOverlays({
   requestDeletePending,
   timelineDetailEntry,
   setTimelineDetailEntry,
-  updatePending,
+  updateConfirm,
   envColors,
   onLoadTimelineBody,
   onCopyTimelineHeaders,
@@ -362,13 +362,13 @@ export function AppOverlays({
       {requestDeletePending !== null && (
         <ConfirmOverlay visible message={`Delete "${requestDeletePending}"?`} />
       )}
-      {updatePending !== null && (
+      {updateConfirm !== null && (
         <ConfirmOverlay
           visible
           message={
-            updatePending.installType === "brew"
+            updateConfirm.installType === "brew"
               ? "Update Noodle via Homebrew?"
-              : `Update Noodle to ${updatePending.version}?`
+              : `Update Noodle to ${updateConfirm.version}?`
           }
         />
       )}

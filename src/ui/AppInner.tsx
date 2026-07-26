@@ -67,6 +67,7 @@ import {
   checkForUpdates as checkForUpdatesFn,
   installBinaryUpdate,
   installBrewUpdate,
+  type UpdateAvailableInfo,
 } from "../app/commands/update"
 
 export function AppInner({
@@ -91,7 +92,6 @@ export function AppInner({
   onCollectionChange,
   onReloadCollection,
   onCollectionBootstrapped,
-  updateAvailable,
   mode = "empty",
 }: {
   collectionDir: string
@@ -115,7 +115,6 @@ export function AppInner({
   onCollectionChange: (collectionDir: string) => void
   onReloadCollection: () => void
   onCollectionBootstrapped: (collectionDir: string) => void
-  updateAvailable?: string | null
   mode?: "collection" | "browse" | "empty" | "invalid"
 }) {
   const keymap = useKeymap()
@@ -204,15 +203,17 @@ export function AppInner({
     string | null
   >(null)
   const [updateCheckStarted, setUpdateCheckStarted] = useState(false)
-  const [updatePending, setUpdatePending] = useState<{
-    version: string
-    installType: "brew" | "binary"
-    assetUrl?: string
-    expectedSha256?: string
-  } | null>(null)
-  const updatePendingRef = useRef(updatePending)
-  updatePendingRef.current = updatePending
+  type UpdateFlowState =
+    | { phase: "idle" }
+    | ({ phase: "confirm" } & UpdateAvailableInfo)
+    | ({ phase: "installing" } & UpdateAvailableInfo)
+    | { phase: "done"; version: string }
+    | { phase: "failed"; message: string }
+  const [updateFlow, setUpdateFlow] = useState<UpdateFlowState>({
+    phase: "idle",
+  })
   const [restartVersion, setRestartVersion] = useState<string | null>(null)
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -503,7 +504,7 @@ export function AppInner({
     if (newFolderVisible) return "new-folder"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
-    if (updatePending !== null) return "update-confirm"
+    if (updateFlow.phase === "confirm") return "update-confirm"
     if (timelineDetailEntry !== null) return "timeline-detail"
     return "none"
   }, [
@@ -527,7 +528,7 @@ export function AppInner({
     newFolderVisible,
     folderDeletePending,
     requestDeletePending,
-    updatePending,
+    updateFlow.phase,
     timelineDetailEntry,
   ])
 
@@ -557,9 +558,13 @@ export function AppInner({
   }, [view, keymap])
 
   // ── Update check flow ────────────────────────────────────────────
+  const updateFlowRef = useRef(updateFlow)
+  updateFlowRef.current = updateFlow
+
   useEffect(() => {
     if (!updateCheckStarted) return
     setUpdateCheckStarted(false)
+    if (updateFlowRef.current.phase === "installing") return
     let cancelled = false
     checkForUpdatesFn().then((status) => {
       if (cancelled) return
@@ -568,7 +573,8 @@ export function AppInner({
       } else if (status.kind === "error") {
         showToast(status.message, "error")
       } else if (status.kind === "update_available") {
-        setUpdatePending({
+        setUpdateFlow({
+          phase: "confirm",
           version: status.latestVersion || "latest",
           installType: status.installType,
           assetUrl:
@@ -584,20 +590,25 @@ export function AppInner({
   }, [updateCheckStarted])
 
   useEffect(() => {
-    if (!updatePending) return
-    const update = updatePending
+    if (updateFlow.phase !== "installing") return
+    const update = updateFlow
     if (update.installType === "brew") {
       installBrewUpdate().then((result) => {
         if (result.data.status === "homebrew_updated") {
           showToast("Updated via Homebrew", "success")
+          setUpdateFlow({ phase: "done", version: update.version || "latest" })
           setRestartVersion(update.version || "latest")
+          setUpdateAvailable(null)
         } else {
           const msg = result.data.exit_code
             ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
             : "Homebrew upgrade failed"
           showToast(msg, "error")
+          setUpdateFlow({
+            phase: "failed",
+            message: msg,
+          })
         }
-        setUpdatePending(null)
       })
       return
     }
@@ -612,20 +623,38 @@ export function AppInner({
         update.expectedSha256,
       ).then((result) => {
         if (result.data.status === "updated") {
-          showToast(
-            `Updated to ${result.data.version ?? update.version}`,
-            "success",
-          )
-          setRestartVersion(result.data.version ?? update.version)
+          const v = result.data.version ?? update.version
+          showToast(`Updated to ${v}`, "success")
+          setUpdateFlow({ phase: "done", version: v })
+          setRestartVersion(v)
+          setUpdateAvailable(null)
         } else {
           showToast("Update failed", "error")
+          setUpdateFlow({ phase: "failed", message: "Update failed" })
         }
-        setUpdatePending(null)
       })
       return
     }
-    setUpdatePending(null)
-  }, [updatePending])
+    setUpdateFlow({ phase: "idle" })
+  }, [updateFlow.phase, updateFlow])
+
+  // ── Banner update check ──────────────────────────────────────────
+  useEffect(() => {
+    if (!isCollection) return
+    let cancelled = false
+    checkForUpdatesFn().then((status) => {
+      if (cancelled) return
+      if (
+        status.kind === "update_available" &&
+        status.installType === "binary"
+      ) {
+        setUpdateAvailable(status.latestVersion)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isCollection])
 
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
@@ -905,6 +934,20 @@ export function AppInner({
   })
 
   // ── Overlay intercepts ────────────────────────────────────────────
+  const onConfirmInstall = useCallback(() => {
+    if (updateFlowRef.current.phase !== "confirm") return
+    setUpdateFlow({
+      phase: "installing",
+      version: updateFlowRef.current.version,
+      installType: updateFlowRef.current.installType,
+      assetUrl: updateFlowRef.current.assetUrl,
+      expectedSha256: updateFlowRef.current.expectedSha256,
+    })
+  }, [])
+  const onCancelUpdate = useCallback(() => {
+    setUpdateFlow({ phase: "idle" })
+  }, [])
+
   useOverlayIntercepts({
     activeOverlay,
     cancelSendRef,
@@ -973,8 +1016,9 @@ export function AppInner({
     onInitConfirm: () => executeInitPending(),
     draftRef,
     folderDraftRef,
-    updatePending: updatePending,
-    setUpdatePending,
+    updateConfirmVisible: updateFlow.phase === "confirm",
+    onConfirmInstall,
+    onCancelUpdate,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -1241,7 +1285,14 @@ export function AppInner({
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}
           setTimelineDetailEntry={setTimelineDetailEntry}
-          updatePending={updatePending}
+          updateConfirm={
+            updateFlow.phase === "confirm"
+              ? {
+                  version: updateFlow.version,
+                  installType: updateFlow.installType,
+                }
+              : null
+          }
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}
           onCopyTimelineHeaders={onCopyTimelineHeaders}

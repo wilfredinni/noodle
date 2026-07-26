@@ -83,6 +83,7 @@ export function sha256(bytes: Uint8Array): string {
 }
 
 export const UPDATE_CACHE_TTL_MS = 60 * 60 * 1000
+export const UPDATE_CACHE_STALE_MS = 7 * 24 * 60 * 60 * 1000
 
 export interface UpdateCache {
   latestTag: string
@@ -117,6 +118,12 @@ export function parseUpdateCache(value: unknown): UpdateCache | null {
 
 export function isFreshUpdateCache(cache: UpdateCache, now: number): boolean {
   return now >= cache.checkedAt && now - cache.checkedAt <= UPDATE_CACHE_TTL_MS
+}
+
+export function isStaleUpdateCache(cache: UpdateCache, now: number): boolean {
+  return (
+    now >= cache.checkedAt && now - cache.checkedAt <= UPDATE_CACHE_STALE_MS
+  )
 }
 
 export async function loadUpdateCache(
@@ -317,6 +324,13 @@ export type UpdateStatus =
       installType: "binary" | "brew"
     }
 
+export interface UpdateAvailableInfo {
+  version: string
+  installType: "brew" | "binary"
+  assetUrl?: string
+  expectedSha256?: string
+}
+
 export async function checkForUpdates(
   force = false,
   dependencyOverrides: Partial<UpdateDependencies> = {},
@@ -404,14 +418,10 @@ async function fetchManifestAndCheck(
   currentVersion: string,
   deps: UpdateDependencies,
 ): Promise<UpdateStatus> {
-  try {
-    const response = await deps.fetcher(getManifestUrl())
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-    const json = await response.text()
-    const manifest = parseManifest(json)
+  const manifestResult = await fetchManifestWithRetry(deps)
 
+  if (manifestResult.ok) {
+    const manifest = manifestResult.manifest
     const cache: UpdateCache = {
       latestTag: manifest.version,
       checkedAt: deps.now(),
@@ -432,13 +442,6 @@ async function fetchManifestAndCheck(
       currentVersion,
       manifest.version,
     )
-    if (versionComparison === null) {
-      return {
-        kind: "error",
-        message: `Invalid release version in manifest: ${manifest.version}`,
-        installType: "binary",
-      }
-    }
     if (versionComparison !== 1) {
       return { kind: "up_to_date", currentVersion, installType: "binary" }
     }
@@ -462,14 +465,87 @@ async function fetchManifestAndCheck(
       assetUrl: getReleaseDownloadUrl(manifest.version, assetName),
       expectedSha256: asset.sha256,
     }
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    return {
-      kind: "error",
-      message: `Check failed: ${msg}`,
-      installType: "binary",
+  }
+
+  const cache = await loadUpdateCache(deps.cachePath)
+  if (cache && isStaleUpdateCache(cache, deps.now())) {
+    const comparison = compareStableVersions(currentVersion, cache.latestTag)
+    if (comparison === 1) {
+      const platformKey = getPlatformString(deps.platform, deps.arch)
+      const expectedSha256 = cache.checksums[platformKey]
+      if (expectedSha256) {
+        const assetName = getAssetName(deps.platform, deps.arch)
+        return {
+          kind: "update_available",
+          latestVersion: cache.latestTag,
+          currentVersion,
+          installType: "binary",
+          assetUrl: getReleaseDownloadUrl(cache.latestTag, assetName),
+          expectedSha256,
+        }
+      }
+    }
+    if (comparison === 0 || comparison === -1) {
+      return { kind: "up_to_date", currentVersion, installType: "binary" }
     }
   }
+
+  return {
+    kind: "error",
+    message: manifestResult.error ?? "Unable to reach update server",
+    installType: "binary",
+  }
+}
+
+interface ManifestFetchResult {
+  ok: true
+  manifest: UpdateManifest
+  error?: undefined
+}
+
+interface ManifestFetchError {
+  ok: false
+  manifest?: undefined
+  error: string
+  transient: boolean
+}
+
+type ManifestFetchOutcome = ManifestFetchResult | ManifestFetchError
+
+function isTransientError(status: number): boolean {
+  return status === 0 || status >= 500
+}
+
+async function fetchManifestOnce(
+  deps: UpdateDependencies,
+): Promise<ManifestFetchOutcome> {
+  try {
+    const response = await deps.fetcher(getManifestUrl())
+    if (!response.ok) {
+      const status = response.status
+      const transient = isTransientError(status)
+      if (!transient) {
+        return { ok: false, error: `HTTP ${status}`, transient: false }
+      }
+      return { ok: false, error: `HTTP ${status}`, transient: true }
+    }
+    const json = await response.text()
+    const manifest = parseManifest(json)
+    return { ok: true, manifest }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return { ok: false, error: `Check failed: ${msg}`, transient: true }
+  }
+}
+
+async function fetchManifestWithRetry(
+  deps: UpdateDependencies,
+): Promise<ManifestFetchOutcome> {
+  const first = await fetchManifestOnce(deps)
+  if (first.ok || !first.transient) return first
+
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  return fetchManifestOnce(deps)
 }
 
 export async function installBinaryUpdate(
@@ -592,14 +668,9 @@ export async function runUpdate(
   let tag: string
   let expectedSha256: string
 
-  try {
-    const response = await deps.fetcher(getManifestUrl())
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-    const json = await response.text()
-    const manifest = parseManifest(json)
-
+  const manifestResult = await fetchManifestWithRetry(deps)
+  if (manifestResult.ok) {
+    const manifest = manifestResult.manifest
     const cache: UpdateCache = {
       latestTag: manifest.version,
       checkedAt: deps.now(),
@@ -626,9 +697,43 @@ export async function runUpdate(
       return { data: { status: "asset_missing", platform }, failed: true }
     }
     expectedSha256 = asset.sha256
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    output(`Check failed: ${msg}`)
+  } else {
+    const staleCache = await loadUpdateCache(deps.cachePath)
+    if (staleCache && isStaleUpdateCache(staleCache, deps.now())) {
+      const staleComparison = compareStableVersions(
+        currentVersion,
+        staleCache.latestTag,
+      )
+      if (staleComparison === 1) {
+        const sha = staleCache.checksums[platform]
+        if (sha) {
+          output(
+            `Cannot reach update server; using cached ${staleCache.latestTag}.`,
+          )
+          return downloadAndInstall(
+            staleCache.latestTag,
+            getReleaseDownloadUrl(
+              staleCache.latestTag,
+              getAssetName(deps.platform, deps.arch),
+            ),
+            sha,
+            deps,
+            output,
+          )
+        }
+      }
+      if (staleComparison === 0 || staleComparison === -1) {
+        output("Already up to date.")
+        return {
+          data: {
+            status: "up_to_date",
+            version: currentVersion,
+            cached: "true",
+          },
+        }
+      }
+    }
+    output(manifestResult.error ?? "Unable to reach update server")
     return { data: { status: "check_failed" }, failed: true }
   }
 
