@@ -370,7 +370,8 @@ export function AppInner({
       ? userResponseTabOverride
       : (initialResponseTab ?? "body")
 
-  const queryVisible = filterOpenRequestId === (selectedRequest?.id ?? null)
+  const queryVisible =
+    view === "main" && filterOpenRequestId === (selectedRequest?.id ?? null)
 
   const setQueryVisible = useCallback(
     (v: boolean) => {

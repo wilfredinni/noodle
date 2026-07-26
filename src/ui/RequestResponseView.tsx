@@ -79,6 +79,7 @@ export function RequestResponseView({
       )}
       {expanded !== "request" && (
         <ResponsePane
+          key={responseKey}
           state={responseState}
           focused={focus === "response"}
           timelineEntries={timelineEntries}
