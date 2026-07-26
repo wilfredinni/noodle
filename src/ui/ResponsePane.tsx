@@ -82,9 +82,12 @@ export function ResponsePane({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
 
+  const onQueryVisibleChangeRef = useRef(onQueryVisibleChange)
+  onQueryVisibleChangeRef.current = onQueryVisibleChange
+
   useEffect(() => {
-    onQueryVisibleChange?.(queryVisible)
-  }, [queryVisible, onQueryVisibleChange])
+    onQueryVisibleChangeRef.current?.(queryVisible)
+  }, [queryVisible])
 
   useKeyboard((key) => {
     if (!focusedRef.current) return

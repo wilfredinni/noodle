@@ -139,7 +139,9 @@ export function AppInner({
   const [overrideRequestId, setOverrideRequestId] = useState<string | null>(
     null,
   )
-  const [queryVisible, setQueryVisible] = useState(false)
+  const [filterOpenRequestId, setFilterOpenRequestId] = useState<string | null>(
+    null,
+  )
   const [yamlEditor, setYamlEditor] = useState<{
     visible: boolean
     filePath: string
@@ -367,6 +369,15 @@ export function AppInner({
     overrideRequestId === selectedRequest?.id && userResponseTabOverride
       ? userResponseTabOverride
       : (initialResponseTab ?? "body")
+
+  const queryVisible = filterOpenRequestId === (selectedRequest?.id ?? null)
+
+  const setQueryVisible = useCallback(
+    (v: boolean) => {
+      setFilterOpenRequestId(v ? (selectedRequest?.id ?? null) : null)
+    },
+    [selectedRequest?.id],
+  )
 
   const onRequestTabChange = useCallback(
     (tab: FieldKind) => {
