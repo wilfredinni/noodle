@@ -53,8 +53,7 @@ export function isHomebrewInstall(execPath: string): boolean {
   return (
     execPath.includes("/homebrew/bin/") ||
     execPath.includes("/.linuxbrew/bin/") ||
-    execPath.includes("/brew/bin/") ||
-    execPath.startsWith("/usr/local/bin/")
+    execPath.includes("/brew/bin/")
   )
 }
 
@@ -105,15 +104,17 @@ export function parseUpdateCache(value: unknown): UpdateCache | null {
     return null
   const checksums = cache.checksums
   if (!checksums || typeof checksums !== "object") return null
+  const normalized: Record<string, string> = {}
   for (const [key, hash] of Object.entries(checksums)) {
     if (typeof key !== "string" || typeof hash !== "string") return null
     if (!/^[a-f\d]{64}$/i.test(hash)) return null
+    normalized[key] = hash.toLowerCase()
   }
-  if (Object.keys(checksums).length === 0) return null
+  if (Object.keys(normalized).length === 0) return null
   return {
     latestTag: cache.latestTag,
     checkedAt: cache.checkedAt,
-    checksums: checksums as Record<string, string>,
+    checksums: normalized,
   }
 }
 
@@ -173,8 +174,8 @@ export function parseManifest(json: string): UpdateManifest {
   let obj: unknown
   try {
     obj = JSON.parse(json)
-  } catch {
-    throw new Error("Invalid JSON in update manifest")
+  } catch (e) {
+    throw new Error("Invalid JSON in update manifest", { cause: e })
   }
   if (!obj || typeof obj !== "object") {
     throw new Error("Update manifest must be a JSON object")
@@ -354,15 +355,22 @@ export async function checkForUpdates(
         ["brew", "outdated", "--quiet", "noodle"],
         true,
       )
-      if (result.exitCode !== 0) {
+      if (result.exitCode === 0) {
         return {
           kind: "update_available",
-          latestVersion: "",
+          latestVersion: "brew",
           currentVersion,
           installType: "brew",
         }
       }
-      return { kind: "up_to_date", currentVersion, installType: "brew" }
+      if (result.exitCode === 1) {
+        return { kind: "up_to_date", currentVersion, installType: "brew" }
+      }
+      return {
+        kind: "error",
+        message: `brew outdated exited with status ${result.exitCode}`,
+        installType: "brew",
+      }
     } catch {
       return {
         kind: "error",

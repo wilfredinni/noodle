@@ -561,6 +561,9 @@ export function AppInner({
   const updateFlowRef = useRef(updateFlow)
   updateFlowRef.current = updateFlow
 
+  const overlayActiveRef = useRef(false)
+  const installTokenRef = useRef(0)
+
   useEffect(() => {
     if (!updateCheckStarted) return
     setUpdateCheckStarted(false)
@@ -568,7 +571,9 @@ export function AppInner({
     let cancelled = false
     checkForUpdatesFn(true).then((status) => {
       if (cancelled) return
+      if (overlayActiveRef.current) return
       if (status.kind === "up_to_date") {
+        setUpdateAvailable(null)
         showToast("Noodle is up to date", "success")
       } else if (status.kind === "error") {
         showToast(status.message, "error")
@@ -592,8 +597,10 @@ export function AppInner({
   useEffect(() => {
     if (updateFlow.phase !== "installing") return
     const update = updateFlow
+    const token = ++installTokenRef.current
     if (update.installType === "brew") {
       installBrewUpdate().then((result) => {
+        if (token !== installTokenRef.current) return
         if (result.data.status === "homebrew_updated") {
           showToast("Updated via Homebrew", "success")
           setUpdateFlow({ phase: "done", version: update.version || "latest" })
@@ -622,6 +629,7 @@ export function AppInner({
         update.assetUrl,
         update.expectedSha256,
       ).then((result) => {
+        if (token !== installTokenRef.current) return
         if (result.data.status === "updated") {
           const v = result.data.version ?? update.version
           showToast(`Updated to ${v}`, "success")
@@ -755,6 +763,7 @@ export function AppInner({
   ])
 
   const overlayActive = activeOverlay !== "none"
+  overlayActiveRef.current = overlayActive
 
   const displayTab = useMemo((): string | undefined => {
     if (focus === "request") return eb.activeTab

@@ -685,8 +685,8 @@ describe("isHomebrewInstall", () => {
     expect(isHomebrewInstall("/usr/local/brew/bin/noodle")).toBe(true)
   })
 
-  it("detects intel homebrew prefix", () => {
-    expect(isHomebrewInstall("/usr/local/bin/noodle")).toBe(true)
+  it("does not treat /usr/local/bin as homebrew prefix", () => {
+    expect(isHomebrewInstall("/usr/local/bin/noodle")).toBe(false)
   })
 
   it("returns false for non-brew paths", () => {
@@ -744,7 +744,7 @@ describe("checkForUpdates", () => {
       runProcess: async (args, capture) => {
         receivedArgs = args
         captured = capture
-        return { exitCode: 0 }
+        return { exitCode: 1 }
       },
     })
     expect(status.kind).toBe("up_to_date")
@@ -765,7 +765,7 @@ describe("checkForUpdates", () => {
       env: {},
       runProcess: async (args, _capture) => {
         receivedArgs = args
-        return { exitCode: 1 }
+        return { exitCode: 0 }
       },
     })
     expect(status.kind).toBe("update_available")

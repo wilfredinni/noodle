@@ -71,7 +71,9 @@ export function Header({
             {"->"} {updateAvailable || "update available"}
           </text>
         )}
-        {restartVersion && <text fg={theme.warning}> Restart to update</text>}
+        {showVersion && restartVersion && (
+          <text fg={theme.warning}> Restart to update</text>
+        )}
       </box>
       {showHints && headerHints.length > 0 && (
         <box style={{ flexDirection: "row" }}>

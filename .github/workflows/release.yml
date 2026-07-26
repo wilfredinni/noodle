@@ -176,8 +176,22 @@ jobs:
             "https://api.github.com/repos/wilfredinni/homebrew-noodle/dispatches" \
             -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
 
+  undraft:
+    needs: [checksums]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false
+
   publish-update-manifest:
-    needs: [create-release, checksums]
+    needs: [create-release, checksums, undraft]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -205,16 +219,14 @@ jobs:
           test -n "$linux_x86_hash" || { echo "Missing linux-x86_64 checksum" >&2; exit 1; }
           test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
 
-          cat > update.json <<EOF
-{
-  "version": "${TAG}",
-  "assets": {
-    "macos-arm64": { "sha256": "${macos_hash}" },
-    "linux-x86_64": { "sha256": "${linux_x86_hash}" },
-    "linux-arm64": { "sha256": "${linux_arm_hash}" }
-  }
-}
-EOF
+          echo "{" > update.json
+          echo "  \"version\": \"${TAG}\"," >> update.json
+          echo "  \"assets\": {" >> update.json
+          echo "    \"macos-arm64\": { \"sha256\": \"${macos_hash}\" }," >> update.json
+          echo "    \"linux-x86_64\": { \"sha256\": \"${linux_x86_hash}\" }," >> update.json
+          echo "    \"linux-arm64\": { \"sha256\": \"${linux_arm_hash}\" }" >> update.json
+          echo "  }" >> update.json
+          echo "}" >> update.json
 
       - uses: actions/checkout@v7
         with:
@@ -241,17 +253,3 @@ EOF
           git add public/update.json
           git commit -m "Update manifests for Noodle ${TAG}"
           git push origin main
-
-  undraft:
-    needs: [checksums, publish-update-manifest]
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    permissions:
-      contents: write
-    steps:
-      - name: Publish release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release edit "$TAG" --draft=false
