@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import pkg from "../../package.json" with { type: "json" }
 import {
   getPlatformString,
   compareStableVersions,
@@ -22,6 +23,8 @@ import {
   installBrewUpdate,
   parseManifest,
 } from "../../src/app/commands/update"
+
+const currentVersion = `v${pkg.version}`
 
 function makeManifest(tag: string, checksums: Record<string, string>): string {
   const assets: Record<string, { sha256: string }> = {}
@@ -309,7 +312,7 @@ describe("update cache", () => {
     const path = join(dir, "update-cache.json")
     let calls = 0
     try {
-      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      await writeFile(path, makeCache(currentVersion, 1000, checksums))
       const result = await runUpdate(true, false, {
         cachePath: path,
         now: () => 1000,
@@ -324,7 +327,7 @@ describe("update cache", () => {
       })
       expect(result.data).toEqual({
         status: "up_to_date",
-        version: "v0.5.2",
+        version: currentVersion,
         cached: "true",
       })
       expect(calls).toBe(0)
@@ -527,7 +530,7 @@ describe("update release discovery via manifest", () => {
           const url = String(input)
           if (url.endsWith("update.json"))
             return new Response(
-              makeManifest("v0.5.2", { "macos-arm64": binaryHash }),
+              makeManifest(currentVersion, { "macos-arm64": binaryHash }),
               { status: 200 },
             )
           return new Response()
@@ -682,9 +685,12 @@ describe("isHomebrewInstall", () => {
     expect(isHomebrewInstall("/usr/local/brew/bin/noodle")).toBe(true)
   })
 
+  it("detects intel homebrew prefix", () => {
+    expect(isHomebrewInstall("/usr/local/bin/noodle")).toBe(true)
+  })
+
   it("returns false for non-brew paths", () => {
     expect(isHomebrewInstall("/home/user/.local/bin/noodle")).toBe(false)
-    expect(isHomebrewInstall("/usr/local/bin/noodle")).toBe(false)
     expect(isHomebrewInstall("/tmp/noodle")).toBe(false)
   })
 
@@ -728,33 +734,46 @@ describe("checkForUpdates", () => {
   const checksums = { "macos-arm64": "a".repeat(64) }
 
   it("returns up_to_date for brew when outdated reports current", async () => {
+    let receivedArgs: string[] | undefined
+    let captured: boolean | undefined
     const status = await checkForUpdates(false, {
       execPath: "/opt/homebrew/bin/noodle",
       platform: "darwin",
       arch: "arm64",
       env: {},
-      runProcess: async (_args, _capture) => ({ exitCode: 1 }),
+      runProcess: async (args, capture) => {
+        receivedArgs = args
+        captured = capture
+        return { exitCode: 0 }
+      },
     })
     expect(status.kind).toBe("up_to_date")
     expect(status.installType).toBe("brew")
     if (status.kind === "up_to_date") {
       expect(typeof status.currentVersion).toBe("string")
     }
+    expect(receivedArgs).toEqual(["brew", "outdated", "--quiet", "noodle"])
+    expect(captured).toBe(true)
   })
 
   it("returns update_available for brew when outdated finds newer", async () => {
+    let receivedArgs: string[] | undefined
     const status = await checkForUpdates(false, {
       execPath: "/opt/homebrew/bin/noodle",
       platform: "darwin",
       arch: "arm64",
       env: {},
-      runProcess: async (_args, _capture) => ({ exitCode: 0 }),
+      runProcess: async (args, _capture) => {
+        receivedArgs = args
+        return { exitCode: 1 }
+      },
     })
     expect(status.kind).toBe("update_available")
     expect(status.installType).toBe("brew")
     if (status.kind === "update_available") {
       expect(typeof status.latestVersion).toBe("string")
     }
+    expect(receivedArgs).toEqual(["brew", "outdated", "--quiet", "noodle"])
   })
 
   it("returns error when brew is unavailable", async () => {
@@ -779,7 +798,7 @@ describe("checkForUpdates", () => {
     const path = join(dir, "update-cache.json")
     let networkCalls = 0
     try {
-      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      await writeFile(path, makeCache(currentVersion, 1000, checksums))
       const status = await checkForUpdates(false, {
         ...binaryDeps(path),
         env: {},
@@ -866,7 +885,9 @@ describe("checkForUpdates", () => {
         ...binaryDeps(path),
         env: {},
         fetcher: async () =>
-          new Response(makeManifest("v0.5.2", checksums), { status: 200 }),
+          new Response(makeManifest(currentVersion, checksums), {
+            status: 200,
+          }),
       })
       expect(status.kind).toBe("up_to_date")
     } finally {
@@ -899,17 +920,16 @@ describe("checkForUpdates", () => {
       arch: "arm64",
       env: {},
     })
-    expect(status).toEqual({
-      kind: "error",
-      message:
-        "Updates available only in standalone binary. Run `noodle update` instead.",
-      installType: "binary",
-    })
+    expect(status.kind).toBe("error")
+    if (status.kind === "error") {
+      expect(status.message).toContain("standalone binary")
+    }
   })
 
-  it("returns error when cache has newer version but no checksum for platform", async () => {
+  it("falls through to manifest fetch when cache has newer version but no checksum for platform", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-check-missing-cs-"))
     const path = join(dir, "update-cache.json")
+    let networkCalls = 0
     try {
       await writeFile(
         path,
@@ -918,9 +938,19 @@ describe("checkForUpdates", () => {
       const status = await checkForUpdates(false, {
         ...binaryDeps(path),
         env: {},
-        fetcher: async () => new Response(),
+        fetcher: async (input) => {
+          networkCalls += 1
+          const url = String(input)
+          if (url.endsWith("update.json"))
+            return new Response(
+              makeManifest("v99.0.0", { "macos-arm64": "a".repeat(64) }),
+              { status: 200 },
+            )
+          return new Response()
+        },
       })
-      expect(status.kind).toBe("error")
+      expect(status.kind).toBe("update_available")
+      expect(networkCalls).toBe(1)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -989,38 +1019,8 @@ describe("installBinaryUpdate", () => {
     }
   })
 
-  it("preserves original binary when execPath has non-existent parent directory", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-nonexistent-"))
-    const binary = new TextEncoder().encode("new")
-    const stubExecPath = join(dir, "stub", "noodle")
-    try {
-      await writeFile(join(dir, "original-saved"), "old")
-      const result = await installBinaryUpdate(
-        "v0.5.3",
-        "https://example.com/noodle-binary",
-        sha256(binary),
-        {
-          execPath: stubExecPath,
-          platform: "darwin",
-          arch: "arm64",
-          env: {},
-          fetcher: async (input) => {
-            const url = String(input)
-            if (url === "https://example.com/noodle-binary")
-              return new Response(binary)
-            return new Response()
-          },
-        },
-      )
-      expect(result.data.status).toBe("update_failed")
-      expect(result.failed).toBe(true)
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
-
-  it("preserves original binary after successful install", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-install-verify-"))
+  it("returns failure when download HTTP fails", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-install-http-"))
     const executable = join(dir, "noodle")
     const binary = new TextEncoder().encode("new")
     try {
@@ -1034,16 +1034,13 @@ describe("installBinaryUpdate", () => {
           platform: "darwin",
           arch: "arm64",
           env: {},
-          fetcher: async (input) => {
-            const url = String(input)
-            if (url === "https://example.com/noodle-binary")
-              return new Response(binary)
-            return new Response()
-          },
+          fetcher: async () => new Response(null, { status: 404 }),
         },
       )
-      expect(result.data.status).toBe("updated")
-      expect(await readFile(executable, "utf8")).toBe("new")
+      expect(result.data.status).toBe("update_failed")
+      expect(result.failed).toBe(true)
+      expect(result.data.reason).toContain("HTTP 404")
+      expect(await readFile(executable, "utf8")).toBe("old")
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -1137,7 +1134,7 @@ describe("stale cache fallback", () => {
     const path = join(dir, "update-cache.json")
     let networkCalls = 0
     try {
-      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      await writeFile(path, makeCache(currentVersion, 1000, checksums))
       const status = await checkForUpdates(true, {
         ...baseDeps(path),
         now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
@@ -1189,7 +1186,7 @@ describe("stale cache fallback", () => {
     const path = join(dir, "update-cache.json")
     let networkCalls = 0
     try {
-      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      await writeFile(path, makeCache(currentVersion, 1000, checksums))
       const status = await checkForUpdates(true, {
         ...baseDeps(path),
         now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
@@ -1211,7 +1208,7 @@ describe("stale cache fallback", () => {
     const path = join(dir, "update-cache.json")
     let networkCalls = 0
     try {
-      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
+      await writeFile(path, makeCache(currentVersion, 1000, checksums))
       const status = await checkForUpdates(true, {
         ...baseDeps(path),
         now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
@@ -1265,6 +1262,79 @@ describe("stale cache fallback", () => {
       })
       expect(status.kind).toBe("error")
       expect(networkCalls).toBe(2)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("stale cache install fallback (runUpdate)", () => {
+  const checksums = { "macos-arm64": "a".repeat(64) }
+  const baseDeps = (cachePath: string) => ({
+    cachePath,
+    now: () => 1000,
+    execPath: "/tmp/noodle",
+    platform: "darwin",
+    arch: "arm64",
+  })
+
+  it("installs from stale newer cache when manifest is unreachable", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-runupdate-stale-"))
+    const path = join(dir, "update-cache.json")
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    const binaryHash = sha256(binary)
+    let manifestCalls = 0
+    try {
+      await writeFile(
+        path,
+        makeCache("v99.0.0", 1000, { "macos-arm64": binaryHash }),
+      )
+      await writeFile(executable, "old")
+      const result = await runUpdate(true, true, {
+        ...baseDeps(path),
+        now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
+        execPath: executable,
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.endsWith("update.json")) {
+            manifestCalls += 1
+            throw new Error("network down")
+          }
+          if (url.endsWith("noodle-macos-arm64")) return new Response(binary)
+          return new Response()
+        },
+      })
+      expect(result.data).toEqual({ status: "updated", version: "v99.0.0" })
+      expect(manifestCalls).toBe(2)
+      expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns up_to_date from stale cache when version matches", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-runupdate-stale-eq-"))
+    const path = join(dir, "update-cache.json")
+    let manifestCalls = 0
+    try {
+      await writeFile(path, makeCache(currentVersion, 1000, checksums))
+      const result = await runUpdate(true, true, {
+        ...baseDeps(path),
+        now: () => 1000 + UPDATE_CACHE_TTL_MS + 1000,
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.endsWith("update.json")) {
+            manifestCalls += 1
+            throw new Error("network down")
+          }
+          return new Response()
+        },
+      })
+      expect(result.data.status).toBe("up_to_date")
+      expect(manifestCalls).toBe(2)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

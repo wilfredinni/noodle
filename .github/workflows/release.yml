@@ -142,7 +142,7 @@ jobs:
           mkdir release-assets
           gh release download "$TAG" --pattern 'noodle-*' --dir release-assets
           test "$(find release-assets -maxdepth 1 -type f -name 'noodle-*' | wc -l | tr -d ' ')" = 3
-      - name: Generate checksums and publish release
+      - name: Generate checksums and upload
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -156,7 +156,6 @@ jobs:
             grep -Eq "^[[:xdigit:]]{64}[[:space:]]{2}${binary}$" release-assets/SHA256SUMS
           done
           gh release upload "$TAG" release-assets/SHA256SUMS --clobber
-          gh release edit "$TAG" --draft=false
 
   notify-homebrew:
     needs: [create-release, checksums]
@@ -242,3 +241,17 @@ EOF
           git add public/update.json
           git commit -m "Update manifests for Noodle ${TAG}"
           git push origin main
+
+  undraft:
+    needs: [checksums, publish-update-manifest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false

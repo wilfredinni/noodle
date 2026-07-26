@@ -566,7 +566,7 @@ export function AppInner({
     setUpdateCheckStarted(false)
     if (updateFlowRef.current.phase === "installing") return
     let cancelled = false
-    checkForUpdatesFn().then((status) => {
+    checkForUpdatesFn(true).then((status) => {
       if (cancelled) return
       if (status.kind === "up_to_date") {
         showToast("Noodle is up to date", "success")
@@ -629,8 +629,10 @@ export function AppInner({
           setRestartVersion(v)
           setUpdateAvailable(null)
         } else {
-          showToast("Update failed", "error")
-          setUpdateFlow({ phase: "failed", message: "Update failed" })
+          const msg =
+            (result.data as Record<string, string>).reason ?? "Update failed"
+          showToast(msg, "error")
+          setUpdateFlow({ phase: "failed", message: msg })
         }
       })
       return
@@ -640,21 +642,17 @@ export function AppInner({
 
   // ── Banner update check ──────────────────────────────────────────
   useEffect(() => {
-    if (!isCollection) return
     let cancelled = false
     checkForUpdatesFn().then((status) => {
       if (cancelled) return
-      if (
-        status.kind === "update_available" &&
-        status.installType === "binary"
-      ) {
+      if (status.kind === "update_available") {
         setUpdateAvailable(status.latestVersion)
       }
     })
     return () => {
       cancelled = true
     }
-  }, [isCollection])
+  }, [])
 
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(

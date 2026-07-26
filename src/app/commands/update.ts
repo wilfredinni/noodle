@@ -53,7 +53,8 @@ export function isHomebrewInstall(execPath: string): boolean {
   return (
     execPath.includes("/homebrew/bin/") ||
     execPath.includes("/.linuxbrew/bin/") ||
-    execPath.includes("/brew/bin/")
+    execPath.includes("/brew/bin/") ||
+    execPath.startsWith("/usr/local/bin/")
   )
 }
 
@@ -342,7 +343,7 @@ export async function checkForUpdates(
     return {
       kind: "error",
       message:
-        "Updates available only in standalone binary. Run `noodle update` instead.",
+        "Updates are only available for the standalone binary. Use a release build instead.",
       installType: "binary",
     }
   }
@@ -353,7 +354,7 @@ export async function checkForUpdates(
         ["brew", "outdated", "--quiet", "noodle"],
         true,
       )
-      if (result.exitCode === 0) {
+      if (result.exitCode !== 0) {
         return {
           kind: "update_available",
           latestVersion: "",
@@ -391,21 +392,16 @@ export async function checkForUpdates(
       if (comparison === 1) {
         const platformKey = getPlatformString(deps.platform, deps.arch)
         const expectedSha256 = cache.checksums[platformKey]
-        if (!expectedSha256) {
+        if (expectedSha256) {
+          const assetName = getAssetName(deps.platform, deps.arch)
           return {
-            kind: "error",
-            message: `No checksum in cache for ${platformKey}`,
+            kind: "update_available",
+            latestVersion: cache.latestTag,
+            currentVersion,
             installType: "binary",
+            assetUrl: getReleaseDownloadUrl(cache.latestTag, assetName),
+            expectedSha256,
           }
-        }
-        const assetName = getAssetName(deps.platform, deps.arch)
-        return {
-          kind: "update_available",
-          latestVersion: cache.latestTag,
-          currentVersion,
-          installType: "binary",
-          assetUrl: getReleaseDownloadUrl(cache.latestTag, assetName),
-          expectedSha256,
         }
       }
     }
@@ -787,8 +783,14 @@ async function downloadAndInstall(
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     output(`Failed to update: ${reason}`)
-    return { data: { status: "update_failed" }, failed: true }
+    return { data: { status: "update_failed", reason }, failed: true }
   } finally {
-    if (stagingDir) await rm(stagingDir, { recursive: true, force: true })
+    if (stagingDir) {
+      try {
+        await rm(stagingDir, { recursive: true, force: true })
+      } catch {
+        // cleanup is best-effort
+      }
+    }
   }
 }

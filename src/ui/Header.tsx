@@ -65,10 +65,10 @@ export function Header({
           Noodle
         </text>
         {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
-        {showVersion && updateAvailable && (
+        {showVersion && updateAvailable !== null && (
           <text fg={theme.warning}>
             {" "}
-            {"->"} {updateAvailable}
+            {"->"} {updateAvailable || "update available"}
           </text>
         )}
         {restartVersion && <text fg={theme.warning}> Restart to update</text>}
