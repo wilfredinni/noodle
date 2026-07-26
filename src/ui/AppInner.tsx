@@ -1002,7 +1002,6 @@ export function AppInner({
     >
       <Header
         view={view}
-        isCollection={isCollection}
         overlayActive={overlayActive}
         jumpMode={jumpMode}
         keybinds={keybinds}

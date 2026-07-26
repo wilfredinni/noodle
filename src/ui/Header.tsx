@@ -7,13 +7,11 @@ import { displayKey, type Keybinds } from "./keybind"
 
 export function Header({
   view,
-  isCollection,
   overlayActive,
   jumpMode,
   keybinds,
 }: {
   view: "main" | "env-editor"
-  isCollection: boolean
   overlayActive: boolean
   jumpMode: boolean
   keybinds: Keybinds
@@ -37,19 +35,12 @@ export function Header({
         { key: displayKey(keybinds.help_toggle), word: "help" },
       ]
     }
-    if (!isCollection) {
-      return [
-        { key: displayKey(keybinds.jump_mode), word: "jump" },
-        { key: displayKey(keybinds.command_palette), word: "commands" },
-        { key: displayKey(keybinds.help_toggle), word: "help" },
-      ]
-    }
     return [
       { key: displayKey(keybinds.jump_mode), word: "jump" },
       { key: displayKey(keybinds.command_palette), word: "commands" },
       { key: displayKey(keybinds.help_toggle), word: "help" },
     ]
-  }, [overlayActive, jumpMode, view, isCollection, keybinds])
+  }, [overlayActive, jumpMode, view, keybinds])
 
   const showVersion = termWidth >= 45
   const showHints = termWidth >= 35
