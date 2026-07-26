@@ -56,13 +56,14 @@ function minimalContext(): CommandBuilderContext {
     setPreviewIndexProp: () => {},
     setEnvDeletePending: () => {},
     onReloadCollection: () => {},
+    setUpdateCheckStarted: () => {},
   }
 }
 
 describe("buildCommandPaletteCommands", () => {
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
-    expect(commands.length).toBeGreaterThanOrEqual(22)
+    expect(commands.length).toBeGreaterThanOrEqual(23)
     for (const cmd of commands) {
       expect(cmd.id).toBeTruthy()
       expect(cmd.label).toBeTruthy()
@@ -368,6 +369,20 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(ctx)
     const sections = [...new Set(commands.map((c) => c.section))]
     expect(sections).toContain("Environment")
+  })
+
+  it("app.check-updates triggers update check", () => {
+    const ctx = minimalContext()
+    let started = false
+    ctx.setUpdateCheckStarted = (value) => {
+      if (typeof value === "function") started = value(false)
+      else started = value
+    }
+    const commands = buildCommandPaletteCommands(ctx)
+    const cmd = commands.find((c) => c.id === "app.check-updates")!
+    expect(cmd.label).toBe("Check for Updates")
+    expect(cmd.run()).toBe(true)
+    expect(started).toBe(true)
   })
 
   it("env editor view excludes env commands when mode is empty", () => {

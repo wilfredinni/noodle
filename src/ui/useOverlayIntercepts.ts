@@ -94,6 +94,18 @@ export function useOverlayIntercepts(opts: {
   onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
+  updatePending: {
+    version: string
+    installType: "brew" | "binary"
+    assetUrl?: string
+  } | null
+  setUpdatePending: (
+    s: {
+      version: string
+      installType: "brew" | "binary"
+      assetUrl?: string
+    } | null,
+  ) => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -154,6 +166,8 @@ export function useOverlayIntercepts(opts: {
     onInitConfirm,
     draftRef,
     folderDraftRef,
+    updatePending,
+    setUpdatePending,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -621,6 +635,29 @@ export function useOverlayIntercepts(opts: {
     )
     return dispose
   }, [initPending, keymap, onInitConfirm, setInitPending])
+
+  // ── Overlay: Update confirm ──────────────────────────────────────
+  useEffect(() => {
+    if (!updatePending) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          return
+        }
+        if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          setUpdatePending(null)
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [updatePending, keymap, setUpdatePending])
 
   // ── Overlay: New Folder ───────────────────────────────────────────
   useEffect(() => {

@@ -255,6 +255,202 @@ function getRateLimitError(response: Response): RateLimitError | null {
   )
 }
 
+export type UpdateStatus =
+  | {
+      kind: "up_to_date"
+      currentVersion: string
+      installType: "binary" | "brew"
+    }
+  | {
+      kind: "update_available"
+      latestVersion: string
+      currentVersion: string
+      installType: "brew"
+    }
+  | {
+      kind: "update_available"
+      latestVersion: string
+      currentVersion: string
+      installType: "binary"
+      assetUrl: string
+    }
+  | {
+      kind: "error"
+      message: string
+      installType: "binary" | "brew"
+    }
+
+export async function checkForUpdates(
+  force = false,
+  dependencyOverrides: Partial<UpdateDependencies> = {},
+): Promise<UpdateStatus> {
+  const deps = getUpdateDeps(dependencyOverrides)
+  const currentVersion = `v${pkg.version}`
+
+  if (isHomebrewInstall(deps.execPath)) {
+    try {
+      const result = await deps.runProcess(
+        ["brew", "outdated", "--quiet", "noodle"],
+        true,
+      )
+      if (result.exitCode === 0) {
+        return {
+          kind: "update_available",
+          latestVersion: "",
+          currentVersion,
+          installType: "brew",
+        }
+      }
+      return { kind: "up_to_date", currentVersion, installType: "brew" }
+    } catch {
+      return {
+        kind: "error",
+        message: "Unable to check Homebrew. Is brew installed?",
+        installType: "brew",
+      }
+    }
+  }
+
+  let platform: string
+  try {
+    platform = getPlatformString(deps.platform, deps.arch)
+  } catch {
+    return {
+      kind: "error",
+      message: `Unsupported platform: ${deps.platform}-${deps.arch}`,
+      installType: "binary",
+    }
+  }
+
+  let cachedTag: string | undefined
+  if (!force) {
+    const cache = await loadUpdateCache(deps.cachePath)
+    if (cache && isFreshUpdateCache(cache, deps.now())) {
+      const comparison = compareStableVersions(currentVersion, cache.latestTag)
+      if (comparison === 0 || comparison === -1) {
+        return { kind: "up_to_date", currentVersion, installType: "binary" }
+      }
+      if (comparison === 1) {
+        cachedTag = cache.latestTag
+      }
+    }
+  }
+
+  if (cachedTag) {
+    const assetName = getAssetName(deps.platform, deps.arch)
+    return {
+      kind: "update_available",
+      latestVersion: cachedTag,
+      currentVersion,
+      installType: "binary",
+      assetUrl: getReleaseDownloadUrl(cachedTag, assetName),
+    }
+  }
+
+  try {
+    const token = deps.env.GH_TOKEN || deps.env.GITHUB_TOKEN
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+    }
+    if (token) headers.Authorization = `Bearer ${token}`
+    const response = await deps.fetcher(getReleaseApiUrl(), { headers })
+    if (!response.ok) {
+      const rateLimitError = getRateLimitError(response)
+      if (rateLimitError) {
+        const msg = rateLimitError.retryAt
+          ? `GitHub rate limited. Retry after ${rateLimitError.retryAt}.`
+          : "GitHub API rate limit reached."
+        return { kind: "error", message: msg, installType: "binary" }
+      }
+      throw new Error(`HTTP ${response.status}`)
+    }
+    const json = await response.json()
+    if (
+      !json ||
+      typeof json.tag_name !== "string" ||
+      !Array.isArray(json.assets) ||
+      json.assets.some(
+        (asset: unknown) =>
+          !asset ||
+          typeof asset !== "object" ||
+          typeof (asset as ReleaseAsset).name !== "string" ||
+          typeof (asset as ReleaseAsset).browser_download_url !== "string",
+      )
+    ) {
+      throw new Error("Invalid release data")
+    }
+    const releaseData = json as ReleaseData
+
+    const cache: UpdateCache = {
+      latestTag: releaseData.tag_name,
+      checkedAt: deps.now(),
+    }
+    if (parseUpdateCache(cache)) {
+      try {
+        await saveUpdateCache(deps.cachePath, cache)
+      } catch {
+        // A cache write must never prevent a valid update check.
+      }
+    }
+
+    const versionComparison = compareStableVersions(
+      currentVersion,
+      releaseData.tag_name,
+    )
+    if (versionComparison === null) {
+      return {
+        kind: "error",
+        message: `Invalid release version: ${releaseData.tag_name}`,
+        installType: "binary",
+      }
+    }
+    if (versionComparison !== 1) {
+      return { kind: "up_to_date", currentVersion, installType: "binary" }
+    }
+
+    const assetName = getAssetName(deps.platform, deps.arch)
+    const asset = releaseData.assets.find((a) => a.name === assetName)
+    if (!asset) {
+      return {
+        kind: "error",
+        message: `No prebuilt binary for ${platform}.`,
+        installType: "binary",
+      }
+    }
+
+    return {
+      kind: "update_available",
+      latestVersion: releaseData.tag_name,
+      currentVersion,
+      installType: "binary",
+      assetUrl: asset.browser_download_url,
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return {
+      kind: "error",
+      message: `Check failed: ${msg}`,
+      installType: "binary",
+    }
+  }
+}
+
+export async function installBinaryUpdate(
+  tag: string,
+  downloadUrl: string,
+  dependencyOverrides: Partial<UpdateDependencies> = {},
+): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  const deps = getUpdateDeps(dependencyOverrides)
+  return downloadAndInstall(tag, downloadUrl, deps, () => {})
+}
+
+export async function installBrewUpdate(
+  dependencyOverrides: Partial<UpdateDependencies> = {},
+): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  const deps = getUpdateDeps(dependencyOverrides)
+  return runHomebrewUpdate(true, deps)
+}
+
 export default defineCommand({
   meta: {
     name: "update",

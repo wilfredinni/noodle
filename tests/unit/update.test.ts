@@ -16,6 +16,9 @@ import {
   saveUpdateCache,
   sha256,
   UPDATE_CACHE_TTL_MS,
+  checkForUpdates,
+  installBinaryUpdate,
+  installBrewUpdate,
 } from "../../src/app/commands/update"
 
 describe("getPlatformString", () => {
@@ -506,5 +509,270 @@ describe("isHomebrewInstall", () => {
     expect(isHomebrewInstall("/home/user/.local/bin/noodle")).toBe(false)
     expect(isHomebrewInstall("/usr/local/bin/noodle")).toBe(false)
     expect(isHomebrewInstall("/tmp/noodle")).toBe(false)
+  })
+})
+
+describe("checkForUpdates", () => {
+  const binaryDeps = (cachePath: string) => ({
+    cachePath,
+    now: () => 1000,
+    execPath: "/tmp/noodle",
+    platform: "darwin",
+    arch: "arm64",
+  })
+
+  it("returns up_to_date for brew when outdated reports current", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/opt/homebrew/bin/noodle",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      runProcess: async (_args, _capture) => ({ exitCode: 1 }),
+    })
+    expect(status.kind).toBe("up_to_date")
+    expect(status.installType).toBe("brew")
+    if (status.kind === "up_to_date") {
+      expect(typeof status.currentVersion).toBe("string")
+    }
+  })
+
+  it("returns update_available for brew when outdated finds newer", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/opt/homebrew/bin/noodle",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      runProcess: async (_args, _capture) => ({ exitCode: 0 }),
+    })
+    expect(status.kind).toBe("update_available")
+    expect(status.installType).toBe("brew")
+    if (status.kind === "update_available") {
+      expect(typeof status.latestVersion).toBe("string")
+    }
+  })
+
+  it("returns error when brew is unavailable", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/opt/homebrew/bin/noodle",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      runProcess: async () => {
+        throw new Error("spawn failed")
+      },
+    })
+    expect(status).toEqual({
+      kind: "error",
+      message: "Unable to check Homebrew. Is brew installed?",
+      installType: "brew",
+    })
+  })
+
+  it("returns up_to_date for binary when cache matches", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-cache-"))
+    const path = join(dir, "update-cache.json")
+    let githubCalls = 0
+    try {
+      await writeFile(
+        path,
+        JSON.stringify({ latestTag: "v0.5.2", checkedAt: 1000 }),
+      )
+      const status = await checkForUpdates(false, {
+        ...binaryDeps(path),
+        env: {},
+        fetcher: async () => {
+          githubCalls += 1
+          return new Response()
+        },
+      })
+      expect(status.kind).toBe("up_to_date")
+      if (status.kind === "up_to_date") {
+        expect(status.installType).toBe("binary")
+      }
+      expect(githubCalls).toBe(0)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns update_available for binary when cache has newer release", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-newer-"))
+    const path = join(dir, "update-cache.json")
+    let githubCalls = 0
+    try {
+      await writeFile(
+        path,
+        JSON.stringify({ latestTag: "v99.0.0", checkedAt: 1000 }),
+      )
+      const status = await checkForUpdates(false, {
+        ...binaryDeps(path),
+        env: {},
+        fetcher: async () => {
+          githubCalls += 1
+          return new Response()
+        },
+      })
+      expect(status.kind).toBe("update_available")
+      expect(status.installType).toBe("binary")
+      if (
+        status.kind === "update_available" &&
+        status.installType === "binary"
+      ) {
+        expect(status.latestVersion).toBe("v99.0.0")
+        expect(status.assetUrl).toBe(
+          "https://github.com/wilfredinni/noodle/releases/download/v99.0.0/noodle-macos-arm64",
+        )
+        expect(typeof status.currentVersion).toBe("string")
+      }
+      expect(githubCalls).toBe(0)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("fetches from GitHub and returns update_available when newer release exists", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-gh-newer-"))
+    const path = join(dir, "update-cache.json")
+    try {
+      const status = await checkForUpdates(true, {
+        ...binaryDeps(path),
+        env: {},
+        fetcher: async () =>
+          Response.json({
+            tag_name: "v99.0.0",
+            assets: [
+              {
+                name: "noodle-macos-arm64",
+                browser_download_url: "https://example.com/noodle",
+              },
+            ],
+          }),
+      })
+      expect(status.kind).toBe("update_available")
+      expect(status.installType).toBe("binary")
+      if (
+        status.kind === "update_available" &&
+        status.installType === "binary"
+      ) {
+        expect(status.latestVersion).toBe("v99.0.0")
+        expect(status.assetUrl).toBe("https://example.com/noodle")
+        expect(typeof status.currentVersion).toBe("string")
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns error when release response is malformed", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-malformed-"))
+    const path = join(dir, "update-cache.json")
+    try {
+      const status = await checkForUpdates(true, {
+        ...binaryDeps(path),
+        env: {},
+        fetcher: async () => new Response("not json", { status: 200 }),
+      })
+      expect(status.kind).toBe("error")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("installBinaryUpdate", () => {
+  it("downloads and installs the binary with checksum verification", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-install-binary-"))
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    try {
+      await writeFile(executable, "old")
+      const result = await installBinaryUpdate(
+        "v0.5.3",
+        "https://example.com/noodle-binary",
+        {
+          execPath: executable,
+          platform: "darwin",
+          arch: "arm64",
+          env: {},
+          fetcher: async (input) => {
+            const url = String(input)
+            if (url === "https://example.com/noodle-binary")
+              return new Response(binary)
+            return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
+          },
+        },
+      )
+      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
+      expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not replace binary when checksum fails", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-install-checksum-"))
+    const executable = join(dir, "noodle")
+    try {
+      await writeFile(executable, "old")
+      const result = await installBinaryUpdate(
+        "v0.5.3",
+        "https://example.com/noodle-binary",
+        {
+          execPath: executable,
+          platform: "darwin",
+          arch: "arm64",
+          env: {},
+          fetcher: async (input) => {
+            const url = String(input)
+            if (url === "https://example.com/noodle-binary")
+              return new Response("new")
+            return new Response("0".repeat(64) + "  noodle-macos-arm64\n")
+          },
+        },
+      )
+      expect(result.data.status).toBe("update_failed")
+      expect(await readFile(executable, "utf8")).toBe("old")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("installBrewUpdate", () => {
+  it("runs brew upgrade and returns success", async () => {
+    let receivedArgs: string[] | undefined
+    const result = await installBrewUpdate({
+      execPath: "/opt/homebrew/bin/noodle",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      runProcess: async (args, capture) => {
+        receivedArgs = args
+        void capture
+        return { exitCode: 0 }
+      },
+    })
+    expect(result).toEqual({
+      data: { status: "homebrew_updated", command: "brew upgrade noodle" },
+    })
+    expect(receivedArgs).toEqual(["brew", "upgrade", "noodle"])
+  })
+
+  it("reports brew upgrade failure", async () => {
+    const result = await installBrewUpdate({
+      execPath: "/opt/homebrew/bin/noodle",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      runProcess: async () => ({ exitCode: 1 }),
+    })
+    expect(result).toEqual({
+      data: {
+        status: "homebrew_failed",
+        command: "brew upgrade noodle",
+        exit_code: "1",
+      },
+      failed: true,
+    })
   })
 })

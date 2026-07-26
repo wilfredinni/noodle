@@ -63,6 +63,11 @@ import type { ResponseTabKind } from "./tabs/uiState"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 import { parseCurl } from "../converters/curl/parse"
 import type { ResponseQueryController } from "./responseQuery"
+import {
+  checkForUpdates as checkForUpdatesFn,
+  installBinaryUpdate,
+  installBrewUpdate,
+} from "../app/commands/update"
 
 export function AppInner({
   collectionDir,
@@ -196,6 +201,15 @@ export function AppInner({
   const [collectionSwitchPending, setCollectionSwitchPending] = useState<
     string | null
   >(null)
+  const [updateCheckStarted, setUpdateCheckStarted] = useState(false)
+  const [updatePending, setUpdatePending] = useState<{
+    version: string
+    installType: "brew" | "binary"
+    assetUrl?: string
+  } | null>(null)
+  const updatePendingRef = useRef(updatePending)
+  updatePendingRef.current = updatePending
+  const [restartVersion, setRestartVersion] = useState<string | null>(null)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -486,6 +500,7 @@ export function AppInner({
     if (newFolderVisible) return "new-folder"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
+    if (updatePending !== null) return "update-confirm"
     if (timelineDetailEntry !== null) return "timeline-detail"
     return "none"
   }, [
@@ -509,6 +524,7 @@ export function AppInner({
     newFolderVisible,
     folderDeletePending,
     requestDeletePending,
+    updatePending,
     timelineDetailEntry,
   ])
 
@@ -536,6 +552,67 @@ export function AppInner({
   useEffect(() => {
     keymap.setData("app.view", view)
   }, [view, keymap])
+
+  // ── Update check flow ────────────────────────────────────────────
+  useEffect(() => {
+    if (!updateCheckStarted) return
+    setUpdateCheckStarted(false)
+    let cancelled = false
+    checkForUpdatesFn().then((status) => {
+      if (cancelled) return
+      if (status.kind === "up_to_date") {
+        showToast("Noodle is up to date", "success")
+      } else if (status.kind === "error") {
+        showToast(status.message, "error")
+      } else if (status.kind === "update_available") {
+        setUpdatePending({
+          version: status.latestVersion || "latest",
+          installType: status.installType,
+          assetUrl:
+            status.installType === "binary" ? status.assetUrl : undefined,
+        })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [updateCheckStarted])
+
+  useEffect(() => {
+    if (!updatePending) return
+    const update = updatePending
+    if (update.installType === "brew") {
+      installBrewUpdate().then((result) => {
+        if (result.data.status === "homebrew_updated") {
+          showToast("Updated via Homebrew. Restart Noodle.", "success")
+          setRestartVersion(update.version || "latest")
+        } else {
+          const msg = result.data.exit_code
+            ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
+            : "Homebrew upgrade failed"
+          showToast(msg, "error")
+        }
+        setUpdatePending(null)
+      })
+      return
+    }
+    if (update.installType === "binary" && update.assetUrl) {
+      installBinaryUpdate(update.version, update.assetUrl).then((result) => {
+        if (result.data.status === "updated") {
+          showToast(
+            `Updated to ${result.data.version ?? update.version}. Restart Noodle.`,
+            "success",
+          )
+          setRestartVersion(result.data.version ?? update.version)
+        } else {
+          showToast("Update failed", "error")
+        }
+        setUpdatePending(null)
+      })
+      return
+    }
+    setUpdatePending(null)
+  }, [updatePending])
 
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
@@ -883,6 +960,8 @@ export function AppInner({
     onInitConfirm: () => executeInitPending(),
     draftRef,
     folderDraftRef,
+    updatePending: updatePending,
+    setUpdatePending,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -978,6 +1057,7 @@ export function AppInner({
         setPreviewIndexProp,
         setEnvDeletePending,
         onReloadCollection,
+        setUpdateCheckStarted,
       }),
     [
       keybinds,
@@ -988,6 +1068,7 @@ export function AppInner({
       onReloadCollection,
       view,
       mode,
+      setUpdateCheckStarted,
     ],
   )
 
@@ -1006,6 +1087,7 @@ export function AppInner({
         overlayActive={overlayActive}
         jumpMode={jumpMode}
         keybinds={keybinds}
+        restartVersion={restartVersion}
       />
       <VariableCompletionInterceptor />
       <box
@@ -1145,6 +1227,7 @@ export function AppInner({
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}
           setTimelineDetailEntry={setTimelineDetailEntry}
+          updatePending={updatePending}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}
           onCopyTimelineHeaders={onCopyTimelineHeaders}

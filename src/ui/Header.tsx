@@ -10,11 +10,13 @@ export function Header({
   overlayActive,
   jumpMode,
   keybinds,
+  restartVersion,
 }: {
   view: "main" | "env-editor"
   overlayActive: boolean
   jumpMode: boolean
   keybinds: Keybinds
+  restartVersion?: string | null
 }) {
   const theme = useTheme()
   const { width: termWidth = 100 } = useTerminalDimensions()
@@ -60,7 +62,14 @@ export function Header({
         <text fg={theme.primary} attributes={TextAttributes.BOLD}>
           Noodle
         </text>
-        {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
+        {restartVersion ? (
+          <>
+            {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
+            <text fg={theme.warning}> Restart to use {restartVersion}</text>
+          </>
+        ) : (
+          showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>
+        )}
       </box>
       {showHints && headerHints.length > 0 && (
         <box style={{ flexDirection: "row" }}>
