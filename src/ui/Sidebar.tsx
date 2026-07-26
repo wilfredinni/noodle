@@ -77,7 +77,7 @@ export function Sidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      titleLeft={
+      titleRight={
         jumpMode ? undefined : (
           <Badge
             bg={theme.backgroundPanel}

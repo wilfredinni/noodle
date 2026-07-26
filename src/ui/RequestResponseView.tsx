@@ -27,12 +27,11 @@ interface RequestResponseViewProps {
   setSelectOpen: (open: boolean) => void
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
-  expandHint: string
-  queryHint?: string
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   jumpMode?: boolean
+  onQueryVisibleChange?: (v: boolean) => void
 }
 
 export function RequestResponseView({
@@ -51,12 +50,11 @@ export function RequestResponseView({
   setSelectOpen,
   urlbarSubFocus,
   urlbarInteractive,
-  expandHint,
-  queryHint,
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
   jumpMode = false,
+  onQueryVisibleChange,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -76,26 +74,25 @@ export function RequestResponseView({
           onApiKeyPlacementChange={draft.setApiKeyPlacement}
           onBodyTypeChange={draft.setBodyType}
           onSelectOpenChange={setSelectOpen}
-          expandHint={expandHint}
           jumpMode={jumpMode}
         />
       )}
       {expanded !== "request" && (
         <ResponsePane
+          key={responseKey}
           state={responseState}
           focused={focus === "response"}
           timelineEntries={timelineEntries}
           initialTab={initialResponseTab}
           onTabChange={onResponseTabChange}
           onOpenTimelineEntry={onOpenTimelineEntry}
-          expandHint={expandHint}
-          queryHint={queryHint}
           responseKey={responseKey}
           responseQueryRef={responseQueryRef}
           responseBodyForCopyRef={responseBodyForCopyRef}
           layout={layout}
           expanded={expanded}
           jumpMode={jumpMode}
+          onQueryVisibleChange={onQueryVisibleChange}
         />
       )}
     </>

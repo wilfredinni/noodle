@@ -1,12 +1,11 @@
-import { TextAttributes } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
-import pkg from "../../package.json" with { type: "json" }
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
 import { Badge } from "./Badge"
+import type { Focus } from "./focus"
 
 export interface StatusBarSections {
   left: string
@@ -117,10 +116,150 @@ export function statusBarText(input: {
     center = isDirty ? `● ${envLabel} •` : `● ${envLabel}`
   }
 
-  // ── RIGHT: global hints ────────────────────────────
-  const right = `[${displayKey(kb.request_send)}] send · [${displayKey(kb.request_save)}] save · [${displayKey(kb.command_palette)}] palette · [${displayKey(kb.jump_mode)}] jump · [${displayKey(kb.help_toggle)}] help`
+  // ── RIGHT: pinned hints (statusBarText is kept for backward compat;
+  // StatusBar uses getContextualSegments instead) ──────
+  const right = ""
 
+  void kb
   return { left, center, right }
+}
+
+type PaneMode = "base" | "browse" | "edit"
+type CollectionMode = "collection" | "browse" | "empty" | "invalid"
+
+export function getContextualSegments(input: {
+  focus: Focus
+  paneMode: PaneMode
+  view: "main" | "env-editor"
+  collectionMode: CollectionMode
+  sendState: SendState
+  kb: Keybinds
+  overlayActive: boolean
+  tab?: string
+  bodyType?: string
+  queryVisible?: boolean
+}): Array<{ key: string; word: string }> {
+  const {
+    focus,
+    paneMode,
+    view,
+    collectionMode,
+    sendState,
+    kb,
+    overlayActive,
+    tab,
+    bodyType,
+    queryVisible,
+  } = input
+  if (overlayActive) return []
+
+  const col = collectionMode === "collection"
+
+  if (view === "env-editor") {
+    if (!col) return []
+    if (focus === "env-sidebar") {
+      return [
+        { key: displayKey(kb.env_new), word: "new" },
+        { key: displayKey(kb.env_delete), word: "delete" },
+        { key: displayKey(kb.env_clone), word: "clone" },
+      ]
+    }
+    if (focus === "env-header") {
+      return [
+        { key: displayKey(kb.env_save), word: "save" },
+        { key: displayKey(kb.env_new), word: "new" },
+      ]
+    }
+    if (focus === "env-vars" && paneMode === "browse") {
+      return [
+        { key: "Space", word: "toggle" },
+        { key: displayKey(kb.browse_delete), word: "revert" },
+        { key: displayKey(kb.env_save), word: "save" },
+      ]
+    }
+    if (focus === "env-vars" && paneMode === "edit") {
+      return [{ key: displayKey(kb.env_save), word: "save" }]
+    }
+    return []
+  }
+
+  // ── main view ──
+
+  if (focus === "sidebar") {
+    if (!col) return []
+    return [
+      { key: displayKey(kb.request_save), word: "save" },
+      { key: displayKey(kb.request_new), word: "new" },
+      { key: displayKey(kb.folder_new), word: "new folder" },
+      { key: displayKey(kb.request_delete), word: "delete" },
+      { key: displayKey(kb.request_clone), word: "clone" },
+    ]
+  }
+
+  if (focus === "urlbar") {
+    if (!col) return []
+    return [{ key: displayKey(kb.request_save), word: "save" }]
+  }
+
+  if (focus === "request") {
+    if (paneMode === "base") {
+      if (!col) return []
+      return [{ key: displayKey(kb.request_save), word: "save" }]
+    }
+    if (paneMode === "browse") {
+      if (!col) return []
+      const toggleSegments =
+        tab === "headers" ||
+        tab === "params" ||
+        (tab === "body" &&
+          (bodyType === "urlencoded" || bodyType === "multipart"))
+          ? [{ key: "Space", word: "toggle" }]
+          : []
+      return [
+        ...toggleSegments,
+        { key: displayKey(kb.browse_delete), word: "revert" },
+        { key: displayKey(kb.browse_revert_all), word: "revert all" },
+        { key: displayKey(kb.request_save), word: "save" },
+      ]
+    }
+    return []
+  }
+
+  if (focus === "response") {
+    if (sendState.status === "done" && tab === "body") {
+      if (queryVisible) return []
+      return [
+        { key: displayKey(kb.response_copy_body), word: "copy" },
+        { key: displayKey(kb.response_query), word: "filter" },
+      ]
+    }
+    return []
+  }
+
+  if (focus === "folder") {
+    if (paneMode === "base") {
+      if (!col) return []
+      return [
+        { key: displayKey(kb.request_save), word: "save" },
+        { key: displayKey(kb.request_delete), word: "delete" },
+      ]
+    }
+    if (paneMode === "browse") {
+      if (!col) return []
+      const toggleSegments =
+        tab === "headers" ? [{ key: "Space", word: "toggle" }] : []
+      if (tab === "activity") return []
+      return [
+        ...toggleSegments,
+        { key: displayKey(kb.browse_delete), word: "revert" },
+        { key: displayKey(kb.browse_revert_all), word: "revert all" },
+        { key: displayKey(kb.request_save), word: "save" },
+      ]
+    }
+    return []
+  }
+
+  return []
 }
 
 export function StatusBar(input: {
@@ -136,16 +275,34 @@ export function StatusBar(input: {
   view?: "main" | "env-editor"
   envStats?: string
   jumpMode?: boolean
+  focus?: Focus
+  paneMode?: PaneMode
+  collectionMode?: CollectionMode
+  overlayActive?: boolean
+  tab?: string
+  bodyType?: string
+  queryVisible?: boolean
 }) {
   const theme = useTheme()
-  const sections = statusBarText(input)
 
-  const rightSegments = sections.right.split(" · ").map((seg) => {
-    const s = seg.replace(/[[\]]/g, "")
-    const sp = s.indexOf(" ")
-    return sp > -1
-      ? { key: s.slice(0, sp), word: s.slice(sp + 1) }
-      : { key: s, word: "" }
+  const view = input.view ?? "main"
+  const jumpMode = input.jumpMode ?? false
+  const focus = input.focus ?? "sidebar"
+  const paneMode = input.paneMode ?? "base"
+  const collectionMode = input.collectionMode ?? "collection"
+  const overlayActive = input.overlayActive ?? false
+
+  const contextual = getContextualSegments({
+    focus,
+    paneMode,
+    view,
+    collectionMode,
+    sendState: input.sendState,
+    kb: input.kb,
+    overlayActive,
+    tab: input.tab,
+    bodyType: input.bodyType,
+    queryVisible: input.queryVisible,
   })
 
   const envText =
@@ -164,14 +321,7 @@ export function StatusBar(input: {
           theme.info)
         : theme.info
 
-  const isEnvEditor = input.view === "env-editor"
-  const envEditorSegments = [
-    { key: "Esc", word: "back" },
-    { key: displayKey(input.kb.env_new), word: "new" },
-    { key: displayKey(input.kb.env_save), word: "save" },
-    { key: displayKey(input.kb.env_clone), word: "clone" },
-    { key: displayKey(input.kb.env_delete), word: "delete" },
-  ]
+  const isEnvEditor = view === "env-editor"
 
   const jumpSegments = [
     { key: "Type key", word: "to jump" },
@@ -180,19 +330,30 @@ export function StatusBar(input: {
 
   const { width: termWidth = 100 } = useTerminalDimensions()
 
-  const segments = input.jumpMode
-    ? jumpSegments
-    : isEnvEditor
-      ? envEditorSegments
-      : rightSegments
+  const sendPinned =
+    view === "main" &&
+    collectionMode === "collection" &&
+    !overlayActive &&
+    !jumpMode
+      ? [{ key: displayKey(input.kb.request_send), word: "send" }]
+      : []
 
-  const brandingText = `Noodle v${pkg.version}`
-  const brandingWidth = brandingText.length + 3
+  let pinnedWidth = 0
+  for (const seg of sendPinned) {
+    pinnedWidth += seg.key.length + (seg.word ? 1 + seg.word.length : 0) + 3
+  }
+
+  const segments = jumpMode ? jumpSegments : contextual
+
   const leftWidth = isEnvEditor
     ? (input.envStats?.length || 10) + 4
     : envText.length + 4
-  const maxShortcutChars = Math.max(0, termWidth - leftWidth - brandingWidth)
-  const visibleSegments = fitSegments(segments, maxShortcutChars)
+  const maxShortcutChars = Math.max(0, termWidth - leftWidth - pinnedWidth)
+  const visibleSegments = jumpMode
+    ? segments
+    : fitSegments(segments, maxShortcutChars)
+
+  const allSegments = [...sendPinned, ...visibleSegments]
 
   return (
     <box
@@ -215,19 +376,15 @@ export function StatusBar(input: {
         )}
       </box>
       <box style={{ flexDirection: "row", alignItems: "center" }}>
-        {visibleSegments.map((seg, i) => (
+        {allSegments.map((seg, i) => (
           <box key={i} style={{ flexDirection: "row" }}>
             <text fg={theme.text}>{seg.key}</text>
             {seg.word ? <text fg={theme.textMuted}> {seg.word}</text> : null}
-            <text fg={theme.textMuted}> · </text>
+            {i < allSegments.length - 1 && (
+              <text fg={theme.textMuted}> · </text>
+            )}
           </box>
         ))}
-        <box style={{ flexDirection: "row" }}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD}>
-            Noodle
-          </text>
-          <text fg={theme.textMuted}> v{pkg.version}</text>
-        </box>
       </box>
     </box>
   )

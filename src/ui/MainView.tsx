@@ -41,12 +41,11 @@ interface MainViewProps {
   setSelectOpen: (open: boolean) => void
   urlbarSubFocus: UrlBarSubFocus
   urlbarInteractive: boolean
-  expandHint: string
-  queryHint?: string
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   mode?: "collection" | "browse" | "empty" | "invalid"
   jumpMode?: boolean
+  onQueryVisibleChange?: (v: boolean) => void
 }
 
 export function MainView({
@@ -76,12 +75,11 @@ export function MainView({
   setSelectOpen,
   urlbarSubFocus,
   urlbarInteractive,
-  expandHint,
-  queryHint,
   responseQueryRef,
   responseBodyForCopyRef,
   mode = "collection",
   jumpMode = false,
+  onQueryVisibleChange,
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -151,12 +149,11 @@ export function MainView({
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={urlbarInteractive}
-            expandHint={expandHint}
-            queryHint={queryHint}
             responseKey={selectedId}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             jumpMode={jumpMode}
+            onQueryVisibleChange={onQueryVisibleChange}
           />
         )}
       </box>

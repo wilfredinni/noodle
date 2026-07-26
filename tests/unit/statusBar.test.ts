@@ -274,41 +274,6 @@ describe("statusBarText", () => {
     expect(r.center).toBe("✓ Saved users-get.yml")
   })
 
-  // ── RIGHT zone ─────────────────────────────────────
-
-  it("right shows help and focus keys", () => {
-    const r = statusBarText({
-      method: "",
-      url: "",
-      isDirty: false,
-      sendState: { status: "idle" },
-      envLabel: "dev",
-      saveState: { kind: "idle" },
-      kb: defaults,
-      spinnerFrame: "⠋",
-    })
-    expect(r.right).toBe(
-      "[^return] send · [^s] save · [^p] palette · [g] jump · [f1] help",
-    )
-  })
-
-  it("right reflects custom keybinds for help_toggle", () => {
-    const custom = { ...defaults, help_toggle: "f1" }
-    const r = statusBarText({
-      method: "",
-      url: "",
-      isDirty: false,
-      sendState: { status: "idle" },
-      envLabel: "dev",
-      saveState: { kind: "idle" },
-      kb: custom,
-      spinnerFrame: "⠋",
-    })
-    expect(r.right).toBe(
-      "[^return] send · [^s] save · [^p] palette · [g] jump · [f1] help",
-    )
-  })
-
   it("each section is a string", () => {
     const r = statusBarText({
       method: "GET",

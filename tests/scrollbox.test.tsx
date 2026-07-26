@@ -246,7 +246,7 @@ describe("ResponsePane scrollbox", () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <box style={{ width: "100%", height: "100%" }}>
-          <ResponsePane state={state} focused expandHint="f2 expand" />
+          <ResponsePane state={state} focused />
         </box>
       </KeymapProvider>,
       { width: 40, height: 8 },

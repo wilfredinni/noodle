@@ -38,14 +38,13 @@ export function ResponsePane({
   initialTab,
   onTabChange,
   onOpenTimelineEntry,
-  expandHint,
-  queryHint,
   responseKey,
   responseQueryRef,
   responseBodyForCopyRef,
   layout,
   expanded,
   jumpMode = false,
+  onQueryVisibleChange,
 }: {
   state: SendState
   focused?: boolean
@@ -53,19 +52,20 @@ export function ResponsePane({
   initialTab?: "body" | "headers" | "timeline"
   onTabChange?: (tab: "body" | "headers" | "timeline") => void
   onOpenTimelineEntry?: (entry: TimelineEntry) => void
-  expandHint?: string
-  queryHint?: string
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
   responseBodyForCopyRef?: RefObject<string | null>
   layout?: "stacked" | "side-by-side"
   expanded?: "request" | "response" | null
   jumpMode?: boolean
+  onQueryVisibleChange?: (v: boolean) => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
+  const isDoneRef = useRef(state.status === "done")
+  isDoneRef.current = state.status === "done"
 
   const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
     initialTab ?? "body",
@@ -82,9 +82,16 @@ export function ResponsePane({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
 
+  const onQueryVisibleChangeRef = useRef(onQueryVisibleChange)
+  onQueryVisibleChangeRef.current = onQueryVisibleChange
+
+  useEffect(() => {
+    onQueryVisibleChangeRef.current?.(queryVisible)
+  }, [queryVisible])
+
   useKeyboard((key) => {
     if (!focusedRef.current) return
-    if (!isDone) return
+    if (!isDoneRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
     if (queryVisible) return
     if (key.name === "left")
@@ -145,10 +152,15 @@ export function ResponsePane({
   ])
 
   // Sync activeTab when initialTab prop changes (request switch)
+  const activeTabRef = useRef(activeTab)
+  activeTabRef.current = activeTab
   const syncVersionRef = useRef(0)
   useEffect(() => {
-    syncVersionRef.current += 1
-    setActiveTab(initialTab ?? "body")
+    const next = initialTab ?? "body"
+    if (next !== activeTabRef.current) {
+      syncVersionRef.current += 1
+    }
+    setActiveTab(next)
   }, [initialTab])
 
   // Notify parent on tab changes from user interaction (skip first render + sync)
@@ -304,22 +316,6 @@ export function ResponsePane({
     </box>
   )
 
-  const bottomLeft =
-    focused && (expandHint || queryHint) ? (
-      <box style={{ flexDirection: "row", gap: 1 }}>
-        {expandHint ? (
-          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
-            {expandHint}
-          </Badge>
-        ) : null}
-        {queryHint ? (
-          <Badge bg={theme.backgroundPanel} fg={theme.primary}>
-            {queryHint}
-          </Badge>
-        ) : null}
-      </box>
-    ) : undefined
-
   return (
     <Frame
       style={{
@@ -336,7 +332,6 @@ export function ResponsePane({
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
       titleRight={headerRight}
-      bottomLeft={bottomLeft}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <Tabs tabs={TAB_DEFS} activeId={activeTab}>

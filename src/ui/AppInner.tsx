@@ -27,11 +27,12 @@ import { type ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
+import { Header } from "./Header"
 import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
 import type { FinderItem } from "./requestFinder"
-import { type Keybinds, displayKey } from "./keybind"
+import { type Keybinds } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import {
@@ -133,6 +134,14 @@ export function AppInner({
   expandedRef.current = expanded
   const [collectionReloadToken, setCollectionReloadToken] = useState(0)
   const [, setSelectOpen] = useState(false)
+  const [userResponseTabOverride, setUserResponseTabOverride] =
+    useState<ResponseTabKind | null>(null)
+  const [overrideRequestId, setOverrideRequestId] = useState<string | null>(
+    null,
+  )
+  const [filterOpenRequestId, setFilterOpenRequestId] = useState<string | null>(
+    null,
+  )
   const [yamlEditor, setYamlEditor] = useState<{
     visible: boolean
     filePath: string
@@ -356,6 +365,21 @@ export function AppInner({
   const initialRequestTab = tabPrefs?.requestTab
   const initialResponseTab = tabPrefs?.responseTab
 
+  const responseTab =
+    overrideRequestId === selectedRequest?.id && userResponseTabOverride
+      ? userResponseTabOverride
+      : (initialResponseTab ?? "body")
+
+  const queryVisible =
+    view === "main" && filterOpenRequestId === (selectedRequest?.id ?? null)
+
+  const setQueryVisible = useCallback(
+    (v: boolean) => {
+      setFilterOpenRequestId(v ? (selectedRequest?.id ?? null) : null)
+    },
+    [selectedRequest?.id],
+  )
+
   const onRequestTabChange = useCallback(
     (tab: FieldKind) => {
       if (selectedRequest?.id) setTab(selectedRequest.id, "request", tab)
@@ -365,6 +389,8 @@ export function AppInner({
 
   const onResponseTabChange = useCallback(
     (tab: ResponseTabKind) => {
+      setUserResponseTabOverride(tab)
+      setOverrideRequestId(selectedRequest?.id ?? null)
       if (selectedRequest?.id) setTab(selectedRequest.id, "response", tab)
     },
     [selectedRequest?.id, setTab],
@@ -583,41 +609,47 @@ export function AppInner({
     },
   })
 
-  // ── Sync edit mode to keymap ───────────────────────────────────────
-  useEffect(() => {
-    const requestMode =
-      eb.editState.mode === "browsing"
-        ? "browse"
-        : eb.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    const folderMode =
-      folderEb.editState.mode === "browsing"
-        ? "browse"
-        : folderEb.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    const envEditMode =
-      envEditor.editState.mode === "browsing"
+  const paneMode = useMemo((): "base" | "browse" | "edit" => {
+    if (view === "env-editor" && focus === "env-vars") {
+      return envEditor.editState.mode === "browsing"
         ? "browse"
         : envEditor.editState.mode === "editing"
           ? "edit"
           : "base"
-    if (view === "env-editor" && focus === "env-vars") {
-      keymap.setData("app.mode", envEditMode)
-    } else if (focus === "folder") {
-      keymap.setData("app.mode", folderMode)
-    } else {
-      keymap.setData("app.mode", requestMode)
     }
+    if (focus === "folder") {
+      return folderEb.editState.mode === "browsing"
+        ? "browse"
+        : folderEb.editState.mode === "editing"
+          ? "edit"
+          : "base"
+    }
+    return eb.editState.mode === "browsing"
+      ? "browse"
+      : eb.editState.mode === "editing"
+        ? "edit"
+        : "base"
   }, [
-    eb.editState.mode,
-    folderEb.editState.mode,
-    envEditor.editState.mode,
-    focus,
     view,
-    keymap,
+    focus,
+    envEditor.editState.mode,
+    folderEb.editState.mode,
+    eb.editState.mode,
   ])
+
+  const overlayActive = activeOverlay !== "none"
+
+  const displayTab = useMemo((): string | undefined => {
+    if (focus === "request") return eb.activeTab
+    if (focus === "response") return responseTab
+    if (focus === "folder") return folderEb.activeTab
+    return undefined
+  }, [focus, eb.activeTab, responseTab, folderEb.activeTab])
+
+  // ── Sync edit mode to keymap ───────────────────────────────────────
+  useEffect(() => {
+    keymap.setData("app.mode", paneMode)
+  }, [paneMode, keymap])
 
   useEffect(() => {
     if (focus !== "request") {
@@ -861,16 +893,6 @@ export function AppInner({
     return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
   }, [envEditor.draft])
 
-  const expandHint = useMemo(
-    () => `${displayKey(keybinds.pane_expand)} expand`,
-    [keybinds.pane_expand],
-  )
-
-  const queryHint = useMemo(
-    () => `${displayKey(keybinds.response_query)} query`,
-    [keybinds.response_query],
-  )
-
   const renderer = useRenderer()
 
   const onLoadTimelineBody = useCallback(
@@ -979,6 +1001,12 @@ export function AppInner({
         backgroundColor: theme.background,
       }}
     >
+      <Header
+        view={view}
+        overlayActive={overlayActive}
+        jumpMode={jumpMode}
+        keybinds={keybinds}
+      />
       <VariableCompletionInterceptor />
       <box
         style={{
@@ -1041,10 +1069,9 @@ export function AppInner({
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={activeOverlay === "none" && !isReadOnly}
-            expandHint={expandHint}
-            queryHint={queryHint}
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
+            onQueryVisibleChange={setQueryVisible}
             mode={mode}
             jumpMode={jumpMode}
           />
@@ -1137,6 +1164,13 @@ export function AppInner({
         view={view}
         envStats={envStats}
         jumpMode={jumpMode}
+        focus={focus}
+        paneMode={paneMode}
+        collectionMode={mode}
+        overlayActive={overlayActive}
+        tab={displayTab}
+        bodyType={draft.draft?.bodyType}
+        queryVisible={queryVisible}
       />
     </box>
   )
