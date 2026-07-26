@@ -45,6 +45,7 @@ export function HeaderTable({
             gap: 0,
             paddingLeft: 1,
             paddingRight: 1,
+            backgroundColor: i % 2 !== 0 ? stripeBg : undefined,
           }}
         >
           <text
@@ -59,12 +60,11 @@ export function HeaderTable({
               flexGrow: 1,
               flexShrink: 1,
               minWidth: 5,
-              backgroundColor: i % 2 !== 0 ? stripeBg : undefined,
               paddingLeft: 1,
               paddingRight: 1,
             }}
           >
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.text} wrapMode="none">
               {entry.value}
             </text>
           </box>

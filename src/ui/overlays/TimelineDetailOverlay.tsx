@@ -311,18 +311,15 @@ export function TimelineDetailOverlay({
                             alignItems: "center",
                           }}
                         >
+                          <Badge bg={theme.backgroundElement} fg={theme.text}>
+                            {formatSize(entry.response.size)} in{" "}
+                            {entryTiming(entry)}
+                          </Badge>
                           <Badge
                             bg={statusColor(status!, theme)}
                             fg={theme.background}
                           >
                             {statusStr}
-                          </Badge>
-                          <Badge
-                            bg={theme.backgroundElement}
-                            fg={theme.textMuted}
-                          >
-                            {formatSize(entry.response.size)} in{" "}
-                            {entryTiming(entry)}
                           </Badge>
                         </box>
                       )
