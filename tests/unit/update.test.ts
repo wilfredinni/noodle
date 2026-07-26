@@ -510,6 +510,33 @@ describe("isHomebrewInstall", () => {
     expect(isHomebrewInstall("/usr/local/bin/noodle")).toBe(false)
     expect(isHomebrewInstall("/tmp/noodle")).toBe(false)
   })
+
+  it("returns false when running via bun runtime", () => {
+    expect(isHomebrewInstall("/opt/homebrew/bin/bun")).toBe(false)
+    expect(isHomebrewInstall("/opt/homebrew/bin/bunx")).toBe(false)
+    expect(isHomebrewInstall("/usr/local/bin/bun")).toBe(false)
+  })
+})
+
+describe("runUpdate dev mode", () => {
+  it("does not attempt to update when running via bun runtime", async () => {
+    let fetchCalled = false
+    const result = await runUpdate(true, false, {
+      execPath: "/opt/homebrew/bin/bun",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      now: () => 1000,
+      cachePath: "/tmp/noodle-dev-cache.json",
+      fetcher: async () => {
+        fetchCalled = true
+        return new Response()
+      },
+    })
+    expect(result.data.status).toBe("dev_mode")
+    expect(result.failed).toBe(true)
+    expect(fetchCalled).toBe(false)
+  })
 })
 
 describe("checkForUpdates", () => {
@@ -677,6 +704,21 @@ describe("checkForUpdates", () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+
+  it("returns error when running via bun runtime (dev mode)", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/opt/homebrew/bin/bun",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+    })
+    expect(status).toEqual({
+      kind: "error",
+      message:
+        "Updates available only in standalone binary. Run `noodle update` instead.",
+      installType: "binary",
+    })
+  })
 })
 
 describe("installBinaryUpdate", () => {
@@ -736,6 +778,21 @@ describe("installBinaryUpdate", () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+
+  it("returns failure when running via bun runtime (dev mode)", async () => {
+    const result = await installBinaryUpdate(
+      "v0.5.3",
+      "https://example.com/noodle-binary",
+      {
+        execPath: "/opt/homebrew/bin/bun",
+        platform: "darwin",
+        arch: "arm64",
+        env: {},
+      },
+    )
+    expect(result.data.status).toBe("update_failed")
+    expect(result.failed).toBe(true)
+  })
 })
 
 describe("installBrewUpdate", () => {
@@ -774,5 +831,22 @@ describe("installBrewUpdate", () => {
       },
       failed: true,
     })
+  })
+
+  it("returns failure when running via bun runtime (dev mode)", async () => {
+    let processCalled = false
+    const result = await installBrewUpdate({
+      execPath: "/opt/homebrew/bin/bun",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      runProcess: async () => {
+        processCalled = true
+        return { exitCode: 0 }
+      },
+    })
+    expect(result.data.status).toBe("homebrew_failed")
+    expect(result.failed).toBe(true)
+    expect(processCalled).toBe(false)
   })
 })

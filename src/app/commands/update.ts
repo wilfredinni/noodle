@@ -49,11 +49,17 @@ export function isNewerVersion(current: string, latest: string): boolean {
 }
 
 export function isHomebrewInstall(execPath: string): boolean {
+  if (isBunRuntime(execPath)) return false
   return (
     execPath.includes("/homebrew/bin/") ||
     execPath.includes("/.linuxbrew/bin/") ||
     execPath.includes("/brew/bin/")
   )
+}
+
+function isBunRuntime(execPath: string): boolean {
+  const name = execPath.split("/").pop() ?? ""
+  return name === "bun" || name === "bunx" || name.startsWith("bun-")
 }
 
 export function parseChecksumManifest(
@@ -287,6 +293,15 @@ export async function checkForUpdates(
   const deps = getUpdateDeps(dependencyOverrides)
   const currentVersion = `v${pkg.version}`
 
+  if (isBunRuntime(deps.execPath)) {
+    return {
+      kind: "error",
+      message:
+        "Updates available only in standalone binary. Run `noodle update` instead.",
+      installType: "binary",
+    }
+  }
+
   if (isHomebrewInstall(deps.execPath)) {
     try {
       const result = await deps.runProcess(
@@ -441,6 +456,9 @@ export async function installBinaryUpdate(
   dependencyOverrides: Partial<UpdateDependencies> = {},
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
   const deps = getUpdateDeps(dependencyOverrides)
+  if (isBunRuntime(deps.execPath)) {
+    return { data: { status: "update_failed" }, failed: true }
+  }
   return downloadAndInstall(tag, downloadUrl, deps, () => {})
 }
 
@@ -448,6 +466,12 @@ export async function installBrewUpdate(
   dependencyOverrides: Partial<UpdateDependencies> = {},
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
   const deps = getUpdateDeps(dependencyOverrides)
+  if (isBunRuntime(deps.execPath)) {
+    return {
+      data: { status: "homebrew_failed", command: "brew upgrade noodle" },
+      failed: true,
+    }
+  }
   return runHomebrewUpdate(true, deps)
 }
 
@@ -483,6 +507,11 @@ export async function runUpdate(
   const deps = getUpdateDeps(dependencyOverrides)
   const output = (message: string) => {
     if (!silent) console.log(message)
+  }
+  if (isBunRuntime(deps.execPath)) {
+    output("Updates are only available for the standalone binary.")
+    output("If installed via Homebrew, run: brew upgrade noodle")
+    return { data: { status: "dev_mode" }, failed: true }
   }
   if (isHomebrewInstall(deps.execPath)) {
     return runHomebrewUpdate(silent, deps)
