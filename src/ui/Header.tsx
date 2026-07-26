@@ -11,12 +11,14 @@ export function Header({
   jumpMode,
   keybinds,
   restartVersion,
+  updateAvailable,
 }: {
   view: "main" | "env-editor"
   overlayActive: boolean
   jumpMode: boolean
   keybinds: Keybinds
   restartVersion?: string | null
+  updateAvailable?: string | null
 }) {
   const theme = useTheme()
   const { width: termWidth = 100 } = useTerminalDimensions()
@@ -63,6 +65,12 @@ export function Header({
           Noodle
         </text>
         {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
+        {showVersion && updateAvailable && (
+          <text fg={theme.warning}>
+            {" "}
+            {"->"} {updateAvailable}
+          </text>
+        )}
         {restartVersion && <text fg={theme.warning}> Restart to update</text>}
       </box>
       {showHints && headerHints.length > 0 && (

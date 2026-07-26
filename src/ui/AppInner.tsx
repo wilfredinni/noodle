@@ -91,6 +91,7 @@ export function AppInner({
   onCollectionChange,
   onReloadCollection,
   onCollectionBootstrapped,
+  updateAvailable,
   mode = "empty",
 }: {
   collectionDir: string
@@ -114,6 +115,7 @@ export function AppInner({
   onCollectionChange: (collectionDir: string) => void
   onReloadCollection: () => void
   onCollectionBootstrapped: (collectionDir: string) => void
+  updateAvailable?: string | null
   mode?: "collection" | "browse" | "empty" | "invalid"
 }) {
   const keymap = useKeymap()
@@ -206,6 +208,7 @@ export function AppInner({
     version: string
     installType: "brew" | "binary"
     assetUrl?: string
+    expectedSha256?: string
   } | null>(null)
   const updatePendingRef = useRef(updatePending)
   updatePendingRef.current = updatePending
@@ -570,6 +573,8 @@ export function AppInner({
           installType: status.installType,
           assetUrl:
             status.installType === "binary" ? status.assetUrl : undefined,
+          expectedSha256:
+            status.installType === "binary" ? status.expectedSha256 : undefined,
         })
       }
     })
@@ -596,8 +601,16 @@ export function AppInner({
       })
       return
     }
-    if (update.installType === "binary" && update.assetUrl) {
-      installBinaryUpdate(update.version, update.assetUrl).then((result) => {
+    if (
+      update.installType === "binary" &&
+      update.assetUrl &&
+      update.expectedSha256
+    ) {
+      installBinaryUpdate(
+        update.version,
+        update.assetUrl,
+        update.expectedSha256,
+      ).then((result) => {
         if (result.data.status === "updated") {
           showToast(
             `Updated to ${result.data.version ?? update.version}`,
@@ -1088,6 +1101,7 @@ export function AppInner({
         jumpMode={jumpMode}
         keybinds={keybinds}
         restartVersion={restartVersion}
+        updateAvailable={updateAvailable}
       />
       <VariableCompletionInterceptor />
       <box

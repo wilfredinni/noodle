@@ -19,7 +19,28 @@ import {
   checkForUpdates,
   installBinaryUpdate,
   installBrewUpdate,
+  parseManifest,
 } from "../../src/app/commands/update"
+
+function makeManifest(tag: string, checksums: Record<string, string>): string {
+  const assets: Record<string, { sha256: string }> = {}
+  for (const [platform, hash] of Object.entries(checksums)) {
+    assets[platform] = { sha256: hash }
+  }
+  return JSON.stringify({
+    version: tag,
+    releaseUrl: `https://github.com/wilfredinni/noodle/releases/tag/${tag}`,
+    assets,
+  })
+}
+
+function makeCache(
+  tag: string,
+  checkedAt: number,
+  checksums: Record<string, string>,
+) {
+  return JSON.stringify({ latestTag: tag, checkedAt, checksums })
+}
 
 describe("getPlatformString", () => {
   it("returns macos-arm64 for darwin + arm64", () => {
@@ -123,46 +144,173 @@ describe("checksum helpers", () => {
   })
 })
 
+describe("parseManifest", () => {
+  const MANIFEST = (version: string) =>
+    JSON.stringify({
+      version,
+      releaseUrl: `https://github.com/wilfredinni/noodle/releases/tag/${version}`,
+      assets: {
+        "macos-arm64": { sha256: "a".repeat(64) },
+        "linux-x86_64": { sha256: "b".repeat(64) },
+        "linux-arm64": { sha256: "c".repeat(64) },
+      },
+    })
+
+  it("parses a valid manifest", () => {
+    const m = parseManifest(MANIFEST("v0.5.3"))
+    expect(m.version).toBe("v0.5.3")
+    expect(m.assets["macos-arm64"].sha256).toBe("a".repeat(64))
+    expect(m.assets["linux-x86_64"].sha256).toBe("b".repeat(64))
+    expect(m.assets["linux-arm64"].sha256).toBe("c".repeat(64))
+  })
+
+  it("normalises SHAs to lowercase", () => {
+    const m = parseManifest(
+      JSON.stringify({
+        version: "v0.5.3",
+        assets: { "macos-arm64": { sha256: "A".repeat(64) } },
+      }),
+    )
+    expect(m.assets["macos-arm64"].sha256).toBe("a".repeat(64))
+  })
+
+  it("rejects invalid JSON", () => {
+    expect(() => parseManifest("not json")).toThrow("Invalid JSON")
+  })
+
+  it("rejects non-object manifest", () => {
+    expect(() => parseManifest("null")).toThrow("JSON object")
+  })
+
+  it("rejects missing version", () => {
+    expect(() => parseManifest("{}")).toThrow("missing version")
+  })
+
+  it("rejects invalid version", () => {
+    expect(() =>
+      parseManifest(JSON.stringify({ version: "not-semver", assets: {} })),
+    ).toThrow("Invalid version")
+  })
+
+  it("rejects missing assets", () => {
+    expect(() => parseManifest(JSON.stringify({ version: "v0.5.3" }))).toThrow(
+      "missing assets",
+    )
+  })
+
+  it("rejects invalid sha256 in assets", () => {
+    expect(() =>
+      parseManifest(
+        JSON.stringify({
+          version: "v0.5.3",
+          assets: { "macos-arm64": { sha256: "not-hex" } },
+        }),
+      ),
+    ).toThrow("Invalid asset entry")
+    expect(() =>
+      parseManifest(
+        JSON.stringify({
+          version: "v0.5.3",
+          assets: { "macos-arm64": { sha256: "g".repeat(64) } },
+        }),
+      ),
+    ).toThrow("Invalid asset entry")
+  })
+
+  it("rejects missing sha256 field", () => {
+    expect(() =>
+      parseManifest(
+        JSON.stringify({
+          version: "v0.5.3",
+          assets: { "macos-arm64": {} },
+        }),
+      ),
+    ).toThrow("Invalid asset entry")
+  })
+})
+
 describe("update cache", () => {
+  const checksums = { "macos-arm64": "a".repeat(64) }
+
   it("validates and expires cache entries", () => {
-    const cache = parseUpdateCache({ latestTag: "v0.4.6", checkedAt: 1000 })
-    expect(cache).toEqual({ latestTag: "v0.4.6", checkedAt: 1000 })
+    const cache = parseUpdateCache({
+      latestTag: "v0.4.6",
+      checkedAt: 1000,
+      checksums,
+    })
+    expect(cache).toEqual({
+      latestTag: "v0.4.6",
+      checkedAt: 1000,
+      checksums,
+    })
     expect(UPDATE_CACHE_TTL_MS).toBe(60 * 60 * 1000)
     expect(isFreshUpdateCache(cache!, 1000 + UPDATE_CACHE_TTL_MS)).toBe(true)
     expect(isFreshUpdateCache(cache!, 1001 + UPDATE_CACHE_TTL_MS)).toBe(false)
     expect(
-      parseUpdateCache({ latestTag: "v0.4.6-beta.1", checkedAt: 1000 }),
+      parseUpdateCache({
+        latestTag: "v0.4.6-beta.1",
+        checkedAt: 1000,
+        checksums,
+      }),
     ).toBeNull()
-    expect(parseUpdateCache({ latestTag: "v0.4.6", checkedAt: -1 })).toBeNull()
+    expect(
+      parseUpdateCache({ latestTag: "v0.4.6", checkedAt: -1, checksums }),
+    ).toBeNull()
+  })
+
+  it("rejects cache without checksums", () => {
+    expect(
+      parseUpdateCache({ latestTag: "v0.4.6", checkedAt: 1000 }),
+    ).toBeNull()
+  })
+
+  it("rejects cache with malformed checksums", () => {
+    expect(
+      parseUpdateCache({
+        latestTag: "v0.4.6",
+        checkedAt: 1000,
+        checksums: { "macos-arm64": "not-hex" },
+      }),
+    ).toBeNull()
+    expect(
+      parseUpdateCache({
+        latestTag: "v0.4.6",
+        checkedAt: 1000,
+        checksums: {},
+      }),
+    ).toBeNull()
   })
 
   it("saves and loads cache atomically", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-update-cache-"))
     const path = join(dir, "nested", "update-cache.json")
     try {
-      await saveUpdateCache(path, { latestTag: "v0.4.6", checkedAt: 42 })
+      await saveUpdateCache(path, {
+        latestTag: "v0.4.6",
+        checkedAt: 42,
+        checksums,
+      })
       expect(await loadUpdateCache(path)).toEqual({
         latestTag: "v0.4.6",
         checkedAt: 42,
+        checksums,
       })
       expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
         latestTag: "v0.4.6",
         checkedAt: 42,
+        checksums,
       })
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
   })
 
-  it("uses a fresh matching cache without calling GitHub", async () => {
+  it("uses a fresh matching cache without calling network", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-update-cache-"))
     const path = join(dir, "update-cache.json")
     let calls = 0
     try {
-      await writeFile(
-        path,
-        JSON.stringify({ latestTag: "v0.5.2", checkedAt: 1000 }),
-      )
+      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
       const result = await runUpdate(true, false, {
         cachePath: path,
         now: () => 1000,
@@ -186,16 +334,17 @@ describe("update cache", () => {
     }
   })
 
-  it("uses a fresh newer cached release without checking GitHub again", async () => {
+  it("uses a fresh newer cached release without checking network again", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-update-cache-"))
     const path = join(dir, "update-cache.json")
     const executable = join(dir, "noodle")
     const binary = new TextEncoder().encode("new")
-    let githubCalls = 0
+    const binaryHash = sha256(binary)
+    let manifestCalls = 0
     try {
       await writeFile(
         path,
-        JSON.stringify({ latestTag: "v0.5.3", checkedAt: 1000 }),
+        makeCache("v0.5.3", 1000, { "macos-arm64": binaryHash }),
       )
       await writeFile(executable, "old")
       const result = await runUpdate(true, false, {
@@ -207,16 +356,57 @@ describe("update cache", () => {
         env: {},
         fetcher: async (input) => {
           const url = String(input)
-          if (url.includes("api.github.com")) {
-            githubCalls += 1
+          if (url.endsWith("update.json")) {
+            manifestCalls += 1
             return new Response(null, { status: 500 })
           }
           if (url.endsWith("noodle-macos-arm64")) return new Response(binary)
-          return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
+          return new Response()
         },
       })
       expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
-      expect(githubCalls).toBe(0)
+      expect(manifestCalls).toBe(0)
+      expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("falls back to manifest fetch when cache has newer tag but no checksum for platform", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-update-cache-"))
+    const path = join(dir, "update-cache.json")
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    const binaryHash = sha256(binary)
+    let manifestCalls = 0
+    try {
+      await writeFile(
+        path,
+        makeCache("v0.5.3", 1000, { "linux-x86_64": binaryHash }),
+      )
+      await writeFile(executable, "old")
+      const result = await runUpdate(true, false, {
+        cachePath: path,
+        now: () => 1000,
+        execPath: executable,
+        platform: "darwin",
+        arch: "arm64",
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.endsWith("update.json")) {
+            manifestCalls += 1
+            return new Response(
+              makeManifest("v0.5.3", { "macos-arm64": binaryHash }),
+              { status: 200 },
+            )
+          }
+          if (url.endsWith("noodle-macos-arm64")) return new Response(binary)
+          return new Response()
+        },
+      })
+      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
+      expect(manifestCalls).toBe(1)
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -224,7 +414,7 @@ describe("update cache", () => {
   })
 })
 
-describe("update release discovery", () => {
+describe("update release discovery via manifest", () => {
   const baseDeps = (cachePath: string) => ({
     cachePath,
     now: () => 1000,
@@ -233,128 +423,12 @@ describe("update release discovery", () => {
     arch: "arm64",
   })
 
-  it("bypasses cache with --force and sends GH_TOKEN first", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-update-force-"))
-    const path = join(dir, "update-cache.json")
-    let request: RequestInit | undefined
-    try {
-      const result = await runUpdate(true, true, {
-        ...baseDeps(path),
-        env: { GH_TOKEN: "gh-token", GITHUB_TOKEN: "github-token" },
-        fetcher: async (_url, init) => {
-          request = init
-          return Response.json({ tag_name: "v0.4.6", assets: [] })
-        },
-      })
-      expect(result.data.status).toBe("up_to_date")
-      expect((request?.headers as Record<string, string>).Authorization).toBe(
-        "Bearer gh-token",
-      )
-      expect(await loadUpdateCache(path)).toEqual({
-        latestTag: "v0.4.6",
-        checkedAt: 1000,
-      })
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
+  const binaryHash = "a".repeat(64)
 
-  it("uses GITHUB_TOKEN when GH_TOKEN is absent", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-update-auth-"))
-    let request: RequestInit | undefined
-    try {
-      await runUpdate(true, true, {
-        ...baseDeps(join(dir, "cache.json")),
-        env: { GITHUB_TOKEN: "github-token" },
-        fetcher: async (_url, init) => {
-          request = init
-          return Response.json({ tag_name: "v0.4.6", assets: [] })
-        },
-      })
-      expect((request?.headers as Record<string, string>).Authorization).toBe(
-        "Bearer github-token",
-      )
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
-
-  it("reports rate limits and reset time", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-update-rate-"))
-    try {
-      const result = await runUpdate(true, true, {
-        ...baseDeps(join(dir, "cache.json")),
-        env: {},
-        fetcher: async () =>
-          new Response(null, {
-            status: 403,
-            headers: {
-              "x-ratelimit-remaining": "0",
-              "x-ratelimit-reset": "2000",
-            },
-          }),
-      })
-      expect(result).toEqual({
-        data: {
-          status: "rate_limited",
-          retry_at: "1970-01-01T00:33:20.000Z",
-        },
-        failed: true,
-      })
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
-
-  it("treats 429 as rate limited and ordinary 403 as a check failure", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-update-rate-"))
-    try {
-      const deps = baseDeps(join(dir, "cache.json"))
-      const rateLimited = await runUpdate(true, true, {
-        ...deps,
-        env: {},
-        fetcher: async () => new Response(null, { status: 429 }),
-      })
-      const forbidden = await runUpdate(true, true, {
-        ...deps,
-        env: {},
-        fetcher: async () =>
-          new Response(null, {
-            status: 403,
-            headers: { "x-ratelimit-remaining": "10" },
-          }),
-      })
-      expect(rateLimited.data.status).toBe("rate_limited")
-      expect(forbidden.data.status).toBe("check_failed")
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
-
-  it("does not send an authorization header without a token", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-update-auth-"))
-    let request: RequestInit | undefined
-    try {
-      await runUpdate(true, true, {
-        ...baseDeps(join(dir, "cache.json")),
-        env: {},
-        fetcher: async (_url, init) => {
-          request = init
-          return Response.json({ tag_name: "v0.4.6", assets: [] })
-        },
-      })
-      expect(request?.headers).toEqual({
-        Accept: "application/vnd.github+json",
-      })
-    } finally {
-      await rm(dir, { recursive: true, force: true })
-    }
-  })
-
-  it("replaces the binary after a verified download", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-update-success-"))
-    const executable = join(dir, "noodle")
+  it("discovers version and sha256 from update manifest", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-manifest-"))
     const binary = new TextEncoder().encode("new")
+    const executable = join(dir, "noodle")
     try {
       await writeFile(executable, "old")
       const result = await runUpdate(true, true, {
@@ -363,26 +437,24 @@ describe("update release discovery", () => {
         env: {},
         fetcher: async (input) => {
           const url = String(input)
-          if (url.includes("api.github.com"))
-            return Response.json({
-              tag_name: "v0.5.3",
-              assets: [
-                { name: "noodle-macos-arm64", browser_download_url: "binary" },
-              ],
-            })
-          if (url === "binary") return new Response(binary)
-          return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
+          if (url.endsWith("update.json"))
+            return new Response(
+              makeManifest("v99.0.0", { "macos-arm64": sha256(binary) }),
+              { status: 200 },
+            )
+          if (url.endsWith("noodle-macos-arm64")) return new Response(binary)
+          return new Response()
         },
       })
-      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
+      expect(result.data).toEqual({ status: "updated", version: "v99.0.0" })
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
   })
 
-  it("does not replace the binary when checksum verification fails", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-update-checksum-"))
+  it("rejects binary when checksum mismatches manifest", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-manifest-checksum-"))
     const executable = join(dir, "noodle")
     try {
       await writeFile(executable, "old")
@@ -392,19 +464,125 @@ describe("update release discovery", () => {
         env: {},
         fetcher: async (input) => {
           const url = String(input)
-          if (url.includes("api.github.com"))
-            return Response.json({
-              tag_name: "v0.5.3",
-              assets: [
-                { name: "noodle-macos-arm64", browser_download_url: "binary" },
-              ],
-            })
-          if (url === "binary") return new Response("new")
-          return new Response("0".repeat(64) + "  noodle-macos-arm64\n")
+          if (url.endsWith("update.json"))
+            return new Response(
+              makeManifest("v99.0.0", { "macos-arm64": binaryHash }),
+              { status: 200 },
+            )
+          if (url.endsWith("noodle-macos-arm64")) return new Response("new")
+          return new Response()
         },
       })
       expect(result.data.status).toBe("update_failed")
       expect(await readFile(executable, "utf8")).toBe("old")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("reports check_failed on non-200 manifest response", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-manifest-fail-"))
+    try {
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: {},
+        fetcher: async () => new Response(null, { status: 500 }),
+      })
+      expect(result.data.status).toBe("check_failed")
+      expect(result.failed).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("represents asset missing in manifest", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-manifest-no-asset-"))
+    try {
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.endsWith("update.json"))
+            return new Response(
+              makeManifest("v99.0.0", { "linux-x86_64": binaryHash }),
+              { status: 200 },
+            )
+          return new Response()
+        },
+      })
+      expect(result.data.status).toBe("asset_missing")
+      expect(result.failed).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns up_to_date when manifest version matches current", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-manifest-current-"))
+    try {
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.endsWith("update.json"))
+            return new Response(
+              makeManifest("v0.5.2", { "macos-arm64": binaryHash }),
+              { status: 200 },
+            )
+          return new Response()
+        },
+      })
+      expect(result.data.status).toBe("up_to_date")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns up_to_date when manifest version is older", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-manifest-older-"))
+    try {
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.endsWith("update.json"))
+            return new Response(
+              makeManifest("v0.4.9", { "macos-arm64": binaryHash }),
+              { status: 200 },
+            )
+          return new Response()
+        },
+      })
+      expect(result.data.status).toBe("up_to_date")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns error for invalid manifest version", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-manifest-invalid-"))
+    try {
+      const result = await runUpdate(true, true, {
+        ...baseDeps(join(dir, "cache.json")),
+        env: {},
+        fetcher: async (input) => {
+          const url = String(input)
+          if (url.endsWith("update.json"))
+            return new Response(
+              JSON.stringify({
+                version: "not-valid",
+                assets: { "macos-arm64": { sha256: binaryHash } },
+              }),
+              { status: 200 },
+            )
+          return new Response()
+        },
+      })
+      expect(result.data.status).toBe("check_failed")
+      expect(result.failed).toBe(true)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -548,6 +726,8 @@ describe("checkForUpdates", () => {
     arch: "arm64",
   })
 
+  const checksums = { "macos-arm64": "a".repeat(64) }
+
   it("returns up_to_date for brew when outdated reports current", async () => {
     const status = await checkForUpdates(false, {
       execPath: "/opt/homebrew/bin/noodle",
@@ -598,17 +778,14 @@ describe("checkForUpdates", () => {
   it("returns up_to_date for binary when cache matches", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-check-cache-"))
     const path = join(dir, "update-cache.json")
-    let githubCalls = 0
+    let networkCalls = 0
     try {
-      await writeFile(
-        path,
-        JSON.stringify({ latestTag: "v0.5.2", checkedAt: 1000 }),
-      )
+      await writeFile(path, makeCache("v0.5.2", 1000, checksums))
       const status = await checkForUpdates(false, {
         ...binaryDeps(path),
         env: {},
         fetcher: async () => {
-          githubCalls += 1
+          networkCalls += 1
           return new Response()
         },
       })
@@ -616,26 +793,23 @@ describe("checkForUpdates", () => {
       if (status.kind === "up_to_date") {
         expect(status.installType).toBe("binary")
       }
-      expect(githubCalls).toBe(0)
+      expect(networkCalls).toBe(0)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
   })
 
-  it("returns update_available for binary when cache has newer release", async () => {
+  it("returns update_available for binary when cache has newer release with checksum", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-check-newer-"))
     const path = join(dir, "update-cache.json")
-    let githubCalls = 0
+    let networkCalls = 0
     try {
-      await writeFile(
-        path,
-        JSON.stringify({ latestTag: "v99.0.0", checkedAt: 1000 }),
-      )
+      await writeFile(path, makeCache("v99.0.0", 1000, checksums))
       const status = await checkForUpdates(false, {
         ...binaryDeps(path),
         env: {},
         fetcher: async () => {
-          githubCalls += 1
+          networkCalls += 1
           return new Response()
         },
       })
@@ -649,31 +823,24 @@ describe("checkForUpdates", () => {
         expect(status.assetUrl).toBe(
           "https://github.com/wilfredinni/noodle/releases/download/v99.0.0/noodle-macos-arm64",
         )
+        expect(status.expectedSha256).toBe("a".repeat(64))
         expect(typeof status.currentVersion).toBe("string")
       }
-      expect(githubCalls).toBe(0)
+      expect(networkCalls).toBe(0)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
   })
 
-  it("fetches from GitHub and returns update_available when newer release exists", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-check-gh-newer-"))
+  it("fetches manifest and returns update_available when newer version exists", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-manifest-newer-"))
     const path = join(dir, "update-cache.json")
     try {
       const status = await checkForUpdates(true, {
         ...binaryDeps(path),
         env: {},
         fetcher: async () =>
-          Response.json({
-            tag_name: "v99.0.0",
-            assets: [
-              {
-                name: "noodle-macos-arm64",
-                browser_download_url: "https://example.com/noodle",
-              },
-            ],
-          }),
+          new Response(makeManifest("v99.0.0", checksums), { status: 200 }),
       })
       expect(status.kind).toBe("update_available")
       expect(status.installType).toBe("binary")
@@ -682,16 +849,34 @@ describe("checkForUpdates", () => {
         status.installType === "binary"
       ) {
         expect(status.latestVersion).toBe("v99.0.0")
-        expect(status.assetUrl).toBe("https://example.com/noodle")
-        expect(typeof status.currentVersion).toBe("string")
+        expect(status.assetUrl).toBe(
+          "https://github.com/wilfredinni/noodle/releases/download/v99.0.0/noodle-macos-arm64",
+        )
+        expect(status.expectedSha256).toBe("a".repeat(64))
       }
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
   })
 
-  it("returns error when release response is malformed", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "noodle-check-malformed-"))
+  it("returns up_to_date when manifest version is current", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-manifest-current-"))
+    const path = join(dir, "update-cache.json")
+    try {
+      const status = await checkForUpdates(true, {
+        ...binaryDeps(path),
+        env: {},
+        fetcher: async () =>
+          new Response(makeManifest("v0.5.2", checksums), { status: 200 }),
+      })
+      expect(status.kind).toBe("up_to_date")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("returns error when manifest is invalid JSON", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-bad-json-"))
     const path = join(dir, "update-cache.json")
     try {
       const status = await checkForUpdates(true, {
@@ -700,6 +885,9 @@ describe("checkForUpdates", () => {
         fetcher: async () => new Response("not json", { status: 200 }),
       })
       expect(status.kind).toBe("error")
+      if (status.kind === "error") {
+        expect(status.message).toContain("Check failed")
+      }
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -719,9 +907,30 @@ describe("checkForUpdates", () => {
       installType: "binary",
     })
   })
+
+  it("returns error when cache has newer version but no checksum for platform", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-missing-cs-"))
+    const path = join(dir, "update-cache.json")
+    try {
+      await writeFile(
+        path,
+        makeCache("v99.0.0", 1000, { "linux-x86_64": "a".repeat(64) }),
+      )
+      const status = await checkForUpdates(false, {
+        ...binaryDeps(path),
+        env: {},
+        fetcher: async () => new Response(),
+      })
+      expect(status.kind).toBe("error")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
 })
 
 describe("installBinaryUpdate", () => {
+  const binaryHash = "a".repeat(64)
+
   it("downloads and installs the binary with checksum verification", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-install-binary-"))
     const executable = join(dir, "noodle")
@@ -731,6 +940,7 @@ describe("installBinaryUpdate", () => {
       const result = await installBinaryUpdate(
         "v0.5.3",
         "https://example.com/noodle-binary",
+        sha256(binary),
         {
           execPath: executable,
           platform: "darwin",
@@ -740,7 +950,7 @@ describe("installBinaryUpdate", () => {
             const url = String(input)
             if (url === "https://example.com/noodle-binary")
               return new Response(binary)
-            return new Response(`${sha256(binary)}  noodle-macos-arm64\n`)
+            return new Response()
           },
         },
       )
@@ -759,6 +969,7 @@ describe("installBinaryUpdate", () => {
       const result = await installBinaryUpdate(
         "v0.5.3",
         "https://example.com/noodle-binary",
+        binaryHash,
         {
           execPath: executable,
           platform: "darwin",
@@ -768,7 +979,7 @@ describe("installBinaryUpdate", () => {
             const url = String(input)
             if (url === "https://example.com/noodle-binary")
               return new Response("new")
-            return new Response("0".repeat(64) + "  noodle-macos-arm64\n")
+            return new Response()
           },
         },
       )
@@ -783,6 +994,7 @@ describe("installBinaryUpdate", () => {
     const result = await installBinaryUpdate(
       "v0.5.3",
       "https://example.com/noodle-binary",
+      binaryHash,
       {
         execPath: "/opt/homebrew/bin/bun",
         platform: "darwin",

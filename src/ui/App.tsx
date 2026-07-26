@@ -11,6 +11,7 @@ import { loadLastRequest } from "./tabs/uiState"
 import type { Keybinds } from "./keybind"
 import type { CollectionMode } from "../app/main"
 import { classifyPath } from "../app/main"
+import { checkForUpdates } from "../app/commands/update"
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
@@ -58,6 +59,7 @@ export function App({
     return idx !== -1 ? idx : DEFAULT_THEME_INDEX
   })
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
 
   const [envNames, setEnvNames] = useState<string[]>(initialEnvList)
   const [envColors, setEnvColors] = useState<
@@ -77,6 +79,22 @@ export function App({
           activeCollectionDir,
         ),
       }))
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    checkForUpdates().then((status) => {
+      if (cancelled) return
+      if (
+        status.kind === "update_available" &&
+        status.installType === "binary"
+      ) {
+        setUpdateAvailable(status.latestVersion)
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -264,6 +282,7 @@ export function App({
         onCollectionChange={handleCollectionChange}
         onReloadCollection={handleReloadCollection}
         onCollectionBootstrapped={handleCollectionBootstrapped}
+        updateAvailable={updateAvailable}
         mode={mode}
       />
     </ThemeProvider>

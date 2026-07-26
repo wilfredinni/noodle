@@ -12,11 +12,12 @@ Use this skill when the maintainer asks to prepare a Noodle release or synchroni
 1. Run `bun run release:context`. If the documentation checkout is not at `../noodle-site`, set `NOODLE_SITE_DIR` to its path.
 2. Read the generated report before editing. Treat changed files, tests, and CLI help as evidence; do not infer unsupported behavior.
 3. Read [the public-surface map](references/public-surface-map.md) and inspect the current target documents in both repositories.
-4. Update only the affected README, `AGENTS.md`, skills, site pages, and `CHANGELOG.md`. Preserve each repository's existing voice and examples.
-5. Update `CHANGELOG.md` for the target version. Group evidence-backed changes under these exact headings when applicable: `### ✨ Features`, `### 🐞 Fixes`, and `### 🔧 Refactors`. Use `### 📚 Documentation` for documentation-only changes when applicable. Keep `Unreleased` at the top, include only changes since the previous release tag, and do not invent behavior.
-6. For uncertain behavior, leave a review note instead of guessing.
-7. Run `bun run release:check -- --tag <version>` and report failures with their command output.
-8. Stop after the verified diff and review summary. Do not commit, tag, push, publish, or modify GitHub releases.
+4. If update mechanism changed (update manifest, cache format, release asset structure), verify `noodle-site/public/update.json` schema, `noodle-site/netlify.toml` cache headers, release workflow ordering, and site installation docs are consistent.
+5. Update only the affected README, `AGENTS.md`, skills, site pages, and `CHANGELOG.md`. Preserve each repository's existing voice and examples.
+6. Update `CHANGELOG.md` for the target version. Group evidence-backed changes under these exact headings when applicable: `### ✨ Features`, `### 🐞 Fixes`, and `### 🔧 Refactors`. Use `### 📚 Documentation` for documentation-only changes when applicable. Keep `Unreleased` at the top, include only changes since the previous release tag, and do not invent behavior.
+7. For uncertain behavior, leave a review note instead of guessing.
+8. Run `bun run release:check -- --tag <version>` and report failures with their command output.
+9. Stop after the verified diff and review summary. Do not commit, tag, push, publish, or modify GitHub releases.
 
 ## Evidence rules
 

@@ -87,6 +87,7 @@ export const UPDATE_CACHE_TTL_MS = 60 * 60 * 1000
 export interface UpdateCache {
   latestTag: string
   checkedAt: number
+  checksums: Record<string, string>
 }
 
 export function parseUpdateCache(value: unknown): UpdateCache | null {
@@ -100,7 +101,18 @@ export function parseUpdateCache(value: unknown): UpdateCache | null {
     cache.checkedAt < 0
   )
     return null
-  return { latestTag: cache.latestTag, checkedAt: cache.checkedAt }
+  const checksums = cache.checksums
+  if (!checksums || typeof checksums !== "object") return null
+  for (const [key, hash] of Object.entries(checksums)) {
+    if (typeof key !== "string" || typeof hash !== "string") return null
+    if (!/^[a-f\d]{64}$/i.test(hash)) return null
+  }
+  if (Object.keys(checksums).length === 0) return null
+  return {
+    latestTag: cache.latestTag,
+    checkedAt: cache.checkedAt,
+    checksums: checksums as Record<string, string>,
+  }
 }
 
 export function isFreshUpdateCache(cache: UpdateCache, now: number): boolean {
@@ -136,22 +148,61 @@ export async function saveUpdateCache(
   }
 }
 
-interface ReleaseAsset {
-  name: string
-  browser_download_url: string
-}
-
-interface ReleaseData {
-  tag_name: string
-  assets: ReleaseAsset[]
-}
-
-function getReleaseApiUrl(): string {
-  return "https://api.github.com/repos/wilfredinni/noodle/releases/latest"
+function getManifestUrl(): string {
+  return "https://noodlerest.dev/update.json"
 }
 
 function getReleaseDownloadUrl(tag: string, name: string): string {
   return `https://github.com/wilfredinni/noodle/releases/download/${tag}/${name}`
+}
+
+interface UpdateManifest {
+  version: string
+  assets: Record<string, { sha256: string }>
+}
+
+export function parseManifest(json: string): UpdateManifest {
+  let obj: unknown
+  try {
+    obj = JSON.parse(json)
+  } catch {
+    throw new Error("Invalid JSON in update manifest")
+  }
+  if (!obj || typeof obj !== "object") {
+    throw new Error("Update manifest must be a JSON object")
+  }
+  const m = obj as Record<string, unknown>
+  if (typeof m.version !== "string") {
+    throw new Error("Update manifest missing version field")
+  }
+  if (compareStableVersions(m.version, m.version) === null) {
+    throw new Error(`Invalid version in update manifest: ${m.version}`)
+  }
+  if (!m.assets || typeof m.assets !== "object") {
+    throw new Error("Update manifest missing assets field")
+  }
+  const assets = m.assets as Record<string, unknown>
+  const parsed: Record<string, { sha256: string }> = {}
+  for (const [platform, value] of Object.entries(assets)) {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      typeof (value as Record<string, unknown>).sha256 !== "string" ||
+      !/^[a-f\d]{64}$/i.test(
+        (value as Record<string, unknown>).sha256 as string,
+      )
+    ) {
+      throw new Error(
+        `Invalid asset entry in update manifest for platform ${platform}`,
+      )
+    }
+    parsed[platform] = {
+      sha256: (
+        (value as Record<string, unknown>).sha256 as string
+      ).toLowerCase(),
+    }
+  }
+  return { version: m.version, assets: parsed }
 }
 
 function getDefaultCachePath(): string {
@@ -206,12 +257,6 @@ function getUpdateDeps(
   }
 }
 
-class RateLimitError extends Error {
-  constructor(readonly retryAt?: string) {
-    super("GitHub API rate limit reached")
-  }
-}
-
 async function runHomebrewUpdate(
   silent: boolean,
   deps: UpdateDependencies,
@@ -246,21 +291,6 @@ async function runHomebrewUpdate(
   }
 }
 
-function getRateLimitError(response: Response): RateLimitError | null {
-  const remaining = response.headers.get("x-ratelimit-remaining")
-  if (
-    response.status !== 429 &&
-    !(response.status === 403 && remaining === "0")
-  )
-    return null
-  const reset = Number(response.headers.get("x-ratelimit-reset"))
-  return new RateLimitError(
-    Number.isFinite(reset) && reset > 0
-      ? new Date(reset * 1000).toISOString()
-      : undefined,
-  )
-}
-
 export type UpdateStatus =
   | {
       kind: "up_to_date"
@@ -279,6 +309,7 @@ export type UpdateStatus =
       currentVersion: string
       installType: "binary"
       assetUrl: string
+      expectedSha256: string
     }
   | {
       kind: "error"
@@ -326,9 +357,8 @@ export async function checkForUpdates(
     }
   }
 
-  let platform: string
   try {
-    platform = getPlatformString(deps.platform, deps.arch)
+    getPlatformString(deps.platform, deps.arch)
   } catch {
     return {
       kind: "error",
@@ -337,7 +367,6 @@ export async function checkForUpdates(
     }
   }
 
-  let cachedTag: string | undefined
   if (!force) {
     const cache = await loadUpdateCache(deps.cachePath)
     if (cache && isFreshUpdateCache(cache, deps.now())) {
@@ -346,59 +375,50 @@ export async function checkForUpdates(
         return { kind: "up_to_date", currentVersion, installType: "binary" }
       }
       if (comparison === 1) {
-        cachedTag = cache.latestTag
+        const platformKey = getPlatformString(deps.platform, deps.arch)
+        const expectedSha256 = cache.checksums[platformKey]
+        if (!expectedSha256) {
+          return {
+            kind: "error",
+            message: `No checksum in cache for ${platformKey}`,
+            installType: "binary",
+          }
+        }
+        const assetName = getAssetName(deps.platform, deps.arch)
+        return {
+          kind: "update_available",
+          latestVersion: cache.latestTag,
+          currentVersion,
+          installType: "binary",
+          assetUrl: getReleaseDownloadUrl(cache.latestTag, assetName),
+          expectedSha256,
+        }
       }
     }
   }
 
-  if (cachedTag) {
-    const assetName = getAssetName(deps.platform, deps.arch)
-    return {
-      kind: "update_available",
-      latestVersion: cachedTag,
-      currentVersion,
-      installType: "binary",
-      assetUrl: getReleaseDownloadUrl(cachedTag, assetName),
-    }
-  }
+  return fetchManifestAndCheck(currentVersion, deps)
+}
 
+async function fetchManifestAndCheck(
+  currentVersion: string,
+  deps: UpdateDependencies,
+): Promise<UpdateStatus> {
   try {
-    const token = deps.env.GH_TOKEN || deps.env.GITHUB_TOKEN
-    const headers: Record<string, string> = {
-      Accept: "application/vnd.github+json",
-    }
-    if (token) headers.Authorization = `Bearer ${token}`
-    const response = await deps.fetcher(getReleaseApiUrl(), { headers })
+    const response = await deps.fetcher(getManifestUrl())
     if (!response.ok) {
-      const rateLimitError = getRateLimitError(response)
-      if (rateLimitError) {
-        const msg = rateLimitError.retryAt
-          ? `GitHub rate limited. Retry after ${rateLimitError.retryAt}.`
-          : "GitHub API rate limit reached."
-        return { kind: "error", message: msg, installType: "binary" }
-      }
       throw new Error(`HTTP ${response.status}`)
     }
-    const json = await response.json()
-    if (
-      !json ||
-      typeof json.tag_name !== "string" ||
-      !Array.isArray(json.assets) ||
-      json.assets.some(
-        (asset: unknown) =>
-          !asset ||
-          typeof asset !== "object" ||
-          typeof (asset as ReleaseAsset).name !== "string" ||
-          typeof (asset as ReleaseAsset).browser_download_url !== "string",
-      )
-    ) {
-      throw new Error("Invalid release data")
-    }
-    const releaseData = json as ReleaseData
+    const json = await response.text()
+    const manifest = parseManifest(json)
 
     const cache: UpdateCache = {
-      latestTag: releaseData.tag_name,
+      latestTag: manifest.version,
       checkedAt: deps.now(),
+      checksums: {},
+    }
+    for (const [platform, asset] of Object.entries(manifest.assets)) {
+      cache.checksums[platform] = asset.sha256
     }
     if (parseUpdateCache(cache)) {
       try {
@@ -410,12 +430,12 @@ export async function checkForUpdates(
 
     const versionComparison = compareStableVersions(
       currentVersion,
-      releaseData.tag_name,
+      manifest.version,
     )
     if (versionComparison === null) {
       return {
         kind: "error",
-        message: `Invalid release version: ${releaseData.tag_name}`,
+        message: `Invalid release version in manifest: ${manifest.version}`,
         installType: "binary",
       }
     }
@@ -423,22 +443,24 @@ export async function checkForUpdates(
       return { kind: "up_to_date", currentVersion, installType: "binary" }
     }
 
-    const assetName = getAssetName(deps.platform, deps.arch)
-    const asset = releaseData.assets.find((a) => a.name === assetName)
+    const platformKey = getPlatformString(deps.platform, deps.arch)
+    const asset = manifest.assets[platformKey]
     if (!asset) {
       return {
         kind: "error",
-        message: `No prebuilt binary for ${platform}.`,
+        message: `No prebuilt binary for ${platformKey} in update manifest`,
         installType: "binary",
       }
     }
 
+    const assetName = getAssetName(deps.platform, deps.arch)
     return {
       kind: "update_available",
-      latestVersion: releaseData.tag_name,
+      latestVersion: manifest.version,
       currentVersion,
       installType: "binary",
-      assetUrl: asset.browser_download_url,
+      assetUrl: getReleaseDownloadUrl(manifest.version, assetName),
+      expectedSha256: asset.sha256,
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
@@ -453,13 +475,14 @@ export async function checkForUpdates(
 export async function installBinaryUpdate(
   tag: string,
   downloadUrl: string,
+  expectedSha256: string,
   dependencyOverrides: Partial<UpdateDependencies> = {},
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
   const deps = getUpdateDeps(dependencyOverrides)
   if (isBunRuntime(deps.execPath)) {
     return { data: { status: "update_failed" }, failed: true }
   }
-  return downloadAndInstall(tag, downloadUrl, deps, () => {})
+  return downloadAndInstall(tag, downloadUrl, expectedSha256, deps, () => {})
 }
 
 export async function installBrewUpdate(
@@ -547,55 +570,43 @@ export async function runUpdate(
         }
       }
       if (cachedComparison === 1) {
-        output(`Using cached release ${cache.latestTag}.`)
-        return downloadAndInstall(
-          cache.latestTag,
-          getReleaseDownloadUrl(
+        const expectedSha256 = cache.checksums[platform]
+        if (expectedSha256) {
+          output(`Using cached release ${cache.latestTag}.`)
+          return downloadAndInstall(
             cache.latestTag,
-            getAssetName(deps.platform, deps.arch),
-          ),
-          deps,
-          output,
-        )
+            getReleaseDownloadUrl(
+              cache.latestTag,
+              getAssetName(deps.platform, deps.arch),
+            ),
+            expectedSha256,
+            deps,
+            output,
+          )
+        }
+        output("Cached release missing checksum, re-fetching manifest.")
       }
     }
   }
 
-  let releaseData: ReleaseData
+  let tag: string
+  let expectedSha256: string
 
   try {
-    const token = deps.env.GH_TOKEN || deps.env.GITHUB_TOKEN
-    const headers: Record<string, string> = {
-      Accept: "application/vnd.github+json",
-    }
-    if (token) headers.Authorization = `Bearer ${token}`
-    const response = await deps.fetcher(getReleaseApiUrl(), {
-      headers,
-    })
+    const response = await deps.fetcher(getManifestUrl())
     if (!response.ok) {
-      const rateLimitError = getRateLimitError(response)
-      if (rateLimitError) throw rateLimitError
       throw new Error(`HTTP ${response.status}`)
     }
-    const json = await response.json()
-    if (
-      !json ||
-      typeof json.tag_name !== "string" ||
-      !Array.isArray(json.assets) ||
-      json.assets.some(
-        (asset: unknown) =>
-          !asset ||
-          typeof asset !== "object" ||
-          typeof (asset as ReleaseAsset).name !== "string" ||
-          typeof (asset as ReleaseAsset).browser_download_url !== "string",
-      )
-    ) {
-      throw new Error("Invalid release data")
-    }
-    releaseData = json as ReleaseData
+    const json = await response.text()
+    const manifest = parseManifest(json)
+
     const cache: UpdateCache = {
-      latestTag: releaseData.tag_name,
+      latestTag: manifest.version,
       checkedAt: deps.now(),
+      checksums: {},
+    }
+    for (const [p, asset] of Object.entries(manifest.assets)) {
+      cache.checksums[p] = asset.sha256
     }
     if (parseUpdateCache(cache)) {
       try {
@@ -604,24 +615,26 @@ export async function runUpdate(
         // A cache write must never prevent a valid update check.
       }
     }
-  } catch (error) {
-    if (error instanceof RateLimitError) {
-      output("GitHub API rate limit reached.")
-      if (error.retryAt) output(`Retry after ${error.retryAt}.`)
-      const data: Record<string, string> = { status: "rate_limited" }
-      if (error.retryAt) data.retry_at = error.retryAt
-      return { data, failed: true }
+
+    tag = manifest.version
+    const asset = manifest.assets[platform]
+    if (!asset) {
+      output(`No prebuilt binary for ${platform} in update manifest.`)
+      output(
+        "Build from source: git clone https://github.com/wilfredinni/noodle.git",
+      )
+      return { data: { status: "asset_missing", platform }, failed: true }
     }
-    output("Failed to check for updates.")
+    expectedSha256 = asset.sha256
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    output(`Check failed: ${msg}`)
     return { data: { status: "check_failed" }, failed: true }
   }
 
-  const versionComparison = compareStableVersions(
-    currentVersion,
-    releaseData.tag_name,
-  )
+  const versionComparison = compareStableVersions(currentVersion, tag)
   if (versionComparison === null) {
-    output(`Invalid release version: ${releaseData.tag_name}`)
+    output(`Invalid release version in manifest: ${tag}`)
     return { data: { status: "invalid_release" }, failed: true }
   }
   if (versionComparison !== 1) {
@@ -629,20 +642,10 @@ export async function runUpdate(
     return { data: { status: "up_to_date", version: currentVersion } }
   }
 
-  const assetName = getAssetName(deps.platform, deps.arch)
-  const asset = releaseData.assets.find((a) => a.name === assetName)
-
-  if (!asset) {
-    output(`No prebuilt binary found for ${platform}.`)
-    output(
-      "Build from source: git clone https://github.com/wilfredinni/noodle.git",
-    )
-    return { data: { status: "asset_missing", platform }, failed: true }
-  }
-
   return downloadAndInstall(
-    releaseData.tag_name,
-    asset.browser_download_url,
+    tag,
+    getReleaseDownloadUrl(tag, getAssetName(deps.platform, deps.arch)),
+    expectedSha256,
     deps,
     output,
   )
@@ -651,6 +654,7 @@ export async function runUpdate(
 async function downloadAndInstall(
   tag: string,
   binaryUrl: string,
+  expectedSha256: string,
   deps: UpdateDependencies,
   output: (message: string) => void,
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
@@ -659,22 +663,13 @@ async function downloadAndInstall(
   output(`Downloading ${tag} for ${platform}...`)
   let stagingDir: string | undefined
   try {
-    const [binaryResponse, checksumResponse] = await Promise.all([
-      deps.fetcher(binaryUrl),
-      deps.fetcher(getReleaseDownloadUrl(tag, "SHA256SUMS")),
-    ])
-    if (!binaryResponse.ok || !checksumResponse.ok)
-      throw new Error(
-        `HTTP ${binaryResponse.ok ? checksumResponse.status : binaryResponse.status}`,
-      )
+    const binaryResponse = await deps.fetcher(binaryUrl)
+    if (!binaryResponse.ok) {
+      throw new Error(`HTTP ${binaryResponse.status}`)
+    }
 
     const binary = new Uint8Array(await binaryResponse.arrayBuffer())
-    const expectedHash = parseChecksumManifest(
-      await checksumResponse.text(),
-      assetName,
-    )
-    if (!expectedHash || sha256(binary) !== expectedHash)
-      throw new Error("checksum mismatch")
+    if (sha256(binary) !== expectedSha256) throw new Error("checksum mismatch")
 
     const executableDir = dirname(deps.execPath)
     stagingDir = await mkdtemp(join(executableDir, ".noodle-update-"))

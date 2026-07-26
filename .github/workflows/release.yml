@@ -176,3 +176,71 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             "https://api.github.com/repos/wilfredinni/homebrew-noodle/dispatches" \
             -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
+
+  publish-update-manifest:
+    needs: [create-release, checksums]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Download release SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --pattern 'SHA256SUMS' --dir .
+
+      - name: Build update manifest
+        env:
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          release_url="https://github.com/wilfredinni/noodle/releases/tag/${TAG}"
+
+          sha256sums=$(cat SHA256SUMS)
+          macos_hash=$(echo "$sha256sums" | grep 'noodle-macos-arm64\b' | awk '{print $1}')
+          linux_x86_hash=$(echo "$sha256sums" | grep 'noodle-linux-x86_64\b' | awk '{print $1}')
+          linux_arm_hash=$(echo "$sha256sums" | grep 'noodle-linux-arm64\b' | awk '{print $1}')
+
+          test -n "$macos_hash" || { echo "Missing macos-arm64 checksum" >&2; exit 1; }
+          test -n "$linux_x86_hash" || { echo "Missing linux-x86_64 checksum" >&2; exit 1; }
+          test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
+
+          cat > update.json <<EOF
+          {
+            "version": "${TAG}",
+            "releaseUrl": "${release_url}",
+            "assets": {
+              "macos-arm64": { "sha256": "${macos_hash}" },
+              "linux-x86_64": { "sha256": "${linux_x86_hash}" },
+              "linux-arm64": { "sha256": "${linux_arm_hash}" }
+            }
+          }
+          EOF
+
+      - uses: actions/checkout@v7
+        with:
+          repository: wilfredinni/noodle-site
+          token: ${{ secrets.NOODLE_SITE_TOKEN }}
+          path: noodle-site
+
+      - name: Publish update manifest
+        env:
+          TAG: ${{ needs.create-release.outputs.tag }}
+        working-directory: noodle-site
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          cp ../update.json public/update.json
+
+          if git diff --quiet; then
+            echo "No changes to update.json"
+            exit 0
+          fi
+
+          git add public/update.json
+          git commit -m "Update manifests for Noodle ${TAG}"
+          git push origin main
