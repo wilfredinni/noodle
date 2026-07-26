@@ -66,13 +66,10 @@ export function Header({
         </text>
         {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
         {showVersion && updateAvailable !== null && (
-          <text fg={theme.warning}>
-            {" "}
-            {"->"} {updateAvailable || "update available"}
-          </text>
+          <text fg={theme.warning}> {"✨"} Update available</text>
         )}
         {showVersion && restartVersion && (
-          <text fg={theme.warning}> Restart to update</text>
+          <text fg={theme.warning}> ✨ Restart to update</text>
         )}
       </box>
       {showHints && headerHints.length > 0 && (

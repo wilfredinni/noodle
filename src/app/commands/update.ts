@@ -358,7 +358,7 @@ export async function checkForUpdates(
       if (result.exitCode === 0) {
         return {
           kind: "update_available",
-          latestVersion: "brew",
+          latestVersion: "",
           currentVersion,
           installType: "brew",
         }
