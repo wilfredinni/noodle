@@ -744,7 +744,12 @@ describe("checkForUpdates", () => {
       runProcess: async (args, capture) => {
         receivedArgs = args
         captured = capture
-        return { exitCode: 1 }
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({
+            formulae: [{ versions: { stable: pkg.version } }],
+          }),
+        }
       },
     })
     expect(status.kind).toBe("up_to_date")
@@ -752,7 +757,7 @@ describe("checkForUpdates", () => {
     if (status.kind === "up_to_date") {
       expect(typeof status.currentVersion).toBe("string")
     }
-    expect(receivedArgs).toEqual(["brew", "outdated", "--quiet", "noodle"])
+    expect(receivedArgs).toEqual(["brew", "info", "--json=v2", "noodle"])
     expect(captured).toBe(true)
   })
 
@@ -765,15 +770,20 @@ describe("checkForUpdates", () => {
       env: {},
       runProcess: async (args, _capture) => {
         receivedArgs = args
-        return { exitCode: 0 }
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({
+            formulae: [{ versions: { stable: "0.11.0" } }],
+          }),
+        }
       },
     })
     expect(status.kind).toBe("update_available")
     expect(status.installType).toBe("brew")
     if (status.kind === "update_available") {
-      expect(typeof status.latestVersion).toBe("string")
+      expect(status.latestVersion).toBe("v0.11.0")
     }
-    expect(receivedArgs).toEqual(["brew", "outdated", "--quiet", "noodle"])
+    expect(receivedArgs).toEqual(["brew", "info", "--json=v2", "noodle"])
   })
 
   it("returns error when brew is unavailable", async () => {

@@ -158,7 +158,7 @@ jobs:
           gh release upload "$TAG" release-assets/SHA256SUMS --clobber
 
   notify-homebrew:
-    needs: [create-release, checksums]
+    needs: [create-release, checksums, undraft]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

@@ -763,7 +763,10 @@ export function AppInner({
   ])
 
   const overlayActive = activeOverlay !== "none"
-  overlayActiveRef.current = overlayActive
+
+  useEffect(() => {
+    overlayActiveRef.current = overlayActive
+  }, [overlayActive])
 
   const displayTab = useMemo((): string | undefined => {
     if (focus === "request") return eb.activeTab

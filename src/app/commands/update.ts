@@ -231,6 +231,7 @@ export interface UpdateDependencies {
 
 export interface ProcessResult {
   exitCode: number
+  stdout?: string
 }
 
 async function runProcess(
@@ -242,12 +243,12 @@ async function runProcess(
     stderr: captureOutput ? "pipe" : "inherit",
   })
   if (!captureOutput) return { exitCode: await child.exited }
-  await Promise.all([
-    child.exited,
+  const [stdout] = await Promise.all([
     new Response(child.stdout).text(),
+    child.exited,
     new Response(child.stderr).text(),
   ])
-  return { exitCode: child.exitCode ?? 1 }
+  return { exitCode: child.exitCode ?? 1, stdout }
 }
 
 function getUpdateDeps(
@@ -352,25 +353,40 @@ export async function checkForUpdates(
   if (isHomebrewInstall(deps.execPath)) {
     try {
       const result = await deps.runProcess(
-        ["brew", "outdated", "--quiet", "noodle"],
+        ["brew", "info", "--json=v2", "noodle"],
         true,
       )
-      if (result.exitCode === 0) {
+      if (result.exitCode !== 0) {
+        return {
+          kind: "error",
+          message: `brew info exited with status ${result.exitCode}`,
+          installType: "brew",
+        }
+      }
+      let latest: string | null = null
+      try {
+        const parsed = JSON.parse(result.stdout ?? "{}")
+        latest = parsed?.formulae?.[0]?.versions?.stable ?? null
+      } catch {
+        // fall through, latest stays null
+      }
+      if (latest === null) {
+        return {
+          kind: "error",
+          message: "Unable to parse brew info output",
+          installType: "brew",
+        }
+      }
+      const latestVersion = `v${latest}`
+      if (isNewerVersion(currentVersion, latestVersion)) {
         return {
           kind: "update_available",
-          latestVersion: "",
+          latestVersion,
           currentVersion,
           installType: "brew",
         }
       }
-      if (result.exitCode === 1) {
-        return { kind: "up_to_date", currentVersion, installType: "brew" }
-      }
-      return {
-        kind: "error",
-        message: `brew outdated exited with status ${result.exitCode}`,
-        installType: "brew",
-      }
+      return { kind: "up_to_date", currentVersion, installType: "brew" }
     } catch {
       return {
         kind: "error",
