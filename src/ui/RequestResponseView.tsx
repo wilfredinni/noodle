@@ -114,6 +114,7 @@ export function RequestResponseView({
         jumpMode={jumpMode && draft.draft !== null && expanded !== "response"}
       />
       <box
+        key={layout}
         style={{
           flexDirection: layout === "side-by-side" ? "row" : "column",
           flexGrow: 1,
