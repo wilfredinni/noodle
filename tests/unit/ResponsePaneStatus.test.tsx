@@ -249,6 +249,18 @@ describe("ResponsePane status text truncation and layout tests", () => {
       await renderOnce()
 
       const lines = captureCharFrame().split("\n")
+      const expectBadge = (hint: string) => {
+        expect(lines.some((l) => l.includes(` ${hint} `))).toBe(true)
+      }
+      expectBadge("h")
+      expectBadge("p")
+      expectBadge("b")
+      expectBadge("a")
+      expectBadge("t")
+      expectBadge("r")
+      expectBadge("e")
+      expectBadge("l")
+
       const expectBadgeAtTabStart = (hint: string, label: string) => {
         const badgeRow = lines.findIndex((line) => line.includes(` ${hint} `))
         expect(badgeRow).toBeGreaterThanOrEqual(0)
@@ -257,10 +269,62 @@ describe("ResponsePane status text truncation and layout tests", () => {
         expect(labelStart).toBe(badgeStart + 1)
       }
 
-      expectBadgeAtTabStart("h", "Headers")
-      expectBadgeAtTabStart("r", "Body")
+      if (layout === "stacked") {
+        expectBadgeAtTabStart("h", "Headers")
+        expectBadgeAtTabStart("p", "Params")
+        expectBadgeAtTabStart("b", "Body")
+        expectBadgeAtTabStart("a", "Auth")
+        expectBadgeAtTabStart("t", "Settings")
+        expectBadgeAtTabStart("r", "Body")
+        expectBadgeAtTabStart("e", "Headers")
+        expectBadgeAtTabStart("l", "Timeline")
+      }
     })
   }
+
+  it("hides urlbar m/u badges when expanded=response", async () => {
+    const { keymap, draft, eb } = createTestProps()
+    const responseIdle: SendState = { status: "idle" }
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 80, height: 24, flexDirection: "column" }}>
+            <RequestResponseView
+              draft={
+                draft as unknown as Parameters<
+                  typeof RequestResponseView
+                >[0]["draft"]
+              }
+              eb={
+                eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]
+              }
+              error={null}
+              focus="response"
+              layout="stacked"
+              expanded="response"
+              activeEnv={null}
+              responseState={responseIdle}
+              timelineEntries={[]}
+              onResponseTabChange={() => {}}
+              setSelectOpen={() => {}}
+              urlbarSubFocus="text"
+              urlbarInteractive={true}
+              jumpMode={true}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).not.toContain(" m ")
+    expect(frame).not.toContain(" u ")
+  })
 })
 
 describe("getAvailableTargets", () => {

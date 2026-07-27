@@ -111,7 +111,7 @@ export function RequestResponseView({
         interactive={urlbarInteractive}
         subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
-        jumpMode={jumpMode && draft.draft !== null}
+        jumpMode={jumpMode && draft.draft !== null && expanded !== "response"}
       />
       <box
         style={{

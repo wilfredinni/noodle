@@ -8,6 +8,7 @@ import type { TimelineEntry } from "../schema"
 import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
+import { RESPONSE_TAB_HINT_ORDER } from "./useJumpMode"
 import { FullBorder, LeftBar } from "./borders"
 import { JsonBodyViewer } from "./editor/JsonBodyViewer"
 import { Tips } from "./Tips"
@@ -30,7 +31,6 @@ const TAB_DEFS: TabDef[] = [
   { id: "headers", label: "Headers" },
   { id: "timeline", label: "Timeline" },
 ]
-const TAB_JUMP_HINTS = ["r", "e", "l"]
 
 export function ResponsePane({
   state,
@@ -71,9 +71,16 @@ export function ResponsePane({
   const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
     initialTab ?? "body",
   )
-  const tabs = jumpMode
-    ? TAB_DEFS.map((tab, i) => ({ ...tab, jumpHint: TAB_JUMP_HINTS[i] }))
-    : TAB_DEFS
+  const tabs = useMemo(
+    () =>
+      jumpMode
+        ? TAB_DEFS.map((tab, i) => ({
+            ...tab,
+            jumpHint: RESPONSE_TAB_HINT_ORDER[i],
+          }))
+        : TAB_DEFS,
+    [jumpMode],
+  )
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")

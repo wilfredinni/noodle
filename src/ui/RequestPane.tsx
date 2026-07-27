@@ -29,7 +29,7 @@ import { ValidationNotice } from "./editor/ValidationNotice"
 import type { BodyType } from "../schema"
 import { validateJsonContent } from "./editor/jsonValidation"
 import { getEnvVarHighlights } from "./variable-completion/variableCompletion"
-import { computeRequestTabLabels } from "./useJumpMode"
+import { computeRequestTabLabels, REQUEST_TAB_HINT_ORDER } from "./useJumpMode"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
 
@@ -58,7 +58,6 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "auth", label: "Auth" },
   { id: "settings", label: "Settings" },
 ]
-const TAB_JUMP_HINTS = ["h", "p", "b", "a", "t"]
 
 const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 
@@ -131,7 +130,7 @@ export function RequestPane({
     return BASE_TAB_DEFS.map((tab, i) => ({
       ...tab,
       label: labels[i],
-      jumpHint: jumpMode ? TAB_JUMP_HINTS[i] : undefined,
+      jumpHint: jumpMode ? REQUEST_TAB_HINT_ORDER[i] : undefined,
     }))
   }, [request, jumpMode])
 

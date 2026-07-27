@@ -10,6 +10,7 @@ export {
   DEFAULT_THEME_INDEX,
   DEFAULT_THEME_NAME,
   contrastOnPrimary,
+  contrastOnSecondary,
   opencodeTheme,
   catppuccinTheme,
   draculaTheme,

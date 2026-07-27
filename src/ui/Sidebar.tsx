@@ -21,7 +21,7 @@ function truncName(name: string, max: number): string {
 
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
-import { JumpBadge } from "./JumpBadge"
+import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "./JumpBadge"
 
 export function Sidebar({
   items: _items,
@@ -89,7 +89,7 @@ export function Sidebar({
         )
       }
     >
-      {jumpMode && <JumpBadge letter="s" style={{ top: -1, left: 2 }} />}
+      {jumpMode && <JumpBadge letter="s" style={JUMP_BADGE_TOP_INDENT} />}
       {loading ? (
         <box
           style={{

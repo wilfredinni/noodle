@@ -143,6 +143,9 @@ export const RESPONSE_TAB_HINTS: Record<string, string> = {
   timeline: "l",
 }
 
+export const REQUEST_TAB_HINT_ORDER: string[] = ["h", "p", "b", "a", "t"]
+export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "l"]
+
 export function computeRequestTabLabels(request: Request | null): string[] {
   if (!request) return ["Headers", "Params", "Body", "Auth", "Settings"]
   const headerActive = Object.values(request.headers).some((e) => e.enabled)

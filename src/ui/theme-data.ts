@@ -700,5 +700,20 @@ export function contrastOnPrimary(_theme: Theme): string {
   return "#1a1a1a"
 }
 
+function relativeLuminance(hex: string): number {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim())
+  if (!m) return 0
+  const r = parseInt(m[1]!.slice(0, 2), 16) / 255
+  const g = parseInt(m[1]!.slice(2, 4), 16) / 255
+  const b = parseInt(m[1]!.slice(4, 6), 16) / 255
+  const channel = (c: number) =>
+    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+export function contrastOnSecondary(theme: Theme): string {
+  return relativeLuminance(theme.secondary) > 0.4 ? "#1a1a1a" : "#f0f0f0"
+}
+
 export { PaneBorder, FullBorder, LeftBar } from "./borders"
 export type { CustomBorderChars, BorderPreset } from "./borders"

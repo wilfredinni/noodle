@@ -1,5 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import { THEMES, contrastOnPrimary } from "../../src/ui/theme"
+import {
+  THEMES,
+  contrastOnPrimary,
+  contrastOnSecondary,
+} from "../../src/ui/theme"
 
 describe("THEMES", () => {
   it("has exactly 32 themes", () => {
@@ -132,6 +136,32 @@ describe("contrastOnPrimary", () => {
     it(`returns dark text for ${theme.name} primary`, () => {
       const result = contrastOnPrimary(theme)
       expect(result).toBe("#1a1a1a")
+    })
+  }
+})
+
+describe("contrastOnSecondary", () => {
+  it("returns dark text for a light secondary", () => {
+    const lightTheme = {
+      ...THEMES[0]!,
+      secondary: "#ffffff",
+    }
+    expect(contrastOnSecondary(lightTheme)).toBe("#1a1a1a")
+  })
+
+  it("returns light text for a dark secondary", () => {
+    const darkTheme = {
+      ...THEMES[0]!,
+      secondary: "#000000",
+    }
+    expect(contrastOnSecondary(darkTheme)).toBe("#f0f0f0")
+  })
+
+  for (let i = 0; i < THEMES.length; i++) {
+    const theme = THEMES[i]!
+    const result = contrastOnSecondary(theme)
+    it(`returns a valid hex fg for ${theme.name} secondary (${theme.secondary})`, () => {
+      expect(result).toMatch(/^#1a1a1a$|^#f0f0f0$/)
     })
   }
 })
