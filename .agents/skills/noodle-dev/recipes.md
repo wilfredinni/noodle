@@ -281,9 +281,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 **Locate:**
 - `src/ui/useJumpMode.ts` -- `getAvailableTargets()`, `JumpTarget` union, `REQUEST_TAB_HINTS` / `RESPONSE_TAB_HINTS` letter-field maps
 - `src/ui/AppInner.tsx` -- `useJumpMode()` hook processes target selection, dispatches focus + tab changes
-- `src/ui/overlays/JumpModeOverlay.tsx` -- renders badge hints over panes
-
-**Follow:** Each `JumpTarget` kind (`sidebar`, `method`, `url`, `request-tab`, `response-tab`) follows a consistent pattern -- a letter maps to a kind, and `AppInner` translates that into `setFocus` / `setTab` calls. Badges use `REQUEST_TAB_HINTS` and `RESPONSE_TAB_HINTS` to map tabs to their assigned letters.
+**Follow:** Each `JumpTarget` kind (`sidebar`, `method`, `url`, `request-tab`, `response-tab`) follows a consistent pattern -- a letter maps to a kind, and `AppInner` translates that into `setFocus` / `setTab` calls. Badges use `REQUEST_TAB_HINTS` and `RESPONSE_TAB_HINTS` to map tabs to their assigned letters. Jump badges render in their owning components (Sidebar, UrlBar, RequestPane Tabs, ResponsePane Tabs), not in a separate overlay.
 
 **Implement:**
 1. Pick an unused letter for the new target
@@ -291,7 +289,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 3. Add a branch in `getAvailableTargets()` -- register the letter-target mapping, gated on the appropriate conditions (`hasRequest`, `expanded`, `folderView`)
 4. Handle the new target kind in `AppInner.tsx` inside the jump mode selection handler -- call `setFocus`, `setTab`, etc.
 5. If the target maps to a request or response tab, add the tab-letter entry in `REQUEST_TAB_HINTS` or `RESPONSE_TAB_HINTS` so badges render on the correct tab
-6. For a new pane or area, update `JumpModeOverlay.tsx` with badge rendering logic for the new kind
+6. Render a `JumpBadge` in the owning component, gated on `jumpMode`. Use `JUMP_BADGE_TOP_LEFT` or `JUMP_BADGE_TOP_INDENT` for consistent positioning.
 
 **Test:** Add test in `tests/unit/ResponsePaneStatus.test.tsx` -- verify `getAvailableTargets()` returns the new target under correct conditions. Add integration dispatch test.
 

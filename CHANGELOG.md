@@ -4,6 +4,18 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-07-27
+
+### 🐞 Fixes
+
+- Gate jump-mode hints on the focused pane and selected request so badges only appear on active, visible panes.
+- Force-remount the request/response split when toggling layout so the layout change takes effect immediately.
+- Compute contrast-on-secondary color from relative luminance for consistent badge readability across all themes.
+
+### 🔧 Refactors
+
+- Render jump-mode letter-hint badges directly in owning components instead of a separate overlay, removing the dark backdrop and deduplicating hint sources.
+
 ## [0.5.3] - 2026-07-26
 
 ### ✨ Features
@@ -150,7 +162,8 @@ All notable changes to Noodle are documented in this file.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/wilfredinni/noodle/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/wilfredinni/noodle/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/wilfredinni/noodle/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/wilfredinni/noodle/compare/v0.5.0...v0.5.1

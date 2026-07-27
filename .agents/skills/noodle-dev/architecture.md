@@ -310,7 +310,6 @@ App (src/ui/App.tsx)
       │   ├── CommandPaletteOverlay, CollectionSwitcherOverlay, RequestFinderOverlay
       │   ├── ImportCurlOverlay, CodeGeneratorOverlay
       │   ├── ConfirmOverlay (save, delete, undo-all, collection-switch)
-      │   ├── JumpModeOverlay       ← Leader-key focus jumps (g) with letter hints
       │   └── ValidationNotice
       └── StatusBar            ← Contextual pane/mode shortcuts and send action
 ```
@@ -443,7 +442,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | cURL import (TUI) | `src/converters/curl/parse.ts`, `src/ui/overlays/ImportCurlOverlay.tsx`, `src/ui/useOverlayIntercepts.ts` |
 | Code generation | `src/codegen/buildHar.ts`, `src/codegen/targets.ts`, `src/codegen/variableHash.ts`, `src/ui/overlays/CodeGeneratorOverlay.tsx` |
 | JSONPath response filtering | `src/ui/responseQuery.ts`, `src/ui/ResponsePane.tsx` |
-| Jump mode | `src/ui/useJumpMode.ts`, `src/ui/overlays/JumpModeOverlay.tsx`, `src/ui/JumpBadge.tsx` |
+| Jump mode | `src/ui/useJumpMode.ts`, `src/ui/JumpBadge.tsx` |
 | Themes | `src/ui/theme.tsx`, `src/ui/theme-data.ts` |
 | Clipboard | `src/ui/clipboard.ts` |
 | CLI | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` (import cmd), `src/app/commands/update.ts` (update cmd), `src/app/import.ts` (importer logic) |
