@@ -8,6 +8,7 @@ import { VarText } from "./VarText"
 import { Select } from "./Select"
 import { METHOD_ITEMS } from "./methodItems"
 import type { UrlBarSubFocus } from "./focus"
+import { JumpBadge, JUMP_BADGE_TOP_LEFT } from "./JumpBadge"
 
 export function UrlBar({
   method,
@@ -20,6 +21,7 @@ export function UrlBar({
   interactive = true,
   activeEnv,
   subFocus = "select",
+  jumpMode = false,
 }: {
   method: Method
   url: string
@@ -31,6 +33,7 @@ export function UrlBar({
   interactive?: boolean
   activeEnv?: Environment | null
   subFocus?: UrlBarSubFocus
+  jumpMode?: boolean
 }) {
   const theme = useTheme()
   const [inputValue, setInputValue] = useState(url)
@@ -103,17 +106,21 @@ export function UrlBar({
         </box>
       ) : (
         <box style={{ flexDirection: "row", gap: 1, paddingX: 1 }}>
-          <Select
-            items={METHOD_ITEMS}
-            value={method}
-            onChange={(value) => setMethod(value as Method)}
-            focused={focused && interactive && subFocus === "select"}
-            visualFocused={focused && subFocus === "select"}
-            badge
-            maxDropdownHeight={10}
-            onOpenChange={setMethodSelectOpen}
-          />
-          <box style={{ flexGrow: 1, flexShrink: 1 }}>
+          <box style={{ flexShrink: 0, position: "relative" }}>
+            {jumpMode && <JumpBadge letter="m" style={JUMP_BADGE_TOP_LEFT} />}
+            <Select
+              items={METHOD_ITEMS}
+              value={method}
+              onChange={(value) => setMethod(value as Method)}
+              focused={focused && interactive && subFocus === "select"}
+              visualFocused={focused && subFocus === "select"}
+              badge
+              maxDropdownHeight={10}
+              onOpenChange={setMethodSelectOpen}
+            />
+          </box>
+          <box style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}>
+            {jumpMode && <JumpBadge letter="u" style={JUMP_BADGE_TOP_LEFT} />}
             {focused && subFocus === "text" && interactive ? (
               <VarInput
                 value={inputValue}

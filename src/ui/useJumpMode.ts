@@ -143,6 +143,9 @@ export const RESPONSE_TAB_HINTS: Record<string, string> = {
   timeline: "l",
 }
 
+export const REQUEST_TAB_HINT_ORDER: string[] = ["h", "p", "b", "a", "t"]
+export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "l"]
+
 export function computeRequestTabLabels(request: Request | null): string[] {
   if (!request) return ["Headers", "Params", "Body", "Auth", "Settings"]
   const headerActive = Object.values(request.headers).some((e) => e.enabled)
@@ -161,16 +164,4 @@ export function computeRequestTabLabels(request: Request | null): string[] {
     hasAuth ? "Auth \u2022" : "Auth",
     hasTimeout ? "Settings \u2022" : "Settings",
   ]
-}
-
-export const RESPONSE_TAB_LABELS = ["Body", "Headers", "Timeline"]
-
-export function computeBadgeOffsets(labels: string[]): number[] {
-  const offsets: number[] = []
-  let pos = 2
-  for (const label of labels) {
-    offsets.push(pos)
-    pos += label.length + 3
-  }
-  return offsets
 }

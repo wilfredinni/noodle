@@ -29,7 +29,7 @@ import { ValidationNotice } from "./editor/ValidationNotice"
 import type { BodyType } from "../schema"
 import { validateJsonContent } from "./editor/jsonValidation"
 import { getEnvVarHighlights } from "./variable-completion/variableCompletion"
-import { computeRequestTabLabels } from "./useJumpMode"
+import { computeRequestTabLabels, REQUEST_TAB_HINT_ORDER } from "./useJumpMode"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
 
@@ -130,8 +130,9 @@ export function RequestPane({
     return BASE_TAB_DEFS.map((tab, i) => ({
       ...tab,
       label: labels[i],
+      jumpHint: jumpMode ? REQUEST_TAB_HINT_ORDER[i] : undefined,
     }))
-  }, [request])
+  }, [request, jumpMode])
 
   return (
     <Frame

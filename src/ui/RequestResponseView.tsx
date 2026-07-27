@@ -91,7 +91,7 @@ export function RequestResponseView({
           responseBodyForCopyRef={responseBodyForCopyRef}
           layout={layout}
           expanded={expanded}
-          jumpMode={jumpMode}
+          jumpMode={jumpMode && draft.draft !== null}
           onQueryVisibleChange={onQueryVisibleChange}
         />
       )}
@@ -111,8 +111,10 @@ export function RequestResponseView({
         interactive={urlbarInteractive}
         subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
+        jumpMode={jumpMode && draft.draft !== null && expanded !== "response"}
       />
       <box
+        key={layout}
         style={{
           flexDirection: layout === "side-by-side" ? "row" : "column",
           flexGrow: 1,

@@ -1,5 +1,11 @@
-import { useTheme, contrastOnPrimary } from "./theme"
+import { useTheme, contrastOnSecondary } from "./theme"
 import { TextAttributes } from "@opentui/core"
+
+export const JUMP_BADGE_TOP_LEFT: Record<string, unknown> = { top: -1, left: 0 }
+export const JUMP_BADGE_TOP_INDENT: Record<string, unknown> = {
+  top: -1,
+  left: 2,
+}
 
 export function JumpBadge({
   letter,
@@ -9,8 +15,8 @@ export function JumpBadge({
   style?: Record<string, unknown>
 }) {
   const theme = useTheme()
-  const bg = theme.primary
-  const fg = contrastOnPrimary(theme)
+  const bg = theme.secondary
+  const fg = contrastOnSecondary(theme)
   return (
     <box
       style={{
