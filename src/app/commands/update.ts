@@ -9,6 +9,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
+import { lstatSync, realpathSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
 import pkg from "../../../package.json" with { type: "json" }
@@ -48,12 +49,45 @@ export function isNewerVersion(current: string, latest: string): boolean {
   return compareStableVersions(current, latest) === 1
 }
 
-export function isHomebrewInstall(execPath: string): boolean {
+function isHomebrewPath(p: string): boolean {
   return (
-    execPath.includes("/homebrew/bin/") ||
-    execPath.includes("/.linuxbrew/bin/") ||
-    execPath.includes("/brew/bin/")
+    p.includes("/homebrew/") ||
+    p.includes("/.linuxbrew/") ||
+    p.includes("/usr/local/Cellar/") ||
+    p.includes("/usr/local/Homebrew/") ||
+    p.includes("/brew/bin/")
   )
+}
+
+const HOMEBREW_BIN_PREFIXES = [
+  "/usr/local/bin/",
+  "/opt/homebrew/bin/",
+  "/home/linuxbrew/.linuxbrew/bin/",
+]
+
+export function isHomebrewInstall(execPath: string): boolean {
+  if (isBunRuntime(execPath)) return false
+  if (isHomebrewPath(execPath)) return true
+  try {
+    if (isHomebrewPath(realpathSync(execPath))) return true
+  } catch {
+    try {
+      if (
+        HOMEBREW_BIN_PREFIXES.some((p) => execPath.startsWith(p)) &&
+        lstatSync(execPath).isSymbolicLink()
+      ) {
+        return true
+      }
+    } catch {
+      // stat failed too, file doesn't exist
+    }
+  }
+  return false
+}
+
+function isBunRuntime(execPath: string): boolean {
+  const name = execPath.split("/").pop() ?? ""
+  return name === "bun" || name === "bunx" || name.startsWith("bun-")
 }
 
 export function parseChecksumManifest(
@@ -77,10 +111,12 @@ export function sha256(bytes: Uint8Array): string {
 }
 
 export const UPDATE_CACHE_TTL_MS = 60 * 60 * 1000
+export const UPDATE_CACHE_STALE_MS = 7 * 24 * 60 * 60 * 1000
 
 export interface UpdateCache {
   latestTag: string
   checkedAt: number
+  checksums: Record<string, string>
 }
 
 export function parseUpdateCache(value: unknown): UpdateCache | null {
@@ -94,11 +130,30 @@ export function parseUpdateCache(value: unknown): UpdateCache | null {
     cache.checkedAt < 0
   )
     return null
-  return { latestTag: cache.latestTag, checkedAt: cache.checkedAt }
+  const checksums = cache.checksums
+  if (!checksums || typeof checksums !== "object") return null
+  const normalized: Record<string, string> = {}
+  for (const [key, hash] of Object.entries(checksums)) {
+    if (typeof key !== "string" || typeof hash !== "string") return null
+    if (!/^[a-f\d]{64}$/i.test(hash)) return null
+    normalized[key] = hash.toLowerCase()
+  }
+  if (Object.keys(normalized).length === 0) return null
+  return {
+    latestTag: cache.latestTag,
+    checkedAt: cache.checkedAt,
+    checksums: normalized,
+  }
 }
 
 export function isFreshUpdateCache(cache: UpdateCache, now: number): boolean {
   return now >= cache.checkedAt && now - cache.checkedAt <= UPDATE_CACHE_TTL_MS
+}
+
+export function isStaleUpdateCache(cache: UpdateCache, now: number): boolean {
+  return (
+    now >= cache.checkedAt && now - cache.checkedAt <= UPDATE_CACHE_STALE_MS
+  )
 }
 
 export async function loadUpdateCache(
@@ -130,22 +185,61 @@ export async function saveUpdateCache(
   }
 }
 
-interface ReleaseAsset {
-  name: string
-  browser_download_url: string
-}
-
-interface ReleaseData {
-  tag_name: string
-  assets: ReleaseAsset[]
-}
-
-function getReleaseApiUrl(): string {
-  return "https://api.github.com/repos/wilfredinni/noodle/releases/latest"
+function getManifestUrl(): string {
+  return "https://noodlerest.dev/update.json"
 }
 
 function getReleaseDownloadUrl(tag: string, name: string): string {
   return `https://github.com/wilfredinni/noodle/releases/download/${tag}/${name}`
+}
+
+interface UpdateManifest {
+  version: string
+  assets: Record<string, { sha256: string }>
+}
+
+export function parseManifest(json: string): UpdateManifest {
+  let obj: unknown
+  try {
+    obj = JSON.parse(json)
+  } catch (e) {
+    throw new Error("Invalid JSON in update manifest", { cause: e })
+  }
+  if (!obj || typeof obj !== "object") {
+    throw new Error("Update manifest must be a JSON object")
+  }
+  const m = obj as Record<string, unknown>
+  if (typeof m.version !== "string") {
+    throw new Error("Update manifest missing version field")
+  }
+  if (compareStableVersions(m.version, m.version) === null) {
+    throw new Error(`Invalid version in update manifest: ${m.version}`)
+  }
+  if (!m.assets || typeof m.assets !== "object") {
+    throw new Error("Update manifest missing assets field")
+  }
+  const assets = m.assets as Record<string, unknown>
+  const parsed: Record<string, { sha256: string }> = {}
+  for (const [platform, value] of Object.entries(assets)) {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      typeof (value as Record<string, unknown>).sha256 !== "string" ||
+      !/^[a-f\d]{64}$/i.test(
+        (value as Record<string, unknown>).sha256 as string,
+      )
+    ) {
+      throw new Error(
+        `Invalid asset entry in update manifest for platform ${platform}`,
+      )
+    }
+    parsed[platform] = {
+      sha256: (
+        (value as Record<string, unknown>).sha256 as string
+      ).toLowerCase(),
+    }
+  }
+  return { version: m.version, assets: parsed }
 }
 
 function getDefaultCachePath(): string {
@@ -165,6 +259,7 @@ export interface UpdateDependencies {
 
 export interface ProcessResult {
   exitCode: number
+  stdout?: string
 }
 
 async function runProcess(
@@ -176,12 +271,12 @@ async function runProcess(
     stderr: captureOutput ? "pipe" : "inherit",
   })
   if (!captureOutput) return { exitCode: await child.exited }
-  await Promise.all([
-    child.exited,
+  const [stdout] = await Promise.all([
     new Response(child.stdout).text(),
+    child.exited,
     new Response(child.stderr).text(),
   ])
-  return { exitCode: child.exitCode ?? 1 }
+  return { exitCode: child.exitCode ?? 1, stdout }
 }
 
 function getUpdateDeps(
@@ -197,12 +292,6 @@ function getUpdateDeps(
     cachePath: getDefaultCachePath(),
     now: Date.now,
     ...overrides,
-  }
-}
-
-class RateLimitError extends Error {
-  constructor(readonly retryAt?: string) {
-    super("GitHub API rate limit reached")
   }
 }
 
@@ -240,19 +329,297 @@ async function runHomebrewUpdate(
   }
 }
 
-function getRateLimitError(response: Response): RateLimitError | null {
-  const remaining = response.headers.get("x-ratelimit-remaining")
-  if (
-    response.status !== 429 &&
-    !(response.status === 403 && remaining === "0")
-  )
-    return null
-  const reset = Number(response.headers.get("x-ratelimit-reset"))
-  return new RateLimitError(
-    Number.isFinite(reset) && reset > 0
-      ? new Date(reset * 1000).toISOString()
-      : undefined,
-  )
+export type UpdateStatus =
+  | {
+      kind: "up_to_date"
+      currentVersion: string
+      installType: "binary" | "brew"
+    }
+  | {
+      kind: "update_available"
+      latestVersion: string
+      currentVersion: string
+      installType: "brew"
+    }
+  | {
+      kind: "update_available"
+      latestVersion: string
+      currentVersion: string
+      installType: "binary"
+      assetUrl: string
+      expectedSha256: string
+    }
+  | {
+      kind: "error"
+      message: string
+      installType: "binary" | "brew"
+    }
+
+export interface UpdateAvailableInfo {
+  version: string
+  installType: "brew" | "binary"
+  assetUrl?: string
+  expectedSha256?: string
+}
+
+export async function checkForUpdates(
+  force = false,
+  dependencyOverrides: Partial<UpdateDependencies> = {},
+): Promise<UpdateStatus> {
+  const deps = getUpdateDeps(dependencyOverrides)
+  const currentVersion = `v${pkg.version}`
+
+  if (isBunRuntime(deps.execPath)) {
+    return {
+      kind: "error",
+      message:
+        "Updates are only available for the standalone binary. Use a release build instead.",
+      installType: "binary",
+    }
+  }
+
+  if (isHomebrewInstall(deps.execPath)) {
+    try {
+      const result = await deps.runProcess(
+        ["brew", "info", "--json=v2", "noodle"],
+        true,
+      )
+      if (result.exitCode !== 0) {
+        return {
+          kind: "error",
+          message: `brew info exited with status ${result.exitCode}`,
+          installType: "brew",
+        }
+      }
+      let latest: string | null = null
+      try {
+        const parsed = JSON.parse(result.stdout ?? "{}")
+        latest = parsed?.formulae?.[0]?.versions?.stable ?? null
+      } catch {
+        // fall through, latest stays null
+      }
+      if (latest === null) {
+        return {
+          kind: "error",
+          message: "Unable to parse brew info output",
+          installType: "brew",
+        }
+      }
+      const latestVersion = `v${latest}`
+      if (isNewerVersion(currentVersion, latestVersion)) {
+        return {
+          kind: "update_available",
+          latestVersion,
+          currentVersion,
+          installType: "brew",
+        }
+      }
+      return { kind: "up_to_date", currentVersion, installType: "brew" }
+    } catch {
+      return {
+        kind: "error",
+        message: "Unable to check Homebrew. Is brew installed?",
+        installType: "brew",
+      }
+    }
+  }
+
+  try {
+    getPlatformString(deps.platform, deps.arch)
+  } catch {
+    return {
+      kind: "error",
+      message: `Unsupported platform: ${deps.platform}-${deps.arch}`,
+      installType: "binary",
+    }
+  }
+
+  if (!force) {
+    const cache = await loadUpdateCache(deps.cachePath)
+    if (cache && isFreshUpdateCache(cache, deps.now())) {
+      const comparison = compareStableVersions(currentVersion, cache.latestTag)
+      if (comparison === 0 || comparison === -1) {
+        return { kind: "up_to_date", currentVersion, installType: "binary" }
+      }
+      if (comparison === 1) {
+        const platformKey = getPlatformString(deps.platform, deps.arch)
+        const expectedSha256 = cache.checksums[platformKey]
+        if (expectedSha256) {
+          const assetName = getAssetName(deps.platform, deps.arch)
+          return {
+            kind: "update_available",
+            latestVersion: cache.latestTag,
+            currentVersion,
+            installType: "binary",
+            assetUrl: getReleaseDownloadUrl(cache.latestTag, assetName),
+            expectedSha256,
+          }
+        }
+      }
+    }
+  }
+
+  return fetchManifestAndCheck(currentVersion, deps)
+}
+
+async function fetchManifestAndCheck(
+  currentVersion: string,
+  deps: UpdateDependencies,
+): Promise<UpdateStatus> {
+  const manifestResult = await fetchManifestWithRetry(deps)
+
+  if (manifestResult.ok) {
+    const manifest = manifestResult.manifest
+    const cache: UpdateCache = {
+      latestTag: manifest.version,
+      checkedAt: deps.now(),
+      checksums: {},
+    }
+    for (const [platform, asset] of Object.entries(manifest.assets)) {
+      cache.checksums[platform] = asset.sha256
+    }
+    if (parseUpdateCache(cache)) {
+      try {
+        await saveUpdateCache(deps.cachePath, cache)
+      } catch {
+        // A cache write must never prevent a valid update check.
+      }
+    }
+
+    const versionComparison = compareStableVersions(
+      currentVersion,
+      manifest.version,
+    )
+    if (versionComparison !== 1) {
+      return { kind: "up_to_date", currentVersion, installType: "binary" }
+    }
+
+    const platformKey = getPlatformString(deps.platform, deps.arch)
+    const asset = manifest.assets[platformKey]
+    if (!asset) {
+      return {
+        kind: "error",
+        message: `No prebuilt binary for ${platformKey} in update manifest`,
+        installType: "binary",
+      }
+    }
+
+    const assetName = getAssetName(deps.platform, deps.arch)
+    return {
+      kind: "update_available",
+      latestVersion: manifest.version,
+      currentVersion,
+      installType: "binary",
+      assetUrl: getReleaseDownloadUrl(manifest.version, assetName),
+      expectedSha256: asset.sha256,
+    }
+  }
+
+  const cache = await loadUpdateCache(deps.cachePath)
+  if (cache && isStaleUpdateCache(cache, deps.now())) {
+    const comparison = compareStableVersions(currentVersion, cache.latestTag)
+    if (comparison === 1) {
+      const platformKey = getPlatformString(deps.platform, deps.arch)
+      const expectedSha256 = cache.checksums[platformKey]
+      if (expectedSha256) {
+        const assetName = getAssetName(deps.platform, deps.arch)
+        return {
+          kind: "update_available",
+          latestVersion: cache.latestTag,
+          currentVersion,
+          installType: "binary",
+          assetUrl: getReleaseDownloadUrl(cache.latestTag, assetName),
+          expectedSha256,
+        }
+      }
+    }
+    if (comparison === 0 || comparison === -1) {
+      return { kind: "up_to_date", currentVersion, installType: "binary" }
+    }
+  }
+
+  return {
+    kind: "error",
+    message: manifestResult.error ?? "Unable to reach update server",
+    installType: "binary",
+  }
+}
+
+interface ManifestFetchResult {
+  ok: true
+  manifest: UpdateManifest
+  error?: undefined
+}
+
+interface ManifestFetchError {
+  ok: false
+  manifest?: undefined
+  error: string
+  transient: boolean
+}
+
+type ManifestFetchOutcome = ManifestFetchResult | ManifestFetchError
+
+function isTransientError(status: number): boolean {
+  return status === 0 || status >= 500
+}
+
+async function fetchManifestOnce(
+  deps: UpdateDependencies,
+): Promise<ManifestFetchOutcome> {
+  try {
+    const response = await deps.fetcher(getManifestUrl())
+    if (!response.ok) {
+      const status = response.status
+      const transient = isTransientError(status)
+      if (!transient) {
+        return { ok: false, error: `HTTP ${status}`, transient: false }
+      }
+      return { ok: false, error: `HTTP ${status}`, transient: true }
+    }
+    const json = await response.text()
+    const manifest = parseManifest(json)
+    return { ok: true, manifest }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return { ok: false, error: `Check failed: ${msg}`, transient: true }
+  }
+}
+
+async function fetchManifestWithRetry(
+  deps: UpdateDependencies,
+): Promise<ManifestFetchOutcome> {
+  const first = await fetchManifestOnce(deps)
+  if (first.ok || !first.transient) return first
+
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  return fetchManifestOnce(deps)
+}
+
+export async function installBinaryUpdate(
+  tag: string,
+  downloadUrl: string,
+  expectedSha256: string,
+  dependencyOverrides: Partial<UpdateDependencies> = {},
+): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  const deps = getUpdateDeps(dependencyOverrides)
+  if (isBunRuntime(deps.execPath)) {
+    return { data: { status: "update_failed" }, failed: true }
+  }
+  return downloadAndInstall(tag, downloadUrl, expectedSha256, deps, () => {})
+}
+
+export async function installBrewUpdate(
+  dependencyOverrides: Partial<UpdateDependencies> = {},
+): Promise<{ data: Record<string, string>; failed?: boolean }> {
+  const deps = getUpdateDeps(dependencyOverrides)
+  if (isBunRuntime(deps.execPath)) {
+    return {
+      data: { status: "homebrew_failed", command: "brew upgrade noodle" },
+      failed: true,
+    }
+  }
+  return runHomebrewUpdate(true, deps)
 }
 
 export default defineCommand({
@@ -288,6 +655,11 @@ export async function runUpdate(
   const output = (message: string) => {
     if (!silent) console.log(message)
   }
+  if (isBunRuntime(deps.execPath)) {
+    output("Updates are only available for the standalone binary.")
+    output("If installed via Homebrew, run: brew upgrade noodle")
+    return { data: { status: "dev_mode" }, failed: true }
+  }
   if (isHomebrewInstall(deps.execPath)) {
     return runHomebrewUpdate(silent, deps)
   }
@@ -322,55 +694,38 @@ export async function runUpdate(
         }
       }
       if (cachedComparison === 1) {
-        output(`Using cached release ${cache.latestTag}.`)
-        return downloadAndInstall(
-          cache.latestTag,
-          getReleaseDownloadUrl(
+        const expectedSha256 = cache.checksums[platform]
+        if (expectedSha256) {
+          output(`Using cached release ${cache.latestTag}.`)
+          return downloadAndInstall(
             cache.latestTag,
-            getAssetName(deps.platform, deps.arch),
-          ),
-          deps,
-          output,
-        )
+            getReleaseDownloadUrl(
+              cache.latestTag,
+              getAssetName(deps.platform, deps.arch),
+            ),
+            expectedSha256,
+            deps,
+            output,
+          )
+        }
+        output("Cached release missing checksum, re-fetching manifest.")
       }
     }
   }
 
-  let releaseData: ReleaseData
+  let tag: string
+  let expectedSha256: string
 
-  try {
-    const token = deps.env.GH_TOKEN || deps.env.GITHUB_TOKEN
-    const headers: Record<string, string> = {
-      Accept: "application/vnd.github+json",
-    }
-    if (token) headers.Authorization = `Bearer ${token}`
-    const response = await deps.fetcher(getReleaseApiUrl(), {
-      headers,
-    })
-    if (!response.ok) {
-      const rateLimitError = getRateLimitError(response)
-      if (rateLimitError) throw rateLimitError
-      throw new Error(`HTTP ${response.status}`)
-    }
-    const json = await response.json()
-    if (
-      !json ||
-      typeof json.tag_name !== "string" ||
-      !Array.isArray(json.assets) ||
-      json.assets.some(
-        (asset: unknown) =>
-          !asset ||
-          typeof asset !== "object" ||
-          typeof (asset as ReleaseAsset).name !== "string" ||
-          typeof (asset as ReleaseAsset).browser_download_url !== "string",
-      )
-    ) {
-      throw new Error("Invalid release data")
-    }
-    releaseData = json as ReleaseData
+  const manifestResult = await fetchManifestWithRetry(deps)
+  if (manifestResult.ok) {
+    const manifest = manifestResult.manifest
     const cache: UpdateCache = {
-      latestTag: releaseData.tag_name,
+      latestTag: manifest.version,
       checkedAt: deps.now(),
+      checksums: {},
+    }
+    for (const [p, asset] of Object.entries(manifest.assets)) {
+      cache.checksums[p] = asset.sha256
     }
     if (parseUpdateCache(cache)) {
       try {
@@ -379,24 +734,60 @@ export async function runUpdate(
         // A cache write must never prevent a valid update check.
       }
     }
-  } catch (error) {
-    if (error instanceof RateLimitError) {
-      output("GitHub API rate limit reached.")
-      if (error.retryAt) output(`Retry after ${error.retryAt}.`)
-      const data: Record<string, string> = { status: "rate_limited" }
-      if (error.retryAt) data.retry_at = error.retryAt
-      return { data, failed: true }
+
+    tag = manifest.version
+    const asset = manifest.assets[platform]
+    if (!asset) {
+      output(`No prebuilt binary for ${platform} in update manifest.`)
+      output(
+        "Build from source: git clone https://github.com/wilfredinni/noodle.git",
+      )
+      return { data: { status: "asset_missing", platform }, failed: true }
     }
-    output("Failed to check for updates.")
+    expectedSha256 = asset.sha256
+  } else {
+    const staleCache = await loadUpdateCache(deps.cachePath)
+    if (staleCache && isStaleUpdateCache(staleCache, deps.now())) {
+      const staleComparison = compareStableVersions(
+        currentVersion,
+        staleCache.latestTag,
+      )
+      if (staleComparison === 1) {
+        const sha = staleCache.checksums[platform]
+        if (sha) {
+          output(
+            `Cannot reach update server; using cached ${staleCache.latestTag}.`,
+          )
+          return downloadAndInstall(
+            staleCache.latestTag,
+            getReleaseDownloadUrl(
+              staleCache.latestTag,
+              getAssetName(deps.platform, deps.arch),
+            ),
+            sha,
+            deps,
+            output,
+          )
+        }
+      }
+      if (staleComparison === 0 || staleComparison === -1) {
+        output("Already up to date.")
+        return {
+          data: {
+            status: "up_to_date",
+            version: currentVersion,
+            cached: "true",
+          },
+        }
+      }
+    }
+    output(manifestResult.error ?? "Unable to reach update server")
     return { data: { status: "check_failed" }, failed: true }
   }
 
-  const versionComparison = compareStableVersions(
-    currentVersion,
-    releaseData.tag_name,
-  )
+  const versionComparison = compareStableVersions(currentVersion, tag)
   if (versionComparison === null) {
-    output(`Invalid release version: ${releaseData.tag_name}`)
+    output(`Invalid release version in manifest: ${tag}`)
     return { data: { status: "invalid_release" }, failed: true }
   }
   if (versionComparison !== 1) {
@@ -404,20 +795,10 @@ export async function runUpdate(
     return { data: { status: "up_to_date", version: currentVersion } }
   }
 
-  const assetName = getAssetName(deps.platform, deps.arch)
-  const asset = releaseData.assets.find((a) => a.name === assetName)
-
-  if (!asset) {
-    output(`No prebuilt binary found for ${platform}.`)
-    output(
-      "Build from source: git clone https://github.com/wilfredinni/noodle.git",
-    )
-    return { data: { status: "asset_missing", platform }, failed: true }
-  }
-
   return downloadAndInstall(
-    releaseData.tag_name,
-    asset.browser_download_url,
+    tag,
+    getReleaseDownloadUrl(tag, getAssetName(deps.platform, deps.arch)),
+    expectedSha256,
     deps,
     output,
   )
@@ -426,6 +807,7 @@ export async function runUpdate(
 async function downloadAndInstall(
   tag: string,
   binaryUrl: string,
+  expectedSha256: string,
   deps: UpdateDependencies,
   output: (message: string) => void,
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
@@ -434,22 +816,13 @@ async function downloadAndInstall(
   output(`Downloading ${tag} for ${platform}...`)
   let stagingDir: string | undefined
   try {
-    const [binaryResponse, checksumResponse] = await Promise.all([
-      deps.fetcher(binaryUrl),
-      deps.fetcher(getReleaseDownloadUrl(tag, "SHA256SUMS")),
-    ])
-    if (!binaryResponse.ok || !checksumResponse.ok)
-      throw new Error(
-        `HTTP ${binaryResponse.ok ? checksumResponse.status : binaryResponse.status}`,
-      )
+    const binaryResponse = await deps.fetcher(binaryUrl)
+    if (!binaryResponse.ok) {
+      throw new Error(`HTTP ${binaryResponse.status}`)
+    }
 
     const binary = new Uint8Array(await binaryResponse.arrayBuffer())
-    const expectedHash = parseChecksumManifest(
-      await checksumResponse.text(),
-      assetName,
-    )
-    if (!expectedHash || sha256(binary) !== expectedHash)
-      throw new Error("checksum mismatch")
+    if (sha256(binary) !== expectedSha256) throw new Error("checksum mismatch")
 
     const executableDir = dirname(deps.execPath)
     stagingDir = await mkdtemp(join(executableDir, ".noodle-update-"))
@@ -462,8 +835,14 @@ async function downloadAndInstall(
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     output(`Failed to update: ${reason}`)
-    return { data: { status: "update_failed" }, failed: true }
+    return { data: { status: "update_failed", reason }, failed: true }
   } finally {
-    if (stagingDir) await rm(stagingDir, { recursive: true, force: true })
+    if (stagingDir) {
+      try {
+        await rm(stagingDir, { recursive: true, force: true })
+      } catch {
+        // cleanup is best-effort
+      }
+    }
   }
 }

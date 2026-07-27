@@ -94,6 +94,9 @@ export function useOverlayIntercepts(opts: {
   onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
+  updateConfirmVisible: boolean
+  onConfirmInstall: () => void
+  onCancelUpdate: () => void
 }): void {
   const keymap = useKeymap()
   const {
@@ -154,6 +157,9 @@ export function useOverlayIntercepts(opts: {
     onInitConfirm,
     draftRef,
     folderDraftRef,
+    updateConfirmVisible,
+    onConfirmInstall,
+    onCancelUpdate,
   } = opts
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
@@ -621,6 +627,29 @@ export function useOverlayIntercepts(opts: {
     )
     return dispose
   }, [initPending, keymap, onInitConfirm, setInitPending])
+
+  // ── Overlay: Update confirm ──────────────────────────────────────
+  useEffect(() => {
+    if (!updateConfirmVisible) return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onConfirmInstall()
+        }
+        if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onCancelUpdate()
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [updateConfirmVisible, keymap, onConfirmInstall, onCancelUpdate])
 
   // ── Overlay: New Folder ───────────────────────────────────────────
   useEffect(() => {

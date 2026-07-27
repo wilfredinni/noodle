@@ -11,3 +11,7 @@ homebrew-noodle/
 lead-hub
 openapi.json
 import
+graphify-out/
+.husky/post-commit
+.husky/post-checkout
+.gitattributes

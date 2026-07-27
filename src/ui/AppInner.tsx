@@ -63,6 +63,12 @@ import type { ResponseTabKind } from "./tabs/uiState"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 import { parseCurl } from "../converters/curl/parse"
 import type { ResponseQueryController } from "./responseQuery"
+import {
+  checkForUpdates as checkForUpdatesFn,
+  installBinaryUpdate,
+  installBrewUpdate,
+  type UpdateAvailableInfo,
+} from "../app/commands/update"
 
 export function AppInner({
   collectionDir,
@@ -196,6 +202,22 @@ export function AppInner({
   const [collectionSwitchPending, setCollectionSwitchPending] = useState<
     string | null
   >(null)
+  const [updateCheckToken, setUpdateCheckToken] = useState(0)
+  const triggerUpdateCheck = useCallback(
+    () => setUpdateCheckToken((t) => t + 1),
+    [],
+  )
+  type UpdateFlowState =
+    | { phase: "idle" }
+    | ({ phase: "confirm" } & UpdateAvailableInfo)
+    | ({ phase: "installing" } & UpdateAvailableInfo)
+    | { phase: "done"; version: string }
+    | { phase: "failed"; message: string }
+  const [updateFlow, setUpdateFlow] = useState<UpdateFlowState>({
+    phase: "idle",
+  })
+  const [restartVersion, setRestartVersion] = useState<string | null>(null)
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
   const [initialExpandedFolders, setInitialExpandedFolders] =
     useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -486,6 +508,7 @@ export function AppInner({
     if (newFolderVisible) return "new-folder"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
+    if (updateFlow.phase === "confirm") return "update-confirm"
     if (timelineDetailEntry !== null) return "timeline-detail"
     return "none"
   }, [
@@ -509,6 +532,7 @@ export function AppInner({
     newFolderVisible,
     folderDeletePending,
     requestDeletePending,
+    updateFlow.phase,
     timelineDetailEntry,
   ])
 
@@ -536,6 +560,110 @@ export function AppInner({
   useEffect(() => {
     keymap.setData("app.view", view)
   }, [view, keymap])
+
+  // ── Update check flow ────────────────────────────────────────────
+  const updateFlowRef = useRef(updateFlow)
+  updateFlowRef.current = updateFlow
+
+  const overlayActiveRef = useRef(false)
+  const installTokenRef = useRef(0)
+
+  useEffect(() => {
+    if (updateCheckToken === 0) return
+    if (updateFlowRef.current.phase === "installing") return
+    let cancelled = false
+    checkForUpdatesFn(true).then((status) => {
+      if (cancelled) return
+      if (overlayActiveRef.current) return
+      if (status.kind === "up_to_date") {
+        setUpdateAvailable(null)
+        showToast("Noodle is up to date", "success")
+      } else if (status.kind === "error") {
+        showToast(status.message, "error")
+      } else if (status.kind === "update_available") {
+        setUpdateFlow({
+          phase: "confirm",
+          version: status.latestVersion || "latest",
+          installType: status.installType,
+          assetUrl:
+            status.installType === "binary" ? status.assetUrl : undefined,
+          expectedSha256:
+            status.installType === "binary" ? status.expectedSha256 : undefined,
+        })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [updateCheckToken])
+
+  useEffect(() => {
+    if (updateFlow.phase !== "installing") return
+    const update = updateFlow
+    const token = ++installTokenRef.current
+    if (update.installType === "brew") {
+      installBrewUpdate().then((result) => {
+        if (token !== installTokenRef.current) return
+        if (result.data.status === "homebrew_updated") {
+          showToast("Updated via Homebrew", "success")
+          setUpdateFlow({ phase: "done", version: update.version || "latest" })
+          setRestartVersion(update.version || "latest")
+          setUpdateAvailable(null)
+        } else {
+          const msg = result.data.exit_code
+            ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
+            : "Homebrew upgrade failed"
+          showToast(msg, "error")
+          setUpdateFlow({
+            phase: "failed",
+            message: msg,
+          })
+        }
+      })
+      return
+    }
+    if (
+      update.installType === "binary" &&
+      update.assetUrl &&
+      update.expectedSha256
+    ) {
+      installBinaryUpdate(
+        update.version,
+        update.assetUrl,
+        update.expectedSha256,
+      ).then((result) => {
+        if (token !== installTokenRef.current) return
+        if (result.data.status === "updated") {
+          const v = result.data.version ?? update.version
+          showToast(`Updated to ${v}`, "success")
+          setUpdateFlow({ phase: "done", version: v })
+          setRestartVersion(v)
+          setUpdateAvailable(null)
+        } else {
+          const msg =
+            (result.data as Record<string, string>).reason ?? "Update failed"
+          showToast(msg, "error")
+          setUpdateFlow({ phase: "failed", message: msg })
+        }
+      })
+      return
+    }
+    setUpdateFlow({ phase: "idle" })
+  }, [updateFlow.phase, updateFlow])
+
+  // ── Banner update check ──────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false
+    checkForUpdatesFn().then((status) => {
+      if (cancelled) return
+      if (status.kind === "update_available") {
+        setUpdateAvailable(status.latestVersion)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
@@ -638,6 +766,10 @@ export function AppInner({
   ])
 
   const overlayActive = activeOverlay !== "none"
+
+  useEffect(() => {
+    overlayActiveRef.current = overlayActive
+  }, [overlayActive])
 
   const displayTab = useMemo((): string | undefined => {
     if (focus === "request") return eb.activeTab
@@ -815,6 +947,20 @@ export function AppInner({
   })
 
   // ── Overlay intercepts ────────────────────────────────────────────
+  const onConfirmInstall = useCallback(() => {
+    if (updateFlowRef.current.phase !== "confirm") return
+    setUpdateFlow({
+      phase: "installing",
+      version: updateFlowRef.current.version,
+      installType: updateFlowRef.current.installType,
+      assetUrl: updateFlowRef.current.assetUrl,
+      expectedSha256: updateFlowRef.current.expectedSha256,
+    })
+  }, [])
+  const onCancelUpdate = useCallback(() => {
+    setUpdateFlow({ phase: "idle" })
+  }, [])
+
   useOverlayIntercepts({
     activeOverlay,
     cancelSendRef,
@@ -883,6 +1029,9 @@ export function AppInner({
     onInitConfirm: () => executeInitPending(),
     draftRef,
     folderDraftRef,
+    updateConfirmVisible: updateFlow.phase === "confirm",
+    onConfirmInstall,
+    onCancelUpdate,
   })
 
   // ── Derived values for render ─────────────────────────────────────
@@ -978,6 +1127,7 @@ export function AppInner({
         setPreviewIndexProp,
         setEnvDeletePending,
         onReloadCollection,
+        triggerUpdateCheck,
       }),
     [
       keybinds,
@@ -988,6 +1138,7 @@ export function AppInner({
       onReloadCollection,
       view,
       mode,
+      triggerUpdateCheck,
     ],
   )
 
@@ -1006,6 +1157,8 @@ export function AppInner({
         overlayActive={overlayActive}
         jumpMode={jumpMode}
         keybinds={keybinds}
+        restartVersion={restartVersion}
+        updateAvailable={updateAvailable}
       />
       <VariableCompletionInterceptor />
       <box
@@ -1145,6 +1298,14 @@ export function AppInner({
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}
           setTimelineDetailEntry={setTimelineDetailEntry}
+          updateConfirm={
+            updateFlow.phase === "confirm"
+              ? {
+                  version: updateFlow.version,
+                  installType: updateFlow.installType,
+                }
+              : null
+          }
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}
           onCopyTimelineHeaders={onCopyTimelineHeaders}

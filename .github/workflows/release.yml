@@ -142,7 +142,7 @@ jobs:
           mkdir release-assets
           gh release download "$TAG" --pattern 'noodle-*' --dir release-assets
           test "$(find release-assets -maxdepth 1 -type f -name 'noodle-*' | wc -l | tr -d ' ')" = 3
-      - name: Generate checksums and publish release
+      - name: Generate checksums and upload
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -156,10 +156,9 @@ jobs:
             grep -Eq "^[[:xdigit:]]{64}[[:space:]]{2}${binary}$" release-assets/SHA256SUMS
           done
           gh release upload "$TAG" release-assets/SHA256SUMS --clobber
-          gh release edit "$TAG" --draft=false
 
   notify-homebrew:
-    needs: [create-release, checksums]
+    needs: [create-release, checksums, undraft]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -176,3 +175,81 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             "https://api.github.com/repos/wilfredinni/homebrew-noodle/dispatches" \
             -d "{\"event_type\": \"new-release\", \"client_payload\": {\"version\": \"$VERSION\"}}"
+
+  undraft:
+    needs: [create-release, checksums]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false
+
+  publish-update-manifest:
+    needs: [create-release, checksums, undraft]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Download release SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --pattern 'SHA256SUMS' --dir .
+
+      - name: Build update manifest
+        env:
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          sha256sums=$(cat SHA256SUMS)
+          macos_hash=$(echo "$sha256sums" | grep 'noodle-macos-arm64\b' | awk '{print $1}')
+          linux_x86_hash=$(echo "$sha256sums" | grep 'noodle-linux-x86_64\b' | awk '{print $1}')
+          linux_arm_hash=$(echo "$sha256sums" | grep 'noodle-linux-arm64\b' | awk '{print $1}')
+
+          test -n "$macos_hash" || { echo "Missing macos-arm64 checksum" >&2; exit 1; }
+          test -n "$linux_x86_hash" || { echo "Missing linux-x86_64 checksum" >&2; exit 1; }
+          test -n "$linux_arm_hash" || { echo "Missing linux-arm64 checksum" >&2; exit 1; }
+
+          echo "{" > update.json
+          echo "  \"version\": \"${TAG}\"," >> update.json
+          echo "  \"assets\": {" >> update.json
+          echo "    \"macos-arm64\": { \"sha256\": \"${macos_hash}\" }," >> update.json
+          echo "    \"linux-x86_64\": { \"sha256\": \"${linux_x86_hash}\" }," >> update.json
+          echo "    \"linux-arm64\": { \"sha256\": \"${linux_arm_hash}\" }" >> update.json
+          echo "  }" >> update.json
+          echo "}" >> update.json
+
+      - uses: actions/checkout@v7
+        with:
+          repository: wilfredinni/noodle-site
+          token: ${{ secrets.NOODLE_SITE_TOKEN }}
+          path: noodle-site
+
+      - name: Publish update manifest
+        env:
+          TAG: ${{ needs.create-release.outputs.tag }}
+        working-directory: noodle-site
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          cp ../update.json public/update.json
+
+          if git diff --quiet; then
+            echo "No changes to update.json"
+            exit 0
+          fi
+
+          git add public/update.json
+          git commit -m "Update manifests for Noodle ${TAG}"
+          git push origin main
