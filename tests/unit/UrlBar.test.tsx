@@ -13,12 +13,14 @@ function UrlBarHarness({
   initialMethod = "GET",
   onMethodChange,
   onDefocus,
+  jumpMode = false,
 }: {
   subFocus?: "select" | "text"
   focused?: boolean
   initialMethod?: Method
   onMethodChange?: (method: string) => void
   onDefocus?: (rawUrl: string) => void
+  jumpMode?: boolean
 }) {
   const [url, setUrl] = useState("https://example.com")
   const [method, setMethod] = useState<Method>(initialMethod)
@@ -35,6 +37,7 @@ function UrlBarHarness({
       onDefocus={onDefocus ?? (() => {})}
       focused={focused}
       subFocus={subFocus}
+      jumpMode={jumpMode}
       activeEnv={{
         name: "test",
         vars: { base_url: "https://api.example.com" },
@@ -44,6 +47,23 @@ function UrlBarHarness({
 }
 
 describe("UrlBar", () => {
+  it("renders jump badges above real method and URL controls", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness jumpMode />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain(" m ")
+    expect(frame).toContain(" u ")
+    cleanup()
+  })
+
   it("shows variable suggestions while editing the URL", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame, mockInput } = await testRender(

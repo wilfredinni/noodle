@@ -5,12 +5,9 @@ import { createTestKeymap } from "@opentui/keymap/testing"
 import { RequestResponseView } from "../../src/ui/RequestResponseView"
 import { ThemeProvider } from "../../src/ui/theme"
 import type { SendState } from "../../src/ui/sendState"
-import { JumpModeOverlay } from "../../src/ui/overlays/JumpModeOverlay"
-import type { JumpTarget } from "../../src/ui/useJumpMode"
 import {
   getAvailableTargets,
   computeRequestTabLabels,
-  computeBadgeOffsets,
 } from "../../src/ui/useJumpMode"
 
 describe("ResponsePane status text truncation and layout tests", () => {
@@ -203,57 +200,67 @@ describe("ResponsePane status text truncation and layout tests", () => {
     expect(frame).not.toContain("undefined")
   })
 
-  it("renders jump mode overlay badges without crashing and suppresses pane title", async () => {
-    const targets = new Map<string, JumpTarget>([
-      ["s", { kind: "sidebar" }],
-      ["m", { kind: "method" }],
-      ["u", { kind: "url" }],
-      ["h", { kind: "request-tab", field: "headers" }],
-      ["p", { kind: "request-tab", field: "params" }],
-      ["b", { kind: "request-tab", field: "body" }],
-      ["a", { kind: "request-tab", field: "auth" }],
-      ["t", { kind: "request-tab", field: "settings" }],
-      ["r", { kind: "response-tab", tab: "body" }],
-      ["e", { kind: "response-tab", tab: "headers" }],
-      ["l", { kind: "response-tab", tab: "timeline" }],
-    ])
+  for (const [layout, width] of [
+    ["stacked", 80],
+    ["stacked", 160],
+    ["side-by-side", 80],
+    ["side-by-side", 160],
+  ] as const) {
+    it(`anchors jump badges to tabs in ${layout} layout at ${width} columns`, async () => {
+      const { keymap, draft, eb } = createTestProps()
+      const responseIdle: SendState = { status: "idle" }
+      const { renderOnce, captureCharFrame } = await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box style={{ width, height: 24, flexDirection: "column" }}>
+              <RequestResponseView
+                draft={
+                  draft as unknown as Parameters<
+                    typeof RequestResponseView
+                  >[0]["draft"]
+                }
+                eb={
+                  eb as unknown as Parameters<
+                    typeof RequestResponseView
+                  >[0]["eb"]
+                }
+                error={null}
+                focus="response"
+                layout={layout}
+                expanded={null}
+                activeEnv={null}
+                responseState={responseIdle}
+                timelineEntries={[]}
+                onResponseTabChange={() => {}}
+                setSelectOpen={() => {}}
+                urlbarSubFocus="text"
+                urlbarInteractive={true}
+                jumpMode={true}
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width, height: 24 },
+      )
+      await renderOnce()
 
-    const { renderOnce } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <box style={{ width: 100, height: 20, flexDirection: "column" }}>
-          <JumpModeOverlay
-            availableJumpTargets={targets}
-            layout="stacked"
-            expanded={null}
-            focusedFolderPresent={false}
-          />
-        </box>
-      </ThemeProvider>,
-      { width: 100, height: 20 },
-    )
-    await renderOnce()
-    // Renders without throwing is the primary assertion
-  })
+      const lines = captureCharFrame().split("\n")
+      const expectBadgeAtTabStart = (hint: string, label: string) => {
+        const badgeRow = lines.findIndex((line) => line.includes(` ${hint} `))
+        expect(badgeRow).toBeGreaterThanOrEqual(0)
+        const badgeStart = lines[badgeRow]!.indexOf(` ${hint} `)
+        const labelStart = lines[badgeRow + 1]!.indexOf(label, badgeStart)
+        expect(labelStart).toBe(badgeStart + 1)
+      }
 
-  it("renders jump mode overlay for folder view (sidebar only)", async () => {
-    const targets = new Map<string, JumpTarget>([["s", { kind: "sidebar" }]])
-
-    const { renderOnce } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <box style={{ width: 100, height: 10, flexDirection: "column" }}>
-          <JumpModeOverlay
-            availableJumpTargets={targets}
-            layout="stacked"
-            expanded={null}
-            focusedFolderPresent={true}
-          />
-        </box>
-      </ThemeProvider>,
-      { width: 100, height: 10 },
-    )
-    await renderOnce()
-    // Renders without throwing when focusedFolderPresent
-  })
+      expectBadgeAtTabStart("h", "Headers")
+      expectBadgeAtTabStart("r", "Body")
+    })
+  }
 })
 
 describe("getAvailableTargets", () => {
@@ -358,23 +365,5 @@ describe("computeRequestTabLabels", () => {
       timeout: 5000,
     } as unknown as import("../../src/schema").Request)
     expect(labels[4]).toBe("Settings \u2022")
-  })
-})
-
-describe("computeBadgeOffsets", () => {
-  it("computes offsets from label lengths", () => {
-    const offsets = computeBadgeOffsets(["Headers", "Params", "Body", "Auth"])
-    expect(offsets).toEqual([2, 12, 21, 28])
-  })
-
-  it("adjusts offsets when earlier labels have bullets", () => {
-    const offsets = computeBadgeOffsets([
-      "Headers \u2022",
-      "Params",
-      "Body",
-      "Auth",
-    ])
-    // Headers • = 9 chars → Params starts at 2 + 9 + 3 = 14
-    expect(offsets[1]).toBe(14)
   })
 })

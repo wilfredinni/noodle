@@ -30,6 +30,7 @@ const TAB_DEFS: TabDef[] = [
   { id: "headers", label: "Headers" },
   { id: "timeline", label: "Timeline" },
 ]
+const TAB_JUMP_HINTS = ["r", "e", "l"]
 
 export function ResponsePane({
   state,
@@ -70,6 +71,9 @@ export function ResponsePane({
   const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
     initialTab ?? "body",
   )
+  const tabs = jumpMode
+    ? TAB_DEFS.map((tab, i) => ({ ...tab, jumpHint: TAB_JUMP_HINTS[i] }))
+    : TAB_DEFS
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")
@@ -334,7 +338,7 @@ export function ResponsePane({
       titleRight={headerRight}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
-        <Tabs tabs={TAB_DEFS} activeId={activeTab}>
+        <Tabs tabs={tabs} activeId={activeTab}>
           {state.status === "sending" ? (
             <box
               style={{

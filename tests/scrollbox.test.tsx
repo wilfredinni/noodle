@@ -501,6 +501,7 @@ describe("Sidebar scrollbox", () => {
           selectedId="req-2"
           expanded={new Set()}
           focused={true}
+          jumpMode
         />
       </ThemeProvider>,
       { width: 80, height: 24 },
@@ -510,6 +511,7 @@ describe("Sidebar scrollbox", () => {
     // Verify LeftBar border character is present for selected item
     const charFrame = captureCharFrame()
     expect(charFrame).toContain("┃")
+    expect(charFrame).toContain(" s ")
 
     // Verify no span uses INVERSE
     const spanFrame = captureSpans()

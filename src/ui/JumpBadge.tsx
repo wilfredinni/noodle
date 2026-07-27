@@ -9,7 +9,7 @@ export function JumpBadge({
   style?: Record<string, unknown>
 }) {
   const theme = useTheme()
-  const bg = theme.primary
+  const bg = theme.secondary
   const fg = contrastOnPrimary(theme)
   return (
     <box

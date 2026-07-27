@@ -1,9 +1,11 @@
 import type { ReactNode } from "react"
+import { JumpBadge } from "./JumpBadge"
 import { useTheme } from "./theme"
 
 export type TabDef = {
   id: string
   label: string
+  jumpHint?: string
 }
 
 export function Tabs({
@@ -36,8 +38,12 @@ export function Tabs({
               style={{
                 flexDirection: "column",
                 flexShrink: 0,
+                position: "relative",
               }}
             >
+              {tab.jumpHint ? (
+                <JumpBadge letter={tab.jumpHint} style={{ top: -1, left: 0 }} />
+              ) : null}
               <box
                 style={{
                   paddingLeft: 1,

@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { resolve } from "node:path"
-import { RGBA } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
 import { AppOverlays } from "./AppOverlays"
-import { JumpModeOverlay } from "./overlays/JumpModeOverlay"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { deriveRequestParentFolder, getFolderPaths } from "./tree"
@@ -1171,29 +1169,6 @@ export function AppInner({
           position: "relative",
         }}
       >
-        {jumpMode && (
-          <>
-            <box
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                width: "100%",
-                height: "100%",
-                backgroundColor: RGBA.fromInts(0, 0, 0, 150),
-                zIndex: 10,
-              }}
-            />
-            <JumpModeOverlay
-              availableJumpTargets={availableJumpTargets}
-              layout={layout}
-              expanded={expanded}
-              focusedFolderPresent={focusedFolder !== null}
-              draftRequest={draft.draft}
-              mode={mode}
-            />
-          </>
-        )}
         {view === "main" ? (
           <MainView
             items={items}
