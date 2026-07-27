@@ -9,6 +9,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
+import { realpathSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
 import pkg from "../../../package.json" with { type: "json" }
@@ -50,10 +51,18 @@ export function isNewerVersion(current: string, latest: string): boolean {
 
 export function isHomebrewInstall(execPath: string): boolean {
   if (isBunRuntime(execPath)) return false
+  let realPath = execPath
+  try {
+    realPath = realpathSync(execPath)
+  } catch {
+    // symlink resolution failed, use original path
+  }
   return (
-    execPath.includes("/homebrew/bin/") ||
-    execPath.includes("/.linuxbrew/bin/") ||
-    execPath.includes("/brew/bin/")
+    realPath.includes("/homebrew/") ||
+    realPath.includes("/.linuxbrew/") ||
+    realPath.includes("/usr/local/Cellar/") ||
+    realPath.includes("/usr/local/Homebrew/") ||
+    realPath.includes("/brew/bin/")
   )
 }
 
