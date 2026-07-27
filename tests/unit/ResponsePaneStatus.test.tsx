@@ -325,6 +325,51 @@ describe("ResponsePane status text truncation and layout tests", () => {
     expect(frame).not.toContain(" m ")
     expect(frame).not.toContain(" u ")
   })
+
+  it("hides response badges when no request is selected", async () => {
+    const { keymap, draft, eb } = createTestProps()
+    const responseIdle: SendState = { status: "idle" }
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 80, height: 24, flexDirection: "column" }}>
+            <RequestResponseView
+              draft={
+                { ...draft, draft: null } as unknown as Parameters<
+                  typeof RequestResponseView
+                >[0]["draft"]
+              }
+              eb={
+                eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]
+              }
+              error={null}
+              focus="response"
+              layout="stacked"
+              expanded={null}
+              activeEnv={null}
+              responseState={responseIdle}
+              timelineEntries={[]}
+              onResponseTabChange={() => {}}
+              setSelectOpen={() => {}}
+              urlbarSubFocus="text"
+              urlbarInteractive={true}
+              jumpMode
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).not.toContain(" r ")
+    expect(frame).not.toContain(" e ")
+    expect(frame).not.toContain(" l ")
+  })
 })
 
 describe("getAvailableTargets", () => {

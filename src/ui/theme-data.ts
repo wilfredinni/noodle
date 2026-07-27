@@ -712,7 +712,14 @@ function relativeLuminance(hex: string): number {
 }
 
 export function contrastOnSecondary(theme: Theme): string {
-  return relativeLuminance(theme.secondary) > 0.4 ? "#1a1a1a" : "#f0f0f0"
+  const background = relativeLuminance(theme.secondary)
+  const dark = relativeLuminance("#1a1a1a")
+  const light = relativeLuminance("#f0f0f0")
+  const ratio = (a: number, b: number) =>
+    (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+  return ratio(background, dark) >= ratio(background, light)
+    ? "#1a1a1a"
+    : "#f0f0f0"
 }
 
 export { PaneBorder, FullBorder, LeftBar } from "./borders"

@@ -49,19 +49,22 @@ function UrlBarHarness({
 describe("UrlBar", () => {
   it("renders jump badges above real method and URL controls", async () => {
     const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <UrlBarHarness jumpMode />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 100, height: 12 },
-    )
-    await renderOnce()
-    const frame = captureCharFrame()
-    expect(frame).toContain(" m ")
-    expect(frame).toContain(" u ")
-    cleanup()
+    try {
+      const { renderOnce, captureCharFrame } = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <UrlBarHarness jumpMode />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 12 },
+      )
+      await renderOnce()
+      const frame = captureCharFrame()
+      expect(frame).toContain(" m ")
+      expect(frame).toContain(" u ")
+    } finally {
+      cleanup()
+    }
   })
 
   it("shows variable suggestions while editing the URL", async () => {

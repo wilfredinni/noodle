@@ -91,7 +91,7 @@ export function RequestResponseView({
           responseBodyForCopyRef={responseBodyForCopyRef}
           layout={layout}
           expanded={expanded}
-          jumpMode={jumpMode}
+          jumpMode={jumpMode && draft.draft !== null}
           onQueryVisibleChange={onQueryVisibleChange}
         />
       )}

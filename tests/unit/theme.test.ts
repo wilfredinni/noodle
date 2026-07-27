@@ -157,6 +157,14 @@ describe("contrastOnSecondary", () => {
     expect(contrastOnSecondary(darkTheme)).toBe("#f0f0f0")
   })
 
+  it("returns dark text for a mid-tone secondary with higher contrast", () => {
+    const midToneTheme = {
+      ...THEMES[0]!,
+      secondary: "#808080",
+    }
+    expect(contrastOnSecondary(midToneTheme)).toBe("#1a1a1a")
+  })
+
   for (let i = 0; i < THEMES.length; i++) {
     const theme = THEMES[i]!
     const result = contrastOnSecondary(theme)
