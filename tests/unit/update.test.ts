@@ -159,8 +159,8 @@ describe("parseManifest", () => {
     })
 
   it("parses a valid manifest", () => {
-    const m = parseManifest(MANIFEST("v0.5.3"))
-    expect(m.version).toBe("v0.5.3")
+    const m = parseManifest(MANIFEST("v0.5.4"))
+    expect(m.version).toBe("v0.5.4")
     expect(m.assets["macos-arm64"].sha256).toBe("a".repeat(64))
     expect(m.assets["linux-x86_64"].sha256).toBe("b".repeat(64))
     expect(m.assets["linux-arm64"].sha256).toBe("c".repeat(64))
@@ -169,7 +169,7 @@ describe("parseManifest", () => {
   it("normalises SHAs to lowercase", () => {
     const m = parseManifest(
       JSON.stringify({
-        version: "v0.5.3",
+        version: "v0.5.4",
         assets: { "macos-arm64": { sha256: "A".repeat(64) } },
       }),
     )
@@ -195,7 +195,7 @@ describe("parseManifest", () => {
   })
 
   it("rejects missing assets", () => {
-    expect(() => parseManifest(JSON.stringify({ version: "v0.5.3" }))).toThrow(
+    expect(() => parseManifest(JSON.stringify({ version: "v0.5.4" }))).toThrow(
       "missing assets",
     )
   })
@@ -204,7 +204,7 @@ describe("parseManifest", () => {
     expect(() =>
       parseManifest(
         JSON.stringify({
-          version: "v0.5.3",
+          version: "v0.5.4",
           assets: { "macos-arm64": { sha256: "not-hex" } },
         }),
       ),
@@ -212,7 +212,7 @@ describe("parseManifest", () => {
     expect(() =>
       parseManifest(
         JSON.stringify({
-          version: "v0.5.3",
+          version: "v0.5.4",
           assets: { "macos-arm64": { sha256: "g".repeat(64) } },
         }),
       ),
@@ -223,7 +223,7 @@ describe("parseManifest", () => {
     expect(() =>
       parseManifest(
         JSON.stringify({
-          version: "v0.5.3",
+          version: "v0.5.4",
           assets: { "macos-arm64": {} },
         }),
       ),
@@ -346,7 +346,7 @@ describe("update cache", () => {
     try {
       await writeFile(
         path,
-        makeCache("v0.5.3", 1000, { "macos-arm64": binaryHash }),
+        makeCache("v0.5.4", 1000, { "macos-arm64": binaryHash }),
       )
       await writeFile(executable, "old")
       const result = await runUpdate(true, false, {
@@ -366,7 +366,7 @@ describe("update cache", () => {
           return new Response()
         },
       })
-      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
+      expect(result.data).toEqual({ status: "updated", version: "v0.5.4" })
       expect(manifestCalls).toBe(0)
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
@@ -384,7 +384,7 @@ describe("update cache", () => {
     try {
       await writeFile(
         path,
-        makeCache("v0.5.3", 1000, { "linux-x86_64": binaryHash }),
+        makeCache("v0.5.4", 1000, { "linux-x86_64": binaryHash }),
       )
       await writeFile(executable, "old")
       const result = await runUpdate(true, false, {
@@ -399,7 +399,7 @@ describe("update cache", () => {
           if (url.endsWith("update.json")) {
             manifestCalls += 1
             return new Response(
-              makeManifest("v0.5.3", { "macos-arm64": binaryHash }),
+              makeManifest("v0.5.4", { "macos-arm64": binaryHash }),
               { status: 200 },
             )
           }
@@ -407,7 +407,7 @@ describe("update cache", () => {
           return new Response()
         },
       })
-      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
+      expect(result.data).toEqual({ status: "updated", version: "v0.5.4" })
       expect(manifestCalls).toBe(1)
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
@@ -977,7 +977,7 @@ describe("installBinaryUpdate", () => {
     try {
       await writeFile(executable, "old")
       const result = await installBinaryUpdate(
-        "v0.5.3",
+        "v0.5.4",
         "https://example.com/noodle-binary",
         sha256(binary),
         {
@@ -993,7 +993,7 @@ describe("installBinaryUpdate", () => {
           },
         },
       )
-      expect(result.data).toEqual({ status: "updated", version: "v0.5.3" })
+      expect(result.data).toEqual({ status: "updated", version: "v0.5.4" })
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -1006,7 +1006,7 @@ describe("installBinaryUpdate", () => {
     try {
       await writeFile(executable, "old")
       const result = await installBinaryUpdate(
-        "v0.5.3",
+        "v0.5.4",
         "https://example.com/noodle-binary",
         binaryHash,
         {
@@ -1036,7 +1036,7 @@ describe("installBinaryUpdate", () => {
     try {
       await writeFile(executable, "old")
       const result = await installBinaryUpdate(
-        "v0.5.3",
+        "v0.5.4",
         "https://example.com/noodle-binary",
         sha256(binary),
         {
@@ -1058,7 +1058,7 @@ describe("installBinaryUpdate", () => {
 
   it("returns failure when running via bun runtime (dev mode)", async () => {
     const result = await installBinaryUpdate(
-      "v0.5.3",
+      "v0.5.4",
       "https://example.com/noodle-binary",
       binaryHash,
       {

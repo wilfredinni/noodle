@@ -4,6 +4,24 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-07-26
+
+### ✨ Features
+
+- Add automatic update checks backed by the Noodle update manifest, with an in-app notification when a newer standalone or Homebrew release is available.
+- Add `noodle update` for manual self-updates. Standalone binaries verify the downloaded SHA-256 checksum; Homebrew installs delegate to `brew upgrade noodle`.
+- Make header and status-bar shortcut hints contextual to the active pane, mode, and response tab.
+
+### 🐞 Fixes
+
+- Keep update checks and installs reliable across stale caches, transient manifest failures, Homebrew symlinks on Apple Silicon and Intel macOS, and development Bun runtimes.
+- Prevent update, overlay, focus, and response-filter state from leaking or displaying stale UI after navigation.
+- Improve theme contrast, narrow-layout rendering, response status display, and timeline-detail formatting.
+
+### 🔧 Refactors
+
+- Consolidate focus handling, contextual keybinding hints, and update-release discovery.
+
 ## [0.5.2] - 2026-07-25
 
 ![timeline](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/jumpmode.png)
@@ -132,7 +150,8 @@ All notable changes to Noodle are documented in this file.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/wilfredinni/noodle/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/wilfredinni/noodle/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/wilfredinni/noodle/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wilfredinni/noodle/compare/v0.4.8...v0.5.0

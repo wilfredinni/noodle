@@ -266,7 +266,7 @@ Each layer only depends on layers above it. UI components never touch `filestore
   → useEditBrowse: EditState FSM for field-level editing
      Modes: inactive → browsing (navigate) → editing (commit/cancel)
      commitEdit() dispatches to draftMutators
-  → SAVE: lang/serialize.ts → filestore/save.ts (atomic .tmp + rename)
+   → SAVE: lang/serialize.ts → filestore/save.ts (direct write)
   → SEND: requests/send.ts pipeline:
      1. mergeFolderOverrides(req, collection, path)
      2. substitute(req, env) — $var replacement
@@ -285,6 +285,7 @@ App (src/ui/App.tsx)
   ThemeProvider
     Toast
     AppInner (src/ui/AppInner.tsx)
+      ├── Header               ← Version, update status, contextual global hints
       ├── Sidebar              ← Collection tree, cursor navigation
       ├── MainView             ← Dispatches folder vs request view
       │   ├── [folder mode]
@@ -311,7 +312,7 @@ App (src/ui/App.tsx)
       │   ├── ConfirmOverlay (save, delete, undo-all, collection-switch)
       │   ├── JumpModeOverlay       ← Leader-key focus jumps (g) with letter hints
       │   └── ValidationNotice
-      └── StatusBar
+      └── StatusBar            ← Contextual pane/mode shortcuts and send action
 ```
 
 **Focus model** (src/ui/focus.ts):
@@ -320,7 +321,7 @@ App (src/ui/App.tsx)
 - Env editor cycle: `env-sidebar → env-header → env-vars` (3 panes)
 - Active pane gets **cyan border** (`theme.primary`) via `borders.ts` FullBorder/LeftBar presets
 - `toggleExpand()` switches between null, `"request"`, `"response"` — F2 expands/collapses focused pane
-- `hintForFocus()` returns mode-specific status bar hints per focus + mode
+- `getContextualSegments()` in `StatusBar.tsx` derives shortcut hints from focus, edit mode, view, collection mode, active tab, and response-filter visibility
 
 ## CLI flow
 
@@ -330,18 +331,25 @@ createMain(main) — citty argparse
   │
   ├── "noodle" (default) → commands/default.ts
    │     ├── positional target path (overrides --collection)
-   │     ├── --collection/-c (fallback: registered collection, then ./collections)
+   │     ├── --collection/-c (fallback: first registered collection, then current directory)
   │     ├── --env/-e
   │     └── run() → bootstrap(options) in main.tsx
   │
-  ├── "import" → commands/import.ts
-        ├── source (positional, required)
-        ├── --format/-i (auto-detect if omitted)
-        ├── --output/-o (default: ./collections)
-        └── run() → lazy-load importers, runImport(options)
-  │
-  └── "workspace" | "collection" | "request" | "environment"
-        └── commands/automation.ts → services.ts → filestore/env/executor
+   ├── "import" → commands/import.ts
+         ├── source (positional, required)
+         ├── --format/-i (auto-detect if omitted)
+         ├── --output/-o (default: ./collections)
+         └── run() → lazy-load importers, runImport(options)
+   │
+   ├── "update" → commands/update.ts
+   │     ├── Rejects Bun development runtime
+   │     ├── Detects Homebrew install paths and runs `brew upgrade noodle`
+   │     ├── Reads `https://noodlerest.dev/update.json`, validates stable version and SHA-256 asset entries
+   │     ├── Caches validated manifest data for one hour, with a seven-day stale fallback
+   │     └── Downloads, SHA-256 verifies, and atomically replaces standalone binary
+   │
+   └── "workspace" | "collection" | "request" | "environment"
+         └── commands/automation.ts → services.ts → filestore/env/executor
               ├── non-interactive resource operations
               ├── optional --json result envelope via commandResult.ts
               └── collection/request run resolves --env, then settings.yml
@@ -365,6 +373,8 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 - Mounts root React component
 
 **Import mode** (`src/app/import.ts`): Called via `import` subcommand. Lazy-loads importers on first call (reduces startup cost). Detects format, converts, writes output.
+
+**Update mode** (`src/app/commands/update.ts`): Standalone release binaries read the Noodle update manifest and cache its validated version and checksums in `~/.config/noodle/update-cache.json`. A valid cached manifest avoids repeat checks for one hour and remains available for update fallback for seven days. Downloaded binaries must match the manifest SHA-256 before atomic replacement. Homebrew installs run `brew upgrade noodle`; Bun development runtimes cannot self-update.
 
 **Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, and setting existing environment variables. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 

@@ -55,7 +55,7 @@ Installs to `~/.local/bin/noodle` (curl) or your Homebrew prefix. The curl insta
 noodle update
 ```
 
-Non-Homebrew installs download and verify the latest release before replacing the binary. Checks are cached for one hour; use `noodle update --force` to check immediately. Homebrew installs run `brew upgrade noodle` instead.
+Non-Homebrew installs read Noodle's signed-release update manifest, download and SHA-256 verify the matching binary before replacing it. Checks are cached for one hour; use `noodle update --force` to check immediately. Homebrew installs run `brew upgrade noodle` instead.
 
 ### npx skills (AI agents)
 

@@ -31,7 +31,7 @@ noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
 
 - **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, and `--env/-e`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then the current directory.
 - **Import subcommand**: `source` (positional, required), `--format/-i` (openapi/postman, auto-detected if omitted), `--output/-o` (default: ./collections)
-- **Update subcommand**: Self-update. Checks GitHub for latest release and replaces binary. Detects Homebrew installs and redirects to `brew upgrade`.
+- **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
 - **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `audit [--fix]`, `run [--env]`; `request create --url --method --collection`, `run [--env]`; and `environment set`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
 - **TUI path modes**: Existing collection roots open in collection mode. Directories containing request YAML but no collection markers open in read-only browse mode; empty directories open in read-only empty mode. Invalid or non-directory paths exit with an error. Initialize browse/empty directories from the command palette before editing or sending.
@@ -169,7 +169,7 @@ tests/integration/ # Integration tests
 
 - Install script at `scripts/install.sh` — detects OS/arch, downloads and verifies the binary from GitHub Releases
 - Homebrew tap at `github.com/wilfredinni/homebrew-noodle` — formula auto-updates SHA256 on release
-- Release workflow at `.github/workflows/release.yml` — triggered by `git tag v*`, cross-compiles binaries for macos-arm64, linux-x86_64, linux-arm64, publishes `SHA256SUMS`, and notifies the Homebrew tap
+- Release workflow at `.github/workflows/release.yml` — triggered by `git tag v*`, cross-compiles binaries for macos-arm64, linux-x86_64, linux-arm64, publishes `SHA256SUMS`, updates noodle-site's `update.json` after release publication, and notifies the Homebrew tap
 
 ## Key conventions
 
@@ -198,7 +198,7 @@ command_palette: ctrl+p
 ### Global (always active, gated on `!helpVisible`)
 | Key | Action |
 |-----|--------|
-| `Tab` / `Shift+Tab` | Cycle focus (sidebar → request → response) |
+| `Tab` / `Shift+Tab` | Cycle focus (sidebar → URL bar → request → response) |
 | `Ctrl+Return` | Send request |
 | `Ctrl+S` | Save request to disk |
 | `Ctrl+N` | New request |
