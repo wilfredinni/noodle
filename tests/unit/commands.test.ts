@@ -379,7 +379,7 @@ describe("buildCommandPaletteCommands", () => {
     }
     const commands = buildCommandPaletteCommands(ctx)
     const cmd = commands.find((c) => c.id === "app.check-updates")!
-    expect(cmd.label).toBe("Check for Updates")
+    expect(cmd.label).toBe("Update Noodle")
     expect(cmd.run()).toBe(true)
     expect(started).toBe(true)
   })

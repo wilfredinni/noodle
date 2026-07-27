@@ -56,11 +56,11 @@ describe("getContextualSegments", () => {
   it("sidebar in collection mode", () => {
     const r = base({ focus: "sidebar" })
     expect(r).toEqual([
-      seg("^s", "save"),
       seg("^n", "new"),
       seg("^alt+n", "new folder"),
       seg("^w", "delete"),
       seg("^k", "clone"),
+      seg("^s", "save"),
     ])
   })
 
@@ -85,7 +85,7 @@ describe("getContextualSegments", () => {
 
   it("request base in collection mode", () => {
     const r = base({ focus: "request" })
-    expect(r).toEqual([seg("^s", "save")])
+    expect(r).toEqual([seg("f2", "expand"), seg("^s", "save")])
   })
 
   it("request base in read-only mode returns empty", () => {
@@ -98,6 +98,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -108,6 +109,7 @@ describe("getContextualSegments", () => {
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -118,6 +120,7 @@ describe("getContextualSegments", () => {
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -127,6 +130,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -142,6 +146,7 @@ describe("getContextualSegments", () => {
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -157,6 +162,7 @@ describe("getContextualSegments", () => {
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -171,6 +177,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -185,6 +192,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -199,6 +207,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -208,6 +217,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -217,6 +227,7 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([
       seg("^d", "revert"),
       seg("^r", "revert all"),
+      seg("f2", "expand"),
       seg("^s", "save"),
     ])
   })
@@ -230,34 +241,38 @@ describe("getContextualSegments", () => {
     expect(r).toEqual([])
   })
 
-  it("request edit returns empty", () => {
+  it("request edit returns expand", () => {
     const r = base({ focus: "request", paneMode: "edit" })
-    expect(r).toEqual([])
+    expect(r).toEqual([seg("f2", "expand")])
   })
 
   // ── response ────────────────────────────────────
 
   it("response when done shows copy and filter on body tab", () => {
     const r = base({ focus: "response", sendState: done, tab: "body" })
-    expect(r).toEqual([seg("^b", "copy"), seg("/", "filter")])
+    expect(r).toEqual([
+      seg("^b", "copy"),
+      seg("/", "filter"),
+      seg("f2", "expand"),
+    ])
   })
 
-  it("response when done on headers tab returns empty", () => {
+  it("response when done on headers tab shows expand", () => {
     const r = base({ focus: "response", sendState: done, tab: "headers" })
-    expect(r).toEqual([])
+    expect(r).toEqual([seg("f2", "expand")])
   })
 
-  it("response when done on timeline tab returns empty", () => {
+  it("response when done on timeline tab shows expand", () => {
     const r = base({ focus: "response", sendState: done, tab: "timeline" })
-    expect(r).toEqual([])
+    expect(r).toEqual([seg("f2", "expand")])
   })
 
-  it("response when done without tab returns empty", () => {
+  it("response when done without tab shows expand", () => {
     const r = base({ focus: "response", sendState: done })
-    expect(r).toEqual([])
+    expect(r).toEqual([seg("f2", "expand")])
   })
 
-  it("response when done with open query hides filter", () => {
+  it("response when done with open query hides hints", () => {
     const r = base({
       focus: "response",
       sendState: done,
@@ -274,7 +289,11 @@ describe("getContextualSegments", () => {
       tab: "body",
       queryVisible: false,
     })
-    expect(r).toEqual([seg("^b", "copy"), seg("/", "filter")])
+    expect(r).toEqual([
+      seg("^b", "copy"),
+      seg("/", "filter"),
+      seg("f2", "expand"),
+    ])
   })
 
   it("response when done without queryVisible prop shows filter", () => {
@@ -283,19 +302,23 @@ describe("getContextualSegments", () => {
       sendState: done,
       tab: "body",
     })
-    expect(r).toEqual([seg("^b", "copy"), seg("/", "filter")])
+    expect(r).toEqual([
+      seg("^b", "copy"),
+      seg("/", "filter"),
+      seg("f2", "expand"),
+    ])
   })
 
-  it("response when idle returns empty", () => {
+  it("response when idle shows expand", () => {
     const r = base({ focus: "response" })
-    expect(r).toEqual([])
+    expect(r).toEqual([seg("f2", "expand")])
   })
 
   // ── folder ──────────────────────────────────────
 
   it("folder base in collection mode", () => {
     const r = base({ focus: "folder" })
-    expect(r).toEqual([seg("^s", "save"), seg("^w", "delete")])
+    expect(r).toEqual([seg("^w", "delete"), seg("^s", "save")])
   })
 
   it("folder base in read-only returns empty", () => {
@@ -363,7 +386,7 @@ describe("getContextualSegments", () => {
 
   it("env-header", () => {
     const r = base({ focus: "env-header", view: "env-editor" })
-    expect(r).toEqual([seg("^s", "save"), seg("^n", "new")])
+    expect(r).toEqual([seg("^n", "new"), seg("^s", "save")])
   })
 
   it("env-vars browse", () => {

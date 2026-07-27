@@ -555,7 +555,7 @@ export function buildCommandPaletteCommands(
     },
     {
       id: "app.check-updates",
-      label: "Check for Updates",
+      label: "Update Noodle",
       section: "System",
       run: () => {
         triggerUpdateCheck()

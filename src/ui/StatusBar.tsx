@@ -166,8 +166,8 @@ export function getContextualSegments(input: {
     }
     if (focus === "env-header") {
       return [
-        { key: displayKey(kb.env_save), word: "save" },
         { key: displayKey(kb.env_new), word: "new" },
+        { key: displayKey(kb.env_save), word: "save" },
       ]
     }
     if (focus === "env-vars" && paneMode === "browse") {
@@ -188,11 +188,11 @@ export function getContextualSegments(input: {
   if (focus === "sidebar") {
     if (!col) return []
     return [
-      { key: displayKey(kb.request_save), word: "save" },
       { key: displayKey(kb.request_new), word: "new" },
       { key: displayKey(kb.folder_new), word: "new folder" },
       { key: displayKey(kb.request_delete), word: "delete" },
       { key: displayKey(kb.request_clone), word: "clone" },
+      { key: displayKey(kb.request_save), word: "save" },
     ]
   }
 
@@ -204,7 +204,10 @@ export function getContextualSegments(input: {
   if (focus === "request") {
     if (paneMode === "base") {
       if (!col) return []
-      return [{ key: displayKey(kb.request_save), word: "save" }]
+      return [
+        { key: displayKey(kb.pane_expand), word: "expand" },
+        { key: displayKey(kb.request_save), word: "save" },
+      ]
     }
     if (paneMode === "browse") {
       if (!col) return []
@@ -219,10 +222,11 @@ export function getContextualSegments(input: {
         ...toggleSegments,
         { key: displayKey(kb.browse_delete), word: "revert" },
         { key: displayKey(kb.browse_revert_all), word: "revert all" },
+        { key: displayKey(kb.pane_expand), word: "expand" },
         { key: displayKey(kb.request_save), word: "save" },
       ]
     }
-    return []
+    return [{ key: displayKey(kb.pane_expand), word: "expand" }]
   }
 
   if (focus === "response") {
@@ -231,17 +235,18 @@ export function getContextualSegments(input: {
       return [
         { key: displayKey(kb.response_copy_body), word: "copy" },
         { key: displayKey(kb.response_query), word: "filter" },
+        { key: displayKey(kb.pane_expand), word: "expand" },
       ]
     }
-    return []
+    return [{ key: displayKey(kb.pane_expand), word: "expand" }]
   }
 
   if (focus === "folder") {
     if (paneMode === "base") {
       if (!col) return []
       return [
-        { key: displayKey(kb.request_save), word: "save" },
         { key: displayKey(kb.request_delete), word: "delete" },
+        { key: displayKey(kb.request_save), word: "save" },
       ]
     }
     if (paneMode === "browse") {
@@ -330,7 +335,7 @@ export function StatusBar(input: {
 
   const { width: termWidth = 100 } = useTerminalDimensions()
 
-  const sendPinned =
+  const sendSegment =
     view === "main" &&
     collectionMode === "collection" &&
     !overlayActive &&
@@ -338,9 +343,9 @@ export function StatusBar(input: {
       ? [{ key: displayKey(input.kb.request_send), word: "send" }]
       : []
 
-  let pinnedWidth = 0
-  for (const seg of sendPinned) {
-    pinnedWidth += seg.key.length + (seg.word ? 1 + seg.word.length : 0) + 3
+  let sendWidth = 0
+  for (const seg of sendSegment) {
+    sendWidth += seg.key.length + (seg.word ? 1 + seg.word.length : 0) + 3
   }
 
   const segments = jumpMode ? jumpSegments : contextual
@@ -348,12 +353,12 @@ export function StatusBar(input: {
   const leftWidth = isEnvEditor
     ? (input.envStats?.length || 10) + 4
     : envText.length + 4
-  const maxShortcutChars = Math.max(0, termWidth - leftWidth - pinnedWidth)
+  const maxShortcutChars = Math.max(0, termWidth - leftWidth - sendWidth)
   const visibleSegments = jumpMode
     ? segments
     : fitSegments(segments, maxShortcutChars)
 
-  const allSegments = [...sendPinned, ...visibleSegments]
+  const allSegments = [...visibleSegments, ...sendSegment]
 
   return (
     <box
