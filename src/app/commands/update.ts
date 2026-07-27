@@ -9,7 +9,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { realpathSync } from "node:fs"
+import { lstatSync, realpathSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
 import pkg from "../../../package.json" with { type: "json" }
@@ -49,21 +49,40 @@ export function isNewerVersion(current: string, latest: string): boolean {
   return compareStableVersions(current, latest) === 1
 }
 
+function isHomebrewPath(p: string): boolean {
+  return (
+    p.includes("/homebrew/") ||
+    p.includes("/.linuxbrew/") ||
+    p.includes("/usr/local/Cellar/") ||
+    p.includes("/usr/local/Homebrew/") ||
+    p.includes("/brew/bin/")
+  )
+}
+
+const HOMEBREW_BIN_PREFIXES = [
+  "/usr/local/bin/",
+  "/opt/homebrew/bin/",
+  "/home/linuxbrew/.linuxbrew/bin/",
+]
+
 export function isHomebrewInstall(execPath: string): boolean {
   if (isBunRuntime(execPath)) return false
-  let realPath = execPath
+  if (isHomebrewPath(execPath)) return true
   try {
-    realPath = realpathSync(execPath)
+    if (isHomebrewPath(realpathSync(execPath))) return true
   } catch {
-    // symlink resolution failed, use original path
+    try {
+      if (
+        HOMEBREW_BIN_PREFIXES.some((p) => execPath.startsWith(p)) &&
+        lstatSync(execPath).isSymbolicLink()
+      ) {
+        return true
+      }
+    } catch {
+      // stat failed too, file doesn't exist
+    }
   }
-  return (
-    realPath.includes("/homebrew/") ||
-    realPath.includes("/.linuxbrew/") ||
-    realPath.includes("/usr/local/Cellar/") ||
-    realPath.includes("/usr/local/Homebrew/") ||
-    realPath.includes("/brew/bin/")
-  )
+  return false
 }
 
 function isBunRuntime(execPath: string): boolean {

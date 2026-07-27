@@ -141,7 +141,7 @@ export interface CommandBuilderContext {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   onReloadCollection: () => void
-  setUpdateCheckStarted: (v: boolean | ((prev: boolean) => boolean)) => void
+  triggerUpdateCheck: () => void
 }
 
 function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
@@ -200,7 +200,7 @@ export function buildCommandPaletteCommands(
     setCodeGeneratorVisible,
     setEnvDeletePending,
     getCollectionMode,
-    setUpdateCheckStarted,
+    triggerUpdateCheck,
   } = ctx
 
   const c = toConfig(ctx)
@@ -558,7 +558,7 @@ export function buildCommandPaletteCommands(
       label: "Check for Updates",
       section: "System",
       run: () => {
-        setUpdateCheckStarted(true)
+        triggerUpdateCheck()
         return true
       },
     },

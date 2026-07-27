@@ -202,7 +202,11 @@ export function AppInner({
   const [collectionSwitchPending, setCollectionSwitchPending] = useState<
     string | null
   >(null)
-  const [updateCheckStarted, setUpdateCheckStarted] = useState(false)
+  const [updateCheckToken, setUpdateCheckToken] = useState(0)
+  const triggerUpdateCheck = useCallback(
+    () => setUpdateCheckToken((t) => t + 1),
+    [],
+  )
   type UpdateFlowState =
     | { phase: "idle" }
     | ({ phase: "confirm" } & UpdateAvailableInfo)
@@ -565,8 +569,7 @@ export function AppInner({
   const installTokenRef = useRef(0)
 
   useEffect(() => {
-    if (!updateCheckStarted) return
-    setUpdateCheckStarted(false)
+    if (updateCheckToken === 0) return
     if (updateFlowRef.current.phase === "installing") return
     let cancelled = false
     checkForUpdatesFn(true).then((status) => {
@@ -592,7 +595,7 @@ export function AppInner({
     return () => {
       cancelled = true
     }
-  }, [updateCheckStarted])
+  }, [updateCheckToken])
 
   useEffect(() => {
     if (updateFlow.phase !== "installing") return
@@ -1124,7 +1127,7 @@ export function AppInner({
         setPreviewIndexProp,
         setEnvDeletePending,
         onReloadCollection,
-        setUpdateCheckStarted,
+        triggerUpdateCheck,
       }),
     [
       keybinds,
@@ -1135,7 +1138,7 @@ export function AppInner({
       onReloadCollection,
       view,
       mode,
-      setUpdateCheckStarted,
+      triggerUpdateCheck,
     ],
   )
 
