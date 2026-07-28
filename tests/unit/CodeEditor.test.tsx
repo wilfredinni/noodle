@@ -555,6 +555,41 @@ body:
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 
+  it("publishes current validation when validation callback changes", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const initialErrors: (string | null)[] = []
+
+    const { renderOnce } = await testRender(
+      <box width={40} height={8}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue="invalid"
+          validateContent={() => "Invalid JSON: test"}
+          onValidationChange={(error) => initialErrors.push(error)}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 8 },
+    )
+
+    await renderOnce()
+    expect(initialErrors).toEqual(["Invalid JSON: test"])
+
+    const replacementErrors: (string | null)[] = []
+    editor!.onValidationChange = (error) => replacementErrors.push(error)
+    editor!.validateContent = () => null
+
+    expect(replacementErrors).toEqual(["Invalid JSON: test", null])
+    expect(editor!.validationError).toBeNull()
+  })
+
   describe("auto-close pairs", () => {
     async function setupEditor(
       content = "",

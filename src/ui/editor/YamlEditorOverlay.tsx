@@ -41,6 +41,7 @@ export function YamlEditorOverlay({
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [draftContent, setDraftContent] = useState<string | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const mountedRef = useRef(true)
@@ -55,6 +56,7 @@ export function YamlEditorOverlay({
     if (!visible) {
       setContent(null)
       setDraftContent(null)
+      setValidationError(null)
       return
     }
     setReadError(null)
@@ -146,19 +148,17 @@ export function YamlEditorOverlay({
   )
 
   const validationNotice = useMemo(() => {
-    if (draftContent === null) return null
-    const error = validateContent(draftContent)
-    if (!error) return null
+    if (!validationError) return null
     const prefix =
       kind === "folder" ? "Invalid folder YAML" : "Invalid request YAML"
     return {
       title: prefix,
-      detail: error.replace(
+      detail: validationError.replace(
         new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}: `),
         "",
       ),
     }
-  }, [draftContent, validateContent, kind])
+  }, [validationError, kind])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -258,6 +258,7 @@ export function YamlEditorOverlay({
               initialValue={content}
               extraHighlights={activeEnv ? extraHighlights : undefined}
               validateContent={validateContent}
+              onValidationChange={setValidationError}
               onContentChange={handleContentChange}
               onFoldsChange={handleFoldsChange}
               backgroundColor={theme.backgroundPanel}

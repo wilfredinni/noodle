@@ -393,6 +393,7 @@ function BodySection({
   const [editorInstance, setEditorInstance] =
     useState<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const extraHighlights = useCallback(
     (content: string): Highlight[] => {
@@ -430,15 +431,18 @@ function BodySection({
 
   const editingBody = inEdit && editState.cursor.field === "body"
 
+  useEffect(() => {
+    if (!editingBody) setValidationError(null)
+  }, [editingBody])
+
   const validationNotice = useMemo(() => {
     if (!editingBody || isFormMode || isBinaryMode) return null
-    const error = validateJsonContent(editValue, activeEnv ?? null)
-    if (!error) return null
+    if (!validationError) return null
     return {
       title: "Invalid JSON",
-      detail: error.replace(/^Invalid JSON:\s*/, ""),
+      detail: validationError.replace(/^Invalid JSON:\s*/, ""),
     }
-  }, [activeEnv, editingBody, editValue, isBinaryMode, isFormMode])
+  }, [editingBody, isBinaryMode, isFormMode, validationError])
 
   useEffect(() => {
     if (editingBody && editorRef.current) {
@@ -504,6 +508,7 @@ function BodySection({
                 initialValue={formatBody(editValue)}
                 extraHighlights={activeEnv ? extraHighlights : undefined}
                 validateContent={validateContent}
+                onValidationChange={setValidationError}
                 onContentChange={handleContentChange}
                 onFoldsChange={handleFoldsChange}
                 backgroundColor={theme.backgroundPanel}
