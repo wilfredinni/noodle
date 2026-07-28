@@ -14,7 +14,13 @@ export function useInitialExpandedFolders(
 
   useEffect(() => {
     if (!isCollection) return
-    loadExpandedFolders(collectionDir).then(setInitialExpandedFolders)
+    let active = true
+    loadExpandedFolders(collectionDir).then((folders) => {
+      if (active) setInitialExpandedFolders(folders)
+    })
+    return () => {
+      active = false
+    }
   }, [collectionDir, isCollection])
 
   return initialExpandedFolders
