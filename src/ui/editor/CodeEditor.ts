@@ -8,21 +8,32 @@ import type { RenderContext, Highlight } from "@opentui/core"
 import type { SimpleHighlight } from "@opentui/core"
 import type { TreeSitterClient } from "@opentui/core"
 import type { Theme } from "../theme-data"
-import { highlightJsonTokens } from "./syntax"
-import { tokenizeYamlLine } from "./yamlSyntax"
 import {
-  buildCharToDisplayOffsets,
-  charOffsetToDisplayOffset,
-} from "../variable-completion/highlightOffsets"
+  buildFoldDisplay,
+  buildSourceDisplayMaps,
+  computeFoldRanges as deriveFoldRanges,
+  hasFoldedRanges,
+  isSourceLineHiddenByFold,
+  type FoldInfo,
+  type SourceCursor,
+} from "./codeEditorFolds"
+import { getEnvStyleIds, createCodeEditorSyntaxStyle } from "./codeEditorStyles"
+import {
+  getAutoCloseCharacter,
+  getEditorCommand,
+  isPotentialEditKey,
+  normalizeEditorKey,
+  shouldAutoSkipClosingCharacter,
+} from "./codeEditorKeys"
+import {
+  buildExtraHighlightRanges,
+  buildJsonHighlightRanges,
+  buildTreeSitterHighlightRanges,
+  buildYamlHighlightRanges,
+  type EditorHighlightRange,
+} from "./codeEditorHighlighting"
 
-export interface FoldInfo {
-  startLine: number
-  endLine: number
-  startOffset: number
-  endOffset: number
-  summary: string
-  folded: boolean
-}
+export type { FoldInfo } from "./codeEditorFolds"
 
 export interface CodeEditorOptions {
   filetype: string
@@ -40,67 +51,6 @@ export interface CodeEditorOptions {
   focusedBackgroundColor?: string
   focusedTextColor?: string
   cursorColor?: string
-}
-
-interface SourceCursor {
-  line: number
-  col: number
-}
-
-function createTsSyntaxStyle(theme: Theme): SyntaxStyle {
-  return SyntaxStyle.fromStyles({
-    "json.key": { fg: theme.secondary },
-    "json.string": { fg: theme.success },
-    "json.number": { fg: theme.warning },
-    "json.boolean": { fg: theme.info },
-    "json.null": { fg: theme.info },
-    "json.bracket": { fg: theme.textMuted },
-    "json.text": { fg: theme.text },
-    "yaml.key": { fg: theme.secondary },
-    "yaml.string": { fg: theme.success },
-    "yaml.number": { fg: theme.warning },
-    "yaml.boolean": { fg: theme.info },
-    "yaml.null": { fg: theme.info },
-    "yaml.punctuation": { fg: theme.textMuted },
-    "yaml.comment": { fg: theme.textMuted },
-    "yaml.text": { fg: theme.text },
-    string: { fg: theme.success },
-    number: { fg: theme.warning },
-    boolean: { fg: theme.info },
-    constant: { fg: theme.info },
-    "constant.builtin": { fg: theme.info },
-    property: { fg: theme.secondary },
-    comment: { fg: theme.textMuted },
-    punctuation: { fg: theme.textMuted },
-    "punctuation.delimiter": { fg: theme.textMuted },
-    "punctuation.bracket": { fg: theme.textMuted },
-    "punctuation.special": { fg: theme.textMuted },
-    keyword: { fg: theme.info },
-    "keyword.directive": { fg: theme.info },
-    label: { fg: theme.info },
-    type: { fg: theme.info },
-    "string.escape": { fg: theme.success },
-    "env.resolved": { fg: theme.primary },
-    "env.missing": { fg: theme.error },
-  })
-}
-
-const OPEN_TO_CLOSE: Record<string, string> = {
-  '"': '"',
-  "'": "'",
-  "(": ")",
-  "{": "}",
-  "[": "]",
-  "<": ">",
-}
-
-const CLOSE_TO_OPEN: Record<string, string> = {
-  '"': '"',
-  "'": "'",
-  ")": "(",
-  "}": "{",
-  "]": "[",
-  ">": "<",
 }
 
 export class CodeEditorRenderable extends TextareaRenderable {
@@ -149,9 +99,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._onContentChange = options.onContentChange
     this._onFoldsChange = options.onFoldsChange
     this._tsClient = getTreeSitterClient()
-    this._tsStyle = createTsSyntaxStyle(this._theme)
-    this._envResolvedStyleId = this._tsStyle.getStyleId("env.resolved") ?? 0
-    this._envMissingStyleId = this._tsStyle.getStyleId("env.missing") ?? 0
+    this._tsStyle = createCodeEditorSyntaxStyle(this._theme)
+    this.updateEnvStyleIds()
     this._sourceText = super.plainText
     this.rebuildSourceDisplayMaps(this._sourceText)
     this.refreshValidation(this._sourceText)
@@ -192,9 +141,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (this._filetype !== value) {
       this._filetype = value
       this.clearAllHighlights()
-      this._tsStyle = createTsSyntaxStyle(this._theme)
-      this._envResolvedStyleId = this._tsStyle.getStyleId("env.resolved") ?? 0
-      this._envMissingStyleId = this._tsStyle.getStyleId("env.missing") ?? 0
+      this._tsStyle = createCodeEditorSyntaxStyle(this._theme)
+      this.updateEnvStyleIds()
       this.refreshValidation(this._sourceText)
       this.scheduleHighlight()
       this.computeFoldRanges()
@@ -212,6 +160,16 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   get validationError(): string | null {
     return this._validationError
+  }
+
+  get onValidationChange(): ((error: string | null) => void) | undefined {
+    return this._onValidationChange
+  }
+
+  set onValidationChange(value: ((error: string | null) => void) | undefined) {
+    if (value === this._onValidationChange) return
+    this._onValidationChange = value
+    value?.(this._validationError)
   }
 
   get extraHighlights(): ((content: string) => Highlight[]) | undefined {
@@ -245,7 +203,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   getFoldSigns(): Map<number, { before: string; beforeColor: string }> {
     const signs = new Map<number, { before: string; beforeColor: string }>()
     for (const [line, fold] of this._folds) {
-      if (this.isSourceLineHiddenByFold(line)) continue
+      if (isSourceLineHiddenByFold(line, this._folds)) continue
       const displayLine =
         this._displayMode === "folded"
           ? this._sourceLineToDisplayLine.get(line)
@@ -274,9 +232,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   set theme(value: Theme) {
     this._theme = value
-    this._tsStyle = createTsSyntaxStyle(this._theme)
-    this._envResolvedStyleId = this._tsStyle.getStyleId("env.resolved") ?? 0
-    this._envMissingStyleId = this._tsStyle.getStyleId("env.missing") ?? 0
+    this._tsStyle = createCodeEditorSyntaxStyle(this._theme)
+    this.updateEnvStyleIds()
     if (this.isFoldedDisplay()) {
       this.applyFoldedDisplayHighlights(super.plainText)
     } else {
@@ -310,6 +267,12 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this._renderSuppressed = wasSuppressed
       if (!wasSuppressed) super.requestRender()
     }
+  }
+
+  private updateEnvStyleIds(): void {
+    const { resolved, missing } = getEnvStyleIds(this._tsStyle)
+    this._envResolvedStyleId = resolved
+    this._envMissingStyleId = missing
   }
 
   toggleFold(line: number): void {
@@ -381,79 +344,50 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   override handleKeyPress(key: KeyEvent): boolean {
-    const normalizedKey: KeyEvent =
-      key.name === "return" && key.shift
-        ? ({ ...key, shift: false } as KeyEvent)
-        : key
-
-    if (key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
-      if (key.name === "g" && !key.shift) {
-        this.toggleFold(this.logicalCursor.row)
-        return true
-      }
+    const command = getEditorCommand(key)
+    if (command === "toggle-fold") {
+      this.toggleFold(this.logicalCursor.row)
+      return true
+    }
+    if (command === "fold-all") {
+      this.foldAll()
+      return true
+    }
+    if (command === "unfold-all") {
+      this.unfoldAll()
+      return true
     }
 
-    if (!key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
-      if (key.name === "f5") {
-        this.foldAll()
-        return true
-      }
-      if (key.name === "f6") {
-        this.unfoldAll()
-        return true
-      }
+    if (this.shouldAutoSkip(key)) {
+      this.editBuffer.moveCursorRight()
+      return true
     }
 
-    if (
-      key.ctrl &&
-      key.shift &&
-      !key.meta &&
-      !key.option &&
-      !key.super &&
-      !key.hyper
-    ) {
-      if (key.name === "[") {
-        this.foldAll()
-        return true
-      }
-      if (key.name === "]") {
-        this.unfoldAll()
-        return true
-      }
-    }
-
-    if (!key.ctrl && !key.meta && !key.option && !key.super && !key.hyper) {
-      if (this.shouldAutoSkip(key)) {
-        this.editBuffer.moveCursorRight()
-        return true
-      }
-
-      const closeChar = OPEN_TO_CLOSE[key.sequence]
-      if (closeChar !== undefined) {
-        if (this.hasFoldedRanges() && this.isPotentialEditKey(key)) {
-          if (this.isFoldedDisplay()) {
-            const sourceCursor = this.getSourceCursorFromDisplay()
-            if (!this.isFoldedSummaryLine(sourceCursor.line)) {
-              this.restoreSourceDisplay(undefined, sourceCursor)
-              this.insertAutoClosePair(key.sequence, closeChar)
-              this.syncFoldDisplayAfterEdit()
-              return true
-            }
+    const closeChar = getAutoCloseCharacter(key)
+    if (closeChar !== undefined) {
+      if (this.hasFoldedRanges() && isPotentialEditKey(key)) {
+        if (this.isFoldedDisplay()) {
+          const sourceCursor = this.getSourceCursorFromDisplay()
+          if (!this.isFoldedSummaryLine(sourceCursor.line)) {
+            this.restoreSourceDisplay(undefined, sourceCursor)
+            this.insertAutoClosePair(key.sequence, closeChar)
+            this.syncFoldDisplayAfterEdit()
+            return true
           }
-          this.unfoldAll()
         }
-        this.insertAutoClosePair(key.sequence, closeChar)
-        this.scheduleHighlight()
-        return true
+        this.unfoldAll()
       }
+      this.insertAutoClosePair(key.sequence, closeChar)
+      this.scheduleHighlight()
+      return true
     }
 
-    if (this.hasFoldedRanges() && this.isPotentialEditKey(key)) {
+    if (this.hasFoldedRanges() && isPotentialEditKey(key)) {
       if (this.isFoldedDisplay()) {
         const sourceCursor = this.getSourceCursorFromDisplay()
         if (!this.isFoldedSummaryLine(sourceCursor.line)) {
           this.restoreSourceDisplay(undefined, sourceCursor)
-          const handled = super.handleKeyPress(normalizedKey)
+          const handled = super.handleKeyPress(normalizeEditorKey(key))
           if (handled) {
             this.syncFoldDisplayAfterEdit()
           }
@@ -463,7 +397,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.unfoldAll()
     }
 
-    const handled = super.handleKeyPress(normalizedKey)
+    const handled = super.handleKeyPress(normalizeEditorKey(key))
     if (handled) {
       this.scheduleHighlight()
     }
@@ -472,17 +406,13 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   private shouldAutoSkip(key: KeyEvent): boolean {
     if (this.isFoldedDisplay()) return false
-    if (key.ctrl || key.meta || key.option || key.super || key.hyper)
-      return false
-    const seq = key.sequence
-    if (!seq || seq.length !== 1) return false
-    if (!CLOSE_TO_OPEN[seq]) return false
-
     const cursor = this.logicalCursor
     const offset = this.editBuffer.positionToOffset(cursor.row, cursor.col)
-    const text = this.editBuffer.getText()
-    if (offset >= text.length) return false
-    return text[offset] === seq
+    return shouldAutoSkipClosingCharacter(
+      key,
+      this.editBuffer.getText(),
+      offset,
+    )
   }
 
   private insertAutoClosePair(openChar: string, closeChar: string): void {
@@ -500,19 +430,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.editBuffer.moveCursorLeft()
   }
 
-  private isSourceLineHiddenByFold(line: number): boolean {
-    for (const fold of this._folds.values()) {
-      if (!fold.folded) continue
-      if (line > fold.startLine && line <= fold.endLine) return true
-    }
-    return false
-  }
-
   private hasFoldedRanges(): boolean {
-    for (const fold of this._folds.values()) {
-      if (fold.folded) return true
-    }
-    return false
+    return hasFoldedRanges(this._folds)
   }
 
   private isFoldedDisplay(): boolean {
@@ -537,35 +456,13 @@ export class CodeEditorRenderable extends TextareaRenderable {
       return
     }
 
-    const lines = this._sourceText.split("\n")
-    const displayLines: string[] = []
-    const sourceToDisplay = new Map<number, number>()
-    const displayToSource = new Map<number, number>()
-
-    for (let sourceLine = 0; sourceLine < lines.length;) {
-      const displayLine = displayLines.length
-      const fold = this._folds.get(sourceLine)
-
-      if (fold?.folded) {
-        sourceToDisplay.set(sourceLine, displayLine)
-        displayToSource.set(displayLine, sourceLine)
-        displayLines.push(`${getLineIndent(lines[sourceLine])}${fold.summary}`)
-        sourceLine = fold.endLine + 1
-        continue
-      }
-
-      sourceToDisplay.set(sourceLine, displayLine)
-      displayToSource.set(displayLine, sourceLine)
-      displayLines.push(lines[sourceLine])
-      sourceLine++
-    }
+    const display = buildFoldDisplay(this._sourceText, this._folds)
 
     this._displayMode = "folded"
-    this._sourceLineToDisplayLine = sourceToDisplay
-    this._displayLineToSourceLine = displayToSource
-    const foldedDisplayText = displayLines.join("\n")
-    this.setDisplayedText(foldedDisplayText)
-    this.applyFoldedDisplayHighlights(foldedDisplayText)
+    this._sourceLineToDisplayLine = display.sourceLineToDisplayLine
+    this._displayLineToSourceLine = display.displayLineToSourceLine
+    this.setDisplayedText(display.text)
+    this.applyFoldedDisplayHighlights(display.text)
     if (typeof preferredSourceLine === "object") {
       this.moveCursorToSourceCursor(preferredSourceLine)
     } else {
@@ -655,13 +552,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   private rebuildSourceDisplayMaps(content: string): void {
-    const lines = content.split("\n")
-    this._sourceLineToDisplayLine = new Map()
-    this._displayLineToSourceLine = new Map()
-    for (let line = 0; line < lines.length; line++) {
-      this._sourceLineToDisplayLine.set(line, line)
-      this._displayLineToSourceLine.set(line, line)
-    }
+    const maps = buildSourceDisplayMaps(content)
+    this._sourceLineToDisplayLine = maps.sourceLineToDisplayLine
+    this._displayLineToSourceLine = maps.displayLineToSourceLine
   }
 
   private displayLineToSourceLine(displayLine: number): number {
@@ -721,20 +614,6 @@ export class CodeEditorRenderable extends TextareaRenderable {
       displayLine,
       Math.min(sourceCursor.col, sourceLineText.length),
     )
-  }
-
-  private isPotentialEditKey(key: KeyEvent): boolean {
-    if (key.name === "backspace" || key.name === "delete") return true
-    if (key.name === "return" || key.name === "linefeed") return true
-
-    if (key.ctrl) {
-      return ["d", "k", "u", "w", "z", ".", "-"].includes(key.name)
-    }
-
-    if (key.meta || key.option || key.super || key.hyper) return false
-    if (!key.sequence) return false
-
-    return key.sequence.length > 0 && key.sequence.charCodeAt(0) >= 32
   }
 
   override destroy(): void {
@@ -829,93 +708,43 @@ export class CodeEditorRenderable extends TextareaRenderable {
     content: string,
   ): void {
     this.clearAllHighlights()
-
-    const style = this._tsStyle
-    this.syntaxStyle = style
-    const displayOffsets = buildByteToDisplayOffsets(content)
-
-    for (const [start, end, group] of highlights) {
-      if (start >= end) continue
-      const styleId = style.getStyleId(group)
-      if (styleId === null) continue
-
-      this.addHighlightByCharRange({
-        start: byteOffsetToDisplayOffset(displayOffsets, start),
-        end: byteOffsetToDisplayOffset(displayOffsets, end),
-        styleId,
-        priority: 1,
-      })
-    }
+    this.syntaxStyle = this._tsStyle
+    this.applyHighlightRanges(
+      buildTreeSitterHighlightRanges(highlights, content, this._tsStyle),
+    )
   }
 
   private applyJsonHighlights(content: string): void {
     this.clearAllHighlights()
-
-    const tokens = highlightJsonTokens(content, this._theme)
-    const style = this._tsStyle
-    this.syntaxStyle = style
-
-    for (const token of tokens) {
-      const styleId = styleIdForJsonToken(
-        token.kind,
-        token.fg,
-        this._theme,
-        style,
-      )
-      this.addHighlightByCharRange({
-        start: token.offset,
-        end: token.offset + token.text.length,
-        styleId,
-        priority: 1,
-      })
-    }
+    this.syntaxStyle = this._tsStyle
+    this.applyHighlightRanges(
+      buildJsonHighlightRanges(content, this._theme, this._tsStyle),
+    )
   }
 
   private applyYamlHighlights(content: string): void {
     this.clearAllHighlights()
-
-    const style = this._tsStyle
-
-    this.syntaxStyle = style
-
-    let offset = 0
-    const lines = content.split("\n")
-
-    for (const line of lines) {
-      const cleanLine = line.endsWith("\r") ? line.slice(0, -1) : line
-      const spans = tokenizeYamlLine(cleanLine, this._theme)
-      for (const span of spans) {
-        if (span.text.length > 0) {
-          let tsName = "string"
-          if (span.fg === this._theme.secondary) tsName = "property"
-          else if (span.fg === this._theme.success) tsName = "string"
-          else if (span.fg === this._theme.warning) tsName = "number"
-          else if (span.fg === this._theme.info) tsName = "boolean"
-          else if (span.fg === this._theme.textMuted) tsName = "comment"
-          const styleId = style.getStyleId(tsName) ?? 0
-          this.addHighlightByCharRange({
-            start: offset,
-            end: offset + span.text.length,
-            styleId,
-            priority: 1,
-          })
-          offset += span.text.length
-        }
-      }
-    }
+    this.syntaxStyle = this._tsStyle
+    this.applyHighlightRanges(
+      buildYamlHighlightRanges(content, this._theme, this._tsStyle),
+    )
   }
 
   private applyExtraHighlights(content: string): void {
     if (!this._extraHighlights) return
 
-    const extras = this._extraHighlights(content)
-    const displayOffsets = buildCharToDisplayOffsets(content)
-    for (const hl of extras) {
+    this.applyHighlightRanges(
+      buildExtraHighlightRanges(content, this._extraHighlights(content)),
+    )
+  }
+
+  private applyHighlightRanges(ranges: EditorHighlightRange[]): void {
+    for (const range of ranges) {
       this.addHighlightByCharRange({
-        start: charOffsetToDisplayOffset(displayOffsets, hl.start),
-        end: charOffsetToDisplayOffset(displayOffsets, hl.end),
-        styleId: hl.styleId,
-        priority: hl.priority ?? 2,
+        start: range.start,
+        end: range.end,
+        styleId: range.styleId,
+        priority: range.priority,
       })
     }
   }
@@ -923,226 +752,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private computeFoldRanges(): void {
     if (!this._foldable) return
 
-    const content = this.plainText
-    const prevFolds = this._folds
-    const newFolds = new Map<number, FoldInfo>()
-
-    if (this._filetype === "json") {
-      this.computeJsonFoldRanges(content, newFolds)
-    } else if (this._filetype === "yaml") {
-      this.computeYamlFoldRanges(content, newFolds)
-    }
-
-    this._folds = newFolds
-
-    for (const [line, fold] of newFolds) {
-      const previous = prevFolds.get(line)
-      fold.folded = previous?.folded ?? fold.folded
-    }
+    this._folds = deriveFoldRanges(this.plainText, this._filetype, this._folds)
 
     const hasFoldedRanges = this.hasFoldedRanges()
     if (hasFoldedRanges) this.applyFoldDisplay()
     this._onFoldsChange?.()
     if (!hasFoldedRanges) this.requestRender()
   }
-
-  private computeJsonFoldRanges(
-    content: string,
-    folds: Map<number, FoldInfo>,
-  ): void {
-    const lines = content.split("\n")
-    const stack: {
-      char: string
-      line: number
-      offset: number
-    }[] = []
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      for (let j = 0; j < line.length; j++) {
-        const ch = line[j]
-        if (ch === '"') {
-          j++
-          while (j < line.length) {
-            if (line[j] === "\\") {
-              j++
-            } else if (line[j] === '"') break
-            j++
-          }
-          continue
-        }
-        if (ch === "{" || ch === "[") {
-          stack.push({
-            char: ch,
-            line: i,
-            offset: this.lineAndColToOffset(i, j, lines),
-          })
-        } else if (ch === "}" || ch === "]") {
-          const expected = ch === "}" ? "{" : "["
-          for (let k = stack.length - 1; k >= 0; k--) {
-            if (stack[k].char === expected) {
-              const startLine = stack[k].line
-              if (startLine < i) {
-                const summary = this.getJsonFoldSummary(
-                  lines,
-                  startLine,
-                  i,
-                  stack[k].char,
-                )
-                folds.set(startLine, {
-                  startLine,
-                  endLine: i,
-                  startOffset: stack[k].offset,
-                  endOffset: this.lineAndColToOffset(i, j, lines),
-                  summary,
-                  folded: this._folds.get(startLine)?.folded ?? false,
-                })
-              }
-              stack.length = k
-              break
-            }
-          }
-        }
-      }
-    }
-  }
-
-  private computeYamlFoldRanges(
-    content: string,
-    folds: Map<number, FoldInfo>,
-  ): void {
-    const lines = content.split("\n")
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      if (line.trim() === "" || line.trim().startsWith("#")) continue
-
-      const indent = line.length - line.trimStart().length
-      let endLine = i
-
-      for (let j = i + 1; j < lines.length; j++) {
-        const nextLine = lines[j]
-        if (nextLine.trim() === "") {
-          endLine = j
-          continue
-        }
-        const nextIndent = nextLine.length - nextLine.trimStart().length
-        if (nextIndent > indent) {
-          endLine = j
-        } else {
-          break
-        }
-      }
-
-      if (endLine > i) {
-        const summary = lines[i].trim().slice(0, 40)
-        const startOffset = this.lineAndColToOffset(i, 0, lines)
-        const endOffset = this.lineAndColToOffset(
-          endLine,
-          (lines[endLine] || "").length,
-          lines,
-        )
-        folds.set(i, {
-          startLine: i,
-          endLine,
-          startOffset,
-          endOffset,
-          summary,
-          folded: this._folds.get(i)?.folded ?? false,
-        })
-        i = endLine
-      }
-    }
-  }
-
-  private getJsonFoldSummary(
-    lines: string[],
-    startLine: number,
-    endLine: number,
-    openingChar: string,
-  ): string {
-    const firstLine = lines[startLine].trim()
-    const bracket = openingChar === "{" ? "}" : "]"
-    const lineCount = endLine - startLine
-    return `${firstLine.slice(0, 30)}... ${bracket} (${lineCount} lines)`
-  }
-
-  private lineAndColToOffset(
-    line: number,
-    col: number,
-    lines: string[],
-  ): number {
-    let offset = 0
-    for (let i = 0; i < line; i++) {
-      offset += lines[i].length + 1
-    }
-    return offset + col
-  }
-}
-
-function buildByteToDisplayOffsets(content: string): number[] {
-  const offsets: number[] = []
-  offsets[0] = 0
-  let displayOffset = 0
-  let byteOffset = 0
-
-  for (const char of content) {
-    const codePoint = char.codePointAt(0)
-    if (codePoint === undefined) continue
-
-    byteOffset += utf8ByteLength(codePoint)
-    if (char !== "\n") {
-      displayOffset++
-    }
-
-    offsets[byteOffset] = displayOffset
-  }
-  return offsets
-}
-
-function styleIdForJsonToken(
-  kind: string | undefined,
-  fg: string,
-  theme: Theme,
-  style: SyntaxStyle,
-): number {
-  if (kind === "key") return style.getStyleId("json.key") ?? 0
-  if (kind === "string") return style.getStyleId("json.string") ?? 0
-  if (kind === "number") return style.getStyleId("json.number") ?? 0
-  if (kind === "boolean") return style.getStyleId("json.boolean") ?? 0
-  if (kind === "null") return style.getStyleId("json.null") ?? 0
-  if (kind === "bracket") return style.getStyleId("json.bracket") ?? 0
-  if (kind === "punctuation") return style.getStyleId("json.bracket") ?? 0
-  if (kind === "text") return style.getStyleId("json.text") ?? 0
-
-  if (fg === theme.secondary) return style.getStyleId("json.key") ?? 0
-  if (fg === theme.success) return style.getStyleId("json.string") ?? 0
-  if (fg === theme.warning) return style.getStyleId("json.number") ?? 0
-  if (fg === theme.info) return style.getStyleId("json.boolean") ?? 0
-  if (fg === theme.textMuted) return style.getStyleId("json.bracket") ?? 0
-  return style.getStyleId("json.text") ?? 0
-}
-
-function byteOffsetToDisplayOffset(
-  offsets: number[],
-  byteOffset: number,
-): number {
-  if (byteOffset <= 0) return 0
-  for (let i = byteOffset; i >= 0; i--) {
-    const value = offsets[i]
-    if (value !== undefined) return value
-  }
-  return 0
-}
-
-function getLineIndent(line: string): string {
-  const match = /^\s*/.exec(line)
-  return match?.[0] ?? ""
-}
-
-function utf8ByteLength(codePoint: number): number {
-  if (codePoint <= 0x7f) return 1
-  if (codePoint <= 0x7ff) return 2
-  if (codePoint <= 0xffff) return 3
-  return 4
 }
