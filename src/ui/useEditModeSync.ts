@@ -64,7 +64,18 @@ export function useEditModeSync({
       if (state.mode === "editing") envEditor.cancelEdit()
       else if (state.mode === "browsing") envEditor.exitBrowse()
     }
-  }, [focus, eb, folderEb, envEditor])
+  }, [
+    focus,
+    eb.editState.mode,
+    eb.cancelEdit,
+    eb.exitBrowse,
+    folderEb.editState.mode,
+    folderEb.cancelEdit,
+    folderEb.exitBrowse,
+    envEditor.editState.mode,
+    envEditor.cancelEdit,
+    envEditor.exitBrowse,
+  ])
 
   useEffect(() => {
     if (focus === "folder" && folderEb.editState.mode === "inactive") {
@@ -73,7 +84,13 @@ export function useEditModeSync({
     if (focus === "env-vars" && envEditor.editState.mode === "inactive") {
       envEditor.enterBrowse()
     }
-  }, [focus, folderEb, envEditor])
+  }, [
+    focus,
+    folderEb.editState.mode,
+    folderEb.enterBrowse,
+    envEditor.editState.mode,
+    envEditor.enterBrowse,
+  ])
 
   return paneMode
 }

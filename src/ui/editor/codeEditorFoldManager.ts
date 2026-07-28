@@ -99,10 +99,12 @@ export class CodeEditorFoldManager {
   }
 
   setFoldable(foldable: boolean): void {
+    const wasFoldable = this._foldable
     this._foldable = foldable
     this._folds.clear()
     this.restoreSourceDisplay()
     this.host.requestRender()
+    if (foldable && !wasFoldable) this.computeFoldRanges()
   }
 
   toggleFold(displayLine: number): void {
@@ -201,7 +203,9 @@ export class CodeEditorFoldManager {
   }
 
   clearFolds(): boolean {
-    if (this._folds.size === 0) return false
+    const hadFolds = this._folds.size > 0
+    if (this.isFoldedDisplay) this.restoreSourceDisplay()
+    if (!hadFolds) return false
     this._folds.clear()
     this.host.onFoldsChange()
     this.host.requestRender()

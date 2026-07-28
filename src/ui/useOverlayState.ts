@@ -174,7 +174,7 @@ export function useOverlayState({
     setRequestFinderVisible,
     timelineDetailEntry,
     setTimelineDetailEntry,
-  } satisfies Record<string, unknown>
+  }
 }
 
 export type OverlayState = ReturnType<typeof useOverlayState>

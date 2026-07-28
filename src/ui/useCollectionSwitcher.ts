@@ -54,7 +54,7 @@ export function useCollectionSwitcher({
     (nextDir: string) => {
       setCollectionSwitchPending(null)
       setCollectionSwitcherVisible(false)
-      onCollectionChange(nextDir)
+      onCollectionChange(resolve(nextDir))
     },
     [onCollectionChange],
   )

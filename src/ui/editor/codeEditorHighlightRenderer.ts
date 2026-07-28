@@ -23,6 +23,8 @@ interface HighlightHost {
 export class CodeEditorHighlightRenderer {
   private _theme: Theme
   private _style: SyntaxStyle
+  private _envResolvedStyleId = 0
+  private _envMissingStyleId = 0
   private _extra?: (content: string) => Highlight[]
 
   constructor(
@@ -30,17 +32,18 @@ export class CodeEditorHighlightRenderer {
     extra: ((content: string) => Highlight[]) | undefined,
     private readonly host: HighlightHost,
   ) {
-    this._theme = theme
     this._extra = extra
+    this._theme = theme
     this._style = createCodeEditorSyntaxStyle(theme)
+    this.updateEnvStyleIds()
   }
 
   get envResolvedStyleId(): number {
-    return getEnvStyleIds(this._style).resolved
+    return this._envResolvedStyleId
   }
 
   get envMissingStyleId(): number {
-    return getEnvStyleIds(this._style).missing
+    return this._envMissingStyleId
   }
 
   get extra(): ((content: string) => Highlight[]) | undefined {
@@ -50,6 +53,7 @@ export class CodeEditorHighlightRenderer {
   setTheme(theme: Theme): void {
     this._theme = theme
     this._style = createCodeEditorSyntaxStyle(theme)
+    this.updateEnvStyleIds()
   }
 
   setExtra(extra: ((content: string) => Highlight[]) | undefined): void {
@@ -137,5 +141,11 @@ export class CodeEditorHighlightRenderer {
     } catch {
       // Extra highlighters may reject malformed source while editing.
     }
+  }
+
+  private updateEnvStyleIds(): void {
+    const { resolved, missing } = getEnvStyleIds(this._style)
+    this._envResolvedStyleId = resolved
+    this._envMissingStyleId = missing
   }
 }

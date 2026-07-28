@@ -14,6 +14,7 @@ import {
   normalizeEditorKey,
   shouldAutoSkipClosingCharacter,
 } from "./codeEditorKeys"
+import type { EditorHighlightRange } from "./codeEditorHighlighting"
 import { CodeEditorFoldManager } from "./codeEditorFoldManager"
 import {
   CodeEditorValidation,
@@ -378,9 +379,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.computeFoldRanges()
   }
 
-  private applyHighlightRanges(
-    ranges: import("./codeEditorHighlighting").EditorHighlightRange[],
-  ): void {
+  private applyHighlightRanges(ranges: EditorHighlightRange[]): void {
     for (const range of ranges) {
       this.addHighlightByCharRange({
         start: range.start,
