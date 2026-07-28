@@ -1,0 +1,278 @@
+import type { BodyType, FormEntry, Request, Auth } from "../schema"
+import type { FieldKind } from "../ui/editMode"
+import { syncParamsWithUrl } from "../ui/urlParams"
+import {
+  replaceRow,
+  addRow,
+  removeRow,
+  toggleRow,
+  revertRow,
+  replaceParam,
+  addParam,
+  removeParam,
+  revertParam,
+  toggleParam,
+  cacheSet,
+} from "./draftUtils"
+import type { Method } from "../schema"
+
+export type DraftOp =
+  | { kind: "setMethod"; method: Method }
+  | { kind: "setUrl"; url: string }
+  | { kind: "setBody"; body: string }
+  | { kind: "setHeaderRow"; index: number; key: string; value: string }
+  | { kind: "addHeaderRow"; key: string; value: string }
+  | { kind: "removeHeaderRow"; index: number }
+  | { kind: "toggleHeaderRow"; index: number }
+  | { kind: "setParamRow"; index: number; key: string; value: string }
+  | { kind: "addParamRow"; key: string; value: string }
+  | { kind: "removeParamRow"; index: number }
+  | { kind: "toggleParamRow"; index: number }
+  | { kind: "syncUrlParams"; rawUrl: string }
+  | { kind: "setTimeout"; timeout: number }
+  | { kind: "setFollowRedirects"; followRedirects: boolean }
+  | { kind: "setMaxRedirects"; maxRedirects: number }
+  | { kind: "revertField"; field: FieldKind; row?: number }
+  | { kind: "revertAll" }
+  | { kind: "setAuthType"; authType: Auth["type"] }
+  | { kind: "setAuthField"; authType: string; field: string; value: string }
+  | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
+  | { kind: "setBodyType"; bodyType: BodyType }
+  | {
+      kind: "setFormRow"
+      index: number
+      name: string
+      value: string
+      formType: "text" | "file"
+    }
+  | {
+      kind: "addFormRow"
+      name: string
+      value: string
+      formType: "text" | "file"
+    }
+  | { kind: "removeFormRow"; index: number }
+  | { kind: "toggleFormRow"; index: number }
+  | { kind: "setFilePath"; filePath: string }
+
+const authTypeCache = new Map<string, Record<string, Auth>>()
+
+interface CachedBody {
+  body?: string
+  formData?: FormEntry[]
+  filePath?: string
+}
+const bodyCache = new Map<string, Record<string, CachedBody>>()
+
+export function applyDraft(
+  map: Map<string, Request>,
+  id: string,
+  original: Request,
+  op: DraftOp,
+): Map<string, Request> {
+  const current = map.get(id) ?? original
+  const next = new Map(map)
+  if (op.kind === "revertAll") {
+    next.delete(id)
+    return next
+  }
+  const draft: Request = { ...current }
+  switch (op.kind) {
+    case "setMethod":
+      draft.method = op.method
+      break
+    case "setUrl": {
+      const synced = syncParamsWithUrl(current.params, op.url)
+      draft.url = synced.baseUrl
+      draft.params = synced.params
+      break
+    }
+    case "syncUrlParams": {
+      const synced = syncParamsWithUrl(current.params, op.rawUrl)
+      draft.url = synced.baseUrl
+      draft.params = synced.params
+      break
+    }
+    case "setBody":
+      draft.body = op.body
+      break
+    case "setBodyType": {
+      const normalizedCurrent = draft.bodyType ?? "json"
+      const normalizedOp = op.bodyType ?? "json"
+      if (normalizedOp !== normalizedCurrent) {
+        const curBodyType = draft.bodyType ?? "json"
+        const idCache = bodyCache.get(id) ?? {}
+        idCache[curBodyType] = {
+          body: draft.body,
+          formData: draft.formData,
+          filePath: draft.filePath,
+        }
+        cacheSet(bodyCache, id, idCache)
+
+        draft.bodyType = op.bodyType
+        const cached = bodyCache.get(id)?.[normalizedOp]
+        if (cached) {
+          draft.body = cached.body
+          draft.formData = cached.formData
+          draft.filePath = cached.filePath
+        } else {
+          draft.body = undefined
+          draft.formData = undefined
+          draft.filePath = undefined
+        }
+      }
+      break
+    }
+    case "setFormRow":
+      draft.formData = current.formData ?? []
+      if (draft.formData[op.index]) {
+        draft.formData = draft.formData.map((e, i) =>
+          i === op.index
+            ? {
+                name: op.name,
+                value: op.value,
+                enabled: e.enabled,
+                type: op.formType,
+              }
+            : e,
+        )
+      }
+      break
+    case "addFormRow":
+      draft.formData = [
+        ...(current.formData ?? []),
+        { name: op.name, value: op.value, enabled: true, type: op.formType },
+      ]
+      break
+    case "removeFormRow":
+      draft.formData = (current.formData ?? []).filter((_, i) => i !== op.index)
+      break
+    case "toggleFormRow":
+      draft.formData = (current.formData ?? []).map((e, i) =>
+        i === op.index ? { ...e, enabled: !e.enabled } : e,
+      )
+      break
+    case "setFilePath":
+      draft.filePath = op.filePath
+      break
+    case "setHeaderRow": {
+      const { key, value } = op
+      if (key === "") {
+        draft.headers = removeRow(current.headers, op.index)
+      } else {
+        draft.headers = replaceRow(current.headers, op.index, key, value)
+      }
+      break
+    }
+    case "addHeaderRow":
+      draft.headers = addRow(current.headers, op.key, op.value)
+      break
+    case "removeHeaderRow":
+      draft.headers = removeRow(current.headers, op.index)
+      break
+    case "toggleHeaderRow":
+      draft.headers = toggleRow(current.headers, op.index)
+      break
+    case "setParamRow": {
+      const { key, value } = op
+      draft.params = replaceParam(current.params, op.index, key, value)
+      break
+    }
+    case "addParamRow":
+      draft.params = addParam(current.params, op.key, op.value)
+      break
+    case "removeParamRow":
+      draft.params = removeParam(current.params, op.index)
+      break
+    case "toggleParamRow":
+      draft.params = toggleParam(current.params, op.index)
+      break
+    case "setTimeout":
+      draft.timeout = op.timeout
+      break
+    case "setFollowRedirects":
+      draft.followRedirects = op.followRedirects
+      break
+    case "setMaxRedirects":
+      draft.maxRedirects = op.maxRedirects
+      break
+    case "setAuthType": {
+      const curAuth = current.auth
+      if (curAuth && curAuth.type !== "none") {
+        const idCache = authTypeCache.get(id) ?? {}
+        idCache[curAuth.type] = curAuth
+        cacheSet(authTypeCache, id, idCache)
+      }
+      const cached = authTypeCache.get(id)?.[op.authType]
+      if (cached && cached.type === op.authType) {
+        draft.auth = { ...cached }
+      } else if (original.auth?.type === op.authType) {
+        draft.auth = { ...original.auth }
+      } else if (op.authType === "none") {
+        draft.auth = { type: "none" }
+      } else if (op.authType === "inherit") {
+        draft.auth = { type: "inherit" }
+      } else if (op.authType === "bearer") {
+        draft.auth = { type: "bearer", token: "" }
+      } else if (op.authType === "basic") {
+        draft.auth = { type: "basic", user: "", pass: "" }
+      } else if (op.authType === "api_key") {
+        draft.auth = {
+          type: "api_key",
+          key: "",
+          value: "",
+          placement: "header",
+        }
+      }
+      break
+    }
+    case "setAuthField": {
+      const currentAuth = draft.auth
+      if (!currentAuth || currentAuth.type !== op.authType) break
+      if (currentAuth.type === "none") break
+      ;(currentAuth as Record<string, unknown>)[op.field] = op.value
+      break
+    }
+    case "setApiKeyPlacement": {
+      const currentAuth = draft.auth
+      if (currentAuth?.type === "api_key") {
+        ;(currentAuth as { placement: "header" | "query" }).placement =
+          op.placement
+      }
+      break
+    }
+    case "revertField": {
+      if (op.field === "body") {
+        draft.body = original.body
+        draft.bodyType = original.bodyType
+        draft.formData = original.formData
+        draft.filePath = original.filePath
+      } else if (op.field === "settings") {
+        draft.timeout = original.timeout
+        draft.followRedirects = original.followRedirects
+        draft.maxRedirects = original.maxRedirects
+      } else if (op.field === "headers" && op.row !== undefined) {
+        draft.headers = revertRow(current.headers, original.headers, op.row)
+      } else if (op.field === "params" && op.row !== undefined) {
+        draft.params = revertParam(current.params, original.params, op.row)
+      } else if (op.field === "auth") {
+        if (op.row === undefined || op.row === 0) {
+          draft.auth = original.auth
+        }
+      }
+      break
+    }
+  }
+  next.set(id, draft)
+  return next
+}
+
+export function clearRequestDraftCaches(id?: string): void {
+  if (id !== undefined) {
+    authTypeCache.delete(id)
+    bodyCache.delete(id)
+  } else {
+    authTypeCache.clear()
+    bodyCache.clear()
+  }
+}
