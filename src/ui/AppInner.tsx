@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
-import { resolve } from "node:path"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
@@ -10,7 +9,7 @@ import { useTreeNavigation } from "../hooks/useTreeNavigation"
 import { deriveRequestParentFolder, getFolderPaths } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest, Method, TimelineEntry } from "../schema"
+import type { Request as NoodleRequest, Method } from "../schema"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -18,10 +17,6 @@ import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import { type Focus, type UrlBarSubFocus } from "./focus"
-import { type NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
-import { type CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
-import { type NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
-import { type ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import { buildCommandPaletteCommands } from "./commands"
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
@@ -40,7 +35,6 @@ import {
 } from "./useJumpMode"
 import { useRenderer } from "./RendererContext"
 import { useOverlayIntercepts } from "./useOverlayIntercepts"
-import { useModalKeyboardShield } from "./useModalKeyboardShield"
 import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
@@ -53,17 +47,17 @@ import type { ResponseTabKind } from "./tabs/uiState"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 import { parseCurl } from "../converters/curl/parse"
 import type { ResponseQueryController } from "./responseQuery"
-import {
-  type AppView,
-  initialYamlEditorState,
-  type YamlEditorState,
-} from "./appState"
+import { type AppView } from "./appState"
 import {
   useCollectionUiPersistence,
   useInitialExpandedFolders,
 } from "./useCollectionUiPersistence"
 import { useUpdateFlow } from "./useUpdateFlow"
 import { useTimelineActions } from "./useTimelineActions"
+import { useOverlayState } from "./useOverlayState"
+import { useCollectionSwitcher } from "./useCollectionSwitcher"
+import { useKeymapSync } from "./useKeymapSync"
+import { useEditModeSync } from "./useEditModeSync"
 
 export function AppInner({
   collectionDir,
@@ -125,8 +119,6 @@ export function AppInner({
   const [view, setView] = useState<AppView>("main")
   const viewRef = useRef(view)
   viewRef.current = view
-  const [helpVisible, setHelpVisible] = useState(false)
-  const [aboutVisible, setAboutVisible] = useState(false)
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
@@ -143,46 +135,9 @@ export function AppInner({
   const [filterOpenRequestId, setFilterOpenRequestId] = useState<string | null>(
     null,
   )
-  const [yamlEditor, setYamlEditor] = useState<YamlEditorState>(
-    initialYamlEditorState,
-  )
-
-  const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
-  const envDeletePendingRef = useRef(envDeletePending)
-  useEffect(() => {
-    envDeletePendingRef.current = envDeletePending
-  }, [envDeletePending])
-  const [newRequestVisible, setNewRequestVisible] = useState(false)
-  const newRequestRef = useRef<NewRequestOverlayHandle>(null)
-  const [importCurlVisible, setImportCurlVisible] = useState(false)
-  const importCurlRef = useRef<ImportCurlOverlayHandle>(null)
-  const [editRequestVisible, setEditRequestVisible] = useState(false)
-  const editRequestRef = useRef<NewRequestOverlayHandle>(null)
-  const [cloneRequestVisible, setCloneRequestVisible] = useState(false)
-  const cloneRequestRef = useRef<CloneRequestOverlayHandle>(null)
-  const [requestDeletePending, setRequestDeletePending] = useState<
-    string | null
-  >(null)
-  const [newFolderVisible, setNewFolderVisible] = useState(false)
-  const newFolderRef = useRef<NewFolderOverlayHandle>(null)
-  const [folderDeletePending, setFolderDeletePending] = useState<string | null>(
-    null,
-  )
   const folderDeletePathRef = useRef<string | null>(null)
-  const [undoAllPending, setUndoAllPending] = useState(false)
-  const [initPending, setInitPending] = useState(false)
-  const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [jumpMode, setJumpMode] = useState(false)
   const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
-  const [codeGeneratorVisible, setCodeGeneratorVisible] = useState(false)
-  const [requestFinderVisible, setRequestFinderVisible] = useState(false)
-  const [timelineDetailEntry, setTimelineDetailEntry] =
-    useState<TimelineEntry | null>(null)
-  const [collectionSwitcherVisible, setCollectionSwitcherVisible] =
-    useState(false)
-  const [collectionSwitchPending, setCollectionSwitchPending] = useState<
-    string | null
-  >(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -375,133 +330,6 @@ export function AppInner({
 
   const folderSaveRef = useRef<() => void>(() => {})
 
-  const {
-    handleFolderSave,
-    handleNewRequestConfirm,
-    handleImportCurlConfirm,
-    handleCloneRequestConfirm,
-    handleNewFolderConfirm,
-    handleFolderDeleteConfirm,
-    handleEditRequestConfirm,
-    handleRequestDeleteConfirm,
-    executeInitPending,
-  } = useCollectionFileActions({
-    collection,
-    collectionDir,
-    updateCollection,
-    selectedRequest,
-    folderDraftRef,
-    newRequestFolderRef,
-    folderDeletePathRef,
-    setCollectionReloadToken,
-    setFocus,
-    setSaveState,
-    clearSaveTimer,
-    saveTimerRef,
-    setSelectedId,
-    expandFolder,
-    setNewRequestVisible,
-    setImportCurlVisible,
-    setCloneRequestVisible,
-    setNewFolderVisible,
-    setEditRequestVisible,
-    setRequestDeletePending,
-    setFolderDeletePending,
-    onCollectionBootstrapped,
-  })
-
-  folderSaveRef.current = handleFolderSave
-
-  // ── keymap.setData effects ─────────────────────────────────────────
-  const overlayActiveRef = useRef(false)
-  const {
-    updateFlow,
-    restartVersion,
-    updateAvailable,
-    triggerUpdateCheck,
-    confirmInstall: onConfirmInstall,
-    cancelUpdate: onCancelUpdate,
-  } = useUpdateFlow(overlayActiveRef)
-  const activeOverlay = useMemo(() => {
-    if (commandPaletteVisible) return "command-palette"
-    if (codeGeneratorVisible) return "code-generator"
-    if (requestFinderVisible) return "request-finder"
-    if (helpVisible) return "help"
-    if (aboutVisible) return "about"
-    if (previewIndex !== null) return "theme"
-    if (saveState.kind === "confirming") return "confirm"
-    if (envDeletePending !== null) return "env-delete"
-    if (undoAllPending) return "undo-all"
-    if (initPending) return "init-confirm"
-    if (collectionSwitchPending !== null) return "collection-switch-confirm"
-    if (collectionSwitcherVisible) return "collection-switcher"
-    if (yamlEditor.visible) return "yaml-editor"
-    if (newRequestVisible) return "new-request"
-    if (importCurlVisible) return "import-curl"
-    if (editRequestVisible) return "edit-request"
-    if (cloneRequestVisible) return "clone-request"
-    if (newFolderVisible) return "new-folder"
-    if (folderDeletePending !== null) return "delete-folder"
-    if (requestDeletePending !== null) return "request-delete"
-    if (updateFlow.phase === "confirm") return "update-confirm"
-    if (timelineDetailEntry !== null) return "timeline-detail"
-    return "none"
-  }, [
-    commandPaletteVisible,
-    codeGeneratorVisible,
-    requestFinderVisible,
-    helpVisible,
-    aboutVisible,
-    previewIndex,
-    saveState.kind,
-    envDeletePending,
-    undoAllPending,
-    initPending,
-    collectionSwitchPending,
-    collectionSwitcherVisible,
-    yamlEditor.visible,
-    newRequestVisible,
-    importCurlVisible,
-    editRequestVisible,
-    cloneRequestVisible,
-    newFolderVisible,
-    folderDeletePending,
-    requestDeletePending,
-    updateFlow.phase,
-    timelineDetailEntry,
-  ])
-
-  useEffect(() => {
-    keymap.setData("app.focus", focus)
-    if (focus === "env-header") {
-      headerFieldRef.current = "name"
-    }
-  }, [focus, keymap])
-
-  useEffect(() => {
-    keymap.setData("app.overlay", activeOverlay)
-  }, [activeOverlay, keymap])
-
-  const overlayActive = activeOverlay !== "none"
-
-  useEffect(() => {
-    overlayActiveRef.current = overlayActive
-  }, [overlayActive])
-
-  useEffect(() => {
-    keymap.setData("app.jump", jumpMode ? "active" : "none")
-  }, [jumpMode, keymap])
-
-  useEffect(() => {
-    if (activeOverlay !== "none" && jumpMode) setJumpMode(false)
-  }, [activeOverlay, jumpMode, setJumpMode])
-
-  useModalKeyboardShield(activeOverlay)
-
-  useEffect(() => {
-    keymap.setData("app.view", view)
-  }, [view, keymap])
-
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
     environmentsDir,
@@ -574,33 +402,126 @@ export function AppInner({
     },
   })
 
-  const paneMode = useMemo((): "base" | "browse" | "edit" => {
-    if (view === "env-editor" && focus === "env-vars") {
-      return envEditor.editState.mode === "browsing"
-        ? "browse"
-        : envEditor.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    }
-    if (focus === "folder") {
-      return folderEb.editState.mode === "browsing"
-        ? "browse"
-        : folderEb.editState.mode === "editing"
-          ? "edit"
-          : "base"
-    }
-    return eb.editState.mode === "browsing"
-      ? "browse"
-      : eb.editState.mode === "editing"
-        ? "edit"
-        : "base"
-  }, [
-    view,
+  const {
+    collectionSwitcherVisible,
+    setCollectionSwitcherVisible,
+    collectionSwitchPending,
+    setCollectionSwitchPending,
+    requestCollectionSwitch,
+    confirmCollectionSwitch,
+  } = useCollectionSwitcher({
+    collectionDir,
+    requestDirty: draft.isDirty,
+    folderDirty: folderDraft.isDirty,
+    environmentDirty: envEditor.dirty,
+    onCollectionChange,
+  })
+
+  const overlayActiveRef = useRef(false)
+  const {
+    updateFlow,
+    restartVersion,
+    updateAvailable,
+    triggerUpdateCheck,
+    confirmInstall: onConfirmInstall,
+    cancelUpdate: onCancelUpdate,
+  } = useUpdateFlow(overlayActiveRef)
+  const {
+    activeOverlay,
+    helpVisible,
+    setHelpVisible,
+    aboutVisible,
+    setAboutVisible,
+    yamlEditor,
+    setYamlEditor,
+    envDeletePending,
+    setEnvDeletePending,
+    envDeletePendingRef,
+    newRequestVisible,
+    setNewRequestVisible,
+    newRequestRef,
+    importCurlVisible,
+    setImportCurlVisible,
+    importCurlRef,
+    editRequestVisible,
+    setEditRequestVisible,
+    editRequestRef,
+    cloneRequestVisible,
+    setCloneRequestVisible,
+    cloneRequestRef,
+    requestDeletePending,
+    setRequestDeletePending,
+    newFolderVisible,
+    setNewFolderVisible,
+    newFolderRef,
+    folderDeletePending,
+    setFolderDeletePending,
+    undoAllPending,
+    setUndoAllPending,
+    initPending,
+    setInitPending,
+    commandPaletteVisible,
+    setCommandPaletteVisible,
+    codeGeneratorVisible,
+    setCodeGeneratorVisible,
+    requestFinderVisible,
+    setRequestFinderVisible,
+    timelineDetailEntry,
+    setTimelineDetailEntry,
+  } = useOverlayState({
+    previewIndex,
+    saveState,
+    collectionSwitcherVisible,
+    collectionSwitchPending,
+    updatePhase: updateFlow.phase,
+  })
+  const overlayActive = useKeymapSync({
     focus,
-    envEditor.editState.mode,
-    folderEb.editState.mode,
-    eb.editState.mode,
-  ])
+    view,
+    activeOverlay,
+    jumpMode,
+    setJumpMode,
+    headerFieldRef,
+    overlayActiveRef,
+  })
+
+  const {
+    handleFolderSave,
+    handleNewRequestConfirm,
+    handleImportCurlConfirm,
+    handleCloneRequestConfirm,
+    handleNewFolderConfirm,
+    handleFolderDeleteConfirm,
+    handleEditRequestConfirm,
+    handleRequestDeleteConfirm,
+    executeInitPending,
+  } = useCollectionFileActions({
+    collection,
+    collectionDir,
+    updateCollection,
+    selectedRequest,
+    folderDraftRef,
+    newRequestFolderRef,
+    folderDeletePathRef,
+    setCollectionReloadToken,
+    setFocus,
+    setSaveState,
+    clearSaveTimer,
+    saveTimerRef,
+    setSelectedId,
+    expandFolder,
+    setNewRequestVisible,
+    setImportCurlVisible,
+    setCloneRequestVisible,
+    setNewFolderVisible,
+    setEditRequestVisible,
+    setRequestDeletePending,
+    setFolderDeletePending,
+    onCollectionBootstrapped,
+  })
+  folderSaveRef.current = handleFolderSave
+
+  const paneMode = useEditModeSync({ focus, view, eb, folderEb, envEditor })
 
   const displayTab = useMemo((): string | undefined => {
     if (focus === "request") return eb.activeTab
@@ -608,38 +529,6 @@ export function AppInner({
     if (focus === "folder") return folderEb.activeTab
     return undefined
   }, [focus, eb.activeTab, responseTab, folderEb.activeTab])
-
-  // ── Sync edit mode to keymap ───────────────────────────────────────
-  useEffect(() => {
-    keymap.setData("app.mode", paneMode)
-  }, [paneMode, keymap])
-
-  useEffect(() => {
-    if (focus !== "request") {
-      const state = eb.editState
-      if (state.mode === "editing") eb.cancelEdit()
-      else if (state.mode === "browsing") eb.exitBrowse()
-    }
-    if (focus !== "folder") {
-      const state = folderEb.editState
-      if (state.mode === "editing") folderEb.cancelEdit()
-      else if (state.mode === "browsing") folderEb.exitBrowse()
-    }
-    if (focus !== "env-vars") {
-      const state = envEditor.editState
-      if (state.mode === "editing") envEditor.cancelEdit()
-      else if (state.mode === "browsing") envEditor.exitBrowse()
-    }
-  }, [focus, eb, folderEb, envEditor])
-
-  useEffect(() => {
-    if (focus === "folder" && folderEb.editState.mode === "inactive") {
-      folderEb.enterBrowse()
-    }
-    if (focus === "env-vars" && envEditor.editState.mode === "inactive") {
-      envEditor.enterBrowse()
-    }
-  }, [focus, folderEb, envEditor])
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)
@@ -676,36 +565,6 @@ export function AppInner({
 
   const folderViewRef = useRef(false)
   folderViewRef.current = focusedFolder !== null
-
-  const collectionDirRef = useRef(collectionDir)
-  collectionDirRef.current = collectionDir
-
-  const requestCollectionSwitch = useCallback(
-    (nextDir: string) => {
-      const normalized = resolve(nextDir)
-      setCollectionSwitcherVisible(false)
-      if (normalized === collectionDirRef.current) {
-        setCollectionSwitchPending(null)
-        return
-      }
-      if (draft.isDirty || folderDraft.isDirty || envEditor.dirty) {
-        setCollectionSwitchPending(normalized)
-        return
-      }
-      setCollectionSwitchPending(null)
-      onCollectionChange(normalized)
-    },
-    [draft.isDirty, folderDraft.isDirty, envEditor.dirty, onCollectionChange],
-  )
-
-  const confirmCollectionSwitch = useCallback(
-    (nextDir: string) => {
-      setCollectionSwitchPending(null)
-      setCollectionSwitcherVisible(false)
-      onCollectionChange(nextDir)
-    },
-    [onCollectionChange],
-  )
 
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap({
