@@ -237,6 +237,7 @@ export default defineCommand({
   async run({ args }) {
     const force = args.force === true
     if (args.json) return emitCommand(true, () => runUpdate(true, force))
-    await runUpdate(false, force)
+    const result = await runUpdate(false, force)
+    if (result.failed) process.exitCode = 1
   },
 })

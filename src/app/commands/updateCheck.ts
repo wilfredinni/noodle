@@ -17,14 +17,21 @@ import { fetchManifestAndCheck } from "./updateFetch"
 
 export interface UpdateDependencies {
   fetcher: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
-  runProcess: (args: string[], captureOutput: boolean) => Promise<ProcessResult>
+  runProcess: (
+    args: string[],
+    captureOutput: boolean,
+    options?: { signal?: AbortSignal },
+  ) => Promise<ProcessResult>
   execPath: string
   platform: string
   arch: string
   env: Record<string, string | undefined>
   cachePath: string
   now: () => number
+  updateCheckTimeoutMs?: number
 }
+
+export const UPDATE_CHECK_TIMEOUT_MS = 10_000
 
 export interface ProcessResult {
   exitCode: number
@@ -34,10 +41,12 @@ export interface ProcessResult {
 async function runProcess(
   args: string[],
   captureOutput: boolean,
+  options?: { signal?: AbortSignal },
 ): Promise<ProcessResult> {
   const child = Bun.spawn(args, {
     stdout: captureOutput ? "pipe" : "inherit",
     stderr: captureOutput ? "pipe" : "inherit",
+    signal: options?.signal,
   })
   if (!captureOutput) return { exitCode: await child.exited }
   const [stdout] = await Promise.all([
@@ -64,6 +73,7 @@ export function getUpdateDeps(
     env: process.env,
     cachePath: getDefaultCachePath(),
     now: Date.now,
+    updateCheckTimeoutMs: UPDATE_CHECK_TIMEOUT_MS,
     ...overrides,
   }
 }
@@ -122,6 +132,11 @@ export async function checkForUpdates(
       const result = await deps.runProcess(
         ["brew", "info", "--json=v2", "noodle"],
         true,
+        {
+          signal: AbortSignal.timeout(
+            deps.updateCheckTimeoutMs ?? UPDATE_CHECK_TIMEOUT_MS,
+          ),
+        },
       )
       if (result.exitCode !== 0) {
         return {
@@ -133,7 +148,8 @@ export async function checkForUpdates(
       let latest: string | null = null
       try {
         const parsed = JSON.parse(result.stdout ?? "{}")
-        latest = parsed?.formulae?.[0]?.versions?.stable ?? null
+        const stable = parsed?.formulae?.[0]?.versions?.stable
+        if (typeof stable === "string") latest = stable
       } catch {
         // fall through, latest stays null
       }

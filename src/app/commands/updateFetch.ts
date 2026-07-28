@@ -1,4 +1,8 @@
-import type { UpdateDependencies, UpdateStatus } from "./updateCheck"
+import {
+  UPDATE_CHECK_TIMEOUT_MS,
+  type UpdateDependencies,
+  type UpdateStatus,
+} from "./updateCheck"
 import {
   saveUpdateCache,
   isStaleUpdateCache,
@@ -41,7 +45,11 @@ async function fetchManifestOnce(
   deps: UpdateDependencies,
 ): Promise<ManifestFetchOutcome> {
   try {
-    const response = await deps.fetcher(getManifestUrl())
+    const response = await deps.fetcher(getManifestUrl(), {
+      signal: AbortSignal.timeout(
+        deps.updateCheckTimeoutMs ?? UPDATE_CHECK_TIMEOUT_MS,
+      ),
+    })
     if (!response.ok) {
       const status = response.status
       const transient = isTransientError(status)

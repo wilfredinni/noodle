@@ -13,6 +13,7 @@ import {
   revertParam,
   toggleParam,
   cacheSet,
+  defaultAuth,
 } from "./draftUtils"
 import type { Method } from "../schema"
 
@@ -208,21 +209,8 @@ export function applyDraft(
         draft.auth = { ...cached }
       } else if (original.auth?.type === op.authType) {
         draft.auth = { ...original.auth }
-      } else if (op.authType === "none") {
-        draft.auth = { type: "none" }
-      } else if (op.authType === "inherit") {
-        draft.auth = { type: "inherit" }
-      } else if (op.authType === "bearer") {
-        draft.auth = { type: "bearer", token: "" }
-      } else if (op.authType === "basic") {
-        draft.auth = { type: "basic", user: "", pass: "" }
-      } else if (op.authType === "api_key") {
-        draft.auth = {
-          type: "api_key",
-          key: "",
-          value: "",
-          placement: "header",
-        }
+      } else {
+        draft.auth = defaultAuth(op.authType)
       }
       break
     }
@@ -230,14 +218,13 @@ export function applyDraft(
       const currentAuth = draft.auth
       if (!currentAuth || currentAuth.type !== op.authType) break
       if (currentAuth.type === "none") break
-      ;(currentAuth as Record<string, unknown>)[op.field] = op.value
+      draft.auth = { ...currentAuth, [op.field]: op.value } as Auth
       break
     }
     case "setApiKeyPlacement": {
       const currentAuth = draft.auth
       if (currentAuth?.type === "api_key") {
-        ;(currentAuth as { placement: "header" | "query" }).placement =
-          op.placement
+        draft.auth = { ...currentAuth, placement: op.placement }
       }
       break
     }

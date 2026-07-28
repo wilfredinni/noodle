@@ -89,7 +89,6 @@ export function useDialogIntercepts(opts: {
   // ── Overlay: Delete env confirmation ──────────────────────────────
   useEffect(() => {
     if (!envDeletePending) return
-    const ee = envEditorRef.current
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -100,7 +99,8 @@ export function useDialogIntercepts(opts: {
           const envName = envDeletePending
           if (!envName) return
           setEnvDeletePending(null)
-          ee.deleteEnv()
+          envEditorRef.current
+            .deleteEnv()
             .then(() => {
               clearSaveTimer()
               setSaveState({ kind: "success", message: `Deleted ${envName}` })
