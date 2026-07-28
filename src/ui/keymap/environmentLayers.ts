@@ -14,18 +14,21 @@ export function createEnvironmentLayers(
   const isEnvironmentEditor = () =>
     keymap.getData("app.view") === "env-editor" &&
     keymap.getData("app.overlay") === "none"
+  const canEdit = () => global.modeRef.current === "collection"
 
   const base: UseBindingsLayer = {
     enabled: isEnvironmentEditor,
     commands: [
       {
         name: "env.save",
+        enabled: canEdit,
         run: () => {
           saveEnvironment(actions)
         },
       },
       {
         name: "env.new",
+        enabled: canEdit,
         run: () => {
           newEnvironment(actions)
           global.setFocus("env-header")
@@ -34,6 +37,7 @@ export function createEnvironmentLayers(
       {
         name: "env.clone",
         enabled: () =>
+          canEdit() &&
           environment.envEditorRef.current.selectedEnvName !== null,
         run: () => {
           cloneEnvironment(actions)
@@ -42,6 +46,7 @@ export function createEnvironmentLayers(
       {
         name: "env.delete",
         enabled: () =>
+          canEdit() &&
           environment.envEditorRef.current.selectedEnvName !== null,
         run: () => {
           const target = deleteEnvironment(actions)
@@ -81,6 +86,7 @@ export function createEnvironmentLayers(
       },
       {
         name: "env-browse.enter",
+        enabled: canEdit,
         run: () => environment.envEditorRef.current.enterEdit(),
       },
       {
@@ -89,6 +95,7 @@ export function createEnvironmentLayers(
       },
       {
         name: "env-browse.toggle",
+        enabled: canEdit,
         run: () => {
           const state = environment.envEditorRef.current.editState
           if (!state.addingRow && state.row >= 0) {
@@ -98,6 +105,7 @@ export function createEnvironmentLayers(
       },
       {
         name: "env-browse.revert",
+        enabled: canEdit,
         run: () => {
           const state = environment.envEditorRef.current.editState
           if (!state.addingRow && state.row >= 0) {
@@ -107,6 +115,7 @@ export function createEnvironmentLayers(
       },
       {
         name: "env.save",
+        enabled: canEdit,
         run: () => {
           saveEnvironment(actions)
         },
@@ -133,6 +142,7 @@ export function createEnvironmentLayers(
     commands: [
       {
         name: "env-edit.commit",
+        enabled: canEdit,
         run: () => environment.envEditorRef.current.commitEdit(),
       },
       {
@@ -145,6 +155,7 @@ export function createEnvironmentLayers(
       },
       {
         name: "env.save",
+        enabled: canEdit,
         run: () => {
           saveEnvironment(actions)
         },

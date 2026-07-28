@@ -244,6 +244,20 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("blocks environment save outside collection mode", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.global.modeRef.current = "browse"
+    keymap.setData("app.view", "env-editor")
+    const disposers = register(context)
+
+    host.press("s", { ctrl: true })
+
+    expect(calls.envSave).toBe(0)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("dispatches environment browse bindings from the production layer", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
