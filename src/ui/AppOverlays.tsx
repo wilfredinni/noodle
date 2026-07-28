@@ -39,20 +39,11 @@ import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
 import type { Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
+import { initialYamlEditorState, type YamlEditorState } from "./appState"
 
 interface FolderPathOption {
   id: string
   label: string
-}
-
-interface YamlEditorState {
-  visible: boolean
-  filePath: string
-  requestName: string
-  requestId: string
-  kind: "request" | "folder"
-  returnFocus: Focus
-  folderPath: string
 }
 
 interface AppOverlaysProps {
@@ -288,15 +279,7 @@ export function AppOverlays({
               resetRequestDraft(yamlEditor.requestId)
             }
             setCollectionReloadToken((n) => n + 1)
-            setYamlEditor({
-              visible: false,
-              filePath: "",
-              requestName: "",
-              requestId: "",
-              kind: "request",
-              returnFocus: "sidebar",
-              folderPath: "",
-            })
+            setYamlEditor(initialYamlEditorState)
             setFocus(yamlEditor.returnFocus)
             setSaveState({
               kind: "success",
@@ -308,15 +291,7 @@ export function AppOverlays({
             }, 2000)
           }}
           onClose={() => {
-            setYamlEditor({
-              visible: false,
-              filePath: "",
-              requestName: "",
-              requestId: "",
-              kind: "request",
-              returnFocus: "sidebar",
-              folderPath: "",
-            })
+            setYamlEditor(initialYamlEditorState)
             setFocus(yamlEditor.returnFocus)
           }}
         />

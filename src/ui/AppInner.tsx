@@ -45,28 +45,25 @@ import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
-import { exportTimelineEntry, loadTimelineBody } from "../filestore"
-import { copyToClipboard } from "./clipboard"
-import type { TimelineBodyRef } from "../schema"
 import type { SubstitutedRequest } from "../requests/substitute"
 import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
-import {
-  saveLastRequest,
-  loadExpandedFolders,
-  saveExpandedFolders,
-} from "./tabs/uiState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 import { parseCurl } from "../converters/curl/parse"
 import type { ResponseQueryController } from "./responseQuery"
 import {
-  checkForUpdates as checkForUpdatesFn,
-  installBinaryUpdate,
-  installBrewUpdate,
-  type UpdateAvailableInfo,
-} from "../app/commands/update"
+  type AppView,
+  initialYamlEditorState,
+  type YamlEditorState,
+} from "./appState"
+import {
+  useCollectionUiPersistence,
+  useInitialExpandedFolders,
+} from "./useCollectionUiPersistence"
+import { useUpdateFlow } from "./useUpdateFlow"
+import { useTimelineActions } from "./useTimelineActions"
 
 export function AppInner({
   collectionDir,
@@ -125,7 +122,7 @@ export function AppInner({
   urlbarSubFocusRef.current = urlbarSubFocus
   const focusRef = useRef(focus)
   focusRef.current = focus
-  const [view, setView] = useState<"main" | "env-editor">("main")
+  const [view, setView] = useState<AppView>("main")
   const viewRef = useRef(view)
   viewRef.current = view
   const [helpVisible, setHelpVisible] = useState(false)
@@ -146,23 +143,9 @@ export function AppInner({
   const [filterOpenRequestId, setFilterOpenRequestId] = useState<string | null>(
     null,
   )
-  const [yamlEditor, setYamlEditor] = useState<{
-    visible: boolean
-    filePath: string
-    requestName: string
-    requestId: string
-    kind: "request" | "folder"
-    returnFocus: Focus
-    folderPath: string
-  }>({
-    visible: false,
-    filePath: "",
-    requestName: "",
-    requestId: "",
-    kind: "request",
-    returnFocus: "sidebar",
-    folderPath: "",
-  })
+  const [yamlEditor, setYamlEditor] = useState<YamlEditorState>(
+    initialYamlEditorState,
+  )
 
   const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
   const envDeletePendingRef = useRef(envDeletePending)
@@ -200,24 +183,6 @@ export function AppInner({
   const [collectionSwitchPending, setCollectionSwitchPending] = useState<
     string | null
   >(null)
-  const [updateCheckToken, setUpdateCheckToken] = useState(0)
-  const triggerUpdateCheck = useCallback(
-    () => setUpdateCheckToken((t) => t + 1),
-    [],
-  )
-  type UpdateFlowState =
-    | { phase: "idle" }
-    | ({ phase: "confirm" } & UpdateAvailableInfo)
-    | ({ phase: "installing" } & UpdateAvailableInfo)
-    | { phase: "done"; version: string }
-    | { phase: "failed"; message: string }
-  const [updateFlow, setUpdateFlow] = useState<UpdateFlowState>({
-    phase: "idle",
-  })
-  const [restartVersion, setRestartVersion] = useState<string | null>(null)
-  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
-  const [initialExpandedFolders, setInitialExpandedFolders] =
-    useState<Set<string> | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
 
   // ── Collection ──────────────────────────────────────────────────────
@@ -236,10 +201,10 @@ export function AppInner({
   const requestIds = useMemo(() => getRequestIds(items), [items])
   const { getTab, setTab } = useUIState(collectionDir, requestIds, isReadOnly)
 
-  useEffect(() => {
-    if (!isCollection) return
-    loadExpandedFolders(collectionDir).then(setInitialExpandedFolders)
-  }, [collectionDir, isCollection])
+  const initialExpandedFolders = useInitialExpandedFolders(
+    collectionDir,
+    isCollection,
+  )
 
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const {
@@ -320,51 +285,14 @@ export function AppInner({
     setExpanded(null)
   }, [selectedRequest?.id])
 
-  const saveLastReqRef = useRef(false)
-  const saveLastDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    if (!isCollection) return
-    if (!saveLastReqRef.current) {
-      saveLastReqRef.current = true
-      return
-    }
-    const lastId = focusedFolderPath ? `${focusedFolderPath}/` : selectedId
-    if (!lastId) return
-    if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
-    saveLastDebounceRef.current = setTimeout(() => {
-      saveLastRequest(collectionDir, lastId, new Set(requestIds)).catch(
-        (e: unknown) => {
-          console.error("Failed to save last request:", e)
-        },
-      )
-    }, 200)
-    return () => {
-      if (saveLastDebounceRef.current) clearTimeout(saveLastDebounceRef.current)
-    }
-  }, [selectedId, focusedFolderPath, isCollection])
-
-  const expandedSaveRef = useRef(false)
-  const expandedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    if (!isCollection) return
-    if (!expandedSaveRef.current) {
-      expandedSaveRef.current = true
-      return
-    }
-    if (expandedDebounceRef.current) clearTimeout(expandedDebounceRef.current)
-    expandedDebounceRef.current = setTimeout(() => {
-      saveExpandedFolders(collectionDir, expandedFolders).catch(
-        (e: unknown) => {
-          console.error("Failed to save expanded folders:", e)
-        },
-      )
-    }, 300)
-    return () => {
-      if (expandedDebounceRef.current) clearTimeout(expandedDebounceRef.current)
-    }
-  }, [expandedFolders, collectionDir, isCollection])
+  useCollectionUiPersistence({
+    collectionDir,
+    isCollection,
+    selectedId,
+    focusedFolderPath,
+    requestIds,
+    expandedFolders,
+  })
 
   const draft = useRequestDraft(selectedRequest)
 
@@ -485,6 +413,15 @@ export function AppInner({
   folderSaveRef.current = handleFolderSave
 
   // ── keymap.setData effects ─────────────────────────────────────────
+  const overlayActiveRef = useRef(false)
+  const {
+    updateFlow,
+    restartVersion,
+    updateAvailable,
+    triggerUpdateCheck,
+    confirmInstall: onConfirmInstall,
+    cancelUpdate: onCancelUpdate,
+  } = useUpdateFlow(overlayActiveRef)
   const activeOverlay = useMemo(() => {
     if (commandPaletteVisible) return "command-palette"
     if (codeGeneratorVisible) return "code-generator"
@@ -545,6 +482,12 @@ export function AppInner({
     keymap.setData("app.overlay", activeOverlay)
   }, [activeOverlay, keymap])
 
+  const overlayActive = activeOverlay !== "none"
+
+  useEffect(() => {
+    overlayActiveRef.current = overlayActive
+  }, [overlayActive])
+
   useEffect(() => {
     keymap.setData("app.jump", jumpMode ? "active" : "none")
   }, [jumpMode, keymap])
@@ -558,110 +501,6 @@ export function AppInner({
   useEffect(() => {
     keymap.setData("app.view", view)
   }, [view, keymap])
-
-  // ── Update check flow ────────────────────────────────────────────
-  const updateFlowRef = useRef(updateFlow)
-  updateFlowRef.current = updateFlow
-
-  const overlayActiveRef = useRef(false)
-  const installTokenRef = useRef(0)
-
-  useEffect(() => {
-    if (updateCheckToken === 0) return
-    if (updateFlowRef.current.phase === "installing") return
-    let cancelled = false
-    checkForUpdatesFn(true).then((status) => {
-      if (cancelled) return
-      if (overlayActiveRef.current) return
-      if (status.kind === "up_to_date") {
-        setUpdateAvailable(null)
-        showToast("Noodle is up to date", "success")
-      } else if (status.kind === "error") {
-        showToast(status.message, "error")
-      } else if (status.kind === "update_available") {
-        setUpdateFlow({
-          phase: "confirm",
-          version: status.latestVersion || "latest",
-          installType: status.installType,
-          assetUrl:
-            status.installType === "binary" ? status.assetUrl : undefined,
-          expectedSha256:
-            status.installType === "binary" ? status.expectedSha256 : undefined,
-        })
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [updateCheckToken])
-
-  useEffect(() => {
-    if (updateFlow.phase !== "installing") return
-    const update = updateFlow
-    const token = ++installTokenRef.current
-    if (update.installType === "brew") {
-      installBrewUpdate().then((result) => {
-        if (token !== installTokenRef.current) return
-        if (result.data.status === "homebrew_updated") {
-          showToast("Updated via Homebrew", "success")
-          setUpdateFlow({ phase: "done", version: update.version || "latest" })
-          setRestartVersion(update.version || "latest")
-          setUpdateAvailable(null)
-        } else {
-          const msg = result.data.exit_code
-            ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
-            : "Homebrew upgrade failed"
-          showToast(msg, "error")
-          setUpdateFlow({
-            phase: "failed",
-            message: msg,
-          })
-        }
-      })
-      return
-    }
-    if (
-      update.installType === "binary" &&
-      update.assetUrl &&
-      update.expectedSha256
-    ) {
-      installBinaryUpdate(
-        update.version,
-        update.assetUrl,
-        update.expectedSha256,
-      ).then((result) => {
-        if (token !== installTokenRef.current) return
-        if (result.data.status === "updated") {
-          const v = result.data.version ?? update.version
-          showToast(`Updated to ${v}`, "success")
-          setUpdateFlow({ phase: "done", version: v })
-          setRestartVersion(v)
-          setUpdateAvailable(null)
-        } else {
-          const msg =
-            (result.data as Record<string, string>).reason ?? "Update failed"
-          showToast(msg, "error")
-          setUpdateFlow({ phase: "failed", message: msg })
-        }
-      })
-      return
-    }
-    setUpdateFlow({ phase: "idle" })
-  }, [updateFlow.phase, updateFlow])
-
-  // ── Banner update check ──────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false
-    checkForUpdatesFn().then((status) => {
-      if (cancelled) return
-      if (status.kind === "update_available") {
-        setUpdateAvailable(status.latestVersion)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // ── Environments + response ────────────────────────────────────────
   const envState = useEnvironments(
@@ -762,12 +601,6 @@ export function AppInner({
     folderEb.editState.mode,
     eb.editState.mode,
   ])
-
-  const overlayActive = activeOverlay !== "none"
-
-  useEffect(() => {
-    overlayActiveRef.current = overlayActive
-  }, [overlayActive])
 
   const displayTab = useMemo((): string | undefined => {
     if (focus === "request") return eb.activeTab
@@ -945,20 +778,6 @@ export function AppInner({
   })
 
   // ── Overlay intercepts ────────────────────────────────────────────
-  const onConfirmInstall = useCallback(() => {
-    if (updateFlowRef.current.phase !== "confirm") return
-    setUpdateFlow({
-      phase: "installing",
-      version: updateFlowRef.current.version,
-      installType: updateFlowRef.current.installType,
-      assetUrl: updateFlowRef.current.assetUrl,
-      expectedSha256: updateFlowRef.current.expectedSha256,
-    })
-  }, [])
-  const onCancelUpdate = useCallback(() => {
-    setUpdateFlow({ phase: "idle" })
-  }, [])
-
   useOverlayIntercepts({
     activeOverlay,
     cancelSendRef,
@@ -1041,39 +860,12 @@ export function AppInner({
   }, [envEditor.draft])
 
   const renderer = useRenderer()
-
-  const onLoadTimelineBody = useCallback(
-    (entry: TimelineEntry, ref: TimelineBodyRef) =>
-      loadTimelineBody(collectionDir, entry.request.id, ref),
-    [collectionDir],
-  )
-  const onCopyTimelineHeaders = useCallback(
-    (headersText: string) => {
-      if (copyToClipboard(headersText, renderer))
-        showToast("Timeline headers copied", "success")
-      else showToast("Failed to copy timeline headers", "error")
-    },
-    [renderer],
-  )
-  const onCopyTimelineBody = useCallback(
-    (body: string) => {
-      if (copyToClipboard(body, renderer))
-        showToast("Timeline body copied", "success")
-      else showToast("Failed to copy timeline body", "error")
-    },
-    [renderer],
-  )
-  const onExportTimelineBody = useCallback(
-    async (
-      entry: TimelineEntry,
-      kind: "request" | "response",
-      body?: string,
-    ) => {
-      const path = await exportTimelineEntry(collectionDir, entry, kind, body)
-      showToast(`Timeline entry exported to ${path}`, "success")
-    },
-    [collectionDir],
-  )
+  const {
+    onLoadTimelineBody,
+    onCopyTimelineHeaders,
+    onCopyTimelineBody,
+    onExportTimelineBody,
+  } = useTimelineActions(collectionDir, renderer)
 
   const commandPaletteCommands = useMemo(
     () =>
