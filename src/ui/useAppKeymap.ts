@@ -1,6 +1,7 @@
 import { useBindings, useKeymap } from "@opentui/keymap/react"
 import type { RefObject } from "react"
 import { cycleFocus, type Focus, type UrlBarSubFocus } from "./focus"
+import type { AppView, YamlEditorState } from "./appState"
 import type { Keybinds } from "./keybind"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
@@ -37,7 +38,7 @@ export interface UseAppKeymapRefs {
   doSaveRef: RefObject<() => void>
   focusRef: RefObject<Focus>
   urlbarSubFocusRef: RefObject<UrlBarSubFocus>
-  viewRef: RefObject<"main" | "env-editor">
+  viewRef: RefObject<AppView>
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
   expandedRef: RefObject<"request" | "response" | null>
@@ -71,40 +72,9 @@ export interface UseAppKeymapSetters {
           prev: "request" | "response" | null,
         ) => "request" | "response" | null),
   ) => void
-  setView: (
-    v:
-      | "main"
-      | "env-editor"
-      | ((prev: "main" | "env-editor") => "main" | "env-editor"),
-  ) => void
+  setView: (v: AppView | ((prev: AppView) => AppView)) => void
   setYamlEditor: (
-    v:
-      | {
-          visible: boolean
-          filePath: string
-          requestName: string
-          requestId: string
-          kind: "request" | "folder"
-          returnFocus: Focus
-          folderPath: string
-        }
-      | ((prev: {
-          visible: boolean
-          filePath: string
-          requestName: string
-          requestId: string
-          kind: "request" | "folder"
-          returnFocus: Focus
-          folderPath: string
-        }) => {
-          visible: boolean
-          filePath: string
-          requestName: string
-          requestId: string
-          kind: "request" | "folder"
-          returnFocus: Focus
-          folderPath: string
-        }),
+    v: YamlEditorState | ((prev: YamlEditorState) => YamlEditorState),
   ) => void
   setCollectionReloadToken: (n: number | ((prev: number) => number)) => void
   setPreviewIndex: (

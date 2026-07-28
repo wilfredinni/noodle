@@ -4,6 +4,7 @@ import type { CommandItem } from "./overlays/CommandPaletteOverlay"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { Focus } from "./focus"
+import type { AppView, YamlEditorState } from "./appState"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
@@ -88,40 +89,9 @@ export interface CommandBuilderContext {
   setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCodeGeneratorVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setYamlEditor: (
-    v:
-      | {
-          visible: boolean
-          filePath: string
-          requestName: string
-          requestId: string
-          kind: "request" | "folder"
-          returnFocus: Focus
-          folderPath: string
-        }
-      | ((prev: {
-          visible: boolean
-          filePath: string
-          requestName: string
-          requestId: string
-          kind: "request" | "folder"
-          returnFocus: Focus
-          folderPath: string
-        }) => {
-          visible: boolean
-          filePath: string
-          requestName: string
-          requestId: string
-          kind: "request" | "folder"
-          returnFocus: Focus
-          folderPath: string
-        }),
+    v: YamlEditorState | ((prev: YamlEditorState) => YamlEditorState),
   ) => void
-  setView: (
-    v:
-      | "main"
-      | "env-editor"
-      | ((prev: "main" | "env-editor") => "main" | "env-editor"),
-  ) => void
+  setView: (v: AppView | ((prev: AppView) => AppView)) => void
   setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void
   setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
   setInitPending: (v: boolean | ((prev: boolean) => boolean)) => void
