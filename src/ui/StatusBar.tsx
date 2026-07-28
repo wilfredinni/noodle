@@ -6,6 +6,7 @@ import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
 import { Badge } from "./Badge"
 import type { Focus } from "./focus"
+import type { HintSegment } from "./keybindingHints"
 
 export interface StatusBarSections {
   left: string
@@ -280,35 +281,18 @@ export function StatusBar(input: {
   view?: "main" | "env-editor"
   envStats?: string
   jumpMode?: boolean
-  focus?: Focus
-  paneMode?: PaneMode
   collectionMode?: CollectionMode
   overlayActive?: boolean
-  tab?: string
-  bodyType?: string
-  queryVisible?: boolean
+  footerHints: HintSegment[]
 }) {
   const theme = useTheme()
 
   const view = input.view ?? "main"
   const jumpMode = input.jumpMode ?? false
-  const focus = input.focus ?? "sidebar"
-  const paneMode = input.paneMode ?? "base"
   const collectionMode = input.collectionMode ?? "collection"
   const overlayActive = input.overlayActive ?? false
 
-  const contextual = getContextualSegments({
-    focus,
-    paneMode,
-    view,
-    collectionMode,
-    sendState: input.sendState,
-    kb: input.kb,
-    overlayActive,
-    tab: input.tab,
-    bodyType: input.bodyType,
-    queryVisible: input.queryVisible,
-  })
+  const contextual = input.footerHints
 
   const envText =
     input.envLabel === "" || input.envLabel === "(no env)"

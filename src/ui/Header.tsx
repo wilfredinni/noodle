@@ -1,50 +1,20 @@
-import { useMemo } from "react"
 import { TextAttributes } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
 import pkg from "../../package.json" with { type: "json" }
 import { useTheme } from "./theme"
-import { displayKey, type Keybinds } from "./keybind"
+import type { HintSegment } from "./keybindingHints"
 
 export function Header({
-  view,
-  overlayActive,
-  jumpMode,
-  keybinds,
+  headerHints,
   restartVersion,
   updateAvailable,
 }: {
-  view: "main" | "env-editor"
-  overlayActive: boolean
-  jumpMode: boolean
-  keybinds: Keybinds
+  headerHints: HintSegment[]
   restartVersion?: string | null
   updateAvailable?: string | null
 }) {
   const theme = useTheme()
   const { width: termWidth = 100 } = useTerminalDimensions()
-
-  const headerHints = useMemo(() => {
-    if (overlayActive) {
-      return [{ key: "Esc", word: "close" }]
-    }
-    if (jumpMode) {
-      return [
-        { key: "Type key", word: "to jump" },
-        { key: "Esc", word: "dismiss" },
-      ]
-    }
-    if (view === "env-editor") {
-      return [
-        { key: displayKey(keybinds.command_palette), word: "commands" },
-        { key: displayKey(keybinds.help_toggle), word: "help" },
-      ]
-    }
-    return [
-      { key: displayKey(keybinds.jump_mode), word: "jump" },
-      { key: displayKey(keybinds.command_palette), word: "commands" },
-      { key: displayKey(keybinds.help_toggle), word: "help" },
-    ]
-  }, [overlayActive, jumpMode, view, keybinds])
 
   const showVersion = termWidth >= 45
   const showHints = termWidth >= 35
