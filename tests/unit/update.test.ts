@@ -720,6 +720,15 @@ describe("runUpdate dev mode", () => {
     expect(result.failed).toBe(true)
     expect(fetchCalled).toBe(false)
   })
+
+  it("exits nonzero for a failed human-mode update", async () => {
+    const child = Bun.spawn([process.execPath, "src/app/cli.ts", "update"], {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    expect(await child.exited).toBe(1)
+  })
 })
 
 describe("checkForUpdates", () => {
@@ -736,14 +745,16 @@ describe("checkForUpdates", () => {
   it("returns up_to_date for brew when outdated reports current", async () => {
     let receivedArgs: string[] | undefined
     let captured: boolean | undefined
+    let signal: AbortSignal | undefined
     const status = await checkForUpdates(false, {
       execPath: "/opt/homebrew/bin/noodle",
       platform: "darwin",
       arch: "arm64",
       env: {},
-      runProcess: async (args, capture) => {
+      runProcess: async (args, capture, options) => {
         receivedArgs = args
         captured = capture
+        signal = options?.signal
         return {
           exitCode: 0,
           stdout: JSON.stringify({
@@ -759,6 +770,7 @@ describe("checkForUpdates", () => {
     }
     expect(receivedArgs).toEqual(["brew", "info", "--json=v2", "noodle"])
     expect(captured).toBe(true)
+    expect(signal).toBeInstanceOf(AbortSignal)
   })
 
   it("returns update_available for brew when outdated finds newer", async () => {
@@ -784,6 +796,47 @@ describe("checkForUpdates", () => {
       expect(status.latestVersion).toBe("v0.11.0")
     }
     expect(receivedArgs).toEqual(["brew", "info", "--json=v2", "noodle"])
+  })
+
+  it("rejects a non-string stable version from brew info", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/opt/homebrew/bin/noodle",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      runProcess: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({ formulae: [{ versions: { stable: 1 } }] }),
+      }),
+    })
+    expect(status).toEqual({
+      kind: "error",
+      message: "Unable to parse brew info output",
+      installType: "brew",
+    })
+  })
+
+  it("aborts a stalled brew info invocation", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/opt/homebrew/bin/noodle",
+      platform: "darwin",
+      arch: "arm64",
+      env: {},
+      updateCheckTimeoutMs: 1,
+      runProcess: async (_args, _capture, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            "abort",
+            () => reject(new Error("timed out")),
+            { once: true },
+          )
+        }),
+    })
+    expect(status).toEqual({
+      kind: "error",
+      message: "Unable to check Homebrew. Is brew installed?",
+      installType: "brew",
+    })
   })
 
   it("returns error when brew is unavailable", async () => {
@@ -882,6 +935,33 @@ describe("checkForUpdates", () => {
         )
         expect(status.expectedSha256).toBe("a".repeat(64))
       }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("passes a fresh timeout signal to each manifest retry", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-check-timeout-signal-"))
+    const path = join(dir, "update-cache.json")
+    const signals: AbortSignal[] = []
+    let calls = 0
+    try {
+      const status = await checkForUpdates(true, {
+        ...binaryDeps(path),
+        env: {},
+        fetcher: async (_input, init) => {
+          const signal = init?.signal
+          if (signal instanceof AbortSignal) signals.push(signal)
+          calls += 1
+          if (calls === 1) return new Response(null, { status: 500 })
+          return new Response(makeManifest("v99.0.0", checksums), {
+            status: 200,
+          })
+        },
+      })
+      expect(status.kind).toBe("update_available")
+      expect(signals).toHaveLength(2)
+      expect(signals[0]).not.toBe(signals[1])
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

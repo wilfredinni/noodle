@@ -816,6 +816,7 @@ describe("applyDraft — auth", () => {
       type: "bearer",
       token: "new-secret",
     })
+    expect(original.auth).toEqual({ type: "bearer", token: "old" })
   })
 
   it("setAuthField sets basic user", () => {
@@ -906,6 +907,12 @@ describe("applyDraft — auth", () => {
       key: "k",
       value: "v",
       placement: "query",
+    })
+    expect(original.auth).toEqual({
+      type: "api_key",
+      key: "k",
+      value: "v",
+      placement: "header",
     })
   })
 

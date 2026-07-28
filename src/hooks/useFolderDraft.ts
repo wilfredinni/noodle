@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { Auth, Folder, KvEntry } from "../schema"
-
-const CACHE_MAX = 100
+import type { Auth, Folder } from "../schema"
+import {
+  replaceRow,
+  addRow,
+  removeRow,
+  toggleRow,
+  recordsEqual,
+  authEqual,
+  defaultAuth,
+  cacheSet,
+} from "./draftUtils"
 
 const authTypeCache = new Map<string, Record<string, Auth>>()
-
-function cacheSet<K, V>(map: Map<K, V>, key: K, value: V): void {
-  map.set(key, value)
-  if (map.size > CACHE_MAX) {
-    const first = map.keys().next().value as K | undefined
-    if (first !== undefined) map.delete(first)
-  }
-}
 
 export type FolderDraftOp =
   | { kind: "setName"; name: string }
@@ -25,119 +25,6 @@ export type FolderDraftOp =
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
   | { kind: "revert" }
   | { kind: "markSaved" }
-
-function replaceRow(
-  rec: Record<string, KvEntry>,
-  index: number,
-  key: string,
-  value: string,
-): Record<string, KvEntry> {
-  const entries = Object.entries(rec)
-  if (!entries[index]) return rec
-  const out: Record<string, KvEntry> = {}
-  for (let i = 0; i < entries.length; i++) {
-    const [k, entry] = entries[i]!
-    if (i === index) {
-      if (key !== "") out[key] = { value, enabled: entry.enabled }
-    } else if (k !== key) {
-      out[k] = entry
-    }
-  }
-  return out
-}
-
-function addRow(
-  rec: Record<string, KvEntry>,
-  key: string,
-  value: string,
-): Record<string, KvEntry> {
-  if (key === "") return rec
-  return { ...rec, [key]: { value, enabled: true } }
-}
-
-function removeRow(
-  rec: Record<string, KvEntry>,
-  index: number,
-): Record<string, KvEntry> {
-  const entries = Object.entries(rec)
-  const target = entries[index]
-  if (!target) return rec
-  const out: Record<string, KvEntry> = {}
-  for (const [k, v] of entries) if (k !== target[0]) out[k] = v
-  return out
-}
-
-function toggleRow(
-  rec: Record<string, KvEntry>,
-  index: number,
-): Record<string, KvEntry> {
-  const entries = Object.entries(rec)
-  const target = entries[index]
-  if (!target) return rec
-  const [k] = target
-  const out: Record<string, KvEntry> = {}
-  for (const [key, v] of entries) {
-    if (key === k) {
-      out[key] = { value: v.value, enabled: !v.enabled }
-    } else {
-      out[key] = v
-    }
-  }
-  return out
-}
-
-function authEqual(a: Auth | undefined, b: Auth | undefined): boolean {
-  if (a === undefined && b === undefined) return true
-  if (a === undefined || b === undefined) {
-    const defined = a ?? b
-    return defined!.type === "none"
-  }
-  if (a.type !== b.type) return false
-  if (a.type === "none" && b.type === "none") return true
-  if (a.type === "bearer" && b.type === "bearer") return a.token === b.token
-  if (a.type === "basic" && b.type === "basic") {
-    return a.user === b.user && a.pass === b.pass
-  }
-  if (a.type === "api_key" && b.type === "api_key") {
-    return a.key === b.key && a.value === b.value && a.placement === b.placement
-  }
-  return false
-}
-
-function recordsEqual(
-  a: Record<string, KvEntry>,
-  b: Record<string, KvEntry>,
-): boolean {
-  const ae = Object.entries(a).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
-  const be = Object.entries(b).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
-  if (ae.length !== be.length) return false
-  for (let i = 0; i < ae.length; i++) {
-    if (
-      ae[i]![0] !== be[i]![0] ||
-      ae[i]![1].value !== be[i]![1].value ||
-      ae[i]![1].enabled !== be[i]![1].enabled
-    )
-      return false
-  }
-  return true
-}
-
-function defaultAuth(authType: Auth["type"]): Auth {
-  switch (authType) {
-    case "none":
-      return { type: "none" }
-    case "inherit":
-      return { type: "inherit" }
-    case "bearer":
-      return { type: "bearer", token: "" }
-    case "basic":
-      return { type: "basic", user: "", pass: "" }
-    case "api_key":
-      return { type: "api_key", key: "", value: "", placement: "header" }
-    default:
-      return { type: "none" }
-  }
-}
 
 export function clearFolderAuthTypeCache(): void {
   authTypeCache.clear()
@@ -250,7 +137,10 @@ export function folderEqual(a: Folder, b: Folder): boolean {
   if (a.seq !== b.seq) return false
   if (!recordsEqual(a.overrides?.headers ?? {}, b.overrides?.headers ?? {}))
     return false
-  if (!authEqual(a.overrides?.auth, b.overrides?.auth)) return false
+  if (
+    !authEqual(a.overrides?.auth, b.overrides?.auth, { treatNoneAsEqual: true })
+  )
+    return false
   return true
 }
 
