@@ -233,7 +233,7 @@ export function createRequestLayers(
       {
         name: "edit.json-escape",
         enabled: () => request.ebRef.current.isEditingJsonBody,
-        run: () => {},
+        run: () => request.ebRef.current.returnToJsonBodyTypeSelect(),
       },
       {
         name: "edit.tab",

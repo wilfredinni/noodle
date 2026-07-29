@@ -152,6 +152,7 @@ Follow existing patterns:
 - `RequestPane` renders JSON bodies outside its pane scrollbox so the editor owns vertical scrolling.
 - `request-pane/RequestBodyTab.tsx` always renders JSON with `<code-editor>`; it uses the request body while browsing and `editValue` while editing.
 - `RequestResponseView` passes `draft.setBody` as `onBodyChange`, so editor content updates the request draft directly.
+- While editing JSON, Escape and Shift+Tab return to the body-type selector and retain the live draft; Ctrl+Z handles body undo.
 
 ## Variable completion architecture
 

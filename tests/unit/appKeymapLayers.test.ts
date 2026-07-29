@@ -321,6 +321,27 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("returns the JSON body editor to the body type select on escape", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.request.ebRef.current.editState.mode = "editing"
+    context.request.ebRef.current.editState.cursor = {
+      field: "body",
+      row: 1,
+      addingRow: false,
+    }
+    context.request.ebRef.current.isEditingJsonBody = true
+    keymap.setData("app.mode", "edit")
+    keymap.setData("app.focus", "request")
+    const disposers = register(context)
+
+    host.press("escape")
+
+    expect(calls.jsonReturnToSelect).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("sends from the JSON body editor with ctrl+enter and ctrl+j", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
