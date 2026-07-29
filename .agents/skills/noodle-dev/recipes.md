@@ -59,9 +59,10 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - Existing overlays: `src/ui/overlays/PickerOverlay.tsx` (generic base), `src/ui/theme.tsx` (ThemePickerOverlay), `src/ui/editor/YamlEditorOverlay.tsx`, `src/ui/overlays/ConfirmOverlay.tsx`
 - `src/ui/useOverlayState.ts` — overlay state and `ActiveOverlay`
 - `src/ui/AppOverlays.tsx` — overlay render slots
-- `src/ui/useOverlayIntercepts.ts` and `src/ui/intercepts/` — overlay keyboard handling
+- `src/ui/useModalKeyboardShield.ts` — hard-blocking overlay keyboard isolation
+- `src/ui/useOverlayIntercepts.ts` and `src/ui/intercepts/` — modal-specific keyboard handling
 
-**Follow:** For picker-style overlays, reuse `PickerOverlay<T>`. Add other overlays to `useOverlayState` and `AppOverlays`; do not create a direct OpenTUI modal or local `AppInner` state path. Classify editable overlays in `useModalKeyboardShield`; non-editable overlays must consume background keys through interceptors.
+**Follow:** For picker-style overlays, reuse `PickerOverlay<T>`. Add other overlays to `useOverlayState` and `AppOverlays`; do not create a direct OpenTUI modal or local `AppInner` state path. Classify every overlay in `EDITABLE_OVERLAYS` or `HARD_BLOCKING_OVERLAYS` in `useModalKeyboardShield`; add a modal-specific interceptor only when its controls need custom key handling.
 
 **Implement (picker-style):**
 1. Define item type and use `PickerOverlay<T>` with `keyExtractor`, `filter`, `renderItem` props
@@ -74,7 +75,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 2. Add overlay type and state to `useOverlayState.ts`
 3. Add a render branch in `AppOverlays.tsx`
 4. Sync it with `app.overlay`; add opening/close keys in the owning layer or interceptor
-5. Editable overlays remain input-safe; hard-blocking overlays use `useModalKeyboardShield`
+5. Add the overlay to `EDITABLE_OVERLAYS` or `HARD_BLOCKING_OVERLAYS`; editable overlays install no shield, while hard-blocking overlays prevent and stop background keys
 6. If overlay writes to collection (e.g., new request), call `filestore.saveRequest` then reload collection
 
 **Test:** Component test verifying overlay renders, form submission works, cancel dismisses, and a lower-priority background key handler does not receive an overlay shortcut or an unused printable key.
@@ -100,8 +101,8 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 2. Add parse case in `lang/parse.ts` `parseAuth()` — read fields from YAML
 3. Add serialize case in `lang/serialize.ts` — omit empty auth type
 4. Add header construction in `requests/send.ts` `authHeader()` — return `Record<string, string>`
-5. Add `DraftOp` variant (e.g., `{ type: "setAuthYourType"; field: string; value: string }`)
-6. Handle in `requestDraftReducer.ts` — switch on `op.type`, cache prior auth state when switching
+5. Add `DraftOp` variant (e.g., `{ kind: "setAuthYourType"; field: string; value: string }`)
+6. Handle in `requestDraftReducer.ts` — switch on `op.kind`, cache prior auth state when switching
 7. Add UI in `AuthEditor.tsx` — render fields for the new auth type when selected
 8. Add to auth type Select options in `AuthEditor.tsx`
 
@@ -254,7 +255,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Locate:**
 - `src/ui/commandActions.ts` — all command action implementations (shared across keymap + palette)
-- `src/ui/commands.ts` — `buildCommandPaletteCommands(view, ...)` assembles command arrays by view context
+- `src/ui/commands.ts` — `buildCommandPaletteCommands(context)` assembles command arrays using `context.getView()`
 - `src/ui/overlays/CommandPaletteOverlay.tsx` — PickerOverlay for command palette
 
 **Follow:** Actions live in `commandActions.ts`. Keymap layers and `commands.ts` import from there. Never duplicate logic. Each `CommandItem` has `label`, `shortcut`, `run()` returning `boolean` (`true` to close palette, `false` to stay open). Unavailable commands (e.g., save when nothing dirty) return `false`.
@@ -271,7 +272,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 3. Use contextual arrays for view-level availability. Keep state-dependent availability guards inside `run()` and return `false` when unavailable.
 4. Commands declare `section`; `CommandPaletteOverlay` creates non-navigable section headers.
 
-**Test:** Add command to `tests/unit/commands.test.ts` — call `buildCommandPaletteCommands("main", ...)`, verify command present. Add action test for the new function.
+**Test:** Add command to `tests/unit/commands.test.ts` — call `buildCommandPaletteCommands(minimalContext())`, verify command present. Add action test for the new function.
 
 **Verify:** `bun test tests/unit/commands.test.ts && bun run lint && bun run typecheck`
 
@@ -333,7 +334,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 2. On each keystroke, call `getCompletion(value, cursorOffset)` to update completion state
 3. For keyboard handling, call `makeHandleKey()` which returns a handler for up/down/tab/return/escape
 4. Use `VariableCompletionInterceptor` component near the input to register the handler
-5. Render `<CodeEditorCompletion>` component with the completion state to show the popup
+5. Render a popup for this input's completion state and anchor it to its cursor. Reserve `<CodeEditorCompletion>` for `CodeEditorRenderable` instances.
 
 **Implement (with VarInput):**
 1. Use `<VarInput>` component directly — it handles completion, highlighting, and popup rendering internally

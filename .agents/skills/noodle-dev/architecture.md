@@ -17,10 +17,7 @@ my-collection/
 │   ├── development.env       ← KEY=value (dotenv format)
 │   └── production.env
 ├── .noodle/
-│   ├── last-request          ← Plain text: last selected request ID
-│   ├── expanded-folders      ← YAML list of expanded folder paths
-│   └── ui-state/
-│       └── auth/login.yml    ← Per-request state: { requestTab, responseTab }
+│   └── ui-state.yml          ← Last selection, expanded folders, per-request tabs
 ├── .timeline/                ← Per-request response history (max 50 entries each)
 │   ├── list-users.yml
 │   ├── list-users.yml.bodies/  ← Gzip sidecars for bodies over 10 KB
@@ -49,7 +46,7 @@ Request IDs are their **relative path from collection root, minus the `.yml` ext
 - Navigation (`selectedId` in tree)
 - File I/O (`join(dir, ${id}.yml)`)
 - Timeline storage (`join(.timeline, ${id}.yml)`)
-- UI state persistence (`join(.noodle/ui-state, ${id}.yml)`)
+- UI state persistence (per-request entry in `.noodle/ui-state.yml`)
 
 ### `folder.yml` format
 
@@ -68,11 +65,9 @@ Folder overrides are resolved in `requests/mergeFolderOverrides.ts` — walks an
 
 ### Hidden state files (`.noodle/`)
 
-| File                       | Format     | Purpose                                                 |
-| -------------------------- | ---------- | ------------------------------------------------------- |
-| `last-request`             | Plain text | Last selected request ID, restored on startup           |
-| `expanded-folders`         | YAML list  | Array of folder paths that are expanded in sidebar      |
-| `ui-state/<requestId>.yml` | YAML       | Per-request UI state (tabIndex, scroll positions, etc.) |
+| File           | Format | Purpose |
+| -------------- | ------ | ------- |
+| `ui-state.yml` | YAML   | `lastRequest`, `expanded_folders`, and per-request `{ request, response }` tab preferences |
 
 ### `settings.yml`
 
@@ -111,18 +106,18 @@ Save/delete paths must call `validatePathId()`. Current validation rejects:
 Follow existing patterns:
 
 - **Collection-level config**: Add to `settings.yml` via `saveSettings()` + `loadSettings()`
-- **Per-request state**: Add to `.noodle/ui-state/<id>.yml` following the per-request YAML pattern
+- **UI state**: Extend `.noodle/ui-state.yml` and its serialized writer in `src/ui/tabs/uiState.ts`; its write mutex preserves concurrent updates to selection, folders, and tab preferences
 - **New hidden directory**: Add name to `SKIP_DIRS` in `load.ts` so `walk()` skips it
 - **Global user config**: Use `~/.config/noodle/config.yml` via `useConfig` hook
 
 ## Code editor architecture
 
-`CodeEditorRenderable` (`src/ui/editor/CodeEditor.ts`) extends OpenTUI's `TextareaRenderable` with:
+`CodeEditorRenderable` (`src/ui/editor/CodeEditor.ts`) extends OpenTUI's `TextareaRenderable` and orchestrates focused editor modules:
 
 ### Tree-sitter highlighting
 
 - Parsers registered via `src/ui/editor/codeEditorParsers.ts`: JSON (`tree-sitter-json.wasm` + `highlights.scm`), YAML (`tree-sitter-yaml.wasm` + `highlights.scm`)
-- Async highlight with 200ms debounce
+- `CodeEditorRenderable` schedules asynchronous highlighting with a 200ms debounce; `codeEditorHighlightRenderer.ts` applies Tree-sitter or fallback ranges
 - Fallback local tokenizers when tree-sitter fails (JSON: `src/ui/editor/syntax.ts`, YAML: `src/ui/editor/yamlSyntax.ts`)
 - Theme-synced syntax styles (`json.key`, `json.string`, `yaml.key`, etc.)
 - Variable highlighting: `env.resolved` (primary color) / `env.missing` (error color) via `extraHighlights` callback
@@ -132,14 +127,14 @@ Follow existing patterns:
 
 - `toggleFold(line)` — fold/unfold by Ctrl+G at cursor line
 - `foldAll()` / `unfoldAll()` — F5/F6 global fold/unfold
-- Fold sign indicators (▶/▼) in line gutter, hidden line numbers for folded content
+- Folding and fold-display mapping in `codeEditorFoldManager.ts` and `codeEditorFolds.ts`; fold signs show in the line gutter and folded line numbers are hidden
 - Auto-unfold on edit in folded region
 - Preserves cursor position during fold/unfold operations
 - Fold state persisted across content changes
 
 ### Validation
 
-- `validateContent` callback — inline JSON/YAML validation
+- `codeEditorValidation.ts` owns `validateContent` callbacks and inline JSON/YAML validation state
 - Error notice displayed via `src/ui/editor/ValidationNotice.tsx` component
 
 ### Component registration
@@ -193,23 +188,23 @@ Cursor-aware `$variable` completion system across all text inputs:
 
 ### Building commands (src/ui/commands.ts)
 
-- `buildCommandPaletteCommands(view, ...)` — assembles command arrays by view context:
+- `buildCommandPaletteCommands(context)` — assembles command arrays using `context.getView()`:
   - Main view: Request commands, Response commands, Environment commands, Workspace commands, System commands
   - Env editor: Environment commands (different set), Workspace, System
-- Each `CommandItem`: `{ id, label, shortcut, run: () => boolean, type: "command" }`
+- Each `CommandItem`: `{ id, label, section, keybinding?, run: () => boolean }`
 - Commands declare `section`; `CommandPaletteOverlay` builds non-navigable section headers
 
 ### Executing commands (src/ui/commandActions.ts)
 
-- All command logic centralized in exported functions:
-  `sendRequest`, `saveRequest`, `editRequestOverlay`, `editRequestYaml`,
+- Reusable command helpers are exported for shared keymap and palette behavior:
+  `saveRequest`, `editRequestOverlay`, `getEditRequestYamlFile`, `getEditFolderYamlFile`,
   `newRequest`, `cloneRequest`, `deleteRequest`, `deleteFolder`,
   `copyResponseBody`, `openResponseQuery`, `canGenerateClientCode`,
   `cycleEnvironment`, `openEnvironmentEditor`,
   `saveEnvironment`, `newEnvironment`, `cloneEnvironment`, `deleteEnvironment`,
   `newFolder`, `toggleLayout`, `togglePaneExpand`, `undoAll`,
-  `toggleHelp`, `openThemePicker`, `openCollectionSwitcher`
-- Keymap layers and `commands.ts` import from here — never duplicate logic
+  `toggleHelp`, `openThemePicker`, `openAbout`, `openCollectionSwitcher`
+- Keymap layers and `commands.ts` use these helpers; palette composition retains view-state actions such as send
 - `run()` returns `true` (close palette) or `false` (stay open)
 
 ### Picker (src/ui/overlays/PickerOverlay.tsx)
@@ -262,10 +257,10 @@ env/             ← Dotenv files: loadEnvironment, listEnvironments, save, clon
 requests/        ← HTTP layer: send, substitute, mergeFolderOverrides, authHeader
   ↓
 hooks/           ← React state: useCollection, useRequestDraft, useResponse, useEditBrowse, useEnvironments,
-  │                 useConfig, useTimeline, useEnvironmentEditor, useFolderDraft, etc.
+  │                 useConfig, useEnvironmentEditor, useFolderDraft, etc.
   ↓
 ui/              ← OpenTUI components + pure helpers + keymap layers
-  │   ├── editor/CodeEditor.ts — tree-sitter highlighting, folding, validation
+  │   ├── editor/CodeEditor.ts — renderable orchestration; highlight, fold, key, style, and validation modules
   │   ├── variable-completion/variableCompletion.ts — $var autocompletion engine
   │   ├── commands.ts / commandActions.ts — command palette infrastructure
   │   ├── theme.tsx / theme-data.ts — 32 themes with live preview
@@ -276,7 +271,7 @@ ui/              ← OpenTUI components + pure helpers + keymap layers
 app/             ← CLI entry: parseArgs → createCliRenderer → createRoot → <App>
 ```
 
-Each layer only depends on layers above it. UI components never touch `filestore` or `requests` directly — they go through hooks.
+Each layer only depends on layers above it. UI orchestration hooks and editor overlays may use filestore operations directly when they own collection I/O; request sending stays routed through response and request hooks.
 
 ## Data flow: request lifecycle
 
@@ -412,9 +407,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 - `~/.config/noodle/keybinds.yml` — user keybinding overrides
 - `~/.config/noodle/config.yml` — theme index + layout preference (read by `useConfig` hook)
 - `<collection>/settings.yml` — last active environment name
-- `<collection>/.noodle/last-request` — last selected request ID
-- `<collection>/.noodle/expanded-folders` — which folders are expanded
-- `<collection>/.noodle/ui-state/<reqId>` — per-request tab state
+- `<collection>/.noodle/ui-state.yml` — last selected item, expanded folders, and per-request tab state
 
 ## State management
 
@@ -435,7 +428,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 ## Keymap layer architecture
 
-`src/ui/keymap/` defines layered keybindings with `useBindings()`:
+`src/ui/keymap/` defines layered keybindings with `useBindings()` from `@opentui/keymap/react`:
 
 | Layer         | Condition                                                          | What it handles                                                                                                                                   |
 | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -466,7 +459,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Environments                | `src/env/load.ts`, `src/env/save.ts`                                                                                                                                                                                                                                                                                         |
 | HTTP execution              | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts`                                                                                                                                                                                                                                 |
 | Hooks                       | `src/hooks/*.ts`                                                                                                                                                                                                                                                                                                             |
-| Code editor                 | `src/ui/editor/CodeEditor.ts`, `src/ui/editor/CodeEditorCompletion.tsx`, `src/ui/editor/codeEditorParsers.ts`, `src/ui/editor/YamlEditorOverlay.tsx`, `src/ui/editor/ValidationNotice.tsx`                                                                                                                                   |
+| Code editor                 | `src/ui/editor/CodeEditor.ts`, `CodeEditorCompletion.tsx`, `codeEditorParsers.ts`, `codeEditorFoldManager.ts`, `codeEditorFolds.ts`, `codeEditorHighlightRenderer.ts`, `codeEditorHighlighting.ts`, `codeEditorKeys.ts`, `codeEditorStyles.ts`, `codeEditorValidation.ts`, `YamlEditorOverlay.tsx`, `ValidationNotice.tsx` |
 | Variable completion         | `src/ui/variable-completion/variableCompletion.ts`, `src/ui/variable-completion/useVariableCompletion.ts`, `src/ui/variable-completion/variableCompletionInterceptor.tsx`, `src/ui/variable-completion/variableHighlight.ts`, `src/ui/variable-completion/highlightOffsets.ts`, `src/ui/variable-completion/envHighlight.ts` |
 | Command palette             | `src/ui/commands.ts`, `src/ui/commandActions.ts`, `src/ui/overlays/CommandPaletteOverlay.tsx`                                                                                                                                                                                                                                |
 | Request finder              | `src/ui/requestFinder.ts`, `src/ui/overlays/RequestFinderOverlay.tsx`                                                                                                                                                                                                                                                        |

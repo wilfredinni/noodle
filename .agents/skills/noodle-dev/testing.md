@@ -15,7 +15,7 @@ bun test --test-name-pattern "parseFolder"  # by name
 ```
 tests/
 ├── *.test.ts            ← Top-level integration/feature tests
-├── unit/                ← Pure function tests (no rendering)
+├── unit/                ← Unit and component tests
 │   └── _helpers.tsx     ← setupKeymap() test utility
 ├── integration/         ← Interaction tests (keymap layers, components)
 └── fixtures/            ← Test data (JSON files, sample YAML)
@@ -82,7 +82,7 @@ host.press("e") // unused printable key
 expect(backgroundKeys).toEqual([])
 ```
 
-Mount the visible overlay before pressing keys. Its shield should have higher priority than background handlers; non-editable overlays call both `preventDefault()` and `stopPropagation()`, while editable overlays call `stopPropagation()` without preventing the focused input’s default behavior.
+Mount the visible hard-blocking overlay before pressing keys. Its shield has higher priority than background handlers and calls both `preventDefault()` and `stopPropagation()`. Editable overlays install no shield; test their focused form or picker interceptor separately when it owns keys.
 
 ## Where to put tests
 

@@ -4,6 +4,24 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-07-29
+
+### ✨ Features
+
+- Keep JSON request bodies in the full inline editor while browsing and editing, with line numbers, folding, variable completion, and validation.
+- Make request and response tab strips scrollable and automatically reveal the active tab in narrow terminals.
+- Rename the command-palette update action to **Update Noodle**.
+
+### 🐞 Fixes
+
+- Return Escape from the JSON body editor to its body-type selector without discarding the live draft.
+- Make code-editor undo and redo, syntax-highlight fallbacks, and Unicode display offsets reliable.
+- Harden update checks against stalled requests, transient failures, and stale cached metadata.
+
+### 🔧 Refactors
+
+- Split editor, keymap, update, draft, and overlay logic into focused modules with dedicated tests.
+
 ## [0.5.4] - 2026-07-27
 
 ### 🐞 Fixes
@@ -162,7 +180,8 @@ All notable changes to Noodle are documented in this file.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/wilfredinni/noodle/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/wilfredinni/noodle/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/wilfredinni/noodle/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/wilfredinni/noodle/compare/v0.5.1...v0.5.2

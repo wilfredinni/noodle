@@ -268,6 +268,7 @@ Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable
 | `Ctrl+G` | Toggle fold at current line |
 | `F5` | Fold all foldable regions |
 | `F6` | Unfold all regions |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo editor changes |
 | `Shift+Return` | Insert newline |
 
 ### Help overlay

@@ -82,9 +82,9 @@ const surfaces = [
   {
     match: (file: string) => file.startsWith("src/ui/"),
     label: "UI, command palette, keybindings, or themes",
-    targets: ["noodle-site relevant guides", "AGENTS.md"],
+    targets: ["noodle-site relevant guides", "AGENTS.md", "src/ui/Tips.tsx"],
     impact:
-      "Review user workflows; refresh screenshots only if the visual behavior materially changed.",
+      "Review user workflows and in-app tips; refresh screenshots only if the visual behavior materially changed.",
   },
   {
     match: (file: string) =>

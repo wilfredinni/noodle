@@ -27,9 +27,9 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - **Environments:** Dotenv-style `.env` files in `<collection>/.environments/`. `_color=<name>` sets sidebar badge.
 - **Draft pattern:** `useRequestDraft` holds `Map<id, Request>` of dirty edits. `DraftOp` and mutation logic live in `requestDraftReducer.ts`. Compare with `isDirty` via deep equality.
 - **Focus model:** `"sidebar" → "urlbar" → "request" → "response"` (main). URL bar has method and URL sub-focuses. `"env-sidebar" → "env-header" → "env-vars"` (env editor). Skips hidden panes.
-- **Keymap layers:** `src/ui/keymap/*Layers.ts` defines bindings gated on `focus`, `mode`, `overlay`, and `view`; `layers.ts` assembles them. Use `useBindings()` from `@opentui/keymap`.
+- **Keymap layers:** `src/ui/keymap/*Layers.ts` defines bindings gated on `focus`, `mode`, `overlay`, and `view`; `layers.ts` assembles them. Use `useBindings()` from `@opentui/keymap/react`.
 - **Edit/Browse FSM:** Three modes — `inactive → browsing → editing`. `useEditBrowse` hook manages cursor, commit, cancel.
-- **JSON request bodies:** `RequestBodyTab` always renders JSON through the inline `CodeEditorRenderable`; `editingBody` controls focus and the editor updates the request draft through `onBodyChange`.
+- **JSON request bodies:** `RequestBodyTab` always renders JSON through the inline `CodeEditorRenderable`; `editingBody` controls focus and the editor updates the request draft through `onBodyChange`. Escape and Shift+Tab return to the body-type selector; Ctrl+Z undoes and Ctrl+Shift+Z redoes body edits.
 - **File I/O:** Save/delete operations validate path IDs to prevent traversal. Environment saves are atomic via `.tmp` + `rename()`; request, folder, and settings writes are direct writes.
 - **Collection modes:** TUI opens collection roots in editable collection mode, request-containing uninitialized directories in read-only browse mode, and empty directories in read-only empty mode. Initialize through the command palette before editing or sending.
 - **Updates:** `src/app/commands/update.ts` reads the versioned `https://noodlerest.dev/update.json` manifest, caches validated checksums, and verifies the matching binary before replacement. Keep manifest schema, release workflow publishing, installation docs, and update tests synchronized when changing this flow.
