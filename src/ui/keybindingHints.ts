@@ -2,12 +2,14 @@ import type { Focus } from "./focus"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
+import type { PaneMode } from "./useEditModeSync"
+import type { CollectionMode } from "../app/main"
 
 export interface KeybindingHintsContext {
   view: "main" | "env-editor"
   focus: Focus
-  paneMode: "base" | "browse" | "edit"
-  collectionMode: "collection" | "browse" | "empty" | "invalid"
+  paneMode: PaneMode
+  collectionMode: CollectionMode
   overlayActive: boolean
   jumpMode: boolean
   tab?: string

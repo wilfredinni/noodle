@@ -5,8 +5,8 @@ import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
 import { Badge } from "./Badge"
-import type { Focus } from "./focus"
 import type { HintSegment } from "./keybindingHints"
+import type { CollectionMode } from "../app/main"
 
 export interface StatusBarSections {
   left: string
@@ -117,155 +117,11 @@ export function statusBarText(input: {
     center = isDirty ? `● ${envLabel} •` : `● ${envLabel}`
   }
 
-  // ── RIGHT: pinned hints (statusBarText is kept for backward compat;
-  // StatusBar uses getContextualSegments instead) ──────
+  // ── RIGHT: pinned hints (statusBarText is kept for backward compat) ──
   const right = ""
 
   void kb
   return { left, center, right }
-}
-
-type PaneMode = "base" | "browse" | "edit"
-type CollectionMode = "collection" | "browse" | "empty" | "invalid"
-
-export function getContextualSegments(input: {
-  focus: Focus
-  paneMode: PaneMode
-  view: "main" | "env-editor"
-  collectionMode: CollectionMode
-  sendState: SendState
-  kb: Keybinds
-  overlayActive: boolean
-  tab?: string
-  bodyType?: string
-  queryVisible?: boolean
-}): Array<{ key: string; word: string }> {
-  const {
-    focus,
-    paneMode,
-    view,
-    collectionMode,
-    sendState,
-    kb,
-    overlayActive,
-    tab,
-    bodyType,
-    queryVisible,
-  } = input
-  if (overlayActive) return []
-
-  const col = collectionMode === "collection"
-
-  if (view === "env-editor") {
-    if (!col) return []
-    if (focus === "env-sidebar") {
-      return [
-        { key: displayKey(kb.env_new), word: "new" },
-        { key: displayKey(kb.env_delete), word: "delete" },
-        { key: displayKey(kb.env_clone), word: "clone" },
-      ]
-    }
-    if (focus === "env-header") {
-      return [
-        { key: displayKey(kb.env_new), word: "new" },
-        { key: displayKey(kb.env_save), word: "save" },
-      ]
-    }
-    if (focus === "env-vars" && paneMode === "browse") {
-      return [
-        { key: "Space", word: "toggle" },
-        { key: displayKey(kb.browse_delete), word: "revert" },
-        { key: displayKey(kb.env_save), word: "save" },
-      ]
-    }
-    if (focus === "env-vars" && paneMode === "edit") {
-      return [{ key: displayKey(kb.env_save), word: "save" }]
-    }
-    return []
-  }
-
-  // ── main view ──
-
-  if (focus === "sidebar") {
-    if (!col) return []
-    return [
-      { key: displayKey(kb.request_new), word: "new" },
-      { key: displayKey(kb.folder_new), word: "new folder" },
-      { key: displayKey(kb.request_delete), word: "delete" },
-      { key: displayKey(kb.request_clone), word: "clone" },
-      { key: displayKey(kb.request_save), word: "save" },
-    ]
-  }
-
-  if (focus === "urlbar") {
-    if (!col) return []
-    return [{ key: displayKey(kb.request_save), word: "save" }]
-  }
-
-  if (focus === "request") {
-    if (paneMode === "base") {
-      if (!col) return []
-      return [
-        { key: displayKey(kb.pane_expand), word: "expand" },
-        { key: displayKey(kb.request_save), word: "save" },
-      ]
-    }
-    if (paneMode === "browse") {
-      if (!col) return []
-      const toggleSegments =
-        tab === "headers" ||
-        tab === "params" ||
-        (tab === "body" &&
-          (bodyType === "urlencoded" || bodyType === "multipart"))
-          ? [{ key: "Space", word: "toggle" }]
-          : []
-      return [
-        ...toggleSegments,
-        { key: displayKey(kb.browse_delete), word: "revert" },
-        { key: displayKey(kb.browse_revert_all), word: "revert all" },
-        { key: displayKey(kb.pane_expand), word: "expand" },
-        { key: displayKey(kb.request_save), word: "save" },
-      ]
-    }
-    return [{ key: displayKey(kb.pane_expand), word: "expand" }]
-  }
-
-  if (focus === "response") {
-    if (sendState.status === "done" && tab === "body") {
-      if (queryVisible) return []
-      return [
-        { key: displayKey(kb.response_copy_body), word: "copy" },
-        { key: displayKey(kb.response_query), word: "filter" },
-        { key: displayKey(kb.pane_expand), word: "expand" },
-      ]
-    }
-    return [{ key: displayKey(kb.pane_expand), word: "expand" }]
-  }
-
-  if (focus === "folder") {
-    if (paneMode === "base") {
-      if (!col) return []
-      return [
-        { key: displayKey(kb.request_delete), word: "delete" },
-        { key: displayKey(kb.request_save), word: "save" },
-      ]
-    }
-    if (paneMode === "browse") {
-      if (!col) return []
-      const toggleSegments =
-        tab === "headers" ? [{ key: "Space", word: "toggle" }] : []
-      if (tab === "activity") return []
-      return [
-        ...toggleSegments,
-        { key: displayKey(kb.browse_delete), word: "revert" },
-        { key: displayKey(kb.browse_revert_all), word: "revert all" },
-        { key: displayKey(kb.request_save), word: "save" },
-      ]
-    }
-    return []
-  }
-
-  return []
 }
 
 export function StatusBar(input: {
