@@ -263,6 +263,22 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.unfoldAll()
       return true
     }
+    if (
+      key.ctrl &&
+      !key.meta &&
+      !key.option &&
+      !key.super &&
+      !key.hyper &&
+      key.name === "z"
+    ) {
+      this._foldManager.unfoldAll()
+      if (key.shift) this.redo()
+      else this.undo()
+      this._foldManager.setSourceText(super.plainText)
+      this._onContentChange?.()
+      this.scheduleHighlight()
+      return true
+    }
     if (this.shouldAutoSkip(key)) {
       this.editBuffer.moveCursorRight()
       return true

@@ -49,8 +49,8 @@ export function buildJsonHighlightRanges(
   style: SyntaxStyle,
 ): EditorHighlightRange[] {
   return highlightJsonTokens(content, theme).map((token) => ({
-    start: token.offset,
-    end: token.offset + token.text.length,
+    start: token.displayOffset,
+    end: token.displayEnd,
     styleId: styleIdForJsonToken(token.kind, token.fg, theme, style),
     priority: 1,
   }))

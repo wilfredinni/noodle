@@ -129,6 +129,39 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.plainText).toBe(content)
   })
 
+  it("uses ctrl+z to undo", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const { renderOnce } = await testRender(
+      <box width={40} height={8}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue="{}"
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 8 },
+    )
+
+    await renderOnce()
+    editor!.focus()
+    editor!.setCursor(0, 1)
+    editor!.insertText("x")
+    await renderOnce()
+    expect(editor!.plainText).toBe("{x}")
+
+    const handled = editor!.handleKeyPress(keyEvent("z", { ctrl: true }))
+    expect(handled).toBe(true)
+    expect(editor!.plainText).toBe("{}")
+  })
+
   it("inserts a newline on shift+return", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `{"name":"hello"}`
