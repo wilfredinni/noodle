@@ -3,6 +3,24 @@ import { testRender } from "@opentui/react/test-utils"
 import { ThemeProvider } from "../../src/ui/theme"
 import { StatusBar } from "../../src/ui/StatusBar"
 import { bindingDefaults } from "../../src/ui/keybind"
+import { getKeybindingHints } from "../../src/ui/keybindingHints"
+import type { HintSegment } from "../../src/ui/keybindingHints"
+
+const kb = bindingDefaults()
+const emptyHints: HintSegment[] = []
+
+function sidebarHints(): HintSegment[] {
+  return getKeybindingHints({
+    view: "main",
+    focus: "sidebar",
+    paneMode: "base",
+    collectionMode: "collection",
+    overlayActive: false,
+    jumpMode: false,
+    sendState: { status: "idle" },
+    keybinds: kb,
+  }).footer
+}
 
 describe("StatusBar component", () => {
   it("renders environment label", async () => {
@@ -15,7 +33,8 @@ describe("StatusBar component", () => {
           sendState={{ status: "idle" }}
           envLabel="dev"
           saveState={{ kind: "idle" }}
-          kb={bindingDefaults()}
+          kb={kb}
+          footerHints={emptyHints}
         />
       </ThemeProvider>,
       { width: 100, height: 3 },
@@ -37,7 +56,8 @@ describe("StatusBar component", () => {
           sendState={{ status: "idle" }}
           envLabel="dev"
           saveState={{ kind: "idle" }}
-          kb={bindingDefaults()}
+          kb={kb}
+          footerHints={emptyHints}
         />
       </ThemeProvider>,
       { width: 100, height: 3 },
@@ -59,9 +79,9 @@ describe("StatusBar component", () => {
           sendState={{ status: "idle" }}
           envLabel="dev"
           saveState={{ kind: "idle" }}
-          kb={bindingDefaults()}
-          focus="sidebar"
+          kb={kb}
           collectionMode="collection"
+          footerHints={sidebarHints()}
         />
       </ThemeProvider>,
       { width: 100, height: 3 },
@@ -86,10 +106,10 @@ describe("StatusBar component", () => {
           sendState={{ status: "idle" }}
           envLabel="dev"
           saveState={{ kind: "idle" }}
-          kb={bindingDefaults()}
-          focus="sidebar"
+          kb={kb}
           collectionMode="collection"
           overlayActive={true}
+          footerHints={emptyHints}
         />
       </ThemeProvider>,
       { width: 100, height: 3 },

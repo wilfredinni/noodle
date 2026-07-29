@@ -48,6 +48,7 @@ import { VariableCompletionInterceptor } from "./variable-completion/variableCom
 import { parseCurl } from "../converters/curl/parse"
 import type { ResponseQueryController } from "./responseQuery"
 import { type AppView } from "./appState"
+import { getKeybindingHints } from "./keybindingHints"
 import {
   useCollectionUiPersistence,
   useInitialExpandedFolders,
@@ -530,6 +531,36 @@ export function AppInner({
     return undefined
   }, [focus, eb.activeTab, responseTab, folderEb.activeTab])
 
+  const hints = useMemo(
+    () =>
+      getKeybindingHints({
+        view,
+        focus,
+        paneMode,
+        collectionMode: mode,
+        overlayActive,
+        jumpMode,
+        tab: displayTab,
+        bodyType: draft.draft?.bodyType,
+        sendState: responseState,
+        queryVisible,
+        keybinds,
+      }),
+    [
+      view,
+      focus,
+      paneMode,
+      mode,
+      overlayActive,
+      jumpMode,
+      displayTab,
+      draft.draft?.bodyType,
+      responseState,
+      queryVisible,
+      keybinds,
+    ],
+  )
+
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)
   trySendRef.current = trySend
@@ -807,10 +838,7 @@ export function AppInner({
       }}
     >
       <Header
-        view={view}
-        overlayActive={overlayActive}
-        jumpMode={jumpMode}
-        keybinds={keybinds}
+        headerHints={hints.header}
         restartVersion={restartVersion}
         updateAvailable={updateAvailable}
       />
@@ -956,13 +984,9 @@ export function AppInner({
         view={view}
         envStats={envStats}
         jumpMode={jumpMode}
-        focus={focus}
-        paneMode={paneMode}
         collectionMode={mode}
         overlayActive={overlayActive}
-        tab={displayTab}
-        bodyType={draft.draft?.bodyType}
-        queryVisible={queryVisible}
+        footerHints={hints.footer}
       />
     </box>
   )
