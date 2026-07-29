@@ -187,6 +187,11 @@ export function createRequestLayers(
           saveRequest(actions)
         },
       },
+      {
+        name: "browse.enter-json-body",
+        enabled: () => request.ebRef.current.canEnterJsonBodyEditor,
+        run: () => request.ebRef.current.enterJsonBodyEditor(),
+      },
     ],
     bindings: [
       { key: "up", cmd: "browse.up" },
@@ -204,6 +209,7 @@ export function createRequestLayers(
       { key: "linefeed", cmd: "browse.send" },
       { key: keybinds.request_save, cmd: "browse.save" },
       { key: keybinds.browse_toggle_form_type, cmd: "browse.toggle-form-type" },
+      { key: "tab", cmd: "browse.enter-json-body" },
     ],
   }
 
@@ -214,14 +220,47 @@ export function createRequestLayers(
       keymap.getData("app.overlay") === "none" &&
       keymap.getData("app.view") !== "env-editor",
     commands: [
-      { name: "edit.commit", run: () => request.ebRef.current.commitEdit() },
-      { name: "edit.cancel", run: () => request.ebRef.current.cancelEdit() },
-      { name: "edit.tab", run: () => request.ebRef.current.browseTab() },
+      {
+        name: "edit.commit",
+        enabled: () => !request.ebRef.current.isEditingJsonBody,
+        run: () => request.ebRef.current.commitEdit(),
+      },
+      {
+        name: "edit.cancel",
+        enabled: () => !request.ebRef.current.isEditingJsonBody,
+        run: () => request.ebRef.current.cancelEdit(),
+      },
+      {
+        name: "edit.json-escape",
+        enabled: () => request.ebRef.current.isEditingJsonBody,
+        run: () => request.ebRef.current.returnToJsonBodyTypeSelect(),
+      },
+      {
+        name: "edit.tab",
+        run: () => {
+          if (request.ebRef.current.isEditingJsonBody) return false
+          request.ebRef.current.browseTab()
+        },
+      },
+      {
+        name: "edit.json-shift-tab",
+        enabled: () => request.ebRef.current.isEditingJsonBody,
+        run: () => request.ebRef.current.returnToJsonBodyTypeSelect(),
+      },
+      {
+        name: "edit.json-send",
+        enabled: () => request.ebRef.current.isEditingJsonBody && canEdit(),
+        run: () => sendRequest(actions),
+      },
     ],
     bindings: [
       { key: "return", cmd: "edit.commit" },
       { key: "escape", cmd: "edit.cancel" },
+      { key: "escape", cmd: "edit.json-escape" },
       { key: "tab", cmd: "edit.tab" },
+      { key: "shift+tab", cmd: "edit.json-shift-tab" },
+      { key: keybinds.request_send, cmd: "edit.json-send" },
+      { key: "linefeed", cmd: "edit.json-send" },
     ],
   }
 

@@ -112,9 +112,16 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   }
 
   if (ctx.focus === "request") {
+    const foldSegments =
+      ctx.paneMode === "edit" &&
+      ctx.tab === "body" &&
+      (ctx.bodyType ?? "json") === "json"
+        ? [{ key: "^g", word: "fold" }]
+        : []
     if (ctx.paneMode === "base") {
       if (!col) return []
       return [
+        ...foldSegments,
         { key: displayKey(kb.pane_expand), word: "expand" },
         { key: displayKey(kb.request_save), word: "save" },
       ]
@@ -129,6 +136,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
           ? [{ key: "Space", word: "toggle" }]
           : []
       return [
+        ...foldSegments,
         ...toggleSegments,
         { key: displayKey(kb.browse_delete), word: "revert" },
         { key: displayKey(kb.browse_revert_all), word: "revert all" },
@@ -136,7 +144,10 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         { key: displayKey(kb.request_save), word: "save" },
       ]
     }
-    return [{ key: displayKey(kb.pane_expand), word: "expand" }]
+    return [
+      ...foldSegments,
+      { key: displayKey(kb.pane_expand), word: "expand" },
+    ]
   }
 
   if (ctx.focus === "response") {

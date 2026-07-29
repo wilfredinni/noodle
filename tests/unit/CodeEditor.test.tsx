@@ -129,6 +129,39 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.plainText).toBe(content)
   })
 
+  it("uses ctrl+z to undo", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const { renderOnce } = await testRender(
+      <box width={40} height={8}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue="{}"
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 8 },
+    )
+
+    await renderOnce()
+    editor!.focus()
+    editor!.setCursor(0, 1)
+    editor!.insertText("x")
+    await renderOnce()
+    expect(editor!.plainText).toBe("{x}")
+
+    const handled = editor!.handleKeyPress(keyEvent("z", { ctrl: true }))
+    expect(handled).toBe(true)
+    expect(editor!.plainText).toBe("{}")
+  })
+
   it("inserts a newline on shift+return", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `{"name":"hello"}`
@@ -160,6 +193,72 @@ describe("CodeEditorRenderable", () => {
     expect(handled).toBe(true)
     await renderOnce()
     expect(editor!.plainText).toBe(`${content}\n`)
+  })
+
+  it("syncs an external value", async () => {
+    let editor: CodeEditorRenderable | null = null
+
+    const { renderOnce } = await testRender(
+      <box width={40} height={8}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue='{"first":true}'
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 8 },
+    )
+
+    await renderOnce()
+    editor!.value = '{"second":false}'
+    await renderOnce()
+
+    expect(editor!.plainText).toBe('{"second":false}')
+  })
+
+  it("scrolls to keep a moved cursor visible", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from({ length: 20 }, (_, i) => `"line${i}",`).join(
+      "\n",
+    )
+
+    const { renderOnce } = await testRender(
+      <box width={40} height={3}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          scrollMargin={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 3 },
+    )
+
+    await renderOnce()
+    editor!.handleKeyPress(keyEvent("down"))
+    await renderOnce()
+
+    expect(editor!.scrollY).toBe(0)
+
+    for (let i = 0; i < 10; i++) editor!.handleKeyPress(keyEvent("down"))
+    await renderOnce()
+
+    expect(editor!.scrollY).toBeGreaterThan(0)
   })
 
   it("folds nested JSON ranges by their own start line", async () => {

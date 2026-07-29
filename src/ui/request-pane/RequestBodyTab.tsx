@@ -8,7 +8,6 @@ import type { BodyType } from "../../schema"
 import type { CodeEditorRenderable } from "../editor/CodeEditor"
 import { CodeEditorCompletion } from "../editor/CodeEditorCompletion"
 import type { Theme } from "../theme"
-import { JsonBodyViewer } from "../editor/JsonBodyViewer"
 import { VarInput } from "../VarInput"
 import { FormEditor } from "../FormEditor"
 import { ValidationNotice } from "../editor/ValidationNotice"
@@ -92,6 +91,7 @@ export function BodySection({
   browseActive,
   theme,
   activeEnv,
+  onBodyChange,
 }: {
   request: Request
   editState: EditState
@@ -103,13 +103,14 @@ export function BodySection({
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
+  onBodyChange: (body: string) => void
 }) {
   const bodyType = request.bodyType ?? "json"
 
   const isFormMode = bodyType === "multipart" || bodyType === "urlencoded"
   const isBinaryMode = bodyType === "binary"
 
-  const body = useMemo(() => formatBody(request.body), [request.body])
+  const formattedBody = useMemo(() => formatBody(request.body), [request.body])
   const editorRef = useRef<CodeEditorRenderable | null>(null)
   const [editorInstance, setEditorInstance] =
     useState<CodeEditorRenderable | null>(null)
@@ -138,8 +139,10 @@ export function BodySection({
 
   const handleContentChange = useCallback(() => {
     const ed = editorRef.current
-    if (ed) setEditValue(ed.plainText)
-  }, [setEditValue])
+    if (!ed) return
+    setEditValue(ed.plainText)
+    onBodyChange(ed.plainText)
+  }, [onBodyChange, setEditValue])
 
   const handleFoldsChange = useCallback(() => {
     const ed = editorRef.current
@@ -168,35 +171,40 @@ export function BodySection({
   useEffect(() => {
     if (editingBody && editorRef.current) {
       editorRef.current.focus()
+    } else {
+      editorRef.current?.blur()
     }
   }, [editingBody])
 
-  const contentBg =
-    browseActive &&
-    editState.cursor.field === "body" &&
-    editState.cursor.row >= 1
-      ? theme.backgroundElement
-      : undefined
-
   return (
-    <box style={{ flexDirection: "column", gap: 1, flexGrow: 1, minHeight: 0 }}>
-      {bodyType === "none" ? null : editingBody ? (
-        isFormMode ? (
-          <FormEditor
-            request={{
-              formData: request.formData,
-              bodyType: request.bodyType,
-            }}
-            editState={editState}
-            editKey={editKey}
-            editValue={editValue}
-            setEditKey={setEditKey}
-            setEditValue={setEditValue}
-            browseActive={browseActive}
-            theme={theme}
-            activeEnv={activeEnv}
-          />
-        ) : isBinaryMode ? (
+    <box
+      style={{
+        flexDirection: "column",
+        gap: 1,
+        flexGrow: 1,
+        flexShrink: 1,
+        flexBasis: 0,
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      {bodyType === "none" ? null : isFormMode ? (
+        <FormEditor
+          request={{
+            formData: request.formData,
+            bodyType: request.bodyType,
+          }}
+          editState={editState}
+          editKey={editKey}
+          editValue={editValue}
+          setEditKey={setEditKey}
+          setEditValue={setEditValue}
+          browseActive={browseActive}
+          theme={theme}
+          activeEnv={activeEnv}
+        />
+      ) : isBinaryMode ? (
+        editingBody ? (
           <VarInput
             value={editValue}
             env={activeEnv ?? null}
@@ -208,91 +216,68 @@ export function BodySection({
             focusedBackgroundColor={theme.borderSubtle}
           />
         ) : (
-          <box
-            style={{
-              flexDirection: "column",
-              gap: 1,
-              flexGrow: 1,
-              minHeight: 0,
-            }}
-          >
-            <line-number
-              ref={lineNumberRef}
-              minWidth={3}
-              paddingRight={1}
-              fg={theme.textMuted}
-              bg={theme.backgroundPanel}
-              lineSigns={RESERVED_FOLD_SIGN}
-              style={{ flexGrow: 1 }}
-              width="100%"
-            >
-              <code-editor
-                ref={(editor) => {
-                  editorRef.current = editor
-                  setEditorInstance(editor)
-                }}
-                filetype="json"
-                theme={theme}
-                initialValue={formatBody(editValue)}
-                extraHighlights={activeEnv ? extraHighlights : undefined}
-                validateContent={validateContent}
-                onValidationChange={setValidationError}
-                onContentChange={handleContentChange}
-                onFoldsChange={handleFoldsChange}
-                backgroundColor={theme.backgroundPanel}
-                focusedBackgroundColor={theme.backgroundPanel}
-                textColor={theme.text}
-                cursorColor={theme.primary}
-              />
-            </line-number>
-            <CodeEditorCompletion
-              editor={editorInstance}
-              env={activeEnv ?? null}
-              isEditing={editingBody}
-              value={editValue}
-            />
-            {validationNotice && (
-              <ValidationNotice
-                title={validationNotice.title}
-                detail={validationNotice.detail}
-              />
-            )}
-          </box>
-        )
-      ) : isFormMode ? (
-        <FormEditor
-          request={{ formData: request.formData, bodyType: request.bodyType }}
-          editState={editState}
-          editKey={editKey}
-          editValue={editValue}
-          setEditKey={setEditKey}
-          setEditValue={setEditValue}
-          browseActive={browseActive}
-          theme={theme}
-          activeEnv={activeEnv}
-        />
-      ) : isBinaryMode ? (
-        <box style={{ backgroundColor: contentBg }}>
           <VarInput
             value={request.filePath || "(no file selected)"}
             env={activeEnv ?? null}
             isEditing={false}
           />
-        </box>
-      ) : body === "" ? (
-        <box style={{ backgroundColor: contentBg }}>
-          <text id="body-field" fg={theme.textMuted}>
-            (none)
-          </text>
-        </box>
+        )
       ) : (
-        <box style={{ backgroundColor: contentBg }}>
-          <JsonBodyViewer
-            body={body}
-            theme={theme}
-            activeEnv={activeEnv ?? null}
-            backgroundColor={contentBg}
+        <box
+          id="body-field"
+          style={{
+            flexDirection: "column",
+            gap: 1,
+            flexGrow: 1,
+            flexShrink: 1,
+            flexBasis: 0,
+            minHeight: 0,
+            overflow: "hidden",
+          }}
+        >
+          <line-number
+            ref={lineNumberRef}
+            minWidth={3}
+            paddingRight={1}
+            fg={theme.textMuted}
+            bg={theme.backgroundPanel}
+            lineSigns={RESERVED_FOLD_SIGN}
+            style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
+            width="100%"
+          >
+            <code-editor
+              ref={(editor) => {
+                editorRef.current = editor
+                setEditorInstance(editor)
+              }}
+              filetype="json"
+              theme={theme}
+              initialValue={formattedBody}
+              value={editingBody ? editValue : formattedBody}
+              extraHighlights={activeEnv ? extraHighlights : undefined}
+              validateContent={validateContent}
+              onValidationChange={setValidationError}
+              onContentChange={handleContentChange}
+              onFoldsChange={handleFoldsChange}
+              backgroundColor={theme.backgroundPanel}
+              focusedBackgroundColor={theme.backgroundPanel}
+              textColor={theme.text}
+              cursorColor={theme.primary}
+              scrollMargin={0}
+            />
+          </line-number>
+          <CodeEditorCompletion
+            editor={editorInstance}
+            env={activeEnv ?? null}
+            isEditing={editingBody}
+            value={editingBody ? editValue : formattedBody}
           />
+          {validationNotice && (
+            <ValidationNotice
+              title={validationNotice.title}
+              detail={validationNotice.detail}
+            />
+          )}
         </box>
       )}
     </box>

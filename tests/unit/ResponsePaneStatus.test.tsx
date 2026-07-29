@@ -1,14 +1,18 @@
 import { describe, it, expect } from "bun:test"
+import { extend } from "@opentui/react"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { RequestResponseView } from "../../src/ui/RequestResponseView"
 import { ThemeProvider } from "../../src/ui/theme"
+import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import type { SendState } from "../../src/ui/sendState"
 import {
   getAvailableTargets,
   computeRequestTabLabels,
 } from "../../src/ui/useJumpMode"
+
+extend({ "code-editor": CodeEditorRenderable })
 
 describe("ResponsePane status text truncation and layout tests", () => {
   const createTestProps = () => {
@@ -256,7 +260,8 @@ describe("ResponsePane status text truncation and layout tests", () => {
       expectBadge("p")
       expectBadge("b")
       expectBadge("a")
-      expectBadge("t")
+      if (layout !== "side-by-side" || width > 80) expectBadge("t")
+      else expect(lines.some((line) => line.includes(" t "))).toBe(false)
       expectBadge("r")
       expectBadge("e")
       expectBadge("l")

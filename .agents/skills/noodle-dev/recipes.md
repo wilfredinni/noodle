@@ -8,23 +8,24 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Locate:**
 - `src/ui/keybind.ts:17-53` — Definitions object
-- `src/ui/useAppKeymap.ts` — keymap layers
+- `src/ui/keymap/` — split global, request, folder, and environment layers
+- `src/ui/keymap/layers.ts` — layer assembly and dispatch tuple
 
 **Follow:** Copy pattern from existing bindings. Each has a `section` (global/browse/edit), `key` combo, optional `fixed: true` to prevent user override.
 
 **Implement:**
 1. Add entry to `Definitions` in `keybind.ts`
-2. Add handler in the correct layer in `useAppKeymap.ts`
-   - Always-On: runs regardless of mode/focus (line ~117)
-   - Base: when `mode=base` and no overlay (line ~246)
-   - Browse: when `mode=browse` (line ~382)
-   - Edit: when `mode=edit` (line ~608)
+2. Add command and binding in the owning `src/ui/keymap/*Layers.ts` file
+   - Global actions: `globalLayers.ts`
+   - Request actions and request browse/edit keys: `requestLayers.ts`
+   - Folder actions and folder browse/edit keys: `folderLayers.ts`
+   - Environment-editor actions: `environmentLayers.ts`
 3. Gate with guard conditions in the handler's condition array
 4. Wire callback to the relevant hook method (draftMutator, send handler, etc.)
 
-**Test:** Add test case in `tests/integration/keymap.test.ts`. Register layers, call `host.press(key)`, assert callback fired.
+**Test:** Add a layer test in `tests/unit/appKeymapLayers.test.ts`. Register layers, press the key, assert the owned callback fired.
 
-**Verify:** `bun test tests/integration/keymap.test.ts && bun run lint`
+**Verify:** `bun test tests/unit/appKeymapLayers.test.ts && bun run lint`
 
 ---
 
@@ -35,18 +36,18 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - `src/ui/focus.ts:25-52` — `cycleFocus()` must include new pane
 - Existing panes for pattern: `RequestPane.tsx`, `ResponsePane.tsx`, `FolderPane.tsx`, `EnvEditorPane.tsx`
 
-**Follow:** Each pane gets a `FocusPane` wrapper (cyan border when focused), uses `Box`/`BorderBox` for layout, and responds to `focus` state for visual highlight.
+**Follow:** Panes use lowercase OpenTUI JSX primitives and `Frame` with border presets. The owning view passes `focused`; use it to select `theme.primary` or `theme.borderSubtle`.
 
 **Implement:**
 1. Create new component in `src/ui/YourPane.tsx`
 2. Add focus type to `Focus` union in `focus.ts`
-3. Add to visual order in `focus.ts` `getVisualOrder()` — defines Tab cycling
+3. Add to the appropriate focus order in `cycleFocus()` in `focus.ts`
 4. Update `cycleFocus()` to include the new focus type, respecting hidden-when-expanded logic
-5. Add render branch in `AppInner.tsx` — gated on `view` and `selectedItem` type
-6. If pane has tabs/Sections, pattern from `RequestPane.tsx`: use `TabSection` array, track `tabIndex` state, render conditionally
+5. Route main content through `MainView.tsx`; keep `AppInner.tsx` for state wiring
+6. If pane has tabs, follow `Tabs.tsx` plus the owning pane's controlled tab state
 7. Wire up any new hooks or extend existing ones
 
-**Test:** Create component test in `tests/` using `createTestKeymap`. Test focus cycling includes new pane.
+**Test:** Create a component test and extend focus/keymap tests for the new cycle position.
 
 **Verify:** `bun test && bun run lint && bun run typecheck`
 
@@ -56,23 +57,24 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Locate:**
 - Existing overlays: `src/ui/overlays/PickerOverlay.tsx` (generic base), `src/ui/theme.tsx` (ThemePickerOverlay), `src/ui/editor/YamlEditorOverlay.tsx`, `src/ui/overlays/ConfirmOverlay.tsx`
-- `src/ui/AppInner.tsx` — overlay rendering gated on `overlay` state
-- `src/ui/useAppKeymap.ts` — overlay keymap layers (Close/Cancel)
+- `src/ui/useOverlayState.ts` — overlay state and `ActiveOverlay`
+- `src/ui/AppOverlays.tsx` — overlay render slots
+- `src/ui/useOverlayIntercepts.ts` and `src/ui/intercepts/` — overlay keyboard handling
 
-**Follow:** For picker-style overlays (search + filter + list + selection), reuse `PickerOverlay<T>` with render props. Others use `Modal` from OpenTUI directly. State is managed via a `useState` in `AppInner.tsx` or a dedicated hook. Add its state name to `activeOverlay` so `useModalKeyboardShield` blocks background handlers. Give modal-owned controls that need first access to keys a priority above the shield; non-editable overlays still consume their own unhandled keys at priority 100.
+**Follow:** For picker-style overlays, reuse `PickerOverlay<T>`. Add other overlays to `useOverlayState` and `AppOverlays`; do not create a direct OpenTUI modal or local `AppInner` state path. Classify editable overlays in `useModalKeyboardShield`; non-editable overlays must consume background keys through interceptors.
 
 **Implement (picker-style):**
 1. Define item type and use `PickerOverlay<T>` with `keyExtractor`, `filter`, `renderItem` props
 2. Wire `onSelect`, `onClose`, `onHighlightChange` to parent state
-3. Add render branch in `AppInner.tsx` gated on your state
-4. Add keybinding — typically in Always-On Layer for global keys, or focus-specific layer
+3. Add an `ActiveOverlay` entry and render slot in `AppOverlays.tsx`
+4. Sync overlay state through `useKeymapSync.ts` and add opening keys in the owning keymap layer
 
 **Implement (modal):**
 1. Create component in `src/ui/YourOverlay.tsx`
-2. Add overlay type name to any overlay state tracking (e.g., `app.overlay` keymap data)
-3. Add render branch in `AppInner.tsx` when your overlay is active
-4. Add keybinding to open overlay — typically in Base layer, sets overlay state
-5. Modal auto-grabs focus; Close/Cancel keys (Escape) dismiss
+2. Add overlay type and state to `useOverlayState.ts`
+3. Add a render branch in `AppOverlays.tsx`
+4. Sync it with `app.overlay`; add opening/close keys in the owning layer or interceptor
+5. Editable overlays remain input-safe; hard-blocking overlays use `useModalKeyboardShield`
 6. If overlay writes to collection (e.g., new request), call `filestore.saveRequest` then reload collection
 
 **Test:** Component test verifying overlay renders, form submission works, cancel dismisses, and a lower-priority background key handler does not receive an overlay shortcut or an unused printable key.
@@ -88,8 +90,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - `src/lang/parse.ts` — `parseAuth()` function
 - `src/lang/serialize.ts` — `serializeAuth()` in request serialization
 - `src/requests/send.ts` — `authHeader()` function
-- `src/hooks/useRequestDraft.ts` — `DraftOp` type + `applyDraft` handler
-- `src/ui/RequestPane.tsx` — Auth tab rendering (Select for type, fields for parameters)
+- `src/hooks/requestDraftReducer.ts` — `DraftOp` type + reducer
 - `src/ui/AuthEditor.tsx` — Auth field editor component
 
 **Follow:** Existing auth types: `none`, `inherit`, `bearer`, `basic`, `api_key`. Each adds one variant to the `Auth` union.
@@ -100,9 +101,9 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 3. Add serialize case in `lang/serialize.ts` — omit empty auth type
 4. Add header construction in `requests/send.ts` `authHeader()` — return `Record<string, string>`
 5. Add `DraftOp` variant (e.g., `{ type: "setAuthYourType"; field: string; value: string }`)
-6. Handle in `applyDraft()` — switch on `op.type`, cache prior auth state when switching
+6. Handle in `requestDraftReducer.ts` — switch on `op.type`, cache prior auth state when switching
 7. Add UI in `AuthEditor.tsx` — render fields for the new auth type when selected
-8. Add to auth type Select options in `RequestPane.tsx` auth tab
+8. Add to auth type Select options in `AuthEditor.tsx`
 
 **Test:** Unit tests for parse/serialize round-trip, authHeader output, draft application. Integration test for auth editor UI.
 
@@ -117,17 +118,17 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - `src/lang/parse.ts` — `parseBody()` / body parsing
 - `src/lang/serialize.ts` — body serialization
 - `src/requests/send.ts` — `bodyForSend()` function + `buildFormData()`
-- `src/hooks/useRequestDraft.ts` — body switching caches prior body state
+- `src/hooks/requestDraftReducer.ts` — body switching caches prior body state
 
-**Follow:** Existing body types: `none`, `json`, `urlencoded`, `multipart`, `binary`, `raw`. Pattern is consistent — add type, parser, serializer, sender, UI.
+**Follow:** Existing body types: `none`, `json`, `urlencoded`, `multipart`, `binary`. Pattern is consistent — add type, parser, serializer, sender, UI.
 
 **Implement:**
 1. Add type to `BodyType` union in `schema/index.ts`
 2. Add parse branch in `lang/parse.ts` — handle new body format
 3. Add serialize branch in `lang/serialize.ts`
 4. Add send branch in `requests/send.ts` `bodyForSend()` — return `BodyInit | undefined`
-5. Update `applyDraft()` body-type-switching cache logic in `useRequestDraft.ts` (line ~264)
-6. Add UI in `RequestPane.tsx` body tab — body type Select + fields specific to type
+5. Update body-type-switching cache logic in `requestDraftReducer.ts`
+6. Add UI in `request-pane/RequestBodyTab.tsx` — body type Select + fields specific to type
 7. If new body type has form fields, reuse `KeyValueSection` / `FormEditor` components
 
 **Test:** Parse round-trip, bodyForSend output, draft switching preserves/restores prior body. Unit + lang tests.
@@ -139,17 +140,17 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 ## Add a new settings tab to RequestPane
 
 **Locate:**
-- `src/ui/RequestPane.tsx` — `sections` array defining tabs (line ~50), `tabIndex` state
-- `src/ui/RequestPaneSections.tsx` (or inline) — each tab's render function
-- `src/hooks/useRequestDraft.ts` — any new draft operations needed
+- `src/ui/RequestPane.tsx` — `BASE_TAB_DEFS` and active-tab rendering
+- `src/ui/request-pane/RequestSettingsTab.tsx` — settings-tab content
+- `src/hooks/requestDraftReducer.ts` — any new draft operations needed
 
-**Follow:** Existing tabs: headers, params, body, auth, settings. Each is a `Section` in the `sections` array with a `name` and `render()` function.
+**Follow:** Existing tabs: headers, params, body, auth, settings. `useEditBrowse` owns the controlled active tab; `RequestPane` maps tab IDs to content.
 
 **Implement:**
-1. Add new `Section` to `sections` array with name and render function
-2. Implement render function using existing UI primitives (`KeyValueSection`, `Select`, `Checkbox`, `Box`, `Text`)
-3. If new tab needs draft mutations, add `DraftOp` variants to `useRequestDraft.ts`
-4. Wire tab keyboard navigation — Tab key switches between tabs when in browse mode (handled by existing left/right arrow bindings in `useAppKeymap.ts` request-focus layer)
+1. Add a definition to `BASE_TAB_DEFS` and update `FieldKind`/field order where needed
+2. Implement content with existing UI primitives in the appropriate request-pane component
+3. If new tab needs draft mutations, add `DraftOp` variants to `requestDraftReducer.ts`
+4. Keep left/right navigation in `requestLayers.ts`; Tabs auto-reveals the active ID
 
 **Test:** Component test rendering new tab, field edits produce correct draft ops.
 
@@ -171,7 +172,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 2. If managing file I/O: import from `filestore/` or `env/` modules
 3. If managing request state: use `useState`/`useReducer`, return both state and mutators
 4. Wire into `AppInner.tsx` — instantiate hook, pass result as props to components
-5. If hook needs to respond to keybindings, export callbacks that `useAppKeymap.ts` can bind to
+5. If hook needs to respond to keybindings, export callbacks for its owning `src/ui/keymap/*Layers.ts` module
 
 **Test:** Hook test using `renderHook` or test by mounting parent component.
 
@@ -209,12 +210,12 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - `src/converters/postman/` — second example importer
 - `src/app/import.ts` — where importers are registered + CLI import flow
 
-**Follow:** Importers implement a `convert(source) → Collection` interface. Plugin registry pattern — register by format name, detect format from source content.
+**Follow:** Importers implement `{ type, detect, import }`. `runImport()` lazily registers built-in importers; detect format from source content before import.
 
 **Implement:**
 1. Create `src/converters/yourformat/` directory
-2. Export function that takes source content and returns `Collection`
-3. Register in `src/app/import.ts`: `import { registerImporter } from "../converters/index.js"` + call `registerImporter("formatName", { detect, convert })`
+2. Export an importer object with `type`, `detect`, and `import` methods
+3. Register it with `registerImporter({ type, detect, import })` in the lazy registration path in `src/app/import.ts`
 4. Use existing `saveRequest` from filestore to write converted requests to disk
 
 **Test:** Provide sample source file, call converter, assert `Collection` has expected structure. Use temp dirs for output.
@@ -254,9 +255,9 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 **Locate:**
 - `src/ui/commandActions.ts` — all command action implementations (shared across keymap + palette)
 - `src/ui/commands.ts` — `buildCommandPaletteCommands(view, ...)` assembles command arrays by view context
-- `src/ui/CommandPaletteOverlay.tsx` — PickerOverlay for command palette
+- `src/ui/overlays/CommandPaletteOverlay.tsx` — PickerOverlay for command palette
 
-**Follow:** Actions live in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from there. Never duplicate logic. Each `CommandItem` has `label`, `shortcut`, `run()` returning `boolean` (`true` to close palette, `false` to stay open). Unavailable commands (e.g., save when nothing dirty) return `false`.
+**Follow:** Actions live in `commandActions.ts`. Keymap layers and `commands.ts` import from there. Never duplicate logic. Each `CommandItem` has `label`, `shortcut`, `run()` returning `boolean` (`true` to close palette, `false` to stay open). Unavailable commands (e.g., save when nothing dirty) return `false`.
 
 **Implement:**
 1. Add action function to `commandActions.ts` — export a named function
@@ -267,8 +268,8 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
    - `editorEnvCommands` — env actions in env editor (save, new, clone, delete)
    - `workspaceCommands` — layout/expand/folder commands
    - `systemCommands` — help, theme, collection switcher, undo all
-3. Use contextual arrays — `view === "main"` appends one set, `view === "env-editor"` appends another. Don't add view guards inside `run()`.
-4. Section headers use `{ label: "...", type: "header" }` with `isNavigable={(item) => item.type === "command"}` in PickerOverlay.
+3. Use contextual arrays for view-level availability. Keep state-dependent availability guards inside `run()` and return `false` when unavailable.
+4. Commands declare `section`; `CommandPaletteOverlay` creates non-navigable section headers.
 
 **Test:** Add command to `tests/unit/commands.test.ts` — call `buildCommandPaletteCommands("main", ...)`, verify command present. Add action test for the new function.
 
@@ -293,7 +294,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Test:** Add test in `tests/unit/ResponsePaneStatus.test.tsx` -- verify `getAvailableTargets()` returns the new target under correct conditions. Add integration dispatch test.
 
-**Verify:** `bun test tests/unit/ResponsePaneStatus.test.tsx tests/integration/keymap.test.ts && bun run lint && bun run typecheck`
+**Verify:** Run the owning jump-mode and keymap unit tests, then `bun run lint && bun run typecheck`
 
 ---
 
@@ -302,7 +303,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 **Locate:**
 - `src/ui/theme-data.ts` — `Theme` interface, `THEMES` array (32 themes)
 - `src/ui/theme.tsx` — `ThemeProvider`, `useTheme()`, `ThemePickerOverlay`
-- `src/ui/yamlSyntax.ts` — `createYamlSyntaxStyle(theme, name)` creates per-theme syntax styles
+- `src/ui/editor/yamlSyntax.ts` — `createYamlSyntaxStyle(theme, name)` creates per-theme syntax styles
 
 **Follow:** Each theme is a `Theme` object with 16 color fields. Syntax styles reference theme colors — no per-theme style config needed.
 

@@ -78,6 +78,16 @@ describe("getContextualSegments", () => {
     expect(r.footer).toEqual([seg("f2", "expand"), seg("^s", "save")])
   })
 
+  it("request JSON body shows fold", () => {
+    const r = base({
+      focus: "request",
+      paneMode: "edit",
+      tab: "body",
+      bodyType: "json",
+    })
+    expect(r.footer).toEqual([seg("^g", "fold"), seg("f2", "expand")])
+  })
+
   it("request base in read-only mode returns empty", () => {
     const r = base({ focus: "request", collectionMode: "browse" })
     expect(r.footer).toEqual([])

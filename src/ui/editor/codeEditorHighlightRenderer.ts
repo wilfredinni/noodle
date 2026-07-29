@@ -81,11 +81,6 @@ export class CodeEditorHighlightRenderer {
     client: TreeSitterClient,
     isCurrent: () => boolean,
   ): Promise<void> {
-    if (filetype === "json") {
-      this.applyJson(content)
-      this.applyExtra(content)
-      return
-    }
     let succeeded = false
     try {
       const result = await client.highlightOnce(content, filetype)
@@ -100,6 +95,7 @@ export class CodeEditorHighlightRenderer {
     if (!isCurrent()) return
     if (!succeeded) {
       this.host.clear()
+      if (filetype === "json") this.applyJson(content)
       if (filetype === "yaml") this.applyYaml(content)
     }
     this.applyExtra(content)

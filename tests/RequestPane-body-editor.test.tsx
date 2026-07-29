@@ -69,36 +69,7 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("renders formatted JSON content in textarea", async () => {
-    const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box width={80} height={20}>
-            <RequestPane
-              request={testRequest}
-              editState={editStateEditing}
-              editKey=""
-              editValue={testRequest.body!}
-              setEditKey={() => {}}
-              setEditValue={() => {}}
-              focused={true}
-              activeTab="body"
-            />
-          </box>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 80, height: 20 },
-    )
-    await renderOnce()
-    const frame = captureCharFrame()
-    // Textarea renders the formatted JSON from formatBody
-    expect(frame).toContain("name")
-    expect(frame).toContain("42")
-    cleanup()
-  })
-
-  it("renders browse view unchanged when not editing body", async () => {
+  it("formats stored JSON before body edit focus", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -121,7 +92,35 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    // Browse view: should contain the formatted JSON
+    expect(frame).toContain('"name": "hello"')
+    expect(frame).toContain('"count": 42')
+    cleanup()
+  })
+
+  it("renders JSON in code editor before entering body edit focus", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    // JSON always renders in the code editor, not the read-only viewer.
     expect(frame).toContain("name")
     expect(frame).toContain("hello")
     // Should NOT contain "(none)"
@@ -129,7 +128,7 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("renders (none) when body is empty and not editing", async () => {
+  it("does not render a read-only empty-body placeholder", async () => {
     const { keymap, cleanup } = setupKeymap()
     const emptyRequest: Request = {
       ...testRequest,
@@ -156,21 +155,63 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("(none)")
+    expect(frame).not.toContain("(none)")
     cleanup()
   })
 
-  it("renders raw content when editing non-JSON body", async () => {
+  it("keeps the request frame bottom border over tall JSON", async () => {
     const { keymap, cleanup } = setupKeymap()
+    const tallRequest: Request = {
+      ...testRequest,
+      body: JSON.stringify(
+        Object.fromEntries(
+          Array.from({ length: 20 }, (_, i) => [`key${i}`, i]),
+        ),
+      ),
+    }
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={8}>
+            <RequestPane
+              request={tallRequest}
+              editState={editStateEditing}
+              editKey=""
+              editValue={tallRequest.body!}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+
+    const bottomLine = captureCharFrame().trimEnd().split("\n").at(-1) ?? ""
+    expect(bottomLine).toContain("└")
+    expect(bottomLine).toContain("┘")
+    cleanup()
+  })
+
+  it("renders file path when editing a binary body", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const binaryRequest: Request = {
+      ...testRequest,
+      bodyType: "binary",
+      filePath: "/tmp/payload.bin",
+    }
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <box width={80} height={20}>
             <RequestPane
-              request={testRequest}
+              request={binaryRequest}
               editState={editStateEditing}
               editKey=""
-              editValue="raw text content"
+              editValue="/tmp/payload.bin"
               setEditKey={() => {}}
               setEditValue={() => {}}
               focused={true}
@@ -183,7 +224,7 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("raw text content")
+    expect(frame).toContain("/tmp/payload.bin")
     cleanup()
   })
 
