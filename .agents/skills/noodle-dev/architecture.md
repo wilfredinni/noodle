@@ -20,7 +20,7 @@ my-collection/
 │   ├── last-request          ← Plain text: last selected request ID
 │   ├── expanded-folders      ← YAML list of expanded folder paths
 │   └── ui-state/
-│       └── auth/login.yml    ← Per-request state: { tabIndex: 2 }
+│       └── auth/login.yml    ← Per-request state: { requestTab, responseTab }
 ├── .timeline/                ← Per-request response history (max 50 entries each)
 │   ├── list-users.yml
 │   ├── list-users.yml.bodies/  ← Gzip sidecars for bodies over 10 KB
@@ -97,7 +97,7 @@ Per-request response history stored as YAML arrays of `TimelineEntry` objects. M
 
 ### `validatePathId()` rules
 
-All save/delete operations call `validatePathId()`. Rejects:
+Save/delete paths must call `validatePathId()`. Current validation rejects:
 - Missing/empty ID
 - `"."` or starts with `"./"`
 - Absolute paths (starts with `"/"`)
@@ -176,7 +176,7 @@ Cursor-aware `$variable` completion system across all text inputs:
   - Main view: Request commands, Response commands, Environment commands, Workspace commands, System commands
   - Env editor: Environment commands (different set), Workspace, System
 - Each `CommandItem`: `{ id, label, shortcut, run: () => boolean, type: "command" }`
-- Section headers: `{ label, type: "header" }` — skipped by navigation via `isNavigable`
+- Commands declare `section`; `CommandPaletteOverlay` builds non-navigable section headers
 
 ### Executing commands (src/ui/commandActions.ts)
 - All command logic centralized in exported functions:
@@ -187,7 +187,7 @@ Cursor-aware `$variable` completion system across all text inputs:
   `saveEnvironment`, `newEnvironment`, `cloneEnvironment`, `deleteEnvironment`,
   `newFolder`, `toggleLayout`, `togglePaneExpand`, `undoAll`,
   `toggleHelp`, `openThemePicker`, `openCollectionSwitcher`
-- Both `useAppKeymap.ts` and `commands.ts` import from here — never duplicate logic
+- Keymap layers and `commands.ts` import from here — never duplicate logic
 - `run()` returns `true` (close palette) or `false` (stay open)
 
 ### Picker (src/ui/overlays/PickerOverlay.tsx)
@@ -404,11 +404,11 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 ## Keymap layer architecture
 
-`src/ui/useAppKeymap.ts` defines layered keybindings with `useBindings()`:
+`src/ui/keymap/` defines layered keybindings with `useBindings()`:
 
 | Layer | Condition | What it handles |
 |-------|-----------|-----------------|
-| Always-On | No editing constraint | Focus cycle, layout toggle, help, yaml editor, expand/collapse, copy body, theme, command palette, collection switcher, undo all, jump mode enter |
+| Global | No editing constraint | Focus cycle, layout toggle, help, yaml editor, expand/collapse, copy body, theme, command palette, collection switcher, undo all, jump mode enter |
 | URL Bar Focus | `focus=urlbar`, `overlay=none`, `view!=env-editor` | Tab between method select and URL text input |
 | Base | `mode=base`, `overlay=none`, `view!=env-editor`, `focus!=folder` | Send, save, env cycle, new/clone/delete, edit overlay, folder new, env editor open |
 | Request Focus | `focus=request`, `mode=base`, `overlay=none`, `view!=env-editor` | Enter edit, tab prev/next |
@@ -437,7 +437,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Hooks | `src/hooks/*.ts` |
 | Code editor | `src/ui/editor/CodeEditor.ts`, `src/ui/editor/CodeEditorCompletion.tsx`, `src/ui/editor/codeEditorParsers.ts`, `src/ui/editor/YamlEditorOverlay.tsx`, `src/ui/editor/ValidationNotice.tsx` |
 | Variable completion | `src/ui/variable-completion/variableCompletion.ts`, `src/ui/variable-completion/useVariableCompletion.ts`, `src/ui/variable-completion/variableCompletionInterceptor.tsx`, `src/ui/variable-completion/variableHighlight.ts`, `src/ui/variable-completion/highlightOffsets.ts`, `src/ui/variable-completion/envHighlight.ts` |
-| Command palette | `src/ui/commands.ts`, `src/ui/commandActions.ts`, `src/ui/CommandPaletteOverlay.tsx` |
+| Command palette | `src/ui/commands.ts`, `src/ui/commandActions.ts`, `src/ui/overlays/CommandPaletteOverlay.tsx` |
 | Request finder | `src/ui/requestFinder.ts`, `src/ui/overlays/RequestFinderOverlay.tsx` |
 | cURL import (TUI) | `src/converters/curl/parse.ts`, `src/ui/overlays/ImportCurlOverlay.tsx`, `src/ui/useOverlayIntercepts.ts` |
 | Code generation | `src/codegen/buildHar.ts`, `src/codegen/targets.ts`, `src/codegen/variableHash.ts`, `src/ui/overlays/CodeGeneratorOverlay.tsx` |
@@ -449,6 +449,6 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Importers | `src/converters/index.ts`, `src/converters/openapi/`, `src/converters/postman/` |
 | UI entry | `src/ui/App.tsx`, `src/ui/AppInner.tsx`, `src/ui/AppOverlays.tsx`, `src/ui/MainView.tsx` |
 | Focus | `src/ui/focus.ts` |
-| Keybindings | `src/ui/keybind.ts`, `src/ui/useAppKeymap.ts`, `src/ui/useOverlayIntercepts.ts` |
+| Keybindings | `src/ui/keybind.ts`, `src/ui/keymap/`, `src/ui/useOverlayIntercepts.ts` |
 | Borders | `src/ui/borders.ts` |
 | Pure helpers | `src/ui/*.ts` (non-JSX files: `format.ts`, `formatRequest.ts`, `urlParams.ts`, `tree.ts`, `selection.ts`) |

@@ -81,7 +81,7 @@ Mount the visible overlay before pressing keys. Its shield should have higher pr
 | HTTP execution, substitution | `tests/requests.test.ts` |
 | Folder overrides | `tests/unit/mergeFolderOverrides.test.ts` |
 | Pure helper function | `tests/unit/<name>.test.ts` |
-| UI component rendering | `tests/<ComponentName>.test.tsx` |
+| UI component rendering | `tests/unit/<ComponentName>.test.tsx` |
 | Variable completion | `tests/unit/variableCompletion.test.ts`, `tests/unit/UrlBar.test.tsx` |
 | Code Editor | `tests/unit/CodeEditor.test.tsx`, `tests/unit/highlightOffsets.test.ts`, `tests/unit/variableHighlight.test.tsx` |
 | Code Editor completion | `tests/unit/CodeEditorCompletion.test.tsx` |
@@ -89,7 +89,7 @@ Mount the visible overlay before pressing keys. Its shield should have higher pr
 | Collection switcher | `tests/unit/CollectionSwitcherOverlay.test.tsx` |
 | JSON body viewer / validation | `tests/JsonBodyViewer.test.tsx`, `tests/unit/jsonValidation.test.ts` |
 | Clipboard | `tests/unit/clipboard.test.ts` |
-| Keymap/keybindings | `tests/integration/keymap.test.ts` |
+| Keymap/keybindings | `tests/unit/appKeymapLayers.test.ts` |
 | State/hook logic | `tests/unit/<hookName>.test.ts` |
 
 ### Factory functions
