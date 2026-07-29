@@ -626,7 +626,10 @@ export function useEditBrowse(
       return
     }
     if (field === "body") {
-      if (row === 0) return
+      if (row === 0) {
+        draftMutators.revertField(field)
+        return
+      }
       const bodyType = draftRef.current?.bodyType
       if (bodyType === "urlencoded" || bodyType === "multipart") {
         if (addingRow) return

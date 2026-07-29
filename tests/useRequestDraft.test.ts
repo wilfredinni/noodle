@@ -370,15 +370,25 @@ describe("applyDraft", () => {
     ])
   })
   it("revertField body restores body from original", () => {
-    const original = makeReq({ body: "orig" })
+    const original = makeReq({ body: "orig", bodyType: "json" })
     const map = new Map<string, Request>([
-      ["r1", { ...original, body: "edited" }],
+      [
+        "r1",
+        {
+          ...original,
+          body: "edited",
+          bodyType: "binary",
+          filePath: "/tmp/payload.bin",
+        },
+      ],
     ])
     const next = applyDraft(map, "r1", original, {
       kind: "revertField",
       field: "body",
     })
     expect(next.get("r1")!.body).toBe("orig")
+    expect(next.get("r1")!.bodyType).toBe("json")
+    expect(next.get("r1")!.filePath).toBeUndefined()
   })
   it("revertField settings restores timeout from original", () => {
     const original = makeReq({ timeout: 5000 })
