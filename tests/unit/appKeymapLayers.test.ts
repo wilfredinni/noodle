@@ -38,6 +38,10 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     folderCommit: 0,
     envSave: 0,
     envUp: 0,
+    jsonEnter: 0,
+    jsonLeave: 0,
+    jsonReturnToSelect: 0,
+    focus: "",
   }
   const request = {
     ebRef: {
@@ -48,6 +52,11 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         },
         toggleFormRowType: () => calls.formType++,
         commitEdit: () => calls.requestCommit++,
+        canEnterJsonBodyEditor: false,
+        isEditingJsonBody: false,
+        enterJsonBodyEditor: () => calls.jsonEnter++,
+        leaveJsonBodyEditor: () => calls.jsonLeave++,
+        returnToJsonBodyTypeSelect: () => calls.jsonReturnToSelect++,
       },
     },
     trySendRef: { current: () => calls.send++ },
@@ -59,6 +68,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         commitEdit: () => calls.folderCommit++,
       },
     },
+    folderViewRef: { current: false },
   }
   const environment = {
     envEditorRef: {
@@ -78,7 +88,11 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       modeRef: { current: "collection" },
       focusRef: { current: "sidebar" },
       urlbarSubFocusRef: { current: "select" },
-      setFocus: () => {},
+      viewRef: { current: "main" },
+      expandedRef: { current: null },
+      setFocus: (focus: string) => {
+        calls.focus = focus
+      },
       setUrlbarSubFocus: () => {},
     },
     request,
@@ -213,6 +227,118 @@ describe("app keymap layers", () => {
     host.press("return")
 
     expect(calls.requestCommit).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("enters the JSON body editor from the body type select", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.request.ebRef.current.editState.mode = "browsing"
+    context.request.ebRef.current.editState.cursor = {
+      field: "body",
+      row: 0,
+      addingRow: false,
+    }
+    context.request.ebRef.current.canEnterJsonBodyEditor = true
+    keymap.setData("app.mode", "browse")
+    keymap.setData("app.focus", "request")
+    const disposers = register(context)
+
+    host.press("tab")
+
+    expect(calls.jsonEnter).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("moves to the previous pane from the JSON body type select on shift+tab", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.request.ebRef.current.editState.mode = "browsing"
+    context.request.ebRef.current.editState.cursor = {
+      field: "body",
+      row: 0,
+      addingRow: false,
+    }
+    context.request.ebRef.current.canEnterJsonBodyEditor = true
+    context.global.focusRef.current = "request"
+    keymap.setData("app.mode", "browse")
+    keymap.setData("app.focus", "request")
+    const disposers = register(context)
+
+    host.press("tab", { shift: true })
+
+    expect(calls.jsonEnter).toBe(0)
+    expect(calls.focus).toBe("urlbar")
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("leaves the JSON body editor for the next pane on tab", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.request.ebRef.current.editState.mode = "editing"
+    context.request.ebRef.current.editState.cursor = {
+      field: "body",
+      row: 1,
+      addingRow: false,
+    }
+    context.request.ebRef.current.isEditingJsonBody = true
+    context.global.focusRef.current = "request"
+    keymap.setData("app.mode", "edit")
+    keymap.setData("app.focus", "request")
+    const disposers = register(context)
+
+    host.press("tab")
+
+    expect(calls.jsonLeave).toBe(1)
+    expect(calls.focus).toBe("response")
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("returns the JSON body editor to the body type select on shift+tab", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.request.ebRef.current.editState.mode = "editing"
+    context.request.ebRef.current.editState.cursor = {
+      field: "body",
+      row: 1,
+      addingRow: false,
+    }
+    context.request.ebRef.current.isEditingJsonBody = true
+    context.global.focusRef.current = "request"
+    keymap.setData("app.mode", "edit")
+    keymap.setData("app.focus", "request")
+    const disposers = register(context)
+
+    host.press("tab", { shift: true })
+
+    expect(calls.jsonReturnToSelect).toBe(1)
+    expect(calls.focus).toBe("")
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("sends from the JSON body editor with ctrl+enter and ctrl+j", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.request.ebRef.current.editState.mode = "editing"
+    context.request.ebRef.current.editState.cursor = {
+      field: "body",
+      row: 1,
+      addingRow: false,
+    }
+    context.request.ebRef.current.isEditingJsonBody = true
+    keymap.setData("app.mode", "edit")
+    keymap.setData("app.focus", "request")
+    const disposers = register(context)
+
+    host.press("return", { ctrl: true })
+    host.press("linefeed")
+
+    expect(calls.send).toBe(2)
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

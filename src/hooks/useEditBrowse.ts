@@ -19,6 +19,7 @@ import {
   type FieldKind,
 } from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
+import { formatBody } from "../ui/formatRequest"
 
 function rowCount(req: Request | null): SectionRowCount {
   if (!req) return { headers: 0, params: 0, body: 0, auth: 1, settings: 3 }
@@ -194,6 +195,11 @@ export interface UseEditBrowseResult {
   toggleFormRowType: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
   enterBrowseAt: (field: FieldKind) => void
+  canEnterJsonBodyEditor: boolean
+  isEditingJsonBody: boolean
+  enterJsonBodyEditor: () => void
+  leaveJsonBodyEditor: () => void
+  returnToJsonBodyTypeSelect: () => void
 }
 
 export interface UseEditBrowseOptions {
@@ -348,6 +354,17 @@ export function useEditBrowse(
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
+      if (
+        prev.cursor.field === "body" &&
+        prev.cursor.row === 0 &&
+        (draftRef.current?.bodyType ?? "json") === "json"
+      ) {
+        setEditValue(formatBody(draftRef.current?.body))
+        return beginEditing({
+          ...prev,
+          cursor: { field: "body", row: 1, addingRow: false },
+        })
+      }
       return moveRowCursor(prev, -1, c)
     })
   }, [])
@@ -356,7 +373,64 @@ export function useEditBrowse(
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
+      if (
+        prev.cursor.field === "body" &&
+        prev.cursor.row === 0 &&
+        (draftRef.current?.bodyType ?? "json") === "json"
+      ) {
+        setEditValue(formatBody(draftRef.current?.body))
+        return beginEditing({
+          ...prev,
+          cursor: { field: "body", row: 1, addingRow: false },
+        })
+      }
       return moveRowCursor(prev, +1, c)
+    })
+  }, [])
+
+  const enterJsonBodyEditor = useCallback(() => {
+    setEditState((prev) => {
+      if (
+        prev.mode !== "browsing" ||
+        prev.cursor.field !== "body" ||
+        prev.cursor.row !== 0 ||
+        (draftRef.current?.bodyType ?? "json") !== "json"
+      )
+        return prev
+      setEditValue(formatBody(draftRef.current?.body))
+      return beginEditing({
+        ...prev,
+        cursor: { field: "body", row: 1, addingRow: false },
+      })
+    })
+  }, [])
+
+  const leaveJsonBodyEditor = useCallback(() => {
+    setEditState((prev) => {
+      if (
+        prev.mode !== "editing" ||
+        prev.cursor.field !== "body" ||
+        prev.cursor.row !== 1 ||
+        (draftRef.current?.bodyType ?? "json") !== "json"
+      )
+        return prev
+      return commitEditing(prev)
+    })
+  }, [])
+
+  const returnToJsonBodyTypeSelect = useCallback(() => {
+    setEditState((prev) => {
+      if (
+        prev.mode !== "editing" ||
+        prev.cursor.field !== "body" ||
+        prev.cursor.row !== 1 ||
+        (draftRef.current?.bodyType ?? "json") !== "json"
+      )
+        return prev
+      return {
+        ...commitEditing(prev),
+        cursor: { field: "body", row: 0, addingRow: false },
+      }
     })
   }, [])
 
@@ -617,6 +691,17 @@ export function useEditBrowse(
     setInactiveTab((prev) => cycleField(prev, delta))
   }, [])
 
+  const canEnterJsonBodyEditor =
+    editState.mode === "browsing" &&
+    editState.cursor.field === "body" &&
+    editState.cursor.row === 0 &&
+    (draft?.bodyType ?? "json") === "json"
+  const isEditingJsonBody =
+    editState.mode === "editing" &&
+    editState.cursor.field === "body" &&
+    editState.cursor.row === 1 &&
+    (draft?.bodyType ?? "json") === "json"
+
   return useMemo(
     () => ({
       editState,
@@ -645,6 +730,11 @@ export function useEditBrowse(
       toggleFormRowType,
       cycleInactiveTab,
       enterBrowseAt,
+      canEnterJsonBodyEditor,
+      isEditingJsonBody,
+      enterJsonBodyEditor,
+      leaveJsonBodyEditor,
+      returnToJsonBodyTypeSelect,
     }),
     [
       editState,
@@ -670,6 +760,11 @@ export function useEditBrowse(
       toggleRow,
       toggleFormRowType,
       cycleInactiveTab,
+      canEnterJsonBodyEditor,
+      isEditingJsonBody,
+      enterJsonBodyEditor,
+      leaveJsonBodyEditor,
+      returnToJsonBodyTypeSelect,
     ],
   )
 }

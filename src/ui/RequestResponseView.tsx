@@ -73,6 +73,7 @@ export function RequestResponseView({
           onAuthTypeChange={draft.setAuthType}
           onApiKeyPlacementChange={draft.setApiKeyPlacement}
           onBodyTypeChange={draft.setBodyType}
+          onBodyChange={draft.setBody}
           onSelectOpenChange={setSelectOpen}
           jumpMode={jumpMode}
         />

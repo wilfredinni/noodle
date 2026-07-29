@@ -32,6 +32,7 @@ interface Props {
   onAuthTypeChange?: (t: Auth["type"]) => void
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
   onBodyTypeChange?: (t: BodyType) => void
+  onBodyChange?: (body: string) => void
   onSelectOpenChange?: (open: boolean) => void
   jumpMode?: boolean
 }
@@ -58,6 +59,7 @@ export function RequestPane({
   onAuthTypeChange,
   onApiKeyPlacementChange,
   onBodyTypeChange,
+  onBodyChange,
   onSelectOpenChange,
   jumpMode = false,
 }: Props) {
@@ -112,6 +114,8 @@ export function RequestPane({
       jumpHint: jumpMode ? REQUEST_TAB_HINT_ORDER[i] : undefined,
     }))
   }, [request, jumpMode])
+  const isJsonBody =
+    activeTab === "body" && (request?.bodyType ?? "json") === "json"
 
   return (
     <Frame
@@ -161,85 +165,102 @@ export function RequestPane({
                   onSelectOpenChange={onSelectOpenChange}
                 />
               )}
-              <scrollbox
-                ref={scrollRef}
-                scrollY
-                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
-              >
-                {activeTab === "body" && (
-                  <BodySection
-                    request={request}
-                    editState={editState}
-                    editKey={editKey}
-                    editValue={editValue}
-                    setEditKey={setEditKey}
-                    setEditValue={setEditValue}
-                    inEdit={inEdit}
-                    browseActive={browseActive}
-                    theme={theme}
-                    activeEnv={activeEnv}
-                  />
-                )}
-                {activeTab === "headers" && (
-                  <KeyValueSection
-                    kind="headers"
-                    entries={Object.entries(request?.headers ?? {}).map(
-                      ([key, value]) => ({ key, value }),
-                    )}
-                    editState={editState}
-                    editKey={editKey}
-                    editValue={editValue}
-                    setEditKey={setEditKey}
-                    setEditValue={setEditValue}
-                    theme={theme}
-                    activeEnv={activeEnv}
-                  />
-                )}
-                {activeTab === "params" && (
-                  <KeyValueSection
-                    kind="params"
-                    entries={(request?.params ?? []).map((p) => ({
-                      key: p.name,
-                      value: { value: p.value, enabled: p.enabled },
-                    }))}
-                    editState={editState}
-                    editKey={editKey}
-                    editValue={editValue}
-                    setEditKey={setEditKey}
-                    setEditValue={setEditValue}
-                    theme={theme}
-                    activeEnv={activeEnv}
-                  />
-                )}
-                {activeTab === "auth" && (
-                  <AuthEditor
-                    auth={request?.auth ?? { type: "none" }}
-                    editState={editState}
-                    inEdit={inEdit}
-                    browseActive={browseActive}
-                    setEditValue={setEditValue}
-                    theme={theme}
-                    activeEnv={activeEnv}
-                    onAuthTypeChange={onAuthTypeChange ?? (() => {})}
-                    onApiKeyPlacementChange={
-                      onApiKeyPlacementChange ?? (() => {})
-                    }
-                    onSelectOpenChange={handleSelectOpenChange}
-                    showInherit={true}
-                  />
-                )}
-                {activeTab === "settings" && (
-                  <SettingsSection
-                    request={request}
-                    editState={editState}
-                    setEditValue={setEditValue}
-                    inEdit={inEdit}
-                    browseActive={browseActive}
-                    theme={theme}
-                    activeEnv={activeEnv}
-                  />
-                )}
-              </scrollbox>
+              {isJsonBody ? (
+                <BodySection
+                  request={request}
+                  editState={editState}
+                  editKey={editKey}
+                  editValue={editValue}
+                  setEditKey={setEditKey}
+                  setEditValue={setEditValue}
+                  inEdit={inEdit}
+                  browseActive={browseActive}
+                  theme={theme}
+                  activeEnv={activeEnv}
+                  onBodyChange={onBodyChange ?? (() => {})}
+                />
+              ) : (
+                <scrollbox
+                  ref={scrollRef}
+                  scrollY
+                  style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+                >
+                  {activeTab === "body" && (
+                    <BodySection
+                      request={request}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      inEdit={inEdit}
+                      browseActive={browseActive}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                      onBodyChange={onBodyChange ?? (() => {})}
+                    />
+                  )}
+                  {activeTab === "headers" && (
+                    <KeyValueSection
+                      kind="headers"
+                      entries={Object.entries(request?.headers ?? {}).map(
+                        ([key, value]) => ({ key, value }),
+                      )}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                    />
+                  )}
+                  {activeTab === "params" && (
+                    <KeyValueSection
+                      kind="params"
+                      entries={(request?.params ?? []).map((p) => ({
+                        key: p.name,
+                        value: { value: p.value, enabled: p.enabled },
+                      }))}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                    />
+                  )}
+                  {activeTab === "auth" && (
+                    <AuthEditor
+                      auth={request?.auth ?? { type: "none" }}
+                      editState={editState}
+                      inEdit={inEdit}
+                      browseActive={browseActive}
+                      setEditValue={setEditValue}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                      onAuthTypeChange={onAuthTypeChange ?? (() => {})}
+                      onApiKeyPlacementChange={
+                        onApiKeyPlacementChange ?? (() => {})
+                      }
+                      onSelectOpenChange={handleSelectOpenChange}
+                      showInherit={true}
+                    />
+                  )}
+                  {activeTab === "settings" && (
+                    <SettingsSection
+                      request={request}
+                      editState={editState}
+                      setEditValue={setEditValue}
+                      inEdit={inEdit}
+                      browseActive={browseActive}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                    />
+                  )}
+                </scrollbox>
+              )}
             </box>
           </Tabs>
         </>

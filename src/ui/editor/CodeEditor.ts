@@ -30,6 +30,8 @@ export interface CodeEditorOptions {
   debounceMs?: number
   foldable?: boolean
   initialValue?: string
+  value?: string
+  scrollMargin?: number
   extraHighlights?: (content: string) => Highlight[]
   validateContent?: CodeEditorValidator
   onValidationChange?: (error: string | null) => void
@@ -58,12 +60,13 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
     super(ctx, {
-      initialValue: options.initialValue,
+      initialValue: options.value ?? options.initialValue,
       backgroundColor: options.backgroundColor ?? "transparent",
       textColor: options.textColor ?? "#FFFFFF",
       focusedBackgroundColor: options.focusedBackgroundColor ?? "transparent",
       focusedTextColor: options.focusedTextColor ?? "#FFFFFF",
       cursorColor: options.cursorColor ?? "#FFFFFF",
+      scrollMargin: options.scrollMargin,
     })
     this._filetype = options.filetype
     this._debounceMs = options.debounceMs ?? 200
@@ -127,6 +130,17 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
   override get plainText(): string {
     return this._foldManager.sourceText
+  }
+  get value(): string {
+    return this.plainText
+  }
+  set value(value: string) {
+    if (this.plainText === value) return
+    this._foldManager.setSourceText(value)
+    this._foldManager.clearFolds()
+    this.setDisplayedText(value)
+    this._highlights.apply(value, this._filetype)
+    this.scheduleHighlight()
   }
   set filetype(value: string) {
     if (this._filetype === value) return

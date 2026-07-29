@@ -32,6 +32,9 @@ export function createGlobalLayers(
           return keymap.getData("app.overlay") === "none"
         },
         run: () => {
+          if (request.ebRef.current.isEditingJsonBody) {
+            request.ebRef.current.leaveJsonBodyEditor()
+          }
           const next = cycleFocus(
             global.focusRef.current,
             1,
@@ -72,6 +75,9 @@ export function createGlobalLayers(
           return keymap.getData("app.overlay") === "none"
         },
         run: () => {
+          if (request.ebRef.current.isEditingJsonBody) {
+            request.ebRef.current.leaveJsonBodyEditor()
+          }
           const next = cycleFocus(
             global.focusRef.current,
             -1,
