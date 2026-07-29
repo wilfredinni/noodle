@@ -11,13 +11,13 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 
 ## Quick routing
 
-| Task | Read |
-|------|------|
-| Understand module boundaries, data flow, state, CLI, collection layout | [architecture.md](architecture.md) |
-| Add a keybinding, pane, overlay, auth type, body type, hook, importer, CLI flag | [recipes.md](recipes.md) |
-| Write tests for new feature | [testing.md](testing.md) |
-| Add/modify persistent state (new files, config, timeline) | [architecture.md](architecture.md) → "Collection directory layout" |
-| Build terminal UI components | **REQUIRED SUB-SKILL:** Use `opentui` skill |
+| Task                                                                            | Read                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Understand module boundaries, data flow, state, CLI, collection layout          | [architecture.md](architecture.md)                                 |
+| Add a keybinding, pane, overlay, auth type, body type, hook, importer, CLI flag | [recipes.md](recipes.md)                                           |
+| Write tests for new feature                                                     | [testing.md](testing.md)                                           |
+| Add/modify persistent state (new files, config, timeline)                       | [architecture.md](architecture.md) → "Collection directory layout" |
+| Build terminal UI components                                                    | **REQUIRED SUB-SKILL:** Use `opentui` skill                        |
 
 ## Key conventions
 
@@ -29,6 +29,7 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 - **Focus model:** `"sidebar" → "urlbar" → "request" → "response"` (main). URL bar has method and URL sub-focuses. `"env-sidebar" → "env-header" → "env-vars"` (env editor). Skips hidden panes.
 - **Keymap layers:** `src/ui/keymap/*Layers.ts` defines bindings gated on `focus`, `mode`, `overlay`, and `view`; `layers.ts` assembles them. Use `useBindings()` from `@opentui/keymap`.
 - **Edit/Browse FSM:** Three modes — `inactive → browsing → editing`. `useEditBrowse` hook manages cursor, commit, cancel.
+- **JSON request bodies:** `RequestBodyTab` always renders JSON through the inline `CodeEditorRenderable`; `editingBody` controls focus and the editor updates the request draft through `onBodyChange`.
 - **File I/O:** Save/delete operations validate path IDs to prevent traversal. Environment saves are atomic via `.tmp` + `rename()`; request, folder, and settings writes are direct writes.
 - **Collection modes:** TUI opens collection roots in editable collection mode, request-containing uninitialized directories in read-only browse mode, and empty directories in read-only empty mode. Initialize through the command palette before editing or sending.
 - **Updates:** `src/app/commands/update.ts` reads the versioned `https://noodlerest.dev/update.json` manifest, caches validated checksums, and verifies the matching binary before replacement. Keep manifest schema, release workflow publishing, installation docs, and update tests synchronized when changing this flow.

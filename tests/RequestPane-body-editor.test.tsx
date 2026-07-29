@@ -69,7 +69,7 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("renders formatted JSON content in textarea", async () => {
+  it("formats stored JSON before body edit focus", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -77,9 +77,9 @@ describe("BodySection — edit mode", () => {
           <box width={80} height={20}>
             <RequestPane
               request={testRequest}
-              editState={editStateEditing}
+              editState={editStateBrowse}
               editKey=""
-              editValue={testRequest.body!}
+              editValue=""
               setEditKey={() => {}}
               setEditValue={() => {}}
               focused={true}
@@ -92,9 +92,8 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    // Textarea renders the formatted JSON from formatBody
-    expect(frame).toContain("name")
-    expect(frame).toContain("42")
+    expect(frame).toContain('"name": "hello"')
+    expect(frame).toContain('"count": 42')
     cleanup()
   })
 
@@ -197,17 +196,22 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("renders raw content when editing non-JSON body", async () => {
+  it("renders file path when editing a binary body", async () => {
     const { keymap, cleanup } = setupKeymap()
+    const binaryRequest: Request = {
+      ...testRequest,
+      bodyType: "binary",
+      filePath: "/tmp/payload.bin",
+    }
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <box width={80} height={20}>
             <RequestPane
-              request={testRequest}
+              request={binaryRequest}
               editState={editStateEditing}
               editKey=""
-              editValue="raw text content"
+              editValue="/tmp/payload.bin"
               setEditKey={() => {}}
               setEditValue={() => {}}
               focused={true}
@@ -220,7 +224,7 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("raw text content")
+    expect(frame).toContain("/tmp/payload.bin")
     cleanup()
   })
 
