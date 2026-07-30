@@ -79,6 +79,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "maxRedirects",
     "headers",
     "params",
+    "path_params",
     "body",
     "auth",
     "body_type",
@@ -110,6 +111,7 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   const headers = parseKvMap(raw.headers, "headers")
   const params = parseParams(raw.params, "params")
+  const pathParams = parseParams(raw.path_params, "path_params")
 
   let body: string | undefined
   if (raw.body !== undefined) {
@@ -204,7 +206,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     maxRedirects = raw.maxRedirects
   }
 
-  return {
+  const request: Omit<Request, "pathParams"> = {
     id,
     name: raw.name,
     method,
@@ -220,6 +222,10 @@ export function parseRequest(id: string, yamlText: string): Request {
     filePath,
     auth,
   }
+  if (Object.hasOwn(raw, "path_params") && pathParams.length > 0) {
+    return { ...request, pathParams }
+  }
+  return request as unknown as Request
 }
 
 export function parseKvMap(

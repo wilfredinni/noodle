@@ -232,6 +232,7 @@ export function requestEquals(a: Request, b: Request): boolean {
   if (a.filePath !== b.filePath) return false
   if (!recordsEqual(a.headers, b.headers)) return false
   if (!paramEntriesEqual(a.params, b.params)) return false
+  if (!paramEntriesEqual(a.pathParams ?? [], b.pathParams ?? [])) return false
   if (!authEqual(a.auth, b.auth)) return false
   const fa = a.formData ?? []
   const fb = b.formData ?? []

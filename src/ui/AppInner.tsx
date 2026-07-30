@@ -40,6 +40,7 @@ import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
 import { substitute } from "../requests"
 import type { SubstitutedRequest } from "../requests/substitute"
+import { interpolatePathParams } from "../requests/send"
 import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import type { FieldKind } from "./editMode"
@@ -360,6 +361,17 @@ export function AppInner({
     if (activeEnv) {
       try {
         substituted = substitute(req, activeEnv)
+        const pathParams = substituted.pathParams ?? []
+        if (pathParams.length > 0) {
+          try {
+            substituted = {
+              ...substituted,
+              url: interpolatePathParams(substituted.url, pathParams),
+            }
+          } catch {
+            // keep unresolved URL
+          }
+        }
       } catch {
         substituted = undefined
       }

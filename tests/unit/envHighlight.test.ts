@@ -1,6 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import { splitEnvVars } from "../../src/ui/variable-completion/envHighlight"
-import type { Environment } from "../../src/schema"
+import {
+  splitEnvVars,
+  splitUrlPathVars,
+} from "../../src/ui/variable-completion/envHighlight"
+import type { Environment, ParamEntry } from "../../src/schema"
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test-env", vars }
@@ -106,5 +109,99 @@ describe("splitEnvVars", () => {
   it("handles $ with digits", () => {
     const result = splitEnvVars("$port8080", env({ port8080: "8080" }))
     expect(result).toEqual([{ text: "$port8080", isVar: true, exists: true }])
+  })
+})
+
+describe("splitUrlPathVars", () => {
+  it("marks resolved path token with exists=true", () => {
+    const pathParams: ParamEntry[] = [
+      { name: "id", value: "42", enabled: true },
+    ]
+    const result = splitUrlPathVars(
+      "https://api.example.com/users/:id",
+      null,
+      pathParams,
+    )
+    expect(result).toEqual([
+      {
+        text: "https://api.example.com/users/",
+        isVar: false,
+        exists: false,
+        isPath: false,
+      },
+      { text: ":id", isVar: false, exists: true, isPath: true },
+    ])
+  })
+
+  it("marks missing path token with exists=false", () => {
+    const result = splitUrlPathVars(
+      "https://api.example.com/users/:id",
+      null,
+      [],
+    )
+    expect(result).toEqual([
+      {
+        text: "https://api.example.com/users/",
+        isVar: false,
+        exists: false,
+        isPath: false,
+      },
+      { text: ":id", isVar: false, exists: false, isPath: true },
+    ])
+  })
+
+  it("marks path token with empty value as unresolved", () => {
+    const pathParams: ParamEntry[] = [{ name: "id", value: "", enabled: true }]
+    const result = splitUrlPathVars("/:id", null, pathParams)
+    expect(result[1]!).toEqual({
+      text: ":id",
+      isVar: false,
+      exists: false,
+      isPath: true,
+    })
+  })
+
+  it("marks disabled path token as unresolved", () => {
+    const pathParams: ParamEntry[] = [
+      { name: "id", value: "42", enabled: false },
+    ]
+    const result = splitUrlPathVars("/:id", null, pathParams)
+    expect(result[1]!).toEqual({
+      text: ":id",
+      isVar: false,
+      exists: false,
+      isPath: true,
+    })
+  })
+
+  it("handles :name.json suffix", () => {
+    const pathParams: ParamEntry[] = [
+      { name: "id", value: "42", enabled: true },
+    ]
+    const result = splitUrlPathVars(
+      "https://api.example.com/users/:id.json",
+      env({}),
+      pathParams,
+    )
+    const pathSeg = result.find((s) => s.isPath)
+    expect(pathSeg).toBeDefined()
+    expect(pathSeg!.text).toBe(":id")
+    expect(pathSeg!.exists).toBe(true)
+  })
+
+  it("combines $var and :path tokens correctly", () => {
+    const pathParams: ParamEntry[] = [
+      { name: "id", value: "42", enabled: true },
+    ]
+    const result = splitUrlPathVars(
+      "$base/users/:id",
+      env({ base: "https://api.example.com" }),
+      pathParams,
+    )
+    expect(result).toEqual([
+      { text: "$base", isVar: true, exists: true, isPath: false },
+      { text: "/users/", isVar: false, exists: false, isPath: false },
+      { text: ":id", isVar: false, exists: true, isPath: true },
+    ])
   })
 })

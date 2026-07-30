@@ -3,6 +3,8 @@ import {
   buildDisplayUrl,
   parseUrlAndParams,
   syncParamsWithUrl,
+  parseUrlPathTokens,
+  syncPathParamsWithUrl,
 } from "../../src/ui/urlParams"
 import type { ParamEntry } from "../../src/schema"
 
@@ -252,5 +254,119 @@ describe("syncParamsWithUrl", () => {
       { name: "filter", value: "active", enabled: true },
       { name: "filter", value: "pending", enabled: false },
     ])
+  })
+})
+
+describe("parseUrlPathTokens", () => {
+  it("extracts :name tokens from pathname", () => {
+    expect(
+      parseUrlPathTokens("https://api.example.com/users/:id/posts/:postId"),
+    ).toEqual(["id", "postId"])
+  })
+
+  it("ignores query params with colon", () => {
+    expect(
+      parseUrlPathTokens("https://api.example.com/posts?filter=:active"),
+    ).toEqual([])
+  })
+
+  it("handles relative URLs", () => {
+    expect(parseUrlPathTokens("/users/:id")).toEqual(["id"])
+  })
+
+  it("extracts token from :name.json segment", () => {
+    expect(
+      parseUrlPathTokens("https://api.example.com/users/:id.json"),
+    ).toEqual(["id"])
+  })
+
+  it("returns empty array for URL without tokens", () => {
+    expect(parseUrlPathTokens("https://api.example.com/posts")).toEqual([])
+  })
+
+  it("handles port in URL", () => {
+    expect(
+      parseUrlPathTokens("https://api.example.com:8443/users/:id"),
+    ).toEqual(["id"])
+  })
+
+  it("returns sorted unique names", () => {
+    expect(parseUrlPathTokens("/:b/:a/:b")).toEqual(["a", "b"])
+  })
+})
+
+describe("syncPathParamsWithUrl", () => {
+  it("adds new path params from URL tokens", () => {
+    const result = syncPathParamsWithUrl(
+      [],
+      "https://api.example.com/users/:id",
+    )
+    expect(result).toEqual([{ name: "id", value: "", enabled: true }])
+  })
+
+  it("renames row when token name changes at same position", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:userId",
+    )
+    expect(result).toEqual([{ name: "userId", value: "42", enabled: true }])
+  })
+
+  it("handles partial type mid-rename preserving value", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:i",
+    )
+    expect(result).toEqual([{ name: "i", value: "42", enabled: true }])
+  })
+
+  it("appends new empty row for extra URL token", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:id/:sort",
+    )
+    expect(result).toEqual([
+      { name: "id", value: "42", enabled: true },
+      { name: "sort", value: "", enabled: true },
+    ])
+  })
+
+  it("removes extra rows when URL tokens shrink", () => {
+    const current: ParamEntry[] = [
+      { name: "id", value: "42", enabled: true },
+      { name: "sort", value: "asc", enabled: false },
+    ]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:id",
+    )
+    expect(result).toEqual([{ name: "id", value: "42", enabled: true }])
+  })
+
+  it("clears all when URL has no path tokens", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/posts",
+    )
+    expect(result).toEqual([])
+  })
+
+  it("handles empty URL", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "1", enabled: true }]
+    const result = syncPathParamsWithUrl(current, "")
+    expect(result).toEqual([])
+  })
+
+  it("preserves value and enabled state when name unchanged", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "99", enabled: false }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:id",
+    )
+    expect(result).toEqual([{ name: "id", value: "99", enabled: false }])
   })
 })

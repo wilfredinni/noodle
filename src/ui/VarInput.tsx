@@ -15,7 +15,7 @@ import {
 } from "@opentui/react"
 import { useTheme } from "./theme"
 import { VarText } from "./VarText"
-import type { Environment } from "../schema"
+import type { Environment, ParamEntry } from "../schema"
 import { highlightVariables } from "./variable-completion/variableHighlight"
 import { registerVariableCompletion } from "./variable-completion/variableCompletionInterceptor"
 import {
@@ -47,6 +47,7 @@ export interface VarInputProps {
   paddingX?: number
   style?: VarInputStyle
   variableNames?: Iterable<string>
+  pathParams?: ParamEntry[]
 }
 
 export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
@@ -65,6 +66,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       paddingX,
       style,
       variableNames,
+      pathParams,
     },
     ref,
   ) {
@@ -96,8 +98,9 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
     const applyHighlights = useCallback(() => {
       const editable = getEditable()
-      if (editable) highlightVariables(editable, editable.plainText, theme, env)
-    }, [env, getEditable, theme])
+      if (editable)
+        highlightVariables(editable, editable.plainText, theme, env, pathParams)
+    }, [env, getEditable, theme, pathParams])
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -140,7 +143,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             if (editable) {
               const text = editable.plainText
               onChange?.(text)
-              highlightVariables(editable, text, theme, env)
+              highlightVariables(editable, text, theme, env, pathParams)
             }
           },
         }),
@@ -152,6 +155,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         makeHandleKey,
         onChange,
         theme,
+        pathParams,
       ],
     )
 

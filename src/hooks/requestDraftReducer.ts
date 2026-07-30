@@ -1,6 +1,6 @@
 import type { BodyType, FormEntry, Request, Auth } from "../schema"
 import type { FieldKind } from "../ui/editMode"
-import { syncParamsWithUrl } from "../ui/urlParams"
+import { syncParamsWithUrl, syncPathParamsWithUrl } from "../ui/urlParams"
 import {
   replaceRow,
   addRow,
@@ -29,6 +29,10 @@ export type DraftOp =
   | { kind: "addParamRow"; key: string; value: string }
   | { kind: "removeParamRow"; index: number }
   | { kind: "toggleParamRow"; index: number }
+  | { kind: "setPathParamRow"; index: number; key: string; value: string }
+  | { kind: "addPathParamRow"; key: string; value: string }
+  | { kind: "removePathParamRow"; index: number }
+  | { kind: "togglePathParamRow"; index: number }
   | { kind: "syncUrlParams"; rawUrl: string }
   | { kind: "setTimeout"; timeout: number }
   | { kind: "setFollowRedirects"; followRedirects: boolean }
@@ -86,12 +90,17 @@ export function applyDraft(
       const synced = syncParamsWithUrl(current.params, op.url)
       draft.url = synced.baseUrl
       draft.params = synced.params
+      draft.pathParams = syncPathParamsWithUrl(current.pathParams ?? [], op.url)
       break
     }
     case "syncUrlParams": {
       const synced = syncParamsWithUrl(current.params, op.rawUrl)
       draft.url = synced.baseUrl
       draft.params = synced.params
+      draft.pathParams = syncPathParamsWithUrl(
+        current.pathParams ?? [],
+        op.rawUrl,
+      )
       break
     }
     case "setBody":
@@ -188,6 +197,20 @@ export function applyDraft(
     case "toggleParamRow":
       draft.params = toggleParam(current.params, op.index)
       break
+    case "setPathParamRow": {
+      const existing = current.pathParams ?? []
+      draft.pathParams = replaceParam(existing, op.index, op.key, op.value)
+      break
+    }
+    case "addPathParamRow":
+      draft.pathParams = addParam(current.pathParams ?? [], op.key, op.value)
+      break
+    case "removePathParamRow":
+      draft.pathParams = removeParam(current.pathParams ?? [], op.index)
+      break
+    case "togglePathParamRow":
+      draft.pathParams = toggleParam(current.pathParams ?? [], op.index)
+      break
     case "setTimeout":
       draft.timeout = op.timeout
       break
@@ -242,6 +265,12 @@ export function applyDraft(
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {
         draft.params = revertParam(current.params, original.params, op.row)
+      } else if (op.field === "pathParams" && op.row !== undefined) {
+        draft.pathParams = revertParam(
+          current.pathParams ?? [],
+          original.pathParams ?? [],
+          op.row,
+        )
       } else if (op.field === "auth") {
         if (op.row === undefined || op.row === 0) {
           draft.auth = original.auth

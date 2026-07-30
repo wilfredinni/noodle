@@ -40,6 +40,7 @@ interface Props {
 const BASE_TAB_DEFS: TabDef[] = [
   { id: "headers", label: "Headers" },
   { id: "params", label: "Params" },
+  { id: "pathParams", label: "Path" },
   { id: "body", label: "Body" },
   { id: "auth", label: "Auth" },
   { id: "settings", label: "Settings" },
@@ -84,8 +85,9 @@ export function RequestPane({
   useEffect(() => {
     if (editState.mode === "inactive") return
     const { field, row, addingRow } = editState.cursor
-    if (field === "headers" || field === "params") {
-      const prefix = field === "headers" ? "hdr" : "prm"
+    if (field === "headers" || field === "params" || field === "pathParams") {
+      const prefix =
+        field === "headers" ? "hdr" : field === "params" ? "prm" : "ppr"
       scrollRef.current?.scrollChildIntoView(
         addingRow ? `${prefix}-add` : `${prefix}-${row}`,
       )
@@ -219,6 +221,22 @@ export function RequestPane({
                     <KeyValueSection
                       kind="params"
                       entries={(request?.params ?? []).map((p) => ({
+                        key: p.name,
+                        value: { value: p.value, enabled: p.enabled },
+                      }))}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      theme={theme}
+                      activeEnv={activeEnv}
+                    />
+                  )}
+                  {activeTab === "pathParams" && (
+                    <KeyValueSection
+                      kind="pathParams"
+                      entries={(request?.pathParams ?? []).map((p) => ({
                         key: p.name,
                         value: { value: p.value, enabled: p.enabled },
                       }))}

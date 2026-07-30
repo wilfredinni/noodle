@@ -139,3 +139,41 @@ function normBaseUrl(origin: string, pathname: string): string {
   if (pathname === "/") return origin
   return origin + pathname
 }
+
+const PATH_TOKEN_RE = /^:(\w[\w-]*)/
+
+function extractPathname(url: string): string {
+  try {
+    return new URL(url).pathname
+  } catch {
+    const q = url.indexOf("?")
+    return q === -1 ? url : url.slice(0, q)
+  }
+}
+
+export function parseUrlPathTokens(url: string): string[] {
+  const pathname = extractPathname(url)
+  const seen = new Set<string>()
+  for (const seg of pathname.split("/")) {
+    const m = seg.match(PATH_TOKEN_RE)
+    if (m) seen.add(m[1]!)
+  }
+  return [...seen].sort()
+}
+
+export function syncPathParamsWithUrl(
+  currentPathParams: ParamEntry[],
+  rawUrl: string,
+): ParamEntry[] {
+  const tokens = parseUrlPathTokens(rawUrl)
+  const result: ParamEntry[] = []
+  for (let i = 0; i < tokens.length; i++) {
+    const old = currentPathParams[i]
+    if (old) {
+      result.push({ ...old, name: tokens[i]! })
+    } else {
+      result.push({ name: tokens[i]!, value: "", enabled: true })
+    }
+  }
+  return result
+}

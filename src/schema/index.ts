@@ -65,6 +65,7 @@ export interface Request {
   maxRedirects?: number
   headers: Record<string, KvEntry>
   params: ParamEntry[]
+  pathParams?: ParamEntry[]
   body?: string
   bodyType?: BodyType
   formData?: FormEntry[]
@@ -104,6 +105,7 @@ export interface TimelineEntry {
     url: string
     headers: Record<string, KvEntry>
     params: ParamEntry[]
+    pathParams?: ParamEntry[]
     body?: string
     bodyRef?: TimelineBodyRef
     bodyTruncated?: boolean

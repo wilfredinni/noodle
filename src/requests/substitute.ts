@@ -33,6 +33,15 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     }
   })
 
+  const pathParams: ParamEntry[] = (req.pathParams ?? []).map((entry, i) => {
+    if (!entry.enabled) return { ...entry }
+    return {
+      name: resolve(entry.name, `pathParams[${i}].name`),
+      value: resolve(entry.value, `pathParams[${i}].value`),
+      enabled: entry.enabled,
+    }
+  })
+
   const auth =
     req.auth === undefined ? undefined : substituteAuth(req.auth, resolve)
 
@@ -64,6 +73,7 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     maxRedirects: req.maxRedirects,
     headers,
     params,
+    pathParams,
     body: req.body !== undefined ? resolve(req.body, "body") : undefined,
     bodyType: req.bodyType,
     formData,
