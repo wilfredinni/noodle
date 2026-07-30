@@ -2,6 +2,7 @@ import type { CollectionItem, Folder } from "../../src/schema"
 import { describe, it, expect } from "bun:test"
 import { Collection as PmCollection } from "postman-collection"
 import { mapCollection, convertTpl } from "../../src/converters/postman/map"
+import { interpolatePathParams } from "../../src/requests/send"
 
 function reqs(result: ReturnType<typeof mapCollection>): unknown[] {
   function flatten(items: CollectionItem[]): unknown[] {
@@ -537,5 +538,148 @@ describe("mapCollection — edge cases", () => {
     const r = reqs(result)[0] as Record<string, unknown>
     expect(r.body).toBeUndefined()
     expect(r.bodyType).toBeUndefined()
+  })
+})
+
+describe("mapCollection — path params", () => {
+  it("extracts :id tokens from URL with url.variables", () => {
+    const result = makeCollection({
+      info: { name: "PathParams" },
+      item: [
+        {
+          name: "Get User",
+          request: {
+            method: "GET",
+            url: {
+              raw: "https://api.example.com/users/:id",
+              protocol: "https",
+              host: ["api", "example", "com"],
+              path: ["users", ":id"],
+              query: [],
+              variable: [{ key: "id", value: "{{userId}}" }],
+            },
+            header: [],
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.url).toBe("https://api.example.com/users/:id")
+    const pp = r.pathParams as
+      { name: string; value: string; enabled: boolean }[] | undefined
+    expect(pp).toBeDefined()
+    expect(pp).toHaveLength(1)
+    expect(pp![0]).toEqual({ name: "id", value: "$userId", enabled: true })
+  })
+
+  it("extracts multiple :id tokens", () => {
+    const result = makeCollection({
+      info: { name: "MultiPathParams" },
+      item: [
+        {
+          name: "Get Comment",
+          request: {
+            method: "GET",
+            url: {
+              raw: "https://api.example.com/posts/:postId/comments/:commentId",
+              protocol: "https",
+              host: ["api", "example", "com"],
+              path: ["posts", ":postId", "comments", ":commentId"],
+              query: [],
+              variable: [
+                { key: "postId", value: "42" },
+                { key: "commentId", value: "99" },
+              ],
+            },
+            header: [],
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    const pp = r.pathParams as
+      { name: string; value: string; enabled: boolean }[] | undefined
+    expect(pp).toBeDefined()
+    expect(pp).toHaveLength(2)
+    expect(pp![0]).toEqual({ name: "postId", value: "42", enabled: true })
+    expect(pp![1]).toEqual({ name: "commentId", value: "99", enabled: true })
+    expect(r.url).toBe(
+      "https://api.example.com/posts/:postId/comments/:commentId",
+    )
+    expect(interpolatePathParams(r.url as string, pp!)).toBe(
+      "https://api.example.com/posts/42/comments/99",
+    )
+  })
+
+  it("no pathParams when URL has no :id tokens", () => {
+    const result = makeCollection({
+      info: { name: "NoPathParams" },
+      item: [
+        {
+          name: "List Users",
+          request: {
+            method: "GET",
+            url: "https://api.example.com/users",
+            header: [],
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.pathParams).toBeUndefined()
+  })
+
+  it(":id without matching variable gets empty value", () => {
+    const result = makeCollection({
+      info: { name: "MissingVar" },
+      item: [
+        {
+          name: "Get Item",
+          request: {
+            method: "GET",
+            url: {
+              raw: "https://api.example.com/items/:id",
+              protocol: "https",
+              host: ["api", "example", "com"],
+              path: ["items", ":id"],
+              query: [],
+            },
+            header: [],
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    const pp = r.pathParams as
+      { name: string; value: string; enabled: boolean }[] | undefined
+    expect(pp).toBeDefined()
+    expect(pp).toHaveLength(1)
+    expect(pp![0]).toEqual({ name: "id", value: "", enabled: true })
+  })
+
+  it("preserves unsupported token names without creating a truncated path param", () => {
+    const result = makeCollection({
+      info: { name: "UnsupportedPathParam" },
+      item: [
+        {
+          name: "Get Order",
+          request: {
+            method: "GET",
+            url: {
+              raw: "https://api.example.com/orders/:order~id",
+              protocol: "https",
+              host: ["api", "example", "com"],
+              path: ["orders", ":order~id"],
+              query: [],
+              variable: [{ key: "order~id", value: "42" }],
+            },
+            header: [],
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.url).toBe("https://api.example.com/orders/:order~id")
+    expect(r.pathParams).toBeUndefined()
   })
 })

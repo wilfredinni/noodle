@@ -1,4 +1,5 @@
 import type { ParamEntry } from "../schema"
+import { parsePathToken } from "../requests/pathParams"
 
 export function buildDisplayUrl(url: string, params: ParamEntry[]): string {
   if (!url) return url
@@ -140,8 +141,6 @@ function normBaseUrl(origin: string, pathname: string): string {
   return origin + pathname
 }
 
-const PATH_TOKEN_RE = /^:(\w[\w-]*)/
-
 function extractPathname(url: string): string {
   try {
     return new URL(url).pathname
@@ -156,9 +155,8 @@ export function parseUrlPathTokens(url: string): string[] {
   const seen = new Set<string>()
   const result: string[] = []
   for (const seg of pathname.split("/")) {
-    const m = seg.match(PATH_TOKEN_RE)
-    if (m) {
-      const name = m[1]!
+    const name = parsePathToken(seg)
+    if (name !== null) {
       if (!seen.has(name)) {
         seen.add(name)
         result.push(name)

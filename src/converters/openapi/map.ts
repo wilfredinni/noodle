@@ -10,6 +10,10 @@ import type {
 } from "../../schema"
 import type { ImportResult } from "../index"
 import { slugify, METHOD_UPPER } from "../shared"
+import {
+  openApiPathTemplateToColon,
+  parseOpenApiPathTokens,
+} from "../../requests/pathParams"
 
 export { slugify, METHOD_UPPER }
 
@@ -240,6 +244,10 @@ export function urlTemplateToVar(s: string): string {
   return s.replace(/\{(\w+)\}/g, "$$$1")
 }
 
+export function pathTemplateToColon(s: string): string {
+  return openApiPathTemplateToColon(s)
+}
+
 export function baseUrl(n: Normalized): string {
   const servers = n.servers
   if (!Array.isArray(servers) || servers.length === 0) return "/"
@@ -302,7 +310,7 @@ export function mapCollection(n: Normalized): ImportResult {
       const op = opVal as Record<string, unknown>
 
       const method = METHOD_UPPER[methodKey]
-      const url = joinUrl(base, urlTemplateToVar(pathTemplate))
+      const url = joinUrl(base, pathTemplateToColon(pathTemplate))
       const reqName = makeName(op, methodKey, pathTemplate)
 
       const rawId = makeIdRaw(methodKey, pathTemplate)
@@ -313,14 +321,23 @@ export function mapCollection(n: Normalized): ImportResult {
       const collected = collectParams(pi.parameters, op.parameters)
       const headers: Record<string, KvEntry> = {}
       const params: ParamEntry[] = []
+      const pathParams: ParamEntry[] = []
+
+      const pathTokenSet = new Set(parseOpenApiPathTokens(pathTemplate))
+
       for (const p of collected) {
         const val = p.default ?? ""
         if (p.in === "query") {
           const idx = params.findIndex((e) => e.name === p.name)
           if (idx >= 0) params.splice(idx, 1)
           params.push({ name: p.name, value: val, enabled: true })
-        } else if (p.in === "header")
+        } else if (p.in === "header") {
           headers[p.name] = { value: val, enabled: true }
+        } else if (p.in === "path" && pathTokenSet.has(p.name)) {
+          const idx = pathParams.findIndex((e) => e.name === p.name)
+          if (idx >= 0) pathParams.splice(idx, 1)
+          pathParams.push({ name: p.name, value: val, enabled: true })
+        }
       }
 
       const rawTags = op.tags
@@ -339,6 +356,7 @@ export function mapCollection(n: Normalized): ImportResult {
         timeout: 0,
         headers,
         params,
+        pathParams: pathParams.length > 0 ? pathParams : undefined,
         ...collectBody(op),
         auth: resolveAuth(op, n),
       }
@@ -395,6 +413,12 @@ export function mapCollection(n: Normalized): ImportResult {
     for (const entry of r.params) {
       const m = entry.value.match(/\$(\w+)/)
       if (m) envVarsFound.add(m[1])
+    }
+    if (r.pathParams) {
+      for (const entry of r.pathParams) {
+        const mPath = entry.value.match(/\$(\w+)/g)
+        if (mPath) for (const v of mPath) envVarsFound.add(v.slice(1))
+      }
     }
     if (r.body) {
       const mBody = r.body.match(/\$(\w+)/g)

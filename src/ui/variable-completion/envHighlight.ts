@@ -1,7 +1,7 @@
 import type { Environment, ParamEntry } from "../../schema"
+import { URL_PATH_TOKEN_RE } from "../../requests/pathParams"
 
 const VAR_RE = /\$(\w+)/g
-const PATH_RE = /(?:^|\/):(\w[\w-]*)/g
 
 export interface EnvSegment {
   text: string
@@ -67,9 +67,9 @@ export function splitUrlPathVars(
     }
     const remaining = seg.text
     let lastEnd = 0
-    PATH_RE.lastIndex = 0
+    URL_PATH_TOKEN_RE.lastIndex = 0
     let match: RegExpExecArray | null
-    while ((match = PATH_RE.exec(remaining)) !== null) {
+    while ((match = URL_PATH_TOKEN_RE.exec(remaining)) !== null) {
       const colonIdx = match.index + (match[0]![0] === "/" ? 1 : 0)
       if (colonIdx > lastEnd) {
         result.push({

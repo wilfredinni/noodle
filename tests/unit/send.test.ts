@@ -171,6 +171,14 @@ describe("interpolatePathParams", () => {
     expect(result).toBe("https://api.example.com/users/42.json")
   })
 
+  it("does not partially replace unsupported token names", () => {
+    const result = interpolatePathParams(
+      "https://api.example.com/orders/:order~id",
+      [{ name: "order", value: "42", enabled: true }],
+    )
+    expect(result).toBe("https://api.example.com/orders/:order~id")
+  })
+
   it("handles relative URL", () => {
     const result = interpolatePathParams("/users/:id/posts", [
       { name: "id", value: "42", enabled: true },

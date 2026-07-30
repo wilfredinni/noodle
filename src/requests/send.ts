@@ -10,6 +10,7 @@ import type {
 import { substitute } from "./substitute"
 import type { SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
+import { PATH_TOKEN_RE } from "./pathParams"
 
 export function interpolatePathParams(
   url: string,
@@ -28,11 +29,10 @@ export function interpolatePathParams(
     entryByName.set(p.name, p)
   }
 
-  const TOKEN_RE = /^:(\w[\w-]*)/
   const segments = u.pathname.split("/")
   let hasTokens = false
   for (const seg of segments) {
-    if (TOKEN_RE.test(seg)) {
+    if (PATH_TOKEN_RE.test(seg)) {
       hasTokens = true
       break
     }
@@ -41,7 +41,7 @@ export function interpolatePathParams(
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]!
-    segments[i] = seg.replace(TOKEN_RE, (_, name: string) => {
+    segments[i] = seg.replace(PATH_TOKEN_RE, (_, name: string) => {
       const entry = entryByName.get(name)
       if (!entry) return `:${name}`
       if (!entry.enabled || entry.value === "") {

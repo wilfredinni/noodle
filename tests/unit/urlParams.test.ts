@@ -280,6 +280,12 @@ describe("parseUrlPathTokens", () => {
     ).toEqual(["id"])
   })
 
+  it("does not truncate unsupported token names", () => {
+    expect(
+      parseUrlPathTokens("https://api.example.com/orders/:order~id"),
+    ).toEqual([])
+  })
+
   it("returns empty array for URL without tokens", () => {
     expect(parseUrlPathTokens("https://api.example.com/posts")).toEqual([])
   })
