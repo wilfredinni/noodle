@@ -376,6 +376,15 @@ describe("syncPathParamsWithUrl", () => {
     expect(result).toEqual([{ name: "id", value: "99", enabled: true }])
   })
 
+  it("sets enabled true when renaming a path token", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "99", enabled: false }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:userId",
+    )
+    expect(result).toEqual([{ name: "userId", value: "99", enabled: true }])
+  })
+
   it("preserves values when new token inserted before existing one", () => {
     const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
     const result = syncPathParamsWithUrl(

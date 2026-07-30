@@ -85,6 +85,36 @@ describe("path parameter drafts", () => {
       { name: "post_id", value: "", enabled: true },
     ])
   })
+
+  it("reverts a reordered path parameter by name", () => {
+    const original = makeReq({
+      url: "https://example.com/:a/:b",
+      pathParams: [
+        { name: "a", value: "one", enabled: true },
+        { name: "b", value: "two", enabled: true },
+      ],
+    })
+    let next = applyDraft(new Map(), "r1", original, {
+      kind: "setUrl",
+      url: "https://example.com/:b/:a",
+    })
+    next = applyDraft(next, "r1", original, {
+      kind: "setPathParamRow",
+      index: 0,
+      key: "b",
+      value: "changed",
+    })
+    next = applyDraft(next, "r1", original, {
+      kind: "revertField",
+      field: "pathParams",
+      row: 0,
+    })
+
+    expect(next.get("r1")!.pathParams).toEqual([
+      { name: "b", value: "two", enabled: true },
+      { name: "a", value: "one", enabled: true },
+    ])
+  })
 })
 
 describe("requestEquals", () => {

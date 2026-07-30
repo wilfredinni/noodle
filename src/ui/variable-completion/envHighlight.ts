@@ -47,9 +47,12 @@ export interface PathAwareSegment {
   isPath: boolean
 }
 
-function pathEntryResolved(name: string, pathParams: ParamEntry[]): boolean {
+export function isPathParamResolved(
+  name: string,
+  pathParams: ParamEntry[],
+): boolean {
   const entry = pathParams.find((p) => p.name === name)
-  return entry !== undefined && entry.enabled && entry.value !== ""
+  return entry !== undefined && entry.value !== ""
 }
 
 export function splitUrlPathVars(
@@ -80,7 +83,7 @@ export function splitUrlPathVars(
         })
       }
       const name = match[1]!
-      const resolved = pathEntryResolved(name, pathParams)
+      const resolved = isPathParamResolved(name, pathParams)
       result.push({
         text: ":" + name,
         isVar: false,

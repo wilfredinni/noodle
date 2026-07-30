@@ -189,7 +189,7 @@ export function syncPathParamsWithUrl(
       if (renameIdx !== -1) {
         const [old] = unmatched.splice(renameIdx, 1)
         nameMap.delete(old!.name)
-        result.push({ ...old!, name: token })
+        result.push({ ...old!, name: token, enabled: true })
       } else {
         result.push({ name: token, value: "", enabled: true })
       }

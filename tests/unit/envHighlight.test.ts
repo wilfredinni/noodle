@@ -175,7 +175,7 @@ describe("splitUrlPathVars", () => {
     })
   })
 
-  it("marks disabled path token as unresolved", () => {
+  it("ignores unsupported disabled state on path tokens", () => {
     const pathParams: ParamEntry[] = [
       { name: "id", value: "42", enabled: false },
     ]
@@ -183,7 +183,7 @@ describe("splitUrlPathVars", () => {
     expect(result[1]!).toEqual({
       text: ":id",
       isVar: false,
-      exists: false,
+      exists: true,
       isPath: true,
     })
   })
@@ -236,6 +236,15 @@ describe("splitUrlPathVars", () => {
     )
     const pathSegs = result.filter((s) => s.isPath)
     expect(pathSegs).toHaveLength(0)
+  })
+
+  it("does not highlight tokens followed by unsupported characters", () => {
+    const result = splitUrlPathVars(
+      "https://api.example.com/users/:id~suffix",
+      null,
+      [{ name: "id", value: "42", enabled: true }],
+    )
+    expect(result.filter((segment) => segment.isPath)).toHaveLength(0)
   })
 
   it("does not highlight basic-auth separator as path token", () => {

@@ -269,11 +269,23 @@ export function applyDraft(
       } else if (op.field === "params" && op.row !== undefined) {
         draft.params = revertParam(current.params, original.params, op.row)
       } else if (op.field === "pathParams" && op.row !== undefined) {
-        draft.pathParams = revertParam(
+        const pathParams = syncPathParamsWithUrl(
           current.pathParams ?? [],
-          original.pathParams ?? [],
-          op.row,
+          current.url,
         )
+        const entry = pathParams[op.row]
+        if (entry) {
+          const originalEntry = (original.pathParams ?? []).find(
+            (param) => param.name === entry.name,
+          )
+          draft.pathParams = originalEntry
+            ? pathParams.map((param, i) =>
+                i === op.row
+                  ? { ...originalEntry, name: entry.name, enabled: true }
+                  : param,
+              )
+            : pathParams.filter((param) => param.name !== entry.name)
+        }
       } else if (op.field === "auth") {
         if (op.row === undefined || op.row === 0) {
           draft.auth = original.auth

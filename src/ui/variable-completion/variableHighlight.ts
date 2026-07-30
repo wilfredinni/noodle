@@ -3,6 +3,8 @@ import { SyntaxStyle } from "@opentui/core"
 import type { InputRenderable, TextareaRenderable } from "@opentui/core"
 import type { Theme } from "../theme-data"
 import { getVariableHighlights } from "./variableCompletion"
+import { URL_PATH_TOKEN_RE } from "../../requests/pathParams"
+import { isPathParamResolved } from "./envHighlight"
 import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
@@ -36,15 +38,11 @@ export function highlightVariables(
     })
   }
 
-  const pathEntryResolved = (name: string): boolean => {
-    if (!pathParams) return false
-    const entry = pathParams.find((p) => p.name === name)
-    return entry !== undefined && entry.enabled && entry.value !== ""
-  }
-
-  for (const m of value.matchAll(/(?:^|\/):(\w[\w-]*)/g)) {
+  URL_PATH_TOKEN_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = URL_PATH_TOKEN_RE.exec(value)) !== null) {
     const name = m[1]!
-    const resolved = pathEntryResolved(name)
+    const resolved = isPathParamResolved(name, pathParams ?? [])
     const colonIdx = m.index + (m[0][0] === "/" ? 1 : 0)
     input.addHighlightByCharRange({
       start: charOffsetToDisplayOffset(displayOffsets, colonIdx),
