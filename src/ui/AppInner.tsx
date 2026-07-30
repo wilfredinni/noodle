@@ -375,6 +375,33 @@ export function AppInner({
       } catch {
         substituted = undefined
       }
+    } else {
+      const rawPathParams = req.pathParams ?? []
+      if (rawPathParams.length > 0) {
+        try {
+          const headers: Record<string, string> = {}
+          for (const [k, v] of Object.entries(req.headers)) {
+            if (v.enabled) headers[k] = v.value
+          }
+          substituted = {
+            id: req.id,
+            name: req.name,
+            method: req.method,
+            url: interpolatePathParams(req.url, rawPathParams),
+            timeout: req.timeout,
+            headers,
+            params: [...req.params],
+            pathParams: rawPathParams.map((p) => ({ ...p })),
+            body: req.body,
+            bodyType: req.bodyType,
+            formData: req.formData,
+            filePath: req.filePath,
+            auth: req.auth,
+          }
+        } catch {
+          // keep undefined — timeline stores template URL
+        }
+      }
     }
     timelineAppendRef.current(
       buildTimelineEntry(req, result, envNameRef.current, substituted),

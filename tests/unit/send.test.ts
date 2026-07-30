@@ -1,6 +1,6 @@
 import { describe, it, expect, mock } from "bun:test"
 import type { Request } from "../../src/schema"
-import { send } from "../../src/requests/send"
+import { send, interpolatePathParams } from "../../src/requests/send"
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -133,5 +133,100 @@ describe("send — param deduplication", () => {
     } finally {
       globalThis.fetch = orig
     }
+  })
+})
+
+describe("interpolatePathParams", () => {
+  it("replaces :token with value in absolute URL", () => {
+    const result = interpolatePathParams("https://api.example.com/users/:id", [
+      { name: "id", value: "42", enabled: true },
+    ])
+    expect(result).toBe("https://api.example.com/users/42")
+  })
+
+  it("replaces multiple tokens", () => {
+    const result = interpolatePathParams(
+      "https://api.example.com/users/:userId/posts/:postId",
+      [
+        { name: "userId", value: "alice", enabled: true },
+        { name: "postId", value: "99", enabled: true },
+      ],
+    )
+    expect(result).toBe("https://api.example.com/users/alice/posts/99")
+  })
+
+  it("encodes special characters in value", () => {
+    const result = interpolatePathParams(
+      "https://api.example.com/users/:name",
+      [{ name: "name", value: "alice/bob", enabled: true }],
+    )
+    expect(result).toBe("https://api.example.com/users/alice%2Fbob")
+  })
+
+  it("preserves suffix like .json after token", () => {
+    const result = interpolatePathParams(
+      "https://api.example.com/users/:id.json",
+      [{ name: "id", value: "42", enabled: true }],
+    )
+    expect(result).toBe("https://api.example.com/users/42.json")
+  })
+
+  it("handles relative URL", () => {
+    const result = interpolatePathParams("/users/:id/posts", [
+      { name: "id", value: "42", enabled: true },
+    ])
+    expect(result).toBe("/users/42/posts")
+  })
+
+  it("throws on empty value", () => {
+    expect(() =>
+      interpolatePathParams("https://api.example.com/users/:id", [
+        { name: "id", value: "", enabled: true },
+      ]),
+    ).toThrow('path parameter ":id" has no value')
+  })
+
+  it("throws on disabled entry", () => {
+    expect(() =>
+      interpolatePathParams("https://api.example.com/users/:id", [
+        { name: "id", value: "42", enabled: false },
+      ]),
+    ).toThrow('path parameter ":id" has no value')
+  })
+
+  it("throws on missing entry", () => {
+    expect(() =>
+      interpolatePathParams("https://api.example.com/users/:id", []),
+    ).toThrow('path parameter ":id" has no value')
+  })
+
+  it("returns url unchanged when no path tokens exist", () => {
+    const result = interpolatePathParams("https://api.example.com/users", [
+      { name: "id", value: "42", enabled: true },
+    ])
+    expect(result).toBe("https://api.example.com/users")
+  })
+
+  it("returns url unchanged on malformed URL", () => {
+    const result = interpolatePathParams("not a valid url", [
+      { name: "id", value: "42", enabled: true },
+    ])
+    expect(result).toBe("not a valid url")
+  })
+
+  it("preserves query string after token interpolation", () => {
+    const result = interpolatePathParams(
+      "https://api.example.com/users/:id?verbose=true",
+      [{ name: "id", value: "42", enabled: true }],
+    )
+    expect(result).toBe("https://api.example.com/users/42?verbose=true")
+  })
+
+  it("preserves port in URL", () => {
+    const result = interpolatePathParams(
+      "https://api.example.com:8443/users/:id",
+      [{ name: "id", value: "42", enabled: true }],
+    )
+    expect(result).toBe("https://api.example.com:8443/users/42")
   })
 })

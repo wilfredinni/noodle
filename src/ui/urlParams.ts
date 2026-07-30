@@ -154,11 +154,18 @@ function extractPathname(url: string): string {
 export function parseUrlPathTokens(url: string): string[] {
   const pathname = extractPathname(url)
   const seen = new Set<string>()
+  const result: string[] = []
   for (const seg of pathname.split("/")) {
     const m = seg.match(PATH_TOKEN_RE)
-    if (m) seen.add(m[1]!)
+    if (m) {
+      const name = m[1]!
+      if (!seen.has(name)) {
+        seen.add(name)
+        result.push(name)
+      }
+    }
   }
-  return [...seen].sort()
+  return result
 }
 
 export function syncPathParamsWithUrl(
@@ -166,14 +173,30 @@ export function syncPathParamsWithUrl(
   rawUrl: string,
 ): ParamEntry[] {
   const tokens = parseUrlPathTokens(rawUrl)
+  const nameMap = new Map(currentPathParams.map((p) => [p.name, p]))
+  const unmatched = [...currentPathParams]
   const result: ParamEntry[] = []
-  for (let i = 0; i < tokens.length; i++) {
-    const old = currentPathParams[i]
-    if (old) {
-      result.push({ ...old, name: tokens[i]! })
+
+  const tokenSet = new Set(tokens)
+
+  for (const token of tokens) {
+    const existing = nameMap.get(token)
+    if (existing) {
+      nameMap.delete(token)
+      result.push({ ...existing, name: token, enabled: true })
+      const idx = unmatched.indexOf(existing)
+      if (idx !== -1) unmatched.splice(idx, 1)
     } else {
-      result.push({ name: tokens[i]!, value: "", enabled: true })
+      const renameIdx = unmatched.findIndex((p) => !tokenSet.has(p.name))
+      if (renameIdx !== -1) {
+        const [old] = unmatched.splice(renameIdx, 1)
+        nameMap.delete(old!.name)
+        result.push({ ...old!, name: token })
+      } else {
+        result.push({ name: token, value: "", enabled: true })
+      }
     }
   }
+
   return result
 }

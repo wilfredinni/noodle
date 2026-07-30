@@ -42,11 +42,12 @@ export function highlightVariables(
     return entry !== undefined && entry.enabled && entry.value !== ""
   }
 
-  for (const m of value.matchAll(/:(\w[\w-]*)/g)) {
+  for (const m of value.matchAll(/(?:^|\/):(\w[\w-]*)/g)) {
     const name = m[1]!
     const resolved = pathEntryResolved(name)
+    const colonIdx = m.index + (m[0][0] === "/" ? 1 : 0)
     input.addHighlightByCharRange({
-      start: charOffsetToDisplayOffset(displayOffsets, m.index),
+      start: charOffsetToDisplayOffset(displayOffsets, colonIdx),
       end: charOffsetToDisplayOffset(displayOffsets, m.index + m[0].length),
       styleId: style.getStyleId(resolved ? "path.resolved" : "path.missing")!,
       priority: 2,

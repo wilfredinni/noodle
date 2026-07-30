@@ -679,7 +679,8 @@ export function useEditBrowse(
     if (field === "settings") {
       draftMutators.revertField(field)
     } else if (field === "pathParams") {
-      return
+      if (addingRow) return
+      draftMutators.revertField(field, row)
     } else if (field === "headers" || field === "params") {
       if (addingRow) return
       if (field === "headers") draftMutators.removeHeaderRow(row)

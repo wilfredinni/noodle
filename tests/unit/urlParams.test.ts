@@ -290,8 +290,8 @@ describe("parseUrlPathTokens", () => {
     ).toEqual(["id"])
   })
 
-  it("returns sorted unique names", () => {
-    expect(parseUrlPathTokens("/:b/:a/:b")).toEqual(["a", "b"])
+  it("returns unique names in URL order", () => {
+    expect(parseUrlPathTokens("/:b/:a/:b")).toEqual(["b", "a"])
   })
 })
 
@@ -361,12 +361,60 @@ describe("syncPathParamsWithUrl", () => {
     expect(result).toEqual([])
   })
 
-  it("preserves value and enabled state when name unchanged", () => {
+  it("preserves value when name unchanged, sets enabled true", () => {
     const current: ParamEntry[] = [{ name: "id", value: "99", enabled: false }]
     const result = syncPathParamsWithUrl(
       current,
       "https://api.example.com/users/:id",
     )
-    expect(result).toEqual([{ name: "id", value: "99", enabled: false }])
+    expect(result).toEqual([{ name: "id", value: "99", enabled: true }])
+  })
+
+  it("preserves values when new token inserted before existing one", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/:org/users/:id",
+    )
+    expect(result).toEqual([
+      { name: "org", value: "", enabled: true },
+      { name: "id", value: "42", enabled: true },
+    ])
+  })
+
+  it("preserves values when new token inserted after existing one", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:id/:version",
+    )
+    expect(result).toEqual([
+      { name: "id", value: "42", enabled: true },
+      { name: "version", value: "", enabled: true },
+    ])
+  })
+
+  it("matches by name when order changes", () => {
+    const current: ParamEntry[] = [
+      { name: "postId", value: "10", enabled: true },
+      { name: "userId", value: "alice", enabled: true },
+    ]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:userId/posts/:postId",
+    )
+    expect(result).toEqual([
+      { name: "userId", value: "alice", enabled: true },
+      { name: "postId", value: "10", enabled: true },
+    ])
+  })
+
+  it("detects rename when old name disappears and no positional match remains", () => {
+    const current: ParamEntry[] = [{ name: "id", value: "42", enabled: true }]
+    const result = syncPathParamsWithUrl(
+      current,
+      "https://api.example.com/users/:userId",
+    )
+    expect(result).toEqual([{ name: "userId", value: "42", enabled: true }])
   })
 })

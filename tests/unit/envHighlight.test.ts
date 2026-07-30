@@ -204,4 +204,33 @@ describe("splitUrlPathVars", () => {
       { text: ":id", isVar: false, exists: true, isPath: true },
     ])
   })
+
+  it("does not highlight port numbers as path tokens", () => {
+    const result = splitUrlPathVars("https://localhost:3000/users/:id", null, [
+      { name: "id", value: "42", enabled: true },
+    ])
+    const pathSegs = result.filter((s) => s.isPath)
+    expect(pathSegs).toHaveLength(1)
+    expect(pathSegs[0]!.text).toBe(":id")
+  })
+
+  it("does not highlight query-string colons as path tokens", () => {
+    const result = splitUrlPathVars(
+      "https://api.example.com/posts?filter=:active",
+      null,
+      [],
+    )
+    const pathSegs = result.filter((s) => s.isPath)
+    expect(pathSegs).toHaveLength(0)
+  })
+
+  it("does not highlight basic-auth separator as path token", () => {
+    const result = splitUrlPathVars(
+      "https://user:pass@api.example.com/v1",
+      null,
+      [],
+    )
+    const pathSegs = result.filter((s) => s.isPath)
+    expect(pathSegs).toHaveLength(0)
+  })
 })

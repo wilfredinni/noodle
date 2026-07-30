@@ -15,8 +15,6 @@ export function interpolatePathParams(
   url: string,
   pathParams: ParamEntry[],
 ): string {
-  if (pathParams.length === 0) return url
-
   let u: URL
   const isAbsolute = url.includes("://")
   try {
@@ -25,17 +23,28 @@ export function interpolatePathParams(
     return url
   }
 
+  const entryByName = new Map<string, ParamEntry>()
+  for (const p of pathParams) {
+    entryByName.set(p.name, p)
+  }
+
+  const TOKEN_RE = /^:(\w[\w-]*)/
   const segments = u.pathname.split("/")
-  const enabled = pathParams.filter((p) => p.enabled)
-  const entryByName = new Map(enabled.map((p) => [p.name, p]))
+  let hasTokens = false
+  for (const seg of segments) {
+    if (TOKEN_RE.test(seg)) {
+      hasTokens = true
+      break
+    }
+  }
+  if (!hasTokens) return url
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]!
-    segments[i] = seg.replace(/^:(\w[\w-]*)/, (_, name: string) => {
+    segments[i] = seg.replace(TOKEN_RE, (_, name: string) => {
       const entry = entryByName.get(name)
-      if (!entry) return _
-      if (entry.value === "") {
-        throw new Error(`requests.send: path parameter "${name}" has no value`)
+      if (!entry || !entry.enabled || entry.value === "") {
+        throw new Error(`requests.send: path parameter ":${name}" has no value`)
       }
       return encodeURIComponent(entry.value)
     })
