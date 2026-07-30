@@ -427,6 +427,42 @@ describe("RequestPane scrollbox", () => {
     // No primary background on active row (uses backgroundElement instead)
     expect(authSpan!.bg.equals(RGBA.fromInts(250, 178, 131))).toBe(false)
   })
+
+  it("renders missing URL path tokens as empty path rows", async () => {
+    const request: Request = {
+      id: "test",
+      name: "Test",
+      method: "GET",
+      url: "https://example.com/posts/:post_id?key=val1",
+      headers: {},
+      params: [],
+      body: "",
+      timeout: 0,
+    }
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <RequestPane
+            request={request}
+            editState={initialEditState()}
+            editKey=""
+            editValue=""
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            focused={true}
+            activeTab="pathParams"
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("post_id")
+  })
 })
 
 describe("Sidebar scrollbox", () => {

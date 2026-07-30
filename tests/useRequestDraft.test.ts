@@ -54,6 +54,34 @@ describe("parseRow", () => {
   })
 })
 
+describe("path parameter drafts", () => {
+  it("creates an entry when a virtual URL token receives a value", () => {
+    const original = makeReq({ url: "https://example.com/posts/:post_id" })
+    const next = applyDraft(new Map(), "r1", original, {
+      kind: "setPathParamRow",
+      index: 0,
+      key: "post_id",
+      value: "42",
+    })
+
+    expect(next.get("r1")!.pathParams).toEqual([
+      { name: "post_id", value: "42", enabled: true },
+    ])
+  })
+
+  it("does not persist an empty virtual URL token", () => {
+    const original = makeReq({ url: "https://example.com/posts/:post_id" })
+    const next = applyDraft(new Map(), "r1", original, {
+      kind: "setPathParamRow",
+      index: 0,
+      key: "post_id",
+      value: "",
+    })
+
+    expect(next.get("r1")!.pathParams).toEqual([])
+  })
+})
+
 describe("requestEquals", () => {
   it("equal requests → true", () => {
     const a = makeReq()

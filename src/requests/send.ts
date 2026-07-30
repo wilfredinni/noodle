@@ -43,7 +43,8 @@ export function interpolatePathParams(
     const seg = segments[i]!
     segments[i] = seg.replace(TOKEN_RE, (_, name: string) => {
       const entry = entryByName.get(name)
-      if (!entry || !entry.enabled || entry.value === "") {
+      if (!entry) return `:${name}`
+      if (!entry.enabled || entry.value === "") {
         throw new Error(`requests.send: path parameter ":${name}" has no value`)
       }
       return encodeURIComponent(entry.value)

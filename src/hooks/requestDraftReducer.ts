@@ -198,8 +198,16 @@ export function applyDraft(
       draft.params = toggleParam(current.params, op.index)
       break
     case "setPathParamRow": {
-      const existing = current.pathParams ?? []
-      draft.pathParams = replaceParam(existing, op.index, op.key, op.value)
+      const pathParams = syncPathParamsWithUrl(
+        current.pathParams ?? [],
+        current.url,
+      )
+      draft.pathParams = replaceParam(
+        pathParams,
+        op.index,
+        op.key,
+        op.value,
+      ).filter((entry) => entry.value !== "")
       break
     }
     case "addPathParamRow":

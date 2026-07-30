@@ -17,6 +17,7 @@ import { Frame } from "./Frame"
 import { Badge } from "./Badge"
 import { BodyTypeSelector, BodySection } from "./request-pane/RequestBodyTab"
 import { SettingsSection } from "./request-pane/RequestSettingsTab"
+import { syncPathParamsWithUrl } from "./urlParams"
 
 interface Props {
   request: Request | null
@@ -236,7 +237,10 @@ export function RequestPane({
                   {activeTab === "pathParams" && (
                     <KeyValueSection
                       kind="pathParams"
-                      entries={(request?.pathParams ?? []).map((p) => ({
+                      entries={syncPathParamsWithUrl(
+                        request?.pathParams ?? [],
+                        request?.url ?? "",
+                      ).map((p) => ({
                         key: p.name,
                         value: { value: p.value, enabled: p.enabled },
                       }))}

@@ -194,10 +194,10 @@ describe("interpolatePathParams", () => {
     ).toThrow('path parameter ":id" has no value')
   })
 
-  it("throws on missing entry", () => {
-    expect(() =>
-      interpolatePathParams("https://api.example.com/users/:id", []),
-    ).toThrow('path parameter ":id" has no value')
+  it("preserves token when entry is missing", () => {
+    expect(interpolatePathParams("https://api.example.com/users/:id", [])).toBe(
+      "https://api.example.com/users/:id",
+    )
   })
 
   it("returns url unchanged when no path tokens exist", () => {

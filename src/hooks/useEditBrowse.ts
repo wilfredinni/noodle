@@ -20,6 +20,7 @@ import {
 } from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { formatBody } from "../ui/formatRequest"
+import { syncPathParamsWithUrl } from "../ui/urlParams"
 
 function rowCount(req: Request | null): SectionRowCount {
   if (!req)
@@ -47,7 +48,7 @@ function rowCount(req: Request | null): SectionRowCount {
   return {
     headers: Object.keys(req.headers).length,
     params: req.params.length,
-    pathParams: (req.pathParams ?? []).length,
+    pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
     auth: authRows,
     settings: 3,
@@ -120,7 +121,7 @@ function currentValueFor(
   }
   if (field === "pathParams") {
     if (addingRow) return ""
-    const entry = (draft.pathParams ?? [])[row]
+    const entry = syncPathParamsWithUrl(draft.pathParams ?? [], draft.url)[row]
     return entry ? `${entry.name}: ${entry.value}` : ""
   }
   return ""
@@ -151,7 +152,7 @@ function currentKeyValueFor(
   }
   if (field === "pathParams") {
     if (addingRow) return { key: "", value: "" }
-    const entry = (draft.pathParams ?? [])[row]
+    const entry = syncPathParamsWithUrl(draft.pathParams ?? [], draft.url)[row]
     return entry
       ? { key: entry.name, value: entry.value }
       : { key: "", value: "" }

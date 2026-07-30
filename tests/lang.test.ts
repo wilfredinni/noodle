@@ -418,6 +418,11 @@ describe("lang.serializeRequest — canonical output", () => {
     )
   })
 
+  it("omits empty path params", () => {
+    const out = lang.serializeRequest(makeReq({ pathParams: [] }))
+    expect(out).not.toContain("path_params:")
+  })
+
   it("emits headers when non-empty, omits empty params/body/auth", () => {
     const out = lang.serializeRequest(
       makeReq({
