@@ -10,5 +10,5 @@ params:
     enabled: false
 path_params:
   - name: post_id
-    value: '3'
+    value: '1'
 body_type: none

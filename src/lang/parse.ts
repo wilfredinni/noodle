@@ -111,7 +111,7 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   const headers = parseKvMap(raw.headers, "headers")
   const params = parseParams(raw.params, "params")
-  const pathParams = parseParams(raw.path_params, "path_params")
+  const pathParams = parsePathParams(raw.path_params)
 
   let body: string | undefined
   if (raw.body !== undefined) {
@@ -300,6 +300,40 @@ function parseParams(
     return out
   }
   throw new Error(`${prefix}: ${field} must be a map or array`)
+}
+
+function parsePathParams(value: unknown): ParamEntry[] {
+  if (value !== undefined) {
+    if (Array.isArray(value)) {
+      for (const [i, item] of value.entries()) {
+        if (
+          typeof item === "object" &&
+          item !== null &&
+          !Array.isArray(item) &&
+          Object.hasOwn(item, "enabled")
+        ) {
+          throw new Error(
+            `lang.parseRequest: path_params[${i}].enabled is not supported`,
+          )
+        }
+      }
+    } else if (typeof value === "object" && value !== null) {
+      for (const [name, item] of Object.entries(value)) {
+        if (
+          typeof item === "object" &&
+          item !== null &&
+          !Array.isArray(item) &&
+          Object.hasOwn(item, "enabled")
+        ) {
+          throw new Error(
+            `lang.parseRequest: path_params.${name}.enabled is not supported`,
+          )
+        }
+      }
+    }
+  }
+
+  return parseParams(value, "path_params")
 }
 
 function parseAuth(value: unknown): Auth {

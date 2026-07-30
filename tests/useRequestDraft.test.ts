@@ -69,8 +69,11 @@ describe("path parameter drafts", () => {
     ])
   })
 
-  it("does not persist an empty virtual URL token", () => {
-    const original = makeReq({ url: "https://example.com/posts/:post_id" })
+  it("keeps a cleared path value so send rejects it", () => {
+    const original = makeReq({
+      url: "https://example.com/posts/:post_id",
+      pathParams: [{ name: "post_id", value: "42", enabled: true }],
+    })
     const next = applyDraft(new Map(), "r1", original, {
       kind: "setPathParamRow",
       index: 0,
@@ -78,7 +81,9 @@ describe("path parameter drafts", () => {
       value: "",
     })
 
-    expect(next.get("r1")!.pathParams).toEqual([])
+    expect(next.get("r1")!.pathParams).toEqual([
+      { name: "post_id", value: "", enabled: true },
+    ])
   })
 })
 

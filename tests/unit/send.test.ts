@@ -194,18 +194,18 @@ describe("interpolatePathParams", () => {
     ).toThrow('path parameter ":id" has no value')
   })
 
-  it("throws on disabled entry", () => {
-    expect(() =>
+  it("ignores unsupported disabled state", () => {
+    expect(
       interpolatePathParams("https://api.example.com/users/:id", [
         { name: "id", value: "42", enabled: false },
       ]),
-    ).toThrow('path parameter ":id" has no value')
+    ).toBe("https://api.example.com/users/42")
   })
 
-  it("preserves token when entry is missing", () => {
-    expect(interpolatePathParams("https://api.example.com/users/:id", [])).toBe(
-      "https://api.example.com/users/:id",
-    )
+  it("throws when entry is missing", () => {
+    expect(() =>
+      interpolatePathParams("https://api.example.com/users/:id", []),
+    ).toThrow('path parameter ":id" has no value')
   })
 
   it("returns url unchanged when no path tokens exist", () => {
@@ -236,5 +236,51 @@ describe("interpolatePathParams", () => {
       [{ name: "id", value: "42", enabled: true }],
     )
     expect(result).toBe("https://api.example.com:8443/users/42")
+  })
+})
+
+describe("send — required path parameters", () => {
+  it("does not fetch for an empty value, with or without an environment", async () => {
+    let calls = 0
+    const orig = globalThis.fetch
+    globalThis.fetch = mock(async () => {
+      calls++
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    const req = makeReq({
+      url: "https://api.example.com/users/:id",
+      pathParams: [{ name: "id", value: "", enabled: true }],
+    })
+
+    try {
+      await expect(send(req)).rejects.toThrow(
+        'path parameter ":id" has no value',
+      )
+      await expect(send(req, { name: "test", vars: {} })).rejects.toThrow(
+        'path parameter ":id" has no value',
+      )
+      expect(calls).toBe(0)
+    } finally {
+      globalThis.fetch = orig
+    }
+  })
+
+  it("does not fetch for a missing path parameter row", async () => {
+    let calls = 0
+    const orig = globalThis.fetch
+    globalThis.fetch = mock(async () => {
+      calls++
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await expect(
+        send(makeReq({ url: "https://api.example.com/users/:id" })),
+      ).rejects.toThrow('path parameter ":id" has no value')
+      expect(calls).toBe(0)
+    } finally {
+      globalThis.fetch = orig
+    }
   })
 })

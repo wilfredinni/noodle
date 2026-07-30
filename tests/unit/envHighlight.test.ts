@@ -150,6 +150,20 @@ describe("splitUrlPathVars", () => {
     ])
   })
 
+  it("marks a missing token after a resolved URL variable as unresolved", () => {
+    const result = splitUrlPathVars(
+      "$base_url/posts/:post_id",
+      env({ base_url: "https://api.example.com" }),
+      [],
+    )
+    expect(result.find((segment) => segment.isPath)).toEqual({
+      text: ":post_id",
+      isVar: false,
+      exists: false,
+      isPath: true,
+    })
+  })
+
   it("marks path token with empty value as unresolved", () => {
     const pathParams: ParamEntry[] = [{ name: "id", value: "", enabled: true }]
     const result = splitUrlPathVars("/:id", null, pathParams)

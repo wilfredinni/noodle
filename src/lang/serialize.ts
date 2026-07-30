@@ -51,11 +51,7 @@ export function serializeRequest(req: Request): string {
     for (const entry of req.pathParams) {
       const nameVal = yamlVal(entry.name, 4)
       const valVal = yamlVal(entry.value, 4)
-      if (entry.enabled) {
-        out += `  - name: ${nameVal}\n    value: ${valVal}\n`
-      } else {
-        out += `  - name: ${nameVal}\n    value: ${valVal}\n    enabled: ${entry.enabled}\n`
-      }
+      out += `  - name: ${nameVal}\n    value: ${valVal}\n`
     }
   }
 

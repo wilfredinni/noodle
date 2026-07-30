@@ -43,8 +43,7 @@ export function interpolatePathParams(
     const seg = segments[i]!
     segments[i] = seg.replace(PATH_TOKEN_RE, (_, name: string) => {
       const entry = entryByName.get(name)
-      if (!entry) return `:${name}`
-      if (!entry.enabled || entry.value === "") {
+      if (!entry || entry.value === "") {
         throw new Error(`requests.send: path parameter ":${name}" has no value`)
       }
       return encodeURIComponent(entry.value)
@@ -81,7 +80,7 @@ export async function send(
       : (substituted as SubstitutedRequest).params
   const pathParams: ParamEntry[] =
     substituted === merged
-      ? (merged.pathParams ?? []).filter((e) => e.enabled)
+      ? (merged.pathParams ?? [])
       : ((substituted as SubstitutedRequest).pathParams ?? [])
 
   const urlWithPath = interpolatePathParams(substituted.url, pathParams)

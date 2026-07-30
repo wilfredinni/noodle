@@ -202,12 +202,7 @@ export function applyDraft(
         current.pathParams ?? [],
         current.url,
       )
-      draft.pathParams = replaceParam(
-        pathParams,
-        op.index,
-        op.key,
-        op.value,
-      ).filter((entry) => entry.value !== "")
+      draft.pathParams = replaceParam(pathParams, op.index, op.key, op.value)
       break
     }
     case "addPathParamRow":

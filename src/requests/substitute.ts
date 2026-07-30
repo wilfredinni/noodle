@@ -34,11 +34,10 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
   })
 
   const pathParams: ParamEntry[] = (req.pathParams ?? []).map((entry, i) => {
-    if (!entry.enabled) return { ...entry }
     return {
       name: resolve(entry.name, `pathParams[${i}].name`),
       value: resolve(entry.value, `pathParams[${i}].value`),
-      enabled: entry.enabled,
+      enabled: true,
     }
   })
 
