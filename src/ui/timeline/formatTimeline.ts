@@ -34,6 +34,9 @@ export function buildTimelineEntry(
       params: substituted
         ? substituted.params.map((p) => ({ ...p }))
         : [...req.params],
+      pathParams: substituted
+        ? (substituted.pathParams ?? []).map((p) => ({ ...p }))
+        : [...(req.pathParams ?? [])],
       body: substituted?.body ?? req.body,
       auth: substituted?.auth ?? (req.auth ? { ...req.auth } : undefined),
     },

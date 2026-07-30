@@ -27,6 +27,10 @@ export interface UseRequestDraftResult {
   addParamRow: (key: string, value: string) => void
   removeParamRow: (index: number) => void
   toggleParamRow: (index: number) => void
+  setPathParamRow: (index: number, key: string, value: string) => void
+  addPathParamRow: (key: string, value: string) => void
+  removePathParamRow: (index: number) => void
+  togglePathParamRow: (index: number) => void
   setTimeout: (t: number) => void
   setFollowRedirects: (b: boolean) => void
   setMaxRedirects: (n: number) => void
@@ -140,6 +144,24 @@ export function useRequestDraft(
   )
   const toggleParamRow = useCallback(
     (index: number) => apply({ kind: "toggleParamRow", index }),
+    [apply],
+  )
+  const setPathParamRow = useCallback(
+    (index: number, key: string, value: string) =>
+      apply({ kind: "setPathParamRow", index, key, value }),
+    [apply],
+  )
+  const addPathParamRow = useCallback(
+    (key: string, value: string) =>
+      apply({ kind: "addPathParamRow", key, value }),
+    [apply],
+  )
+  const removePathParamRow = useCallback(
+    (index: number) => apply({ kind: "removePathParamRow", index }),
+    [apply],
+  )
+  const togglePathParamRow = useCallback(
+    (index: number) => apply({ kind: "togglePathParamRow", index }),
     [apply],
   )
   const setAuthTypeCb = useCallback(
@@ -258,6 +280,10 @@ export function useRequestDraft(
       addParamRow,
       removeParamRow,
       toggleParamRow,
+      setPathParamRow,
+      addPathParamRow,
+      removePathParamRow,
+      togglePathParamRow,
       revertField,
       revertAll,
       revertAllRequests,
@@ -292,6 +318,10 @@ export function useRequestDraft(
       addParamRow,
       removeParamRow,
       toggleParamRow,
+      setPathParamRow,
+      addPathParamRow,
+      removePathParamRow,
+      togglePathParamRow,
       revertField,
       revertAll,
       revertAllRequests,

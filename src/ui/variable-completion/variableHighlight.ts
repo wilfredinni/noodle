@@ -1,8 +1,10 @@
+import type { Environment, ParamEntry } from "../../schema"
 import { SyntaxStyle } from "@opentui/core"
 import type { InputRenderable, TextareaRenderable } from "@opentui/core"
-import type { Environment } from "../../schema"
 import type { Theme } from "../theme-data"
 import { getVariableHighlights } from "./variableCompletion"
+import { URL_PATH_TOKEN_RE } from "../../requests/pathParams"
+import { isPathParamResolved } from "./envHighlight"
 import {
   buildCharToDisplayOffsets,
   charOffsetToDisplayOffset,
@@ -13,10 +15,13 @@ export function highlightVariables(
   value: string,
   theme: Theme,
   env: Environment | null,
+  pathParams?: ParamEntry[],
 ): void {
   const style = SyntaxStyle.fromStyles({
     "env.resolved": { fg: theme.primary },
     "env.missing": { fg: theme.error },
+    "path.resolved": { fg: theme.primary },
+    "path.missing": { fg: theme.error },
   })
   input.clearAllHighlights()
   input.syntaxStyle = style
@@ -29,6 +34,20 @@ export function highlightVariables(
       styleId: style.getStyleId(
         highlight.exists ? "env.resolved" : "env.missing",
       )!,
+      priority: 2,
+    })
+  }
+
+  URL_PATH_TOKEN_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = URL_PATH_TOKEN_RE.exec(value)) !== null) {
+    const name = m[1]!
+    const resolved = isPathParamResolved(name, pathParams ?? [])
+    const colonIdx = m.index + (m[0][0] === "/" ? 1 : 0)
+    input.addHighlightByCharRange({
+      start: charOffsetToDisplayOffset(displayOffsets, colonIdx),
+      end: charOffsetToDisplayOffset(displayOffsets, m.index + m[0].length),
+      styleId: style.getStyleId(resolved ? "path.resolved" : "path.missing")!,
       priority: 2,
     })
   }

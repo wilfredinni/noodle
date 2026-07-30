@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import type { Method, ParamEntry, Environment } from "../schema"
 import { buildDisplayUrl } from "./urlParams"
 import { VarInput } from "./VarInput"
-import { VarText } from "./VarText"
 import { Select } from "./Select"
 import { METHOD_ITEMS } from "./methodItems"
 import type { UrlBarSubFocus } from "./focus"
 import { JumpBadge, JUMP_BADGE_TOP_LEFT } from "./JumpBadge"
+import { splitUrlPathVars } from "./variable-completion/envHighlight"
 
 export function UrlBar({
   method,
   url,
   params,
+  pathParams: pathParamsProp,
   setUrl,
   setMethod = () => {},
   onDefocus,
@@ -26,6 +27,7 @@ export function UrlBar({
   method: Method
   url: string
   params: ParamEntry[]
+  pathParams?: ParamEntry[]
   setUrl: (url: string) => void
   setMethod?: (method: Method) => void
   onDefocus: (rawUrl: string) => void
@@ -36,6 +38,7 @@ export function UrlBar({
   jumpMode?: boolean
 }) {
   const theme = useTheme()
+  const pathParams = pathParamsProp ?? []
   const [inputValue, setInputValue] = useState(url)
   const [methodSelectOpen, setMethodSelectOpen] = useState(false)
   const prevFocused = useRef(focused)
@@ -70,17 +73,16 @@ export function UrlBar({
     }
   }, [url, params, focused])
 
+  const displayUrl = buildDisplayUrl(url, params)
+
   const handleInput = useCallback(
     (val: string) => {
       setInputValue(val)
       inputValueRef.current = val
-      if (val === initDisplayRef.current) return
       setUrl(val)
     },
     [setUrl],
   )
-
-  const displayUrl = buildDisplayUrl(url, params)
 
   return (
     <box
@@ -132,24 +134,60 @@ export function UrlBar({
                 focusedBackgroundColor={theme.borderSubtle}
                 paddingX={1}
                 style={{ flexGrow: 1, flexShrink: 1 }}
+                pathParams={pathParams}
               />
             ) : (
-              <box
-                style={{
-                  backgroundColor:
-                    focused && subFocus === "text"
-                      ? theme.borderSubtle
-                      : theme.backgroundElement,
-                  flexGrow: 1,
-                  overflow: "hidden",
-                }}
-              >
-                <VarText text={` ${displayUrl}`} env={activeEnv ?? null} />
-              </box>
+              <UrlBarText
+                text={` ${displayUrl}`}
+                env={activeEnv ?? null}
+                pathParams={pathParams}
+              />
             )}
           </box>
         </box>
       )}
+    </box>
+  )
+}
+
+function UrlBarText({
+  text,
+  env,
+  pathParams,
+}: {
+  text: string
+  env: Environment | null
+  pathParams: ParamEntry[]
+}) {
+  const theme = useTheme()
+  const segments = useMemo(
+    () => splitUrlPathVars(text, env, pathParams),
+    [text, env, pathParams],
+  )
+
+  return (
+    <box
+      style={{
+        flexDirection: "row",
+        gap: 0,
+        flexShrink: 1,
+        minWidth: 0,
+        overflow: "hidden",
+      }}
+    >
+      {segments.map((seg, i) => {
+        let color = theme.text
+        if (seg.isVar) {
+          color = seg.exists ? theme.primary : theme.error
+        } else if (seg.isPath) {
+          color = seg.exists ? theme.primary : theme.error
+        }
+        return (
+          <text key={i} fg={color} wrapMode="none" style={{ flexShrink: 0 }}>
+            {seg.text}
+          </text>
+        )
+      })}
     </box>
   )
 }

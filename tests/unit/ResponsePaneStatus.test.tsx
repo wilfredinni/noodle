@@ -258,10 +258,12 @@ describe("ResponsePane status text truncation and layout tests", () => {
       }
       expectBadge("h")
       expectBadge("p")
-      expectBadge("b")
-      expectBadge("a")
-      if (layout !== "side-by-side" || width > 80) expectBadge("t")
-      else expect(lines.some((line) => line.includes(" t "))).toBe(false)
+      expectBadge("x")
+      if (layout !== "side-by-side" || width > 80) {
+        expectBadge("b")
+        expectBadge("a")
+        expectBadge("t")
+      }
       expectBadge("r")
       expectBadge("e")
       expectBadge("l")
@@ -277,6 +279,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
       if (layout === "stacked") {
         expectBadgeAtTabStart("h", "Headers")
         expectBadgeAtTabStart("p", "Params")
+        expectBadgeAtTabStart("x", "Path")
         expectBadgeAtTabStart("b", "Body")
         expectBadgeAtTabStart("a", "Auth")
         expectBadgeAtTabStart("t", "Settings")
@@ -391,13 +394,14 @@ describe("getAvailableTargets", () => {
     expect(targets.has("u")).toBe(true)
     expect(targets.has("h")).toBe(true)
     expect(targets.has("p")).toBe(true)
+    expect(targets.has("x")).toBe(true)
     expect(targets.has("b")).toBe(true)
     expect(targets.has("a")).toBe(true)
     expect(targets.has("t")).toBe(true)
     expect(targets.has("r")).toBe(true)
     expect(targets.has("e")).toBe(true)
     expect(targets.has("l")).toBe(true)
-    expect(targets.size).toBe(11)
+    expect(targets.size).toBe(12)
   })
 
   it("excludes response targets when expanded=request", () => {
@@ -428,7 +432,14 @@ describe("getAvailableTargets", () => {
 describe("computeRequestTabLabels", () => {
   it("returns base labels when request is null", () => {
     const labels = computeRequestTabLabels(null)
-    expect(labels).toEqual(["Headers", "Params", "Body", "Auth", "Settings"])
+    expect(labels).toEqual([
+      "Headers",
+      "Params",
+      "Path",
+      "Body",
+      "Auth",
+      "Settings",
+    ])
   })
 
   it("appends bullet when headers have enabled entries", () => {
@@ -453,7 +464,7 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "bearer" },
       timeout: 0,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[3]).toBe("Auth \u2022")
+    expect(labels[4]).toBe("Auth \u2022")
   })
 
   it("appends bullet when body is set", () => {
@@ -466,7 +477,7 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "none" },
       timeout: 0,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[2]).toBe("Body \u2022")
+    expect(labels[3]).toBe("Body \u2022")
   })
 
   it("appends bullet when timeout > 0", () => {
@@ -478,6 +489,6 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "none" },
       timeout: 5000,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[4]).toBe("Settings \u2022")
+    expect(labels[5]).toBe("Settings \u2022")
   })
 })

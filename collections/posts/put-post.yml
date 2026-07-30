@@ -1,11 +1,14 @@
 name: Replace Post
 method: PUT
-url: $base_url/posts/$post_id
+url: $base_url/posts/:post_id
 timeout: 0
 followRedirects: true
 maxRedirects: 5
 headers:
   Content-Type: application/json
+path_params:
+  - name: post_id
+    value: '1'
 body: |
   {
     "id": 1,

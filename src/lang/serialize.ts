@@ -46,6 +46,15 @@ export function serializeRequest(req: Request): string {
     }
   }
 
+  if (req.pathParams && req.pathParams.length > 0) {
+    out += "path_params:\n"
+    for (const entry of req.pathParams) {
+      const nameVal = yamlVal(entry.name, 4)
+      const valVal = yamlVal(entry.value, 4)
+      out += `  - name: ${nameVal}\n    value: ${valVal}\n`
+    }
+  }
+
   if (req.body !== undefined) {
     out += `body: ${yamlVal(req.body)}\n`
   }

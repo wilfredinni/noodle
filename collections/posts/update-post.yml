@@ -1,10 +1,13 @@
 name: Update Post
 method: PATCH
-url: $base_url/posts/1
+url: $base_url/posts/:post_id
 timeout: 0
 followRedirects: true
 maxRedirects: 5
 headers:
   Content-Type: application/json
+path_params:
+  - name: post_id
+    value: '1'
 body: '{"title":"updated title"}'
 body_type: json

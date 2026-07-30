@@ -116,6 +116,7 @@ export function getAvailableTargets(
       targets.set("u", { kind: "url" })
       targets.set("h", { kind: "request-tab", field: "headers" })
       targets.set("p", { kind: "request-tab", field: "params" })
+      targets.set("x", { kind: "request-tab", field: "pathParams" })
       targets.set("b", { kind: "request-tab", field: "body" })
       targets.set("a", { kind: "request-tab", field: "auth" })
       targets.set("t", { kind: "request-tab", field: "settings" })
@@ -132,6 +133,7 @@ export function getAvailableTargets(
 export const REQUEST_TAB_HINTS: Record<string, string> = {
   headers: "h",
   params: "p",
+  pathParams: "x",
   body: "b",
   auth: "a",
   settings: "t",
@@ -143,13 +145,14 @@ export const RESPONSE_TAB_HINTS: Record<string, string> = {
   timeline: "l",
 }
 
-export const REQUEST_TAB_HINT_ORDER: string[] = ["h", "p", "b", "a", "t"]
+export const REQUEST_TAB_HINT_ORDER: string[] = ["h", "p", "x", "b", "a", "t"]
 export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "l"]
 
 export function computeRequestTabLabels(request: Request | null): string[] {
-  if (!request) return ["Headers", "Params", "Body", "Auth", "Settings"]
+  if (!request) return ["Headers", "Params", "Path", "Body", "Auth", "Settings"]
   const headerActive = Object.values(request.headers).some((e) => e.enabled)
   const paramActive = request.params.some((e) => e.enabled)
+  const pathParamActive = (request.pathParams ?? []).some((e) => e.enabled)
   const hasBody =
     (request.body !== undefined && request.body !== "") ||
     (request.formData !== undefined && request.formData.length > 0) ||
@@ -160,6 +163,7 @@ export function computeRequestTabLabels(request: Request | null): string[] {
   return [
     headerActive ? "Headers \u2022" : "Headers",
     paramActive ? "Params \u2022" : "Params",
+    pathParamActive ? "Path \u2022" : "Path",
     hasBody ? "Body \u2022" : "Body",
     hasAuth ? "Auth \u2022" : "Auth",
     hasTimeout ? "Settings \u2022" : "Settings",

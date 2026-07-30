@@ -1,4 +1,5 @@
 import type { ParamEntry } from "../schema"
+import { parsePathToken } from "../requests/pathParams"
 
 export function buildDisplayUrl(url: string, params: ParamEntry[]): string {
   if (!url) return url
@@ -138,4 +139,62 @@ export function syncParamsWithUrl(
 function normBaseUrl(origin: string, pathname: string): string {
   if (pathname === "/") return origin
   return origin + pathname
+}
+
+function extractPathname(url: string): string {
+  try {
+    return new URL(url).pathname
+  } catch {
+    const q = url.indexOf("?")
+    return q === -1 ? url : url.slice(0, q)
+  }
+}
+
+export function parseUrlPathTokens(url: string): string[] {
+  const pathname = extractPathname(url)
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const seg of pathname.split("/")) {
+    const name = parsePathToken(seg)
+    if (name !== null) {
+      if (!seen.has(name)) {
+        seen.add(name)
+        result.push(name)
+      }
+    }
+  }
+  return result
+}
+
+export function syncPathParamsWithUrl(
+  currentPathParams: ParamEntry[],
+  rawUrl: string,
+): ParamEntry[] {
+  const tokens = parseUrlPathTokens(rawUrl)
+  const nameMap = new Map(currentPathParams.map((p) => [p.name, p]))
+  const unmatched = [...currentPathParams]
+  const result: ParamEntry[] = []
+
+  const tokenSet = new Set(tokens)
+
+  for (const token of tokens) {
+    const existing = nameMap.get(token)
+    if (existing) {
+      nameMap.delete(token)
+      result.push({ ...existing, name: token, enabled: true })
+      const idx = unmatched.indexOf(existing)
+      if (idx !== -1) unmatched.splice(idx, 1)
+    } else {
+      const renameIdx = unmatched.findIndex((p) => !tokenSet.has(p.name))
+      if (renameIdx !== -1) {
+        const [old] = unmatched.splice(renameIdx, 1)
+        nameMap.delete(old!.name)
+        result.push({ ...old!, name: token, enabled: true })
+      } else {
+        result.push({ name: token, value: "", enabled: true })
+      }
+    }
+  }
+
+  return result
 }

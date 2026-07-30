@@ -16,6 +16,7 @@ export {
   convertTpl,
   slugify,
   urlTemplateToVar,
+  pathTemplateToColon,
   baseUrl,
   joinUrl,
   paramDefault,

@@ -10,6 +10,51 @@ import type {
 import { substitute } from "./substitute"
 import type { SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
+import { PATH_TOKEN_RE } from "./pathParams"
+
+export function interpolatePathParams(
+  url: string,
+  pathParams: ParamEntry[],
+): string {
+  let u: URL
+  const isAbsolute = url.includes("://")
+  try {
+    u = isAbsolute ? new URL(url) : new URL(url, "https://noodle")
+  } catch {
+    return url
+  }
+
+  const entryByName = new Map<string, ParamEntry>()
+  for (const p of pathParams) {
+    entryByName.set(p.name, p)
+  }
+
+  const segments = u.pathname.split("/")
+  let hasTokens = false
+  for (const seg of segments) {
+    if (PATH_TOKEN_RE.test(seg)) {
+      hasTokens = true
+      break
+    }
+  }
+  if (!hasTokens) return url
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]!
+    segments[i] = seg.replace(PATH_TOKEN_RE, (_, name: string) => {
+      const entry = entryByName.get(name)
+      if (!entry || entry.value === "") {
+        throw new Error(`requests.send: path parameter ":${name}" has no value`)
+      }
+      return encodeURIComponent(entry.value)
+    })
+  }
+
+  u.pathname = segments.join("/")
+
+  if (isAbsolute) return u.toString()
+  return u.pathname + u.search
+}
 
 export async function send(
   req: Request,
@@ -33,10 +78,16 @@ export async function send(
     substituted === merged
       ? merged.params.filter((e) => e.enabled)
       : (substituted as SubstitutedRequest).params
+  const pathParams: ParamEntry[] =
+    substituted === merged
+      ? (merged.pathParams ?? [])
+      : ((substituted as SubstitutedRequest).pathParams ?? [])
+
+  const urlWithPath = interpolatePathParams(substituted.url, pathParams)
 
   let finalUrl: string
   try {
-    const u = new URL(substituted.url)
+    const u = new URL(urlWithPath)
     const paramKeys = new Set(params.map((e) => e.name))
     for (const key of paramKeys) {
       u.searchParams.delete(key)

@@ -20,9 +20,18 @@ import {
 } from "../ui/editMode"
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { formatBody } from "../ui/formatRequest"
+import { syncPathParamsWithUrl } from "../ui/urlParams"
 
 function rowCount(req: Request | null): SectionRowCount {
-  if (!req) return { headers: 0, params: 0, body: 0, auth: 1, settings: 3 }
+  if (!req)
+    return {
+      headers: 0,
+      params: 0,
+      pathParams: 0,
+      body: 0,
+      auth: 1,
+      settings: 3,
+    }
   let authRows = 1 // type selector row always present
   const a = req.auth
   if (a) {
@@ -39,6 +48,7 @@ function rowCount(req: Request | null): SectionRowCount {
   return {
     headers: Object.keys(req.headers).length,
     params: req.params.length,
+    pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
     auth: authRows,
     settings: 3,
@@ -109,6 +119,11 @@ function currentValueFor(
     const entry = draft.params[row]
     return entry ? `${entry.name}: ${entry.value}` : ""
   }
+  if (field === "pathParams") {
+    if (addingRow) return ""
+    const entry = syncPathParamsWithUrl(draft.pathParams ?? [], draft.url)[row]
+    return entry ? `${entry.name}: ${entry.value}` : ""
+  }
   return ""
 }
 
@@ -131,6 +146,13 @@ function currentKeyValueFor(
   if (field === "params") {
     if (addingRow) return { key: "", value: "" }
     const entry = draft.params[row]
+    return entry
+      ? { key: entry.name, value: entry.value }
+      : { key: "", value: "" }
+  }
+  if (field === "pathParams") {
+    if (addingRow) return { key: "", value: "" }
+    const entry = syncPathParamsWithUrl(draft.pathParams ?? [], draft.url)[row]
     return entry
       ? { key: entry.name, value: entry.value }
       : { key: "", value: "" }
@@ -334,7 +356,11 @@ export function useEditBrowse(
         const init = currentValueFor(currentDraft, field, row, addingRow)
         setEditValue(init)
       }
-    } else if (field === "headers" || field === "params") {
+    } else if (
+      field === "headers" ||
+      field === "params" ||
+      field === "pathParams"
+    ) {
       const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
       setEditKey(kv.key)
       setEditValue(kv.value)
@@ -510,7 +536,11 @@ export function useEditBrowse(
         const init = currentValueFor(currentDraft, field, row, addingRow)
         setEditValue(init)
       }
-    } else if (field === "headers" || field === "params") {
+    } else if (
+      field === "headers" ||
+      field === "params" ||
+      field === "pathParams"
+    ) {
       const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
       setEditKey(kv.key)
       setEditValue(kv.value)
@@ -587,6 +617,11 @@ export function useEditBrowse(
           Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5,
         )
       }
+    } else if (field === "pathParams") {
+      const key = editKeyRef.current.trim()
+      const value = editValueRef.current.trim()
+      if (key === "" || addingRow) return
+      draftMutators.setPathParamRow(state.cursor.row, key, value)
     } else if (field === "headers" || field === "params") {
       const key = editKeyRef.current.trim()
       const value = editValueRef.current.trim()
@@ -644,10 +679,13 @@ export function useEditBrowse(
     }
     if (field === "settings") {
       draftMutators.revertField(field)
+    } else if (field === "pathParams") {
+      if (addingRow) return
+      draftMutators.revertField(field, row)
     } else if (field === "headers" || field === "params") {
       if (addingRow) return
       if (field === "headers") draftMutators.removeHeaderRow(row)
-      else draftMutators.removeParamRow(row)
+      else if (field === "params") draftMutators.removeParamRow(row)
     }
   }, [draftMutators])
 
@@ -668,6 +706,7 @@ export function useEditBrowse(
       }
       return
     }
+    if (field === "pathParams") return
     if (field === "headers") draftMutators.toggleHeaderRow(row)
     else if (field === "params") draftMutators.toggleParamRow(row)
     else if (field === "settings" && row === 1) {

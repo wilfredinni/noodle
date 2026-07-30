@@ -1,7 +1,10 @@
 name: Get Post by ID
 method: GET
-url: $base_url/posts/$post_id
+url: $base_url/posts/:id
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+path_params:
+  - name: id
+    value: '1'
 body_type: none

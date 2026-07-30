@@ -193,6 +193,13 @@ describe("lang.parseRequest — KvEntry parsing", () => {
     ])
   })
 
+  it("rejects enabled flags on path params", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com/users/:id\npath_params:\n  - name: id\n    value: "42"\n    enabled: false\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      "lang.parseRequest: path_params[0].enabled is not supported",
+    )
+  })
+
   it("throws on header value object missing 'value'", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nheaders:\n  X: { enabled: false }\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
@@ -418,6 +425,11 @@ describe("lang.serializeRequest — canonical output", () => {
     )
   })
 
+  it("omits empty path params", () => {
+    const out = lang.serializeRequest(makeReq({ pathParams: [] }))
+    expect(out).not.toContain("path_params:")
+  })
+
   it("emits headers when non-empty, omits empty params/body/auth", () => {
     const out = lang.serializeRequest(
       makeReq({
@@ -545,6 +557,18 @@ describe("lang.serializeRequest — disabled entries", () => {
     )
     expect(out).toContain("- name: verbose\n    value: 'true'\n")
     expect(out).toContain("- name: debug\n    value: '1'\n    enabled: false")
+  })
+
+  it("never serializes an enabled flag for path params", () => {
+    const out = lang.serializeRequest(
+      makeReq({
+        pathParams: [{ name: "id", value: "42", enabled: false }],
+      }),
+    )
+    expect(out).toContain("path_params:\n  - name: id\n    value: '42'")
+    expect(out).not.toContain(
+      "path_params:\n  - name: id\n    value: '42'\n    enabled",
+    )
   })
 })
 

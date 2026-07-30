@@ -105,6 +105,7 @@ export function RequestResponseView({
         method={draft.draft?.method ?? "GET"}
         url={draft.draft?.url ?? ""}
         params={draft.draft?.params ?? []}
+        pathParams={draft.draft?.pathParams ?? []}
         setUrl={draft.setUrl}
         setMethod={draft.setMethod}
         onDefocus={draft.syncUrlParams}

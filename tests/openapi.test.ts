@@ -251,7 +251,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(reqs(c)[0].url).toBe("$base_url/users/$id")
+    expect(reqs(c)[0].url).toBe("$base_url/users/:id")
   })
 
   it("builds a path-only url when servers is missing", () => {
@@ -263,7 +263,7 @@ describe("mapCollection — operations & methods", () => {
         },
       }),
     )
-    expect(reqs(c)[0].url).toBe("/users/$id")
+    expect(reqs(c)[0].url).toBe("/users/:id")
   })
 
   it("initializes headers, params as empty and body as undefined and auth as none", () => {
@@ -642,7 +642,7 @@ describe("mapCollection — parameters", () => {
     expect(reqs(c)[0].params).toEqual([])
   })
 
-  it("does not duplicate path params (in:path is a no-op; already in url)", () => {
+  it("does not duplicate path params (in:path becomes pathParams, already in url)", () => {
     const c = mapCollection(
       makeNormalized({
         servers: [],
@@ -661,7 +661,11 @@ describe("mapCollection — parameters", () => {
     )
     expect(reqs(c)[0].params).toEqual([])
     expect(reqs(c)[0].headers).toEqual({})
-    expect(reqs(c)[0].url).toBe("/users/$id/items/$itemId")
+    expect(reqs(c)[0].url).toBe("/users/:id/items/:itemId")
+    expect(reqs(c)[0].pathParams).toEqual([
+      { name: "id", value: "", enabled: true },
+      { name: "itemId", value: "", enabled: true },
+    ])
   })
 
   it("skips a param with missing name", () => {
@@ -846,6 +850,139 @@ describe("mapCollection — parameters", () => {
     )
     expect(reqs(c)[0].params.map((p) => p.name)).toEqual(["dup"])
   })
+
+  it("maps in:path params to pathParams with example values", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [],
+        paths: {
+          "/users/{userId}/posts/{postId}": {
+            get: {
+              operationId: "getPost",
+              parameters: [
+                { name: "userId", in: "path", example: "42" },
+                {
+                  name: "postId",
+                  in: "path",
+                  schema: { default: "99" },
+                },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].pathParams).toEqual([
+      { name: "userId", value: "42", enabled: true },
+      { name: "postId", value: "99", enabled: true },
+    ])
+  })
+
+  it("maps in:path params to pathParams with empty defaults", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [],
+        paths: {
+          "/users/{id}": {
+            get: {
+              operationId: "getUser",
+              parameters: [{ name: "id", in: "path" }],
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].pathParams).toEqual([
+      { name: "id", value: "", enabled: true },
+    ])
+  })
+
+  it("maps hyphenated in:path params to pathParams", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [],
+        paths: {
+          "/users/{user-id}": {
+            get: {
+              operationId: "getUser",
+              parameters: [{ name: "user-id", in: "path", example: "42" }],
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].url).toBe("/users/:user-id")
+    expect(reqs(c)[0].pathParams).toEqual([
+      { name: "user-id", value: "42", enabled: true },
+    ])
+  })
+
+  it("ignores in:path params that don't match a URL token", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [],
+        paths: {
+          "/users/{id}": {
+            get: {
+              operationId: "getUser",
+              parameters: [
+                { name: "id", in: "path" },
+                { name: "unused", in: "path" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].pathParams).toEqual([
+      { name: "id", value: "", enabled: true },
+    ])
+  })
+
+  it("op-level path params override path-item path params", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [],
+        paths: {
+          "/users/{id}": {
+            parameters: [{ name: "id", in: "path", example: "old" }],
+            get: {
+              operationId: "getUser",
+              parameters: [
+                { name: "id", in: "path", example: "new" },
+                { name: "extra", in: "path" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0].pathParams).toEqual([
+      { name: "id", value: "new", enabled: true },
+    ])
+  })
+
+  it("scans all pathParams values for $var env variables", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [{ url: "https://{host}" }],
+        paths: {
+          "/users/{id}": {
+            get: {
+              operationId: "getUser",
+              parameters: [
+                { name: "id", in: "path", example: "{{org}}-{{repo}}" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    const env = c.environments.find((e) => e.name === "default")
+    expect(env).toBeDefined()
+    expect(env?.vars.org).toBe("")
+    expect(env?.vars.repo).toBe("")
+  })
 })
 
 describe("mapCollection — end-to-end integration", () => {
@@ -903,7 +1040,10 @@ describe("mapCollection — end-to-end integration", () => {
     expect(getPet.id).toBe("get-pets-petid")
     expect(getPet.name).toBe("getPet")
     expect(getPet.method).toBe("GET")
-    expect(getPet.url).toBe("https://$host/v1/pets/$petId")
+    expect(getPet.url).toBe("https://$host/v1/pets/:petId")
+    expect(getPet.pathParams).toEqual([
+      { name: "petId", value: "", enabled: true },
+    ])
     expect(getPet.params).toEqual([
       { name: "verbose", value: "", enabled: true },
     ])

@@ -5,7 +5,7 @@ import { Checkbox } from "./Checkbox"
 import { VarInput } from "./VarInput"
 
 export interface KeyValueSectionProps {
-  kind: "headers" | "params"
+  kind: "headers" | "params" | "pathParams"
   entries: Array<{ key: string; value: KvEntry }>
   editState: EditState
   editKey: string
@@ -30,6 +30,7 @@ export function KeyValueSection({
   const rows = entries
 
   const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
+  const prefix = kind === "headers" ? "hdr" : kind === "params" ? "prm" : "ppr"
   const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
   const stripeR = Math.round(
     (((panelNum >> 16) & 0xff) + ((elemNum >> 16) & 0xff)) / 2,
@@ -50,9 +51,18 @@ export function KeyValueSection({
 
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
-      {rows.length === 0 && editState.mode === "inactive" ? (
+      {rows.length === 0 && kind === "pathParams" ? (
+        <VarInput
+          value="URL has no :path tokens"
+          placeholder=""
+          env={null}
+          isEditing={false}
+          baseColor={theme.textMuted}
+          paddingX={1}
+        />
+      ) : rows.length === 0 && editState.mode === "inactive" ? (
         <box
-          id={`${kind === "headers" ? "hdr" : "prm"}-add`}
+          id={`${prefix}-add`}
           style={{
             flexDirection: "row",
             gap: 0,
@@ -102,19 +112,23 @@ export function KeyValueSection({
             return (
               <box
                 key={i}
-                id={`${kind === "headers" ? "hdr" : "prm"}-${i}`}
+                id={`${prefix}-${i}`}
                 style={{
                   flexDirection: "row",
                   gap: 0,
                   backgroundColor: rowBg,
                 }}
               >
-                <Checkbox checked={kv.enabled} theme={theme} />
+                {kind !== "pathParams" ? (
+                  <Checkbox checked={kv.enabled} theme={theme} />
+                ) : (
+                  <box style={{ width: 3 }} />
+                )}
                 <VarInput
                   value={isEditingThisRow ? editKey : entry.key}
                   placeholder="Key..."
                   env={activeEnv ?? null}
-                  isEditing={isEditingThisRow}
+                  isEditing={kind !== "pathParams" && isEditingThisRow}
                   onChange={setEditKey}
                   isFocused={editState.cursor.subfield === "key"}
                   baseColor={keyBaseColor}
@@ -143,65 +157,67 @@ export function KeyValueSection({
               </box>
             )
           })}
-          {(() => {
-            const addRowBg =
-              cursorHere && editState.cursor.addingRow
-                ? theme.backgroundElement
-                : rows.length % 2 !== 0
-                  ? stripeBg
-                  : undefined
+          {kind !== "pathParams"
+            ? (() => {
+                const addRowBg =
+                  cursorHere && editState.cursor.addingRow
+                    ? theme.backgroundElement
+                    : rows.length % 2 !== 0
+                      ? stripeBg
+                      : undefined
 
-            return (
-              <box
-                id={`${kind === "headers" ? "hdr" : "prm"}-add`}
-                style={{
-                  flexDirection: "row",
-                  gap: 0,
-                  backgroundColor: addRowBg,
-                }}
-              >
-                <Checkbox checked={false} theme={theme} />
-                <VarInput
-                  value={editingAdd ? editKey : ""}
-                  placeholder="Key..."
-                  env={activeEnv ?? null}
-                  isEditing={editingAdd}
-                  onChange={setEditKey}
-                  isFocused={editState.cursor.subfield === "key"}
-                  baseColor={
-                    editingAdd || (cursorHere && editState.cursor.addingRow)
-                      ? theme.primary
-                      : theme.textMuted
-                  }
-                  backgroundColor={
-                    editingAdd ? theme.backgroundElement : undefined
-                  }
-                  focusedBackgroundColor={theme.borderSubtle}
-                  paddingX={1}
-                  style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-                />
-                <VarInput
-                  value={editingAdd ? editValue : ""}
-                  placeholder="Value..."
-                  env={activeEnv ?? null}
-                  isEditing={editingAdd}
-                  onChange={setEditValue}
-                  isFocused={editState.cursor.subfield === "value"}
-                  baseColor={
-                    editingAdd || (cursorHere && editState.cursor.addingRow)
-                      ? theme.text
-                      : theme.textMuted
-                  }
-                  backgroundColor={
-                    editingAdd ? theme.backgroundElement : undefined
-                  }
-                  focusedBackgroundColor={theme.borderSubtle}
-                  paddingX={1}
-                  style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-                />
-              </box>
-            )
-          })()}
+                return (
+                  <box
+                    id={`${prefix}-add`}
+                    style={{
+                      flexDirection: "row",
+                      gap: 0,
+                      backgroundColor: addRowBg,
+                    }}
+                  >
+                    <Checkbox checked={false} theme={theme} />
+                    <VarInput
+                      value={editingAdd ? editKey : ""}
+                      placeholder="Key..."
+                      env={activeEnv ?? null}
+                      isEditing={editingAdd}
+                      onChange={setEditKey}
+                      isFocused={editState.cursor.subfield === "key"}
+                      baseColor={
+                        editingAdd || (cursorHere && editState.cursor.addingRow)
+                          ? theme.primary
+                          : theme.textMuted
+                      }
+                      backgroundColor={
+                        editingAdd ? theme.backgroundElement : undefined
+                      }
+                      focusedBackgroundColor={theme.borderSubtle}
+                      paddingX={1}
+                      style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
+                    />
+                    <VarInput
+                      value={editingAdd ? editValue : ""}
+                      placeholder="Value..."
+                      env={activeEnv ?? null}
+                      isEditing={editingAdd}
+                      onChange={setEditValue}
+                      isFocused={editState.cursor.subfield === "value"}
+                      baseColor={
+                        editingAdd || (cursorHere && editState.cursor.addingRow)
+                          ? theme.text
+                          : theme.textMuted
+                      }
+                      backgroundColor={
+                        editingAdd ? theme.backgroundElement : undefined
+                      }
+                      focusedBackgroundColor={theme.borderSubtle}
+                      paddingX={1}
+                      style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
+                    />
+                  </box>
+                )
+              })()
+            : null}
         </>
       )}
     </box>

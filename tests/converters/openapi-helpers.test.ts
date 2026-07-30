@@ -3,6 +3,7 @@ import {
   convertTpl,
   slugify,
   urlTemplateToVar,
+  pathTemplateToColon,
   joinUrl,
   paramDefault,
   makeIdRaw,
@@ -67,6 +68,12 @@ describe("urlTemplateToVar", () => {
 
   it("handles empty string", () => {
     expect(urlTemplateToVar("")).toBe("")
+  })
+})
+
+describe("pathTemplateToColon", () => {
+  it("converts OpenAPI path parameters to Noodle tokens", () => {
+    expect(pathTemplateToColon("/users/{user-id}")).toBe("/users/:user-id")
   })
 })
 

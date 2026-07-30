@@ -21,6 +21,7 @@ import type {
 } from "../../schema"
 import type { ImportResult } from "../index"
 import { slugify, METHOD_UPPER } from "../shared"
+import { parsePathToken } from "../../requests/pathParams"
 
 export function convertTpl(s: string): string {
   return s.replace(/\{\{(\$?[\w.-]+)\}\}/g, "$$$1")
@@ -180,6 +181,7 @@ function mapUrl(req: {
   url?: {
     getRaw?: () => string
     toString?: () => string
+    getPath?: (unresolved?: boolean) => string
     query?: PropertyList<QueryParam>
   }
 }): string {
@@ -198,6 +200,28 @@ function mapUrl(req: {
   } catch {
     // ignore
   }
+  if (!raw) return "$base_url"
+
+  try {
+    const resolvedPath = req.url.getPath?.()
+    const unresolvedPath = req.url.getPath?.(true)
+    if (
+      typeof resolvedPath === "string" &&
+      typeof unresolvedPath === "string" &&
+      resolvedPath !== unresolvedPath
+    ) {
+      const pathIndex = raw.indexOf(resolvedPath)
+      if (pathIndex !== -1) {
+        raw =
+          raw.slice(0, pathIndex) +
+          unresolvedPath +
+          raw.slice(pathIndex + resolvedPath.length)
+      }
+    }
+  } catch {
+    // Ignore incomplete Postman URL objects and use their serialized value.
+  }
+
   if (raw) return convertTpl(raw)
 
   return "$base_url"
@@ -232,6 +256,42 @@ function mapRequest(
 
   const method = METHOD_UPPER[(req.method ?? "").toLowerCase()] ?? "GET"
   const url = mapUrl(req)
+
+  let pathParams: ParamEntry[] | undefined
+  const urlPath = req.url?.path
+  if (urlPath && urlPath.length > 0) {
+    const pathTokens: string[] = []
+    const seen = new Set<string>()
+    for (const seg of urlPath) {
+      const name = parsePathToken(seg)
+      if (name !== null) {
+        if (!seen.has(name)) {
+          seen.add(name)
+          pathTokens.push(name)
+        }
+      }
+    }
+
+    if (pathTokens.length > 0) {
+      const urlVariables = new Map<string, string>()
+      try {
+        const uv = req.url?.variables
+        if (uv) {
+          uv.each((v) => {
+            urlVariables.set(v.key, convertTpl(v.value ?? ""))
+          })
+        }
+      } catch {
+        // ignore
+      }
+      pathParams = pathTokens.map((name) => ({
+        name,
+        value: urlVariables.get(name) ?? "",
+        enabled: true,
+      }))
+    }
+  }
+
   const headers = mapHeaders(req.headers as PropertyList<Header> | undefined)
   const params = mapParams(
     (req.url as { query?: PropertyList<QueryParam> })?.query,
@@ -251,6 +311,7 @@ function mapRequest(
     timeout: 0,
     headers,
     params,
+    pathParams,
     ...bodyMapping,
     auth,
   }
