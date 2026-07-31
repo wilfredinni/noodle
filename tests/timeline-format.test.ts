@@ -533,6 +533,58 @@ describe("buildTimelineEntry", () => {
     expect(entry.envName).toBe("dev")
   })
 
+  it("copies network activity into the saved entry", () => {
+    const req = {
+      id: "req-network",
+      name: "Network",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: [],
+      auth: undefined,
+      timeout: 0,
+    }
+    const entry = buildTimelineEntry(req, {
+      status: "done",
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 5,
+        network: [{ timeMs: 0, type: "request", message: "GET example" }],
+      },
+    })
+    expect(entry.network).toEqual([
+      { timeMs: 0, type: "request", message: "GET example" },
+    ])
+  })
+
+  it("copies failed network activity into the saved entry", () => {
+    const req = {
+      id: "req-network-error",
+      name: "Network error",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: [],
+      auth: undefined,
+      timeout: 0,
+    }
+    const error = Object.assign(new Error("offline"), {
+      network: [
+        { timeMs: 0, type: "request" as const, message: "GET example" },
+        { timeMs: 2, type: "error" as const, message: "offline" },
+      ],
+    })
+    const entry = buildTimelineEntry(req, {
+      status: "error",
+      request: req,
+      error,
+    })
+    expect(entry.network).toEqual(error.network)
+  })
+
   it("uses resolvedUrl when provided", () => {
     const req = {
       id: "req-3",

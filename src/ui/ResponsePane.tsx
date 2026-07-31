@@ -4,7 +4,7 @@ import { useKeymap } from "@opentui/keymap/react"
 import type { InputRenderable, ScrollBoxRenderable } from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
-import type { TimelineEntry } from "../schema"
+import type { NetworkError, TimelineEntry } from "../schema"
 import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
@@ -21,7 +21,9 @@ import {
 
 import { HeaderTable } from "./HeaderTable"
 import { TimelineTab } from "./timeline/TimelineTab"
+import { NetworkTab } from "./NetworkTab"
 import { Badge } from "./Badge"
+import type { ResponseTabKind } from "./tabs/uiState"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -29,6 +31,7 @@ const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
   { id: "headers", label: "Headers" },
+  { id: "network", label: "Network" },
   { id: "timeline", label: "Timeline" },
 ]
 
@@ -50,8 +53,8 @@ export function ResponsePane({
   state: SendState
   focused?: boolean
   timelineEntries?: TimelineEntry[]
-  initialTab?: "body" | "headers" | "timeline"
-  onTabChange?: (tab: "body" | "headers" | "timeline") => void
+  initialTab?: ResponseTabKind
+  onTabChange?: (tab: ResponseTabKind) => void
   onOpenTimelineEntry?: (entry: TimelineEntry) => void
   responseKey?: string | null
   responseQueryRef?: RefObject<ResponseQueryController | null>
@@ -65,10 +68,12 @@ export function ResponsePane({
   const keymap = useKeymap()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
-  const isDoneRef = useRef(state.status === "done")
-  isDoneRef.current = state.status === "done"
+  const isSettledRef = useRef(
+    state.status === "done" || state.status === "error",
+  )
+  isSettledRef.current = state.status === "done" || state.status === "error"
 
-  const [activeTab, setActiveTab] = useState<"body" | "headers" | "timeline">(
+  const [activeTab, setActiveTab] = useState<ResponseTabKind>(
     initialTab ?? "body",
   )
   const tabs = useMemo(
@@ -102,18 +107,18 @@ export function ResponsePane({
 
   useKeyboard((key) => {
     if (!focusedRef.current) return
-    if (!isDoneRef.current) return
+    if (!isSettledRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
     if (queryVisible) return
     if (key.name === "left")
       setActiveTab((prev) => {
-        const ids = ["body", "headers", "timeline"] as const
+        const ids = ["body", "headers", "network", "timeline"] as const
         const idx = ids.indexOf(prev)
         return ids[(idx - 1 + ids.length) % ids.length]
       })
     else if (key.name === "right")
       setActiveTab((prev) => {
-        const ids = ["body", "headers", "timeline"] as const
+        const ids = ["body", "headers", "network", "timeline"] as const
         const idx = ids.indexOf(prev)
         return ids[(idx + 1) % ids.length]
       })
@@ -219,6 +224,11 @@ export function ResponsePane({
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   const responseHeaders = isDone ? formatHeaders(state.response) : []
+  const networkEvents = isDone
+    ? state.response.network
+    : state.status === "error"
+      ? (state.error as NetworkError).network
+      : undefined
 
   const bodySize = useMemo(() => {
     if (state.status !== "done") return 0
@@ -361,6 +371,16 @@ export function ResponsePane({
                 </text>
               </box>
             </box>
+          ) : activeTab === "network" ? (
+            <NetworkTab
+              events={networkEvents}
+              scrollRef={scrollRef}
+              emptyMessage={
+                state.status === "error"
+                  ? "Request did not reach the network."
+                  : undefined
+              }
+            />
           ) : activeTab === "timeline" ? (
             <TimelineTab
               entries={timelineEntries ?? []}

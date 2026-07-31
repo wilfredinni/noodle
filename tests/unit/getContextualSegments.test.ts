@@ -267,6 +267,11 @@ describe("getContextualSegments", () => {
     expect(r.footer).toEqual([seg("f2", "expand")])
   })
 
+  it("response when done on network tab shows expand", () => {
+    const r = base({ focus: "response", sendState: done, tab: "network" })
+    expect(r.footer).toEqual([seg("f2", "expand")])
+  })
+
   it("response when done without tab shows expand", () => {
     const r = base({ focus: "response", sendState: done })
     expect(r.footer).toEqual([seg("f2", "expand")])

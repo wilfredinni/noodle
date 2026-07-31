@@ -3,6 +3,9 @@ import type {
   Collection,
   Environment,
   KvEntry,
+  NetworkError,
+  NetworkEvent,
+  NetworkEventType,
   ParamEntry,
   Request,
   Response,
@@ -137,6 +140,7 @@ export async function send(
   }
 
   const start = performance.now()
+  const network: NetworkEvent[] = []
   let res: globalThis.Response
   let currentUrl = finalUrl
   let currentInit: RequestInit = { ...init, redirect: "manual" }
@@ -145,12 +149,31 @@ export async function send(
   const followRedirects = req.followRedirects ?? true
 
   while (true) {
+    recordNetworkEvent(
+      network,
+      start,
+      "request",
+      `${currentInit.method ?? substituted.method} ${networkUrl(currentUrl)}`,
+    )
     try {
       res = await fetch(currentUrl, currentInit)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      throw new Error(`requests.send: fetch failed: ${msg}`, { cause: e })
+      if (e instanceof DOMException && e.name === "AbortError") throw e
+      throw networkFailure(
+        `requests.send: fetch failed: ${msg}`,
+        e,
+        network,
+        start,
+      )
     }
+
+    recordNetworkEvent(
+      network,
+      start,
+      "response",
+      `${res.status} ${res.statusText || "Response"} - ${[...res.headers].length} headers`,
+    )
 
     if (!followRedirects || ![301, 302, 303, 307, 308].includes(res.status)) {
       break
@@ -160,11 +183,32 @@ export async function send(
     if (!loc) break
 
     if (redirectCount >= maxRedirects) {
-      throw new Error(`requests.send: max redirects (${maxRedirects}) exceeded`)
+      throw networkFailure(
+        `requests.send: max redirects (${maxRedirects}) exceeded`,
+        undefined,
+        network,
+        start,
+      )
     }
     redirectCount++
 
-    currentUrl = new URL(loc, currentUrl).toString()
+    try {
+      currentUrl = new URL(loc, currentUrl).toString()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw networkFailure(
+        `requests.send: invalid redirect location: ${msg}`,
+        e,
+        network,
+        start,
+      )
+    }
+    recordNetworkEvent(
+      network,
+      start,
+      "redirect",
+      `${res.status} -> ${networkUrl(currentUrl)}`,
+    )
 
     if (
       res.status === 303 ||
@@ -189,10 +233,27 @@ export async function send(
     body = await res.text()
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    throw new Error(`requests.send: failed to read response body: ${msg}`, {
-      cause: e,
-    })
+    if (e instanceof DOMException && e.name === "AbortError") throw e
+    throw networkFailure(
+      `requests.send: failed to read response body: ${msg}`,
+      e,
+      network,
+      start,
+    )
   }
+
+  recordNetworkEvent(
+    network,
+    start,
+    "body",
+    `Body received - ${new TextEncoder().encode(body).length} bytes`,
+  )
+  recordNetworkEvent(
+    network,
+    start,
+    "complete",
+    `Completed in ${Math.round(performance.now() - start)}ms`,
+  )
 
   return {
     status: res.status,
@@ -200,6 +261,37 @@ export async function send(
     headers: headersToObject(res.headers),
     body,
     timeMs: performance.now() - start,
+    network,
+  }
+}
+
+function recordNetworkEvent(
+  network: NetworkEvent[],
+  start: number,
+  type: NetworkEventType,
+  message: string,
+): void {
+  network.push({ timeMs: performance.now() - start, type, message })
+}
+
+function networkFailure(
+  message: string,
+  cause: unknown,
+  network: NetworkEvent[],
+  start: number,
+): NetworkError {
+  recordNetworkEvent(network, start, "error", message)
+  const error = new Error(message, cause === undefined ? undefined : { cause })
+  ;(error as NetworkError).network = network
+  return error as NetworkError
+}
+
+function networkUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    return `${parsed.origin}${parsed.pathname}${parsed.search ? "?..." : ""}`
+  } catch {
+    return url
   }
 }
 

@@ -267,6 +267,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
       }
       expectBadge("r")
       expectBadge("e")
+      expectBadge("n")
       expectBadge("l")
 
       const expectBadgeAtTabStart = (hint: string, label: string) => {
@@ -286,6 +287,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
         expectBadgeAtTabStart("t", "Settings")
         expectBadgeAtTabStart("r", "Body")
         expectBadgeAtTabStart("e", "Headers")
+        expectBadgeAtTabStart("n", "Network")
         expectBadgeAtTabStart("l", "Timeline")
       }
     })
@@ -375,7 +377,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
     )
     await renderOnce()
     const spans = captureSpans().lines.flatMap((line) => line.spans)
-    for (const letter of ["r", "e", "l"]) {
+    for (const letter of ["r", "e", "n", "l"]) {
       expect(
         spans.some(
           (span) =>
@@ -411,8 +413,9 @@ describe("getAvailableTargets", () => {
     expect(targets.has("t")).toBe(true)
     expect(targets.has("r")).toBe(true)
     expect(targets.has("e")).toBe(true)
+    expect(targets.has("n")).toBe(true)
     expect(targets.has("l")).toBe(true)
-    expect(targets.size).toBe(12)
+    expect(targets.size).toBe(13)
   })
 
   it("excludes response targets when expanded=request", () => {
@@ -421,6 +424,7 @@ describe("getAvailableTargets", () => {
     expect(targets.has("b")).toBe(true)
     expect(targets.has("r")).toBe(false)
     expect(targets.has("e")).toBe(false)
+    expect(targets.has("n")).toBe(false)
     expect(targets.has("l")).toBe(false)
   })
 
@@ -428,6 +432,7 @@ describe("getAvailableTargets", () => {
     const targets = getAvailableTargets(true, "response", false)
     expect(targets.has("r")).toBe(true)
     expect(targets.has("e")).toBe(true)
+    expect(targets.has("n")).toBe(true)
     expect(targets.has("l")).toBe(true)
     expect(targets.has("h")).toBe(false)
     expect(targets.has("b")).toBe(false)

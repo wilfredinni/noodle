@@ -1,5 +1,5 @@
 import { describe, it, expect, mock } from "bun:test"
-import type { Request } from "../../src/schema"
+import type { NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
 
 function makeReq(over: Partial<Request> = {}): Request {
@@ -132,6 +132,170 @@ describe("send — param deduplication", () => {
       ])
     } finally {
       globalThis.fetch = orig
+    }
+  })
+})
+
+describe("send — network trace", () => {
+  it("records request, response, body, and completion", async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mock(
+      async () => new Response("ok", { status: 200 }),
+    ) as unknown as typeof globalThis.fetch
+
+    try {
+      const response = await send(
+        makeReq({ url: "https://api.example.com/users?token=secret" }),
+      )
+      expect(response.network?.map((event) => event.type)).toEqual([
+        "request",
+        "response",
+        "body",
+        "complete",
+      ])
+      expect(response.network?.[0]?.message).toBe(
+        "GET https://api.example.com/users?...",
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("records redirect hops", async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = mock(async () => {
+      calls++
+      if (calls === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "/v2/users" },
+        })
+      }
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      const response = await send(
+        makeReq({ url: "https://api.example.com/users" }),
+      )
+      expect(response.network?.map((event) => event.type)).toEqual([
+        "request",
+        "response",
+        "redirect",
+        "request",
+        "response",
+        "body",
+        "complete",
+      ])
+      expect(response.network?.[2]?.message).toBe(
+        "302 -> https://api.example.com/v2/users",
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("attaches network activity to fetch errors", async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mock(async () => {
+      throw new Error("offline")
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      let error: NetworkError | undefined
+      try {
+        await send(makeReq())
+      } catch (e) {
+        error = e as NetworkError
+      }
+      expect(error?.message).toBe("requests.send: fetch failed: offline")
+      expect(error?.network?.map((event) => event.type)).toEqual([
+        "request",
+        "error",
+      ])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("attaches network activity to invalid redirect locations", async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mock(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "http://[invalid" },
+        }),
+    ) as unknown as typeof globalThis.fetch
+
+    try {
+      let error: NetworkError | undefined
+      try {
+        await send(makeReq())
+      } catch (e) {
+        error = e as NetworkError
+      }
+      expect(error?.message).toContain("invalid redirect location")
+      expect(error?.network?.map((event) => event.type)).toEqual([
+        "request",
+        "response",
+        "error",
+      ])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("attaches network activity when redirects exceed the limit", async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mock(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "/again" },
+        }),
+    ) as unknown as typeof globalThis.fetch
+
+    try {
+      let error: NetworkError | undefined
+      try {
+        await send(makeReq({ maxRedirects: 0 }))
+      } catch (e) {
+        error = e as NetworkError
+      }
+      expect(error?.network?.map((event) => event.type)).toEqual([
+        "request",
+        "response",
+        "error",
+      ])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("attaches network activity to response body read errors", async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mock(async () => {
+      const response = new Response("ok", { status: 200 })
+      await response.text()
+      return response
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      let error: NetworkError | undefined
+      try {
+        await send(makeReq())
+      } catch (e) {
+        error = e as NetworkError
+      }
+      expect(error?.network?.map((event) => event.type)).toEqual([
+        "request",
+        "response",
+        "error",
+      ])
+    } finally {
+      globalThis.fetch = originalFetch
     }
   })
 })
