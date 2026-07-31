@@ -1,4 +1,10 @@
-import type { Collection, Environment, Request, Response } from "../schema"
+import type {
+  Collection,
+  Environment,
+  NetworkEvent,
+  Request,
+  Response,
+} from "../schema"
 import { send } from "./send"
 import { substitute } from "./substitute"
 
@@ -9,6 +15,7 @@ export interface RequestExecutor {
     signal?: AbortSignal,
     collection?: Collection,
     requestPath?: string,
+    onNetworkEvent?: (network: NetworkEvent[]) => void,
   ): Promise<Response>
 }
 

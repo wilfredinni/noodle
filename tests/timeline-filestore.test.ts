@@ -257,6 +257,26 @@ describe("saveTimelineEntry", () => {
     expect(result[0].response).toBeUndefined()
   })
 
+  it("persists network activity", async () => {
+    const network = [
+      {
+        timeMs: 0,
+        type: "request" as const,
+        message: "GET https://example.com",
+      },
+      { timeMs: 5, type: "complete" as const, message: "Completed in 5ms" },
+    ]
+    await saveTimelineEntry(
+      dir,
+      "network",
+      makeEntry({
+        network,
+      }),
+    )
+    const result = await loadTimeline(dir, "network")
+    expect(result[0]?.network).toEqual(network)
+  })
+
   it("isolates entries per request id", async () => {
     await saveTimelineEntry(dir, "req-a", makeEntry({ timestamp: 1 }))
     await saveTimelineEntry(dir, "req-b", makeEntry({ timestamp: 2 }))

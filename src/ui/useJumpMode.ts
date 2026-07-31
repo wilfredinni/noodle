@@ -140,6 +140,7 @@ export function getAvailableTargets(
     if (expanded !== "request") {
       targets.set("r", { kind: "response-tab", tab: "body" })
       targets.set("e", { kind: "response-tab", tab: "headers" })
+      targets.set("n", { kind: "response-tab", tab: "network" })
       targets.set("l", { kind: "response-tab", tab: "timeline" })
     }
   }
@@ -158,11 +159,12 @@ export const REQUEST_TAB_HINTS: Record<string, string> = {
 export const RESPONSE_TAB_HINTS: Record<string, string> = {
   body: "r",
   headers: "e",
+  network: "n",
   timeline: "l",
 }
 
 export const REQUEST_TAB_HINT_ORDER: string[] = ["h", "p", "x", "b", "a", "t"]
-export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "l"]
+export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "n", "l"]
 export const FOLDER_TAB_HINT_ORDER: string[] = ["m", "h", "a", "y"]
 
 export function computeRequestTabLabels(request: Request | null): string[] {

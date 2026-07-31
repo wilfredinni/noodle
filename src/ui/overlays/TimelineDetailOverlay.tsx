@@ -10,6 +10,7 @@ import { formatSize, statusColor } from "../format"
 import { methodColor } from "../formatRequest"
 import { JsonBodyViewer } from "../editor/JsonBodyViewer"
 import { HeaderTable } from "../HeaderTable"
+import { NetworkTab } from "../NetworkTab"
 import {
   entryMethod,
   entryStatus,
@@ -23,12 +24,13 @@ import {
 
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
 
-const TAB_DEFS: TabDef[] = [
+const BASE_TAB_DEFS: TabDef[] = [
   { id: "request", label: "Request" },
   { id: "response", label: "Response" },
 ]
 
-type DetailTab = "request" | "response"
+type DetailTab = "request" | "response" | "network"
+type BodyTab = Exclude<DetailTab, "network">
 
 function formatJson(body: string): string {
   try {
@@ -40,7 +42,7 @@ function formatJson(body: string): string {
 
 function bodyInfo(
   entry: TimelineEntry,
-  tab: DetailTab,
+  tab: BodyTab,
 ): {
   body?: string
   ref?: TimelineBodyRef
@@ -90,7 +92,7 @@ export function TimelineDetailOverlay({
   onCopyBody?: (body: string) => void
   onExportBody?: (
     entry: TimelineEntry,
-    kind: DetailTab,
+    kind: BodyTab,
     body?: string,
   ) => Promise<void>
 }) {
@@ -106,7 +108,12 @@ export function TimelineDetailOverlay({
   )
   const bodyScrollRef = useRef<ScrollBoxRenderable | null>(null)
 
-  const info = entry ? bodyInfo(entry, activeTab) : null
+  const hasNetwork = (entry?.network?.length ?? 0) > 0
+  const tabs = hasNetwork
+    ? [...BASE_TAB_DEFS, { id: "network", label: "Network" }]
+    : BASE_TAB_DEFS
+  const info =
+    entry && activeTab !== "network" ? bodyInfo(entry, activeTab) : null
   const isLarge = (info?.size ?? 0) > AUTO_RENDER_LIMIT
 
   useEffect(() => {
@@ -161,12 +168,19 @@ export function TimelineDetailOverlay({
         key.stopPropagation()
         if (key.name === "escape") onClose()
         else if (key.name === "left" || key.name === "right") {
-          setActiveTab((prev) => (prev === "request" ? "response" : "request"))
+          setActiveTab((prev) => {
+            const ids: DetailTab[] = hasNetwork
+              ? ["request", "response", "network"]
+              : ["request", "response"]
+            const index = ids.indexOf(prev)
+            const direction = key.name === "left" ? -1 : 1
+            return ids[(index + direction + ids.length) % ids.length]!
+          })
           setLoadedBody(null)
           setBodyError(null)
           setShowLargeBody(false)
         } else if (key.name === "v" && isLarge) setShowLargeBody(true)
-        else if (key.name === "h") {
+        else if (key.name === "h" && activeTab !== "network") {
           const currentHeaders =
             activeTab === "request"
               ? buildDetailRequestHeaders(
@@ -179,7 +193,7 @@ export function TimelineDetailOverlay({
                     .map(([key, value]) => ({ key, value }))
                 : []
           onCopyHeaders(formatHeaderEntries(currentHeaders))
-        } else if (key.name === "b") {
+        } else if (key.name === "b" && activeTab !== "network") {
           const body = loadedBody ?? info?.body
           if (body !== undefined) onCopyBody(body)
           else if (info?.ref) {
@@ -189,7 +203,7 @@ export function TimelineDetailOverlay({
                 setBodyError("Unable to load the saved response body"),
               )
           }
-        } else if (key.name === "e") {
+        } else if (key.name === "e" && activeTab !== "network") {
           const exportBody = (body?: string) =>
             onExportBody(entry, activeTab, body).catch(() =>
               setBodyError("Failed to export timeline entry"),
@@ -238,9 +252,10 @@ export function TimelineDetailOverlay({
     onExportBody,
     onLoadBody,
     activeTab,
+    hasNetwork,
   ])
 
-  if (!visible || !entry || !info) return null
+  if (!visible || !entry) return null
 
   const method = entryMethod(entry)
   const status = entryStatus(entry)
@@ -268,166 +283,183 @@ export function TimelineDetailOverlay({
         }}
       >
         <Tabs
-          tabs={TAB_DEFS}
+          tabs={tabs}
           activeId={activeTab}
           rightChildren={<text fg={theme.textMuted}>esc</text>}
         >
-          <box
-            style={{
-              flexDirection: "column",
-              flexGrow: 1,
-              minHeight: 0,
-              paddingTop: 1,
-            }}
-          >
-            {activeTab === "request" ? (
-              <box style={{ flexDirection: "column", marginBottom: 1 }}>
-                <box style={{ flexDirection: "row", flexShrink: 0 }}>
-                  <text
-                    wrapMode="word"
-                    content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.text)(formatRequestUrl(entry))}`}
-                  />
+          {activeTab === "network" ? (
+            <NetworkTab
+              key="network"
+              events={entry.network}
+              scrollRef={bodyScrollRef}
+              height={Math.min(Math.max(entry.network?.length ?? 1, 1), 10)}
+            />
+          ) : (
+            <box
+              key="details"
+              style={{
+                flexDirection: "column",
+                flexGrow: 1,
+                minHeight: 0,
+                paddingTop: 1,
+              }}
+            >
+              {activeTab === "request" ? (
+                <box style={{ flexDirection: "column", marginBottom: 1 }}>
+                  <box style={{ flexDirection: "row", flexShrink: 0 }}>
+                    <text
+                      wrapMode="word"
+                      content={t`${fg(methodColor(method, theme))(shortMethod(method) + " ")}${fg(theme.text)(formatRequestUrl(entry))}`}
+                    />
+                  </box>
+                  <box style={{ flexDirection: "row", flexShrink: 0 }}>
+                    <text fg={theme.textMuted} wrapMode="none">
+                      {truncateUrl(formatRequestDisplayName(entry), 60)}
+                    </text>
+                  </box>
                 </box>
-                <box style={{ flexDirection: "row", flexShrink: 0 }}>
-                  <text fg={theme.textMuted} wrapMode="none">
-                    {truncateUrl(formatRequestDisplayName(entry), 60)}
+              ) : (
+                <box style={{ flexDirection: "column", marginBottom: 1 }}>
+                  {entry?.response
+                    ? (() => {
+                        const rawText = entry.response.statusText ?? ""
+                        const truncatedStatusText =
+                          rawText.length > 13
+                            ? `${rawText.slice(0, 13)}…`
+                            : rawText
+                        const statusStr = `${status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
+                        return (
+                          <box
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                            }}
+                          >
+                            <Badge bg={theme.backgroundElement} fg={theme.text}>
+                              {formatSize(entry.response.size)} in{" "}
+                              {entryTiming(entry)}
+                            </Badge>
+                            <Badge
+                              bg={statusColor(status!, theme)}
+                              fg={theme.background}
+                            >
+                              {statusStr}
+                            </Badge>
+                          </box>
+                        )
+                      })()
+                    : null}
+                  {entry?.error ? (
+                    <box
+                      border={["left", "right", "top", "bottom"]}
+                      borderColor={theme.error}
+                      style={{ padding: 1, marginTop: entry?.response ? 1 : 0 }}
+                    >
+                      <text fg={theme.error}>{entry.error.message}</text>
+                    </box>
+                  ) : null}
+                </box>
+              )}
+              <box style={{ height: 1 }}>
+                <text fg={theme.text}>Headers</text>
+              </box>
+              <box
+                border={["bottom"]}
+                borderColor={theme.borderSubtle}
+                style={{ height: 1 }}
+              />
+              <scrollbox
+                scrollY
+                height={Math.min(Math.max(headers.length, 1), headerHeight)}
+                verticalScrollbarOptions={{
+                  trackOptions: {
+                    backgroundColor: theme.background,
+                    foregroundColor: theme.borderActive,
+                  },
+                }}
+                style={{ flexShrink: 0 }}
+              >
+                <HeaderTable entries={headers} theme={theme} />
+              </scrollbox>
+              <box style={{ height: 1, marginTop: 1 }}>
+                <text fg={theme.text}>Body</text>
+              </box>
+              <box
+                border={["bottom"]}
+                borderColor={theme.borderSubtle}
+                style={{ height: 1 }}
+              />
+              {info!.truncated ? (
+                <text fg={theme.warning}>
+                  Saved body was truncated by an older Noodle version.
+                </text>
+              ) : loading ? (
+                <text fg={theme.textMuted}>Loading body…</text>
+              ) : bodyError ? (
+                <text fg={theme.error}>{bodyError}</text>
+              ) : isLarge && !showLargeBody ? (
+                <box style={{ flexDirection: "column" }}>
+                  <text
+                    fg={theme.warning}
+                  >{`Body is ${formatSize(info!.size)}. It was not rendered automatically.`}</text>
+                  <text fg={theme.textMuted}>
+                    v view raw · b copy · e export
                   </text>
                 </box>
-              </box>
-            ) : (
-              <box style={{ flexDirection: "column", marginBottom: 1 }}>
-                {entry?.response
-                  ? (() => {
-                      const rawText = entry.response.statusText ?? ""
-                      const truncatedStatusText =
-                        rawText.length > 13
-                          ? `${rawText.slice(0, 13)}…`
-                          : rawText
-                      const statusStr = `${status}${truncatedStatusText !== "" ? ` ${truncatedStatusText}` : ""}`
-                      return (
-                        <box
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Badge bg={theme.backgroundElement} fg={theme.text}>
-                            {formatSize(entry.response.size)} in{" "}
-                            {entryTiming(entry)}
-                          </Badge>
-                          <Badge
-                            bg={statusColor(status!, theme)}
-                            fg={theme.background}
-                          >
-                            {statusStr}
-                          </Badge>
-                        </box>
-                      )
-                    })()
-                  : null}
-                {entry?.error ? (
-                  <box
-                    border={["left", "right", "top", "bottom"]}
-                    borderColor={theme.error}
-                    style={{ padding: 1, marginTop: entry?.response ? 1 : 0 }}
-                  >
-                    <text fg={theme.error}>{entry.error.message}</text>
-                  </box>
-                ) : null}
-              </box>
-            )}
-            <box style={{ height: 1 }}>
-              <text fg={theme.text}>Headers</text>
+              ) : renderedBody ? (
+                (() => {
+                  const bodyLines = renderedBody.split("\n").length
+                  const computedBodyHeight = Math.min(
+                    Math.max(bodyLines, 1),
+                    10,
+                  )
+                  return (
+                    <scrollbox
+                      ref={bodyScrollRef}
+                      scrollY
+                      height={computedBodyHeight}
+                      verticalScrollbarOptions={{
+                        trackOptions: {
+                          backgroundColor: theme.background,
+                          foregroundColor: theme.borderActive,
+                        },
+                      }}
+                      style={{ flexShrink: 0 }}
+                    >
+                      <JsonBodyViewer
+                        body={renderedBody}
+                        theme={theme}
+                        highlightPriority={highlightPriority}
+                      />
+                    </scrollbox>
+                  )
+                })()
+              ) : (
+                <text fg={theme.textMuted}>
+                  {entry.response ? "(empty body)" : "No response"}
+                </text>
+              )}
             </box>
-            <box
-              border={["bottom"]}
-              borderColor={theme.borderSubtle}
-              style={{ height: 1 }}
-            />
-            <scrollbox
-              scrollY
-              height={Math.min(Math.max(headers.length, 1), headerHeight)}
-              verticalScrollbarOptions={{
-                trackOptions: {
-                  backgroundColor: theme.background,
-                  foregroundColor: theme.borderActive,
-                },
-              }}
-              style={{ flexShrink: 0 }}
-            >
-              <HeaderTable entries={headers} theme={theme} />
-            </scrollbox>
-            <box style={{ height: 1, marginTop: 1 }}>
-              <text fg={theme.text}>Body</text>
-            </box>
-            <box
-              border={["bottom"]}
-              borderColor={theme.borderSubtle}
-              style={{ height: 1 }}
-            />
-            {info.truncated ? (
-              <text fg={theme.warning}>
-                Saved body was truncated by an older Noodle version.
-              </text>
-            ) : loading ? (
-              <text fg={theme.textMuted}>Loading body…</text>
-            ) : bodyError ? (
-              <text fg={theme.error}>{bodyError}</text>
-            ) : isLarge && !showLargeBody ? (
-              <box style={{ flexDirection: "column" }}>
-                <text
-                  fg={theme.warning}
-                >{`Body is ${formatSize(info.size)}. It was not rendered automatically.`}</text>
-                <text fg={theme.textMuted}>v view raw · b copy · e export</text>
-              </box>
-            ) : renderedBody ? (
-              (() => {
-                const bodyLines = renderedBody.split("\n").length
-                const computedBodyHeight = Math.min(Math.max(bodyLines, 1), 10)
-                return (
-                  <scrollbox
-                    ref={bodyScrollRef}
-                    scrollY
-                    height={computedBodyHeight}
-                    verticalScrollbarOptions={{
-                      trackOptions: {
-                        backgroundColor: theme.background,
-                        foregroundColor: theme.borderActive,
-                      },
-                    }}
-                    style={{ flexShrink: 0 }}
-                  >
-                    <JsonBodyViewer
-                      body={renderedBody}
-                      theme={theme}
-                      highlightPriority={highlightPriority}
-                    />
-                  </scrollbox>
-                )
-              })()
-            ) : (
-              <text fg={theme.textMuted}>
-                {entry.response ? "(empty body)" : "No response"}
-              </text>
-            )}
-          </box>
+          )}
         </Tabs>
-        <box
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            marginTop: 1,
-          }}
-        >
-          <text fg={theme.text}>h</text>
-          <text fg={theme.textMuted}> copy headers </text>
-          <text fg={theme.textMuted}>· </text>
-          <text fg={theme.text}>b</text>
-          <text fg={theme.textMuted}> copy body </text>
-          <text fg={theme.textMuted}>· </text>
-          <text fg={theme.text}>e</text>
-          <text fg={theme.textMuted}> export</text>
-        </box>
+        {activeTab !== "network" && (
+          <box
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              marginTop: 1,
+            }}
+          >
+            <text fg={theme.text}>h</text>
+            <text fg={theme.textMuted}> copy headers </text>
+            <text fg={theme.textMuted}>· </text>
+            <text fg={theme.text}>b</text>
+            <text fg={theme.textMuted}> copy body </text>
+            <text fg={theme.textMuted}>· </text>
+            <text fg={theme.text}>e</text>
+            <text fg={theme.textMuted}> export</text>
+          </box>
+        )}
       </box>
     </Overlay>
   )

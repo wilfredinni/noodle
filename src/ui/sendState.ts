@@ -1,14 +1,14 @@
-import type { Request, Response } from "../schema"
+import type { NetworkEvent, Request, Response } from "../schema"
 
 export type SendState =
   | { status: "idle" }
-  | { status: "sending"; request: Request }
+  | { status: "sending"; request: Request; network: NetworkEvent[] }
   | { status: "done"; response: Response }
   | { status: "error"; request: Request; error: Error }
 
 export function startSend(state: SendState, req: Request): SendState {
   if (state.status === "sending") return state
-  return { status: "sending", request: req }
+  return { status: "sending", request: req, network: [] }
 }
 
 export function finishSend(

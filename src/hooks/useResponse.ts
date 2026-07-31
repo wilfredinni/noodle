@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
-import type { Collection, Environment, Request, Response } from "../schema"
+import type {
+  Collection,
+  Environment,
+  NetworkEvent,
+  Request,
+  Response,
+} from "../schema"
 import { executor } from "../requests"
 import {
   startSend,
@@ -97,7 +103,20 @@ async function runSend(
   requestPath?: string,
 ): Promise<void> {
   try {
-    const res = await executor.send(req, env, signal, collection, requestPath)
+    const res = await executor.send(
+      req,
+      env,
+      signal,
+      collection,
+      requestPath,
+      (network: NetworkEvent[]) => {
+        setState((prev) =>
+          prev.status === "sending" && prev.request.id === req.id
+            ? { ...prev, network }
+            : prev,
+        )
+      },
+    )
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))
     onCompleteRef.current?.(req, { status: "done", response: res })

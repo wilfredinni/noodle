@@ -1,4 +1,5 @@
 import type { TimelineEntry, Method } from "../../schema"
+import type { NetworkError } from "../../schema"
 import type { Request } from "../../schema"
 import type { SendCompleteResult } from "../../hooks/useResponse"
 import type { SubstitutedRequest } from "../../requests/substitute"
@@ -18,6 +19,12 @@ export function buildTimelineEntry(
     id: randomUUID(),
     timestamp: Date.now(),
     envName,
+    network:
+      result.status === "done"
+        ? result.response.network?.map((event) => ({ ...event }))
+        : (result.error as NetworkError).network?.map((event) => ({
+            ...event,
+          })),
     request: {
       id: req.id,
       name: req.name,

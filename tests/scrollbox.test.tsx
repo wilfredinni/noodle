@@ -153,6 +153,110 @@ describe("ResponsePane scrollbox", () => {
     expect(queryController.current?.canOpen()).toBe(true)
   })
 
+  it("scrolls the network trace", async () => {
+    const state = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "ok",
+        timeMs: 12,
+        network: Array.from({ length: 20 }, (_, i) => ({
+          timeMs: i,
+          type: "request" as const,
+          message: `event ${i}`,
+        })),
+      },
+    } satisfies SendState
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane state={state} focused initialTab="network" />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("event 0")
+    await act(async () => mockInput.pressKey("END"))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("event 19")
+  })
+
+  it("shows network activity while sending", async () => {
+    const state = {
+      status: "sending" as const,
+      request: makeRequest(1),
+      network: [
+        { timeMs: 0, type: "request" as const, message: "GET example" },
+      ],
+    } satisfies SendState
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane state={state} focused initialTab="body" />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Sending")
+    await act(async () => mockInput.pressKey("ARROW_RIGHT"))
+    await act(async () => mockInput.pressKey("ARROW_RIGHT"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("GET example")
+  })
+
+  it("renders trace events after a failed request", async () => {
+    const error = Object.assign(new Error("offline"), {
+      network: [
+        { timeMs: 0, type: "request" as const, message: "GET example" },
+        { timeMs: 2, type: "error" as const, message: "offline" },
+      ],
+    })
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{ status: "error", request: makeRequest(1), error }}
+          focused
+          initialTab="network"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("GET example")
+  })
+
+  it("shows no response headers after a failed request", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "error",
+            request: makeRequest(1),
+            error: new Error("offline"),
+          }}
+          focused
+          initialTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("No response headers available.")
+  })
+
   it("shows JSONPath errors in the filter bar", async () => {
     const state = {
       status: "done" as const,

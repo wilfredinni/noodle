@@ -92,6 +92,29 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("scrolls persisted network activity", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        network: Array.from({ length: 12 }, (_, i) => ({
+          timeMs: i,
+          type: "request" as const,
+          message: `event ${i}`,
+        })),
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Network")
+    expect(captureCharFrame()).toContain("event 0")
+    await act(async () => host.press("end"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("event 11")
+    cleanup()
+  })
+
   it("keeps a large body visible when scrolling past headers", async () => {
     const body = JSON.stringify(
       {

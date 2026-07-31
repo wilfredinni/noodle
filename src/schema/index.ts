@@ -85,6 +85,20 @@ export interface Response {
   headers: Record<string, string>
   body: string
   timeMs: number
+  network?: NetworkEvent[]
+}
+
+export type NetworkEventType =
+  "request" | "redirect" | "response" | "body" | "complete" | "error"
+
+export interface NetworkEvent {
+  timeMs: number
+  type: NetworkEventType
+  message: string
+}
+
+export interface NetworkError extends Error {
+  network?: NetworkEvent[]
 }
 
 export interface Environment {
@@ -98,6 +112,7 @@ export interface TimelineEntry {
   id?: string
   timestamp: number
   envName?: string
+  network?: NetworkEvent[]
   request: {
     id: string
     name: string

@@ -3,7 +3,7 @@ import { join } from "node:path"
 import * as yaml from "js-yaml"
 import type { FieldKind } from "../editMode"
 
-export type ResponseTabKind = "body" | "headers" | "timeline"
+export type ResponseTabKind = "body" | "headers" | "network" | "timeline"
 
 export interface TabPrefs {
   requestTab: FieldKind

@@ -47,7 +47,7 @@ describe("uiState I/O", () => {
 
   itOnCI("loads multiple requests", async () => {
     const a: TabPrefs = { requestTab: "auth", responseTab: "body" }
-    const b: TabPrefs = { requestTab: "body", responseTab: "timeline" }
+    const b: TabPrefs = { requestTab: "body", responseTab: "network" }
     await saveUIState(
       tmpDir,
       new Map([
