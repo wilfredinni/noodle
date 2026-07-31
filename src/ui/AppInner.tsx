@@ -444,6 +444,18 @@ export function AppInner({
     },
   })
 
+  const focusPane = useCallback(
+    (next: Focus) => {
+      setJumpMode(false)
+      if (next === "urlbar") setUrlbarSubFocus("select")
+      if (next === "request") eb.enterBrowse()
+      if (next === "folder") folderEb.enterBrowse()
+      if (next === "env-vars") envEditor.enterBrowse()
+      setFocus(next)
+    },
+    [eb.enterBrowse, envEditor.enterBrowse, folderEb.enterBrowse],
+  )
+
   const {
     collectionSwitcherVisible,
     setCollectionSwitcherVisible,
@@ -927,6 +939,7 @@ export function AppInner({
             onQueryVisibleChange={setQueryVisible}
             mode={mode}
             jumpMode={jumpMode}
+            onPaneFocus={focusPane}
           />
         ) : mode === "collection" ? (
           <EnvironmentEditorView
@@ -935,7 +948,7 @@ export function AppInner({
             envColors={envColors}
             focus={focus}
             envHeaderRef={envHeaderRef}
-            setFocus={setFocus}
+            onPaneFocus={focusPane}
             setEnvDeletePending={setEnvDeletePending}
           />
         ) : null}

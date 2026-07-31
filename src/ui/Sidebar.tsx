@@ -36,6 +36,7 @@ export function Sidebar({
   dirtyRequestIds,
   dirtyFolderPaths,
   jumpMode = false,
+  onPaneFocus,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -49,6 +50,7 @@ export function Sidebar({
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
   jumpMode?: boolean
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -88,6 +90,7 @@ export function Sidebar({
           </Badge>
         )
       }
+      onPaneFocus={onPaneFocus}
     >
       {jumpMode && <JumpBadge letter="s" style={JUMP_BADGE_TOP_INDENT} />}
       {loading ? (

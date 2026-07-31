@@ -19,6 +19,7 @@ export function EnvEditorPane({
   saving,
   error,
   focused: _focused,
+  onPaneFocus,
 }: {
   draft: EnvDraft | null
   editState: EnvEditState
@@ -29,6 +30,7 @@ export function EnvEditorPane({
   saving: boolean
   error: string | null
   focused: boolean
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -72,6 +74,7 @@ export function EnvEditorPane({
             Variables
           </Badge>
         }
+        onPaneFocus={onPaneFocus}
       >
         <text fg={theme.textMuted}>Select an environment to edit</text>
       </Frame>
@@ -123,6 +126,7 @@ export function EnvEditorPane({
           Variables
         </Badge>
       }
+      onPaneFocus={onPaneFocus}
     >
       <scrollbox
         ref={scrollRef}

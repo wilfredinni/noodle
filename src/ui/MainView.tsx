@@ -46,6 +46,7 @@ interface MainViewProps {
   mode?: "collection" | "browse" | "empty" | "invalid"
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onPaneFocus?: (focus: Focus) => void
 }
 
 export function MainView({
@@ -80,6 +81,7 @@ export function MainView({
   mode = "collection",
   jumpMode = false,
   onQueryVisibleChange,
+  onPaneFocus = () => {},
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -106,6 +108,7 @@ export function MainView({
         dirtyRequestIds={draft.dirtyRequestIds}
         dirtyFolderPaths={folderDraft.dirtyPaths}
         jumpMode={jumpMode}
+        onPaneFocus={() => onPaneFocus("sidebar")}
       />
       <box
         style={{
@@ -139,6 +142,7 @@ export function MainView({
             activeEnv={activeEnv}
             theme={theme}
             jumpMode={jumpMode}
+            onPaneFocus={() => onPaneFocus("folder")}
           />
         ) : (
           <RequestResponseView
@@ -162,6 +166,7 @@ export function MainView({
             responseBodyForCopyRef={responseBodyForCopyRef}
             jumpMode={jumpMode}
             onQueryVisibleChange={onQueryVisibleChange}
+            onPaneFocus={onPaneFocus}
           />
         )}
       </box>

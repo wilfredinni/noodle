@@ -12,7 +12,7 @@ interface EnvironmentEditorViewProps {
   envColors: Record<string, string | undefined>
   focus: Focus
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
-  setFocus: (focus: Focus) => void
+  onPaneFocus?: (focus: Focus) => void
   setEnvDeletePending: (name: string | null) => void
 }
 
@@ -22,7 +22,7 @@ export function EnvironmentEditorView({
   envColors,
   focus,
   envHeaderRef,
-  setFocus,
+  onPaneFocus = () => {},
   setEnvDeletePending,
 }: EnvironmentEditorViewProps) {
   return (
@@ -36,7 +36,7 @@ export function EnvironmentEditorView({
         onSelectEnv={envEditor.selectEnv}
         onCreate={() => {
           envEditor.openEditor()
-          setFocus("env-vars")
+          onPaneFocus("env-vars")
         }}
         onClone={() => {
           if (envEditor.selectedEnvName) {
@@ -50,6 +50,7 @@ export function EnvironmentEditorView({
           }
         }}
         focused={focus === "env-sidebar"}
+        onPaneFocus={() => onPaneFocus("env-sidebar")}
       />
       <box
         style={{
@@ -66,6 +67,7 @@ export function EnvironmentEditorView({
           onNameChange={envEditor.setName}
           onColorChange={envEditor.setColor}
           focused={focus === "env-header"}
+          onPaneFocus={() => onPaneFocus("env-header")}
         />
         <EnvEditorPane
           draft={envEditor.draft}
@@ -77,6 +79,7 @@ export function EnvironmentEditorView({
           saving={envEditor.saving}
           error={envEditor.error}
           focused={focus === "env-vars"}
+          onPaneFocus={() => onPaneFocus("env-vars")}
         />
       </box>
     </box>

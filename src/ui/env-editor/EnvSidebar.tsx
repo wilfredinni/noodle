@@ -17,6 +17,7 @@ export function EnvSidebar({
   onClone: _onClone,
   onDelete: _onDelete,
   focused,
+  onPaneFocus,
 }: {
   envNames: string[]
   selectedEnvName: string | null
@@ -28,6 +29,7 @@ export function EnvSidebar({
   onClone: () => void
   onDelete: () => void
   focused: boolean
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -61,6 +63,7 @@ export function EnvSidebar({
           Environments
         </Badge>
       }
+      onPaneFocus={onPaneFocus}
     >
       {envNames.length === 0 ? (
         <text fg={theme.textMuted}>(no environments)</text>

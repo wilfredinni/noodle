@@ -27,9 +27,10 @@ export const EnvHeaderPane = forwardRef<
     onNameChange: (name: string) => void
     onColorChange: (color: string | undefined) => void
     focused: boolean
+    onPaneFocus?: () => void
   }
 >(function EnvHeaderPane(
-  { name, color, onNameChange, onColorChange, focused },
+  { name, color, onNameChange, onColorChange, focused, onPaneFocus },
   ref,
 ) {
   const theme = useTheme()
@@ -96,6 +97,7 @@ export const EnvHeaderPane = forwardRef<
           Environment
         </Badge>
       }
+      onPaneFocus={onPaneFocus}
     >
       <input
         ref={nameRef}

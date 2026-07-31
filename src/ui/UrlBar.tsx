@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { MouseButton } from "@opentui/core"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import type { Method, ParamEntry, Environment } from "../schema"
@@ -23,6 +24,7 @@ export function UrlBar({
   activeEnv,
   subFocus = "select",
   jumpMode = false,
+  onPaneFocus,
 }: {
   method: Method
   url: string
@@ -36,6 +38,7 @@ export function UrlBar({
   activeEnv?: Environment | null
   subFocus?: UrlBarSubFocus
   jumpMode?: boolean
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const pathParams = pathParamsProp ?? []
@@ -95,6 +98,13 @@ export function UrlBar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
+      onMouseDown={
+        onPaneFocus
+          ? (event) => {
+              if (event.button === MouseButton.LEFT) onPaneFocus()
+            }
+          : undefined
+      }
     >
       {!displayUrl ? (
         <box

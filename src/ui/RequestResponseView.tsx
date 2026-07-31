@@ -32,6 +32,7 @@ interface RequestResponseViewProps {
   responseBodyForCopyRef?: RefObject<string | null>
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onPaneFocus?: (focus: Focus) => void
 }
 
 export function RequestResponseView({
@@ -55,6 +56,7 @@ export function RequestResponseView({
   responseBodyForCopyRef,
   jumpMode = false,
   onQueryVisibleChange,
+  onPaneFocus = () => {},
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -76,6 +78,7 @@ export function RequestResponseView({
           onBodyChange={draft.setBody}
           onSelectOpenChange={setSelectOpen}
           jumpMode={jumpMode}
+          onPaneFocus={() => onPaneFocus("request")}
         />
       )}
       {expanded !== "request" && (
@@ -94,6 +97,7 @@ export function RequestResponseView({
           expanded={expanded}
           jumpMode={jumpMode && draft.draft !== null}
           onQueryVisibleChange={onQueryVisibleChange}
+          onPaneFocus={() => onPaneFocus("response")}
         />
       )}
     </>
@@ -114,6 +118,7 @@ export function RequestResponseView({
         subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
         jumpMode={jumpMode && draft.draft !== null && expanded !== "response"}
+        onPaneFocus={() => onPaneFocus("urlbar")}
       />
       <box
         key={layout}

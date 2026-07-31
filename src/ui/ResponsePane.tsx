@@ -49,6 +49,7 @@ export function ResponsePane({
   expanded,
   jumpMode = false,
   onQueryVisibleChange,
+  onPaneFocus,
 }: {
   state: SendState
   focused?: boolean
@@ -63,6 +64,7 @@ export function ResponsePane({
   expanded?: "request" | "response" | null
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -354,6 +356,7 @@ export function ResponsePane({
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
       titleRight={headerRight}
+      onPaneFocus={onPaneFocus}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <Tabs tabs={tabs} activeId={activeTab}>

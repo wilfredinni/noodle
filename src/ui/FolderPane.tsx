@@ -29,6 +29,7 @@ interface FolderPaneProps {
   activeEnv: Environment | null
   theme: Theme
   jumpMode?: boolean
+  onPaneFocus?: () => void
 }
 
 export function FolderPane({
@@ -47,6 +48,7 @@ export function FolderPane({
   activeEnv,
   theme,
   jumpMode = false,
+  onPaneFocus,
 }: FolderPaneProps) {
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
@@ -113,6 +115,7 @@ export function FolderPane({
           </Badge>
         )
       }
+      onPaneFocus={onPaneFocus}
     >
       {folder ? (
         <>

@@ -36,6 +36,7 @@ interface Props {
   onBodyChange?: (body: string) => void
   onSelectOpenChange?: (open: boolean) => void
   jumpMode?: boolean
+  onPaneFocus?: () => void
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -64,6 +65,7 @@ export function RequestPane({
   onBodyChange,
   onSelectOpenChange,
   jumpMode = false,
+  onPaneFocus,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -147,6 +149,7 @@ export function RequestPane({
           </Badge>
         )
       }
+      onPaneFocus={onPaneFocus}
     >
       {request ? (
         <>
