@@ -105,7 +105,7 @@ export function statusBarText(input: {
     }
   }
 
-  // ── CENTER: env + dirty + save flash ───────────────
+  // ── CENTER: env + save flash ───────────────────────
   let center: string
   if (saveState.kind === "success") {
     center = `✓ ${saveState.message}`
@@ -114,12 +114,13 @@ export function statusBarText(input: {
   } else if (envLabel === "" || envLabel === "(no env)") {
     center = "(no env)"
   } else {
-    center = isDirty ? `● ${envLabel} •` : `● ${envLabel}`
+    center = `● ${envLabel}`
   }
 
   // ── RIGHT: pinned hints (statusBarText is kept for backward compat) ──
   const right = ""
 
+  void isDirty
   void kb
   return { left, center, right }
 }
@@ -153,9 +154,7 @@ export function StatusBar(input: {
   const envText =
     input.envLabel === "" || input.envLabel === "(no env)"
       ? "no env"
-      : input.isDirty
-        ? `● ${input.envLabel} •`
-        : `● ${input.envLabel}`
+      : `● ${input.envLabel}`
 
   const envFg = input.envLabel.includes("(load failed")
     ? theme.error

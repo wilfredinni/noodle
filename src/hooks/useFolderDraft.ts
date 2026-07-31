@@ -159,7 +159,7 @@ export interface UseFolderDraftResult {
   setAuthField: (authType: string, field: string, value: string) => void
   setApiKeyPlacement: (placement: "header" | "query") => void
   revertAll: () => void
-  markSaved: () => void
+  markSaved: (folder: Folder) => void
   revertAllFolders: () => void
   clearFolderDraft: (path: string) => void
 }
@@ -259,20 +259,21 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     [dispatch],
   )
   const revertAll = useCallback(() => dispatch({ kind: "revert" }), [dispatch])
-  const markSaved = useCallback(() => {
-    if (!folderDraft || !folder) return
-    authTypeCache.delete(key)
+  const markSaved = useCallback((savedFolder: Folder) => {
     setOriginalMap((prev) => {
       const next = new Map(prev)
-      next.set(key, { ...folderDraft })
+      next.set(savedFolder.path, { ...savedFolder })
       return next
     })
     setDraftMap((prev) => {
+      const currentDraft = prev.get(savedFolder.path)
+      if (!currentDraft || !folderEqual(currentDraft, savedFolder)) return prev
       const next = new Map(prev)
-      next.delete(key)
+      next.delete(savedFolder.path)
+      authTypeCache.delete(savedFolder.path)
       return next
     })
-  }, [folderDraft, folder, key])
+  }, [])
   const revertAllFolders = useCallback(() => {
     authTypeCache.clear()
     setDraftMap(new Map())

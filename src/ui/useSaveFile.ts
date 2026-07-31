@@ -20,7 +20,7 @@ export function useSaveFile(
   collectionDir: string,
   req: Request | null,
   selectedRequestId: string | undefined,
-  markSaved: () => void,
+  markSaved: (request: Request) => void,
 ): UseSaveFileResult {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -50,7 +50,7 @@ export function useSaveFile(
       .then(() => {
         if (!mountedRef.current) return
         if (selectedRequestId !== requestId) return
-        markSaved()
+        markSaved(req)
         clearSaveTimer()
         setSaveState({
           kind: "success",

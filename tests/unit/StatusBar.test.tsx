@@ -46,7 +46,7 @@ describe("StatusBar component", () => {
     expect(frame).toContain("dev")
   })
 
-  it("renders dirty indicator when modified", async () => {
+  it("does not append a dirty marker to environment", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
@@ -66,7 +66,7 @@ describe("StatusBar component", () => {
     await renderOnce()
     const frame = captureCharFrame()
 
-    expect(frame).toContain("●")
+    expect(frame).not.toContain("dev •")
   })
 
   it("renders contextual shortcuts when focused on sidebar", async () => {

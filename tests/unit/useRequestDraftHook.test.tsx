@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { useRequestDraft } from "../../src/hooks/useRequestDraft"
-import type { Request } from "../../src/schema"
+import { useFolderDraft } from "../../src/hooks/useFolderDraft"
+import type { Auth, Folder, Request } from "../../src/schema"
 
 const request: Request = {
   id: "r1",
@@ -15,6 +16,32 @@ const request: Request = {
   followRedirects: true,
   maxRedirects: 5,
   auth: { type: "none" },
+}
+
+const authRequest: Request = {
+  ...request,
+  id: "auth-race",
+  auth: { type: "basic", user: "saved-user", pass: "saved-pass" },
+}
+
+const savedAuthRequest: Request = {
+  ...authRequest,
+  auth: { type: "bearer", token: "saved-token" },
+}
+
+const folder: Folder = {
+  id: "folder-auth-race",
+  name: "Folder auth race",
+  path: "folder-auth-race",
+  children: [],
+  overrides: {
+    auth: { type: "basic", user: "saved-user", pass: "saved-pass" },
+  },
+}
+
+const savedFolder: Folder = {
+  ...folder,
+  overrides: { auth: { type: "bearer", token: "saved-token" } },
 }
 
 function Harness({ onMethod }: { onMethod: (method: string) => void }) {
@@ -31,6 +58,150 @@ function Harness({ onMethod }: { onMethod: (method: string) => void }) {
   return null
 }
 
+function SaveRaceHarness({ onDirty }: { onDirty: (dirty: boolean) => void }) {
+  const draft = useRequestDraft(request)
+  const [step, setStep] = useState(0)
+  const savedRequest = { ...request, url: "https://saved.example.com" }
+
+  useEffect(() => {
+    if (step === 0) {
+      draft.setUrl(savedRequest.url)
+      setStep(1)
+    } else if (step === 1 && draft.draft?.url === savedRequest.url) {
+      draft.setUrl("https://later.example.com")
+      setStep(2)
+    } else if (step === 2 && draft.draft?.url === "https://later.example.com") {
+      draft.markSaved(savedRequest)
+      setStep(3)
+    } else if (step === 3) {
+      onDirty(draft.isDirty)
+    }
+  }, [draft, onDirty, savedRequest, step])
+
+  return null
+}
+
+function MoveDraftHarness({
+  onDraft,
+}: {
+  onDraft: (draft: Request | null) => void
+}) {
+  const [selectedRequest, setSelectedRequest] = useState(request)
+  const draft = useRequestDraft(selectedRequest)
+  const [step, setStep] = useState(0)
+  const movedRequest = {
+    ...request,
+    id: "folder/r2",
+    name: "Moved",
+    method: "DELETE" as const,
+    url: "https://overlay.example.com",
+  }
+
+  useEffect(() => {
+    if (step === 0) {
+      draft.setMethod("POST")
+      draft.setUrl("https://unsaved.example.com")
+      setStep(1)
+    } else if (
+      step === 1 &&
+      draft.draft?.method === "POST" &&
+      draft.draft.url === "https://unsaved.example.com"
+    ) {
+      draft.moveRequestDraft(request.id, movedRequest)
+      setSelectedRequest(movedRequest)
+      setStep(2)
+    } else if (step === 2) {
+      onDraft(draft.draft)
+    }
+  }, [draft, movedRequest, onDraft, step])
+
+  return null
+}
+
+function RequestAuthSaveRaceHarness({
+  onAuth,
+}: {
+  onAuth: (auth: Auth | undefined) => void
+}) {
+  const draft = useRequestDraft(authRequest)
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    const auth = draft.draft?.auth
+    if (step === 0) {
+      draft.setAuthType("bearer")
+      setStep(1)
+    } else if (step === 1 && auth?.type === "bearer") {
+      draft.setAuthField("bearer", "token", "saved-token")
+      setStep(2)
+    } else if (
+      step === 2 &&
+      auth?.type === "bearer" &&
+      auth.token === "saved-token"
+    ) {
+      draft.setAuthField("bearer", "token", "later-token")
+      setStep(3)
+    } else if (
+      step === 3 &&
+      auth?.type === "bearer" &&
+      auth.token === "later-token"
+    ) {
+      draft.markSaved(savedAuthRequest)
+      setStep(4)
+    } else if (step === 4) {
+      draft.setAuthType("basic")
+      setStep(5)
+    } else if (step === 5) {
+      onAuth(draft.draft?.auth)
+    }
+  }, [draft, onAuth, step])
+
+  return null
+}
+
+function FolderAuthSaveRaceHarness({
+  onAuth,
+}: {
+  onAuth: (auth: Auth | undefined) => void
+}) {
+  const draft = useFolderDraft(folder)
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    if (step === 0) {
+      draft.setAuthType("bearer")
+      setStep(1)
+    } else if (
+      step === 1 &&
+      draft.folderDraft?.overrides?.auth?.type === "bearer"
+    ) {
+      draft.setAuthField("bearer", "token", "saved-token")
+      setStep(2)
+    } else if (
+      step === 2 &&
+      draft.folderDraft?.overrides?.auth?.type === "bearer" &&
+      draft.folderDraft.overrides.auth.token === "saved-token"
+    ) {
+      draft.setAuthField("bearer", "token", "later-token")
+      setStep(3)
+    } else if (
+      step === 3 &&
+      draft.folderDraft?.overrides?.auth?.type === "bearer" &&
+      draft.folderDraft.overrides.auth.token === "later-token"
+    ) {
+      draft.markSaved(savedFolder)
+      setStep(4)
+    } else if (step === 4) {
+      draft.setAuthType("basic")
+      setStep(5)
+    } else if (step === 5) {
+      onAuth(draft.folderDraft?.overrides?.auth)
+    }
+  }, [draft, onAuth, step])
+
+  return null
+}
+
 describe("useRequestDraft setMethod", () => {
   it("exposes method updates through hook result", async () => {
     let method = ""
@@ -43,5 +214,70 @@ describe("useRequestDraft setMethod", () => {
     await renderOnce()
 
     expect(method).toBe("POST")
+  })
+
+  it("keeps edits made during a pending save dirty", async () => {
+    let isDirty = false
+    const { renderOnce } = await testRender(
+      <SaveRaceHarness onDirty={(dirty) => (isDirty = dirty)} />,
+      { width: 20, height: 5 },
+    )
+
+    await renderOnce()
+    await renderOnce()
+    await renderOnce()
+    await renderOnce()
+    await renderOnce()
+
+    expect(isDirty).toBe(true)
+  })
+
+  it("preserves unsaved method and URL when a request is renamed", async () => {
+    const result: { draft: Request | null } = { draft: null }
+    const { renderOnce } = await testRender(
+      <MoveDraftHarness onDraft={(draft) => (result.draft = draft)} />,
+      { width: 20, height: 5 },
+    )
+
+    await renderOnce()
+    await renderOnce()
+    await renderOnce()
+    await renderOnce()
+
+    if (!result.draft) throw new Error("renamed draft was not reported")
+    expect(result.draft.method).toBe("POST")
+    expect(result.draft.url).toBe("https://unsaved.example.com")
+  })
+
+  it("keeps cached request auth after a concurrent save edit", async () => {
+    let restoredAuth: Auth | undefined
+    const { renderOnce } = await testRender(
+      <RequestAuthSaveRaceHarness onAuth={(auth) => (restoredAuth = auth)} />,
+      { width: 20, height: 5 },
+    )
+
+    for (let i = 0; i < 8; i++) await renderOnce()
+
+    expect(restoredAuth).toEqual({
+      type: "basic",
+      user: "saved-user",
+      pass: "saved-pass",
+    })
+  })
+
+  it("keeps cached folder auth after a concurrent save edit", async () => {
+    let restoredAuth: Auth | undefined
+    const { renderOnce } = await testRender(
+      <FolderAuthSaveRaceHarness onAuth={(auth) => (restoredAuth = auth)} />,
+      { width: 20, height: 5 },
+    )
+
+    for (let i = 0; i < 8; i++) await renderOnce()
+
+    expect(restoredAuth).toEqual({
+      type: "basic",
+      user: "saved-user",
+      pass: "saved-pass",
+    })
   })
 })

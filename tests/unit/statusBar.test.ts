@@ -190,7 +190,7 @@ describe("statusBarText", () => {
     expect(r.center).toBe("● dev")
   })
 
-  it("center shows env with dirty dot when modified", () => {
+  it("center does not append a dirty marker to environment", () => {
     const r = statusBarText({
       method: "GET",
       url: "/users",
@@ -201,7 +201,7 @@ describe("statusBarText", () => {
       kb: defaults,
       spinnerFrame: "⠋",
     })
-    expect(r.center).toBe("● prod •")
+    expect(r.center).toBe("● prod")
   })
 
   it("center shows (no env) when envLabel is empty", () => {

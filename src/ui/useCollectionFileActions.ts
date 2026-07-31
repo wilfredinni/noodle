@@ -7,6 +7,7 @@ import type {
   Request as NoodleRequest,
 } from "../schema"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
+import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import {
   saveRequest,
   deleteRequest,
@@ -24,6 +25,7 @@ interface UseCollectionFileActionsOptions {
   collection: Collection | null
   updateCollection: (collection: Collection) => void
   selectedRequest: NoodleRequest | null
+  requestDraftRef: MutableRefObject<UseRequestDraftResult>
   folderDraftRef: MutableRefObject<UseFolderDraftResult>
   newRequestFolderRef: MutableRefObject<string | null>
   folderDeletePathRef: MutableRefObject<string | null>
@@ -49,6 +51,7 @@ export function useCollectionFileActions({
   collection,
   updateCollection,
   selectedRequest,
+  requestDraftRef,
   folderDraftRef,
   newRequestFolderRef,
   folderDeletePathRef,
@@ -92,7 +95,7 @@ export function useCollectionFileActions({
     if (!draftFolder || !collection) return
     try {
       await saveFolder(collectionDir, draftFolder)
-      folderDraftRef.current?.markSaved()
+      folderDraftRef.current?.markSaved(draftFolder)
       updateCollection({
         ...collection,
         items: updateFolderByPath(
@@ -353,6 +356,7 @@ export function useCollectionFileActions({
 
       savePromise
         .then(() => {
+          requestDraftRef.current.moveRequestDraft(req.id, updated)
           setCollectionReloadToken((n) => n + 1)
           setSelectedId(newId)
           setEditRequestVisible(false)
@@ -369,6 +373,7 @@ export function useCollectionFileActions({
       collectionDir,
       expandFolder,
       selectedRequest,
+      requestDraftRef,
       setCollectionReloadToken,
       setEditRequestVisible,
       setFocus,
