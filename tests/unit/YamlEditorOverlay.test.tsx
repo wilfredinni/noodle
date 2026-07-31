@@ -149,6 +149,48 @@ describe("YamlEditorOverlay", () => {
     cleanup()
   })
 
+  it("toggles a YAML fold from its gutter icon", async () => {
+    await writeFile(
+      filePath,
+      "headers:\n  accept: application/json\n  x-id: 1\n",
+    )
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <YamlEditorOverlay
+            visible
+            filePath={filePath}
+            requestName="get-users"
+            onSaved={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 30 },
+    )
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await renderOnce()
+
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find(
+      (line) => line.includes("▼") && line.includes("headers:"),
+    )
+    if (!row) throw new Error("Expected YAML fold icon")
+
+    await act(async () => {
+      await mockMouse.click(
+        row.indexOf("▼"),
+        rows.indexOf(row),
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("accept: application/json")
+    cleanup()
+  })
+
   it("shows loading text when content not yet loaded (visible=false)", async () => {
     // Clear the module mock to test without content
     const { keymap, cleanup } = setupKeymap()

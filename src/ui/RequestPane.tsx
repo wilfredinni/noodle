@@ -18,6 +18,7 @@ import { Badge } from "./Badge"
 import { BodyTypeSelector, BodySection } from "./request-pane/RequestBodyTab"
 import { SettingsSection } from "./request-pane/RequestSettingsTab"
 import { syncPathParamsWithUrl } from "./urlParams"
+import type { CodeEditorRenderable } from "./editor/CodeEditor"
 
 interface Props {
   request: Request | null
@@ -88,7 +89,10 @@ export function RequestPane({
   const inEdit = editState.mode === "editing"
   const browseActive = editState.mode === "browsing"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
   const keymap = useKeymap()
+  const isJsonBody =
+    activeTab === "body" && (request?.bodyType ?? "json") === "json"
 
   const focusedRef = useRef(focused)
   focusedRef.current = focused
@@ -97,8 +101,13 @@ export function RequestPane({
     if (!focusedRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
     if (editState.mode !== "browsing") return
-    if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
-    else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
+    if (key.name === "pagedown") {
+      if (isJsonBody) bodyEditorRef.current?.scrollByViewport(1)
+      else scrollRef.current?.scrollBy(1, "viewport")
+    } else if (key.name === "pageup") {
+      if (isJsonBody) bodyEditorRef.current?.scrollByViewport(-1)
+      else scrollRef.current?.scrollBy(-1, "viewport")
+    }
   })
 
   useEffect(() => {
@@ -135,9 +144,6 @@ export function RequestPane({
       jumpHint: jumpMode ? REQUEST_TAB_HINT_ORDER[i] : undefined,
     }))
   }, [request, jumpMode])
-  const isJsonBody =
-    activeTab === "body" && (request?.bodyType ?? "json") === "json"
-
   return (
     <Frame
       style={{
@@ -238,6 +244,9 @@ export function RequestPane({
                     if (!inEdit) onInteraction?.()
                     onPaneFocus?.()
                     onBodyEditorFocus?.(request.bodyType ?? "json")
+                  }}
+                  onEditorRef={(editor) => {
+                    bodyEditorRef.current = editor
                   }}
                 />
               ) : (
