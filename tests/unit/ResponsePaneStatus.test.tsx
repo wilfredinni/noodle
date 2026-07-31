@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { extend } from "@opentui/react"
 import { testRender } from "@opentui/react/test-utils"
+import { TextAttributes } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { RequestResponseView } from "../../src/ui/RequestResponseView"
@@ -337,7 +338,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
   it("hides response badges when no request is selected", async () => {
     const { keymap, draft, eb } = createTestProps()
     const responseIdle: SendState = { status: "idle" }
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderOnce, captureSpans } = await testRender(
       <KeymapProvider
         keymap={
           keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
@@ -373,10 +374,16 @@ describe("ResponsePane status text truncation and layout tests", () => {
       { width: 80, height: 24 },
     )
     await renderOnce()
-    const frame = captureCharFrame()
-    expect(frame).not.toContain(" r ")
-    expect(frame).not.toContain(" e ")
-    expect(frame).not.toContain(" l ")
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    for (const letter of ["r", "e", "l"]) {
+      expect(
+        spans.some(
+          (span) =>
+            span.text === letter &&
+            (span.attributes & TextAttributes.BOLD) !== 0,
+        ),
+      ).toBe(false)
+    }
   })
 })
 
