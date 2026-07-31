@@ -1,7 +1,10 @@
 name: Get Comment by ID
 method: GET
-url: $base_url/comments/1
+url: $base_url/comments/:commentId
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+path_params:
+  - name: commentId
+    value: '1'
 body_type: none

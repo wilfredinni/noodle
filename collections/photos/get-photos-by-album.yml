@@ -1,7 +1,10 @@
 name: Get Photos by Album
 method: GET
-url: $base_url/photos?albumId=1
+url: $base_url/photos
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+params:
+  - name: albumId
+    value: '1'
 body_type: none

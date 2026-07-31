@@ -1,7 +1,10 @@
 name: Get Todos by User
 method: GET
-url: $base_url/todos?userId=$user_id
+url: $base_url/todos
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+params:
+  - name: userId
+    value: $user_id
 body_type: none
