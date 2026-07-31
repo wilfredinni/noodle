@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test"
+import { act } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -192,6 +194,37 @@ describe("PickerOverlay", () => {
     const frame = captureCharFrame()
     expect(frame).not.toContain("Test")
     expect(frame).not.toContain("Alpha")
+    cleanup()
+  })
+
+  it("selects a navigable item when clicked", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const selected: string[] = []
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <PickerOverlay
+            visible
+            title="Test"
+            items={testItems}
+            keyExtractor={(item) => item.id}
+            filter={() => true}
+            renderItem={(item) => <text>{item.label}</text>}
+            onSelect={(item) => selected.push(item.id)}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 20 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("Beta"))
+    const x = rows[y]!.indexOf("Beta")
+    await act(async () => {
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    })
+    expect(selected).toEqual(["b"])
     cleanup()
   })
 

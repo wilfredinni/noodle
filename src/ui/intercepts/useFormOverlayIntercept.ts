@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 
@@ -14,9 +14,13 @@ export function useFormOverlayIntercept(opts: {
   onConfirm: (result: any) => void
   onCancel: () => void
   passThroughFocuses?: string[]
-}): void {
+}): { confirm: () => void; cancel: () => void } {
   const { visible, handleRef, onConfirm, onCancel, passThroughFocuses } = opts
   const keymap = useKeymap()
+  const confirm = useCallback(() => {
+    const result = handleRef.current?.confirm()
+    if (result) onConfirm(result)
+  }, [handleRef, onConfirm])
 
   useEffect(() => {
     if (!visible) return
@@ -47,8 +51,7 @@ export function useFormOverlayIntercept(opts: {
           if (focus === "url") {
             e.preventDefault()
             e.stopPropagation()
-            const result = handle.confirm()
-            if (result) onConfirm(result)
+            confirm()
           } else if (focus) {
             e.preventDefault()
             e.stopPropagation()
@@ -59,8 +62,7 @@ export function useFormOverlayIntercept(opts: {
         if (e.name === "s" && e.ctrl) {
           e.preventDefault()
           e.stopPropagation()
-          const result = handle.confirm()
-          if (result) onConfirm(result)
+          confirm()
           return
         }
         if (e.name === "escape") {
@@ -73,7 +75,9 @@ export function useFormOverlayIntercept(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [visible, keymap, handleRef, onConfirm, onCancel, passThroughFocuses])
+  }, [visible, keymap, handleRef, confirm, onCancel, passThroughFocuses])
+
+  return { confirm, cancel: onCancel }
 }
 
 export function useSingleFieldFormOverlayIntercept(opts: {
@@ -81,9 +85,13 @@ export function useSingleFieldFormOverlayIntercept(opts: {
   handleRef: RefObject<{ confirm: () => string | null } | null>
   onConfirm: (result: string) => void
   onCancel: () => void
-}): void {
+}): { confirm: () => void; cancel: () => void } {
   const { visible, handleRef, onConfirm, onCancel } = opts
   const keymap = useKeymap()
+  const confirm = useCallback(() => {
+    const result = handleRef.current?.confirm()
+    if (result) onConfirm(result)
+  }, [handleRef, onConfirm])
 
   useEffect(() => {
     if (!visible) return
@@ -97,8 +105,7 @@ export function useSingleFieldFormOverlayIntercept(opts: {
         if (e.name === "s" && e.ctrl) {
           e.preventDefault()
           e.stopPropagation()
-          const result = handle.confirm()
-          if (result) onConfirm(result)
+          confirm()
           return
         }
         if (e.name === "escape") {
@@ -111,5 +118,7 @@ export function useSingleFieldFormOverlayIntercept(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [visible, keymap, handleRef, onConfirm, onCancel])
+  }, [visible, keymap, handleRef, confirm, onCancel])
+
+  return { confirm, cancel: onCancel }
 }

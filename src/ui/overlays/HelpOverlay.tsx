@@ -82,6 +82,17 @@ export function HelpOverlay({
         focused={visible}
         maxHeight={20}
         style={{ flexGrow: 1 }}
+        onMouseScroll={(event) => {
+          const direction = event.scroll?.direction
+          if (!direction) return
+          const amount = event.scroll?.delta || 1
+          scrollRef.current?.scrollBy(
+            (direction === "up" ? -1 : 1) * (amount / 5),
+            "viewport",
+          )
+          event.preventDefault()
+          event.stopPropagation()
+        }}
         verticalScrollbarOptions={{
           trackOptions: {
             backgroundColor: theme.background,

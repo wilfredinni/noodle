@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { SaveState } from "../saveState"
@@ -32,7 +32,7 @@ export function useDialogIntercepts(opts: {
   updateConfirmVisible: boolean
   onConfirmInstall: () => void
   onCancelUpdate: () => void
-}): void {
+}): { onConfirm: () => void; onCancel: () => void } {
   const keymap = useKeymap()
   const {
     saveState,
@@ -64,6 +64,116 @@ export function useDialogIntercepts(opts: {
     onCancelUpdate,
   } = opts
 
+  const confirmEnvDelete = useCallback(() => {
+    if (!envDeletePending) return
+    const envName = envDeletePending
+    setEnvDeletePending(null)
+    envEditorRef.current
+      .deleteEnv()
+      .then(() => {
+        clearSaveTimer()
+        setSaveState({ kind: "success", message: `Deleted ${envName}` })
+        saveTimerRef.current = setTimeout(
+          () => setSaveState({ kind: "idle" }),
+          2000,
+        )
+      })
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e)
+        clearSaveTimer()
+        setSaveState({ kind: "error", message: msg })
+        saveTimerRef.current = setTimeout(
+          () => setSaveState({ kind: "idle" }),
+          2000,
+        )
+      })
+  }, [
+    envDeletePending,
+    setEnvDeletePending,
+    envEditorRef,
+    clearSaveTimer,
+    setSaveState,
+    saveTimerRef,
+  ])
+
+  const confirmUndoAll = useCallback(() => {
+    draftRef.current.revertAllRequests()
+    folderDraftRef.current.revertAllFolders()
+    envEditorRef.current?.revertDraft()
+    setUndoAllPending(false)
+  }, [draftRef, folderDraftRef, envEditorRef, setUndoAllPending])
+
+  const confirmInit = useCallback(() => {
+    onInitConfirm()
+    setInitPending(false)
+  }, [onInitConfirm, setInitPending])
+
+  const confirmCollectionSwitch = useCallback(() => {
+    if (!collectionSwitchPending) return
+    setCollectionSwitchPending(null)
+    onCollectionSwitchConfirm(collectionSwitchPending)
+  }, [
+    collectionSwitchPending,
+    setCollectionSwitchPending,
+    onCollectionSwitchConfirm,
+  ])
+
+  const onConfirm = useCallback(() => {
+    if (saveState.kind === "confirming") doSave()
+    else if (envDeletePending) confirmEnvDelete()
+    else if (undoAllPending) confirmUndoAll()
+    else if (initPending) confirmInit()
+    else if (collectionSwitchPending) confirmCollectionSwitch()
+    else if (folderDeletePending) onFolderDeleteConfirm()
+    else if (requestDeletePending) onRequestDeleteConfirm()
+    else if (updateConfirmVisible) onConfirmInstall()
+  }, [
+    saveState.kind,
+    doSave,
+    envDeletePending,
+    confirmEnvDelete,
+    undoAllPending,
+    confirmUndoAll,
+    initPending,
+    confirmInit,
+    collectionSwitchPending,
+    confirmCollectionSwitch,
+    folderDeletePending,
+    onFolderDeleteConfirm,
+    requestDeletePending,
+    onRequestDeleteConfirm,
+    updateConfirmVisible,
+    onConfirmInstall,
+  ])
+
+  const onCancel = useCallback(() => {
+    if (saveState.kind === "confirming") setSaveState({ kind: "idle" })
+    else if (envDeletePending) setEnvDeletePending(null)
+    else if (undoAllPending) setUndoAllPending(false)
+    else if (initPending) setInitPending(false)
+    else if (collectionSwitchPending) setCollectionSwitchPending(null)
+    else if (folderDeletePending) setFolderDeletePending(null)
+    else if (requestDeletePending) setRequestDeletePending(null)
+    else if (updateConfirmVisible) onCancelUpdate()
+  }, [
+    saveState.kind,
+    setSaveState,
+    envDeletePending,
+    setEnvDeletePending,
+    undoAllPending,
+    setUndoAllPending,
+    initPending,
+    setInitPending,
+    collectionSwitchPending,
+    setCollectionSwitchPending,
+    folderDeletePending,
+    setFolderDeletePending,
+    requestDeletePending,
+    setRequestDeletePending,
+    updateConfirmVisible,
+    onCancelUpdate,
+  ])
+
   // ── Overlay: Save Confirm ──────────────────────────────────────────
   useEffect(() => {
     if (saveState.kind !== "confirming") return
@@ -74,17 +184,17 @@ export function useDialogIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          doSave()
+          onConfirm()
         } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setSaveState({ kind: "idle" })
+          onCancel()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [saveState.kind, doSave, keymap, setSaveState])
+  }, [saveState.kind, keymap, onConfirm, onCancel])
 
   // ── Overlay: Delete env confirmation ──────────────────────────────
   useEffect(() => {
@@ -96,46 +206,17 @@ export function useDialogIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          const envName = envDeletePending
-          if (!envName) return
-          setEnvDeletePending(null)
-          envEditorRef.current
-            .deleteEnv()
-            .then(() => {
-              clearSaveTimer()
-              setSaveState({ kind: "success", message: `Deleted ${envName}` })
-              saveTimerRef.current = setTimeout(
-                () => setSaveState({ kind: "idle" }),
-                2000,
-              )
-            })
-            .catch((e: unknown) => {
-              const msg = e instanceof Error ? e.message : String(e)
-              clearSaveTimer()
-              setSaveState({ kind: "error", message: msg })
-              saveTimerRef.current = setTimeout(
-                () => setSaveState({ kind: "idle" }),
-                2000,
-              )
-            })
+          onConfirm()
         } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setEnvDeletePending(null)
+          onCancel()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [
-    envDeletePending,
-    keymap,
-    setEnvDeletePending,
-    setSaveState,
-    clearSaveTimer,
-    saveTimerRef,
-    envEditorRef,
-  ])
+  }, [envDeletePending, keymap, onConfirm, onCancel])
 
   // ── Overlay: Collection switch confirmation ──────────────────────
   useEffect(() => {
@@ -147,24 +228,17 @@ export function useDialogIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          const nextDir = collectionSwitchPending
-          setCollectionSwitchPending(null)
-          onCollectionSwitchConfirm(nextDir)
+          onConfirm()
         } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setCollectionSwitchPending(null)
+          onCancel()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [
-    collectionSwitchPending,
-    keymap,
-    onCollectionSwitchConfirm,
-    setCollectionSwitchPending,
-  ])
+  }, [collectionSwitchPending, keymap, onConfirm, onCancel])
 
   // ── Overlay: Delete Request ────────────────────────────────────────
   useEffect(() => {
@@ -176,25 +250,20 @@ export function useDialogIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          onRequestDeleteConfirm()
+          onConfirm()
           return
         }
         if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setRequestDeletePending(null)
+          onCancel()
           return
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [
-    requestDeletePending,
-    onRequestDeleteConfirm,
-    setRequestDeletePending,
-    keymap,
-  ])
+  }, [requestDeletePending, keymap, onConfirm, onCancel])
 
   // ── Overlay: Delete Folder ────────────────────────────────────────
   useEffect(() => {
@@ -206,25 +275,20 @@ export function useDialogIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          onFolderDeleteConfirm()
+          onConfirm()
           return
         }
         if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setFolderDeletePending(null)
+          onCancel()
           return
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [
-    folderDeletePending,
-    onFolderDeleteConfirm,
-    setFolderDeletePending,
-    keymap,
-  ])
+  }, [folderDeletePending, keymap, onConfirm, onCancel])
 
   // ── Overlay: Undo All ──────────────────────────────────────────────
   useEffect(() => {
@@ -236,27 +300,17 @@ export function useDialogIntercepts(opts: {
         if (name === "y") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          draftRef.current.revertAllRequests()
-          folderDraftRef.current.revertAllFolders()
-          envEditorRef.current?.revertDraft()
-          setUndoAllPending(false)
+          onConfirm()
         } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setUndoAllPending(false)
+          onCancel()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [
-    undoAllPending,
-    keymap,
-    setUndoAllPending,
-    draftRef,
-    folderDraftRef,
-    envEditorRef,
-  ])
+  }, [undoAllPending, keymap, onConfirm, onCancel])
 
   // ── Overlay: Init Confirm ─────────────────────────────────────────
   useEffect(() => {
@@ -268,18 +322,17 @@ export function useDialogIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          onInitConfirm()
-          setInitPending(false)
+          onConfirm()
         } else if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          setInitPending(false)
+          onCancel()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [initPending, keymap, onInitConfirm, setInitPending])
+  }, [initPending, keymap, onConfirm, onCancel])
 
   // ── Overlay: Update confirm ──────────────────────────────────────
   useEffect(() => {
@@ -291,16 +344,18 @@ export function useDialogIntercepts(opts: {
         if (name === "y" || name === "return") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          onConfirmInstall()
+          onConfirm()
         }
         if (name === "n" || name === "escape") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          onCancelUpdate()
+          onCancel()
         }
       },
       { priority: 100 },
     )
     return dispose
-  }, [updateConfirmVisible, keymap, onConfirmInstall, onCancelUpdate])
+  }, [updateConfirmVisible, keymap, onConfirm, onCancel])
+
+  return { onConfirm, onCancel }
 }

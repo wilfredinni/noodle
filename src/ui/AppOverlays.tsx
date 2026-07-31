@@ -55,6 +55,8 @@ interface AppOverlaysProps {
   undoAllPending: boolean
   initPending: boolean
   collectionSwitchPending: string | null
+  onConfirmDialog: () => void
+  onCancelDialog: () => void
   commandPaletteVisible: boolean
   commandPaletteCommands: CommandItem[]
   setCommandPaletteVisible: (visible: boolean) => void
@@ -88,8 +90,10 @@ interface AppOverlaysProps {
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
+  newRequestActions: { confirm: () => void; cancel: () => void }
   importCurlVisible: boolean
   importCurlRef: RefObject<ImportCurlOverlayHandle | null>
+  importCurlActions: { confirm: () => void; cancel: () => void }
   importCurlInitialFolder: string
   activeEnv: Environment | null
   editRequestVisible: boolean
@@ -97,10 +101,13 @@ interface AppOverlaysProps {
   folderPaths: FolderPathOption[]
   editRequestInitialFolder: string
   editRequestRef: RefObject<NewRequestOverlayHandle | null>
+  editRequestActions: { confirm: () => void; cancel: () => void }
   cloneRequestVisible: boolean
   cloneRequestRef: RefObject<CloneRequestOverlayHandle | null>
+  cloneRequestActions: { confirm: () => void; cancel: () => void }
   newFolderVisible: boolean
   newFolderRef: RefObject<NewFolderOverlayHandle | null>
+  newFolderActions: { confirm: () => void; cancel: () => void }
   folderDeletePending: string | null
   requestDeletePending: string | null
   timelineDetailEntry: TimelineEntry | null
@@ -132,6 +139,8 @@ export function AppOverlays({
   undoAllPending,
   initPending,
   collectionSwitchPending,
+  onConfirmDialog,
+  onCancelDialog,
   commandPaletteVisible,
   commandPaletteCommands,
   setCommandPaletteVisible,
@@ -165,8 +174,10 @@ export function AppOverlays({
   saveTimerRef,
   newRequestVisible,
   newRequestRef,
+  newRequestActions,
   importCurlVisible,
   importCurlRef,
+  importCurlActions,
   importCurlInitialFolder,
   activeEnv,
   editRequestVisible,
@@ -174,10 +185,13 @@ export function AppOverlays({
   folderPaths,
   editRequestInitialFolder,
   editRequestRef,
+  editRequestActions,
   cloneRequestVisible,
   cloneRequestRef,
+  cloneRequestActions,
   newFolderVisible,
   newFolderRef,
+  newFolderActions,
   folderDeletePending,
   requestDeletePending,
   timelineDetailEntry,
@@ -197,27 +211,40 @@ export function AppOverlays({
         <ConfirmOverlay
           visible
           message={`Save changes to ${saveState.requestId}?`}
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
         />
       )}
       {envDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete environment "${envDeletePending}"?`}
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
         />
       )}
       {undoAllPending && (
-        <ConfirmOverlay visible message="Discard all unsaved changes? (y/n)" />
+        <ConfirmOverlay
+          visible
+          message="Discard all unsaved changes? (y/n)"
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
+        />
       )}
       {initPending && (
         <ConfirmOverlay
           visible
           message={`Initialize collection in ${collectionDir}? (y/n)`}
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
         />
       )}
       {collectionSwitchPending !== null && (
         <ConfirmOverlay
           visible
           message={`Switch to "${collectionSwitchPending}" and discard unsaved changes?`}
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
         />
       )}
       {commandPaletteVisible && (
@@ -297,7 +324,13 @@ export function AppOverlays({
         />
       )}
       {newRequestVisible && (
-        <NewRequestOverlay visible ref={newRequestRef} activeEnv={activeEnv} />
+        <NewRequestOverlay
+          visible
+          ref={newRequestRef}
+          activeEnv={activeEnv}
+          onConfirm={newRequestActions.confirm}
+          onClose={newRequestActions.cancel}
+        />
       )}
       {importCurlVisible && (
         <ImportCurlOverlay
@@ -305,6 +338,8 @@ export function AppOverlays({
           ref={importCurlRef}
           folderPaths={folderPaths}
           initialFolderPath={importCurlInitialFolder}
+          onConfirm={importCurlActions.confirm}
+          onClose={importCurlActions.cancel}
         />
       )}
       {editRequestVisible && (
@@ -318,6 +353,8 @@ export function AppOverlays({
           initialFolderPath={editRequestInitialFolder}
           ref={editRequestRef}
           activeEnv={activeEnv}
+          onConfirm={editRequestActions.confirm}
+          onClose={editRequestActions.cancel}
         />
       )}
       {cloneRequestVisible && (
@@ -325,17 +362,33 @@ export function AppOverlays({
           visible
           initialName={selectedRequest ? `${selectedRequest.name} - Copy` : ""}
           ref={cloneRequestRef}
+          onConfirm={cloneRequestActions.confirm}
+          onClose={cloneRequestActions.cancel}
         />
       )}
-      {newFolderVisible && <NewFolderOverlay visible ref={newFolderRef} />}
+      {newFolderVisible && (
+        <NewFolderOverlay
+          visible
+          ref={newFolderRef}
+          onConfirm={newFolderActions.confirm}
+          onClose={newFolderActions.cancel}
+        />
+      )}
       {folderDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete folder "${folderDeletePending}" and all requests inside?`}
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
         />
       )}
       {requestDeletePending !== null && (
-        <ConfirmOverlay visible message={`Delete "${requestDeletePending}"?`} />
+        <ConfirmOverlay
+          visible
+          message={`Delete "${requestDeletePending}"?`}
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
+        />
       )}
       {updateConfirm !== null && (
         <ConfirmOverlay
@@ -345,6 +398,8 @@ export function AppOverlays({
               ? "Update Noodle via Homebrew?"
               : `Update Noodle to ${updateConfirm.version}?`
           }
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
         />
       )}
       {timelineDetailEntry !== null && (

@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react"
-import type { InputRenderable } from "@opentui/core"
+import { MouseButton, type InputRenderable } from "@opentui/core"
 import { VarInput, type VarInputHandle } from "../VarInput"
 import { Overlay } from "./Overlay"
 import { Select, type SelectItem } from "../Select"
@@ -36,6 +36,8 @@ interface NewRequestOverlayProps {
   folderPaths?: SelectItem[]
   initialFolderPath?: string
   activeEnv?: Environment | null
+  onConfirm?: () => void
+  onClose?: () => void
 }
 
 function slugify(name: string): string {
@@ -59,6 +61,8 @@ export const NewRequestOverlay = forwardRef<
     folderPaths,
     initialFolderPath,
     activeEnv,
+    onConfirm,
+    onClose,
   },
   ref,
 ) {
@@ -74,6 +78,9 @@ export const NewRequestOverlay = forwardRef<
   )
   const [errorText, setErrorText] = useState<string | null>(null)
   const [folderSelectOpen, setFolderSelectOpen] = useState(false)
+  const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
+    null,
+  )
 
   const nameRef = useRef<InputRenderable | null>(null)
   const urlRef = useRef<VarInputHandle | null>(null)
@@ -194,6 +201,7 @@ export const NewRequestOverlay = forwardRef<
             value={name}
             placeholder="e.g. Get Users"
             onInput={setName}
+            onMouseDown={() => setFocus("name")}
             focused={focus === "name"}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
@@ -215,19 +223,24 @@ export const NewRequestOverlay = forwardRef<
               onActivate={() => setFocus("method")}
               triggerPriority={110}
             />
-            <VarInput
-              ref={urlRef}
-              value={url || ""}
-              env={activeEnv ?? null}
-              isEditing
-              onChange={setUrl}
-              isFocused={focus === "url"}
-              placeholder="https://api.example.com/users"
-              backgroundColor={theme.backgroundElement}
-              focusedBackgroundColor={theme.borderSubtle}
-              paddingX={1}
+            <box
+              onMouseDown={() => setFocus("url")}
               style={{ flexGrow: 1, flexShrink: 1 }}
-            />
+            >
+              <VarInput
+                ref={urlRef}
+                value={url || ""}
+                env={activeEnv ?? null}
+                isEditing
+                onChange={setUrl}
+                isFocused={focus === "url"}
+                placeholder="https://api.example.com/users"
+                backgroundColor={theme.backgroundElement}
+                focusedBackgroundColor={theme.borderSubtle}
+                paddingX={1}
+                style={{ flexGrow: 1, flexShrink: 1 }}
+              />
+            </box>
           </box>
         </box>
 
@@ -243,11 +256,46 @@ export const NewRequestOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.text}>^S</text>
-        <text fg={theme.textMuted}>save</text>
-        <text fg={theme.textMuted}> · </text>
-        <text fg={theme.text}>esc</text>
-        <text fg={theme.textMuted}>close</text>
+        <box
+          onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
+            onConfirm?.()
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onMouseOver={() => setHoveredAction("save")}
+          onMouseOut={() => setHoveredAction(null)}
+          style={{
+            flexDirection: "row",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor:
+              hoveredAction === "save" ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={theme.text}>^S</text>
+          <text fg={theme.textMuted}> save</text>
+        </box>
+        <box
+          onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
+            onClose?.()
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onMouseOver={() => setHoveredAction("close")}
+          onMouseOut={() => setHoveredAction(null)}
+          style={{
+            flexDirection: "row",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor:
+              hoveredAction === "close" ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={theme.text}>esc</text>
+          <text fg={theme.textMuted}> close</text>
+        </box>
       </box>
     </Overlay>
   )

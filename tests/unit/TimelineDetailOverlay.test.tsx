@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { act, useState, type ComponentProps } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
+import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
 import {
   TimelineDetailOverlay,
@@ -353,6 +354,53 @@ describe("TimelineDetailOverlay", () => {
     await act(async () => host.press("right"))
     await renderOnce()
     expect(captureCharFrame()).toContain("response body content")
+    cleanup()
+  })
+
+  it("switches tabs and copies the active body when clicked", async () => {
+    const copied: string[] = []
+    const { renderOnce, captureCharFrame, mockMouse, cleanup } =
+      await renderOverlay(
+        makeEntry({
+          request: {
+            ...makeEntry().request,
+            body: "request body",
+          },
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "response body",
+            timeMs: 1,
+            size: 13,
+          },
+        }),
+        () => {},
+        true,
+        { onCopyBody: (body) => copied.push(body) },
+      )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const tabY = rows.findIndex((row) => row.includes("Response"))
+    await act(async () => {
+      await mockMouse.click(
+        rows[tabY]!.indexOf("Response"),
+        tabY,
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+    const updatedRows = captureCharFrame().split("\n")
+    const footerY = updatedRows.findIndex((row) => row.includes("copy body"))
+    expect(updatedRows[footerY]).not.toContain("·")
+    await act(async () => {
+      await mockMouse.click(
+        updatedRows[footerY]!.indexOf("copy body"),
+        footerY,
+        MouseButtons.LEFT,
+      )
+    })
+    expect(copied).toEqual(["response body"])
     cleanup()
   })
 

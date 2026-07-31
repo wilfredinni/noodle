@@ -778,7 +778,7 @@ export function AppInner({
   })
 
   // ── Overlay intercepts ────────────────────────────────────────────
-  useOverlayIntercepts({
+  const overlayActions = useOverlayIntercepts({
     activeOverlay,
     cancelSendRef,
     saveState,
@@ -1029,6 +1029,8 @@ export function AppInner({
           undoAllPending={undoAllPending}
           initPending={initPending}
           collectionSwitchPending={collectionSwitchPending}
+          onConfirmDialog={overlayActions.onConfirm}
+          onCancelDialog={overlayActions.onCancel}
           commandPaletteVisible={commandPaletteVisible}
           commandPaletteCommands={commandPaletteCommands}
           setCommandPaletteVisible={setCommandPaletteVisible}
@@ -1062,8 +1064,10 @@ export function AppInner({
           saveTimerRef={saveTimerRef}
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
+          newRequestActions={overlayActions.newRequest}
           importCurlVisible={importCurlVisible}
           importCurlRef={importCurlRef}
+          importCurlActions={overlayActions.importCurl}
           importCurlInitialFolder={requestParentFolder ?? ""}
           activeEnv={envState.activeEnv}
           editRequestVisible={editRequestVisible}
@@ -1071,10 +1075,13 @@ export function AppInner({
           folderPaths={folderPaths}
           editRequestInitialFolder={editRequestInitialFolder}
           editRequestRef={editRequestRef}
+          editRequestActions={overlayActions.editRequest}
           cloneRequestVisible={cloneRequestVisible}
           cloneRequestRef={cloneRequestRef}
+          cloneRequestActions={overlayActions.cloneRequest}
           newFolderVisible={newFolderVisible}
           newFolderRef={newFolderRef}
+          newFolderActions={overlayActions.newFolder}
           folderDeletePending={folderDeletePending}
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}

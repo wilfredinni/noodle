@@ -1,6 +1,7 @@
 import { describe, expect, it, spyOn } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { act } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { CliRenderer } from "@opentui/core"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -202,6 +203,46 @@ describe("CodeGeneratorOverlay", () => {
     expect(backgroundKeys).toEqual([])
     expect(copySpy).toHaveBeenCalled()
     disposeBackground()
+    copySpy.mockRestore()
+    cleanup()
+  })
+
+  it("copies generated code and closes from footer clicks", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const copySpy = spyOn(clipboard, "copyToClipboard").mockReturnValue(true)
+    let closed = 0
+    const render = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RendererProvider renderer={{} as unknown as CliRenderer}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CodeGeneratorOverlay
+              visible
+              request={baseRequest}
+              onClose={() => closed++}
+            />
+          </ThemeProvider>
+        </RendererProvider>
+      </KeymapProvider>,
+      { width: 100, height: 32 },
+    )
+    await render.renderOnce()
+    const rows = render.captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("copy"))
+    expect(rows[y]).not.toContain("·")
+    await act(async () => {
+      await render.mockMouse.click(
+        rows[y]!.indexOf("copy"),
+        y,
+        MouseButtons.LEFT,
+      )
+      await render.mockMouse.click(
+        rows[y]!.indexOf("close"),
+        y,
+        MouseButtons.LEFT,
+      )
+    })
+    expect(copySpy).toHaveBeenCalled()
+    expect(closed).toBe(1)
     copySpy.mockRestore()
     cleanup()
   })

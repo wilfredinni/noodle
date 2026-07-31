@@ -117,6 +117,60 @@ describe("NewRequestOverlay mode prop", () => {
     cleanup()
   })
 
+  it("focuses the URL field when clicked", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const ref = createRef<NewRequestOverlayHandle>()
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay visible ref={ref} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("https://api.example.com"))
+    await act(async () => {
+      await mockMouse.click(
+        rows[y]!.indexOf("https://api.example.com"),
+        y,
+        MouseButtons.LEFT,
+      )
+    })
+    expect(ref.current?.getFocus()).toBe("url")
+    cleanup()
+  })
+
+  it("runs footer actions when clicked without dot separators", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let saved = 0
+    let closed = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay
+            visible
+            onConfirm={() => saved++}
+            onClose={() => closed++}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("save"))
+    expect(rows[y]).not.toContain("·")
+    await act(async () => {
+      await mockMouse.click(rows[y]!.indexOf("save"), y, MouseButtons.LEFT)
+      await mockMouse.click(rows[y]!.indexOf("close"), y, MouseButtons.LEFT)
+    })
+    expect(saved).toBe(1)
+    expect(closed).toBe(1)
+    cleanup()
+  })
+
   it("shows 'New Request' title when mode is not set", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(

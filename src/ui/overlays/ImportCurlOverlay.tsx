@@ -5,7 +5,11 @@ import {
   useRef,
   useState,
 } from "react"
-import type { InputRenderable, TextareaRenderable } from "@opentui/core"
+import {
+  MouseButton,
+  type InputRenderable,
+  type TextareaRenderable,
+} from "@opentui/core"
 import type { SelectItem } from "../Select"
 import { Select } from "../Select"
 import { useTheme } from "../theme"
@@ -22,6 +26,8 @@ interface ImportCurlOverlayProps {
   visible: boolean
   folderPaths: SelectItem[]
   initialFolderPath: string
+  onConfirm?: () => void
+  onClose?: () => void
 }
 
 const FOCUS_ORDER: Array<"folder" | "name" | "curl"> = [
@@ -33,7 +39,10 @@ const FOCUS_ORDER: Array<"folder" | "name" | "curl"> = [
 export const ImportCurlOverlay = forwardRef<
   ImportCurlOverlayHandle,
   ImportCurlOverlayProps
->(function ImportCurlOverlay({ visible, folderPaths, initialFolderPath }, ref) {
+>(function ImportCurlOverlay(
+  { visible, folderPaths, initialFolderPath, onConfirm, onClose },
+  ref,
+) {
   const theme = useTheme()
   const [command, setCommand] = useState("")
   const [name, setName] = useState("")
@@ -41,6 +50,9 @@ export const ImportCurlOverlay = forwardRef<
   const [focus, setFocus] = useState<"folder" | "name" | "curl">("folder")
   const [errorText, setErrorText] = useState<string | null>(null)
   const [folderSelectOpen, setFolderSelectOpen] = useState(false)
+  const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
+    null,
+  )
   const curlRef = useRef<TextareaRenderable | null>(null)
   const nameRef = useRef<InputRenderable | null>(null)
 
@@ -131,6 +143,7 @@ export const ImportCurlOverlay = forwardRef<
             value={name}
             placeholder="e.g. Get Users"
             onInput={setName}
+            onMouseDown={() => setFocus("name")}
             focused={focus === "name"}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
@@ -147,6 +160,7 @@ export const ImportCurlOverlay = forwardRef<
             initialValue={command}
             placeholder="curl https://api.example.com/users"
             onContentChange={() => setCommand(curlRef.current?.plainText ?? "")}
+            onMouseDown={() => setFocus("curl")}
             focused={focus === "curl"}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
@@ -169,11 +183,46 @@ export const ImportCurlOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <text fg={theme.text}>^S</text>
-        <text fg={theme.textMuted}>save</text>
-        <text fg={theme.textMuted}> · </text>
-        <text fg={theme.text}>esc</text>
-        <text fg={theme.textMuted}>close</text>
+        <box
+          onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
+            onConfirm?.()
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onMouseOver={() => setHoveredAction("save")}
+          onMouseOut={() => setHoveredAction(null)}
+          style={{
+            flexDirection: "row",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor:
+              hoveredAction === "save" ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={theme.text}>^S</text>
+          <text fg={theme.textMuted}> save</text>
+        </box>
+        <box
+          onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
+            onClose?.()
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onMouseOver={() => setHoveredAction("close")}
+          onMouseOut={() => setHoveredAction(null)}
+          style={{
+            flexDirection: "row",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor:
+              hoveredAction === "close" ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={theme.text}>esc</text>
+          <text fg={theme.textMuted}> close</text>
+        </box>
       </box>
     </Overlay>
   )

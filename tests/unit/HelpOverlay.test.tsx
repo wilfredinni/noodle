@@ -78,4 +78,24 @@ describe("HelpOverlay", () => {
 
     cleanup()
   })
+
+  it("scrolls with the mouse wheel", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <HelpOverlay visible keybinds={bindingDefaults()} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 15 },
+    )
+    await renderOnce()
+    const initial = captureCharFrame()
+    await act(async () => {
+      await mockMouse.scroll(40, 7, "down")
+    })
+    await renderOnce()
+    expect(captureCharFrame()).not.toBe(initial)
+    cleanup()
+  })
 })

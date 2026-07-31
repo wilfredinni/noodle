@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test"
+import { act } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -97,6 +99,36 @@ describe("Delete confirmation", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("esc")
+    cleanup()
+  })
+
+  it("runs confirm and cancel callbacks when clicked", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let confirmed = 0
+    let cancelled = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ConfirmOverlay
+            visible
+            message="Delete?"
+            onConfirm={() => confirmed++}
+            onCancel={() => cancelled++}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 10 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("confirm"))
+    expect(rows[y]).not.toContain("·")
+    await act(async () => {
+      await mockMouse.click(rows[y]!.indexOf("confirm"), y, MouseButtons.LEFT)
+      await mockMouse.click(rows[y]!.indexOf("cancel"), y, MouseButtons.LEFT)
+    })
+    expect(confirmed).toBe(1)
+    expect(cancelled).toBe(1)
     cleanup()
   })
 })

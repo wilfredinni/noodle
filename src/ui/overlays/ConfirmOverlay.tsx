@@ -1,13 +1,25 @@
+import { MouseButton } from "@opentui/core"
+import { useState } from "react"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 
 export interface ConfirmOverlayProps {
   visible: boolean
   message: string
+  onConfirm?: () => void
+  onCancel?: () => void
 }
 
-export function ConfirmOverlay({ visible, message }: ConfirmOverlayProps) {
+export function ConfirmOverlay({
+  visible,
+  message,
+  onConfirm,
+  onCancel,
+}: ConfirmOverlayProps) {
   const theme = useTheme()
+  const [hoveredAction, setHoveredAction] = useState<
+    "confirm" | "cancel" | null
+  >(null)
 
   return (
     <Overlay visible={visible} width={50} gap={1} padding={1}>
@@ -33,11 +45,46 @@ export function ConfirmOverlay({ visible, message }: ConfirmOverlayProps) {
           paddingX: 2,
         }}
       >
-        <text fg={theme.text}>y</text>
-        <text fg={theme.textMuted}>confirm</text>
-        <text fg={theme.textMuted}> · </text>
-        <text fg={theme.text}>n</text>
-        <text fg={theme.textMuted}>cancel</text>
+        <box
+          onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
+            onConfirm?.()
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onMouseOver={() => setHoveredAction("confirm")}
+          onMouseOut={() => setHoveredAction(null)}
+          style={{
+            flexDirection: "row",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor:
+              hoveredAction === "confirm" ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={theme.text}>y</text>
+          <text fg={theme.textMuted}> confirm</text>
+        </box>
+        <box
+          onMouseDown={(event) => {
+            if (event.button !== MouseButton.LEFT) return
+            onCancel?.()
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onMouseOver={() => setHoveredAction("cancel")}
+          onMouseOut={() => setHoveredAction(null)}
+          style={{
+            flexDirection: "row",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor:
+              hoveredAction === "cancel" ? theme.backgroundElement : undefined,
+          }}
+        >
+          <text fg={theme.text}>n</text>
+          <text fg={theme.textMuted}> cancel</text>
+        </box>
       </box>
     </Overlay>
   )

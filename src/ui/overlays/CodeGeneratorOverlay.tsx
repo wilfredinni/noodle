@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import type { ScrollBoxRenderable } from "@opentui/core"
+import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
 import type { Collection, Environment, Request } from "../../schema"
 import { generateCode, getCodeTarget } from "../../codegen"
 import { CODE_LANGUAGES } from "../../codegen/targets"
@@ -51,6 +51,9 @@ export function CodeGeneratorOverlay({
   const [clientId, setClientId] = useState(DEFAULT_LANG.defaultClientId)
   const [focus, setFocus] = useState<"language" | "library">("language")
   const [interpolate, setInterpolate] = useState(false)
+  const [hoveredAction, setHoveredAction] = useState<
+    "interpolate" | "copy" | "close" | null
+  >(null)
 
   const clientItems = buildClientItems(languageKey)
   const hasClients = clientItems.length > 0
@@ -93,6 +96,17 @@ export function CodeGeneratorOverlay({
   )
   const lineNumberWidth = String(Math.max(1, highlightedCode.length)).length
 
+  const toggleInterpolate = useCallback(() => {
+    if (env) setInterpolate((prev) => !prev)
+  }, [env])
+
+  const copyCode = useCallback(() => {
+    if (!result.generated) return
+    if (copyToClipboard(result.generated.code, renderer))
+      showToast("Generated code copied", "success")
+    else showToast("Failed to copy generated code", "error")
+  }, [result.generated, renderer])
+
   useEffect(() => {
     if (!visible) return
     const dispose = keymap.intercept(
@@ -116,11 +130,9 @@ export function CodeGeneratorOverlay({
                   : "language",
           )
         } else if (key.name === "i" && !key.ctrl) {
-          if (env) setInterpolate((prev) => !prev)
+          toggleInterpolate()
         } else if (key.name === "c" && !key.ctrl && result.generated) {
-          if (copyToClipboard(result.generated.code, renderer))
-            showToast("Generated code copied", "success")
-          else showToast("Failed to copy generated code", "error")
+          copyCode()
         } else if (key.name === "up") scrollRef.current?.scrollBy(-1)
         else if (key.name === "down") scrollRef.current?.scrollBy(1)
         else if (key.name === "pageup")
@@ -131,16 +143,7 @@ export function CodeGeneratorOverlay({
       { priority: 100 },
     )
     return dispose
-  }, [
-    visible,
-    keymap,
-    onClose,
-    hasClients,
-    focus,
-    env,
-    result.generated,
-    renderer,
-  ])
+  }, [visible, keymap, onClose, hasClients, focus, toggleInterpolate, copyCode])
 
   if (!visible) return null
 
@@ -204,6 +207,14 @@ export function CodeGeneratorOverlay({
           paddingRight={4}
           maxHeight={20}
           scrollbarOptions={{ visible: false }}
+          onMouseScroll={(event) => {
+            const direction = event.scroll?.direction
+            if (!direction) return
+            const amount = event.scroll?.delta || 1
+            scrollRef.current?.scrollBy((direction === "up" ? -1 : 1) * amount)
+            event.preventDefault()
+            event.stopPropagation()
+          }}
         >
           <box style={{ flexDirection: "column", width: 82 }}>
             {highlightedCode.map((line, index) => (
@@ -240,27 +251,86 @@ export function CodeGeneratorOverlay({
             justifyContent: "flex-end",
             paddingX: 2,
             flexGrow: 1,
+            gap: 1,
           }}
         >
-          <text fg={theme.text}>i</text>
-          <text
-            fg={
-              !env
-                ? theme.border
-                : interpolate
-                  ? theme.primary
-                  : theme.textMuted
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT || !env) return
+              toggleInterpolate()
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={
+              env ? () => setHoveredAction("interpolate") : undefined
             }
+            onMouseOut={() => setHoveredAction(null)}
+            style={{
+              flexDirection: "row",
+              paddingLeft: 1,
+              paddingRight: 1,
+              backgroundColor:
+                hoveredAction === "interpolate"
+                  ? theme.backgroundElement
+                  : undefined,
+            }}
           >
-            {" "}
-            interpolate{!env ? " (no env)" : ""}{" "}
-          </text>
-          <text fg={theme.textMuted}>· </text>
-          <text fg={theme.text}>c</text>
-          <text fg={theme.textMuted}> copy </text>
-          <text fg={theme.textMuted}>· </text>
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}> close</text>
+            <text fg={theme.text}>i</text>
+            <text
+              fg={
+                !env
+                  ? theme.border
+                  : interpolate
+                    ? theme.primary
+                    : theme.textMuted
+              }
+            >
+              {" "}
+              interpolate{!env ? " (no env)" : ""}{" "}
+            </text>
+          </box>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT || !result.generated) return
+              copyCode()
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={
+              result.generated ? () => setHoveredAction("copy") : undefined
+            }
+            onMouseOut={() => setHoveredAction(null)}
+            style={{
+              flexDirection: "row",
+              paddingLeft: 1,
+              paddingRight: 1,
+              backgroundColor:
+                hoveredAction === "copy" ? theme.backgroundElement : undefined,
+            }}
+          >
+            <text fg={theme.text}>c</text>
+            <text fg={theme.textMuted}> copy </text>
+          </box>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              onClose()
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={() => setHoveredAction("close")}
+            onMouseOut={() => setHoveredAction(null)}
+            style={{
+              flexDirection: "row",
+              paddingLeft: 1,
+              paddingRight: 1,
+              backgroundColor:
+                hoveredAction === "close" ? theme.backgroundElement : undefined,
+            }}
+          >
+            <text fg={theme.text}>esc</text>
+            <text fg={theme.textMuted}> close</text>
+          </box>
         </box>
       </box>
     </Overlay>
