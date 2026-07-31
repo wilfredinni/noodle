@@ -252,6 +252,8 @@ export function AppInner({
   })
 
   const draft = useRequestDraft(selectedRequest)
+  const draftRef = useRef(draft)
+  draftRef.current = draft
 
   const availableJumpTargets = useMemo(
     () =>
@@ -540,6 +542,7 @@ export function AppInner({
     collectionDir,
     updateCollection,
     selectedRequest,
+    requestDraftRef: draftRef,
     folderDraftRef,
     newRequestFolderRef,
     folderDeletePathRef,
@@ -614,9 +617,6 @@ export function AppInner({
   envEditorRef.current = envEditor
 
   const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
-
-  const draftRef = useRef(draft)
-  draftRef.current = draft
 
   const activeIndexRef = useRef(activeIndex)
   activeIndexRef.current = activeIndex

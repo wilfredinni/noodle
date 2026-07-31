@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type { Auth, Method, Request } from "../schema"
 import type { BodyType } from "../schema"
 import type { FieldKind } from "../ui/editMode"
@@ -50,7 +50,8 @@ export interface UseRequestDraftResult {
   removeFormRow: (index: number) => void
   toggleFormRow: (index: number) => void
   setFilePath: (path: string) => void
-  markSaved: () => void
+  markSaved: (request: Request) => void
+  moveRequestDraft: (oldId: string, request: Request) => void
   resetRequestDraft: (id: string) => void
   revertAllRequests: () => void
 }
@@ -217,20 +218,40 @@ export function useRequestDraft(
     setOriginalMap(new Map())
   }, [])
 
-  const mapRef = useRef(map)
-  mapRef.current = map
-
-  const markSaved = useCallback(() => {
-    if (!selectedRequest) return
-    clearRequestDraftCaches(selectedRequest.id)
-    const currentDraft =
-      mapRef.current.get(selectedRequest.id) ?? selectedRequest
+  const markSaved = useCallback((request: Request) => {
+    clearRequestDraftCaches(request.id)
     setOriginalMap((prev) => {
       const next = new Map(prev)
-      next.set(selectedRequest.id, { ...currentDraft })
+      next.set(request.id, { ...request })
       return next
     })
-  }, [selectedRequest])
+  }, [])
+
+  const moveRequestDraft = useCallback((oldId: string, request: Request) => {
+    clearRequestDraftCaches(oldId)
+    clearRequestDraftCaches(request.id)
+    setMap((prev) => {
+      const draft = prev.get(oldId)
+      const next = new Map(prev)
+      next.delete(oldId)
+      if (draft) {
+        next.set(request.id, {
+          ...draft,
+          id: request.id,
+          name: request.name,
+          method: request.method,
+          url: request.url,
+        })
+      }
+      return next
+    })
+    setOriginalMap((prev) => {
+      const next = new Map(prev)
+      next.delete(oldId)
+      next.set(request.id, { ...request })
+      return next
+    })
+  }, [])
 
   const resetRequestDraft = useCallback((id: string) => {
     clearRequestDraftCaches(id)
@@ -297,6 +318,7 @@ export function useRequestDraft(
       toggleFormRow: toggleFormRowCb,
       setFilePath: setFilePathCb,
       markSaved,
+      moveRequestDraft,
       resetRequestDraft,
     }),
     [
@@ -335,6 +357,7 @@ export function useRequestDraft(
       toggleFormRowCb,
       setFilePathCb,
       markSaved,
+      moveRequestDraft,
       resetRequestDraft,
     ],
   )
