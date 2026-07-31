@@ -388,10 +388,14 @@ describe("ResponsePane status text truncation and layout tests", () => {
 })
 
 describe("getAvailableTargets", () => {
-  it("returns only sidebar in folder view", () => {
+  it("returns sidebar and folder tabs in folder view", () => {
     const targets = getAvailableTargets(true, null, true)
-    expect(targets.size).toBe(1)
+    expect(targets.size).toBe(5)
     expect(targets.get("s")).toEqual({ kind: "sidebar" })
+    expect(targets.get("m")).toEqual({ kind: "folder-tab", field: "meta" })
+    expect(targets.get("h")).toEqual({ kind: "folder-tab", field: "headers" })
+    expect(targets.get("a")).toEqual({ kind: "folder-tab", field: "auth" })
+    expect(targets.get("y")).toEqual({ kind: "folder-tab", field: "activity" })
   })
 
   it("returns sidebar + urlbar + all request/response tabs when not expanded", () => {

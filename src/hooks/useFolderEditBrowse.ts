@@ -29,6 +29,7 @@ export interface UseFolderEditBrowseResult {
   isActive: boolean
   activeTab: FieldKind
   enterBrowse: () => void
+  enterBrowseAt: (field: FolderFieldKind) => void
   exitBrowse: () => void
   browseUp: () => void
   browseDown: () => void
@@ -200,6 +201,17 @@ export function useFolderEditBrowse(
       return enterFolderEditBrowse(prev, c, tab)
     })
   }, [activeTab])
+
+  const enterBrowseAt = useCallback((field: FolderFieldKind) => {
+    setInactiveTab(field)
+    const c = folderRowCount(draftRef.current)
+    setEditState((prev) => {
+      if (prev.mode !== "inactive") {
+        return enterFolderEditBrowse(initialFolderEditState(), c, field)
+      }
+      return enterFolderEditBrowse(prev, c, field)
+    })
+  }, [])
 
   const enterAndEdit = useCallback(() => {
     const c = folderRowCount(draftRef.current)
@@ -391,6 +403,7 @@ export function useFolderEditBrowse(
       isActive: editState.mode !== "inactive",
       activeTab,
       enterBrowse,
+      enterBrowseAt,
       exitBrowse,
       browseUp,
       browseDown,
@@ -412,6 +425,7 @@ export function useFolderEditBrowse(
       editKey,
       activeTab,
       enterBrowse,
+      enterBrowseAt,
       exitBrowse,
       browseUp,
       browseDown,

@@ -2,6 +2,10 @@ import { useEffect } from "react"
 import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
+import type {
+  UseFolderEditBrowseResult,
+  FolderFieldKind,
+} from "../hooks/useFolderEditBrowse"
 import type { UseUIStateResult } from "./tabs/useUIState"
 import type { Focus, UrlBarSubFocus } from "./focus"
 import type { FieldKind } from "./editMode"
@@ -13,6 +17,7 @@ export type JumpTarget =
   | { kind: "method" }
   | { kind: "url" }
   | { kind: "request-tab"; field: FieldKind }
+  | { kind: "folder-tab"; field: FolderFieldKind }
   | { kind: "response-tab"; tab: ResponseTabKind }
 
 interface UseJumpModeOpts {
@@ -21,6 +26,7 @@ interface UseJumpModeOpts {
   setFocus: (f: Focus) => void
   setUrlbarSubFocus: (f: UrlBarSubFocus) => void
   ebRef: RefObject<UseEditBrowseResult>
+  folderEbRef: RefObject<UseFolderEditBrowseResult>
   setTab: UseUIStateResult["setTab"]
   selectedIdRef: RefObject<string | null>
   targetsRef: RefObject<Map<string, JumpTarget>>
@@ -35,6 +41,7 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     setFocus,
     setUrlbarSubFocus,
     ebRef,
+    folderEbRef,
     setTab,
     selectedIdRef,
     targetsRef,
@@ -76,6 +83,10 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
             ebRef.current.enterBrowseAt(target.field)
             setFocus("request")
             break
+          case "folder-tab":
+            folderEbRef.current.enterBrowseAt(target.field)
+            setFocus("folder")
+            break
           case "response-tab": {
             const id = selectedIdRef.current
             if (id) setTab(id, "response", target.tab)
@@ -94,6 +105,7 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     setFocus,
     setUrlbarSubFocus,
     ebRef,
+    folderEbRef,
     setTab,
     selectedIdRef,
   ])
@@ -107,6 +119,10 @@ export function getAvailableTargets(
   const targets = new Map<string, JumpTarget>()
   if (folderView) {
     targets.set("s", { kind: "sidebar" })
+    targets.set("m", { kind: "folder-tab", field: "meta" })
+    targets.set("h", { kind: "folder-tab", field: "headers" })
+    targets.set("a", { kind: "folder-tab", field: "auth" })
+    targets.set("y", { kind: "folder-tab", field: "activity" })
     return targets
   }
   targets.set("s", { kind: "sidebar" })
@@ -147,6 +163,7 @@ export const RESPONSE_TAB_HINTS: Record<string, string> = {
 
 export const REQUEST_TAB_HINT_ORDER: string[] = ["h", "p", "x", "b", "a", "t"]
 export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "l"]
+export const FOLDER_TAB_HINT_ORDER: string[] = ["m", "h", "a", "y"]
 
 export function computeRequestTabLabels(request: Request | null): string[] {
   if (!request) return ["Headers", "Params", "Path", "Body", "Auth", "Settings"]
