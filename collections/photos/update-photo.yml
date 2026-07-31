@@ -1,11 +1,14 @@
 name: Update Photo
 method: PATCH
-url: $base_url/photos/1
+url: $base_url/photos/:photoId
 timeout: 0
 followRedirects: true
 maxRedirects: 5
 headers:
   Content-Type: application/json
+path_params:
+  - name: photoId
+    value: '1'
 body: |-
   {
     "title": "updated photo title"

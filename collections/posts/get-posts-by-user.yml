@@ -6,5 +6,5 @@ followRedirects: true
 maxRedirects: 5
 params:
   - name: userId
-    value: '1'
+    value: $user_id
 body_type: none
