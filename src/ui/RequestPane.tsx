@@ -37,6 +37,7 @@ interface Props {
   onSelectOpenChange?: (open: boolean) => void
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onTabChange?: (tab: FieldKind) => void
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -66,6 +67,7 @@ export function RequestPane({
   onSelectOpenChange,
   jumpMode = false,
   onPaneFocus,
+  onTabChange,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -153,7 +155,15 @@ export function RequestPane({
     >
       {request ? (
         <>
-          <Tabs tabs={tabs} activeId={activeTab}>
+          <Tabs
+            tabs={tabs}
+            activeId={activeTab}
+            onChange={(tab) => {
+              if (inEdit) return
+              onPaneFocus?.()
+              onTabChange?.(tab as FieldKind)
+            }}
+          >
             <box
               style={{
                 flexDirection: "column",

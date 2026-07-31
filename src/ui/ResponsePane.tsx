@@ -359,7 +359,14 @@ export function ResponsePane({
       onPaneFocus={onPaneFocus}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
-        <Tabs tabs={tabs} activeId={activeTab}>
+        <Tabs
+          tabs={tabs}
+          activeId={activeTab}
+          onChange={(tab) => {
+            onPaneFocus?.()
+            setActiveTab(tab as ResponseTabKind)
+          }}
+        >
           {activeTab === "network" ? (
             <NetworkTab
               events={networkEvents}

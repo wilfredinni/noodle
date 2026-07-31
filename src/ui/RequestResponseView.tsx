@@ -10,6 +10,7 @@ import type { ResponseTabKind } from "./tabs/uiState"
 import type { SendState } from "./sendState"
 import type { RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
+import type { FieldKind } from "./editMode"
 
 interface RequestResponseViewProps {
   draft: UseRequestDraftResult
@@ -33,6 +34,8 @@ interface RequestResponseViewProps {
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
   onPaneFocus?: (focus: Focus) => void
+  onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
+  onRequestTabChange?: (tab: FieldKind) => void
 }
 
 export function RequestResponseView({
@@ -57,6 +60,8 @@ export function RequestResponseView({
   jumpMode = false,
   onQueryVisibleChange,
   onPaneFocus = () => {},
+  onUrlbarFocus,
+  onRequestTabChange,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -79,6 +84,7 @@ export function RequestResponseView({
           onSelectOpenChange={setSelectOpen}
           jumpMode={jumpMode}
           onPaneFocus={() => onPaneFocus("request")}
+          onTabChange={onRequestTabChange}
         />
       )}
       {expanded !== "request" && (
@@ -119,6 +125,7 @@ export function RequestResponseView({
         activeEnv={activeEnv}
         jumpMode={jumpMode && draft.draft !== null && expanded !== "response"}
         onPaneFocus={() => onPaneFocus("urlbar")}
+        onSubFocus={onUrlbarFocus}
       />
       <box
         key={layout}

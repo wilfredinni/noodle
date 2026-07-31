@@ -175,6 +175,7 @@ export function AppInner({
     setSelectedId,
     revealRequest,
     revealFolder,
+    toggleFolder,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -455,6 +456,12 @@ export function AppInner({
     },
     [eb.enterBrowse, envEditor.enterBrowse, folderEb.enterBrowse],
   )
+
+  const focusUrlbar = useCallback((subFocus: UrlBarSubFocus) => {
+    setJumpMode(false)
+    setUrlbarSubFocus(subFocus)
+    setFocus("urlbar")
+  }, [])
 
   const {
     collectionSwitcherVisible,
@@ -940,6 +947,19 @@ export function AppInner({
             mode={mode}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
+            onUrlbarFocus={focusUrlbar}
+            onRequestSelect={(id) => {
+              revealRequest(id)
+              focusPane("sidebar")
+            }}
+            onFolderSelect={(path) => {
+              revealFolder(path)
+              focusPane("sidebar")
+            }}
+            onFolderToggle={(path) => {
+              toggleFolder(path)
+              focusPane("sidebar")
+            }}
           />
         ) : mode === "collection" ? (
           <EnvironmentEditorView

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
+import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { Select, type SelectItem } from "../../src/ui/Select"
@@ -71,6 +72,38 @@ describe("Select", () => {
     })
     await renderOnce()
     expect(open).toBe(true)
+    cleanup()
+  })
+
+  it("opens and selects with left clicks", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let selected = ""
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            focused
+            onChange={(id) => {
+              selected = id
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("POST")
+
+    await act(async () => {
+      await mockMouse.click(2, 3, MouseButtons.LEFT)
+    })
+    expect(selected).toBe("post")
     cleanup()
   })
 

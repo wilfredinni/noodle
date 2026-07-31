@@ -25,6 +25,7 @@ export function UrlBar({
   subFocus = "select",
   jumpMode = false,
   onPaneFocus,
+  onSubFocus,
 }: {
   method: Method
   url: string
@@ -39,6 +40,7 @@ export function UrlBar({
   subFocus?: UrlBarSubFocus
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onSubFocus?: (subFocus: UrlBarSubFocus) => void
 }) {
   const theme = useTheme()
   const pathParams = pathParamsProp ?? []
@@ -131,7 +133,14 @@ export function UrlBar({
               onOpenChange={setMethodSelectOpen}
             />
           </box>
-          <box style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              onSubFocus?.("text")
+              event.stopPropagation()
+            }}
+            style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}
+          >
             {jumpMode && <JumpBadge letter="u" style={JUMP_BADGE_TOP_LEFT} />}
             {focused && subFocus === "text" && interactive ? (
               <VarInput

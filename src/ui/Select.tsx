@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, isValidElement } from "react"
 import type { ReactNode } from "react"
 import {
+  MouseButton,
   TextAttributes,
   type ScrollBoxRenderable,
   type BoxRenderable,
@@ -237,6 +238,9 @@ export function Select({
         <box
           ref={triggerRef}
           height={1}
+          onMouseDown={(event) => {
+            if (event.button === MouseButton.LEFT) setOpen(true)
+          }}
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
@@ -291,6 +295,17 @@ export function Select({
                         key={item.id}
                         id={`${uid}${item.id}`}
                         opacity={item.disabled ? 0.4 : 1}
+                        onMouseDown={(event) => {
+                          if (
+                            event.button !== MouseButton.LEFT ||
+                            item.disabled
+                          )
+                            return
+                          onChange?.(item.id)
+                          setOpen(false)
+                          event.preventDefault()
+                          event.stopPropagation()
+                        }}
                         style={{
                           flexDirection: "row",
                           gap: 1,

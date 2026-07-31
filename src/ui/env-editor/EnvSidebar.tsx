@@ -1,6 +1,6 @@
 import { useTheme } from "../theme"
 import { FullBorder, LeftBar } from "../borders"
-import { ScrollBoxRenderable } from "@opentui/core"
+import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import { VALID_COLORS } from "../../env/constants"
 import { Frame } from "../Frame"
@@ -12,7 +12,7 @@ export function EnvSidebar({
   activeEnvName: _activeEnvName,
   envColors,
   dirty,
-  onSelectEnv: _onSelectEnv,
+  onSelectEnv,
   onCreate: _onCreate,
   onClone: _onClone,
   onDelete: _onDelete,
@@ -104,6 +104,12 @@ export function EnvSidebar({
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
+                onMouseDown={(event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  onSelectEnv(name)
+                  onPaneFocus?.()
+                  event.stopPropagation()
+                }}
               >
                 <box style={{ flexDirection: "row" }}>
                   {colorHex && <text fg={colorHex}>● </text>}

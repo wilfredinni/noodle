@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import type { Folder, Environment, Auth } from "../schema"
-import type { EditState, FieldKind } from "./editMode"
+import type { EditState, FieldKind, FolderFieldKind } from "./editMode"
 import { Tabs } from "./Tabs"
 import { FolderMetaTab } from "./FolderMetaTab"
 import { FolderActivityTab } from "./FolderActivityTab"
@@ -30,6 +30,7 @@ interface FolderPaneProps {
   theme: Theme
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onTabChange?: (tab: FolderFieldKind) => void
 }
 
 export function FolderPane({
@@ -49,6 +50,7 @@ export function FolderPane({
   theme,
   jumpMode = false,
   onPaneFocus,
+  onTabChange,
 }: FolderPaneProps) {
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
@@ -119,7 +121,15 @@ export function FolderPane({
     >
       {folder ? (
         <>
-          <Tabs tabs={tabs} activeId={activeTab}>
+          <Tabs
+            tabs={tabs}
+            activeId={activeTab}
+            onChange={(tab) => {
+              if (inEdit) return
+              onPaneFocus?.()
+              onTabChange?.(tab as FolderFieldKind)
+            }}
+          >
             <scrollbox
               scrollY
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}

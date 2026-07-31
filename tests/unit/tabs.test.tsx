@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import { Tabs } from "../../src/ui/Tabs"
 import { ThemeProvider } from "../../src/ui/theme"
 
@@ -44,6 +45,32 @@ describe("Tabs", () => {
 
     const frame = captureCharFrame()
     expect(frame).toContain("content for b")
+  })
+
+  it("selects a tab on left click only", async () => {
+    let selected = ""
+    const { renderOnce, mockMouse } = await testRender(
+      <Tabs
+        tabs={[
+          { id: "a", label: "Tab A" },
+          { id: "b", label: "Tab B" },
+        ]}
+        activeId="a"
+        onChange={(id) => {
+          selected = id
+        }}
+      >
+        <text>content</text>
+      </Tabs>,
+      { width: 30, height: 5 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(9, 0, MouseButtons.RIGHT)
+    expect(selected).toBe("")
+
+    await mockMouse.click(9, 0, MouseButtons.LEFT)
+    expect(selected).toBe("b")
   })
 
   it("does not show ▸ prefix on any tab", async () => {

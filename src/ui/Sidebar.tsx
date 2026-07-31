@@ -1,4 +1,4 @@
-import { ScrollBoxRenderable } from "@opentui/core"
+import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import type { CollectionItem, Method } from "../schema"
 import { methodColor } from "./formatRequest"
@@ -37,6 +37,9 @@ export function Sidebar({
   dirtyFolderPaths,
   jumpMode = false,
   onPaneFocus,
+  onRequestSelect,
+  onFolderSelect,
+  onFolderToggle,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -51,6 +54,9 @@ export function Sidebar({
   dirtyFolderPaths?: Set<string>
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onRequestSelect?: (id: string) => void
+  onFolderSelect?: (path: string) => void
+  onFolderToggle?: (path: string) => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -195,9 +201,24 @@ export function Sidebar({
                   border={[...LeftBar.border]}
                   customBorderChars={LeftBar.customBorderChars}
                   borderColor={isCursor ? theme.primary : theme.backgroundPanel}
+                  onMouseDown={(event) => {
+                    if (event.button !== MouseButton.LEFT) return
+                    onFolderSelect?.(node.id)
+                    onPaneFocus?.()
+                    event.stopPropagation()
+                  }}
                 >
                   <box style={{ flexDirection: "row" }}>
-                    <text fg={theme.textMuted}>{chevron} </text>
+                    <box
+                      onMouseDown={(event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onFolderToggle?.(node.id)
+                        onPaneFocus?.()
+                        event.stopPropagation()
+                      }}
+                    >
+                      <text fg={theme.textMuted}>{chevron} </text>
+                    </box>
                     <text fg={theme.textMuted} wrapMode="none">
                       {truncName(node.name, 20)}
                     </text>
@@ -222,6 +243,12 @@ export function Sidebar({
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isCursor ? theme.primary : theme.backgroundPanel}
+                onMouseDown={(event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  onRequestSelect?.(node.id)
+                  onPaneFocus?.()
+                  event.stopPropagation()
+                }}
               >
                 <box style={{ flexDirection: "row" }}>
                   <text

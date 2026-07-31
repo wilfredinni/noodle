@@ -1,4 +1,4 @@
-import type { ScrollBoxRenderable } from "@opentui/core"
+import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef, type ReactNode } from "react"
 import { JumpBadge } from "./JumpBadge"
 import { useTheme } from "./theme"
@@ -14,11 +14,13 @@ export function Tabs({
   activeId,
   children,
   rightChildren,
+  onChange,
 }: {
   tabs: TabDef[]
   activeId: string
   children: ReactNode
   rightChildren?: ReactNode
+  onChange?: (id: string) => void
 }) {
   const theme = useTheme()
   const tabScrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -189,6 +191,11 @@ export function Tabs({
                       amount
                     scrollTabs(delta)
                     event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                  onMouseDown={(event) => {
+                    if (event.button !== MouseButton.LEFT) return
+                    onChange?.(tab.id)
                     event.stopPropagation()
                   }}
                   style={{

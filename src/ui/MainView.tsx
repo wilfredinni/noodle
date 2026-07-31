@@ -47,6 +47,10 @@ interface MainViewProps {
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
   onPaneFocus?: (focus: Focus) => void
+  onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
+  onRequestSelect?: (id: string) => void
+  onFolderSelect?: (path: string) => void
+  onFolderToggle?: (path: string) => void
 }
 
 export function MainView({
@@ -82,6 +86,10 @@ export function MainView({
   jumpMode = false,
   onQueryVisibleChange,
   onPaneFocus = () => {},
+  onUrlbarFocus,
+  onRequestSelect,
+  onFolderSelect,
+  onFolderToggle,
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -109,6 +117,9 @@ export function MainView({
         dirtyFolderPaths={folderDraft.dirtyPaths}
         jumpMode={jumpMode}
         onPaneFocus={() => onPaneFocus("sidebar")}
+        onRequestSelect={onRequestSelect}
+        onFolderSelect={onFolderSelect}
+        onFolderToggle={onFolderToggle}
       />
       <box
         style={{
@@ -143,6 +154,7 @@ export function MainView({
             theme={theme}
             jumpMode={jumpMode}
             onPaneFocus={() => onPaneFocus("folder")}
+            onTabChange={folderEb.enterBrowseAt}
           />
         ) : (
           <RequestResponseView
@@ -167,6 +179,8 @@ export function MainView({
             jumpMode={jumpMode}
             onQueryVisibleChange={onQueryVisibleChange}
             onPaneFocus={onPaneFocus}
+            onUrlbarFocus={onUrlbarFocus}
+            onRequestTabChange={eb.enterBrowseAt}
           />
         )}
       </box>

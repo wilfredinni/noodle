@@ -16,6 +16,7 @@ function UrlBarHarness({
   onDefocus,
   jumpMode = false,
   onPaneFocus,
+  onSubFocus,
 }: {
   subFocus?: "select" | "text"
   focused?: boolean
@@ -24,6 +25,7 @@ function UrlBarHarness({
   onDefocus?: (rawUrl: string) => void
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onSubFocus?: (subFocus: "select" | "text") => void
 }) {
   const [url, setUrl] = useState("https://example.com")
   const [method, setMethod] = useState<Method>(initialMethod)
@@ -42,6 +44,7 @@ function UrlBarHarness({
       subFocus={subFocus}
       jumpMode={jumpMode}
       onPaneFocus={onPaneFocus}
+      onSubFocus={onSubFocus}
       activeEnv={{
         name: "test",
         vars: { base_url: "https://api.example.com" },
@@ -69,6 +72,29 @@ describe("UrlBar", () => {
 
     await mockMouse.click(0, 0, MouseButtons.LEFT)
     expect(focusCount).toBe(1)
+    cleanup()
+  })
+
+  it("focuses the URL text input on left click", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let subFocus = ""
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness
+            subFocus="select"
+            onSubFocus={(next) => {
+              subFocus = next
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(12, 1, MouseButtons.LEFT)
+    expect(subFocus).toBe("text")
     cleanup()
   })
 
