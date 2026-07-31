@@ -36,6 +36,9 @@ interface RequestResponseViewProps {
   onPaneFocus?: (focus: Focus) => void
   onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
   onRequestTabChange?: (tab: FieldKind) => void
+  onRequestBodyTypeFocus?: () => void
+  onRequestAuthFocusRow?: (row: number) => void
+  onRequestJsonEditorFocus?: () => void
 }
 
 export function RequestResponseView({
@@ -62,6 +65,9 @@ export function RequestResponseView({
   onPaneFocus = () => {},
   onUrlbarFocus,
   onRequestTabChange,
+  onRequestBodyTypeFocus,
+  onRequestAuthFocusRow,
+  onRequestJsonEditorFocus,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -85,6 +91,9 @@ export function RequestResponseView({
           jumpMode={jumpMode}
           onPaneFocus={() => onPaneFocus("request")}
           onTabChange={onRequestTabChange}
+          onBodyTypeFocus={onRequestBodyTypeFocus}
+          onAuthFocusRow={onRequestAuthFocusRow}
+          onJsonEditorFocus={onRequestJsonEditorFocus}
         />
       )}
       {expanded !== "request" && (

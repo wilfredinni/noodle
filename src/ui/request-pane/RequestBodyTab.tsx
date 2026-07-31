@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { LineNumberRenderable, LineSign } from "@opentui/core"
-import type { Highlight } from "@opentui/core"
+import {
+  MouseButton,
+  type Highlight,
+  type LineNumberRenderable,
+  type LineSign,
+} from "@opentui/core"
 import type { Request, Environment } from "../../schema"
 import { formatBody } from "../formatRequest"
 import type { EditState } from "../editMode"
@@ -27,12 +31,14 @@ export function BodyTypeSelector({
   browseActive,
   onBodyTypeChange,
   onSelectOpenChange,
+  onActivate,
 }: {
   request: Request
   editState: EditState
   browseActive: boolean
   onBodyTypeChange: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
+  onActivate?: () => void
 }) {
   const bodyType = request.bodyType ?? "json"
 
@@ -75,6 +81,7 @@ export function BodyTypeSelector({
         }
         badge={false}
         onOpenChange={handleBodyTypeSelectOpen}
+        onActivate={onActivate}
       />
     </box>
   )
@@ -92,6 +99,7 @@ export function BodySection({
   theme,
   activeEnv,
   onBodyChange,
+  onEditorActivate,
 }: {
   request: Request
   editState: EditState
@@ -104,6 +112,7 @@ export function BodySection({
   theme: Theme
   activeEnv?: Environment | null
   onBodyChange: (body: string) => void
+  onEditorActivate?: () => void
 }) {
   const bodyType = request.bodyType ?? "json"
 
@@ -225,6 +234,9 @@ export function BodySection({
       ) : (
         <box
           id="body-field"
+          onMouseDown={(event) => {
+            if (event.button === MouseButton.LEFT) onEditorActivate?.()
+          }}
           style={{
             flexDirection: "column",
             gap: 1,

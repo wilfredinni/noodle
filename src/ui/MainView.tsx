@@ -155,6 +155,7 @@ export function MainView({
             jumpMode={jumpMode}
             onPaneFocus={() => onPaneFocus("folder")}
             onTabChange={folderEb.enterBrowseAt}
+            onAuthFocusRow={(row) => folderEb.enterBrowseAt("auth", row)}
           />
         ) : (
           <RequestResponseView
@@ -181,6 +182,13 @@ export function MainView({
             onPaneFocus={onPaneFocus}
             onUrlbarFocus={onUrlbarFocus}
             onRequestTabChange={eb.enterBrowseAt}
+            onRequestBodyTypeFocus={() => eb.enterBrowseAt("body")}
+            onRequestAuthFocusRow={(row) => eb.enterBrowseAt("auth", row)}
+            onRequestJsonEditorFocus={() => {
+              if (eb.isEditingJsonBody) return
+              eb.enterBrowseAt("body")
+              eb.enterJsonBodyEditor()
+            }}
           />
         )}
       </box>

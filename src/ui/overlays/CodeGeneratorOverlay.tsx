@@ -170,6 +170,7 @@ export function CodeGeneratorOverlay({
             setClientId(lang.defaultClientId)
           }}
           focused={focus === "language"}
+          onActivate={() => setFocus("language")}
           triggerPriority={110}
           width={22}
         />
@@ -181,6 +182,7 @@ export function CodeGeneratorOverlay({
               setClientId(value)
             }}
             focused={focus === "library"}
+            onActivate={() => setFocus("library")}
             triggerPriority={110}
             width={24}
           />

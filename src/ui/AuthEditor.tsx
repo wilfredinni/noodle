@@ -104,6 +104,7 @@ export interface AuthEditorProps {
   onAuthTypeChange: (t: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
+  onFocusRow?: (row: number) => void
   idPrefix?: string
   showInherit?: boolean
 }
@@ -119,6 +120,7 @@ export function AuthEditor({
   onAuthTypeChange,
   onApiKeyPlacementChange,
   onSelectOpenChange,
+  onFocusRow,
   idPrefix = "auth",
   showInherit = false,
 }: AuthEditorProps) {
@@ -163,6 +165,7 @@ export function AuthEditor({
           focused={isTypeSelectorActive}
           badge={false}
           onOpenChange={handleTypeSelectOpen}
+          onActivate={() => onFocusRow?.(0)}
         />
       </box>
 
@@ -226,6 +229,7 @@ export function AuthEditor({
                     focused={isActive}
                     badge={false}
                     onOpenChange={handlePlacementSelectOpen}
+                    onActivate={() => onFocusRow?.(def.row)}
                   />
                 </box>
               ) : (

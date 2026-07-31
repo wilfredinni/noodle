@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test"
+import { act, createRef } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -12,6 +14,7 @@ import {
   slugify,
   METHOD_ITEMS,
   NewRequestOverlay,
+  type NewRequestOverlayHandle,
 } from "../../src/ui/overlays/NewRequestOverlay"
 
 function setupKeymap() {
@@ -93,6 +96,27 @@ describe("METHOD_ITEMS", () => {
 })
 
 describe("NewRequestOverlay mode prop", () => {
+  it("focuses the method selector when clicked", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const ref = createRef<NewRequestOverlayHandle>()
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay visible ref={ref} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    expect(ref.current?.getFocus()).toBe("name")
+
+    await act(async () => {
+      await mockMouse.click(15, 14, MouseButtons.LEFT)
+    })
+    expect(ref.current?.getFocus()).toBe("method")
+    cleanup()
+  })
+
   it("shows 'New Request' title when mode is not set", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(

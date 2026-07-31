@@ -55,11 +55,11 @@ export const EnvHeaderPane = forwardRef<
   }, [focused])
 
   useEffect(() => {
-    if (focused && !prevFocused.current) {
+    if (focused && !prevFocused.current && !colorFocused) {
       nameRef.current?.focus()
     }
     prevFocused.current = focused
-  }, [focused])
+  }, [focused, colorFocused])
 
   const colorItems: SelectItem[] = useMemo(() => {
     const t = theme as unknown as Record<string, string>
@@ -120,6 +120,7 @@ export const EnvHeaderPane = forwardRef<
         dropdownAlign="right"
         badge
         onOpenChange={setSelectOpen}
+        onActivate={() => setColorFocused(true)}
       />
     </Frame>
   )

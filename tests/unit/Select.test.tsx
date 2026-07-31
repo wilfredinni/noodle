@@ -78,6 +78,7 @@ describe("Select", () => {
   it("opens and selects with left clicks", async () => {
     const { keymap, cleanup } = setupKeymap()
     let selected = ""
+    let activated = 0
     const { renderOnce, captureCharFrame, mockMouse } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
@@ -87,6 +88,7 @@ describe("Select", () => {
             onChange={(id) => {
               selected = id
             }}
+            onActivate={() => activated++}
           />
         </ThemeProvider>
       </KeymapProvider>,
@@ -97,6 +99,7 @@ describe("Select", () => {
     await act(async () => {
       await mockMouse.click(1, 0, MouseButtons.LEFT)
     })
+    expect(activated).toBe(1)
     await renderOnce()
     expect(captureCharFrame()).toContain("POST")
 

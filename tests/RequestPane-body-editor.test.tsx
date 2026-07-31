@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test"
+import { act } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -40,6 +42,38 @@ const editStateBrowse = {
 }
 
 describe("BodySection — edit mode", () => {
+  it("activates the JSON editor without activating the body type selector", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let editorActivations = 0
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+              onJsonEditorFocus={() => editorActivations++}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(5, 5, MouseButtons.LEFT)
+    })
+    expect(editorActivations).toBe(1)
+    cleanup()
+  })
+
   it("renders body content in edit mode", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(

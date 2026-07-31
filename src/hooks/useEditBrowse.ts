@@ -216,7 +216,7 @@ export interface UseEditBrowseResult {
   toggleRow: () => void
   toggleFormRowType: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
-  enterBrowseAt: (field: FieldKind) => void
+  enterBrowseAt: (field: FieldKind, row?: number) => void
   canEnterJsonBodyEditor: boolean
   isEditingJsonBody: boolean
   enterJsonBodyEditor: () => void
@@ -284,19 +284,23 @@ export function useEditBrowse(
     })
   }, [activeTab])
 
-  const enterBrowseAt = useCallback((field: FieldKind) => {
+  const enterBrowseAt = useCallback((field: FieldKind, row?: number) => {
     setInactiveTab(field)
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "inactive") {
+        const cursor = cursorForField(field, c)
         return {
           ...prev,
-          cursor: cursorForField(field, c),
+          cursor:
+            row === undefined ? cursor : { ...cursor, row, addingRow: false },
           mode: "browsing" as const,
           editingRow: -1,
         }
       }
-      return enterEditBrowse(prev, c, field)
+      const next = enterEditBrowse(prev, c, field)
+      if (row === undefined) return next
+      return { ...next, cursor: { ...next.cursor, row, addingRow: false } }
     })
   }, [])
 

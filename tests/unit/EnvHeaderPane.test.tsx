@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test"
+import { act, useState } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -122,6 +124,40 @@ describe("EnvHeaderPane", () => {
       .join("")
     expect(allText).toContain("primary")
     expect(allText).toContain("dev")
+    cleanup()
+  })
+
+  it("opens the color menu when clicked", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    function Harness() {
+      const [focused, setFocused] = useState(false)
+      return (
+        <EnvHeaderPane
+          name="dev"
+          color={undefined}
+          onNameChange={() => {}}
+          onColorChange={() => {}}
+          focused={focused}
+          onPaneFocus={() => setFocused(true)}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 16 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(50, 1, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("primary")
     cleanup()
   })
 })

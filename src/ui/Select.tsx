@@ -33,6 +33,7 @@ export interface SelectProps {
   dropdownAlign?: "left" | "right"
   badge?: boolean
   onOpenChange?: (open: boolean) => void
+  onActivate?: () => void
   triggerPriority?: number
 }
 
@@ -48,6 +49,7 @@ export function Select({
   dropdownAlign = "left",
   badge = false,
   onOpenChange,
+  onActivate,
   triggerPriority = 50,
 }: SelectProps) {
   const theme = useTheme()
@@ -239,7 +241,9 @@ export function Select({
           ref={triggerRef}
           height={1}
           onMouseDown={(event) => {
-            if (event.button === MouseButton.LEFT) setOpen(true)
+            if (event.button !== MouseButton.LEFT) return
+            onActivate?.()
+            setOpen(true)
           }}
           style={{
             flexDirection: "row",

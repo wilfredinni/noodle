@@ -31,6 +31,7 @@ interface FolderPaneProps {
   jumpMode?: boolean
   onPaneFocus?: () => void
   onTabChange?: (tab: FolderFieldKind) => void
+  onAuthFocusRow?: (row: number) => void
 }
 
 export function FolderPane({
@@ -51,6 +52,7 @@ export function FolderPane({
   jumpMode = false,
   onPaneFocus,
   onTabChange,
+  onAuthFocusRow,
 }: FolderPaneProps) {
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
@@ -190,6 +192,7 @@ export function FolderPane({
                       onApiKeyPlacementChange ?? (() => {})
                     }
                     onSelectOpenChange={onSelectOpenChange}
+                    onFocusRow={onAuthFocusRow}
                     showInherit={false}
                   />
                 </box>

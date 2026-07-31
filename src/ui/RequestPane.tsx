@@ -38,6 +38,9 @@ interface Props {
   jumpMode?: boolean
   onPaneFocus?: () => void
   onTabChange?: (tab: FieldKind) => void
+  onBodyTypeFocus?: () => void
+  onAuthFocusRow?: (row: number) => void
+  onJsonEditorFocus?: () => void
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -68,6 +71,9 @@ export function RequestPane({
   jumpMode = false,
   onPaneFocus,
   onTabChange,
+  onBodyTypeFocus,
+  onAuthFocusRow,
+  onJsonEditorFocus,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -179,6 +185,7 @@ export function RequestPane({
                   browseActive={browseActive}
                   onBodyTypeChange={onBodyTypeChange ?? (() => {})}
                   onSelectOpenChange={onSelectOpenChange}
+                  onActivate={onBodyTypeFocus}
                 />
               )}
               {isJsonBody ? (
@@ -194,6 +201,10 @@ export function RequestPane({
                   theme={theme}
                   activeEnv={activeEnv}
                   onBodyChange={onBodyChange ?? (() => {})}
+                  onEditorActivate={() => {
+                    onPaneFocus?.()
+                    onJsonEditorFocus?.()
+                  }}
                 />
               ) : (
                 <scrollbox
@@ -214,6 +225,10 @@ export function RequestPane({
                       theme={theme}
                       activeEnv={activeEnv}
                       onBodyChange={onBodyChange ?? (() => {})}
+                      onEditorActivate={() => {
+                        onPaneFocus?.()
+                        onJsonEditorFocus?.()
+                      }}
                     />
                   )}
                   {activeTab === "headers" && (
@@ -280,6 +295,7 @@ export function RequestPane({
                         onApiKeyPlacementChange ?? (() => {})
                       }
                       onSelectOpenChange={handleSelectOpenChange}
+                      onFocusRow={onAuthFocusRow}
                       showInherit={true}
                     />
                   )}
