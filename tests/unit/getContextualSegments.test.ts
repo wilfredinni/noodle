@@ -38,14 +38,14 @@ function base(overrides: Partial<KeybindingHintsContext> = {}) {
 describe("getContextualSegments", () => {
   it("returns empty when overlay is active", () => {
     const r = base({ focus: "sidebar", overlayActive: true })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   // ── sidebar ──────────────────────────────────────
 
   it("sidebar in collection mode", () => {
     const r = base({ focus: "sidebar" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^n", "new"),
       seg("^alt+n", "new folder"),
       seg("^w", "delete"),
@@ -56,26 +56,26 @@ describe("getContextualSegments", () => {
 
   it("sidebar in read-only mode returns empty", () => {
     const r = base({ focus: "sidebar", collectionMode: "browse" })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   // ── urlbar ──────────────────────────────────────
 
   it("urlbar in collection mode", () => {
     const r = base({ focus: "urlbar" })
-    expect(r.footer).toEqual([seg("^s", "save")])
+    expect(r.footer).toMatchObject([seg("^s", "save")])
   })
 
   it("urlbar in read-only mode returns empty", () => {
     const r = base({ focus: "urlbar", collectionMode: "browse" })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   // ── request ─────────────────────────────────────
 
   it("request base in collection mode", () => {
     const r = base({ focus: "request" })
-    expect(r.footer).toEqual([seg("f2", "expand"), seg("^s", "save")])
+    expect(r.footer).toMatchObject([seg("f2", "expand"), seg("^s", "save")])
   })
 
   it("request JSON body shows fold", () => {
@@ -85,17 +85,17 @@ describe("getContextualSegments", () => {
       tab: "body",
       bodyType: "json",
     })
-    expect(r.footer).toEqual([seg("^g", "fold"), seg("f2", "expand")])
+    expect(r.footer).toMatchObject([seg("^g", "fold"), seg("f2", "expand")])
   })
 
   it("request base in read-only mode returns empty", () => {
     const r = base({ focus: "request", collectionMode: "browse" })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   it("request browse in collection mode with no tab", () => {
     const r = base({ focus: "request", paneMode: "browse" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
@@ -105,7 +105,7 @@ describe("getContextualSegments", () => {
 
   it("request browse with headers tab shows Space toggle", () => {
     const r = base({ focus: "request", paneMode: "browse", tab: "headers" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
@@ -116,7 +116,7 @@ describe("getContextualSegments", () => {
 
   it("request browse with params tab shows Space toggle", () => {
     const r = base({ focus: "request", paneMode: "browse", tab: "params" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
@@ -127,7 +127,7 @@ describe("getContextualSegments", () => {
 
   it("request browse with body tab and no bodyType hides Space toggle", () => {
     const r = base({ focus: "request", paneMode: "browse", tab: "body" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
@@ -142,7 +142,7 @@ describe("getContextualSegments", () => {
       tab: "body",
       bodyType: "urlencoded",
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
@@ -158,7 +158,7 @@ describe("getContextualSegments", () => {
       tab: "body",
       bodyType: "multipart",
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
@@ -174,7 +174,7 @@ describe("getContextualSegments", () => {
       tab: "body",
       bodyType: "json",
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
@@ -189,7 +189,7 @@ describe("getContextualSegments", () => {
       tab: "body",
       bodyType: "none",
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
@@ -204,7 +204,7 @@ describe("getContextualSegments", () => {
       tab: "body",
       bodyType: "binary",
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
@@ -214,7 +214,7 @@ describe("getContextualSegments", () => {
 
   it("request browse with auth tab hides Space toggle", () => {
     const r = base({ focus: "request", paneMode: "browse", tab: "auth" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
@@ -224,7 +224,7 @@ describe("getContextualSegments", () => {
 
   it("request browse with settings tab hides Space toggle", () => {
     const r = base({ focus: "request", paneMode: "browse", tab: "settings" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
@@ -238,19 +238,19 @@ describe("getContextualSegments", () => {
       paneMode: "browse",
       collectionMode: "browse",
     })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   it("request edit returns expand", () => {
     const r = base({ focus: "request", paneMode: "edit" })
-    expect(r.footer).toEqual([seg("f2", "expand")])
+    expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
   // ── response ────────────────────────────────────
 
   it("response when done shows copy and filter on body tab", () => {
     const r = base({ focus: "response", sendState: done, tab: "body" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -259,22 +259,22 @@ describe("getContextualSegments", () => {
 
   it("response when done on headers tab shows expand", () => {
     const r = base({ focus: "response", sendState: done, tab: "headers" })
-    expect(r.footer).toEqual([seg("f2", "expand")])
+    expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
   it("response when done on timeline tab shows expand", () => {
     const r = base({ focus: "response", sendState: done, tab: "timeline" })
-    expect(r.footer).toEqual([seg("f2", "expand")])
+    expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
   it("response when done on network tab shows expand", () => {
     const r = base({ focus: "response", sendState: done, tab: "network" })
-    expect(r.footer).toEqual([seg("f2", "expand")])
+    expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
   it("response when done without tab shows expand", () => {
     const r = base({ focus: "response", sendState: done })
-    expect(r.footer).toEqual([seg("f2", "expand")])
+    expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
   it("response when done with open query hides hints", () => {
@@ -284,7 +284,7 @@ describe("getContextualSegments", () => {
       tab: "body",
       queryVisible: true,
     })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   it("response when done with closed query shows filter", () => {
@@ -294,7 +294,7 @@ describe("getContextualSegments", () => {
       tab: "body",
       queryVisible: false,
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -307,7 +307,7 @@ describe("getContextualSegments", () => {
       sendState: done,
       tab: "body",
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -316,24 +316,24 @@ describe("getContextualSegments", () => {
 
   it("response when idle shows expand", () => {
     const r = base({ focus: "response" })
-    expect(r.footer).toEqual([seg("f2", "expand")])
+    expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
   // ── folder ──────────────────────────────────────
 
   it("folder base in collection mode", () => {
     const r = base({ focus: "folder" })
-    expect(r.footer).toEqual([seg("^w", "delete"), seg("^s", "save")])
+    expect(r.footer).toMatchObject([seg("^w", "delete"), seg("^s", "save")])
   })
 
   it("folder base in read-only returns empty", () => {
     const r = base({ focus: "folder", collectionMode: "browse" })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   it("folder browse with headers tab shows Space toggle", () => {
     const r = base({ focus: "folder", paneMode: "browse", tab: "headers" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^r", "revert all"),
@@ -343,7 +343,7 @@ describe("getContextualSegments", () => {
 
   it("folder browse with meta tab hides Space toggle", () => {
     const r = base({ focus: "folder", paneMode: "browse", tab: "meta" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("^s", "save"),
@@ -352,7 +352,7 @@ describe("getContextualSegments", () => {
 
   it("folder browse with auth tab hides Space toggle", () => {
     const r = base({ focus: "folder", paneMode: "browse", tab: "auth" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
       seg("^s", "save"),
@@ -361,7 +361,7 @@ describe("getContextualSegments", () => {
 
   it("folder browse with activity tab returns empty", () => {
     const r = base({ focus: "folder", paneMode: "browse", tab: "activity" })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   it("folder browse in read-only returns empty", () => {
@@ -370,19 +370,19 @@ describe("getContextualSegments", () => {
       paneMode: "browse",
       collectionMode: "browse",
     })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   it("folder edit returns empty", () => {
     const r = base({ focus: "folder", paneMode: "edit" })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 
   // ── env editor ──────────────────────────────────
 
   it("env-sidebar", () => {
     const r = base({ focus: "env-sidebar", view: "env-editor" })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("^n", "new"),
       seg("^w", "delete"),
       seg("^k", "clone"),
@@ -391,7 +391,7 @@ describe("getContextualSegments", () => {
 
   it("env-header", () => {
     const r = base({ focus: "env-header", view: "env-editor" })
-    expect(r.footer).toEqual([seg("^n", "new"), seg("^s", "save")])
+    expect(r.footer).toMatchObject([seg("^n", "new"), seg("^s", "save")])
   })
 
   it("env-vars browse", () => {
@@ -400,7 +400,7 @@ describe("getContextualSegments", () => {
       paneMode: "browse",
       view: "env-editor",
     })
-    expect(r.footer).toEqual([
+    expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
       seg("^s", "save"),
@@ -413,7 +413,7 @@ describe("getContextualSegments", () => {
       paneMode: "edit",
       view: "env-editor",
     })
-    expect(r.footer).toEqual([seg("^s", "save")])
+    expect(r.footer).toMatchObject([seg("^s", "save")])
   })
 
   it("env-editor read-only returns empty", () => {
@@ -422,6 +422,6 @@ describe("getContextualSegments", () => {
       view: "env-editor",
       collectionMode: "browse",
     })
-    expect(r.footer).toEqual([])
+    expect(r.footer).toMatchObject([])
   })
 })

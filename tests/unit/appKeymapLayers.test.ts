@@ -145,6 +145,25 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("dispatches only active commands programmatically", () => {
+    const { keymap, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const disposers = register(context)
+
+    expect(keymap.dispatchCommand("request.send")).toMatchObject({ ok: true })
+    expect(calls.send).toBe(1)
+
+    keymap.setData("app.mode", "browse")
+    expect(keymap.dispatchCommand("request.send")).toMatchObject({
+      ok: false,
+      reason: "disabled",
+    })
+    expect(calls.send).toBe(1)
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("blocks request send outside collection mode", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)

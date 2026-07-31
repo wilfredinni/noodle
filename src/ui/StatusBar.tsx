@@ -1,3 +1,4 @@
+import { MouseButton } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
@@ -14,11 +15,8 @@ export interface StatusBarSections {
   right: string
 }
 
-function fitSegments(
-  segments: Array<{ key: string; word: string }>,
-  maxChars: number,
-): Array<{ key: string; word: string }> {
-  const visible: Array<{ key: string; word: string }> = []
+function fitSegments(segments: HintSegment[], maxChars: number): HintSegment[] {
+  const visible: HintSegment[] = []
   let usedChars = 0
 
   for (const seg of segments) {
@@ -141,6 +139,9 @@ export function StatusBar(input: {
   collectionMode?: CollectionMode
   overlayActive?: boolean
   footerHints: HintSegment[]
+  sendCommand?: string
+  onEnvironmentActivate?: () => void
+  onHintActivate?: (command: string) => void
 }) {
   const theme = useTheme()
 
@@ -167,7 +168,7 @@ export function StatusBar(input: {
 
   const isEnvEditor = view === "env-editor"
 
-  const jumpSegments = [
+  const jumpSegments: HintSegment[] = [
     { key: "Type key", word: "to jump" },
     { key: "Esc", word: "dismiss" },
   ]
@@ -178,8 +179,15 @@ export function StatusBar(input: {
     view === "main" &&
     collectionMode === "collection" &&
     !overlayActive &&
-    !jumpMode
-      ? [{ key: displayKey(input.kb.request_send), word: "send" }]
+    !jumpMode &&
+    input.sendCommand
+      ? [
+          {
+            key: displayKey(input.kb.request_send),
+            word: "send",
+            command: input.sendCommand,
+          },
+        ]
       : []
 
   let sendWidth = 0
@@ -211,7 +219,14 @@ export function StatusBar(input: {
         paddingRight: 1,
       }}
     >
-      <box style={{ flexDirection: "row" }}>
+      <box
+        style={{ flexDirection: "row" }}
+        onMouseDown={(event) => {
+          if (event.button === MouseButton.LEFT && !isEnvEditor) {
+            input.onEnvironmentActivate?.()
+          }
+        }}
+      >
         {isEnvEditor ? (
           <Badge bg={theme.backgroundElement} fg={theme.info}>
             {input.envStats || "Env Editor"}
@@ -222,7 +237,15 @@ export function StatusBar(input: {
       </box>
       <box style={{ flexDirection: "row", alignItems: "center" }}>
         {allSegments.map((seg, i) => (
-          <box key={i} style={{ flexDirection: "row" }}>
+          <box
+            key={i}
+            style={{ flexDirection: "row" }}
+            onMouseDown={(event) => {
+              if (event.button === MouseButton.LEFT && seg.command) {
+                input.onHintActivate?.(seg.command)
+              }
+            }}
+          >
             <text fg={theme.text}>{seg.key}</text>
             {seg.word ? <text fg={theme.textMuted}> {seg.word}</text> : null}
             {i < allSegments.length - 1 && (

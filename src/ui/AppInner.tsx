@@ -640,6 +640,34 @@ export function AppInner({
     ],
   )
 
+  const sendCommand =
+    view === "main" && mode === "collection" && !overlayActive && !jumpMode
+      ? paneMode === "browse" && focus === "request"
+        ? "browse.send"
+        : paneMode === "edit" && focus === "request" && eb.isEditingJsonBody
+          ? "edit.json-send"
+          : paneMode === "base" && focus !== "folder"
+            ? "request.send"
+            : undefined
+      : undefined
+
+  const handleHintActivate = useCallback(
+    (command: string) => {
+      keymap.dispatchCommand(command)
+    },
+    [keymap],
+  )
+
+  const handleAboutActivate = useCallback(() => {
+    setAboutVisible(true)
+  }, [setAboutVisible])
+
+  const handleEnvironmentActivate = useCallback(() => {
+    envEditor.openEditor(envState.activeEnv?.name)
+    setView("env-editor")
+    setFocus("env-header")
+  }, [envEditor, envState.activeEnv?.name])
+
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)
   trySendRef.current = trySend
@@ -916,6 +944,8 @@ export function AppInner({
     >
       <Header
         headerHints={hints.header}
+        onAboutActivate={handleAboutActivate}
+        onHintActivate={handleHintActivate}
         restartVersion={restartVersion}
         updateAvailable={updateAvailable}
       />
@@ -1079,6 +1109,13 @@ export function AppInner({
         collectionMode={mode}
         overlayActive={overlayActive}
         footerHints={hints.footer}
+        sendCommand={sendCommand}
+        onEnvironmentActivate={
+          view === "main" && mode === "collection" && !overlayActive
+            ? handleEnvironmentActivate
+            : undefined
+        }
+        onHintActivate={handleHintActivate}
       />
     </box>
   )

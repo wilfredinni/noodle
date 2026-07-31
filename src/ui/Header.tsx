@@ -1,4 +1,4 @@
-import { TextAttributes } from "@opentui/core"
+import { MouseButton, TextAttributes } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
 import pkg from "../../package.json" with { type: "json" }
 import { useTheme } from "./theme"
@@ -6,10 +6,14 @@ import type { HintSegment } from "./keybindingHints"
 
 export function Header({
   headerHints,
+  onAboutActivate,
+  onHintActivate,
   restartVersion,
   updateAvailable,
 }: {
   headerHints: HintSegment[]
+  onAboutActivate?: () => void
+  onHintActivate?: (command: string) => void
   restartVersion?: string | null
   updateAvailable?: string | null
 }) {
@@ -32,10 +36,17 @@ export function Header({
       }}
     >
       <box style={{ flexDirection: "row" }}>
-        <text fg={theme.primary} attributes={TextAttributes.BOLD}>
-          Noodle
-        </text>
-        {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
+        <box
+          style={{ flexDirection: "row" }}
+          onMouseDown={(event) => {
+            if (event.button === MouseButton.LEFT) onAboutActivate?.()
+          }}
+        >
+          <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+            Noodle
+          </text>
+          {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
+        </box>
         {showVersion && updateAvailable != null && (
           <text fg={theme.warning}> {"✨"} Update available</text>
         )}
@@ -46,7 +57,15 @@ export function Header({
       {showHints && headerHints.length > 0 && (
         <box style={{ flexDirection: "row" }}>
           {headerHints.map((hint, i) => (
-            <box key={i} style={{ flexDirection: "row" }}>
+            <box
+              key={i}
+              style={{ flexDirection: "row" }}
+              onMouseDown={(event) => {
+                if (event.button === MouseButton.LEFT && hint.command) {
+                  onHintActivate?.(hint.command)
+                }
+              }}
+            >
               <text fg={theme.text}>{hint.key}</text>
               {showHintLabels && hint.word ? (
                 <text fg={theme.textMuted}> {hint.word}</text>
