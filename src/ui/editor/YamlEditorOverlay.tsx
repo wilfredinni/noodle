@@ -1,4 +1,8 @@
-import { type LineNumberRenderable, type LineSign } from "@opentui/core"
+import {
+  MouseButton,
+  type LineNumberRenderable,
+  type LineSign,
+} from "@opentui/core"
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { basename, dirname } from "node:path"
@@ -45,6 +49,9 @@ export function YamlEditorOverlay({
   const [validationError, setValidationError] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
+    null,
+  )
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -300,11 +307,44 @@ export function YamlEditorOverlay({
             gap: 1,
           }}
         >
-          <text fg={theme.text}>^S</text>
-          <text fg={theme.textMuted}>save</text>
-          <text fg={theme.textMuted}> · </text>
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}>close</text>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              handleSave()
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={() => setHoveredAction("save")}
+            onMouseOut={() => setHoveredAction(null)}
+            style={{
+              flexDirection: "row",
+              paddingX: 1,
+              backgroundColor:
+                hoveredAction === "save" ? theme.backgroundElement : undefined,
+            }}
+          >
+            <text fg={theme.text}>^S</text>
+            <text fg={theme.textMuted}> save</text>
+          </box>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              handleClose()
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={() => setHoveredAction("close")}
+            onMouseOut={() => setHoveredAction(null)}
+            style={{
+              flexDirection: "row",
+              paddingX: 1,
+              backgroundColor:
+                hoveredAction === "close" ? theme.backgroundElement : undefined,
+            }}
+          >
+            <text fg={theme.text}>esc</text>
+            <text fg={theme.textMuted}> close</text>
+          </box>
         </box>
       </box>
     </Overlay>
