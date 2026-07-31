@@ -1,5 +1,6 @@
 import { MouseButton } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
+import { useState } from "react"
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
@@ -9,13 +10,20 @@ import { Badge } from "./Badge"
 import type { HintSegment } from "./keybindingHints"
 import type { CollectionMode } from "../app/main"
 
+const HINT_HORIZONTAL_PADDING = 2
+const HINT_ITEM_GAP = 1
+
 export interface StatusBarSections {
   left: string
   center: string
   right: string
 }
 
-function fitSegments(segments: HintSegment[], maxChars: number): HintSegment[] {
+function fitSegments(
+  segments: HintSegment[],
+  maxChars: number,
+  trailingGap = 0,
+): HintSegment[] {
   const visible: HintSegment[] = []
   let usedChars = 0
 
@@ -23,7 +31,8 @@ function fitSegments(segments: HintSegment[], maxChars: number): HintSegment[] {
     const segLen =
       seg.key.length +
       (seg.word ? 1 + seg.word.length : 0) +
-      (visible.length > 0 ? 3 : 0)
+      HINT_HORIZONTAL_PADDING +
+      (visible.length > 0 ? HINT_ITEM_GAP : trailingGap)
     if (usedChars + segLen > maxChars) break
     visible.push(seg)
     usedChars += segLen
@@ -144,6 +153,8 @@ export function StatusBar(input: {
   onHintActivate?: (command: string) => void
 }) {
   const theme = useTheme()
+  const [hoveringEnvironment, setHoveringEnvironment] = useState(false)
+  const [hoveredSegment, setHoveredSegment] = useState<number | null>(null)
 
   const view = input.view ?? "main"
   const jumpMode = input.jumpMode ?? false
@@ -192,7 +203,11 @@ export function StatusBar(input: {
 
   let sendWidth = 0
   for (const seg of sendSegment) {
-    sendWidth += seg.key.length + (seg.word ? 1 + seg.word.length : 0) + 3
+    sendWidth +=
+      seg.key.length +
+      (seg.word ? 1 + seg.word.length : 0) +
+      HINT_HORIZONTAL_PADDING +
+      (sendWidth > 0 ? HINT_ITEM_GAP : 0)
   }
 
   const segments = jumpMode ? jumpSegments : contextual
@@ -203,7 +218,11 @@ export function StatusBar(input: {
   const maxShortcutChars = Math.max(0, termWidth - leftWidth - sendWidth)
   const visibleSegments = jumpMode
     ? segments
-    : fitSegments(segments, maxShortcutChars)
+    : fitSegments(
+        segments,
+        maxShortcutChars,
+        sendSegment.length > 0 ? HINT_ITEM_GAP : 0,
+      )
 
   const allSegments = [...visibleSegments, ...sendSegment]
 
@@ -220,12 +239,30 @@ export function StatusBar(input: {
       }}
     >
       <box
-        style={{ flexDirection: "row" }}
+        style={{
+          flexDirection: "row",
+          paddingLeft: !isEnvEditor ? 1 : undefined,
+          paddingRight: !isEnvEditor ? 1 : undefined,
+          backgroundColor:
+            !isEnvEditor && hoveringEnvironment
+              ? theme.backgroundElement
+              : undefined,
+        }}
         onMouseDown={(event) => {
           if (event.button === MouseButton.LEFT && !isEnvEditor) {
             input.onEnvironmentActivate?.()
           }
         }}
+        onMouseOver={
+          !isEnvEditor && input.onEnvironmentActivate
+            ? () => setHoveringEnvironment(true)
+            : undefined
+        }
+        onMouseOut={
+          !isEnvEditor && input.onEnvironmentActivate
+            ? () => setHoveringEnvironment(false)
+            : undefined
+        }
       >
         {isEnvEditor ? (
           <Badge bg={theme.backgroundElement} fg={theme.info}>
@@ -235,22 +272,43 @@ export function StatusBar(input: {
           <text fg={envFg}>{envText}</text>
         )}
       </box>
-      <box style={{ flexDirection: "row", alignItems: "center" }}>
+      <box
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: HINT_ITEM_GAP,
+        }}
+      >
         {allSegments.map((seg, i) => (
           <box
             key={i}
-            style={{ flexDirection: "row" }}
+            style={{
+              flexDirection: "row",
+              paddingLeft: 1,
+              paddingRight: 1,
+              backgroundColor:
+                seg.command && input.onHintActivate && hoveredSegment === i
+                  ? theme.backgroundElement
+                  : undefined,
+            }}
             onMouseDown={(event) => {
               if (event.button === MouseButton.LEFT && seg.command) {
                 input.onHintActivate?.(seg.command)
               }
             }}
+            onMouseOver={
+              seg.command && input.onHintActivate
+                ? () => setHoveredSegment(i)
+                : undefined
+            }
+            onMouseOut={
+              seg.command && input.onHintActivate
+                ? () => setHoveredSegment(null)
+                : undefined
+            }
           >
             <text fg={theme.text}>{seg.key}</text>
             {seg.word ? <text fg={theme.textMuted}> {seg.word}</text> : null}
-            {i < allSegments.length - 1 && (
-              <text fg={theme.textMuted}> · </text>
-            )}
           </box>
         ))}
       </box>

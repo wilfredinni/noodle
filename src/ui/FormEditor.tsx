@@ -1,5 +1,6 @@
 import type { FormEntry, Environment } from "../schema"
 import { MouseButton } from "@opentui/core"
+import { useState } from "react"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
@@ -36,6 +37,7 @@ export function FormEditor({
   onToggleRow,
 }: FormEditorProps) {
   const rows = request.formData ?? []
+  const [hoveredRow, setHoveredRow] = useState<number | "add" | null>(null)
 
   const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
   const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
@@ -70,7 +72,9 @@ export function FormEditor({
             backgroundColor:
               cursorHere && editState.cursor.addingRow
                 ? theme.backgroundElement
-                : undefined,
+                : hoveredRow === "add" && onActivateRow
+                  ? theme.backgroundElement
+                  : undefined,
           }}
           onMouseDown={
             onActivateRow
@@ -81,6 +85,8 @@ export function FormEditor({
                 }
               : undefined
           }
+          onMouseOver={onActivateRow ? () => setHoveredRow("add") : undefined}
+          onMouseOut={onActivateRow ? () => setHoveredRow(null) : undefined}
         >
           <Checkbox checked={false} theme={theme} />
           <VarInput
@@ -112,6 +118,9 @@ export function FormEditor({
               !editState.cursor.addingRow &&
               editState.cursor.row - 1 === i
             const dimmed = (inEdit && !isEditingThisRow) || !entry.enabled
+            const canHoverRow =
+              !isEditingThisRow &&
+              (onActivateRow !== undefined || onToggleRow !== undefined)
 
             const displayKey =
               entry.type === "file" ? `[F] ${entry.name}` : entry.name
@@ -124,7 +133,9 @@ export function FormEditor({
                 ? theme.text
                 : theme.textMuted
             const rowBg =
-              cursorOnThisRow || isEditingThisRow
+              cursorOnThisRow ||
+              isEditingThisRow ||
+              (canHoverRow && hoveredRow === i)
                 ? theme.backgroundElement
                 : i % 2 !== 0
                   ? stripeBg
@@ -148,6 +159,8 @@ export function FormEditor({
                       }
                     : undefined
                 }
+                onMouseOver={canHoverRow ? () => setHoveredRow(i) : undefined}
+                onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
               >
                 <box
                   onMouseDown={
@@ -199,9 +212,11 @@ export function FormEditor({
             const addRowBg =
               cursorHere && editState.cursor.addingRow
                 ? theme.backgroundElement
-                : rows.length % 2 !== 0
-                  ? stripeBg
-                  : undefined
+                : hoveredRow === "add" && onActivateRow
+                  ? theme.backgroundElement
+                  : rows.length % 2 !== 0
+                    ? stripeBg
+                    : undefined
 
             return (
               <box
@@ -219,6 +234,12 @@ export function FormEditor({
                         event.stopPropagation()
                       }
                     : undefined
+                }
+                onMouseOver={
+                  onActivateRow ? () => setHoveredRow("add") : undefined
+                }
+                onMouseOut={
+                  onActivateRow ? () => setHoveredRow(null) : undefined
                 }
               >
                 <Checkbox checked={false} theme={theme} />

@@ -1,7 +1,7 @@
 import { useTheme } from "../theme"
 import { FullBorder, LeftBar } from "../borders"
 import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { VALID_COLORS } from "../../env/constants"
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
@@ -33,6 +33,7 @@ export function EnvSidebar({
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [hoveredEnvName, setHoveredEnvName] = useState<string | null>(null)
 
   const selectedIndex = selectedEnvName ? envNames.indexOf(selectedEnvName) : -1
 
@@ -83,6 +84,7 @@ export function EnvSidebar({
           {envNames.map((name, i) => {
             const isSelected = name === selectedEnvName
             const isDirty = isSelected && dirty
+            const isHovered = hoveredEnvName === name
             const colorKey = envColors?.[name]
             const colorHex =
               colorKey !== undefined
@@ -97,9 +99,10 @@ export function EnvSidebar({
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  backgroundColor: isSelected
-                    ? theme.backgroundElement
-                    : undefined,
+                  backgroundColor:
+                    isSelected || isHovered
+                      ? theme.backgroundElement
+                      : undefined,
                 }}
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
@@ -110,6 +113,8 @@ export function EnvSidebar({
                   onPaneFocus?.()
                   event.stopPropagation()
                 }}
+                onMouseOver={() => setHoveredEnvName(name)}
+                onMouseOut={() => setHoveredEnvName(null)}
               >
                 <box style={{ flexDirection: "row" }}>
                   {colorHex && <text fg={colorHex}>● </text>}

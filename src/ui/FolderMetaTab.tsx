@@ -1,5 +1,6 @@
 import type { Environment } from "../schema"
 import { MouseButton } from "@opentui/core"
+import { useState } from "react"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { LeftBar } from "./borders"
@@ -25,6 +26,7 @@ export function FolderMetaTab({
   activeEnv,
   onActivate,
 }: FolderMetaTabProps) {
+  const [hovered, setHovered] = useState(false)
   const inEdit = editState.mode === "editing"
   const cursorHere = editState.cursor.field === "meta"
   const editingRow = inEdit && cursorHere ? editState.cursor.row : -1
@@ -44,7 +46,10 @@ export function FolderMetaTab({
         style={{
           flexDirection: nameEditing ? "row" : undefined,
           gap: nameEditing ? 1 : undefined,
-          backgroundColor: nameActive ? theme.backgroundElement : undefined,
+          backgroundColor:
+            nameActive || (hovered && !nameEditing && onActivate)
+              ? theme.backgroundElement
+              : undefined,
           paddingLeft: 1,
         }}
         onMouseDown={
@@ -55,6 +60,12 @@ export function FolderMetaTab({
                 event.stopPropagation()
               }
             : undefined
+        }
+        onMouseOver={
+          !nameEditing && onActivate ? () => setHovered(true) : undefined
+        }
+        onMouseOut={
+          !nameEditing && onActivate ? () => setHovered(false) : undefined
         }
       >
         {nameEditing ? (

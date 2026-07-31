@@ -1,5 +1,6 @@
 import type { Request, Environment } from "../../schema"
 import { MouseButton } from "@opentui/core"
+import { useState } from "react"
 import type { EditState } from "../editMode"
 import type { Theme } from "../theme"
 import { VarInput } from "../VarInput"
@@ -27,6 +28,7 @@ export function SettingsSection({
   onActivateRow?: (row: number) => void
   onToggleRow?: (row: number) => void
 }) {
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null)
   const rows = [
     {
       label: "Timeout (ms)",
@@ -59,6 +61,9 @@ export function SettingsSection({
           browseActive &&
           editState.cursor.field === "settings" &&
           editState.cursor.row === idx
+        const canHoverRow =
+          !editingRow &&
+          (idx === 1 ? onToggleRow !== undefined : onActivateRow !== undefined)
 
         return (
           <box key={row.label} style={{ flexDirection: "column" }}>
@@ -72,7 +77,10 @@ export function SettingsSection({
               style={{
                 flexDirection: editingRow ? "row" : undefined,
                 gap: editingRow ? 1 : undefined,
-                backgroundColor: isActive ? theme.backgroundElement : undefined,
+                backgroundColor:
+                  isActive || (canHoverRow && hoveredRow === idx)
+                    ? theme.backgroundElement
+                    : undefined,
               }}
               onMouseDown={
                 !editingRow && idx !== 1 && onActivateRow
@@ -83,6 +91,8 @@ export function SettingsSection({
                     }
                   : undefined
               }
+              onMouseOver={canHoverRow ? () => setHoveredRow(idx) : undefined}
+              onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
             >
               {editingRow ? (
                 <>

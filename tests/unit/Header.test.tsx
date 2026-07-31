@@ -18,6 +18,7 @@ describe("Header", () => {
         <Header
           headerHints={[
             { key: "^p", word: "commands", command: "app.command-palette" },
+            { key: "F1", word: "help", command: "app.help" },
           ]}
           onHintActivate={(command) => activated.push(command)}
         />
@@ -26,7 +27,10 @@ describe("Header", () => {
     )
     await renderOnce()
 
-    const [x, y] = textPosition(captureCharFrame(), "commands")
+    const frame = captureCharFrame()
+    expect(frame).not.toContain("·")
+    expect(frame.indexOf("F1") - frame.indexOf("commands") - 8).toBe(3)
+    const [x, y] = textPosition(frame, "commands")
     await mockMouse.click(x, y, MouseButtons.RIGHT)
     expect(activated).toEqual([])
 

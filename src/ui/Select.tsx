@@ -60,6 +60,7 @@ export function Select({
   const [open, setOpen] = useState(false)
   const [uid] = useState(() => `s-${nextSelectId++}-`)
   const [highlightIndex, setHighlightIndex] = useState(0)
+  const [hovered, setHovered] = useState(false)
   const contrastColor = useMemo(() => contrastOnPrimary(theme), [theme])
 
   const currentIndex = useMemo(
@@ -173,7 +174,7 @@ export function Select({
       : selectedBadgeBg
     : open
       ? theme.primary
-      : visualFocused
+      : visualFocused || hovered
         ? theme.borderSubtle
         : theme.backgroundElement
 
@@ -245,6 +246,8 @@ export function Select({
             onActivate?.()
             setOpen(true)
           }}
+          onMouseOver={() => setHovered(true)}
+          onMouseOut={() => setHovered(false)}
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
@@ -310,6 +313,9 @@ export function Select({
                           event.preventDefault()
                           event.stopPropagation()
                         }}
+                        onMouseOver={
+                          item.disabled ? undefined : () => setHighlightIndex(i)
+                        }
                         style={{
                           flexDirection: "row",
                           gap: 1,

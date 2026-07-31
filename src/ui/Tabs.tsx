@@ -1,5 +1,5 @@
 import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { JumpBadge } from "./JumpBadge"
 import { useTheme } from "./theme"
 
@@ -25,6 +25,7 @@ export function Tabs({
   const theme = useTheme()
   const tabScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const badgeScrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const hasJumpHint = tabs.some((t) => t.jumpHint)
   const scrollTabs = (delta: number) => {
     tabScrollRef.current?.scrollBy({ x: delta, y: 0 })
@@ -178,6 +179,7 @@ export function Tabs({
           >
             {tabs.map((tab) => {
               const isActive = tab.id === activeId
+              const isHovered = onChange !== undefined && hoveredId === tab.id
               return (
                 <box
                   id={`tab-${tab.id}`}
@@ -198,6 +200,10 @@ export function Tabs({
                     onChange?.(tab.id)
                     event.stopPropagation()
                   }}
+                  onMouseOver={
+                    onChange ? () => setHoveredId(tab.id) : undefined
+                  }
+                  onMouseOut={onChange ? () => setHoveredId(null) : undefined}
                   style={{
                     flexDirection: "column",
                     flexBasis: "auto",
@@ -211,7 +217,15 @@ export function Tabs({
                       paddingRight: 2,
                     }}
                   >
-                    <text fg={isActive ? theme.primary : theme.textMuted}>
+                    <text
+                      fg={
+                        isActive
+                          ? theme.primary
+                          : isHovered
+                            ? theme.text
+                            : theme.textMuted
+                      }
+                    >
                       {tab.label}
                     </text>
                   </box>

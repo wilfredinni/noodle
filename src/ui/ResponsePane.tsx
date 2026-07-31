@@ -93,6 +93,7 @@ export function ResponsePane({
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")
+  const [hoveringRawBody, setHoveringRawBody] = useState(false)
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
   const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
@@ -471,6 +472,13 @@ export function ResponsePane({
                           onPaneFocus?.()
                           setShowLargeBody(true)
                           event.stopPropagation()
+                        }}
+                        onMouseOver={() => setHoveringRawBody(true)}
+                        onMouseOut={() => setHoveringRawBody(false)}
+                        style={{
+                          backgroundColor: hoveringRawBody
+                            ? theme.backgroundElement
+                            : undefined,
                         }}
                       >
                         <text fg={theme.textMuted}>

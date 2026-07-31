@@ -1,5 +1,6 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
 import { MouseButton } from "@opentui/core"
+import { useState } from "react"
 import { useTheme } from "../theme"
 import { statusColor } from "../format"
 import {
@@ -27,10 +28,12 @@ export function TimelineEntry({
   onActivate?: () => void
 }) {
   const theme = useTheme()
+  const [hovered, setHovered] = useState(false)
   const status = entryStatus(entry)
   const hasError = entry.error !== undefined
 
-  const rowBg = isSelected ? theme.backgroundElement : undefined
+  const rowBg =
+    isSelected || (hovered && onActivate) ? theme.backgroundElement : undefined
   const rowFg = isSelected ? theme.text : theme.textMuted
 
   const method = entryMethod(entry)
@@ -64,6 +67,8 @@ export function TimelineEntry({
             }
           : undefined
       }
+      onMouseOver={onActivate ? () => setHovered(true) : undefined}
+      onMouseOut={onActivate ? () => setHovered(false) : undefined}
     >
       <box
         style={{

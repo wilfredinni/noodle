@@ -101,6 +101,7 @@ describe("StatusBar component", () => {
     expect(frame).toContain("new")
     expect(frame).toContain("new folder")
     expect(frame).toContain("delete")
+    expect(frame).not.toContain("·")
   })
 
   it("returns empty contextual shortcuts when overlay is active", async () => {
@@ -159,6 +160,31 @@ describe("StatusBar component", () => {
     await mockMouse.click(saveX, saveY, MouseButtons.LEFT)
     await mockMouse.click(sendX, sendY, MouseButtons.LEFT)
     expect(activated).toEqual(["request.save", "request.send"])
+  })
+
+  it("leaves a gap between footer hints", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          method="GET"
+          url="/users"
+          isDirty={false}
+          sendState={{ status: "idle" }}
+          envLabel="dev"
+          saveState={{ kind: "idle" }}
+          kb={kb}
+          footerHints={[
+            { key: "^s", word: "save", command: "request.save" },
+            { key: "^n", word: "new", command: "request.new" },
+          ]}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame.indexOf("^n") - frame.indexOf("save") - 4).toBe(3)
   })
 
   it("opens the environment editor on left click of the environment", async () => {

@@ -129,6 +129,7 @@ export function AuthEditor({
 }: AuthEditorProps) {
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
   const [placementSelectOpen, setPlacementSelectOpen] = useState(false)
+  const [hoveredField, setHoveredField] = useState<string | null>(null)
 
   const { type, fieldDefs } = getAuthRows(auth)
   const authItems = showInherit
@@ -182,6 +183,8 @@ export function AuthEditor({
           editState.cursor.field === "auth" &&
           editState.cursor.row === def.row
         const fieldValue = getFieldValue(auth, def.field)
+        const canHoverField =
+          !isEditingRow && !def.isPlacement && onActivateRow !== undefined
         const displayValue = def.isSecret
           ? maskIfSecret(fieldValue, true)
           : fieldValue
@@ -205,7 +208,10 @@ export function AuthEditor({
                 flexDirection:
                   isEditingRow && !def.isPlacement ? "row" : undefined,
                 gap: isEditingRow && !def.isPlacement ? 1 : undefined,
-                backgroundColor: isActive ? theme.backgroundElement : undefined,
+                backgroundColor:
+                  isActive || (canHoverField && hoveredField === def.field)
+                    ? theme.backgroundElement
+                    : undefined,
                 paddingLeft: 1,
               }}
               onMouseDown={
@@ -216,6 +222,12 @@ export function AuthEditor({
                       event.stopPropagation()
                     }
                   : undefined
+              }
+              onMouseOver={
+                canHoverField ? () => setHoveredField(def.field) : undefined
+              }
+              onMouseOut={
+                canHoverField ? () => setHoveredField(null) : undefined
               }
             >
               {isEditingRow && !def.isPlacement ? (

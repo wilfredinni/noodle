@@ -1,5 +1,6 @@
 import type { KvEntry, Environment } from "../schema"
 import { MouseButton } from "@opentui/core"
+import { useState } from "react"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
@@ -33,6 +34,7 @@ export function KeyValueSection({
   onToggleRow,
 }: KeyValueSectionProps) {
   const rows = entries
+  const [hoveredRow, setHoveredRow] = useState<number | "add" | null>(null)
 
   const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
   const prefix = kind === "headers" ? "hdr" : kind === "params" ? "prm" : "ppr"
@@ -71,6 +73,10 @@ export function KeyValueSection({
           style={{
             flexDirection: "row",
             gap: 0,
+            backgroundColor:
+              hoveredRow === "add" && onActivateRow
+                ? theme.backgroundElement
+                : undefined,
           }}
           onMouseDown={
             onActivateRow
@@ -81,6 +87,8 @@ export function KeyValueSection({
                 }
               : undefined
           }
+          onMouseOver={onActivateRow ? () => setHoveredRow("add") : undefined}
+          onMouseOut={onActivateRow ? () => setHoveredRow(null) : undefined}
         >
           <Checkbox checked={false} theme={theme} />
           <VarInput
@@ -113,11 +121,17 @@ export function KeyValueSection({
               !editState.cursor.addingRow &&
               editState.cursor.row === i
             const dimmed = (inEdit && !isEditingThisRow) || !kv.enabled
+            const canHoverRow =
+              !isEditingThisRow &&
+              (onActivateRow !== undefined ||
+                (kind !== "pathParams" && onToggleRow !== undefined))
 
             const keyBaseColor = dimmed ? theme.textMuted : theme.primary
             const valueBaseColor = dimmed ? theme.textMuted : theme.text
             const rowBg =
-              cursorOnThisRow || isEditingThisRow
+              cursorOnThisRow ||
+              isEditingThisRow ||
+              (canHoverRow && hoveredRow === i)
                 ? theme.backgroundElement
                 : i % 2 !== 0
                   ? stripeBg
@@ -141,6 +155,8 @@ export function KeyValueSection({
                       }
                     : undefined
                 }
+                onMouseOver={canHoverRow ? () => setHoveredRow(i) : undefined}
+                onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
               >
                 {kind !== "pathParams" ? (
                   <box
@@ -197,9 +213,11 @@ export function KeyValueSection({
                 const addRowBg =
                   cursorHere && editState.cursor.addingRow
                     ? theme.backgroundElement
-                    : rows.length % 2 !== 0
-                      ? stripeBg
-                      : undefined
+                    : hoveredRow === "add" && onActivateRow
+                      ? theme.backgroundElement
+                      : rows.length % 2 !== 0
+                        ? stripeBg
+                        : undefined
 
                 return (
                   <box
@@ -217,6 +235,12 @@ export function KeyValueSection({
                             event.stopPropagation()
                           }
                         : undefined
+                    }
+                    onMouseOver={
+                      onActivateRow ? () => setHoveredRow("add") : undefined
+                    }
+                    onMouseOut={
+                      onActivateRow ? () => setHoveredRow(null) : undefined
                     }
                   >
                     <Checkbox checked={false} theme={theme} />

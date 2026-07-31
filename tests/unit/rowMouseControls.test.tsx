@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
@@ -86,5 +87,40 @@ describe("request row mouse controls", () => {
 
     expect(activations).toEqual([[0, false]])
     expect(toggles).toEqual([0])
+  })
+
+  it("only highlights rows with an available mouse action", async () => {
+    const { renderOnce, captureSpans, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={80} height={4}>
+          <KeyValueSection
+            kind="headers"
+            entries={[
+              {
+                key: "Accept",
+                value: { value: "application/json", enabled: true },
+              },
+            ]}
+            editState={initialEditState()}
+            editKey=""
+            editValue=""
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            theme={THEMES[0]!}
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 80, height: 4 },
+    )
+    await renderOnce()
+
+    await mockMouse.moveTo(8, 0)
+    await renderOnce()
+
+    const elementColor = RGBA.fromHex(THEMES[0]!.backgroundElement)
+    const span = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((candidate) => candidate.text.includes("Accept"))
+    expect(span!.bg.equals(elementColor)).toBe(false)
   })
 })
