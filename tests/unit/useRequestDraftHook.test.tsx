@@ -82,30 +82,38 @@ function SaveRaceHarness({ onDirty }: { onDirty: (dirty: boolean) => void }) {
 }
 
 function MoveDraftHarness({
-  onDirtyIds,
+  onDraft,
 }: {
-  onDirtyIds: (ids: Set<string>) => void
+  onDraft: (draft: Request | null) => void
 }) {
-  const draft = useRequestDraft(request)
+  const [selectedRequest, setSelectedRequest] = useState(request)
+  const draft = useRequestDraft(selectedRequest)
   const [step, setStep] = useState(0)
   const movedRequest = {
     ...request,
     id: "folder/r2",
     name: "Moved",
     method: "DELETE" as const,
+    url: "https://overlay.example.com",
   }
 
   useEffect(() => {
     if (step === 0) {
-      draft.setBody("unsaved body")
+      draft.setMethod("POST")
+      draft.setUrl("https://unsaved.example.com")
       setStep(1)
-    } else if (step === 1 && draft.draft?.body === "unsaved body") {
+    } else if (
+      step === 1 &&
+      draft.draft?.method === "POST" &&
+      draft.draft.url === "https://unsaved.example.com"
+    ) {
       draft.moveRequestDraft(request.id, movedRequest)
+      setSelectedRequest(movedRequest)
       setStep(2)
     } else if (step === 2) {
-      onDirtyIds(draft.dirtyRequestIds)
+      onDraft(draft.draft)
     }
-  }, [draft, movedRequest, onDirtyIds, step])
+  }, [draft, movedRequest, onDraft, step])
 
   return null
 }
@@ -225,9 +233,9 @@ describe("useRequestDraft setMethod", () => {
   })
 
   it("preserves unsaved method and URL when a request is renamed", async () => {
-    let dirtyIds = new Set<string>()
+    const result: { draft: Request | null } = { draft: null }
     const { renderOnce } = await testRender(
-      <MoveDraftHarness onDirtyIds={(ids) => (dirtyIds = ids)} />,
+      <MoveDraftHarness onDraft={(draft) => (result.draft = draft)} />,
       { width: 20, height: 5 },
     )
 
@@ -236,7 +244,9 @@ describe("useRequestDraft setMethod", () => {
     await renderOnce()
     await renderOnce()
 
-    expect(dirtyIds).toEqual(new Set(["folder/r2"]))
+    if (!result.draft) throw new Error("renamed draft was not reported")
+    expect(result.draft.method).toBe("POST")
+    expect(result.draft.url).toBe("https://unsaved.example.com")
   })
 
   it("keeps cached request auth after a concurrent save edit", async () => {

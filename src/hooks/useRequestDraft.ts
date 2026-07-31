@@ -232,31 +232,39 @@ export function useRequestDraft(
     })
   }, [])
 
-  const moveRequestDraft = useCallback((oldId: string, request: Request) => {
-    clearRequestDraftCaches(oldId)
-    clearRequestDraftCaches(request.id)
-    setMap((prev) => {
-      const draft = prev.get(oldId)
-      const next = new Map(prev)
-      next.delete(oldId)
-      if (draft) {
-        next.set(request.id, {
-          ...draft,
-          id: request.id,
-          name: request.name,
-          method: request.method,
-          url: request.url,
-        })
-      }
-      return next
-    })
-    setOriginalMap((prev) => {
-      const next = new Map(prev)
-      next.delete(oldId)
-      next.set(request.id, { ...request })
-      return next
-    })
-  }, [])
+  const moveRequestDraft = useCallback(
+    (oldId: string, request: Request) => {
+      clearRequestDraftCaches(oldId)
+      clearRequestDraftCaches(request.id)
+      const original = originalMap.get(oldId)
+      setMap((prev) => {
+        const draft = prev.get(oldId)
+        const next = new Map(prev)
+        next.delete(oldId)
+        if (draft) {
+          next.set(request.id, {
+            ...draft,
+            id: request.id,
+            name: request.name,
+            method:
+              original && draft.method === original.method
+                ? request.method
+                : draft.method,
+            url:
+              original && draft.url === original.url ? request.url : draft.url,
+          })
+        }
+        return next
+      })
+      setOriginalMap((prev) => {
+        const next = new Map(prev)
+        next.delete(oldId)
+        next.set(request.id, { ...request })
+        return next
+      })
+    },
+    [originalMap],
+  )
 
   const resetRequestDraft = useCallback((id: string) => {
     clearRequestDraftCaches(id)
