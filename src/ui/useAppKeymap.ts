@@ -35,6 +35,7 @@ function createActionsConfig(
     activeIndexRef: global.activeIndexRef,
     savingRef: request.savingRef,
     doSaveRef: request.doSaveRef,
+    folderSaveRef: folder.folderSaveRef,
     focusedFolderPathRef: folder.focusedFolderPathRef,
     focusedFolderNameRef: folder.focusedFolderNameRef,
     folderDeletePathRef: folder.folderDeletePathRef,

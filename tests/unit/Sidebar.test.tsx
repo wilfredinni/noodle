@@ -5,9 +5,10 @@ import { Sidebar } from "../../src/ui/Sidebar"
 import { ThemeProvider } from "../../src/ui/theme"
 
 describe("Sidebar", () => {
-  it("selects a request on left click only", async () => {
+  it("selects on left click and opens the request context menu on right click", async () => {
     let selected = ""
     let focused = 0
+    let contextId = ""
     const { renderOnce, mockMouse } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <Sidebar
@@ -32,6 +33,9 @@ describe("Sidebar", () => {
           onRequestSelect={(id) => {
             selected = id
           }}
+          onRequestContextMenu={(id) => {
+            contextId = id
+          }}
         />
       </ThemeProvider>,
       { width: 40, height: 8 },
@@ -41,6 +45,7 @@ describe("Sidebar", () => {
     await mockMouse.click(2, 1, MouseButtons.RIGHT)
     expect(selected).toBe("")
     expect(focused).toBe(0)
+    expect(contextId).toBe("example")
 
     await mockMouse.click(3, 1, MouseButtons.LEFT)
     expect(selected).toBe("example")
@@ -87,5 +92,39 @@ describe("Sidebar", () => {
 
     await mockMouse.click(6, 1, MouseButtons.LEFT)
     expect(selected).toBe("api")
+  })
+
+  it("opens the folder context menu on right click", async () => {
+    let contextId = ""
+    const { renderOnce, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Sidebar
+          items={[]}
+          loading={false}
+          error={null}
+          visibleItems={[
+            {
+              type: "folder",
+              id: "api",
+              name: "API",
+              depth: 0,
+              expanded: false,
+              hasChildren: true,
+            },
+          ]}
+          cursorIndex={0}
+          selectedId={null}
+          expanded={new Set()}
+          onFolderContextMenu={(id) => {
+            contextId = id
+          }}
+        />
+      </ThemeProvider>,
+      { width: 40, height: 8 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(6, 1, MouseButtons.RIGHT)
+    expect(contextId).toBe("api")
   })
 })

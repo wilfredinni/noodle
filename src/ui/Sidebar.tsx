@@ -40,6 +40,8 @@ export function Sidebar({
   onRequestSelect,
   onFolderSelect,
   onFolderToggle,
+  onRequestContextMenu,
+  onFolderContextMenu,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -57,6 +59,8 @@ export function Sidebar({
   onRequestSelect?: (id: string) => void
   onFolderSelect?: (path: string) => void
   onFolderToggle?: (path: string) => void
+  onRequestContextMenu?: (id: string) => void
+  onFolderContextMenu?: (path: string) => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -210,9 +214,14 @@ export function Sidebar({
                   customBorderChars={LeftBar.customBorderChars}
                   borderColor={isCursor ? theme.primary : theme.backgroundPanel}
                   onMouseDown={(event) => {
-                    if (event.button !== MouseButton.LEFT) return
-                    onFolderSelect?.(node.id)
-                    onPaneFocus?.()
+                    if (event.button === MouseButton.RIGHT) {
+                      onFolderContextMenu?.(node.id)
+                    } else if (event.button === MouseButton.LEFT) {
+                      onFolderSelect?.(node.id)
+                      onPaneFocus?.()
+                    } else {
+                      return
+                    }
                     event.stopPropagation()
                   }}
                   onMouseOver={
@@ -275,9 +284,14 @@ export function Sidebar({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isCursor ? theme.primary : theme.backgroundPanel}
                 onMouseDown={(event) => {
-                  if (event.button !== MouseButton.LEFT) return
-                  onRequestSelect?.(node.id)
-                  onPaneFocus?.()
+                  if (event.button === MouseButton.RIGHT) {
+                    onRequestContextMenu?.(node.id)
+                  } else if (event.button === MouseButton.LEFT) {
+                    onRequestSelect?.(node.id)
+                    onPaneFocus?.()
+                  } else {
+                    return
+                  }
                   event.stopPropagation()
                 }}
                 onMouseOver={

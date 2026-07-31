@@ -4,7 +4,12 @@ import { buildCommandPaletteCommands } from "../../src/ui/commands"
 import type { CommandBuilderContext } from "../../src/ui/commands"
 import { bindingDefaults } from "../../src/ui/keybind"
 import type { Collection } from "../../src/schema"
-import { getEditRequestYamlFile } from "../../src/ui/commandActions"
+import {
+  cloneRequest,
+  getEditRequestYamlFile,
+  saveRequest,
+  sendRequest,
+} from "../../src/ui/commandActions"
 
 function minimalContext(): CommandBuilderContext {
   const keybinds = bindingDefaults()
@@ -27,6 +32,7 @@ function minimalContext(): CommandBuilderContext {
     activeIndexRef: { current: 0 } as never,
     savingRef: { current: false } as never,
     doSaveRef: { current: () => {} } as never,
+    folderSaveRef: { current: () => {} } as never,
     focusedFolderPathRef: { current: null } as never,
     focusedFolderNameRef: { current: null } as never,
     folderDeletePathRef: { current: null } as never,
@@ -57,6 +63,7 @@ function minimalContext(): CommandBuilderContext {
     setEnvDeletePending: () => {},
     onReloadCollection: () => {},
     triggerUpdateCheck: () => {},
+    paletteTarget: null,
   }
 }
 
@@ -82,6 +89,38 @@ describe("buildCommandPaletteCommands", () => {
       "Workspace",
       "System",
     ])
+  })
+
+  it("shows only request commands for a request context menu", () => {
+    const ctx = minimalContext()
+    ctx.paletteTarget = "request"
+
+    const ids = buildCommandPaletteCommands(ctx).map((command) => command.id)
+
+    expect(ids).toEqual([
+      "request.generate-client-code",
+      "request.send",
+      "request.save",
+      "request.edit-overlay",
+      "request.clone",
+      "request.delete",
+      "workspace.edit-yaml",
+    ])
+  })
+
+  it("shows only folder commands for a folder context menu", () => {
+    const ctx = minimalContext()
+    ctx.paletteTarget = "folder"
+
+    const commands = buildCommandPaletteCommands(ctx)
+    expect(commands.map((command) => command.id)).toEqual([
+      "folder.save",
+      "request.new",
+      "folder.new",
+      "folder.delete",
+      "workspace.edit-yaml",
+    ])
+    expect(commands.every((command) => command.section === "Folder")).toBe(true)
   })
 
   it("includes the JSONPath response query command", () => {
@@ -288,6 +327,22 @@ describe("buildCommandPaletteCommands", () => {
     const save = commands.find((c) => c.id === "request.save")!
     save.run()
     expect(saved).toBe(false)
+  })
+
+  it("does not run request actions while a folder is focused", () => {
+    const ctx = minimalContext()
+    let sent = false
+    ctx.focusedFolderPathRef = { current: "api" } as never
+    ctx.trySendRef = {
+      current: () => {
+        sent = true
+      },
+    } as never
+
+    expect(sendRequest(ctx)).toBe(false)
+    expect(saveRequest(ctx)).toBe(false)
+    expect(cloneRequest(ctx)).toBe(false)
+    expect(sent).toBe(false)
   })
 
   it("pane.expand toggles expanded when focus is request", () => {

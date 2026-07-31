@@ -17,7 +17,10 @@ import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import { type Focus, type UrlBarSubFocus } from "./focus"
-import { buildCommandPaletteCommands } from "./commands"
+import {
+  buildCommandPaletteCommands,
+  type CommandPaletteTarget,
+} from "./commands"
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { Header } from "./Header"
@@ -138,6 +141,8 @@ export function AppInner({
     null,
   )
   const folderDeletePathRef = useRef<string | null>(null)
+  const [paletteTarget, setPaletteTarget] =
+    useState<CommandPaletteTarget | null>(null)
   const [jumpMode, setJumpMode] = useState(false)
   const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -554,6 +559,9 @@ export function AppInner({
     collectionSwitchPending,
     updatePhase: updateFlow.phase,
   })
+  useEffect(() => {
+    if (!commandPaletteVisible) setPaletteTarget(null)
+  }, [commandPaletteVisible])
   const overlayActive = useKeymapSync({
     focus,
     view,
@@ -888,6 +896,7 @@ export function AppInner({
         activeIndexRef,
         savingRef,
         doSaveRef,
+        folderSaveRef,
         focusedFolderPathRef,
         focusedFolderNameRef,
         folderDeletePathRef,
@@ -918,6 +927,7 @@ export function AppInner({
         setEnvDeletePending,
         onReloadCollection,
         triggerUpdateCheck,
+        paletteTarget,
       }),
     [
       keybinds,
@@ -928,6 +938,7 @@ export function AppInner({
       onReloadCollection,
       view,
       mode,
+      paletteTarget,
       triggerUpdateCheck,
     ],
   )
@@ -1007,6 +1018,20 @@ export function AppInner({
             onFolderToggle={(path) => {
               focusPane("sidebar")
               toggleFolder(path)
+            }}
+            onRequestContextMenu={(id) => {
+              if (!isCollection) return
+              focusPane("sidebar")
+              revealRequest(id)
+              setPaletteTarget("request")
+              setCommandPaletteVisible(true)
+            }}
+            onFolderContextMenu={(path) => {
+              if (!isCollection) return
+              focusPane("sidebar")
+              revealFolder(path)
+              setPaletteTarget("folder")
+              setCommandPaletteVisible(true)
             }}
           />
         ) : mode === "collection" ? (

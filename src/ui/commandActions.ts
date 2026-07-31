@@ -32,17 +32,20 @@ export interface CommandActionsConfig {
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
   doSaveRef: RefObject<() => void>
+  folderSaveRef: RefObject<() => void>
   focusedFolderPathRef: RefObject<string | null>
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
 }
 
 export function sendRequest(c: CommandActionsConfig): boolean {
+  if (c.focusedFolderPathRef.current) return false
   c.trySendRef.current?.()
   return true
 }
 
 export function saveRequest(c: CommandActionsConfig): boolean {
+  if (c.focusedFolderPathRef.current) return false
   const d = c.draftRef.current
   if (!c.savingRef.current && d.draft && d.isDirty) {
     c.doSaveRef.current()
@@ -105,6 +108,7 @@ export function newRequest(): boolean {
 }
 
 export function cloneRequest(c: CommandActionsConfig): boolean {
+  if (c.focusedFolderPathRef.current) return false
   const sid = c.selectedIdRef.current
   if (!sid) return false
   const col = c.collectionRef.current
@@ -199,6 +203,12 @@ export function deleteEnvironment(c: CommandActionsConfig): {
 }
 
 export function newFolder(): boolean {
+  return true
+}
+
+export function saveFolder(c: CommandActionsConfig): boolean {
+  if (!c.focusedFolderPathRef.current) return false
+  c.folderSaveRef.current()
   return true
 }
 

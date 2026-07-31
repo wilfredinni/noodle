@@ -101,6 +101,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     actions: {
       trySendRef: request.trySendRef,
       envEditorRef: environment.envEditorRef,
+      focusedFolderPathRef: { current: null },
     },
   } as unknown as AppKeymapContext
   return { context, calls }

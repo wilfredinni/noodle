@@ -51,6 +51,8 @@ interface MainViewProps {
   onRequestSelect?: (id: string) => void
   onFolderSelect?: (path: string) => void
   onFolderToggle?: (path: string) => void
+  onRequestContextMenu?: (id: string) => void
+  onFolderContextMenu?: (path: string) => void
 }
 
 export function MainView({
@@ -90,6 +92,8 @@ export function MainView({
   onRequestSelect,
   onFolderSelect,
   onFolderToggle,
+  onRequestContextMenu,
+  onFolderContextMenu,
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -120,6 +124,8 @@ export function MainView({
         onRequestSelect={onRequestSelect}
         onFolderSelect={onFolderSelect}
         onFolderToggle={onFolderToggle}
+        onRequestContextMenu={onRequestContextMenu}
+        onFolderContextMenu={onFolderContextMenu}
       />
       <box
         style={{
