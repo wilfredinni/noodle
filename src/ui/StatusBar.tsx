@@ -205,6 +205,7 @@ export function StatusBar(input: {
         flexDirection: "row",
         justifyContent: "space-between",
         flexShrink: 0,
+        backgroundColor: theme.backgroundPanel,
         paddingY: 0,
         paddingLeft: 1,
         paddingRight: 1,

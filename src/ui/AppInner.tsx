@@ -891,6 +891,7 @@ export function AppInner({
           paddingRight: 1,
           gap: 0,
           position: "relative",
+          backgroundColor: theme.backgroundPanel,
         }}
       >
         {view === "main" ? (

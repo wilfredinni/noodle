@@ -41,7 +41,7 @@ export function Toast() {
       paddingRight={2}
       paddingTop={1}
       paddingBottom={1}
-      backgroundColor={theme.backgroundPanel}
+      backgroundColor={theme.background}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={theme.primary}

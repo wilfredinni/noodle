@@ -1,4 +1,5 @@
 import { RGBA } from "@opentui/core"
+import { createPortal, useRenderer } from "@opentui/react"
 import type { ReactNode } from "react"
 import { useTheme } from "../theme"
 
@@ -22,10 +23,11 @@ export function Overlay({
   overflow,
 }: OverlayProps) {
   const theme = useTheme()
+  const renderer = useRenderer()
 
   if (!visible) return null
 
-  return (
+  return createPortal(
     <box
       style={{
         position: "absolute",
@@ -33,6 +35,7 @@ export function Overlay({
         top: 0,
         width: "100%",
         height: "100%",
+        zIndex: 10000,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: RGBA.fromInts(0, 0, 0, 150),
@@ -53,6 +56,8 @@ export function Overlay({
       >
         {children}
       </box>
-    </box>
+    </box>,
+    renderer.root,
+    null,
   )
 }

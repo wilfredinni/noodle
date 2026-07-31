@@ -26,6 +26,7 @@ export function Header({
         flexDirection: "row",
         justifyContent: "space-between",
         flexShrink: 0,
+        backgroundColor: theme.backgroundPanel,
         paddingLeft: 1,
         paddingRight: 1,
       }}

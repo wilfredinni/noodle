@@ -84,7 +84,15 @@ export function MainView({
   const theme = useTheme()
 
   return (
-    <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
+    <box
+      style={{
+        flexDirection: "row",
+        flexGrow: 1,
+        gap: 1,
+        minHeight: 0,
+        backgroundColor: theme.backgroundPanel,
+      }}
+    >
       <Sidebar
         items={items}
         loading={loading}
