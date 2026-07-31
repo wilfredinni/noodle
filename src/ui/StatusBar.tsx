@@ -249,6 +249,7 @@ export function StatusBar(input: {
         }}
         onMouseDown={(event) => {
           if (event.button === MouseButton.LEFT && !isEnvEditor) {
+            setHoveringEnvironment(false)
             input.onEnvironmentActivate?.()
           }
         }}
@@ -264,9 +265,13 @@ export function StatusBar(input: {
         }
       >
         {isEnvEditor ? (
-          <text fg={theme.info}>{input.envStats || "Env Editor"}</text>
+          <text fg={theme.info} selectable={false}>
+            {input.envStats || "Env Editor"}
+          </text>
         ) : (
-          <text fg={envFg}>{envText}</text>
+          <text fg={envFg} selectable={false}>
+            {envText}
+          </text>
         )}
       </box>
       <box
@@ -290,6 +295,7 @@ export function StatusBar(input: {
             }}
             onMouseDown={(event) => {
               if (event.button === MouseButton.LEFT && seg.command) {
+                setHoveredSegment(null)
                 input.onHintActivate?.(seg.command)
               }
             }}
@@ -304,8 +310,14 @@ export function StatusBar(input: {
                 : undefined
             }
           >
-            <text fg={theme.text}>{seg.key}</text>
-            {seg.word ? <text fg={theme.textMuted}> {seg.word}</text> : null}
+            <text fg={theme.text} selectable={false}>
+              {seg.key}
+            </text>
+            {seg.word ? (
+              <text fg={theme.textMuted} selectable={false}>
+                {` ${seg.word}`}
+              </text>
+            ) : null}
           </box>
         ))}
       </box>

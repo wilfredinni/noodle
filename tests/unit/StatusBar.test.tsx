@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test"
+import { act } from "react"
+import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { StatusBar } from "../../src/ui/StatusBar"
 import { bindingDefaults } from "../../src/ui/keybind"
 import { getKeybindingHints } from "../../src/ui/keybindingHints"
@@ -213,5 +215,48 @@ describe("StatusBar component", () => {
 
     await mockMouse.click(x, y, MouseButtons.LEFT)
     expect(opened).toBe(1)
+  })
+
+  it("clears a hint hover when it is activated", async () => {
+    const { renderOnce, captureCharFrame, captureSpans, mockMouse } =
+      await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <StatusBar
+            method="GET"
+            url="/users"
+            isDirty={false}
+            sendState={{ status: "idle" }}
+            envLabel="dev"
+            saveState={{ kind: "idle" }}
+            kb={kb}
+            footerHints={[{ key: "^s", word: "save", command: "request.save" }]}
+            onHintActivate={() => {}}
+          />
+        </ThemeProvider>,
+        { width: 80, height: 1 },
+      )
+    await renderOnce()
+
+    const [x, y] = textPosition(captureCharFrame(), "save")
+    await act(async () => {
+      await mockMouse.moveTo(x, y)
+    })
+    await renderOnce()
+
+    const hoverColor = RGBA.fromHex(THEMES[0]!.backgroundElement)
+    const hoveredSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("save"))
+    expect(hoveredSpan!.bg.equals(hoverColor)).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    })
+    await renderOnce()
+
+    const clickedSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("save"))
+    expect(clickedSpan!.bg.equals(hoverColor)).toBe(false)
   })
 })

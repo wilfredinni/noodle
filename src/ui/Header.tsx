@@ -49,7 +49,10 @@ export function Header({
               : undefined,
           }}
           onMouseDown={(event) => {
-            if (event.button === MouseButton.LEFT) onAboutActivate?.()
+            if (event.button === MouseButton.LEFT) {
+              setHoveringAbout(false)
+              onAboutActivate?.()
+            }
           }}
           onMouseOver={
             onAboutActivate ? () => setHoveringAbout(true) : undefined
@@ -58,10 +61,18 @@ export function Header({
             onAboutActivate ? () => setHoveringAbout(false) : undefined
           }
         >
-          <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+          <text
+            fg={theme.primary}
+            attributes={TextAttributes.BOLD}
+            selectable={false}
+          >
             Noodle
           </text>
-          {showVersion && <text fg={theme.textMuted}> v{pkg.version}</text>}
+          {showVersion && (
+            <text fg={theme.textMuted} selectable={false}>
+              {` v${pkg.version}`}
+            </text>
+          )}
         </box>
         {showVersion && updateAvailable != null && (
           <text fg={theme.warning}> {"✨"} Update available</text>
@@ -86,6 +97,7 @@ export function Header({
               }}
               onMouseDown={(event) => {
                 if (event.button === MouseButton.LEFT && hint.command) {
+                  setHoveredHint(null)
                   onHintActivate?.(hint.command)
                 }
               }}
@@ -100,9 +112,13 @@ export function Header({
                   : undefined
               }
             >
-              <text fg={theme.text}>{hint.key}</text>
+              <text fg={theme.text} selectable={false}>
+                {hint.key}
+              </text>
               {showHintLabels && hint.word ? (
-                <text fg={theme.textMuted}> {hint.word}</text>
+                <text fg={theme.textMuted} selectable={false}>
+                  {` ${hint.word}`}
+                </text>
               ) : null}
             </box>
           ))}
