@@ -40,6 +40,7 @@ import type { Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 import { initialYamlEditorState, type YamlEditorState } from "./appState"
+import type { ActiveOverlay } from "./useOverlayState"
 
 interface FolderPathOption {
   id: string
@@ -52,7 +53,7 @@ interface AppOverlaysProps {
   setHelpVisible: (visible: boolean) => void
   aboutVisible: boolean
   setAboutVisible: (visible: boolean) => void
-  saveState: SaveState
+  activeOverlay: ActiveOverlay
   envDeletePending: string | null
   undoAllPending: boolean
   initPending: boolean
@@ -138,7 +139,7 @@ export function AppOverlays({
   setHelpVisible,
   aboutVisible,
   setAboutVisible,
-  saveState,
+  activeOverlay,
   envDeletePending,
   undoAllPending,
   initPending,
@@ -219,15 +220,7 @@ export function AppOverlays({
       {aboutVisible && (
         <AboutOverlay visible onClose={() => setAboutVisible(false)} />
       )}
-      {saveState.kind === "confirming" && (
-        <ConfirmOverlay
-          visible
-          message={`Save changes to ${saveState.requestId}?`}
-          onConfirm={onConfirmDialog}
-          onCancel={onCancelDialog}
-        />
-      )}
-      {envDeletePending !== null && (
+      {activeOverlay === "env-delete" && envDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete environment "${envDeletePending}"?`}
@@ -235,7 +228,7 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
-      {undoAllPending && (
+      {activeOverlay === "undo-all" && undoAllPending && (
         <ConfirmOverlay
           visible
           message="Discard all unsaved changes? (y/n)"
@@ -243,7 +236,7 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
-      {initPending && (
+      {activeOverlay === "init-confirm" && initPending && (
         <ConfirmOverlay
           visible
           message={`Initialize collection in ${collectionDir}? (y/n)`}
@@ -251,14 +244,15 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
-      {collectionSwitchPending !== null && (
-        <ConfirmOverlay
-          visible
-          message={`Switch to "${collectionSwitchPending}" and discard unsaved changes?`}
-          onConfirm={onConfirmDialog}
-          onCancel={onCancelDialog}
-        />
-      )}
+      {activeOverlay === "collection-switch-confirm" &&
+        collectionSwitchPending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Switch to "${collectionSwitchPending}" and discard unsaved changes?`}
+            onConfirm={onConfirmDialog}
+            onCancel={onCancelDialog}
+          />
+        )}
       {commandPaletteVisible && (
         <CommandPaletteOverlay
           visible
@@ -386,7 +380,7 @@ export function AppOverlays({
           onClose={newFolderActions.cancel}
         />
       )}
-      {folderDeletePending !== null && (
+      {activeOverlay === "delete-folder" && folderDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete folder "${folderDeletePending}" and all requests inside?`}
@@ -394,7 +388,7 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
-      {requestDeletePending !== null && (
+      {activeOverlay === "request-delete" && requestDeletePending !== null && (
         <ConfirmOverlay
           visible
           message={`Delete "${requestDeletePending}"?`}
@@ -402,7 +396,7 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
-      {updateConfirm !== null && (
+      {activeOverlay === "update-confirm" && updateConfirm !== null && (
         <ConfirmOverlay
           visible
           message={

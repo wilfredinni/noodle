@@ -142,6 +142,33 @@ describe("NewRequestOverlay mode prop", () => {
     cleanup()
   })
 
+  it("ignores right clicks on text fields", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const ref = createRef<NewRequestOverlayHandle>()
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay visible ref={ref} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("https://api.example.com"))
+
+    await act(async () => {
+      await mockMouse.click(
+        rows[y]!.indexOf("https://api.example.com"),
+        y,
+        MouseButtons.RIGHT,
+      )
+    })
+
+    expect(ref.current?.getFocus()).toBe("name")
+    cleanup()
+  })
+
   it("runs footer actions when clicked without dot separators", async () => {
     const { keymap, cleanup } = setupKeymap()
     let saved = 0

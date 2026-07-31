@@ -208,6 +208,8 @@ export function newFolder(): boolean {
 
 export function saveFolder(c: CommandActionsConfig): boolean {
   if (!c.focusedFolderPathRef.current) return false
+  const d = c.folderDraftRef.current
+  if (c.savingRef.current || !d.folderDraft || !d.isDirty) return false
   c.folderSaveRef.current()
   return true
 }

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { TimelineEntry } from "../schema"
-import type { SaveState } from "./saveState"
 import type { UpdateFlowState, YamlEditorState } from "./appState"
 import { initialYamlEditorState } from "./appState"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
@@ -15,7 +14,6 @@ export type ActiveOverlay =
   | "help"
   | "about"
   | "theme"
-  | "confirm"
   | "env-delete"
   | "undo-all"
   | "init-confirm"
@@ -35,7 +33,6 @@ export type ActiveOverlay =
 
 interface UseOverlayStateProps {
   previewIndex: number | null
-  saveState: SaveState
   collectionSwitcherVisible: boolean
   collectionSwitchPending: string | null
   updatePhase: UpdateFlowState["phase"]
@@ -43,7 +40,6 @@ interface UseOverlayStateProps {
 
 export function useOverlayState({
   previewIndex,
-  saveState,
   collectionSwitcherVisible,
   collectionSwitchPending,
   updatePhase,
@@ -90,7 +86,6 @@ export function useOverlayState({
     if (helpVisible) return "help"
     if (aboutVisible) return "about"
     if (previewIndex !== null) return "theme"
-    if (saveState.kind === "confirming") return "confirm"
     if (envDeletePending !== null) return "env-delete"
     if (undoAllPending) return "undo-all"
     if (initPending) return "init-confirm"
@@ -114,7 +109,6 @@ export function useOverlayState({
     helpVisible,
     aboutVisible,
     previewIndex,
-    saveState.kind,
     envDeletePending,
     undoAllPending,
     initPending,

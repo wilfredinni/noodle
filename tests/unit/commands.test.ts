@@ -7,6 +7,7 @@ import type { Collection } from "../../src/schema"
 import {
   cloneRequest,
   getEditRequestYamlFile,
+  saveFolder,
   saveRequest,
   sendRequest,
 } from "../../src/ui/commandActions"
@@ -327,6 +328,29 @@ describe("buildCommandPaletteCommands", () => {
     const save = commands.find((c) => c.id === "request.save")!
     save.run()
     expect(saved).toBe(false)
+  })
+
+  it("folder.save only runs for a dirty folder when no save is pending", () => {
+    const ctx = minimalContext()
+    let saved = 0
+    ctx.focusedFolderPathRef = { current: "api" } as never
+    ctx.folderDraftRef = {
+      current: { folderDraft: { path: "api" }, isDirty: false },
+    } as never
+    ctx.folderSaveRef = { current: () => saved++ } as never
+
+    expect(saveFolder(ctx)).toBe(false)
+    expect(saved).toBe(0)
+
+    ctx.folderDraftRef = {
+      current: { folderDraft: { path: "api" }, isDirty: true },
+    } as never
+    ctx.savingRef = { current: true } as never
+    expect(saveFolder(ctx)).toBe(false)
+
+    ctx.savingRef = { current: false } as never
+    expect(saveFolder(ctx)).toBe(true)
+    expect(saved).toBe(1)
   })
 
   it("does not run request actions while a folder is focused", () => {

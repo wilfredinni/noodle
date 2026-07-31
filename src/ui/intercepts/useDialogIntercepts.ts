@@ -3,11 +3,11 @@ import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { SaveState } from "../saveState"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
+import type { ActiveOverlay } from "../useOverlayState"
 
 export function useDialogIntercepts(opts: {
-  saveState: SaveState
+  activeOverlay: ActiveOverlay
   setSaveState: (s: SaveState) => void
-  doSave: () => void
   envDeletePending: string | null
   setEnvDeletePending: (s: string | null) => void
   envEditorRef: RefObject<UseEnvironmentEditorResult>
@@ -35,9 +35,8 @@ export function useDialogIntercepts(opts: {
 }): { onConfirm: () => void; onCancel: () => void } {
   const keymap = useKeymap()
   const {
-    saveState,
+    activeOverlay,
     setSaveState,
-    doSave,
     envDeletePending,
     setEnvDeletePending,
     envEditorRef,
@@ -46,20 +45,15 @@ export function useDialogIntercepts(opts: {
     collectionSwitchPending,
     setCollectionSwitchPending,
     onCollectionSwitchConfirm,
-    requestDeletePending,
     setRequestDeletePending,
     onRequestDeleteConfirm,
-    folderDeletePending,
     setFolderDeletePending,
     onFolderDeleteConfirm,
-    undoAllPending,
     setUndoAllPending,
     draftRef,
     folderDraftRef,
-    initPending,
     setInitPending,
     onInitConfirm,
-    updateConfirmVisible,
     onConfirmInstall,
     onCancelUpdate,
   } = opts
@@ -119,86 +113,48 @@ export function useDialogIntercepts(opts: {
   ])
 
   const onConfirm = useCallback(() => {
-    if (saveState.kind === "confirming") doSave()
-    else if (envDeletePending) confirmEnvDelete()
-    else if (undoAllPending) confirmUndoAll()
-    else if (initPending) confirmInit()
-    else if (collectionSwitchPending) confirmCollectionSwitch()
-    else if (folderDeletePending) onFolderDeleteConfirm()
-    else if (requestDeletePending) onRequestDeleteConfirm()
-    else if (updateConfirmVisible) onConfirmInstall()
+    if (activeOverlay === "env-delete") confirmEnvDelete()
+    else if (activeOverlay === "undo-all") confirmUndoAll()
+    else if (activeOverlay === "init-confirm") confirmInit()
+    else if (activeOverlay === "collection-switch-confirm")
+      confirmCollectionSwitch()
+    else if (activeOverlay === "delete-folder") onFolderDeleteConfirm()
+    else if (activeOverlay === "request-delete") onRequestDeleteConfirm()
+    else if (activeOverlay === "update-confirm") onConfirmInstall()
   }, [
-    saveState.kind,
-    doSave,
-    envDeletePending,
+    activeOverlay,
     confirmEnvDelete,
-    undoAllPending,
     confirmUndoAll,
-    initPending,
     confirmInit,
-    collectionSwitchPending,
     confirmCollectionSwitch,
-    folderDeletePending,
     onFolderDeleteConfirm,
-    requestDeletePending,
     onRequestDeleteConfirm,
-    updateConfirmVisible,
     onConfirmInstall,
   ])
 
   const onCancel = useCallback(() => {
-    if (saveState.kind === "confirming") setSaveState({ kind: "idle" })
-    else if (envDeletePending) setEnvDeletePending(null)
-    else if (undoAllPending) setUndoAllPending(false)
-    else if (initPending) setInitPending(false)
-    else if (collectionSwitchPending) setCollectionSwitchPending(null)
-    else if (folderDeletePending) setFolderDeletePending(null)
-    else if (requestDeletePending) setRequestDeletePending(null)
-    else if (updateConfirmVisible) onCancelUpdate()
+    if (activeOverlay === "env-delete") setEnvDeletePending(null)
+    else if (activeOverlay === "undo-all") setUndoAllPending(false)
+    else if (activeOverlay === "init-confirm") setInitPending(false)
+    else if (activeOverlay === "collection-switch-confirm")
+      setCollectionSwitchPending(null)
+    else if (activeOverlay === "delete-folder") setFolderDeletePending(null)
+    else if (activeOverlay === "request-delete") setRequestDeletePending(null)
+    else if (activeOverlay === "update-confirm") onCancelUpdate()
   }, [
-    saveState.kind,
-    setSaveState,
-    envDeletePending,
+    activeOverlay,
     setEnvDeletePending,
-    undoAllPending,
     setUndoAllPending,
-    initPending,
     setInitPending,
-    collectionSwitchPending,
     setCollectionSwitchPending,
-    folderDeletePending,
     setFolderDeletePending,
-    requestDeletePending,
     setRequestDeletePending,
-    updateConfirmVisible,
     onCancelUpdate,
   ])
 
-  // ── Overlay: Save Confirm ──────────────────────────────────────────
-  useEffect(() => {
-    if (saveState.kind !== "confirming") return
-    const dispose = keymap.intercept(
-      "key",
-      (ctx) => {
-        const name = ctx.event.name
-        if (name === "y" || name === "return") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          onConfirm()
-        } else if (name === "n" || name === "escape") {
-          ctx.event.preventDefault()
-          ctx.event.stopPropagation()
-          onCancel()
-        }
-      },
-      { priority: 100 },
-    )
-    return dispose
-  }, [saveState.kind, keymap, onConfirm, onCancel])
-
   // ── Overlay: Delete env confirmation ──────────────────────────────
   useEffect(() => {
-    if (!envDeletePending) return
+    if (activeOverlay !== "env-delete") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -216,11 +172,11 @@ export function useDialogIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [envDeletePending, keymap, onConfirm, onCancel])
+  }, [activeOverlay, keymap, onConfirm, onCancel])
 
   // ── Overlay: Collection switch confirmation ──────────────────────
   useEffect(() => {
-    if (!collectionSwitchPending) return
+    if (activeOverlay !== "collection-switch-confirm") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -238,11 +194,11 @@ export function useDialogIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [collectionSwitchPending, keymap, onConfirm, onCancel])
+  }, [activeOverlay, keymap, onConfirm, onCancel])
 
   // ── Overlay: Delete Request ────────────────────────────────────────
   useEffect(() => {
-    if (!requestDeletePending) return
+    if (activeOverlay !== "request-delete") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -263,11 +219,11 @@ export function useDialogIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [requestDeletePending, keymap, onConfirm, onCancel])
+  }, [activeOverlay, keymap, onConfirm, onCancel])
 
   // ── Overlay: Delete Folder ────────────────────────────────────────
   useEffect(() => {
-    if (!folderDeletePending) return
+    if (activeOverlay !== "delete-folder") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -288,11 +244,11 @@ export function useDialogIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [folderDeletePending, keymap, onConfirm, onCancel])
+  }, [activeOverlay, keymap, onConfirm, onCancel])
 
   // ── Overlay: Undo All ──────────────────────────────────────────────
   useEffect(() => {
-    if (!undoAllPending) return
+    if (activeOverlay !== "undo-all") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -310,11 +266,11 @@ export function useDialogIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [undoAllPending, keymap, onConfirm, onCancel])
+  }, [activeOverlay, keymap, onConfirm, onCancel])
 
   // ── Overlay: Init Confirm ─────────────────────────────────────────
   useEffect(() => {
-    if (!initPending) return
+    if (activeOverlay !== "init-confirm") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -332,11 +288,11 @@ export function useDialogIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [initPending, keymap, onConfirm, onCancel])
+  }, [activeOverlay, keymap, onConfirm, onCancel])
 
   // ── Overlay: Update confirm ──────────────────────────────────────
   useEffect(() => {
-    if (!updateConfirmVisible) return
+    if (activeOverlay !== "update-confirm") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -355,7 +311,7 @@ export function useDialogIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [updateConfirmVisible, keymap, onConfirm, onCancel])
+  }, [activeOverlay, keymap, onConfirm, onCancel])
 
   return { onConfirm, onCancel }
 }

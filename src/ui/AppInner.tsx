@@ -336,9 +336,9 @@ export function AppInner({
   const {
     saveState,
     setSaveState,
+    savingRef,
     doSave,
     clearSaveTimer,
-    savingRef,
     saveTimerRef,
   } = useSaveFile(
     collectionDir,
@@ -476,8 +476,8 @@ export function AppInner({
         folderEb.commitEdit()
       }
       if (next === "urlbar") setUrlbarSubFocus("select")
-      if (next === "request") eb.enterBrowse()
-      if (next === "folder") folderEb.enterBrowse()
+      if (mode === "collection" && next === "request") eb.enterBrowse()
+      if (mode === "collection" && next === "folder") folderEb.enterBrowse()
       if (next === "env-vars") envEditor.enterBrowse()
       setFocus(next)
     },
@@ -488,6 +488,7 @@ export function AppInner({
       focus,
       folderEb.commitEdit,
       folderEb.enterBrowse,
+      mode,
     ],
   )
 
@@ -572,7 +573,6 @@ export function AppInner({
     setTimelineDetailEntry,
   } = useOverlayState({
     previewIndex,
-    saveState,
     collectionSwitcherVisible,
     collectionSwitchPending,
     updatePhase: updateFlow.phase,
@@ -612,6 +612,7 @@ export function AppInner({
     setCollectionReloadToken,
     setFocus,
     setSaveState,
+    savingRef,
     clearSaveTimer,
     saveTimerRef,
     setSelectedId,
@@ -691,7 +692,7 @@ export function AppInner({
   const handleEnvironmentActivate = useCallback(() => {
     eb.commitEdit()
     folderEb.commitEdit()
-    envEditor.openEditor(envState.activeEnv?.name)
+    envEditor.openEditor(envState.activeEnv?.name).catch(() => {})
     setView("env-editor")
     setFocus("env-sidebar")
   }, [eb.commitEdit, envEditor, envState.activeEnv?.name, folderEb.commitEdit])
@@ -809,9 +810,7 @@ export function AppInner({
   const overlayActions = useOverlayIntercepts({
     activeOverlay,
     cancelSendRef,
-    saveState,
     setSaveState,
-    doSave,
     envDeletePending,
     envDeletePendingRef,
     setEnvDeletePending,
@@ -1064,11 +1063,11 @@ export function AppInner({
         ) : null}
         <AppOverlays
           keybinds={keybinds}
+          activeOverlay={activeOverlay}
           helpVisible={helpVisible}
           setHelpVisible={setHelpVisible}
           aboutVisible={aboutVisible}
           setAboutVisible={setAboutVisible}
-          saveState={saveState}
           envDeletePending={envDeletePending}
           undoAllPending={undoAllPending}
           initPending={initPending}

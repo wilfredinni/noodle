@@ -411,16 +411,27 @@ export function useEnvironmentEditor({
 
   const activateVar = useCallback(
     (row: number, addingRow = false) => {
+      const targetId = addingRow
+        ? undefined
+        : draftRef.current?.varRows[row]?.id
       commitEdit()
-      const currentRow = addingRow ? undefined : draftRef.current?.varRows[row]
+      const resolvedRow = targetId
+        ? (draftRef.current?.varRows.findIndex(
+            (entry) => entry.id === targetId,
+          ) ?? -1)
+        : row
+      if (!addingRow && resolvedRow < 0) return
+      const currentRow = addingRow
+        ? undefined
+        : draftRef.current?.varRows[resolvedRow]
       setEditKey(currentRow?.key ?? "")
       setEditValue(currentRow?.value ?? "")
       setEditState({
         mode: "editing",
-        row,
+        row: resolvedRow,
         addingRow,
         subfield: "key",
-        editingRow: addingRow ? -1 : row,
+        editingRow: addingRow ? -1 : resolvedRow,
       })
     },
     [commitEdit],

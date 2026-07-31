@@ -123,4 +123,41 @@ describe("request row mouse controls", () => {
       .find((candidate) => candidate.text.includes("Accept"))
     expect(span!.bg.equals(elementColor)).toBe(false)
   })
+
+  it("does not reactivate an add row while it is being edited", async () => {
+    const activations: Array<[number, boolean]> = []
+    const { renderOnce, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={80} height={4}>
+          <KeyValueSection
+            kind="headers"
+            entries={[]}
+            editState={{
+              mode: "editing",
+              cursor: {
+                field: "headers",
+                row: -1,
+                addingRow: true,
+                subfield: "key",
+              },
+              editingRow: -1,
+            }}
+            editKey="Accept"
+            editValue="application/json"
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            theme={THEMES[0]!}
+            onActivateRow={(row, addingRow) =>
+              activations.push([row, addingRow])
+            }
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 80, height: 4 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(8, 0, MouseButtons.LEFT)
+    expect(activations).toEqual([])
+  })
 })

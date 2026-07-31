@@ -26,6 +26,28 @@ export function Header({
   const showVersion = termWidth >= 45
   const showHints = termWidth >= 35
   const showHintLabels = termWidth >= 60
+  const status = showVersion
+    ? updateAvailable != null
+      ? " ✨ Update available"
+      : restartVersion
+        ? " ✨ Restart to update"
+        : ""
+    : ""
+  const titleWidth = 8 + (showVersion ? ` v${pkg.version}`.length : 0)
+  const availableHintWidth = termWidth - 2 - titleWidth - status.length
+  let usedHintWidth = 0
+  const visibleHints = showHints
+    ? headerHints.filter((hint) => {
+        const width =
+          hint.key.length +
+          (showHintLabels && hint.word ? hint.word.length + 1 : 0) +
+          2 +
+          (usedHintWidth === 0 ? 0 : 1)
+        if (usedHintWidth + width > availableHintWidth) return false
+        usedHintWidth += width
+        return true
+      })
+    : []
 
   return (
     <box
@@ -74,54 +96,52 @@ export function Header({
             </text>
           )}
         </box>
-        {showVersion && updateAvailable != null && (
-          <text fg={theme.warning}> {"✨"} Update available</text>
-        )}
-        {showVersion && restartVersion && (
-          <text fg={theme.warning}> ✨ Restart to update</text>
-        )}
+        {showVersion && status && <text fg={theme.warning}>{status}</text>}
       </box>
-      {showHints && headerHints.length > 0 && (
+      {visibleHints.length > 0 && (
         <box style={{ flexDirection: "row", gap: 1 }}>
-          {headerHints.map((hint, i) => (
-            <box
-              key={i}
-              style={{
-                flexDirection: "row",
-                paddingLeft: 1,
-                paddingRight: 1,
-                backgroundColor:
-                  hint.command && onHintActivate && hoveredHint === i
-                    ? theme.backgroundElement
-                    : undefined,
-              }}
-              onMouseDown={(event) => {
-                if (event.button === MouseButton.LEFT && hint.command) {
-                  setHoveredHint(null)
-                  onHintActivate?.(hint.command)
+          {visibleHints.map((hint) => {
+            const i = headerHints.indexOf(hint)
+            return (
+              <box
+                key={i}
+                style={{
+                  flexDirection: "row",
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  backgroundColor:
+                    hint.command && onHintActivate && hoveredHint === i
+                      ? theme.backgroundElement
+                      : undefined,
+                }}
+                onMouseDown={(event) => {
+                  if (event.button === MouseButton.LEFT && hint.command) {
+                    setHoveredHint(null)
+                    onHintActivate?.(hint.command)
+                  }
+                }}
+                onMouseOver={
+                  hint.command && onHintActivate
+                    ? () => setHoveredHint(i)
+                    : undefined
                 }
-              }}
-              onMouseOver={
-                hint.command && onHintActivate
-                  ? () => setHoveredHint(i)
-                  : undefined
-              }
-              onMouseOut={
-                hint.command && onHintActivate
-                  ? () => setHoveredHint(null)
-                  : undefined
-              }
-            >
-              <text fg={theme.text} selectable={false}>
-                {hint.key}
-              </text>
-              {showHintLabels && hint.word ? (
-                <text fg={theme.textMuted} selectable={false}>
-                  {` ${hint.word}`}
+                onMouseOut={
+                  hint.command && onHintActivate
+                    ? () => setHoveredHint(null)
+                    : undefined
+                }
+              >
+                <text fg={theme.text} selectable={false}>
+                  {hint.key}
                 </text>
-              ) : null}
-            </box>
-          ))}
+                {showHintLabels && hint.word ? (
+                  <text fg={theme.textMuted} selectable={false}>
+                    {` ${hint.word}`}
+                  </text>
+                ) : null}
+              </box>
+            )
+          })}
         </box>
       )}
     </box>

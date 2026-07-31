@@ -232,6 +232,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   scrollBy(delta: number): void {
+    if (delta === 0) return
     const move =
       delta < 0 ? this.moveCursorUp.bind(this) : this.moveCursorDown.bind(this)
     for (

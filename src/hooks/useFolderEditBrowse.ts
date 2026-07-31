@@ -228,6 +228,7 @@ export function useFolderEditBrowse(
 
   const activateAt = useCallback(
     (field: FolderFieldKind, row: number, addingRow = false) => {
+      if (field === "auth" && row === 0) return
       setInactiveTab(field)
       const currentFolder = draftRef.current
       const kv = folderCurrentKeyValueFor(currentFolder, field, row, addingRow)
@@ -268,7 +269,7 @@ export function useFolderEditBrowse(
           cursor: { field, row, addingRow: false },
         }
       })
-      if (field === "headers") draftMutators.toggleHeaderRow(row)
+      if (field === "headers" && row >= 0) draftMutators.toggleHeaderRow(row)
     },
     [draftMutators],
   )

@@ -230,7 +230,7 @@ export function KeyValueSection({
                       backgroundColor: addRowBg,
                     }}
                     onMouseDown={
-                      onActivateRow
+                      onActivateRow && !editingAdd
                         ? (event) => {
                             if (event.button !== MouseButton.LEFT) return
                             onActivateRow(-1, true)
@@ -239,10 +239,14 @@ export function KeyValueSection({
                         : undefined
                     }
                     onMouseOver={
-                      onActivateRow ? () => setHoveredRow("add") : undefined
+                      onActivateRow && !editingAdd
+                        ? () => setHoveredRow("add")
+                        : undefined
                     }
                     onMouseOut={
-                      onActivateRow ? () => setHoveredRow(null) : undefined
+                      onActivateRow && !editingAdd
+                        ? () => setHoveredRow(null)
+                        : undefined
                     }
                   >
                     <Checkbox checked={false} theme={theme} />
@@ -263,6 +267,7 @@ export function KeyValueSection({
                       }
                       focusedBackgroundColor={theme.borderSubtle}
                       paddingX={1}
+                      stopMousePropagation={editingAdd}
                       style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
                     />
                     <VarInput
@@ -282,6 +287,7 @@ export function KeyValueSection({
                       }
                       focusedBackgroundColor={theme.borderSubtle}
                       paddingX={1}
+                      stopMousePropagation={editingAdd}
                       style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
                     />
                   </box>

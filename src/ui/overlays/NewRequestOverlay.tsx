@@ -202,7 +202,9 @@ export const NewRequestOverlay = forwardRef<
             value={name}
             placeholder="e.g. Get Users"
             onInput={setName}
-            onMouseDown={() => setFocus("name")}
+            onMouseDown={(event) => {
+              if (event.button === MouseButton.LEFT) setFocus("name")
+            }}
             focused={focus === "name"}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
@@ -225,7 +227,9 @@ export const NewRequestOverlay = forwardRef<
               triggerPriority={110}
             />
             <box
-              onMouseDown={() => setFocus("url")}
+              onMouseDown={(event) => {
+                if (event.button === MouseButton.LEFT) setFocus("url")
+              }}
               style={{ flexGrow: 1, flexShrink: 1 }}
             >
               <VarInput

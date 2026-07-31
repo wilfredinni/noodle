@@ -17,7 +17,6 @@ export const EDITABLE_OVERLAYS = new Set([
 export const HARD_BLOCKING_OVERLAYS = new Set([
   "help",
   "about",
-  "confirm",
   "env-delete",
   "undo-all",
   "init-confirm",
@@ -25,6 +24,7 @@ export const HARD_BLOCKING_OVERLAYS = new Set([
   "code-generator",
   "delete-folder",
   "request-delete",
+  "update-confirm",
   "timeline-detail",
 ])
 

@@ -167,6 +167,40 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     })
   })
 
+  it("keeps the selected variable after committing a deletion above it", async () => {
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: { first: "one", second: "two" },
+    })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    act(() => {
+      ref.current!.activateVar(0)
+      ref.current!.setEditKey("")
+    })
+    await renderOnce()
+
+    act(() => {
+      ref.current!.activateVar(1)
+    })
+    await renderOnce()
+
+    expect(ref.current!.draft?.varRows).toHaveLength(1)
+    expect(ref.current!.editKey).toBe("second")
+    expect(ref.current!.editValue).toBe("two")
+    expect(ref.current!.editState).toMatchObject({ row: 0, editingRow: 0 })
+  })
+
   it("delete env removes file from disk", async () => {
     const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
       current: null,

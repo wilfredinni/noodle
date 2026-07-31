@@ -278,7 +278,7 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
-  it("pages through an unfocused JSON body", async () => {
+  it("pages through a focused JSON body", async () => {
     const { keymap, cleanup } = setupKeymap()
     const tallRequest: Request = {
       ...testRequest,

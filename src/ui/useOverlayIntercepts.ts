@@ -9,6 +9,7 @@ import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
+import type { ActiveOverlay } from "./useOverlayState"
 import { useGlobalIntercepts } from "./intercepts/useGlobalIntercepts"
 import { useDialogIntercepts } from "./intercepts/useDialogIntercepts"
 import {
@@ -29,11 +30,9 @@ export function shouldCancelSend(
 }
 
 export function useOverlayIntercepts(opts: {
-  activeOverlay: string
+  activeOverlay: ActiveOverlay
   cancelSendRef: RefObject<() => void>
-  saveState: SaveState
   setSaveState: (s: SaveState) => void
-  doSave: () => void
   envDeletePending: string | null
   envDeletePendingRef: RefObject<string | null>
   setEnvDeletePending: (s: string | null) => void
