@@ -219,11 +219,16 @@ export function useRequestDraft(
   }, [])
 
   const markSaved = useCallback((request: Request) => {
-    clearRequestDraftCaches(request.id)
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(request.id, { ...request })
       return next
+    })
+    setMap((prev) => {
+      const currentDraft = prev.get(request.id)
+      if (!currentDraft || !requestEquals(currentDraft, request)) return prev
+      clearRequestDraftCaches(request.id)
+      return removeRequestDraftEntry(prev, request.id)
     })
   }, [])
 

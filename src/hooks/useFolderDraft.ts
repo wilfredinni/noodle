@@ -260,7 +260,6 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
   )
   const revertAll = useCallback(() => dispatch({ kind: "revert" }), [dispatch])
   const markSaved = useCallback((savedFolder: Folder) => {
-    authTypeCache.delete(savedFolder.path)
     setOriginalMap((prev) => {
       const next = new Map(prev)
       next.set(savedFolder.path, { ...savedFolder })
@@ -271,6 +270,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
       if (!currentDraft || !folderEqual(currentDraft, savedFolder)) return prev
       const next = new Map(prev)
       next.delete(savedFolder.path)
+      authTypeCache.delete(savedFolder.path)
       return next
     })
   }, [])

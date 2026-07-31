@@ -1,10 +1,7 @@
 name: Get Comments by Post
 method: GET
-url: $base_url/comments
+url: $base_url/comments?postId=$post_id
 timeout: 0
 followRedirects: true
 maxRedirects: 5
-params:
-  - name: postId
-    value: $post_id
 body_type: none
