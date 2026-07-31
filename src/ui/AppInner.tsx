@@ -705,6 +705,7 @@ export function AppInner({
     setFocus,
     setUrlbarSubFocus,
     ebRef,
+    folderEbRef,
     setTab,
     selectedIdRef,
     targetsRef: jumpTargetsRef,

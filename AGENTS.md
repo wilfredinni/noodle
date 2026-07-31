@@ -232,16 +232,17 @@ Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable
 | Letter | Target |
 |--------|--------|
 | `s` | Sidebar pane |
-| `m` | URL bar method select |
+| `m` | URL bar method select / Folder General tab |
 | `u` | URL bar URL field |
-| `h` | Request Headers tab |
+| `h` | Request Headers tab / Folder Headers tab |
 | `p` | Request Params tab |
 | `b` | Request Body tab |
-| `a` | Request Auth tab |
+| `a` | Request Auth tab / Folder Auth tab |
 | `t` | Request Settings tab |
 | `r` | Response Body tab |
 | `e` | Response Headers tab |
 | `l` | Response Timeline tab |
+| `y` | Folder Activity tab |
 
 ### Browse mode (request pane focused, not editing)
 | Key | Action |

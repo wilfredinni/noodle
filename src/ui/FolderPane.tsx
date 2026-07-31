@@ -11,6 +11,7 @@ import type { Theme } from "./theme"
 import { FullBorder } from "./borders"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
+import { FOLDER_TAB_HINT_ORDER } from "./useJumpMode"
 
 interface FolderPaneProps {
   collectionDir: string
@@ -63,7 +64,10 @@ export function FolderPane({
         { id: "headers", label: "Headers" },
         { id: "auth", label: "Auth" },
         { id: "activity", label: "Activity" },
-      ]
+      ].map((tab, i) => ({
+        ...tab,
+        jumpHint: jumpMode ? FOLDER_TAB_HINT_ORDER[i] : undefined,
+      }))
     }
     const hasHeaders = Object.values(folder.overrides?.headers ?? {}).some(
       (e) => e.enabled,
@@ -76,8 +80,11 @@ export function FolderPane({
       { id: "headers", label: hasHeaders ? "Headers \u2022" : "Headers" },
       { id: "auth", label: hasAuth ? "Auth \u2022" : "Auth" },
       { id: "activity", label: "Activity" },
-    ]
-  }, [folder])
+    ].map((tab, i) => ({
+      ...tab,
+      jumpHint: jumpMode ? FOLDER_TAB_HINT_ORDER[i] : undefined,
+    }))
+  }, [folder, jumpMode])
 
   return (
     <Frame
