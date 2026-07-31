@@ -32,6 +32,13 @@ interface FolderPaneProps {
   onPaneFocus?: () => void
   onTabChange?: (tab: FolderFieldKind) => void
   onAuthFocusRow?: (row: number) => void
+  onFieldActivate?: (
+    field: FolderFieldKind,
+    row: number,
+    addingRow?: boolean,
+  ) => void
+  onFieldToggle?: (field: FolderFieldKind, row: number) => void
+  onInteraction?: () => void
 }
 
 export function FolderPane({
@@ -53,6 +60,9 @@ export function FolderPane({
   onPaneFocus,
   onTabChange,
   onAuthFocusRow,
+  onFieldActivate,
+  onFieldToggle,
+  onInteraction,
 }: FolderPaneProps) {
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
@@ -127,7 +137,7 @@ export function FolderPane({
             tabs={tabs}
             activeId={activeTab}
             onChange={(tab) => {
-              if (inEdit) return
+              onInteraction?.()
               onPaneFocus?.()
               onTabChange?.(tab as FolderFieldKind)
             }}
@@ -152,6 +162,15 @@ export function FolderPane({
                   browseActive={browseActive}
                   theme={theme}
                   activeEnv={activeEnv}
+                  onActivate={
+                    onFieldActivate
+                      ? () => {
+                          onPaneFocus?.()
+                          onInteraction?.()
+                          onFieldActivate("meta", 0)
+                        }
+                      : undefined
+                  }
                 />
               )}
               {activeTab === "headers" && (
@@ -171,6 +190,24 @@ export function FolderPane({
                     setEditValue={setEditValue}
                     theme={theme}
                     activeEnv={activeEnv}
+                    onActivateRow={
+                      onFieldActivate
+                        ? (row, addingRow) => {
+                            onPaneFocus?.()
+                            onInteraction?.()
+                            onFieldActivate("headers", row, addingRow)
+                          }
+                        : undefined
+                    }
+                    onToggleRow={
+                      onFieldToggle
+                        ? (row) => {
+                            onPaneFocus?.()
+                            onInteraction?.()
+                            onFieldToggle("headers", row)
+                          }
+                        : undefined
+                    }
                   />
                 </box>
               )}
@@ -192,7 +229,20 @@ export function FolderPane({
                       onApiKeyPlacementChange ?? (() => {})
                     }
                     onSelectOpenChange={onSelectOpenChange}
-                    onFocusRow={onAuthFocusRow}
+                    onFocusRow={(row) => {
+                      onInteraction?.()
+                      onPaneFocus?.()
+                      onAuthFocusRow?.(row)
+                    }}
+                    onActivateRow={
+                      onFieldActivate
+                        ? (row) => {
+                            onPaneFocus?.()
+                            onInteraction?.()
+                            onFieldActivate("auth", row)
+                          }
+                        : undefined
+                    }
                     showInherit={false}
                   />
                 </box>

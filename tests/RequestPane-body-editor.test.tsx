@@ -41,6 +41,12 @@ const editStateBrowse = {
   editingRow: -1,
 }
 
+const editStateEditingTimeout = {
+  mode: "editing" as const,
+  cursor: { field: "settings" as const, row: 0, addingRow: false },
+  editingRow: 0,
+}
+
 describe("BodySection — edit mode", () => {
   it("activates the JSON editor without activating the body type selector", async () => {
     const { keymap, cleanup } = setupKeymap()
@@ -58,7 +64,7 @@ describe("BodySection — edit mode", () => {
               setEditValue={() => {}}
               focused={true}
               activeTab="body"
-              onJsonEditorFocus={() => editorActivations++}
+              onBodyEditorFocus={() => editorActivations++}
             />
           </box>
         </ThemeProvider>
@@ -262,6 +268,45 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
+  it("activates a binary body editor on click", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const binaryRequest: Request = {
+      ...testRequest,
+      bodyType: "binary",
+      filePath: "/tmp/payload.bin",
+    }
+    let activated = ""
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={binaryRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+              onBodyEditorFocus={(bodyType) => {
+                activated = bodyType
+              }}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(5, 5, MouseButtons.LEFT)
+    })
+    expect(activated).toBe("binary")
+    cleanup()
+  })
+
   it("shows inline validation errors for malformed JSON while editing", async () => {
     const { keymap, cleanup } = setupKeymap()
     const invalidRequest: Request = {
@@ -290,6 +335,42 @@ describe("BodySection — edit mode", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Invalid JSON")
+    cleanup()
+  })
+})
+
+describe("RequestPane mouse transitions", () => {
+  it("commits before switching tabs from an active edit", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const events: string[] = []
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateEditingTimeout}
+              editKey=""
+              editValue="10"
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="settings"
+              onInteraction={() => events.push("commit")}
+              onTabChange={(tab) => events.push(tab)}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(12, 1, MouseButtons.LEFT)
+    })
+
+    expect(events).toEqual(["commit", "params"])
     cleanup()
   })
 })

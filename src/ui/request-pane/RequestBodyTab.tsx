@@ -100,6 +100,8 @@ export function BodySection({
   activeEnv,
   onBodyChange,
   onEditorActivate,
+  onFormRowActivate,
+  onFormRowToggle,
 }: {
   request: Request
   editState: EditState
@@ -113,6 +115,8 @@ export function BodySection({
   activeEnv?: Environment | null
   onBodyChange: (body: string) => void
   onEditorActivate?: () => void
+  onFormRowActivate?: (row: number, addingRow: boolean) => void
+  onFormRowToggle?: (row: number) => void
 }) {
   const bodyType = request.bodyType ?? "json"
 
@@ -211,6 +215,8 @@ export function BodySection({
           browseActive={browseActive}
           theme={theme}
           activeEnv={activeEnv}
+          onActivateRow={onFormRowActivate}
+          onToggleRow={onFormRowToggle}
         />
       ) : isBinaryMode ? (
         editingBody ? (
@@ -225,11 +231,23 @@ export function BodySection({
             focusedBackgroundColor={theme.borderSubtle}
           />
         ) : (
-          <VarInput
-            value={request.filePath || "(no file selected)"}
-            env={activeEnv ?? null}
-            isEditing={false}
-          />
+          <box
+            onMouseDown={
+              onEditorActivate
+                ? (event) => {
+                    if (event.button !== MouseButton.LEFT) return
+                    onEditorActivate()
+                    event.stopPropagation()
+                  }
+                : undefined
+            }
+          >
+            <VarInput
+              value={request.filePath || "(no file selected)"}
+              env={activeEnv ?? null}
+              isEditing={false}
+            />
+          </box>
         )
       ) : (
         <box

@@ -45,6 +45,8 @@ export interface UseFolderEditBrowseResult {
   revertAll: () => void
   toggleRow: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
+  activateAt: (field: FolderFieldKind, row: number, addingRow?: boolean) => void
+  toggleAt: (field: FolderFieldKind, row: number) => void
 }
 
 export interface UseFolderEditBrowseOptions {
@@ -223,6 +225,53 @@ export function useFolderEditBrowse(
       return { ...next, cursor: { ...next.cursor, row, addingRow: false } }
     })
   }, [])
+
+  const activateAt = useCallback(
+    (field: FolderFieldKind, row: number, addingRow = false) => {
+      setInactiveTab(field)
+      const currentFolder = draftRef.current
+      const kv = folderCurrentKeyValueFor(currentFolder, field, row, addingRow)
+      setEditKey(kv.key)
+      setEditValue(kv.value)
+      setEditState((prev) => {
+        const browsed =
+          prev.mode === "inactive"
+            ? enterFolderEditBrowse(prev, folderRowCount(currentFolder), field)
+            : cancelEditing(prev)
+        return beginEditing({
+          ...browsed,
+          mode: "browsing",
+          editingRow: -1,
+          cursor: { field, row, addingRow },
+        })
+      })
+    },
+    [],
+  )
+
+  const toggleAt = useCallback(
+    (field: FolderFieldKind, row: number) => {
+      setInactiveTab(field)
+      setEditState((prev) => {
+        const browsed =
+          prev.mode === "inactive"
+            ? enterFolderEditBrowse(
+                prev,
+                folderRowCount(draftRef.current),
+                field,
+              )
+            : cancelEditing(prev)
+        return {
+          ...browsed,
+          mode: "browsing",
+          editingRow: -1,
+          cursor: { field, row, addingRow: false },
+        }
+      })
+      if (field === "headers") draftMutators.toggleHeaderRow(row)
+    },
+    [draftMutators],
+  )
 
   const enterAndEdit = useCallback(() => {
     const c = folderRowCount(draftRef.current)
@@ -415,6 +464,8 @@ export function useFolderEditBrowse(
       activeTab,
       enterBrowse,
       enterBrowseAt,
+      activateAt,
+      toggleAt,
       exitBrowse,
       browseUp,
       browseDown,
@@ -437,6 +488,8 @@ export function useFolderEditBrowse(
       activeTab,
       enterBrowse,
       enterBrowseAt,
+      activateAt,
+      toggleAt,
       exitBrowse,
       browseUp,
       browseDown,

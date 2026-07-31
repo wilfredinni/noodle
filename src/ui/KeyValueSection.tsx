@@ -1,4 +1,5 @@
 import type { KvEntry, Environment } from "../schema"
+import { MouseButton } from "@opentui/core"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
@@ -14,6 +15,8 @@ export interface KeyValueSectionProps {
   setEditValue: (v: string) => void
   theme: Theme
   activeEnv?: Environment | null
+  onActivateRow?: (row: number, addingRow: boolean) => void
+  onToggleRow?: (row: number) => void
 }
 
 export function KeyValueSection({
@@ -26,6 +29,8 @@ export function KeyValueSection({
   setEditValue,
   theme,
   activeEnv,
+  onActivateRow,
+  onToggleRow,
 }: KeyValueSectionProps) {
   const rows = entries
 
@@ -67,6 +72,15 @@ export function KeyValueSection({
             flexDirection: "row",
             gap: 0,
           }}
+          onMouseDown={
+            onActivateRow
+              ? (event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  onActivateRow(-1, true)
+                  event.stopPropagation()
+                }
+              : undefined
+          }
         >
           <Checkbox checked={false} theme={theme} />
           <VarInput
@@ -118,9 +132,30 @@ export function KeyValueSection({
                   gap: 0,
                   backgroundColor: rowBg,
                 }}
+                onMouseDown={
+                  !isEditingThisRow && onActivateRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(i, false)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
               >
                 {kind !== "pathParams" ? (
-                  <Checkbox checked={kv.enabled} theme={theme} />
+                  <box
+                    onMouseDown={
+                      onToggleRow
+                        ? (event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            onToggleRow(i)
+                            event.stopPropagation()
+                          }
+                        : undefined
+                    }
+                  >
+                    <Checkbox checked={kv.enabled} theme={theme} />
+                  </box>
                 ) : (
                   <box style={{ width: 3 }} />
                 )}
@@ -174,6 +209,15 @@ export function KeyValueSection({
                       gap: 0,
                       backgroundColor: addRowBg,
                     }}
+                    onMouseDown={
+                      onActivateRow
+                        ? (event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            onActivateRow(-1, true)
+                            event.stopPropagation()
+                          }
+                        : undefined
+                    }
                   >
                     <Checkbox checked={false} theme={theme} />
                     <VarInput

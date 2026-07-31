@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
-import type { InputRenderable, ScrollBoxRenderable } from "@opentui/core"
+import {
+  MouseButton,
+  type InputRenderable,
+  type ScrollBoxRenderable,
+} from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
 import type { NetworkError, TimelineEntry } from "../schema"
@@ -397,6 +401,7 @@ export function ResponsePane({
               entries={timelineEntries ?? []}
               focused={focused}
               onOpenEntry={onOpenTimelineEntry}
+              onPaneFocus={onPaneFocus}
               layout={layout}
               expanded={expanded}
             />
@@ -460,7 +465,18 @@ export function ResponsePane({
                       <text
                         fg={theme.warning}
                       >{`Body is ${formatSize(bodySize)}. It was not rendered automatically.`}</text>
-                      <text fg={theme.textMuted}>v view raw · ctrl+b copy</text>
+                      <box
+                        onMouseDown={(event) => {
+                          if (event.button !== MouseButton.LEFT) return
+                          onPaneFocus?.()
+                          setShowLargeBody(true)
+                          event.stopPropagation()
+                        }}
+                      >
+                        <text fg={theme.textMuted}>
+                          v view raw · ctrl+b copy
+                        </text>
+                      </box>
                     </box>
                   ) : displayedBody === "" ? (
                     <text fg={theme.textMuted}>(no body)</text>

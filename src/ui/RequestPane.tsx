@@ -40,7 +40,10 @@ interface Props {
   onTabChange?: (tab: FieldKind) => void
   onBodyTypeFocus?: () => void
   onAuthFocusRow?: (row: number) => void
-  onJsonEditorFocus?: () => void
+  onBodyEditorFocus?: (bodyType: BodyType) => void
+  onFieldActivate?: (field: FieldKind, row: number, addingRow?: boolean) => void
+  onFieldToggle?: (field: FieldKind, row: number) => void
+  onInteraction?: () => void
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -73,7 +76,10 @@ export function RequestPane({
   onTabChange,
   onBodyTypeFocus,
   onAuthFocusRow,
-  onJsonEditorFocus,
+  onBodyEditorFocus,
+  onFieldActivate,
+  onFieldToggle,
+  onInteraction,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -165,7 +171,7 @@ export function RequestPane({
             tabs={tabs}
             activeId={activeTab}
             onChange={(tab) => {
-              if (inEdit) return
+              onInteraction?.()
               onPaneFocus?.()
               onTabChange?.(tab as FieldKind)
             }}
@@ -185,7 +191,11 @@ export function RequestPane({
                   browseActive={browseActive}
                   onBodyTypeChange={onBodyTypeChange ?? (() => {})}
                   onSelectOpenChange={onSelectOpenChange}
-                  onActivate={onBodyTypeFocus}
+                  onActivate={() => {
+                    onInteraction?.()
+                    onPaneFocus?.()
+                    onBodyTypeFocus?.()
+                  }}
                 />
               )}
               {isJsonBody ? (
@@ -201,9 +211,30 @@ export function RequestPane({
                   theme={theme}
                   activeEnv={activeEnv}
                   onBodyChange={onBodyChange ?? (() => {})}
+                  onFormRowActivate={
+                    onFieldActivate
+                      ? (row, addingRow) => {
+                          onPaneFocus?.()
+                          onFieldActivate(
+                            "body",
+                            addingRow ? -1 : row + 1,
+                            addingRow,
+                          )
+                        }
+                      : undefined
+                  }
+                  onFormRowToggle={
+                    onFieldToggle
+                      ? (row) => {
+                          onPaneFocus?.()
+                          onFieldToggle("body", row + 1)
+                        }
+                      : undefined
+                  }
                   onEditorActivate={() => {
+                    if (!inEdit) onInteraction?.()
                     onPaneFocus?.()
-                    onJsonEditorFocus?.()
+                    onBodyEditorFocus?.(request.bodyType ?? "json")
                   }}
                 />
               ) : (
@@ -225,9 +256,32 @@ export function RequestPane({
                       theme={theme}
                       activeEnv={activeEnv}
                       onBodyChange={onBodyChange ?? (() => {})}
+                      onFormRowActivate={
+                        onFieldActivate
+                          ? (row, addingRow) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldActivate(
+                                "body",
+                                addingRow ? -1 : row + 1,
+                                addingRow,
+                              )
+                            }
+                          : undefined
+                      }
+                      onFormRowToggle={
+                        onFieldToggle
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldToggle("body", row + 1)
+                            }
+                          : undefined
+                      }
                       onEditorActivate={() => {
+                        if (!inEdit) onInteraction?.()
                         onPaneFocus?.()
-                        onJsonEditorFocus?.()
+                        onBodyEditorFocus?.(request.bodyType ?? "json")
                       }}
                     />
                   )}
@@ -244,6 +298,24 @@ export function RequestPane({
                       setEditValue={setEditValue}
                       theme={theme}
                       activeEnv={activeEnv}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row, addingRow) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldActivate("headers", row, addingRow)
+                            }
+                          : undefined
+                      }
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldToggle("headers", row)
+                            }
+                          : undefined
+                      }
                     />
                   )}
                   {activeTab === "params" && (
@@ -260,6 +332,24 @@ export function RequestPane({
                       setEditValue={setEditValue}
                       theme={theme}
                       activeEnv={activeEnv}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row, addingRow) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldActivate("params", row, addingRow)
+                            }
+                          : undefined
+                      }
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldToggle("params", row)
+                            }
+                          : undefined
+                      }
                     />
                   )}
                   {activeTab === "pathParams" && (
@@ -279,6 +369,15 @@ export function RequestPane({
                       setEditValue={setEditValue}
                       theme={theme}
                       activeEnv={activeEnv}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row, addingRow) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldActivate("pathParams", row, addingRow)
+                            }
+                          : undefined
+                      }
                     />
                   )}
                   {activeTab === "auth" && (
@@ -295,7 +394,20 @@ export function RequestPane({
                         onApiKeyPlacementChange ?? (() => {})
                       }
                       onSelectOpenChange={handleSelectOpenChange}
-                      onFocusRow={onAuthFocusRow}
+                      onFocusRow={(row) => {
+                        onInteraction?.()
+                        onPaneFocus?.()
+                        onAuthFocusRow?.(row)
+                      }}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldActivate("auth", row)
+                            }
+                          : undefined
+                      }
                       showInherit={true}
                     />
                   )}
@@ -308,6 +420,24 @@ export function RequestPane({
                       browseActive={browseActive}
                       theme={theme}
                       activeEnv={activeEnv}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldActivate("settings", row)
+                            }
+                          : undefined
+                      }
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldToggle("settings", row)
+                            }
+                          : undefined
+                      }
                     />
                   )}
                 </scrollbox>

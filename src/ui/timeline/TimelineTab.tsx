@@ -9,12 +9,14 @@ export function TimelineTab({
   entries,
   focused,
   onOpenEntry,
+  onPaneFocus,
   layout,
   expanded,
 }: {
   entries: TimelineEntryType[]
   focused: boolean
   onOpenEntry?: (entry: TimelineEntryType) => void
+  onPaneFocus?: () => void
   layout?: "stacked" | "side-by-side"
   expanded?: "request" | "response" | null
 }) {
@@ -106,6 +108,11 @@ export function TimelineTab({
           entry={entry}
           isSelected={idx === selectedIdx}
           containerWidth={containerWidth}
+          onActivate={() => {
+            onPaneFocus?.()
+            setSelectedIdx(idx)
+            onOpenEntry?.(entry)
+          }}
         />
       ))}
     </scrollbox>

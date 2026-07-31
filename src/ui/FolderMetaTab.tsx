@@ -1,4 +1,5 @@
 import type { Environment } from "../schema"
+import { MouseButton } from "@opentui/core"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { LeftBar } from "./borders"
@@ -12,6 +13,7 @@ export interface FolderMetaTabProps {
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
+  onActivate?: () => void
 }
 
 export function FolderMetaTab({
@@ -21,6 +23,7 @@ export function FolderMetaTab({
   browseActive,
   theme,
   activeEnv,
+  onActivate,
 }: FolderMetaTabProps) {
   const inEdit = editState.mode === "editing"
   const cursorHere = editState.cursor.field === "meta"
@@ -44,6 +47,15 @@ export function FolderMetaTab({
           backgroundColor: nameActive ? theme.backgroundElement : undefined,
           paddingLeft: 1,
         }}
+        onMouseDown={
+          !nameEditing && onActivate
+            ? (event) => {
+                if (event.button !== MouseButton.LEFT) return
+                onActivate()
+                event.stopPropagation()
+              }
+            : undefined
+        }
       >
         {nameEditing ? (
           <>

@@ -1,7 +1,7 @@
 import { Sidebar } from "./Sidebar"
 import { FolderPane } from "./FolderPane"
 import { useTheme } from "./theme"
-import type { CollectionItem, Environment } from "../schema"
+import type { BodyType, CollectionItem, Environment } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
@@ -156,6 +156,13 @@ export function MainView({
             onPaneFocus={() => onPaneFocus("folder")}
             onTabChange={folderEb.enterBrowseAt}
             onAuthFocusRow={(row) => folderEb.enterBrowseAt("auth", row)}
+            onInteraction={folderEb.commitEdit}
+            onFieldActivate={
+              mode === "collection" ? folderEb.activateAt : undefined
+            }
+            onFieldToggle={
+              mode === "collection" ? folderEb.toggleAt : undefined
+            }
           />
         ) : (
           <RequestResponseView
@@ -184,11 +191,26 @@ export function MainView({
             onRequestTabChange={eb.enterBrowseAt}
             onRequestBodyTypeFocus={() => eb.enterBrowseAt("body")}
             onRequestAuthFocusRow={(row) => eb.enterBrowseAt("auth", row)}
-            onRequestJsonEditorFocus={() => {
-              if (eb.isEditingJsonBody) return
-              eb.enterBrowseAt("body")
-              eb.enterJsonBodyEditor()
-            }}
+            onRequestInteraction={eb.commitEdit}
+            onRequestBodyEditorFocus={
+              mode === "collection"
+                ? (bodyType: BodyType) => {
+                    if (bodyType === "json") {
+                      if (eb.isEditingJsonBody) return
+                      eb.enterBrowseAt("body")
+                      eb.enterJsonBodyEditor()
+                    } else {
+                      eb.activateAt("body", 1)
+                    }
+                  }
+                : undefined
+            }
+            onRequestFieldActivate={
+              mode === "collection" ? eb.activateAt : undefined
+            }
+            onRequestFieldToggle={
+              mode === "collection" ? eb.toggleAt : undefined
+            }
           />
         )}
       </box>

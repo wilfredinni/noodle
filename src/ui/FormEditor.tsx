@@ -1,4 +1,5 @@
 import type { FormEntry, Environment } from "../schema"
+import { MouseButton } from "@opentui/core"
 import type { EditState } from "./editMode"
 import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
@@ -17,6 +18,8 @@ export interface FormEditorProps {
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
+  onActivateRow?: (row: number, addingRow: boolean) => void
+  onToggleRow?: (row: number) => void
 }
 
 export function FormEditor({
@@ -29,6 +32,8 @@ export function FormEditor({
   browseActive,
   theme,
   activeEnv,
+  onActivateRow,
+  onToggleRow,
 }: FormEditorProps) {
   const rows = request.formData ?? []
 
@@ -67,6 +72,15 @@ export function FormEditor({
                 ? theme.backgroundElement
                 : undefined,
           }}
+          onMouseDown={
+            onActivateRow
+              ? (event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  onActivateRow(-1, true)
+                  event.stopPropagation()
+                }
+              : undefined
+          }
         >
           <Checkbox checked={false} theme={theme} />
           <VarInput
@@ -125,8 +139,29 @@ export function FormEditor({
                   gap: 0,
                   backgroundColor: rowBg,
                 }}
+                onMouseDown={
+                  !isEditingThisRow && onActivateRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(i, false)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
               >
-                <Checkbox checked={entry.enabled} theme={theme} />
+                <box
+                  onMouseDown={
+                    onToggleRow
+                      ? (event) => {
+                          if (event.button !== MouseButton.LEFT) return
+                          onToggleRow(i)
+                          event.stopPropagation()
+                        }
+                      : undefined
+                  }
+                >
+                  <Checkbox checked={entry.enabled} theme={theme} />
+                </box>
                 <VarInput
                   value={isEditingThisRow ? editKey : displayKey}
                   placeholder="Key..."
@@ -176,6 +211,15 @@ export function FormEditor({
                   gap: 0,
                   backgroundColor: addRowBg,
                 }}
+                onMouseDown={
+                  onActivateRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(-1, true)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
               >
                 <Checkbox checked={false} theme={theme} />
                 <VarInput

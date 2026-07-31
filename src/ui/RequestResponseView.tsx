@@ -1,7 +1,7 @@
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
-import type { Environment, TimelineEntry } from "../schema"
+import type { BodyType, Environment, TimelineEntry } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { Focus } from "./focus"
@@ -38,7 +38,14 @@ interface RequestResponseViewProps {
   onRequestTabChange?: (tab: FieldKind) => void
   onRequestBodyTypeFocus?: () => void
   onRequestAuthFocusRow?: (row: number) => void
-  onRequestJsonEditorFocus?: () => void
+  onRequestBodyEditorFocus?: (bodyType: BodyType) => void
+  onRequestFieldActivate?: (
+    field: FieldKind,
+    row: number,
+    addingRow?: boolean,
+  ) => void
+  onRequestFieldToggle?: (field: FieldKind, row: number) => void
+  onRequestInteraction?: () => void
 }
 
 export function RequestResponseView({
@@ -67,7 +74,10 @@ export function RequestResponseView({
   onRequestTabChange,
   onRequestBodyTypeFocus,
   onRequestAuthFocusRow,
-  onRequestJsonEditorFocus,
+  onRequestBodyEditorFocus,
+  onRequestFieldActivate,
+  onRequestFieldToggle,
+  onRequestInteraction,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -93,7 +103,10 @@ export function RequestResponseView({
           onTabChange={onRequestTabChange}
           onBodyTypeFocus={onRequestBodyTypeFocus}
           onAuthFocusRow={onRequestAuthFocusRow}
-          onJsonEditorFocus={onRequestJsonEditorFocus}
+          onBodyEditorFocus={onRequestBodyEditorFocus}
+          onFieldActivate={onRequestFieldActivate}
+          onFieldToggle={onRequestFieldToggle}
+          onInteraction={onRequestInteraction}
         />
       )}
       {expanded !== "request" && (

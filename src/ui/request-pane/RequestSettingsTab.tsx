@@ -1,4 +1,5 @@
 import type { Request, Environment } from "../../schema"
+import { MouseButton } from "@opentui/core"
 import type { EditState } from "../editMode"
 import type { Theme } from "../theme"
 import { VarInput } from "../VarInput"
@@ -13,6 +14,8 @@ export function SettingsSection({
   browseActive,
   theme,
   activeEnv,
+  onActivateRow,
+  onToggleRow,
 }: {
   request: Request
   editState: EditState
@@ -21,6 +24,8 @@ export function SettingsSection({
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
+  onActivateRow?: (row: number) => void
+  onToggleRow?: (row: number) => void
 }) {
   const rows = [
     {
@@ -69,6 +74,15 @@ export function SettingsSection({
                 gap: editingRow ? 1 : undefined,
                 backgroundColor: isActive ? theme.backgroundElement : undefined,
               }}
+              onMouseDown={
+                !editingRow && idx !== 1 && onActivateRow
+                  ? (event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      onActivateRow(idx)
+                      event.stopPropagation()
+                    }
+                  : undefined
+              }
             >
               {editingRow ? (
                 <>
@@ -84,10 +98,22 @@ export function SettingsSection({
               ) : idx === 1 ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
                   <text fg={theme.text}>{row.label}: </text>
-                  <Checkbox
-                    checked={request.followRedirects ?? true}
-                    theme={theme}
-                  />
+                  <box
+                    onMouseDown={
+                      onToggleRow
+                        ? (event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            onToggleRow(idx)
+                            event.stopPropagation()
+                          }
+                        : undefined
+                    }
+                  >
+                    <Checkbox
+                      checked={request.followRedirects ?? true}
+                      theme={theme}
+                    />
+                  </box>
                 </box>
               ) : (
                 <VarInput

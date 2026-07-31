@@ -1,4 +1,5 @@
 import type { TimelineEntry as TimelineEntryType } from "../../schema"
+import { MouseButton } from "@opentui/core"
 import { useTheme } from "../theme"
 import { statusColor } from "../format"
 import {
@@ -17,11 +18,13 @@ export function TimelineEntry({
   entry,
   isSelected,
   containerWidth,
+  onActivate,
 }: {
   id?: string
   entry: TimelineEntryType
   isSelected: boolean
   containerWidth: number
+  onActivate?: () => void
 }) {
   const theme = useTheme()
   const status = entryStatus(entry)
@@ -52,6 +55,15 @@ export function TimelineEntry({
         backgroundColor: rowBg,
         overflow: "hidden",
       }}
+      onMouseDown={
+        onActivate
+          ? (event) => {
+              if (event.button !== MouseButton.LEFT) return
+              onActivate()
+              event.stopPropagation()
+            }
+          : undefined
+      }
     >
       <box
         style={{

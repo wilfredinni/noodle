@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { MouseButton } from "@opentui/core"
 import type { Auth, Environment } from "../schema"
 import type { EditState } from "./editMode"
 import { Select, type SelectItem } from "./Select"
@@ -105,6 +106,7 @@ export interface AuthEditorProps {
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
   onFocusRow?: (row: number) => void
+  onActivateRow?: (row: number) => void
   idPrefix?: string
   showInherit?: boolean
 }
@@ -121,6 +123,7 @@ export function AuthEditor({
   onApiKeyPlacementChange,
   onSelectOpenChange,
   onFocusRow,
+  onActivateRow,
   idPrefix = "auth",
   showInherit = false,
 }: AuthEditorProps) {
@@ -205,6 +208,15 @@ export function AuthEditor({
                 backgroundColor: isActive ? theme.backgroundElement : undefined,
                 paddingLeft: 1,
               }}
+              onMouseDown={
+                !isEditingRow && !def.isPlacement && onActivateRow
+                  ? (event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      onActivateRow(def.row)
+                      event.stopPropagation()
+                    }
+                  : undefined
+              }
             >
               {isEditingRow && !def.isPlacement ? (
                 <>

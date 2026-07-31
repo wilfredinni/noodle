@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -72,6 +73,24 @@ describe("TimelineTab", () => {
     await act(async () => mockInput.pressKey("RETURN"))
     await renderOnce()
     expect(opened?.request.id).toBe("2")
+    cleanup()
+  })
+
+  it("opens an entry on left click", async () => {
+    const entries = [makeEntry("1"), makeEntry("2")]
+    let opened: TimelineEntry | undefined
+    const { renderOnce, mockMouse, cleanup } = await renderTimeline(
+      entries,
+      true,
+      (entry) => {
+        opened = entry
+      },
+    )
+    await renderOnce()
+    await act(async () => {
+      await mockMouse.click(2, 0, MouseButtons.LEFT)
+    })
+    expect(opened?.request.id).toBe("1")
     cleanup()
   })
 

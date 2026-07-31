@@ -448,20 +448,38 @@ export function AppInner({
   const focusPane = useCallback(
     (next: Focus) => {
       setJumpMode(false)
+      if (next !== focus) {
+        eb.commitEdit()
+        folderEb.commitEdit()
+      }
       if (next === "urlbar") setUrlbarSubFocus("select")
       if (next === "request") eb.enterBrowse()
       if (next === "folder") folderEb.enterBrowse()
       if (next === "env-vars") envEditor.enterBrowse()
       setFocus(next)
     },
-    [eb.enterBrowse, envEditor.enterBrowse, folderEb.enterBrowse],
+    [
+      eb.commitEdit,
+      eb.enterBrowse,
+      envEditor.enterBrowse,
+      focus,
+      folderEb.commitEdit,
+      folderEb.enterBrowse,
+    ],
   )
 
-  const focusUrlbar = useCallback((subFocus: UrlBarSubFocus) => {
-    setJumpMode(false)
-    setUrlbarSubFocus(subFocus)
-    setFocus("urlbar")
-  }, [])
+  const focusUrlbar = useCallback(
+    (subFocus: UrlBarSubFocus) => {
+      setJumpMode(false)
+      if (focus !== "urlbar") {
+        eb.commitEdit()
+        folderEb.commitEdit()
+      }
+      setUrlbarSubFocus(subFocus)
+      setFocus("urlbar")
+    },
+    [eb.commitEdit, focus, folderEb.commitEdit],
+  )
 
   const {
     collectionSwitcherVisible,
@@ -949,16 +967,16 @@ export function AppInner({
             onPaneFocus={focusPane}
             onUrlbarFocus={focusUrlbar}
             onRequestSelect={(id) => {
-              revealRequest(id)
               focusPane("sidebar")
+              revealRequest(id)
             }}
             onFolderSelect={(path) => {
-              revealFolder(path)
               focusPane("sidebar")
+              revealFolder(path)
             }}
             onFolderToggle={(path) => {
-              toggleFolder(path)
               focusPane("sidebar")
+              toggleFolder(path)
             }}
           />
         ) : mode === "collection" ? (
