@@ -6,6 +6,7 @@ import {
   exitEditBrowse,
   moveFolderFieldCursor,
   moveFolderRowCursor,
+  folderCursorForField,
   beginEditing,
   commitEditing,
   cancelEditing,
@@ -205,9 +206,15 @@ export function useFolderEditBrowse(
   const enterBrowseAt = useCallback((field: FolderFieldKind) => {
     setInactiveTab(field)
     const c = folderRowCount(draftRef.current)
+    setEditKey("")
     setEditState((prev) => {
       if (prev.mode !== "inactive") {
-        return enterFolderEditBrowse(initialFolderEditState(), c, field)
+        const canceled = prev.mode === "editing" ? cancelEditing(prev) : prev
+        return {
+          ...canceled,
+          cursor: folderCursorForField(field, c),
+          editingRow: -1,
+        }
       }
       return enterFolderEditBrowse(prev, c, field)
     })
