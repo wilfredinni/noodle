@@ -68,10 +68,8 @@ export function ResponsePane({
   const keymap = useKeymap()
   const focusedRef = useRef(focused)
   focusedRef.current = focused
-  const isSettledRef = useRef(
-    state.status === "done" || state.status === "error",
-  )
-  isSettledRef.current = state.status === "done" || state.status === "error"
+  const isActiveRef = useRef(state.status !== "idle")
+  isActiveRef.current = state.status !== "idle"
 
   const [activeTab, setActiveTab] = useState<ResponseTabKind>(
     initialTab ?? "body",
@@ -107,7 +105,7 @@ export function ResponsePane({
 
   useKeyboard((key) => {
     if (!focusedRef.current) return
-    if (!isSettledRef.current) return
+    if (!isActiveRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
     if (queryVisible) return
     if (key.name === "left")
@@ -224,11 +222,14 @@ export function ResponsePane({
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   const responseHeaders = isDone ? formatHeaders(state.response) : []
-  const networkEvents = isDone
-    ? state.response.network
-    : state.status === "error"
-      ? (state.error as NetworkError).network
-      : undefined
+  const networkEvents =
+    state.status === "sending"
+      ? state.network
+      : isDone
+        ? state.response.network
+        : state.status === "error"
+          ? (state.error as NetworkError).network
+          : undefined
 
   const bodySize = useMemo(() => {
     if (state.status !== "done") return 0
@@ -356,7 +357,17 @@ export function ResponsePane({
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <Tabs tabs={tabs} activeId={activeTab}>
-          {state.status === "sending" ? (
+          {activeTab === "network" ? (
+            <NetworkTab
+              events={networkEvents}
+              scrollRef={scrollRef}
+              emptyMessage={
+                state.status === "error"
+                  ? "Request did not reach the network."
+                  : undefined
+              }
+            />
+          ) : state.status === "sending" ? (
             <box
               style={{
                 flexGrow: 1,
@@ -371,16 +382,6 @@ export function ResponsePane({
                 </text>
               </box>
             </box>
-          ) : activeTab === "network" ? (
-            <NetworkTab
-              events={networkEvents}
-              scrollRef={scrollRef}
-              emptyMessage={
-                state.status === "error"
-                  ? "Request did not reach the network."
-                  : undefined
-              }
-            />
           ) : activeTab === "timeline" ? (
             <TimelineTab
               entries={timelineEntries ?? []}
@@ -472,6 +473,8 @@ export function ResponsePane({
             >
               <HeaderTable entries={responseHeaders} theme={theme} />
             </scrollbox>
+          ) : state.status === "error" ? (
+            <text fg={theme.textMuted}>No response headers available.</text>
           ) : (
             <Tips />
           )}

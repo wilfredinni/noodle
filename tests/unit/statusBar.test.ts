@@ -80,6 +80,7 @@ describe("statusBarText", () => {
           params: [],
           timeout: 0,
         },
+        network: [],
       },
       envLabel: "dev",
       saveState: { kind: "idle" },

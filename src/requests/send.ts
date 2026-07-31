@@ -65,6 +65,7 @@ export async function send(
   signal?: AbortSignal,
   collection?: Collection,
   requestPath?: string,
+  onNetworkEvent?: (network: NetworkEvent[]) => void,
 ): Promise<Response> {
   const merged =
     collection && requestPath
@@ -154,6 +155,7 @@ export async function send(
       start,
       "request",
       `${currentInit.method ?? substituted.method} ${networkUrl(currentUrl)}`,
+      onNetworkEvent,
     )
     try {
       res = await fetch(currentUrl, currentInit)
@@ -165,6 +167,7 @@ export async function send(
         e,
         network,
         start,
+        onNetworkEvent,
       )
     }
 
@@ -173,6 +176,7 @@ export async function send(
       start,
       "response",
       `${res.status} ${res.statusText || "Response"} - ${[...res.headers].length} headers`,
+      onNetworkEvent,
     )
 
     if (!followRedirects || ![301, 302, 303, 307, 308].includes(res.status)) {
@@ -188,6 +192,7 @@ export async function send(
         undefined,
         network,
         start,
+        onNetworkEvent,
       )
     }
     redirectCount++
@@ -201,6 +206,7 @@ export async function send(
         e,
         network,
         start,
+        onNetworkEvent,
       )
     }
     recordNetworkEvent(
@@ -208,6 +214,7 @@ export async function send(
       start,
       "redirect",
       `${res.status} -> ${networkUrl(currentUrl)}`,
+      onNetworkEvent,
     )
 
     if (
@@ -239,6 +246,7 @@ export async function send(
       e,
       network,
       start,
+      onNetworkEvent,
     )
   }
 
@@ -247,12 +255,14 @@ export async function send(
     start,
     "body",
     `Body received - ${new TextEncoder().encode(body).length} bytes`,
+    onNetworkEvent,
   )
   recordNetworkEvent(
     network,
     start,
     "complete",
     `Completed in ${Math.round(performance.now() - start)}ms`,
+    onNetworkEvent,
   )
 
   return {
@@ -270,8 +280,10 @@ function recordNetworkEvent(
   start: number,
   type: NetworkEventType,
   message: string,
+  onNetworkEvent?: (network: NetworkEvent[]) => void,
 ): void {
   network.push({ timeMs: performance.now() - start, type, message })
+  onNetworkEvent?.(network.map((event) => ({ ...event })))
 }
 
 function networkFailure(
@@ -279,8 +291,9 @@ function networkFailure(
   cause: unknown,
   network: NetworkEvent[],
   start: number,
+  onNetworkEvent?: (network: NetworkEvent[]) => void,
 ): NetworkError {
-  recordNetworkEvent(network, start, "error", message)
+  recordNetworkEvent(network, start, "error", message, onNetworkEvent)
   const error = new Error(message, cause === undefined ? undefined : { cause })
   ;(error as NetworkError).network = network
   return error as NetworkError

@@ -258,18 +258,23 @@ describe("saveTimelineEntry", () => {
   })
 
   it("persists network activity", async () => {
+    const network = [
+      {
+        timeMs: 0,
+        type: "request" as const,
+        message: "GET https://example.com",
+      },
+      { timeMs: 5, type: "complete" as const, message: "Completed in 5ms" },
+    ]
     await saveTimelineEntry(
       dir,
       "network",
       makeEntry({
-        network: [
-          { timeMs: 0, type: "request", message: "GET https://example.com" },
-          { timeMs: 5, type: "complete", message: "Completed in 5ms" },
-        ],
+        network,
       }),
     )
     const result = await loadTimeline(dir, "network")
-    expect(result[0]?.network?.[1]?.message).toBe("Completed in 5ms")
+    expect(result[0]?.network).toEqual(network)
   })
 
   it("isolates entries per request id", async () => {

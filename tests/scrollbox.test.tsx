@@ -186,6 +186,31 @@ describe("ResponsePane scrollbox", () => {
     expect(captureCharFrame()).toContain("event 19")
   })
 
+  it("shows network activity while sending", async () => {
+    const state = {
+      status: "sending" as const,
+      request: makeRequest(1),
+      network: [
+        { timeMs: 0, type: "request" as const, message: "GET example" },
+      ],
+    } satisfies SendState
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane state={state} focused initialTab="body" />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Sending")
+    await act(async () => mockInput.pressKey("ARROW_RIGHT"))
+    await act(async () => mockInput.pressKey("ARROW_RIGHT"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("GET example")
+  })
+
   it("renders trace events after a failed request", async () => {
     const error = Object.assign(new Error("offline"), {
       network: [
@@ -208,6 +233,28 @@ describe("ResponsePane scrollbox", () => {
     )
     await renderOnce()
     expect(captureCharFrame()).toContain("GET example")
+  })
+
+  it("shows no response headers after a failed request", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "error",
+            request: makeRequest(1),
+            error: new Error("offline"),
+          }}
+          focused
+          initialTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("No response headers available.")
   })
 
   it("shows JSONPath errors in the filter bar", async () => {

@@ -41,6 +41,7 @@ describe("startSend", () => {
     expect(next.status).toBe("sending")
     if (next.status !== "sending") throw new Error("narrow")
     expect(next.request).toEqual(makeReq())
+    expect(next.network).toEqual([])
   })
 
   it("transitions done → sending (re-send works)", () => {
@@ -65,7 +66,11 @@ describe("startSend", () => {
   })
 
   it("is a no-op when already sending (returns same reference)", () => {
-    const sending: SendState = { status: "sending", request: makeReq() }
+    const sending: SendState = {
+      status: "sending",
+      request: makeReq(),
+      network: [],
+    }
     const next = startSend(sending, makeReq())
     expect(next).toBe(sending)
   })
@@ -73,7 +78,11 @@ describe("startSend", () => {
 
 describe("finishSend", () => {
   it("transitions to done with response", () => {
-    const sending: SendState = { status: "sending", request: makeReq() }
+    const sending: SendState = {
+      status: "sending",
+      request: makeReq(),
+      network: [],
+    }
     const res = makeRes({ status: 201, statusText: "Created" })
     const next = finishSend(sending, makeReq(), res)
     expect(next.status).toBe("done")
@@ -85,7 +94,11 @@ describe("finishSend", () => {
 
 describe("failSend", () => {
   it("transitions to error with request and error", () => {
-    const sending: SendState = { status: "sending", request: makeReq() }
+    const sending: SendState = {
+      status: "sending",
+      request: makeReq(),
+      network: [],
+    }
     const err = new Error("fetch failed")
     const next = failSend(sending, makeReq(), err)
     expect(next.status).toBe("error")
@@ -102,12 +115,20 @@ describe("immutability", () => {
     expect(idle.status).toBe("idle")
   })
   it("finishSend does not mutate input state", () => {
-    const sending: SendState = { status: "sending", request: makeReq() }
+    const sending: SendState = {
+      status: "sending",
+      request: makeReq(),
+      network: [],
+    }
     finishSend(sending, makeReq(), makeRes())
     expect(sending.status).toBe("sending")
   })
   it("failSend does not mutate input state", () => {
-    const sending: SendState = { status: "sending", request: makeReq() }
+    const sending: SendState = {
+      status: "sending",
+      request: makeReq(),
+      network: [],
+    }
     failSend(sending, makeReq(), new Error("boom"))
     expect(sending.status).toBe("sending")
   })

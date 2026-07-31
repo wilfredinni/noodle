@@ -161,6 +161,33 @@ describe("send — network trace", () => {
     }
   })
 
+  it("reports each network event before the request settles", async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mock(
+      async () => new Response("ok", { status: 200 }),
+    ) as unknown as typeof globalThis.fetch
+
+    try {
+      const snapshots: string[][] = []
+      await send(
+        makeReq(),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        (network) => snapshots.push(network.map((event) => event.type)),
+      )
+      expect(snapshots).toEqual([
+        ["request"],
+        ["request", "response"],
+        ["request", "response", "body"],
+        ["request", "response", "body", "complete"],
+      ])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it("records redirect hops", async () => {
     const originalFetch = globalThis.fetch
     let calls = 0
