@@ -44,6 +44,7 @@ interface Props {
   onFieldActivate?: (field: FieldKind, row: number, addingRow?: boolean) => void
   onFieldToggle?: (field: FieldKind, row: number) => void
   onInteraction?: () => void
+  interactive?: boolean
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -80,6 +81,7 @@ export function RequestPane({
   onFieldActivate,
   onFieldToggle,
   onInteraction,
+  interactive = true,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -191,6 +193,7 @@ export function RequestPane({
                   browseActive={browseActive}
                   onBodyTypeChange={onBodyTypeChange ?? (() => {})}
                   onSelectOpenChange={onSelectOpenChange}
+                  interactive={interactive}
                   onActivate={() => {
                     onInteraction?.()
                     onPaneFocus?.()
@@ -394,6 +397,7 @@ export function RequestPane({
                         onApiKeyPlacementChange ?? (() => {})
                       }
                       onSelectOpenChange={handleSelectOpenChange}
+                      interactive={interactive}
                       onFocusRow={(row) => {
                         onInteraction?.()
                         onPaneFocus?.()

@@ -373,19 +373,6 @@ export function useEnvironmentEditor({
     })
   }, [])
 
-  const activateVar = useCallback((row: number, addingRow = false) => {
-    const currentRow = addingRow ? undefined : draftRef.current?.varRows[row]
-    setEditKey(currentRow?.key ?? "")
-    setEditValue(currentRow?.value ?? "")
-    setEditState({
-      mode: "editing",
-      row,
-      addingRow,
-      subfield: "key",
-      editingRow: addingRow ? -1 : row,
-    })
-  }, [])
-
   const commitEdit = useCallback(() => {
     const state = editStateRef.current
     if (state.mode !== "editing") return
@@ -421,6 +408,23 @@ export function useEnvironmentEditor({
       editingRow: -1,
     })
   }, [])
+
+  const activateVar = useCallback(
+    (row: number, addingRow = false) => {
+      commitEdit()
+      const currentRow = addingRow ? undefined : draftRef.current?.varRows[row]
+      setEditKey(currentRow?.key ?? "")
+      setEditValue(currentRow?.value ?? "")
+      setEditState({
+        mode: "editing",
+        row,
+        addingRow,
+        subfield: "key",
+        editingRow: addingRow ? -1 : row,
+      })
+    },
+    [commitEdit],
+  )
 
   const cancelEdit = useCallback(() => {
     setEditState((prev) => {

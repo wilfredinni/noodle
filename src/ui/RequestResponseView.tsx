@@ -107,6 +107,7 @@ export function RequestResponseView({
           onFieldActivate={onRequestFieldActivate}
           onFieldToggle={onRequestFieldToggle}
           onInteraction={onRequestInteraction}
+          interactive={urlbarInteractive}
         />
       )}
       {expanded !== "request" && (

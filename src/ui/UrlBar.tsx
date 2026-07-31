@@ -131,6 +131,7 @@ export function UrlBar({
               badge
               maxDropdownHeight={10}
               onOpenChange={setMethodSelectOpen}
+              interactive={interactive}
             />
           </box>
           <box

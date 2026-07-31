@@ -169,6 +169,7 @@ export function MainView({
             onFieldToggle={
               mode === "collection" ? folderEb.toggleAt : undefined
             }
+            interactive={mode === "collection"}
           />
         ) : (
           <RequestResponseView

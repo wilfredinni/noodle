@@ -132,6 +132,41 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     })
   })
 
+  it("commits the active variable before activating another row", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    act(() => {
+      ref.current!.activateVar(0)
+      ref.current!.setEditKey("updated")
+      ref.current!.setEditValue("value")
+    })
+    await renderOnce()
+
+    act(() => {
+      ref.current!.activateVar(-1, true)
+    })
+    await renderOnce()
+
+    expect(ref.current!.draft?.varRows[0]).toMatchObject({
+      key: "updated",
+      value: "value",
+    })
+    expect(ref.current!.editState).toMatchObject({
+      mode: "editing",
+      addingRow: true,
+    })
+  })
+
   it("delete env removes file from disk", async () => {
     const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
       current: null,

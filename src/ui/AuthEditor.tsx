@@ -109,6 +109,7 @@ export interface AuthEditorProps {
   onActivateRow?: (row: number) => void
   idPrefix?: string
   showInherit?: boolean
+  interactive?: boolean
 }
 
 export function AuthEditor({
@@ -126,6 +127,7 @@ export function AuthEditor({
   onActivateRow,
   idPrefix = "auth",
   showInherit = false,
+  interactive = true,
 }: AuthEditorProps) {
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
   const [placementSelectOpen, setPlacementSelectOpen] = useState(false)
@@ -170,6 +172,7 @@ export function AuthEditor({
           badge={false}
           onOpenChange={handleTypeSelectOpen}
           onActivate={() => onFocusRow?.(0)}
+          interactive={interactive}
         />
       </box>
 
@@ -254,6 +257,7 @@ export function AuthEditor({
                     badge={false}
                     onOpenChange={handlePlacementSelectOpen}
                     onActivate={() => onFocusRow?.(def.row)}
+                    interactive={interactive}
                   />
                 </box>
               ) : (

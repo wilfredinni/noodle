@@ -32,6 +32,7 @@ export function BodyTypeSelector({
   onBodyTypeChange,
   onSelectOpenChange,
   onActivate,
+  interactive = true,
 }: {
   request: Request
   editState: EditState
@@ -39,6 +40,7 @@ export function BodyTypeSelector({
   onBodyTypeChange: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
   onActivate?: () => void
+  interactive?: boolean
 }) {
   const bodyType = request.bodyType ?? "json"
 
@@ -82,6 +84,7 @@ export function BodyTypeSelector({
         badge={false}
         onOpenChange={handleBodyTypeSelectOpen}
         onActivate={onActivate}
+        interactive={interactive}
       />
     </box>
   )

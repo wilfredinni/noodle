@@ -671,10 +671,12 @@ export function AppInner({
   }, [setAboutVisible])
 
   const handleEnvironmentActivate = useCallback(() => {
+    eb.commitEdit()
+    folderEb.commitEdit()
     envEditor.openEditor(envState.activeEnv?.name)
     setView("env-editor")
     setFocus("env-sidebar")
-  }, [envEditor, envState.activeEnv?.name])
+  }, [eb.commitEdit, envEditor, envState.activeEnv?.name, folderEb.commitEdit])
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)
@@ -1008,15 +1010,12 @@ export function AppInner({
             onPaneFocus={focusPane}
             onUrlbarFocus={focusUrlbar}
             onRequestSelect={(id) => {
-              focusPane("sidebar")
               revealRequest(id)
             }}
             onFolderSelect={(path) => {
-              focusPane("sidebar")
               revealFolder(path)
             }}
             onFolderToggle={(path) => {
-              focusPane("sidebar")
               toggleFolder(path)
             }}
             onRequestContextMenu={(id) => {

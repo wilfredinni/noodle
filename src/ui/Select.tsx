@@ -34,6 +34,7 @@ export interface SelectProps {
   badge?: boolean
   onOpenChange?: (open: boolean) => void
   onActivate?: () => void
+  interactive?: boolean
   triggerPriority?: number
 }
 
@@ -50,6 +51,7 @@ export function Select({
   badge = false,
   onOpenChange,
   onActivate,
+  interactive = true,
   triggerPriority = 50,
 }: SelectProps) {
   const theme = useTheme()
@@ -70,8 +72,8 @@ export function Select({
   const safeInitialIndex = currentIndex >= 0 ? currentIndex : 0
 
   useEffect(() => {
-    if (!focused && open) setOpen(false)
-  }, [focused, open])
+    if ((!focused || !interactive) && open) setOpen(false)
+  }, [focused, interactive, open])
 
   useEffect(() => {
     onOpenChange?.(open)
@@ -92,7 +94,7 @@ export function Select({
   }, [highlightIndex, open, items])
 
   useEffect(() => {
-    if (open || !focused) return
+    if (open || !focused || !interactive) return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -106,7 +108,7 @@ export function Select({
       { priority: triggerPriority },
     )
     return dispose
-  }, [open, focused, keymap, triggerPriority])
+  }, [open, focused, interactive, keymap, triggerPriority])
 
   useEffect(() => {
     if (!open) return
@@ -241,13 +243,17 @@ export function Select({
         <box
           ref={triggerRef}
           height={1}
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onActivate?.()
-            setOpen((wasOpen) => !wasOpen)
-          }}
-          onMouseOver={() => setHovered(true)}
-          onMouseOut={() => setHovered(false)}
+          onMouseDown={
+            interactive
+              ? (event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  onActivate?.()
+                  setOpen((wasOpen) => !wasOpen)
+                }
+              : undefined
+          }
+          onMouseOver={interactive ? () => setHovered(true) : undefined}
+          onMouseOut={interactive ? () => setHovered(false) : undefined}
           style={{
             flexDirection: "row",
             justifyContent: "space-between",

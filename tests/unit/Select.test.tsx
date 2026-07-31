@@ -110,6 +110,42 @@ describe("Select", () => {
     cleanup()
   })
 
+  it("does not open or select when non-interactive", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let selected = ""
+    let activated = 0
+    let open = false
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            onChange={(id) => {
+              selected = id
+            }}
+            onActivate={() => activated++}
+            onOpenChange={(value) => {
+              open = value
+            }}
+            interactive={false}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+
+    expect(activated).toBe(0)
+    expect(open).toBe(false)
+    expect(selected).toBe("")
+    cleanup()
+  })
+
   it("closes when its trigger is clicked again", async () => {
     const { keymap, cleanup } = setupKeymap()
     let open = false

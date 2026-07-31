@@ -39,6 +39,7 @@ interface FolderPaneProps {
   ) => void
   onFieldToggle?: (field: FolderFieldKind, row: number) => void
   onInteraction?: () => void
+  interactive?: boolean
 }
 
 export function FolderPane({
@@ -63,6 +64,7 @@ export function FolderPane({
   onFieldActivate,
   onFieldToggle,
   onInteraction,
+  interactive = true,
 }: FolderPaneProps) {
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
@@ -229,6 +231,7 @@ export function FolderPane({
                       onApiKeyPlacementChange ?? (() => {})
                     }
                     onSelectOpenChange={onSelectOpenChange}
+                    interactive={interactive}
                     onFocusRow={(row) => {
                       onInteraction?.()
                       onPaneFocus?.()
