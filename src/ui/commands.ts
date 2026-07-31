@@ -312,7 +312,7 @@ export function buildCommandPaletteCommands(
       run: () => {
         if (!openEnvironmentEditor(c)) return false
         setView("env-editor")
-        setFocus("env-header")
+        setFocus("env-sidebar")
         return true
       },
     },

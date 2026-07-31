@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 import { useTheme } from "../theme"
 
 export interface PickerOverlayProps<T> {
@@ -165,7 +166,7 @@ export function PickerOverlay<T>({
       <box paddingLeft={4} paddingRight={4}>
         <box flexDirection="row" justifyContent="space-between">
           <text fg={theme.text}>{title}</text>
-          <text fg={theme.textMuted}>esc</text>
+          <EscapeClose onClose={onClose} />
         </box>
         <box paddingTop={1}>
           <input

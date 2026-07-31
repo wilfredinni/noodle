@@ -28,7 +28,7 @@ describe("EnvHeaderPane", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("dev")
     expect(frame).toContain("(none)")
-    expect(frame).toContain("Environment")
+    expect(frame).not.toContain("Environment")
     cleanup()
   })
 
@@ -78,7 +78,7 @@ describe("EnvHeaderPane", () => {
     cleanup()
   })
 
-  it("shows focused border when focused", async () => {
+  it("renders when focused without a pane title", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -96,7 +96,8 @@ describe("EnvHeaderPane", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("Environment")
+    expect(frame).toContain("dev")
+    expect(frame).not.toContain("Environment")
     cleanup()
   })
 

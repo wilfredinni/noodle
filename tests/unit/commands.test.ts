@@ -179,6 +179,33 @@ describe("buildCommandPaletteCommands", () => {
     expect(opened).toBe(true)
   })
 
+  it("opens the environment editor with the sidebar focused", () => {
+    const ctx = minimalContext()
+    let opened = ""
+    let view = ""
+    let focus = ""
+    ctx.envStateRef = {
+      current: { activeEnv: { name: "development" } },
+    } as never
+    ctx.envEditorRef = {
+      current: { openEditor: (name: string) => (opened = name) },
+    } as never
+    ctx.setView = (value) => {
+      if (typeof value === "string") view = value
+    }
+    ctx.setFocus = (value) => {
+      if (typeof value === "string") focus = value
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "env.editor-open",
+    )!
+    expect(command.run()).toBe(true)
+    expect(opened).toBe("development")
+    expect(view).toBe("env-editor")
+    expect(focus).toBe("env-sidebar")
+  })
+
   it("opens client code generation for the current request draft", () => {
     const ctx = minimalContext()
     let visible = false

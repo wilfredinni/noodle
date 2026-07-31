@@ -9,6 +9,7 @@ import { useRenderer } from "../RendererContext"
 import { showToast } from "../Toast"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 import { Select, type SelectItem } from "../Select"
 import { highlightGeneratedCode } from "./codeSyntax"
 
@@ -156,7 +157,7 @@ export function CodeGeneratorOverlay({
       >
         <text fg={theme.text}>Generate code</text>
         <box style={{ flexGrow: 1 }} />
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={onClose} />
       </box>
       <box
         paddingLeft={4}

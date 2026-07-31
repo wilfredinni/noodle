@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
-import { useEffect, useRef } from "react"
+import { act, useEffect, useRef } from "react"
 import { mkdtemp, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -89,6 +89,47 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
 
     await ref.current!.deleteEnv()
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it("activates existing and new variable rows for editing", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    act(() => {
+      ref.current!.activateVar(0)
+    })
+    await renderOnce()
+    expect(ref.current!.editKey).toBe("key")
+    expect(ref.current!.editValue).toBe("val")
+    expect(ref.current!.editState).toMatchObject({
+      mode: "editing",
+      row: 0,
+      addingRow: false,
+      subfield: "key",
+    })
+
+    act(() => {
+      ref.current!.activateVar(-1, true)
+    })
+    await renderOnce()
+    expect(ref.current!.editKey).toBe("")
+    expect(ref.current!.editValue).toBe("")
+    expect(ref.current!.editState).toMatchObject({
+      mode: "editing",
+      row: -1,
+      addingRow: true,
+      subfield: "key",
+    })
   })
 
   it("delete env removes file from disk", async () => {

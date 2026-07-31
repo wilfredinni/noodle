@@ -49,7 +49,9 @@ interface FolderPathOption {
 interface AppOverlaysProps {
   keybinds: Keybinds
   helpVisible: boolean
+  setHelpVisible: (visible: boolean) => void
   aboutVisible: boolean
+  setAboutVisible: (visible: boolean) => void
   saveState: SaveState
   envDeletePending: string | null
   undoAllPending: boolean
@@ -133,7 +135,9 @@ interface AppOverlaysProps {
 export function AppOverlays({
   keybinds,
   helpVisible,
+  setHelpVisible,
   aboutVisible,
+  setAboutVisible,
   saveState,
   envDeletePending,
   undoAllPending,
@@ -205,8 +209,16 @@ export function AppOverlays({
 }: AppOverlaysProps) {
   return (
     <>
-      {helpVisible && <HelpOverlay visible keybinds={keybinds} />}
-      {aboutVisible && <AboutOverlay visible />}
+      {helpVisible && (
+        <HelpOverlay
+          visible
+          keybinds={keybinds}
+          onClose={() => setHelpVisible(false)}
+        />
+      )}
+      {aboutVisible && (
+        <AboutOverlay visible onClose={() => setAboutVisible(false)} />
+      )}
       {saveState.kind === "confirming" && (
         <ConfirmOverlay
           visible

@@ -4,6 +4,7 @@ import { MouseButton, t, fg, type ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineBodyRef, TimelineEntry } from "../../schema"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 import { Tabs, type TabDef } from "../Tabs"
 import { Badge } from "../Badge"
 import { formatSize, statusColor } from "../format"
@@ -302,7 +303,7 @@ export function TimelineDetailOverlay({
           tabs={tabs}
           activeId={activeTab}
           onChange={(tab) => selectTab(tab as DetailTab)}
-          rightChildren={<text fg={theme.textMuted}>esc</text>}
+          rightChildren={<EscapeClose onClose={onClose} />}
         >
           {activeTab === "network" ? (
             <NetworkTab

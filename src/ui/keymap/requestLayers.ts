@@ -31,7 +31,7 @@ export function createRequestLayers(
         run: () => {
           openEnvironmentEditor(actions)
           global.setView("env-editor")
-          global.setFocus("env-header")
+          global.setFocus("env-sidebar")
         },
       },
       {

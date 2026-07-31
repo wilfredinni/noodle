@@ -14,6 +14,7 @@ import type { SelectItem } from "../Select"
 import { Select } from "../Select"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 
 export interface ImportCurlOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void
@@ -107,7 +108,7 @@ export const ImportCurlOverlay = forwardRef<
         }}
       >
         <text fg={theme.text}>Import cURL Request</text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={() => onClose?.()} />
       </box>
 
       <box

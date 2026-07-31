@@ -6,7 +6,6 @@ import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
-import { Badge } from "./Badge"
 import type { HintSegment } from "./keybindingHints"
 import type { CollectionMode } from "../app/main"
 
@@ -265,9 +264,7 @@ export function StatusBar(input: {
         }
       >
         {isEnvEditor ? (
-          <Badge bg={theme.backgroundElement} fg={theme.info}>
-            {input.envStats || "Env Editor"}
-          </Badge>
+          <text fg={theme.info}>{input.envStats || "Env Editor"}</text>
         ) : (
           <text fg={envFg}>{envText}</text>
         )}

@@ -665,7 +665,7 @@ export function AppInner({
   const handleEnvironmentActivate = useCallback(() => {
     envEditor.openEditor(envState.activeEnv?.name)
     setView("env-editor")
-    setFocus("env-header")
+    setFocus("env-sidebar")
   }, [envEditor, envState.activeEnv?.name])
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
@@ -1023,7 +1023,9 @@ export function AppInner({
         <AppOverlays
           keybinds={keybinds}
           helpVisible={helpVisible}
+          setHelpVisible={setHelpVisible}
           aboutVisible={aboutVisible}
+          setAboutVisible={setAboutVisible}
           saveState={saveState}
           envDeletePending={envDeletePending}
           undoAllPending={undoAllPending}

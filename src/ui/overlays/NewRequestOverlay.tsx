@@ -8,6 +8,7 @@ import {
 import { MouseButton, type InputRenderable } from "@opentui/core"
 import { VarInput, type VarInputHandle } from "../VarInput"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 import { Select, type SelectItem } from "../Select"
 import { useTheme } from "../theme"
 import type { Method, Environment } from "../../schema"
@@ -163,7 +164,7 @@ export const NewRequestOverlay = forwardRef<
         }}
       >
         <text fg={theme.text}>{isEdit ? "Edit Request" : "New Request"}</text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={() => onClose?.()} />
       </box>
 
       <box

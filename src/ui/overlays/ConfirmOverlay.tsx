@@ -2,6 +2,7 @@ import { MouseButton } from "@opentui/core"
 import { useState } from "react"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 
 export interface ConfirmOverlayProps {
   visible: boolean
@@ -32,7 +33,7 @@ export function ConfirmOverlay({
         }}
       >
         <text fg={theme.text}>Confirm</text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={() => onCancel?.()} />
       </box>
       <box style={{ paddingX: 2, paddingBottom: 1 }}>
         <text fg={theme.text}>{message}</text>

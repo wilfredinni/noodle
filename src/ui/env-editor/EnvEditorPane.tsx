@@ -4,8 +4,8 @@ import { useTheme } from "../theme"
 import { FullBorder } from "../borders"
 import { Checkbox } from "../Checkbox"
 import { VarInput } from "../VarInput"
-import { ScrollBoxRenderable } from "@opentui/core"
-import { useEffect, useRef } from "react"
+import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
+import { useEffect, useRef, useState } from "react"
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
 
@@ -20,6 +20,8 @@ export function EnvEditorPane({
   error,
   focused: _focused,
   onPaneFocus,
+  onActivateRow,
+  onToggleRow,
 }: {
   draft: EnvDraft | null
   editState: EnvEditState
@@ -31,9 +33,12 @@ export function EnvEditorPane({
   error: string | null
   focused: boolean
   onPaneFocus?: () => void
+  onActivateRow?: (row: number, addingRow: boolean) => void
+  onToggleRow?: (row: number) => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [hoveredRow, setHoveredRow] = useState<number | "add" | null>(null)
 
   const inEdit = editState?.mode === "editing"
   const inBrowse = editState?.mode === "browsing"
@@ -144,15 +149,22 @@ export function EnvEditorPane({
           const cursorOnThisRow =
             inBrowse && !editState.addingRow && editState.row === i
           const dimmed = (inEdit && !isEditingThisRow) || !row.enabled
+          const canHoverRow =
+            !isEditingThisRow &&
+            (onActivateRow !== undefined || onToggleRow !== undefined)
+          const canActivateRow =
+            !isEditingThisRow && onActivateRow !== undefined
 
           const keyBaseColor = dimmed ? theme.textMuted : theme.primary
           const valueBaseColor = dimmed ? theme.textMuted : theme.text
           const rowBg =
             cursorOnThisRow || isEditingThisRow
               ? theme.backgroundElement
-              : i % 2 !== 0
-                ? stripeBg
-                : undefined
+              : canHoverRow && hoveredRow === i
+                ? theme.backgroundElement
+                : i % 2 !== 0
+                  ? stripeBg
+                  : undefined
 
           return (
             <box
@@ -163,8 +175,31 @@ export function EnvEditorPane({
                 gap: 0,
                 backgroundColor: rowBg,
               }}
+              onMouseDown={
+                canActivateRow
+                  ? (event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      onActivateRow?.(i, false)
+                      event.stopPropagation()
+                    }
+                  : undefined
+              }
+              onMouseOver={canHoverRow ? () => setHoveredRow(i) : undefined}
+              onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
             >
-              <Checkbox checked={row.enabled} theme={theme} />
+              <box
+                onMouseDown={
+                  onToggleRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onToggleRow(i)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
+              >
+                <Checkbox checked={row.enabled} theme={theme} />
+              </box>
               <VarInput
                 value={isEditingThisRow ? editKey : row.key}
                 placeholder="Key..."
@@ -204,9 +239,11 @@ export function EnvEditorPane({
           const addRowBg =
             (inBrowse && editState.addingRow) || editingAdd
               ? theme.backgroundElement
-              : rows.length % 2 !== 0
-                ? stripeBg
-                : undefined
+              : hoveredRow === "add" && onActivateRow
+                ? theme.backgroundElement
+                : rows.length % 2 !== 0
+                  ? stripeBg
+                  : undefined
 
           return (
             <box
@@ -217,6 +254,25 @@ export function EnvEditorPane({
                 gap: 0,
                 backgroundColor: addRowBg,
               }}
+              onMouseDown={
+                !editingAdd && onActivateRow
+                  ? (event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      onActivateRow(-1, true)
+                      event.stopPropagation()
+                    }
+                  : undefined
+              }
+              onMouseOver={
+                !editingAdd && onActivateRow
+                  ? () => setHoveredRow("add")
+                  : undefined
+              }
+              onMouseOut={
+                !editingAdd && onActivateRow
+                  ? () => setHoveredRow(null)
+                  : undefined
+              }
             >
               <Checkbox checked={false} theme={theme} />
               <VarInput

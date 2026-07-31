@@ -7,6 +7,7 @@ import {
 } from "react"
 import { MouseButton, type InputRenderable } from "@opentui/core"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 import { useTheme } from "../theme"
 
 export interface NewFolderOverlayHandle {
@@ -61,7 +62,7 @@ export const NewFolderOverlay = forwardRef<
         }}
       >
         <text fg={theme.text}>New Folder</text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={() => onClose?.()} />
       </box>
 
       <box style={{ paddingX: 2, flexDirection: "column", paddingBottom: 1 }}>

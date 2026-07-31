@@ -244,7 +244,7 @@ export function Select({
           onMouseDown={(event) => {
             if (event.button !== MouseButton.LEFT) return
             onActivate?.()
-            setOpen(true)
+            setOpen((wasOpen) => !wasOpen)
           }}
           onMouseOver={() => setHovered(true)}
           onMouseOut={() => setHovered(false)}
@@ -359,20 +359,38 @@ export function Select({
                     dropdownWidth
                   : triggerRef.current.x
               return createPortal(
-                <box
-                  style={{
-                    position: "absolute",
-                    top: triggerRef.current.y + 1,
-                    left: x,
-                    width: dropdownWidth,
-                    zIndex: 10000,
-                    backgroundColor: theme.background,
-                    borderStyle: "single",
-                    borderColor: theme.primary,
-                  }}
-                >
-                  {renderList(scrollRef)}
-                </box>,
+                <>
+                  <box
+                    onMouseDown={(event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      setOpen(false)
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      width: "100%",
+                      height: "100%",
+                      zIndex: 10001,
+                    }}
+                  />
+                  <box
+                    style={{
+                      position: "absolute",
+                      top: triggerRef.current.y + 1,
+                      left: x,
+                      width: dropdownWidth,
+                      zIndex: 10002,
+                      backgroundColor: theme.background,
+                      borderStyle: "single",
+                      borderColor: theme.primary,
+                    }}
+                  >
+                    {renderList(scrollRef)}
+                  </box>
+                </>,
                 root,
                 null,
               )

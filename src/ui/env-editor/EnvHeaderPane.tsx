@@ -12,7 +12,6 @@ import type { InputRenderable } from "@opentui/core"
 import { Select, type SelectItem } from "../Select"
 import { VALID_COLORS } from "../../env/constants"
 import { Frame } from "../Frame"
-import { Badge } from "../Badge"
 
 export interface EnvHeaderPaneHandle {
   focusName: () => void
@@ -38,6 +37,7 @@ export const EnvHeaderPane = forwardRef<
   const prevFocused = useRef(false)
   const [colorFocused, setColorFocused] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
+  const nameFocused = focused && !colorFocused
 
   useImperativeHandle(ref, () => ({
     focusName: () => {
@@ -89,14 +89,6 @@ export const EnvHeaderPane = forwardRef<
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      titleRight={
-        <Badge
-          bg={theme.backgroundPanel}
-          fg={focused ? theme.primary : theme.textMuted}
-        >
-          Environment
-        </Badge>
-      }
       onPaneFocus={onPaneFocus}
     >
       <input
@@ -104,11 +96,14 @@ export const EnvHeaderPane = forwardRef<
         value={name}
         placeholder="Environment name"
         onInput={onNameChange}
-        focused={focused}
-        backgroundColor={theme.backgroundElement}
+        focused={nameFocused}
+        backgroundColor={
+          nameFocused ? theme.backgroundElement : theme.backgroundPanel
+        }
         focusedBackgroundColor={theme.borderSubtle}
         textColor={theme.text}
         cursorColor={theme.primary}
+        paddingX={1}
         style={{ flexGrow: 1 }}
       />
       <Select

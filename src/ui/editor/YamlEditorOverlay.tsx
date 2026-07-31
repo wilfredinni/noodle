@@ -5,6 +5,7 @@ import { basename, dirname } from "node:path"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "../theme"
 import { Overlay } from "../overlays/Overlay"
+import { EscapeClose } from "../overlays/EscapeClose"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import { ValidationNotice } from "./ValidationNotice"
 import { lang } from "../../lang"
@@ -216,7 +217,7 @@ export function YamlEditorOverlay({
             ? `${requestName}/folder.yml`
             : `${requestName}.yml`}
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={handleClose} />
       </box>
       {readError ? (
         <box

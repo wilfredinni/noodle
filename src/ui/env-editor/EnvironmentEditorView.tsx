@@ -56,7 +56,7 @@ export function EnvironmentEditorView({
         style={{
           flexDirection: "column",
           flexGrow: 1,
-          gap: 1,
+          gap: 0,
           minHeight: 0,
         }}
       >
@@ -80,6 +80,14 @@ export function EnvironmentEditorView({
           error={envEditor.error}
           focused={focus === "env-vars"}
           onPaneFocus={() => onPaneFocus("env-vars")}
+          onActivateRow={(row, addingRow) => {
+            onPaneFocus("env-vars")
+            envEditor.activateVar(row, addingRow)
+          }}
+          onToggleRow={(row) => {
+            onPaneFocus("env-vars")
+            envEditor.toggleVar(row)
+          }}
         />
       </box>
     </box>

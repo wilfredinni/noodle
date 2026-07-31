@@ -56,7 +56,7 @@ export function EnvSidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      titleLeft={
+      titleRight={
         <Badge
           bg={theme.backgroundPanel}
           fg={focused ? theme.primary : theme.textMuted}

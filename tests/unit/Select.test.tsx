@@ -110,6 +110,72 @@ describe("Select", () => {
     cleanup()
   })
 
+  it("closes when its trigger is clicked again", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let open = false
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            focused
+            onOpenChange={(value) => {
+              open = value
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(false)
+    cleanup()
+  })
+
+  it("closes when clicking outside the dropdown", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let open = false
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            focused
+            onOpenChange={(value) => {
+              open = value
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(30, 15, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(false)
+    cleanup()
+  })
+
   it("closes dropdown on Escape", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let open = false
