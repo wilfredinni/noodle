@@ -1,4 +1,4 @@
-import type { ScrollBoxRenderable } from "@opentui/core"
+import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
@@ -244,6 +244,14 @@ export function RequestPane({
                 <scrollbox
                   ref={scrollRef}
                   scrollY
+                  onMouseDown={
+                    activeTab === "params" || activeTab === "pathParams"
+                      ? (event) => {
+                          if (event.button === MouseButton.LEFT)
+                            onInteraction?.()
+                        }
+                      : undefined
+                  }
                   style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
                 >
                   {activeTab === "body" && (

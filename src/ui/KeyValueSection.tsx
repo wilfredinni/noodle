@@ -188,6 +188,7 @@ export function KeyValueSection({
                   }
                   focusedBackgroundColor={theme.borderSubtle}
                   paddingX={1}
+                  stopMousePropagation={isEditingThisRow}
                   style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
                 />
                 <VarInput
@@ -203,6 +204,7 @@ export function KeyValueSection({
                   }
                   focusedBackgroundColor={theme.borderSubtle}
                   paddingX={1}
+                  stopMousePropagation={isEditingThisRow}
                   style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
                 />
               </box>

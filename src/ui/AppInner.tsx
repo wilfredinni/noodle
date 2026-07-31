@@ -6,7 +6,11 @@ import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
 import { AppOverlays } from "./AppOverlays"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
-import { deriveRequestParentFolder, getFolderPaths } from "./tree"
+import {
+  deriveRequestParentFolder,
+  getFolderPaths,
+  updateRequestById,
+} from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Request as NoodleRequest, Method } from "../schema"
@@ -260,6 +264,18 @@ export function AppInner({
   const draft = useRequestDraft(selectedRequest)
   const draftRef = useRef(draft)
   draftRef.current = draft
+  const markRequestSaved = useCallback(
+    (request: NoodleRequest) => {
+      if (collection) {
+        updateCollection({
+          ...collection,
+          items: updateRequestById(collection.items, request.id, request),
+        })
+      }
+      draft.markSaved(request)
+    },
+    [collection, draft.markSaved, updateCollection],
+  )
 
   const availableJumpTargets = useMemo(
     () =>
@@ -326,7 +342,7 @@ export function AppInner({
     collectionDir,
     draft.draft,
     selectedRequest?.id,
-    draft.markSaved,
+    markRequestSaved,
   )
 
   const doSaveRef = useRef(doSave)

@@ -48,6 +48,7 @@ export interface VarInputProps {
   style?: VarInputStyle
   variableNames?: Iterable<string>
   pathParams?: ParamEntry[]
+  stopMousePropagation?: boolean
 }
 
 export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
@@ -67,6 +68,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       style,
       variableNames,
       pathParams,
+      stopMousePropagation = false,
     },
     ref,
   ) {
@@ -206,6 +208,11 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       if (useTextarea) {
         return (
           <box
+            onMouseDown={
+              stopMousePropagation
+                ? (event) => event.stopPropagation()
+                : undefined
+            }
             style={{
               flexGrow: style?.flexGrow,
             }}
@@ -239,6 +246,11 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
       return (
         <box
+          onMouseDown={
+            stopMousePropagation
+              ? (event) => event.stopPropagation()
+              : undefined
+          }
           style={{
             flexGrow: style?.flexGrow,
             flexShrink: style?.flexShrink,
