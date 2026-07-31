@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import type { Dispatch, SetStateAction } from "react"
 import { filestore } from "../filestore"
 import { loadCollectionBrowse } from "../filestore"
 import type { Collection } from "../schema"
@@ -7,7 +8,7 @@ export interface UseCollectionResult {
   collection: Collection | null
   loading: boolean
   error: Error | null
-  updateCollection: (collection: Collection) => void
+  updateCollection: Dispatch<SetStateAction<Collection | null>>
 }
 
 export function useCollection(

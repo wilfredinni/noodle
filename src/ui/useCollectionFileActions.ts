@@ -23,7 +23,7 @@ import type { SaveState } from "./saveState"
 interface UseCollectionFileActionsOptions {
   collectionDir: string
   collection: Collection | null
-  updateCollection: (collection: Collection) => void
+  updateCollection: Dispatch<SetStateAction<Collection | null>>
   selectedRequest: NoodleRequest | null
   requestDraftRef: MutableRefObject<UseRequestDraftResult>
   folderDraftRef: MutableRefObject<UseFolderDraftResult>
@@ -96,14 +96,18 @@ export function useCollectionFileActions({
     try {
       await saveFolder(collectionDir, draftFolder)
       folderDraftRef.current?.markSaved(draftFolder)
-      updateCollection({
-        ...collection,
-        items: updateFolderByPath(
-          collection.items,
-          draftFolder.path,
-          draftFolder,
-        ),
-      })
+      updateCollection((current) =>
+        current
+          ? {
+              ...current,
+              items: updateFolderByPath(
+                current.items,
+                draftFolder.path,
+                draftFolder,
+              ),
+            }
+          : current,
+      )
       showSaveResult({
         kind: "success",
         message: `Successfully saved folder ${draftFolder.name}`,
@@ -112,7 +116,6 @@ export function useCollectionFileActions({
       showError(e)
     }
   }, [
-    collection,
     collectionDir,
     folderDraftRef,
     showError,

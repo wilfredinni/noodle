@@ -266,15 +266,17 @@ export function AppInner({
   draftRef.current = draft
   const markRequestSaved = useCallback(
     (request: NoodleRequest) => {
-      if (collection) {
-        updateCollection({
-          ...collection,
-          items: updateRequestById(collection.items, request.id, request),
-        })
-      }
+      updateCollection((current) =>
+        current
+          ? {
+              ...current,
+              items: updateRequestById(current.items, request.id, request),
+            }
+          : current,
+      )
       draft.markSaved(request)
     },
-    [collection, draft.markSaved, updateCollection],
+    [draft.markSaved, updateCollection],
   )
 
   const availableJumpTargets = useMemo(
