@@ -1,7 +1,7 @@
 import { Sidebar } from "./Sidebar"
 import { FolderPane } from "./FolderPane"
 import { useTheme } from "./theme"
-import type { CollectionItem, Environment } from "../schema"
+import type { BodyType, CollectionItem, Environment } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
@@ -46,6 +46,13 @@ interface MainViewProps {
   mode?: "collection" | "browse" | "empty" | "invalid"
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onPaneFocus?: (focus: Focus) => void
+  onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
+  onRequestSelect?: (id: string) => void
+  onFolderSelect?: (path: string) => void
+  onFolderToggle?: (path: string) => void
+  onRequestContextMenu?: (id: string) => void
+  onFolderContextMenu?: (path: string) => void
 }
 
 export function MainView({
@@ -80,6 +87,13 @@ export function MainView({
   mode = "collection",
   jumpMode = false,
   onQueryVisibleChange,
+  onPaneFocus = () => {},
+  onUrlbarFocus,
+  onRequestSelect,
+  onFolderSelect,
+  onFolderToggle,
+  onRequestContextMenu,
+  onFolderContextMenu,
 }: MainViewProps) {
   const theme = useTheme()
 
@@ -106,6 +120,12 @@ export function MainView({
         dirtyRequestIds={draft.dirtyRequestIds}
         dirtyFolderPaths={folderDraft.dirtyPaths}
         jumpMode={jumpMode}
+        onPaneFocus={() => onPaneFocus("sidebar")}
+        onRequestSelect={onRequestSelect}
+        onFolderSelect={onFolderSelect}
+        onFolderToggle={onFolderToggle}
+        onRequestContextMenu={onRequestContextMenu}
+        onFolderContextMenu={onFolderContextMenu}
       />
       <box
         style={{
@@ -139,6 +159,17 @@ export function MainView({
             activeEnv={activeEnv}
             theme={theme}
             jumpMode={jumpMode}
+            onPaneFocus={() => onPaneFocus("folder")}
+            onTabChange={folderEb.enterBrowseAt}
+            onAuthFocusRow={(row) => folderEb.enterBrowseAt("auth", row)}
+            onInteraction={folderEb.commitEdit}
+            onFieldActivate={
+              mode === "collection" ? folderEb.activateAt : undefined
+            }
+            onFieldToggle={
+              mode === "collection" ? folderEb.toggleAt : undefined
+            }
+            interactive={mode === "collection"}
           />
         ) : (
           <RequestResponseView
@@ -162,6 +193,31 @@ export function MainView({
             responseBodyForCopyRef={responseBodyForCopyRef}
             jumpMode={jumpMode}
             onQueryVisibleChange={onQueryVisibleChange}
+            onPaneFocus={onPaneFocus}
+            onUrlbarFocus={onUrlbarFocus}
+            onRequestTabChange={eb.enterBrowseAt}
+            onRequestBodyTypeFocus={() => eb.enterBrowseAt("body")}
+            onRequestAuthFocusRow={(row) => eb.enterBrowseAt("auth", row)}
+            onRequestInteraction={eb.commitEdit}
+            onRequestBodyEditorFocus={
+              mode === "collection"
+                ? (bodyType: BodyType) => {
+                    if (bodyType === "json") {
+                      if (eb.isEditingJsonBody) return
+                      eb.enterBrowseAt("body")
+                      eb.enterJsonBodyEditor()
+                    } else {
+                      eb.activateAt("body", 1)
+                    }
+                  }
+                : undefined
+            }
+            onRequestFieldActivate={
+              mode === "collection" ? eb.activateAt : undefined
+            }
+            onRequestFieldToggle={
+              mode === "collection" ? eb.toggleAt : undefined
+            }
           />
         )}
       </box>

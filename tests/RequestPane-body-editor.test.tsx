@@ -1,10 +1,14 @@
 import { describe, it, expect } from "bun:test"
+import { act } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
+import { readFile } from "node:fs/promises"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
 import { CodeEditorRenderable } from "../src/ui/editor/CodeEditor"
+import { lang } from "../src/lang"
 import type { Request } from "../src/schema"
 import { setupKeymap } from "./unit/_helpers"
 
@@ -39,7 +43,45 @@ const editStateBrowse = {
   editingRow: -1,
 }
 
+const editStateEditingTimeout = {
+  mode: "editing" as const,
+  cursor: { field: "settings" as const, row: 0, addingRow: false },
+  editingRow: 0,
+}
+
 describe("BodySection — edit mode", () => {
+  it("activates the JSON editor without activating the body type selector", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let editorActivations = 0
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+              onBodyEditorFocus={() => editorActivations++}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(5, 5, MouseButtons.LEFT)
+    })
+    expect(editorActivations).toBe(1)
+    cleanup()
+  })
+
   it("renders body content in edit mode", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
@@ -196,6 +238,170 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
+  it("toggles a JSON fold from its gutter icon", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const body = '{\n  "name": "hello",\n  "count": 42\n}'
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={{ ...testRequest, body }}
+              editState={editStateEditing}
+              editKey=""
+              editValue={body}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await renderOnce()
+
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find((line) => line.includes("▼") && line.includes("{"))
+    if (!row) throw new Error("Expected JSON fold icon")
+    const y = rows.indexOf(row)
+    const x = row.indexOf("▼")
+
+    await act(async () => {
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("{... } (3 lines)")
+    cleanup()
+  })
+
+  it("pages through a focused JSON body", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const tallRequest: Request = {
+      ...testRequest,
+      body: JSON.stringify(
+        Object.fromEntries(
+          Array.from({ length: 30 }, (_, i) => [`key${i}`, i]),
+        ),
+      ),
+    }
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={8}>
+            <RequestPane
+              request={tallRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        mockInput.pressKey("\x1b[6~")
+      })
+      await renderOnce()
+    }
+
+    expect(captureCharFrame()).toContain('"key29"')
+    cleanup()
+  })
+
+  it("scrolls an unfocused JSON body from its gutter", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const tallRequest: Request = {
+      ...testRequest,
+      body: JSON.stringify(
+        Object.fromEntries(
+          Array.from({ length: 30 }, (_, i) => [`key${i}`, i]),
+        ),
+      ),
+    }
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={8}>
+            <RequestPane
+              request={tallRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={false}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find((line) => line.includes("{") && line.includes("1"))
+    if (!row) throw new Error("Expected JSON gutter row")
+
+    for (let i = 0; i < 30; i++) {
+      await mockMouse.scroll(row.indexOf("1"), rows.indexOf(row), "down")
+      await renderOnce()
+    }
+
+    expect(captureCharFrame()).toContain('"key29"')
+    cleanup()
+  })
+
+  it("scrolls Create Post to the end while unfocused", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const request = lang.parseRequest(
+      "posts/create-post",
+      await readFile("collections/posts/create-post.yml", "utf8"),
+    )
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={12}>
+            <RequestPane
+              request={request}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={false}
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find((line) => line.includes("{") && line.includes("1"))
+    if (!row) throw new Error("Expected JSON gutter row")
+
+    for (let i = 0; i < 100; i++) {
+      await mockMouse.scroll(row.indexOf("1"), rows.indexOf(row), "down")
+      await renderOnce()
+    }
+
+    expect(captureCharFrame()).toContain('"likes": 0')
+    cleanup()
+  })
+
   it("renders file path when editing a binary body", async () => {
     const { keymap, cleanup } = setupKeymap()
     const binaryRequest: Request = {
@@ -228,6 +434,45 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
+  it("activates a binary body editor on click", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const binaryRequest: Request = {
+      ...testRequest,
+      bodyType: "binary",
+      filePath: "/tmp/payload.bin",
+    }
+    let activated = ""
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={binaryRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+              onBodyEditorFocus={(bodyType) => {
+                activated = bodyType
+              }}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(5, 5, MouseButtons.LEFT)
+    })
+    expect(activated).toBe("binary")
+    cleanup()
+  })
+
   it("shows inline validation errors for malformed JSON while editing", async () => {
     const { keymap, cleanup } = setupKeymap()
     const invalidRequest: Request = {
@@ -256,6 +501,42 @@ describe("BodySection — edit mode", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Invalid JSON")
+    cleanup()
+  })
+})
+
+describe("RequestPane mouse transitions", () => {
+  it("commits before switching tabs from an active edit", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const events: string[] = []
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateEditingTimeout}
+              editKey=""
+              editValue="10"
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="settings"
+              onInteraction={() => events.push("commit")}
+              onTabChange={(tab) => events.push(tab)}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(12, 1, MouseButtons.LEFT)
+    })
+
+    expect(events).toEqual(["commit", "params"])
     cleanup()
   })
 })

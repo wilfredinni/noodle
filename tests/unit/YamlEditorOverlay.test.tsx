@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { act } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
@@ -100,6 +102,92 @@ describe("YamlEditorOverlay", () => {
     expect(frame).toContain("save")
     expect(frame).toContain("esc")
     expect(frame).toContain("close")
+    cleanup()
+  })
+
+  it("runs footer save and close actions on click", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let saved = 0
+    let closed = 0
+    let resolveSaved: (() => void) | undefined
+    const savedPromise = new Promise<void>((resolve) => {
+      resolveSaved = resolve
+    })
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <YamlEditorOverlay
+            visible
+            filePath={filePath}
+            requestName="get-users"
+            onSaved={() => {
+              saved++
+              resolveSaved?.()
+            }}
+            onClose={() => closed++}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 30 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 20))
+    await renderOnce()
+
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("save"))
+    await act(async () => {
+      await mockMouse.click(rows[y]!.indexOf("save"), y, MouseButtons.LEFT)
+    })
+    await savedPromise
+    await act(async () => {
+      await mockMouse.click(rows[y]!.indexOf("close"), y, MouseButtons.LEFT)
+    })
+
+    expect(saved).toBe(1)
+    expect(closed).toBe(1)
+    cleanup()
+  })
+
+  it("toggles a YAML fold from its gutter icon", async () => {
+    await writeFile(
+      filePath,
+      "headers:\n  accept: application/json\n  x-id: 1\n",
+    )
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <YamlEditorOverlay
+            visible
+            filePath={filePath}
+            requestName="get-users"
+            onSaved={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 30 },
+    )
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await renderOnce()
+
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find(
+      (line) => line.includes("▼") && line.includes("headers:"),
+    )
+    if (!row) throw new Error("Expected YAML fold icon")
+
+    await act(async () => {
+      await mockMouse.click(
+        row.indexOf("▼"),
+        rows.indexOf(row),
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("accept: application/json")
     cleanup()
   })
 

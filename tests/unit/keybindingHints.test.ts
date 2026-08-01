@@ -7,8 +7,8 @@ import type { SendState } from "../../src/ui/sendState"
 const kb = bindingDefaults()
 const idle: SendState = { status: "idle" }
 
-function seg(key: string, word: string) {
-  return { key, word }
+function seg(key: string, word: string, command?: string) {
+  return command ? { key, word, command } : { key, word }
 }
 
 function ctx(
@@ -44,22 +44,69 @@ describe("getKeybindingHints header", () => {
   it("shows env-editor hints", () => {
     const r = ctx({ view: "env-editor" })
     expect(getKeybindingHints(r).header).toEqual([
-      seg("^p", "commands"),
-      seg("f1", "help"),
+      seg("^p", "commands", "app.command-palette"),
+      seg("f1", "help", "app.help"),
     ])
   })
 
   it("shows main view hints", () => {
     const r = ctx()
     expect(getKeybindingHints(r).header).toEqual([
-      seg("g", "jump"),
-      seg("^p", "commands"),
-      seg("f1", "help"),
+      seg("g", "jump", "jump.enter"),
+      seg("^p", "commands", "app.command-palette"),
+      seg("f1", "help", "app.help"),
     ])
   })
 
   it("overlay active takes priority over jump mode", () => {
     const r = ctx({ overlayActive: true, jumpMode: true })
     expect(getKeybindingHints(r).header).toEqual([seg("Esc", "close")])
+  })
+})
+
+describe("getKeybindingHints footer", () => {
+  it("uses the active request browse commands", () => {
+    expect(
+      getKeybindingHints(
+        ctx({
+          focus: "request",
+          paneMode: "browse",
+          tab: "headers",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("Space", "toggle", "browse.toggle"),
+      seg("^d", "revert", "browse.delete"),
+      seg("^r", "revert all", "browse.revert-all"),
+      seg("f2", "expand", "request.expand-toggle"),
+      seg("^s", "save", "browse.save"),
+    ])
+  })
+
+  it("uses folder and environment command variants", () => {
+    expect(
+      getKeybindingHints(
+        ctx({ focus: "folder", paneMode: "browse", tab: "headers" }),
+      ).footer,
+    ).toEqual([
+      seg("Space", "toggle", "folder-browse.toggle"),
+      seg("^d", "revert", "folder-browse.revert-field"),
+      seg("^r", "revert all", "folder-browse.revert-all"),
+      seg("^s", "save", "folder.save"),
+    ])
+
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "env-editor",
+          focus: "env-vars",
+          paneMode: "browse",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("Space", "toggle", "env-browse.toggle"),
+      seg("^d", "revert", "env-browse.revert"),
+      seg("^s", "save", "env.save"),
+    ])
   })
 })

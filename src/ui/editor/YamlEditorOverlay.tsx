@@ -1,10 +1,15 @@
-import { type LineNumberRenderable, type LineSign } from "@opentui/core"
+import {
+  MouseButton,
+  type LineNumberRenderable,
+  type LineSign,
+} from "@opentui/core"
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { basename, dirname } from "node:path"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { useTheme } from "../theme"
 import { Overlay } from "../overlays/Overlay"
+import { EscapeClose } from "../overlays/EscapeClose"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import { ValidationNotice } from "./ValidationNotice"
 import { lang } from "../../lang"
@@ -39,11 +44,15 @@ export function YamlEditorOverlay({
   const [editorInstance, setEditorInstance] =
     useState<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const hoveredFoldLineRef = useRef<number | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [draftContent, setDraftContent] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [readError, setReadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
+    null,
+  )
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -190,14 +199,46 @@ export function YamlEditorOverlay({
     }
   }, [visible, content])
 
-  const handleFoldsChange = useCallback(() => {
-    const ed = editorRef.current
-    const ln = lineNumberRef.current
-    if (ed && ln) {
-      ln.setLineSigns(new Map([...RESERVED_FOLD_SIGN, ...ed.getFoldSigns()]))
+  const syncFoldSigns = useCallback(
+    (hoveredFoldLine?: number) => {
+      const ed = editorRef.current
+      const ln = lineNumberRef.current
+      if (!ed || !ln) return
+      const signs = ed.getFoldSigns()
+      const sign =
+        hoveredFoldLine === undefined ? undefined : signs.get(hoveredFoldLine)
+      if (sign && hoveredFoldLine !== undefined) {
+        signs.set(hoveredFoldLine, { ...sign, beforeColor: theme.primary })
+      }
+      ln.setLineSigns(new Map([...RESERVED_FOLD_SIGN, ...signs]))
       ln.setHideLineNumbers(ed.getHiddenLineNumbers())
-    }
-  }, [])
+    },
+    [theme.primary],
+  )
+
+  const handleFoldsChange = useCallback(() => {
+    hoveredFoldLineRef.current = null
+    syncFoldSigns()
+  }, [syncFoldSigns])
+
+  const updateFoldHover = useCallback(
+    (event: { x: number; y: number }) => {
+      const editor = editorRef.current
+      const lineNumbers = lineNumberRef.current
+      const displayLine =
+        editor && lineNumbers && event.x === lineNumbers.x
+          ? editor.lineInfo.lineSources[event.y - editor.y + editor.scrollY]
+          : undefined
+      const hoveredFoldLine =
+        displayLine !== undefined && editor?.getFoldSigns().has(displayLine)
+          ? displayLine
+          : null
+      if (hoveredFoldLine === hoveredFoldLineRef.current) return
+      hoveredFoldLineRef.current = hoveredFoldLine
+      syncFoldSigns(hoveredFoldLine ?? undefined)
+    },
+    [syncFoldSigns],
+  )
 
   if (!visible) return null
 
@@ -216,7 +257,7 @@ export function YamlEditorOverlay({
             ? `${requestName}/folder.yml`
             : `${requestName}.yml`}
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={handleClose} />
       </box>
       {readError ? (
         <box
@@ -245,6 +286,27 @@ export function YamlEditorOverlay({
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
             lineSigns={RESERVED_FOLD_SIGN}
+            onMouseMove={updateFoldHover}
+            onMouseOut={() => {
+              if (hoveredFoldLineRef.current === null) return
+              hoveredFoldLineRef.current = null
+              syncFoldSigns()
+            }}
+            onMouseDown={(event) => {
+              const editor = editorRef.current
+              if (event.button !== MouseButton.LEFT || !editor) return
+              if (event.x >= editor.x) return
+              const displayLine =
+                editor.lineInfo.lineSources[event.y - editor.y + editor.scrollY]
+              if (
+                displayLine === undefined ||
+                !editor.getFoldSigns().has(displayLine)
+              )
+                return
+              editor.toggleFold(displayLine)
+              event.preventDefault()
+              event.stopPropagation()
+            }}
             style={{ flexGrow: 1, minHeight: 0 }}
             width="100%"
           >
@@ -299,11 +361,44 @@ export function YamlEditorOverlay({
             gap: 1,
           }}
         >
-          <text fg={theme.text}>^S</text>
-          <text fg={theme.textMuted}>save</text>
-          <text fg={theme.textMuted}> · </text>
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}>close</text>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              handleSave()
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={() => setHoveredAction("save")}
+            onMouseOut={() => setHoveredAction(null)}
+            style={{
+              flexDirection: "row",
+              paddingX: 1,
+              backgroundColor:
+                hoveredAction === "save" ? theme.backgroundElement : undefined,
+            }}
+          >
+            <text fg={theme.text}>^S</text>
+            <text fg={theme.textMuted}> save</text>
+          </box>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              handleClose()
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={() => setHoveredAction("close")}
+            onMouseOut={() => setHoveredAction(null)}
+            style={{
+              flexDirection: "row",
+              paddingX: 1,
+              backgroundColor:
+                hoveredAction === "close" ? theme.backgroundElement : undefined,
+            }}
+          >
+            <text fg={theme.text}>esc</text>
+            <text fg={theme.textMuted}> close</text>
+          </box>
         </box>
       </box>
     </Overlay>

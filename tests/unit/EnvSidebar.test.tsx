@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { EnvSidebar } from "../../src/ui/env-editor/EnvSidebar"
 
@@ -27,6 +28,39 @@ describe("EnvSidebar", () => {
     expect(frame).toContain("dev")
     expect(frame).toContain("staging")
     expect(frame).toContain("prod")
+  })
+
+  it("selects an environment on left click only", async () => {
+    let selected = ""
+    let focused = 0
+    const { renderOnce, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <EnvSidebar
+          envNames={["dev", "staging"]}
+          selectedEnvName={null}
+          activeEnvName={undefined}
+          dirty={false}
+          onSelectEnv={(name) => {
+            selected = name
+          }}
+          onCreate={() => {}}
+          onClone={() => {}}
+          onDelete={() => {}}
+          focused={false}
+          onPaneFocus={() => focused++}
+        />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(2, 3, MouseButtons.RIGHT)
+    expect(selected).toBe("")
+    expect(focused).toBe(0)
+
+    await mockMouse.click(2, 3, MouseButtons.LEFT)
+    expect(selected).toBe("staging")
+    expect(focused).toBe(1)
   })
 
   it("shows (no environments) when list is empty", async () => {

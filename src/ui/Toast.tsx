@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal, useRenderer } from "@opentui/react"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 
@@ -13,6 +14,7 @@ export function showToast(message: string, variant?: ToastVariant) {
 
 export function Toast() {
   const theme = useTheme()
+  const renderer = useRenderer()
   const [state, setState] = useState<{
     message: string
     variant: ToastVariant
@@ -32,11 +34,14 @@ export function Toast() {
 
   if (!state) return null
 
-  return (
+  return createPortal(
     <box
-      position="absolute"
-      bottom={2}
-      right={2}
+      style={{
+        position: "absolute",
+        bottom: 2,
+        right: 2,
+        zIndex: 10003,
+      }}
       paddingLeft={2}
       paddingRight={2}
       paddingTop={1}
@@ -47,6 +52,8 @@ export function Toast() {
       borderColor={theme.primary}
     >
       <text fg={theme.text}>{state.message}</text>
-    </box>
+    </box>,
+    renderer.root,
+    null,
   )
 }

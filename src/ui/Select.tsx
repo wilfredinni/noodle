@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, isValidElement } from "react"
 import type { ReactNode } from "react"
 import {
+  MouseButton,
   TextAttributes,
   type ScrollBoxRenderable,
   type BoxRenderable,
@@ -32,6 +33,8 @@ export interface SelectProps {
   dropdownAlign?: "left" | "right"
   badge?: boolean
   onOpenChange?: (open: boolean) => void
+  onActivate?: () => void
+  interactive?: boolean
   triggerPriority?: number
 }
 
@@ -47,6 +50,8 @@ export function Select({
   dropdownAlign = "left",
   badge = false,
   onOpenChange,
+  onActivate,
+  interactive = true,
   triggerPriority = 50,
 }: SelectProps) {
   const theme = useTheme()
@@ -57,6 +62,7 @@ export function Select({
   const [open, setOpen] = useState(false)
   const [uid] = useState(() => `s-${nextSelectId++}-`)
   const [highlightIndex, setHighlightIndex] = useState(0)
+  const [hovered, setHovered] = useState(false)
   const contrastColor = useMemo(() => contrastOnPrimary(theme), [theme])
 
   const currentIndex = useMemo(
@@ -66,8 +72,8 @@ export function Select({
   const safeInitialIndex = currentIndex >= 0 ? currentIndex : 0
 
   useEffect(() => {
-    if (!focused && open) setOpen(false)
-  }, [focused, open])
+    if ((!focused || !interactive) && open) setOpen(false)
+  }, [focused, interactive, open])
 
   useEffect(() => {
     onOpenChange?.(open)
@@ -88,7 +94,7 @@ export function Select({
   }, [highlightIndex, open, items])
 
   useEffect(() => {
-    if (open || !focused) return
+    if (open || !focused || !interactive) return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
@@ -102,7 +108,7 @@ export function Select({
       { priority: triggerPriority },
     )
     return dispose
-  }, [open, focused, keymap, triggerPriority])
+  }, [open, focused, interactive, keymap, triggerPriority])
 
   useEffect(() => {
     if (!open) return
@@ -170,7 +176,7 @@ export function Select({
       : selectedBadgeBg
     : open
       ? theme.primary
-      : visualFocused
+      : visualFocused || hovered
         ? theme.borderSubtle
         : theme.backgroundElement
 
@@ -237,6 +243,17 @@ export function Select({
         <box
           ref={triggerRef}
           height={1}
+          onMouseDown={
+            interactive
+              ? (event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  onActivate?.()
+                  setOpen((wasOpen) => !wasOpen)
+                }
+              : undefined
+          }
+          onMouseOver={interactive ? () => setHovered(true) : undefined}
+          onMouseOut={interactive ? () => setHovered(false) : undefined}
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
@@ -291,6 +308,20 @@ export function Select({
                         key={item.id}
                         id={`${uid}${item.id}`}
                         opacity={item.disabled ? 0.4 : 1}
+                        onMouseDown={(event) => {
+                          if (
+                            event.button !== MouseButton.LEFT ||
+                            item.disabled
+                          )
+                            return
+                          onChange?.(item.id)
+                          setOpen(false)
+                          event.preventDefault()
+                          event.stopPropagation()
+                        }}
+                        onMouseOver={
+                          item.disabled ? undefined : () => setHighlightIndex(i)
+                        }
                         style={{
                           flexDirection: "row",
                           gap: 1,
@@ -334,20 +365,38 @@ export function Select({
                     dropdownWidth
                   : triggerRef.current.x
               return createPortal(
-                <box
-                  style={{
-                    position: "absolute",
-                    top: triggerRef.current.y + 1,
-                    left: x,
-                    width: dropdownWidth,
-                    zIndex: 10000,
-                    backgroundColor: theme.background,
-                    borderStyle: "single",
-                    borderColor: theme.primary,
-                  }}
-                >
-                  {renderList(scrollRef)}
-                </box>,
+                <>
+                  <box
+                    onMouseDown={(event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      setOpen(false)
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      width: "100%",
+                      height: "100%",
+                      zIndex: 10001,
+                    }}
+                  />
+                  <box
+                    style={{
+                      position: "absolute",
+                      top: triggerRef.current.y + 1,
+                      left: x,
+                      width: dropdownWidth,
+                      zIndex: 10002,
+                      backgroundColor: theme.background,
+                      borderStyle: "single",
+                      borderColor: theme.primary,
+                    }}
+                  >
+                    {renderList(scrollRef)}
+                  </box>
+                </>,
                 root,
                 null,
               )

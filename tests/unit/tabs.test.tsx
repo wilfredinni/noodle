@@ -1,8 +1,10 @@
 import { describe, it, expect } from "bun:test"
+import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import { Tabs } from "../../src/ui/Tabs"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 
 describe("Tabs", () => {
   it("renders all tab labels", async () => {
@@ -44,6 +46,72 @@ describe("Tabs", () => {
 
     const frame = captureCharFrame()
     expect(frame).toContain("content for b")
+  })
+
+  it("selects a tab on left click only", async () => {
+    let selected = ""
+    const { renderOnce, mockMouse } = await testRender(
+      <Tabs
+        tabs={[
+          { id: "a", label: "Tab A" },
+          { id: "b", label: "Tab B" },
+        ]}
+        activeId="a"
+        onChange={(id) => {
+          selected = id
+        }}
+      >
+        <text>content</text>
+      </Tabs>,
+      { width: 30, height: 5 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(9, 0, MouseButtons.RIGHT)
+    expect(selected).toBe("")
+
+    await mockMouse.click(9, 0, MouseButtons.LEFT)
+    expect(selected).toBe("b")
+  })
+
+  it("highlights clickable tabs while the mouse is over them", async () => {
+    const { renderOnce, captureSpans, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Tabs
+          tabs={[
+            { id: "a", label: "Tab A" },
+            { id: "b", label: "Tab B" },
+          ]}
+          activeId="a"
+          onChange={() => {}}
+        >
+          <text>content</text>
+        </Tabs>
+      </ThemeProvider>,
+      { width: 30, height: 5 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.moveTo(9, 0)
+    })
+    await renderOnce()
+
+    const hoverColor = RGBA.fromHex(THEMES[0]!.text)
+    const hoveredSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("Tab B"))
+    expect(hoveredSpan!.fg.equals(hoverColor)).toBe(true)
+
+    await act(async () => {
+      await mockMouse.moveTo(29, 4)
+    })
+    await renderOnce()
+
+    const unhoveredSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("Tab B"))
+    expect(unhoveredSpan!.fg.equals(hoverColor)).toBe(false)
   })
 
   it("does not show ▸ prefix on any tab", async () => {

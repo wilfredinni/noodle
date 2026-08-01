@@ -1,4 +1,6 @@
 import { describe, it, expect } from "bun:test"
+import { act, useState } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -26,7 +28,7 @@ describe("EnvHeaderPane", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("dev")
     expect(frame).toContain("(none)")
-    expect(frame).toContain("Environment")
+    expect(frame).not.toContain("Environment")
     cleanup()
   })
 
@@ -76,7 +78,7 @@ describe("EnvHeaderPane", () => {
     cleanup()
   })
 
-  it("shows focused border when focused", async () => {
+  it("renders when focused without a pane title", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -94,7 +96,8 @@ describe("EnvHeaderPane", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("Environment")
+    expect(frame).toContain("dev")
+    expect(frame).not.toContain("Environment")
     cleanup()
   })
 
@@ -122,6 +125,40 @@ describe("EnvHeaderPane", () => {
       .join("")
     expect(allText).toContain("primary")
     expect(allText).toContain("dev")
+    cleanup()
+  })
+
+  it("opens the color menu when clicked", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    function Harness() {
+      const [focused, setFocused] = useState(false)
+      return (
+        <EnvHeaderPane
+          name="dev"
+          color={undefined}
+          onNameChange={() => {}}
+          onColorChange={() => {}}
+          focused={focused}
+          onPaneFocus={() => setFocused(true)}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 16 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(50, 1, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("primary")
     cleanup()
   })
 })

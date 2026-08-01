@@ -70,6 +70,7 @@ export interface UseEnvironmentEditorResult {
   browseFirst: () => void
   browseLast: () => void
   enterEdit: () => void
+  activateVar: (row: number, addingRow?: boolean) => void
   commitEdit: () => void
   cancelEdit: () => void
   browseTab: () => void
@@ -408,6 +409,34 @@ export function useEnvironmentEditor({
     })
   }, [])
 
+  const activateVar = useCallback(
+    (row: number, addingRow = false) => {
+      const targetId = addingRow
+        ? undefined
+        : draftRef.current?.varRows[row]?.id
+      commitEdit()
+      const resolvedRow = targetId
+        ? (draftRef.current?.varRows.findIndex(
+            (entry) => entry.id === targetId,
+          ) ?? -1)
+        : row
+      if (!addingRow && resolvedRow < 0) return
+      const currentRow = addingRow
+        ? undefined
+        : draftRef.current?.varRows[resolvedRow]
+      setEditKey(currentRow?.key ?? "")
+      setEditValue(currentRow?.value ?? "")
+      setEditState({
+        mode: "editing",
+        row: resolvedRow,
+        addingRow,
+        subfield: "key",
+        editingRow: addingRow ? -1 : resolvedRow,
+      })
+    },
+    [commitEdit],
+  )
+
   const cancelEdit = useCallback(() => {
     setEditState((prev) => {
       if (prev.mode !== "editing") return prev
@@ -634,6 +663,7 @@ export function useEnvironmentEditor({
     browseFirst,
     browseLast,
     enterEdit,
+    activateVar,
     commitEdit,
     cancelEdit,
     browseTab,

@@ -30,7 +30,7 @@ export interface UseFolderEditBrowseResult {
   isActive: boolean
   activeTab: FieldKind
   enterBrowse: () => void
-  enterBrowseAt: (field: FolderFieldKind) => void
+  enterBrowseAt: (field: FolderFieldKind, row?: number) => void
   exitBrowse: () => void
   browseUp: () => void
   browseDown: () => void
@@ -45,6 +45,8 @@ export interface UseFolderEditBrowseResult {
   revertAll: () => void
   toggleRow: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
+  activateAt: (field: FolderFieldKind, row: number, addingRow?: boolean) => void
+  toggleAt: (field: FolderFieldKind, row: number) => void
 }
 
 export interface UseFolderEditBrowseOptions {
@@ -203,22 +205,74 @@ export function useFolderEditBrowse(
     })
   }, [activeTab])
 
-  const enterBrowseAt = useCallback((field: FolderFieldKind) => {
+  const enterBrowseAt = useCallback((field: FolderFieldKind, row?: number) => {
     setInactiveTab(field)
     const c = folderRowCount(draftRef.current)
     setEditKey("")
     setEditState((prev) => {
       if (prev.mode !== "inactive") {
         const canceled = prev.mode === "editing" ? cancelEditing(prev) : prev
+        const cursor = folderCursorForField(field, c)
         return {
           ...canceled,
-          cursor: folderCursorForField(field, c),
+          cursor:
+            row === undefined ? cursor : { ...cursor, row, addingRow: false },
           editingRow: -1,
         }
       }
-      return enterFolderEditBrowse(prev, c, field)
+      const next = enterFolderEditBrowse(prev, c, field)
+      if (row === undefined) return next
+      return { ...next, cursor: { ...next.cursor, row, addingRow: false } }
     })
   }, [])
+
+  const activateAt = useCallback(
+    (field: FolderFieldKind, row: number, addingRow = false) => {
+      if (field === "auth" && row === 0) return
+      setInactiveTab(field)
+      const currentFolder = draftRef.current
+      const kv = folderCurrentKeyValueFor(currentFolder, field, row, addingRow)
+      setEditKey(kv.key)
+      setEditValue(kv.value)
+      setEditState((prev) => {
+        const browsed =
+          prev.mode === "inactive"
+            ? enterFolderEditBrowse(prev, folderRowCount(currentFolder), field)
+            : cancelEditing(prev)
+        return beginEditing({
+          ...browsed,
+          mode: "browsing",
+          editingRow: -1,
+          cursor: { field, row, addingRow },
+        })
+      })
+    },
+    [],
+  )
+
+  const toggleAt = useCallback(
+    (field: FolderFieldKind, row: number) => {
+      setInactiveTab(field)
+      setEditState((prev) => {
+        const browsed =
+          prev.mode === "inactive"
+            ? enterFolderEditBrowse(
+                prev,
+                folderRowCount(draftRef.current),
+                field,
+              )
+            : cancelEditing(prev)
+        return {
+          ...browsed,
+          mode: "browsing",
+          editingRow: -1,
+          cursor: { field, row, addingRow: false },
+        }
+      })
+      if (field === "headers" && row >= 0) draftMutators.toggleHeaderRow(row)
+    },
+    [draftMutators],
+  )
 
   const enterAndEdit = useCallback(() => {
     const c = folderRowCount(draftRef.current)
@@ -411,6 +465,8 @@ export function useFolderEditBrowse(
       activeTab,
       enterBrowse,
       enterBrowseAt,
+      activateAt,
+      toggleAt,
       exitBrowse,
       browseUp,
       browseDown,
@@ -433,6 +489,8 @@ export function useFolderEditBrowse(
       activeTab,
       enterBrowse,
       enterBrowseAt,
+      activateAt,
+      toggleAt,
       exitBrowse,
       browseUp,
       browseDown,

@@ -9,7 +9,7 @@ headers:
 path_params:
   - name: post_id
     value: '1'
-body: |
+body: |-
   {
     "id": 1,
     "title": "replaced title",

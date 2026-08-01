@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
+import { MouseButton, t, fg, type ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineBodyRef, TimelineEntry } from "../../schema"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 import { Tabs, type TabDef } from "../Tabs"
 import { Badge } from "../Badge"
 import { formatSize, statusColor } from "../format"
@@ -103,6 +104,15 @@ export function TimelineDetailOverlay({
   const [bodyError, setBodyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showLargeBody, setShowLargeBody] = useState(false)
+  const [hoveredAction, setHoveredAction] = useState<
+    | "view"
+    | "large-copy"
+    | "large-export"
+    | "headers"
+    | "body"
+    | "export"
+    | null
+  >(null)
   const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
     "start",
   )
@@ -115,6 +125,54 @@ export function TimelineDetailOverlay({
   const info =
     entry && activeTab !== "network" ? bodyInfo(entry, activeTab) : null
   const isLarge = (info?.size ?? 0) > AUTO_RENDER_LIMIT
+
+  const selectTab = useCallback((tab: DetailTab) => {
+    setActiveTab(tab)
+    setLoadedBody(null)
+    setBodyError(null)
+    setShowLargeBody(false)
+  }, [])
+
+  const copyHeaders = useCallback(() => {
+    if (!entry || activeTab === "network") return
+    const headers =
+      activeTab === "request"
+        ? buildDetailRequestHeaders(entry.request.auth, entry.request.headers)
+        : entry.response
+          ? Object.entries(entry.response.headers)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([key, value]) => ({ key, value }))
+          : []
+    onCopyHeaders(formatHeaderEntries(headers))
+  }, [entry, activeTab, onCopyHeaders])
+
+  const copyBody = useCallback(() => {
+    if (activeTab === "network") return
+    const body = loadedBody ?? info?.body
+    if (body !== undefined) onCopyBody(body)
+    else if (info?.ref) {
+      onLoadBody(info.ref)
+        .then(onCopyBody)
+        .catch(() => setBodyError("Unable to load the saved response body"))
+    }
+  }, [activeTab, loadedBody, info, onCopyBody, onLoadBody])
+
+  const exportBody = useCallback(() => {
+    if (!entry || activeTab === "network") return
+    const runExport = (body?: string) =>
+      onExportBody(entry, activeTab, body).catch(() =>
+        setBodyError("Failed to export timeline entry"),
+      )
+    const body = loadedBody ?? info?.body
+    if (body !== undefined) runExport(body)
+    else if (info?.ref) {
+      onLoadBody(info.ref)
+        .then(runExport)
+        .catch(() => setBodyError("Unable to load the saved response body"))
+    } else {
+      runExport()
+    }
+  }, [entry, activeTab, loadedBody, info, onExportBody, onLoadBody])
 
   useEffect(() => {
     if (!visible) return
@@ -168,58 +226,17 @@ export function TimelineDetailOverlay({
         key.stopPropagation()
         if (key.name === "escape") onClose()
         else if (key.name === "left" || key.name === "right") {
-          setActiveTab((prev) => {
-            const ids: DetailTab[] = hasNetwork
-              ? ["request", "response", "network"]
-              : ["request", "response"]
-            const index = ids.indexOf(prev)
-            const direction = key.name === "left" ? -1 : 1
-            return ids[(index + direction + ids.length) % ids.length]!
-          })
-          setLoadedBody(null)
-          setBodyError(null)
-          setShowLargeBody(false)
+          const ids: DetailTab[] = hasNetwork
+            ? ["request", "response", "network"]
+            : ["request", "response"]
+          const index = ids.indexOf(activeTab)
+          const direction = key.name === "left" ? -1 : 1
+          selectTab(ids[(index + direction + ids.length) % ids.length]!)
         } else if (key.name === "v" && isLarge) setShowLargeBody(true)
-        else if (key.name === "h" && activeTab !== "network") {
-          const currentHeaders =
-            activeTab === "request"
-              ? buildDetailRequestHeaders(
-                  entry.request.auth,
-                  entry.request.headers,
-                )
-              : entry.response
-                ? Object.entries(entry.response.headers)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([key, value]) => ({ key, value }))
-                : []
-          onCopyHeaders(formatHeaderEntries(currentHeaders))
-        } else if (key.name === "b" && activeTab !== "network") {
-          const body = loadedBody ?? info?.body
-          if (body !== undefined) onCopyBody(body)
-          else if (info?.ref) {
-            onLoadBody(info.ref)
-              .then(onCopyBody)
-              .catch(() =>
-                setBodyError("Unable to load the saved response body"),
-              )
-          }
-        } else if (key.name === "e" && activeTab !== "network") {
-          const exportBody = (body?: string) =>
-            onExportBody(entry, activeTab, body).catch(() =>
-              setBodyError("Failed to export timeline entry"),
-            )
-          const body = loadedBody ?? info?.body
-          if (body !== undefined) exportBody(body)
-          else if (info?.ref) {
-            onLoadBody(info.ref)
-              .then(exportBody)
-              .catch(() =>
-                setBodyError("Unable to load the saved response body"),
-              )
-          } else {
-            exportBody(undefined)
-          }
-        } else if (key.name === "up") bodyScrollRef.current?.scrollBy(-1)
+        else if (key.name === "h") copyHeaders()
+        else if (key.name === "b") copyBody()
+        else if (key.name === "e") exportBody()
+        else if (key.name === "up") bodyScrollRef.current?.scrollBy(-1)
         else if (key.name === "down") bodyScrollRef.current?.scrollBy(1)
         else if (key.name === "pageup")
           bodyScrollRef.current?.scrollBy(-1, "viewport")
@@ -247,12 +264,12 @@ export function TimelineDetailOverlay({
     isLarge,
     loadedBody,
     info,
-    onCopyHeaders,
-    onCopyBody,
-    onExportBody,
-    onLoadBody,
     activeTab,
     hasNetwork,
+    selectTab,
+    copyHeaders,
+    copyBody,
+    exportBody,
   ])
 
   if (!visible || !entry) return null
@@ -285,7 +302,8 @@ export function TimelineDetailOverlay({
         <Tabs
           tabs={tabs}
           activeId={activeTab}
-          rightChildren={<text fg={theme.textMuted}>esc</text>}
+          onChange={(tab) => selectTab(tab as DetailTab)}
+          rightChildren={<EscapeClose onClose={onClose} />}
         >
           {activeTab === "network" ? (
             <NetworkTab
@@ -402,9 +420,74 @@ export function TimelineDetailOverlay({
                   <text
                     fg={theme.warning}
                   >{`Body is ${formatSize(info!.size)}. It was not rendered automatically.`}</text>
-                  <text fg={theme.textMuted}>
-                    v view raw · b copy · e export
-                  </text>
+                  <box style={{ flexDirection: "row", gap: 1 }}>
+                    <box
+                      onMouseDown={(event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        setShowLargeBody(true)
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onMouseOver={() => setHoveredAction("view")}
+                      onMouseOut={() => setHoveredAction(null)}
+                      style={{
+                        flexDirection: "row",
+                        paddingLeft: 1,
+                        paddingRight: 1,
+                        backgroundColor:
+                          hoveredAction === "view"
+                            ? theme.backgroundElement
+                            : undefined,
+                      }}
+                    >
+                      <text fg={theme.text}>v</text>
+                      <text fg={theme.textMuted}> view raw </text>
+                    </box>
+                    <box
+                      onMouseDown={(event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        copyBody()
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onMouseOver={() => setHoveredAction("large-copy")}
+                      onMouseOut={() => setHoveredAction(null)}
+                      style={{
+                        flexDirection: "row",
+                        paddingLeft: 1,
+                        paddingRight: 1,
+                        backgroundColor:
+                          hoveredAction === "large-copy"
+                            ? theme.backgroundElement
+                            : undefined,
+                      }}
+                    >
+                      <text fg={theme.text}>b</text>
+                      <text fg={theme.textMuted}> copy </text>
+                    </box>
+                    <box
+                      onMouseDown={(event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        exportBody()
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onMouseOver={() => setHoveredAction("large-export")}
+                      onMouseOut={() => setHoveredAction(null)}
+                      style={{
+                        flexDirection: "row",
+                        paddingLeft: 1,
+                        paddingRight: 1,
+                        backgroundColor:
+                          hoveredAction === "large-export"
+                            ? theme.backgroundElement
+                            : undefined,
+                      }}
+                    >
+                      <text fg={theme.text}>e</text>
+                      <text fg={theme.textMuted}> export</text>
+                    </box>
+                  </box>
                 </box>
               ) : renderedBody ? (
                 (() => {
@@ -418,6 +501,16 @@ export function TimelineDetailOverlay({
                       ref={bodyScrollRef}
                       scrollY
                       height={computedBodyHeight}
+                      onMouseScroll={(event) => {
+                        const direction = event.scroll?.direction
+                        if (!direction) return
+                        const amount = event.scroll?.delta || 1
+                        bodyScrollRef.current?.scrollBy(
+                          (direction === "up" ? -1 : 1) * amount,
+                        )
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
                       verticalScrollbarOptions={{
                         trackOptions: {
                           backgroundColor: theme.background,
@@ -448,16 +541,75 @@ export function TimelineDetailOverlay({
               flexDirection: "row",
               justifyContent: "flex-end",
               marginTop: 1,
+              gap: 1,
             }}
           >
-            <text fg={theme.text}>h</text>
-            <text fg={theme.textMuted}> copy headers </text>
-            <text fg={theme.textMuted}>· </text>
-            <text fg={theme.text}>b</text>
-            <text fg={theme.textMuted}> copy body </text>
-            <text fg={theme.textMuted}>· </text>
-            <text fg={theme.text}>e</text>
-            <text fg={theme.textMuted}> export</text>
+            <box
+              onMouseDown={(event) => {
+                if (event.button !== MouseButton.LEFT) return
+                copyHeaders()
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onMouseOver={() => setHoveredAction("headers")}
+              onMouseOut={() => setHoveredAction(null)}
+              style={{
+                flexDirection: "row",
+                paddingLeft: 1,
+                paddingRight: 1,
+                backgroundColor:
+                  hoveredAction === "headers"
+                    ? theme.backgroundElement
+                    : undefined,
+              }}
+            >
+              <text fg={theme.text}>h</text>
+              <text fg={theme.textMuted}> copy headers </text>
+            </box>
+            <box
+              onMouseDown={(event) => {
+                if (event.button !== MouseButton.LEFT) return
+                copyBody()
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onMouseOver={() => setHoveredAction("body")}
+              onMouseOut={() => setHoveredAction(null)}
+              style={{
+                flexDirection: "row",
+                paddingLeft: 1,
+                paddingRight: 1,
+                backgroundColor:
+                  hoveredAction === "body"
+                    ? theme.backgroundElement
+                    : undefined,
+              }}
+            >
+              <text fg={theme.text}>b</text>
+              <text fg={theme.textMuted}> copy body </text>
+            </box>
+            <box
+              onMouseDown={(event) => {
+                if (event.button !== MouseButton.LEFT) return
+                exportBody()
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onMouseOver={() => setHoveredAction("export")}
+              onMouseOut={() => setHoveredAction(null)}
+              style={{
+                flexDirection: "row",
+                paddingLeft: 1,
+                paddingRight: 1,
+                backgroundColor:
+                  hoveredAction === "export"
+                    ? theme.backgroundElement
+                    : undefined,
+              }}
+            >
+              <text fg={theme.text}>e</text>
+              <text fg={theme.textMuted}> export</text>
+            </box>
           </box>
         )}
       </box>

@@ -1,4 +1,6 @@
 import type { Request, Environment } from "../../schema"
+import { MouseButton } from "@opentui/core"
+import { useState } from "react"
 import type { EditState } from "../editMode"
 import type { Theme } from "../theme"
 import { VarInput } from "../VarInput"
@@ -13,6 +15,8 @@ export function SettingsSection({
   browseActive,
   theme,
   activeEnv,
+  onActivateRow,
+  onToggleRow,
 }: {
   request: Request
   editState: EditState
@@ -21,7 +25,10 @@ export function SettingsSection({
   browseActive: boolean
   theme: Theme
   activeEnv?: Environment | null
+  onActivateRow?: (row: number) => void
+  onToggleRow?: (row: number) => void
 }) {
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null)
   const rows = [
     {
       label: "Timeout (ms)",
@@ -54,6 +61,9 @@ export function SettingsSection({
           browseActive &&
           editState.cursor.field === "settings" &&
           editState.cursor.row === idx
+        const canHoverRow =
+          !editingRow &&
+          (idx === 1 ? onToggleRow !== undefined : onActivateRow !== undefined)
 
         return (
           <box key={row.label} style={{ flexDirection: "column" }}>
@@ -67,8 +77,22 @@ export function SettingsSection({
               style={{
                 flexDirection: editingRow ? "row" : undefined,
                 gap: editingRow ? 1 : undefined,
-                backgroundColor: isActive ? theme.backgroundElement : undefined,
+                backgroundColor:
+                  isActive || (canHoverRow && hoveredRow === idx)
+                    ? theme.backgroundElement
+                    : undefined,
               }}
+              onMouseDown={
+                !editingRow && idx !== 1 && onActivateRow
+                  ? (event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      onActivateRow(idx)
+                      event.stopPropagation()
+                    }
+                  : undefined
+              }
+              onMouseOver={canHoverRow ? () => setHoveredRow(idx) : undefined}
+              onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
             >
               {editingRow ? (
                 <>
@@ -84,10 +108,22 @@ export function SettingsSection({
               ) : idx === 1 ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
                   <text fg={theme.text}>{row.label}: </text>
-                  <Checkbox
-                    checked={request.followRedirects ?? true}
-                    theme={theme}
-                  />
+                  <box
+                    onMouseDown={
+                      onToggleRow
+                        ? (event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            onToggleRow(idx)
+                            event.stopPropagation()
+                          }
+                        : undefined
+                    }
+                  >
+                    <Checkbox
+                      checked={request.followRedirects ?? true}
+                      theme={theme}
+                    />
+                  </box>
                 </box>
               ) : (
                 <VarInput

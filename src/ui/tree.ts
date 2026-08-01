@@ -22,6 +22,27 @@ export function updateFolderByPath(
   })
 }
 
+export function updateRequestById(
+  items: CollectionItem[],
+  id: string,
+  request: Request,
+): CollectionItem[] {
+  return items.map((item) => {
+    if (item.type === "request") {
+      return item.data.id === id
+        ? { type: "request", data: { ...request } }
+        : item
+    }
+    return {
+      type: "folder",
+      data: {
+        ...item.data,
+        children: updateRequestById(item.data.children, id, request),
+      },
+    }
+  })
+}
+
 export function findFolderByPath(
   items: CollectionItem[],
   path: string,

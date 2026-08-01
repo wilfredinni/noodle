@@ -6,15 +6,18 @@ import { TextAttributes } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef } from "react"
 import { useKeymap } from "@opentui/keymap/react"
+import { EscapeClose } from "./EscapeClose"
 
 const keyColumnWidth = 16
 
 export function HelpOverlay({
   visible,
   keybinds,
+  onClose = () => {},
 }: {
   visible: boolean
   keybinds: Keybinds
+  onClose?: () => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -74,7 +77,7 @@ export function HelpOverlay({
         }}
       >
         <text fg={theme.text}>Keybindings</text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={onClose} />
       </box>
       <scrollbox
         ref={scrollRef}
@@ -82,6 +85,17 @@ export function HelpOverlay({
         focused={visible}
         maxHeight={20}
         style={{ flexGrow: 1 }}
+        onMouseScroll={(event) => {
+          const direction = event.scroll?.direction
+          if (!direction) return
+          const amount = event.scroll?.delta || 1
+          scrollRef.current?.scrollBy(
+            (direction === "up" ? -1 : 1) * (amount / 5),
+            "viewport",
+          )
+          event.preventDefault()
+          event.stopPropagation()
+        }}
         verticalScrollbarOptions={{
           trackOptions: {
             backgroundColor: theme.background,

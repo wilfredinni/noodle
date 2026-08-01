@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { MouseButton } from "@opentui/core"
 import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import type { Method, ParamEntry, Environment } from "../schema"
@@ -23,6 +24,8 @@ export function UrlBar({
   activeEnv,
   subFocus = "select",
   jumpMode = false,
+  onPaneFocus,
+  onSubFocus,
 }: {
   method: Method
   url: string
@@ -36,6 +39,8 @@ export function UrlBar({
   activeEnv?: Environment | null
   subFocus?: UrlBarSubFocus
   jumpMode?: boolean
+  onPaneFocus?: () => void
+  onSubFocus?: (subFocus: UrlBarSubFocus) => void
 }) {
   const theme = useTheme()
   const pathParams = pathParamsProp ?? []
@@ -95,6 +100,13 @@ export function UrlBar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
+      onMouseDown={
+        onPaneFocus
+          ? (event) => {
+              if (event.button === MouseButton.LEFT) onPaneFocus()
+            }
+          : undefined
+      }
     >
       {!displayUrl ? (
         <box
@@ -119,9 +131,17 @@ export function UrlBar({
               badge
               maxDropdownHeight={10}
               onOpenChange={setMethodSelectOpen}
+              interactive={interactive}
             />
           </box>
-          <box style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}>
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              onSubFocus?.("text")
+              event.stopPropagation()
+            }}
+            style={{ flexGrow: 1, flexShrink: 1, position: "relative" }}
+          >
             {jumpMode && <JumpBadge letter="u" style={JUMP_BADGE_TOP_LEFT} />}
             {focused && subFocus === "text" && interactive ? (
               <VarInput

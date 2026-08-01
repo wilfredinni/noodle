@@ -261,6 +261,38 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.scrollY).toBeGreaterThan(0)
   })
 
+  it("does not move the cursor for a zero scroll delta", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const { renderOnce } = await testRender(
+      <box width={40} height={3}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={'"line0"\n"line1"'}
+          debounceMs={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 40, height: 3 },
+    )
+    await renderOnce()
+
+    let moves = 0
+    editor!.moveCursorDown = () => {
+      moves++
+      return true
+    }
+    editor!.scrollBy(0)
+
+    expect(moves).toBe(0)
+  })
+
   it("folds nested JSON ranges by their own start line", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `{

@@ -1,5 +1,5 @@
-import { ScrollBoxRenderable } from "@opentui/core"
-import { useEffect, useRef } from "react"
+import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
+import { useEffect, useRef, useState } from "react"
 import type { CollectionItem, Method } from "../schema"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
@@ -36,6 +36,12 @@ export function Sidebar({
   dirtyRequestIds,
   dirtyFolderPaths,
   jumpMode = false,
+  onPaneFocus,
+  onRequestSelect,
+  onFolderSelect,
+  onFolderToggle,
+  onRequestContextMenu,
+  onFolderContextMenu,
 }: {
   items: CollectionItem[]
   loading: boolean
@@ -49,9 +55,17 @@ export function Sidebar({
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
   jumpMode?: boolean
+  onPaneFocus?: () => void
+  onRequestSelect?: (id: string) => void
+  onFolderSelect?: (path: string) => void
+  onFolderToggle?: (path: string) => void
+  onRequestContextMenu?: (id: string) => void
+  onFolderContextMenu?: (path: string) => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
+  const [hoveredToggle, setHoveredToggle] = useState<string | null>(null)
 
   useEffect(() => {
     if (cursorIndex >= 0 && visibleItems.length > 0) {
@@ -88,6 +102,7 @@ export function Sidebar({
           </Badge>
         )
       }
+      onPaneFocus={onPaneFocus}
     >
       {jumpMode && <JumpBadge letter="s" style={JUMP_BADGE_TOP_INDENT} />}
       {loading ? (
@@ -174,6 +189,11 @@ export function Sidebar({
         >
           {visibleItems.map((node, i) => {
             const isCursor = i === cursorIndex
+            const canSelectItem =
+              node.type === "folder"
+                ? onFolderSelect !== undefined
+                : onRequestSelect !== undefined
+            const isHovered = canSelectItem && hoveredItem === node.id
             if (node.type === "folder") {
               const chevron = node.expanded ? "\u25BE" : "\u25B8"
               const isFolderDirty = dirtyFolderPaths?.has(node.id)
@@ -185,16 +205,61 @@ export function Sidebar({
                     flexDirection: "row",
                     justifyContent: "space-between",
                     paddingLeft: node.depth * 2,
-                    backgroundColor: isCursor
-                      ? theme.backgroundElement
-                      : undefined,
+                    backgroundColor:
+                      isCursor || isHovered
+                        ? theme.backgroundElement
+                        : undefined,
                   }}
                   border={[...LeftBar.border]}
                   customBorderChars={LeftBar.customBorderChars}
                   borderColor={isCursor ? theme.primary : theme.backgroundPanel}
+                  onMouseDown={(event) => {
+                    if (event.button === MouseButton.RIGHT) {
+                      onFolderContextMenu?.(node.id)
+                    } else if (event.button === MouseButton.LEFT) {
+                      onFolderSelect?.(node.id)
+                      onPaneFocus?.()
+                    } else {
+                      return
+                    }
+                    event.stopPropagation()
+                  }}
+                  onMouseOver={
+                    onFolderSelect ? () => setHoveredItem(node.id) : undefined
+                  }
+                  onMouseOut={
+                    onFolderSelect ? () => setHoveredItem(null) : undefined
+                  }
                 >
                   <box style={{ flexDirection: "row" }}>
-                    <text fg={theme.textMuted}>{chevron} </text>
+                    <box
+                      onMouseDown={(event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onFolderToggle?.(node.id)
+                        onPaneFocus?.()
+                        event.stopPropagation()
+                      }}
+                      onMouseOver={
+                        onFolderToggle
+                          ? () => setHoveredToggle(node.id)
+                          : undefined
+                      }
+                      onMouseOut={
+                        onFolderToggle
+                          ? () => setHoveredToggle(null)
+                          : undefined
+                      }
+                    >
+                      <text
+                        fg={
+                          hoveredToggle === node.id
+                            ? theme.primary
+                            : theme.textMuted
+                        }
+                      >
+                        {chevron}{" "}
+                      </text>
+                    </box>
                     <text fg={theme.textMuted} wrapMode="none">
                       {truncName(node.name, 20)}
                     </text>
@@ -212,13 +277,29 @@ export function Sidebar({
                   flexDirection: "row",
                   justifyContent: "space-between",
                   paddingLeft: (node.depth + 1) * 2,
-                  backgroundColor: isCursor
-                    ? theme.backgroundElement
-                    : undefined,
+                  backgroundColor:
+                    isCursor || isHovered ? theme.backgroundElement : undefined,
                 }}
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isCursor ? theme.primary : theme.backgroundPanel}
+                onMouseDown={(event) => {
+                  if (event.button === MouseButton.RIGHT) {
+                    onRequestContextMenu?.(node.id)
+                  } else if (event.button === MouseButton.LEFT) {
+                    onRequestSelect?.(node.id)
+                    onPaneFocus?.()
+                  } else {
+                    return
+                  }
+                  event.stopPropagation()
+                }}
+                onMouseOver={
+                  onRequestSelect ? () => setHoveredItem(node.id) : undefined
+                }
+                onMouseOut={
+                  onRequestSelect ? () => setHoveredItem(null) : undefined
+                }
               >
                 <box style={{ flexDirection: "row" }}>
                   <text

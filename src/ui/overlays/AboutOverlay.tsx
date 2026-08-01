@@ -2,8 +2,15 @@ import { TextAttributes } from "@opentui/core"
 import pkg from "../../../package.json" with { type: "json" }
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
+import { EscapeClose } from "./EscapeClose"
 
-export function AboutOverlay({ visible }: { visible: boolean }) {
+export function AboutOverlay({
+  visible,
+  onClose = () => {},
+}: {
+  visible: boolean
+  onClose?: () => void
+}) {
   const theme = useTheme()
 
   return (
@@ -19,7 +26,7 @@ export function AboutOverlay({ visible }: { visible: boolean }) {
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
           About
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <EscapeClose onClose={onClose} />
       </box>
       <box style={{ flexDirection: "column", gap: 1, paddingX: 4 }}>
         <text fg={theme.text}>Noodle v{pkg.version}</text>

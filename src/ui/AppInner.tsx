@@ -6,7 +6,11 @@ import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
 import { AppOverlays } from "./AppOverlays"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
-import { deriveRequestParentFolder, getFolderPaths } from "./tree"
+import {
+  deriveRequestParentFolder,
+  getFolderPaths,
+  updateRequestById,
+} from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
 import type { Request as NoodleRequest, Method } from "../schema"
@@ -17,7 +21,10 @@ import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
 import { type Focus, type UrlBarSubFocus } from "./focus"
-import { buildCommandPaletteCommands } from "./commands"
+import {
+  buildCommandPaletteCommands,
+  type CommandPaletteTarget,
+} from "./commands"
 import { useTheme } from "./theme"
 import { StatusBar } from "./StatusBar"
 import { Header } from "./Header"
@@ -138,6 +145,8 @@ export function AppInner({
     null,
   )
   const folderDeletePathRef = useRef<string | null>(null)
+  const [paletteTarget, setPaletteTarget] =
+    useState<CommandPaletteTarget | null>(null)
   const [jumpMode, setJumpMode] = useState(false)
   const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
   const headerFieldRef = useRef<"name" | "color">("name")
@@ -175,6 +184,7 @@ export function AppInner({
     setSelectedId,
     revealRequest,
     revealFolder,
+    toggleFolder,
     expandFolder,
   } = useTreeNavigation(
     items,
@@ -254,6 +264,20 @@ export function AppInner({
   const draft = useRequestDraft(selectedRequest)
   const draftRef = useRef(draft)
   draftRef.current = draft
+  const markRequestSaved = useCallback(
+    (request: NoodleRequest) => {
+      updateCollection((current) =>
+        current
+          ? {
+              ...current,
+              items: updateRequestById(current.items, request.id, request),
+            }
+          : current,
+      )
+      draft.markSaved(request)
+    },
+    [draft.markSaved, updateCollection],
+  )
 
   const availableJumpTargets = useMemo(
     () =>
@@ -312,15 +336,15 @@ export function AppInner({
   const {
     saveState,
     setSaveState,
+    savingRef,
     doSave,
     clearSaveTimer,
-    savingRef,
     saveTimerRef,
   } = useSaveFile(
     collectionDir,
     draft.draft,
     selectedRequest?.id,
-    draft.markSaved,
+    markRequestSaved,
   )
 
   const doSaveRef = useRef(doSave)
@@ -444,6 +468,43 @@ export function AppInner({
     },
   })
 
+  const focusPane = useCallback(
+    (next: Focus) => {
+      setJumpMode(false)
+      if (next !== focus) {
+        eb.commitEdit()
+        folderEb.commitEdit()
+      }
+      if (next === "urlbar") setUrlbarSubFocus("select")
+      if (mode === "collection" && next === "request") eb.enterBrowse()
+      if (mode === "collection" && next === "folder") folderEb.enterBrowse()
+      if (next === "env-vars") envEditor.enterBrowse()
+      setFocus(next)
+    },
+    [
+      eb.commitEdit,
+      eb.enterBrowse,
+      envEditor.enterBrowse,
+      focus,
+      folderEb.commitEdit,
+      folderEb.enterBrowse,
+      mode,
+    ],
+  )
+
+  const focusUrlbar = useCallback(
+    (subFocus: UrlBarSubFocus) => {
+      setJumpMode(false)
+      if (focus !== "urlbar") {
+        eb.commitEdit()
+        folderEb.commitEdit()
+      }
+      setUrlbarSubFocus(subFocus)
+      setFocus("urlbar")
+    },
+    [eb.commitEdit, focus, folderEb.commitEdit],
+  )
+
   const {
     collectionSwitcherVisible,
     setCollectionSwitcherVisible,
@@ -512,11 +573,13 @@ export function AppInner({
     setTimelineDetailEntry,
   } = useOverlayState({
     previewIndex,
-    saveState,
     collectionSwitcherVisible,
     collectionSwitchPending,
     updatePhase: updateFlow.phase,
   })
+  useEffect(() => {
+    if (!commandPaletteVisible) setPaletteTarget(null)
+  }, [commandPaletteVisible])
   const overlayActive = useKeymapSync({
     focus,
     view,
@@ -549,6 +612,7 @@ export function AppInner({
     setCollectionReloadToken,
     setFocus,
     setSaveState,
+    savingRef,
     clearSaveTimer,
     saveTimerRef,
     setSelectedId,
@@ -602,6 +666,36 @@ export function AppInner({
       keybinds,
     ],
   )
+
+  const sendCommand =
+    view === "main" && mode === "collection" && !overlayActive && !jumpMode
+      ? paneMode === "browse" && focus === "request"
+        ? "browse.send"
+        : paneMode === "edit" && focus === "request" && eb.isEditingJsonBody
+          ? "edit.json-send"
+          : paneMode === "base" && focus !== "folder"
+            ? "request.send"
+            : undefined
+      : undefined
+
+  const handleHintActivate = useCallback(
+    (command: string) => {
+      keymap.dispatchCommand(command)
+    },
+    [keymap],
+  )
+
+  const handleAboutActivate = useCallback(() => {
+    setAboutVisible(true)
+  }, [setAboutVisible])
+
+  const handleEnvironmentActivate = useCallback(() => {
+    eb.commitEdit()
+    folderEb.commitEdit()
+    envEditor.openEditor(envState.activeEnv?.name).catch(() => {})
+    setView("env-editor")
+    setFocus("env-sidebar")
+  }, [eb.commitEdit, envEditor, envState.activeEnv?.name, folderEb.commitEdit])
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)
@@ -713,12 +807,10 @@ export function AppInner({
   })
 
   // ── Overlay intercepts ────────────────────────────────────────────
-  useOverlayIntercepts({
+  const overlayActions = useOverlayIntercepts({
     activeOverlay,
     cancelSendRef,
-    saveState,
     setSaveState,
-    doSave,
     envDeletePending,
     envDeletePendingRef,
     setEnvDeletePending,
@@ -823,6 +915,7 @@ export function AppInner({
         activeIndexRef,
         savingRef,
         doSaveRef,
+        folderSaveRef,
         focusedFolderPathRef,
         focusedFolderNameRef,
         folderDeletePathRef,
@@ -853,6 +946,7 @@ export function AppInner({
         setEnvDeletePending,
         onReloadCollection,
         triggerUpdateCheck,
+        paletteTarget,
       }),
     [
       keybinds,
@@ -863,6 +957,7 @@ export function AppInner({
       onReloadCollection,
       view,
       mode,
+      paletteTarget,
       triggerUpdateCheck,
     ],
   )
@@ -879,6 +974,8 @@ export function AppInner({
     >
       <Header
         headerHints={hints.header}
+        onAboutActivate={handleAboutActivate}
+        onHintActivate={handleHintActivate}
         restartVersion={restartVersion}
         updateAvailable={updateAvailable}
       />
@@ -927,6 +1024,31 @@ export function AppInner({
             onQueryVisibleChange={setQueryVisible}
             mode={mode}
             jumpMode={jumpMode}
+            onPaneFocus={focusPane}
+            onUrlbarFocus={focusUrlbar}
+            onRequestSelect={(id) => {
+              revealRequest(id)
+            }}
+            onFolderSelect={(path) => {
+              revealFolder(path)
+            }}
+            onFolderToggle={(path) => {
+              toggleFolder(path)
+            }}
+            onRequestContextMenu={(id) => {
+              if (!isCollection) return
+              focusPane("sidebar")
+              revealRequest(id)
+              setPaletteTarget("request")
+              setCommandPaletteVisible(true)
+            }}
+            onFolderContextMenu={(path) => {
+              if (!isCollection) return
+              focusPane("sidebar")
+              revealFolder(path)
+              setPaletteTarget("folder")
+              setCommandPaletteVisible(true)
+            }}
           />
         ) : mode === "collection" ? (
           <EnvironmentEditorView
@@ -935,19 +1057,23 @@ export function AppInner({
             envColors={envColors}
             focus={focus}
             envHeaderRef={envHeaderRef}
-            setFocus={setFocus}
+            onPaneFocus={focusPane}
             setEnvDeletePending={setEnvDeletePending}
           />
         ) : null}
         <AppOverlays
           keybinds={keybinds}
+          activeOverlay={activeOverlay}
           helpVisible={helpVisible}
+          setHelpVisible={setHelpVisible}
           aboutVisible={aboutVisible}
-          saveState={saveState}
+          setAboutVisible={setAboutVisible}
           envDeletePending={envDeletePending}
           undoAllPending={undoAllPending}
           initPending={initPending}
           collectionSwitchPending={collectionSwitchPending}
+          onConfirmDialog={overlayActions.onConfirm}
+          onCancelDialog={overlayActions.onCancel}
           commandPaletteVisible={commandPaletteVisible}
           commandPaletteCommands={commandPaletteCommands}
           setCommandPaletteVisible={setCommandPaletteVisible}
@@ -981,8 +1107,10 @@ export function AppInner({
           saveTimerRef={saveTimerRef}
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
+          newRequestActions={overlayActions.newRequest}
           importCurlVisible={importCurlVisible}
           importCurlRef={importCurlRef}
+          importCurlActions={overlayActions.importCurl}
           importCurlInitialFolder={requestParentFolder ?? ""}
           activeEnv={envState.activeEnv}
           editRequestVisible={editRequestVisible}
@@ -990,10 +1118,13 @@ export function AppInner({
           folderPaths={folderPaths}
           editRequestInitialFolder={editRequestInitialFolder}
           editRequestRef={editRequestRef}
+          editRequestActions={overlayActions.editRequest}
           cloneRequestVisible={cloneRequestVisible}
           cloneRequestRef={cloneRequestRef}
+          cloneRequestActions={overlayActions.cloneRequest}
           newFolderVisible={newFolderVisible}
           newFolderRef={newFolderRef}
+          newFolderActions={overlayActions.newFolder}
           folderDeletePending={folderDeletePending}
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}
@@ -1028,6 +1159,13 @@ export function AppInner({
         collectionMode={mode}
         overlayActive={overlayActive}
         footerHints={hints.footer}
+        sendCommand={sendCommand}
+        onEnvironmentActivate={
+          view === "main" && mode === "collection" && !overlayActive
+            ? handleEnvironmentActivate
+            : undefined
+        }
+        onHintActivate={handleHintActivate}
       />
     </box>
   )

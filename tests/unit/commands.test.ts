@@ -4,7 +4,13 @@ import { buildCommandPaletteCommands } from "../../src/ui/commands"
 import type { CommandBuilderContext } from "../../src/ui/commands"
 import { bindingDefaults } from "../../src/ui/keybind"
 import type { Collection } from "../../src/schema"
-import { getEditRequestYamlFile } from "../../src/ui/commandActions"
+import {
+  cloneRequest,
+  getEditRequestYamlFile,
+  saveFolder,
+  saveRequest,
+  sendRequest,
+} from "../../src/ui/commandActions"
 
 function minimalContext(): CommandBuilderContext {
   const keybinds = bindingDefaults()
@@ -27,6 +33,7 @@ function minimalContext(): CommandBuilderContext {
     activeIndexRef: { current: 0 } as never,
     savingRef: { current: false } as never,
     doSaveRef: { current: () => {} } as never,
+    folderSaveRef: { current: () => {} } as never,
     focusedFolderPathRef: { current: null } as never,
     focusedFolderNameRef: { current: null } as never,
     folderDeletePathRef: { current: null } as never,
@@ -57,6 +64,7 @@ function minimalContext(): CommandBuilderContext {
     setEnvDeletePending: () => {},
     onReloadCollection: () => {},
     triggerUpdateCheck: () => {},
+    paletteTarget: null,
   }
 }
 
@@ -82,6 +90,38 @@ describe("buildCommandPaletteCommands", () => {
       "Workspace",
       "System",
     ])
+  })
+
+  it("shows only request commands for a request context menu", () => {
+    const ctx = minimalContext()
+    ctx.paletteTarget = "request"
+
+    const ids = buildCommandPaletteCommands(ctx).map((command) => command.id)
+
+    expect(ids).toEqual([
+      "request.generate-client-code",
+      "request.send",
+      "request.save",
+      "request.edit-overlay",
+      "request.clone",
+      "request.delete",
+      "workspace.edit-yaml",
+    ])
+  })
+
+  it("shows only folder commands for a folder context menu", () => {
+    const ctx = minimalContext()
+    ctx.paletteTarget = "folder"
+
+    const commands = buildCommandPaletteCommands(ctx)
+    expect(commands.map((command) => command.id)).toEqual([
+      "folder.save",
+      "request.new",
+      "folder.new",
+      "folder.delete",
+      "workspace.edit-yaml",
+    ])
+    expect(commands.every((command) => command.section === "Folder")).toBe(true)
   })
 
   it("includes the JSONPath response query command", () => {
@@ -179,6 +219,69 @@ describe("buildCommandPaletteCommands", () => {
     expect(opened).toBe(true)
   })
 
+  it("opens the edit request overlay for the selected request", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.selectedIdRef = { current: "users" } as never
+    ctx.collectionRef = {
+      current: {
+        id: "collection",
+        name: "collection",
+        items: [
+          {
+            type: "request",
+            data: {
+              id: "users",
+              name: "Users",
+              method: "GET",
+              url: "https://example.com/users",
+              timeout: 0,
+              headers: {},
+              params: [],
+            },
+          },
+        ],
+      },
+    } as never
+    ctx.setEditRequestVisible = (value) => {
+      opened = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "request.edit-overlay",
+    )
+
+    expect(command?.run()).toBe(true)
+    expect(opened).toBe(true)
+  })
+
+  it("opens the environment editor with the sidebar focused", () => {
+    const ctx = minimalContext()
+    let opened = ""
+    let view = ""
+    let focus = ""
+    ctx.envStateRef = {
+      current: { activeEnv: { name: "development" } },
+    } as never
+    ctx.envEditorRef = {
+      current: { openEditor: (name: string) => (opened = name) },
+    } as never
+    ctx.setView = (value) => {
+      if (typeof value === "string") view = value
+    }
+    ctx.setFocus = (value) => {
+      if (typeof value === "string") focus = value
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "env.editor-open",
+    )!
+    expect(command.run()).toBe(true)
+    expect(opened).toBe("development")
+    expect(view).toBe("env-editor")
+    expect(focus).toBe("env-sidebar")
+  })
+
   it("opens client code generation for the current request draft", () => {
     const ctx = minimalContext()
     let visible = false
@@ -261,6 +364,45 @@ describe("buildCommandPaletteCommands", () => {
     const save = commands.find((c) => c.id === "request.save")!
     save.run()
     expect(saved).toBe(false)
+  })
+
+  it("folder.save only runs for a dirty folder when no save is pending", () => {
+    const ctx = minimalContext()
+    let saved = 0
+    ctx.focusedFolderPathRef = { current: "api" } as never
+    ctx.folderDraftRef = {
+      current: { folderDraft: { path: "api" }, isDirty: false },
+    } as never
+    ctx.folderSaveRef = { current: () => saved++ } as never
+
+    expect(saveFolder(ctx)).toBe(false)
+    expect(saved).toBe(0)
+
+    ctx.folderDraftRef = {
+      current: { folderDraft: { path: "api" }, isDirty: true },
+    } as never
+    ctx.savingRef = { current: true } as never
+    expect(saveFolder(ctx)).toBe(false)
+
+    ctx.savingRef = { current: false } as never
+    expect(saveFolder(ctx)).toBe(true)
+    expect(saved).toBe(1)
+  })
+
+  it("does not run request actions while a folder is focused", () => {
+    const ctx = minimalContext()
+    let sent = false
+    ctx.focusedFolderPathRef = { current: "api" } as never
+    ctx.trySendRef = {
+      current: () => {
+        sent = true
+      },
+    } as never
+
+    expect(sendRequest(ctx)).toBe(false)
+    expect(saveRequest(ctx)).toBe(false)
+    expect(cloneRequest(ctx)).toBe(false)
+    expect(sent).toBe(false)
   })
 
   it("pane.expand toggles expanded when focus is request", () => {

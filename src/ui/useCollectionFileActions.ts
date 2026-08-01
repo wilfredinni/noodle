@@ -23,7 +23,7 @@ import type { SaveState } from "./saveState"
 interface UseCollectionFileActionsOptions {
   collectionDir: string
   collection: Collection | null
-  updateCollection: (collection: Collection) => void
+  updateCollection: Dispatch<SetStateAction<Collection | null>>
   selectedRequest: NoodleRequest | null
   requestDraftRef: MutableRefObject<UseRequestDraftResult>
   folderDraftRef: MutableRefObject<UseFolderDraftResult>
@@ -32,6 +32,7 @@ interface UseCollectionFileActionsOptions {
   setCollectionReloadToken: Dispatch<SetStateAction<number>>
   setFocus: Dispatch<SetStateAction<Focus>>
   setSaveState: Dispatch<SetStateAction<SaveState>>
+  savingRef: MutableRefObject<boolean>
   clearSaveTimer: () => void
   saveTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
   setSelectedId: (id: string) => void
@@ -58,6 +59,7 @@ export function useCollectionFileActions({
   setCollectionReloadToken,
   setFocus,
   setSaveState,
+  savingRef,
   clearSaveTimer,
   saveTimerRef,
   setSelectedId,
@@ -92,29 +94,37 @@ export function useCollectionFileActions({
 
   const handleFolderSave = useCallback(async () => {
     const draftFolder = folderDraftRef.current?.folderDraft
-    if (!draftFolder || !collection) return
+    if (!draftFolder || !collection || savingRef.current) return
+    savingRef.current = true
     try {
       await saveFolder(collectionDir, draftFolder)
       folderDraftRef.current?.markSaved(draftFolder)
-      updateCollection({
-        ...collection,
-        items: updateFolderByPath(
-          collection.items,
-          draftFolder.path,
-          draftFolder,
-        ),
-      })
+      updateCollection((current) =>
+        current
+          ? {
+              ...current,
+              items: updateFolderByPath(
+                current.items,
+                draftFolder.path,
+                draftFolder,
+              ),
+            }
+          : current,
+      )
       showSaveResult({
         kind: "success",
         message: `Successfully saved folder ${draftFolder.name}`,
       })
     } catch (e: unknown) {
       showError(e)
+    } finally {
+      savingRef.current = false
     }
   }, [
     collection,
     collectionDir,
     folderDraftRef,
+    savingRef,
     showError,
     showSaveResult,
     updateCollection,

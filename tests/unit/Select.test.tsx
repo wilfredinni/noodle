@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
+import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { Select, type SelectItem } from "../../src/ui/Select"
@@ -71,6 +72,143 @@ describe("Select", () => {
     })
     await renderOnce()
     expect(open).toBe(true)
+    cleanup()
+  })
+
+  it("opens and selects with left clicks", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let selected = ""
+    let activated = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            focused
+            onChange={(id) => {
+              selected = id
+            }}
+            onActivate={() => activated++}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    expect(activated).toBe(1)
+    await renderOnce()
+    expect(captureCharFrame()).toContain("POST")
+
+    await act(async () => {
+      await mockMouse.click(2, 3, MouseButtons.LEFT)
+    })
+    expect(selected).toBe("post")
+    cleanup()
+  })
+
+  it("does not open or select when non-interactive", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let selected = ""
+    let activated = 0
+    let open = false
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            onChange={(id) => {
+              selected = id
+            }}
+            onActivate={() => activated++}
+            onOpenChange={(value) => {
+              open = value
+            }}
+            interactive={false}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+
+    expect(activated).toBe(0)
+    expect(open).toBe(false)
+    expect(selected).toBe("")
+    cleanup()
+  })
+
+  it("closes when its trigger is clicked again", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let open = false
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            focused
+            onOpenChange={(value) => {
+              open = value
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(false)
+    cleanup()
+  })
+
+  it("closes when clicking outside the dropdown", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let open = false
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Select
+            items={testItems}
+            focused
+            onOpenChange={(value) => {
+              open = value
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 20 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(1, 0, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(30, 15, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(open).toBe(false)
     cleanup()
   })
 

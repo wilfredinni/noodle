@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
-import type { InputRenderable, ScrollBoxRenderable } from "@opentui/core"
+import {
+  MouseButton,
+  type InputRenderable,
+  type ScrollBoxRenderable,
+} from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
 import type { NetworkError, TimelineEntry } from "../schema"
@@ -49,6 +53,7 @@ export function ResponsePane({
   expanded,
   jumpMode = false,
   onQueryVisibleChange,
+  onPaneFocus,
 }: {
   state: SendState
   focused?: boolean
@@ -63,6 +68,7 @@ export function ResponsePane({
   expanded?: "request" | "response" | null
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -87,6 +93,7 @@ export function ResponsePane({
   const [spinnerIdx, setSpinnerIdx] = useState(0)
   const [queryVisible, setQueryVisible] = useState(false)
   const [query, setQuery] = useState("")
+  const [hoveringRawBody, setHoveringRawBody] = useState(false)
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
   const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
@@ -354,9 +361,17 @@ export function ResponsePane({
       customBorderChars={FullBorder.customBorderChars}
       borderColor={borderColor}
       titleRight={headerRight}
+      onPaneFocus={onPaneFocus}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
-        <Tabs tabs={tabs} activeId={activeTab}>
+        <Tabs
+          tabs={tabs}
+          activeId={activeTab}
+          onChange={(tab) => {
+            onPaneFocus?.()
+            setActiveTab(tab as ResponseTabKind)
+          }}
+        >
           {activeTab === "network" ? (
             <NetworkTab
               events={networkEvents}
@@ -387,6 +402,7 @@ export function ResponsePane({
               entries={timelineEntries ?? []}
               focused={focused}
               onOpenEntry={onOpenTimelineEntry}
+              onPaneFocus={onPaneFocus}
               layout={layout}
               expanded={expanded}
             />
@@ -450,7 +466,25 @@ export function ResponsePane({
                       <text
                         fg={theme.warning}
                       >{`Body is ${formatSize(bodySize)}. It was not rendered automatically.`}</text>
-                      <text fg={theme.textMuted}>v view raw · ctrl+b copy</text>
+                      <box
+                        onMouseDown={(event) => {
+                          if (event.button !== MouseButton.LEFT) return
+                          onPaneFocus?.()
+                          setShowLargeBody(true)
+                          event.stopPropagation()
+                        }}
+                        onMouseOver={() => setHoveringRawBody(true)}
+                        onMouseOut={() => setHoveringRawBody(false)}
+                        style={{
+                          backgroundColor: hoveringRawBody
+                            ? theme.backgroundElement
+                            : undefined,
+                        }}
+                      >
+                        <text fg={theme.textMuted}>
+                          v view raw · ctrl+b copy
+                        </text>
+                      </box>
                     </box>
                   ) : displayedBody === "" ? (
                     <text fg={theme.textMuted}>(no body)</text>

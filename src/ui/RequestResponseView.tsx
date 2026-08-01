@@ -1,7 +1,7 @@
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
-import type { Environment, TimelineEntry } from "../schema"
+import type { BodyType, Environment, TimelineEntry } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
 import type { Focus } from "./focus"
@@ -10,6 +10,7 @@ import type { ResponseTabKind } from "./tabs/uiState"
 import type { SendState } from "./sendState"
 import type { RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
+import type { FieldKind } from "./editMode"
 
 interface RequestResponseViewProps {
   draft: UseRequestDraftResult
@@ -32,6 +33,19 @@ interface RequestResponseViewProps {
   responseBodyForCopyRef?: RefObject<string | null>
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onPaneFocus?: (focus: Focus) => void
+  onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
+  onRequestTabChange?: (tab: FieldKind) => void
+  onRequestBodyTypeFocus?: () => void
+  onRequestAuthFocusRow?: (row: number) => void
+  onRequestBodyEditorFocus?: (bodyType: BodyType) => void
+  onRequestFieldActivate?: (
+    field: FieldKind,
+    row: number,
+    addingRow?: boolean,
+  ) => void
+  onRequestFieldToggle?: (field: FieldKind, row: number) => void
+  onRequestInteraction?: () => void
 }
 
 export function RequestResponseView({
@@ -55,6 +69,15 @@ export function RequestResponseView({
   responseBodyForCopyRef,
   jumpMode = false,
   onQueryVisibleChange,
+  onPaneFocus = () => {},
+  onUrlbarFocus,
+  onRequestTabChange,
+  onRequestBodyTypeFocus,
+  onRequestAuthFocusRow,
+  onRequestBodyEditorFocus,
+  onRequestFieldActivate,
+  onRequestFieldToggle,
+  onRequestInteraction,
 }: RequestResponseViewProps) {
   const content = (
     <>
@@ -76,6 +99,15 @@ export function RequestResponseView({
           onBodyChange={draft.setBody}
           onSelectOpenChange={setSelectOpen}
           jumpMode={jumpMode}
+          onPaneFocus={() => onPaneFocus("request")}
+          onTabChange={onRequestTabChange}
+          onBodyTypeFocus={onRequestBodyTypeFocus}
+          onAuthFocusRow={onRequestAuthFocusRow}
+          onBodyEditorFocus={onRequestBodyEditorFocus}
+          onFieldActivate={onRequestFieldActivate}
+          onFieldToggle={onRequestFieldToggle}
+          onInteraction={onRequestInteraction}
+          interactive={urlbarInteractive}
         />
       )}
       {expanded !== "request" && (
@@ -94,6 +126,7 @@ export function RequestResponseView({
           expanded={expanded}
           jumpMode={jumpMode && draft.draft !== null}
           onQueryVisibleChange={onQueryVisibleChange}
+          onPaneFocus={() => onPaneFocus("response")}
         />
       )}
     </>
@@ -114,6 +147,8 @@ export function RequestResponseView({
         subFocus={urlbarSubFocus}
         activeEnv={activeEnv}
         jumpMode={jumpMode && draft.draft !== null && expanded !== "response"}
+        onPaneFocus={() => onPaneFocus("urlbar")}
+        onSubFocus={onUrlbarFocus}
       />
       <box
         key={layout}

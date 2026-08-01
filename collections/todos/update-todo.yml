@@ -1,11 +1,14 @@
 name: Update Todo
 method: PATCH
-url: $base_url/todos/1
+url: $base_url/todos/:todoId
 timeout: 0
 followRedirects: true
 maxRedirects: 5
 headers:
   Content-Type: application/json
+path_params:
+  - name: todoId
+    value: '1'
 body: |-
   {
     "completed": true

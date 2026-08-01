@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { LineNumberRenderable, LineSign } from "@opentui/core"
-import type { Highlight } from "@opentui/core"
+import {
+  MouseButton,
+  type Highlight,
+  type LineNumberRenderable,
+  type LineSign,
+} from "@opentui/core"
 import type { Request, Environment } from "../../schema"
 import { formatBody } from "../formatRequest"
 import type { EditState } from "../editMode"
@@ -27,12 +31,16 @@ export function BodyTypeSelector({
   browseActive,
   onBodyTypeChange,
   onSelectOpenChange,
+  onActivate,
+  interactive = true,
 }: {
   request: Request
   editState: EditState
   browseActive: boolean
   onBodyTypeChange: (t: BodyType) => void
   onSelectOpenChange?: (open: boolean) => void
+  onActivate?: () => void
+  interactive?: boolean
 }) {
   const bodyType = request.bodyType ?? "json"
 
@@ -75,6 +83,8 @@ export function BodyTypeSelector({
         }
         badge={false}
         onOpenChange={handleBodyTypeSelectOpen}
+        onActivate={onActivate}
+        interactive={interactive}
       />
     </box>
   )
@@ -92,6 +102,10 @@ export function BodySection({
   theme,
   activeEnv,
   onBodyChange,
+  onEditorActivate,
+  onEditorRef,
+  onFormRowActivate,
+  onFormRowToggle,
 }: {
   request: Request
   editState: EditState
@@ -104,6 +118,10 @@ export function BodySection({
   theme: Theme
   activeEnv?: Environment | null
   onBodyChange: (body: string) => void
+  onEditorActivate?: () => void
+  onEditorRef?: (editor: CodeEditorRenderable | null) => void
+  onFormRowActivate?: (row: number, addingRow: boolean) => void
+  onFormRowToggle?: (row: number) => void
 }) {
   const bodyType = request.bodyType ?? "json"
 
@@ -116,6 +134,7 @@ export function BodySection({
     useState<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const hoveredFoldLineRef = useRef<number | null>(null)
 
   const extraHighlights = useCallback(
     (content: string): Highlight[] => {
@@ -144,14 +163,46 @@ export function BodySection({
     onBodyChange(ed.plainText)
   }, [onBodyChange, setEditValue])
 
-  const handleFoldsChange = useCallback(() => {
-    const ed = editorRef.current
-    const ln = lineNumberRef.current
-    if (ed && ln) {
-      ln.setLineSigns(reserveFoldSigns(ed.getFoldSigns()))
+  const syncFoldSigns = useCallback(
+    (hoveredFoldLine?: number) => {
+      const ed = editorRef.current
+      const ln = lineNumberRef.current
+      if (!ed || !ln) return
+      const signs = ed.getFoldSigns()
+      const sign =
+        hoveredFoldLine === undefined ? undefined : signs.get(hoveredFoldLine)
+      if (sign && hoveredFoldLine !== undefined) {
+        signs.set(hoveredFoldLine, { ...sign, beforeColor: theme.primary })
+      }
+      ln.setLineSigns(reserveFoldSigns(signs))
       ln.setHideLineNumbers(ed.getHiddenLineNumbers())
-    }
-  }, [])
+    },
+    [theme.primary],
+  )
+
+  const handleFoldsChange = useCallback(() => {
+    hoveredFoldLineRef.current = null
+    syncFoldSigns()
+  }, [syncFoldSigns])
+
+  const updateFoldHover = useCallback(
+    (event: { x: number; y: number }) => {
+      const editor = editorRef.current
+      const lineNumbers = lineNumberRef.current
+      const displayLine =
+        editor && lineNumbers && event.x === lineNumbers.x
+          ? editor.lineInfo.lineSources[event.y - editor.y + editor.scrollY]
+          : undefined
+      const hoveredFoldLine =
+        displayLine !== undefined && editor?.getFoldSigns().has(displayLine)
+          ? displayLine
+          : null
+      if (hoveredFoldLine === hoveredFoldLineRef.current) return
+      hoveredFoldLineRef.current = hoveredFoldLine
+      syncFoldSigns(hoveredFoldLine ?? undefined)
+    },
+    [syncFoldSigns],
+  )
 
   const editingBody = inEdit && editState.cursor.field === "body"
 
@@ -202,6 +253,8 @@ export function BodySection({
           browseActive={browseActive}
           theme={theme}
           activeEnv={activeEnv}
+          onActivateRow={onFormRowActivate}
+          onToggleRow={onFormRowToggle}
         />
       ) : isBinaryMode ? (
         editingBody ? (
@@ -216,15 +269,30 @@ export function BodySection({
             focusedBackgroundColor={theme.borderSubtle}
           />
         ) : (
-          <VarInput
-            value={request.filePath || "(no file selected)"}
-            env={activeEnv ?? null}
-            isEditing={false}
-          />
+          <box
+            onMouseDown={
+              onEditorActivate
+                ? (event) => {
+                    if (event.button !== MouseButton.LEFT) return
+                    onEditorActivate()
+                    event.stopPropagation()
+                  }
+                : undefined
+            }
+          >
+            <VarInput
+              value={request.filePath || "(no file selected)"}
+              env={activeEnv ?? null}
+              isEditing={false}
+            />
+          </box>
         )
       ) : (
         <box
           id="body-field"
+          onMouseDown={(event) => {
+            if (event.button === MouseButton.LEFT) onEditorActivate?.()
+          }}
           style={{
             flexDirection: "column",
             gap: 1,
@@ -242,6 +310,40 @@ export function BodySection({
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
             lineSigns={RESERVED_FOLD_SIGN}
+            onMouseMove={updateFoldHover}
+            onMouseOut={() => {
+              if (hoveredFoldLineRef.current === null) return
+              hoveredFoldLineRef.current = null
+              syncFoldSigns()
+            }}
+            onMouseScroll={(event) => {
+              const editor = editorRef.current
+              if (!editor || !event.scroll) return
+              if (event.scroll.direction === "up") {
+                editor.scrollBy(-event.scroll.delta)
+              } else if (event.scroll.direction === "down") {
+                editor.scrollBy(event.scroll.delta)
+              } else {
+                return
+              }
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseDown={(event) => {
+              const editor = editorRef.current
+              if (event.button !== MouseButton.LEFT || !editor) return
+              if (event.x >= editor.x) return
+              const displayLine =
+                editor.lineInfo.lineSources[event.y - editor.y + editor.scrollY]
+              if (
+                displayLine === undefined ||
+                !editor.getFoldSigns().has(displayLine)
+              )
+                return
+              editor.toggleFold(displayLine)
+              event.preventDefault()
+              event.stopPropagation()
+            }}
             style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
             width="100%"
           >
@@ -249,6 +351,7 @@ export function BodySection({
               ref={(editor) => {
                 editorRef.current = editor
                 setEditorInstance(editor)
+                onEditorRef?.(editor)
               }}
               filetype="json"
               theme={theme}

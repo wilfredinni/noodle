@@ -1,7 +1,7 @@
 import { useTheme } from "../theme"
 import { FullBorder, LeftBar } from "../borders"
-import { ScrollBoxRenderable } from "@opentui/core"
-import { useEffect, useRef } from "react"
+import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
+import { useEffect, useRef, useState } from "react"
 import { VALID_COLORS } from "../../env/constants"
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
@@ -12,11 +12,12 @@ export function EnvSidebar({
   activeEnvName: _activeEnvName,
   envColors,
   dirty,
-  onSelectEnv: _onSelectEnv,
+  onSelectEnv,
   onCreate: _onCreate,
   onClone: _onClone,
   onDelete: _onDelete,
   focused,
+  onPaneFocus,
 }: {
   envNames: string[]
   selectedEnvName: string | null
@@ -28,9 +29,11 @@ export function EnvSidebar({
   onClone: () => void
   onDelete: () => void
   focused: boolean
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [hoveredEnvName, setHoveredEnvName] = useState<string | null>(null)
 
   const selectedIndex = selectedEnvName ? envNames.indexOf(selectedEnvName) : -1
 
@@ -53,7 +56,7 @@ export function EnvSidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      titleLeft={
+      titleRight={
         <Badge
           bg={theme.backgroundPanel}
           fg={focused ? theme.primary : theme.textMuted}
@@ -61,6 +64,7 @@ export function EnvSidebar({
           Environments
         </Badge>
       }
+      onPaneFocus={onPaneFocus}
     >
       {envNames.length === 0 ? (
         <text fg={theme.textMuted}>(no environments)</text>
@@ -80,6 +84,7 @@ export function EnvSidebar({
           {envNames.map((name, i) => {
             const isSelected = name === selectedEnvName
             const isDirty = isSelected && dirty
+            const isHovered = hoveredEnvName === name
             const colorKey = envColors?.[name]
             const colorHex =
               colorKey !== undefined
@@ -94,13 +99,22 @@ export function EnvSidebar({
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  backgroundColor: isSelected
-                    ? theme.backgroundElement
-                    : undefined,
+                  backgroundColor:
+                    isSelected || isHovered
+                      ? theme.backgroundElement
+                      : undefined,
                 }}
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
+                onMouseDown={(event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  onSelectEnv(name)
+                  onPaneFocus?.()
+                  event.stopPropagation()
+                }}
+                onMouseOver={() => setHoveredEnvName(name)}
+                onMouseOut={() => setHoveredEnvName(null)}
               >
                 <box style={{ flexDirection: "row" }}>
                   {colorHex && <text fg={colorHex}>● </text>}

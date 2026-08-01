@@ -12,7 +12,6 @@ import type { InputRenderable } from "@opentui/core"
 import { Select, type SelectItem } from "../Select"
 import { VALID_COLORS } from "../../env/constants"
 import { Frame } from "../Frame"
-import { Badge } from "../Badge"
 
 export interface EnvHeaderPaneHandle {
   focusName: () => void
@@ -27,9 +26,10 @@ export const EnvHeaderPane = forwardRef<
     onNameChange: (name: string) => void
     onColorChange: (color: string | undefined) => void
     focused: boolean
+    onPaneFocus?: () => void
   }
 >(function EnvHeaderPane(
-  { name, color, onNameChange, onColorChange, focused },
+  { name, color, onNameChange, onColorChange, focused, onPaneFocus },
   ref,
 ) {
   const theme = useTheme()
@@ -37,6 +37,7 @@ export const EnvHeaderPane = forwardRef<
   const prevFocused = useRef(false)
   const [colorFocused, setColorFocused] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
+  const nameFocused = focused && !colorFocused
 
   useImperativeHandle(ref, () => ({
     focusName: () => {
@@ -54,11 +55,11 @@ export const EnvHeaderPane = forwardRef<
   }, [focused])
 
   useEffect(() => {
-    if (focused && !prevFocused.current) {
+    if (focused && !prevFocused.current && !colorFocused) {
       nameRef.current?.focus()
     }
     prevFocused.current = focused
-  }, [focused])
+  }, [focused, colorFocused])
 
   const colorItems: SelectItem[] = useMemo(() => {
     const t = theme as unknown as Record<string, string>
@@ -88,25 +89,21 @@ export const EnvHeaderPane = forwardRef<
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      titleRight={
-        <Badge
-          bg={theme.backgroundPanel}
-          fg={focused ? theme.primary : theme.textMuted}
-        >
-          Environment
-        </Badge>
-      }
+      onPaneFocus={onPaneFocus}
     >
       <input
         ref={nameRef}
         value={name}
         placeholder="Environment name"
         onInput={onNameChange}
-        focused={focused}
-        backgroundColor={theme.backgroundElement}
+        focused={nameFocused}
+        backgroundColor={
+          nameFocused ? theme.backgroundElement : theme.backgroundPanel
+        }
         focusedBackgroundColor={theme.borderSubtle}
         textColor={theme.text}
         cursorColor={theme.primary}
+        paddingX={1}
         style={{ flexGrow: 1 }}
       />
       <Select
@@ -118,6 +115,7 @@ export const EnvHeaderPane = forwardRef<
         dropdownAlign="right"
         badge
         onOpenChange={setSelectOpen}
+        onActivate={() => setColorFocused(true)}
       />
     </Frame>
   )

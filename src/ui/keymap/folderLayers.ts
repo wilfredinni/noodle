@@ -1,5 +1,5 @@
 import type { UseBindingsLayer } from "@opentui/keymap/react"
-import { cloneRequest, deleteFolder } from "../commandActions"
+import { cloneRequest, deleteFolder, saveFolder } from "../commandActions"
 import type { AppKeymapContext } from "./types"
 
 export function createFolderLayers(
@@ -65,7 +65,7 @@ export function createFolderLayers(
       {
         name: "folder.save",
         enabled: canEdit,
-        run: () => folder.folderSaveRef.current(),
+        run: () => saveFolder(actions),
       },
       {
         name: "folder.delete",

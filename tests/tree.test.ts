@@ -3,6 +3,7 @@ import {
   findRequestById,
   findFolderByPath,
   updateFolderByPath,
+  updateRequestById,
   flattenRequests,
   visibleNodes,
   getFolderPaths,
@@ -143,6 +144,33 @@ describe("updateFolderByPath", () => {
       children: [],
     })
     expect(updated).toEqual(nestedItems)
+  })
+})
+
+describe("updateRequestById", () => {
+  it("replaces a nested request with its saved state", () => {
+    const saved = {
+      id: "auth/login",
+      name: "Login",
+      method: "POST" as const,
+      url: "https://example.com/users/:photoId",
+      headers: { Authorization: { value: "Bearer token", enabled: true } },
+      params: [{ name: "include", value: "metadata", enabled: true }],
+      pathParams: [{ name: "photoId", value: "42", enabled: true }],
+      body: '{"enabled":true}',
+      bodyType: "json" as const,
+      timeout: 5000,
+      followRedirects: false,
+      maxRedirects: 2,
+      auth: { type: "bearer" as const, token: "token" },
+    }
+
+    const updated = updateRequestById(nestedItems, saved.id, saved)
+
+    expect(findRequestById(updated, saved.id)).toEqual(saved)
+    expect(findRequestById(updated, "users/list")?.url).toBe(
+      "https://example.com",
+    )
   })
 })
 

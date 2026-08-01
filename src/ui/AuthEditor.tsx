@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { MouseButton } from "@opentui/core"
 import type { Auth, Environment } from "../schema"
 import type { EditState } from "./editMode"
 import { Select, type SelectItem } from "./Select"
@@ -104,8 +105,11 @@ export interface AuthEditorProps {
   onAuthTypeChange: (t: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
   onSelectOpenChange?: (open: boolean) => void
+  onFocusRow?: (row: number) => void
+  onActivateRow?: (row: number) => void
   idPrefix?: string
   showInherit?: boolean
+  interactive?: boolean
 }
 
 export function AuthEditor({
@@ -119,11 +123,15 @@ export function AuthEditor({
   onAuthTypeChange,
   onApiKeyPlacementChange,
   onSelectOpenChange,
+  onFocusRow,
+  onActivateRow,
   idPrefix = "auth",
   showInherit = false,
+  interactive = true,
 }: AuthEditorProps) {
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
   const [placementSelectOpen, setPlacementSelectOpen] = useState(false)
+  const [hoveredField, setHoveredField] = useState<string | null>(null)
 
   const { type, fieldDefs } = getAuthRows(auth)
   const authItems = showInherit
@@ -163,6 +171,8 @@ export function AuthEditor({
           focused={isTypeSelectorActive}
           badge={false}
           onOpenChange={handleTypeSelectOpen}
+          onActivate={() => onFocusRow?.(0)}
+          interactive={interactive}
         />
       </box>
 
@@ -176,6 +186,8 @@ export function AuthEditor({
           editState.cursor.field === "auth" &&
           editState.cursor.row === def.row
         const fieldValue = getFieldValue(auth, def.field)
+        const canHoverField =
+          !isEditingRow && !def.isPlacement && onActivateRow !== undefined
         const displayValue = def.isSecret
           ? maskIfSecret(fieldValue, true)
           : fieldValue
@@ -199,9 +211,27 @@ export function AuthEditor({
                 flexDirection:
                   isEditingRow && !def.isPlacement ? "row" : undefined,
                 gap: isEditingRow && !def.isPlacement ? 1 : undefined,
-                backgroundColor: isActive ? theme.backgroundElement : undefined,
+                backgroundColor:
+                  isActive || (canHoverField && hoveredField === def.field)
+                    ? theme.backgroundElement
+                    : undefined,
                 paddingLeft: 1,
               }}
+              onMouseDown={
+                !isEditingRow && !def.isPlacement && onActivateRow
+                  ? (event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      onActivateRow(def.row)
+                      event.stopPropagation()
+                    }
+                  : undefined
+              }
+              onMouseOver={
+                canHoverField ? () => setHoveredField(def.field) : undefined
+              }
+              onMouseOut={
+                canHoverField ? () => setHoveredField(null) : undefined
+              }
             >
               {isEditingRow && !def.isPlacement ? (
                 <>
@@ -226,6 +256,8 @@ export function AuthEditor({
                     focused={isActive}
                     badge={false}
                     onOpenChange={handlePlacementSelectOpen}
+                    onActivate={() => onFocusRow?.(def.row)}
+                    interactive={interactive}
                   />
                 </box>
               ) : (

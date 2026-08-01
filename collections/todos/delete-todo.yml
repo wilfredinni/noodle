@@ -1,7 +1,10 @@
 name: Delete Todo
 method: DELETE
-url: $base_url/todos/1
+url: $base_url/todos/:todoId
 timeout: 0
 followRedirects: true
 maxRedirects: 5
+path_params:
+  - name: todoId
+    value: '1'
 body_type: none

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test"
+import { act } from "react"
+import { RGBA } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { StatusBar } from "../../src/ui/StatusBar"
 import { bindingDefaults } from "../../src/ui/keybind"
 import { getKeybindingHints } from "../../src/ui/keybindingHints"
@@ -8,6 +11,12 @@ import type { HintSegment } from "../../src/ui/keybindingHints"
 
 const kb = bindingDefaults()
 const emptyHints: HintSegment[] = []
+
+function textPosition(frame: string, text: string): [number, number] {
+  const lines = frame.split("\n")
+  const y = lines.findIndex((line) => line.includes(text))
+  return [lines[y].indexOf(text), y]
+}
 
 function sidebarHints(): HintSegment[] {
   return getKeybindingHints({
@@ -94,6 +103,7 @@ describe("StatusBar component", () => {
     expect(frame).toContain("new")
     expect(frame).toContain("new folder")
     expect(frame).toContain("delete")
+    expect(frame).not.toContain("·")
   })
 
   it("returns empty contextual shortcuts when overlay is active", async () => {
@@ -119,5 +129,134 @@ describe("StatusBar component", () => {
     const frame = captureCharFrame()
 
     expect(frame).toContain("dev")
+  })
+
+  it("activates footer and send hints on left click only", async () => {
+    const activated: string[] = []
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          method="GET"
+          url="/users"
+          isDirty={false}
+          sendState={{ status: "idle" }}
+          envLabel="dev"
+          saveState={{ kind: "idle" }}
+          kb={kb}
+          footerHints={[{ key: "^s", word: "save", command: "request.save" }]}
+          sendCommand="request.send"
+          onHintActivate={(command) => activated.push(command)}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    const [saveX, saveY] = textPosition(frame, "save")
+    const [sendX, sendY] = textPosition(frame, "send")
+    await mockMouse.click(saveX, saveY, MouseButtons.RIGHT)
+    await mockMouse.click(sendX, sendY, MouseButtons.RIGHT)
+    expect(activated).toEqual([])
+
+    await mockMouse.click(saveX, saveY, MouseButtons.LEFT)
+    await mockMouse.click(sendX, sendY, MouseButtons.LEFT)
+    expect(activated).toEqual(["request.save", "request.send"])
+  })
+
+  it("leaves a gap between footer hints", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          method="GET"
+          url="/users"
+          isDirty={false}
+          sendState={{ status: "idle" }}
+          envLabel="dev"
+          saveState={{ kind: "idle" }}
+          kb={kb}
+          footerHints={[
+            { key: "^s", word: "save", command: "request.save" },
+            { key: "^n", word: "new", command: "request.new" },
+          ]}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame.indexOf("^n") - frame.indexOf("save") - 4).toBe(3)
+  })
+
+  it("opens the environment editor on left click of the environment", async () => {
+    let opened = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          method="GET"
+          url="/users"
+          isDirty={false}
+          sendState={{ status: "idle" }}
+          envLabel="dev"
+          saveState={{ kind: "idle" }}
+          kb={kb}
+          footerHints={emptyHints}
+          onEnvironmentActivate={() => opened++}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 1 },
+    )
+    await renderOnce()
+
+    const [x, y] = textPosition(captureCharFrame(), "dev")
+    await mockMouse.click(x, y, MouseButtons.RIGHT)
+    expect(opened).toBe(0)
+
+    await mockMouse.click(x, y, MouseButtons.LEFT)
+    expect(opened).toBe(1)
+  })
+
+  it("clears a hint hover when it is activated", async () => {
+    const { renderOnce, captureCharFrame, captureSpans, mockMouse } =
+      await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <StatusBar
+            method="GET"
+            url="/users"
+            isDirty={false}
+            sendState={{ status: "idle" }}
+            envLabel="dev"
+            saveState={{ kind: "idle" }}
+            kb={kb}
+            footerHints={[{ key: "^s", word: "save", command: "request.save" }]}
+            onHintActivate={() => {}}
+          />
+        </ThemeProvider>,
+        { width: 80, height: 1 },
+      )
+    await renderOnce()
+
+    const [x, y] = textPosition(captureCharFrame(), "save")
+    await act(async () => {
+      await mockMouse.moveTo(x, y)
+    })
+    await renderOnce()
+
+    const hoverColor = RGBA.fromHex(THEMES[0]!.backgroundElement)
+    const hoveredSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("save"))
+    expect(hoveredSpan!.bg.equals(hoverColor)).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    })
+    await renderOnce()
+
+    const clickedSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("save"))
+    expect(clickedSpan!.bg.equals(hoverColor)).toBe(false)
   })
 })

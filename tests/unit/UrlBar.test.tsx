@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
+import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { UrlBar } from "../../src/ui/UrlBar"
@@ -14,6 +15,8 @@ function UrlBarHarness({
   onMethodChange,
   onDefocus,
   jumpMode = false,
+  onPaneFocus,
+  onSubFocus,
 }: {
   subFocus?: "select" | "text"
   focused?: boolean
@@ -21,6 +24,8 @@ function UrlBarHarness({
   onMethodChange?: (method: string) => void
   onDefocus?: (rawUrl: string) => void
   jumpMode?: boolean
+  onPaneFocus?: () => void
+  onSubFocus?: (subFocus: "select" | "text") => void
 }) {
   const [url, setUrl] = useState("https://example.com")
   const [method, setMethod] = useState<Method>(initialMethod)
@@ -38,6 +43,8 @@ function UrlBarHarness({
       focused={focused}
       subFocus={subFocus}
       jumpMode={jumpMode}
+      onPaneFocus={onPaneFocus}
+      onSubFocus={onSubFocus}
       activeEnv={{
         name: "test",
         vars: { base_url: "https://api.example.com" },
@@ -47,6 +54,50 @@ function UrlBarHarness({
 }
 
 describe("UrlBar", () => {
+  it("focuses its pane only on a left click", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let focusCount = 0
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness onPaneFocus={() => focusCount++} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(0, 0, MouseButtons.RIGHT)
+    expect(focusCount).toBe(0)
+
+    await mockMouse.click(0, 0, MouseButtons.LEFT)
+    expect(focusCount).toBe(1)
+    cleanup()
+  })
+
+  it("focuses the URL text input on left click", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let subFocus = ""
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness
+            subFocus="select"
+            onSubFocus={(next) => {
+              subFocus = next
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(12, 1, MouseButtons.LEFT)
+    expect(subFocus).toBe("text")
+    cleanup()
+  })
+
   it("renders jump badges above real method and URL controls", async () => {
     const { keymap, cleanup } = setupKeymap()
     try {

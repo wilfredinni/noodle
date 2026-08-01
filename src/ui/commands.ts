@@ -14,6 +14,8 @@ import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
 import {
   saveRequest,
+  saveFolder,
+  editRequestOverlay,
   getEditRequestYamlFile,
   getEditFolderYamlFile,
   cloneRequest,
@@ -38,6 +40,8 @@ import {
   type CommandActionsConfig,
 } from "./commandActions"
 
+export type CommandPaletteTarget = "request" | "folder"
+
 export interface CommandBuilderContext {
   keybinds: Keybinds
   collectionDir: string
@@ -57,6 +61,7 @@ export interface CommandBuilderContext {
   activeIndexRef: RefObject<number>
   savingRef: RefObject<boolean>
   doSaveRef: RefObject<() => void>
+  folderSaveRef: RefObject<() => void>
   focusedFolderPathRef: RefObject<string | null>
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
@@ -112,6 +117,7 @@ export interface CommandBuilderContext {
   ) => void
   onReloadCollection: () => void
   triggerUpdateCheck: () => void
+  paletteTarget: CommandPaletteTarget | null
 }
 
 function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
@@ -133,6 +139,7 @@ function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
     activeIndexRef: ctx.activeIndexRef,
     savingRef: ctx.savingRef,
     doSaveRef: ctx.doSaveRef,
+    folderSaveRef: ctx.folderSaveRef,
     focusedFolderPathRef: ctx.focusedFolderPathRef,
     focusedFolderNameRef: ctx.focusedFolderNameRef,
     folderDeletePathRef: ctx.folderDeletePathRef,
@@ -171,6 +178,7 @@ export function buildCommandPaletteCommands(
     setEnvDeletePending,
     getCollectionMode,
     triggerUpdateCheck,
+    paletteTarget,
   } = ctx
 
   const c = toConfig(ctx)
@@ -226,7 +234,7 @@ export function buildCommandPaletteCommands(
       keybinding: displayKey(keybinds.request_edit_overlay),
       run: () => {
         if (mode !== "collection") return false
-        if (!cloneRequest(c)) return false
+        if (!editRequestOverlay(c)) return false
         setEditRequestVisible(true)
         return true
       },
@@ -312,7 +320,7 @@ export function buildCommandPaletteCommands(
       run: () => {
         if (!openEnvironmentEditor(c)) return false
         setView("env-editor")
-        setFocus("env-header")
+        setFocus("env-sidebar")
         return true
       },
     },
@@ -435,6 +443,17 @@ export function buildCommandPaletteCommands(
     },
   ]
 
+  const folderSaveCommand: CommandItem = {
+    id: "folder.save",
+    label: "Save Folder",
+    section: "Folder",
+    keybinding: displayKey(keybinds.request_save),
+    run: () => {
+      if (mode !== "collection") return false
+      return saveFolder(c)
+    },
+  }
+
   const mainOnlyCommands: CommandItem[] = [
     {
       id: "pane.expand",
@@ -533,6 +552,53 @@ export function buildCommandPaletteCommands(
       },
     },
   ]
+
+  if (paletteTarget === "request") {
+    if (mode !== "collection") return []
+    return [
+      ...requestCommands.filter((command) =>
+        [
+          "request.generate-client-code",
+          "request.send",
+          "request.save",
+          "request.edit-overlay",
+          "request.clone",
+          "request.delete",
+        ].includes(command.id),
+      ),
+      ...workspaceCommands
+        .filter((command) => command.id === "workspace.edit-yaml")
+        .map((command) => ({
+          ...command,
+          label: "Edit Request YAML",
+          section: "Request",
+        })),
+    ]
+  }
+
+  if (paletteTarget === "folder") {
+    if (mode !== "collection") return []
+    return [
+      folderSaveCommand,
+      ...requestCommands
+        .filter((command) => command.id === "request.new")
+        .map((command) => ({ ...command, section: "Folder" })),
+      ...workspaceCommands
+        .filter((command) =>
+          ["folder.new", "folder.delete", "workspace.edit-yaml"].includes(
+            command.id,
+          ),
+        )
+        .map((command) => ({
+          ...command,
+          label:
+            command.id === "workspace.edit-yaml"
+              ? "Edit Folder YAML"
+              : command.label,
+          section: "Folder",
+        })),
+    ]
+  }
 
   if (view === "env-editor") {
     return [

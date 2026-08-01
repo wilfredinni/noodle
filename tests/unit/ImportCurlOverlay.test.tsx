@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, createRef } from "react"
+import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -101,6 +102,37 @@ describe("ImportCurlOverlay", () => {
     expect(ref.current?.getFocus()).toBe("name")
     await act(async () => ref.current?.cycleFocus(1))
     expect(ref.current?.getFocus()).toBe("curl")
+    cleanup()
+  })
+
+  it("runs footer actions when clicked without dot separators", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let saved = 0
+    let closed = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ImportCurlOverlay
+            visible
+            folderPaths={[{ id: "", label: "(root)" }]}
+            initialFolderPath=""
+            onConfirm={() => saved++}
+            onClose={() => closed++}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("save"))
+    expect(rows[y]).not.toContain("·")
+    await act(async () => {
+      await mockMouse.click(rows[y]!.indexOf("save"), y, MouseButtons.LEFT)
+      await mockMouse.click(rows[y]!.indexOf("close"), y, MouseButtons.LEFT)
+    })
+    expect(saved).toBe(1)
+    expect(closed).toBe(1)
     cleanup()
   })
 })

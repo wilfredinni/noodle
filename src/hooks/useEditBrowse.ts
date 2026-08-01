@@ -216,7 +216,9 @@ export interface UseEditBrowseResult {
   toggleRow: () => void
   toggleFormRowType: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
-  enterBrowseAt: (field: FieldKind) => void
+  enterBrowseAt: (field: FieldKind, row?: number) => void
+  activateAt: (field: FieldKind, row: number, addingRow?: boolean) => void
+  toggleAt: (field: FieldKind, row: number) => void
   canEnterJsonBodyEditor: boolean
   isEditingJsonBody: boolean
   enterJsonBodyEditor: () => void
@@ -284,21 +286,93 @@ export function useEditBrowse(
     })
   }, [activeTab])
 
-  const enterBrowseAt = useCallback((field: FieldKind) => {
+  const enterBrowseAt = useCallback((field: FieldKind, row?: number) => {
     setInactiveTab(field)
     const c = rowCount(draftRef.current)
     setEditState((prev) => {
       if (prev.mode !== "inactive") {
+        const cursor = cursorForField(field, c)
         return {
           ...prev,
-          cursor: cursorForField(field, c),
+          cursor:
+            row === undefined ? cursor : { ...cursor, row, addingRow: false },
           mode: "browsing" as const,
           editingRow: -1,
         }
       }
-      return enterEditBrowse(prev, c, field)
+      const next = enterEditBrowse(prev, c, field)
+      if (row === undefined) return next
+      return { ...next, cursor: { ...next.cursor, row, addingRow: false } }
     })
   }, [])
+
+  const activateAt = useCallback(
+    (field: FieldKind, row: number, addingRow = false) => {
+      setInactiveTab(field)
+      const currentDraft = draftRef.current
+
+      if (
+        field === "body" &&
+        (currentDraft?.bodyType === "multipart" ||
+          currentDraft?.bodyType === "urlencoded")
+      ) {
+        const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
+        setEditKey(kv.key)
+        setEditValue(kv.value)
+      } else if (
+        field === "headers" ||
+        field === "params" ||
+        field === "pathParams"
+      ) {
+        const kv = currentKeyValueFor(currentDraft, field, row, addingRow)
+        setEditKey(kv.key)
+        setEditValue(kv.value)
+      } else {
+        setEditValue(currentValueFor(currentDraft, field, row, addingRow))
+      }
+
+      setEditState((prev) => {
+        const browsed =
+          prev.mode === "inactive"
+            ? enterEditBrowse(prev, rowCount(currentDraft), field)
+            : cancelEditing(prev)
+        return beginEditing({
+          ...browsed,
+          mode: "browsing",
+          editingRow: -1,
+          cursor: { field, row, addingRow },
+        })
+      })
+    },
+    [],
+  )
+
+  const toggleAt = useCallback(
+    (field: FieldKind, row: number) => {
+      setInactiveTab(field)
+      setEditState((prev) => {
+        const browsed =
+          prev.mode === "inactive"
+            ? enterEditBrowse(prev, rowCount(draftRef.current), field)
+            : cancelEditing(prev)
+        return {
+          ...browsed,
+          mode: "browsing",
+          editingRow: -1,
+          cursor: { field, row, addingRow: false },
+        }
+      })
+
+      if (field === "headers") draftMutators.toggleHeaderRow(row)
+      else if (field === "params") draftMutators.toggleParamRow(row)
+      else if (field === "body") draftMutators.toggleFormRow(row - 1)
+      else if (field === "settings" && row === 1) {
+        const current = draftRef.current?.followRedirects ?? true
+        draftMutators.setFollowRedirects(!current)
+      }
+    },
+    [draftMutators],
+  )
 
   const enterAndEdit = useCallback(() => {
     if (activeTab === "activity") return
@@ -620,8 +694,9 @@ export function useEditBrowse(
     } else if (field === "pathParams") {
       const key = editKeyRef.current.trim()
       const value = editValueRef.current.trim()
-      if (key === "" || addingRow) return
-      draftMutators.setPathParamRow(state.cursor.row, key, value)
+      if (key !== "" && !addingRow) {
+        draftMutators.setPathParamRow(state.cursor.row, key, value)
+      }
     } else if (field === "headers" || field === "params") {
       const key = editKeyRef.current.trim()
       const value = editValueRef.current.trim()
@@ -772,6 +847,8 @@ export function useEditBrowse(
       toggleFormRowType,
       cycleInactiveTab,
       enterBrowseAt,
+      activateAt,
+      toggleAt,
       canEnterJsonBodyEditor,
       isEditingJsonBody,
       enterJsonBodyEditor,
@@ -785,6 +862,8 @@ export function useEditBrowse(
       activeTab,
       enterBrowse,
       enterBrowseAt,
+      activateAt,
+      toggleAt,
       exitBrowse,
       browseUp,
       browseDown,

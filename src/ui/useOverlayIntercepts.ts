@@ -9,6 +9,7 @@ import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
+import type { ActiveOverlay } from "./useOverlayState"
 import { useGlobalIntercepts } from "./intercepts/useGlobalIntercepts"
 import { useDialogIntercepts } from "./intercepts/useDialogIntercepts"
 import {
@@ -29,11 +30,9 @@ export function shouldCancelSend(
 }
 
 export function useOverlayIntercepts(opts: {
-  activeOverlay: string
+  activeOverlay: ActiveOverlay
   cancelSendRef: RefObject<() => void>
-  saveState: SaveState
   setSaveState: (s: SaveState) => void
-  doSave: () => void
   envDeletePending: string | null
   envDeletePendingRef: RefObject<string | null>
   setEnvDeletePending: (s: string | null) => void
@@ -102,12 +101,12 @@ export function useOverlayIntercepts(opts: {
   updateConfirmVisible: boolean
   onConfirmInstall: () => void
   onCancelUpdate: () => void
-}): void {
+}) {
   useGlobalIntercepts(opts)
 
-  useDialogIntercepts(opts)
+  const dialogActions = useDialogIntercepts(opts)
 
-  useFormOverlayIntercept({
+  const newRequestActions = useFormOverlayIntercept({
     visible: opts.newRequestVisible,
     handleRef: opts.newRequestRef,
     onConfirm: opts.onNewRequestConfirm,
@@ -115,14 +114,14 @@ export function useOverlayIntercepts(opts: {
     passThroughFocuses: ["method"],
   })
 
-  useFormOverlayIntercept({
+  const importCurlActions = useFormOverlayIntercept({
     visible: opts.importCurlVisible,
     handleRef: opts.importCurlRef,
     onConfirm: opts.onImportCurlConfirm,
     onCancel: () => opts.setImportCurlVisible(false),
   })
 
-  useFormOverlayIntercept({
+  const editRequestActions = useFormOverlayIntercept({
     visible: opts.editRequestVisible,
     handleRef: opts.editRequestRef,
     onConfirm: opts.onEditRequestConfirm,
@@ -130,14 +129,14 @@ export function useOverlayIntercepts(opts: {
     passThroughFocuses: ["method", "folder"],
   })
 
-  useSingleFieldFormOverlayIntercept({
+  const cloneRequestActions = useSingleFieldFormOverlayIntercept({
     visible: opts.cloneRequestVisible,
     handleRef: opts.cloneRequestRef,
     onConfirm: opts.onCloneRequestConfirm,
     onCancel: () => opts.setCloneRequestVisible(false),
   })
 
-  useSingleFieldFormOverlayIntercept({
+  const newFolderActions = useSingleFieldFormOverlayIntercept({
     visible: opts.newFolderVisible,
     handleRef: opts.newFolderRef,
     onConfirm: opts.onNewFolderConfirm,
@@ -145,4 +144,13 @@ export function useOverlayIntercepts(opts: {
   })
 
   useEnvEditorIntercept(opts)
+
+  return {
+    ...dialogActions,
+    newRequest: newRequestActions,
+    importCurl: importCurlActions,
+    editRequest: editRequestActions,
+    cloneRequest: cloneRequestActions,
+    newFolder: newFolderActions,
+  }
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import type { BorderCharacters } from "@opentui/core"
+import { MouseButton, type BorderCharacters } from "@opentui/core"
 
 export interface FrameProps {
   children?: ReactNode
@@ -16,6 +16,7 @@ export interface FrameProps {
   titleAlignment?: "left" | "center" | "right"
   bottomTitle?: string
   bottomTitleAlignment?: "left" | "center" | "right"
+  onPaneFocus?: () => void
 }
 
 export function Frame({
@@ -33,6 +34,7 @@ export function Frame({
   titleAlignment,
   bottomTitle,
   bottomTitleAlignment,
+  onPaneFocus,
 }: FrameProps) {
   return (
     <box
@@ -45,6 +47,13 @@ export function Frame({
       titleAlignment={titleAlignment}
       bottomTitle={bottomTitle}
       bottomTitleAlignment={bottomTitleAlignment}
+      onMouseDown={
+        onPaneFocus
+          ? (event) => {
+              if (event.button === MouseButton.LEFT) onPaneFocus()
+            }
+          : undefined
+      }
     >
       {children}
       {titleLeft ? (
