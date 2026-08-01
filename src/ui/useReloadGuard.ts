@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 
 export function useReloadGuard(
   hasUnsavedChanges: boolean,
@@ -10,23 +10,19 @@ export function useReloadGuard(
   cancelReload: () => void
 } {
   const [reloadPending, setReloadPending] = useState(false)
-  const hasUnsavedChangesRef = useRef(hasUnsavedChanges)
-  hasUnsavedChangesRef.current = hasUnsavedChanges
-  const onReloadRef = useRef(onReload)
-  onReloadRef.current = onReload
 
   const requestReload = useCallback(() => {
-    if (hasUnsavedChangesRef.current) {
+    if (hasUnsavedChanges) {
       setReloadPending(true)
     } else {
-      onReloadRef.current()
+      onReload()
     }
-  }, [])
+  }, [hasUnsavedChanges, onReload])
 
   const confirmReload = useCallback(() => {
     setReloadPending(false)
-    onReloadRef.current()
-  }, [])
+    onReload()
+  }, [onReload])
 
   const cancelReload = useCallback(() => setReloadPending(false), [])
 

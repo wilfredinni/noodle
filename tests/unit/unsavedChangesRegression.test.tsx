@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRequestDraft } from "../../src/hooks/useRequestDraft"
 import { useEditBrowse } from "../../src/hooks/useEditBrowse"
 import { useCollectionSwitcher } from "../../src/ui/useCollectionSwitcher"
@@ -43,6 +43,35 @@ function ReloadGuardHarness({
       onResult({ reloads, pending: reload.reloadPending })
     }
   }, [draft, onResult, reload, reloads, step])
+
+  return null
+}
+
+function ReloadGuardCommittedCallbackHarness({
+  onResult,
+}: {
+  onResult: (result: { reloads: number; pending: boolean }) => void
+}) {
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [reloads, setReloads] = useState(0)
+  const [step, setStep] = useState(0)
+  const firstRequestReload = useRef<(() => void) | null>(null)
+  const reload = useReloadGuard(hasUnsavedChanges, () =>
+    setReloads((count) => count + 1),
+  )
+
+  useEffect(() => {
+    if (step === 0) {
+      firstRequestReload.current = reload.requestReload
+      setHasUnsavedChanges(true)
+      setStep(1)
+    } else if (step === 1 && hasUnsavedChanges) {
+      firstRequestReload.current?.()
+      setStep(2)
+    } else if (step === 2) {
+      onResult({ reloads, pending: reload.reloadPending })
+    }
+  }, [hasUnsavedChanges, onResult, reload, reloads, step])
 
   return null
 }
@@ -107,5 +136,19 @@ describe("unsaved changes regressions", () => {
     for (let i = 0; i < 5; i++) await renderOnce()
 
     expect(result).toEqual({ changes: 0, pending: "/next" })
+  })
+
+  it("keeps a committed reload callback bound to its render values", async () => {
+    let result = { reloads: 0, pending: true }
+    const { renderOnce } = await testRender(
+      <ReloadGuardCommittedCallbackHarness
+        onResult={(next) => (result = next)}
+      />,
+      { width: 20, height: 5 },
+    )
+
+    for (let i = 0; i < 5; i++) await renderOnce()
+
+    expect(result).toEqual({ reloads: 1, pending: false })
   })
 })
