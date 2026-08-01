@@ -183,6 +183,44 @@ function UndoThenEditHarness({
   return null
 }
 
+function UndoThenReloadHarness({
+  onState,
+}: {
+  onState: (state: {
+    url: string
+    isDirty: boolean
+    dirtyRequestIds: string[]
+  }) => void
+}) {
+  const reloadedRequest = { ...request, url: "https://reloaded.example.com" }
+  const [selectedRequest, setSelectedRequest] = useState(request)
+  const draft = useRequestDraft(selectedRequest)
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    if (step === 0) {
+      draft.setUrl("https://changed.example.com")
+      setStep(1)
+    } else if (step === 1 && draft.isDirty) {
+      draft.revertAllRequests()
+      setStep(2)
+    } else if (step === 2 && !draft.isDirty) {
+      setSelectedRequest(reloadedRequest)
+      setStep(3)
+    } else if (step === 3) {
+      setStep(4)
+    } else if (step === 4) {
+      onState({
+        url: draft.draft?.url ?? "",
+        isDirty: draft.isDirty,
+        dirtyRequestIds: [...draft.dirtyRequestIds],
+      })
+    }
+  }, [draft, onState, reloadedRequest, step])
+
+  return null
+}
+
 function RequestAuthSaveRaceHarness({
   onAuth,
 }: {
@@ -324,6 +362,22 @@ describe("useRequestDraft setMethod", () => {
     expect(state).toEqual({
       isDirty: true,
       dirtyRequestIds: [request.id],
+    })
+  })
+
+  it("uses reloaded data as the baseline after undoing all requests", async () => {
+    let state = { url: "", isDirty: true, dirtyRequestIds: [] as string[] }
+    const { renderOnce } = await testRender(
+      <UndoThenReloadHarness onState={(next) => (state = next)} />,
+      { width: 20, height: 5 },
+    )
+
+    for (let i = 0; i < 7; i++) await renderOnce()
+
+    expect(state).toEqual({
+      url: "https://reloaded.example.com",
+      isDirty: false,
+      dirtyRequestIds: [],
     })
   })
 
