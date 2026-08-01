@@ -1,7 +1,7 @@
 name: Delayed Response
 method: GET
 url: https://httpbin.org/delay/:delayTime
-timeout: 5000
+timeout: 0
 followRedirects: true
 maxRedirects: 5
 path_params:

@@ -11,6 +11,8 @@ import type { UrlBarSubFocus } from "./focus"
 import { JumpBadge, JUMP_BADGE_TOP_LEFT } from "./JumpBadge"
 import { splitUrlPathVars } from "./variable-completion/envHighlight"
 
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
 export function UrlBar({
   method,
   url,
@@ -26,6 +28,8 @@ export function UrlBar({
   jumpMode = false,
   onPaneFocus,
   onSubFocus,
+  onSend,
+  sending = false,
 }: {
   method: Method
   url: string
@@ -41,11 +45,15 @@ export function UrlBar({
   jumpMode?: boolean
   onPaneFocus?: () => void
   onSubFocus?: (subFocus: UrlBarSubFocus) => void
+  onSend?: () => void
+  sending?: boolean
 }) {
   const theme = useTheme()
   const pathParams = pathParamsProp ?? []
   const [inputValue, setInputValue] = useState(url)
   const [methodSelectOpen, setMethodSelectOpen] = useState(false)
+  const [sendHovered, setSendHovered] = useState(false)
+  const [spinnerIdx, setSpinnerIdx] = useState(0)
   const prevFocused = useRef(focused)
   const initDisplayRef = useRef("")
   const inputValueRef = useRef(inputValue)
@@ -77,6 +85,14 @@ export function UrlBar({
       initDisplayRef.current = displayUrl
     }
   }, [url, params, focused])
+
+  useEffect(() => {
+    if (!sending) return
+    const id = setInterval(() => {
+      setSpinnerIdx((i) => (i + 1) % SPINNER_FRAMES.length)
+    }, 80)
+    return () => clearInterval(id)
+  }, [sending])
 
   const displayUrl = buildDisplayUrl(url, params)
 
@@ -164,6 +180,40 @@ export function UrlBar({
               />
             )}
           </box>
+          {onSend && (
+            <box
+              onMouseDown={
+                interactive && !sending
+                  ? (event) => {
+                      if (event.button !== MouseButton.LEFT) return
+                      setSendHovered(false)
+                      onSend()
+                      event.stopPropagation()
+                    }
+                  : undefined
+              }
+              onMouseOver={
+                interactive && !sending ? () => setSendHovered(true) : undefined
+              }
+              onMouseOut={
+                interactive && !sending
+                  ? () => setSendHovered(false)
+                  : undefined
+              }
+              style={{
+                flexShrink: 0,
+                paddingLeft: 1,
+                paddingRight: 1,
+                backgroundColor: sendHovered
+                  ? theme.backgroundElement
+                  : undefined,
+              }}
+            >
+              <text fg={theme.primary} selectable={false}>
+                {sending ? `${SPINNER_FRAMES[spinnerIdx]} Send` : "Send"}
+              </text>
+            </box>
+          )}
         </box>
       )}
     </box>

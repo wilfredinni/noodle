@@ -48,6 +48,7 @@ interface MainViewProps {
   onQueryVisibleChange?: (v: boolean) => void
   onPaneFocus?: (focus: Focus) => void
   onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
+  onSend?: () => void
   onRequestSelect?: (id: string) => void
   onFolderSelect?: (path: string) => void
   onFolderToggle?: (path: string) => void
@@ -89,6 +90,7 @@ export function MainView({
   onQueryVisibleChange,
   onPaneFocus = () => {},
   onUrlbarFocus,
+  onSend,
   onRequestSelect,
   onFolderSelect,
   onFolderToggle,
@@ -195,6 +197,7 @@ export function MainView({
             onQueryVisibleChange={onQueryVisibleChange}
             onPaneFocus={onPaneFocus}
             onUrlbarFocus={onUrlbarFocus}
+            onSend={onSend}
             onRequestTabChange={eb.enterBrowseAt}
             onRequestBodyTypeFocus={() => eb.enterBrowseAt("body")}
             onRequestAuthFocusRow={(row) => eb.enterBrowseAt("auth", row)}

@@ -17,6 +17,8 @@ function UrlBarHarness({
   jumpMode = false,
   onPaneFocus,
   onSubFocus,
+  onSend,
+  sending = false,
 }: {
   subFocus?: "select" | "text"
   focused?: boolean
@@ -26,6 +28,8 @@ function UrlBarHarness({
   jumpMode?: boolean
   onPaneFocus?: () => void
   onSubFocus?: (subFocus: "select" | "text") => void
+  onSend?: () => void
+  sending?: boolean
 }) {
   const [url, setUrl] = useState("https://example.com")
   const [method, setMethod] = useState<Method>(initialMethod)
@@ -45,6 +49,8 @@ function UrlBarHarness({
       jumpMode={jumpMode}
       onPaneFocus={onPaneFocus}
       onSubFocus={onSubFocus}
+      onSend={onSend}
+      sending={sending}
       activeEnv={{
         name: "test",
         vars: { base_url: "https://api.example.com" },
@@ -54,6 +60,82 @@ function UrlBarHarness({
 }
 
 describe("UrlBar", () => {
+  it("sends on left click only without focusing the URL bar", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let sends = 0
+    let focusCount = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness
+            onSend={() => sends++}
+            onPaneFocus={() => focusCount++}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    const lines = frame.split("\n")
+    const sendY = lines.findIndex((line) => line.includes("Send"))
+    const sendX = lines[sendY].indexOf("Send")
+    await mockMouse.click(sendX, sendY, MouseButtons.RIGHT)
+    expect(sends).toBe(0)
+
+    await mockMouse.click(sendX, sendY, MouseButtons.LEFT)
+    expect(sends).toBe(1)
+    expect(focusCount).toBe(0)
+    cleanup()
+  })
+
+  it("hides the Send control when sending is unavailable", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <UrlBarHarness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 12 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame()).not.toContain("Send")
+    cleanup()
+  })
+
+  it("shows a spinner beside Send and prevents repeat sends", async () => {
+    const originalSetInterval = globalThis.setInterval
+    globalThis.setInterval = (() => 0) as unknown as typeof setInterval
+    const { keymap, cleanup } = setupKeymap()
+    try {
+      let sends = 0
+      const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <UrlBarHarness onSend={() => sends++} sending />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 12 },
+      )
+      await renderOnce()
+
+      const frame = captureCharFrame()
+      const lines = frame.split("\n")
+      const sendY = lines.findIndex((line) => line.includes("⠋ Send"))
+      const sendX = lines[sendY].indexOf("Send")
+      expect(sendY).toBeGreaterThanOrEqual(0)
+
+      await mockMouse.click(sendX, sendY, MouseButtons.LEFT)
+      expect(sends).toBe(0)
+    } finally {
+      cleanup()
+      globalThis.setInterval = originalSetInterval
+    }
+  })
+
   it("focuses its pane only on a left click", async () => {
     const { keymap, cleanup } = setupKeymap()
     let focusCount = 0

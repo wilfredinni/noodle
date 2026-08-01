@@ -1026,6 +1026,13 @@ export function AppInner({
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
             onUrlbarFocus={focusUrlbar}
+            onSend={
+              sendCommand
+                ? () => {
+                    keymap.dispatchCommand(sendCommand)
+                  }
+                : undefined
+            }
             onRequestSelect={(id) => {
               revealRequest(id)
             }}

@@ -35,6 +35,7 @@ interface RequestResponseViewProps {
   onQueryVisibleChange?: (v: boolean) => void
   onPaneFocus?: (focus: Focus) => void
   onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
+  onSend?: () => void
   onRequestTabChange?: (tab: FieldKind) => void
   onRequestBodyTypeFocus?: () => void
   onRequestAuthFocusRow?: (row: number) => void
@@ -72,6 +73,7 @@ export function RequestResponseView({
   onQueryVisibleChange,
   onPaneFocus = () => {},
   onUrlbarFocus,
+  onSend,
   onRequestTabChange,
   onRequestBodyTypeFocus,
   onRequestAuthFocusRow,
@@ -150,6 +152,8 @@ export function RequestResponseView({
         jumpMode={jumpMode && draft.draft !== null && expanded !== "response"}
         onPaneFocus={() => onPaneFocus("urlbar")}
         onSubFocus={onUrlbarFocus}
+        onSend={onSend}
+        sending={responseState.status === "sending"}
       />
       <box
         key={layout}
