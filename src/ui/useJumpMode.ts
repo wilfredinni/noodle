@@ -11,6 +11,7 @@ import type { Focus, UrlBarSubFocus } from "./focus"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
 import type { Request } from "../schema"
+import type { EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
 export type JumpTarget =
   | { kind: "sidebar" }
@@ -19,6 +20,10 @@ export type JumpTarget =
   | { kind: "request-tab"; field: FieldKind }
   | { kind: "folder-tab"; field: FolderFieldKind }
   | { kind: "response-tab"; tab: ResponseTabKind }
+  | { kind: "env-sidebar" }
+  | { kind: "env-name" }
+  | { kind: "env-color" }
+  | { kind: "env-vars" }
 
 interface UseJumpModeOpts {
   jumpMode: boolean
@@ -27,6 +32,9 @@ interface UseJumpModeOpts {
   setUrlbarSubFocus: (f: UrlBarSubFocus) => void
   ebRef: RefObject<UseEditBrowseResult>
   folderEbRef: RefObject<UseFolderEditBrowseResult>
+  envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
+  headerFieldRef: RefObject<"name" | "color">
+  pendingHeaderFieldRef: RefObject<"name" | "color" | null>
   setTab: UseUIStateResult["setTab"]
   selectedIdRef: RefObject<string | null>
   targetsRef: RefObject<Map<string, JumpTarget>>
@@ -42,6 +50,9 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     setUrlbarSubFocus,
     ebRef,
     folderEbRef,
+    envHeaderRef,
+    headerFieldRef,
+    pendingHeaderFieldRef,
     setTab,
     selectedIdRef,
     targetsRef,
@@ -93,6 +104,24 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
             setFocus("response")
             break
           }
+          case "env-sidebar":
+            setFocus("env-sidebar")
+            break
+          case "env-name":
+            headerFieldRef.current = "name"
+            pendingHeaderFieldRef.current = "name"
+            setFocus("env-header")
+            envHeaderRef.current?.focusName()
+            break
+          case "env-color":
+            headerFieldRef.current = "color"
+            pendingHeaderFieldRef.current = "color"
+            setFocus("env-header")
+            envHeaderRef.current?.focusColor()
+            break
+          case "env-vars":
+            setFocus("env-vars")
+            break
         }
         setJumpMode(false)
       },
@@ -106,6 +135,9 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     setUrlbarSubFocus,
     ebRef,
     folderEbRef,
+    envHeaderRef,
+    headerFieldRef,
+    pendingHeaderFieldRef,
     setTab,
     selectedIdRef,
   ])
@@ -115,8 +147,16 @@ export function getAvailableTargets(
   hasRequest: boolean,
   expanded: "request" | "response" | null,
   folderView: boolean,
+  environmentView = false,
 ): Map<string, JumpTarget> {
   const targets = new Map<string, JumpTarget>()
+  if (environmentView) {
+    targets.set("s", { kind: "env-sidebar" })
+    targets.set("m", { kind: "env-name" })
+    targets.set("c", { kind: "env-color" })
+    targets.set("v", { kind: "env-vars" })
+    return targets
+  }
   if (folderView) {
     targets.set("s", { kind: "sidebar" })
     targets.set("m", { kind: "folder-tab", field: "meta" })

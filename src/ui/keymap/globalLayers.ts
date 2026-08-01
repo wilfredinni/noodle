@@ -210,12 +210,14 @@ export function createGlobalLayers(
           const focus = keymap.getData("app.focus")
           const editingUrlText =
             focus === "urlbar" && global.urlbarSubFocusRef.current === "text"
+          const editingEnvName =
+            focus === "env-header" && global.headerFieldRef.current === "name"
           return (
             keymap.getData("app.overlay") === "none" &&
-            keymap.getData("app.view") !== "env-editor" &&
             keymap.getData("app.mode") !== "edit" &&
             keymap.getData("app.jump") !== "active" &&
-            !editingUrlText
+            !editingUrlText &&
+            !editingEnvName
           )
         },
         run: () => global.setJumpMode(true),

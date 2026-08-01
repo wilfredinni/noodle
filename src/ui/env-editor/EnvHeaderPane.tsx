@@ -12,6 +12,7 @@ import type { InputRenderable } from "@opentui/core"
 import { Select, type SelectItem } from "../Select"
 import { VALID_COLORS } from "../../env/constants"
 import { Frame } from "../Frame"
+import { JumpBadge, JUMP_BADGE_TOP_LEFT } from "../JumpBadge"
 
 export interface EnvHeaderPaneHandle {
   focusName: () => void
@@ -26,10 +27,21 @@ export const EnvHeaderPane = forwardRef<
     onNameChange: (name: string) => void
     onColorChange: (color: string | undefined) => void
     focused: boolean
+    jumpMode?: boolean
+    onColorFocus?: () => void
     onPaneFocus?: () => void
   }
 >(function EnvHeaderPane(
-  { name, color, onNameChange, onColorChange, focused, onPaneFocus },
+  {
+    name,
+    color,
+    onNameChange,
+    onColorChange,
+    focused,
+    jumpMode = false,
+    onColorFocus,
+    onPaneFocus,
+  },
   ref,
 ) {
   const theme = useTheme()
@@ -91,32 +103,41 @@ export const EnvHeaderPane = forwardRef<
       borderColor={focused ? theme.primary : theme.borderSubtle}
       onPaneFocus={onPaneFocus}
     >
-      <input
-        ref={nameRef}
-        value={name}
-        placeholder="Environment name"
-        onInput={onNameChange}
-        focused={nameFocused}
-        backgroundColor={
-          nameFocused ? theme.backgroundElement : theme.backgroundPanel
-        }
-        focusedBackgroundColor={theme.borderSubtle}
-        textColor={theme.text}
-        cursorColor={theme.primary}
-        paddingX={1}
-        style={{ flexGrow: 1 }}
-      />
-      <Select
-        items={colorItems}
-        value={color ?? "none"}
-        onChange={(id) => onColorChange(id === "none" ? undefined : id)}
-        focused={colorFocused}
-        maxDropdownHeight={10}
-        dropdownAlign="right"
-        badge
-        onOpenChange={setSelectOpen}
-        onActivate={() => setColorFocused(true)}
-      />
+      <box style={{ flexGrow: 1, position: "relative" }}>
+        {jumpMode && <JumpBadge letter="m" style={JUMP_BADGE_TOP_LEFT} />}
+        <input
+          ref={nameRef}
+          value={name}
+          placeholder="Environment name"
+          onInput={onNameChange}
+          focused={nameFocused}
+          backgroundColor={
+            nameFocused ? theme.backgroundElement : theme.backgroundPanel
+          }
+          focusedBackgroundColor={theme.borderSubtle}
+          textColor={theme.text}
+          cursorColor={theme.primary}
+          paddingX={1}
+          style={{ flexGrow: 1 }}
+        />
+      </box>
+      <box style={{ flexShrink: 0, position: "relative" }}>
+        {jumpMode && <JumpBadge letter="c" style={JUMP_BADGE_TOP_LEFT} />}
+        <Select
+          items={colorItems}
+          value={color ?? "none"}
+          onChange={(id) => onColorChange(id === "none" ? undefined : id)}
+          focused={colorFocused}
+          maxDropdownHeight={10}
+          dropdownAlign="right"
+          badge
+          onOpenChange={setSelectOpen}
+          onActivate={() => {
+            setColorFocused(true)
+            onColorFocus?.()
+          }}
+        />
+      </box>
     </Frame>
   )
 })

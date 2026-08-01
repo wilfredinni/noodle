@@ -151,6 +151,7 @@ export function AppInner({
   const [jumpMode, setJumpMode] = useState(false)
   const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
   const headerFieldRef = useRef<"name" | "color">("name")
+  const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
 
   // ── Collection ──────────────────────────────────────────────────────
   const isCollection = mode === "collection"
@@ -286,8 +287,9 @@ export function AppInner({
         draft.draft !== null,
         expanded,
         focusedFolder !== null,
+        view === "env-editor",
       ),
-    [draft.draft, expanded, focusedFolder],
+    [draft.draft, expanded, focusedFolder, view],
   )
   useEffect(() => {
     jumpTargetsRef.current = availableJumpTargets
@@ -596,6 +598,7 @@ export function AppInner({
     jumpMode,
     setJumpMode,
     headerFieldRef,
+    pendingHeaderFieldRef,
     overlayActiveRef,
   })
 
@@ -748,6 +751,7 @@ export function AppInner({
     },
     global: {
       focusRef,
+      headerFieldRef,
       urlbarSubFocusRef,
       viewRef,
       activeIndexRef,
@@ -809,6 +813,9 @@ export function AppInner({
     setUrlbarSubFocus,
     ebRef,
     folderEbRef,
+    envHeaderRef,
+    headerFieldRef,
+    pendingHeaderFieldRef,
     setTab,
     selectedIdRef,
     targetsRef: jumpTargetsRef,
@@ -1076,6 +1083,10 @@ export function AppInner({
             envColors={envColors}
             focus={focus}
             envHeaderRef={envHeaderRef}
+            jumpMode={jumpMode}
+            onHeaderFieldFocus={(field) => {
+              headerFieldRef.current = field
+            }}
             onPaneFocus={focusPane}
             setEnvDeletePending={setEnvDeletePending}
           />

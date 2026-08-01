@@ -12,6 +12,32 @@ const inactive = {
 }
 
 describe("EnvEditorPane", () => {
+  it("shows a variables jump badge in jump mode", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={80} height={8}>
+          <EnvEditorPane
+            draft={null}
+            editState={inactive}
+            editKey=""
+            editValue=""
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            saving={false}
+            error={null}
+            focused={false}
+            jumpMode
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    expect(spans.map((span) => span.text)).toContain("v")
+    expect(spans.map((span) => span.text).join("")).not.toContain("Variables")
+  })
+
   it("activates rows, toggles checkboxes, and activates the add row", async () => {
     const activations: Array<[number, boolean, "key" | "value" | undefined]> =
       []

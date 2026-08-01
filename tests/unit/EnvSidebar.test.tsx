@@ -151,6 +151,30 @@ describe("EnvSidebar", () => {
     expect(frame).toContain("Environments")
   })
 
+  it("shows a jump badge instead of the title in jump mode", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <EnvSidebar
+          envNames={["dev"]}
+          selectedEnvName={null}
+          activeEnvName={undefined}
+          dirty={false}
+          onSelectEnv={() => {}}
+          onCreate={() => {}}
+          onClone={() => {}}
+          onDelete={() => {}}
+          focused={false}
+          jumpMode
+        />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    const text = captureSpans().lines.flatMap((line) => line.spans)
+    expect(text.map((span) => span.text)).toContain("s")
+    expect(text.map((span) => span.text).join("")).not.toContain("Environments")
+  })
+
   it("uses theme.text foreground for all env names", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>

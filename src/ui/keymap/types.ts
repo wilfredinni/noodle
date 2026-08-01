@@ -25,6 +25,7 @@ export interface AppKeymapRuntime {
 
 export interface AppKeymapGlobal {
   focusRef: RefObject<Focus>
+  headerFieldRef: RefObject<"name" | "color">
   urlbarSubFocusRef: RefObject<UrlBarSubFocus>
   viewRef: RefObject<AppView>
   activeIndexRef: RefObject<number>

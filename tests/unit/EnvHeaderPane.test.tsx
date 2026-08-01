@@ -128,6 +128,30 @@ describe("EnvHeaderPane", () => {
     cleanup()
   })
 
+  it("shows name and color jump badges in jump mode", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureSpans } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <EnvHeaderPane
+            name="dev"
+            color={undefined}
+            onNameChange={() => {}}
+            onColorChange={() => {}}
+            focused={false}
+            jumpMode
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 6 },
+    )
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    expect(spans.map((span) => span.text)).toContain("m")
+    expect(spans.map((span) => span.text)).toContain("c")
+    cleanup()
+  })
+
   it("opens the color menu when clicked", async () => {
     const { keymap, cleanup } = setupKeymap()
     function Harness() {
@@ -159,6 +183,36 @@ describe("EnvHeaderPane", () => {
     })
     await renderOnce()
     expect(captureCharFrame()).toContain("primary")
+    cleanup()
+  })
+
+  it("reports color focus when the color select is activated", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let colorFocused = false
+    const { renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <EnvHeaderPane
+            name="dev"
+            color={undefined}
+            onNameChange={() => {}}
+            onColorChange={() => {}}
+            focused={false}
+            onColorFocus={() => {
+              colorFocused = true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 16 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      await mockMouse.click(50, 1, MouseButtons.LEFT)
+    })
+
+    expect(colorFocused).toBe(true)
     cleanup()
   })
 })
