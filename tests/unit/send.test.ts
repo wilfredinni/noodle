@@ -430,6 +430,34 @@ describe("interpolatePathParams", () => {
   })
 })
 
+describe("send — URL scheme", () => {
+  it("defaults scheme-less URLs to HTTPS and preserves explicit HTTP", async () => {
+    const captured: string[] = []
+    const orig = globalThis.fetch
+    globalThis.fetch = mock(async (url: RequestInfo | URL) => {
+      captured.push(url.toString())
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await send(
+        makeReq({
+          url: "www.example.com/users/:id",
+          pathParams: [{ name: "id", value: "42", enabled: true }],
+        }),
+      )
+      await send(makeReq({ url: "http://localhost:3000/health" }))
+
+      expect(captured).toEqual([
+        "https://www.example.com/users/42",
+        "http://localhost:3000/health",
+      ])
+    } finally {
+      globalThis.fetch = orig
+    }
+  })
+})
+
 describe("send — required path parameters", () => {
   it("does not fetch for an empty value, with or without an environment", async () => {
     let calls = 0

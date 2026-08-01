@@ -14,6 +14,7 @@ import { substitute } from "./substitute"
 import type { SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
+import { withDefaultHttpsScheme } from "./url"
 
 export function interpolatePathParams(
   url: string,
@@ -87,7 +88,10 @@ export async function send(
       ? (merged.pathParams ?? [])
       : ((substituted as SubstitutedRequest).pathParams ?? [])
 
-  const urlWithPath = interpolatePathParams(substituted.url, pathParams)
+  const urlWithPath = interpolatePathParams(
+    withDefaultHttpsScheme(substituted.url),
+    pathParams,
+  )
 
   let finalUrl: string
   try {

@@ -102,6 +102,20 @@ describe("automation services", () => {
     ])
   })
 
+  it("accepts scheme-less request URLs without rewriting them", async () => {
+    await writeFile(join(dir, "settings.yml"), "{}\n", "utf8")
+    await requestCreate("bare-url", "www.example.com", "GET", dir)
+
+    const result = await collectionInspect(dir)
+    expect(result.tree).toContainEqual({
+      type: "request",
+      id: "bare-url",
+      name: "bare-url",
+      method: "GET",
+      url: "www.example.com",
+    })
+  })
+
   it("sets existing environment values and re-enables disabled variables", async () => {
     const envDir = join(dir, ".environments")
     await env.saveEnvironment(envDir, {
