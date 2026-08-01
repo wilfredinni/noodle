@@ -132,10 +132,10 @@ export function useCollectionFileActions({
   ])
 
   const handleNewRequestConfirm = useCallback(
-    (name: string, method: Method, url: string) => {
+    (name: string, method: Method, url: string, folderPath?: string) => {
       const baseId = slugify(name)
       if (!baseId) return
-      const folder = newRequestFolderRef.current
+      const folder = folderPath ?? newRequestFolderRef.current
       const id = folder ? `${folder}/${baseId}` : baseId
 
       const req: NoodleRequest = {

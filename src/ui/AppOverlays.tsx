@@ -95,6 +95,7 @@ interface AppOverlaysProps {
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
   newRequestActions: { confirm: () => void; cancel: () => void }
+  newRequestInitialFolder: string
   importCurlVisible: boolean
   importCurlRef: RefObject<ImportCurlOverlayHandle | null>
   importCurlActions: { confirm: () => void; cancel: () => void }
@@ -181,6 +182,7 @@ export function AppOverlays({
   newRequestVisible,
   newRequestRef,
   newRequestActions,
+  newRequestInitialFolder,
   importCurlVisible,
   importCurlRef,
   importCurlActions,
@@ -335,6 +337,8 @@ export function AppOverlays({
           visible
           ref={newRequestRef}
           activeEnv={activeEnv}
+          folderPaths={folderPaths}
+          initialFolderPath={newRequestInitialFolder}
           onConfirm={newRequestActions.confirm}
           onClose={newRequestActions.cancel}
         />

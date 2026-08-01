@@ -40,6 +40,7 @@ function ActionsHarness({
   selectedRequest = null,
   onEditReady,
   onEditSaved,
+  onNewReady,
 }: {
   collectionDir: string
   onSaveReady: (save: () => void) => void
@@ -54,6 +55,14 @@ function ActionsHarness({
     ) => void,
   ) => void
   onEditSaved?: () => void
+  onNewReady?: (
+    create: (
+      name: string,
+      method: NoodleRequest["method"],
+      url: string,
+      folderPath?: string,
+    ) => void,
+  ) => void
 }) {
   const [collection, updateCollection] = useState<Collection | null>(null)
   const folderDraftRef = useRef<UseFolderDraftResult>({
@@ -100,6 +109,10 @@ function ActionsHarness({
   useEffect(() => {
     onEditReady?.(actions.handleEditRequestConfirm)
   }, [actions.handleEditRequestConfirm, onEditReady])
+
+  useEffect(() => {
+    onNewReady?.(actions.handleNewRequestConfirm)
+  }, [actions.handleNewRequestConfirm, onNewReady])
 
   return null
 }
@@ -173,5 +186,44 @@ describe("useCollectionFileActions", () => {
     expect(request.pathParams).toEqual([
       { name: "userId", value: "42", enabled: true },
     ])
+  })
+
+  it("creates a request in the selected folder", async () => {
+    const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
+    dirs.push(collectionDir)
+    let create:
+      | ((
+          name: string,
+          method: NoodleRequest["method"],
+          url: string,
+          folderPath?: string,
+        ) => void)
+      | undefined
+    let resolveSaved: (() => void) | undefined
+    const saved = new Promise<void>((resolve) => {
+      resolveSaved = resolve
+    })
+    const render = await testRender(
+      <ActionsHarness
+        collectionDir={collectionDir}
+        onSaveReady={() => {}}
+        onMarkSaved={() => {}}
+        onNewReady={(handleCreate) => (create = handleCreate)}
+        onEditSaved={() => resolveSaved?.()}
+      />,
+      { width: 1, height: 1 },
+    )
+
+    await render.renderOnce()
+    await act(async () => {
+      create?.("Get Users", "GET", "https://api.example.com/users", "api")
+    })
+    await saved
+
+    const request = lang.parseRequest(
+      "api/get-users",
+      await readFile(join(collectionDir, "api", "get-users.yml"), "utf8"),
+    )
+    expect(request.id).toBe("api/get-users")
   })
 })

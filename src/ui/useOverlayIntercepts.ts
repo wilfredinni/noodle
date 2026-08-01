@@ -56,6 +56,7 @@ export function useOverlayIntercepts(opts: {
     name: string
     method: string
     url: string
+    folderPath?: string
   }) => void
   importCurlVisible: boolean
   importCurlRef: RefObject<ImportCurlOverlayHandle | null>
@@ -111,7 +112,7 @@ export function useOverlayIntercepts(opts: {
     handleRef: opts.newRequestRef,
     onConfirm: opts.onNewRequestConfirm,
     onCancel: () => opts.setNewRequestVisible(false),
-    passThroughFocuses: ["method"],
+    passThroughFocuses: ["method", "folder"],
   })
 
   const importCurlActions = useFormOverlayIntercept({

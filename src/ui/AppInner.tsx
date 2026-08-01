@@ -831,7 +831,7 @@ export function AppInner({
     newRequestRef,
     setNewRequestVisible,
     onNewRequestConfirm: (v) =>
-      handleNewRequestConfirm(v.name, v.method as Method, v.url),
+      handleNewRequestConfirm(v.name, v.method as Method, v.url, v.folderPath),
     importCurlVisible,
     importCurlRef,
     setImportCurlVisible,
@@ -1108,6 +1108,7 @@ export function AppInner({
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
           newRequestActions={overlayActions.newRequest}
+          newRequestInitialFolder={requestParentFolder ?? ""}
           importCurlVisible={importCurlVisible}
           importCurlRef={importCurlRef}
           importCurlActions={overlayActions.importCurl}

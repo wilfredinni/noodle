@@ -319,14 +319,20 @@ describe("NewRequestOverlay mode prop", () => {
     cleanup()
   })
 
-  it("does not show folder selector in create mode even with folderPaths", async () => {
+  it("shows the contextual folder in create mode", async () => {
     const { keymap, cleanup } = setupKeymap()
+    const ref = createRef<NewRequestOverlayHandle>()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <NewRequestOverlay
             visible
-            folderPaths={[{ id: "auth", label: "auth" }]}
+            ref={ref}
+            folderPaths={[
+              { id: "", label: "(root)" },
+              { id: "auth", label: "auth" },
+            ]}
+            initialFolderPath="auth"
           />
         </ThemeProvider>
       </KeymapProvider>,
@@ -334,7 +340,31 @@ describe("NewRequestOverlay mode prop", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).not.toContain("Folder")
+    expect(frame).toContain("Folder")
+    expect(frame).toContain("auth")
+    expect(ref.current?.getFocus()).toBe("folder")
+    cleanup()
+  })
+
+  it("shows root as the default create folder", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay
+            visible
+            folderPaths={[
+              { id: "", label: "(root)" },
+              { id: "auth", label: "auth" },
+            ]}
+            initialFolderPath=""
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("(root)")
     cleanup()
   })
 })

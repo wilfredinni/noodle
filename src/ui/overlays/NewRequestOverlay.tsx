@@ -71,7 +71,7 @@ export const NewRequestOverlay = forwardRef<
 ) {
   const theme = useTheme()
   const isEdit = mode === "edit"
-  const showFolder = isEdit && folderPaths && folderPaths.length > 0
+  const showFolder = (folderPaths?.length ?? 0) > 0
   const [name, setName] = useState("")
   const [method, setMethod] = useState<Method>("GET")
   const [url, setUrl] = useState("")
@@ -133,7 +133,7 @@ export const NewRequestOverlay = forwardRef<
         setName("")
         setMethod("GET")
         setUrl("")
-        setFolderPath("")
+        setFolderPath(initialFolderPath ?? "")
       }
       setFocus(showFolder ? "folder" : "name")
       setErrorText(null)
