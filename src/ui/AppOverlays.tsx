@@ -41,6 +41,7 @@ import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 import { initialYamlEditorState, type YamlEditorState } from "./appState"
 import type { ActiveOverlay } from "./useOverlayState"
+import { buildDisplayUrl } from "./urlParams"
 
 interface FolderPathOption {
   id: string
@@ -354,7 +355,12 @@ export function AppOverlays({
           mode="edit"
           initialName={selectedRequest?.name}
           initialMethod={selectedRequest?.method}
-          initialUrl={selectedRequest?.url}
+          initialUrl={
+            selectedRequest
+              ? buildDisplayUrl(selectedRequest.url, selectedRequest.params)
+              : undefined
+          }
+          initialPathParams={selectedRequest?.pathParams}
           folderPaths={folderPaths}
           initialFolderPath={editRequestInitialFolder}
           ref={editRequestRef}

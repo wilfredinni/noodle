@@ -17,6 +17,7 @@ import {
 } from "../filestore"
 import { slugify } from "./overlays/NewRequestOverlay"
 import { updateFolderByPath } from "./tree"
+import { syncParamsWithUrl, syncPathParamsWithUrl } from "./urlParams"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 
@@ -338,9 +339,16 @@ export function useCollectionFileActions({
         ? req.id.slice(0, req.id.lastIndexOf("/"))
         : ""
 
+      const synced = syncParamsWithUrl(req.params, url)
+      const pathParams = syncPathParamsWithUrl(req.pathParams ?? [], url)
       const nameChanged = newId !== req.id
       const folderChanged = newFolder !== oldFolder
-      const changed = nameChanged || method !== req.method || url !== req.url
+      const changed =
+        nameChanged ||
+        method !== req.method ||
+        synced.baseUrl !== req.url ||
+        JSON.stringify(synced.params) !== JSON.stringify(req.params) ||
+        JSON.stringify(pathParams) !== JSON.stringify(req.pathParams ?? [])
 
       if (!changed) {
         setEditRequestVisible(false)
@@ -353,7 +361,11 @@ export function useCollectionFileActions({
         id: newId,
         name,
         method,
-        url,
+        url: synced.baseUrl,
+        params: synced.params,
+        ...(req.pathParams !== undefined || pathParams.length > 0
+          ? { pathParams }
+          : {}),
       }
 
       const savePromise = saveRequest(collectionDir, updated).then(() => {
