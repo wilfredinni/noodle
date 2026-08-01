@@ -514,8 +514,8 @@ export function AppInner({
     confirmCollectionSwitch,
   } = useCollectionSwitcher({
     collectionDir,
-    requestDirty: draft.isDirty,
-    folderDirty: folderDraft.isDirty,
+    requestDirty: draft.dirtyRequestIds.size > 0,
+    folderDirty: folderDraft.dirtyPaths.size > 0,
     environmentDirty: envEditor.dirty,
     onCollectionChange,
   })

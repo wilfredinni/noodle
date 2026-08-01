@@ -10,6 +10,7 @@ import {
   saveFolder,
   saveRequest,
   sendRequest,
+  undoAll,
 } from "../../src/ui/commandActions"
 
 function minimalContext(): CommandBuilderContext {
@@ -364,6 +365,33 @@ describe("buildCommandPaletteCommands", () => {
     const save = commands.find((c) => c.id === "request.save")!
     save.run()
     expect(saved).toBe(false)
+  })
+
+  it("undoes a dirty request that is not selected", () => {
+    const ctx = minimalContext()
+    let requestsReverted = false
+    ctx.draftRef = {
+      current: {
+        isDirty: false,
+        dirtyRequestIds: new Set(["other-request"]),
+        revertAllRequests: () => {
+          requestsReverted = true
+        },
+      },
+    } as never
+    ctx.folderDraftRef = {
+      current: {
+        isDirty: false,
+        dirtyPaths: new Set(),
+        revertAllFolders: () => {},
+      },
+    } as never
+    ctx.envEditorRef = {
+      current: { dirty: false, revertDraft: () => {} },
+    } as never
+
+    expect(undoAll(ctx)).toBe(true)
+    expect(requestsReverted).toBe(true)
   })
 
   it("folder.save only runs for a dirty folder when no save is pending", () => {

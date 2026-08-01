@@ -255,7 +255,8 @@ export function undoAll(c: CommandActionsConfig): boolean {
   const d = c.draftRef.current
   const fd = c.folderDraftRef.current
   const ee = c.envEditorRef.current
-  const hasDirty = d.isDirty || fd.isDirty || (ee?.dirty ?? false)
+  const hasDirty =
+    d.dirtyRequestIds.size > 0 || fd.dirtyPaths.size > 0 || (ee?.dirty ?? false)
   if (!hasDirty) return false
   if (c.confirmUndoAll) {
     return true

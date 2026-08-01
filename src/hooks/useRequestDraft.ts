@@ -215,7 +215,6 @@ export function useRequestDraft(
   const revertAllRequests = useCallback(() => {
     clearRequestDraftCaches()
     setMap(new Map())
-    setOriginalMap(new Map())
   }, [])
 
   const markSaved = useCallback((request: Request) => {
