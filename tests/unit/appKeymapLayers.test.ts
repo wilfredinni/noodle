@@ -42,6 +42,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     jsonLeave: 0,
     jsonReturnToSelect: 0,
     focus: "",
+    jumpMode: false,
   }
   const request = {
     ebRef: {
@@ -87,11 +88,15 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     global: {
       modeRef: { current: "collection" },
       focusRef: { current: "sidebar" },
+      headerFieldRef: { current: "name" },
       urlbarSubFocusRef: { current: "select" },
       viewRef: { current: "main" },
       expandedRef: { current: null },
       setFocus: (focus: string) => {
         calls.focus = focus
+      },
+      setJumpMode: (jumpMode: boolean) => {
+        calls.jumpMode = jumpMode
       },
       setUrlbarSubFocus: () => {},
     },
@@ -436,6 +441,49 @@ describe("app keymap layers", () => {
     host.press("up")
 
     expect(calls.envUp).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("enters jump mode from the environment editor outside editable header fields", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.focus", "env-sidebar")
+    const disposers = register(context)
+
+    host.press("g")
+
+    expect(calls.jumpMode).toBe(true)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("does not enter jump mode while editing the environment name", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.focus", "env-header")
+    const disposers = register(context)
+
+    host.press("g")
+
+    expect(calls.jumpMode).toBe(false)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("enters jump mode while the environment color select is focused", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.global.headerFieldRef.current = "color"
+    keymap.setData("app.view", "env-editor")
+    keymap.setData("app.focus", "env-header")
+    const disposers = register(context)
+
+    host.press("g")
+
+    expect(calls.jumpMode).toBe(true)
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

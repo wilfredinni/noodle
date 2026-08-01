@@ -8,6 +8,7 @@ import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef, useState } from "react"
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
+import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
 
 export function EnvEditorPane({
   draft,
@@ -19,6 +20,7 @@ export function EnvEditorPane({
   saving,
   error,
   focused: _focused,
+  jumpMode = false,
   onPaneFocus,
   onActivateRow,
   onToggleRow,
@@ -32,6 +34,7 @@ export function EnvEditorPane({
   saving: boolean
   error: string | null
   focused: boolean
+  jumpMode?: boolean
   onPaneFocus?: () => void
   onActivateRow?: (
     row: number,
@@ -79,12 +82,15 @@ export function EnvEditorPane({
         customBorderChars={FullBorder.customBorderChars}
         borderColor={theme.borderSubtle}
         titleRight={
-          <Badge bg={theme.backgroundPanel} fg={theme.textMuted}>
-            Variables
-          </Badge>
+          jumpMode ? undefined : (
+            <Badge bg={theme.backgroundPanel} fg={theme.textMuted}>
+              Variables
+            </Badge>
+          )
         }
         onPaneFocus={onPaneFocus}
       >
+        {jumpMode && <JumpBadge letter="v" style={JUMP_BADGE_TOP_INDENT} />}
         <text fg={theme.textMuted}>Select an environment to edit</text>
       </Frame>
     )
@@ -128,15 +134,18 @@ export function EnvEditorPane({
       customBorderChars={FullBorder.customBorderChars}
       borderColor={_focused ? theme.primary : theme.borderSubtle}
       titleRight={
-        <Badge
-          bg={theme.backgroundPanel}
-          fg={_focused ? theme.primary : theme.textMuted}
-        >
-          Variables
-        </Badge>
+        jumpMode ? undefined : (
+          <Badge
+            bg={theme.backgroundPanel}
+            fg={_focused ? theme.primary : theme.textMuted}
+          >
+            Variables
+          </Badge>
+        )
       }
       onPaneFocus={onPaneFocus}
     >
+      {jumpMode && <JumpBadge letter="v" style={JUMP_BADGE_TOP_INDENT} />}
       <scrollbox
         ref={scrollRef}
         scrollY

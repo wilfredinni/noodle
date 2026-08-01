@@ -492,6 +492,15 @@ describe("getAvailableTargets", () => {
     expect(targets.get("y")).toEqual({ kind: "folder-tab", field: "activity" })
   })
 
+  it("returns environment editor targets", () => {
+    const targets = getAvailableTargets(false, null, false, true)
+    expect(targets.size).toBe(4)
+    expect(targets.get("s")).toEqual({ kind: "env-sidebar" })
+    expect(targets.get("m")).toEqual({ kind: "env-name" })
+    expect(targets.get("c")).toEqual({ kind: "env-color" })
+    expect(targets.get("v")).toEqual({ kind: "env-vars" })
+  })
+
   it("returns sidebar + urlbar + all request/response tabs when not expanded", () => {
     const targets = getAvailableTargets(true, null, false)
     expect(targets.has("s")).toBe(true)

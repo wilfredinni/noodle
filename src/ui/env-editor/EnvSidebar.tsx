@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { VALID_COLORS } from "../../env/constants"
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
+import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
 
 export function EnvSidebar({
   envNames,
@@ -17,6 +18,7 @@ export function EnvSidebar({
   onClone: _onClone,
   onDelete: _onDelete,
   focused,
+  jumpMode = false,
   onPaneFocus,
 }: {
   envNames: string[]
@@ -29,6 +31,7 @@ export function EnvSidebar({
   onClone: () => void
   onDelete: () => void
   focused: boolean
+  jumpMode?: boolean
   onPaneFocus?: () => void
 }) {
   const theme = useTheme()
@@ -57,15 +60,18 @@ export function EnvSidebar({
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
       titleRight={
-        <Badge
-          bg={theme.backgroundPanel}
-          fg={focused ? theme.primary : theme.textMuted}
-        >
-          Environments
-        </Badge>
+        jumpMode ? undefined : (
+          <Badge
+            bg={theme.backgroundPanel}
+            fg={focused ? theme.primary : theme.textMuted}
+          >
+            Environments
+          </Badge>
+        )
       }
       onPaneFocus={onPaneFocus}
     >
+      {jumpMode && <JumpBadge letter="s" style={JUMP_BADGE_TOP_INDENT} />}
       {envNames.length === 0 ? (
         <text fg={theme.textMuted}>(no environments)</text>
       ) : (

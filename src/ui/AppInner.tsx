@@ -286,8 +286,9 @@ export function AppInner({
         draft.draft !== null,
         expanded,
         focusedFolder !== null,
+        view === "env-editor",
       ),
-    [draft.draft, expanded, focusedFolder],
+    [draft.draft, expanded, focusedFolder, view],
   )
   useEffect(() => {
     jumpTargetsRef.current = availableJumpTargets
@@ -748,6 +749,7 @@ export function AppInner({
     },
     global: {
       focusRef,
+      headerFieldRef,
       urlbarSubFocusRef,
       viewRef,
       activeIndexRef,
@@ -809,6 +811,8 @@ export function AppInner({
     setUrlbarSubFocus,
     ebRef,
     folderEbRef,
+    envHeaderRef,
+    headerFieldRef,
     setTab,
     selectedIdRef,
     targetsRef: jumpTargetsRef,
@@ -1076,6 +1080,10 @@ export function AppInner({
             envColors={envColors}
             focus={focus}
             envHeaderRef={envHeaderRef}
+            jumpMode={jumpMode}
+            onHeaderFieldFocus={(field) => {
+              headerFieldRef.current = field
+            }}
             onPaneFocus={focusPane}
             setEnvDeletePending={setEnvDeletePending}
           />

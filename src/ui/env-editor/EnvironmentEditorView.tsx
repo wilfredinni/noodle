@@ -12,6 +12,8 @@ interface EnvironmentEditorViewProps {
   envColors: Record<string, string | undefined>
   focus: Focus
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
+  jumpMode?: boolean
+  onHeaderFieldFocus?: (field: "name" | "color") => void
   onPaneFocus?: (focus: Focus) => void
   setEnvDeletePending: (name: string | null) => void
 }
@@ -22,6 +24,8 @@ export function EnvironmentEditorView({
   envColors,
   focus,
   envHeaderRef,
+  jumpMode = false,
+  onHeaderFieldFocus,
   onPaneFocus = () => {},
   setEnvDeletePending,
 }: EnvironmentEditorViewProps) {
@@ -50,6 +54,7 @@ export function EnvironmentEditorView({
           }
         }}
         focused={focus === "env-sidebar"}
+        jumpMode={jumpMode}
         onPaneFocus={() => onPaneFocus("env-sidebar")}
       />
       <box
@@ -67,6 +72,8 @@ export function EnvironmentEditorView({
           onNameChange={envEditor.setName}
           onColorChange={envEditor.setColor}
           focused={focus === "env-header"}
+          jumpMode={jumpMode}
+          onColorFocus={() => onHeaderFieldFocus?.("color")}
           onPaneFocus={() => onPaneFocus("env-header")}
         />
         <EnvEditorPane
@@ -79,6 +86,7 @@ export function EnvironmentEditorView({
           saving={envEditor.saving}
           error={envEditor.error}
           focused={focus === "env-vars"}
+          jumpMode={jumpMode}
           onPaneFocus={() => onPaneFocus("env-vars")}
           onActivateRow={(row, addingRow, subfield) => {
             onPaneFocus("env-vars")

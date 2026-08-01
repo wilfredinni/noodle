@@ -2,12 +2,16 @@ import { describe, expect, it } from "bun:test"
 import { act, useEffect, useRef, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
-import { useFolderEditBrowse } from "../../src/hooks/useFolderEditBrowse"
+import {
+  useFolderEditBrowse,
+  type UseFolderEditBrowseResult,
+} from "../../src/hooks/useFolderEditBrowse"
 import type { UseFolderDraftResult } from "../../src/hooks/useFolderDraft"
 import type { UseEditBrowseResult } from "../../src/hooks/useEditBrowse"
 import type { Folder } from "../../src/schema"
 import { useJumpMode, type JumpTarget } from "../../src/ui/useJumpMode"
 import type { Focus } from "../../src/ui/focus"
+import type { EnvHeaderPaneHandle } from "../../src/ui/env-editor/EnvHeaderPane"
 import { setupKeymap } from "./_helpers"
 
 const folder: Folder = {
@@ -57,6 +61,8 @@ function JumpHarness({
   folderEbRef.current = folderEb
   const ebRef = useRef({} as UseEditBrowseResult)
   const selectedIdRef = useRef<string | null>(null)
+  const envHeaderRef = useRef<EnvHeaderPaneHandle | null>(null)
+  const headerFieldRef = useRef<"name" | "color">("name")
   const targetsRef = useRef<Map<string, JumpTarget>>(
     new Map([["h", { kind: "folder-tab", field: "headers" }]]),
   )
@@ -76,6 +82,8 @@ function JumpHarness({
     setUrlbarSubFocus: () => {},
     ebRef,
     folderEbRef,
+    envHeaderRef,
+    headerFieldRef,
     setTab: () => {},
     selectedIdRef,
     targetsRef,
@@ -109,6 +117,65 @@ interface Snapshot {
   calls: string[]
 }
 
+function EnvironmentJumpHarness({
+  onSnapshot,
+}: {
+  onSnapshot: (value: EnvironmentSnapshot) => void
+}) {
+  const headerCalls = useRef<string[]>([])
+  const ebRef = useRef({} as UseEditBrowseResult)
+  const folderEbRef = useRef({} as UseFolderEditBrowseResult)
+  const selectedIdRef = useRef<string | null>(null)
+  const envHeaderRef = useRef<EnvHeaderPaneHandle | null>({
+    focusName: () => headerCalls.current.push("name"),
+    focusColor: () => headerCalls.current.push("color"),
+  })
+  const headerFieldRef = useRef<"name" | "color">("name")
+  const targetsRef = useRef<Map<string, JumpTarget>>(
+    new Map([
+      ["s", { kind: "env-sidebar" }],
+      ["m", { kind: "env-name" }],
+      ["c", { kind: "env-color" }],
+      ["v", { kind: "env-vars" }],
+    ]),
+  )
+  const [jumpMode, setJumpMode] = useState(true)
+  const [focus, setFocus] = useState<Focus>("env-sidebar")
+
+  useJumpMode({
+    jumpMode,
+    setJumpMode,
+    setFocus,
+    setUrlbarSubFocus: () => {},
+    ebRef,
+    folderEbRef,
+    envHeaderRef,
+    headerFieldRef,
+    setTab: () => {},
+    selectedIdRef,
+    targetsRef,
+    triggerKey: "g",
+  })
+
+  useEffect(() => {
+    onSnapshot({
+      focus,
+      jumpMode,
+      headerField: headerFieldRef.current,
+      headerCalls: headerCalls.current,
+    })
+  }, [focus, jumpMode, onSnapshot])
+
+  return null
+}
+
+interface EnvironmentSnapshot {
+  focus: Focus
+  jumpMode: boolean
+  headerField: "name" | "color"
+  headerCalls: string[]
+}
+
 describe("useFolderEditBrowse jump mode", () => {
   it("cancels an active edit before jumping to another folder tab", async () => {
     const { keymap, host, cleanup } = setupKeymap()
@@ -139,5 +206,40 @@ describe("useFolderEditBrowse jump mode", () => {
       calls: [],
     })
     cleanup()
+  })
+})
+
+describe("useJumpMode environment editor", () => {
+  it("jumps to each environment editor target", async () => {
+    const cases: Array<[string, Focus, "name" | "color", string[]]> = [
+      ["s", "env-sidebar", "name", []],
+      ["m", "env-header", "name", ["name"]],
+      ["c", "env-header", "color", ["color"]],
+      ["v", "env-vars", "name", []],
+    ]
+
+    for (const [key, focus, headerField, headerCalls] of cases) {
+      const { keymap, host, cleanup } = setupKeymap()
+      let snapshot: EnvironmentSnapshot | undefined
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <EnvironmentJumpHarness onSnapshot={(value) => (snapshot = value)} />
+        </KeymapProvider>,
+        { width: 1, height: 1 },
+      )
+
+      await render.renderOnce()
+      await act(async () => host.press(key))
+      await render.renderOnce()
+      await render.renderOnce()
+
+      expect(snapshot).toMatchObject({
+        focus,
+        jumpMode: false,
+        headerField,
+        headerCalls,
+      })
+      cleanup()
+    }
   })
 })
