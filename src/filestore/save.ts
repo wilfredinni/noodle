@@ -25,7 +25,11 @@ function validatePathId(id: string | undefined): void {
   }
 }
 
-export async function saveRequest(dir: string, req: Request): Promise<void> {
+export async function saveRequest(
+  dir: string,
+  req: Request,
+  options?: { overwrite?: boolean },
+): Promise<void> {
   const id = (req as { id?: string }).id
   validatePathId(id)
 
@@ -42,7 +46,10 @@ export async function saveRequest(dir: string, req: Request): Promise<void> {
   const yamlStr = lang.serializeRequest(req)
 
   try {
-    await writeFile(filePath, yamlStr, "utf8")
+    await writeFile(filePath, yamlStr, {
+      encoding: "utf8",
+      flag: options?.overwrite === false ? "wx" : "w",
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveRequest: ${msg}`, { cause: e })

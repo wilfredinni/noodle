@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act, useEffect, useRef, useState } from "react"
@@ -41,6 +41,7 @@ function ActionsHarness({
   onEditReady,
   onEditSaved,
   onNewReady,
+  onCreateFailed,
 }: {
   collectionDir: string
   onSaveReady: (save: () => void) => void
@@ -63,6 +64,7 @@ function ActionsHarness({
       folderPath?: string,
     ) => void,
   ) => void
+  onCreateFailed?: () => void
 }) {
   const [collection, updateCollection] = useState<Collection | null>(null)
   const folderDraftRef = useRef<UseFolderDraftResult>({
@@ -82,7 +84,11 @@ function ActionsHarness({
     folderDeletePathRef: useRef(null),
     setCollectionReloadToken: () => onEditSaved?.(),
     setFocus: () => {},
-    setSaveState: () => {},
+    setSaveState: (state) => {
+      if (typeof state !== "function" && state.kind === "error") {
+        onCreateFailed?.()
+      }
+    },
     savingRef,
     clearSaveTimer: () => {},
     saveTimerRef,
@@ -225,5 +231,54 @@ describe("useCollectionFileActions", () => {
       await readFile(join(collectionDir, "api", "get-users.yml"), "utf8"),
     )
     expect(request.id).toBe("api/get-users")
+  })
+
+  it("does not overwrite a request with the same slug in the selected folder", async () => {
+    const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
+    dirs.push(collectionDir)
+    await mkdir(join(collectionDir, "api"))
+    await writeFile(
+      join(collectionDir, "api", "get-users.yml"),
+      lang.serializeRequest({
+        ...initialRequest,
+        id: "api/get-users",
+        name: "Existing request",
+      }),
+    )
+    let create:
+      | ((
+          name: string,
+          method: NoodleRequest["method"],
+          url: string,
+          folderPath?: string,
+        ) => void)
+      | undefined
+    let resolveFailed: (() => void) | undefined
+    const failed = new Promise<void>((resolve) => {
+      resolveFailed = resolve
+    })
+    const render = await testRender(
+      <ActionsHarness
+        collectionDir={collectionDir}
+        onSaveReady={() => {}}
+        onMarkSaved={() => {}}
+        onNewReady={(handleCreate) => (create = handleCreate)}
+        onCreateFailed={() => resolveFailed?.()}
+      />,
+      { width: 1, height: 1 },
+    )
+
+    await render.renderOnce()
+    await act(async () => {
+      create?.("Get Users", "POST", "https://api.example.com/new", "api")
+    })
+    await failed
+
+    const request = lang.parseRequest(
+      "api/get-users",
+      await readFile(join(collectionDir, "api", "get-users.yml"), "utf8"),
+    )
+    expect(request.name).toBe("Existing request")
+    expect(request.method).toBe("GET")
   })
 })

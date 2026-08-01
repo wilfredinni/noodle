@@ -153,7 +153,7 @@ export function useCollectionFileActions({
         body: "",
       }
 
-      saveRequest(collectionDir, req)
+      saveRequest(collectionDir, req, { overwrite: false })
         .then(() => {
           if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
@@ -196,7 +196,7 @@ export function useCollectionFileActions({
         name: newName,
       }
 
-      saveRequest(collectionDir, cloned)
+      saveRequest(collectionDir, cloned, { overwrite: false })
         .then(() => {
           setCollectionReloadToken((n) => n + 1)
           setCloneRequestVisible(false)
@@ -235,7 +235,7 @@ export function useCollectionFileActions({
       const id = folderPath ? `${folderPath}/${baseId}` : baseId
       const request: NoodleRequest = { ...imported, id, name }
 
-      saveRequest(collectionDir, request)
+      saveRequest(collectionDir, request, { overwrite: false })
         .then(() => {
           if (folderPath) expandFolder(folderPath)
           setCollectionReloadToken((n) => n + 1)
