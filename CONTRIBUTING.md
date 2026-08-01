@@ -69,7 +69,7 @@ Noodle uses [OpenTUI](https://github.com/anomius/opentui) (`@opentui/react`) for
 
 Key conventions:
 - TypeScript 6, strict mode, `"type": "module"`
-- ESLint 10 + Prettier 3 (`semi: false`, `singleQuote: false`, no trailing commas)
+- ESLint 10 + Prettier 3 (`semi: false`, `singleQuote: false`, with Prettier's default trailing commas)
 - Tests use `bun:test` (not vitest/jest)
 - Error re-throws must pass `{ cause: e }` as second arg
 - Requests are `.yml` files, one per request
