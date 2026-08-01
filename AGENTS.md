@@ -43,7 +43,7 @@ noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
 - **UI:** [OpenTUI](https://github.com/anomius/opentui) React binding (`@opentui/react`, `@opentui/core`). `jsxImportSource: "@opentui/react"` — this is NOT standard React DOM. JSX renders to a terminal TUI. Use `useKeyboard`, `createCliRenderer`, `createRoot` from OpenTUI.
 - **Language:** TypeScript 6, strict mode, `"type": "module"`.
 - **Lint:** ESLint 10 with `@eslint/js` + `typescript-eslint` recommended rules. `no-unused-vars` ignores `_`-prefixed args.
-- **Format:** Prettier 3 — `semi: false`, `singleQuote: false`. No trailing commas.
+- **Format:** Prettier 3 — `semi: false`, `singleQuote: false`; use Prettier's default trailing commas.
 - **Tests:** `bun:test` (not vitest/jest). `describe`, `it`, `expect`.
 - **Package manager:** Bun. `bun.lock` (not `yarn.lock`/`package-lock.json`).
 

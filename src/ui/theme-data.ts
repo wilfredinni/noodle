@@ -151,11 +151,11 @@ export const ayuTheme: Theme = {
   textMuted: "#565b66",
   background: "#0b0e14",
   backgroundPanel: "#0f131a",
-  borderDimmest: "#0e1118",
+  borderDimmest: "#161b26",
   backgroundElement: "#1d2335",
   border: "#6c7380",
   borderActive: "#6c7380",
-  borderSubtle: "#11151c",
+  borderSubtle: "#222a38",
 }
 
 export const monokaiTheme: Theme = {
@@ -175,7 +175,7 @@ export const monokaiTheme: Theme = {
   backgroundElement: "#3e3d32",
   border: "#3e3d32",
   borderActive: "#66d9ef",
-  borderSubtle: "#1e1f1c",
+  borderSubtle: "#49483e",
 }
 
 export const solarizedTheme: Theme = {
@@ -193,9 +193,9 @@ export const solarizedTheme: Theme = {
   backgroundPanel: "#073642",
   borderDimmest: "#073642",
   backgroundElement: "#114e5c",
-  border: "#073642",
+  border: "#586e75",
   borderActive: "#586e75",
-  borderSubtle: "#073642",
+  borderSubtle: "#586e75",
 }
 
 export const onedarkTheme: Theme = {
@@ -315,7 +315,7 @@ export const materialTheme: Theme = {
   backgroundElement: "#37474f",
   border: "#37474f",
   borderActive: "#82aaff",
-  borderSubtle: "#1e272c",
+  borderSubtle: "#37474f",
 }
 
 export const carbonfoxTheme: Theme = {
@@ -615,7 +615,7 @@ export const vercelTheme: Theme = {
   backgroundElement: "#292929",
   border: "#1f1f1f",
   borderActive: "#454545",
-  borderSubtle: "#0a0a0a",
+  borderSubtle: "#1f1f1f",
 }
 
 export const vesperTheme: Theme = {
@@ -655,7 +655,7 @@ export const zenburnTheme: Theme = {
   backgroundElement: "#777777",
   border: "#5f5f5f",
   borderActive: "#8cd0d3",
-  borderSubtle: "#4f4f4f",
+  borderSubtle: "#5f5f5f",
 }
 
 export const THEMES: Theme[] = [

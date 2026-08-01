@@ -16,6 +16,7 @@ export type ActiveOverlay =
   | "theme"
   | "env-delete"
   | "undo-all"
+  | "reload-confirm"
   | "init-confirm"
   | "collection-switch-confirm"
   | "collection-switcher"
@@ -35,6 +36,7 @@ interface UseOverlayStateProps {
   previewIndex: number | null
   collectionSwitcherVisible: boolean
   collectionSwitchPending: string | null
+  reloadPending: boolean
   updatePhase: UpdateFlowState["phase"]
 }
 
@@ -42,6 +44,7 @@ export function useOverlayState({
   previewIndex,
   collectionSwitcherVisible,
   collectionSwitchPending,
+  reloadPending,
   updatePhase,
 }: UseOverlayStateProps) {
   const [helpVisible, setHelpVisible] = useState(false)
@@ -88,6 +91,7 @@ export function useOverlayState({
     if (previewIndex !== null) return "theme"
     if (envDeletePending !== null) return "env-delete"
     if (undoAllPending) return "undo-all"
+    if (reloadPending) return "reload-confirm"
     if (initPending) return "init-confirm"
     if (collectionSwitchPending !== null) return "collection-switch-confirm"
     if (collectionSwitcherVisible) return "collection-switcher"
@@ -111,6 +115,7 @@ export function useOverlayState({
     previewIndex,
     envDeletePending,
     undoAllPending,
+    reloadPending,
     initPending,
     collectionSwitchPending,
     collectionSwitcherVisible,

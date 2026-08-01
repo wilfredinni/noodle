@@ -19,6 +19,7 @@ export const HARD_BLOCKING_OVERLAYS = new Set([
   "about",
   "env-delete",
   "undo-all",
+  "reload-confirm",
   "init-confirm",
   "collection-switch-confirm",
   "code-generator",

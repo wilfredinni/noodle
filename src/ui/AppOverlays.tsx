@@ -57,6 +57,7 @@ interface AppOverlaysProps {
   activeOverlay: ActiveOverlay
   envDeletePending: string | null
   undoAllPending: boolean
+  reloadPending: boolean
   initPending: boolean
   collectionSwitchPending: string | null
   onConfirmDialog: () => void
@@ -144,6 +145,7 @@ export function AppOverlays({
   activeOverlay,
   envDeletePending,
   undoAllPending,
+  reloadPending,
   initPending,
   collectionSwitchPending,
   onConfirmDialog,
@@ -235,6 +237,14 @@ export function AppOverlays({
         <ConfirmOverlay
           visible
           message="Discard all unsaved changes? (y/n)"
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
+        />
+      )}
+      {activeOverlay === "reload-confirm" && reloadPending && (
+        <ConfirmOverlay
+          visible
+          message="Reload collection and discard unsaved changes? (y/n)"
           onConfirm={onConfirmDialog}
           onCancel={onCancelDialog}
         />

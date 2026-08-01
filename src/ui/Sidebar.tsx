@@ -261,10 +261,10 @@ export function Sidebar({
                       </text>
                     </box>
                     <text fg={theme.textMuted} wrapMode="none">
-                      {truncName(node.name, 20)}
+                      {truncName(node.name, 18)}
                     </text>
                   </box>
-                  {isFolderDirty && <text fg={theme.warning}>{`\u25CF`}</text>}
+                  {isFolderDirty && <text fg={theme.accent}>{`\u25CF `}</text>}
                 </box>
               )
             }
@@ -308,10 +308,10 @@ export function Sidebar({
                     {shortMethod(node.method ?? "GET").padEnd(7)}
                   </text>
                   <text fg={theme.text} wrapMode="none">
-                    {truncName(node.name, 20)}
+                    {truncName(node.name, 18)}
                   </text>
                 </box>
-                {isDirty && <text fg={theme.warning}>{`\u25CF`}</text>}
+                {isDirty && <text fg={theme.accent}>{`\u25CF `}</text>}
               </box>
             )
           })}

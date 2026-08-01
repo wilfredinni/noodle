@@ -76,8 +76,14 @@ export function useRequestDraft(
 
   const apply = useCallback(
     (op: DraftOp) => {
+      if (!selectedRequest) return
+      setOriginalMap((prev) => {
+        if (prev.has(selectedRequest.id)) return prev
+        const next = new Map(prev)
+        next.set(selectedRequest.id, selectedRequest)
+        return next
+      })
       setMap((prev) => {
-        if (!selectedRequest) return prev
         return applyDraft(prev, selectedRequest.id, selectedRequest, op)
       })
     },

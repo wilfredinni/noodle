@@ -16,8 +16,38 @@ Terminal REST client. OpenTUI (React binding) on Bun. YAML files on disk.
 | Understand module boundaries, data flow, state, CLI, collection layout          | [architecture.md](architecture.md)                                 |
 | Add a keybinding, pane, overlay, auth type, body type, hook, importer, CLI flag | [recipes.md](recipes.md)                                           |
 | Write tests for new feature                                                     | [testing.md](testing.md)                                           |
+| Fix a bug or investigate a regression                                           | [testing.md](testing.md) → [Bug-fix workflow](#bug-fix-workflow)   |
 | Add/modify persistent state (new files, config, timeline)                       | [architecture.md](architecture.md) → "Collection directory layout" |
 | Build terminal UI components                                                    | **REQUIRED SUB-SKILL:** Use `opentui` skill                        |
+
+## Bug-fix workflow
+
+For bug reports, keep investigation, regression-test creation, implementation,
+and review as separate stages. Never declare a bug fixed based only on code
+inspection.
+
+1. Reproduce the reported behavior before changing production code.
+2. When practical, add the smallest focused failing regression test that proves
+   the defect.
+3. If the user requests investigation or approval first, stop after reporting
+   the reproduction, likely root cause, and proposed minimal fix; do not
+   implement until approved. Otherwise, continue with the authorized fix.
+4. Make the smallest localized change that passes the regression test. Do not
+   refactor unrelated code or change behavior outside the reported bug.
+5. Never delete, skip, weaken, or broadly rewrite tests merely to make them
+   pass.
+6. Run the focused test first, then the full test suite after the patch.
+7. Review the final diff for regressions and unintended behavior changes. Report
+   the root cause, changed files, tests changed or added, commands run,
+   user-visible behavior changes, and remaining risks.
+
+If an automated regression test is not practical, explain why and provide a
+reproducible manual acceptance procedure. If the issue cannot be reproduced,
+do not make speculative production changes; report what was attempted instead.
+
+Ask for explicit approval before a compatibility-sensitive change that has not
+already been authorized: public CLI or API behavior, collection or YAML formats,
+configuration, keybindings, persistence, or backwards compatibility.
 
 ## Key conventions
 
