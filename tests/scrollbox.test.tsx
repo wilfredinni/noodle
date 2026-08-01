@@ -608,9 +608,9 @@ describe("Sidebar scrollbox", () => {
     expect(lines.length).toBeLessThan(50)
 
     // Text truncated to fit sidebar width; check truncated form present
-    expect(frame).toContain("Very long request n\u2026")
+    expect(frame).toContain("Very long request\u2026")
     // Should render many entries without crashing
-    const count = (frame.match(/Very long request n\u2026/g) || []).length
+    const count = (frame.match(/Very long request\u2026/g) || []).length
     expect(count).toBeGreaterThan(10)
   })
 

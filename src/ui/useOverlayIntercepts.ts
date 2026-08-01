@@ -92,6 +92,9 @@ export function useOverlayIntercepts(opts: {
   collectionSwitchPending: string | null
   setCollectionSwitchPending: (s: string | null) => void
   onCollectionSwitchConfirm: (collectionDir: string) => void
+  reloadPending: boolean
+  setReloadPending: (v: boolean) => void
+  onReloadConfirm: () => void
   undoAllPending: boolean
   setUndoAllPending: (v: boolean) => void
   initPending: boolean

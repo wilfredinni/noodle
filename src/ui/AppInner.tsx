@@ -65,6 +65,7 @@ import { useUpdateFlow } from "./useUpdateFlow"
 import { useTimelineActions } from "./useTimelineActions"
 import { useOverlayState } from "./useOverlayState"
 import { useCollectionSwitcher } from "./useCollectionSwitcher"
+import { useReloadGuard } from "./useReloadGuard"
 import { useKeymapSync } from "./useKeymapSync"
 import { useEditModeSync } from "./useEditModeSync"
 
@@ -505,6 +506,13 @@ export function AppInner({
     [eb.commitEdit, focus, folderEb.commitEdit],
   )
 
+  const hasUnsavedChanges =
+    draft.dirtyRequestIds.size > 0 ||
+    folderDraft.dirtyPaths.size > 0 ||
+    envEditor.dirty ||
+    eb.editState.mode === "editing" ||
+    folderEb.editState.mode === "editing" ||
+    envEditor.editState.mode === "editing"
   const {
     collectionSwitcherVisible,
     setCollectionSwitcherVisible,
@@ -514,11 +522,11 @@ export function AppInner({
     confirmCollectionSwitch,
   } = useCollectionSwitcher({
     collectionDir,
-    requestDirty: draft.dirtyRequestIds.size > 0,
-    folderDirty: folderDraft.dirtyPaths.size > 0,
-    environmentDirty: envEditor.dirty,
+    hasUnsavedChanges,
     onCollectionChange,
   })
+  const { reloadPending, requestReload, confirmReload, cancelReload } =
+    useReloadGuard(hasUnsavedChanges, onReloadCollection)
 
   const overlayActiveRef = useRef(false)
   const {
@@ -575,6 +583,7 @@ export function AppInner({
     previewIndex,
     collectionSwitcherVisible,
     collectionSwitchPending,
+    reloadPending,
     updatePhase: updateFlow.phase,
   })
   useEffect(() => {
@@ -866,6 +875,9 @@ export function AppInner({
     collectionSwitchPending,
     setCollectionSwitchPending,
     onCollectionSwitchConfirm: confirmCollectionSwitch,
+    reloadPending,
+    setReloadPending: cancelReload,
+    onReloadConfirm: confirmReload,
     undoAllPending,
     setUndoAllPending,
     initPending,
@@ -944,7 +956,7 @@ export function AppInner({
         setExpanded,
         setPreviewIndexProp,
         setEnvDeletePending,
-        onReloadCollection,
+        onReloadCollection: requestReload,
         triggerUpdateCheck,
         paletteTarget,
       }),
@@ -954,7 +966,7 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
-      onReloadCollection,
+      requestReload,
       view,
       mode,
       paletteTarget,
@@ -1077,6 +1089,7 @@ export function AppInner({
           setAboutVisible={setAboutVisible}
           envDeletePending={envDeletePending}
           undoAllPending={undoAllPending}
+          reloadPending={reloadPending}
           initPending={initPending}
           collectionSwitchPending={collectionSwitchPending}
           onConfirmDialog={overlayActions.onConfirm}

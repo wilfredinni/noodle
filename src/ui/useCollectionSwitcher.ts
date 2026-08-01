@@ -4,17 +4,13 @@ import type { Dispatch, SetStateAction } from "react"
 
 interface UseCollectionSwitcherProps {
   collectionDir: string
-  requestDirty: boolean
-  folderDirty: boolean
-  environmentDirty: boolean
+  hasUnsavedChanges: boolean
   onCollectionChange: (collectionDir: string) => void
 }
 
 export function useCollectionSwitcher({
   collectionDir,
-  requestDirty,
-  folderDirty,
-  environmentDirty,
+  hasUnsavedChanges,
   onCollectionChange,
 }: UseCollectionSwitcherProps): {
   collectionSwitcherVisible: boolean
@@ -40,14 +36,14 @@ export function useCollectionSwitcher({
         setCollectionSwitchPending(null)
         return
       }
-      if (requestDirty || folderDirty || environmentDirty) {
+      if (hasUnsavedChanges) {
         setCollectionSwitchPending(normalized)
         return
       }
       setCollectionSwitchPending(null)
       onCollectionChange(normalized)
     },
-    [requestDirty, folderDirty, environmentDirty, onCollectionChange],
+    [hasUnsavedChanges, onCollectionChange],
   )
 
   const confirmCollectionSwitch = useCallback(
