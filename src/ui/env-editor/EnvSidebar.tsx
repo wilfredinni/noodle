@@ -120,7 +120,7 @@ export function EnvSidebar({
                   {colorHex && <text fg={colorHex}>● </text>}
                   <text fg={theme.text}>{name}</text>
                 </box>
-                {isDirty && <text fg={theme.warning}>●</text>}
+                {isDirty && <text fg={theme.accent}>●</text>}
               </box>
             )
           })}

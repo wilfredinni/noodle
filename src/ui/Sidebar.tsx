@@ -264,7 +264,7 @@ export function Sidebar({
                       {truncName(node.name, 20)}
                     </text>
                   </box>
-                  {isFolderDirty && <text fg={theme.warning}>{`\u25CF`}</text>}
+                  {isFolderDirty && <text fg={theme.accent}>{`\u25CF`}</text>}
                 </box>
               )
             }
@@ -311,7 +311,7 @@ export function Sidebar({
                     {truncName(node.name, 20)}
                   </text>
                 </box>
-                {isDirty && <text fg={theme.warning}>{`\u25CF`}</text>}
+                {isDirty && <text fg={theme.accent}>{`\u25CF`}</text>}
               </box>
             )
           })}
