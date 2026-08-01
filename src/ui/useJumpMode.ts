@@ -34,6 +34,7 @@ interface UseJumpModeOpts {
   folderEbRef: RefObject<UseFolderEditBrowseResult>
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
   headerFieldRef: RefObject<"name" | "color">
+  pendingHeaderFieldRef: RefObject<"name" | "color" | null>
   setTab: UseUIStateResult["setTab"]
   selectedIdRef: RefObject<string | null>
   targetsRef: RefObject<Map<string, JumpTarget>>
@@ -51,6 +52,7 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     folderEbRef,
     envHeaderRef,
     headerFieldRef,
+    pendingHeaderFieldRef,
     setTab,
     selectedIdRef,
     targetsRef,
@@ -107,11 +109,13 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
             break
           case "env-name":
             headerFieldRef.current = "name"
+            pendingHeaderFieldRef.current = "name"
             setFocus("env-header")
             envHeaderRef.current?.focusName()
             break
           case "env-color":
             headerFieldRef.current = "color"
+            pendingHeaderFieldRef.current = "color"
             setFocus("env-header")
             envHeaderRef.current?.focusColor()
             break
@@ -133,6 +137,7 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
     folderEbRef,
     envHeaderRef,
     headerFieldRef,
+    pendingHeaderFieldRef,
     setTab,
     selectedIdRef,
   ])

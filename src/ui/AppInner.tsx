@@ -151,6 +151,7 @@ export function AppInner({
   const [jumpMode, setJumpMode] = useState(false)
   const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
   const headerFieldRef = useRef<"name" | "color">("name")
+  const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
 
   // ── Collection ──────────────────────────────────────────────────────
   const isCollection = mode === "collection"
@@ -597,6 +598,7 @@ export function AppInner({
     jumpMode,
     setJumpMode,
     headerFieldRef,
+    pendingHeaderFieldRef,
     overlayActiveRef,
   })
 
@@ -813,6 +815,7 @@ export function AppInner({
     folderEbRef,
     envHeaderRef,
     headerFieldRef,
+    pendingHeaderFieldRef,
     setTab,
     selectedIdRef,
     targetsRef: jumpTargetsRef,

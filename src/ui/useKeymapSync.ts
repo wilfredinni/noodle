@@ -13,6 +13,7 @@ interface UseKeymapSyncProps {
   jumpMode: boolean
   setJumpMode: Dispatch<SetStateAction<boolean>>
   headerFieldRef: RefObject<"name" | "color">
+  pendingHeaderFieldRef: RefObject<"name" | "color" | null>
   overlayActiveRef: RefObject<boolean>
 }
 
@@ -23,6 +24,7 @@ export function useKeymapSync({
   jumpMode,
   setJumpMode,
   headerFieldRef,
+  pendingHeaderFieldRef,
   overlayActiveRef,
 }: UseKeymapSyncProps): boolean {
   const keymap = useKeymap()
@@ -30,8 +32,13 @@ export function useKeymapSync({
 
   useEffect(() => {
     keymap.setData("app.focus", focus)
-    if (focus === "env-header") headerFieldRef.current = "name"
-  }, [focus, headerFieldRef, keymap])
+    if (focus !== "env-header") {
+      pendingHeaderFieldRef.current = null
+      return
+    }
+    headerFieldRef.current = pendingHeaderFieldRef.current ?? "name"
+    pendingHeaderFieldRef.current = null
+  }, [focus, headerFieldRef, keymap, pendingHeaderFieldRef])
 
   useEffect(() => {
     keymap.setData("app.overlay", activeOverlay)

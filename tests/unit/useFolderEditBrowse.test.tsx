@@ -63,6 +63,7 @@ function JumpHarness({
   const selectedIdRef = useRef<string | null>(null)
   const envHeaderRef = useRef<EnvHeaderPaneHandle | null>(null)
   const headerFieldRef = useRef<"name" | "color">("name")
+  const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
   const targetsRef = useRef<Map<string, JumpTarget>>(
     new Map([["h", { kind: "folder-tab", field: "headers" }]]),
   )
@@ -84,6 +85,7 @@ function JumpHarness({
     folderEbRef,
     envHeaderRef,
     headerFieldRef,
+    pendingHeaderFieldRef,
     setTab: () => {},
     selectedIdRef,
     targetsRef,
@@ -131,6 +133,7 @@ function EnvironmentJumpHarness({
     focusColor: () => headerCalls.current.push("color"),
   })
   const headerFieldRef = useRef<"name" | "color">("name")
+  const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
   const targetsRef = useRef<Map<string, JumpTarget>>(
     new Map([
       ["s", { kind: "env-sidebar" }],
@@ -151,11 +154,19 @@ function EnvironmentJumpHarness({
     folderEbRef,
     envHeaderRef,
     headerFieldRef,
+    pendingHeaderFieldRef,
     setTab: () => {},
     selectedIdRef,
     targetsRef,
     triggerKey: "g",
   })
+
+  useEffect(() => {
+    if (focus === "env-header") {
+      headerFieldRef.current = pendingHeaderFieldRef.current ?? "name"
+      pendingHeaderFieldRef.current = null
+    }
+  }, [focus])
 
   useEffect(() => {
     onSnapshot({
