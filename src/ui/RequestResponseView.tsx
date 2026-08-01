@@ -138,6 +138,7 @@ export function RequestResponseView({
   return (
     <>
       <UrlBar
+        key={draft.draft?.id}
         method={draft.draft?.method ?? "GET"}
         url={draft.draft?.url ?? ""}
         params={draft.draft?.params ?? []}

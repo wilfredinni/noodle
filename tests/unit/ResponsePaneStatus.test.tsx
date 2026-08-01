@@ -4,6 +4,7 @@ import { testRender } from "@opentui/react/test-utils"
 import { TextAttributes } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
+import { act, useState } from "react"
 import { RequestResponseView } from "../../src/ui/RequestResponseView"
 import { ThemeProvider } from "../../src/ui/theme"
 import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
@@ -386,6 +387,97 @@ describe("ResponsePane status text truncation and layout tests", () => {
         ),
       ).toBe(false)
     }
+  })
+
+  it("does not sync the previous URL when switching requests", async () => {
+    const { keymap } = createTestProps()
+    const syncedUrls: string[] = []
+    let switchRequest = () => {}
+
+    function RequestSwitchHarness() {
+      const [selectedId, setSelectedId] = useState("first")
+      const [focus, setFocus] = useState<"urlbar" | "sidebar">("urlbar")
+      const draft = {
+        draft: {
+          id: selectedId,
+          method: "GET" as const,
+          url: `https://${selectedId}.example.com`,
+          headers: {},
+          params: [],
+          auth: { type: "none" as const },
+          bodyType: "json" as const,
+        },
+        setUrl: () => {},
+        setMethod: () => {},
+        syncUrlParams: (url: string) => syncedUrls.push(url),
+        setAuthType: () => {},
+        setApiKeyPlacement: () => {},
+        setBodyType: () => {},
+        dirtyRequestIds: new Set<string>(),
+      }
+      const eb = {
+        editState: {
+          mode: "inactive" as const,
+          cursor: { field: "body" as const, row: 0, addingRow: false },
+          editingRow: -1,
+        },
+        editKey: "",
+        editValue: "",
+        setEditKey: () => {},
+        setEditValue: () => {},
+        activeTab: "body" as const,
+      }
+
+      switchRequest = () => {
+        setSelectedId("second")
+        setFocus("sidebar")
+      }
+
+      return (
+        <RequestResponseView
+          draft={
+            draft as unknown as Parameters<
+              typeof RequestResponseView
+            >[0]["draft"]
+          }
+          eb={eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]}
+          error={null}
+          focus={focus}
+          layout="stacked"
+          expanded={null}
+          activeEnv={null}
+          responseState={{ status: "idle" }}
+          timelineEntries={[]}
+          onResponseTabChange={() => {}}
+          setSelectOpen={() => {}}
+          urlbarSubFocus="text"
+          urlbarInteractive={true}
+        />
+      )
+    }
+
+    const { renderOnce } = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 100, height: 20, flexDirection: "column" }}>
+            <RequestSwitchHarness />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 20 },
+    )
+
+    await renderOnce()
+    act(() => {
+      switchRequest()
+    })
+    await renderOnce()
+
+    expect(syncedUrls).toEqual([])
   })
 })
 
