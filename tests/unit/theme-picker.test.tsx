@@ -7,7 +7,7 @@ import {
 } from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
-import { ThemePickerOverlay, ThemeProvider } from "../../src/ui/theme"
+import { THEMES, ThemePickerOverlay, ThemeProvider } from "../../src/ui/theme"
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()
@@ -114,6 +114,36 @@ describe("ThemePickerOverlay", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("\u25cf")
+    cleanup()
+  })
+
+  it("scrolls the active theme into view when opened", async () => {
+    const synthwaveIndex = THEMES.findIndex(
+      (theme) => theme.name === "synthwave84",
+    )
+    expect(synthwaveIndex).toBeGreaterThan(-1)
+
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider
+          activeIndex={synthwaveIndex}
+          previewIndex={synthwaveIndex}
+        >
+          <ThemePickerOverlay
+            visible
+            activeIndex={synthwaveIndex}
+            previewIndex={synthwaveIndex}
+            setPreviewIndex={() => {}}
+            onThemeChange={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 30 },
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("synthwave84")
     cleanup()
   })
 })

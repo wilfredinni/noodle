@@ -102,11 +102,17 @@ export function PickerOverlay<T>({
   }, [navigableFiltered, currentHighlight, keyExtractor])
 
   useEffect(() => {
-    if (currentHighlight) {
-      const id = `picker-item-${keyExtractor(currentHighlight)}`
-      scrollRef.current?.scrollChildIntoView(id)
-    }
-  }, [currentHighlight, keyExtractor])
+    if (!visible || !currentHighlight) return
+
+    const id = `picker-item-${keyExtractor(currentHighlight)}`
+    const scrollIntoView = () => scrollRef.current?.scrollChildIntoView(id)
+    scrollIntoView()
+
+    // Portaled overlays receive their final layout on the following turn.
+    // Repeat the scroll then so the initial highlighted item is visible.
+    const timer = setTimeout(scrollIntoView, 0)
+    return () => clearTimeout(timer)
+  }, [visible, currentHighlight, keyExtractor])
 
   useEffect(() => {
     if (!visible) return
