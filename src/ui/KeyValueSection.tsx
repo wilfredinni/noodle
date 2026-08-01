@@ -172,9 +172,7 @@ export function KeyValueSection({
                   >
                     <Checkbox checked={kv.enabled} theme={theme} />
                   </box>
-                ) : (
-                  <box style={{ width: 3 }} />
-                )}
+                ) : null}
                 <VarInput
                   value={isEditingThisRow ? editKey : entry.key}
                   placeholder="Key..."
