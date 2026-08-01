@@ -16,6 +16,7 @@ import {
   saveSettings,
   saveFolder,
   deleteFolder,
+  saveRequest,
 } from "../src/filestore"
 import type { Folder, Request, Collection } from "../src/schema"
 
@@ -228,6 +229,19 @@ describe("filestore.saveRequest — writes", () => {
     const content = await readFile(join(dir, "x.yml"), "utf8")
     expect(content).toContain("name: New")
     expect(content).not.toContain("name: Old")
+  })
+
+  it("does not overwrite an existing file when overwrite is disabled", async () => {
+    await saveRequest(dir, makeReq({ id: "x", name: "Old" }))
+
+    await expect(
+      saveRequest(dir, makeReq({ id: "x", name: "New" }), {
+        overwrite: false,
+      }),
+    ).rejects.toThrow("EEXIST")
+
+    const content = await readFile(join(dir, "x.yml"), "utf8")
+    expect(content).toContain("name: Old")
   })
 
   it("written file round-trips through lang.parseRequest", async () => {

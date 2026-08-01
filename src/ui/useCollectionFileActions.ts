@@ -371,7 +371,9 @@ export function useCollectionFileActions({
           : {}),
       }
 
-      const savePromise = saveRequest(collectionDir, updated).then(() => {
+      const savePromise = saveRequest(collectionDir, updated, {
+        overwrite: !nameChanged,
+      }).then(() => {
         if (nameChanged || folderChanged) {
           deleteRequest(collectionDir, req.id).catch(() => {
             /* stale file not cleaned up - new file is safe */
