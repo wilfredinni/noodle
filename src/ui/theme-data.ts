@@ -595,7 +595,7 @@ export const palenightTheme: Theme = {
   backgroundElement: "#32364a",
   border: "#32364a",
   borderActive: "#82aaff",
-  borderSubtle: "#1e2132",
+  borderSubtle: "#3b3f51",
 }
 
 export const vercelTheme: Theme = {

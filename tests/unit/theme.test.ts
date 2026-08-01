@@ -3,6 +3,7 @@ import {
   THEMES,
   contrastOnPrimary,
   contrastOnSecondary,
+  palenightTheme,
 } from "../../src/ui/theme"
 
 describe("THEMES", () => {
@@ -127,6 +128,10 @@ describe("THEMES", () => {
         expect(value).toMatch(/^#[0-9a-fA-F]{6}$/)
       }
     }
+  })
+
+  it("keeps Pale Night's inactive pane borders visible against panel backgrounds", () => {
+    expect(palenightTheme.borderSubtle).not.toBe(palenightTheme.backgroundPanel)
   })
 })
 
