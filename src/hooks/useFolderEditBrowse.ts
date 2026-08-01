@@ -45,7 +45,12 @@ export interface UseFolderEditBrowseResult {
   revertAll: () => void
   toggleRow: () => void
   cycleInactiveTab: (delta: 1 | -1) => void
-  activateAt: (field: FolderFieldKind, row: number, addingRow?: boolean) => void
+  activateAt: (
+    field: FolderFieldKind,
+    row: number,
+    addingRow?: boolean,
+    subfield?: "key" | "value",
+  ) => void
   toggleAt: (field: FolderFieldKind, row: number) => void
 }
 
@@ -227,7 +232,12 @@ export function useFolderEditBrowse(
   }, [])
 
   const activateAt = useCallback(
-    (field: FolderFieldKind, row: number, addingRow = false) => {
+    (
+      field: FolderFieldKind,
+      row: number,
+      addingRow = false,
+      subfield?: "key" | "value",
+    ) => {
       if (field === "auth" && row === 0) return
       setInactiveTab(field)
       const currentFolder = draftRef.current
@@ -239,12 +249,15 @@ export function useFolderEditBrowse(
           prev.mode === "inactive"
             ? enterFolderEditBrowse(prev, folderRowCount(currentFolder), field)
             : cancelEditing(prev)
-        return beginEditing({
+        const next = beginEditing({
           ...browsed,
           mode: "browsing",
           editingRow: -1,
           cursor: { field, row, addingRow },
         })
+        return subfield
+          ? { ...next, cursor: { ...next.cursor, subfield } }
+          : next
       })
     },
     [],

@@ -36,6 +36,7 @@ interface FolderPaneProps {
     field: FolderFieldKind,
     row: number,
     addingRow?: boolean,
+    subfield?: "key" | "value",
   ) => void
   onFieldToggle?: (field: FolderFieldKind, row: number) => void
   onInteraction?: () => void
@@ -194,10 +195,10 @@ export function FolderPane({
                     activeEnv={activeEnv}
                     onActivateRow={
                       onFieldActivate
-                        ? (row, addingRow) => {
+                        ? (row, addingRow, subfield) => {
                             onPaneFocus?.()
                             onInteraction?.()
-                            onFieldActivate("headers", row, addingRow)
+                            onFieldActivate("headers", row, addingRow, subfield)
                           }
                         : undefined
                     }

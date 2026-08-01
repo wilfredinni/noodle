@@ -119,6 +119,17 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     })
 
     act(() => {
+      ref.current!.activateVar(0, false, "value")
+    })
+    await renderOnce()
+    expect(ref.current!.editState).toMatchObject({
+      mode: "editing",
+      row: 0,
+      addingRow: false,
+      subfield: "value",
+    })
+
+    act(() => {
       ref.current!.activateVar(-1, true)
     })
     await renderOnce()

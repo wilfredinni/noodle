@@ -70,7 +70,11 @@ export interface UseEnvironmentEditorResult {
   browseFirst: () => void
   browseLast: () => void
   enterEdit: () => void
-  activateVar: (row: number, addingRow?: boolean) => void
+  activateVar: (
+    row: number,
+    addingRow?: boolean,
+    subfield?: "key" | "value",
+  ) => void
   commitEdit: () => void
   cancelEdit: () => void
   browseTab: () => void
@@ -410,7 +414,7 @@ export function useEnvironmentEditor({
   }, [])
 
   const activateVar = useCallback(
-    (row: number, addingRow = false) => {
+    (row: number, addingRow = false, subfield: "key" | "value" = "key") => {
       const targetId = addingRow
         ? undefined
         : draftRef.current?.varRows[row]?.id
@@ -430,7 +434,7 @@ export function useEnvironmentEditor({
         mode: "editing",
         row: resolvedRow,
         addingRow,
-        subfield: "key",
+        subfield,
         editingRow: addingRow ? -1 : resolvedRow,
       })
     },

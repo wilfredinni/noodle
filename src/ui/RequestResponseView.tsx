@@ -43,6 +43,7 @@ interface RequestResponseViewProps {
     field: FieldKind,
     row: number,
     addingRow?: boolean,
+    subfield?: "key" | "value",
   ) => void
   onRequestFieldToggle?: (field: FieldKind, row: number) => void
   onRequestInteraction?: () => void

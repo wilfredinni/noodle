@@ -16,7 +16,11 @@ export interface KeyValueSectionProps {
   setEditValue: (v: string) => void
   theme: Theme
   activeEnv?: Environment | null
-  onActivateRow?: (row: number, addingRow: boolean) => void
+  onActivateRow?: (
+    row: number,
+    addingRow: boolean,
+    subfield?: "key" | "value",
+  ) => void
   onToggleRow?: (row: number) => void
 }
 
@@ -173,38 +177,68 @@ export function KeyValueSection({
                     <Checkbox checked={kv.enabled} theme={theme} />
                   </box>
                 ) : null}
-                <VarInput
-                  value={isEditingThisRow ? editKey : entry.key}
-                  placeholder="Key..."
-                  env={activeEnv ?? null}
-                  isEditing={kind !== "pathParams" && isEditingThisRow}
-                  onChange={setEditKey}
-                  isFocused={editState.cursor.subfield === "key"}
-                  baseColor={keyBaseColor}
-                  backgroundColor={
-                    isEditingThisRow ? theme.backgroundElement : undefined
+                <box
+                  onMouseDown={
+                    !isEditingThisRow && onActivateRow
+                      ? (event) => {
+                          if (event.button !== MouseButton.LEFT) return
+                          onActivateRow(
+                            i,
+                            false,
+                            kind === "pathParams" ? "value" : "key",
+                          )
+                          event.stopPropagation()
+                        }
+                      : undefined
                   }
-                  focusedBackgroundColor={theme.borderSubtle}
-                  paddingX={1}
-                  stopMousePropagation={isEditingThisRow}
                   style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-                />
-                <VarInput
-                  value={isEditingThisRow ? editValue : kv.value}
-                  placeholder="Value..."
-                  env={activeEnv ?? null}
-                  isEditing={isEditingThisRow}
-                  onChange={setEditValue}
-                  isFocused={editState.cursor.subfield === "value"}
-                  baseColor={valueBaseColor}
-                  backgroundColor={
-                    isEditingThisRow ? theme.backgroundElement : undefined
+                >
+                  <VarInput
+                    value={isEditingThisRow ? editKey : entry.key}
+                    placeholder="Key..."
+                    env={activeEnv ?? null}
+                    isEditing={kind !== "pathParams" && isEditingThisRow}
+                    onChange={setEditKey}
+                    isFocused={editState.cursor.subfield === "key"}
+                    baseColor={keyBaseColor}
+                    backgroundColor={
+                      isEditingThisRow ? theme.backgroundElement : undefined
+                    }
+                    focusedBackgroundColor={theme.borderSubtle}
+                    paddingX={1}
+                    stopMousePropagation={isEditingThisRow}
+                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                  />
+                </box>
+                <box
+                  onMouseDown={
+                    !isEditingThisRow && onActivateRow
+                      ? (event) => {
+                          if (event.button !== MouseButton.LEFT) return
+                          onActivateRow(i, false, "value")
+                          event.stopPropagation()
+                        }
+                      : undefined
                   }
-                  focusedBackgroundColor={theme.borderSubtle}
-                  paddingX={1}
-                  stopMousePropagation={isEditingThisRow}
                   style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-                />
+                >
+                  <VarInput
+                    value={isEditingThisRow ? editValue : kv.value}
+                    placeholder="Value..."
+                    env={activeEnv ?? null}
+                    isEditing={isEditingThisRow}
+                    onChange={setEditValue}
+                    isFocused={editState.cursor.subfield === "value"}
+                    baseColor={valueBaseColor}
+                    backgroundColor={
+                      isEditingThisRow ? theme.backgroundElement : undefined
+                    }
+                    focusedBackgroundColor={theme.borderSubtle}
+                    paddingX={1}
+                    stopMousePropagation={isEditingThisRow}
+                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                  />
+                </box>
               </box>
             )
           })}
@@ -248,46 +282,74 @@ export function KeyValueSection({
                     }
                   >
                     <Checkbox checked={false} theme={theme} />
-                    <VarInput
-                      value={editingAdd ? editKey : ""}
-                      placeholder="Key..."
-                      env={activeEnv ?? null}
-                      isEditing={editingAdd}
-                      onChange={setEditKey}
-                      isFocused={editState.cursor.subfield === "key"}
-                      baseColor={
-                        editingAdd || (cursorHere && editState.cursor.addingRow)
-                          ? theme.primary
-                          : theme.textMuted
+                    <box
+                      onMouseDown={
+                        onActivateRow && !editingAdd
+                          ? (event) => {
+                              if (event.button !== MouseButton.LEFT) return
+                              onActivateRow(-1, true, "key")
+                              event.stopPropagation()
+                            }
+                          : undefined
                       }
-                      backgroundColor={
-                        editingAdd ? theme.backgroundElement : undefined
-                      }
-                      focusedBackgroundColor={theme.borderSubtle}
-                      paddingX={1}
-                      stopMousePropagation={editingAdd}
                       style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-                    />
-                    <VarInput
-                      value={editingAdd ? editValue : ""}
-                      placeholder="Value..."
-                      env={activeEnv ?? null}
-                      isEditing={editingAdd}
-                      onChange={setEditValue}
-                      isFocused={editState.cursor.subfield === "value"}
-                      baseColor={
-                        editingAdd || (cursorHere && editState.cursor.addingRow)
-                          ? theme.text
-                          : theme.textMuted
+                    >
+                      <VarInput
+                        value={editingAdd ? editKey : ""}
+                        placeholder="Key..."
+                        env={activeEnv ?? null}
+                        isEditing={editingAdd}
+                        onChange={setEditKey}
+                        isFocused={editState.cursor.subfield === "key"}
+                        baseColor={
+                          editingAdd ||
+                          (cursorHere && editState.cursor.addingRow)
+                            ? theme.primary
+                            : theme.textMuted
+                        }
+                        backgroundColor={
+                          editingAdd ? theme.backgroundElement : undefined
+                        }
+                        focusedBackgroundColor={theme.borderSubtle}
+                        paddingX={1}
+                        stopMousePropagation={editingAdd}
+                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                      />
+                    </box>
+                    <box
+                      onMouseDown={
+                        onActivateRow && !editingAdd
+                          ? (event) => {
+                              if (event.button !== MouseButton.LEFT) return
+                              onActivateRow(-1, true, "value")
+                              event.stopPropagation()
+                            }
+                          : undefined
                       }
-                      backgroundColor={
-                        editingAdd ? theme.backgroundElement : undefined
-                      }
-                      focusedBackgroundColor={theme.borderSubtle}
-                      paddingX={1}
-                      stopMousePropagation={editingAdd}
                       style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-                    />
+                    >
+                      <VarInput
+                        value={editingAdd ? editValue : ""}
+                        placeholder="Value..."
+                        env={activeEnv ?? null}
+                        isEditing={editingAdd}
+                        onChange={setEditValue}
+                        isFocused={editState.cursor.subfield === "value"}
+                        baseColor={
+                          editingAdd ||
+                          (cursorHere && editState.cursor.addingRow)
+                            ? theme.text
+                            : theme.textMuted
+                        }
+                        backgroundColor={
+                          editingAdd ? theme.backgroundElement : undefined
+                        }
+                        focusedBackgroundColor={theme.borderSubtle}
+                        paddingX={1}
+                        stopMousePropagation={editingAdd}
+                        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                      />
+                    </box>
                   </box>
                 )
               })()

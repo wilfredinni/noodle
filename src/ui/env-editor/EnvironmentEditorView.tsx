@@ -80,9 +80,9 @@ export function EnvironmentEditorView({
           error={envEditor.error}
           focused={focus === "env-vars"}
           onPaneFocus={() => onPaneFocus("env-vars")}
-          onActivateRow={(row, addingRow) => {
+          onActivateRow={(row, addingRow, subfield) => {
             onPaneFocus("env-vars")
-            envEditor.activateVar(row, addingRow)
+            envEditor.activateVar(row, addingRow, subfield)
           }}
           onToggleRow={(row) => {
             onPaneFocus("env-vars")
