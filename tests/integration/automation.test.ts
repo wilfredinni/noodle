@@ -13,10 +13,10 @@ import {
   requestRun,
   validateId,
   workspaceAudit,
-} from "../src/app/services"
-import { collection as collectionCommand } from "../src/app/commands/automation"
-import { env } from "../src/env"
-import { executor } from "../src/requests"
+} from "../../src/app/services"
+import { collection as collectionCommand } from "../../src/app/commands/automation"
+import { env } from "../../src/env"
+import { executor } from "../../src/requests"
 
 let dir: string
 beforeEach(async () => {
@@ -114,6 +114,64 @@ describe("automation services", () => {
       method: "GET",
       url: "www.example.com",
     })
+  })
+
+  it("accepts scheme-less host-and-port URLs without rewriting them", async () => {
+    await writeFile(join(dir, "settings.yml"), "{}\n", "utf8")
+    await requestCreate("bare-port", "localhost:3000/health", "GET", dir)
+    await requestCreate("loopback", "127.0.0.1:8080/health", "GET", dir)
+    await requestCreate(
+      "remote-port",
+      "api.example.com:8443/health",
+      "GET",
+      dir,
+    )
+    await requestCreate("service-port", "api:3000/health", "GET", dir)
+    await requestCreate("ftp-port", "ftp:21", "GET", dir)
+
+    const result = await collectionInspect(dir)
+    expect(result.tree).toContainEqual({
+      type: "request",
+      id: "bare-port",
+      name: "bare-port",
+      method: "GET",
+      url: "localhost:3000/health",
+    })
+    expect(result.tree).toContainEqual({
+      type: "request",
+      id: "loopback",
+      name: "loopback",
+      method: "GET",
+      url: "127.0.0.1:8080/health",
+    })
+    expect(result.tree).toContainEqual({
+      type: "request",
+      id: "remote-port",
+      name: "remote-port",
+      method: "GET",
+      url: "api.example.com:8443/health",
+    })
+    expect(result.tree).toContainEqual({
+      type: "request",
+      id: "service-port",
+      name: "service-port",
+      method: "GET",
+      url: "api:3000/health",
+    })
+    expect(result.tree).toContainEqual({
+      type: "request",
+      id: "ftp-port",
+      name: "ftp-port",
+      method: "GET",
+      url: "ftp:21",
+    })
+  })
+
+  it("rejects non-HTTP request URL schemes", async () => {
+    await writeFile(join(dir, "settings.yml"), "{}\n", "utf8")
+    await expect(
+      requestCreate("ftp-url", "ftp://example.com/file", "GET", dir),
+    ).rejects.toThrow('unsupported URL scheme "ftp:"')
   })
 
   it("sets existing environment values and re-enables disabled variables", async () => {

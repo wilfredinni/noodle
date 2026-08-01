@@ -137,17 +137,20 @@ export function useCollectionFileActions({
       if (!baseId) return
       const folder = folderPath ?? newRequestFolderRef.current
       const id = folder ? `${folder}/${baseId}` : baseId
+      const synced = syncParamsWithUrl([], url)
+      const pathParams = syncPathParamsWithUrl([], url)
 
       const req: NoodleRequest = {
         id,
         name,
         method,
-        url,
+        url: synced.baseUrl,
         timeout: 0,
         followRedirects: true,
         maxRedirects: 5,
         headers: {},
-        params: [],
+        params: synced.params,
+        pathParams,
         auth: { type: "none" },
         bodyType: "none",
         body: "",

@@ -194,7 +194,7 @@ describe("useCollectionFileActions", () => {
     ])
   })
 
-  it("creates a request in the selected folder", async () => {
+  it("creates a request with synchronized URL parameters in the selected folder", async () => {
     const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
     dirs.push(collectionDir)
     let create:
@@ -222,7 +222,12 @@ describe("useCollectionFileActions", () => {
 
     await render.renderOnce()
     await act(async () => {
-      create?.("Get Users", "GET", "https://api.example.com/users", "api")
+      create?.(
+        "Get Users",
+        "GET",
+        "https://api.example.com/users/:id?limit=10",
+        "api",
+      )
     })
     await saved
 
@@ -231,6 +236,13 @@ describe("useCollectionFileActions", () => {
       await readFile(join(collectionDir, "api", "get-users.yml"), "utf8"),
     )
     expect(request.id).toBe("api/get-users")
+    expect(request.url).toBe("https://api.example.com/users/:id")
+    expect(request.params).toEqual([
+      { name: "limit", value: "10", enabled: true },
+    ])
+    expect(request.pathParams).toEqual([
+      { name: "id", value: "", enabled: true },
+    ])
   })
 
   it("does not overwrite a request with the same slug in the selected folder", async () => {

@@ -341,6 +341,8 @@ describe("TimelineDetailOverlay", () => {
     const responseFooterRow = captureCharFrame()
       .split("\n")
       .findIndex((line) => line.includes("copy headers"))
+    expect(requestFooterRow).toBeGreaterThanOrEqual(0)
+    expect(responseFooterRow).toBeGreaterThanOrEqual(0)
     expect(responseFooterRow).toBe(requestFooterRow)
     cleanup()
   })

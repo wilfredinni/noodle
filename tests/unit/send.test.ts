@@ -431,7 +431,7 @@ describe("interpolatePathParams", () => {
 })
 
 describe("send — URL scheme", () => {
-  it("defaults scheme-less URLs to HTTPS and preserves explicit HTTP", async () => {
+  it("defaults remote URLs to HTTPS and local URLs to HTTP", async () => {
     const captured: string[] = []
     const orig = globalThis.fetch
     globalThis.fetch = mock(async (url: RequestInfo | URL) => {
@@ -447,13 +447,40 @@ describe("send — URL scheme", () => {
         }),
       )
       await send(makeReq({ url: "http://localhost:3000/health" }))
+      await send(makeReq({ url: "localhost:3000/health" }))
+      await send(makeReq({ url: "api.localhost:8080/health" }))
+      await send(makeReq({ url: "api.example.com:8443/health" }))
+      await send(makeReq({ url: "192.168.1.10:8080/health" }))
+      await send(makeReq({ url: "127.0.0.1:8080/health" }))
+      await send(makeReq({ url: "[::1]:8080/health" }))
+      await send(makeReq({ url: "api:3000/health" }))
+      await send(makeReq({ url: "ftp:21" }))
 
       expect(captured).toEqual([
         "https://www.example.com/users/42",
         "http://localhost:3000/health",
+        "http://localhost:3000/health",
+        "http://api.localhost:8080/health",
+        "https://api.example.com:8443/health",
+        "https://192.168.1.10:8080/health",
+        "http://127.0.0.1:8080/health",
+        "http://[::1]:8080/health",
+        "https://api:3000/health",
+        "https://ftp:21/",
       ])
     } finally {
       globalThis.fetch = orig
+    }
+  })
+
+  it("rejects unsupported URL schemes", async () => {
+    for (const [url, scheme] of [
+      ["ftp://example.com/file", "ftp"],
+      ["ws://example.com/socket", "ws"],
+    ]) {
+      await expect(send(makeReq({ url }))).rejects.toThrow(
+        `unsupported URL scheme "${scheme}:"`,
+      )
     }
   })
 })
