@@ -219,6 +219,42 @@ describe("buildCommandPaletteCommands", () => {
     expect(opened).toBe(true)
   })
 
+  it("opens the edit request overlay for the selected request", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.selectedIdRef = { current: "users" } as never
+    ctx.collectionRef = {
+      current: {
+        id: "collection",
+        name: "collection",
+        items: [
+          {
+            type: "request",
+            data: {
+              id: "users",
+              name: "Users",
+              method: "GET",
+              url: "https://example.com/users",
+              timeout: 0,
+              headers: {},
+              params: [],
+            },
+          },
+        ],
+      },
+    } as never
+    ctx.setEditRequestVisible = (value) => {
+      opened = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "request.edit-overlay",
+    )
+
+    expect(command?.run()).toBe(true)
+    expect(opened).toBe(true)
+  })
+
   it("opens the environment editor with the sidebar focused", () => {
     const ctx = minimalContext()
     let opened = ""

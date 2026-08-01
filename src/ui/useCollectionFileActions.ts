@@ -121,6 +121,7 @@ export function useCollectionFileActions({
       savingRef.current = false
     }
   }, [
+    collection,
     collectionDir,
     folderDraftRef,
     savingRef,
