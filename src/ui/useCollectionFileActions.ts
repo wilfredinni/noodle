@@ -17,6 +17,7 @@ import {
 } from "../filestore"
 import { slugify } from "./overlays/NewRequestOverlay"
 import { updateFolderByPath } from "./tree"
+import { syncParamsWithUrl, syncPathParamsWithUrl } from "./urlParams"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 
@@ -131,28 +132,31 @@ export function useCollectionFileActions({
   ])
 
   const handleNewRequestConfirm = useCallback(
-    (name: string, method: Method, url: string) => {
+    (name: string, method: Method, url: string, folderPath?: string) => {
       const baseId = slugify(name)
       if (!baseId) return
-      const folder = newRequestFolderRef.current
+      const folder = folderPath ?? newRequestFolderRef.current
       const id = folder ? `${folder}/${baseId}` : baseId
+      const synced = syncParamsWithUrl([], url)
+      const pathParams = syncPathParamsWithUrl([], url)
 
       const req: NoodleRequest = {
         id,
         name,
         method,
-        url,
+        url: synced.baseUrl,
         timeout: 0,
         followRedirects: true,
         maxRedirects: 5,
         headers: {},
-        params: [],
+        params: synced.params,
+        pathParams,
         auth: { type: "none" },
         bodyType: "none",
         body: "",
       }
 
-      saveRequest(collectionDir, req)
+      saveRequest(collectionDir, req, { overwrite: false })
         .then(() => {
           if (folder) expandFolder(folder)
           setCollectionReloadToken((n) => n + 1)
@@ -195,7 +199,7 @@ export function useCollectionFileActions({
         name: newName,
       }
 
-      saveRequest(collectionDir, cloned)
+      saveRequest(collectionDir, cloned, { overwrite: false })
         .then(() => {
           setCollectionReloadToken((n) => n + 1)
           setCloneRequestVisible(false)
@@ -234,7 +238,7 @@ export function useCollectionFileActions({
       const id = folderPath ? `${folderPath}/${baseId}` : baseId
       const request: NoodleRequest = { ...imported, id, name }
 
-      saveRequest(collectionDir, request)
+      saveRequest(collectionDir, request, { overwrite: false })
         .then(() => {
           if (folderPath) expandFolder(folderPath)
           setCollectionReloadToken((n) => n + 1)
@@ -338,9 +342,16 @@ export function useCollectionFileActions({
         ? req.id.slice(0, req.id.lastIndexOf("/"))
         : ""
 
+      const synced = syncParamsWithUrl(req.params, url)
+      const pathParams = syncPathParamsWithUrl(req.pathParams ?? [], url)
       const nameChanged = newId !== req.id
       const folderChanged = newFolder !== oldFolder
-      const changed = nameChanged || method !== req.method || url !== req.url
+      const changed =
+        nameChanged ||
+        method !== req.method ||
+        synced.baseUrl !== req.url ||
+        JSON.stringify(synced.params) !== JSON.stringify(req.params) ||
+        JSON.stringify(pathParams) !== JSON.stringify(req.pathParams ?? [])
 
       if (!changed) {
         setEditRequestVisible(false)
@@ -353,10 +364,16 @@ export function useCollectionFileActions({
         id: newId,
         name,
         method,
-        url,
+        url: synced.baseUrl,
+        params: synced.params,
+        ...(req.pathParams !== undefined || pathParams.length > 0
+          ? { pathParams }
+          : {}),
       }
 
-      const savePromise = saveRequest(collectionDir, updated).then(() => {
+      const savePromise = saveRequest(collectionDir, updated, {
+        overwrite: !nameChanged,
+      }).then(() => {
         if (nameChanged || folderChanged) {
           deleteRequest(collectionDir, req.id).catch(() => {
             /* stale file not cleaned up - new file is safe */

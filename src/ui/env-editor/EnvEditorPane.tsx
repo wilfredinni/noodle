@@ -33,7 +33,11 @@ export function EnvEditorPane({
   error: string | null
   focused: boolean
   onPaneFocus?: () => void
-  onActivateRow?: (row: number, addingRow: boolean) => void
+  onActivateRow?: (
+    row: number,
+    addingRow: boolean,
+    subfield?: "key" | "value",
+  ) => void
   onToggleRow?: (row: number) => void
 }) {
   const theme = useTheme()
@@ -200,38 +204,64 @@ export function EnvEditorPane({
               >
                 <Checkbox checked={row.enabled} theme={theme} />
               </box>
-              <VarInput
-                value={isEditingThisRow ? editKey : row.key}
-                placeholder="Key..."
-                env={draftEnv}
-                isEditing={isEditingThisRow}
-                onChange={setEditKey}
-                isFocused={isEditingThisRow && editState.subfield === "key"}
-                baseColor={keyBaseColor}
-                backgroundColor={
-                  isEditingThisRow ? theme.backgroundElement : undefined
+              <box
+                onMouseDown={
+                  canActivateRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(i, false, "key")
+                        event.stopPropagation()
+                      }
+                    : undefined
                 }
-                focusedBackgroundColor={theme.borderSubtle}
-                paddingX={1}
                 style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-                variableNames={variableNames}
-              />
-              <VarInput
-                value={isEditingThisRow ? editValue : row.value}
-                placeholder="Value..."
-                env={draftEnv}
-                isEditing={isEditingThisRow}
-                onChange={setEditValue}
-                isFocused={isEditingThisRow && editState.subfield === "value"}
-                baseColor={valueBaseColor}
-                backgroundColor={
-                  isEditingThisRow ? theme.backgroundElement : undefined
+              >
+                <VarInput
+                  value={isEditingThisRow ? editKey : row.key}
+                  placeholder="Key..."
+                  env={draftEnv}
+                  isEditing={isEditingThisRow}
+                  onChange={setEditKey}
+                  isFocused={isEditingThisRow && editState.subfield === "key"}
+                  baseColor={keyBaseColor}
+                  backgroundColor={
+                    isEditingThisRow ? theme.backgroundElement : undefined
+                  }
+                  focusedBackgroundColor={theme.borderSubtle}
+                  paddingX={1}
+                  style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                  variableNames={variableNames}
+                />
+              </box>
+              <box
+                onMouseDown={
+                  canActivateRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(i, false, "value")
+                        event.stopPropagation()
+                      }
+                    : undefined
                 }
-                focusedBackgroundColor={theme.borderSubtle}
-                paddingX={1}
                 style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-                variableNames={variableNames}
-              />
+              >
+                <VarInput
+                  value={isEditingThisRow ? editValue : row.value}
+                  placeholder="Value..."
+                  env={draftEnv}
+                  isEditing={isEditingThisRow}
+                  onChange={setEditValue}
+                  isFocused={isEditingThisRow && editState.subfield === "value"}
+                  baseColor={valueBaseColor}
+                  backgroundColor={
+                    isEditingThisRow ? theme.backgroundElement : undefined
+                  }
+                  focusedBackgroundColor={theme.borderSubtle}
+                  paddingX={1}
+                  style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                  variableNames={variableNames}
+                />
+              </box>
             </box>
           )
         })}
@@ -275,46 +305,72 @@ export function EnvEditorPane({
               }
             >
               <Checkbox checked={false} theme={theme} />
-              <VarInput
-                value={editingAdd ? editKey : ""}
-                placeholder="Key..."
-                env={draftEnv}
-                isEditing={editingAdd}
-                onChange={setEditKey}
-                isFocused={editingAdd && editState.subfield === "key"}
-                baseColor={
-                  editingAdd || (inBrowse && editState.addingRow)
-                    ? theme.primary
-                    : theme.textMuted
+              <box
+                onMouseDown={
+                  onActivateRow && !editingAdd
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(-1, true, "key")
+                        event.stopPropagation()
+                      }
+                    : undefined
                 }
-                backgroundColor={
-                  editingAdd ? theme.backgroundElement : undefined
-                }
-                focusedBackgroundColor={theme.borderSubtle}
-                paddingX={1}
                 style={{ flexGrow: 4, flexShrink: 1, flexBasis: 0 }}
-                variableNames={variableNames}
-              />
-              <VarInput
-                value={editingAdd ? editValue : ""}
-                placeholder="Value..."
-                env={draftEnv}
-                isEditing={editingAdd}
-                onChange={setEditValue}
-                isFocused={editingAdd && editState.subfield === "value"}
-                baseColor={
-                  editingAdd || (inBrowse && editState.addingRow)
-                    ? theme.text
-                    : theme.textMuted
+              >
+                <VarInput
+                  value={editingAdd ? editKey : ""}
+                  placeholder="Key..."
+                  env={draftEnv}
+                  isEditing={editingAdd}
+                  onChange={setEditKey}
+                  isFocused={editingAdd && editState.subfield === "key"}
+                  baseColor={
+                    editingAdd || (inBrowse && editState.addingRow)
+                      ? theme.primary
+                      : theme.textMuted
+                  }
+                  backgroundColor={
+                    editingAdd ? theme.backgroundElement : undefined
+                  }
+                  focusedBackgroundColor={theme.borderSubtle}
+                  paddingX={1}
+                  style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                  variableNames={variableNames}
+                />
+              </box>
+              <box
+                onMouseDown={
+                  onActivateRow && !editingAdd
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(-1, true, "value")
+                        event.stopPropagation()
+                      }
+                    : undefined
                 }
-                backgroundColor={
-                  editingAdd ? theme.backgroundElement : undefined
-                }
-                focusedBackgroundColor={theme.borderSubtle}
-                paddingX={1}
                 style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
-                variableNames={variableNames}
-              />
+              >
+                <VarInput
+                  value={editingAdd ? editValue : ""}
+                  placeholder="Value..."
+                  env={draftEnv}
+                  isEditing={editingAdd}
+                  onChange={setEditValue}
+                  isFocused={editingAdd && editState.subfield === "value"}
+                  baseColor={
+                    editingAdd || (inBrowse && editState.addingRow)
+                      ? theme.text
+                      : theme.textMuted
+                  }
+                  backgroundColor={
+                    editingAdd ? theme.backgroundElement : undefined
+                  }
+                  focusedBackgroundColor={theme.borderSubtle}
+                  paddingX={1}
+                  style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                  variableNames={variableNames}
+                />
+              </box>
             </box>
           )
         })()}

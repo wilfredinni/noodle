@@ -9,7 +9,8 @@ import { FormEditor } from "../../src/ui/FormEditor"
 
 describe("request row mouse controls", () => {
   it("activates and toggles key/value rows independently", async () => {
-    const activations: Array<[number, boolean]> = []
+    const activations: Array<[number, boolean, "key" | "value" | undefined]> =
+      []
     const toggles: number[] = []
     const { renderOnce, mockMouse } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
@@ -28,8 +29,8 @@ describe("request row mouse controls", () => {
             setEditKey={() => {}}
             setEditValue={() => {}}
             theme={THEMES[0]!}
-            onActivateRow={(row, addingRow) =>
-              activations.push([row, addingRow])
+            onActivateRow={(row, addingRow, subfield) =>
+              activations.push([row, addingRow, subfield])
             }
             onToggleRow={(row) => toggles.push(row)}
           />
@@ -40,9 +41,13 @@ describe("request row mouse controls", () => {
     await renderOnce()
 
     await mockMouse.click(8, 0, MouseButtons.LEFT)
+    await mockMouse.click(60, 0, MouseButtons.LEFT)
     await mockMouse.click(1, 0, MouseButtons.LEFT)
 
-    expect(activations).toEqual([[0, false]])
+    expect(activations).toEqual([
+      [0, false, "key"],
+      [0, false, "value"],
+    ])
     expect(toggles).toEqual([0])
   })
 

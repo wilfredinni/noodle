@@ -20,6 +20,7 @@ import {
 } from "../filestore"
 import { lang } from "../lang"
 import { executor, substitute } from "../requests"
+import { withDefaultHttpsScheme } from "../requests/url"
 import type {
   Collection,
   CollectionItem,
@@ -536,7 +537,7 @@ export async function requestCreate(
 ): Promise<{ id: string; path: string }> {
   validateId(id)
   if (!url) throw new Error("url is required")
-  new URL(url)
+  new URL(withDefaultHttpsScheme(url))
   const dir = await requireCollectionRoot(collectionDir)
   const path = join(dir, `${id}.yml`)
   if (existsSync(path)) throw new Error(`request already exists: ${id}`)

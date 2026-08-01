@@ -11,7 +11,7 @@ import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
 import { Select, type SelectItem } from "../Select"
 import { useTheme } from "../theme"
-import type { Method, Environment } from "../../schema"
+import type { Method, Environment, ParamEntry } from "../../schema"
 import { METHOD_ITEMS } from "../methodItems"
 
 export { METHOD_ITEMS }
@@ -34,6 +34,7 @@ interface NewRequestOverlayProps {
   initialName?: string
   initialMethod?: Method
   initialUrl?: string
+  initialPathParams?: ParamEntry[]
   folderPaths?: SelectItem[]
   initialFolderPath?: string
   activeEnv?: Environment | null
@@ -59,6 +60,7 @@ export const NewRequestOverlay = forwardRef<
     initialName,
     initialMethod,
     initialUrl,
+    initialPathParams,
     folderPaths,
     initialFolderPath,
     activeEnv,
@@ -69,7 +71,7 @@ export const NewRequestOverlay = forwardRef<
 ) {
   const theme = useTheme()
   const isEdit = mode === "edit"
-  const showFolder = isEdit && folderPaths && folderPaths.length > 0
+  const showFolder = (folderPaths?.length ?? 0) > 0
   const [name, setName] = useState("")
   const [method, setMethod] = useState<Method>("GET")
   const [url, setUrl] = useState("")
@@ -131,7 +133,7 @@ export const NewRequestOverlay = forwardRef<
         setName("")
         setMethod("GET")
         setUrl("")
-        setFolderPath("")
+        setFolderPath(initialFolderPath ?? "")
       }
       setFocus(showFolder ? "folder" : "name")
       setErrorText(null)
@@ -236,6 +238,7 @@ export const NewRequestOverlay = forwardRef<
                 ref={urlRef}
                 value={url || ""}
                 env={activeEnv ?? null}
+                pathParams={initialPathParams}
                 isEditing
                 onChange={setUrl}
                 isFocused={focus === "url"}

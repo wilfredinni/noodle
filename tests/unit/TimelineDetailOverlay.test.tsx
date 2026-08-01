@@ -312,27 +312,38 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
-  it("dynamically adjusts body container height to fit short bodies", async () => {
+  it("keeps footer position stable when switching body tabs", async () => {
     const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({
+        request: {
+          ...makeEntry().request,
+          body: "request body",
+        },
         response: {
           status: 200,
           statusText: "OK",
           headers: {},
-          body: "{}",
+          body: Array.from({ length: 20 }, (_, i) => `response line ${i}`).join(
+            "\n",
+          ),
           timeMs: 12,
-          size: 2,
+          size: 100,
         },
       }),
       () => {},
     )
     await renderOnce()
+    const requestFooterRow = captureCharFrame()
+      .split("\n")
+      .findIndex((line) => line.includes("copy headers"))
     await act(async () => host.press("right"))
     await renderOnce()
-    const lines = captureCharFrame().split("\n")
-    const bodyTitleIndex = lines.findIndex((l) => l.trim() === "Body")
-    expect(bodyTitleIndex).toBeGreaterThanOrEqual(0)
-    expect(lines[bodyTitleIndex + 2]).toContain("{}")
+    const responseFooterRow = captureCharFrame()
+      .split("\n")
+      .findIndex((line) => line.includes("copy headers"))
+    expect(requestFooterRow).toBeGreaterThanOrEqual(0)
+    expect(responseFooterRow).toBeGreaterThanOrEqual(0)
+    expect(responseFooterRow).toBe(requestFooterRow)
     cleanup()
   })
 

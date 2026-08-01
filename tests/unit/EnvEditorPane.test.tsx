@@ -13,7 +13,8 @@ const inactive = {
 
 describe("EnvEditorPane", () => {
   it("activates rows, toggles checkboxes, and activates the add row", async () => {
-    const activations: Array<[number, boolean]> = []
+    const activations: Array<[number, boolean, "key" | "value" | undefined]> =
+      []
     const toggles: number[] = []
     const { renderOnce, mockMouse } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
@@ -39,8 +40,8 @@ describe("EnvEditorPane", () => {
             saving={false}
             error={null}
             focused
-            onActivateRow={(row, addingRow) =>
-              activations.push([row, addingRow])
+            onActivateRow={(row, addingRow, subfield) =>
+              activations.push([row, addingRow, subfield])
             }
             onToggleRow={(row) => toggles.push(row)}
           />
@@ -51,12 +52,14 @@ describe("EnvEditorPane", () => {
     await renderOnce()
 
     await mockMouse.click(10, 2, MouseButtons.LEFT)
+    await mockMouse.click(60, 2, MouseButtons.LEFT)
     await mockMouse.click(2, 2, MouseButtons.LEFT)
     await mockMouse.click(10, 3, MouseButtons.LEFT)
 
     expect(activations).toEqual([
-      [0, false],
-      [-1, true],
+      [0, false, "key"],
+      [0, false, "value"],
+      [-1, true, "key"],
     ])
     expect(toggles).toEqual([0])
   })

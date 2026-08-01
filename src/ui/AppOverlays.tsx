@@ -41,6 +41,7 @@ import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 import { initialYamlEditorState, type YamlEditorState } from "./appState"
 import type { ActiveOverlay } from "./useOverlayState"
+import { buildDisplayUrl } from "./urlParams"
 
 interface FolderPathOption {
   id: string
@@ -94,6 +95,7 @@ interface AppOverlaysProps {
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
   newRequestActions: { confirm: () => void; cancel: () => void }
+  newRequestInitialFolder: string
   importCurlVisible: boolean
   importCurlRef: RefObject<ImportCurlOverlayHandle | null>
   importCurlActions: { confirm: () => void; cancel: () => void }
@@ -180,6 +182,7 @@ export function AppOverlays({
   newRequestVisible,
   newRequestRef,
   newRequestActions,
+  newRequestInitialFolder,
   importCurlVisible,
   importCurlRef,
   importCurlActions,
@@ -334,6 +337,8 @@ export function AppOverlays({
           visible
           ref={newRequestRef}
           activeEnv={activeEnv}
+          folderPaths={folderPaths}
+          initialFolderPath={newRequestInitialFolder}
           onConfirm={newRequestActions.confirm}
           onClose={newRequestActions.cancel}
         />
@@ -354,7 +359,12 @@ export function AppOverlays({
           mode="edit"
           initialName={selectedRequest?.name}
           initialMethod={selectedRequest?.method}
-          initialUrl={selectedRequest?.url}
+          initialUrl={
+            selectedRequest
+              ? buildDisplayUrl(selectedRequest.url, selectedRequest.params)
+              : undefined
+          }
+          initialPathParams={selectedRequest?.pathParams}
           folderPaths={folderPaths}
           initialFolderPath={editRequestInitialFolder}
           ref={editRequestRef}

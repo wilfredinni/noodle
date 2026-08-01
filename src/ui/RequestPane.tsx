@@ -42,7 +42,12 @@ interface Props {
   onBodyTypeFocus?: () => void
   onAuthFocusRow?: (row: number) => void
   onBodyEditorFocus?: (bodyType: BodyType) => void
-  onFieldActivate?: (field: FieldKind, row: number, addingRow?: boolean) => void
+  onFieldActivate?: (
+    field: FieldKind,
+    row: number,
+    addingRow?: boolean,
+    subfield?: "key" | "value",
+  ) => void
   onFieldToggle?: (field: FieldKind, row: number) => void
   onInteraction?: () => void
   interactive?: boolean
@@ -320,10 +325,15 @@ export function RequestPane({
                       activeEnv={activeEnv}
                       onActivateRow={
                         onFieldActivate
-                          ? (row, addingRow) => {
+                          ? (row, addingRow, subfield) => {
                               onInteraction?.()
                               onPaneFocus?.()
-                              onFieldActivate("headers", row, addingRow)
+                              onFieldActivate(
+                                "headers",
+                                row,
+                                addingRow,
+                                subfield,
+                              )
                             }
                           : undefined
                       }
@@ -354,10 +364,15 @@ export function RequestPane({
                       activeEnv={activeEnv}
                       onActivateRow={
                         onFieldActivate
-                          ? (row, addingRow) => {
+                          ? (row, addingRow, subfield) => {
                               onInteraction?.()
                               onPaneFocus?.()
-                              onFieldActivate("params", row, addingRow)
+                              onFieldActivate(
+                                "params",
+                                row,
+                                addingRow,
+                                subfield,
+                              )
                             }
                           : undefined
                       }
@@ -391,10 +406,15 @@ export function RequestPane({
                       activeEnv={activeEnv}
                       onActivateRow={
                         onFieldActivate
-                          ? (row, addingRow) => {
+                          ? (row, addingRow, subfield) => {
                               onInteraction?.()
                               onPaneFocus?.()
-                              onFieldActivate("pathParams", row, addingRow)
+                              onFieldActivate(
+                                "pathParams",
+                                row,
+                                addingRow,
+                                subfield,
+                              )
                             }
                           : undefined
                       }

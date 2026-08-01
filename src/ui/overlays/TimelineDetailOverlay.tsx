@@ -289,7 +289,7 @@ export function TimelineDetailOverlay({
   const headerHeight = 5
 
   return (
-    <Overlay visible width={70} gap={1} padding={1}>
+    <Overlay visible width={70} height="80%" gap={1} padding={1}>
       <box
         style={{
           paddingLeft: 4,
@@ -310,7 +310,6 @@ export function TimelineDetailOverlay({
               key="network"
               events={entry.network}
               scrollRef={bodyScrollRef}
-              height={Math.min(Math.max(entry.network?.length ?? 1, 1), 10)}
             />
           ) : (
             <box
@@ -490,43 +489,33 @@ export function TimelineDetailOverlay({
                   </box>
                 </box>
               ) : renderedBody ? (
-                (() => {
-                  const bodyLines = renderedBody.split("\n").length
-                  const computedBodyHeight = Math.min(
-                    Math.max(bodyLines, 1),
-                    10,
-                  )
-                  return (
-                    <scrollbox
-                      ref={bodyScrollRef}
-                      scrollY
-                      height={computedBodyHeight}
-                      onMouseScroll={(event) => {
-                        const direction = event.scroll?.direction
-                        if (!direction) return
-                        const amount = event.scroll?.delta || 1
-                        bodyScrollRef.current?.scrollBy(
-                          (direction === "up" ? -1 : 1) * amount,
-                        )
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }}
-                      verticalScrollbarOptions={{
-                        trackOptions: {
-                          backgroundColor: theme.background,
-                          foregroundColor: theme.borderActive,
-                        },
-                      }}
-                      style={{ flexShrink: 0 }}
-                    >
-                      <JsonBodyViewer
-                        body={renderedBody}
-                        theme={theme}
-                        highlightPriority={highlightPriority}
-                      />
-                    </scrollbox>
-                  )
-                })()
+                <scrollbox
+                  ref={bodyScrollRef}
+                  scrollY
+                  onMouseScroll={(event) => {
+                    const direction = event.scroll?.direction
+                    if (!direction) return
+                    const amount = event.scroll?.delta || 1
+                    bodyScrollRef.current?.scrollBy(
+                      (direction === "up" ? -1 : 1) * amount,
+                    )
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                  verticalScrollbarOptions={{
+                    trackOptions: {
+                      backgroundColor: theme.background,
+                      foregroundColor: theme.borderActive,
+                    },
+                  }}
+                  style={{ flexGrow: 1, flexBasis: 0, minHeight: 0 }}
+                >
+                  <JsonBodyViewer
+                    body={renderedBody}
+                    theme={theme}
+                    highlightPriority={highlightPriority}
+                  />
+                </scrollbox>
               ) : (
                 <text fg={theme.textMuted}>
                   {entry.response ? "(empty body)" : "No response"}

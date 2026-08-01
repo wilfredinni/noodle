@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { act, createRef } from "react"
+import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { createTestKeymap } from "@opentui/keymap/testing"
@@ -9,7 +10,7 @@ import {
 } from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import {
   slugify,
   METHOD_ITEMS,
@@ -32,6 +33,14 @@ function setupKeymap() {
       hostCleanup()
     },
   }
+}
+
+function hexToRgba(hex: string): RGBA {
+  return RGBA.fromInts(
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16),
+  )
 }
 
 describe("slugify", () => {
@@ -256,6 +265,30 @@ describe("NewRequestOverlay mode prop", () => {
     cleanup()
   })
 
+  it("highlights resolved path params in the edit URL", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureSpans } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay
+            visible
+            mode="edit"
+            initialUrl="https://api.example.com/users/:userId"
+            initialPathParams={[{ name: "userId", value: "42", enabled: true }]}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const pathParam = spans.find((span) => span.text.includes(":userId"))
+    expect(pathParam).toBeDefined()
+    expect(pathParam!.fg.equals(hexToRgba(THEMES[0]!.primary))).toBe(true)
+    cleanup()
+  })
+
   it("pre-fills folder when folderPaths and initialFolderPath are given in edit mode", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
@@ -286,14 +319,20 @@ describe("NewRequestOverlay mode prop", () => {
     cleanup()
   })
 
-  it("does not show folder selector in create mode even with folderPaths", async () => {
+  it("shows the contextual folder in create mode", async () => {
     const { keymap, cleanup } = setupKeymap()
+    const ref = createRef<NewRequestOverlayHandle>()
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <NewRequestOverlay
             visible
-            folderPaths={[{ id: "auth", label: "auth" }]}
+            ref={ref}
+            folderPaths={[
+              { id: "", label: "(root)" },
+              { id: "auth", label: "auth" },
+            ]}
+            initialFolderPath="auth"
           />
         </ThemeProvider>
       </KeymapProvider>,
@@ -301,7 +340,31 @@ describe("NewRequestOverlay mode prop", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).not.toContain("Folder")
+    expect(frame).toContain("Folder")
+    expect(frame).toContain("auth")
+    expect(ref.current?.getFocus()).toBe("folder")
+    cleanup()
+  })
+
+  it("shows root as the default create folder", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <NewRequestOverlay
+            visible
+            folderPaths={[
+              { id: "", label: "(root)" },
+              { id: "auth", label: "auth" },
+            ]}
+            initialFolderPath=""
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("(root)")
     cleanup()
   })
 })
