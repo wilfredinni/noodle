@@ -48,6 +48,15 @@ Request IDs are their **relative path from collection root, minus the `.yml` ext
 - Timeline storage (`join(.timeline, ${id}.yml)`)
 - UI state persistence (per-request entry in `.noodle/ui-state.yml`)
 
+### URL path parameters
+
+Requests may declare URL path tokens as `:name` (for example,
+`https://api.example.com/users/:userId`). The matching `pathParams` entries
+are required values, are synchronized when the URL changes, and serialize as
+`path_params` in request YAML. They do not have an enabled/disabled state:
+every token in the URL is substituted before sending. OpenAPI `{name}` paths
+are converted to this form by the importer.
+
 ### `folder.yml` format
 
 ```yaml

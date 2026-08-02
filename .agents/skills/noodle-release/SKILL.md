@@ -15,7 +15,7 @@ Use this skill when the maintainer asks to prepare a Noodle release or synchroni
 4. Audit `src/ui/Tips.tsx` against current keybindings, commands, CLI behavior, and UI modes. Replace stale tips, remove duplicates, and add concise tips for evidence-backed user-facing behavior introduced since the prior release.
 5. If update mechanism changed (update manifest, cache format, release asset structure), verify `noodle-site/public/update.json` schema, `noodle-site/netlify.toml` cache headers (target: `Cache-Control: s-maxage=300, stale-while-revalidate=600` for `/update.json`), release workflow ordering, and site installation docs are consistent.
 6. Update only the affected README, `AGENTS.md`, skills, site pages, `src/ui/Tips.tsx`, and `CHANGELOG.md`. Preserve each repository's existing voice and examples. Do not modify blog posts or any files under `noodle-site/src/content/docs/blog/`.
-7. Update `CHANGELOG.md` for the target version. Group evidence-backed changes under these exact headings when applicable: `### ✨ Features`, `### 🐞 Fixes`, and `### 🔧 Refactors`. Use `### 📚 Documentation` for documentation-only changes when applicable. Keep `Unreleased` at the top, include only changes since the previous release tag, and do not invent behavior.
+7. Update `CHANGELOG.md` for the target version. Immediately below the version/date heading, add a concise two- to three-sentence release summary that synthesizes the most important evidence-backed user-facing changes. Then group the detailed changes under these exact headings when applicable: `### ✨ Features`, `### 🐞 Fixes`, and `### 🔧 Refactors`. Use `### 📚 Documentation` for documentation-only changes when applicable. Keep `Unreleased` at the top, include only changes since the previous release tag, and do not invent behavior.
 8. For uncertain behavior, leave a review note instead of guessing.
 9. Run `bun run release:check -- --tag <version>` and report failures with their command output.
 10. Stop after the verified diff and review summary. Do not commit, tag, push, publish, or modify GitHub releases.
@@ -30,4 +30,7 @@ Use this skill when the maintainer asks to prepare a Noodle release or synchroni
 - Treat overlays, focus, and event-propagation fixes as release-note candidates unless users must learn a new interaction.
 - Do not update every skill by default. Update only skills whose workflows or supported behavior changed.
 - The GitHub release body is generated from the matching `CHANGELOG.md` version section. Write it for release readers, not as a raw commit list.
+- The release summary belongs between the version/date heading and the first detailed section. It should be concise, release-reader oriented, and must not introduce claims absent from the detailed entries.
+- Use a separate release-note bullet for each unrelated change within a section. Keep a single bullet when multiple details form one cohesive user-facing capability; do not split merely to mirror individual commits.
+- When an agent skill changes, add a separate `### 📚 Documentation` bullet for each changed skill; do not combine multiple skill updates into one entry.
 - Preserve the exact emoji headings in the release body; GitHub supports the Unicode emojis from `CHANGELOG.md`.

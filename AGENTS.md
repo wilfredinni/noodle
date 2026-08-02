@@ -83,8 +83,8 @@ src/
     │   ├── EnvHeaderPane.tsx
     │   └── EnvEditorPane.tsx
     ├── Sidebar.tsx          # Tree sidebar: requests, folders, dirty indicators, method badges
-    ├── RequestPane.tsx      # Full request detail + inline editing (5 tabs)
-    ├── ResponsePane.tsx     # Response rendering (idle/sending/done/error) + timeline
+    ├── RequestPane.tsx      # Full request detail + inline editing (6 tabs, including path params)
+    ├── ResponsePane.tsx     # Response rendering (idle/sending/done/error) + network trace + timeline
     ├── FolderPane.tsx       # Folder editor: meta, headers, auth overrides, activity
     ├── FolderMetaTab.tsx    # Folder name/seq editing
     ├── FolderActivityTab.tsx # Per-request activity stats in folder
@@ -236,13 +236,35 @@ Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable
 | `u` | URL bar URL field |
 | `h` | Request Headers tab / Folder Headers tab |
 | `p` | Request Params tab |
+| `x` | Request Path tab |
 | `b` | Request Body tab |
 | `a` | Request Auth tab / Folder Auth tab |
 | `t` | Request Settings tab |
 | `r` | Response Body tab |
 | `e` | Response Headers tab |
+| `n` | Response Network tab |
 | `l` | Response Timeline tab |
 | `y` | Folder Activity tab |
+
+When a folder is selected, the folder targets replace the request and response
+targets:
+
+| Letter | Folder target |
+|--------|---------------|
+| `s` | Sidebar pane |
+| `m` | General tab |
+| `h` | Headers tab |
+| `a` | Auth tab |
+| `y` | Activity tab |
+
+In the environment editor, only these environment targets are available:
+
+| Letter | Environment target |
+|--------|--------------------|
+| `s` | Environment sidebar |
+| `m` | Environment name |
+| `c` | Environment color |
+| `v` | Environment variables |
 
 ### Browse mode (request pane focused, not editing)
 | Key | Action |

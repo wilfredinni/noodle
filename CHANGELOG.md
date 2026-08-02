@@ -4,6 +4,46 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-08-02
+
+Path parameters, live network traces, mouse-first controls, and faster focus
+jumps make request work more direct, while stronger draft safety and improved
+theme contrast keep the workflow dependable.
+
+### ✨ Features
+
+- Add first-class URL path parameters: use `:name` tokens, edit their required values in the Path tab, and serialize them as `path_params`. OpenAPI and Postman imports preserve supported path parameters.
+- Add a Network response tab that streams request activity, redirects, responses, and failures while sending, and retains the trace in response history.
+- Add mouse support throughout the TUI for pane focus, tabs, editable fields, overlays, scrolling, and sidebar context menus.
+- Add a clickable Send control to the URL bar, with an in-place sending indicator.
+- Let the New Request overlay create a request directly inside a selected folder.
+- Extend jump mode to folder tabs and the environment editor, including direct targets for environment variables, name, and color.
+
+### 🐞 Fixes
+
+- Prevent new requests and renamed requests from overwriting an existing file.
+- Normalize scheme-less request URLs before sending.
+- Warn before reloading a collection with unsaved changes, and preserve dirty drafts through request moves, saves, reloads, and Undo All.
+- Keep the URL bar, query and path parameters, and clicked key/value subfields synchronized while editing or switching requests.
+- Prevent duplicate saves and keep Select and overlay interactions confined to the active edit context.
+- Keep highlighted picker items visible when a picker opens.
+- Stabilize timeline-detail body layout in narrow terminals.
+- Improve subtle-border contrast in the Ayu, Monokai, Solarized, Material, Palenight, Vercel, and Zenburn themes.
+
+### 🔧 Refactors
+
+- Centralize URL normalization, path-token parsing and interpolation, and path-parameter synchronization across creation, editing, import, and sending.
+- Consolidate network-event capture behind a focused module.
+- Standardize UI interaction state and regression coverage across panes, overlays, selectors, and editors.
+- Unify confirmation dialogs and Escape-close behavior through shared overlay state and keyboard interceptors.
+
+### 📚 Documentation
+
+- Document path-parameter YAML, network traces, and jump targets for users.
+- Update `noodle-dev` with path-parameter implementation guidance and a regression-test-first bug-fix workflow.
+- Update `noodle-use` with the `path_params` schema and constraints.
+- Update `noodle-release` to require a concise release summary beneath every version heading.
+
 ## [0.5.5] - 2026-07-29
 
 ### ✨ Features
@@ -180,7 +220,8 @@ All notable changes to Noodle are documented in this file.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/wilfredinni/noodle/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/wilfredinni/noodle/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/wilfredinni/noodle/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/wilfredinni/noodle/compare/v0.5.2...v0.5.3

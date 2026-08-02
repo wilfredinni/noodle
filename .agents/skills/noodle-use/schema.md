@@ -17,6 +17,7 @@ One request per file. Fields:
 | `body_type` | no | string | `"none"` | Body encoding: `none`, `json`, `multipart`, `urlencoded`, `binary` |
 | `headers` | no | map | `{}` | Request headers. Omit if empty |
 | `params` | no | list | `[]` | URL query parameters. Omit if empty. See format below. |
+| `path_params` | no | list | `[]` | Values for `:name` URL path tokens. Omit if empty. See format below. |
 | `body` | no | string | — | Raw request body. Omit if no body |
 | `form_data` | no | list | — | Multipart form entries. Omit if empty |
 | `file_path` | no | string | — | Path to file for binary uploads |
@@ -38,6 +39,22 @@ params:
 ```
 
 Legacy map format (key: value) is still accepted on read but not recommended — prefer the array format for multi-value support with the same param name.
+
+### Path params
+
+Use `:name` tokens in the URL and give each token a matching entry in
+`path_params`. These values are always required and sent; unlike query params,
+they do not support `enabled: false`.
+
+```yaml
+url: $base_url/users/:userId
+path_params:
+  - name: userId
+    value: $user_id
+```
+
+Noodle synchronizes path-param names with URL tokens. Values can use `$var`
+references and must resolve in the active environment before sending.
 
 ### Header and param values
 

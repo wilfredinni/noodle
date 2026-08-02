@@ -11,6 +11,9 @@ path_params:
     value: '1'
 body: |-
   {
-    "name": "updated comment"
+    "postId": 1,
+    "name": "test comment",
+    "email": "test@example.com",
+    "body": "comment body"
   }
 body_type: json
