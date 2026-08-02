@@ -156,12 +156,15 @@ export function BodySection({
     [activeEnv],
   )
 
+  const editingBody = inEdit && editState.cursor.field === "body"
+
   const handleContentChange = useCallback(() => {
+    if (!editingBody) return
     const ed = editorRef.current
     if (!ed) return
     setEditValue(ed.plainText)
     onBodyChange(ed.plainText)
-  }, [onBodyChange, setEditValue])
+  }, [editingBody, onBodyChange, setEditValue])
 
   const syncFoldSigns = useCallback(
     (hoveredFoldLine?: number) => {
@@ -203,8 +206,6 @@ export function BodySection({
     },
     [syncFoldSigns],
   )
-
-  const editingBody = inEdit && editState.cursor.field === "body"
 
   useEffect(() => {
     if (!editingBody) setValidationError(null)

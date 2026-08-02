@@ -196,6 +196,20 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("blocks YAML editing while an overlay is active", () => {
+    const { keymap, cleanup } = setup()
+    const { context } = createContext(keymap)
+    keymap.setData("app.overlay", "help")
+    const disposers = register(context)
+
+    expect(keymap.dispatchCommand("request.edit-yaml")).toMatchObject({
+      ok: false,
+      reason: "disabled",
+    })
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("advances URL bar from method select to URL text", () => {
     const { keymap, host, cleanup } = setup()
     const { context } = createContext(keymap)

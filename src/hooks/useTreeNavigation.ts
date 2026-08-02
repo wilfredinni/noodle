@@ -11,6 +11,7 @@ import {
 
 export interface UseTreeNavigationResult {
   selectedId: string | null
+  selectedIdRef: { current: string | null }
   selectedRequest: Request | null
   focusedFolderPath: string | null
   focusedFolderName: string | null
@@ -32,6 +33,7 @@ export function useTreeNavigation(
   initialExpanded?: Set<string>,
 ): UseTreeNavigationResult {
   const [selectedId, setSelectedIdState] = useState<string | null>(null)
+  const selectedIdRef = useRef<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [cursorIndex, setCursorIndex] = useState(0)
 
@@ -66,6 +68,7 @@ export function useTreeNavigation(
   const flatReqs = flattenRequests(items)
 
   const setSelectedId = useCallback((id: string) => {
+    selectedIdRef.current = id
     setSelectedIdState(id)
   }, [])
 
@@ -84,6 +87,7 @@ export function useTreeNavigation(
     )
 
     setExpanded(nextExpanded)
+    selectedIdRef.current = id
     setSelectedIdState(id)
     if (nextCursor >= 0) setCursorIndex(nextCursor)
   }, [])
@@ -155,6 +159,7 @@ export function useTreeNavigation(
         targetId = flatReqs[0].id
       }
       if (targetId && targetId !== selectedId) {
+        selectedIdRef.current = targetId
         setSelectedIdState(targetId)
         const parts = targetId.split("/")
         if (parts.length > 1) {
@@ -177,6 +182,7 @@ export function useTreeNavigation(
         }
       }
     } else {
+      selectedIdRef.current = null
       setSelectedIdState(null)
     }
   }, [items])
@@ -231,7 +237,7 @@ export function useTreeNavigation(
       const nextIdx = Math.max(idx - 1, 0)
       const target = v[nextIdx]
       if (target && target.type === "request") {
-        setSelectedIdState(target.id)
+        setSelectedId(target.id)
       }
     } else if (key.name === "down") {
       setCursorIndex((prev) => {
@@ -241,20 +247,20 @@ export function useTreeNavigation(
       const nextIdx = Math.min(idx + 1, v.length - 1)
       const target = v[nextIdx]
       if (target && target.type === "request") {
-        setSelectedIdState(target.id)
+        setSelectedId(target.id)
       }
     } else if (key.name === "home") {
       setCursorIndex(0)
       const target = v[0]
       if (target && target.type === "request") {
-        setSelectedIdState(target.id)
+        setSelectedId(target.id)
       }
     } else if (key.name === "end") {
       const lastIdx = v.length - 1
       setCursorIndex(lastIdx)
       const target = v[lastIdx]
       if (target && target.type === "request") {
-        setSelectedIdState(target.id)
+        setSelectedId(target.id)
       }
     } else if (key.name === "right") {
       if (
@@ -271,7 +277,7 @@ export function useTreeNavigation(
       }
     } else if (key.name === "return") {
       if (node && node.type === "request") {
-        setSelectedIdState(node.id)
+        setSelectedId(node.id)
       }
     } else if (key.name === "space") {
       if (node && node.type === "folder") {
@@ -292,6 +298,7 @@ export function useTreeNavigation(
 
   return {
     selectedId,
+    selectedIdRef,
     selectedRequest,
     focusedFolderPath,
     focusedFolderName,
