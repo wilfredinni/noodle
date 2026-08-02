@@ -60,7 +60,7 @@ export interface UseEnvironmentEditorResult {
 
   openEditor: (name?: string) => Promise<void>
   closeEditor: () => void
-  selectEnv: (name: string) => Promise<void>
+  selectEnv: (name: string) => Promise<boolean>
   setName: (name: string) => void
   setColor: (color: string | undefined) => void
   enterBrowse: () => void
@@ -172,6 +172,8 @@ export function useEnvironmentEditor({
   originalRef.current = original
   const selectedEnvNameRef = useRef(selectedEnvName)
   selectedEnvNameRef.current = selectedEnvName
+  const loadedEnvNameRef = useRef<string | null>(null)
+  const loadGenerationRef = useRef(0)
   const onEnvsChangedRef = useRef(onEnvsChanged)
   onEnvsChangedRef.current = onEnvsChanged
   const onEnvDataChangedRef = useRef(onEnvDataChanged)
@@ -189,8 +191,10 @@ export function useEnvironmentEditor({
 
   const loadEnv = useCallback(
     async (name: string) => {
+      const generation = ++loadGenerationRef.current
       try {
         const loaded = await env.loadEnvironment(environmentsDir, name)
+        if (generation !== loadGenerationRef.current) return false
         const rows = envToVarRows(loaded.vars, loaded.disabledVars ?? {})
         const nextDraft = {
           name: loaded.name,
@@ -207,14 +211,19 @@ export function useEnvironmentEditor({
         setDraft(nextDraft)
         originalRef.current = nextOriginal
         setOriginal(nextOriginal)
+        selectedEnvNameRef.current = name
         setSelectedEnvName(name)
+        loadedEnvNameRef.current = name
         setEditState(initialEditState())
         setEditKey("")
         setEditValue("")
         setError(null)
+        return true
       } catch (e: unknown) {
+        if (generation !== loadGenerationRef.current) return false
         const msg = e instanceof Error ? e.message : String(e)
         setError(msg)
+        return false
       }
     },
     [environmentsDir],
@@ -262,9 +271,13 @@ export function useEnvironmentEditor({
 
   const selectEnv = useCallback(
     async (name: string) => {
-      if (selectedEnvNameRef.current === name) return
-      setSelectedEnvName(name)
-      await loadEnv(name)
+      if (
+        selectedEnvNameRef.current === name &&
+        loadedEnvNameRef.current === name
+      ) {
+        return true
+      }
+      return loadEnv(name)
     },
     [loadEnv],
   )

@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test"
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { act, useEffect, useRef } from "react"
 import { mkdtemp, rm, readFile } from "node:fs/promises"
@@ -9,6 +17,20 @@ import { useEnvironmentEditor } from "../src/hooks/useEnvironmentEditor"
 import { env } from "../src/env"
 
 let dir: string
+
+async function waitForDraft(
+  editorRef: { current: ReturnType<typeof useEnvironmentEditor> | null },
+  renderOnce: () => Promise<void>,
+) {
+  const deadline = Date.now() + 1_000
+  while (!editorRef.current?.draft) {
+    if (Date.now() >= deadline) {
+      throw new Error("Timed out waiting for environment draft")
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+  }
+}
 
 function Harness({
   onEnvsChanged: onChanged,
@@ -298,7 +320,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       { width: 40, height: 12 },
     )
     await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
     act(() => {
       ref.current!.setColor("warning")
@@ -313,6 +335,107 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
 
     expect(ref.current!.draft?.color).toBe("warning")
     expect(ref.current!.dirty).toBe(true)
+  })
+
+  it("keeps the current environment selected when a load fails and retries", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await waitForDraft(ref, renderOnce)
+
+    const originalLoad = env.loadEnvironment
+    let betaAttempts = 0
+    const loadSpy = spyOn(env, "loadEnvironment").mockImplementation(
+      (environmentDir, name) => {
+        if (name === "beta" && betaAttempts++ === 0) {
+          return Promise.reject(new Error("failed to load beta"))
+        }
+        return originalLoad(environmentDir, name)
+      },
+    )
+
+    try {
+      let firstSelection = true
+      await act(async () => {
+        firstSelection = await ref.current!.selectEnv("beta")
+      })
+      await renderOnce()
+
+      expect(firstSelection).toBe(false)
+      expect(ref.current!.selectedEnvName).toBe("alpha")
+      expect(ref.current!.draft?.name).toBe("alpha")
+
+      let retrySelection = false
+      await act(async () => {
+        retrySelection = await ref.current!.selectEnv("beta")
+      })
+      await renderOnce()
+
+      expect(retrySelection).toBe(true)
+      expect(ref.current!.selectedEnvName).toBe("beta")
+      expect(ref.current!.draft?.name).toBe("beta")
+    } finally {
+      loadSpy.mockRestore()
+    }
+  })
+
+  it("keeps the latest environment when overlapping loads resolve out of order", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 30))
+
+    type LoadedEnvironment = Awaited<ReturnType<typeof env.loadEnvironment>>
+    const pending = new Map<string, (environment: LoadedEnvironment) => void>()
+    const loadSpy = spyOn(env, "loadEnvironment").mockImplementation(
+      (_dir, name) =>
+        new Promise((resolve) => {
+          pending.set(name, resolve)
+        }),
+    )
+
+    try {
+      const betaSelection = ref.current!.selectEnv("beta")
+      const gammaSelection = ref.current!.selectEnv("gamma")
+
+      let gammaIsCurrent = false
+      await act(async () => {
+        pending.get("gamma")!({ name: "gamma", vars: { key: "gamma" } })
+        gammaIsCurrent = await gammaSelection
+      })
+      await renderOnce()
+
+      expect(gammaIsCurrent).toBe(true)
+      expect(ref.current!.selectedEnvName).toBe("gamma")
+      expect(ref.current!.draft?.varRows[0]?.value).toBe("gamma")
+
+      let betaIsCurrent = true
+      await act(async () => {
+        pending.get("beta")!({ name: "beta", vars: { key: "beta" } })
+        betaIsCurrent = await betaSelection
+      })
+      await renderOnce()
+
+      expect(betaIsCurrent).toBe(false)
+      expect(ref.current!.selectedEnvName).toBe("gamma")
+      expect(ref.current!.draft?.varRows[0]?.value).toBe("gamma")
+    } finally {
+      loadSpy.mockRestore()
+    }
   })
 
   it("rejects rename to an existing env name", async () => {

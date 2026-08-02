@@ -1092,7 +1092,7 @@ export function AppInner({
             onPaneFocus={focusPane}
             onEnvironmentContextMenu={async (name) => {
               focusPane("env-sidebar")
-              await envEditor.selectEnv(name)
+              if (!(await envEditor.selectEnv(name))) return
               setPaletteTarget("environment")
               setCommandPaletteVisible(true)
             }}
