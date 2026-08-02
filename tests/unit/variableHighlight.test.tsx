@@ -126,4 +126,46 @@ describe("variableHighlight", () => {
     expect(hostSpan).toBeDefined()
     expect(portSpan).toBeDefined()
   })
+
+  it("highlights a path token before query parameters in edit mode", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarInput
+          value="$base_url/v1/nsx-alb-clusters/:id?forceDelete=false"
+          env={env({ base_url: "https://api.example.com" })}
+          isEditing
+          pathParams={[{ name: "id", value: "cluster-123", enabled: true }]}
+        />
+      </ThemeProvider>,
+      { width: 100, height: 5 },
+    )
+    await renderOnce()
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((l) => l.spans)
+    const pathSpan = spans.find((s) => s.text.includes(":id"))
+    expect(pathSpan).toBeDefined()
+    const t = await import("../../src/ui/theme")
+    expect(pathSpan!.fg.equals(hexToRgba(t.THEMES[0]!.primary))).toBe(true)
+  })
+
+  it("does not highlight a path-like query-string value in edit mode", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <VarInput
+          value="https://api.example.com/search?redirect=/:id?next=true"
+          env={env({})}
+          isEditing
+          pathParams={[{ name: "id", value: "42", enabled: true }]}
+        />
+      </ThemeProvider>,
+      { width: 100, height: 5 },
+    )
+    await renderOnce()
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((l) => l.spans)
+    const pathSpan = spans.find((s) => s.text.includes(":id"))
+    expect(pathSpan).toBeDefined()
+    const t = await import("../../src/ui/theme")
+    expect(pathSpan!.fg.equals(hexToRgba(t.THEMES[0]!.text))).toBe(true)
+  })
 })

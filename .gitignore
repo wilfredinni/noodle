@@ -15,3 +15,4 @@ graphify-out/
 .husky/post-commit
 .husky/post-checkout
 .gitattributes
+drafts
