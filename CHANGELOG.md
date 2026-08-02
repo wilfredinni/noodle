@@ -6,6 +6,8 @@ All notable changes to Noodle are documented in this file.
 
 ## [0.5.6] - 2026-08-02
 
+![path_params](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/path.png)
+
 Path parameters, live network traces, mouse-first controls, and faster focus
 jumps make request work more direct, while stronger draft safety and improved
 theme contrast keep the workflow dependable.
