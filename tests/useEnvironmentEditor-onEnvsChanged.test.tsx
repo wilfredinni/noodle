@@ -287,6 +287,34 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     expect(dataSpy).toHaveBeenCalledTimes(1)
   })
 
+  it("keeps an unsaved draft when selecting the current environment", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await new Promise((r) => setTimeout(r, 30))
+
+    act(() => {
+      ref.current!.setColor("warning")
+    })
+    await renderOnce()
+    expect(ref.current!.dirty).toBe(true)
+
+    await act(async () => {
+      await ref.current!.selectEnv("alpha")
+    })
+    await renderOnce()
+
+    expect(ref.current!.draft?.color).toBe("warning")
+    expect(ref.current!.dirty).toBe(true)
+  })
+
   it("rejects rename to an existing env name", async () => {
     const spy = mock(() => {})
     const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {

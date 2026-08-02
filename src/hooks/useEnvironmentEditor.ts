@@ -262,6 +262,7 @@ export function useEnvironmentEditor({
 
   const selectEnv = useCallback(
     async (name: string) => {
+      if (selectedEnvNameRef.current === name) return
       setSelectedEnvName(name)
       await loadEnv(name)
     },
