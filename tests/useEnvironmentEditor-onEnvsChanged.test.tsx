@@ -281,7 +281,21 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     // Change name to trigger rename path
     ref.current!.setName("alpha-renamed")
     await ref.current!.save()
+    await renderOnce()
+
+    act(() => {
+      ref.current!.setColor("warning")
+    })
+    await renderOnce()
+
+    await act(async () => {
+      await ref.current!.selectEnv("alpha-renamed")
+    })
+    await renderOnce()
+
     expect(spy).toHaveBeenCalledTimes(1)
+    expect(ref.current!.draft?.color).toBe("warning")
+    expect(ref.current!.dirty).toBe(true)
   })
 
   it("calls onEnvDataChanged after save with same name (color edit)", async () => {

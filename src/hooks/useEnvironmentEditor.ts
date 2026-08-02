@@ -560,6 +560,7 @@ export function useEnvironmentEditor({
       originalRef.current = nextOriginal
       setOriginal(nextOriginal)
       setSelectedEnvName(curDraft.name)
+      loadedEnvNameRef.current = curDraft.name
       if (oldName) {
         setLocalNames((prev) =>
           prev.map((n) => (n === oldName ? curDraft.name : n)),
