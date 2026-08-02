@@ -305,7 +305,7 @@ export function BodySection({
         >
           <line-number
             ref={lineNumberRef}
-            minWidth={3}
+            minWidth={4}
             paddingRight={1}
             fg={theme.textMuted}
             bg={theme.backgroundPanel}
