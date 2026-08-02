@@ -21,8 +21,6 @@ import {
   cloneRequest,
   deleteRequest,
   deleteFolder,
-  copyResponseBody,
-  openResponseQuery,
   canGenerateClientCode,
   cycleEnvironment,
   openEnvironmentEditor,
@@ -283,24 +281,6 @@ export function buildCommandPaletteCommands(
         setRequestDeletePending(result.requestName)
         return true
       },
-    },
-  ]
-
-  const responseCommands: CommandItem[] = [
-    {
-      id: "response.query",
-      label: "Filter Response with JSONPath",
-      section: "Response",
-      keybinding: displayKey(keybinds.response_query),
-      run: () =>
-        c.responseQueryRef.current?.canOpen() ? openResponseQuery(c) : false,
-    },
-    {
-      id: "response.copy-body",
-      label: "Copy Response Body",
-      section: "Response",
-      keybinding: displayKey(keybinds.response_copy_body),
-      run: () => copyResponseBody(c),
     },
   ]
 
@@ -620,7 +600,6 @@ export function buildCommandPaletteCommands(
 
   return [
     ...(mode === "collection" ? requestCommands : []),
-    ...responseCommands,
     ...(mode === "collection" ? mainEnvCommands : []),
     ...(mode === "collection" ? workspaceCommands : readOnlyCommands),
     ...mainOnlyCommands,

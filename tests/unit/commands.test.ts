@@ -84,13 +84,7 @@ describe("buildCommandPaletteCommands", () => {
   it("sections appear in correct order", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
     const sections = [...new Set(commands.map((c) => c.section))]
-    expect(sections).toEqual([
-      "Request",
-      "Response",
-      "Environment",
-      "Workspace",
-      "System",
-    ])
+    expect(sections).toEqual(["Request", "Environment", "Workspace", "System"])
   })
 
   it("shows only request commands for a request context menu", () => {
@@ -159,32 +153,13 @@ describe("buildCommandPaletteCommands", () => {
     expect(opened).toBe(true)
   })
 
-  it("includes the JSONPath response query command", () => {
-    const command = buildCommandPaletteCommands(minimalContext()).find(
-      (item) => item.id === "response.query",
+  it("does not include response pane commands", () => {
+    const ids = buildCommandPaletteCommands(minimalContext()).map(
+      (command) => command.id,
     )
-    expect(command?.label).toBe("Filter Response with JSONPath")
-    expect(command?.keybinding).toBe("/")
-  })
 
-  it("keeps the palette open when response filtering is unavailable", () => {
-    const ctx = minimalContext()
-    let opened = false
-    ctx.responseQueryRef = {
-      current: {
-        canOpen: () => false,
-        open: () => {
-          opened = true
-          return true
-        },
-      },
-    } as never
-
-    const command = buildCommandPaletteCommands(ctx).find(
-      (item) => item.id === "response.query",
-    )!
-    expect(command.run()).toBe(false)
-    expect(opened).toBe(false)
+    expect(ids).not.toContain("response.query")
+    expect(ids).not.toContain("response.copy-body")
   })
 
   it("each section has contiguous commands", () => {
@@ -555,7 +530,7 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(ctx)
     const sections = [...new Set(commands.map((c) => c.section))]
     expect(sections).not.toContain("Environment")
-    expect(sections).toEqual(["Response", "Collection", "Workspace", "System"])
+    expect(sections).toEqual(["Collection", "Workspace", "System"])
   })
 
   it("excludes env.editor-open command when mode is empty", () => {
