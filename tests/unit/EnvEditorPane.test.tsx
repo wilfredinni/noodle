@@ -12,6 +12,59 @@ const inactive = {
 }
 
 describe("EnvEditorPane", () => {
+  it("commits when clicking pane background but not the active input", async () => {
+    let interactions = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={80} height={8}>
+          <EnvEditorPane
+            draft={{
+              name: "development",
+              color: undefined,
+              varRows: [
+                {
+                  id: 1,
+                  key: "BASE_URL",
+                  value: "https://api.test",
+                  enabled: true,
+                },
+              ],
+            }}
+            editState={{
+              mode: "editing",
+              row: 0,
+              addingRow: false,
+              subfield: "value",
+              editingRow: 0,
+            }}
+            editKey="BASE_URL"
+            editValue="https://api.test"
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            saving={false}
+            error={null}
+            focused
+            onInteraction={() => interactions++}
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+
+    const lines = captureCharFrame().split("\n")
+    const valueRow = lines.findIndex((line) =>
+      line.includes("https://api.test"),
+    )
+    if (valueRow < 0) throw new Error("environment value row was not rendered")
+    const valueColumn = lines[valueRow]!.indexOf("https://api.test")
+    await mockMouse.click(valueColumn, valueRow, MouseButtons.LEFT)
+    expect(interactions).toBe(0)
+
+    await mockMouse.click(70, 6, MouseButtons.LEFT)
+    expect(interactions).toBe(1)
+  })
+
   it("shows a variables jump badge in jump mode", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>

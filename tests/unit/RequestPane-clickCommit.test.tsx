@@ -55,6 +55,33 @@ function EditingPane({
 }
 
 describe("RequestPane blank click commit", () => {
+  it("commits a Settings edit when clicking blank tab space", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let interactions = 0
+    try {
+      const { renderOnce, mockMouse } = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <EditingPane
+              activeTab="settings"
+              onInteraction={() => interactions++}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
+
+      await renderOnce()
+      await act(async () => {
+        await mockMouse.click(40, 10, MouseButtons.LEFT)
+      })
+
+      expect(interactions).toBe(1)
+    } finally {
+      cleanup()
+    }
+  })
+
   it("commits a Path edit when clicking blank tab space", async () => {
     const { keymap, cleanup } = setupKeymap()
     let interactions = 0

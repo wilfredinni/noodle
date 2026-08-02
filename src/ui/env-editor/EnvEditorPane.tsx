@@ -22,6 +22,7 @@ export function EnvEditorPane({
   focused: _focused,
   jumpMode = false,
   onPaneFocus,
+  onInteraction,
   onActivateRow,
   onToggleRow,
 }: {
@@ -36,6 +37,7 @@ export function EnvEditorPane({
   focused: boolean
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onInteraction?: () => void
   onActivateRow?: (
     row: number,
     addingRow: boolean,
@@ -144,6 +146,7 @@ export function EnvEditorPane({
         )
       }
       onPaneFocus={onPaneFocus}
+      onInteraction={onInteraction}
     >
       {jumpMode && <JumpBadge letter="v" style={JUMP_BADGE_TOP_INDENT} />}
       <scrollbox
