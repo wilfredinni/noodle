@@ -133,6 +133,7 @@ export function FolderPane({
         )
       }
       onPaneFocus={onPaneFocus}
+      onInteraction={onInteraction}
     >
       {folder ? (
         <>

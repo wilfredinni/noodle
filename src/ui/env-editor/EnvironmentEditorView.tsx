@@ -88,12 +88,14 @@ export function EnvironmentEditorView({
           focused={focus === "env-vars"}
           jumpMode={jumpMode}
           onPaneFocus={() => onPaneFocus("env-vars")}
+          onInteraction={envEditor.commitEdit}
           onActivateRow={(row, addingRow, subfield) => {
             onPaneFocus("env-vars")
             envEditor.activateVar(row, addingRow, subfield)
           }}
           onToggleRow={(row) => {
             onPaneFocus("env-vars")
+            envEditor.commitEdit()
             envEditor.toggleVar(row)
           }}
         />

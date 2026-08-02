@@ -477,6 +477,7 @@ export function AppInner({
       if (next !== focus) {
         eb.commitEdit()
         folderEb.commitEdit()
+        envEditor.commitEdit()
       }
       if (next === "urlbar") setUrlbarSubFocus("select")
       if (mode === "collection" && next === "request") eb.enterBrowse()
@@ -487,6 +488,7 @@ export function AppInner({
     [
       eb.commitEdit,
       eb.enterBrowse,
+      envEditor.commitEdit,
       envEditor.enterBrowse,
       focus,
       folderEb.commitEdit,

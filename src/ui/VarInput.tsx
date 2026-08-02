@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -14,6 +15,7 @@ import {
   useTerminalDimensions,
 } from "@opentui/react"
 import { useTheme } from "./theme"
+import { FrameInteractionContext } from "./Frame"
 import { VarText } from "./VarText"
 import type { Environment, ParamEntry } from "../schema"
 import { highlightVariables } from "./variable-completion/variableHighlight"
@@ -73,6 +75,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     ref,
   ) {
     const theme = useTheme()
+    const frameCapturesInteractions = useContext(FrameInteractionContext)
     const defaultColor = baseColor ?? theme.text
     const inputRef = useRef<InputRenderable | null>(null)
     const textareaRef = useRef<TextareaRenderable | null>(null)
@@ -209,7 +212,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         return (
           <box
             onMouseDown={
-              stopMousePropagation
+              stopMousePropagation || (isEditing && frameCapturesInteractions)
                 ? (event) => event.stopPropagation()
                 : undefined
             }
@@ -247,7 +250,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       return (
         <box
           onMouseDown={
-            stopMousePropagation
+            stopMousePropagation || (isEditing && frameCapturesInteractions)
               ? (event) => event.stopPropagation()
               : undefined
           }
