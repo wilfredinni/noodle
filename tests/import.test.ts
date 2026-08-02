@@ -41,6 +41,13 @@ describe("import — integration", () => {
               { name: "name", in: "query" },
               { name: "X-Token", in: "header" },
             ],
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: { example: { name: "Ada" } },
+                },
+              },
+            },
           },
         },
       },
@@ -75,6 +82,7 @@ describe("import — integration", () => {
     expect(createUserYml).toContain("- name: name")
     expect(createUserYml).toContain("value: ''")
     expect(createUserYml).toContain("X-Token: ''")
+    expect(createUserYml).toContain('body: |-\n  {\n    "name": "Ada"\n  }')
 
     expect(existsSync(join(collDir, "users", "folder.yml"))).toBe(true)
 

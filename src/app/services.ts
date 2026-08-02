@@ -302,6 +302,46 @@ export async function collectionInspect(
   }
 }
 
+export interface CollectionFormatResult {
+  path: string
+  requestCount: number
+  formattedJsonBodies: number
+}
+
+function formatJsonBody(request: Request): Request {
+  if ((request.bodyType ?? "json") !== "json" || request.body === undefined)
+    return request
+  try {
+    return {
+      ...request,
+      body: JSON.stringify(JSON.parse(request.body), null, 2),
+    }
+  } catch {
+    return request
+  }
+}
+
+export async function collectionFormat(
+  path: string,
+): Promise<CollectionFormatResult> {
+  const absolutePath = await requireCollectionRoot(path)
+  const collection = await filestore.loadCollection(absolutePath)
+  const requests = flattenRequests(collection.items)
+  let formattedJsonBodies = 0
+
+  for (const request of requests) {
+    const formatted = formatJsonBody(request)
+    if (formatted.body !== request.body) formattedJsonBodies++
+    await saveRequest(absolutePath, formatted)
+  }
+
+  return {
+    path: absolutePath,
+    requestCount: requests.length,
+    formattedJsonBodies,
+  }
+}
+
 export interface AuditIssue {
   path: string
   kind: "request" | "folder" | "settings" | "environment"

@@ -9,6 +9,7 @@ import {
   type ImportResult,
 } from "../converters/index"
 import { saveRequest, saveFolder } from "../filestore"
+import { collectionFormat } from "./services"
 import type { Collection, Environment } from "../schema"
 
 function serializeEnv(env: Environment): string {
@@ -55,7 +56,7 @@ let _importersRegistered = false
 
 export async function runImport(
   options: ImportOptions,
-): Promise<{ path: string; name: string }> {
+): Promise<{ path: string; name: string; formattedJsonBodies: number }> {
   if (!_importersRegistered) {
     const { openApiImporter } = await import("../converters/openapi/index")
     const { postmanImporter } = await import("../converters/postman/index")
@@ -123,7 +124,13 @@ export async function runImport(
     }
   }
 
+  const formatted = await collectionFormat(collDir)
+
   if (!options.silent)
     process.stdout.write(`Imported ${result.collection.name} → ${collDir}\n`)
-  return { path: collDir, name: result.collection.name }
+  return {
+    path: collDir,
+    name: result.collection.name,
+    formattedJsonBodies: formatted.formattedJsonBodies,
+  }
 }

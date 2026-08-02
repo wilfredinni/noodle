@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import {
   formatCollectionAudit,
+  formatCollectionFormat,
   formatCollectionInspect,
   formatCollectionRun,
   formatCollectionList,
@@ -87,6 +88,18 @@ describe("human CLI output", () => {
     ).toBe("✗ Found 1 issue\n  /tmp/demo\n  error request bad.yml: missing url")
   })
 
+  it("reports collection formatting work", () => {
+    expect(
+      plain(
+        formatCollectionFormat({
+          path: "/tmp/demo",
+          requestCount: 2,
+          formattedJsonBodies: 1,
+        }),
+      ),
+    ).toBe("✓ Formatted 2 requests\n  /tmp/demo\n  Pretty-printed 1 JSON body")
+  })
+
   it("summarizes request and collection runs without response bodies", () => {
     const successful = {
       id: "users/list",
@@ -123,7 +136,15 @@ describe("human CLI output", () => {
 
   it("renders imported collections as a confirmation", () => {
     expect(
-      plain(formatImport({ name: "Petstore", path: "/tmp/petstore" })),
-    ).toBe("✓ Imported Petstore\n  /tmp/petstore")
+      plain(
+        formatImport({
+          name: "Petstore",
+          path: "/tmp/petstore",
+          formattedJsonBodies: 2,
+        }),
+      ),
+    ).toBe(
+      "✓ Imported Petstore\n  /tmp/petstore\n  Pretty-printed 2 JSON bodies",
+    )
   })
 })

@@ -121,7 +121,8 @@ noodle import ./specs/api.yaml --output ./collections
 ```
 
 Noodle detects the supported format automatically. Use `--format openapi` or
-`--format postman` when you need to choose explicitly.
+`--format postman` when you need to choose explicitly. Imported valid JSON
+request bodies are pretty-printed automatically.
 
 ## Automation CLI
 
@@ -134,6 +135,7 @@ are non-interactive and support `--json`, which emits one
 | `noodle workspace list`                                                | List registered collections.                             |
 | `noodle collection create <name>`                                      | Create and register a collection.                        |
 | `noodle collection inspect <path>`                                     | Inspect a collection's tree, metadata, and environments. |
+| `noodle collection format <path>`                                      | Canonicalize request YAML and pretty-print JSON bodies.   |
 | `noodle collection audit <path>`                                       | Validate collection files.                               |
 | `noodle collection run <path>`                                         | Run every request in a collection.                       |
 | `noodle request create <id> --url <url> --collection <dir>`            | Create a minimal request.                                |

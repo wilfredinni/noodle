@@ -96,6 +96,19 @@ export function formatCollectionInspect(data: CollectionInspectResult): string {
   ].join("\n")
 }
 
+export function formatCollectionFormat(data: {
+  path: string
+  requestCount: number
+  formattedJsonBodies: number
+}): string {
+  const jsonBodies = data.formattedJsonBodies
+  return [
+    `${color("✓", "green")} Formatted ${data.requestCount} request${data.requestCount === 1 ? "" : "s"}`,
+    `  ${data.path}`,
+    `  Pretty-printed ${jsonBodies} JSON bod${jsonBodies === 1 ? "y" : "ies"}`,
+  ].join("\n")
+}
+
 export function formatCollectionAudit(data: {
   path: string
   valid: boolean
@@ -157,8 +170,20 @@ export function formatEnvironmentSet(data: {
   return `${color("✓", "green")} Set ${data.key} in ${data.environment}`
 }
 
-export function formatImport(data: { path: string; name: string }): string {
-  return `${color("✓", "green")} Imported ${data.name}\n  ${data.path}`
+export function formatImport(data: {
+  path: string
+  name: string
+  formattedJsonBodies?: number
+}): string {
+  return [
+    `${color("✓", "green")} Imported ${data.name}`,
+    `  ${data.path}`,
+    ...(data.formattedJsonBodies === undefined
+      ? []
+      : [
+          `  Pretty-printed ${data.formattedJsonBodies} JSON bod${data.formattedJsonBodies === 1 ? "y" : "ies"}`,
+        ]),
+  ].join("\n")
 }
 
 export interface RunProgressReporter {
