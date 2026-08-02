@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { act } from "react"
+import { act, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { RGBA, TextAttributes } from "@opentui/core"
 import type { Request, KvEntry, CollectionItem } from "../src/schema"
@@ -9,7 +9,7 @@ import { RequestPane } from "../src/ui/RequestPane"
 import { ResponsePane } from "../src/ui/ResponsePane"
 import type { SendState } from "../src/ui/sendState"
 import { initialEditState } from "../src/ui/editMode"
-import type { EditState } from "../src/ui/editMode"
+import type { EditState, FieldKind } from "../src/ui/editMode"
 import type { ResponseQueryController } from "../src/ui/responseQuery"
 
 import { ThemeProvider } from "../src/ui/theme"
@@ -566,6 +566,76 @@ describe("RequestPane scrollbox", () => {
     await renderOnce()
 
     expect(captureCharFrame()).toContain("post_id")
+  })
+
+  it("renders every path param after switching from headers", async () => {
+    const headers: Record<string, KvEntry> = {}
+    for (let i = 0; i < 30; i++) {
+      headers[`X-Header-${i}`] = { value: `value-${i}`, enabled: true }
+    }
+    const request: Request = {
+      id: "compliance-audit-items",
+      name: "Get compliance audit items for a domain",
+      method: "GET",
+      url: "$base_url/v1/domains/:id/compliance-audits/:complianceAuditId/compliance-audit-items",
+      headers,
+      params: [],
+      pathParams: [
+        { name: "id", value: "", enabled: true },
+        { name: "complianceAuditId", value: "", enabled: true },
+      ],
+      body: "",
+      timeout: 0,
+    }
+    let setTab: ((tab: FieldKind) => void) | undefined
+
+    function SwitchingPane() {
+      const [activeTab, setActiveTab] = useState<FieldKind>("headers")
+      setTab = setActiveTab
+      return (
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={initialEditState()}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <SwitchingPane />,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+
+    await act(async () => {
+      for (let i = 0; i < 22; i++) {
+        await mockMouse.scroll(20, 4, "down")
+      }
+    })
+    await renderOnce()
+    const headersFrame = captureCharFrame()
+    expect(headersFrame).not.toContain("X-Header-0")
+    expect(headersFrame).toContain("X-Header-29")
+
+    await act(async () => setTab?.("pathParams"))
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("id")
+    expect(frame).toContain("complianceAuditId")
   })
 })
 

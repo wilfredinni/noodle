@@ -147,6 +147,7 @@ export function KeyValueSection({
                 id={`${prefix}-${i}`}
                 style={{
                   flexDirection: "row",
+                  height: 1,
                   gap: 0,
                   backgroundColor: rowBg,
                 }}
