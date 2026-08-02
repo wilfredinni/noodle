@@ -581,7 +581,9 @@ export function buildCommandPaletteCommands(
     return [
       folderSaveCommand,
       ...requestCommands
-        .filter((command) => command.id === "request.new")
+        .filter((command) =>
+          ["request.new", "request.import-curl"].includes(command.id),
+        )
         .map((command) => ({ ...command, section: "Folder" })),
       ...workspaceCommands
         .filter((command) =>
