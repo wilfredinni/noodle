@@ -28,7 +28,7 @@ const TIPS = [
   "environment variables let you switch between dev, staging, prod",
   "clone a request with {^K}",
   "delete a request with {^W}",
-  "right-click a request or folder in the sidebar for its context menu",
+  "right-click a request, folder, or environment for its context menu",
   "copy the response body with {^B}",
   "create a new folder with {^Alt+N}",
   "press {F2} to expand a pane fullscreen",

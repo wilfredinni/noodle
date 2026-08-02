@@ -20,6 +20,7 @@ export function EnvSidebar({
   focused,
   jumpMode = false,
   onPaneFocus,
+  onEnvironmentContextMenu,
 }: {
   envNames: string[]
   selectedEnvName: string | null
@@ -33,6 +34,7 @@ export function EnvSidebar({
   focused: boolean
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onEnvironmentContextMenu?: (name: string) => void
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -114,9 +116,14 @@ export function EnvSidebar({
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={isSelected ? theme.primary : theme.backgroundPanel}
                 onMouseDown={(event) => {
-                  if (event.button !== MouseButton.LEFT) return
-                  onSelectEnv(name)
-                  onPaneFocus?.()
+                  if (event.button === MouseButton.RIGHT) {
+                    onEnvironmentContextMenu?.(name)
+                  } else if (event.button === MouseButton.LEFT) {
+                    onSelectEnv(name)
+                    onPaneFocus?.()
+                  } else {
+                    return
+                  }
                   event.stopPropagation()
                 }}
                 onMouseOver={() => setHoveredEnvName(name)}

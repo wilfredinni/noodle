@@ -30,9 +30,10 @@ describe("EnvSidebar", () => {
     expect(frame).toContain("prod")
   })
 
-  it("selects an environment on left click only", async () => {
+  it("selects on left click and opens the environment context menu on right click", async () => {
     let selected = ""
     let focused = 0
+    let contextName = ""
     const { renderOnce, mockMouse } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <EnvSidebar
@@ -48,6 +49,9 @@ describe("EnvSidebar", () => {
           onDelete={() => {}}
           focused={false}
           onPaneFocus={() => focused++}
+          onEnvironmentContextMenu={(name) => {
+            contextName = name
+          }}
         />
       </ThemeProvider>,
       { width: 40, height: 12 },
@@ -57,6 +61,7 @@ describe("EnvSidebar", () => {
     await mockMouse.click(2, 3, MouseButtons.RIGHT)
     expect(selected).toBe("")
     expect(focused).toBe(0)
+    expect(contextName).toBe("staging")
 
     await mockMouse.click(2, 3, MouseButtons.LEFT)
     expect(selected).toBe("staging")

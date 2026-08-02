@@ -118,11 +118,45 @@ describe("buildCommandPaletteCommands", () => {
     expect(commands.map((command) => command.id)).toEqual([
       "folder.save",
       "request.new",
+      "request.import-curl",
       "folder.new",
       "folder.delete",
       "workspace.edit-yaml",
     ])
     expect(commands.every((command) => command.section === "Folder")).toBe(true)
+  })
+
+  it("shows only environment commands for an environment context menu", () => {
+    const ctx = minimalContext()
+    ctx.paletteTarget = "environment"
+
+    const commands = buildCommandPaletteCommands(ctx)
+
+    expect(commands.map((command) => command.id)).toEqual([
+      "env.save",
+      "env.new",
+      "env.clone",
+      "env.delete",
+    ])
+    expect(commands.every((command) => command.section === "Environment")).toBe(
+      true,
+    )
+  })
+
+  it("opens the cURL import overlay from a folder context menu", () => {
+    const ctx = minimalContext()
+    ctx.paletteTarget = "folder"
+    let opened = false
+    ctx.setImportCurlVisible = (value) => {
+      opened = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "request.import-curl",
+    )
+
+    expect(command?.run()).toBe(true)
+    expect(opened).toBe(true)
   })
 
   it("includes the JSONPath response query command", () => {
