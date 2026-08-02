@@ -126,6 +126,23 @@ describe("buildCommandPaletteCommands", () => {
     expect(commands.every((command) => command.section === "Folder")).toBe(true)
   })
 
+  it("shows only environment commands for an environment context menu", () => {
+    const ctx = minimalContext()
+    ctx.paletteTarget = "environment"
+
+    const commands = buildCommandPaletteCommands(ctx)
+
+    expect(commands.map((command) => command.id)).toEqual([
+      "env.save",
+      "env.new",
+      "env.clone",
+      "env.delete",
+    ])
+    expect(commands.every((command) => command.section === "Environment")).toBe(
+      true,
+    )
+  })
+
   it("opens the cURL import overlay from a folder context menu", () => {
     const ctx = minimalContext()
     ctx.paletteTarget = "folder"

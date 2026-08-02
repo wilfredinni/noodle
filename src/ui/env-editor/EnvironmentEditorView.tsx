@@ -15,6 +15,7 @@ interface EnvironmentEditorViewProps {
   jumpMode?: boolean
   onHeaderFieldFocus?: (field: "name" | "color") => void
   onPaneFocus?: (focus: Focus) => void
+  onEnvironmentContextMenu?: (name: string) => void
   setEnvDeletePending: (name: string | null) => void
 }
 
@@ -27,6 +28,7 @@ export function EnvironmentEditorView({
   jumpMode = false,
   onHeaderFieldFocus,
   onPaneFocus = () => {},
+  onEnvironmentContextMenu,
   setEnvDeletePending,
 }: EnvironmentEditorViewProps) {
   return (
@@ -56,6 +58,7 @@ export function EnvironmentEditorView({
         focused={focus === "env-sidebar"}
         jumpMode={jumpMode}
         onPaneFocus={() => onPaneFocus("env-sidebar")}
+        onEnvironmentContextMenu={onEnvironmentContextMenu}
       />
       <box
         style={{

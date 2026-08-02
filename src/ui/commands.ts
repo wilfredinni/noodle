@@ -40,7 +40,7 @@ import {
   type CommandActionsConfig,
 } from "./commandActions"
 
-export type CommandPaletteTarget = "request" | "folder"
+export type CommandPaletteTarget = "request" | "folder" | "environment"
 
 export interface CommandBuilderContext {
   keybinds: Keybinds
@@ -600,6 +600,13 @@ export function buildCommandPaletteCommands(
           section: "Folder",
         })),
     ]
+  }
+
+  if (paletteTarget === "environment") {
+    if (mode !== "collection") return []
+    return editorEnvCommands.filter((command) =>
+      ["env.save", "env.new", "env.clone", "env.delete"].includes(command.id),
+    )
   }
 
   if (view === "env-editor") {

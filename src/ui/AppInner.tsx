@@ -1090,6 +1090,12 @@ export function AppInner({
               headerFieldRef.current = field
             }}
             onPaneFocus={focusPane}
+            onEnvironmentContextMenu={async (name) => {
+              focusPane("env-sidebar")
+              await envEditor.selectEnv(name)
+              setPaletteTarget("environment")
+              setCommandPaletteVisible(true)
+            }}
             setEnvDeletePending={setEnvDeletePending}
           />
         ) : null}
