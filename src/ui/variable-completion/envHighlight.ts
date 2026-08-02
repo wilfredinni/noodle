@@ -62,13 +62,19 @@ export function splitUrlPathVars(
 ): PathAwareSegment[] {
   const varSegments = splitEnvVars(text, env)
   const result: PathAwareSegment[] = []
+  let beforeQuery = true
 
   for (const seg of varSegments) {
     if (seg.isVar) {
       result.push({ ...seg, isPath: false })
       continue
     }
-    const remaining = seg.text
+    if (!beforeQuery) {
+      result.push({ ...seg, isPath: false })
+      continue
+    }
+    const queryIdx = seg.text.indexOf("?")
+    const remaining = queryIdx === -1 ? seg.text : seg.text.slice(0, queryIdx)
     let lastEnd = 0
     URL_PATH_TOKEN_RE.lastIndex = 0
     let match: RegExpExecArray | null
@@ -99,6 +105,15 @@ export function splitUrlPathVars(
         exists: false,
         isPath: false,
       })
+    }
+    if (queryIdx !== -1) {
+      result.push({
+        text: seg.text.slice(queryIdx),
+        isVar: false,
+        exists: false,
+        isPath: false,
+      })
+      beforeQuery = false
     }
   }
 

@@ -164,6 +164,27 @@ describe("splitUrlPathVars", () => {
     })
   })
 
+  it("marks a path token before query parameters", () => {
+    const url = "$base_url/v1/nsx-alb-clusters/:id?forceDelete=false"
+
+    for (const [value, exists] of [
+      ["cluster-123", true],
+      ["", false],
+    ] as Array<[string, boolean]>) {
+      const result = splitUrlPathVars(
+        url,
+        env({ base_url: "https://api.example.com" }),
+        [{ name: "id", value, enabled: true }],
+      )
+      expect(result.find((segment) => segment.isPath)).toEqual({
+        text: ":id",
+        isVar: false,
+        exists,
+        isPath: true,
+      })
+    }
+  })
+
   it("marks path token with empty value as unresolved", () => {
     const pathParams: ParamEntry[] = [{ name: "id", value: "", enabled: true }]
     const result = splitUrlPathVars("/:id", null, pathParams)
@@ -236,6 +257,15 @@ describe("splitUrlPathVars", () => {
     )
     const pathSegs = result.filter((s) => s.isPath)
     expect(pathSegs).toHaveLength(0)
+  })
+
+  it("does not highlight path-like query-string values", () => {
+    const result = splitUrlPathVars(
+      "https://api.example.com/search?redirect=/:id?next=true",
+      null,
+      [{ name: "id", value: "42", enabled: true }],
+    )
+    expect(result.filter((segment) => segment.isPath)).toHaveLength(0)
   })
 
   it("does not highlight tokens followed by unsupported characters", () => {

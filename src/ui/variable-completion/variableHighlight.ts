@@ -38,9 +38,11 @@ export function highlightVariables(
     })
   }
 
+  const queryIdx = value.indexOf("?")
+  const pathText = queryIdx === -1 ? value : value.slice(0, queryIdx)
   URL_PATH_TOKEN_RE.lastIndex = 0
   let m: RegExpExecArray | null
-  while ((m = URL_PATH_TOKEN_RE.exec(value)) !== null) {
+  while ((m = URL_PATH_TOKEN_RE.exec(pathText)) !== null) {
     const name = m[1]!
     const resolved = isPathParamResolved(name, pathParams ?? [])
     const colonIdx = m.index + (m[0][0] === "/" ? 1 : 0)
