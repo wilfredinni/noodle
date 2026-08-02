@@ -621,12 +621,14 @@ describe("RequestPane scrollbox", () => {
     await renderOnce()
 
     await act(async () => {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 22; i++) {
         await mockMouse.scroll(20, 4, "down")
       }
     })
     await renderOnce()
-    expect(captureCharFrame()).toContain("X-Header-")
+    const headersFrame = captureCharFrame()
+    expect(headersFrame).not.toContain("X-Header-0")
+    expect(headersFrame).toContain("X-Header-29")
 
     await act(async () => setTab?.("pathParams"))
     await renderOnce()
