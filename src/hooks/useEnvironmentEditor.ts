@@ -275,6 +275,7 @@ export function useEnvironmentEditor({
         selectedEnvNameRef.current === name &&
         loadedEnvNameRef.current === name
       ) {
+        loadGenerationRef.current++
         return true
       }
       return loadEnv(name)

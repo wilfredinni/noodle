@@ -438,6 +438,49 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     }
   })
 
+  it("keeps the loaded environment when cancelling a pending selection", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await waitForDraft(ref, renderOnce)
+
+    type LoadedEnvironment = Awaited<ReturnType<typeof env.loadEnvironment>>
+    let resolveBeta: ((environment: LoadedEnvironment) => void) | undefined
+    const loadSpy = spyOn(env, "loadEnvironment").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveBeta = resolve
+        }),
+    )
+
+    try {
+      const betaSelection = ref.current!.selectEnv("beta")
+      const alphaSelection = await ref.current!.selectEnv("alpha")
+
+      expect(alphaSelection).toBe(true)
+
+      let betaIsCurrent = true
+      await act(async () => {
+        resolveBeta!({ name: "beta", vars: { key: "beta" } })
+        betaIsCurrent = await betaSelection
+      })
+      await renderOnce()
+
+      expect(betaIsCurrent).toBe(false)
+      expect(ref.current!.selectedEnvName).toBe("alpha")
+      expect(ref.current!.draft?.name).toBe("alpha")
+    } finally {
+      loadSpy.mockRestore()
+    }
+  })
+
   it("rejects rename to an existing env name", async () => {
     const spy = mock(() => {})
     const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
