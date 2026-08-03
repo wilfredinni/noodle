@@ -274,11 +274,19 @@ describe("insomniaImporter", () => {
           method: "GET",
           url: "https://example.com",
         },
+        {
+          _id: "also-unkeyed",
+          _type: "request",
+          parentId: "wrk",
+          name: "Also Unkeyed",
+          method: "GET",
+          url: "https://example.com",
+        },
       ]),
     )
     expect(
       requests(result.collection.items).map((request) => request.name),
-    ).toEqual(["Early", "Late", "Unkeyed"])
+    ).toEqual(["Early", "Late", "Unkeyed", "Also Unkeyed"])
   })
 
   it("uses safe unique names for environment files", () => {
