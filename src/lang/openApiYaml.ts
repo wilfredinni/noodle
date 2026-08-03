@@ -3,7 +3,7 @@ import { isRawJsonNumber } from "./formatJson"
 
 const RAW_JSON_INT_RE = /^-?(?:0|[1-9]\d*)$/
 
-const rawJsonIntType = new yaml.Type("tag:yaml.org,2002:int", {
+const rawJsonIntType = new yaml.Type("tag:noodle.dev,2026:raw-json-int", {
   kind: "scalar",
   resolve: () => false,
   predicate: (value: object) =>
@@ -11,7 +11,7 @@ const rawJsonIntType = new yaml.Type("tag:yaml.org,2002:int", {
   represent: (value: object) => (value as { rawJSON: string }).rawJSON,
 })
 
-const rawJsonFloatType = new yaml.Type("tag:yaml.org,2002:float", {
+const rawJsonFloatType = new yaml.Type("tag:noodle.dev,2026:raw-json-float", {
   kind: "scalar",
   resolve: () => false,
   predicate: (value: object) =>
