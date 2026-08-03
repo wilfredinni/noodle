@@ -6,7 +6,7 @@ export default defineCommand({
   meta: {
     name: "import",
     description:
-      "Import OpenAPI, Swagger, or Postman spec into collection files",
+      "Import OpenAPI, Swagger, Postman, or Insomnia spec into collection files",
   },
   args: {
     source: {
@@ -18,7 +18,7 @@ export default defineCommand({
       type: "string",
       alias: "i",
       description:
-        'Import format ("openapi", "swagger", "postman") — auto-detected if omitted',
+        'Import format ("openapi", "swagger", "postman", "insomnia") — auto-detected if omitted',
     },
     output: {
       type: "string",

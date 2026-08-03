@@ -61,9 +61,11 @@ export async function runImport(
     const { openApiImporter } = await import("../converters/openapi/index")
     const { swaggerImporter } = await import("../converters/swagger/index")
     const { postmanImporter } = await import("../converters/postman/index")
+    const { insomniaImporter } = await import("../converters/insomnia/index")
     registerImporter(openApiImporter)
     registerImporter(swaggerImporter)
     registerImporter(postmanImporter)
+    registerImporter(insomniaImporter)
     _importersRegistered = true
   }
   const { source, format, outputDir = "./collections" } = options
