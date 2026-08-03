@@ -18,6 +18,7 @@ import {
   saveSettings,
   ensureCollectionBootstrapped,
 } from "../filestore"
+import { formatJson } from "../lang/formatJson"
 import { lang } from "../lang"
 import { executor, substitute } from "../requests"
 import { withDefaultHttpsScheme } from "../requests/url"
@@ -311,13 +312,9 @@ export interface CollectionFormatResult {
 function formatJsonBody(request: Request): Request {
   if ((request.bodyType ?? "json") !== "json" || request.body === undefined)
     return request
-  try {
-    return {
-      ...request,
-      body: JSON.stringify(JSON.parse(request.body), null, 2),
-    }
-  } catch {
-    return request
+  return {
+    ...request,
+    body: formatJson(request.body),
   }
 }
 

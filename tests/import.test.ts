@@ -138,4 +138,42 @@ describe("import — integration", () => {
     const collDir = join(customOut, "custom")
     expect(existsSync(join(collDir, "get-x.yml"))).toBe(true)
   })
+
+  it("preserves large JSON integers in imported Postman request bodies", async () => {
+    const outDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "collection.json")
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        info: {
+          name: "Large IDs",
+          schema:
+            "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        },
+        item: [
+          {
+            name: "Create",
+            request: {
+              method: "POST",
+              url: "https://example.com",
+              header: [],
+              body: {
+                mode: "raw",
+                raw: '{"id":9007199254740993}',
+                options: { raw: { language: "json" } },
+              },
+            },
+          },
+        ],
+      }),
+    )
+
+    const { runImport } = await import("../src/app/import")
+    await runImport({ source: specPath, format: "postman", outputDir: outDir })
+
+    expect(
+      readFileSync(join(outDir, "large-ids", "post-create.yml"), "utf8"),
+    ).toContain('body: |-\n  {\n    "id": 9007199254740993\n  }')
+  })
 })

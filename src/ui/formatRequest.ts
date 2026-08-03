@@ -1,4 +1,5 @@
 import type { Auth, KvEntry, Method, ParamEntry } from "../schema"
+import { formatJson } from "../lang/formatJson"
 import type { Theme } from "./theme"
 
 export type MethodColorToken =
@@ -30,11 +31,7 @@ export function formatParams(params: ParamEntry[]): string[] {
 
 export function formatBody(body?: string): string {
   if (body === undefined || body === "") return ""
-  try {
-    return JSON.stringify(JSON.parse(body), null, 2)
-  } catch {
-    return body
-  }
+  return formatJson(body)
 }
 
 export function formatAuth(auth?: Auth): string {

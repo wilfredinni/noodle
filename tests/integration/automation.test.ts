@@ -204,7 +204,7 @@ describe("automation services", () => {
   it("formats valid JSON request bodies without changing invalid JSON", async () => {
     await writeFile(
       join(dir, "json.yml"),
-      'name: JSON\nmethod: POST\nurl: https://example.com\nbody: \'{"name":"Noodle"}\'\nbody_type: json\n',
+      'name: JSON\nmethod: POST\nurl: https://example.com\nbody: \'{"name":"Noodle","id":9007199254740993}\'\nbody_type: json\n',
       "utf8",
     )
     await writeFile(
@@ -221,7 +221,7 @@ describe("automation services", () => {
       formattedJsonBodies: 1,
     })
     expect(await readFile(join(dir, "json.yml"), "utf8")).toContain(
-      'body: |-\n  {\n    "name": "Noodle"\n  }',
+      'body: |-\n  {\n    "name": "Noodle",\n    "id": 9007199254740993\n  }',
     )
     expect(await readFile(join(dir, "invalid.yml"), "utf8")).toContain(
       "body: '{not json}'",
