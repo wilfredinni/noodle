@@ -250,6 +250,7 @@ export function AuthEditor({
                   <Select
                     items={PLACEMENT_ITEMS}
                     value={fieldValue || "header"}
+                    width={16}
                     onChange={(id) =>
                       onApiKeyPlacementChange(id as "header" | "query")
                     }

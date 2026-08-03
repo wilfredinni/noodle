@@ -1,3 +1,4 @@
+import yaml from "js-yaml"
 import type { Method } from "../schema"
 
 export const METHOD_UPPER: Record<string, Method> = {
@@ -16,4 +17,12 @@ export function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-")
+}
+
+export function parseJsonOrYaml(content: string): unknown {
+  try {
+    return JSON.parse(content)
+  } catch {
+    return yaml.load(content)
+  }
 }

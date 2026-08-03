@@ -16,13 +16,13 @@ describe("detectOpenApi", () => {
     expect(detectOpenApi(spec)).toBe(true)
   })
 
-  it("detects Swagger 2.0 by swagger field", () => {
+  it("rejects Swagger 2.0", () => {
     const spec = JSON.stringify({
       swagger: "2.0",
       info: { title: "Test" },
       paths: { "/x": { get: {} } },
     })
-    expect(detectOpenApi(spec)).toBe(true)
+    expect(detectOpenApi(spec)).toBe(false)
   })
 
   it("rejects non-object roots", () => {
@@ -30,7 +30,7 @@ describe("detectOpenApi", () => {
     expect(detectOpenApi("[1,2,3]")).toBe(false)
   })
 
-  it("rejects missing openapi/swagger field", () => {
+  it("rejects missing openapi field", () => {
     expect(detectOpenApi(JSON.stringify({ info: {}, paths: {} }))).toBe(false)
   })
 

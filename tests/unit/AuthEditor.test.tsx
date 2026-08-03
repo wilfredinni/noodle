@@ -12,35 +12,44 @@ describe("AuthEditor", () => {
   it("activates the API key placement row before opening its select", async () => {
     const { keymap, cleanup } = setupKeymap()
     let focusedRow = -1
-    const { renderOnce, mockMouse } = await testRender(
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <AuthEditor
-            auth={{
-              type: "api_key",
-              key: "X-API-Key",
-              value: "secret",
-              placement: "header",
-            }}
-            editState={initialEditState()}
-            inEdit={false}
-            browseActive={false}
-            setEditValue={() => {}}
-            theme={THEMES[0]!}
-            onAuthTypeChange={() => {}}
-            onApiKeyPlacementChange={() => {}}
-            onFocusRow={(row) => {
-              focusedRow = row
-            }}
-          />
+          <box width={60} height={10}>
+            <AuthEditor
+              auth={{
+                type: "api_key",
+                key: "X-API-Key",
+                value: "secret",
+                placement: "header",
+              }}
+              editState={initialEditState()}
+              inEdit={false}
+              browseActive={false}
+              setEditValue={() => {}}
+              theme={THEMES[0]!}
+              onAuthTypeChange={() => {}}
+              onApiKeyPlacementChange={() => {}}
+              onFocusRow={(row) => {
+                focusedRow = row
+              }}
+            />
+          </box>
         </ThemeProvider>
       </KeymapProvider>,
       { width: 60, height: 10 },
     )
     await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("Header"))
 
     await act(async () => {
-      await mockMouse.click(10, 6, MouseButtons.LEFT)
+      await mockMouse.click(50, y, MouseButtons.LEFT)
+    })
+    expect(focusedRow).toBe(-1)
+
+    await act(async () => {
+      await mockMouse.click(rows[y]!.indexOf("Header"), y, MouseButtons.LEFT)
     })
     expect(focusedRow).toBe(3)
     cleanup()
