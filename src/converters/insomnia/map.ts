@@ -149,7 +149,9 @@ function mapRequest(resource: RawResource, id: string): Request {
 }
 
 function envValue(value: unknown): string | undefined {
-  return typeof value === "string" ? convertTpl(value) : JSON.stringify(value)
+  return typeof value === "string"
+    ? convertTpl(value).replace(/\r\n?|\n/g, "\\n")
+    : JSON.stringify(value)
 }
 
 function mapEnvironmentVars(
@@ -254,25 +256,33 @@ export function mapExport(root: RawResource): ImportResult {
   }
 
   const usedIds = new Set<string>()
-  function mapItems(parentId: string, parentPath: string): CollectionItem[] {
+  function mapItems(
+    parentId: string,
+    parentPath: string,
+    ancestorIds = new Set<string>(),
+  ): CollectionItem[] {
     const items: CollectionItem[] = []
     let index = 0
     for (const resource of children.get(parentId) ?? []) {
       index++
       if (resource._type === "request_group" || resource._type === "folder") {
+        const resourceId = stringValue(resource._id)
+        if (resourceId && ancestorIds.has(resourceId)) continue
         const folderId = uniqueId(
           slugify(stringValue(resource.name)) || `folder-${index}`,
           usedIds,
         )
         usedIds.add(folderId)
         const path = parentPath ? `${parentPath}/${folderId}` : folderId
+        const childAncestorIds = new Set(ancestorIds)
+        if (resourceId) childAncestorIds.add(resourceId)
         items.push({
           type: "folder",
           data: {
             id: folderId,
             name: stringValue(resource.name) || folderId,
             path,
-            children: mapItems(stringValue(resource._id), path),
+            children: mapItems(resourceId, path, childAncestorIds),
           },
         })
       } else if (resource._type === "request") {

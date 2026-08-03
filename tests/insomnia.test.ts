@@ -243,6 +243,43 @@ describe("insomniaImporter", () => {
     ])
   })
 
+  it("skips a cyclic folder edge while retaining reachable requests", () => {
+    const result = insomniaImporter.import(
+      exportJson([
+        { _id: "wrk", _type: "workspace", name: "Folders" },
+        {
+          _id: "root",
+          _type: "request_group",
+          parentId: "wrk",
+          name: "Root",
+        },
+        {
+          _id: "child",
+          _type: "request_group",
+          parentId: "root",
+          name: "Child",
+        },
+        {
+          _id: "root",
+          _type: "request_group",
+          parentId: "child",
+          name: "Cycle",
+        },
+        {
+          _id: "request",
+          _type: "request",
+          parentId: "child",
+          name: "Ping",
+          method: "GET",
+          url: "https://example.com/ping",
+        },
+      ]),
+    )
+    expect(
+      requests(result.collection.items).map((request) => request.name),
+    ).toEqual(["Ping"])
+  })
+
   it("rejects invalid exports and leaves no HTTP requests for the caller to reject", () => {
     expect(() => insomniaImporter.import("{}")).toThrow(
       "expected an Insomnia JSON v4 or v5 export",

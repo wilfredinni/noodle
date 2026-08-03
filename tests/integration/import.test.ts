@@ -217,7 +217,11 @@ describe("import — integration", () => {
             _type: "environment",
             parentId: "workspace",
             name: "Development",
-            data: { host: "api.example.com", token: "secret" },
+            data: {
+              host: "api.example.com",
+              token: "secret",
+              note: "first\r\nsecond\nthird\rfourth",
+            },
           },
           {
             _id: "workspace",
@@ -247,6 +251,12 @@ describe("import — integration", () => {
         "utf-8",
       ),
     ).toContain("token=secret")
+    const { env } = await import("../../src/env")
+    const environment = await env.loadEnvironment(
+      join(outDir, "insomnia-api", ".environments"),
+      "Development",
+    )
+    expect(environment.vars.note).toBe("first\\nsecond\\nthird\\nfourth")
   })
 
   it("preserves large JSON integers in imported Postman request bodies", async () => {
