@@ -1,15 +1,11 @@
-import yaml from "js-yaml"
+import { parseJsonOrYaml } from "../shared"
 
 export function detectSwagger(content: string): boolean {
   let doc: unknown
   try {
-    doc = JSON.parse(content)
+    doc = parseJsonOrYaml(content)
   } catch {
-    try {
-      doc = yaml.load(content)
-    } catch {
-      return false
-    }
+    return false
   }
 
   if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {

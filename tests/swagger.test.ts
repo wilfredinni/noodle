@@ -9,6 +9,20 @@ function requests(items: CollectionItem[]): Request[] {
 }
 
 describe("parseSwaggerSpec", () => {
+  it("wraps invalid JSON and YAML with the Swagger import error", () => {
+    let error: Error | undefined
+    try {
+      parseSwaggerSpec(": : :")
+    } catch (e) {
+      error = e as Error
+    }
+
+    expect(error?.message).toContain(
+      "converters.swagger.import: failed to parse spec (not valid JSON or YAML):",
+    )
+    expect(error?.cause).toBeDefined()
+  })
+
   it("validates the Swagger 2.0 document shape", () => {
     expect(() => parseSwaggerSpec({ swagger: "2.1", paths: {} })).toThrow(
       'converters.swagger.import: unsupported or missing "swagger" version, expected "2.0"',

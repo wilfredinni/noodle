@@ -1,6 +1,6 @@
-import yaml from "js-yaml"
 import type { Normalized } from "../openapi/map"
 import { resolveSpecRefs } from "../openapi/refs"
+import { parseJsonOrYaml } from "../shared"
 
 const HTTP_METHODS = new Set([
   "get",
@@ -149,17 +149,13 @@ export function parseSwaggerSpec(spec: string | object): Normalized {
   let doc: unknown
   if (typeof spec === "string") {
     try {
-      doc = JSON.parse(spec)
-    } catch {
-      try {
-        doc = yaml.load(spec)
-      } catch (eYaml) {
-        const msg = eYaml instanceof Error ? eYaml.message : String(eYaml)
-        throw new Error(
-          `converters.swagger.import: failed to parse spec (not valid JSON or YAML): ${msg}`,
-          { cause: eYaml },
-        )
-      }
+      doc = parseJsonOrYaml(spec)
+    } catch (eYaml) {
+      const msg = eYaml instanceof Error ? eYaml.message : String(eYaml)
+      throw new Error(
+        `converters.swagger.import: failed to parse spec (not valid JSON or YAML): ${msg}`,
+        { cause: eYaml },
+      )
     }
   } else {
     doc = spec
