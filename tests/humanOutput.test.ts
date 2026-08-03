@@ -123,7 +123,15 @@ describe("human CLI output", () => {
 
   it("renders imported collections as a confirmation", () => {
     expect(
-      plain(formatImport({ name: "Petstore", path: "/tmp/petstore" })),
-    ).toBe("✓ Imported Petstore\n  /tmp/petstore")
+      plain(
+        formatImport({
+          name: "Petstore",
+          path: "/tmp/petstore",
+          formattedJsonBodies: 2,
+        }),
+      ),
+    ).toBe(
+      "✓ Imported Petstore\n  /tmp/petstore\n  Pretty-printed 2 JSON bodies",
+    )
   })
 })

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   collectionAudit,
+  collectionFormat,
   collectionInspect,
   collectionInit,
   collectionList,
@@ -44,6 +45,7 @@ describe("automation services", () => {
     await expect(collectionAudit(dir, false)).rejects.toThrow(
       "not a collection root",
     )
+    await expect(collectionFormat(dir)).rejects.toThrow("not a collection root")
     await expect(collectionRun(dir)).rejects.toThrow("not a collection root")
     await expect(
       requestCreate("request", "https://example.com", "GET", dir),
@@ -197,6 +199,33 @@ describe("automation services", () => {
     expect(result.valid).toBe(false)
     expect(result.issues).toHaveLength(2)
     expect(await readFile(join(dir, "bad.yml"), "utf8")).toBe(original)
+  })
+
+  it("formats valid JSON request bodies without changing invalid JSON", async () => {
+    await writeFile(
+      join(dir, "json.yml"),
+      'name: JSON\nmethod: POST\nurl: https://example.com\nbody: \'{"name":"Noodle","id":9007199254740993}\'\nbody_type: json\n',
+      "utf8",
+    )
+    await writeFile(
+      join(dir, "invalid.yml"),
+      "name: Invalid\nmethod: POST\nurl: https://example.com\nbody: '{not json}'\nbody_type: json\n",
+      "utf8",
+    )
+
+    const result = await collectionFormat(dir)
+
+    expect(result).toEqual({
+      path: dir,
+      requestCount: 2,
+      formattedJsonBodies: 1,
+    })
+    expect(await readFile(join(dir, "json.yml"), "utf8")).toContain(
+      'body: |-\n  {\n    "name": "Noodle",\n    "id": 9007199254740993\n  }',
+    )
+    expect(await readFile(join(dir, "invalid.yml"), "utf8")).toContain(
+      "body: '{not json}'",
+    )
   })
 
   it("uses the collection default environment when running requests", async () => {

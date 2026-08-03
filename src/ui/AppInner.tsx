@@ -177,6 +177,7 @@ export function AppInner({
   // ── Sidebar selection + request draft + edit-browse ─────────────────
   const {
     selectedId,
+    selectedIdRef,
     selectedRequest,
     expanded: expandedFolders,
     visibleItems,
@@ -737,9 +738,6 @@ export function AppInner({
 
   const modeRef = useRef<"collection" | "browse" | "empty" | "invalid">(mode)
   modeRef.current = mode
-
-  const selectedIdRef = useRef(selectedId)
-  selectedIdRef.current = selectedId
 
   const folderViewRef = useRef(false)
   folderViewRef.current = focusedFolder !== null

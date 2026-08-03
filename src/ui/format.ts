@@ -1,4 +1,5 @@
 import type { Response } from "../schema"
+import { formatJson } from "../lang/formatJson"
 import type { Theme } from "./theme"
 
 export function formatSize(bytes: number): string {
@@ -35,11 +36,7 @@ export function formatBody(res: Response): string {
   if (res.body === "") return ""
   const jsonParseError = formatJsonParseErrorBody(res.body)
   if (jsonParseError !== null) return jsonParseError
-  try {
-    return JSON.stringify(JSON.parse(res.body), null, 2)
-  } catch {
-    return res.body
-  }
+  return formatJson(res.body)
 }
 
 function formatJsonParseErrorBody(body: string): string | null {

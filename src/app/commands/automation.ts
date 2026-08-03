@@ -4,6 +4,7 @@ import {
   createRunProgressReporter,
   formatCollectionAudit,
   formatCollectionCreate,
+  formatCollectionFormat,
   formatCollectionInspect,
   formatCollectionInit,
   formatCollectionList,
@@ -17,6 +18,7 @@ import {
 import {
   collectionAudit,
   collectionCreate,
+  collectionFormat,
   collectionInit,
   collectionInspect,
   collectionList,
@@ -140,6 +142,19 @@ const collection = defineCommand({
             data: await collectionInspect(args.path),
           }),
           formatCollectionInspect,
+        ),
+    }),
+    format: defineCommand({
+      meta: {
+        name: "format",
+        description: "Canonicalize request YAML and pretty-print JSON bodies",
+      },
+      args: { path: { type: "positional", required: true }, json: jsonArg },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({ data: await collectionFormat(args.path) }),
+          formatCollectionFormat,
         ),
     }),
     audit: defineCommand({

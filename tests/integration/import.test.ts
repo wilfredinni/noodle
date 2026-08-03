@@ -41,6 +41,13 @@ describe("import — integration", () => {
               { name: "name", in: "query" },
               { name: "X-Token", in: "header" },
             ],
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: { example: { name: "Ada" } },
+                },
+              },
+            },
           },
         },
       },
@@ -54,7 +61,7 @@ describe("import — integration", () => {
     }
     await writeFile(specPath, JSON.stringify(spec))
 
-    const { runImport } = await import("../src/app/import")
+    const { runImport } = await import("../../src/app/import")
     await runImport({ source: specPath, format: undefined, outputDir: outDir })
 
     const collDir = join(outDir, "test-api")
@@ -75,6 +82,7 @@ describe("import — integration", () => {
     expect(createUserYml).toContain("- name: name")
     expect(createUserYml).toContain("value: ''")
     expect(createUserYml).toContain("X-Token: ''")
+    expect(createUserYml).toContain('body: |-\n  {\n    "name": "Ada"\n  }')
 
     expect(existsSync(join(collDir, "users", "folder.yml"))).toBe(true)
 
@@ -99,7 +107,7 @@ describe("import — integration", () => {
     }
     await writeFile(specPath, JSON.stringify(spec))
 
-    const { runImport } = await import("../src/app/import")
+    const { runImport } = await import("../../src/app/import")
     await runImport({ source: specPath, format: undefined, outputDir: outDir })
 
     const collDir = join(outDir, "flat-api")
@@ -120,7 +128,7 @@ describe("import — integration", () => {
     }
     await writeFile(specPath, JSON.stringify(spec))
 
-    const { runImport } = await import("../src/app/import")
+    const { runImport } = await import("../../src/app/import")
     await runImport({
       source: specPath,
       format: undefined,
@@ -129,5 +137,43 @@ describe("import — integration", () => {
 
     const collDir = join(customOut, "custom")
     expect(existsSync(join(collDir, "get-x.yml"))).toBe(true)
+  })
+
+  it("preserves large JSON integers in imported Postman request bodies", async () => {
+    const outDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "collection.json")
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        info: {
+          name: "Large IDs",
+          schema:
+            "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        },
+        item: [
+          {
+            name: "Create",
+            request: {
+              method: "POST",
+              url: "https://example.com",
+              header: [],
+              body: {
+                mode: "raw",
+                raw: '{"id":9007199254740993}',
+                options: { raw: { language: "json" } },
+              },
+            },
+          },
+        ],
+      }),
+    )
+
+    const { runImport } = await import("../../src/app/import")
+    await runImport({ source: specPath, format: "postman", outputDir: outDir })
+
+    expect(
+      readFileSync(join(outDir, "large-ids", "post-create.yml"), "utf8"),
+    ).toContain('body: |-\n  {\n    "id": 9007199254740993\n  }')
   })
 })

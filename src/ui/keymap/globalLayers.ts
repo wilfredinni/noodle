@@ -101,7 +101,9 @@ export function createGlobalLayers(
       },
       {
         name: "request.edit-yaml",
-        enabled: () => global.modeRef.current === "collection",
+        enabled: () =>
+          global.modeRef.current === "collection" &&
+          keymap.getData("app.overlay") === "none",
         run: () => {
           if (folder.focusedFolderPathRef.current) {
             const file = getEditFolderYamlFile(actions)

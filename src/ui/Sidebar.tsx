@@ -178,6 +178,7 @@ export function Sidebar({
       ) : (
         <scrollbox
           ref={scrollRef}
+          focusable={false}
           scrollY
           style={{ flexGrow: 1 }}
           verticalScrollbarOptions={{

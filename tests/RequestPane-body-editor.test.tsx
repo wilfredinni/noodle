@@ -50,6 +50,69 @@ const editStateEditingTimeout = {
 }
 
 describe("BodySection — edit mode", () => {
+  it("does not report formatted JSON as an edit while browsing", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const changes: string[] = []
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+              onBodyChange={(body) => changes.push(body)}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+
+    await renderOnce()
+
+    expect(changes).toEqual([])
+    cleanup()
+  })
+
+  it("reports JSON edits while the body editor is active", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const changes: string[] = []
+    const { renderOnce, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={testRequest}
+              editState={editStateEditing}
+              editKey=""
+              editValue={JSON.stringify({ name: "updated" }, null, 2)}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused={true}
+              activeTab="body"
+              onBodyChange={(body) => changes.push(body)}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+
+    await renderOnce()
+    const initialChangeCount = changes.length
+    await act(async () => mockInput.typeText(" "))
+
+    expect(changes.length).toBeGreaterThan(initialChangeCount)
+    expect(changes.at(-1)).toContain("updated")
+    cleanup()
+  })
+
   it("activates the JSON editor without activating the body type selector", async () => {
     const { keymap, cleanup } = setupKeymap()
     let editorActivations = 0

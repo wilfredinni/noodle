@@ -4,6 +4,7 @@ import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { setupKeymap } from "./_helpers"
 import { useTreeNavigation } from "../../src/hooks/useTreeNavigation"
+import { getEditRequestYamlFile } from "../../src/ui/commandActions"
 import type { CollectionItem } from "../../src/schema"
 
 function req(id: string): CollectionItem {
@@ -41,6 +42,7 @@ interface Props {
     expandFolder: (path: string) => void,
     revealRequest: (id: string) => void,
     revealFolder: (path: string) => void,
+    selectedIdRef: { current: string | null },
   ) => void
 }
 
@@ -52,6 +54,7 @@ function Harness({
   const [items, setItems] = useState(initialItems)
   const {
     selectedId,
+    selectedIdRef,
     setSelectedId,
     expandFolder,
     revealRequest,
@@ -66,6 +69,7 @@ function Harness({
       expandFolder,
       revealRequest,
       revealFolder,
+      selectedIdRef,
     )
   }, [])
 
@@ -153,6 +157,41 @@ describe("useTreeNavigation", () => {
 
     expect(frame).toContain("s:users/list")
     expect(frame).toContain("c:1")
+  })
+
+  it("updates the YAML command target before navigation re-renders", async () => {
+    const items = [req("first"), req("second")]
+    let yamlTarget = ""
+
+    const { renderOnce } = await render(
+      <Harness
+        initialItems={items}
+        afterMount={(
+          setSelectedId,
+          _setItems,
+          _expandFolder,
+          _revealRequest,
+          _revealFolder,
+          selectedIdRef,
+        ) => {
+          setSelectedId("second")
+          yamlTarget =
+            getEditRequestYamlFile({
+              collectionDir: "/tmp/collection",
+              collectionRef: {
+                current: { id: "collection", name: "collection", items },
+              },
+              selectedIdRef,
+              focusedFolderPathRef: { current: null },
+              focusRef: { current: "sidebar" },
+            } as never)?.requestId ?? ""
+        }}
+      />,
+    )
+
+    await renderOnce()
+
+    expect(yamlTarget).toBe("second")
   })
 
   it("reveals a request inside collapsed ancestor folders", async () => {

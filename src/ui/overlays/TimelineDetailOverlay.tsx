@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MouseButton, t, fg, type ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineBodyRef, TimelineEntry } from "../../schema"
+import { formatJson } from "../../lang/formatJson"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
@@ -32,14 +33,6 @@ const BASE_TAB_DEFS: TabDef[] = [
 
 type DetailTab = "request" | "response" | "network"
 type BodyTab = Exclude<DetailTab, "network">
-
-function formatJson(body: string): string {
-  try {
-    return JSON.stringify(JSON.parse(body), null, 2)
-  } catch {
-    return body
-  }
-}
 
 function bodyInfo(
   entry: TimelineEntry,
