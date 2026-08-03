@@ -56,7 +56,7 @@ describe("CodeEditorHighlightRenderer", () => {
 
     const style = getStyle()!
     expect(calls).toEqual([['{\n  "name": "hello"\n}', "json"]])
-    expect(ranges).toEqual([
+    expect(ranges.slice(-3)).toEqual([
       {
         start: 0,
         end: 1,
@@ -103,6 +103,62 @@ describe("CodeEditorHighlightRenderer", () => {
       start: 12,
       end: 21,
       styleId: stringStyleId,
+      priority: 1,
+    })
+  })
+
+  it("keeps JSON fallback highlights when Tree-sitter returns partial output", async () => {
+    const { host, ranges, getStyle } = createHost()
+    const renderer = new CodeEditorHighlightRenderer(
+      opencodeTheme,
+      undefined,
+      host,
+    )
+    const client = {
+      highlightOnce: async () => ({
+        highlights: [[0, 1, "punctuation.bracket"]],
+      }),
+    } as unknown as TreeSitterClient
+
+    await renderer.highlight(
+      '{\r\n  "name": "María 😊',
+      "json",
+      client,
+      () => true,
+    )
+
+    expect(ranges).toContainEqual({
+      start: 11,
+      end: 19,
+      styleId: getStyle()!.getStyleId("json.string") ?? 0,
+      priority: 1,
+    })
+  })
+
+  it("keeps YAML fallback highlights when Tree-sitter returns partial output", async () => {
+    const { host, ranges, getStyle } = createHost()
+    const renderer = new CodeEditorHighlightRenderer(
+      opencodeTheme,
+      undefined,
+      host,
+    )
+    const client = {
+      highlightOnce: async () => ({
+        highlights: [[0, 5, "property"]],
+      }),
+    } as unknown as TreeSitterClient
+
+    await renderer.highlight(
+      'name: "María 😊\r\nnext: true',
+      "yaml",
+      client,
+      () => true,
+    )
+
+    expect(ranges).toContainEqual({
+      start: 6,
+      end: 14,
+      styleId: getStyle()!.getStyleId("yaml.text") ?? 0,
       priority: 1,
     })
   })

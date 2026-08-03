@@ -86,7 +86,7 @@ export class CodeEditorHighlightRenderer {
       const result = await client.highlightOnce(content, filetype)
       if (!isCurrent()) return
       if (result.highlights?.length) {
-        this.applyTreeSitter(result.highlights, content)
+        this.applyTreeSitter(result.highlights, content, filetype)
         succeeded = true
       }
     } catch {
@@ -104,9 +104,10 @@ export class CodeEditorHighlightRenderer {
   private applyTreeSitter(
     highlights: SimpleHighlight[],
     content: string,
+    filetype: string,
   ): void {
-    this.host.clear()
-    this.host.setStyle(this._style)
+    if (filetype === "json") this.applyJson(content)
+    if (filetype === "yaml") this.applyYaml(content)
     this.host.applyRanges(
       buildTreeSitterHighlightRanges(highlights, content, this._style),
     )

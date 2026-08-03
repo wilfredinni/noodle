@@ -84,5 +84,5 @@ export function styleIdForYamlForeground(
   if (fg === theme.warning) return style.getStyleId("number") ?? 0
   if (fg === theme.info) return style.getStyleId("boolean") ?? 0
   if (fg === theme.textMuted) return style.getStyleId("comment") ?? 0
-  return style.getStyleId("string") ?? 0
+  return style.getStyleId("yaml.text") ?? 0
 }
