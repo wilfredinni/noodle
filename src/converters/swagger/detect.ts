@@ -1,6 +1,6 @@
 import yaml from "js-yaml"
 
-export function detectOpenApi(content: string): boolean {
+export function detectSwagger(content: string): boolean {
   let doc: unknown
   try {
     doc = JSON.parse(content)
@@ -12,13 +12,12 @@ export function detectOpenApi(content: string): boolean {
     }
   }
 
-  if (typeof doc !== "object" || doc === null || Array.isArray(doc))
+  if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {
     return false
+  }
   const root = doc as Record<string, unknown>
-  const version = root.openapi
-  if (typeof version !== "string") return false
-
   return (
+    root.swagger === "2.0" &&
     typeof root.paths === "object" &&
     root.paths !== null &&
     !Array.isArray(root.paths)

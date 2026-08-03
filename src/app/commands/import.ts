@@ -5,7 +5,8 @@ import { formatImport } from "../humanOutput"
 export default defineCommand({
   meta: {
     name: "import",
-    description: "Import OpenAPI or Postman spec into collection files",
+    description:
+      "Import OpenAPI, Swagger, or Postman spec into collection files",
   },
   args: {
     source: {
@@ -17,7 +18,7 @@ export default defineCommand({
       type: "string",
       alias: "i",
       description:
-        'Import format ("openapi", "postman") — auto-detected if omitted',
+        'Import format ("openapi", "swagger", "postman") — auto-detected if omitted',
     },
     output: {
       type: "string",

@@ -108,20 +108,20 @@ plus bearer, basic, and API-key authentication.
 
 ### Bring in and run existing work
 
-- OpenAPI 3.0 and Postman collection imports.
+- OpenAPI 3.0, Swagger 2.0, and Postman collection imports.
 - A non-interactive CLI for collection inspection, validation, request runs,
   and agent workflows.
 
 ## Import an existing collection
 
-Bring an OpenAPI 3.0 specification or Postman collection into Noodle:
+Bring an OpenAPI 3.0/Swagger 2.0 specification or Postman collection into Noodle:
 
 ```bash
 noodle import ./specs/api.yaml --output ./collections
 ```
 
-Noodle detects the supported format automatically. Use `--format openapi` or
-`--format postman` when you need to choose explicitly. Imported valid JSON
+Noodle detects the supported format automatically. Use `--format openapi`,
+`--format swagger`, or `--format postman` when you need to choose explicitly. Imported valid JSON
 request bodies are pretty-printed automatically.
 
 ## Automation CLI

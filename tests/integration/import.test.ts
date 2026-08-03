@@ -163,6 +163,27 @@ describe("import — integration", () => {
     expect(existsSync(join(collDir, "get-x.yml"))).toBe(true)
   })
 
+  it("auto-detects Swagger 2.0 and writes requests and its environment", async () => {
+    const outDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "swagger.yaml")
+    await writeFile(
+      specPath,
+      'swagger: "2.0"\ninfo:\n  title: Swagger API\nhost: api.example.com\npaths:\n  /ping:\n    get:\n      operationId: ping\n',
+    )
+
+    const { runImport } = await import("../../src/app/import")
+    await runImport({ source: specPath, outputDir: outDir })
+
+    expect(existsSync(join(outDir, "swagger-api", "get-ping.yml"))).toBe(true)
+    expect(
+      readFileSync(
+        join(outDir, "swagger-api", ".environments", "default.env"),
+        "utf-8",
+      ),
+    ).toContain("base_url=https://api.example.com/")
+  })
+
   it("preserves large JSON integers in imported Postman request bodies", async () => {
     const outDir = tempDir()
     const specDir = tempDir()

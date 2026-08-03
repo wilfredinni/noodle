@@ -152,6 +152,7 @@ describe("CLI integration", () => {
     expect(proc.exitCode).toBe(0)
     const out = proc.stdout.toString()
     expect(out).toContain("SOURCE")
+    expect(out).toContain("swagger")
     expect(out).toContain("format")
     expect(out).toContain("output")
   })

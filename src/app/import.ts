@@ -59,8 +59,10 @@ export async function runImport(
 ): Promise<{ path: string; name: string; formattedJsonBodies: number }> {
   if (!_importersRegistered) {
     const { openApiImporter } = await import("../converters/openapi/index")
+    const { swaggerImporter } = await import("../converters/swagger/index")
     const { postmanImporter } = await import("../converters/postman/index")
     registerImporter(openApiImporter)
+    registerImporter(swaggerImporter)
     registerImporter(postmanImporter)
     _importersRegistered = true
   }
