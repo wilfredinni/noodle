@@ -1,5 +1,10 @@
 import type { Collection, CollectionSettings, Request } from "../schema"
-import { loadCollection, loadCollectionBrowse, loadSettings } from "./load"
+import {
+  loadCollection,
+  loadCollectionBrowse,
+  loadSettings,
+  type LoadOptions,
+} from "./load"
 import {
   saveRequest,
   saveSettings,
@@ -40,7 +45,7 @@ export {
 export type { CollectionSettings }
 
 export interface Filestore {
-  loadCollection(dir: string): Promise<Collection>
+  loadCollection(dir: string, options?: LoadOptions): Promise<Collection>
   saveRequest(dir: string, req: Request): Promise<void>
 }
 

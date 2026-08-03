@@ -1,9 +1,10 @@
 import { describe, it, expect } from "bun:test"
-import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
 import defaultCommand from "../src/app/commands/default"
+import exportCommand from "../src/app/commands/export"
 import importCommand from "../src/app/commands/import"
 import updateCommand from "../src/app/commands/update"
 import { classifyPath, resolveStartupCollectionDir } from "../src/app/main"
@@ -14,6 +15,8 @@ const defaultMeta = defaultCommand.meta as CommandMeta | undefined
 const defaultArgs = defaultCommand.args as ArgsDef | undefined
 const importMeta = importCommand.meta as CommandMeta | undefined
 const importArgs = importCommand.args as ArgsDef | undefined
+const exportMeta = exportCommand.meta as CommandMeta | undefined
+const exportArgs = exportCommand.args as ArgsDef | undefined
 const updateMeta = updateCommand.meta as CommandMeta | undefined
 
 describe("default command (noodle)", () => {
@@ -102,6 +105,19 @@ describe("import command", () => {
   })
 })
 
+describe("export command", () => {
+  it("has the required collection, format, and output arguments", () => {
+    expect(exportMeta?.name).toBe("export")
+    expect(exportArgs?.collection).toMatchObject({
+      type: "positional",
+      required: true,
+    })
+    expect(exportArgs?.format).toMatchObject({ type: "string", required: true })
+    expect(exportArgs?.output).toMatchObject({ type: "string", required: true })
+    expect((exportArgs?.output as StringArgDef)?.alias).toBe("o")
+  })
+})
+
 describe("CLI integration", () => {
   it("finds user args after source and compiled Bun entrypoints", () => {
     expect(getUserArgsStart(["bun", "src/app/cli.ts", "--help"])).toBe(2)
@@ -136,6 +152,7 @@ describe("CLI integration", () => {
     const out = proc.stdout.toString()
     expect(out).toContain("noodle")
     expect(out).toContain("import")
+    expect(out).toContain("export")
     expect(out).toContain("update")
   })
 
@@ -156,6 +173,44 @@ describe("CLI integration", () => {
     expect(out).toContain("insomnia")
     expect(out).toContain("format")
     expect(out).toContain("output")
+  })
+
+  it("exports a collection and preserves the JSON result envelope", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-cli-export-"))
+    const dir = join(root, "collection")
+    const output = join(root, "out", "openapi.yml")
+    try {
+      await mkdir(dir)
+      await writeFile(
+        join(dir, "ping.yml"),
+        "name: Ping\nmethod: GET\nurl: https://example.com/ping\n",
+      )
+      const proc = Bun.spawnSync([
+        "bun",
+        CLI,
+        "export",
+        dir,
+        "--format",
+        "openapi",
+        "--output",
+        output,
+        "--json",
+      ])
+      expect(proc.exitCode).toBe(0)
+      expect(JSON.parse(proc.stdout.toString())).toEqual({
+        status: "success",
+        data: {
+          path: output,
+          name: basename(dir),
+          format: "openapi",
+          operationCount: 1,
+        },
+        errors: [],
+      })
+      expect(await readFile(output, "utf8")).toContain("openapi: 3.0.3")
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   it("shows help for update subcommand with update --help", () => {

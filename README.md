@@ -124,6 +124,19 @@ Noodle detects the supported format automatically. Use `--format openapi`,
 `--format swagger`, `--format postman`, or `--format insomnia` when you need to choose explicitly. Imported valid JSON
 request bodies are pretty-printed automatically.
 
+## Export a collection
+
+Export a collection as an OpenAPI 3.0.3 request catalog:
+
+```bash
+noodle export ./collections --format openapi --output ./specs/openapi.yml
+```
+
+The export includes requests, enabled parameters and headers, request-body
+examples, folders as tags, and supported authentication schemes. Environment
+values and response timeline data are never exported. The output file must be
+outside the collection directory.
+
 ## Automation CLI
 
 `noodle` without a subcommand opens the interactive TUI. The commands below
@@ -138,6 +151,7 @@ are non-interactive and support `--json`, which emits one
 | `noodle collection format <path>`                                      | Canonicalize request YAML and pretty-print JSON bodies.  |
 | `noodle collection audit <path>`                                       | Validate collection files.                               |
 | `noodle collection run <path>`                                         | Run every request in a collection.                       |
+| `noodle export <path> --format openapi --output <file>`                | Export a collection as an OpenAPI request catalog.       |
 | `noodle request create <id> --url <url> --collection <dir>`            | Create a minimal request.                                |
 | `noodle request run <id> --collection <dir>`                           | Run one request.                                         |
 | `noodle environment set <key> <value> --env <name> --collection <dir>` | Set an environment value.                                |
