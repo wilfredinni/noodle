@@ -186,6 +186,19 @@ export function formatImport(data: {
   ].join("\n")
 }
 
+export function formatExport(data: {
+  path: string
+  name: string
+  format: string
+  operationCount: number
+}): string {
+  return [
+    `${color("✓", "green")} Exported ${data.name} as ${data.format}`,
+    `  ${data.path}`,
+    `  ${data.operationCount} operation${data.operationCount === 1 ? "" : "s"}`,
+  ].join("\n")
+}
+
 export interface RunProgressReporter {
   update(completed: number, total: number): void
   finish(): void

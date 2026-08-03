@@ -2,6 +2,7 @@
 import { defineCommand, createMain } from "citty"
 import pkg from "../../package.json" with { type: "json" }
 import defaultCommand from "./commands/default"
+import exportCommand from "./commands/export"
 import importCommand from "./commands/import"
 import updateCommand from "./commands/update"
 import { getUserArgsStart } from "./argv"
@@ -20,6 +21,7 @@ if (rawArgs.length === 1 && ["-v", "--version"].includes(rawArgs[0])) {
 
 const KNOWN_SUBCOMMANDS = new Set([
   "import",
+  "export",
   "update",
   "workspace",
   "collection",
@@ -64,6 +66,7 @@ const main = defineCommand({
   subCommands: {
     noodle: defaultCommand,
     import: importCommand,
+    export: exportCommand,
     update: updateCommand,
     workspace,
     collection,

@@ -252,7 +252,10 @@ async function walk(
   return [...folders.map((f) => f.item), ...requests.map((r) => r.item)]
 }
 
-export async function loadCollection(dir: string): Promise<Collection> {
+export async function loadCollection(
+  dir: string,
+  options: LoadOptions = {},
+): Promise<Collection> {
   try {
     await readdir(dir, { withFileTypes: true })
   } catch (e) {
@@ -271,7 +274,7 @@ export async function loadCollection(dir: string): Promise<Collection> {
   const id = basename(dir)
   const root = await realpath(dir)
   const fileErrors: CollectionFileError[] = []
-  const items = await walk(dir, "", new Set(), root, {}, fileErrors)
+  const items = await walk(dir, "", new Set(), root, options, fileErrors)
 
   if (fileErrors.length > 0) {
     const first = fileErrors[0]

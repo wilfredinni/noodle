@@ -109,11 +109,13 @@ describe("formatBody", () => {
   it("pretty-prints valid compact JSON (2-space indent)", () => {
     expect(formatBody('{"b":1,"a":2}')).toBe('{\n  "b": 1,\n  "a": 2\n}')
   })
-  it("preserves unsafe integer literals", () => {
+  it("preserves JSON numeric literal source", () => {
     expect(
-      formatBody('{"positive":9007199254740993,"negative":-9007199254740993}'),
+      formatBody(
+        '{"positive":9007199254740993,"negative":-9007199254740993,"decimal":1.50,"exponent":1e3}',
+      ),
     ).toBe(
-      '{\n  "positive": 9007199254740993,\n  "negative": -9007199254740993\n}',
+      '{\n  "positive": 9007199254740993,\n  "negative": -9007199254740993,\n  "decimal": 1.50,\n  "exponent": 1e3\n}',
     )
   })
   it("returns raw body when JSON.parse fails", () => {
