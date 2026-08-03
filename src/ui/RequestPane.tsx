@@ -247,7 +247,8 @@ export function RequestPane({
                       : undefined
                   }
                   onEditorActivate={() => {
-                    if (!inEdit) onInteraction?.()
+                    if (inEdit) return
+                    onInteraction?.()
                     onPaneFocus?.()
                     onBodyEditorFocus?.(request.bodyType ?? "json")
                   }}
