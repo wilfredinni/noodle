@@ -292,7 +292,9 @@ export function BodySection({
         <box
           id="body-field"
           onMouseDown={(event) => {
-            if (event.button === MouseButton.LEFT) onEditorActivate?.()
+            if (event.button !== MouseButton.LEFT) return
+            onEditorActivate?.()
+            event.stopPropagation()
           }}
           style={{
             flexDirection: "column",

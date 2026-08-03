@@ -62,20 +62,29 @@ export function buildYamlHighlightRanges(
   style: SyntaxStyle,
 ): EditorHighlightRange[] {
   const ranges: EditorHighlightRange[] = []
-  let offset = 0
+  const displayOffsets = buildCharToDisplayOffsets(content)
+  let sourceOffset = 0
 
   for (const line of content.split("\n")) {
     const cleanLine = line.endsWith("\r") ? line.slice(0, -1) : line
+    let lineOffset = 0
     for (const span of tokenizeYamlLine(cleanLine, theme)) {
       if (span.text.length === 0) continue
       ranges.push({
-        start: offset,
-        end: offset + span.text.length,
+        start: charOffsetToDisplayOffset(
+          displayOffsets,
+          sourceOffset + lineOffset,
+        ),
+        end: charOffsetToDisplayOffset(
+          displayOffsets,
+          sourceOffset + lineOffset + span.text.length,
+        ),
         styleId: styleIdForYamlForeground(span.fg, theme, style),
         priority: 1,
       })
-      offset += span.text.length
+      lineOffset += span.text.length
     }
+    sourceOffset += line.length + 1
   }
 
   return ranges

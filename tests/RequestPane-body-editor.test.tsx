@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { act } from "react"
+import { act, useState } from "react"
 import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
@@ -47,6 +47,47 @@ const editStateEditingTimeout = {
   mode: "editing" as const,
   cursor: { field: "settings" as const, row: 0, addingRow: false },
   editingRow: 0,
+}
+
+function ActiveJsonEditorHarness({
+  onInteraction,
+  onPaneFocus,
+  onChange,
+}: {
+  onInteraction: () => void
+  onPaneFocus: () => void
+  onChange: (value: string) => void
+}) {
+  const [body, setBody] = useState(
+    JSON.stringify({ name: "hello", count: 42 }, null, 2),
+  )
+  const [editing, setEditing] = useState(true)
+
+  return (
+    <RequestPane
+      request={{ ...testRequest, body }}
+      editState={editing ? editStateEditing : editStateBrowse}
+      editKey=""
+      editValue={body}
+      setEditKey={() => {}}
+      setEditValue={() => {}}
+      focused
+      activeTab="body"
+      onBodyChange={(value) => {
+        onChange(value)
+        setBody(value)
+      }}
+      onBodyEditorFocus={() => setEditing(true)}
+      onInteraction={() => {
+        onInteraction()
+        setEditing(false)
+      }}
+      onPaneFocus={() => {
+        onPaneFocus()
+        setEditing(false)
+      }}
+    />
+  )
 }
 
 describe("BodySection — edit mode", () => {
@@ -142,6 +183,37 @@ describe("BodySection — edit mode", () => {
       await mockMouse.click(5, 5, MouseButtons.LEFT)
     })
     expect(editorActivations).toBe(1)
+    cleanup()
+  })
+
+  it("keeps an active JSON editor focused when clicked", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const changes: string[] = []
+    let interactions = 0
+    let paneFocuses = 0
+    const { renderOnce, mockInput, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <ActiveJsonEditorHarness
+              onInteraction={() => interactions++}
+              onPaneFocus={() => paneFocuses++}
+              onChange={(value) => changes.push(value)}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    await mockMouse.click(5, 5, MouseButtons.LEFT)
+    await renderOnce()
+    await act(async () => mockInput.typeText("X"))
+
+    expect(interactions).toBe(0)
+    expect(paneFocuses).toBe(0)
+    expect(changes.at(-1)).toContain("X")
     cleanup()
   })
 
