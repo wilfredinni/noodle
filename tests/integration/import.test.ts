@@ -116,6 +116,30 @@ describe("import — integration", () => {
     expect(existsSync(join(collDir, ".environments"))).toBe(false)
   })
 
+  it("writes inferred OpenAPI path params to request YAML", async () => {
+    const outDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "spec.json")
+
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        openapi: "3.0.0",
+        info: { title: "Path Params" },
+        paths: {
+          "/users/{id}": { get: { operationId: "getUser" } },
+        },
+      }),
+    )
+
+    const { runImport } = await import("../../src/app/import")
+    await runImport({ source: specPath, format: undefined, outputDir: outDir })
+
+    expect(
+      readFileSync(join(outDir, "path-params", "get-users-id.yml"), "utf-8"),
+    ).toContain("path_params:\n  - name: id\n    value: ''")
+  })
+
   it("outputs to --output dir when specified", async () => {
     const specDir = tempDir()
     const customOut = join(tempDir(), "custom-output")
