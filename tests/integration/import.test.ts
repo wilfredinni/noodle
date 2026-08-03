@@ -239,12 +239,12 @@ describe("import — integration", () => {
     expect(
       existsSync(join(outDir, "insomnia-api", "health", "folder.yml")),
     ).toBe(true)
-    expect(
-      readFileSync(
-        join(outDir, "insomnia-api", "health", "get-ping.yml"),
-        "utf-8",
-      ),
-    ).toContain("url: https://$host/ping")
+    const pingYml = readFileSync(
+      join(outDir, "insomnia-api", "health", "get-ping.yml"),
+      "utf-8",
+    )
+    expect(pingYml).toContain("url: https://$host/ping")
+    expect(pingYml).toContain("auth:\n  type: bearer\n  token: $token")
     expect(
       readFileSync(
         join(outDir, "insomnia-api", ".environments", "Development.env"),

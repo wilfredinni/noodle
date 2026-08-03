@@ -23,7 +23,7 @@ function stringValue(value: unknown): string {
 }
 
 export function convertTpl(value: string): string {
-  return value.replace(/\{\{\s*(\w+)\s*\}\}/g, "$$$1")
+  return value.replace(/\{\{\s*(?:_\.\s*)?(\w+)\s*\}\}/g, "$$$1")
 }
 
 function uniqueId(candidate: string, usedIds: Set<string>): string {
@@ -128,9 +128,19 @@ function mapFormData(value: unknown): FormEntry[] {
   })
 }
 
-function mapRequest(resource: RawResource, id: string): Request {
-  const method =
-    METHOD_UPPER[stringValue(resource.method).toLowerCase()] ?? "GET"
+function mapRequest(resource: RawResource, id: string): Request | undefined {
+  const rawMethod = resource.method
+  if (
+    rawMethod !== undefined &&
+    rawMethod !== null &&
+    typeof rawMethod !== "string"
+  ) {
+    return undefined
+  }
+  const methodKey =
+    typeof rawMethod === "string" ? rawMethod.trim().toLowerCase() : ""
+  const method = methodKey === "" ? "GET" : METHOD_UPPER[methodKey]
+  if (!method) return undefined
   const followRedirects = resource.settingFollowRedirects
   return {
     id,
@@ -152,6 +162,10 @@ function envValue(value: unknown): string | undefined {
   return typeof value === "string"
     ? convertTpl(value).replace(/\r\n?|\n/g, "\\n")
     : JSON.stringify(value)
+}
+
+function metaSortKey(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
 }
 
 function mapEnvironmentVars(
@@ -254,6 +268,15 @@ export function mapExport(root: RawResource): ImportResult {
     items.push(resource)
     children.set(parentId, items)
   }
+  for (const items of children.values()) {
+    items.sort((a, b) => {
+      const aKey = metaSortKey(a.metaSortKey)
+      const bKey = metaSortKey(b.metaSortKey)
+      if (aKey === undefined) return bKey === undefined ? 0 : 1
+      if (bKey === undefined) return -1
+      return aKey - bKey
+    })
+  }
 
   const usedIds = new Set<string>()
   function mapItems(
@@ -295,8 +318,10 @@ export function mapExport(root: RawResource): ImportResult {
             : baseId || `request-${index}`,
           usedIds,
         )
+        const request = mapRequest(resource, requestId)
+        if (!request) continue
         usedIds.add(requestId)
-        items.push({ type: "request", data: mapRequest(resource, requestId) })
+        items.push({ type: "request", data: request })
       }
     }
     return items

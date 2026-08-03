@@ -8,7 +8,7 @@ function requests(items: CollectionItem[]): Request[] {
   )
 }
 
-function exportJson(resources: object[]): string {
+function exportJson(resources: unknown[]): string {
   return JSON.stringify({ _type: "export", __export_format: 4, resources })
 }
 
@@ -22,7 +22,7 @@ describe("insomniaImporter", () => {
           parentId: "fld_nested",
           name: "Create Widget",
           method: "POST",
-          url: "https://{{ host }}/widgets/:id",
+          url: "https://{{ _.host }}/widgets/:id",
           headers: [{ name: "X-Token", value: "{{ token }}" }],
           parameters: [
             { name: "page", value: "2" },
@@ -191,6 +191,96 @@ describe("insomniaImporter", () => {
     })
   })
 
+  it("skips unsupported methods while keeping missing and blank methods as GET", () => {
+    const result = insomniaImporter.import(
+      exportJson([
+        { _id: "wrk", _type: "workspace", name: "Methods" },
+        {
+          _id: "trace",
+          _type: "request",
+          parentId: "wrk",
+          name: "Trace",
+          method: "TRACE",
+          url: "https://example.com",
+        },
+        {
+          _id: "missing",
+          _type: "request",
+          parentId: "wrk",
+          name: "Missing",
+          url: "https://example.com",
+        },
+        {
+          _id: "blank",
+          _type: "request",
+          parentId: "wrk",
+          name: "Blank",
+          method: " ",
+          url: "https://example.com",
+        },
+        {
+          _id: "number",
+          _type: "request",
+          parentId: "wrk",
+          name: "Number",
+          method: 42,
+          url: "https://example.com",
+        },
+        {
+          _id: "post",
+          _type: "request",
+          parentId: "wrk",
+          name: "Post",
+          method: " POST ",
+          url: "https://example.com",
+        },
+      ]),
+    )
+    expect(
+      requests(result.collection.items).map((request) => request.name),
+    ).toEqual(["Missing", "Blank", "Post"])
+    expect(
+      requests(result.collection.items).map((request) => request.method),
+    ).toEqual(["GET", "GET", "POST"])
+  })
+
+  it("uses ascending metaSortKey order before export order", () => {
+    const result = insomniaImporter.import(
+      exportJson([
+        { _id: "wrk", _type: "workspace", name: "Order" },
+        {
+          _id: "late",
+          _type: "request",
+          parentId: "wrk",
+          name: "Late",
+          method: "GET",
+          url: "https://example.com",
+          metaSortKey: 20,
+        },
+        {
+          _id: "early",
+          _type: "request",
+          parentId: "wrk",
+          name: "Early",
+          method: "GET",
+          url: "https://example.com",
+          metaSortKey: 10,
+        },
+        {
+          _id: "unkeyed",
+          _type: "request",
+          parentId: "wrk",
+          name: "Unkeyed",
+          method: "GET",
+          url: "https://example.com",
+        },
+      ]),
+    )
+    expect(
+      requests(result.collection.items).map((request) => request.name),
+    ).toEqual(["Early", "Late", "Unkeyed"])
+  })
+
   it("uses safe unique names for environment files", () => {
     const result = insomniaImporter.import(
       exportJson([
@@ -287,6 +377,19 @@ describe("insomniaImporter", () => {
     expect(() => insomniaImporter.import(exportJson([]))).toThrow(
       "expected exactly one workspace; export a single project instead",
     )
+    expect(() =>
+      insomniaImporter.import(
+        exportJson([
+          { _id: "wrk", _type: "workspace", name: "Invalid" },
+          "not a resource",
+        ]),
+      ),
+    ).toThrow("resources must be an array of objects")
+    expect(() =>
+      insomniaImporter.import(
+        exportJson([{ _type: "workspace", name: "Missing ID" }]),
+      ),
+    ).toThrow("workspace is missing _id")
     expect(() =>
       insomniaImporter.import(
         exportJson([
