@@ -585,6 +585,31 @@ describe("mapCollection — auth resolution", () => {
 })
 
 describe("mapCollection — parameters", () => {
+  it("moves inline path queries into params and lets declared values win", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/search?inline=kept&shared=inline": {
+            get: {
+              operationId: "search",
+              parameters: [
+                { name: "shared", in: "query", example: "declared" },
+                { name: "declared", in: "query", example: "value" },
+              ],
+            },
+          },
+        },
+      }),
+    )
+
+    expect(reqs(c)[0].url).toBe("$base_url/search")
+    expect(reqs(c)[0].params).toEqual([
+      { name: "inline", value: "kept", enabled: true },
+      { name: "shared", value: "declared", enabled: true },
+      { name: "declared", value: "value", enabled: true },
+    ])
+  })
+
   it("translates in:query params to params as $name placeholders", () => {
     const c = mapCollection(
       makeNormalized({
@@ -894,6 +919,28 @@ describe("mapCollection — parameters", () => {
     )
     expect(reqs(c)[0].pathParams).toEqual([
       { name: "id", value: "", enabled: true },
+    ])
+  })
+
+  it("infers missing path params from URL tokens in URL order", () => {
+    const c = mapCollection(
+      makeNormalized({
+        servers: [],
+        paths: {
+          "/users/{userId}/posts/:postId": {
+            get: {
+              operationId: "getPost",
+              parameters: [{ name: "userId", in: "path", example: "42" }],
+            },
+          },
+        },
+      }),
+    )
+
+    expect(reqs(c)[0].url).toBe("/users/:userId/posts/:postId")
+    expect(reqs(c)[0].pathParams).toEqual([
+      { name: "userId", value: "42", enabled: true },
+      { name: "postId", value: "", enabled: true },
     ])
   })
 

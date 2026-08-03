@@ -12,7 +12,7 @@ import type { ImportResult } from "../index"
 import { slugify, METHOD_UPPER } from "../shared"
 import {
   openApiPathTemplateToColon,
-  parseOpenApiPathTokens,
+  URL_PATH_TOKEN_RE,
 } from "../../requests/pathParams"
 
 export { slugify, METHOD_UPPER }
@@ -248,6 +248,26 @@ export function pathTemplateToColon(s: string): string {
   return openApiPathTemplateToColon(s)
 }
 
+function splitPathQuery(pathTemplate: string): {
+  path: string
+  params: ParamEntry[]
+} {
+  const queryIndex = pathTemplate.indexOf("?")
+  if (queryIndex === -1) return { path: pathTemplate, params: [] }
+
+  const params: ParamEntry[] = []
+  for (const [name, value] of new URLSearchParams(
+    pathTemplate.slice(queryIndex + 1),
+  )) {
+    if (name === "") continue
+    const idx = params.findIndex((entry) => entry.name === name)
+    if (idx >= 0) params.splice(idx, 1)
+    params.push({ name, value, enabled: true })
+  }
+
+  return { path: pathTemplate.slice(0, queryIndex), params }
+}
+
 export function baseUrl(n: Normalized): string {
   const servers = n.servers
   if (!Array.isArray(servers) || servers.length === 0) return "/"
@@ -310,7 +330,8 @@ export function mapCollection(n: Normalized): ImportResult {
       const op = opVal as Record<string, unknown>
 
       const method = METHOD_UPPER[methodKey]
-      const url = joinUrl(base, pathTemplateToColon(pathTemplate))
+      const { path, params: inlineParams } = splitPathQuery(pathTemplate)
+      const url = joinUrl(base, pathTemplateToColon(path))
       const reqName = makeName(op, methodKey, pathTemplate)
 
       const rawId = makeIdRaw(methodKey, pathTemplate)
@@ -320,10 +341,19 @@ export function mapCollection(n: Normalized): ImportResult {
 
       const collected = collectParams(pi.parameters, op.parameters)
       const headers: Record<string, KvEntry> = {}
-      const params: ParamEntry[] = []
-      const pathParams: ParamEntry[] = []
-
-      const pathTokenSet = new Set(parseOpenApiPathTokens(pathTemplate))
+      const params = [...inlineParams]
+      URL_PATH_TOKEN_RE.lastIndex = 0
+      const pathTokenNames = Array.from(
+        new Set(
+          Array.from(url.matchAll(URL_PATH_TOKEN_RE), (match) => match[1]!),
+        ),
+      )
+      const pathParams: ParamEntry[] = pathTokenNames.map((name) => ({
+        name,
+        value: "",
+        enabled: true,
+      }))
+      const pathTokenSet = new Set(pathTokenNames)
 
       for (const p of collected) {
         const val = p.default ?? ""
@@ -335,8 +365,9 @@ export function mapCollection(n: Normalized): ImportResult {
           headers[p.name] = { value: val, enabled: true }
         } else if (p.in === "path" && pathTokenSet.has(p.name)) {
           const idx = pathParams.findIndex((e) => e.name === p.name)
-          if (idx >= 0) pathParams.splice(idx, 1)
-          pathParams.push({ name: p.name, value: val, enabled: true })
+          if (idx >= 0) {
+            pathParams[idx] = { name: p.name, value: val, enabled: true }
+          }
         }
       }
 

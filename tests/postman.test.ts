@@ -97,3 +97,33 @@ describe("postmanImporter — TakaTaka.json integration", () => {
     }
   })
 })
+
+describe("postmanImporter — query parameters", () => {
+  it("keeps query values in params instead of the request URL", () => {
+    const result = postmanImporter.import(
+      JSON.stringify({
+        info: {
+          name: "Query API",
+          schema:
+            "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        },
+        item: [
+          {
+            name: "search",
+            request: {
+              method: "GET",
+              url: "https://api.example.com/search?q={{term}}&page=2",
+            },
+          },
+        ],
+      }),
+    )
+
+    const request = reqs(result)[0]
+    expect(request.url).toBe("https://api.example.com/search")
+    expect(request.params).toEqual([
+      { name: "q", value: "$term", enabled: true },
+      { name: "page", value: "2", enabled: true },
+    ])
+  })
+})

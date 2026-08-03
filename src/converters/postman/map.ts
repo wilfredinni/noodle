@@ -27,6 +27,11 @@ export function convertTpl(s: string): string {
   return s.replace(/\{\{(\$?[\w.-]+)\}\}/g, "$$$1")
 }
 
+function stripQuery(url: string): string {
+  const queryIndex = url.indexOf("?")
+  return queryIndex === -1 ? url : url.slice(0, queryIndex)
+}
+
 function extractAuthParams(
   auth: AuthMember | undefined,
 ): Map<string, string> | undefined {
@@ -193,7 +198,7 @@ function mapUrl(req: {
   } catch {
     // ignore
   }
-  if (raw) return convertTpl(raw)
+  if (raw) return convertTpl(stripQuery(raw))
 
   try {
     raw = typeof req.url.toString === "function" ? req.url.toString() : ""
@@ -222,7 +227,7 @@ function mapUrl(req: {
     // Ignore incomplete Postman URL objects and use their serialized value.
   }
 
-  if (raw) return convertTpl(raw)
+  if (raw) return convertTpl(stripQuery(raw))
 
   return "$base_url"
 }
