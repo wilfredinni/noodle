@@ -1,7 +1,8 @@
 import { describe, it, expect } from "bun:test"
-import { act, useState } from "react"
+import { act, useMemo, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
-import { RGBA, TextAttributes } from "@opentui/core"
+import { RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
+import { useKeyboard } from "@opentui/react"
 import type { Request, KvEntry, CollectionItem } from "../src/schema"
 import type { VisibleNode } from "../src/ui/tree"
 import { Sidebar } from "../src/ui/Sidebar"
@@ -17,6 +18,7 @@ import type { Keymap } from "@opentui/keymap"
 import type { Renderable, KeyEvent } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
+import { visibleNodes } from "../src/ui/tree"
 
 type OpenTuiKeymap = Keymap<Renderable, KeyEvent>
 
@@ -33,6 +35,58 @@ function makeRequest(i: number): Request {
     maxRedirects: 5,
     auth: { type: "none" },
   }
+}
+
+let lastSidebarSelection = ""
+let lastSidebarCursor = 0
+
+function SidebarNavigationHarness() {
+  const items = useMemo<CollectionItem[]>(
+    () =>
+      Array.from({ length: 50 }, (_, i) => ({
+        type: "request" as const,
+        data: makeRequest(i),
+      })),
+    [],
+  )
+  const visibleItems = useMemo(() => visibleNodes(items, new Set()), [items])
+  const [cursorIndex, setCursorIndex] = useState(0)
+  const [selectedId, setSelectedId] = useState("req-0")
+  lastSidebarCursor = cursorIndex
+
+  useKeyboard((key) => {
+    if (key.name !== "down") return
+    const next = Math.min(cursorIndex + 1, visibleItems.length - 1)
+    setCursorIndex(next)
+    setSelectedId(visibleItems[next].id)
+  })
+
+  return (
+    <Sidebar
+      items={items}
+      loading={false}
+      error={null}
+      visibleItems={visibleItems}
+      cursorIndex={cursorIndex}
+      selectedId={selectedId}
+      expanded={new Set()}
+      focused
+      onRequestSelect={(id) => {
+        lastSidebarSelection = id
+        setSelectedId(id)
+        setCursorIndex(visibleItems.findIndex((node) => node.id === id))
+      }}
+    />
+  )
+}
+
+function findSidebarScrollbox(requestRow: Renderable): ScrollBoxRenderable {
+  let current: Renderable | null = requestRow
+  while (current) {
+    if (current instanceof ScrollBoxRenderable) return current
+    current = current.parent
+  }
+  throw new Error("Sidebar scrollbox not found")
 }
 
 describe("ResponsePane scrollbox", () => {
@@ -640,6 +694,40 @@ describe("RequestPane scrollbox", () => {
 })
 
 describe("Sidebar scrollbox", () => {
+  it("does not scroll when navigating after selecting a request with the mouse", async () => {
+    lastSidebarSelection = ""
+    lastSidebarCursor = 0
+    const { renderer, renderOnce, mockInput, mockMouse } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box style={{ width: "100%", height: "100%", flexDirection: "column" }}>
+          <box style={{ flexDirection: "row", flexGrow: 1 }}>
+            <SidebarNavigationHarness />
+          </box>
+        </box>
+      </ThemeProvider>,
+      { width: 40, height: 24 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    const requestRow = renderer.root.findDescendantById("so-req-0")
+    expect(requestRow).toBeDefined()
+    const scrollbox = findSidebarScrollbox(requestRow!)
+
+    await act(async () => mockMouse.click(10, requestRow!.screenY))
+    await renderOnce()
+
+    expect(lastSidebarSelection).toBe("req-0")
+    expect(lastSidebarCursor).toBe(0)
+    expect(scrollbox.focused).toBe(false)
+
+    await act(async () => mockInput.pressArrow("down"))
+    await renderOnce()
+
+    expect(lastSidebarCursor).toBe(1)
+    expect(scrollbox.scrollTop).toBe(0)
+  })
+
   it("renders without crashing with many requests", async () => {
     const requests = Array.from({ length: 50 }, (_, i) => makeRequest(i))
     const items: CollectionItem[] = requests.map((r) => ({
