@@ -184,6 +184,71 @@ describe("import — integration", () => {
     ).toContain("base_url=https://api.example.com/")
   })
 
+  it("auto-detects an Insomnia export and writes nested requests and environments", async () => {
+    const outDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "insomnia.json")
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        _type: "export",
+        __export_format: 4,
+        resources: [
+          {
+            _id: "req_ping",
+            _type: "request",
+            parentId: "folder_health",
+            name: "Ping",
+            method: "GET",
+            url: "https://{{ host }}/ping",
+            headers: [],
+            parameters: [],
+            body: {},
+            authentication: { type: "bearer", token: "{{ token }}" },
+          },
+          {
+            _id: "folder_health",
+            _type: "request_group",
+            parentId: "workspace",
+            name: "Health",
+          },
+          {
+            _id: "environment",
+            _type: "environment",
+            parentId: "workspace",
+            name: "Development",
+            data: { host: "api.example.com", token: "secret" },
+          },
+          {
+            _id: "workspace",
+            _type: "workspace",
+            parentId: null,
+            name: "Insomnia API",
+          },
+        ],
+      }),
+    )
+
+    const { runImport } = await import("../../src/app/import")
+    await runImport({ source: specPath, outputDir: outDir })
+
+    expect(
+      existsSync(join(outDir, "insomnia-api", "health", "folder.yml")),
+    ).toBe(true)
+    expect(
+      readFileSync(
+        join(outDir, "insomnia-api", "health", "get-ping.yml"),
+        "utf-8",
+      ),
+    ).toContain("url: https://$host/ping")
+    expect(
+      readFileSync(
+        join(outDir, "insomnia-api", ".environments", "Development.env"),
+        "utf-8",
+      ),
+    ).toContain("token=secret")
+  })
+
   it("preserves large JSON integers in imported Postman request bodies", async () => {
     const outDir = tempDir()
     const specDir = tempDir()

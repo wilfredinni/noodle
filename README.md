@@ -121,7 +121,7 @@ noodle import ./specs/api.yaml --output ./collections
 ```
 
 Noodle detects the supported format automatically. Use `--format openapi`,
-`--format swagger`, or `--format postman` when you need to choose explicitly. Imported valid JSON
+`--format swagger`, `--format postman`, or `--format insomnia` when you need to choose explicitly. Imported valid JSON
 request bodies are pretty-printed automatically.
 
 ## Automation CLI
