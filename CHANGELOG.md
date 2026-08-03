@@ -4,6 +4,37 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-08-02
+
+Collections can now be formatted from the automation CLI, giving imported and
+existing request files canonical YAML and readable JSON bodies without losing
+large integer literals. Environment editing, URL path handling, and focused
+UI interactions are also more reliable in everyday use.
+
+### ✨ Features
+
+- Add `noodle collection format <path>` to canonicalize every request file and pretty-print valid JSON bodies; OpenAPI and Postman imports now apply the same formatting automatically.
+- Make **Import cURL Request** available from the command palette while a folder is selected.
+
+### 🐞 Fixes
+
+- Preserve large JSON integer literals when formatting request or response JSON.
+- Let right-clicking an environment select it and show its save, create, clone, and delete actions.
+- Keep rapid or repeated environment selections from applying stale data, and commit active request, folder, and environment edits when users click into another interaction.
+- Distinguish query-string values from `:name` URL path tokens, keep the Path tab rendering after tab switches, and prevent body edits while browsing or while another overlay is open.
+- Keep sidebar mouse clicks from stealing scroll focus and focus environment context-menu actions on the targeted environment.
+
+### 🔧 Refactors
+
+- Narrow command-palette actions to request, collection, and environment workflows; response actions remain available in the response pane.
+
+### 📚 Documentation
+
+- Document collection formatting and import output in the README, AGENTS.md, and CLI and collection site guides.
+- Update `noodle-dev` with collection-formatting behavior and precision requirements.
+- Update `noodle-use` with the collection formatting command and automatic import formatting.
+- Correct response-pane and environment-context-menu guidance in the site docs.
+
 ## [0.5.6] - 2026-08-02
 
 ![path_params](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/path.png)
@@ -222,7 +253,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/wilfredinni/noodle/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/wilfredinni/noodle/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/wilfredinni/noodle/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/wilfredinni/noodle/compare/v0.5.3...v0.5.4

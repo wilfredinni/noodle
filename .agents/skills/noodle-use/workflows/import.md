@@ -36,6 +36,9 @@ noodle import <source-path> --format <openapi|postman> --output <target-dir> --j
 ```
 
 The `--output` flag specifies the parent directory. Defaults to `./collections` if omitted. Read `data.path` from the JSON result; it is the created collection directory.
+After writing the collection, import automatically canonicalizes its request YAML
+and pretty-prints valid JSON bodies. The JSON result reports the number of
+formatted bodies in `data.formattedJsonBodies`.
 
 ### Step 4: Verify the output
 
