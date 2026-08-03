@@ -105,8 +105,10 @@ describe("BodySection — edit mode", () => {
     )
 
     await renderOnce()
+    const initialChangeCount = changes.length
     await act(async () => mockInput.typeText(" "))
 
+    expect(changes.length).toBeGreaterThan(initialChangeCount)
     expect(changes.at(-1)).toContain("updated")
     cleanup()
   })

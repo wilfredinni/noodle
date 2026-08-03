@@ -61,7 +61,7 @@ describe("import — integration", () => {
     }
     await writeFile(specPath, JSON.stringify(spec))
 
-    const { runImport } = await import("../src/app/import")
+    const { runImport } = await import("../../src/app/import")
     await runImport({ source: specPath, format: undefined, outputDir: outDir })
 
     const collDir = join(outDir, "test-api")
@@ -107,7 +107,7 @@ describe("import — integration", () => {
     }
     await writeFile(specPath, JSON.stringify(spec))
 
-    const { runImport } = await import("../src/app/import")
+    const { runImport } = await import("../../src/app/import")
     await runImport({ source: specPath, format: undefined, outputDir: outDir })
 
     const collDir = join(outDir, "flat-api")
@@ -128,7 +128,7 @@ describe("import — integration", () => {
     }
     await writeFile(specPath, JSON.stringify(spec))
 
-    const { runImport } = await import("../src/app/import")
+    const { runImport } = await import("../../src/app/import")
     await runImport({
       source: specPath,
       format: undefined,
@@ -169,7 +169,7 @@ describe("import — integration", () => {
       }),
     )
 
-    const { runImport } = await import("../src/app/import")
+    const { runImport } = await import("../../src/app/import")
     await runImport({ source: specPath, format: "postman", outputDir: outDir })
 
     expect(
