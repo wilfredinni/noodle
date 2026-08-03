@@ -140,6 +140,20 @@ describe("export — integration", () => {
     ).toBe(false)
   })
 
+  it("adds context when the export output cannot be resolved", async () => {
+    const collection = await tempDir()
+    const outputParent = join(await tempDir(), "not-a-directory")
+    await writeFile(outputParent, "", "utf8")
+
+    await expect(
+      runExport({
+        collection,
+        format: "openapi",
+        output: join(outputParent, "openapi.yml"),
+      }),
+    ).rejects.toThrow("failed to resolve export output path")
+  })
+
   it("preserves exact JSON number literals in exported YAML", async () => {
     const collection = await tempDir()
     const output = join(await tempDir(), "openapi.yml")

@@ -302,6 +302,64 @@ describe("exportOpenApi", () => {
     })
   })
 
+  it("preserves repeated query values and filters protected headers", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            url: "https://api.example.com/search?source=stale&tag=url-one&tag=url-two",
+            params: [
+              { name: "source", value: "first", enabled: true },
+              { name: "source", value: "second", enabled: true },
+            ],
+            headers: {
+              Authorization: { value: "Bearer super-secret", enabled: true },
+              aCcEpT: { value: "application/json", enabled: true },
+              "Content-Type": { value: "application/json", enabled: true },
+              "X-Request": { value: "kept", enabled: true },
+            },
+          }),
+        },
+      ]),
+    )
+
+    const parameters = (
+      result.document.paths as Record<
+        string,
+        Record<string, { parameters: Record<string, unknown>[] }>
+      >
+    )["/search"].get.parameters
+    expect(parameters).toEqual([
+      {
+        name: "tag",
+        in: "query",
+        required: false,
+        style: "form",
+        explode: true,
+        schema: { type: "array", items: { type: "string" } },
+        example: ["url-one", "url-two"],
+      },
+      {
+        name: "source",
+        in: "query",
+        required: false,
+        style: "form",
+        explode: true,
+        schema: { type: "array", items: { type: "string" } },
+        example: ["first", "second"],
+      },
+      {
+        name: "X-Request",
+        in: "header",
+        required: false,
+        schema: { type: "string" },
+        example: "kept",
+      },
+    ])
+    expect(JSON.stringify(result.document)).not.toContain("super-secret")
+  })
+
   it("preserves exact JSON number literals", () => {
     const result = exportOpenApi(
       collection([

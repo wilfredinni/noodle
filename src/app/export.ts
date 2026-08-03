@@ -8,10 +8,9 @@ import {
   resolve,
   sep,
 } from "node:path"
-import yaml from "js-yaml"
 import { exportOpenApi } from "../converters/openapi"
 import { filestore } from "../filestore"
-import { isRawJsonNumber } from "../lang/formatJson"
+import { serializeOpenApiYaml } from "../lang/openApiYaml"
 
 export interface ExportOptions {
   collection: string
@@ -26,28 +25,6 @@ export interface ExportResult {
   operationCount: number
 }
 
-const RAW_JSON_INT_RE = /^-?(?:0|[1-9]\d*)$/
-
-const rawJsonIntType = new yaml.Type("tag:yaml.org,2002:int", {
-  kind: "scalar",
-  resolve: () => false,
-  predicate: (value: object) =>
-    isRawJsonNumber(value) && RAW_JSON_INT_RE.test(value.rawJSON),
-  represent: (value: object) => (value as { rawJSON: string }).rawJSON,
-})
-
-const rawJsonFloatType = new yaml.Type("tag:yaml.org,2002:float", {
-  kind: "scalar",
-  resolve: () => false,
-  predicate: (value: object) =>
-    isRawJsonNumber(value) && !RAW_JSON_INT_RE.test(value.rawJSON),
-  represent: (value: object) => (value as { rawJSON: string }).rawJSON,
-})
-
-const openApiYamlSchema = yaml.DEFAULT_SCHEMA.extend({
-  implicit: [rawJsonIntType, rawJsonFloatType],
-})
-
 async function resolvedOutputPath(path: string): Promise<string> {
   const suffix: string[] = []
   let current = path
@@ -55,9 +32,25 @@ async function resolvedOutputPath(path: string): Promise<string> {
     try {
       return join(await realpath(current), ...suffix.reverse())
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(
+          `failed to resolve export output path "${path}": ${message}`,
+          {
+            cause: error,
+          },
+        )
+      }
       const parent = dirname(current)
-      if (parent === current) throw error
+      if (parent === current) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(
+          `failed to resolve export output path "${path}": ${message}`,
+          {
+            cause: error,
+          },
+        )
+      }
       suffix.push(basename(current))
       current = parent
     }
@@ -94,11 +87,7 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
 
   try {
     await mkdir(dirname(outputPath), { recursive: true })
-    await writeFile(
-      outputPath,
-      yaml.dump(exported.document, { noRefs: true, schema: openApiYamlSchema }),
-      "utf8",
-    )
+    await writeFile(outputPath, serializeOpenApiYaml(exported.document), "utf8")
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(`failed to write export: ${message}`, { cause: error })

@@ -66,11 +66,9 @@ function serverFor(url: string): OpenApiObject {
 }
 
 function queryEntries(search: string): ParamEntry[] {
-  const entries = new Map<string, ParamEntry>()
-  for (const [name, value] of new URLSearchParams(search)) {
-    if (name !== "") entries.set(name, { name, value, enabled: true })
-  }
-  return [...entries.values()]
+  return [...new URLSearchParams(search)]
+    .filter(([name]) => name !== "")
+    .map(([name, value]) => ({ name, value, enabled: true }))
 }
 
 function makeParseableUrl(url: string, relative = false): ParseableUrl {
@@ -166,15 +164,24 @@ function requestLocation(request: Request): RequestLocation {
 function parameter(
   name: string,
   location: "path" | "query" | "header",
-  value: string,
+  value: string | string[],
 ): OpenApiObject {
+  const repeated = Array.isArray(value)
   const result: OpenApiObject = {
     name,
     in: location,
     required: location === "path",
-    schema: { type: "string" },
+    schema: repeated
+      ? { type: "array", items: { type: "string" } }
+      : { type: "string" },
   }
-  if (value !== "") result.example = value
+  if (repeated) {
+    result.style = "form"
+    result.explode = true
+    result.example = value
+  } else if (value !== "") {
+    result.example = value
+  }
   return result
 }
 
@@ -182,9 +189,20 @@ function parametersFor(
   request: Request,
   location: RequestLocation,
 ): OpenApiObject[] {
-  const query = new Map(location.query.map((entry) => [entry.name, entry]))
-  for (const entry of request.params) {
-    if (entry.enabled) query.set(entry.name, entry)
+  const requestParams = request.params.filter((entry) => entry.enabled)
+  const requestParamNames = new Set(requestParams.map((entry) => entry.name))
+  const query = [
+    ...location.query.filter((entry) => !requestParamNames.has(entry.name)),
+    ...requestParams,
+  ]
+  const queryValues = new Map<string, string[]>()
+  for (const entry of query) {
+    const values = queryValues.get(entry.name)
+    if (values) {
+      values.push(entry.value)
+    } else {
+      queryValues.set(entry.name, [entry.value])
+    }
   }
 
   const pathValues = new Map(
@@ -201,12 +219,15 @@ function parametersFor(
     parameter(name, "path", pathValues.get(name) ?? ""),
   )
   result.push(
-    ...[...query.values()].map((entry) =>
-      parameter(entry.name, "query", entry.value),
+    ...[...queryValues].map(([name, values]) =>
+      parameter(name, "query", values.length === 1 ? values[0]! : values),
     ),
   )
   for (const [name, entry] of Object.entries(request.headers)) {
-    if (entry.enabled && name.toLowerCase() !== "content-type") {
+    if (
+      entry.enabled &&
+      !["content-type", "accept", "authorization"].includes(name.toLowerCase())
+    ) {
       result.push(parameter(name, "header", entry.value))
     }
   }
