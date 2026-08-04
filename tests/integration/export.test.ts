@@ -34,14 +34,14 @@ describe("export — integration", () => {
     return dir
   }
 
-  it("writes an OpenAPI YAML file without mutating requests or exporting environment data", async () => {
+  it("writes environment base URLs as OpenAPI servers without exporting other environment data", async () => {
     const collection = await tempDir()
     const output = join(await tempDir(), "nested", "openapi.yml")
     const requestPath = join(collection, "health.yml")
     const source = [
       "name: Health",
       "method: GET",
-      "url: https://$host/health",
+      "url: $base_url/health",
       "headers:",
       "  X-Token: $TOKEN",
       "",
@@ -50,7 +50,28 @@ describe("export — integration", () => {
     await mkdir(join(collection, ".environments"))
     await writeFile(
       join(collection, ".environments", "production.env"),
-      "host=api.example.com\nTOKEN=should-not-export\n",
+      [
+        "base_url=https://api.example.com",
+        "TOKEN=should-not-export",
+        "_color=success",
+        "#DISABLED=also-not-exported",
+        "",
+      ].join("\n"),
+      "utf8",
+    )
+    await writeFile(
+      join(collection, ".environments", "staging.env"),
+      "base_url=https://api.example.com\n",
+      "utf8",
+    )
+    await writeFile(
+      join(collection, ".environments", "empty.env"),
+      "base_url=\n",
+      "utf8",
+    )
+    await writeFile(
+      join(collection, ".environments", "disabled.env"),
+      "#base_url=https://disabled.example\n",
       "utf8",
     )
     await mkdir(join(collection, ".timeline"))
@@ -79,8 +100,12 @@ describe("export — integration", () => {
     expect(document.openapi).toBe("3.0.3")
     expect(document.servers).toEqual([
       {
-        url: "https://{host}",
-        variables: { host: { default: "" } },
+        url: "https://api.example.com",
+        description: "production",
+      },
+      {
+        url: "https://api.example.com",
+        description: "staging",
       },
     ])
     expect(document.paths["/health"]?.get.parameters).toContainEqual({
@@ -90,9 +115,32 @@ describe("export — integration", () => {
       schema: { type: "string" },
       example: "$TOKEN",
     })
-    expect(outputText).not.toContain("api.example.com")
     expect(outputText).not.toContain("should-not-export")
+    expect(outputText).not.toContain("also-not-exported")
+    expect(outputText).not.toContain("disabled.example")
     expect(outputText).not.toContain("timeline-secret")
+  })
+
+  it("fails with context when an environment cannot be parsed", async () => {
+    const collection = await tempDir()
+    const output = join(await tempDir(), "openapi.yml")
+    await writeFile(
+      join(collection, "health.yml"),
+      "name: Health\nmethod: GET\nurl: $base_url/health\n",
+      "utf8",
+    )
+    await mkdir(join(collection, ".environments"))
+    await writeFile(
+      join(collection, ".environments", "broken.env"),
+      "not a dotenv line\n",
+      "utf8",
+    )
+
+    await expect(
+      runExport({ collection, format: "openapi", output }),
+    ).rejects.toThrow(
+      'failed to load environment "broken" for export: env.load: invalid line (expected KEY=value): "not a dotenv line"',
+    )
   })
 
   it("rejects unsupported output formats", async () => {

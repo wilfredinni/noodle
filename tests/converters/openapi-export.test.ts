@@ -261,6 +261,48 @@ describe("exportOpenApi", () => {
     expect(paths["/health"].get.servers).toBeUndefined()
   })
 
+  it("uses supplied environment servers for base_url requests", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({ id: "base", url: "$base_url/health" }),
+        },
+        {
+          type: "request",
+          data: request({ id: "literal", url: "https://api.example/literal" }),
+        },
+        {
+          type: "request",
+          data: request({
+            id: "external",
+            url: "https://other.example/status",
+          }),
+        },
+      ]),
+      {
+        servers: [
+          { url: "https://api.example", description: "production" },
+          { url: "https://api.example", description: "staging" },
+        ],
+      },
+    )
+
+    expect(result.document.servers).toEqual([
+      { url: "https://api.example", description: "production" },
+      { url: "https://api.example", description: "staging" },
+    ])
+    const paths = result.document.paths as Record<
+      string,
+      Record<string, Operation>
+    >
+    expect(paths["/health"].get.servers).toBeUndefined()
+    expect(paths["/literal"].get.servers).toBeUndefined()
+    expect(paths["/status"].get.servers).toEqual([
+      { url: "https://other.example" },
+    ])
+  })
+
   it("exports variables in URL schemes and ports", () => {
     const result = exportOpenApi(
       collection([
