@@ -395,8 +395,20 @@ export function exportOpenApi(
 
   if (servers.length > 0) {
     document.servers = servers
+    const serverUrls = new Set(
+      servers.flatMap(({ url }) =>
+        typeof url === "string" ? [url.replace(/\/+$/, "")] : [],
+      ),
+    )
     for (const { operation, server } of operations) {
-      if (server && server.url !== "{base_url}") operation.servers = [server]
+      const serverUrl = server?.url
+      if (
+        typeof serverUrl === "string" &&
+        serverUrl !== "{base_url}" &&
+        !serverUrls.has(serverUrl.replace(/\/+$/, ""))
+      ) {
+        operation.servers = [server]
+      }
     }
   } else {
     const keys = new Set(operations.map(({ server }) => serverKey(server)))

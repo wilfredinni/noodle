@@ -270,6 +270,10 @@ describe("exportOpenApi", () => {
         },
         {
           type: "request",
+          data: request({ id: "literal", url: "https://api.example/literal" }),
+        },
+        {
+          type: "request",
           data: request({
             id: "external",
             url: "https://other.example/status",
@@ -293,6 +297,7 @@ describe("exportOpenApi", () => {
       Record<string, Operation>
     >
     expect(paths["/health"].get.servers).toBeUndefined()
+    expect(paths["/literal"].get.servers).toBeUndefined()
     expect(paths["/status"].get.servers).toEqual([
       { url: "https://other.example" },
     ])
