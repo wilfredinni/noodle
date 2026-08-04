@@ -9,6 +9,7 @@ import {
   sep,
 } from "node:path"
 import { exportOpenApi } from "../converters/openapi"
+import { env } from "../env"
 import { filestore } from "../filestore"
 import { serializeOpenApiYaml } from "../lang/openApiYaml"
 
@@ -23,6 +24,29 @@ export interface ExportResult {
   name: string
   format: string
   operationCount: number
+}
+
+async function environmentServers(collectionPath: string) {
+  const directory = join(collectionPath, ".environments")
+  const names = await env.listEnvironments(directory)
+  const environments = await Promise.all(
+    names.map(async (name) => {
+      try {
+        return await env.loadEnvironment(directory, name)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(
+          `failed to load environment "${name}" for export: ${message}`,
+          { cause: error },
+        )
+      }
+    }),
+  )
+  return environments.flatMap(({ name, vars }) =>
+    vars.base_url === "" || vars.base_url === undefined
+      ? []
+      : [{ url: vars.base_url, description: name }],
+  )
 }
 
 async function resolvedOutputPath(path: string): Promise<string> {
@@ -83,7 +107,9 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
   if (isWithin(collectionRoot, await resolvedOutputPath(outputPath))) {
     throw new Error("export output must be outside the collection directory")
   }
-  const exported = exportOpenApi(collection)
+  const exported = exportOpenApi(collection, {
+    servers: await environmentServers(collectionPath),
+  })
 
   try {
     await mkdir(dirname(outputPath), { recursive: true })

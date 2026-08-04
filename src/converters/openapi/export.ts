@@ -28,6 +28,10 @@ export interface OpenApiExportResult {
   operationCount: number
 }
 
+export interface OpenApiExportOptions {
+  servers?: OpenApiObject[]
+}
+
 const SERVER_VAR_RE = /\$(\w+)/g
 const PATH_PARAM_RE = /:([\w-]+)(?=\/|\.|$)/g
 const BASE_VAR_URL_RE = /^(\$\w+)(\/[^?#]*)?(\?[^#]*)?(?:#.*)?$/
@@ -339,7 +343,10 @@ function serverKey(server: OpenApiObject | undefined): string | undefined {
   return server === undefined ? undefined : JSON.stringify(server)
 }
 
-export function exportOpenApi(collection: Collection): OpenApiExportResult {
+export function exportOpenApi(
+  collection: Collection,
+  { servers = [] }: OpenApiExportOptions = {},
+): OpenApiExportResult {
   const paths: Record<string, OpenApiObject> = {}
   const schemes: Record<string, OpenApiObject> = {}
   const operations: { operation: OpenApiObject; server?: OpenApiObject }[] = []
@@ -386,13 +393,20 @@ export function exportOpenApi(collection: Collection): OpenApiExportResult {
     document.components = { securitySchemes: schemes }
   }
 
-  const keys = new Set(operations.map(({ server }) => serverKey(server)))
-  if (keys.size === 1) {
-    const server = operations[0]?.server
-    if (server) document.servers = [server]
-  } else {
+  if (servers.length > 0) {
+    document.servers = servers
     for (const { operation, server } of operations) {
-      if (server) operation.servers = [server]
+      if (server && server.url !== "{base_url}") operation.servers = [server]
+    }
+  } else {
+    const keys = new Set(operations.map(({ server }) => serverKey(server)))
+    if (keys.size === 1) {
+      const server = operations[0]?.server
+      if (server) document.servers = [server]
+    } else {
+      for (const { operation, server } of operations) {
+        if (server) operation.servers = [server]
+      }
     }
   }
 

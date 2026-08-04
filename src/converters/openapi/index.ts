@@ -11,7 +11,11 @@ export const openApiImporter = {
 }
 
 export { parseSpec } from "./parse"
-export { exportOpenApi, type OpenApiExportResult } from "./export"
+export {
+  exportOpenApi,
+  type OpenApiExportOptions,
+  type OpenApiExportResult,
+} from "./export"
 export {
   mapCollection,
   convertTpl,

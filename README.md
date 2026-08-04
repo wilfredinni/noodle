@@ -133,9 +133,10 @@ noodle export ./collections --format openapi --output ./specs/openapi.yml
 ```
 
 The export includes requests, enabled parameters and headers, request-body
-examples, folders as tags, and supported authentication schemes. Environment
-values and response timeline data are never exported. The output file must be
-outside the collection directory.
+examples, folders as tags, and supported authentication schemes. Each
+environment with an enabled, nonempty `base_url` becomes an OpenAPI server;
+other environment values and response timeline data are never exported. The
+output file must be outside the collection directory.
 
 ## Automation CLI
 
