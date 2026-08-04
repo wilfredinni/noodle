@@ -1,6 +1,6 @@
 name: Binary Upload
 method: POST
-url: https://httpbin.org/post
+url: https://httpbin.org/anything/binary-upload
 timeout: 0
 followRedirects: true
 maxRedirects: 5

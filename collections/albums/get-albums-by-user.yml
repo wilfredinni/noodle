@@ -1,10 +1,10 @@
 name: Get Albums by User
 method: GET
-url: $base_url/albums
+url: $base_url/users/:userId/albums
 timeout: 0
 followRedirects: true
 maxRedirects: 5
-params:
+path_params:
   - name: userId
     value: $user_id
 body_type: none

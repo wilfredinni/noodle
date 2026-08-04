@@ -1,6 +1,6 @@
 name: Form URL-Encoded
 method: POST
-url: https://httpbin.org/post
+url: https://httpbin.org/anything/form-url-encoded
 timeout: 0
 followRedirects: true
 maxRedirects: 5

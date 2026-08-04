@@ -1,6 +1,6 @@
 name: Multipart Upload
 method: POST
-url: https://httpbin.org/post
+url: https://httpbin.org/anything/multipart-upload
 timeout: 0
 followRedirects: true
 maxRedirects: 5
