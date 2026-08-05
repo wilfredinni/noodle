@@ -166,6 +166,58 @@ describe("Postman export", () => {
     }
   })
 
+  it("exports noauth for a nested folder override", () => {
+    const collection: Collection = {
+      id: "api",
+      name: "API",
+      items: [
+        {
+          type: "folder",
+          data: {
+            id: "parent",
+            name: "Parent",
+            path: "parent",
+            overrides: { auth: { type: "bearer", token: "parent-token" } },
+            children: [
+              {
+                type: "folder",
+                data: {
+                  id: "parent/child",
+                  name: "Child",
+                  path: "parent/child",
+                  overrides: { auth: { type: "none" } },
+                  children: [
+                    {
+                      type: "request",
+                      data: request("parent/child/health", "Health", {
+                        auth: { type: "inherit" },
+                      }),
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }
+
+    const parent = (
+      exportPostman(collection).document.item as Record<string, unknown>[]
+    )[0]!
+    const child = (parent.item as Record<string, unknown>[])[0]!
+    const requestItem = (child.item as Record<string, unknown>[])[0]!
+
+    expect(parent.auth).toEqual({
+      type: "bearer",
+      bearer: [{ key: "token", value: "parent-token", type: "string" }],
+    })
+    expect(child.auth).toEqual({ type: "noauth" })
+    expect(
+      (requestItem.request as Record<string, unknown>).auth,
+    ).toBeUndefined()
+  })
+
   it("exports every supported body and auth type", () => {
     const collection: Collection = {
       id: "bodies",

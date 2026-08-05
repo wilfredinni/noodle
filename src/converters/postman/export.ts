@@ -56,7 +56,7 @@ function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {
 }
 
 function folderAuth(auth: Auth | undefined): PostmanObject | undefined {
-  return auth?.type === "none" ? undefined : postmanAuth(auth)
+  return postmanAuth(auth)
 }
 
 function decodedQueryKey(value: string): string {

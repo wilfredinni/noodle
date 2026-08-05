@@ -194,7 +194,8 @@ describe("export — integration", () => {
       environmentCount: 1,
       files: [collectionFile, environmentFile],
     })
-    expect(JSON.parse(await readFile(collectionFile, "utf8"))).toMatchObject({
+    const collectionText = await readFile(collectionFile, "utf8")
+    expect(JSON.parse(collectionText)).toMatchObject({
       info: {
         schema:
           "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -206,6 +207,7 @@ describe("export — integration", () => {
     expect(environmentText).not.toContain("also-not-export")
     expect(environmentText).not.toContain("success")
     expect(environmentText).not.toContain("timeline-secret")
+    expect(collectionText).not.toContain("timeline-secret")
   })
 
   it("requires a new or empty Postman output directory", async () => {
