@@ -22,6 +22,7 @@ bun run release:check -- --tag vX.Y.Z # validate code, docs site, and release re
 ```
 noodle [<path>] [--collection <dir>] [--env <name>]
 noodle import <source> [--format <format>] [--output <dir>]
+noodle export <collection> --format <openapi|postman> --output <file|dir>
 noodle update
 noodle workspace list [--json]
 noodle collection <create|init|list|inspect|format|audit|run> ... [--json]
@@ -31,6 +32,7 @@ noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
 
 - **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, and `--env/-e`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then the current directory.
 - **Import subcommand**: `source` (positional, required), `--format/-i` (openapi/postman, auto-detected if omitted), `--output/-o` (default: ./collections)
+- **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values, so review exports for secrets before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
 - **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [--env]`; `request create --url --method --collection`, `run [--env]`; and `environment set`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.

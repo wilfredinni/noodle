@@ -115,6 +115,7 @@ describe("export command", () => {
     expect(exportArgs?.format).toMatchObject({ type: "string", required: true })
     expect(exportArgs?.output).toMatchObject({ type: "string", required: true })
     expect((exportArgs?.output as StringArgDef)?.alias).toBe("o")
+    expect(exportMeta?.description).toContain("Postman")
   })
 })
 
@@ -175,6 +176,14 @@ describe("CLI integration", () => {
     expect(out).toContain("output")
   })
 
+  it("shows Postman bundle requirements in export help", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "export", "--help"])
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("postman")
+    expect(out).toContain("empty directory")
+  })
+
   it("exports a collection and preserves the JSON result envelope", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-cli-export-"))
     const dir = join(root, "collection")
@@ -208,6 +217,66 @@ describe("CLI integration", () => {
         errors: [],
       })
       expect(await readFile(output, "utf8")).toContain("openapi: 3.0.3")
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it("exports a Postman bundle and reports its generated files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-cli-postman-export-"))
+    const dir = join(root, "collection")
+    const output = join(root, "out")
+    try {
+      await mkdir(dir)
+      await writeFile(
+        join(dir, "ping.yml"),
+        "name: Ping\nmethod: GET\nurl: https://example.com/ping\n",
+      )
+      const proc = Bun.spawnSync([
+        "bun",
+        CLI,
+        "export",
+        dir,
+        "--format",
+        "postman",
+        "--output",
+        output,
+        "--json",
+      ])
+      expect(proc.exitCode).toBe(0)
+      expect(JSON.parse(proc.stdout.toString())).toEqual({
+        status: "success",
+        data: {
+          path: output,
+          name: basename(dir),
+          format: "postman",
+          operationCount: 1,
+          environmentCount: 0,
+          files: [join(output, "collection.postman_collection.json")],
+        },
+        errors: [],
+      })
+      expect(
+        await readFile(
+          join(output, "collection.postman_collection.json"),
+          "utf8",
+        ),
+      ).toContain("collection/v2.1.0")
+      const humanOutput = join(root, "human")
+      const human = Bun.spawnSync([
+        "bun",
+        CLI,
+        "export",
+        dir,
+        "--format",
+        "postman",
+        "--output",
+        humanOutput,
+      ])
+      expect(human.exitCode).toBe(0)
+      expect(human.stdout.toString()).toContain("1 request")
+      expect(human.stdout.toString()).toContain("0 environments")
+      expect(human.stdout.toString()).toContain(`Bundle: ${humanOutput}`)
     } finally {
       await rm(root, { recursive: true, force: true })
     }
