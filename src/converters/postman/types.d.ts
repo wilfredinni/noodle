@@ -2,6 +2,7 @@ declare module "postman-collection" {
   interface Url {
     getRaw(): string
     toString(): string
+    toJSON(): Record<string, unknown>
     host?: string[]
     path?: string[]
     port?: string
@@ -24,6 +25,7 @@ declare module "postman-collection" {
   interface FormParam {
     key: string
     value: string
+    src?: string
     type?: "text" | "file"
     disabled?: boolean
   }
@@ -37,6 +39,7 @@ declare module "postman-collection" {
       disabled?: boolean
     }>
     formdata?: PropertyList<FormParam>
+    file?: { src?: string }
     options?: { raw?: { language?: string } }
   }
 
@@ -79,6 +82,10 @@ declare module "postman-collection" {
     request?: Request
     response?: unknown[]
     auth?: AuthMember
+    protocolProfileBehavior?: {
+      followRedirects?: boolean
+      maxRedirects?: number
+    }
   }
 
   interface ItemGroup {
@@ -100,7 +107,11 @@ declare module "postman-collection" {
     new (definition: Record<string, unknown>): Collection
   }
 
-  export { Collection }
+  const Url: {
+    new (definition: string | Record<string, unknown>): Url
+  }
+
+  export { Collection, Url }
   export type {
     Url,
     QueryParam,

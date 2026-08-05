@@ -191,11 +191,19 @@ export function formatExport(data: {
   name: string
   format: string
   operationCount: number
+  environmentCount?: number
 }): string {
+  const isPostman = data.format === "postman"
+  const noun = isPostman ? "request" : "operation"
   return [
     `${color("✓", "green")} Exported ${data.name} as ${data.format}`,
-    `  ${data.path}`,
-    `  ${data.operationCount} operation${data.operationCount === 1 ? "" : "s"}`,
+    `  ${isPostman ? "Bundle" : "Output"}: ${data.path}`,
+    `  ${data.operationCount} ${noun}${data.operationCount === 1 ? "" : "s"}`,
+    ...(data.environmentCount === undefined
+      ? []
+      : [
+          `  ${data.environmentCount} environment${data.environmentCount === 1 ? "" : "s"}`,
+        ]),
   ].join("\n")
 }
 

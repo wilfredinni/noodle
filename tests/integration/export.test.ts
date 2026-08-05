@@ -148,10 +148,86 @@ describe("export — integration", () => {
     await expect(
       runExport({
         collection,
-        format: "postman",
+        format: "invalid",
         output: join(collection, "export.yml"),
       }),
-    ).rejects.toThrow('unknown export format "postman". Supported: openapi')
+    ).rejects.toThrow(
+      'unknown export format "invalid". Supported: openapi, postman',
+    )
+  })
+
+  it("writes a Postman bundle with redacted environment values", async () => {
+    const collection = await tempDir()
+    const output = join(await tempDir(), "postman")
+    await writeFile(
+      join(collection, "health.yml"),
+      [
+        "name: Health",
+        "method: GET",
+        "url: $base_url/health?source=noodle",
+        "headers:",
+        "  Authorization: Bearer $TOKEN",
+        "",
+      ].join("\n"),
+      "utf8",
+    )
+    await mkdir(join(collection, ".environments"))
+    await writeFile(
+      join(collection, ".environments", "production.env"),
+      "base_url=https://api.example.com\nTOKEN=should-not-export\n#OLD=also-not-export\n_color=success\n",
+      "utf8",
+    )
+    await mkdir(join(collection, ".timeline"))
+    await writeFile(
+      join(collection, ".timeline", "health.yml"),
+      "timeline-secret",
+    )
+
+    const result = await runExport({ collection, format: "postman", output })
+    const collectionFile = join(output, "collection.postman_collection.json")
+    const environmentFile = join(output, "production.postman_environment.json")
+    expect(result).toEqual({
+      path: output,
+      name: basename(collection),
+      format: "postman",
+      operationCount: 1,
+      environmentCount: 1,
+      files: [collectionFile, environmentFile],
+    })
+    expect(JSON.parse(await readFile(collectionFile, "utf8"))).toMatchObject({
+      info: {
+        schema:
+          "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+      },
+    })
+    const environmentText = await readFile(environmentFile, "utf8")
+    expect(environmentText).toContain('"value": ""')
+    expect(environmentText).not.toContain("should-not-export")
+    expect(environmentText).not.toContain("also-not-export")
+    expect(environmentText).not.toContain("success")
+    expect(environmentText).not.toContain("timeline-secret")
+  })
+
+  it("requires a new or empty Postman output directory", async () => {
+    const collection = await tempDir()
+    await writeFile(
+      join(collection, "health.yml"),
+      "name: Health\nmethod: GET\nurl: https://example.com/health\n",
+      "utf8",
+    )
+    const root = await tempDir()
+    const nonempty = join(root, "nonempty")
+    const file = join(root, "file")
+    await mkdir(nonempty)
+    await writeFile(join(nonempty, "existing"), "")
+    await writeFile(file, "")
+
+    await expect(
+      runExport({ collection, format: "postman", output: nonempty }),
+    ).rejects.toThrow("postman export output directory must be empty")
+    await expect(
+      runExport({ collection, format: "postman", output: file }),
+    ).rejects.toThrow("postman export output must be a directory")
   })
 
   it("rejects outputs inside the collection without changing requests", async () => {
@@ -179,6 +255,14 @@ describe("export — integration", () => {
         collection,
         format: "openapi",
         output: join(link, "openapi.yml"),
+      }),
+    ).rejects.toThrow("export output must be outside the collection directory")
+
+    await expect(
+      runExport({
+        collection,
+        format: "postman",
+        output: join(collection, "postman"),
       }),
     ).rejects.toThrow("export output must be outside the collection directory")
 

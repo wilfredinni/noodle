@@ -5,7 +5,8 @@ import { formatExport } from "../humanOutput"
 export default defineCommand({
   meta: {
     name: "export",
-    description: "Export a Noodle collection to an API specification",
+    description:
+      "Export a Noodle collection to an API specification or Postman bundle",
   },
   args: {
     collection: {
@@ -16,13 +17,13 @@ export default defineCommand({
     format: {
       type: "string",
       required: true,
-      description: 'Export format ("openapi")',
+      description: 'Export format ("openapi" or "postman")',
     },
     output: {
       type: "string",
       alias: "o",
       required: true,
-      description: "Output specification file",
+      description: "Output file (OpenAPI) or empty directory (Postman)",
     },
     json: {
       type: "boolean",

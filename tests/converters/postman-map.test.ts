@@ -76,7 +76,7 @@ describe("mapCollection — flat collection, single request", () => {
     expect(r.params).toEqual([])
     expect(r.body).toBeUndefined()
     expect(r.bodyType).toBeUndefined()
-    expect(r.auth).toEqual({ type: "none" })
+    expect(r.auth).toEqual({ type: "inherit" })
   })
 })
 
@@ -126,6 +126,37 @@ describe("mapCollection — auth variants", () => {
     })
     const r = reqs(result)[0] as Record<string, unknown>
     expect(r.auth).toEqual({ type: "basic", user: "admin", pass: "pass" })
+  })
+
+  it("maps standard API key fields and templates", () => {
+    const result = makeCollection({
+      info: { name: "Auth" },
+      item: [
+        {
+          name: "API Key Req",
+          request: {
+            method: "GET",
+            url: "http://example.com",
+            header: [],
+            auth: {
+              type: "apikey",
+              apikey: [
+                { key: "key", value: "{{keyName}}", type: "string" },
+                { key: "value", value: "{{$randomUUID}}", type: "string" },
+                { key: "in", value: "query", type: "string" },
+              ],
+            },
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.auth).toEqual({
+      type: "api_key",
+      key: "$keyName",
+      value: "$$randomUUID",
+      placement: "query",
+    })
   })
 
   it("maps noauth to none", () => {
@@ -282,6 +313,47 @@ describe("mapCollection — body variants", () => {
       value: "",
       enabled: true,
       type: "file",
+    })
+  })
+
+  it("preserves disabled fields and file references", () => {
+    const result = makeCollection({
+      info: { name: "Body" },
+      item: [
+        {
+          name: "Multipart Req",
+          request: {
+            method: "POST",
+            url: "http://example.com",
+            header: [],
+            body: {
+              mode: "formdata",
+              formdata: [
+                { key: "disabled", value: "no", disabled: true },
+                { key: "avatar", src: "{{filePath}}", type: "file" },
+              ],
+            },
+          },
+        },
+        {
+          name: "Binary Req",
+          request: {
+            method: "POST",
+            url: "http://example.com",
+            header: [],
+            body: { mode: "file", file: { src: "{{filePath}}" } },
+          },
+        },
+      ],
+    })
+    const [multipart, binary] = reqs(result) as Record<string, unknown>[]
+    expect(multipart.formData).toEqual([
+      { name: "disabled", value: "no", enabled: false, type: "text" },
+      { name: "avatar", value: "$filePath", enabled: true, type: "file" },
+    ])
+    expect(binary).toMatchObject({
+      bodyType: "binary",
+      filePath: "$filePath",
     })
   })
 })
@@ -515,6 +587,26 @@ describe("mapCollection — edge cases", () => {
       .overrides
     expect(overrides).toBeDefined()
     expect(overrides!.auth).toEqual({ type: "bearer", token: "$folderToken" })
+  })
+
+  it("reads redirect behavior from item metadata", () => {
+    const result = makeCollection({
+      info: { name: "Behavior" },
+      item: [
+        {
+          name: "No Redirect",
+          protocolProfileBehavior: {
+            followRedirects: false,
+            maxRedirects: 2,
+          },
+          request: { method: "GET", url: "http://example.com", header: [] },
+        },
+      ],
+    })
+    expect(reqs(result)[0]).toMatchObject({
+      followRedirects: false,
+      maxRedirects: 2,
+    })
   })
 
   it("ignores unknown body mode (graphql)", () => {

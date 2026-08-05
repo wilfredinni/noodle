@@ -44,14 +44,8 @@ function extractAuthParams(
     if (raw) {
       const items = raw.all()
       if (items.length > 0) {
-        const byKey = new Map(items.map((p) => [p.key, p.value]))
-
-        if (byKey.has("key") && byKey.has("value")) {
-          params.set(byKey.get("key")!, byKey.get("value")!)
-        } else {
-          for (const p of items) {
-            params.set(p.key, p.value)
-          }
+        for (const p of items) {
+          params.set(p.key, p.value)
         }
       }
     }
@@ -62,8 +56,11 @@ function extractAuthParams(
   return params.size > 0 ? params : undefined
 }
 
-function mapAuth(auth: AuthMember | undefined): Auth {
-  if (!auth) return { type: "none" }
+function mapAuth(
+  auth: AuthMember | undefined,
+  inheritWhenMissing = false,
+): Auth {
+  if (!auth) return inheritWhenMissing ? { type: "inherit" } : { type: "none" }
   const type = auth.type
 
   if (type === "noauth") return { type: "none" }
@@ -79,18 +76,19 @@ function mapAuth(auth: AuthMember | undefined): Auth {
   if (type === "basic") {
     return {
       type: "basic",
-      user: params?.get("username") ?? "",
-      pass: params?.get("password") ?? "",
+      user: convertTpl(params?.get("username") ?? ""),
+      pass: convertTpl(params?.get("password") ?? ""),
     }
   }
 
   if (type === "apikey") {
     const key = params?.get("key") ?? ""
     const value = params?.get("value") ?? ""
-    const rawPlacement = params?.get("placement") ?? "header"
+    const rawPlacement =
+      params?.get("in") ?? params?.get("placement") ?? "header"
     return {
       type: "api_key" as const,
-      key,
+      key: convertTpl(key),
       value: convertTpl(value),
       placement: rawPlacement.includes("query") ? "query" : "header",
     }
@@ -127,8 +125,9 @@ function mapParams(query: PropertyList<QueryParam> | undefined): ParamEntry[] {
 
 function mapBody(req: { body?: BodyMember }): {
   body?: string
-  bodyType?: "json" | "urlencoded" | "multipart"
+  bodyType?: "json" | "urlencoded" | "multipart" | "binary"
   formData?: FormEntry[]
+  filePath?: string
 } {
   const b = req.body
   if (!b) return {}
@@ -140,7 +139,7 @@ function mapBody(req: { body?: BodyMember }): {
     const lang = b.options?.raw?.language
     const bodyType =
       lang === undefined || lang === "json" ? ("json" as const) : undefined
-    return { body: raw, ...(bodyType ? { bodyType } : {}) }
+    return { body: convertTpl(raw), ...(bodyType ? { bodyType } : {}) }
   }
 
   if (mode === "urlencoded") {
@@ -148,14 +147,12 @@ function mapBody(req: { body?: BodyMember }): {
     if (b.urlencoded) {
       b.urlencoded.each(
         (e: { key: string; value: string; disabled?: boolean }) => {
-          if (!e.disabled) {
-            formData.push({
-              name: e.key,
-              value: convertTpl(e.value),
-              enabled: true,
-              type: "text",
-            })
-          }
+          formData.push({
+            name: e.key,
+            value: convertTpl(e.value),
+            enabled: !e.disabled,
+            type: "text",
+          })
         },
       )
     }
@@ -166,17 +163,22 @@ function mapBody(req: { body?: BodyMember }): {
     const formData: FormEntry[] = []
     if (b.formdata) {
       b.formdata.each((e: FormParam) => {
-        if (!e.disabled) {
-          formData.push({
-            name: e.key,
-            value: convertTpl(e.value),
-            enabled: true,
-            type: e.type === "file" ? "file" : "text",
-          })
-        }
+        formData.push({
+          name: e.key,
+          value: convertTpl(e.type === "file" ? (e.src ?? e.value) : e.value),
+          enabled: !e.disabled,
+          type: e.type === "file" ? "file" : "text",
+        })
       })
     }
     return { bodyType: "multipart", formData }
+  }
+
+  if (mode === "file") {
+    return {
+      bodyType: "binary",
+      filePath: convertTpl(b.file?.src ?? ""),
+    }
   }
 
   return {}
@@ -302,7 +304,10 @@ function mapRequest(
     (req.url as { query?: PropertyList<QueryParam> })?.query,
   )
   const bodyMapping = mapBody(req as { body?: BodyMember })
-  const auth = mapAuth(req.auth as AuthMember | undefined)
+  const auth = mapAuth(req.auth as AuthMember | undefined, true)
+  const behavior = item.protocolProfileBehavior
+  const followRedirects = behavior?.followRedirects
+  const maxRedirects = behavior?.maxRedirects
 
   const rawId = slugify(`${method}-${item.name}`)
   const id = uniqueId(`${parentPath}${rawId || `request-${index}`}`, usedIds)
@@ -319,6 +324,10 @@ function mapRequest(
     pathParams,
     ...bodyMapping,
     auth,
+    ...(typeof followRedirects === "boolean" ? { followRedirects } : {}),
+    ...(typeof maxRedirects === "number" && maxRedirects >= 0
+      ? { maxRedirects }
+      : {}),
   }
 }
 
@@ -350,7 +359,7 @@ function mapItems(
         data: {
           id: folderId,
           name,
-          path: folderId,
+          path: path.slice(0, -1),
           overrides,
           children: mapItems(itemGroup.items, path, usedIds),
         },
