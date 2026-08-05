@@ -4,6 +4,33 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-04
+
+Noodle now moves collections in both directions: import OpenAPI, Swagger, Postman, and Insomnia sources, then export portable OpenAPI or Postman output. The conversion path preserves more request detail while keeping generated filessafe to inspect and share.
+
+### ✨ Features
+
+- Import Swagger 2.0 specifications and Insomnia v4/v5 JSON exports with `noodle import`, including supported requests, folders, environments, parameters, bodies, and auth.
+- Export a collection as an OpenAPI 3.0.3 document or a Postman Collection v2.1 bundle with `noodle export`.
+- Include enabled nonempty environment `base_url` values as OpenAPI servers, and create redacted Postman environment files alongside each exported bundle.
+
+### 🐞 Fixes
+
+- Preserve repeated query parameters and filter protected headers when exporting OpenAPI; only write operation-level servers when they differ from document servers.
+- Preserve folder-level `none` authentication in Postman exports.
+- Infer path parameters from imported URLs, distinguish them from query parameters, and preserve raw JSON number literals during formatting and OpenAPI export.
+- Keep code-editor highlighting aligned for emoji and other wide characters, and prevent duplicate body-editor interactions.
+
+### 🔧 Refactors
+
+- Share normalized OpenAPI parsing and YAML serialization across import and export formats.
+
+### 📚 Documentation
+
+- Document supported conversion formats and export output in the README, AGENTS.md, and site CLI and conversion guides.
+- Update `noodle-dev` with the current converter and export architecture.
+- Update `noodle-use` to use the supported import and export CLI workflows.
+
 ## [0.5.7] - 2026-08-02
 
 Collections can now be formatted from the automation CLI, giving imported and
@@ -253,7 +280,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/wilfredinni/noodle/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/wilfredinni/noodle/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/wilfredinni/noodle/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/wilfredinni/noodle/compare/v0.5.4...v0.5.5

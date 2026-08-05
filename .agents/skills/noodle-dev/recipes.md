@@ -207,8 +207,8 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Locate:**
 - `src/converters/index.ts` — `registerImporter()`, `detectFormat()`, `getImporter()`
-- `src/converters/openapi/` — example importer
-- `src/converters/postman/` — second example importer
+- `src/converters/openapi/`, `src/converters/postman/` — importers that also own their exporters
+- `src/converters/swagger/`, `src/converters/insomnia/` — import-only examples
 - `src/app/import.ts` — where importers are registered + CLI import flow
 
 **Follow:** Importers implement `{ type, detect, import }`. `runImport()` lazily registers built-in importers; detect format from source content before import.

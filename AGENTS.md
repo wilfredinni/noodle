@@ -31,7 +31,7 @@ noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
 ```
 
 - **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, and `--env/-e`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then the current directory.
-- **Import subcommand**: `source` (positional, required), `--format/-i` (openapi/postman, auto-detected if omitted), `--output/-o` (default: ./collections)
+- **Import subcommand**: `source` (positional, required), `--format/-i` (`openapi`, `swagger`, `postman`, or `insomnia`; auto-detected if omitted), `--output/-o` (default: ./collections)
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values, so review exports for secrets before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
 - **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [--env]`; `request create --url --method --collection`, `run [--env]`; and `environment set`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
@@ -70,8 +70,10 @@ src/
 │   └── useKeymap.ts
 ├── converters/
 │   ├── index.ts   # Importer registry, detectFormat, getImporter
-│   ├── openapi/   # OpenAPI 3.0 → Collection importer
-│   └── postman/   # Postman 2.1 → Collection importer (uses postman-collection npm pkg)
+│   ├── openapi/   # OpenAPI 3.0 importer + exporter
+│   ├── postman/   # Postman 2.1 importer + exporter (uses postman-collection npm pkg)
+│   ├── swagger/   # Swagger 2.0 → Collection importer
+│   └── insomnia/  # Insomnia v4/v5 JSON → Collection importer
 ├── app/           # CLI args parsing, entry point (src/app/cli.ts)
 └── ui/            # React components + hooks + pure helpers
     ├── App.tsx              # Root component: state wiring, theme, config, env list
@@ -159,7 +161,7 @@ tests/integration/ # Integration tests
 
 ## Entry point
 
-`src/app/cli.ts` — citty main command, delegates to TUI, import, update, or automation subcommands. Automation command definitions live in `src/app/commands/automation.ts`; `src/app/services.ts` owns collection, request, environment, audit, and run behavior. TUI bootstrap is extracted to `main.tsx` (`bootstrap()` function).
+`src/app/cli.ts` — citty main command, delegates to TUI, import, export, update, or automation subcommands. Automation command definitions live in `src/app/commands/automation.ts`; `src/app/services.ts` owns collection, request, environment, audit, and run behavior. TUI bootstrap is extracted to `main.tsx` (`bootstrap()` function).
 
 ## Distribution
 

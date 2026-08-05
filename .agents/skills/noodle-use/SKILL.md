@@ -15,8 +15,8 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 | Script collection discovery, validation, execution, or simple mutations | [workflows/automation.md](workflows/automation.md) |
 | Refactor, rename, restructure existing collection | [workflows/organize.md](workflows/organize.md) |
 | Audit collection for REST best practices and security | [workflows/evaluate.md](workflows/evaluate.md) |
-| Import from OpenAPI or Postman via CLI | [workflows/import.md](workflows/import.md) |
-| Convert from Insomnia or Swagger 2.0 at file level | [workflows/convert.md](workflows/convert.md) |
+| Import or export OpenAPI, Swagger, Postman, or Insomnia collections via CLI | [workflows/import.md](workflows/import.md) |
+| Convert an unsupported format at file level | [workflows/convert.md](workflows/convert.md) |
 | Understand file formats, schemas, field rules | [schema.md](schema.md) |
 | Understand naming conventions, ID rules, variable syntax | [reference/conventions.md](reference/conventions.md) |
 | Read/write ~/.config/noodle/ settings | [reference/config.md](reference/config.md) |
@@ -27,7 +27,7 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode — that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, and `import`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies/auth/headers/params, new environment files, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode — that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies/auth/headers/params, new environment files, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
 `$VARNAME` (no braces). Regex `/\$(\w+)/g`. Applied to: url, headers, params, body, formData, filePath, auth fields. Unresolved variables cause noodle to throw at runtime — always verify all `$var` references resolve to an env declaration.
