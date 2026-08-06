@@ -81,6 +81,10 @@ export interface UseEnvironmentEditorResult {
   toggleVar: (index: number) => void
   revertVar: (index: number) => void
   save: () => Promise<void>
+  createEnv: (values: {
+    name: string
+    color: string | undefined
+  }) => Promise<void>
   deleteEnv: () => Promise<void>
   cloneEnv: (targetName: string) => Promise<void>
   revertDraft: () => void
@@ -188,6 +192,7 @@ export function useEnvironmentEditor({
   editKeyRef.current = editKey
   const editValueRef = useRef(editValue)
   editValueRef.current = editValue
+  const createEnvPendingRef = useRef<Promise<void> | null>(null)
 
   const loadEnv = useCallback(
     async (name: string) => {
@@ -586,6 +591,71 @@ export function useEnvironmentEditor({
     }
   }, [environmentsDir, activeEnvName, onActiveEnvChanged])
 
+  const createEnv = useCallback(
+    ({ name, color }: { name: string; color: string | undefined }) => {
+      if (createEnvPendingRef.current) return createEnvPendingRef.current
+
+      const trimmedName = name.trim()
+      if (!trimmedName) {
+        return Promise.reject(new Error("Environment name is required"))
+      }
+      if (localNamesRef.current.includes(trimmedName)) {
+        return Promise.reject(
+          new Error(`An environment named "${trimmedName}" already exists`),
+        )
+      }
+
+      const pending = (async () => {
+        setSaving(true)
+        setError(null)
+        try {
+          await env.saveEnvironment(environmentsDir, {
+            name: trimmedName,
+            color,
+            vars: {},
+            disabledVars: {},
+          })
+
+          const nextDraft = { name: trimmedName, color, varRows: [] }
+          const nextOriginal = {
+            name: trimmedName,
+            color,
+            vars: {},
+            disabledVars: {},
+          }
+          const nextNames = [...localNamesRef.current, trimmedName]
+          draftRef.current = nextDraft
+          originalRef.current = nextOriginal
+          selectedEnvNameRef.current = trimmedName
+          loadedEnvNameRef.current = trimmedName
+          localNamesRef.current = nextNames
+          setDraft(nextDraft)
+          setOriginal(nextOriginal)
+          setSelectedEnvName(trimmedName)
+          setLocalNames(nextNames)
+          setEditState(initialEditState())
+          setEditKey("")
+          setEditValue("")
+          onEnvsChangedRef.current?.()
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : String(e))
+          throw e
+        } finally {
+          setSaving(false)
+        }
+      })()
+      createEnvPendingRef.current = pending
+      const clearPending = () => {
+        if (createEnvPendingRef.current === pending) {
+          createEnvPendingRef.current = null
+        }
+      }
+      void pending.then(clearPending, clearPending)
+      return pending
+    },
+    [environmentsDir],
+  )
+
   const deleteEnvAction = useCallback(async () => {
     const name = selectedEnvNameRef.current
     if (!name) return
@@ -690,6 +760,7 @@ export function useEnvironmentEditor({
     toggleVar,
     revertVar,
     save,
+    createEnv,
     deleteEnv: deleteEnvAction,
     cloneEnv: cloneEnvAction,
     revertDraft,

@@ -102,6 +102,7 @@ export interface AppKeymapFolder {
 export interface AppKeymapEnvironment {
   envStateRef: RefObject<UseEnvironmentsResult>
   envEditorRef: RefObject<UseEnvironmentEditorResult>
+  setNewEnvironmentVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEnvDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void

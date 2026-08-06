@@ -45,6 +45,7 @@ function minimalContext(): CommandBuilderContext {
     onLayoutChange: () => {},
     setHelpVisible: () => {},
     setAboutVisible: () => {},
+    setNewEnvironmentVisible: () => {},
     setNewRequestVisible: () => {},
     setImportCurlVisible: () => {},
     setNewFolderVisible: () => {},
@@ -143,6 +144,22 @@ describe("buildCommandPaletteCommands", () => {
     expect(commands.every((command) => command.section === "Environment")).toBe(
       true,
     )
+  })
+
+  it("opens the new environment overlay from the environment editor", () => {
+    const ctx = minimalContext()
+    ctx.getView = () => "env-editor"
+    let opened = false
+    ctx.setNewEnvironmentVisible = (value) => {
+      opened = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "env.new",
+    )
+
+    expect(command?.run()).toBe(true)
+    expect(opened).toBe(true)
   })
 
   it("opens the cURL import overlay from a folder context menu", () => {

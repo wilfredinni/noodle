@@ -38,6 +38,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     folderCommit: 0,
     envSave: 0,
     envUp: 0,
+    newEnvironment: false,
     jsonEnter: 0,
     jsonLeave: 0,
     jsonReturnToSelect: 0,
@@ -77,6 +78,9 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         save: () => calls.envSave++,
         browseUp: () => calls.envUp++,
       },
+    },
+    setNewEnvironmentVisible: (visible: boolean) => {
+      calls.newEnvironment = visible
     },
   }
   const context = {
@@ -427,6 +431,20 @@ describe("app keymap layers", () => {
     host.press("s", { ctrl: true })
 
     expect(calls.envSave).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("opens the new environment overlay from the production layer", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "env-editor")
+    const disposers = register(context)
+
+    host.press("n", { ctrl: true })
+
+    expect(calls.newEnvironment).toBe(true)
+    expect(calls.focus).toBe("")
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

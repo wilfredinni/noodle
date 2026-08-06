@@ -7,6 +7,7 @@ export const EDITABLE_OVERLAYS = new Set([
   "collection-switcher",
   "theme",
   "yaml-editor",
+  "new-environment",
   "new-request",
   "import-curl",
   "edit-request",

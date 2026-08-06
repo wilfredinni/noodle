@@ -6,6 +6,7 @@ import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
+import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverlay"
 
 export type ActiveOverlay =
   | "command-palette"
@@ -21,6 +22,7 @@ export type ActiveOverlay =
   | "collection-switch-confirm"
   | "collection-switcher"
   | "yaml-editor"
+  | "new-environment"
   | "new-request"
   | "import-curl"
   | "edit-request"
@@ -54,6 +56,8 @@ export function useOverlayState({
   )
   const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
   const envDeletePendingRef = useRef(envDeletePending)
+  const [newEnvironmentVisible, setNewEnvironmentVisible] = useState(false)
+  const newEnvironmentRef = useRef<NewEnvironmentOverlayHandle>(null)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
   const [importCurlVisible, setImportCurlVisible] = useState(false)
@@ -96,6 +100,7 @@ export function useOverlayState({
     if (collectionSwitchPending !== null) return "collection-switch-confirm"
     if (collectionSwitcherVisible) return "collection-switcher"
     if (yamlEditor.visible) return "yaml-editor"
+    if (newEnvironmentVisible) return "new-environment"
     if (newRequestVisible) return "new-request"
     if (importCurlVisible) return "import-curl"
     if (editRequestVisible) return "edit-request"
@@ -120,6 +125,7 @@ export function useOverlayState({
     collectionSwitchPending,
     collectionSwitcherVisible,
     yamlEditor.visible,
+    newEnvironmentVisible,
     newRequestVisible,
     importCurlVisible,
     editRequestVisible,
@@ -142,6 +148,9 @@ export function useOverlayState({
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    newEnvironmentVisible,
+    setNewEnvironmentVisible,
+    newEnvironmentRef,
     newRequestVisible,
     setNewRequestVisible,
     newRequestRef,

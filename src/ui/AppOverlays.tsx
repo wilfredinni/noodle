@@ -15,6 +15,10 @@ import {
   type NewRequestOverlayHandle,
 } from "./overlays/NewRequestOverlay"
 import {
+  NewEnvironmentOverlay,
+  type NewEnvironmentOverlayHandle,
+} from "./overlays/NewEnvironmentOverlay"
+import {
   CloneRequestOverlay,
   type CloneRequestOverlayHandle,
 } from "./overlays/CloneRequestOverlay"
@@ -93,6 +97,9 @@ interface AppOverlaysProps {
   setSaveState: (state: SaveState) => void
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
+  newEnvironmentVisible: boolean
+  newEnvironmentRef: RefObject<NewEnvironmentOverlayHandle | null>
+  newEnvironmentActions: { confirm: () => void; cancel: () => void }
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
   newRequestActions: { confirm: () => void; cancel: () => void }
@@ -181,6 +188,9 @@ export function AppOverlays({
   setSaveState,
   clearSaveTimer,
   saveTimerRef,
+  newEnvironmentVisible,
+  newEnvironmentRef,
+  newEnvironmentActions,
   newRequestVisible,
   newRequestRef,
   newRequestActions,
@@ -340,6 +350,14 @@ export function AppOverlays({
             setYamlEditor(initialYamlEditorState)
             setFocus(yamlEditor.returnFocus)
           }}
+        />
+      )}
+      {newEnvironmentVisible && (
+        <NewEnvironmentOverlay
+          visible
+          ref={newEnvironmentRef}
+          onConfirm={newEnvironmentActions.confirm}
+          onClose={newEnvironmentActions.cancel}
         />
       )}
       {newRequestVisible && (

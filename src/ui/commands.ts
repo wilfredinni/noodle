@@ -76,6 +76,7 @@ export interface CommandBuilderContext {
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setAboutVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setNewEnvironmentVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setImportCurlVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -153,6 +154,7 @@ export function buildCommandPaletteCommands(
     setEditRequestVisible,
     setYamlEditor,
     setNewRequestVisible,
+    setNewEnvironmentVisible,
     setImportCurlVisible,
     setCloneRequestVisible,
     setRequestDeletePending,
@@ -327,8 +329,8 @@ export function buildCommandPaletteCommands(
       section: "Environment",
       keybinding: displayKey(keybinds.env_new),
       run: () => {
-        if (!newEnvironment(c)) return false
-        setFocus("env-header")
+        if (!newEnvironment()) return false
+        setNewEnvironmentVisible(true)
         return true
       },
     },

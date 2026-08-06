@@ -180,8 +180,7 @@ export function saveEnvironment(c: CommandActionsConfig): boolean {
   return true
 }
 
-export function newEnvironment(c: CommandActionsConfig): boolean {
-  c.envEditorRef.current.openEditor()
+export function newEnvironment(): boolean {
   return true
 }
 

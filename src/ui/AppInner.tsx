@@ -553,6 +553,9 @@ export function AppInner({
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    newEnvironmentVisible,
+    setNewEnvironmentVisible,
+    newEnvironmentRef,
     newRequestVisible,
     setNewRequestVisible,
     newRequestRef,
@@ -802,6 +805,7 @@ export function AppInner({
     environment: {
       envStateRef,
       envEditorRef,
+      setNewEnvironmentVisible,
       setEnvDeletePending,
     },
   })
@@ -843,6 +847,22 @@ export function AppInner({
     setFocus,
     envHeaderRef,
     headerFieldRef,
+    newEnvironmentVisible,
+    newEnvironmentRef,
+    setNewEnvironmentVisible,
+    onNewEnvironmentConfirm: (values) => {
+      envEditor
+        .createEnv(values)
+        .then(() => {
+          setNewEnvironmentVisible(false)
+          focusPane("env-vars")
+        })
+        .catch((e: unknown) => {
+          newEnvironmentRef.current?.setError(
+            e instanceof Error ? e.message : String(e),
+          )
+        })
+    },
     newRequestVisible,
     newRequestRef,
     setNewRequestVisible,
@@ -937,6 +957,7 @@ export function AppInner({
         onLayoutChange,
         setHelpVisible,
         setAboutVisible,
+        setNewEnvironmentVisible,
         setNewRequestVisible,
         setImportCurlVisible,
         setNewFolderVisible,
@@ -1139,6 +1160,9 @@ export function AppInner({
           setSaveState={setSaveState}
           clearSaveTimer={clearSaveTimer}
           saveTimerRef={saveTimerRef}
+          newEnvironmentVisible={newEnvironmentVisible}
+          newEnvironmentRef={newEnvironmentRef}
+          newEnvironmentActions={overlayActions.newEnvironment}
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
           newRequestActions={overlayActions.newRequest}
