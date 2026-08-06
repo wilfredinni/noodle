@@ -14,7 +14,7 @@ import { initialEditState } from "../src/ui/editMode"
 import type { EditState, FieldKind } from "../src/ui/editMode"
 import type { ResponseQueryController } from "../src/ui/responseQuery"
 
-import { ThemeProvider } from "../src/ui/theme"
+import { ThemeProvider, THEMES } from "../src/ui/theme"
 import type { Keymap } from "@opentui/keymap"
 import type { Renderable, KeyEvent } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -98,6 +98,23 @@ function findSidebarScrollbox(requestRow: Renderable): ScrollBoxRenderable {
     current = current.parent
   }
   throw new Error("Sidebar scrollbox not found")
+}
+
+function expectThemedScrollbar(root: Renderable, id: string, visible: boolean) {
+  const scrollbox = root.findDescendantById(id)
+  expect(scrollbox).toBeInstanceOf(ScrollBoxRenderable)
+  const scrollbar = (scrollbox as ScrollBoxRenderable).verticalScrollBar
+  expect(scrollbar.visible).toBe(visible)
+  expect(
+    scrollbar.slider.backgroundColor.equals(
+      RGBA.fromHex(THEMES[0]!.background),
+    ),
+  ).toBe(true)
+  expect(
+    scrollbar.slider.foregroundColor.equals(
+      RGBA.fromHex(THEMES[0]!.borderActive),
+    ),
+  ).toBe(true)
 }
 
 describe("ResponsePane scrollbox", () => {
@@ -239,18 +256,82 @@ describe("ResponsePane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ResponsePane state={state} focused initialTab="network" />
-      </KeymapProvider>,
-      { width: 80, height: 16 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane state={state} focused initialTab="network" />
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
+    await renderOnce()
     await renderOnce()
     expect(captureCharFrame()).toContain("event 0")
+    expectThemedScrollbar(renderer.root, "network-tab-scrollbox", true)
     await act(async () => mockInput.pressKey("END"))
     await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("event 19")
+  })
+
+  it("shows a themed scrollbar for overflowing response headers", async () => {
+    const headers = Object.fromEntries(
+      Array.from({ length: 30 }, (_, i) => [`x-header-${i}`, `value-${i}`]),
+    )
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers,
+              body: "",
+              timeMs: 1,
+            },
+          }}
+          focused
+          initialTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    expectThemedScrollbar(renderer.root, "response-headers-scrollbox", true)
+  })
+
+  it("hides the response headers scrollbar when content fits", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: "",
+              timeMs: 1,
+            },
+          }}
+          focused
+          initialTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    expectThemedScrollbar(renderer.root, "response-headers-scrollbox", false)
   })
 
   it("shows network activity while sending", async () => {
@@ -809,7 +890,7 @@ describe("RequestPane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <RequestPane
           request={request}
@@ -838,6 +919,32 @@ describe("RequestPane scrollbox", () => {
 
     // scroll indicator present (proves overflow rendering)
     expect(frame).toMatch(/[▀▄▌]/)
+    expectThemedScrollbar(renderer.root, "request-tab-scrollbox", true)
+  })
+
+  it("hides the request tab scrollbar when content fits", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RequestPane
+          request={makeRequest(1)}
+          editState={initialEditState()}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    expectThemedScrollbar(renderer.root, "request-tab-scrollbox", false)
   })
 
   it("browse cursor highlights header row with background highlight", async () => {

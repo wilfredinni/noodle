@@ -266,8 +266,15 @@ export function RequestPane({
                 />
               ) : (
                 <scrollbox
+                  id="request-tab-scrollbox"
                   ref={scrollRef}
                   scrollY
+                  verticalScrollbarOptions={{
+                    trackOptions: {
+                      backgroundColor: theme.background,
+                      foregroundColor: theme.borderActive,
+                    },
+                  }}
                   style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
                 >
                   {activeTab === "body" && (

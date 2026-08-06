@@ -641,9 +641,15 @@ export function ResponsePane({
             )
           ) : state.status === "done" ? (
             <scrollbox
+              id="response-headers-scrollbox"
               ref={scrollRef}
               scrollY
-              scrollbarOptions={{ visible: false }}
+              verticalScrollbarOptions={{
+                trackOptions: {
+                  backgroundColor: theme.background,
+                  foregroundColor: theme.borderActive,
+                },
+              }}
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
             >
               <HeaderTable entries={responseHeaders} theme={theme} />
