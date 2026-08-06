@@ -178,6 +178,14 @@ export function RequestPane({
       }
       onPaneFocus={onPaneFocus}
       onInteraction={onInteraction}
+      onMouseDrag={(event) => {
+        if (isJsonBody) {
+          bodyEditorRef.current?.handleSelectionDrag(event.x, event.y)
+        }
+      }}
+      onMouseUp={() => {
+        bodyEditorRef.current?.finishSelectionDrag()
+      }}
     >
       {request ? (
         <>

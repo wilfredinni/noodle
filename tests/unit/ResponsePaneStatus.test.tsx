@@ -172,8 +172,13 @@ describe("ResponsePane status text truncation and layout tests", () => {
     await renderOnce()
 
     const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    const bodyScrollbar = renderer.root.findDescendantById(
+      "response-body-scrollbar",
+    )
     expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    expect(bodyScrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
     const editor = bodyEditor as CodeEditorRenderable
+    const scrollbar = bodyScrollbar as CodeEditorScrollBarRenderable
     expect(editor.parent).not.toBeNull()
     expect(editor.parent!.height).toBeLessThan(editor.totalVirtualLineCount)
     const initialFrame = captureCharFrame()
@@ -181,6 +186,8 @@ describe("ResponsePane status text truncation and layout tests", () => {
     const lines = initialFrame.split("\n")
     const responseBottom = lines.findLastIndex((line) => line.startsWith("└"))
     expect(responseBottom).toBeGreaterThan(0)
+    expect(editor.y + editor.height).toBeLessThanOrEqual(responseBottom)
+    expect(scrollbar.y + scrollbar.height).toBeLessThanOrEqual(responseBottom)
     expect(
       lines
         .slice(responseBottom + 1)

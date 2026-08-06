@@ -97,6 +97,68 @@ function ActiveJsonEditorHarness({
 }
 
 describe("BodySection — edit mode", () => {
+  it("keeps a request-body selection anchored while dragging beyond the viewport", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const body = Array.from(
+      { length: 30 },
+      (_, index) => `request line ${index}`,
+    ).join("\n")
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box width={48} height={12}>
+              <RequestPane
+                request={{ ...testRequest, body }}
+                editState={editStateEditing}
+                editKey=""
+                editValue={body}
+                setEditKey={() => {}}
+                setEditValue={() => {}}
+                focused
+                activeTab="body"
+                onBodyChange={() => {}}
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 48, height: 12 },
+      )
+    await renderOnce()
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "request-body-editor",
+    ) as CodeEditorRenderable
+    const rows = captureCharFrame().split("\n")
+    const firstBodyRow = rows.find((row) => row.includes("request line 0"))
+    if (!firstBodyRow) throw new Error("Expected the first request body row")
+    const x = firstBodyRow.indexOf("request") + 1
+    const y = rows.indexOf(firstBodyRow)
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x, y + 1)
+      await mockMouse.moveTo(x, editor.y + editor.height, { delayMs: 25 })
+    })
+    for (let frame = 0; frame < 4; frame++) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      await renderOnce()
+    }
+
+    expect(editor.scrollY).toBeGreaterThan(0)
+    expect(editor.getSelectedText()).toContain("equest line 0")
+    expect(editor.getSelectedText()).toContain("request line 4")
+
+    await act(async () => {
+      await mockMouse.release(x, editor.y + editor.height)
+    })
+    const scrollAfterRelease = editor.scrollY
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    expect(editor.scrollY).toBe(scrollAfterRelease)
+    cleanup()
+  })
+
   it("does not report formatted JSON as an edit while browsing", async () => {
     const { keymap, cleanup } = setupKeymap()
     const changes: string[] = []

@@ -145,14 +145,14 @@ export function ResponsePane({
     if (!isActiveRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
     if (queryVisible) return
-    if (key.name === "left") {
+    if (!key.shift && key.name === "left") {
       key.preventDefault()
       setActiveTab((prev) => {
         const ids = ["body", "headers", "network", "timeline"] as const
         const idx = ids.indexOf(prev)
         return ids[(idx - 1 + ids.length) % ids.length]
       })
-    } else if (key.name === "right") {
+    } else if (!key.shift && key.name === "right") {
       key.preventDefault()
       setActiveTab((prev) => {
         const ids = ["body", "headers", "network", "timeline"] as const
@@ -164,6 +164,10 @@ export function ResponsePane({
     } else if (activeTab === "timeline") {
       return
     } else if (activeTab === "body" && bodyEditorRef.current) {
+      if (key.shift && bodyEditorRef.current.handleKeyPress(key)) {
+        key.preventDefault()
+        key.stopPropagation()
+      }
       return
     } else if (key.name === "down") {
       scrollRef.current?.scrollBy(1)
@@ -393,7 +397,7 @@ export function ResponsePane({
         flexDirection: "column",
         paddingLeft: 1,
         paddingRight: 1,
-        paddingBottom: 0,
+        paddingBottom: 1,
         flexBasis: 0,
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,
@@ -403,6 +407,12 @@ export function ResponsePane({
       borderColor={borderColor}
       titleRight={headerRight}
       onPaneFocus={onPaneFocus}
+      onMouseDrag={(event) => {
+        bodyEditorRef.current?.handleSelectionDrag(event.x, event.y)
+      }}
+      onMouseUp={() => {
+        bodyEditorRef.current?.finishSelectionDrag()
+      }}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <Tabs
@@ -546,6 +556,7 @@ export function ResponsePane({
                       flexShrink: 1,
                       flexBasis: 0,
                       minHeight: 0,
+                      overflow: "hidden",
                     }}
                   >
                     <line-number

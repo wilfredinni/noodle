@@ -19,6 +19,7 @@ import type { Keymap } from "@opentui/keymap"
 import type { Renderable, KeyEvent } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
+import { MouseButtons } from "@opentui/core/testing"
 import { visibleNodes } from "../src/ui/tree"
 import {
   CodeEditorRenderable,
@@ -504,6 +505,91 @@ describe("ResponsePane scrollbox", () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("item-0")
+  })
+
+  it("extends response body selections while dragging beyond the viewport", async () => {
+    const body = Array.from(
+      { length: 30 },
+      (_, index) => `response line ${index}`,
+    ).join("\n")
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={{
+              status: "done",
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body,
+                timeMs: 1,
+              },
+            }}
+            focused
+          />
+        </KeymapProvider>,
+        { width: 48, height: 12 },
+      )
+    await renderOnce()
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    const rows = captureCharFrame().split("\n")
+    const firstBodyRow = rows.find((row) => row.includes("response line 0"))
+    if (!firstBodyRow) throw new Error("Expected the first response body row")
+    const x = firstBodyRow.indexOf("response") + 1
+    const y = rows.indexOf(firstBodyRow)
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x, y + 1)
+    })
+    expect(editor.hasSelection()).toBe(true)
+    await act(async () => {
+      await mockMouse.moveTo(x, editor.y + editor.height, {
+        delayMs: 25,
+      })
+    })
+    expect(editor.hasSelection()).toBe(true)
+    for (let frame = 0; frame < 4; frame++) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      await renderOnce()
+    }
+
+    expect(editor.scrollY).toBeGreaterThan(0)
+    const selectedText = editor.getSelectedText()
+    expect(selectedText).toContain("esponse line 0")
+    expect(selectedText).toContain("response line 4")
+
+    await act(async () => {
+      await mockMouse.release(x, editor.y + editor.height)
+    })
+    const scrollAfterRelease = editor.scrollY
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    expect(editor.scrollY).toBe(scrollAfterRelease)
+
+    editor.clearSelection()
+    editor.setCursor(0, 0)
+    editor.focus()
+    expect(editor.focused).toBe(true)
+    for (let press = 0; press < 8; press++) {
+      editor.handleKeyPress({
+        name: "down",
+        sequence: "down",
+        raw: "down",
+        shift: true,
+      } as never)
+    }
+    await renderOnce()
+    expect(editor.scrollY).toBeGreaterThan(0)
+    expect(editor.getSelectedText()).toContain("response line 0")
+    expect(editor.getSelectedText()).toContain("response line 5")
   })
 
   it("hides the response body scrollbar when the body fits", async () => {

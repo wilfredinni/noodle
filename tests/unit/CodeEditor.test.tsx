@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import type { KeyEvent, LineNumberRenderable } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
@@ -1263,6 +1264,56 @@ describe("CodeEditorRenderable read-only mode", () => {
     await new Promise((resolve) => setTimeout(resolve, 10))
     await renderOnce()
     expect(readonly.plainText).toBe('{\n  "updated": true\n}')
+  })
+
+  it("keeps read-only mouse selections active while dragging below the viewport", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 20 },
+      (_, index) => `line ${index}`,
+    ).join("\n")
+    const { renderer, renderOnce, mockMouse } = await testRender(
+      <box width={24} height={4}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 24, height: 8 },
+    )
+    await renderOnce()
+
+    const readonly = editor!
+    const x = readonly.x + 1
+    const y = readonly.y
+    await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+    await mockMouse.moveTo(x, readonly.y + readonly.height + 2, {
+      delayMs: 25,
+    })
+    for (let frame = 0; frame < 4; frame++) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      await renderOnce()
+    }
+
+    expect(readonly.scrollY).toBeGreaterThan(0)
+    const selectedText = renderer.getSelection()?.getSelectedText() ?? ""
+    expect(selectedText).toContain("ine 0")
+    expect(selectedText).toContain("line 4")
+
+    await mockMouse.release(x, readonly.y + readonly.height + 2)
+    const scrollAfterRelease = readonly.scrollY
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    expect(readonly.scrollY).toBe(scrollAfterRelease)
   })
 
   it("limits JSON highlighting to visible lines and skips pathological lines", async () => {

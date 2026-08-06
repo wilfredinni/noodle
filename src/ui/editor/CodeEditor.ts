@@ -81,6 +81,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _readonlyHighlightTimer: ReturnType<typeof setTimeout> | null = null
   private _readonlyHighlightedLines = new Set<number>()
   private _readonlyNeedsFolds = true
+  private _selectionDragPointer: { x: number; y: number } | null = null
+  private _selectionDragScrollAccumulator = 0
+  private _selectionDragAnchor: number | null = null
+  private _selectionDragDirection: -1 | 1 = 1
+  private _readonlyKeyboardSelectionAnchor: number | null = null
   private _displayedTextLength = 0
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
@@ -375,6 +380,40 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (this._readOnly) this.scheduleHighlight()
   }
 
+  handleSelectionDrag(x: number, y: number): void {
+    const selection = this._ctx.getSelection()
+    if (!selection?.isDragging) return
+    if (this._selectionDragAnchor === null) {
+      const editorSelection = this.getSelection()
+      if (editorSelection) {
+        this._selectionDragDirection =
+          y < selection.anchor.y ||
+          (y === selection.anchor.y && x < selection.anchor.x)
+            ? -1
+            : 1
+        this._selectionDragAnchor =
+          this._selectionDragDirection === 1
+            ? editorSelection.start
+            : editorSelection.end
+      }
+    }
+    this._selectionDragPointer = { x, y }
+    this.refreshSelectionDrag()
+    const direction = y < this.y ? -1 : y >= this.y + this.height ? 1 : 0
+    if (direction !== 0) this.scrollSelectionDrag(direction, 1)
+  }
+
+  finishSelectionDrag(): void {
+    this._selectionDragPointer = null
+    this._selectionDragScrollAccumulator = 0
+    this._selectionDragAnchor = null
+  }
+
+  protected override onUpdate(deltaTime: number): void {
+    super.onUpdate(deltaTime)
+    this.refreshSelectionDrag(deltaTime)
+  }
+
   override requestRender(): void {
     if (this._renderSuppressed || this.isDestroyed) return
     super.requestRender()
@@ -415,6 +454,24 @@ export class CodeEditorRenderable extends TextareaRenderable {
       return true
     }
     if (this._readOnly) {
+      const isSelectionNavigation =
+        key.shift &&
+        ["left", "right", "up", "down", "home", "end"].includes(key.name)
+      if (isSelectionNavigation) {
+        if (this._readonlyKeyboardSelectionAnchor === null) {
+          this._readonlyKeyboardSelectionAnchor = this.cursorOffset
+        }
+        const handled = super.handleKeyPress(key)
+        if (handled) {
+          this.editorView.setSelection(
+            this._readonlyKeyboardSelectionAnchor,
+            this.cursorOffset,
+          )
+          this.requestRender()
+        }
+        return handled
+      }
+      this._readonlyKeyboardSelectionAnchor = null
       if (key.name === "pagedown") {
         this.scrollByViewport(1)
         return true
@@ -487,6 +544,61 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (this._highlightTimer) clearTimeout(this._highlightTimer)
     if (this._readonlyHighlightTimer) clearTimeout(this._readonlyHighlightTimer)
     super.destroy()
+  }
+
+  private refreshSelectionDrag(deltaTime = 0): void {
+    const pointer = this._selectionDragPointer
+    if (!pointer) return
+    if (!this._ctx.getSelection()?.isDragging || this.height <= 0) {
+      this.finishSelectionDrag()
+      return
+    }
+    const direction =
+      pointer.y < this.y ? -1 : pointer.y >= this.y + this.height ? 1 : 0
+    if (direction !== 0 && deltaTime > 0) {
+      this._selectionDragScrollAccumulator += (deltaTime * 12) / 1000
+      const linesToScroll = Math.floor(this._selectionDragScrollAccumulator)
+      if (linesToScroll > 0) {
+        this._selectionDragScrollAccumulator -= linesToScroll
+        if (!this.scrollSelectionDrag(direction, linesToScroll))
+          this._selectionDragScrollAccumulator = 0
+      }
+    }
+    this._ctx.updateSelection(
+      this,
+      pointer.x,
+      Math.max(this.y, Math.min(pointer.y, this.y + this.height - 1)),
+    )
+    this.restoreSelectionDragAnchor()
+  }
+
+  private scrollSelectionDrag(direction: -1 | 1, lines: number): boolean {
+    const viewport = this.editorView.getViewport()
+    const maxOffset = Math.max(0, this.totalVirtualLineCount - viewport.height)
+    const nextOffset = Math.max(
+      0,
+      Math.min(viewport.offsetY + direction * lines, maxOffset),
+    )
+    if (nextOffset === viewport.offsetY) return false
+    this.editorView.setViewport(
+      viewport.offsetX,
+      nextOffset,
+      viewport.width,
+      viewport.height,
+      false,
+    )
+    this.requestRender()
+    if (this._readOnly) this.scheduleHighlight()
+    return true
+  }
+
+  private restoreSelectionDragAnchor(): void {
+    if (this._selectionDragAnchor === null) return
+    const selection = this.getSelection()
+    if (!selection) return
+    const focus =
+      this._selectionDragDirection === 1 ? selection.end : selection.start
+    this.editorView.setSelection(this._selectionDragAnchor, focus)
   }
 
   private handleAutoClose(key: KeyEvent, closeChar: string): boolean {
