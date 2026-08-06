@@ -579,7 +579,12 @@ describe("ResponsePane scrollbox", () => {
 
     editor.toggleFold(2)
     await renderOnce()
-    const afterLine = captureCharFrame()
+    const foldedFrame = captureCharFrame()
+    const dataFoldLine = foldedFrame
+      .split("\n")
+      .find((line) => line.includes('"data": {... }'))
+    expect(dataFoldLine).toMatch(/▶ {2}3 /)
+    const afterLine = foldedFrame
       .split("\n")
       .find((line) => line.includes('"after"'))
     expect(afterLine).toMatch(/\b6\s+"after"/)
@@ -595,6 +600,67 @@ describe("ResponsePane scrollbox", () => {
     })
     await renderOnce()
     expect(editor.lineCount).toBeLessThan(7)
+  })
+
+  it("keeps folded response source numbers beside their gutter signs", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const body = `{
+  "first": {
+    "value": 1
+  },
+  "filler0": 0,
+  "filler1": 1,
+  "filler2": 2,
+  "filler3": 3,
+  "filler4": 4,
+  "filler5": 5,
+  "filler6": 6,
+  "filler7": 7,
+  "second": {
+    "value": 8
+  }
+}`
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body,
+              timeMs: 1,
+            },
+          }}
+          focused
+        />
+      </KeymapProvider>,
+      { width: 48, height: 20 },
+    )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    for (const line of [12, 1]) editor.toggleFold(line)
+    await renderOnce()
+
+    const foldLines = captureCharFrame()
+      .split("\n")
+      .filter((line) => line.includes("▶"))
+    const oneDigitLine = foldLines.find((line) => /▶ {2}2 /.test(line))
+    const twoDigitLine = foldLines.find((line) => /▶ {1}13 /.test(line))
+    if (!oneDigitLine || !twoDigitLine)
+      throw new Error("Expected one- and two-digit folded source labels")
+
+    const oneDigitGap = oneDigitLine.indexOf("2") - oneDigitLine.indexOf("▶")
+    const twoDigitGap = twoDigitLine.indexOf("13") - twoDigitLine.indexOf("▶")
+    expect(oneDigitGap).toBe(3)
+    expect(twoDigitGap).toBe(2)
   })
 
   it("keeps bodies above 5 MB raw until v is pressed", async () => {

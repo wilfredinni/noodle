@@ -1,8 +1,4 @@
-import {
-  MouseButton,
-  type LineNumberRenderable,
-  type LineSign,
-} from "@opentui/core"
+import { MouseButton, type LineNumberRenderable } from "@opentui/core"
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { basename, dirname } from "node:path"
@@ -16,8 +12,7 @@ import { lang } from "../../lang"
 import type { Environment } from "../../schema"
 import { CodeEditorCompletion } from "./CodeEditorCompletion"
 import { getEnvVarHighlights } from "../variable-completion/variableCompletion"
-
-const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
+import { RESERVED_FOLD_SIGN, syncCodeEditorGutter } from "./codeEditorGutter"
 
 export interface YamlEditorOverlayProps {
   visible: boolean
@@ -204,15 +199,7 @@ export function YamlEditorOverlay({
       const ed = editorRef.current
       const ln = lineNumberRef.current
       if (!ed || !ln) return
-      const signs = ed.getFoldSigns()
-      const sign =
-        hoveredFoldLine === undefined ? undefined : signs.get(hoveredFoldLine)
-      if (sign && hoveredFoldLine !== undefined) {
-        signs.set(hoveredFoldLine, { ...sign, beforeColor: theme.primary })
-      }
-      ln.setLineSigns(new Map([...RESERVED_FOLD_SIGN, ...signs]))
-      ln.setLineNumbers(ed.getDisplayLineNumbers())
-      ln.setHideLineNumbers(ed.getHiddenLineNumbers())
+      syncCodeEditorGutter(ln, ed, hoveredFoldLine, theme.primary)
     },
     [theme.primary],
   )

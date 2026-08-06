@@ -548,7 +548,12 @@ describe("BodySection — edit mode", () => {
       await mockMouse.click(x, y, MouseButtons.LEFT)
     })
     await renderOnce()
-    expect(captureCharFrame()).toContain("{... } (3 lines)")
+    const foldedFrame = captureCharFrame()
+    expect(foldedFrame).toContain("{... } (3 lines)")
+    const foldedLine = foldedFrame
+      .split("\n")
+      .find((line) => line.includes("{... } (3 lines)"))
+    expect(foldedLine).toMatch(/▶ {2}1 /)
     cleanup()
   })
 

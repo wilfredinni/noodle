@@ -3,7 +3,6 @@ import {
   MouseButton,
   type Highlight,
   type LineNumberRenderable,
-  type LineSign,
 } from "@opentui/core"
 import type { Request, Environment } from "../../schema"
 import { formatBody } from "../formatRequest"
@@ -18,12 +17,10 @@ import { ValidationNotice } from "../editor/ValidationNotice"
 import { validateJsonContent } from "../editor/jsonValidation"
 import { getEnvVarHighlights } from "../variable-completion/variableCompletion"
 import { Select, type SelectItem } from "../Select"
-
-const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
-
-function reserveFoldSigns(signs: Map<number, LineSign>): Map<number, LineSign> {
-  return new Map([...RESERVED_FOLD_SIGN, ...signs])
-}
+import {
+  RESERVED_FOLD_SIGN,
+  syncCodeEditorGutter,
+} from "../editor/codeEditorGutter"
 
 export function BodyTypeSelector({
   request,
@@ -171,15 +168,7 @@ export function BodySection({
       const ed = editorRef.current
       const ln = lineNumberRef.current
       if (!ed || !ln) return
-      const signs = ed.getFoldSigns()
-      const sign =
-        hoveredFoldLine === undefined ? undefined : signs.get(hoveredFoldLine)
-      if (sign && hoveredFoldLine !== undefined) {
-        signs.set(hoveredFoldLine, { ...sign, beforeColor: theme.primary })
-      }
-      ln.setLineSigns(reserveFoldSigns(signs))
-      ln.setLineNumbers(ed.getDisplayLineNumbers())
-      ln.setHideLineNumbers(ed.getHiddenLineNumbers())
+      syncCodeEditorGutter(ln, ed, hoveredFoldLine, theme.primary)
     },
     [theme.primary],
   )

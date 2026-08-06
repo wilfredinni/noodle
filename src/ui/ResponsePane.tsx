@@ -5,7 +5,6 @@ import {
   MouseButton,
   type InputRenderable,
   type LineNumberRenderable,
-  type LineSign,
   type ScrollBoxRenderable,
 } from "@opentui/core"
 import type { RefObject } from "react"
@@ -17,6 +16,10 @@ import { useTheme } from "./theme"
 import { RESPONSE_TAB_HINT_ORDER } from "./useJumpMode"
 import { FullBorder, LeftBar } from "./borders"
 import { CodeEditorRenderable } from "./editor/CodeEditor"
+import {
+  RESERVED_FOLD_SIGN,
+  syncCodeEditorGutter,
+} from "./editor/codeEditorGutter"
 import { Tips } from "./Tips"
 import { Frame } from "./Frame"
 import {
@@ -33,8 +36,6 @@ import type { ResponseTabKind } from "./tabs/uiState"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
-const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
-
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
   { id: "headers", label: "Headers" },
@@ -112,11 +113,7 @@ export function ResponsePane({
     const editor = bodyEditorRef.current
     const lineNumber = lineNumberRef.current
     if (!editor || !lineNumber) return
-    lineNumber.setLineSigns(
-      new Map([...RESERVED_FOLD_SIGN, ...editor.getFoldSigns()]),
-    )
-    lineNumber.setLineNumbers(editor.getDisplayLineNumbers())
-    lineNumber.setHideLineNumbers(editor.getHiddenLineNumbers())
+    syncCodeEditorGutter(lineNumber, editor)
   }, [])
 
   const setBodyEditorRef = useCallback(
