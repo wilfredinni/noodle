@@ -219,7 +219,8 @@ export function createGlobalLayers(
             keymap.getData("app.mode") !== "edit" &&
             keymap.getData("app.jump") !== "active" &&
             !editingUrlText &&
-            !editingEnvName
+            !editingEnvName &&
+            !global.responseQueryRef.current?.isOpen()
           )
         },
         run: () => global.setJumpMode(true),

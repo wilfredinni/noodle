@@ -297,6 +297,7 @@ export function ResponsePane({
     if (!responseQueryRef) return
     responseQueryRef.current = {
       canOpen: () => isDone && activeTab === "body" && !queryVisible,
+      isOpen: () => queryVisible,
       open: () => {
         if (!isDone || activeTab !== "body") return false
         setQueryVisible(true)
