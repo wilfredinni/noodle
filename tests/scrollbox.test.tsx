@@ -446,12 +446,14 @@ describe("ResponsePane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ResponsePane state={state} focused={true} />
-      </KeymapProvider>,
-      { width: 80, height: 12 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane state={state} focused={true} />
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+    await renderOnce()
     await renderOnce()
 
     const frame = captureCharFrame()
@@ -464,6 +466,24 @@ describe("ResponsePane scrollbox", () => {
     expect(bodyLines.length).toBeGreaterThan(0)
     expect(bodyLines.length).toBeLessThan(100)
 
+    const bodyScrollbox = renderer.root.findDescendantById(
+      "response-body-scrollbox",
+    )
+    expect(bodyScrollbox).toBeInstanceOf(ScrollBoxRenderable)
+    const scrollbox = bodyScrollbox as ScrollBoxRenderable
+    expect(scrollbox.verticalScrollBar.visible).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(
+        scrollbox.verticalScrollBar.screenX,
+        scrollbox.verticalScrollBar.screenY +
+          scrollbox.verticalScrollBar.height -
+          1,
+      )
+    })
+    await renderOnce()
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+
     await act(async () => mockInput.pressKey("END"))
     await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
@@ -473,6 +493,40 @@ describe("ResponsePane scrollbox", () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("item-0")
+  })
+
+  it("hides the response body scrollbar when the body fits", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: '{"ok":true}',
+              timeMs: 1,
+            },
+          }}
+          focused
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    const bodyScrollbox = renderer.root.findDescendantById(
+      "response-body-scrollbox",
+    )
+    expect(bodyScrollbox).toBeInstanceOf(ScrollBoxRenderable)
+    expect(
+      (bodyScrollbox as ScrollBoxRenderable).verticalScrollBar.visible,
+    ).toBe(false)
   })
 })
 

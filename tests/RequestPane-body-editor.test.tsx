@@ -7,12 +7,18 @@ import { KeymapProvider } from "@opentui/keymap/react"
 import { readFile } from "node:fs/promises"
 import { RequestPane } from "../src/ui/RequestPane"
 import { ThemeProvider } from "../src/ui/theme"
-import { CodeEditorRenderable } from "../src/ui/editor/CodeEditor"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../src/ui/editor/CodeEditor"
 import { lang } from "../src/lang"
 import type { Request } from "../src/schema"
 import { setupKeymap } from "./unit/_helpers"
 
-extend({ "code-editor": CodeEditorRenderable })
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
 
 const testRequest: Request = {
   id: "test",
@@ -276,7 +282,7 @@ describe("BodySection — edit mode", () => {
 
   it("renders JSON in code editor before entering body edit focus", async () => {
     const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <box width={80} height={20}>
@@ -296,12 +302,16 @@ describe("BodySection — edit mode", () => {
       { width: 80, height: 20 },
     )
     await renderOnce()
+    await renderOnce()
     const frame = captureCharFrame()
     // JSON always renders in the code editor, not the read-only viewer.
     expect(frame).toContain("name")
     expect(frame).toContain("hello")
     // Should NOT contain "(none)"
     expect(frame).not.toContain("(none)")
+    const scrollbar = renderer.root.findDescendantById("request-body-scrollbar")
+    expect(scrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    expect(scrollbar!.visible).toBe(false)
     cleanup()
   })
 
@@ -373,6 +383,135 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
+  it("shows and synchronizes an interactive scrollbar for tall JSON", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const tallRequest: Request = {
+      ...testRequest,
+      body: JSON.stringify(
+        Object.fromEntries(
+          Array.from({ length: 40 }, (_, i) => [`key${i}`, i]),
+        ),
+      ),
+    }
+    const { renderer, renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={8}>
+            <RequestPane
+              request={tallRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById("request-body-editor")
+    const scrollbar = renderer.root.findDescendantById("request-body-scrollbar")
+    expect(editor).toBeInstanceOf(CodeEditorRenderable)
+    expect(scrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    const codeEditor = editor as CodeEditorRenderable
+    const editorScrollbar = scrollbar as CodeEditorScrollBarRenderable
+    expect(editorScrollbar.scrollSize).toBeGreaterThan(
+      editorScrollbar.viewportSize,
+    )
+    expect(editorScrollbar.viewportSize).toBe(codeEditor.height)
+    expect(editorScrollbar.visible).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(
+        editorScrollbar.slider.screenX,
+        editorScrollbar.slider.screenY + editorScrollbar.slider.height - 1,
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+
+    expect(codeEditor.scrollY).toBeGreaterThan(0)
+    expect(editorScrollbar.scrollPosition).toBe(codeEditor.scrollY)
+    cleanup()
+  })
+
+  it("uses wrapped editor rows when dragging the JSON scrollbar", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const wrappedRequest: Request = {
+      ...testRequest,
+      body: JSON.stringify({
+        message: "wrapped content ".repeat(300),
+        tail: "end",
+      }),
+    }
+    const { renderer, renderOnce, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={42} height={10}>
+            <RequestPane
+              request={wrappedRequest}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 42, height: 10 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById("request-body-editor")
+    const scrollbar = renderer.root.findDescendantById("request-body-scrollbar")
+    expect(editor).toBeInstanceOf(CodeEditorRenderable)
+    expect(scrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    const codeEditor = editor as CodeEditorRenderable
+    const editorScrollbar = scrollbar as CodeEditorScrollBarRenderable
+    expect(codeEditor.focused).toBe(false)
+    expect(codeEditor.totalVirtualLineCount).toBeGreaterThan(
+      codeEditor.viewport.height,
+    )
+    expect(editorScrollbar.scrollSize).toBe(codeEditor.totalVirtualLineCount)
+    expect(editorScrollbar.viewportSize).toBe(codeEditor.viewport.height)
+
+    const dragX = editorScrollbar.slider.screenX
+    const dragY = editorScrollbar.slider.screenY
+    const dragEndY = dragY + editorScrollbar.slider.height - 1
+
+    await act(async () => {
+      await mockMouse.pressDown(dragX, dragY, MouseButtons.LEFT)
+      const rows = Array.from(
+        { length: dragEndY - dragY + 1 },
+        (_, i) => dragY + i,
+      )
+      for (const y of [...rows, ...rows.toReversed()]) {
+        await mockMouse.moveTo(dragX, y)
+        const expectedPosition = editorScrollbar.scrollPosition
+        await renderOnce()
+        expect(codeEditor.scrollY).toBe(expectedPosition)
+        expect(editorScrollbar.scrollPosition).toBe(codeEditor.scrollY)
+      }
+      await mockMouse.release(dragX, dragY, MouseButtons.LEFT)
+    })
+    await renderOnce()
+
+    expect(codeEditor.scrollY).toBe(0)
+    expect(codeEditor.focused).toBe(false)
+    expect(editorScrollbar.scrollPosition).toBe(codeEditor.scrollY)
+    cleanup()
+  })
+
   it("toggles a JSON fold from its gutter icon", async () => {
     const { keymap, cleanup } = setupKeymap()
     const body = '{\n  "name": "hello",\n  "count": 42\n}'
@@ -423,28 +562,29 @@ describe("BodySection — edit mode", () => {
         ),
       ),
     }
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box width={80} height={8}>
-            <RequestPane
-              request={tallRequest}
-              editState={editStateBrowse}
-              editKey=""
-              editValue=""
-              setEditKey={() => {}}
-              setEditValue={() => {}}
-              focused={true}
-              activeTab="body"
-            />
-          </box>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 80, height: 8 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box width={80} height={8}>
+              <RequestPane
+                request={tallRequest}
+                editState={editStateBrowse}
+                editKey=""
+                editValue=""
+                setEditKey={() => {}}
+                setEditValue={() => {}}
+                focused={true}
+                activeTab="body"
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 8 },
+      )
     await renderOnce()
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 40; i++) {
       act(() => {
         mockInput.pressKey("\x1b[6~")
       })
@@ -452,6 +592,13 @@ describe("BodySection — edit mode", () => {
     }
 
     expect(captureCharFrame()).toContain('"key29"')
+    const editor = renderer.root.findDescendantById("request-body-editor")
+    const scrollbar = renderer.root.findDescendantById("request-body-scrollbar")
+    expect(editor).toBeInstanceOf(CodeEditorRenderable)
+    expect(scrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    expect((scrollbar as CodeEditorScrollBarRenderable).scrollPosition).toBe(
+      (editor as CodeEditorRenderable).scrollY,
+    )
     cleanup()
   })
 
@@ -489,7 +636,7 @@ describe("BodySection — edit mode", () => {
     const row = rows.find((line) => line.includes("{") && line.includes("1"))
     if (!row) throw new Error("Expected JSON gutter row")
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
       await mockMouse.scroll(row.indexOf("1"), rows.indexOf(row), "down")
       await renderOnce()
     }

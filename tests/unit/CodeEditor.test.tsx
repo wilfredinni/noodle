@@ -261,6 +261,62 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.scrollY).toBeGreaterThan(0)
   })
 
+  it("keeps wrapped scrollbar navigation exact while blurred and focused", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = JSON.stringify(
+      {
+        message: "wrapped content ".repeat(200),
+        tail: "end",
+      },
+      null,
+      2,
+    )
+
+    const { renderer, renderOnce } = await testRender(
+      <box width={30} height={6}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          scrollMargin={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 30, height: 6 },
+    )
+
+    await renderOnce()
+    await renderOnce()
+    const maxPosition = editor!.totalVirtualLineCount - editor!.viewport.height
+    const ascending = Array.from({ length: maxPosition + 1 }, (_, i) => i)
+    const descending = ascending.toReversed()
+
+    expect(editor!.totalVirtualLineCount).toBeGreaterThan(editor!.lineCount)
+
+    for (const focused of [false, true]) {
+      if (focused) editor!.focus()
+      else editor!.blur()
+
+      for (const positions of [ascending, descending]) {
+        for (const position of positions) {
+          editor!.scrollTo(position)
+          await renderOnce()
+          expect(editor!.scrollY).toBe(position)
+          expect(editor!.focused).toBe(focused)
+        }
+      }
+
+      expect(renderer.getCursorState().visible).toBe(focused)
+    }
+  })
+
   it("does not move the cursor for a zero scroll delta", async () => {
     let editor: CodeEditorRenderable | null = null
     const { renderOnce } = await testRender(

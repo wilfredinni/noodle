@@ -3,9 +3,15 @@ import type {
   KeyEvent,
   PasteEvent,
   RenderContext,
+  ScrollBarOptions,
+  ScrollUnit,
   TreeSitterClient,
 } from "@opentui/core"
-import { getTreeSitterClient, TextareaRenderable } from "@opentui/core"
+import {
+  getTreeSitterClient,
+  ScrollBarRenderable,
+  TextareaRenderable,
+} from "@opentui/core"
 import type { Theme } from "../theme-data"
 import {
   getAutoCloseCharacter,
@@ -25,6 +31,7 @@ import { CodeEditorHighlightRenderer } from "./codeEditorHighlightRenderer"
 export type { FoldInfo } from "./codeEditorFolds"
 
 export interface CodeEditorOptions {
+  id?: string
   filetype: string
   theme: Theme
   debounceMs?: number
@@ -44,6 +51,13 @@ export interface CodeEditorOptions {
   cursorColor?: string
 }
 
+export interface CodeEditorScrollBarOptions extends Omit<
+  ScrollBarOptions,
+  "orientation" | "onChange"
+> {
+  target: CodeEditorRenderable | null
+}
+
 export class CodeEditorRenderable extends TextareaRenderable {
   private _filetype: string
   private _debounceMs: number
@@ -60,6 +74,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
     super(ctx, {
+      id: options.id,
       initialValue: options.value ?? options.initialValue,
       backgroundColor: options.backgroundColor ?? "transparent",
       textColor: options.textColor ?? "#FFFFFF",
@@ -190,6 +205,14 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return this._foldManager.getFoldSigns()
   }
 
+  get totalVirtualLineCount(): number {
+    return this.editorView.getTotalVirtualLineCount()
+  }
+
+  get viewport() {
+    return this.editorView.getViewport()
+  }
+
   getHiddenLineNumbers() {
     return this._foldManager.getHiddenLineNumbers()
   }
@@ -231,6 +254,36 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.scrollBy(delta * this.height)
   }
 
+  scrollTo(position: number): void {
+    const viewport = this.editorView.getViewport()
+    const maxPosition = Math.max(
+      0,
+      this.totalVirtualLineCount - viewport.height,
+    )
+    const nextPosition = Math.max(0, Math.min(position, maxPosition))
+    this.editorView.setViewport(
+      viewport.offsetX,
+      nextPosition,
+      viewport.width,
+      viewport.height,
+      false,
+    )
+    // EditorView recenters on its cursor during render, even while blurred.
+    const anchorRow = Math.min(1, Math.max(0, viewport.height - 1))
+    this.editorView.setLocalSelection(
+      0,
+      anchorRow,
+      0,
+      anchorRow,
+      undefined,
+      undefined,
+      true,
+      false,
+    )
+    this.editorView.resetLocalSelection()
+    this.requestRender()
+  }
+
   scrollBy(delta: number): void {
     if (delta === 0) return
     const move =
@@ -245,7 +298,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   override requestRender(): void {
-    if (!this._renderSuppressed) super.requestRender()
+    if (this._renderSuppressed) return
+    super.requestRender()
+    this.emit("scroll-change")
   }
 
   override handlePaste(event: PasteEvent): void {
@@ -439,5 +494,59 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   private computeFoldRanges(): void {
     this._foldManager.computeFoldRanges()
+  }
+}
+
+export class CodeEditorScrollBarRenderable extends ScrollBarRenderable {
+  private _target: CodeEditorRenderable | null = null
+  private readonly _targetRef: { current: CodeEditorRenderable | null }
+  private readonly _syncTarget = () => this.syncTarget()
+
+  constructor(
+    ctx: RenderContext,
+    { target, ...options }: CodeEditorScrollBarOptions,
+  ) {
+    const targetRef = { current: target }
+    super(ctx, {
+      ...options,
+      orientation: "vertical",
+      onChange: (position) => targetRef.current?.scrollTo(position),
+    })
+    this._targetRef = targetRef
+    this.target = target
+    this.onLifecyclePass = () => this.syncTarget()
+  }
+
+  set target(target: CodeEditorRenderable | null) {
+    if (target === this._target) return
+    this._target?.off("line-info-change", this._syncTarget)
+    this._target?.off("scroll-change", this._syncTarget)
+    this._target = target
+    this._targetRef.current = target
+    target?.on("line-info-change", this._syncTarget)
+    target?.on("scroll-change", this._syncTarget)
+    this.syncTarget()
+  }
+
+  override scrollBy(delta: number, unit?: ScrollUnit): void {
+    super.scrollBy(delta, unit)
+    this.scrollTargetTo(this.scrollPosition)
+  }
+
+  private scrollTargetTo(position: number): void {
+    this._target?.scrollTo(position)
+  }
+
+  private syncTarget(): void {
+    if (!this._target) return
+    this.scrollSize = this._target.totalVirtualLineCount
+    this.viewportSize = this._target.viewport.height
+    this.scrollPosition = this._target.scrollY
+  }
+
+  override destroy(): void {
+    this._target?.off("line-info-change", this._syncTarget)
+    this._target?.off("scroll-change", this._syncTarget)
+    super.destroy()
   }
 }

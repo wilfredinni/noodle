@@ -457,9 +457,15 @@ export function ResponsePane({
                   </box>
                 )}
                 <scrollbox
+                  id="response-body-scrollbox"
                   ref={scrollRef}
                   scrollY
-                  scrollbarOptions={{ visible: false }}
+                  verticalScrollbarOptions={{
+                    trackOptions: {
+                      backgroundColor: theme.background,
+                      foregroundColor: theme.borderActive,
+                    },
+                  }}
                   style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
                 >
                   {isDone && bodySize > AUTO_RENDER_LIMIT && !showLargeBody ? (

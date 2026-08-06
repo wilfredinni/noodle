@@ -7,14 +7,20 @@ import { createTestKeymap } from "@opentui/keymap/testing"
 import { act, useState } from "react"
 import { RequestResponseView } from "../../src/ui/RequestResponseView"
 import { ThemeProvider } from "../../src/ui/theme"
-import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../../src/ui/editor/CodeEditor"
 import type { SendState } from "../../src/ui/sendState"
 import {
   getAvailableTargets,
   computeRequestTabLabels,
 } from "../../src/ui/useJumpMode"
 
-extend({ "code-editor": CodeEditorRenderable })
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
 
 describe("ResponsePane status text truncation and layout tests", () => {
   const createTestProps = () => {

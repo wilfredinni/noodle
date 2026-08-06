@@ -306,72 +306,99 @@ export function BodySection({
             overflow: "hidden",
           }}
         >
-          <line-number
-            ref={lineNumberRef}
-            minWidth={4}
-            paddingRight={1}
-            fg={theme.textMuted}
-            bg={theme.backgroundPanel}
-            lineSigns={RESERVED_FOLD_SIGN}
-            onMouseMove={updateFoldHover}
-            onMouseOut={() => {
-              if (hoveredFoldLineRef.current === null) return
-              hoveredFoldLineRef.current = null
-              syncFoldSigns()
+          <box
+            style={{
+              flexDirection: "row",
+              flexGrow: 1,
+              flexShrink: 1,
+              flexBasis: 0,
+              minHeight: 0,
             }}
-            onMouseScroll={(event) => {
-              const editor = editorRef.current
-              if (!editor || !event.scroll) return
-              if (event.scroll.direction === "up") {
-                editor.scrollBy(-event.scroll.delta)
-              } else if (event.scroll.direction === "down") {
-                editor.scrollBy(event.scroll.delta)
-              } else {
-                return
-              }
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onMouseDown={(event) => {
-              const editor = editorRef.current
-              if (event.button !== MouseButton.LEFT || !editor) return
-              if (event.x >= editor.x) return
-              const displayLine =
-                editor.lineInfo.lineSources[event.y - editor.y + editor.scrollY]
-              if (
-                displayLine === undefined ||
-                !editor.getFoldSigns().has(displayLine)
-              )
-                return
-              editor.toggleFold(displayLine)
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
-            width="100%"
           >
-            <code-editor
-              ref={(editor) => {
-                editorRef.current = editor
-                setEditorInstance(editor)
-                onEditorRef?.(editor)
+            <line-number
+              ref={lineNumberRef}
+              minWidth={4}
+              paddingRight={1}
+              fg={theme.textMuted}
+              bg={theme.backgroundPanel}
+              lineSigns={RESERVED_FOLD_SIGN}
+              onMouseMove={updateFoldHover}
+              onMouseOut={() => {
+                if (hoveredFoldLineRef.current === null) return
+                hoveredFoldLineRef.current = null
+                syncFoldSigns()
               }}
-              filetype="json"
-              theme={theme}
-              initialValue={formattedBody}
-              value={editingBody ? editValue : formattedBody}
-              extraHighlights={activeEnv ? extraHighlights : undefined}
-              validateContent={validateContent}
-              onValidationChange={setValidationError}
-              onContentChange={handleContentChange}
-              onFoldsChange={handleFoldsChange}
-              backgroundColor={theme.backgroundPanel}
-              focusedBackgroundColor={theme.backgroundPanel}
-              textColor={theme.text}
-              cursorColor={theme.primary}
-              scrollMargin={0}
+              onMouseScroll={(event) => {
+                const editor = editorRef.current
+                if (!editor || !event.scroll) return
+                if (event.scroll.direction === "up") {
+                  editor.scrollBy(-event.scroll.delta)
+                } else if (event.scroll.direction === "down") {
+                  editor.scrollBy(event.scroll.delta)
+                } else {
+                  return
+                }
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onMouseDown={(event) => {
+                const editor = editorRef.current
+                if (event.button !== MouseButton.LEFT || !editor) return
+                if (event.x >= editor.x) return
+                const displayLine =
+                  editor.lineInfo.lineSources[
+                    event.y - editor.y + editor.scrollY
+                  ]
+                if (
+                  displayLine === undefined ||
+                  !editor.getFoldSigns().has(displayLine)
+                )
+                  return
+                editor.toggleFold(displayLine)
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              style={{
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: 0,
+                minHeight: 0,
+                minWidth: 0,
+              }}
+            >
+              <code-editor
+                id="request-body-editor"
+                ref={(editor) => {
+                  editorRef.current = editor
+                  setEditorInstance(editor)
+                  onEditorRef?.(editor)
+                }}
+                filetype="json"
+                theme={theme}
+                initialValue={formattedBody}
+                value={editingBody ? editValue : formattedBody}
+                extraHighlights={activeEnv ? extraHighlights : undefined}
+                validateContent={validateContent}
+                onValidationChange={setValidationError}
+                onContentChange={handleContentChange}
+                onFoldsChange={handleFoldsChange}
+                backgroundColor={theme.backgroundPanel}
+                focusedBackgroundColor={theme.backgroundPanel}
+                textColor={theme.text}
+                cursorColor={theme.primary}
+                scrollMargin={0}
+              />
+            </line-number>
+            <code-editor-scrollbar
+              id="request-body-scrollbar"
+              target={editorInstance}
+              trackOptions={{
+                backgroundColor: theme.background,
+                foregroundColor: theme.borderActive,
+              }}
+              style={{ width: 1, flexShrink: 0, zIndex: 1 }}
             />
-          </line-number>
+          </box>
           <CodeEditorCompletion
             editor={editorInstance}
             env={activeEnv ?? null}
