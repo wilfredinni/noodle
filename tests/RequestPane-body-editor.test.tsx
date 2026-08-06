@@ -13,6 +13,14 @@ import {
 } from "../src/ui/editor/CodeEditor"
 import { lang } from "../src/lang"
 import type { Request } from "../src/schema"
+import {
+  useRequestDraft,
+  type UseRequestDraftResult,
+} from "../src/hooks/useRequestDraft"
+import {
+  useEditBrowse,
+  type UseEditBrowseResult,
+} from "../src/hooks/useEditBrowse"
 import { setupKeymap } from "./unit/_helpers"
 
 extend({
@@ -96,7 +104,88 @@ function ActiveJsonEditorHarness({
   )
 }
 
+function DraftJsonEditorHarness({
+  onRender,
+}: {
+  onRender: (
+    draft: UseRequestDraftResult,
+    editBrowse: UseEditBrowseResult,
+  ) => void
+}) {
+  const draft = useRequestDraft({ ...testRequest, body: "" })
+  const editBrowse = useEditBrowse(draft.draft, draft)
+  onRender(draft, editBrowse)
+
+  return (
+    <RequestPane
+      request={draft.draft}
+      editState={editBrowse.editState}
+      editKey={editBrowse.editKey}
+      editValue={editBrowse.editValue}
+      setEditKey={editBrowse.setEditKey}
+      setEditValue={editBrowse.setEditValue}
+      focused
+      activeTab={editBrowse.activeTab}
+      onBodyChange={draft.setBody}
+    />
+  )
+}
+
 describe("BodySection — edit mode", () => {
+  it("keeps typed JSON characters and advances the cursor across draft renders", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let draftState: UseRequestDraftResult | null = null
+    let editBrowseState: UseEditBrowseResult | null = null
+    const { renderer, renderOnce, flush, waitFor, mockInput } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box width={80} height={20}>
+              <DraftJsonEditorHarness
+                onRender={(draft, editBrowse) => {
+                  draftState = draft
+                  editBrowseState = editBrowse
+                }}
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 20 },
+      )
+    await renderOnce()
+
+    await act(async () => editBrowseState!.enterBrowseAt("body", 0))
+    await renderOnce()
+    await act(async () => editBrowseState!.enterJsonBodyEditor())
+    await renderOnce()
+    await waitFor(() => editBrowseState!.isEditingJsonBody)
+
+    const editor = renderer.root.findDescendantById(
+      "request-body-editor",
+    ) as CodeEditorRenderable
+    editor.setCursor(0, 0)
+
+    await act(async () => mockInput.typeText("a"))
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("b")
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    await flush()
+    await waitFor(() => draftState!.draft?.body === "ab")
+
+    expect(editor.plainText).toBe("ab")
+    expect(draftState!.draft?.body).toBe("ab")
+    expect(editor.logicalCursor).toMatchObject({ row: 0, col: 2 })
+
+    await act(async () => editBrowseState!.returnToJsonBodyTypeSelect())
+    await renderOnce()
+    await act(async () => draftState!.setBody('{"updated":true}'))
+    await waitFor(() => editor.plainText === '{\n  "updated": true\n}')
+    expect(editor.plainText).toBe('{\n  "updated": true\n}')
+    cleanup()
+  })
+
   it("keeps a request-body selection anchored while dragging beyond the viewport", async () => {
     const { keymap, cleanup } = setupKeymap()
     const body = Array.from(

@@ -218,6 +218,12 @@ export function BodySection({
     }
   }, [editingBody])
 
+  useEffect(() => {
+    if (!editingBody && editorRef.current) {
+      editorRef.current.value = formattedBody
+    }
+  }, [editingBody, formattedBody])
+
   return (
     <box
       style={{
@@ -365,12 +371,11 @@ export function BodySection({
                 }}
                 filetype="json"
                 theme={theme}
-                initialValue={formattedBody}
-                value={editingBody ? editValue : formattedBody}
+                initialValue={editingBody ? editValue : formattedBody}
                 extraHighlights={activeEnv ? extraHighlights : undefined}
                 validateContent={validateContent}
                 onValidationChange={setValidationError}
-                onContentChange={handleContentChange}
+                onSourceChange={handleContentChange}
                 onFoldsChange={handleFoldsChange}
                 backgroundColor={theme.backgroundPanel}
                 focusedBackgroundColor={theme.backgroundPanel}

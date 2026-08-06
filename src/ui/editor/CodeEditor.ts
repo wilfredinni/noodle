@@ -47,7 +47,7 @@ export interface CodeEditorOptions extends Pick<
   extraHighlights?: (content: string) => Highlight[]
   validateContent?: CodeEditorValidator
   onValidationChange?: (error: string | null) => void
-  onContentChange?: () => void
+  onSourceChange?: () => void
   onFoldsChange?: () => void
   backgroundColor?: string
   textColor?: string
@@ -69,7 +69,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _debounceMs: number
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null
   private _highlightSnapshotId = 0
-  private _onContentChange?: () => void
+  private _onSourceChange?: () => void
   private _onFoldsChange?: () => void
   private _tsClient: TreeSitterClient
   private _suppressContentChanged = false
@@ -113,7 +113,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       ""
     ).length
     this._debounceMs = options.debounceMs ?? 200
-    this._onContentChange = options.onContentChange
+    this._onSourceChange = options.onSourceChange
     this._onFoldsChange = options.onFoldsChange
     this._tsClient = getTreeSitterClient()
     this._highlights = new CodeEditorHighlightRenderer(
@@ -162,9 +162,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
       if (this.isDestroyed || this._suppressContentChanged) return
       if (this._readOnly) return
       if (this._foldManager.isFoldedDisplay) return
-      this._foldManager.setSourceText(super.plainText)
+      const content = super.plainText
+      if (this._foldManager.sourceText === content) return
+      this._foldManager.setSourceText(content)
       this.scheduleHighlight()
-      this._onContentChange?.()
+      this._onSourceChange?.()
     })
 
     if (this._foldManager.sourceText.length > 0) {
@@ -184,6 +186,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
   override get plainText(): string {
     return this._foldManager.sourceText
+  }
+  override get height(): number {
+    const height = super.height
+    return Math.min(height, this.parent?.height ?? height)
   }
   get value(): string {
     return this.plainText
@@ -237,6 +243,12 @@ export class CodeEditorRenderable extends TextareaRenderable {
   set onValidationChange(value: ((error: string | null) => void) | undefined) {
     this._validation.setListener(value)
   }
+  get onSourceChange(): (() => void) | undefined {
+    return this._onSourceChange
+  }
+  set onSourceChange(value: (() => void) | undefined) {
+    this._onSourceChange = value
+  }
   get extraHighlights(): ((content: string) => Highlight[]) | undefined {
     return this._highlights.extra
   }
@@ -282,7 +294,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   get viewport() {
-    return this.editorView.getViewport()
+    const viewport = this.editorView.getViewport()
+    return {
+      ...viewport,
+      height: Math.min(viewport.height, this.height),
+    }
   }
 
   getHiddenLineNumbers() {
@@ -337,7 +353,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   scrollTo(position: number): void {
-    const viewport = this.editorView.getViewport()
+    const viewport = this.viewport
     const maxPosition = Math.max(
       0,
       this.totalVirtualLineCount - viewport.height,
@@ -512,7 +528,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       if (key.shift) this.redo()
       else this.undo()
       this._foldManager.setSourceText(super.plainText)
-      this._onContentChange?.()
+      this._onSourceChange?.()
       this.scheduleHighlight()
       return true
     }

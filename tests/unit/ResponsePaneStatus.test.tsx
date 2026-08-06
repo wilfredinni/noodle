@@ -186,7 +186,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
     const lines = initialFrame.split("\n")
     const responseBottom = lines.findLastIndex((line) => line.startsWith("└"))
     expect(responseBottom).toBeGreaterThan(0)
-    expect(editor.y + editor.height).toBe(responseBottom + 1)
+    expect(editor.y + editor.height).toBe(responseBottom)
     expect(scrollbar.y + scrollbar.height).toBe(responseBottom)
     expect(
       lines
@@ -198,7 +198,9 @@ describe("ResponsePane status text truncation and layout tests", () => {
     await act(async () => mockInput.pressKey("END"))
     await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
-    expect(captureCharFrame()).toContain("item-99")
+    const tailLines = captureCharFrame().split("\n")
+    expect(tailLines.join("\n")).toContain("item-99")
+    expect(tailLines[responseBottom - 1]).toMatch(/\]\s/)
   })
 
   it("truncates status text > 13 chars with ellipsis", async () => {

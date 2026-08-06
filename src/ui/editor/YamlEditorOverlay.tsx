@@ -309,7 +309,7 @@ export function YamlEditorOverlay({
               extraHighlights={activeEnv ? extraHighlights : undefined}
               validateContent={validateContent}
               onValidationChange={setValidationError}
-              onContentChange={handleContentChange}
+              onSourceChange={handleContentChange}
               onFoldsChange={handleFoldsChange}
               backgroundColor={theme.backgroundPanel}
               focusedBackgroundColor={theme.backgroundPanel}
