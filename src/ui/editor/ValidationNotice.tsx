@@ -2,7 +2,7 @@ import { LeftBar } from "../borders"
 import { useTheme } from "../theme"
 
 interface Props {
-  title: string
+  title?: string
   detail?: string | null
 }
 
@@ -29,8 +29,12 @@ export function ValidationNotice({ title, detail }: Props) {
         backgroundColor: theme.backgroundElement,
       }}
     >
-      <text fg={theme.error}>! {title}</text>
-      {compactDetail && <text fg={theme.textMuted}> {compactDetail}</text>}
+      {title && <text fg={theme.error}>! {title}</text>}
+      {compactDetail && (
+        <text fg={title ? theme.textMuted : theme.error}>
+          {title ? ` ${compactDetail}` : compactDetail}
+        </text>
+      )}
     </box>
   )
 }

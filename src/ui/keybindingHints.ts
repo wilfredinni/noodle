@@ -16,6 +16,7 @@ export interface KeybindingHintsContext {
   bodyType?: string
   sendState: SendState
   queryVisible?: boolean
+  responseBodyEditorAvailable?: boolean
   keybinds: Keybinds
 }
 
@@ -238,7 +239,12 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   if (ctx.focus === "response") {
     if (ctx.sendState.status === "done" && ctx.tab === "body") {
       if (ctx.queryVisible) return []
+      const foldSegments =
+        ctx.responseBodyEditorAvailable === false
+          ? []
+          : [{ key: "^g", word: "fold" }]
       return [
+        ...foldSegments,
         {
           key: displayKey(kb.response_copy_body),
           word: "copy",

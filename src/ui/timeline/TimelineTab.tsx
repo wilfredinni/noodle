@@ -37,22 +37,21 @@ export function TimelineTab({
     let active = true
     const measure = () => {
       if (!active) return
-      const box = scrollRef.current
-      if (!box || !box.width || box.width <= 0) {
+      const width = scrollRef.current?.viewport.width ?? 0
+      if (width <= 0) {
         setTimeout(measure, 10)
         return
       }
-      const w = box.width
-      if (w !== containerWidthRef.current) {
-        containerWidthRef.current = w
-        setContainerWidth(w)
+      if (width !== containerWidthRef.current) {
+        containerWidthRef.current = width
+        setContainerWidth(width)
       }
     }
     setTimeout(measure, 0)
     return () => {
       active = false
     }
-  }, [termWidth, layout, expanded])
+  }, [termWidth, layout, expanded, entries.length])
 
   useEffect(() => {
     setSelectedIdx(0)
@@ -96,9 +95,15 @@ export function TimelineTab({
 
   return (
     <scrollbox
+      id="timeline-tab-scrollbox"
       ref={scrollRef}
       scrollY
-      scrollbarOptions={{ visible: false }}
+      verticalScrollbarOptions={{
+        trackOptions: {
+          backgroundColor: theme.background,
+          foregroundColor: theme.borderActive,
+        },
+      }}
       style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
     >
       {entries.map((entry, idx) => (

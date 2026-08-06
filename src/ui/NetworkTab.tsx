@@ -46,10 +46,16 @@ export function NetworkTab({
         <text fg={theme.textMuted}>{emptyMessage}</text>
       ) : (
         <scrollbox
+          id="network-tab-scrollbox"
           ref={scrollRef}
           scrollY
           contentOptions={{ flexDirection: "column" }}
-          scrollbarOptions={{ visible: false }}
+          verticalScrollbarOptions={{
+            trackOptions: {
+              backgroundColor: theme.background,
+              foregroundColor: theme.borderActive,
+            },
+          }}
           style={{
             flexGrow: 1,
             minHeight: 0,

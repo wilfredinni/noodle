@@ -46,6 +46,7 @@ interface MainViewProps {
   mode?: "collection" | "browse" | "empty" | "invalid"
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onResponseBodyEditorAvailableChange?: (available: boolean) => void
   onPaneFocus?: (focus: Focus) => void
   onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
   onSend?: () => void
@@ -88,6 +89,7 @@ export function MainView({
   mode = "collection",
   jumpMode = false,
   onQueryVisibleChange,
+  onResponseBodyEditorAvailableChange,
   onPaneFocus = () => {},
   onUrlbarFocus,
   onSend,
@@ -195,6 +197,9 @@ export function MainView({
             responseBodyForCopyRef={responseBodyForCopyRef}
             jumpMode={jumpMode}
             onQueryVisibleChange={onQueryVisibleChange}
+            onResponseBodyEditorAvailableChange={
+              onResponseBodyEditorAvailableChange
+            }
             onPaneFocus={onPaneFocus}
             onUrlbarFocus={onUrlbarFocus}
             onSend={onSend}

@@ -178,6 +178,14 @@ export function RequestPane({
       }
       onPaneFocus={onPaneFocus}
       onInteraction={onInteraction}
+      onMouseDrag={(event) => {
+        if (isJsonBody) {
+          bodyEditorRef.current?.handleSelectionDrag(event.x, event.y)
+        }
+      }}
+      onMouseUp={() => {
+        bodyEditorRef.current?.finishSelectionDrag()
+      }}
     >
       {request ? (
         <>
@@ -258,8 +266,15 @@ export function RequestPane({
                 />
               ) : (
                 <scrollbox
+                  id="request-tab-scrollbox"
                   ref={scrollRef}
                   scrollY
+                  verticalScrollbarOptions={{
+                    trackOptions: {
+                      backgroundColor: theme.background,
+                      foregroundColor: theme.borderActive,
+                    },
+                  }}
                   style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
                 >
                   {activeTab === "body" && (

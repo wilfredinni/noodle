@@ -33,6 +33,7 @@ interface RequestResponseViewProps {
   responseBodyForCopyRef?: RefObject<string | null>
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onResponseBodyEditorAvailableChange?: (available: boolean) => void
   onPaneFocus?: (focus: Focus) => void
   onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
   onSend?: () => void
@@ -71,6 +72,7 @@ export function RequestResponseView({
   responseBodyForCopyRef,
   jumpMode = false,
   onQueryVisibleChange,
+  onResponseBodyEditorAvailableChange,
   onPaneFocus = () => {},
   onUrlbarFocus,
   onSend,
@@ -129,6 +131,7 @@ export function RequestResponseView({
           expanded={expanded}
           jumpMode={jumpMode && draft.draft !== null}
           onQueryVisibleChange={onQueryVisibleChange}
+          onBodyEditorAvailableChange={onResponseBodyEditorAvailableChange}
           onPaneFocus={() => onPaneFocus("response")}
         />
       )}

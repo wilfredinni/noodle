@@ -5,7 +5,11 @@ import type {
   TreeSitterClient,
 } from "@opentui/core"
 import type { Theme } from "../theme-data"
-import { getEnvStyleIds, createCodeEditorSyntaxStyle } from "./codeEditorStyles"
+import {
+  getEnvStyleIds,
+  createCodeEditorSyntaxStyle,
+  styleIdForJsonToken,
+} from "./codeEditorStyles"
 import {
   buildExtraHighlightRanges,
   buildJsonHighlightRanges,
@@ -13,6 +17,7 @@ import {
   buildYamlHighlightRanges,
   type EditorHighlightRange,
 } from "./codeEditorHighlighting"
+import type { JsonToken } from "./syntax"
 
 interface HighlightHost {
   clear: () => void
@@ -58,6 +63,14 @@ export class CodeEditorHighlightRenderer {
 
   setExtra(extra: ((content: string) => Highlight[]) | undefined): void {
     this._extra = extra
+  }
+
+  prepare(): void {
+    this.host.setStyle(this._style)
+  }
+
+  jsonStyleId(token: JsonToken): number {
+    return styleIdForJsonToken(token.kind, token.fg, this._theme, this._style)
   }
 
   clear(): void {

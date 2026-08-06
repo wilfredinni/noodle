@@ -15,12 +15,18 @@ import { existsSync, readdirSync, statSync } from "node:fs"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../hooks/useConfig"
-import { CodeEditorRenderable } from "../ui/editor/CodeEditor"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../ui/editor/CodeEditor"
 import { codeEditorParsers } from "../ui/editor/codeEditorParsers"
 
 addDefaultParsers([...codeEditorParsers])
 
-extend({ "code-editor": CodeEditorRenderable })
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
