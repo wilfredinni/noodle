@@ -313,6 +313,10 @@ export function ResponsePane({
     queryResult?.kind === "success" ? queryResult.body : formattedBody
 
   useEffect(() => {
+    if (displayedBody) bodyEditorRef.current?.scrollTo(0)
+  }, [displayedBody])
+
+  useEffect(() => {
     const editor = bodyEditor
     if (!editor) return
     if (focused && activeTab === "body" && !queryVisible && displayedBody) {

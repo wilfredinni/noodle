@@ -13,18 +13,6 @@ interface Replacement {
   outputEnd: number
 }
 
-function isInsideString(content: string, offset: number): boolean {
-  let inside = false
-  let escaped = false
-  for (let i = 0; i < offset; i++) {
-    const char = content[i]
-    if (escaped) escaped = false
-    else if (char === "\\") escaped = true
-    else if (char === '"') inside = !inside
-  }
-  return inside
-}
-
 const ERROR_MESSAGES: Record<ParseErrorCode, string> = {
   [ParseErrorCode.InvalidSymbol]: "Invalid symbol",
   [ParseErrorCode.InvalidNumberFormat]: "Invalid number",
@@ -57,6 +45,9 @@ function substituteVariables(
 ): { content: string; replacements: Replacement[] } | { error: string } {
   let substituted = ""
   let sourceCursor = 0
+  let scanCursor = 0
+  let insideString = false
+  let escaped = false
   const replacements: Replacement[] = []
 
   for (const match of content.matchAll(VAR_RE)) {
@@ -73,16 +64,25 @@ function substituteVariables(
     const outputStart = substituted.length
     const value = env.vars[name]!
     substituted += value
+    const sourceEnd = sourceStart + token.length
+    let replacementInsideString = insideString
+    for (; scanCursor < sourceEnd; scanCursor++) {
+      if (scanCursor === sourceStart) replacementInsideString = insideString
+      const char = content[scanCursor]
+      if (escaped) escaped = false
+      else if (char === "\\") escaped = true
+      else if (char === '"') insideString = !insideString
+    }
     replacements.push({
       name,
       value,
-      insideString: isInsideString(content, sourceStart),
+      insideString: replacementInsideString,
       sourceStart,
-      sourceEnd: sourceStart + token.length,
+      sourceEnd,
       outputStart,
       outputEnd: substituted.length,
     })
-    sourceCursor = sourceStart + token.length
+    sourceCursor = sourceEnd
   }
 
   substituted += content.slice(sourceCursor)

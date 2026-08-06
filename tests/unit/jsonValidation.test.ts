@@ -43,6 +43,29 @@ describe("validateJsonContent", () => {
     ).toBeNull()
   })
 
+  it("tracks quoted variables across escaped quotes and backslashes", () => {
+    const content = String.raw`{"message":"say \"$WORD\"","path":"C:\\$DIR","count":$COUNT "tail":true}`
+    expect(
+      validateJsonContent(
+        content,
+        env({ WORD: "hello", DIR: "tmp", COUNT: "2" }),
+      ),
+    ).toBe("Invalid JSON: Expected ',' at line 1, column 61")
+  })
+
+  it("validates many variables without rescanning earlier content", () => {
+    const vars: Record<string, string> = {}
+    const tokens = Array.from({ length: 20_000 }, (_, index) => {
+      vars[`V${index}`] = "0"
+      return `$V${index}`
+    })
+    const content = `[${tokens.join(",")}]`
+    const start = performance.now()
+
+    expect(validateJsonContent(content, env(vars))).toBeNull()
+    expect(performance.now() - start).toBeLessThan(500)
+  })
+
   it("reports unresolved variables", () => {
     expect(validateJsonContent('{"id": $ID}', env({}))).toBe(
       'Invalid JSON: unresolved variable "ID" at line 1, column 8',

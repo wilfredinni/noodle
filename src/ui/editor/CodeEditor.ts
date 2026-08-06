@@ -353,6 +353,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   scrollTo(position: number): void {
+    const selection = this.getSelection()
     const viewport = this.viewport
     const maxPosition = Math.max(
       0,
@@ -378,6 +379,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
       false,
       false,
     )
+    if (selection) {
+      this.editorView.setSelection(selection.start, selection.end)
+    }
     this.requestRender()
     if (this._readOnly) this.scheduleHighlight()
   }

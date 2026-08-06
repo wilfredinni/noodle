@@ -203,6 +203,58 @@ describe("ResponsePane scrollbox", () => {
     expect(captureCharFrame()).toContain("0 matches")
   })
 
+  it("scrolls to the top when JSONPath changes the displayed body", async () => {
+    const state = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: JSON.stringify({
+          items: Array.from({ length: 60 }, (_, id) => ({ id, active: true })),
+        }),
+        timeMs: 1,
+      },
+    } satisfies SendState
+    const queryController = { current: null as ResponseQueryController | null }
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={state}
+          focused
+          responseQueryRef={queryController}
+        />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    await act(async () => {
+      expect(queryController.current?.open()).toBe(true)
+    })
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    editor.scrollTo(20)
+    await renderOnce()
+    expect(editor.scrollY).toBe(20)
+
+    await act(async () => mockInput.typeText("$.items[*].id"))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 175))
+    })
+    await renderOnce()
+
+    expect(editor.totalVirtualLineCount).toBeGreaterThan(editor.viewport.height)
+    expect(editor.scrollY).toBe(0)
+  })
+
   it("only opens the query from the Body tab", async () => {
     const state = {
       status: "done" as const,

@@ -321,6 +321,46 @@ describe("CodeEditorRenderable", () => {
     }
   })
 
+  it("preserves the selection and logical cursor when scrolling directly", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 40 },
+      (_, index) => `"line${index}"`,
+    ).join("\n")
+
+    const { renderOnce } = await testRender(
+      <box width={30} height={6}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          scrollMargin={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 30, height: 6 },
+    )
+
+    await renderOnce()
+    editor!.setSelection(1, 6)
+    const cursor = editor!.logicalCursor
+
+    editor!.scrollTo(10)
+    await renderOnce()
+
+    expect(editor!.scrollY).toBe(10)
+    expect(editor!.getSelection()).toEqual({ start: 1, end: 6 })
+    expect(editor!.getSelectedText()).toBe("line0")
+    expect(editor!.logicalCursor).toEqual(cursor)
+  })
+
   it("keeps the logical cursor while a scrollbar follows editor scrolling", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = Array.from(
