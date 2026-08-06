@@ -201,13 +201,10 @@ export function BodySection({
     if (!editingBody) setValidationError(null)
   }, [editingBody])
 
-  const validationNotice = useMemo(() => {
+  const validationDetail = useMemo(() => {
     if (!editingBody || isFormMode || isBinaryMode) return null
     if (!validationError) return null
-    return {
-      title: "Invalid JSON",
-      detail: validationError.replace(/^Invalid JSON:\s*/, ""),
-    }
+    return validationError.replace(/^Invalid JSON:\s*/, "")
   }, [editingBody, isBinaryMode, isFormMode, validationError])
 
   useEffect(() => {
@@ -401,12 +398,7 @@ export function BodySection({
             isEditing={editingBody}
             value={editingBody ? editValue : formattedBody}
           />
-          {validationNotice && (
-            <ValidationNotice
-              title={validationNotice.title}
-              detail={validationNotice.detail}
-            />
-          )}
+          {validationDetail && <ValidationNotice detail={validationDetail} />}
         </box>
       )}
     </box>

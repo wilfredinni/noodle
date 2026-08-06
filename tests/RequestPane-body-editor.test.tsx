@@ -949,7 +949,7 @@ describe("BodySection — edit mode", () => {
     const { keymap, cleanup } = setupKeymap()
     const invalidRequest: Request = {
       ...testRequest,
-      body: '{"name":',
+      body: '{\n  "name": "Ada"\n  "age": 42\n}',
     }
     const { renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -972,7 +972,9 @@ describe("BodySection — edit mode", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
-    expect(frame).toContain("Invalid JSON")
+    expect(frame).toContain("Expected ',' at line 3, column 3")
+    expect(frame).not.toContain("Invalid JSON")
+    expect(frame).not.toContain("JSON Parse error")
     cleanup()
   })
 })

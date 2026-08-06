@@ -23,6 +23,15 @@ describe("validateJsonContent", () => {
     ).toBeNull()
   })
 
+  it("accepts multiple variables without quotes", () => {
+    expect(
+      validateJsonContent(
+        '{"id": $ID, "enabled": $ENABLED}',
+        env({ ID: "42", ENABLED: "true" }),
+      ),
+    ).toBeNull()
+  })
+
   it("rejects a string variable without quotes", () => {
     const error = validateJsonContent('{"user": $USER}', env({ USER: "john" }))
     expect(error).toContain("Invalid JSON:")
@@ -36,12 +45,88 @@ describe("validateJsonContent", () => {
 
   it("reports unresolved variables", () => {
     expect(validateJsonContent('{"id": $ID}', env({}))).toBe(
-      'Invalid JSON: unresolved variable "ID"',
+      'Invalid JSON: unresolved variable "ID" at line 1, column 8',
+    )
+  })
+
+  it("reports a later unresolved variable at its source location", () => {
+    const content = '{\n  "id": $ID,\n  "team": $TEAM\n}'
+    expect(validateJsonContent(content, env({ ID: "42" }))).toBe(
+      'Invalid JSON: unresolved variable "TEAM" at line 3, column 11',
+    )
+  })
+
+  it("maps errors after substitutions to the original source", () => {
+    const content = '{\n  "data": $DATA,\n  "first": 1\n  "second": 2\n}'
+    expect(validateJsonContent(content, env({ DATA: "[1, 2, 3, 4, 5]" }))).toBe(
+      "Invalid JSON: Expected ',' at line 4, column 3",
+    )
+  })
+
+  it("identifies errors inside substituted values", () => {
+    expect(
+      validateJsonContent('{"data": $DATA}', env({ DATA: '"bad\\q"' })),
+    ).toBe(
+      "Invalid JSON: Invalid escape character in value of $DATA at line 1, column 10",
+    )
+    expect(
+      validateJsonContent('{\n  "data": $DATA\n}', env({ DATA: "[1, 2" })),
+    ).toBe("Invalid JSON: Expected ']' in value of $DATA at line 2, column 11")
+  })
+
+  it.each([
+    [
+      "missing comma",
+      '{\n  "first": 1\n  "second": 2\n}',
+      "Invalid JSON: Expected ',' at line 3, column 3",
+    ],
+    [
+      "missing colon",
+      '{"name" "Ada"}',
+      "Invalid JSON: Expected ':' at line 1, column 9",
+    ],
+    [
+      "missing value",
+      '{"name": }',
+      "Invalid JSON: Expected a value at line 1, column 10",
+    ],
+    [
+      "trailing comma",
+      '{"name":"Ada",}',
+      "Invalid JSON: Expected a property name at line 1, column 15",
+    ],
+    [
+      "unterminated string",
+      '{"name":"Ada}',
+      "Invalid JSON: Unterminated string at line 1, column 9",
+    ],
+    [
+      "invalid escape",
+      '{"name":"bad\\q"}',
+      "Invalid JSON: Invalid escape character at line 1, column 9",
+    ],
+    [
+      "trailing content",
+      '{"name":"Ada"} true',
+      "Invalid JSON: Unexpected content after JSON value at line 1, column 16",
+    ],
+  ])("reports a precise %s error", (_, content, expected) => {
+    expect(validateJsonContent(content, null)).toBe(expected)
+  })
+
+  it("rejects JSONC comments and trailing commas", () => {
+    expect(validateJsonContent('{"id": 42 // comment\n}', null)).toBe(
+      "Invalid JSON: Comments are not allowed at line 1, column 11",
+    )
+    expect(validateJsonContent('{"id": 42,}', null)).toBe(
+      "Invalid JSON: Expected a property name at line 1, column 11",
     )
   })
 
   it("falls back to normal JSON validation without an environment", () => {
     expect(validateJsonContent('{"id": 42}', null)).toBeNull()
-    expect(validateJsonContent('{"id": $ID}', null)).toContain("Invalid JSON:")
+    expect(validateJsonContent('{"id": $ID}', null)).toBe(
+      "Invalid JSON: Invalid symbol at line 1, column 8",
+    )
   })
 })
