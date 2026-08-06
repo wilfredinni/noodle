@@ -211,6 +211,7 @@ export function YamlEditorOverlay({
         signs.set(hoveredFoldLine, { ...sign, beforeColor: theme.primary })
       }
       ln.setLineSigns(new Map([...RESERVED_FOLD_SIGN, ...signs]))
+      ln.setLineNumbers(ed.getDisplayLineNumbers())
       ln.setHideLineNumbers(ed.getHiddenLineNumbers())
     },
     [theme.primary],

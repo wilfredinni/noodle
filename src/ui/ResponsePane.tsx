@@ -115,6 +115,7 @@ export function ResponsePane({
     lineNumber.setLineSigns(
       new Map([...RESERVED_FOLD_SIGN, ...editor.getFoldSigns()]),
     )
+    lineNumber.setLineNumbers(editor.getDisplayLineNumbers())
     lineNumber.setHideLineNumbers(editor.getHiddenLineNumbers())
   }, [])
 

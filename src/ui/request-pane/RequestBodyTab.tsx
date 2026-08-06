@@ -178,6 +178,7 @@ export function BodySection({
         signs.set(hoveredFoldLine, { ...sign, beforeColor: theme.primary })
       }
       ln.setLineSigns(reserveFoldSigns(signs))
+      ln.setLineNumbers(ed.getDisplayLineNumbers())
       ln.setHideLineNumbers(ed.getHiddenLineNumbers())
     },
     [theme.primary],

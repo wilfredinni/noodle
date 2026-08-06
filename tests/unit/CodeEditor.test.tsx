@@ -490,6 +490,7 @@ describe("CodeEditorRenderable", () => {
     const syncGutter = () => {
       if (!editor || !lineNumber) return
       lineNumber.setLineSigns(editor.getFoldSigns())
+      lineNumber.setLineNumbers(editor.getDisplayLineNumbers())
       lineNumber.setHideLineNumbers(editor.getHiddenLineNumbers())
     }
 
@@ -536,6 +537,79 @@ describe("CodeEditorRenderable", () => {
     expect(frame).toContain("{... } (3 lines)")
     expect(frame).not.toContain('"alpha"')
     expect(editor!.lineCount).toBe(1)
+  })
+
+  it("keeps source line numbers after a collapsed range", async () => {
+    let editor: CodeEditorRenderable | null = null
+    let lineNumber: LineNumberRenderable | null = null
+    const content = `{
+  "before": true,
+  "group": {
+    "value": true
+  },
+  "after": "next"
+}`
+
+    const syncGutter = () => {
+      if (!editor || !lineNumber) return
+      lineNumber.setLineNumbers(editor.getDisplayLineNumbers())
+    }
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <box width={60} height={8}>
+        <line-number
+          ref={(r) => {
+            lineNumber = r
+          }}
+          minWidth={3}
+          paddingRight={1}
+          fg={opencodeTheme.textMuted}
+          bg={opencodeTheme.backgroundPanel}
+          width="100%"
+        >
+          <code-editor
+            ref={(r) => {
+              editor = r
+            }}
+            filetype="json"
+            theme={opencodeTheme}
+            initialValue={content}
+            debounceMs={0}
+            onFoldsChange={syncGutter}
+            backgroundColor={opencodeTheme.backgroundPanel}
+            focusedBackgroundColor={opencodeTheme.backgroundPanel}
+            textColor={opencodeTheme.text}
+            cursorColor={opencodeTheme.primary}
+          />
+        </line-number>
+      </box>,
+      { width: 60, height: 8 },
+    )
+
+    await renderOnce()
+    computeFolds(editor!)
+    editor!.toggleFold(2)
+    syncGutter()
+    await renderOnce()
+
+    expect(lineNumber!.getLineNumbers()).toEqual(
+      new Map([
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 6],
+        [4, 7],
+      ]),
+    )
+    const afterLine = captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes('"after"'))
+    expect(afterLine).toMatch(/\b6\s+"after"/)
+
+    editor!.unfoldAll()
+    syncGutter()
+    await renderOnce()
+    expect(lineNumber!.getLineNumbers()).toEqual(new Map())
   })
 
   it("collapses a nested JSON array without leaving blank editor rows", async () => {

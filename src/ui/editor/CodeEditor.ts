@@ -260,6 +260,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return this._foldManager.getFoldSigns()
   }
 
+  getDisplayLineNumbers() {
+    return this._foldManager.getDisplayLineNumbers()
+  }
+
   get totalVirtualLineCount(): number {
     return this.editorView.getTotalVirtualLineCount()
   }

@@ -78,6 +78,16 @@ export class CodeEditorFoldManager {
     return signs
   }
 
+  getDisplayLineNumbers(): Map<number, number> {
+    if (!this.isFoldedDisplay) return new Map()
+    return new Map(
+      Array.from(this._displayLineToSourceLine, ([displayLine, sourceLine]) => [
+        displayLine,
+        sourceLine + 1,
+      ]),
+    )
+  }
+
   getHiddenLineNumbers(): Set<number> {
     if (this.isFoldedDisplay) return new Set()
     const hidden = new Set<number>()

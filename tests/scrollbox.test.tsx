@@ -552,7 +552,7 @@ describe("ResponsePane scrollbox", () => {
                 status: 200,
                 statusText: "OK",
                 headers: {},
-                body: '{\n  "data": {\n    "id": 1\n  }\n}',
+                body: '{\n  "before": true,\n  "data": {\n    "id": 1\n  },\n  "after": "next"\n}',
                 timeMs: 1,
               },
             }}
@@ -571,11 +571,21 @@ describe("ResponsePane scrollbox", () => {
 
     await act(async () => mockInput.pressKey("F5"))
     await renderOnce()
-    expect(editor.lineCount).toBeLessThan(5)
+    expect(editor.lineCount).toBeLessThan(7)
 
     await act(async () => mockInput.pressKey("F6"))
     await renderOnce()
-    expect(editor.lineCount).toBe(5)
+    expect(editor.lineCount).toBe(7)
+
+    editor.toggleFold(2)
+    await renderOnce()
+    const afterLine = captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes('"after"'))
+    expect(afterLine).toMatch(/\b6\s+"after"/)
+
+    editor.unfoldAll()
+    await renderOnce()
 
     const rows = captureCharFrame().split("\n")
     const row = rows.find((line) => line.includes("▼") && line.includes("{"))
@@ -584,7 +594,7 @@ describe("ResponsePane scrollbox", () => {
       await mockMouse.click(row.indexOf("▼"), rows.indexOf(row))
     })
     await renderOnce()
-    expect(editor.lineCount).toBeLessThan(5)
+    expect(editor.lineCount).toBeLessThan(7)
   })
 
   it("keeps bodies above 5 MB raw until v is pressed", async () => {
