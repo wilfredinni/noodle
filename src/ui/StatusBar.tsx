@@ -11,6 +11,7 @@ import type { CollectionMode } from "../app/main"
 
 const HINT_HORIZONTAL_PADDING = 2
 const HINT_ITEM_GAP = 1
+const MAX_CONTEXTUAL_HINTS = 3
 
 export interface StatusBarSections {
   left: string
@@ -38,6 +39,18 @@ function fitSegments(
   }
 
   return visible
+}
+
+function segmentsWidth(segments: HintSegment[]): number {
+  return segments.reduce(
+    (width, seg, i) =>
+      width +
+      seg.key.length +
+      (seg.word ? 1 + seg.word.length : 0) +
+      HINT_HORIZONTAL_PADDING +
+      (i > 0 ? HINT_ITEM_GAP : 0),
+    0,
+  )
 }
 
 function urlPath(url: string): string {
@@ -132,58 +145,31 @@ export function statusBarText(input: {
 }
 
 export function StatusBar(input: {
-  method: string
-  url: string
-  isDirty: boolean
-  sendState: SendState
-  envLabel: string
-  envColor?: string
-  saveState: SaveState
   kb: Keybinds
-  spinnerFrame?: string
   view?: "main" | "env-editor"
-  envStats?: string
   jumpMode?: boolean
   collectionMode?: CollectionMode
   overlayActive?: boolean
+  globalHints: HintSegment[]
   footerHints: HintSegment[]
   sendCommand?: string
-  onEnvironmentActivate?: () => void
   onHintActivate?: (command: string) => void
 }) {
   const theme = useTheme()
-  const [hoveringEnvironment, setHoveringEnvironment] = useState(false)
-  const [hoveredSegment, setHoveredSegment] = useState<number | null>(null)
+  const [hoveredSegment, setHoveredSegment] = useState<string | null>(null)
 
   const view = input.view ?? "main"
   const jumpMode = input.jumpMode ?? false
   const collectionMode = input.collectionMode ?? "collection"
   const overlayActive = input.overlayActive ?? false
 
-  const contextual = input.footerHints
-
-  const envText =
-    input.envLabel === "" || input.envLabel === "(no env)"
-      ? "no env"
-      : `● ${input.envLabel}`
-
-  const envFg = input.envLabel.includes("(load failed")
-    ? theme.error
-    : input.envLabel === "" || input.envLabel === "(no env)"
-      ? theme.textMuted
-      : input.envColor !== undefined
-        ? ((theme as unknown as Record<string, string>)[input.envColor] ??
-          theme.info)
-        : theme.info
-
-  const isEnvEditor = view === "env-editor"
-
-  const jumpSegments: HintSegment[] = [
-    { key: "Type key", word: "to jump" },
-    { key: "Esc", word: "dismiss" },
-  ]
-
   const { width: termWidth = 100 } = useTerminalDimensions()
+  const transient = jumpMode || overlayActive
+  const showHintLabels = termWidth >= 100 || transient
+  const displayHints = (segments: HintSegment[]) =>
+    showHintLabels
+      ? segments
+      : segments.map((segment) => ({ ...segment, word: "" }))
 
   const sendSegment =
     view === "main" &&
@@ -200,30 +186,87 @@ export function StatusBar(input: {
         ]
       : []
 
-  let sendWidth = 0
-  for (const seg of sendSegment) {
-    sendWidth +=
-      seg.key.length +
-      (seg.word ? 1 + seg.word.length : 0) +
-      HINT_HORIZONTAL_PADDING +
-      (sendWidth > 0 ? HINT_ITEM_GAP : 0)
+  const sendWidth = segmentsWidth(sendSegment)
+  const transientHints = transient ? displayHints(input.globalHints) : []
+  const contextualHints = displayHints(
+    input.footerHints.slice(0, MAX_CONTEXTUAL_HINTS),
+  )
+  const commandsHint = displayHints([
+    {
+      key: displayKey(input.kb.command_palette),
+      word: "commands",
+      command: "app.command-palette",
+    },
+  ])
+  const leftBudget = Math.max(
+    0,
+    termWidth - 2 - sendWidth - (sendSegment.length > 0 ? HINT_ITEM_GAP : 0),
+  )
+
+  let showCommands =
+    collectionMode !== "collection" ||
+    input.footerHints.length > MAX_CONTEXTUAL_HINTS
+  let visibleContextual = fitSegments(contextualHints, leftBudget)
+  if (visibleContextual.length < contextualHints.length) showCommands = true
+
+  const commandsWidth = segmentsWidth(commandsHint)
+  const visibleCommands = showCommands && commandsWidth <= leftBudget
+  if (visibleCommands) {
+    visibleContextual = fitSegments(
+      contextualHints,
+      Math.max(
+        0,
+        leftBudget -
+          commandsWidth -
+          (contextualHints.length > 0 ? HINT_ITEM_GAP : 0),
+      ),
+    )
   }
 
-  const segments = jumpMode ? jumpSegments : contextual
+  const visibleTransient = fitSegments(transientHints, termWidth - 2)
+  const leftSegments = transient
+    ? visibleTransient
+    : [...visibleContextual, ...(visibleCommands ? commandsHint : [])]
 
-  const leftWidth = isEnvEditor
-    ? (input.envStats?.length || 10) + 4
-    : envText.length + 4
-  const maxShortcutChars = Math.max(0, termWidth - leftWidth - sendWidth)
-  const visibleSegments = jumpMode
-    ? segments
-    : fitSegments(
-        segments,
-        maxShortcutChars,
-        sendSegment.length > 0 ? HINT_ITEM_GAP : 0,
-      )
-
-  const allSegments = [...visibleSegments, ...sendSegment]
+  const renderSegment = (seg: HintSegment, id: string) => (
+    <box
+      key={id}
+      style={{
+        flexDirection: "row",
+        paddingLeft: 1,
+        paddingRight: 1,
+        backgroundColor:
+          seg.command && input.onHintActivate && hoveredSegment === id
+            ? theme.backgroundElement
+            : undefined,
+      }}
+      onMouseDown={(event) => {
+        if (event.button === MouseButton.LEFT && seg.command) {
+          setHoveredSegment(null)
+          input.onHintActivate?.(seg.command)
+        }
+      }}
+      onMouseOver={
+        seg.command && input.onHintActivate
+          ? () => setHoveredSegment(id)
+          : undefined
+      }
+      onMouseOut={
+        seg.command && input.onHintActivate
+          ? () => setHoveredSegment(null)
+          : undefined
+      }
+    >
+      <text fg={theme.text} selectable={false}>
+        {seg.key}
+      </text>
+      {seg.word ? (
+        <text fg={theme.textMuted} selectable={false}>
+          {` ${seg.word}`}
+        </text>
+      ) : null}
+    </box>
+  )
 
   return (
     <box
@@ -237,41 +280,9 @@ export function StatusBar(input: {
         paddingRight: 1,
       }}
     >
-      <box
-        style={{
-          flexDirection: "row",
-          paddingLeft: !isEnvEditor ? 1 : undefined,
-          paddingRight: !isEnvEditor ? 1 : undefined,
-          backgroundColor:
-            !isEnvEditor && hoveringEnvironment
-              ? theme.backgroundElement
-              : undefined,
-        }}
-        onMouseDown={(event) => {
-          if (event.button === MouseButton.LEFT && !isEnvEditor) {
-            setHoveringEnvironment(false)
-            input.onEnvironmentActivate?.()
-          }
-        }}
-        onMouseOver={
-          !isEnvEditor && input.onEnvironmentActivate
-            ? () => setHoveringEnvironment(true)
-            : undefined
-        }
-        onMouseOut={
-          !isEnvEditor && input.onEnvironmentActivate
-            ? () => setHoveringEnvironment(false)
-            : undefined
-        }
-      >
-        {isEnvEditor ? (
-          <text fg={theme.info} selectable={false}>
-            {input.envStats || "Env Editor"}
-          </text>
-        ) : (
-          <text fg={envFg} selectable={false}>
-            {envText}
-          </text>
+      <box style={{ flexDirection: "row", alignItems: "center", gap: 1 }}>
+        {leftSegments.map((seg, i) =>
+          renderSegment(seg, `left-${seg.command ?? seg.key}-${i}`),
         )}
       </box>
       <box
@@ -281,45 +292,7 @@ export function StatusBar(input: {
           gap: HINT_ITEM_GAP,
         }}
       >
-        {allSegments.map((seg, i) => (
-          <box
-            key={i}
-            style={{
-              flexDirection: "row",
-              paddingLeft: 1,
-              paddingRight: 1,
-              backgroundColor:
-                seg.command && input.onHintActivate && hoveredSegment === i
-                  ? theme.backgroundElement
-                  : undefined,
-            }}
-            onMouseDown={(event) => {
-              if (event.button === MouseButton.LEFT && seg.command) {
-                setHoveredSegment(null)
-                input.onHintActivate?.(seg.command)
-              }
-            }}
-            onMouseOver={
-              seg.command && input.onHintActivate
-                ? () => setHoveredSegment(i)
-                : undefined
-            }
-            onMouseOut={
-              seg.command && input.onHintActivate
-                ? () => setHoveredSegment(null)
-                : undefined
-            }
-          >
-            <text fg={theme.text} selectable={false}>
-              {seg.key}
-            </text>
-            {seg.word ? (
-              <text fg={theme.textMuted} selectable={false}>
-                {` ${seg.word}`}
-              </text>
-            ) : null}
-          </box>
-        ))}
+        {sendSegment.map((seg, i) => renderSegment(seg, `send-${i}`))}
       </box>
     </box>
   )

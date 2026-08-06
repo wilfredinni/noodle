@@ -897,14 +897,6 @@ export function AppInner({
     onCancelUpdate,
   })
 
-  // ── Derived values for render ─────────────────────────────────────
-  const envStats = useMemo(() => {
-    if (!envEditor.draft) return ""
-    const rows = envEditor.draft.varRows
-    const activeCount = rows.filter((r) => r.enabled).length
-    return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
-  }, [envEditor.draft])
-
   const renderer = useRenderer()
   const {
     onLoadTimelineBody,
@@ -992,9 +984,14 @@ export function AppInner({
       }}
     >
       <Header
-        headerHints={hints.header}
+        envLabel={envState.indicatorLabel}
+        envColor={envState.activeEnv?.color}
         onAboutActivate={handleAboutActivate}
-        onHintActivate={handleHintActivate}
+        onEnvironmentActivate={
+          view === "main" && mode === "collection" && !overlayActive
+            ? handleEnvironmentActivate
+            : undefined
+        }
         restartVersion={restartVersion}
         updateAvailable={updateAvailable}
       />
@@ -1183,26 +1180,14 @@ export function AppInner({
         />
       </box>
       <StatusBar
-        method={draft.draft?.method ?? ""}
-        url={draft.draft?.url ?? ""}
-        isDirty={draft.isDirty}
-        sendState={responseState}
-        envLabel={envState.indicatorLabel}
-        envColor={envState.activeEnv?.color}
-        saveState={saveState}
         kb={keybinds}
         view={view}
-        envStats={envStats}
         jumpMode={jumpMode}
         collectionMode={mode}
         overlayActive={overlayActive}
+        globalHints={hints.header}
         footerHints={hints.footer}
         sendCommand={sendCommand}
-        onEnvironmentActivate={
-          view === "main" && mode === "collection" && !overlayActive
-            ? handleEnvironmentActivate
-            : undefined
-        }
         onHintActivate={handleHintActivate}
       />
     </box>

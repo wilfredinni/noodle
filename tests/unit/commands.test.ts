@@ -81,6 +81,14 @@ describe("buildCommandPaletteCommands", () => {
     }
   })
 
+  it("labels the help command as keyboard shortcuts", () => {
+    const command = buildCommandPaletteCommands(minimalContext()).find(
+      (item) => item.id === "app.help",
+    )
+
+    expect(command?.label).toBe("Keyboard Shortcuts")
+  })
+
   it("sections appear in correct order", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
     const sections = [...new Set(commands.map((c) => c.section))]

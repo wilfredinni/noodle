@@ -32,153 +32,132 @@ function sidebarHints(): HintSegment[] {
 }
 
 describe("StatusBar component", () => {
-  it("renders environment label", async () => {
+  it("renders three contextual actions, Commands, and pinned Send", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
-          method="GET"
-          url="/users"
-          isDirty={false}
-          sendState={{ status: "idle" }}
-          envLabel="dev"
-          saveState={{ kind: "idle" }}
           kb={kb}
-          footerHints={emptyHints}
-        />
-      </ThemeProvider>,
-      { width: 100, height: 3 },
-    )
-
-    await renderOnce()
-    const frame = captureCharFrame()
-
-    expect(frame).toContain("dev")
-  })
-
-  it("does not append a dirty marker to environment", async () => {
-    const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <StatusBar
-          method="GET"
-          url="/users"
-          isDirty={true}
-          sendState={{ status: "idle" }}
-          envLabel="dev"
-          saveState={{ kind: "idle" }}
-          kb={kb}
-          footerHints={emptyHints}
-        />
-      </ThemeProvider>,
-      { width: 100, height: 3 },
-    )
-
-    await renderOnce()
-    const frame = captureCharFrame()
-
-    expect(frame).not.toContain("dev •")
-  })
-
-  it("renders contextual shortcuts when focused on sidebar", async () => {
-    const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <StatusBar
-          method="GET"
-          url="/users"
-          isDirty={false}
-          sendState={{ status: "idle" }}
-          envLabel="dev"
-          saveState={{ kind: "idle" }}
-          kb={kb}
-          collectionMode="collection"
+          globalHints={emptyHints}
           footerHints={sidebarHints()}
+          sendCommand="request.send"
         />
       </ThemeProvider>,
-      { width: 100, height: 3 },
+      { width: 140, height: 1 },
     )
 
     await renderOnce()
     const frame = captureCharFrame()
 
-    expect(frame).toContain("save")
-    expect(frame).toContain("new")
+    expect(frame).not.toContain("SIDEBAR")
     expect(frame).toContain("new folder")
-    expect(frame).toContain("delete")
-    expect(frame).not.toContain("·")
+    expect(frame).toContain("clone")
+    expect(frame).toContain("commands")
+    expect(frame).toContain("send")
+    expect(frame).not.toContain("delete")
+    expect(frame).not.toContain("save")
+    expect(frame).not.toContain("jump")
+    expect(frame).not.toContain("help")
+    expect(frame.indexOf("send")).toBeGreaterThan(frame.indexOf("commands"))
   })
 
-  it("returns empty contextual shortcuts when overlay is active", async () => {
-    const { renderOnce, captureCharFrame } = await testRender(
+  it("replaces the footer with transient overlay and jump instructions", async () => {
+    const overlay = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
-          method="GET"
-          url="/users"
-          isDirty={false}
-          sendState={{ status: "idle" }}
-          envLabel="dev"
-          saveState={{ kind: "idle" }}
           kb={kb}
-          collectionMode="collection"
           overlayActive={true}
-          footerHints={emptyHints}
+          globalHints={[{ key: "Esc", word: "close" }]}
+          footerHints={sidebarHints()}
+          sendCommand="request.send"
         />
       </ThemeProvider>,
-      { width: 100, height: 3 },
+      { width: 120, height: 1 },
     )
+    await overlay.renderOnce()
+    const overlayFrame = overlay.captureCharFrame()
+    expect(overlayFrame).toContain("Esc")
+    expect(overlayFrame).toContain("close")
+    expect(overlayFrame).not.toContain("SIDEBAR")
+    expect(overlayFrame).not.toContain("send")
 
-    await renderOnce()
-    const frame = captureCharFrame()
-
-    expect(frame).toContain("dev")
+    const jump = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          jumpMode={true}
+          globalHints={[
+            { key: "Type key", word: "to jump" },
+            { key: "Esc", word: "dismiss" },
+          ]}
+          footerHints={sidebarHints()}
+          sendCommand="request.send"
+        />
+      </ThemeProvider>,
+      { width: 120, height: 1 },
+    )
+    await jump.renderOnce()
+    const jumpFrame = jump.captureCharFrame()
+    expect(jumpFrame).toContain("Type key")
+    expect(jumpFrame).toContain("to jump")
+    expect(jumpFrame).toContain("Esc")
+    expect(jumpFrame).toContain("dismiss")
+    expect(jumpFrame).not.toContain("SIDEBAR")
+    expect(jumpFrame).not.toContain("send")
   })
 
-  it("activates footer and send hints on left click only", async () => {
+  it("activates contextual, Commands, and Send actions on left click only", async () => {
     const activated: string[] = []
     const { renderOnce, captureCharFrame, mockMouse } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
-          method="GET"
-          url="/users"
-          isDirty={false}
-          sendState={{ status: "idle" }}
-          envLabel="dev"
-          saveState={{ kind: "idle" }}
           kb={kb}
-          footerHints={[{ key: "^s", word: "save", command: "request.save" }]}
+          globalHints={emptyHints}
+          footerHints={[
+            { key: "^s", word: "save", command: "request.save" },
+            { key: "^d", word: "revert", command: "browse.delete" },
+            { key: "^r", word: "revert all", command: "browse.revert-all" },
+            { key: "f2", word: "expand", command: "request.expand-toggle" },
+          ]}
           sendCommand="request.send"
           onHintActivate={(command) => activated.push(command)}
         />
       </ThemeProvider>,
-      { width: 80, height: 1 },
+      { width: 140, height: 1 },
     )
     await renderOnce()
 
     const frame = captureCharFrame()
     const [saveX, saveY] = textPosition(frame, "save")
+    const [commandsX, commandsY] = textPosition(frame, "commands")
     const [sendX, sendY] = textPosition(frame, "send")
     await mockMouse.click(saveX, saveY, MouseButtons.RIGHT)
+    await mockMouse.click(commandsX, commandsY, MouseButtons.RIGHT)
     await mockMouse.click(sendX, sendY, MouseButtons.RIGHT)
     expect(activated).toEqual([])
 
     await mockMouse.click(saveX, saveY, MouseButtons.LEFT)
+    await mockMouse.click(commandsX, commandsY, MouseButtons.LEFT)
     await mockMouse.click(sendX, sendY, MouseButtons.LEFT)
-    expect(activated).toEqual(["request.save", "request.send"])
+    expect(activated).toEqual([
+      "request.save",
+      "app.command-palette",
+      "request.send",
+    ])
   })
 
-  it("leaves a gap between footer hints", async () => {
+  it("uses key-only hints on compact terminals", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
-          method="GET"
-          url="/users"
-          isDirty={false}
-          sendState={{ status: "idle" }}
-          envLabel="dev"
-          saveState={{ kind: "idle" }}
           kb={kb}
+          globalHints={emptyHints}
           footerHints={[
-            { key: "^s", word: "save", command: "request.save" },
-            { key: "^n", word: "new", command: "request.new" },
+            { key: "Space", word: "toggle" },
+            { key: "^d", word: "revert" },
+            { key: "^s", word: "save" },
+            { key: "^r", word: "revert all" },
           ]}
+          sendCommand="request.send"
         />
       </ThemeProvider>,
       { width: 80, height: 1 },
@@ -186,35 +165,129 @@ describe("StatusBar component", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame.indexOf("^n") - frame.indexOf("save") - 4).toBe(3)
+    expect(frame).toContain("Space")
+    expect(frame).toContain("^d")
+    expect(frame).toContain("^s")
+    expect(frame).toContain("^p")
+    expect(frame).not.toContain("toggle")
+    expect(frame).not.toContain("commands")
+    expect(frame).toContain("send")
   })
 
-  it("opens the environment editor on left click of the environment", async () => {
-    let opened = 0
-    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+  it("keeps Commands and Send on narrow terminals", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
-          method="GET"
-          url="/users"
-          isDirty={false}
-          sendState={{ status: "idle" }}
-          envLabel="dev"
-          saveState={{ kind: "idle" }}
           kb={kb}
-          footerHints={emptyHints}
-          onEnvironmentActivate={() => opened++}
+          globalHints={emptyHints}
+          footerHints={[
+            { key: "Space", word: "toggle" },
+            { key: "^d", word: "revert" },
+            { key: "^s", word: "save" },
+            { key: "^r", word: "revert all" },
+          ]}
+          sendCommand="request.send"
         />
       </ThemeProvider>,
-      { width: 80, height: 1 },
+      { width: 50, height: 1 },
     )
     await renderOnce()
 
-    const [x, y] = textPosition(captureCharFrame(), "dev")
-    await mockMouse.click(x, y, MouseButtons.RIGHT)
-    expect(opened).toBe(0)
+    const frame = captureCharFrame()
+    expect(frame).toContain("^p")
+    expect(frame).toContain("send")
+  })
 
-    await mockMouse.click(x, y, MouseButtons.LEFT)
-    expect(opened).toBe(1)
+  it("shows Commands in browse and empty collection modes", async () => {
+    const activated: string[] = []
+
+    for (const collectionMode of ["browse", "empty"] as const) {
+      const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <StatusBar
+            kb={kb}
+            collectionMode={collectionMode}
+            globalHints={emptyHints}
+            footerHints={emptyHints}
+            onHintActivate={(command) => activated.push(command)}
+          />
+        </ThemeProvider>,
+        { width: 120, height: 1 },
+      )
+      await renderOnce()
+
+      const frame = captureCharFrame()
+      expect(frame).toContain("commands")
+      const [x, y] = textPosition(frame, "commands")
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    }
+
+    expect(activated).toEqual(["app.command-palette", "app.command-palette"])
+  })
+
+  it("adds Commands when width fitting hides one of three actions", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          globalHints={emptyHints}
+          footerHints={[
+            { key: "Space", word: "toggle" },
+            { key: "^d", word: "revert" },
+            { key: "^s", word: "save" },
+          ]}
+          sendCommand="request.send"
+        />
+      </ThemeProvider>,
+      { width: 30, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("^p")
+    expect(frame).toContain("send")
+  })
+
+  it("renders environment hints without a pinned right-side action", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          view="env-editor"
+          globalHints={emptyHints}
+          footerHints={[{ key: "^s", word: "save" }]}
+        />
+      </ThemeProvider>,
+      { width: 120, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("save")
+    expect(frame).not.toContain("commands")
+    expect(frame).not.toContain("send")
+  })
+
+  it("uses the previous plain shortcut styling for actions and Send", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          globalHints={emptyHints}
+          footerHints={[{ key: "^s", word: "save" }]}
+          sendCommand="request.send"
+        />
+      </ThemeProvider>,
+      { width: 120, height: 1 },
+    )
+    await renderOnce()
+
+    const spans = captureSpans().lines.flatMap((line) => line.spans)
+    const shortcut = spans.find((span) => span.text.includes("^s"))!
+    const send = spans.find((span) => span.text.includes("send"))!
+    expect(shortcut.bg.equals(send.bg)).toBe(true)
+    expect(shortcut.fg.equals(RGBA.fromHex(THEMES[0]!.text))).toBe(true)
+    expect(send.fg.equals(RGBA.fromHex(THEMES[0]!.textMuted))).toBe(true)
   })
 
   it("clears a hint hover when it is activated", async () => {
@@ -222,18 +295,13 @@ describe("StatusBar component", () => {
       await testRender(
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <StatusBar
-            method="GET"
-            url="/users"
-            isDirty={false}
-            sendState={{ status: "idle" }}
-            envLabel="dev"
-            saveState={{ kind: "idle" }}
             kb={kb}
+            globalHints={emptyHints}
             footerHints={[{ key: "^s", word: "save", command: "request.save" }]}
             onHintActivate={() => {}}
           />
         </ThemeProvider>,
-        { width: 80, height: 1 },
+        { width: 120, height: 1 },
       )
     await renderOnce()
 

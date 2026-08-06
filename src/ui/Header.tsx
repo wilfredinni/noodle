@@ -1,31 +1,48 @@
 import { MouseButton, TextAttributes } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
+import { stringWidth } from "bun"
 import { useState } from "react"
 import pkg from "../../package.json" with { type: "json" }
 import { useTheme } from "./theme"
-import type { HintSegment } from "./keybindingHints"
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+
+function truncate(text: string, maxWidth: number): string {
+  if (stringWidth(text) <= maxWidth) return text
+  if (maxWidth <= 1) return maxWidth === 1 ? "…" : ""
+
+  let result = ""
+  let width = 0
+  for (const { segment } of graphemes.segment(text)) {
+    const segmentWidth = stringWidth(segment)
+    if (width + segmentWidth > maxWidth - 1) break
+    result += segment
+    width += segmentWidth
+  }
+  return `${result}…`
+}
 
 export function Header({
-  headerHints,
+  envLabel,
+  envColor,
   onAboutActivate,
-  onHintActivate,
+  onEnvironmentActivate,
   restartVersion,
   updateAvailable,
 }: {
-  headerHints: HintSegment[]
+  envLabel: string
+  envColor?: string
   onAboutActivate?: () => void
-  onHintActivate?: (command: string) => void
+  onEnvironmentActivate?: () => void
   restartVersion?: string | null
   updateAvailable?: string | null
 }) {
   const theme = useTheme()
   const [hoveringAbout, setHoveringAbout] = useState(false)
-  const [hoveredHint, setHoveredHint] = useState<number | null>(null)
+  const [hoveringEnvironment, setHoveringEnvironment] = useState(false)
   const { width: termWidth = 100 } = useTerminalDimensions()
 
-  const showVersion = termWidth >= 45
-  const showHints = termWidth >= 35
-  const showHintLabels = termWidth >= 60
+  const showVersion = termWidth >= 60
   const status = showVersion
     ? updateAvailable != null
       ? " ✨ Update available"
@@ -34,20 +51,23 @@ export function Header({
         : ""
     : ""
   const titleWidth = 8 + (showVersion ? ` v${pkg.version}`.length : 0)
-  const availableHintWidth = termWidth - 2 - titleWidth - status.length
-  let usedHintWidth = 0
-  const visibleHints = showHints
-    ? headerHints.filter((hint) => {
-        const width =
-          hint.key.length +
-          (showHintLabels && hint.word ? hint.word.length + 1 : 0) +
-          2 +
-          (usedHintWidth === 0 ? 0 : 1)
-        if (usedHintWidth + width > availableHintWidth) return false
-        usedHintWidth += width
-        return true
-      })
-    : []
+  const availableEnvironmentWidth = Math.max(
+    0,
+    termWidth - titleWidth - status.length - 4,
+  )
+  const rawEnvText =
+    envLabel === "" || envLabel === "(no env)" ? "no env" : envLabel
+  const envText = truncate(
+    rawEnvText,
+    Math.max(0, availableEnvironmentWidth - 2),
+  )
+  const envMarkerFg = envLabel.includes("(load failed")
+    ? theme.error
+    : envLabel === "" || envLabel === "(no env)"
+      ? theme.textMuted
+      : envColor !== undefined
+        ? ((theme as unknown as Record<string, string>)[envColor] ?? theme.info)
+        : theme.info
 
   return (
     <box
@@ -98,50 +118,44 @@ export function Header({
         </box>
         {showVersion && status && <text fg={theme.warning}>{status}</text>}
       </box>
-      {visibleHints.length > 0 && (
-        <box style={{ flexDirection: "row", gap: 1 }}>
-          {visibleHints.map((hint) => {
-            const i = headerHints.indexOf(hint)
-            return (
-              <box
-                key={i}
-                style={{
-                  flexDirection: "row",
-                  paddingLeft: 1,
-                  paddingRight: 1,
-                  backgroundColor:
-                    hint.command && onHintActivate && hoveredHint === i
-                      ? theme.backgroundElement
-                      : undefined,
-                }}
-                onMouseDown={(event) => {
-                  if (event.button === MouseButton.LEFT && hint.command) {
-                    setHoveredHint(null)
-                    onHintActivate?.(hint.command)
-                  }
-                }}
-                onMouseOver={
-                  hint.command && onHintActivate
-                    ? () => setHoveredHint(i)
-                    : undefined
-                }
-                onMouseOut={
-                  hint.command && onHintActivate
-                    ? () => setHoveredHint(null)
-                    : undefined
-                }
-              >
-                <text fg={theme.text} selectable={false}>
-                  {hint.key}
-                </text>
-                {showHintLabels && hint.word ? (
-                  <text fg={theme.textMuted} selectable={false}>
-                    {` ${hint.word}`}
-                  </text>
-                ) : null}
-              </box>
-            )
-          })}
+      {availableEnvironmentWidth > 0 && (
+        <box
+          style={{
+            flexDirection: "row",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor: hoveringEnvironment
+              ? theme.backgroundElement
+              : undefined,
+          }}
+          onMouseDown={(event) => {
+            if (event.button === MouseButton.LEFT) {
+              setHoveringEnvironment(false)
+              onEnvironmentActivate?.()
+            }
+          }}
+          onMouseOver={
+            onEnvironmentActivate
+              ? () => setHoveringEnvironment(true)
+              : undefined
+          }
+          onMouseOut={
+            onEnvironmentActivate
+              ? () => setHoveringEnvironment(false)
+              : undefined
+          }
+        >
+          <text fg={envMarkerFg} selectable={false}>
+            ⛁
+          </text>
+          {envText !== "" && (
+            <text
+              fg={rawEnvText === "no env" ? theme.textMuted : theme.text}
+              selectable={false}
+            >
+              {` ${envText}`}
+            </text>
+          )}
         </box>
       )}
     </box>

@@ -475,7 +475,7 @@ export function buildCommandPaletteCommands(
   const systemCommands: CommandItem[] = [
     {
       id: "app.help",
-      label: "Toggle Help",
+      label: "Keyboard Shortcuts",
       section: "System",
       keybinding: displayKey(keybinds.help_toggle),
       run: () => {

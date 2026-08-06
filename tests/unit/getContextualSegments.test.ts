@@ -48,8 +48,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^n", "new"),
       seg("^alt+n", "new folder"),
-      seg("^w", "delete"),
       seg("^k", "clone"),
+      seg("^w", "delete"),
       seg("^s", "save"),
     ])
   })
@@ -98,8 +98,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
-      seg("f2", "expand"),
       seg("^s", "save"),
+      seg("f2", "expand"),
     ])
   })
 
@@ -108,9 +108,9 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
+      seg("^s", "save"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
-      seg("^s", "save"),
     ])
   })
 
@@ -119,9 +119,9 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
+      seg("^s", "save"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
-      seg("^s", "save"),
     ])
   })
 
@@ -130,8 +130,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
-      seg("f2", "expand"),
       seg("^s", "save"),
+      seg("f2", "expand"),
     ])
   })
 
@@ -145,9 +145,9 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
+      seg("^s", "save"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
-      seg("^s", "save"),
     ])
   })
 
@@ -161,9 +161,9 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
+      seg("^s", "save"),
       seg("^r", "revert all"),
       seg("f2", "expand"),
-      seg("^s", "save"),
     ])
   })
 
@@ -177,8 +177,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
-      seg("f2", "expand"),
       seg("^s", "save"),
+      seg("f2", "expand"),
     ])
   })
 
@@ -192,8 +192,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
-      seg("f2", "expand"),
       seg("^s", "save"),
+      seg("f2", "expand"),
     ])
   })
 
@@ -207,8 +207,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
-      seg("f2", "expand"),
       seg("^s", "save"),
+      seg("f2", "expand"),
     ])
   })
 
@@ -217,8 +217,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
-      seg("f2", "expand"),
       seg("^s", "save"),
+      seg("f2", "expand"),
     ])
   })
 
@@ -227,8 +227,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("^d", "revert"),
       seg("^r", "revert all"),
-      seg("f2", "expand"),
       seg("^s", "save"),
+      seg("f2", "expand"),
     ])
   })
 
@@ -336,8 +336,8 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
       seg("^d", "revert"),
-      seg("^r", "revert all"),
       seg("^s", "save"),
+      seg("^r", "revert all"),
     ])
   })
 
@@ -384,8 +384,8 @@ describe("getContextualSegments", () => {
     const r = base({ focus: "env-sidebar", view: "env-editor" })
     expect(r.footer).toMatchObject([
       seg("^n", "new"),
-      seg("^w", "delete"),
       seg("^k", "clone"),
+      seg("^w", "delete"),
     ])
   })
 
