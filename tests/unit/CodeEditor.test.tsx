@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
 import type { KeyEvent, LineNumberRenderable } from "@opentui/core"
-import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../../src/ui/editor/CodeEditor"
 import { opencodeTheme } from "../../src/ui/theme-data"
 
 extend({ "code-editor": CodeEditorRenderable })
@@ -315,6 +318,87 @@ describe("CodeEditorRenderable", () => {
 
       expect(renderer.getCursorState().visible).toBe(focused)
     }
+  })
+
+  it("keeps the logical cursor while a scrollbar follows editor scrolling", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 40 },
+      (_, index) => `"line${index}"`,
+    ).join("\n")
+
+    const { renderer, renderOnce } = await testRender(
+      <box width={30} height={6}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          scrollMargin={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 30, height: 6 },
+    )
+
+    await renderOnce()
+    const scrollbar = new CodeEditorScrollBarRenderable(renderer, {
+      target: editor,
+      position: "absolute",
+      left: 29,
+      width: 1,
+      height: 6,
+    })
+    renderer.root.add(scrollbar)
+    await renderOnce()
+
+    for (let index = 0; index < 5; index++) {
+      editor!.handleKeyPress(keyEvent("down"))
+      await renderOnce()
+    }
+
+    expect(editor!.scrollY).toBeGreaterThan(0)
+    expect(editor!.logicalCursor).toMatchObject({ row: 5, col: 0 })
+    scrollbar.destroy()
+    renderer.destroy()
+  })
+
+  it("tears down an editor before its scrollbar", async () => {
+    const { renderer, renderOnce } = await testRender(<box />, {
+      width: 30,
+      height: 6,
+    })
+    const editor = new CodeEditorRenderable(renderer, {
+      filetype: "json",
+      theme: opencodeTheme,
+      initialValue: '"line"',
+    })
+    const scrollbar = new CodeEditorScrollBarRenderable(renderer, {
+      target: editor,
+      position: "absolute",
+      width: 1,
+      height: 6,
+    })
+    renderer.root.add(editor)
+    renderer.root.add(scrollbar)
+    await renderOnce()
+
+    let teardownError: unknown
+    try {
+      editor.destroy()
+    } catch (error) {
+      teardownError = error
+    }
+    scrollbar.destroy()
+    renderer.destroy()
+
+    expect(teardownError).toBeUndefined()
   })
 
   it("does not move the cursor for a zero scroll delta", async () => {

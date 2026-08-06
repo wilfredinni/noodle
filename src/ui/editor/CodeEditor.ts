@@ -4,7 +4,6 @@ import type {
   PasteEvent,
   RenderContext,
   ScrollBarOptions,
-  ScrollUnit,
   TreeSitterClient,
 } from "@opentui/core"
 import {
@@ -268,7 +267,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       viewport.height,
       false,
     )
-    // EditorView recenters on its cursor during render, even while blurred.
+    // Keep the viewport anchored without moving the edit cursor.
     const anchorRow = Math.min(1, Math.max(0, viewport.height - 1))
     this.editorView.setLocalSelection(
       0,
@@ -277,10 +276,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
       anchorRow,
       undefined,
       undefined,
-      true,
+      false,
       false,
     )
-    this.editorView.resetLocalSelection()
     this.requestRender()
   }
 
@@ -298,7 +296,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   override requestRender(): void {
-    if (this._renderSuppressed) return
+    if (this._renderSuppressed || this.isDestroyed) return
     super.requestRender()
     this.emit("scroll-change")
   }
@@ -526,15 +524,6 @@ export class CodeEditorScrollBarRenderable extends ScrollBarRenderable {
     target?.on("line-info-change", this._syncTarget)
     target?.on("scroll-change", this._syncTarget)
     this.syncTarget()
-  }
-
-  override scrollBy(delta: number, unit?: ScrollUnit): void {
-    super.scrollBy(delta, unit)
-    this.scrollTargetTo(this.scrollPosition)
-  }
-
-  private scrollTargetTo(position: number): void {
-    this._target?.scrollTo(position)
   }
 
   private syncTarget(): void {
