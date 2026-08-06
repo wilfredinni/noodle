@@ -550,6 +550,8 @@ export function AppInner({
     setHelpVisible,
     aboutVisible,
     setAboutVisible,
+    environmentPickerVisible,
+    setEnvironmentPickerVisible,
     yamlEditor,
     setYamlEditor,
     envDeletePending,
@@ -712,12 +714,16 @@ export function AppInner({
   }, [setAboutVisible])
 
   const handleEnvironmentActivate = useCallback(() => {
-    eb.commitEdit()
-    folderEb.commitEdit()
-    envEditor.openEditor(envState.activeEnv?.name).catch(() => {})
-    setView("env-editor")
-    setFocus("env-sidebar")
-  }, [eb.commitEdit, envEditor, envState.activeEnv?.name, folderEb.commitEdit])
+    setEnvironmentPickerVisible(true)
+  }, [setEnvironmentPickerVisible])
+
+  const handleEnvironmentSelect = useCallback(
+    (name: string) => {
+      envState.select(name)
+      setEnvironmentPickerVisible(false)
+    },
+    [envState.select, setEnvironmentPickerVisible],
+  )
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)
@@ -1152,6 +1158,11 @@ export function AppInner({
           collectionDir={collectionDir}
           requestCollectionSwitch={requestCollectionSwitch}
           setCollectionSwitcherVisible={setCollectionSwitcherVisible}
+          environmentPickerVisible={environmentPickerVisible}
+          environmentNames={envState.names}
+          activeEnvironmentName={envState.names[envState.activeIndex] ?? null}
+          onSelectEnvironment={handleEnvironmentSelect}
+          setEnvironmentPickerVisible={setEnvironmentPickerVisible}
           previewIndex={previewIndex}
           activeIndex={activeIndex}
           setPreviewIndex={setPreviewIndexProp}

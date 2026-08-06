@@ -9,6 +9,7 @@ export interface UseEnvironmentsResult {
   activeEnv: Environment | null
   error: Error | null
   indicatorLabel: string
+  select: (name: string) => void
   cycle: (delta: number) => void
   reloadActiveEnv: () => Promise<void>
 }
@@ -46,15 +47,17 @@ export function useEnvironments(
             : undefined
     if (target === undefined) return
     let cancelled = false
+    genRef.current += 1
+    const gen = genRef.current
     env
       .loadEnvironment(dir, target)
       .then((loaded) => {
-        if (cancelled) return
+        if (cancelled || gen !== genRef.current) return
         setActiveEnv(loaded)
         setError(null)
       })
       .catch((e: unknown) => {
-        if (cancelled) return
+        if (cancelled || gen !== genRef.current) return
         setError(e instanceof Error ? e : new Error(String(e)))
         setActiveEnv(null)
       })
@@ -63,17 +66,14 @@ export function useEnvironments(
     }
   }, [])
 
-  const cycle = useCallback(
-    (delta: number) => {
-      if (envList.length === 0) return
-      let candidate = activeIndex < 0 ? 0 : activeIndex + delta
-      if (candidate >= envList.length) candidate = 0
-      if (candidate < 0) candidate = envList.length - 1
-      const name = envList[candidate]
+  const select = useCallback(
+    (name: string) => {
+      const index = envList.indexOf(name)
+      if (index < 0) return
       genRef.current += 1
       const gen = genRef.current
       setError(null)
-      setActiveIndex(candidate)
+      setActiveIndex(index)
       env
         .loadEnvironment(dir, name)
         .then((loaded) => {
@@ -89,7 +89,18 @@ export function useEnvironments(
           setActiveEnv(null)
         })
     },
-    [dir, envList, activeIndex, onEnvChange],
+    [dir, envList, onEnvChange],
+  )
+
+  const cycle = useCallback(
+    (delta: number) => {
+      if (envList.length === 0) return
+      let candidate = activeIndex < 0 ? 0 : activeIndex + delta
+      if (candidate >= envList.length) candidate = 0
+      if (candidate < 0) candidate = envList.length - 1
+      select(envList[candidate]!)
+    },
+    [envList, activeIndex, select],
   )
 
   const reloadActiveEnv = useCallback(async () => {
@@ -121,6 +132,7 @@ export function useEnvironments(
     activeEnv,
     error,
     indicatorLabel,
+    select,
     cycle,
     reloadActiveEnv,
   }

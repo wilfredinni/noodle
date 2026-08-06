@@ -7,6 +7,7 @@ import {
   type CommandItem,
 } from "./overlays/CommandPaletteOverlay"
 import { CollectionSwitcherOverlay } from "./overlays/CollectionSwitcherOverlay"
+import { EnvironmentPickerOverlay } from "./overlays/EnvironmentPickerOverlay"
 import { RequestFinderOverlay } from "./overlays/RequestFinderOverlay"
 import { ThemePickerOverlay } from "./theme"
 import { YamlEditorOverlay } from "./editor/YamlEditorOverlay"
@@ -84,6 +85,11 @@ interface AppOverlaysProps {
   collectionDir: string
   requestCollectionSwitch: (nextDir: string) => void
   setCollectionSwitcherVisible: (visible: boolean) => void
+  environmentPickerVisible: boolean
+  environmentNames: string[]
+  activeEnvironmentName: string | null
+  onSelectEnvironment: (name: string) => void
+  setEnvironmentPickerVisible: (visible: boolean) => void
   previewIndex: number | null
   activeIndex: number
   setPreviewIndex: (value: number | null) => void
@@ -175,6 +181,11 @@ export function AppOverlays({
   collectionDir,
   requestCollectionSwitch,
   setCollectionSwitcherVisible,
+  environmentPickerVisible,
+  environmentNames,
+  activeEnvironmentName,
+  onSelectEnvironment,
+  setEnvironmentPickerVisible,
   previewIndex,
   activeIndex,
   setPreviewIndex,
@@ -310,6 +321,15 @@ export function AppOverlays({
           activeCollectionDir={collectionDir}
           onSelect={requestCollectionSwitch}
           onClose={() => setCollectionSwitcherVisible(false)}
+        />
+      )}
+      {environmentPickerVisible && (
+        <EnvironmentPickerOverlay
+          visible
+          environments={environmentNames}
+          activeEnvironment={activeEnvironmentName}
+          onSelect={onSelectEnvironment}
+          onClose={() => setEnvironmentPickerVisible(false)}
         />
       )}
       {previewIndex !== null && (

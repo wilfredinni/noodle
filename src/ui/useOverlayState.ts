@@ -15,6 +15,7 @@ export type ActiveOverlay =
   | "help"
   | "about"
   | "theme"
+  | "environment-picker"
   | "env-delete"
   | "undo-all"
   | "reload-confirm"
@@ -51,6 +52,8 @@ export function useOverlayState({
 }: UseOverlayStateProps) {
   const [helpVisible, setHelpVisible] = useState(false)
   const [aboutVisible, setAboutVisible] = useState(false)
+  const [environmentPickerVisible, setEnvironmentPickerVisible] =
+    useState(false)
   const [yamlEditor, setYamlEditor] = useState<YamlEditorState>(
     initialYamlEditorState,
   )
@@ -93,6 +96,7 @@ export function useOverlayState({
     if (helpVisible) return "help"
     if (aboutVisible) return "about"
     if (previewIndex !== null) return "theme"
+    if (environmentPickerVisible) return "environment-picker"
     if (envDeletePending !== null) return "env-delete"
     if (undoAllPending) return "undo-all"
     if (reloadPending) return "reload-confirm"
@@ -118,6 +122,7 @@ export function useOverlayState({
     helpVisible,
     aboutVisible,
     previewIndex,
+    environmentPickerVisible,
     envDeletePending,
     undoAllPending,
     reloadPending,
@@ -143,6 +148,8 @@ export function useOverlayState({
     setHelpVisible,
     aboutVisible,
     setAboutVisible,
+    environmentPickerVisible,
+    setEnvironmentPickerVisible,
     yamlEditor,
     setYamlEditor,
     envDeletePending,

@@ -13,7 +13,7 @@ function textPosition(frame: string, text: string): [number, number] {
 }
 
 describe("Header", () => {
-  it("renders the environment at the top right and opens its editor", async () => {
+  it("renders the environment at the top right and activates its picker", async () => {
     let opened = 0
     const { renderOnce, captureCharFrame, captureSpans, mockMouse } =
       await testRender(
