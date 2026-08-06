@@ -377,6 +377,7 @@ export function BodySection({
                 textColor={theme.text}
                 cursorColor={theme.primary}
                 scrollMargin={0}
+                style={{ flexGrow: 1 }}
               />
             </line-number>
             <code-editor-scrollbar

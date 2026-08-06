@@ -377,6 +377,40 @@ describe("BodySection — edit mode", () => {
     cleanup()
   })
 
+  it("should expand short JSON across the available body width", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={{ ...testRequest, body: '{"a":1}' }}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "request-body-editor",
+    ) as CodeEditorRenderable
+    const bodyField = renderer.root.findDescendantById("body-field")
+    if (!bodyField) throw new Error("Expected request body field")
+
+    expect(editor.x + editor.width).toBe(bodyField.x + bodyField.width - 1)
+    cleanup()
+  })
+
   it("does not render a read-only empty-body placeholder", async () => {
     const { keymap, cleanup } = setupKeymap()
     const emptyRequest: Request = {
