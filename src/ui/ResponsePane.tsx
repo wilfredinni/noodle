@@ -397,7 +397,6 @@ export function ResponsePane({
         flexDirection: "column",
         paddingLeft: 1,
         paddingRight: 1,
-        paddingBottom: 1,
         flexBasis: 0,
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,

@@ -186,8 +186,8 @@ describe("ResponsePane status text truncation and layout tests", () => {
     const lines = initialFrame.split("\n")
     const responseBottom = lines.findLastIndex((line) => line.startsWith("└"))
     expect(responseBottom).toBeGreaterThan(0)
-    expect(editor.y + editor.height).toBeLessThanOrEqual(responseBottom)
-    expect(scrollbar.y + scrollbar.height).toBeLessThanOrEqual(responseBottom)
+    expect(editor.y + editor.height).toBe(responseBottom + 1)
+    expect(scrollbar.y + scrollbar.height).toBe(responseBottom)
     expect(
       lines
         .slice(responseBottom + 1)
