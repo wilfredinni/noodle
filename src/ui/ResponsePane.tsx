@@ -57,6 +57,7 @@ export function ResponsePane({
   expanded,
   jumpMode = false,
   onQueryVisibleChange,
+  onBodyEditorAvailableChange,
   onPaneFocus,
 }: {
   state: SendState
@@ -72,6 +73,7 @@ export function ResponsePane({
   expanded?: "request" | "response" | null
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
+  onBodyEditorAvailableChange?: (available: boolean) => void
   onPaneFocus?: () => void
 }) {
   const theme = useTheme()
@@ -105,6 +107,8 @@ export function ResponsePane({
   const queryInputRef = useRef<InputRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const onBodyEditorAvailableChangeRef = useRef(onBodyEditorAvailableChange)
+  onBodyEditorAvailableChangeRef.current = onBodyEditorAvailableChange
   const [bodyEditor, setBodyEditor] = useState<CodeEditorRenderable | null>(
     null,
   )
@@ -120,10 +124,15 @@ export function ResponsePane({
     (editor: CodeEditorRenderable | null) => {
       bodyEditorRef.current = editor
       setBodyEditor(editor)
+      onBodyEditorAvailableChangeRef.current?.(editor !== null)
       if (editor) syncFoldSigns()
     },
     [syncFoldSigns],
   )
+
+  useEffect(() => {
+    if (!bodyEditorRef.current) onBodyEditorAvailableChangeRef.current?.(false)
+  }, [])
 
   const setLineNumberRef = useCallback(
     (lineNumber: LineNumberRenderable | null) => {

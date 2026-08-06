@@ -25,6 +25,7 @@ import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
 } from "../src/ui/editor/CodeEditor"
+import { keyEvent } from "./unit/_helpers"
 
 extend({
   "code-editor": CodeEditorRenderable,
@@ -712,12 +713,7 @@ describe("ResponsePane scrollbox", () => {
     editor.focus()
     expect(editor.focused).toBe(true)
     for (let press = 0; press < 8; press++) {
-      editor.handleKeyPress({
-        name: "down",
-        sequence: "down",
-        raw: "down",
-        shift: true,
-      } as never)
+      editor.handleKeyPress(keyEvent("down", { shift: true }))
     }
     await renderOnce()
     expect(editor.scrollY).toBeGreaterThan(0)
@@ -884,6 +880,7 @@ describe("ResponsePane scrollbox", () => {
 
   it("keeps bodies above 5 MB raw until v is pressed", async () => {
     const body = `{"payload":"${"x".repeat(5 * 1024 * 1024)}"}`
+    let bodyEditorAvailable: boolean | undefined
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
@@ -902,6 +899,9 @@ describe("ResponsePane scrollbox", () => {
               },
             }}
             focused
+            onBodyEditorAvailableChange={(available) => {
+              bodyEditorAvailable = available
+            }}
           />
         </KeymapProvider>,
         { width: 80, height: 12 },
@@ -911,6 +911,7 @@ describe("ResponsePane scrollbox", () => {
     expect(renderer.root.findDescendantById("response-body-editor")).toBe(
       undefined,
     )
+    expect(bodyEditorAvailable).toBe(false)
 
     await act(async () => mockInput.pressKey("v"))
     await new Promise((resolve) => setTimeout(resolve, 20))
@@ -918,6 +919,7 @@ describe("ResponsePane scrollbox", () => {
     const bodyEditor = renderer.root.findDescendantById("response-body-editor")
     expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
     expect((bodyEditor as CodeEditorRenderable).plainText).toBe(body)
+    expect(bodyEditorAvailable).toBe(true)
   })
 })
 

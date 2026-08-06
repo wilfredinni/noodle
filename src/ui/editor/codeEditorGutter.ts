@@ -10,7 +10,15 @@ export const RESERVED_FOLD_SIGN = new Map<number, LineSign>([
 ])
 
 interface GutterWithWidth {
-  gutter?: { width: number }
+  gutter: { width: number } | null
+}
+
+function getGutter(lineNumber: LineNumberRenderable): { width: number } {
+  const gutter = (lineNumber as unknown as GutterWithWidth).gutter
+  if (!gutter) {
+    throw new Error("syncCodeEditorGutter: line-number gutter is unavailable")
+  }
+  return gutter
 }
 
 export function syncCodeEditorGutter(
@@ -35,12 +43,14 @@ export function syncCodeEditorGutter(
   // line-number container. Fix its width to the sign plus number columns so
   // extra source-line digits grow toward the editor instead of separating the
   // fold sign from its number.
-  const maxLineNumber = Math.max(editor.lineCount, ...lineNumbers.values())
+  let maxLineNumber = editor.lineCount
+  for (const lineNumber of lineNumbers.values()) {
+    maxLineNumber = Math.max(maxLineNumber, lineNumber)
+  }
   const digits = String(Math.max(1, maxLineNumber)).length
   const numberWidth = Math.max(
     LINE_NUMBER_MIN_WIDTH,
     digits + LINE_NUMBER_PADDING_RIGHT + 1,
   )
-  const gutter = (lineNumber as unknown as GutterWithWidth).gutter
-  if (gutter) gutter.width = FOLD_SIGN_WIDTH + numberWidth
+  getGutter(lineNumber).width = FOLD_SIGN_WIDTH + numberWidth
 }

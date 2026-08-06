@@ -145,6 +145,8 @@ export function AppInner({
   const [filterOpenRequestId, setFilterOpenRequestId] = useState<string | null>(
     null,
   )
+  const [responseBodyEditorAvailable, setResponseBodyEditorAvailable] =
+    useState(false)
   const folderDeletePathRef = useRef<string | null>(null)
   const [paletteTarget, setPaletteTarget] =
     useState<CommandPaletteTarget | null>(null)
@@ -665,6 +667,7 @@ export function AppInner({
         bodyType: draft.draft?.bodyType,
         sendState: responseState,
         queryVisible,
+        responseBodyEditorAvailable,
         keybinds,
       }),
     [
@@ -678,6 +681,7 @@ export function AppInner({
       draft.draft?.bodyType,
       responseState,
       queryVisible,
+      responseBodyEditorAvailable,
       keybinds,
     ],
   )
@@ -1041,6 +1045,7 @@ export function AppInner({
             responseQueryRef={responseQueryRef}
             responseBodyForCopyRef={responseBodyForCopyRef}
             onQueryVisibleChange={setQueryVisible}
+            onResponseBodyEditorAvailableChange={setResponseBodyEditorAvailable}
             mode={mode}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}

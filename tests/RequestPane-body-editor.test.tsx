@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { act, useState } from "react"
+import { act, useEffect, useState } from "react"
 import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
@@ -114,7 +114,9 @@ function DraftJsonEditorHarness({
 }) {
   const draft = useRequestDraft({ ...testRequest, body: "" })
   const editBrowse = useEditBrowse(draft.draft, draft)
-  onRender(draft, editBrowse)
+  useEffect(() => {
+    onRender(draft, editBrowse)
+  }, [draft, editBrowse, onRender])
 
   return (
     <RequestPane
@@ -609,7 +611,7 @@ describe("BodySection — edit mode", () => {
     expect(editorScrollbar.scrollSize).toBeGreaterThan(
       editorScrollbar.viewportSize,
     )
-    expect(editorScrollbar.viewportSize).toBe(codeEditor.height)
+    expect(editorScrollbar.viewportSize).toBe(codeEditor.viewport.height)
     expect(editorScrollbar.visible).toBe(true)
 
     await act(async () => {
@@ -775,8 +777,8 @@ describe("BodySection — edit mode", () => {
     await renderOnce()
 
     for (let i = 0; i < 40; i++) {
-      act(() => {
-        mockInput.pressKey("\x1b[6~")
+      await act(async () => {
+        await mockInput.pressKey("\x1b[6~")
       })
       await renderOnce()
     }

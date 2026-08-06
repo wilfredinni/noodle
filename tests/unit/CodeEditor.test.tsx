@@ -1,49 +1,24 @@
 import { describe, expect, it } from "bun:test"
+import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
-import type { KeyEvent, LineNumberRenderable } from "@opentui/core"
+import { LineNumberRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
 } from "../../src/ui/editor/CodeEditor"
+import { syncCodeEditorGutter } from "../../src/ui/editor/codeEditorGutter"
 import { opencodeTheme } from "../../src/ui/theme-data"
+import { getHighlightCount, keyEvent } from "./_helpers"
 
 extend({ "code-editor": CodeEditorRenderable })
 
 describe("CodeEditorRenderable", () => {
-  function keyEvent(
-    name: string,
-    modifiers: Partial<
-      Pick<KeyEvent, "ctrl" | "meta" | "shift" | "option" | "super" | "hyper">
-    > = {},
-  ): KeyEvent {
-    return {
-      name,
-      sequence: name,
-      raw: name,
-      ctrl: false,
-      meta: false,
-      shift: false,
-      option: false,
-      super: false,
-      hyper: false,
-      ...modifiers,
-    } as KeyEvent
-  }
-
   function computeFolds(editor: CodeEditorRenderable): void {
     ;(
       editor as unknown as { computeFoldRanges: () => void }
     ).computeFoldRanges()
-  }
-
-  function getHighlightCount(editor: CodeEditorRenderable): number {
-    let count = 0
-    for (let line = 0; line < editor.lineCount; line++) {
-      count += editor.getLineHighlights(line).length
-    }
-    return count
   }
 
   it("collapses folded rows into the fold summary", async () => {
@@ -433,6 +408,7 @@ describe("CodeEditorRenderable", () => {
     let teardownError: unknown
     try {
       editor.destroy()
+      await renderOnce()
     } catch (error) {
       teardownError = error
     }
@@ -653,6 +629,27 @@ describe("CodeEditorRenderable", () => {
     expect(lineNumber!.getLineNumbers()).toEqual(new Map())
   })
 
+  it("reports when gutter synchronization has no gutter", async () => {
+    const { renderer } = await testRender(<box />, {
+      width: 30,
+      height: 6,
+    })
+    const editor = new CodeEditorRenderable(renderer, {
+      filetype: "json",
+      theme: opencodeTheme,
+      initialValue: "{}",
+    })
+    const lineNumber = new LineNumberRenderable(renderer, {})
+
+    expect(() => syncCodeEditorGutter(lineNumber, editor)).toThrow(
+      "syncCodeEditorGutter: line-number gutter is unavailable",
+    )
+
+    lineNumber.destroy()
+    editor.destroy()
+    renderer.destroy()
+  })
+
   it("collapses a nested JSON array without leaving blank editor rows", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `{
@@ -827,17 +824,7 @@ body_type: json`
     await renderOnce()
 
     editor!.setCursor(2, "body_type: ".length)
-    editor!.handleKeyPress({
-      name: "1",
-      sequence: "1",
-      raw: "1",
-      ctrl: false,
-      meta: false,
-      shift: false,
-      option: false,
-      super: false,
-      hyper: false,
-    } as KeyEvent)
+    editor!.handleKeyPress(keyEvent("1"))
     await renderOnce()
 
     expect(editor!.plainText).toContain("body_type: 1json")
@@ -1226,33 +1213,39 @@ body:
 })
 
 describe("CodeEditorRenderable read-only mode", () => {
-  function keyEvent(
-    name: string,
-    modifiers: Partial<
-      Pick<KeyEvent, "ctrl" | "meta" | "shift" | "option" | "super" | "hyper">
-    > = {},
-  ): KeyEvent {
-    return {
-      name,
-      sequence: name,
-      raw: name,
-      ctrl: false,
-      meta: false,
-      shift: false,
-      option: false,
-      super: false,
-      hyper: false,
-      ...modifiers,
-    } as KeyEvent
-  }
+  it("highlights the full final line after becoming read-only", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const { renderOnce } = await testRender(
+      <box width={40} height={6}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value="{}"
+          debounceMs={0}
+        />
+      </box>,
+      { width: 40, height: 6 },
+    )
+    await renderOnce()
 
-  function getHighlightCount(editor: CodeEditorRenderable): number {
-    let count = 0
-    for (let line = 0; line < editor.lineCount; line++) {
-      count += editor.getLineHighlights(line).length
-    }
-    return count
-  }
+    const readonly = editor!
+    readonly.setCursor(0, 1)
+    readonly.insertText('"updated": true')
+    await renderOnce()
+    readonly.readOnly = true
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const finalLineHighlights = readonly.getLineHighlights(
+      readonly.lineCount - 1,
+    )
+    expect(Math.max(...finalLineHighlights.map(({ end }) => end))).toBe(
+      readonly.plainText.length,
+    )
+  })
 
   it("rejects mutations while retaining navigation, folding, and external updates", async () => {
     let editor: CodeEditorRenderable | null = null
@@ -1335,9 +1328,11 @@ describe("CodeEditorRenderable read-only mode", () => {
     const readonly = editor!
     const x = readonly.x + 1
     const y = readonly.y
-    await mockMouse.pressDown(x, y, MouseButtons.LEFT)
-    await mockMouse.moveTo(x, readonly.y + readonly.height + 2, {
-      delayMs: 25,
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x, readonly.y + readonly.height + 2, {
+        delayMs: 25,
+      })
     })
     for (let frame = 0; frame < 4; frame++) {
       await new Promise((resolve) => setTimeout(resolve, 30))
@@ -1402,10 +1397,14 @@ describe("CodeEditorRenderable read-only mode", () => {
     const initialScrollY = readonly.scrollY
     const x = readonly.x + 1
     const y = readonly.y + readonly.height - 1
-    await mockMouse.pressDown(x, y, MouseButtons.LEFT)
-    await mockMouse.moveTo(x, y - 1)
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x, y - 1)
+    })
     const anchor = readonly.getSelection()?.end
-    await mockMouse.moveTo(x, readonly.y - 1, { delayMs: 25 })
+    await act(async () => {
+      await mockMouse.moveTo(x, readonly.y - 1, { delayMs: 25 })
+    })
     for (let frame = 0; frame < 5; frame++) {
       await new Promise((resolve) => setTimeout(resolve, 30))
       await renderOnce()

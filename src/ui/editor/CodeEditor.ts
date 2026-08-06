@@ -212,8 +212,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.clearReadonlyHighlights()
     this._readOnly = next
     this._readonlyNeedsFolds = true
-    if (next) this.scheduleHighlight()
-    else {
+    if (next) {
+      this._displayedTextLength = super.plainText.length
+      this.scheduleHighlight()
+    } else {
       this._validation.refresh(this.plainText)
       this._highlights.apply(this.plainText, this._filetype)
       this.scheduleHighlight()
@@ -807,6 +809,9 @@ export class CodeEditorScrollBarRenderable extends ScrollBarRenderable {
   private _target: CodeEditorRenderable | null = null
   private readonly _targetRef: { current: CodeEditorRenderable | null }
   private readonly _syncTarget = () => this.syncTarget()
+  private readonly _clearTarget = () => {
+    this.target = null
+  }
 
   constructor(
     ctx: RenderContext,
@@ -827,10 +832,12 @@ export class CodeEditorScrollBarRenderable extends ScrollBarRenderable {
     if (target === this._target) return
     this._target?.off("line-info-change", this._syncTarget)
     this._target?.off("scroll-change", this._syncTarget)
+    this._target?.off("destroyed", this._clearTarget)
     this._target = target
     this._targetRef.current = target
     target?.on("line-info-change", this._syncTarget)
     target?.on("scroll-change", this._syncTarget)
+    target?.on("destroyed", this._clearTarget)
     this.syncTarget()
   }
 
@@ -842,8 +849,7 @@ export class CodeEditorScrollBarRenderable extends ScrollBarRenderable {
   }
 
   override destroy(): void {
-    this._target?.off("line-info-change", this._syncTarget)
-    this._target?.off("scroll-change", this._syncTarget)
+    this.target = null
     super.destroy()
   }
 }

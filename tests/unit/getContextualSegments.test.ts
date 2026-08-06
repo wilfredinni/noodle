@@ -249,13 +249,33 @@ describe("getContextualSegments", () => {
   // ── response ────────────────────────────────────
 
   it("response when done shows copy and filter on body tab", () => {
-    const r = base({ focus: "response", sendState: done, tab: "body" })
+    const r = base({
+      focus: "response",
+      sendState: done,
+      tab: "body",
+      responseBodyEditorAvailable: true,
+    })
     expect(r.footer).toMatchObject([
       seg("^g", "fold"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
     ])
+  })
+
+  it("response without a body editor hides only the fold hint", () => {
+    const r = base({
+      focus: "response",
+      sendState: done,
+      tab: "body",
+      responseBodyEditorAvailable: false,
+    })
+    expect(r.footer).toMatchObject([
+      seg("^b", "copy"),
+      seg("/", "filter"),
+      seg("f2", "expand"),
+    ])
+    expect(r.footer).not.toContainEqual(seg("^g", "fold"))
   })
 
   it("response when done on headers tab shows expand", () => {
