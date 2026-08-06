@@ -1109,3 +1109,130 @@ body:
     })
   })
 })
+
+describe("CodeEditorRenderable read-only mode", () => {
+  function keyEvent(
+    name: string,
+    modifiers: Partial<
+      Pick<KeyEvent, "ctrl" | "meta" | "shift" | "option" | "super" | "hyper">
+    > = {},
+  ): KeyEvent {
+    return {
+      name,
+      sequence: name,
+      raw: name,
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+      super: false,
+      hyper: false,
+      ...modifiers,
+    } as KeyEvent
+  }
+
+  function getHighlightCount(editor: CodeEditorRenderable): number {
+    let count = 0
+    for (let line = 0; line < editor.lineCount; line++) {
+      count += editor.getLineHighlights(line).length
+    }
+    return count
+  }
+
+  it("rejects mutations while retaining navigation, folding, and external updates", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `{
+  "first": 1,
+  "nested": {
+    "value": true
+  }
+}`
+    const { renderOnce } = await testRender(
+      <box width={48} height={8}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 48, height: 8 },
+    )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    expect(editor).toBeDefined()
+    const readonly = editor!
+    const cursorBefore = readonly.logicalCursor.col
+    expect(readonly.handleKeyPress(keyEvent("x"))).toBe(false)
+    expect(readonly.handleKeyPress(keyEvent("z", { ctrl: true }))).toBe(false)
+    readonly.handlePaste({ text: "mutated" } as never)
+    expect(readonly.plainText).toBe(content)
+
+    expect(readonly.handleKeyPress(keyEvent("right"))).toBe(true)
+    expect(readonly.logicalCursor.col).toBeGreaterThan(cursorBefore)
+    expect(readonly.handleKeyPress(keyEvent("f5"))).toBe(true)
+    await renderOnce()
+    expect(readonly.lineCount).toBeLessThan(content.split("\n").length)
+    expect(readonly.handleKeyPress(keyEvent("f6"))).toBe(true)
+    await renderOnce()
+    expect(readonly.plainText).toBe(content)
+
+    readonly.value = '{\n  "updated": true\n}'
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+    expect(readonly.plainText).toBe('{\n  "updated": true\n}')
+  })
+
+  it("limits JSON highlighting to visible lines and skips pathological lines", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = [
+      "{",
+      ...Array.from({ length: 2_000 }, (_, i) => `  "item${i}": ${i},`),
+      '  "last": true',
+      "}",
+    ].join("\n")
+    const { renderOnce } = await testRender(
+      <box width={48} height={8}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 48, height: 8 },
+    )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const readonly = editor!
+    const initialHighlights = getHighlightCount(readonly)
+    expect(initialHighlights).toBeGreaterThan(0)
+    expect(initialHighlights).toBeLessThan(100)
+
+    readonly.scrollTo(readonly.totalVirtualLineCount)
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+    expect(getHighlightCount(readonly)).toBeGreaterThan(initialHighlights)
+
+    readonly.value = `{ "payload": "${"x".repeat(100_001)}" }`
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+    expect(getHighlightCount(readonly)).toBe(0)
+  })
+})

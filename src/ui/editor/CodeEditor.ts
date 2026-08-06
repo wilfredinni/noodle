@@ -26,6 +26,7 @@ import {
   type CodeEditorValidator,
 } from "./codeEditorValidation"
 import { CodeEditorHighlightRenderer } from "./codeEditorHighlightRenderer"
+import { highlightJsonTokens } from "./syntax"
 
 export type { FoldInfo } from "./codeEditorFolds"
 
@@ -35,6 +36,7 @@ export interface CodeEditorOptions {
   theme: Theme
   debounceMs?: number
   foldable?: boolean
+  readOnly?: boolean
   initialValue?: string
   value?: string
   scrollMargin?: number
@@ -59,6 +61,7 @@ export interface CodeEditorScrollBarOptions extends Omit<
 
 export class CodeEditorRenderable extends TextareaRenderable {
   private _filetype: string
+  private _theme: Theme
   private _debounceMs: number
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null
   private _highlightSnapshotId = 0
@@ -70,6 +73,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _validation: CodeEditorValidation
   private _foldManager: CodeEditorFoldManager
   private _highlights: CodeEditorHighlightRenderer
+  private _readOnly: boolean
+  private _readonlyHighlightTimer: ReturnType<typeof setTimeout> | null = null
+  private _readonlyHighlightedLines = new Set<number>()
+  private _readonlyNeedsFolds = true
+  private _displayedTextLength = 0
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
     super(ctx, {
@@ -81,8 +89,16 @@ export class CodeEditorRenderable extends TextareaRenderable {
       focusedTextColor: options.focusedTextColor ?? "#FFFFFF",
       cursorColor: options.cursorColor ?? "#FFFFFF",
       scrollMargin: options.scrollMargin,
+      showCursor: options.readOnly ? true : undefined,
     })
+    this._readOnly = options.readOnly ?? false
     this._filetype = options.filetype
+    this._theme = options.theme
+    this._displayedTextLength = (
+      options.value ??
+      options.initialValue ??
+      ""
+    ).length
     this._debounceMs = options.debounceMs ?? 200
     this._onContentChange = options.onContentChange
     this._onFoldsChange = options.onFoldsChange
@@ -104,7 +120,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       options.onValidationChange,
     )
     this._foldManager = new CodeEditorFoldManager(
-      super.plainText,
+      options.value ?? options.initialValue ?? "",
       this._filetype,
       options.foldable ?? true,
       {
@@ -116,18 +132,22 @@ export class CodeEditorRenderable extends TextareaRenderable {
         }),
         setCursor: (line, col) => this.editBuffer.setCursor(line, col),
         withRenderSuppressed: (action) => this.withRenderSuppressed(action),
-        applyDisplayHighlights: (text) =>
-          this._highlights.apply(text, this._filetype),
+        applyDisplayHighlights: (text) => {
+          if (!this._readOnly) this._highlights.apply(text, this._filetype)
+        },
         scheduleHighlight: () => this.scheduleHighlight(),
         requestRender: () => this.requestRender(),
-        onSourceTextChange: (content) => this._validation.refresh(content),
+        onSourceTextChange: (content) => {
+          if (!this._readOnly) this._validation.refresh(content)
+        },
         onFoldsChange: () => this._onFoldsChange?.(),
       },
     )
-    this._validation.refresh(this._foldManager.sourceText)
+    if (!this._readOnly) this._validation.refresh(this._foldManager.sourceText)
 
     this.editBuffer.on("content-changed", () => {
       if (this.isDestroyed || this._suppressContentChanged) return
+      if (this._readOnly) return
       if (this._foldManager.isFoldedDisplay) return
       this._foldManager.setSourceText(super.plainText)
       this.scheduleHighlight()
@@ -135,8 +155,15 @@ export class CodeEditorRenderable extends TextareaRenderable {
     })
 
     if (this._foldManager.sourceText.length > 0) {
-      this._highlights.apply(this._foldManager.sourceText, this._filetype)
-      this.scheduleHighlight()
+      if (this._readOnly) this.scheduleHighlight()
+      else {
+        this._highlights.apply(this._foldManager.sourceText, this._filetype)
+        this.scheduleHighlight()
+      }
+    }
+
+    this.onLifecyclePass = () => {
+      if (this._readOnly) this.scheduleHighlight()
     }
   }
   get filetype(): string {
@@ -152,15 +179,33 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (this.plainText === value) return
     this._foldManager.setSourceText(value)
     this._foldManager.clearFolds()
+    this._readonlyNeedsFolds = true
     this.setDisplayedText(value)
-    this._highlights.apply(value, this._filetype)
+    if (!this._readOnly) this._highlights.apply(value, this._filetype)
     this.scheduleHighlight()
+  }
+  get readOnly(): boolean {
+    return this._readOnly
+  }
+  set readOnly(value: boolean) {
+    const next = Boolean(value)
+    if (next === this._readOnly) return
+    this.clearReadonlyHighlights()
+    this._readOnly = next
+    this._readonlyNeedsFolds = true
+    if (next) this.scheduleHighlight()
+    else {
+      this._validation.refresh(this.plainText)
+      this._highlights.apply(this.plainText, this._filetype)
+      this.scheduleHighlight()
+    }
   }
   set filetype(value: string) {
     if (this._filetype === value) return
     this._filetype = value
     this._highlights.clear()
-    this._validation.setFiletype(value, this.plainText)
+    if (!this._readOnly) this._validation.setFiletype(value, this.plainText)
+    this._readonlyNeedsFolds = true
     this.scheduleHighlight()
     this._foldManager.setFiletype(value)
   }
@@ -184,6 +229,11 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
   set extraHighlights(value: ((content: string) => Highlight[]) | undefined) {
     this._highlights.setExtra(value)
+    if (this._readOnly) {
+      this.clearReadonlyHighlights()
+      this.scheduleHighlight()
+      return
+    }
     if (this._foldManager.isFoldedDisplay) {
       this._highlights.apply(super.plainText, this._filetype)
     } else {
@@ -195,6 +245,12 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
   set foldable(value: boolean) {
     this._foldManager.setFoldable(value)
+  }
+  get onFoldsChange(): (() => void) | undefined {
+    return this._onFoldsChange
+  }
+  set onFoldsChange(value: (() => void) | undefined) {
+    this._onFoldsChange = value
   }
   getFolds() {
     return this._foldManager.getFolds()
@@ -217,7 +273,13 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   set theme(value: Theme) {
+    this._theme = value
     this._highlights.setTheme(value)
+    this.clearReadonlyHighlights()
+    if (this._readOnly) {
+      this.scheduleHighlight()
+      return
+    }
     if (this._foldManager.isFoldedDisplay) {
       this._highlights.apply(super.plainText, this._filetype)
     } else {
@@ -234,19 +296,23 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   refreshHighlights(): void {
-    void this.highlight()
+    if (this._readOnly) this.scheduleHighlight()
+    else void this.highlight()
   }
 
   toggleFold(line: number): void {
     this._foldManager.toggleFold(line)
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   foldAll(): void {
     this._foldManager.foldAll()
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   unfoldAll(): void {
     this._foldManager.unfoldAll()
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   scrollByViewport(delta: number): void {
@@ -280,6 +346,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       false,
     )
     this.requestRender()
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   scrollBy(delta: number): void {
@@ -293,6 +360,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
     ) {
       move()
     }
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   override requestRender(): void {
@@ -302,6 +370,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   override handlePaste(event: PasteEvent): void {
+    if (this._readOnly) return
     if (
       this._foldManager.hasFoldedRanges() &&
       this._foldManager.isFoldedDisplay
@@ -332,6 +401,35 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (command === "unfold-all") {
       this.unfoldAll()
       return true
+    }
+    if (this._readOnly) {
+      if (key.name === "pagedown") {
+        this.scrollByViewport(1)
+        return true
+      }
+      if (key.name === "pageup") {
+        this.scrollByViewport(-1)
+        return true
+      }
+      if (key.name === "home" && !key.shift) {
+        this.scrollTo(0)
+        return true
+      }
+      if (key.name === "end" && !key.shift) {
+        this.scrollTo(this.totalVirtualLineCount)
+        return true
+      }
+      if (
+        !key.ctrl &&
+        !key.meta &&
+        !key.option &&
+        !key.super &&
+        !key.hyper &&
+        ["left", "right", "up", "down", "home", "end"].includes(key.name)
+      ) {
+        return super.handleKeyPress(key)
+      }
+      return false
     }
     if (
       key.ctrl &&
@@ -375,6 +473,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   override destroy(): void {
     if (this._highlightTimer) clearTimeout(this._highlightTimer)
+    if (this._readonlyHighlightTimer) clearTimeout(this._readonlyHighlightTimer)
     super.destroy()
   }
 
@@ -436,13 +535,23 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._suppressContentChanged = true
     try {
       this.editBuffer.setText(text)
+      this._displayedTextLength = text.length
       this.yogaNode.markDirty()
+      this.clearReadonlyHighlights()
     } finally {
       this._suppressContentChanged = false
     }
   }
 
   private scheduleHighlight(): void {
+    if (this._readOnly) {
+      if (this._readonlyHighlightTimer) return
+      this._readonlyHighlightTimer = setTimeout(() => {
+        this._readonlyHighlightTimer = null
+        this.highlightReadonly()
+      }, 0)
+      return
+    }
     this._highlightSnapshotId++
     if (this._highlightTimer) clearTimeout(this._highlightTimer)
     this._highlightTimer = setTimeout(() => {
@@ -477,6 +586,58 @@ export class CodeEditorRenderable extends TextareaRenderable {
     )
       return
     this.computeFoldRanges()
+  }
+
+  private highlightReadonly(): void {
+    if (this.isDestroyed) return
+    if (this._readonlyNeedsFolds) {
+      this._readonlyNeedsFolds = false
+      this.computeFoldRanges()
+    }
+    if (this._filetype !== "json") return
+    const viewportStart = Math.max(0, this.scrollY - 2)
+    const viewportEnd = Math.min(
+      this.lineInfo.lineSources.length,
+      this.scrollY + this.viewport.height + 2,
+    )
+    const lines: number[] = []
+    for (
+      let displayLine = viewportStart;
+      displayLine < viewportEnd;
+      displayLine++
+    ) {
+      const line = this.lineInfo.lineSources[displayLine]
+      if (line === undefined) continue
+      if (this._readonlyHighlightedLines.has(line)) continue
+      this._readonlyHighlightedLines.add(line)
+      lines.push(line)
+    }
+    if (lines.length === 0) return
+
+    this._highlights.prepare()
+    for (const line of lines) {
+      const start = this.editBuffer.getLineStartOffset(line)
+      const end =
+        line + 1 < this.editBuffer.getLineCount()
+          ? this.editBuffer.getLineStartOffset(line + 1) - 1
+          : this._displayedTextLength
+      const text = this.editBuffer.getTextRange(start, end)
+      if (text.length > 100_000) continue
+      for (const token of highlightJsonTokens(text, this._theme)) {
+        this.addHighlight(line, {
+          start: token.displayOffset,
+          end: token.displayEnd,
+          styleId: this._highlights.jsonStyleId(token),
+          priority: 1,
+        })
+      }
+    }
+    this.requestRender()
+  }
+
+  private clearReadonlyHighlights(): void {
+    this._readonlyHighlightedLines.clear()
+    this.clearAllHighlights()
   }
 
   private applyHighlightRanges(ranges: EditorHighlightRange[]): void {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { act, useMemo, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
+import { extend } from "@opentui/react"
 import { RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import type { Request, KvEntry, CollectionItem } from "../src/schema"
@@ -19,6 +20,15 @@ import type { Renderable, KeyEvent } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { visibleNodes } from "../src/ui/tree"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../src/ui/editor/CodeEditor"
+
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
 
 type OpenTuiKeymap = Keymap<Renderable, KeyEvent>
 
@@ -459,30 +469,31 @@ describe("ResponsePane scrollbox", () => {
     const frame = captureCharFrame()
     expect(frame).not.toBe("")
 
-    // scrollbox clips: only some of 100 items visible
+    // The editor clips: only some of 100 items are visible.
     const bodyLines = frame
       .split("\n")
       .filter((l: string) => l.includes("item-"))
     expect(bodyLines.length).toBeGreaterThan(0)
     expect(bodyLines.length).toBeLessThan(100)
 
-    const bodyScrollbox = renderer.root.findDescendantById(
-      "response-body-scrollbox",
+    const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    const editor = bodyEditor as CodeEditorRenderable
+    const bodyScrollbar = renderer.root.findDescendantById(
+      "response-body-scrollbar",
     )
-    expect(bodyScrollbox).toBeInstanceOf(ScrollBoxRenderable)
-    const scrollbox = bodyScrollbox as ScrollBoxRenderable
-    expect(scrollbox.verticalScrollBar.visible).toBe(true)
+    expect(bodyScrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    const scrollbar = bodyScrollbar as CodeEditorScrollBarRenderable
+    expect(scrollbar.visible).toBe(true)
 
     await act(async () => {
       await mockMouse.click(
-        scrollbox.verticalScrollBar.screenX,
-        scrollbox.verticalScrollBar.screenY +
-          scrollbox.verticalScrollBar.height -
-          1,
+        scrollbar.screenX,
+        scrollbar.screenY + scrollbar.height - 1,
       )
     })
     await renderOnce()
-    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(editor.scrollY).toBeGreaterThan(0)
 
     await act(async () => mockInput.pressKey("END"))
     await new Promise((resolve) => setTimeout(resolve, 20))
@@ -520,13 +531,98 @@ describe("ResponsePane scrollbox", () => {
     await renderOnce()
     await renderOnce()
 
-    const bodyScrollbox = renderer.root.findDescendantById(
-      "response-body-scrollbox",
+    const bodyScrollbar = renderer.root.findDescendantById(
+      "response-body-scrollbar",
     )
-    expect(bodyScrollbox).toBeInstanceOf(ScrollBoxRenderable)
-    expect(
-      (bodyScrollbox as ScrollBoxRenderable).verticalScrollBar.visible,
-    ).toBe(false)
+    expect(bodyScrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    expect((bodyScrollbar as CodeEditorScrollBarRenderable).visible).toBe(false)
+  })
+
+  it("folds the response body from the keyboard", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, captureCharFrame, mockInput, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={{
+              status: "done",
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body: '{\n  "data": {\n    "id": 1\n  }\n}',
+                timeMs: 1,
+              },
+            }}
+            focused
+          />
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    const editor = bodyEditor as CodeEditorRenderable
+    expect(editor.getFoldSigns().has(0)).toBe(true)
+
+    await act(async () => mockInput.pressKey("F5"))
+    await renderOnce()
+    expect(editor.lineCount).toBeLessThan(5)
+
+    await act(async () => mockInput.pressKey("F6"))
+    await renderOnce()
+    expect(editor.lineCount).toBe(5)
+
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find((line) => line.includes("▼") && line.includes("{"))
+    if (!row) throw new Error("Expected response fold icon")
+    await act(async () => {
+      await mockMouse.click(row.indexOf("▼"), rows.indexOf(row))
+    })
+    await renderOnce()
+    expect(editor.lineCount).toBeLessThan(5)
+  })
+
+  it("keeps bodies above 5 MB raw until v is pressed", async () => {
+    const body = `{"payload":"${"x".repeat(5 * 1024 * 1024)}"}`
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={{
+              status: "done",
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body,
+                timeMs: 1,
+              },
+            }}
+            focused
+          />
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("not rendered automatically")
+    expect(renderer.root.findDescendantById("response-body-editor")).toBe(
+      undefined,
+    )
+
+    await act(async () => mockInput.pressKey("v"))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    expect((bodyEditor as CodeEditorRenderable).plainText).toBe(body)
   })
 })
 

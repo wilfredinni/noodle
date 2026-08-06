@@ -251,6 +251,7 @@ describe("getContextualSegments", () => {
   it("response when done shows copy and filter on body tab", () => {
     const r = base({ focus: "response", sendState: done, tab: "body" })
     expect(r.footer).toMatchObject([
+      seg("^g", "fold"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -295,6 +296,7 @@ describe("getContextualSegments", () => {
       queryVisible: false,
     })
     expect(r.footer).toMatchObject([
+      seg("^g", "fold"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),
@@ -308,6 +310,7 @@ describe("getContextualSegments", () => {
       tab: "body",
     })
     expect(r.footer).toMatchObject([
+      seg("^g", "fold"),
       seg("^b", "copy"),
       seg("/", "filter"),
       seg("f2", "expand"),

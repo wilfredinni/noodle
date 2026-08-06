@@ -1,9 +1,7 @@
 import {
   buildFoldDisplay,
-  buildSourceDisplayMaps,
   computeFoldRanges,
   hasFoldedRanges,
-  isSourceLineHiddenByFold,
   type FoldInfo,
   type SourceCursor,
 } from "./codeEditorFolds"
@@ -39,7 +37,6 @@ export class CodeEditorFoldManager {
     this._sourceText = sourceText
     this._filetype = filetype
     this._foldable = foldable
-    this.rebuildSourceDisplayMaps()
   }
 
   get sourceText(): string {
@@ -60,8 +57,14 @@ export class CodeEditorFoldManager {
 
   getFoldSigns(): Map<number, { before: string; beforeColor: string }> {
     const signs = new Map<number, { before: string; beforeColor: string }>()
-    for (const [line, fold] of this._folds) {
-      if (isSourceLineHiddenByFold(line, this._folds)) continue
+    let hiddenUntil = -1
+    const folds = Array.from(this._folds.values()).sort(
+      (a, b) => a.startLine - b.startLine,
+    )
+    for (const fold of folds) {
+      const line = fold.startLine
+      const hidden = line <= hiddenUntil
+      if (hidden) continue
       const displayLine = this.isFoldedDisplay
         ? this._sourceLineToDisplayLine.get(line)
         : line
@@ -70,6 +73,7 @@ export class CodeEditorFoldManager {
         before: fold.folded ? "▶" : "▼",
         beforeColor: "#888888",
       })
+      if (fold.folded) hiddenUntil = Math.max(hiddenUntil, fold.endLine)
     }
     return signs
   }
@@ -89,7 +93,7 @@ export class CodeEditorFoldManager {
   setSourceText(content: string): void {
     this._sourceText = content
     this._displayMode = "source"
-    this.rebuildSourceDisplayMaps()
+    this.clearSourceDisplayMaps()
     this.host.onSourceTextChange(content)
   }
 
@@ -169,7 +173,7 @@ export class CodeEditorFoldManager {
     this.host.withRenderSuppressed(() => {
       const wasFolded = this.isFoldedDisplay
       this._displayMode = "source"
-      this.rebuildSourceDisplayMaps()
+      this.clearSourceDisplayMaps()
       if (wasFolded || this.host.getDisplayedText() !== this._sourceText) {
         this.setDisplayedText(this._sourceText)
         this.host.applyDisplayHighlights(this._sourceText)
@@ -238,26 +242,32 @@ export class CodeEditorFoldManager {
 
   private syncSourceTextFromDisplayedBuffer(): void {
     this._sourceText = this.host.getDisplayedText()
-    this.rebuildSourceDisplayMaps()
+    this.clearSourceDisplayMaps()
     this.host.onSourceTextChange(this._sourceText)
   }
 
-  private rebuildSourceDisplayMaps(): void {
-    const maps = buildSourceDisplayMaps(this._sourceText)
-    this._sourceLineToDisplayLine = maps.sourceLineToDisplayLine
-    this._displayLineToSourceLine = maps.displayLineToSourceLine
+  private clearSourceDisplayMaps(): void {
+    this._sourceLineToDisplayLine.clear()
+    this._displayLineToSourceLine.clear()
   }
 
   private moveCursorToSourceLine(sourceLine?: number): void {
     if (sourceLine === undefined) return
+    if (!this.isFoldedDisplay) {
+      this.host.setCursor(sourceLine, 0)
+      return
+    }
     const displayLine = this._sourceLineToDisplayLine.get(sourceLine)
     if (displayLine !== undefined) this.host.setCursor(displayLine, 0)
   }
 
   private moveCursorToSourceCursor(sourceCursor: SourceCursor): void {
+    if (!this.isFoldedDisplay) {
+      this.host.setCursor(sourceCursor.line, sourceCursor.col)
+      return
+    }
     const displayLine = this._sourceLineToDisplayLine.get(sourceCursor.line)
     if (displayLine === undefined) return
-    const line = this._sourceText.split("\n")[sourceCursor.line] ?? ""
-    this.host.setCursor(displayLine, Math.min(sourceCursor.col, line.length))
+    this.host.setCursor(displayLine, sourceCursor.col)
   }
 }

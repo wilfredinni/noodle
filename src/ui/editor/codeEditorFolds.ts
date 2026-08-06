@@ -75,7 +75,8 @@ export function buildSourceDisplayMaps(content: string): {
   const sourceLineToDisplayLine = new Map<number, number>()
   const displayLineToSourceLine = new Map<number, number>()
 
-  for (let line = 0; line < content.split("\n").length; line++) {
+  const lineCount = content.split("\n").length
+  for (let line = 0; line < lineCount; line++) {
     sourceLineToDisplayLine.set(line, line)
     displayLineToSourceLine.set(line, line)
   }
@@ -103,6 +104,7 @@ function computeJsonFoldRanges(
 ): void {
   const lines = content.split("\n")
   const stack: { char: string; line: number; offset: number }[] = []
+  let lineOffset = 0
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -122,7 +124,7 @@ function computeJsonFoldRanges(
         stack.push({
           char,
           line: i,
-          offset: lineAndColToOffset(i, j, lines),
+          offset: lineOffset + j,
         })
         continue
       }
@@ -137,7 +139,7 @@ function computeJsonFoldRanges(
             startLine: start.line,
             endLine: i,
             startOffset: start.offset,
-            endOffset: lineAndColToOffset(i, j, lines),
+            endOffset: lineOffset + j,
             summary: getJsonFoldSummary(lines, start.line, i, start.char),
             folded: previousFolds.get(start.line)?.folded ?? false,
           })
@@ -146,6 +148,7 @@ function computeJsonFoldRanges(
         break
       }
     }
+    lineOffset += line.length + 1
   }
 }
 
@@ -155,6 +158,12 @@ function computeYamlFoldRanges(
   previousFolds: ReadonlyMap<number, FoldInfo>,
 ): void {
   const lines = content.split("\n")
+  const lineOffsets: number[] = []
+  let offset = 0
+  for (const line of lines) {
+    lineOffsets.push(offset)
+    offset += line.length + 1
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -178,12 +187,8 @@ function computeYamlFoldRanges(
     folds.set(i, {
       startLine: i,
       endLine,
-      startOffset: lineAndColToOffset(i, 0, lines),
-      endOffset: lineAndColToOffset(
-        endLine,
-        lines[endLine]?.length ?? 0,
-        lines,
-      ),
+      startOffset: lineOffsets[i]!,
+      endOffset: lineOffsets[endLine]! + (lines[endLine]?.length ?? 0),
       summary: lines[i].trim().slice(0, 40),
       folded: previousFolds.get(i)?.folded ?? false,
     })
@@ -199,16 +204,6 @@ function getJsonFoldSummary(
 ): string {
   const bracket = openingChar === "{" ? "}" : "]"
   return `${lines[startLine].trim().slice(0, 30)}... ${bracket} (${endLine - startLine} lines)`
-}
-
-function lineAndColToOffset(
-  line: number,
-  col: number,
-  lines: string[],
-): number {
-  let offset = 0
-  for (let i = 0; i < line; i++) offset += lines[i].length + 1
-  return offset + col
 }
 
 function getLineIndent(line: string): string {

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
 import {
   MouseButton,
   type InputRenderable,
+  type LineNumberRenderable,
+  type LineSign,
   type ScrollBoxRenderable,
 } from "@opentui/core"
 import type { RefObject } from "react"
@@ -14,7 +16,7 @@ import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { RESPONSE_TAB_HINT_ORDER } from "./useJumpMode"
 import { FullBorder, LeftBar } from "./borders"
-import { JsonBodyViewer } from "./editor/JsonBodyViewer"
+import { CodeEditorRenderable } from "./editor/CodeEditor"
 import { Tips } from "./Tips"
 import { Frame } from "./Frame"
 import {
@@ -31,6 +33,7 @@ import type { ResponseTabKind } from "./tabs/uiState"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
+const RESERVED_FOLD_SIGN = new Map<number, LineSign>([[-1, { before: " " }]])
 
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
@@ -96,12 +99,41 @@ export function ResponsePane({
   const [hoveringRawBody, setHoveringRawBody] = useState(false)
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
-  const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
-    "start",
-  )
   const isDone = state.status === "done"
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
+  const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null)
+  const [bodyEditor, setBodyEditor] = useState<CodeEditorRenderable | null>(
+    null,
+  )
+
+  const syncFoldSigns = useCallback(() => {
+    const editor = bodyEditorRef.current
+    const lineNumber = lineNumberRef.current
+    if (!editor || !lineNumber) return
+    lineNumber.setLineSigns(
+      new Map([...RESERVED_FOLD_SIGN, ...editor.getFoldSigns()]),
+    )
+    lineNumber.setHideLineNumbers(editor.getHiddenLineNumbers())
+  }, [])
+
+  const setBodyEditorRef = useCallback(
+    (editor: CodeEditorRenderable | null) => {
+      bodyEditorRef.current = editor
+      setBodyEditor(editor)
+      if (editor) syncFoldSigns()
+    },
+    [syncFoldSigns],
+  )
+
+  const setLineNumberRef = useCallback(
+    (lineNumber: LineNumberRenderable | null) => {
+      lineNumberRef.current = lineNumber
+      if (lineNumber) syncFoldSigns()
+    },
+    [syncFoldSigns],
+  )
 
   const onQueryVisibleChangeRef = useRef(onQueryVisibleChange)
   onQueryVisibleChangeRef.current = onQueryVisibleChange
@@ -115,31 +147,39 @@ export function ResponsePane({
     if (!isActiveRef.current) return
     if (keymap.getData("app.overlay") !== "none") return
     if (queryVisible) return
-    if (key.name === "left")
+    if (key.name === "left") {
+      key.preventDefault()
       setActiveTab((prev) => {
         const ids = ["body", "headers", "network", "timeline"] as const
         const idx = ids.indexOf(prev)
         return ids[(idx - 1 + ids.length) % ids.length]
       })
-    else if (key.name === "right")
+    } else if (key.name === "right") {
+      key.preventDefault()
       setActiveTab((prev) => {
         const ids = ["body", "headers", "network", "timeline"] as const
         const idx = ids.indexOf(prev)
         return ids[(idx + 1) % ids.length]
       })
-    else if (key.name === "v" && activeTab === "body") setShowLargeBody(true)
-    else if (activeTab === "timeline") return
-    else if (key.name === "down") scrollRef.current?.scrollBy(1)
-    else if (key.name === "up") scrollRef.current?.scrollBy(-1)
-    else if (key.name === "pagedown") scrollRef.current?.scrollBy(1, "viewport")
-    else if (key.name === "pageup") scrollRef.current?.scrollBy(-1, "viewport")
-    else if (key.name === "home") {
+    } else if (key.name === "v" && activeTab === "body") {
+      setShowLargeBody(true)
+    } else if (activeTab === "timeline") {
+      return
+    } else if (activeTab === "body" && bodyEditorRef.current) {
+      return
+    } else if (key.name === "down") {
+      scrollRef.current?.scrollBy(1)
+    } else if (key.name === "up") {
+      scrollRef.current?.scrollBy(-1)
+    } else if (key.name === "pagedown") {
+      scrollRef.current?.scrollBy(1, "viewport")
+    } else if (key.name === "pageup") {
+      scrollRef.current?.scrollBy(-1, "viewport")
+    } else if (key.name === "home") {
       key.preventDefault()
-      setHighlightPriority("start")
       scrollRef.current?.scrollTo(0)
     } else if (key.name === "end") {
       key.preventDefault()
-      setHighlightPriority("end")
       scrollRef.current?.scrollTo(
         Math.max(0, scrollRef.current.scrollHeight - scrollRef.current.height),
       )
@@ -271,12 +311,14 @@ export function ResponsePane({
     queryResult?.kind === "success" ? queryResult.body : formattedBody
 
   useEffect(() => {
-    setHighlightPriority("start")
-  }, [displayedBody])
-
-  useEffect(() => {
-    if (displayedBody) scrollRef.current?.scrollTo(0)
-  }, [displayedBody])
+    const editor = bodyEditor
+    if (!editor) return
+    if (focused && activeTab === "body" && !queryVisible && displayedBody) {
+      editor.focus()
+    } else {
+      editor.blur()
+    }
+  }, [bodyEditor, focused, activeTab, queryVisible, displayedBody])
 
   useEffect(() => {
     if (!responseBodyForCopyRef) return
@@ -456,19 +498,14 @@ export function ResponsePane({
                     ) : null}
                   </box>
                 )}
-                <scrollbox
-                  id="response-body-scrollbox"
-                  ref={scrollRef}
-                  scrollY
-                  verticalScrollbarOptions={{
-                    trackOptions: {
-                      backgroundColor: theme.background,
-                      foregroundColor: theme.borderActive,
-                    },
-                  }}
-                  style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
-                >
-                  {isDone && bodySize > AUTO_RENDER_LIMIT && !showLargeBody ? (
+                {isDone && bodySize > AUTO_RENDER_LIMIT && !showLargeBody ? (
+                  <box
+                    style={{
+                      flexDirection: "column",
+                      flexGrow: 1,
+                      minHeight: 0,
+                    }}
+                  >
                     <box style={{ flexDirection: "column" }}>
                       <text
                         fg={theme.warning}
@@ -493,16 +530,92 @@ export function ResponsePane({
                         </text>
                       </box>
                     </box>
-                  ) : displayedBody === "" ? (
-                    <text fg={theme.textMuted}>(no body)</text>
-                  ) : (
-                    <JsonBodyViewer
-                      body={displayedBody}
-                      theme={theme}
-                      highlightPriority={highlightPriority}
+                  </box>
+                ) : displayedBody === "" ? (
+                  <text fg={theme.textMuted}>(no body)</text>
+                ) : (
+                  <box
+                    style={{
+                      flexDirection: "row",
+                      flexGrow: 1,
+                      flexShrink: 1,
+                      flexBasis: 0,
+                      minHeight: 0,
+                    }}
+                  >
+                    <line-number
+                      ref={setLineNumberRef}
+                      minWidth={4}
+                      paddingRight={1}
+                      fg={theme.textMuted}
+                      bg={theme.backgroundPanel}
+                      lineSigns={RESERVED_FOLD_SIGN}
+                      onMouseScroll={(event) => {
+                        const editor = bodyEditorRef.current
+                        if (!editor || !event.scroll) return
+                        if (event.scroll.direction === "up") {
+                          editor.scrollBy(-event.scroll.delta)
+                        } else if (event.scroll.direction === "down") {
+                          editor.scrollBy(event.scroll.delta)
+                        } else {
+                          return
+                        }
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onMouseDown={(event) => {
+                        const editor = bodyEditorRef.current
+                        if (event.button !== MouseButton.LEFT || !editor) return
+                        if (event.x >= editor.x) return
+                        const displayLine =
+                          editor.lineInfo.lineSources[
+                            event.y - editor.y + editor.scrollY
+                          ]
+                        if (
+                          displayLine === undefined ||
+                          !editor.getFoldSigns().has(displayLine)
+                        )
+                          return
+                        editor.toggleFold(displayLine)
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      style={{
+                        flexGrow: 1,
+                        flexShrink: 1,
+                        flexBasis: 0,
+                        minHeight: 0,
+                        minWidth: 0,
+                      }}
+                    >
+                      <code-editor
+                        id="response-body-editor"
+                        ref={setBodyEditorRef}
+                        filetype="json"
+                        theme={theme}
+                        value={displayedBody}
+                        readOnly
+                        foldable
+                        onFoldsChange={syncFoldSigns}
+                        backgroundColor={theme.backgroundPanel}
+                        focusedBackgroundColor={theme.backgroundPanel}
+                        textColor={theme.text}
+                        focusedTextColor={theme.text}
+                        cursorColor={theme.primary}
+                        scrollMargin={0}
+                      />
+                    </line-number>
+                    <code-editor-scrollbar
+                      id="response-body-scrollbar"
+                      target={bodyEditor}
+                      trackOptions={{
+                        backgroundColor: theme.background,
+                        foregroundColor: theme.borderActive,
+                      }}
+                      style={{ width: 1, flexShrink: 0, zIndex: 1 }}
                     />
-                  )}
-                </scrollbox>
+                  </box>
+                )}
               </box>
             )
           ) : state.status === "done" ? (

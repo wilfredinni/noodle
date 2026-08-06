@@ -239,6 +239,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     if (ctx.sendState.status === "done" && ctx.tab === "body") {
       if (ctx.queryVisible) return []
       return [
+        { key: "^g", word: "fold" },
         {
           key: displayKey(kb.response_copy_body),
           word: "copy",
