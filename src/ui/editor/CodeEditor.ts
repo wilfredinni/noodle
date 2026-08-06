@@ -598,7 +598,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (!selection) return
     const focus =
       this._selectionDragDirection === 1 ? selection.end : selection.start
-    this.editorView.setSelection(this._selectionDragAnchor, focus)
+    this.editorView.setSelection(
+      Math.min(this._selectionDragAnchor, focus),
+      Math.max(this._selectionDragAnchor, focus),
+    )
   }
 
   private handleAutoClose(key: KeyEvent, closeChar: string): boolean {

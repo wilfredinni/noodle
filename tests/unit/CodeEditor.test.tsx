@@ -1316,6 +1316,76 @@ describe("CodeEditorRenderable read-only mode", () => {
     expect(readonly.scrollY).toBe(scrollAfterRelease)
   })
 
+  it("keeps reverse mouse selections ordered while dragging above the viewport", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 20 },
+      (_, index) => `line ${index}`,
+    ).join("\n")
+    const { renderer, renderOnce, mockMouse } = await testRender(
+      <box
+        width={24}
+        height={8}
+        style={{ flexDirection: "column" }}
+        onMouseDrag={(event) => {
+          editor?.handleSelectionDrag(event.x, event.y)
+        }}
+        onMouseUp={() => {
+          editor?.finishSelectionDrag()
+        }}
+      >
+        <box height={2} />
+        <box height={4}>
+          <code-editor
+            ref={(renderable) => {
+              editor = renderable
+            }}
+            flexGrow={1}
+            filetype="json"
+            theme={opencodeTheme}
+            value={content}
+            readOnly
+            backgroundColor={opencodeTheme.backgroundPanel}
+            focusedBackgroundColor={opencodeTheme.backgroundPanel}
+            textColor={opencodeTheme.text}
+            cursorColor={opencodeTheme.primary}
+          />
+        </box>
+      </box>,
+      { width: 24, height: 10 },
+    )
+    await renderOnce()
+
+    const readonly = editor!
+    readonly.scrollTo(readonly.totalVirtualLineCount)
+    await renderOnce()
+    const initialScrollY = readonly.scrollY
+    const x = readonly.x + 1
+    const y = readonly.y + readonly.height - 1
+    await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+    await mockMouse.moveTo(x, y - 1)
+    const anchor = readonly.getSelection()?.end
+    await mockMouse.moveTo(x, readonly.y - 1, { delayMs: 25 })
+    for (let frame = 0; frame < 5; frame++) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      await renderOnce()
+    }
+
+    expect(readonly.scrollY).toBeLessThan(initialScrollY)
+    const selection = readonly.getSelection()
+    expect(selection?.start).toBeLessThan(selection?.end ?? 0)
+    expect(selection?.end).toBe(anchor)
+    const selectedText = renderer.getSelection()?.getSelectedText() ?? ""
+    expect(selectedText).toContain("line 12")
+    expect(selectedText).toContain("line 18")
+
+    await mockMouse.release(x, readonly.y - 1)
+    const scrollAfterRelease = readonly.scrollY
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    expect(readonly.scrollY).toBe(scrollAfterRelease)
+  })
+
   it("limits JSON highlighting to visible lines and skips pathological lines", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = [
