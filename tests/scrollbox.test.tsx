@@ -97,7 +97,9 @@ describe("ResponsePane scrollbox", () => {
         status: 200,
         statusText: "OK",
         headers: {},
-        body: JSON.stringify({ data: { items: [{ id: 1 }, { id: 2 }] } }),
+        body: JSON.stringify({
+          data: { group: { items: [{ id: 1 }, { id: 2 }] } },
+        }),
         timeMs: 1,
       },
     } satisfies SendState
@@ -140,7 +142,7 @@ describe("ResponsePane scrollbox", () => {
     await renderOnce()
     expect(captureCharFrame()).toContain("JSONPath")
 
-    await act(async () => mockInput.typeText("$.data.items[*].id"))
+    await act(async () => mockInput.typeText("$.data.group.items[*].id"))
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 175))
     })

@@ -11,6 +11,7 @@ export type ParsedResponseBody =
 
 export interface ResponseQueryController {
   canOpen: () => boolean
+  isOpen: () => boolean
   open: () => boolean
 }
 

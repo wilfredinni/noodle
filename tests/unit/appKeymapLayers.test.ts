@@ -92,6 +92,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       urlbarSubFocusRef: { current: "select" },
       viewRef: { current: "main" },
       expandedRef: { current: null },
+      responseQueryRef: { current: null },
       setFocus: (focus: string) => {
         calls.focus = focus
       },
@@ -478,6 +479,25 @@ describe("app keymap layers", () => {
     const { context, calls } = createContext(keymap)
     keymap.setData("app.view", "env-editor")
     keymap.setData("app.focus", "env-header")
+    const disposers = register(context)
+
+    host.press("g")
+
+    expect(calls.jumpMode).toBe(false)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("does not enter jump mode while editing a response query", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const responseQuery = {
+      canOpen: () => false,
+      open: () => false,
+      isOpen: () => true,
+    }
+    context.global.responseQueryRef.current = responseQuery
+    keymap.setData("app.focus", "response")
     const disposers = register(context)
 
     host.press("g")
