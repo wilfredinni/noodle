@@ -108,6 +108,92 @@ describe("ResponsePane status text truncation and layout tests", () => {
     expect(frame).toContain("200 OK")
   })
 
+  it("clips a stacked response editor to its viewport and scrolls to the tail", async () => {
+    const { keymap: keymapHarness, draft, eb } = createTestProps()
+    const keymap = keymapHarness.keymap
+    keymap.setData("app.overlay", "none")
+    const responseOK: SendState = {
+      status: "done",
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: JSON.stringify(
+          Array.from({ length: 100 }, (_, index) => ({
+            id: index,
+            label: `item-${index}`,
+          })),
+          null,
+          2,
+        ),
+        timeMs: 123,
+      },
+    }
+
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box style={{ width: 100, height: 21, flexDirection: "column" }}>
+              <RequestResponseView
+                draft={
+                  draft as unknown as Parameters<
+                    typeof RequestResponseView
+                  >[0]["draft"]
+                }
+                eb={
+                  eb as unknown as Parameters<
+                    typeof RequestResponseView
+                  >[0]["eb"]
+                }
+                error={null}
+                focus="response"
+                layout="stacked"
+                expanded={null}
+                activeEnv={null}
+                responseState={responseOK}
+                timelineEntries={[]}
+                onResponseTabChange={() => {}}
+                setSelectOpen={() => {}}
+                urlbarSubFocus="text"
+                urlbarInteractive={true}
+              />
+              <text>response footer sentinel</text>
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 21 },
+      )
+    await renderOnce()
+    await renderOnce()
+
+    const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    const editor = bodyEditor as CodeEditorRenderable
+    expect(editor.parent).not.toBeNull()
+    expect(editor.parent!.height).toBeLessThan(editor.totalVirtualLineCount)
+    const initialFrame = captureCharFrame()
+    expect(initialFrame).not.toContain("item-99")
+    const lines = initialFrame.split("\n")
+    const responseBottom = lines.findLastIndex((line) => line.startsWith("└"))
+    expect(responseBottom).toBeGreaterThan(0)
+    expect(
+      lines
+        .slice(responseBottom + 1)
+        .join("\n")
+        .trimEnd(),
+    ).toBe("response footer sentinel")
+
+    await act(async () => mockInput.pressKey("END"))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("item-99")
+  })
+
   it("truncates status text > 13 chars with ellipsis", async () => {
     const { keymap, draft, eb } = createTestProps()
     const responseErr: SendState = {

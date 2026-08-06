@@ -460,7 +460,14 @@ export function ResponsePane({
               </box>
             ) : (
               <box
-                style={{ flexDirection: "column", flexGrow: 1, minHeight: 0 }}
+                style={{
+                  flexDirection: "column",
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
               >
                 {queryVisible && (
                   <box
@@ -601,6 +608,12 @@ export function ResponsePane({
                         focusedTextColor={theme.text}
                         cursorColor={theme.primary}
                         scrollMargin={0}
+                        style={{
+                          flexGrow: 1,
+                          flexShrink: 1,
+                          flexBasis: 0,
+                          minHeight: 0,
+                        }}
                       />
                     </line-number>
                     <code-editor-scrollbar

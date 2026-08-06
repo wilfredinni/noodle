@@ -3,6 +3,7 @@ import type {
   KeyEvent,
   PasteEvent,
   RenderContext,
+  RenderableOptions,
   ScrollBarOptions,
   TreeSitterClient,
 } from "@opentui/core"
@@ -30,7 +31,10 @@ import { highlightJsonTokens } from "./syntax"
 
 export type { FoldInfo } from "./codeEditorFolds"
 
-export interface CodeEditorOptions {
+export interface CodeEditorOptions extends Pick<
+  RenderableOptions,
+  "flexGrow" | "flexShrink" | "flexBasis" | "minHeight"
+> {
   id?: string
   filetype: string
   theme: Theme
@@ -90,6 +94,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
       cursorColor: options.cursorColor ?? "#FFFFFF",
       scrollMargin: options.scrollMargin,
       showCursor: options.readOnly ? true : undefined,
+      flexGrow: options.flexGrow,
+      flexShrink: options.flexShrink,
+      flexBasis: options.flexBasis,
+      minHeight: options.minHeight,
     })
     this._readOnly = options.readOnly ?? false
     this._filetype = options.filetype
