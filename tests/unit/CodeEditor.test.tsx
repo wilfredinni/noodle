@@ -1,45 +1,24 @@
 import { describe, expect, it } from "bun:test"
+import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { extend } from "@opentui/react"
-import type { KeyEvent, LineNumberRenderable } from "@opentui/core"
-import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
+import { LineNumberRenderable } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../../src/ui/editor/CodeEditor"
+import { syncCodeEditorGutter } from "../../src/ui/editor/codeEditorGutter"
 import { opencodeTheme } from "../../src/ui/theme-data"
+import { getHighlightCount, keyEvent } from "./_helpers"
 
 extend({ "code-editor": CodeEditorRenderable })
 
 describe("CodeEditorRenderable", () => {
-  function keyEvent(
-    name: string,
-    modifiers: Partial<
-      Pick<KeyEvent, "ctrl" | "meta" | "shift" | "option" | "super" | "hyper">
-    > = {},
-  ): KeyEvent {
-    return {
-      name,
-      sequence: name,
-      raw: name,
-      ctrl: false,
-      meta: false,
-      shift: false,
-      option: false,
-      super: false,
-      hyper: false,
-      ...modifiers,
-    } as KeyEvent
-  }
-
   function computeFolds(editor: CodeEditorRenderable): void {
     ;(
       editor as unknown as { computeFoldRanges: () => void }
     ).computeFoldRanges()
-  }
-
-  function getHighlightCount(editor: CodeEditorRenderable): number {
-    let count = 0
-    for (let line = 0; line < editor.lineCount; line++) {
-      count += editor.getLineHighlights(line).length
-    }
-    return count
   }
 
   it("collapses folded rows into the fold summary", async () => {
@@ -261,6 +240,184 @@ describe("CodeEditorRenderable", () => {
     expect(editor!.scrollY).toBeGreaterThan(0)
   })
 
+  it("keeps wrapped scrollbar navigation exact while blurred and focused", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = JSON.stringify(
+      {
+        message: "wrapped content ".repeat(200),
+        tail: "end",
+      },
+      null,
+      2,
+    )
+
+    const { renderer, renderOnce } = await testRender(
+      <box width={30} height={6}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          scrollMargin={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 30, height: 6 },
+    )
+
+    await renderOnce()
+    await renderOnce()
+    const maxPosition = editor!.totalVirtualLineCount - editor!.viewport.height
+    const ascending = Array.from({ length: maxPosition + 1 }, (_, i) => i)
+    const descending = ascending.toReversed()
+
+    expect(editor!.totalVirtualLineCount).toBeGreaterThan(editor!.lineCount)
+
+    for (const focused of [false, true]) {
+      if (focused) editor!.focus()
+      else editor!.blur()
+
+      for (const positions of [ascending, descending]) {
+        for (const position of positions) {
+          editor!.scrollTo(position)
+          await renderOnce()
+          expect(editor!.scrollY).toBe(position)
+          expect(editor!.focused).toBe(focused)
+        }
+      }
+
+      expect(renderer.getCursorState().visible).toBe(focused)
+    }
+  })
+
+  it("preserves the selection and logical cursor when scrolling directly", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 40 },
+      (_, index) => `"line${index}"`,
+    ).join("\n")
+
+    const { renderOnce } = await testRender(
+      <box width={30} height={6}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          scrollMargin={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 30, height: 6 },
+    )
+
+    await renderOnce()
+    editor!.setSelection(1, 6)
+    const cursor = editor!.logicalCursor
+
+    editor!.scrollTo(10)
+    await renderOnce()
+
+    expect(editor!.scrollY).toBe(10)
+    expect(editor!.getSelection()).toEqual({ start: 1, end: 6 })
+    expect(editor!.getSelectedText()).toBe("line0")
+    expect(editor!.logicalCursor).toEqual(cursor)
+  })
+
+  it("keeps the logical cursor while a scrollbar follows editor scrolling", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 40 },
+      (_, index) => `"line${index}"`,
+    ).join("\n")
+
+    const { renderer, renderOnce } = await testRender(
+      <box width={30} height={6}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+          scrollMargin={0}
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 30, height: 6 },
+    )
+
+    await renderOnce()
+    const scrollbar = new CodeEditorScrollBarRenderable(renderer, {
+      target: editor,
+      position: "absolute",
+      left: 29,
+      width: 1,
+      height: 6,
+    })
+    renderer.root.add(scrollbar)
+    await renderOnce()
+
+    for (let index = 0; index < 5; index++) {
+      editor!.handleKeyPress(keyEvent("down"))
+      await renderOnce()
+    }
+
+    expect(editor!.scrollY).toBeGreaterThan(0)
+    expect(editor!.logicalCursor).toMatchObject({ row: 5, col: 0 })
+    scrollbar.destroy()
+    renderer.destroy()
+  })
+
+  it("tears down an editor before its scrollbar", async () => {
+    const { renderer, renderOnce } = await testRender(<box />, {
+      width: 30,
+      height: 6,
+    })
+    const editor = new CodeEditorRenderable(renderer, {
+      filetype: "json",
+      theme: opencodeTheme,
+      initialValue: '"line"',
+    })
+    const scrollbar = new CodeEditorScrollBarRenderable(renderer, {
+      target: editor,
+      position: "absolute",
+      width: 1,
+      height: 6,
+    })
+    renderer.root.add(editor)
+    renderer.root.add(scrollbar)
+    await renderOnce()
+
+    let teardownError: unknown
+    try {
+      editor.destroy()
+      await renderOnce()
+    } catch (error) {
+      teardownError = error
+    }
+    scrollbar.destroy()
+    renderer.destroy()
+
+    expect(teardownError).toBeUndefined()
+  })
+
   it("does not move the cursor for a zero scroll delta", async () => {
     let editor: CodeEditorRenderable | null = null
     const { renderOnce } = await testRender(
@@ -350,6 +507,7 @@ describe("CodeEditorRenderable", () => {
     const syncGutter = () => {
       if (!editor || !lineNumber) return
       lineNumber.setLineSigns(editor.getFoldSigns())
+      lineNumber.setLineNumbers(editor.getDisplayLineNumbers())
       lineNumber.setHideLineNumbers(editor.getHiddenLineNumbers())
     }
 
@@ -396,6 +554,100 @@ describe("CodeEditorRenderable", () => {
     expect(frame).toContain("{... } (3 lines)")
     expect(frame).not.toContain('"alpha"')
     expect(editor!.lineCount).toBe(1)
+  })
+
+  it("keeps source line numbers after a collapsed range", async () => {
+    let editor: CodeEditorRenderable | null = null
+    let lineNumber: LineNumberRenderable | null = null
+    const content = `{
+  "before": true,
+  "group": {
+    "value": true
+  },
+  "after": "next"
+}`
+
+    const syncGutter = () => {
+      if (!editor || !lineNumber) return
+      lineNumber.setLineNumbers(editor.getDisplayLineNumbers())
+    }
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <box width={60} height={8}>
+        <line-number
+          ref={(r) => {
+            lineNumber = r
+          }}
+          minWidth={3}
+          paddingRight={1}
+          fg={opencodeTheme.textMuted}
+          bg={opencodeTheme.backgroundPanel}
+          width="100%"
+        >
+          <code-editor
+            ref={(r) => {
+              editor = r
+            }}
+            filetype="json"
+            theme={opencodeTheme}
+            initialValue={content}
+            debounceMs={0}
+            onFoldsChange={syncGutter}
+            backgroundColor={opencodeTheme.backgroundPanel}
+            focusedBackgroundColor={opencodeTheme.backgroundPanel}
+            textColor={opencodeTheme.text}
+            cursorColor={opencodeTheme.primary}
+          />
+        </line-number>
+      </box>,
+      { width: 60, height: 8 },
+    )
+
+    await renderOnce()
+    computeFolds(editor!)
+    editor!.toggleFold(2)
+    syncGutter()
+    await renderOnce()
+
+    expect(lineNumber!.getLineNumbers()).toEqual(
+      new Map([
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 6],
+        [4, 7],
+      ]),
+    )
+    const afterLine = captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes('"after"'))
+    expect(afterLine).toMatch(/\b6\s+"after"/)
+
+    editor!.unfoldAll()
+    syncGutter()
+    await renderOnce()
+    expect(lineNumber!.getLineNumbers()).toEqual(new Map())
+  })
+
+  it("reports when gutter synchronization has no gutter", async () => {
+    const { renderer } = await testRender(<box />, {
+      width: 30,
+      height: 6,
+    })
+    const editor = new CodeEditorRenderable(renderer, {
+      filetype: "json",
+      theme: opencodeTheme,
+      initialValue: "{}",
+    })
+    const lineNumber = new LineNumberRenderable(renderer, {})
+
+    expect(() => syncCodeEditorGutter(lineNumber, editor)).toThrow(
+      "syncCodeEditorGutter: line-number gutter is unavailable",
+    )
+
+    lineNumber.destroy()
+    editor.destroy()
+    renderer.destroy()
   })
 
   it("collapses a nested JSON array without leaving blank editor rows", async () => {
@@ -572,17 +824,7 @@ body_type: json`
     await renderOnce()
 
     editor!.setCursor(2, "body_type: ".length)
-    editor!.handleKeyPress({
-      name: "1",
-      sequence: "1",
-      raw: "1",
-      ctrl: false,
-      meta: false,
-      shift: false,
-      option: false,
-      super: false,
-      hyper: false,
-    } as KeyEvent)
+    editor!.handleKeyPress(keyEvent("1"))
     await renderOnce()
 
     expect(editor!.plainText).toContain("body_type: 1json")
@@ -967,5 +1209,264 @@ body:
       await renderOnce()
       expect(editor.plainText).toContain("{}")
     })
+  })
+})
+
+describe("CodeEditorRenderable read-only mode", () => {
+  it("highlights the full final line after becoming read-only", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const { renderOnce } = await testRender(
+      <box width={40} height={6}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value="{}"
+          debounceMs={0}
+        />
+      </box>,
+      { width: 40, height: 6 },
+    )
+    await renderOnce()
+
+    const readonly = editor!
+    readonly.setCursor(0, 1)
+    readonly.insertText('"updated": true')
+    await renderOnce()
+    readonly.readOnly = true
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const finalLineHighlights = readonly.getLineHighlights(
+      readonly.lineCount - 1,
+    )
+    expect(Math.max(...finalLineHighlights.map(({ end }) => end))).toBe(
+      readonly.plainText.length,
+    )
+  })
+
+  it("rejects mutations while retaining navigation, folding, and external updates", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `{
+  "first": 1,
+  "nested": {
+    "value": true
+  }
+}`
+    const { renderOnce } = await testRender(
+      <box width={48} height={8}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 48, height: 8 },
+    )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    expect(editor).toBeDefined()
+    const readonly = editor!
+    const cursorBefore = readonly.logicalCursor.col
+    expect(readonly.handleKeyPress(keyEvent("x"))).toBe(false)
+    expect(readonly.handleKeyPress(keyEvent("z", { ctrl: true }))).toBe(false)
+    readonly.handlePaste({ text: "mutated" } as never)
+    expect(readonly.plainText).toBe(content)
+
+    expect(readonly.handleKeyPress(keyEvent("right"))).toBe(true)
+    expect(readonly.logicalCursor.col).toBeGreaterThan(cursorBefore)
+    expect(readonly.handleKeyPress(keyEvent("f5"))).toBe(true)
+    await renderOnce()
+    expect(readonly.lineCount).toBeLessThan(content.split("\n").length)
+    expect(readonly.handleKeyPress(keyEvent("f6"))).toBe(true)
+    await renderOnce()
+    expect(readonly.plainText).toBe(content)
+
+    readonly.value = '{\n  "updated": true\n}'
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+    expect(readonly.plainText).toBe('{\n  "updated": true\n}')
+  })
+
+  it("keeps read-only mouse selections active while dragging below the viewport", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 20 },
+      (_, index) => `line ${index}`,
+    ).join("\n")
+    const { renderer, renderOnce, mockMouse } = await testRender(
+      <box width={24} height={4}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 24, height: 8 },
+    )
+    await renderOnce()
+
+    const readonly = editor!
+    const x = readonly.x + 1
+    const y = readonly.y
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x, readonly.y + readonly.height + 2, {
+        delayMs: 25,
+      })
+    })
+    for (let frame = 0; frame < 4; frame++) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      await renderOnce()
+    }
+
+    expect(readonly.scrollY).toBeGreaterThan(0)
+    const selectedText = renderer.getSelection()?.getSelectedText() ?? ""
+    expect(selectedText).toContain("ine 0")
+    expect(selectedText).toContain("line 4")
+
+    await mockMouse.release(x, readonly.y + readonly.height + 2)
+    const scrollAfterRelease = readonly.scrollY
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    expect(readonly.scrollY).toBe(scrollAfterRelease)
+  })
+
+  it("keeps reverse mouse selections ordered while dragging above the viewport", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = Array.from(
+      { length: 20 },
+      (_, index) => `line ${index}`,
+    ).join("\n")
+    const { renderer, renderOnce, mockMouse } = await testRender(
+      <box
+        width={24}
+        height={8}
+        style={{ flexDirection: "column" }}
+        onMouseDrag={(event) => {
+          editor?.handleSelectionDrag(event.x, event.y)
+        }}
+        onMouseUp={() => {
+          editor?.finishSelectionDrag()
+        }}
+      >
+        <box height={2} />
+        <box height={4}>
+          <code-editor
+            ref={(renderable) => {
+              editor = renderable
+            }}
+            flexGrow={1}
+            filetype="json"
+            theme={opencodeTheme}
+            value={content}
+            readOnly
+            backgroundColor={opencodeTheme.backgroundPanel}
+            focusedBackgroundColor={opencodeTheme.backgroundPanel}
+            textColor={opencodeTheme.text}
+            cursorColor={opencodeTheme.primary}
+          />
+        </box>
+      </box>,
+      { width: 24, height: 10 },
+    )
+    await renderOnce()
+
+    const readonly = editor!
+    readonly.scrollTo(readonly.totalVirtualLineCount)
+    await renderOnce()
+    const initialScrollY = readonly.scrollY
+    const x = readonly.x + 1
+    const y = readonly.y + readonly.height - 1
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x, y - 1)
+    })
+    const anchor = readonly.getSelection()?.end
+    await act(async () => {
+      await mockMouse.moveTo(x, readonly.y - 1, { delayMs: 25 })
+    })
+    for (let frame = 0; frame < 5; frame++) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      await renderOnce()
+    }
+
+    expect(readonly.scrollY).toBeLessThan(initialScrollY)
+    const selection = readonly.getSelection()
+    expect(selection?.start).toBeLessThan(selection?.end ?? 0)
+    expect(selection?.end).toBe(anchor)
+    const selectedText = renderer.getSelection()?.getSelectedText() ?? ""
+    expect(selectedText).toContain("line 12")
+    expect(selectedText).toContain("line 18")
+
+    await mockMouse.release(x, readonly.y - 1)
+    const scrollAfterRelease = readonly.scrollY
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    expect(readonly.scrollY).toBe(scrollAfterRelease)
+  })
+
+  it("limits JSON highlighting to visible lines and skips pathological lines", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = [
+      "{",
+      ...Array.from({ length: 2_000 }, (_, i) => `  "item${i}": ${i},`),
+      '  "last": true',
+      "}",
+    ].join("\n")
+    const { renderOnce } = await testRender(
+      <box width={48} height={8}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+          backgroundColor={opencodeTheme.backgroundPanel}
+          focusedBackgroundColor={opencodeTheme.backgroundPanel}
+          textColor={opencodeTheme.text}
+          cursorColor={opencodeTheme.primary}
+        />
+      </box>,
+      { width: 48, height: 8 },
+    )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const readonly = editor!
+    const initialHighlights = getHighlightCount(readonly)
+    expect(initialHighlights).toBeGreaterThan(0)
+    expect(initialHighlights).toBeLessThan(100)
+
+    readonly.scrollTo(readonly.totalVirtualLineCount)
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+    expect(getHighlightCount(readonly)).toBeGreaterThan(initialHighlights)
+
+    readonly.value = `{ "payload": "${"x".repeat(100_001)}" }`
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+    expect(getHighlightCount(readonly)).toBe(0)
   })
 })

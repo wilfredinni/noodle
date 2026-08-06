@@ -3,9 +3,15 @@ import type {
   KeyEvent,
   PasteEvent,
   RenderContext,
+  RenderableOptions,
+  ScrollBarOptions,
   TreeSitterClient,
 } from "@opentui/core"
-import { getTreeSitterClient, TextareaRenderable } from "@opentui/core"
+import {
+  getTreeSitterClient,
+  ScrollBarRenderable,
+  TextareaRenderable,
+} from "@opentui/core"
 import type { Theme } from "../theme-data"
 import {
   getAutoCloseCharacter,
@@ -21,21 +27,27 @@ import {
   type CodeEditorValidator,
 } from "./codeEditorValidation"
 import { CodeEditorHighlightRenderer } from "./codeEditorHighlightRenderer"
+import { highlightJsonTokens } from "./syntax"
 
 export type { FoldInfo } from "./codeEditorFolds"
 
-export interface CodeEditorOptions {
+export interface CodeEditorOptions extends Pick<
+  RenderableOptions,
+  "flexGrow" | "flexShrink" | "flexBasis" | "minHeight"
+> {
+  id?: string
   filetype: string
   theme: Theme
   debounceMs?: number
   foldable?: boolean
+  readOnly?: boolean
   initialValue?: string
   value?: string
   scrollMargin?: number
   extraHighlights?: (content: string) => Highlight[]
   validateContent?: CodeEditorValidator
   onValidationChange?: (error: string | null) => void
-  onContentChange?: () => void
+  onSourceChange?: () => void
   onFoldsChange?: () => void
   backgroundColor?: string
   textColor?: string
@@ -44,12 +56,20 @@ export interface CodeEditorOptions {
   cursorColor?: string
 }
 
+export interface CodeEditorScrollBarOptions extends Omit<
+  ScrollBarOptions,
+  "orientation" | "onChange"
+> {
+  target: CodeEditorRenderable | null
+}
+
 export class CodeEditorRenderable extends TextareaRenderable {
   private _filetype: string
+  private _theme: Theme
   private _debounceMs: number
   private _highlightTimer: ReturnType<typeof setTimeout> | null = null
   private _highlightSnapshotId = 0
-  private _onContentChange?: () => void
+  private _onSourceChange?: () => void
   private _onFoldsChange?: () => void
   private _tsClient: TreeSitterClient
   private _suppressContentChanged = false
@@ -57,9 +77,20 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _validation: CodeEditorValidation
   private _foldManager: CodeEditorFoldManager
   private _highlights: CodeEditorHighlightRenderer
+  private _readOnly: boolean
+  private _readonlyHighlightTimer: ReturnType<typeof setTimeout> | null = null
+  private _readonlyHighlightedLines = new Set<number>()
+  private _readonlyNeedsFolds = true
+  private _selectionDragPointer: { x: number; y: number } | null = null
+  private _selectionDragScrollAccumulator = 0
+  private _selectionDragAnchor: number | null = null
+  private _selectionDragDirection: -1 | 1 = 1
+  private _readonlyKeyboardSelectionAnchor: number | null = null
+  private _displayedTextLength = 0
 
   constructor(ctx: RenderContext, options: CodeEditorOptions) {
     super(ctx, {
+      id: options.id,
       initialValue: options.value ?? options.initialValue,
       backgroundColor: options.backgroundColor ?? "transparent",
       textColor: options.textColor ?? "#FFFFFF",
@@ -67,10 +98,22 @@ export class CodeEditorRenderable extends TextareaRenderable {
       focusedTextColor: options.focusedTextColor ?? "#FFFFFF",
       cursorColor: options.cursorColor ?? "#FFFFFF",
       scrollMargin: options.scrollMargin,
+      showCursor: options.readOnly ? true : undefined,
+      flexGrow: options.flexGrow,
+      flexShrink: options.flexShrink,
+      flexBasis: options.flexBasis,
+      minHeight: options.minHeight,
     })
+    this._readOnly = options.readOnly ?? false
     this._filetype = options.filetype
+    this._theme = options.theme
+    this._displayedTextLength = (
+      options.value ??
+      options.initialValue ??
+      ""
+    ).length
     this._debounceMs = options.debounceMs ?? 200
-    this._onContentChange = options.onContentChange
+    this._onSourceChange = options.onSourceChange
     this._onFoldsChange = options.onFoldsChange
     this._tsClient = getTreeSitterClient()
     this._highlights = new CodeEditorHighlightRenderer(
@@ -90,7 +133,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       options.onValidationChange,
     )
     this._foldManager = new CodeEditorFoldManager(
-      super.plainText,
+      options.value ?? options.initialValue ?? "",
       this._filetype,
       options.foldable ?? true,
       {
@@ -102,27 +145,40 @@ export class CodeEditorRenderable extends TextareaRenderable {
         }),
         setCursor: (line, col) => this.editBuffer.setCursor(line, col),
         withRenderSuppressed: (action) => this.withRenderSuppressed(action),
-        applyDisplayHighlights: (text) =>
-          this._highlights.apply(text, this._filetype),
+        applyDisplayHighlights: (text) => {
+          if (!this._readOnly) this._highlights.apply(text, this._filetype)
+        },
         scheduleHighlight: () => this.scheduleHighlight(),
         requestRender: () => this.requestRender(),
-        onSourceTextChange: (content) => this._validation.refresh(content),
+        onSourceTextChange: (content) => {
+          if (!this._readOnly) this._validation.refresh(content)
+        },
         onFoldsChange: () => this._onFoldsChange?.(),
       },
     )
-    this._validation.refresh(this._foldManager.sourceText)
+    if (!this._readOnly) this._validation.refresh(this._foldManager.sourceText)
 
     this.editBuffer.on("content-changed", () => {
       if (this.isDestroyed || this._suppressContentChanged) return
+      if (this._readOnly) return
       if (this._foldManager.isFoldedDisplay) return
-      this._foldManager.setSourceText(super.plainText)
+      const content = super.plainText
+      if (this._foldManager.sourceText === content) return
+      this._foldManager.setSourceText(content)
       this.scheduleHighlight()
-      this._onContentChange?.()
+      this._onSourceChange?.()
     })
 
     if (this._foldManager.sourceText.length > 0) {
-      this._highlights.apply(this._foldManager.sourceText, this._filetype)
-      this.scheduleHighlight()
+      if (this._readOnly) this.scheduleHighlight()
+      else {
+        this._highlights.apply(this._foldManager.sourceText, this._filetype)
+        this.scheduleHighlight()
+      }
+    }
+
+    this.onLifecyclePass = () => {
+      if (this._readOnly) this.scheduleHighlight()
     }
   }
   get filetype(): string {
@@ -131,6 +187,10 @@ export class CodeEditorRenderable extends TextareaRenderable {
   override get plainText(): string {
     return this._foldManager.sourceText
   }
+  override get height(): number {
+    const height = super.height
+    return Math.min(height, this.parent?.height ?? height)
+  }
   get value(): string {
     return this.plainText
   }
@@ -138,15 +198,35 @@ export class CodeEditorRenderable extends TextareaRenderable {
     if (this.plainText === value) return
     this._foldManager.setSourceText(value)
     this._foldManager.clearFolds()
+    this._readonlyNeedsFolds = true
     this.setDisplayedText(value)
-    this._highlights.apply(value, this._filetype)
+    if (!this._readOnly) this._highlights.apply(value, this._filetype)
     this.scheduleHighlight()
+  }
+  get readOnly(): boolean {
+    return this._readOnly
+  }
+  set readOnly(value: boolean) {
+    const next = Boolean(value)
+    if (next === this._readOnly) return
+    this.clearReadonlyHighlights()
+    this._readOnly = next
+    this._readonlyNeedsFolds = true
+    if (next) {
+      this._displayedTextLength = super.plainText.length
+      this.scheduleHighlight()
+    } else {
+      this._validation.refresh(this.plainText)
+      this._highlights.apply(this.plainText, this._filetype)
+      this.scheduleHighlight()
+    }
   }
   set filetype(value: string) {
     if (this._filetype === value) return
     this._filetype = value
     this._highlights.clear()
-    this._validation.setFiletype(value, this.plainText)
+    if (!this._readOnly) this._validation.setFiletype(value, this.plainText)
+    this._readonlyNeedsFolds = true
     this.scheduleHighlight()
     this._foldManager.setFiletype(value)
   }
@@ -165,11 +245,22 @@ export class CodeEditorRenderable extends TextareaRenderable {
   set onValidationChange(value: ((error: string | null) => void) | undefined) {
     this._validation.setListener(value)
   }
+  get onSourceChange(): (() => void) | undefined {
+    return this._onSourceChange
+  }
+  set onSourceChange(value: (() => void) | undefined) {
+    this._onSourceChange = value
+  }
   get extraHighlights(): ((content: string) => Highlight[]) | undefined {
     return this._highlights.extra
   }
   set extraHighlights(value: ((content: string) => Highlight[]) | undefined) {
     this._highlights.setExtra(value)
+    if (this._readOnly) {
+      this.clearReadonlyHighlights()
+      this.scheduleHighlight()
+      return
+    }
     if (this._foldManager.isFoldedDisplay) {
       this._highlights.apply(super.plainText, this._filetype)
     } else {
@@ -182,6 +273,12 @@ export class CodeEditorRenderable extends TextareaRenderable {
   set foldable(value: boolean) {
     this._foldManager.setFoldable(value)
   }
+  get onFoldsChange(): (() => void) | undefined {
+    return this._onFoldsChange
+  }
+  set onFoldsChange(value: (() => void) | undefined) {
+    this._onFoldsChange = value
+  }
   getFolds() {
     return this._foldManager.getFolds()
   }
@@ -190,12 +287,34 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return this._foldManager.getFoldSigns()
   }
 
+  getDisplayLineNumbers() {
+    return this._foldManager.getDisplayLineNumbers()
+  }
+
+  get totalVirtualLineCount(): number {
+    return this.editorView.getTotalVirtualLineCount()
+  }
+
+  get viewport() {
+    const viewport = this.editorView.getViewport()
+    return {
+      ...viewport,
+      height: Math.min(viewport.height, this.height),
+    }
+  }
+
   getHiddenLineNumbers() {
     return this._foldManager.getHiddenLineNumbers()
   }
 
   set theme(value: Theme) {
+    this._theme = value
     this._highlights.setTheme(value)
+    this.clearReadonlyHighlights()
+    if (this._readOnly) {
+      this.scheduleHighlight()
+      return
+    }
     if (this._foldManager.isFoldedDisplay) {
       this._highlights.apply(super.plainText, this._filetype)
     } else {
@@ -212,23 +331,61 @@ export class CodeEditorRenderable extends TextareaRenderable {
   }
 
   refreshHighlights(): void {
-    void this.highlight()
+    if (this._readOnly) this.scheduleHighlight()
+    else void this.highlight()
   }
 
   toggleFold(line: number): void {
     this._foldManager.toggleFold(line)
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   foldAll(): void {
     this._foldManager.foldAll()
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   unfoldAll(): void {
     this._foldManager.unfoldAll()
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   scrollByViewport(delta: number): void {
     this.scrollBy(delta * this.height)
+  }
+
+  scrollTo(position: number): void {
+    const selection = this.getSelection()
+    const viewport = this.viewport
+    const maxPosition = Math.max(
+      0,
+      this.totalVirtualLineCount - viewport.height,
+    )
+    const nextPosition = Math.max(0, Math.min(position, maxPosition))
+    this.editorView.setViewport(
+      viewport.offsetX,
+      nextPosition,
+      viewport.width,
+      viewport.height,
+      false,
+    )
+    // Keep the viewport anchored without moving the edit cursor.
+    const anchorRow = Math.min(1, Math.max(0, viewport.height - 1))
+    this.editorView.setLocalSelection(
+      0,
+      anchorRow,
+      0,
+      anchorRow,
+      undefined,
+      undefined,
+      false,
+      false,
+    )
+    if (selection) {
+      this.editorView.setSelection(selection.start, selection.end)
+    }
+    this.requestRender()
+    if (this._readOnly) this.scheduleHighlight()
   }
 
   scrollBy(delta: number): void {
@@ -242,13 +399,51 @@ export class CodeEditorRenderable extends TextareaRenderable {
     ) {
       move()
     }
+    if (this._readOnly) this.scheduleHighlight()
+  }
+
+  handleSelectionDrag(x: number, y: number): void {
+    const selection = this._ctx.getSelection()
+    if (!selection?.isDragging) return
+    if (this._selectionDragAnchor === null) {
+      const editorSelection = this.getSelection()
+      if (editorSelection) {
+        this._selectionDragDirection =
+          y < selection.anchor.y ||
+          (y === selection.anchor.y && x < selection.anchor.x)
+            ? -1
+            : 1
+        this._selectionDragAnchor =
+          this._selectionDragDirection === 1
+            ? editorSelection.start
+            : editorSelection.end
+      }
+    }
+    this._selectionDragPointer = { x, y }
+    this.refreshSelectionDrag()
+    const direction = y < this.y ? -1 : y >= this.y + this.height ? 1 : 0
+    if (direction !== 0) this.scrollSelectionDrag(direction, 1)
+  }
+
+  finishSelectionDrag(): void {
+    this._selectionDragPointer = null
+    this._selectionDragScrollAccumulator = 0
+    this._selectionDragAnchor = null
+  }
+
+  protected override onUpdate(deltaTime: number): void {
+    super.onUpdate(deltaTime)
+    this.refreshSelectionDrag(deltaTime)
   }
 
   override requestRender(): void {
-    if (!this._renderSuppressed) super.requestRender()
+    if (this._renderSuppressed || this.isDestroyed) return
+    super.requestRender()
+    this.emit("scroll-change")
   }
 
   override handlePaste(event: PasteEvent): void {
+    if (this._readOnly) return
     if (
       this._foldManager.hasFoldedRanges() &&
       this._foldManager.isFoldedDisplay
@@ -280,6 +475,53 @@ export class CodeEditorRenderable extends TextareaRenderable {
       this.unfoldAll()
       return true
     }
+    if (this._readOnly) {
+      const isSelectionNavigation =
+        key.shift &&
+        ["left", "right", "up", "down", "home", "end"].includes(key.name)
+      if (isSelectionNavigation) {
+        if (this._readonlyKeyboardSelectionAnchor === null) {
+          this._readonlyKeyboardSelectionAnchor = this.cursorOffset
+        }
+        const handled = super.handleKeyPress(key)
+        if (handled) {
+          this.editorView.setSelection(
+            this._readonlyKeyboardSelectionAnchor,
+            this.cursorOffset,
+          )
+          this.requestRender()
+        }
+        return handled
+      }
+      this._readonlyKeyboardSelectionAnchor = null
+      if (key.name === "pagedown") {
+        this.scrollByViewport(1)
+        return true
+      }
+      if (key.name === "pageup") {
+        this.scrollByViewport(-1)
+        return true
+      }
+      if (key.name === "home" && !key.shift) {
+        this.scrollTo(0)
+        return true
+      }
+      if (key.name === "end" && !key.shift) {
+        this.scrollTo(this.totalVirtualLineCount)
+        return true
+      }
+      if (
+        !key.ctrl &&
+        !key.meta &&
+        !key.option &&
+        !key.super &&
+        !key.hyper &&
+        ["left", "right", "up", "down", "home", "end"].includes(key.name)
+      ) {
+        return super.handleKeyPress(key)
+      }
+      return false
+    }
     if (
       key.ctrl &&
       !key.meta &&
@@ -292,7 +534,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       if (key.shift) this.redo()
       else this.undo()
       this._foldManager.setSourceText(super.plainText)
-      this._onContentChange?.()
+      this._onSourceChange?.()
       this.scheduleHighlight()
       return true
     }
@@ -322,7 +564,66 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   override destroy(): void {
     if (this._highlightTimer) clearTimeout(this._highlightTimer)
+    if (this._readonlyHighlightTimer) clearTimeout(this._readonlyHighlightTimer)
     super.destroy()
+  }
+
+  private refreshSelectionDrag(deltaTime = 0): void {
+    const pointer = this._selectionDragPointer
+    if (!pointer) return
+    if (!this._ctx.getSelection()?.isDragging || this.height <= 0) {
+      this.finishSelectionDrag()
+      return
+    }
+    const direction =
+      pointer.y < this.y ? -1 : pointer.y >= this.y + this.height ? 1 : 0
+    if (direction !== 0 && deltaTime > 0) {
+      this._selectionDragScrollAccumulator += (deltaTime * 12) / 1000
+      const linesToScroll = Math.floor(this._selectionDragScrollAccumulator)
+      if (linesToScroll > 0) {
+        this._selectionDragScrollAccumulator -= linesToScroll
+        if (!this.scrollSelectionDrag(direction, linesToScroll))
+          this._selectionDragScrollAccumulator = 0
+      }
+    }
+    this._ctx.updateSelection(
+      this,
+      pointer.x,
+      Math.max(this.y, Math.min(pointer.y, this.y + this.height - 1)),
+    )
+    this.restoreSelectionDragAnchor()
+  }
+
+  private scrollSelectionDrag(direction: -1 | 1, lines: number): boolean {
+    const viewport = this.editorView.getViewport()
+    const maxOffset = Math.max(0, this.totalVirtualLineCount - viewport.height)
+    const nextOffset = Math.max(
+      0,
+      Math.min(viewport.offsetY + direction * lines, maxOffset),
+    )
+    if (nextOffset === viewport.offsetY) return false
+    this.editorView.setViewport(
+      viewport.offsetX,
+      nextOffset,
+      viewport.width,
+      viewport.height,
+      false,
+    )
+    this.requestRender()
+    if (this._readOnly) this.scheduleHighlight()
+    return true
+  }
+
+  private restoreSelectionDragAnchor(): void {
+    if (this._selectionDragAnchor === null) return
+    const selection = this.getSelection()
+    if (!selection) return
+    const focus =
+      this._selectionDragDirection === 1 ? selection.end : selection.start
+    this.editorView.setSelection(
+      Math.min(this._selectionDragAnchor, focus),
+      Math.max(this._selectionDragAnchor, focus),
+    )
   }
 
   private handleAutoClose(key: KeyEvent, closeChar: string): boolean {
@@ -383,13 +684,23 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this._suppressContentChanged = true
     try {
       this.editBuffer.setText(text)
+      this._displayedTextLength = text.length
       this.yogaNode.markDirty()
+      this.clearReadonlyHighlights()
     } finally {
       this._suppressContentChanged = false
     }
   }
 
   private scheduleHighlight(): void {
+    if (this._readOnly) {
+      if (this._readonlyHighlightTimer) return
+      this._readonlyHighlightTimer = setTimeout(() => {
+        this._readonlyHighlightTimer = null
+        this.highlightReadonly()
+      }, 0)
+      return
+    }
     this._highlightSnapshotId++
     if (this._highlightTimer) clearTimeout(this._highlightTimer)
     this._highlightTimer = setTimeout(() => {
@@ -426,6 +737,58 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.computeFoldRanges()
   }
 
+  private highlightReadonly(): void {
+    if (this.isDestroyed) return
+    if (this._readonlyNeedsFolds) {
+      this._readonlyNeedsFolds = false
+      this.computeFoldRanges()
+    }
+    if (this._filetype !== "json") return
+    const viewportStart = Math.max(0, this.scrollY - 2)
+    const viewportEnd = Math.min(
+      this.lineInfo.lineSources.length,
+      this.scrollY + this.viewport.height + 2,
+    )
+    const lines: number[] = []
+    for (
+      let displayLine = viewportStart;
+      displayLine < viewportEnd;
+      displayLine++
+    ) {
+      const line = this.lineInfo.lineSources[displayLine]
+      if (line === undefined) continue
+      if (this._readonlyHighlightedLines.has(line)) continue
+      this._readonlyHighlightedLines.add(line)
+      lines.push(line)
+    }
+    if (lines.length === 0) return
+
+    this._highlights.prepare()
+    for (const line of lines) {
+      const start = this.editBuffer.getLineStartOffset(line)
+      const end =
+        line + 1 < this.editBuffer.getLineCount()
+          ? this.editBuffer.getLineStartOffset(line + 1) - 1
+          : this._displayedTextLength
+      const text = this.editBuffer.getTextRange(start, end)
+      if (text.length > 100_000) continue
+      for (const token of highlightJsonTokens(text, this._theme)) {
+        this.addHighlight(line, {
+          start: token.displayOffset,
+          end: token.displayEnd,
+          styleId: this._highlights.jsonStyleId(token),
+          priority: 1,
+        })
+      }
+    }
+    this.requestRender()
+  }
+
+  private clearReadonlyHighlights(): void {
+    this._readonlyHighlightedLines.clear()
+    this.clearAllHighlights()
+  }
+
   private applyHighlightRanges(ranges: EditorHighlightRange[]): void {
     for (const range of ranges) {
       this.addHighlightByCharRange({
@@ -439,5 +802,54 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   private computeFoldRanges(): void {
     this._foldManager.computeFoldRanges()
+  }
+}
+
+export class CodeEditorScrollBarRenderable extends ScrollBarRenderable {
+  private _target: CodeEditorRenderable | null = null
+  private readonly _targetRef: { current: CodeEditorRenderable | null }
+  private readonly _syncTarget = () => this.syncTarget()
+  private readonly _clearTarget = () => {
+    this.target = null
+  }
+
+  constructor(
+    ctx: RenderContext,
+    { target, ...options }: CodeEditorScrollBarOptions,
+  ) {
+    const targetRef = { current: target }
+    super(ctx, {
+      ...options,
+      orientation: "vertical",
+      onChange: (position) => targetRef.current?.scrollTo(position),
+    })
+    this._targetRef = targetRef
+    this.target = target
+    this.onLifecyclePass = () => this.syncTarget()
+  }
+
+  set target(target: CodeEditorRenderable | null) {
+    if (target === this._target) return
+    this._target?.off("line-info-change", this._syncTarget)
+    this._target?.off("scroll-change", this._syncTarget)
+    this._target?.off("destroyed", this._clearTarget)
+    this._target = target
+    this._targetRef.current = target
+    target?.on("line-info-change", this._syncTarget)
+    target?.on("scroll-change", this._syncTarget)
+    target?.on("destroyed", this._clearTarget)
+    this.syncTarget()
+  }
+
+  private syncTarget(): void {
+    if (!this._target) return
+    this.scrollSize = this._target.totalVirtualLineCount
+    this.viewportSize = this._target.viewport.height
+    this.scrollPosition = this._target.scrollY
+  }
+
+  override destroy(): void {
+    this.target = null
+    super.destroy()
   }
 }

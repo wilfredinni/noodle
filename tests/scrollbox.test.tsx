@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { act, useMemo, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
+import { extend } from "@opentui/react"
 import { RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import type { Request, KvEntry, CollectionItem } from "../src/schema"
@@ -13,12 +14,23 @@ import { initialEditState } from "../src/ui/editMode"
 import type { EditState, FieldKind } from "../src/ui/editMode"
 import type { ResponseQueryController } from "../src/ui/responseQuery"
 
-import { ThemeProvider } from "../src/ui/theme"
+import { ThemeProvider, THEMES } from "../src/ui/theme"
 import type { Keymap } from "@opentui/keymap"
 import type { Renderable, KeyEvent } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
+import { MouseButtons } from "@opentui/core/testing"
 import { visibleNodes } from "../src/ui/tree"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../src/ui/editor/CodeEditor"
+import { keyEvent } from "./unit/_helpers"
+
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
 
 type OpenTuiKeymap = Keymap<Renderable, KeyEvent>
 
@@ -87,6 +99,23 @@ function findSidebarScrollbox(requestRow: Renderable): ScrollBoxRenderable {
     current = current.parent
   }
   throw new Error("Sidebar scrollbox not found")
+}
+
+function expectThemedScrollbar(root: Renderable, id: string, visible: boolean) {
+  const scrollbox = root.findDescendantById(id)
+  expect(scrollbox).toBeInstanceOf(ScrollBoxRenderable)
+  const scrollbar = (scrollbox as ScrollBoxRenderable).verticalScrollBar
+  expect(scrollbar.visible).toBe(visible)
+  expect(
+    scrollbar.slider.backgroundColor.equals(
+      RGBA.fromHex(THEMES[0]!.background),
+    ),
+  ).toBe(true)
+  expect(
+    scrollbar.slider.foregroundColor.equals(
+      RGBA.fromHex(THEMES[0]!.borderActive),
+    ),
+  ).toBe(true)
 }
 
 describe("ResponsePane scrollbox", () => {
@@ -175,6 +204,58 @@ describe("ResponsePane scrollbox", () => {
     expect(captureCharFrame()).toContain("0 matches")
   })
 
+  it("scrolls to the top when JSONPath changes the displayed body", async () => {
+    const state = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: JSON.stringify({
+          items: Array.from({ length: 60 }, (_, id) => ({ id, active: true })),
+        }),
+        timeMs: 1,
+      },
+    } satisfies SendState
+    const queryController = { current: null as ResponseQueryController | null }
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={state}
+          focused
+          responseQueryRef={queryController}
+        />
+      </KeymapProvider>,
+      { width: 80, height: 16 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    await act(async () => {
+      expect(queryController.current?.open()).toBe(true)
+    })
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    editor.scrollTo(20)
+    await renderOnce()
+    expect(editor.scrollY).toBe(20)
+
+    await act(async () => mockInput.typeText("$.items[*].id"))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 175))
+    })
+    await renderOnce()
+
+    expect(editor.totalVirtualLineCount).toBeGreaterThan(editor.viewport.height)
+    expect(editor.scrollY).toBe(0)
+  })
+
   it("only opens the query from the Body tab", async () => {
     const state = {
       status: "done" as const,
@@ -228,18 +309,82 @@ describe("ResponsePane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ResponsePane state={state} focused initialTab="network" />
-      </KeymapProvider>,
-      { width: 80, height: 16 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane state={state} focused initialTab="network" />
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
+    await renderOnce()
     await renderOnce()
     expect(captureCharFrame()).toContain("event 0")
+    expectThemedScrollbar(renderer.root, "network-tab-scrollbox", true)
     await act(async () => mockInput.pressKey("END"))
     await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("event 19")
+  })
+
+  it("shows a themed scrollbar for overflowing response headers", async () => {
+    const headers = Object.fromEntries(
+      Array.from({ length: 30 }, (_, i) => [`x-header-${i}`, `value-${i}`]),
+    )
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers,
+              body: "",
+              timeMs: 1,
+            },
+          }}
+          focused
+          initialTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    expectThemedScrollbar(renderer.root, "response-headers-scrollbox", true)
+  })
+
+  it("hides the response headers scrollbar when content fits", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: "",
+              timeMs: 1,
+            },
+          }}
+          focused
+          initialTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    expectThemedScrollbar(renderer.root, "response-headers-scrollbox", false)
   })
 
   it("shows network activity while sending", async () => {
@@ -446,23 +591,44 @@ describe("ResponsePane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ResponsePane state={state} focused={true} />
-      </KeymapProvider>,
-      { width: 80, height: 12 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane state={state} focused={true} />
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+    await renderOnce()
     await renderOnce()
 
     const frame = captureCharFrame()
     expect(frame).not.toBe("")
 
-    // scrollbox clips: only some of 100 items visible
+    // The editor clips: only some of 100 items are visible.
     const bodyLines = frame
       .split("\n")
       .filter((l: string) => l.includes("item-"))
     expect(bodyLines.length).toBeGreaterThan(0)
     expect(bodyLines.length).toBeLessThan(100)
+
+    const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    const editor = bodyEditor as CodeEditorRenderable
+    const bodyScrollbar = renderer.root.findDescendantById(
+      "response-body-scrollbar",
+    )
+    expect(bodyScrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    const scrollbar = bodyScrollbar as CodeEditorScrollBarRenderable
+    expect(scrollbar.visible).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(
+        scrollbar.screenX,
+        scrollbar.screenY + scrollbar.height - 1,
+      )
+    })
+    await renderOnce()
+    expect(editor.scrollY).toBeGreaterThan(0)
 
     await act(async () => mockInput.pressKey("END"))
     await new Promise((resolve) => setTimeout(resolve, 20))
@@ -473,6 +639,287 @@ describe("ResponsePane scrollbox", () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("item-0")
+  })
+
+  it("extends response body selections while dragging beyond the viewport", async () => {
+    const body = Array.from(
+      { length: 30 },
+      (_, index) => `response line ${index}`,
+    ).join("\n")
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={{
+              status: "done",
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body,
+                timeMs: 1,
+              },
+            }}
+            focused
+          />
+        </KeymapProvider>,
+        { width: 48, height: 12 },
+      )
+    await renderOnce()
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    const rows = captureCharFrame().split("\n")
+    const firstBodyRow = rows.find((row) => row.includes("response line 0"))
+    if (!firstBodyRow) throw new Error("Expected the first response body row")
+    const x = firstBodyRow.indexOf("response") + 1
+    const y = rows.indexOf(firstBodyRow)
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x, y + 1)
+    })
+    expect(editor.hasSelection()).toBe(true)
+    await act(async () => {
+      await mockMouse.moveTo(x, editor.y + editor.height, {
+        delayMs: 25,
+      })
+    })
+    expect(editor.hasSelection()).toBe(true)
+    for (let frame = 0; frame < 4; frame++) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      await renderOnce()
+    }
+
+    expect(editor.scrollY).toBeGreaterThan(0)
+    const selectedText = editor.getSelectedText()
+    expect(selectedText).toContain("esponse line 0")
+    expect(selectedText).toContain("response line 4")
+
+    await act(async () => {
+      await mockMouse.release(x, editor.y + editor.height)
+    })
+    const scrollAfterRelease = editor.scrollY
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await renderOnce()
+    expect(editor.scrollY).toBe(scrollAfterRelease)
+
+    editor.clearSelection()
+    editor.setCursor(0, 0)
+    editor.focus()
+    expect(editor.focused).toBe(true)
+    for (let press = 0; press < 8; press++) {
+      editor.handleKeyPress(keyEvent("down", { shift: true }))
+    }
+    await renderOnce()
+    expect(editor.scrollY).toBeGreaterThan(0)
+    expect(editor.getSelectedText()).toContain("response line 0")
+    expect(editor.getSelectedText()).toContain("response line 5")
+  })
+
+  it("hides the response body scrollbar when the body fits", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: '{"ok":true}',
+              timeMs: 1,
+            },
+          }}
+          focused
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    const bodyScrollbar = renderer.root.findDescendantById(
+      "response-body-scrollbar",
+    )
+    expect(bodyScrollbar).toBeInstanceOf(CodeEditorScrollBarRenderable)
+    expect((bodyScrollbar as CodeEditorScrollBarRenderable).visible).toBe(false)
+  })
+
+  it("folds the response body from the keyboard", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, captureCharFrame, mockInput, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={{
+              status: "done",
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body: '{\n  "before": true,\n  "data": {\n    "id": 1\n  },\n  "after": "next"\n}',
+                timeMs: 1,
+              },
+            }}
+            focused
+          />
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    const editor = bodyEditor as CodeEditorRenderable
+    expect(editor.getFoldSigns().has(0)).toBe(true)
+
+    await act(async () => mockInput.pressKey("F5"))
+    await renderOnce()
+    expect(editor.lineCount).toBeLessThan(7)
+
+    await act(async () => mockInput.pressKey("F6"))
+    await renderOnce()
+    expect(editor.lineCount).toBe(7)
+
+    editor.toggleFold(2)
+    await renderOnce()
+    const foldedFrame = captureCharFrame()
+    const dataFoldLine = foldedFrame
+      .split("\n")
+      .find((line) => line.includes('"data": {... }'))
+    expect(dataFoldLine).toMatch(/▶ {2}3 /)
+    const afterLine = foldedFrame
+      .split("\n")
+      .find((line) => line.includes('"after"'))
+    expect(afterLine).toMatch(/\b6\s+"after"/)
+
+    editor.unfoldAll()
+    await renderOnce()
+
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find((line) => line.includes("▼") && line.includes("{"))
+    if (!row) throw new Error("Expected response fold icon")
+    await act(async () => {
+      await mockMouse.click(row.indexOf("▼"), rows.indexOf(row))
+    })
+    await renderOnce()
+    expect(editor.lineCount).toBeLessThan(7)
+  })
+
+  it("keeps folded response source numbers beside their gutter signs", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const body = `{
+  "first": {
+    "value": 1
+  },
+  "filler0": 0,
+  "filler1": 1,
+  "filler2": 2,
+  "filler3": 3,
+  "filler4": 4,
+  "filler5": 5,
+  "filler6": 6,
+  "filler7": 7,
+  "second": {
+    "value": 8
+  }
+}`
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body,
+              timeMs: 1,
+            },
+          }}
+          focused
+        />
+      </KeymapProvider>,
+      { width: 48, height: 20 },
+    )
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    for (const line of [12, 1]) editor.toggleFold(line)
+    await renderOnce()
+
+    const foldLines = captureCharFrame()
+      .split("\n")
+      .filter((line) => line.includes("▶"))
+    const oneDigitLine = foldLines.find((line) => /▶ {2}2 /.test(line))
+    const twoDigitLine = foldLines.find((line) => /▶ {1}13 /.test(line))
+    if (!oneDigitLine || !twoDigitLine)
+      throw new Error("Expected one- and two-digit folded source labels")
+
+    const oneDigitGap = oneDigitLine.indexOf("2") - oneDigitLine.indexOf("▶")
+    const twoDigitGap = twoDigitLine.indexOf("13") - twoDigitLine.indexOf("▶")
+    expect(oneDigitGap).toBe(3)
+    expect(twoDigitGap).toBe(2)
+  })
+
+  it("keeps bodies above 5 MB raw until v is pressed", async () => {
+    const body = `{"payload":"${"x".repeat(5 * 1024 * 1024)}"}`
+    let bodyEditorAvailable: boolean | undefined
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={{
+              status: "done",
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body,
+                timeMs: 1,
+              },
+            }}
+            focused
+            onBodyEditorAvailableChange={(available) => {
+              bodyEditorAvailable = available
+            }}
+          />
+        </KeymapProvider>,
+        { width: 80, height: 12 },
+      )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("not rendered automatically")
+    expect(renderer.root.findDescendantById("response-body-editor")).toBe(
+      undefined,
+    )
+    expect(bodyEditorAvailable).toBe(false)
+
+    await act(async () => mockInput.pressKey("v"))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    const bodyEditor = renderer.root.findDescendantById("response-body-editor")
+    expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
+    expect((bodyEditor as CodeEditorRenderable).plainText).toBe(body)
+    expect(bodyEditorAvailable).toBe(true)
   })
 })
 
@@ -497,7 +944,7 @@ describe("RequestPane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <RequestPane
           request={request}
@@ -526,6 +973,32 @@ describe("RequestPane scrollbox", () => {
 
     // scroll indicator present (proves overflow rendering)
     expect(frame).toMatch(/[▀▄▌]/)
+    expectThemedScrollbar(renderer.root, "request-tab-scrollbox", true)
+  })
+
+  it("hides the request tab scrollbar when content fits", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <RequestPane
+          request={makeRequest(1)}
+          editState={initialEditState()}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="headers"
+        />
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    await renderOnce()
+    await renderOnce()
+
+    expectThemedScrollbar(renderer.root, "request-tab-scrollbox", false)
   })
 
   it("browse cursor highlights header row with background highlight", async () => {

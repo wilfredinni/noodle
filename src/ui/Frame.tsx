@@ -1,5 +1,9 @@
 import { createContext, type ReactNode } from "react"
-import { MouseButton, type BorderCharacters } from "@opentui/core"
+import {
+  MouseButton,
+  type BorderCharacters,
+  type MouseEvent,
+} from "@opentui/core"
 
 export const FrameInteractionContext = createContext(false)
 
@@ -20,6 +24,8 @@ export interface FrameProps {
   bottomTitleAlignment?: "left" | "center" | "right"
   onPaneFocus?: () => void
   onInteraction?: () => void
+  onMouseDrag?: (event: MouseEvent) => void
+  onMouseUp?: (event: MouseEvent) => void
 }
 
 export function Frame({
@@ -39,6 +45,8 @@ export function Frame({
   bottomTitleAlignment,
   onPaneFocus,
   onInteraction,
+  onMouseDrag,
+  onMouseUp,
 }: FrameProps) {
   return (
     <box
@@ -51,6 +59,8 @@ export function Frame({
       titleAlignment={titleAlignment}
       bottomTitle={bottomTitle}
       bottomTitleAlignment={bottomTitleAlignment}
+      onMouseDrag={onMouseDrag}
+      onMouseUp={onMouseUp}
       onMouseDown={
         onPaneFocus
           ? (event) => {

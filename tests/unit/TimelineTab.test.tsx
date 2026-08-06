@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import { act } from "react"
+import { RGBA, ScrollBoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
-import { ThemeProvider } from "../../src/ui/theme"
+import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { TimelineTab } from "../../src/ui/timeline/TimelineTab"
 import type { TimelineEntry } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
@@ -129,6 +130,33 @@ describe("TimelineTab", () => {
     await act(async () => mockInput.pressKey("RETURN"))
     await renderOnce()
     expect(opened).toBeUndefined()
+    cleanup()
+  })
+
+  it("shows a themed scrollbar when entries overflow", async () => {
+    const entries = Array.from({ length: 30 }, (_, i) => makeEntry(String(i)))
+    const { renderer, renderOnce, cleanup } = await renderTimeline(
+      entries,
+      true,
+      () => {},
+    )
+    await renderOnce()
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById("timeline-tab-scrollbox")
+    expect(scrollbox).toBeInstanceOf(ScrollBoxRenderable)
+    const scrollbar = (scrollbox as ScrollBoxRenderable).verticalScrollBar
+    expect(scrollbar.visible).toBe(true)
+    expect(
+      scrollbar.slider.backgroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.background),
+      ),
+    ).toBe(true)
+    expect(
+      scrollbar.slider.foregroundColor.equals(
+        RGBA.fromHex(THEMES[0]!.borderActive),
+      ),
+    ).toBe(true)
     cleanup()
   })
 })
