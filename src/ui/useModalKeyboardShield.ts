@@ -11,6 +11,7 @@ export const EDITABLE_OVERLAYS = new Set([
   "new-environment",
   "new-request",
   "import-curl",
+  "export-collection",
   "edit-request",
   "clone-request",
   "new-folder",

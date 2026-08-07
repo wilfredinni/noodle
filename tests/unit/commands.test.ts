@@ -5,6 +5,7 @@ import type { CommandBuilderContext } from "../../src/ui/commands"
 import { bindingDefaults } from "../../src/ui/keybind"
 import type { Collection } from "../../src/schema"
 import {
+  closeCollectionExport,
   cloneRequest,
   getEditRequestYamlFile,
   saveFolder,
@@ -57,6 +58,7 @@ function minimalContext(): CommandBuilderContext {
     setCollectionSwitcherVisible: () => {},
     setRequestFinderVisible: () => {},
     setCodeGeneratorVisible: () => {},
+    setExportCollectionVisible: () => {},
     setYamlEditor: () => {},
     setView: () => {},
     setFocus: () => {},
@@ -72,6 +74,18 @@ function minimalContext(): CommandBuilderContext {
 }
 
 describe("buildCommandPaletteCommands", () => {
+  it("keeps collection export open while an export is pending", () => {
+    let visible = true
+    const setVisible = (value: boolean) => {
+      visible = value
+    }
+
+    expect(closeCollectionExport({ current: true }, setVisible)).toBe(false)
+    expect(visible).toBe(true)
+    expect(closeCollectionExport({ current: false }, setVisible)).toBe(true)
+    expect(visible).toBe(false)
+  })
+
   it("returns all commands with required fields", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
     expect(commands.length).toBeGreaterThanOrEqual(23)
@@ -253,6 +267,42 @@ describe("buildCommandPaletteCommands", () => {
     )
     expect(command?.run()).toBe(true)
     expect(opened).toBe(true)
+  })
+
+  it("opens collection export only from the full collection palette", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.setExportCollectionVisible = (value) => {
+      opened = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "collection.export",
+    )
+    expect(command?.run()).toBe(true)
+    expect(opened).toBe(true)
+
+    ctx.getView = () => "env-editor"
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (item) => item.id === "collection.export",
+      ),
+    ).toBe(true)
+
+    ctx.getCollectionMode = () => "browse"
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (item) => item.id === "collection.export",
+      ),
+    ).toBe(false)
+
+    ctx.getCollectionMode = () => "collection"
+    ctx.paletteTarget = "request"
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (item) => item.id === "collection.export",
+      ),
+    ).toBe(false)
   })
 
   it("opens the edit request overlay for the selected request", () => {

@@ -288,6 +288,22 @@ export function openAbout(): boolean {
   return true
 }
 
+export function openCollectionExport(
+  setVisible: (visible: boolean) => void,
+): boolean {
+  setVisible(true)
+  return true
+}
+
+export function closeCollectionExport(
+  pending: RefObject<boolean>,
+  setVisible: (visible: boolean) => void,
+): boolean {
+  if (pending.current) return false
+  setVisible(false)
+  return true
+}
+
 export function openCollectionSwitcher(view: string): boolean {
   if (view === "env-editor") {
     showToast("Cannot switch collections from environment editor", "warning")

@@ -14,6 +14,10 @@ function Shield({ activeOverlay }: { activeOverlay: string }) {
 }
 
 describe("useModalKeyboardShield", () => {
+  it("treats collection export as editable", () => {
+    expect(EDITABLE_OVERLAYS).toContain("export-collection")
+  })
+
   it("allows input for every editable overlay", async () => {
     for (const activeOverlay of EDITABLE_OVERLAYS) {
       const { keymap, host, cleanup } = setupKeymap()

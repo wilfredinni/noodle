@@ -69,7 +69,12 @@ import { useCollectionSwitcher } from "./useCollectionSwitcher"
 import { useReloadGuard } from "./useReloadGuard"
 import { useKeymapSync } from "./useKeymapSync"
 import { useEditModeSync } from "./useEditModeSync"
-import { openEnvironmentEditor, openEnvironmentPicker } from "./commandActions"
+import {
+  closeCollectionExport,
+  openEnvironmentEditor,
+  openEnvironmentPicker,
+} from "./commandActions"
+import { runCollectionExport } from "./collectionExport"
 
 export function AppInner({
   collectionDir,
@@ -156,6 +161,7 @@ export function AppInner({
   const jumpTargetsRef = useRef<Map<string, JumpTarget>>(new Map())
   const headerFieldRef = useRef<"name" | "color">("name")
   const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
+  const exportPendingRef = useRef(false)
 
   // ── Collection ──────────────────────────────────────────────────────
   const isCollection = mode === "collection"
@@ -589,6 +595,9 @@ export function AppInner({
     setCommandPaletteVisible,
     codeGeneratorVisible,
     setCodeGeneratorVisible,
+    exportCollectionVisible,
+    setExportCollectionVisible,
+    exportCollectionRef,
     requestFinderVisible,
     setRequestFinderVisible,
     timelineDetailEntry,
@@ -904,6 +913,31 @@ export function AppInner({
         )
       }
     },
+    exportCollectionVisible,
+    exportCollectionRef,
+    onExportCollectionCancel: () =>
+      closeCollectionExport(exportPendingRef, setExportCollectionVisible),
+    onExportCollectionConfirm: (values) => {
+      const collectionName =
+        collection?.name ?? (basename(collectionDir) || "collection")
+      void runCollectionExport({
+        collectionDir,
+        collectionName,
+        values,
+        hasUnsavedChanges,
+        pending: exportPendingRef,
+      })
+        .then((result) => {
+          if (!result) return
+          setExportCollectionVisible(false)
+          showToast(`Collection exported to ${result.path}`, "success")
+        })
+        .catch((error: unknown) => {
+          exportCollectionRef.current?.setError(
+            error instanceof Error ? error.message : String(error),
+          )
+        })
+    },
     editRequestVisible,
     editRequestRef,
     setEditRequestVisible,
@@ -993,6 +1027,7 @@ export function AppInner({
         setCollectionSwitcherVisible,
         setRequestFinderVisible,
         setCodeGeneratorVisible,
+        setExportCollectionVisible,
         setYamlEditor,
         setView,
         setFocus,
@@ -1167,6 +1202,9 @@ export function AppInner({
           setCommandPaletteVisible={setCommandPaletteVisible}
           codeGeneratorVisible={codeGeneratorVisible}
           setCodeGeneratorVisible={setCodeGeneratorVisible}
+          exportCollectionVisible={exportCollectionVisible}
+          exportCollectionRef={exportCollectionRef}
+          exportCollectionActions={overlayActions.exportCollection}
           codeGeneratorRequest={draft.draft}
           codeGeneratorEnv={envState.activeEnv}
           codeGeneratorEnvName={envState.activeEnv?.name}

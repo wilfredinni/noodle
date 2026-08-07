@@ -7,10 +7,12 @@ import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverlay"
+import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
 
 export type ActiveOverlay =
   | "command-palette"
   | "code-generator"
+  | "export-collection"
   | "request-finder"
   | "help"
   | "about"
@@ -81,6 +83,8 @@ export function useOverlayState({
   const [initPending, setInitPending] = useState(false)
   const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
   const [codeGeneratorVisible, setCodeGeneratorVisible] = useState(false)
+  const [exportCollectionVisible, setExportCollectionVisible] = useState(false)
+  const exportCollectionRef = useRef<ExportCollectionOverlayHandle>(null)
   const [requestFinderVisible, setRequestFinderVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
     useState<TimelineEntry | null>(null)
@@ -92,6 +96,7 @@ export function useOverlayState({
   const activeOverlay = useMemo((): ActiveOverlay => {
     if (commandPaletteVisible) return "command-palette"
     if (codeGeneratorVisible) return "code-generator"
+    if (exportCollectionVisible) return "export-collection"
     if (requestFinderVisible) return "request-finder"
     if (helpVisible) return "help"
     if (aboutVisible) return "about"
@@ -118,6 +123,7 @@ export function useOverlayState({
   }, [
     commandPaletteVisible,
     codeGeneratorVisible,
+    exportCollectionVisible,
     requestFinderVisible,
     helpVisible,
     aboutVisible,
@@ -185,6 +191,9 @@ export function useOverlayState({
     setCommandPaletteVisible,
     codeGeneratorVisible,
     setCodeGeneratorVisible,
+    exportCollectionVisible,
+    setExportCollectionVisible,
+    exportCollectionRef,
     requestFinderVisible,
     setRequestFinderVisible,
     timelineDetailEntry,
