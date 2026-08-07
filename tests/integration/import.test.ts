@@ -410,6 +410,75 @@ describe("import — integration", () => {
     ).rejects.toThrow(`import target already exists: ${first.path}`)
   })
 
+  it("removes a partial new collection after a late write failure", async () => {
+    const parentDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "cleanup.json")
+    await writeFile(specPath, "{}")
+
+    let failEnvironmentWrite = true
+    const { registerImporter } = await import("../../src/converters")
+    registerImporter({
+      type: "cleanup-test",
+      detect: () => false,
+      import: () => ({
+        collection: {
+          id: "cleanup-test",
+          name: "Cleanup Test",
+          items: [
+            {
+              type: "request",
+              data: {
+                id: "get-ping",
+                name: "Ping",
+                method: "GET",
+                url: "https://example.com/ping",
+                timeout: 0,
+                headers: {},
+                params: [],
+              },
+            },
+          ],
+        },
+        environments: [
+          {
+            name: "default",
+            vars: failEnvironmentWrite
+              ? Object.defineProperty({}, "token", {
+                  enumerable: true,
+                  get: () => {
+                    throw new Error("environment serialization failed")
+                  },
+                })
+              : { token: "ok" },
+          },
+        ],
+      }),
+    })
+
+    const { runImport } = await import("../../src/app/import")
+    const target = join(parentDir, "cleanup-test")
+    await expect(
+      runImport({
+        source: specPath,
+        format: "cleanup-test",
+        silent: true,
+        destination: { kind: "new", parentDir },
+      }),
+    ).rejects.toThrow("environment serialization failed")
+    expect(existsSync(target)).toBe(false)
+
+    failEnvironmentWrite = false
+    await expect(
+      runImport({
+        source: specPath,
+        format: "cleanup-test",
+        silent: true,
+        destination: { kind: "new", parentDir },
+      }),
+    ).resolves.toMatchObject({ path: target })
+  })
+
   it("auto-detects every provider for current and new destinations", async () => {
     const providers = [
       {

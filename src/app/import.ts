@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
-import { mkdir, writeFile } from "node:fs/promises"
-import { dirname, join, relative, resolve, sep } from "node:path"
+import { mkdir, rm, writeFile } from "node:fs/promises"
+import { dirname, join, posix, relative, resolve, sep } from "node:path"
 import {
   getImporter,
   detectFormat,
@@ -100,14 +100,14 @@ function importPaths(
       if (item.type === "request") {
         paths.push(`${item.data.id}.yml`)
       } else {
-        paths.push(join(item.data.path, "folder.yml"))
+        paths.push(posix.join(item.data.path, "folder.yml"))
         visit(item.data.children)
       }
     }
   }
   visit(items)
   for (const environment of environments) {
-    paths.push(join(".environments", `${environment.name}.env`))
+    paths.push(posix.join(".environments", `${environment.name}.env`))
   }
   return paths
 }
@@ -288,27 +288,52 @@ export async function runImport(
     validateImportPath(collDir, path)
   }
 
+  let removePartialImport = false
   try {
-    await writeCollection(collDir, result.collection, overwrite)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    throw new Error(`failed to write collection: ${msg}`, { cause: e })
-  }
-
-  if (result.environments.length > 0) {
-    const envDir = join(collDir, ".environments")
-    await mkdir(envDir, { recursive: true })
-    for (const env of result.environments) {
-      await writeFile(
-        join(envDir, `${env.name}.env`),
-        serializeEnv(env),
-        overwrite ? "utf8" : { encoding: "utf8", flag: "wx" },
-      )
+    if (options.destination?.kind === "new") {
+      await mkdir(collDir)
+      removePartialImport = true
     }
-  }
 
-  if (options.destination?.kind === "new") {
-    await saveSettings(collDir, {})
+    try {
+      await writeCollection(collDir, result.collection, overwrite)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw new Error(`failed to write collection: ${msg}`, { cause: e })
+    }
+
+    if (result.environments.length > 0) {
+      const envDir = join(collDir, ".environments")
+      await mkdir(envDir, { recursive: true })
+      for (const env of result.environments) {
+        await writeFile(
+          join(envDir, `${env.name}.env`),
+          serializeEnv(env),
+          overwrite ? "utf8" : { encoding: "utf8", flag: "wx" },
+        )
+      }
+    }
+
+    if (removePartialImport) {
+      await saveSettings(collDir, {})
+    }
+  } catch (e) {
+    if (removePartialImport) {
+      try {
+        await rm(collDir, { recursive: true, force: true })
+      } catch (cleanupError) {
+        const message = e instanceof Error ? e.message : String(e)
+        const cleanupMessage =
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : String(cleanupError)
+        throw new Error(
+          `${message}; failed to clean up partial import: ${cleanupMessage}`,
+          { cause: cleanupError },
+        )
+      }
+    }
+    throw e
   }
 
   if (!options.silent)

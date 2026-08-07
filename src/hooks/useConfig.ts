@@ -49,9 +49,9 @@ export function useConfig(configDir: string): {
         typeof partial === "function" ? partial(configRef.current) : partial
       const next = normalizeConfig({ ...configRef.current, ...patch })
       if (options?.immediate) {
-        saveConfig(configDir, next)
         if (timerRef.current !== null) clearTimeout(timerRef.current)
         timerRef.current = null
+        saveConfig(configDir, next)
         configRef.current = next
         setConfig(next)
         return
