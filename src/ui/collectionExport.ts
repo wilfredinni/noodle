@@ -15,8 +15,10 @@ type ExportRunner = (options: ExportOptions) => Promise<ExportResult>
 function isAvailablePostmanTarget(path: string): boolean {
   try {
     return readdirSync(path).length === 0
-  } catch {
-    return true
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === "ENOENT" || code === "ENOTDIR") return true
+    throw error
   }
 }
 

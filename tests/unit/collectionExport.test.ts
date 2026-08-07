@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -42,6 +42,24 @@ describe("runCollectionExport", () => {
       expect(getExportTargetPath(file, "orders", "postman")).toBe(
         join(file, "orders-postman"),
       )
+    } finally {
+      await rm(outputDir, { recursive: true, force: true })
+    }
+  })
+
+  it("propagates unexpected filesystem errors from Postman targets", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "noodle-export-target-"))
+    const target = join(outputDir, "orders-postman")
+
+    try {
+      await symlink("orders-postman", target)
+      let code: string | undefined
+      try {
+        getExportTargetPath(outputDir, "orders", "postman")
+      } catch (error) {
+        code = (error as NodeJS.ErrnoException).code
+      }
+      expect(code).toBe("ELOOP")
     } finally {
       await rm(outputDir, { recursive: true, force: true })
     }

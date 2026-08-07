@@ -84,18 +84,20 @@ export function RequestResponseView({
   onRequestFieldToggle,
   onRequestInteraction,
 }: RequestResponseViewProps) {
+  const requestVisible = expanded !== "response"
+  const responseVisible = expanded !== "request"
   const content = (
     <>
       <RequestPane
         request={draft.draft}
-        visible={expanded !== "response"}
+        visible={requestVisible}
         error={error}
         editState={eb.editState}
         editKey={eb.editKey}
         editValue={eb.editValue}
         setEditKey={eb.setEditKey}
         setEditValue={eb.setEditValue}
-        focused={focus === "request"}
+        focused={requestVisible && focus === "request"}
         activeTab={eb.activeTab}
         activeEnv={activeEnv}
         onAuthTypeChange={draft.setAuthType}
@@ -118,8 +120,8 @@ export function RequestResponseView({
       <ResponsePane
         key={responseKey}
         state={responseState}
-        visible={expanded !== "request"}
-        focused={focus === "response"}
+        visible={responseVisible}
+        focused={responseVisible && focus === "response"}
         timelineEntries={timelineEntries}
         initialTab={initialResponseTab}
         onTabChange={onResponseTabChange}

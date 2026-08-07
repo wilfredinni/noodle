@@ -205,6 +205,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
 
   it("keeps request and response folds through layout and expand changes", async () => {
     const { keymap, draft, eb } = createTestProps()
+    keymap.keymap.setData("app.overlay", "none")
     const body = JSON.stringify(
       {
         object: { nested: true },
@@ -225,6 +226,10 @@ describe("ResponsePane status text truncation and layout tests", () => {
     }
     let changeLayout = (_layout: "stacked" | "side-by-side") => {}
     let changeExpanded = (_expanded: "request" | "response" | null) => {}
+    let responseTabChanges = 0
+    const onResponseTabChange = () => {
+      responseTabChanges += 1
+    }
 
     function FoldPersistenceHarness() {
       const [layout, setLayout] = useState<"stacked" | "side-by-side">(
@@ -252,7 +257,7 @@ describe("ResponsePane status text truncation and layout tests", () => {
           activeEnv={null}
           responseState={responseOK}
           timelineEntries={[]}
-          onResponseTabChange={() => {}}
+          onResponseTabChange={onResponseTabChange}
           setSelectOpen={() => {}}
           urlbarSubFocus="text"
           urlbarInteractive={true}
@@ -261,20 +266,21 @@ describe("ResponsePane status text truncation and layout tests", () => {
       )
     }
 
-    const { renderer, renderOnce, captureCharFrame } = await testRender(
-      <KeymapProvider
-        keymap={
-          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
-        }
-      >
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box style={{ width: 100, height: 24, flexDirection: "column" }}>
-            <FoldPersistenceHarness />
-          </box>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 100, height: 24 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box style={{ width: 100, height: 24, flexDirection: "column" }}>
+              <FoldPersistenceHarness />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 24 },
+      )
     await renderOnce()
     await new Promise((resolve) => setTimeout(resolve, 250))
     await renderOnce()
@@ -311,6 +317,10 @@ describe("ResponsePane status text truncation and layout tests", () => {
     await renderOnce()
     expect(captureCharFrame()).toContain("Request")
     expect(captureCharFrame()).not.toContain("Response")
+    expect(responseEditor.focused).toBe(false)
+    await act(async () => mockInput.pressKey("RIGHT"))
+    await renderOnce()
+    expect(responseTabChanges).toBe(0)
     act(() => changeExpanded(null))
     await renderOnce()
     expect(renderer.root.findDescendantById("response-body-editor")).toBe(
