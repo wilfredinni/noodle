@@ -85,6 +85,25 @@ function findTextPosition(frame: string, text: string) {
   return { x: rows[y]!.indexOf(text), y }
 }
 
+async function waitForAsyncFrame(
+  renderOnce: () => Promise<void>,
+  captureCharFrame: () => string,
+  predicate: (frame: string) => boolean,
+): Promise<string> {
+  const deadline = Date.now() + 2000
+  while (true) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      await renderOnce()
+    })
+    const frame = captureCharFrame()
+    if (predicate(frame)) return frame
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out waiting for async frame:\n${frame}`)
+    }
+  }
+}
+
 describe("VarInput — display mode (isEditing=false)", () => {
   it("renders plain text without variables", async () => {
     const { renderOnce, captureSpans } = await testRender(
@@ -557,21 +576,18 @@ describe("VarInput — path completion", () => {
     await writeFile(join(root, "avatar.png"), "avatar")
 
     try {
-      const {
-        renderOnce,
-        captureCharFrame,
-        mockInput,
-        mockMouse,
-        waitForFrame,
-      } = await testRender(
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <PathCompletionHarness root={root} wrapFileSelection />
-        </ThemeProvider>,
-        { width: 100, height: 12 },
-      )
+      const { renderOnce, captureCharFrame, mockInput, mockMouse } =
+        await testRender(
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <PathCompletionHarness root={root} wrapFileSelection />
+          </ThemeProvider>,
+          { width: 100, height: 12 },
+        )
       await renderOnce()
       await act(async () => mockInput.typeText("@"))
-      await waitForFrame((frame) => frame.includes("avatar.png"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("avatar.png"),
+      )
 
       const { x, y } = findTextPosition(captureCharFrame(), "avatar.png")
       await act(async () => {
@@ -591,21 +607,22 @@ describe("VarInput — path completion", () => {
     const { keymap, host, cleanup } = createTestKeymap()
 
     try {
-      const { renderOnce, captureCharFrame, mockInput, waitForFrame } =
-        await testRender(
-          <KeymapProvider
-            keymap={keymap as unknown as KeymapProviderProps["keymap"]}
-          >
-            <ThemeProvider activeIndex={0} previewIndex={null}>
-              <VariableCompletionInterceptor />
-              <PathCompletionHarness root={root} wrapFileSelection />
-            </ThemeProvider>
-          </KeymapProvider>,
-          { width: 100, height: 12 },
-        )
+      const { renderOnce, captureCharFrame, mockInput } = await testRender(
+        <KeymapProvider
+          keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <VariableCompletionInterceptor />
+            <PathCompletionHarness root={root} wrapFileSelection />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 12 },
+      )
       await renderOnce()
       await act(async () => mockInput.typeText("@"))
-      await waitForFrame((frame) => frame.includes("avatar.png"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("avatar.png"),
+      )
       await act(async () => host.press("return"))
       await renderOnce()
 
@@ -622,21 +639,22 @@ describe("VarInput — path completion", () => {
     const { keymap, host, cleanup } = createTestKeymap()
 
     try {
-      const { renderOnce, captureCharFrame, mockInput, waitForFrame } =
-        await testRender(
-          <KeymapProvider
-            keymap={keymap as unknown as KeymapProviderProps["keymap"]}
-          >
-            <ThemeProvider activeIndex={0} previewIndex={null}>
-              <VariableCompletionInterceptor />
-              <PathCompletionHarness root={root} wrapFileSelection />
-            </ThemeProvider>
-          </KeymapProvider>,
-          { width: 100, height: 12 },
-        )
+      const { renderOnce, captureCharFrame, mockInput } = await testRender(
+        <KeymapProvider
+          keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <VariableCompletionInterceptor />
+            <PathCompletionHarness root={root} wrapFileSelection />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 12 },
+      )
       await renderOnce()
       await act(async () => mockInput.typeText("@file(@"))
-      await waitForFrame((frame) => frame.includes("avatar.png"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("avatar.png"),
+      )
       await act(async () => host.press("return"))
       await renderOnce()
 
@@ -654,26 +672,29 @@ describe("VarInput — path completion", () => {
     const { keymap, host, cleanup } = createTestKeymap()
 
     try {
-      const { renderOnce, captureCharFrame, mockInput, waitForFrame } =
-        await testRender(
-          <KeymapProvider
-            keymap={keymap as unknown as KeymapProviderProps["keymap"]}
-          >
-            <ThemeProvider activeIndex={0} previewIndex={null}>
-              <VariableCompletionInterceptor />
-              <PathCompletionHarness root={root} />
-            </ThemeProvider>
-          </KeymapProvider>,
-          { width: 100, height: 12 },
-        )
+      const { renderOnce, captureCharFrame, mockInput } = await testRender(
+        <KeymapProvider
+          keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <VariableCompletionInterceptor />
+            <PathCompletionHarness root={root} />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 12 },
+      )
       await renderOnce()
       await act(async () => mockInput.typeText("@"))
-      await waitForFrame((frame) => frame.includes("Documents/"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("Documents/"),
+      )
       await renderOnce()
       await renderOnce()
 
       await act(async () => host.press("return"))
-      await waitForFrame((frame) => frame.includes("report final.pdf"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("report final.pdf"),
+      )
       await renderOnce()
       await renderOnce()
 
@@ -693,21 +714,22 @@ describe("VarInput — path completion", () => {
     const { keymap, host, cleanup } = createTestKeymap()
 
     try {
-      const { renderOnce, captureCharFrame, mockInput, waitForFrame } =
-        await testRender(
-          <KeymapProvider
-            keymap={keymap as unknown as KeymapProviderProps["keymap"]}
-          >
-            <ThemeProvider activeIndex={0} previewIndex={null}>
-              <VariableCompletionInterceptor />
-              <PathCompletionHarness root={root} />
-            </ThemeProvider>
-          </KeymapProvider>,
-          { width: 100, height: 12 },
-        )
+      const { renderOnce, captureCharFrame, mockInput } = await testRender(
+        <KeymapProvider
+          keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <VariableCompletionInterceptor />
+            <PathCompletionHarness root={root} />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 12 },
+      )
       await renderOnce()
       await act(async () => mockInput.typeText("@"))
-      await waitForFrame(
+      await waitForAsyncFrame(
+        renderOnce,
+        captureCharFrame,
         (frame) => frame.includes("alpha.txt") && frame.includes("zulu.txt"),
       )
       await renderOnce()
@@ -723,7 +745,9 @@ describe("VarInput — path completion", () => {
         await act(async () => mockInput.pressKey("BACKSPACE"))
       }
       await act(async () => mockInput.typeText("@alp"))
-      await waitForFrame((frame) => frame.includes("alpha.txt"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("alpha.txt"),
+      )
       expect(captureCharFrame()).not.toContain("zulu.txt")
 
       await renderOnce()
@@ -739,7 +763,7 @@ describe("VarInput — path completion", () => {
   it("shows a no-results state", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-var-path-"))
     try {
-      const { renderOnce, mockInput, waitForFrame } = await testRender(
+      const { renderOnce, captureCharFrame, mockInput } = await testRender(
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <PathCompletionHarness root={root} />
         </ThemeProvider>,
@@ -747,7 +771,9 @@ describe("VarInput — path completion", () => {
       )
       await renderOnce()
       await act(async () => mockInput.typeText("@nothing"))
-      await waitForFrame((frame) => frame.includes("No matching paths"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("No matching paths"),
+      )
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -790,16 +816,17 @@ describe("VarInput — path completion", () => {
   it("shows unavailable folders and keeps dollar completion working", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-var-path-"))
     try {
-      const { renderOnce, captureCharFrame, mockInput, waitForFrame } =
-        await testRender(
-          <ThemeProvider activeIndex={0} previewIndex={null}>
-            <PathCompletionHarness root={root} />
-          </ThemeProvider>,
-          { width: 100, height: 12 },
-        )
+      const { renderOnce, captureCharFrame, mockInput } = await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <PathCompletionHarness root={root} />
+        </ThemeProvider>,
+        { width: 100, height: 12 },
+      )
       await renderOnce()
       await act(async () => mockInput.typeText("@/missing/"))
-      await waitForFrame((frame) => frame.includes("Folder unavailable"))
+      await waitForAsyncFrame(renderOnce, captureCharFrame, (frame) =>
+        frame.includes("Folder unavailable"),
+      )
 
       for (let i = 0; i < "@/missing/".length; i++) {
         await act(async () => mockInput.pressKey("BACKSPACE"))
