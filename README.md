@@ -80,6 +80,11 @@ Use `$variables` from an environment file, keep required URL segments in
 supports headers, query parameters, JSON, form, multipart, and binary bodies,
 plus bearer, basic, and API-key authentication.
 
+For multipart file entries and binary `file_path` values, use a quoted `@/`
+path such as `'@/Documents/report.pdf'` to start from the current user's home
+directory. Noodle completes the shorthand in the TUI and expands it only when
+it reads a file or creates an export.
+
 ## Features
 
 ### Create and organize requests
@@ -90,7 +95,7 @@ plus bearer, basic, and API-key authentication.
   authentication, and request settings.
 - JSON, form, multipart, and binary request bodies, plus bearer, basic, and
   API-key authentication.
-- Home-rooted `@` path completion for multipart file fields and binary uploads.
+- Home-rooted `@/` path completion for multipart file fields and binary uploads.
 - Folders with inheritable headers and authentication, alongside environments
   with `$variable` substitution and a built-in editor.
 
@@ -125,6 +130,10 @@ Noodle detects the supported format automatically. Use `--format openapi`,
 `--format swagger`, `--format postman`, or `--format insomnia` when you need to choose explicitly. Imported valid JSON
 request bodies are pretty-printed automatically.
 
+In the TUI, open the command palette with `Ctrl+P` and choose **Import
+Collection**. Choose whether to create a new collection or import into the
+current one; save pending changes before importing into the current collection.
+
 ## Export a collection
 
 Export a collection as an OpenAPI 3.0.3 request catalog:
@@ -153,6 +162,9 @@ preserved. Request literals in URLs, headers, parameters, bodies, file paths, an
 auth fields stay runnable and can contain secrets. Home-relative `@/` file paths
 expand to absolute paths, which can expose local usernames and directories, so
 review exports before sharing them. Response timeline data is never exported.
+
+The TUI also offers **Export Collection** from the `Ctrl+P` command palette,
+with OpenAPI and Postman formats and a preview of the target path.
 
 ## Automation CLI
 

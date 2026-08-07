@@ -95,6 +95,11 @@ YAML plain scalar cannot begin with `@`. Absolute paths, ordinary relative
 paths, and `$variable` paths remain supported; an environment variable may
 also resolve to an `@/` path.
 
+Keep `@/` values in collection files rather than expanding them yourself.
+Noodle expands the shorthand only when it reads an upload file or writes an
+output artifact such as a Postman export; those exports can reveal local home
+directory paths and should be reviewed before sharing.
+
 ### Auth
 
 | Field | Bearer | Basic | API Key |

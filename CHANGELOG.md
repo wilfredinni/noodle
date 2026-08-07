@@ -4,6 +4,35 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-07
+
+![Export collection overlay](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/import-overlay.png)
+
+Noodle now brings collection import and export into the terminal UI, so a collection can move between supported formats without leaving the workspace. Home-relative upload paths and editor state are more dependable, with safer exports and more stable completion, focus, and import behavior.
+
+### ✨ Features
+
+- Add **Import Collection** to the command palette, with format detection for OpenAPI, Swagger, Postman, and Insomnia and a choice to create a new collection or import into the current one.
+- Add **Export Collection** to the command palette, with OpenAPI and Postman choices, target previews, and automatic suffixes for occupied Postman output directories.
+- Add quoted `@/` home-directory shorthand and TUI completion for multipart file entries and binary upload paths; expand it only when reading files or producing output artifacts.
+- Preserve request and response JSON fold state when switching between stacked and side-by-side layouts.
+
+### 🐞 Fixes
+
+- Remove a partially written collection when an import fails, and prevent imports into the current collection while unsaved changes exist.
+- Keep completion popups mouse-accessible and maintain focused overlay input and filesystem-error feedback during collection transfer.
+- Preserve `@/` file paths through HAR generation and expand them in Postman bundles so exported file requests remain runnable.
+
+### 🔧 Refactors
+
+- Centralize home-relative path expansion and collapse for upload, export, and TUI path-completion boundaries.
+
+### 📚 Documentation
+
+- Document TUI collection import/export and `@/` file-path behavior in the README, AGENTS.md, in-app tips, and site guides.
+- Update `noodle-dev` with collection-transfer architecture and home-relative path boundaries.
+- Update `noodle-use` with portable upload-path and export-disclosure guidance.
+
 ## [0.6.1] - 2026-08-06
 
 ![path_params](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/response_folding.png)
@@ -308,7 +337,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/wilfredinni/noodle/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/wilfredinni/noodle/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/wilfredinni/noodle/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/wilfredinni/noodle/compare/v0.5.6...v0.5.7

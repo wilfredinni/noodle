@@ -122,7 +122,9 @@ form_data:
 ```
 
 `form_data` for multipart. Text fields (default `type: "text"`) send string values. File fields (`type: "file"`) send file contents from `value` path.
-`@/` means the current user's home directory and must be quoted in YAML.
+`@/` means the current user's home directory and must be quoted in YAML. Keep
+the shorthand in the collection; noodle expands it only when reading the file
+or producing an output artifact.
 
 ## Complete environment file
 

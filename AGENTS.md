@@ -234,7 +234,7 @@ command_palette: ctrl+p
 
 In browse or empty mode, collection-only actions above are unavailable. Command palette still exposes inspection, reload, layout, theme, help, and collection initialization actions.
 
-The command palette also provides **Import cURL Request** and **Generate Code** for the selected request. Code generation supports choosing a language and library, and can optionally interpolate the active environment.
+The command palette also provides **Import Collection** (as a new collection or into the current collection), **Export Collection** (OpenAPI or Postman), **Import cURL Request**, and **Generate Code** for the selected request. Code generation supports choosing a language and library, and can optionally interpolate the active environment. Save pending changes before importing into the current collection.
 
 ### Jump mode (leader-key focus jumps)
 Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable element; press a letter to focus that element, or `Esc` to cancel. Non-matching keys are swallowed (mode stays active).

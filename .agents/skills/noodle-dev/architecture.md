@@ -88,6 +88,15 @@ environment: development # Last active environment name
 
 Falls back to empty object `{}` when file is missing or invalid.
 
+### User-relative file paths
+
+Multipart file entries and binary `file_path` values may use a quoted `@/`
+prefix, such as `'@/Documents/report.pdf'`, for the current user's home
+directory. Keep that shorthand in request YAML: `expandUserPath()` resolves it
+only at output boundaries, including file reads, HAR generation, and Postman
+export; `collapseUserPath()` converts in-home absolute paths back for TUI
+display and completion.
+
 ### Timeline (`.timeline/`)
 
 Per-request response history stored as YAML arrays of `TimelineEntry` objects. Max 50 entries per request (FIFO — `unshift` + truncate). Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Entries contain substituted request data, so timeline files and sidecars can contain resolved secrets. The detail view masks configured bearer, basic, and header API-key auth for display, but does not redact storage.
@@ -205,7 +214,7 @@ Cursor-aware `$variable` completion system across all text inputs:
 ### Building commands (src/ui/commands.ts)
 
 - `buildCommandPaletteCommands(context)` — assembles command arrays using `context.getView()`:
-  - Main view: Request commands, Response commands, Environment commands, Workspace commands, System commands
+- Main view: Request commands, Response commands, Environment commands, Workspace commands, System commands
   - Env editor: Environment commands (different set), Workspace, System
 - Each `CommandItem`: `{ id, label, section, keybinding?, run: () => boolean }`
 - Commands declare `section`; `CommandPaletteOverlay` builds non-navigable section headers
@@ -222,6 +231,12 @@ Cursor-aware `$variable` completion system across all text inputs:
   `toggleHelp`, `openThemePicker`, `openAbout`, `openCollectionSwitcher`
 - Keymap layers and `commands.ts` use these helpers; palette composition retains view-state actions such as send
 - `run()` returns `true` (close palette) or `false` (stay open)
+
+`Import Collection` and `Export Collection` are Workspace commands. Their
+overlays live in `src/ui/overlays/ImportCollectionOverlay.tsx` and
+`ExportCollectionOverlay.tsx`; orchestration stays in `AppInner.tsx`, while
+`collectionImport.ts` and `collectionExport.ts` validate destinations and run
+the application services.
 
 ### Picker (src/ui/overlays/PickerOverlay.tsx)
 
@@ -481,6 +496,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Command palette             | `src/ui/commands.ts`, `src/ui/commandActions.ts`, `src/ui/overlays/CommandPaletteOverlay.tsx`                                                                                                                                                                                                                                |
 | Request finder              | `src/ui/requestFinder.ts`, `src/ui/overlays/RequestFinderOverlay.tsx`                                                                                                                                                                                                                                                        |
 | cURL import (TUI)           | `src/converters/curl/parse.ts`, `src/ui/overlays/ImportCurlOverlay.tsx`, `src/ui/useOverlayIntercepts.ts`                                                                                                                                                                                                                    |
+| Collection import/export (TUI) | `src/ui/collectionImport.ts`, `src/ui/collectionExport.ts`, `src/ui/overlays/ImportCollectionOverlay.tsx`, `src/ui/overlays/ExportCollectionOverlay.tsx` |
 | Code generation             | `src/codegen/buildHar.ts`, `src/codegen/targets.ts`, `src/codegen/variableHash.ts`, `src/ui/overlays/CodeGeneratorOverlay.tsx`                                                                                                                                                                                               |
 | JSONPath response filtering | `src/ui/responseQuery.ts`, `src/ui/ResponsePane.tsx`                                                                                                                                                                                                                                                                         |
 | Jump mode                   | `src/ui/useJumpMode.ts`, `src/ui/JumpBadge.tsx`                                                                                                                                                                                                                                                                              |

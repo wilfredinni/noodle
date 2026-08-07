@@ -123,7 +123,7 @@ noodle export <collection-path> --format postman --output ./postman-bundle --jso
 
 OpenAPI exports write a 3.0.3 document. Enabled parameters and headers, request-body examples, folders as tags, supported auth, and enabled nonempty `base_url` values as servers are included. Other environment values and response timeline data are not exported.
 
-Postman exports require a new or empty output directory. They create `collection.postman_collection.json` and one redacted environment file per Noodle environment. Literal request values are retained except that `@/` file paths expand to absolute home paths, so inspect the bundle for secrets and local path disclosure before sharing it. Both formats require an output path outside the collection.
+Postman exports require a new or empty output directory. They create `collection.postman_collection.json` and one redacted environment file per Noodle environment. Literal request values are retained except that `@/` file paths expand to absolute home paths, so inspect the bundle for secrets and local path disclosure before sharing it. Keep the shorthand in source collection files; both formats require an output path outside the collection.
 
 ## After import
 
