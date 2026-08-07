@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { basename } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
@@ -714,6 +715,10 @@ export function AppInner({
     setAboutVisible(true)
   }, [setAboutVisible])
 
+  const handleCollectionActivate = useCallback(() => {
+    setCollectionSwitcherVisible(true)
+  }, [setCollectionSwitcherVisible])
+
   const handleEnvironmentActivate = useCallback(() => {
     openEnvironmentPicker(setEnvironmentPickerVisible)
   }, [setEnvironmentPickerVisible])
@@ -1025,9 +1030,15 @@ export function AppInner({
       }}
     >
       <Header
+        collectionLabel={basename(collectionDir) || collectionDir}
         envLabel={envState.indicatorLabel}
         envColor={envState.activeEnv?.color}
         onAboutActivate={handleAboutActivate}
+        onCollectionActivate={
+          view !== "env-editor" && !overlayActive
+            ? handleCollectionActivate
+            : undefined
+        }
         onEnvironmentActivate={
           view === "main" && mode === "collection" && !overlayActive
             ? handleEnvironmentActivate

@@ -186,10 +186,31 @@ export function StatusBar(input: {
         ]
       : []
 
+  const expandSegment = transient
+    ? []
+    : input.footerHints
+        .filter((segment) => segment.command === "request.expand-toggle")
+        .slice(0, 1)
+  const contextualSource = input.footerHints.filter(
+    (segment) => segment.command !== "request.expand-toggle",
+  )
+  const expandWidth = segmentsWidth(expandSegment)
   const sendWidth = segmentsWidth(sendSegment)
+  const visibleSendSegment =
+    sendWidth <=
+    Math.max(
+      0,
+      termWidth -
+        2 -
+        expandWidth -
+        (expandSegment.length > 0 ? HINT_ITEM_GAP : 0),
+    )
+      ? sendSegment
+      : []
+  const visibleSendWidth = segmentsWidth(visibleSendSegment)
   const transientHints = transient ? displayHints(input.globalHints) : []
   const contextualHints = displayHints(
-    input.footerHints.slice(0, MAX_CONTEXTUAL_HINTS),
+    contextualSource.slice(0, MAX_CONTEXTUAL_HINTS),
   )
   const commandsHint = displayHints([
     {
@@ -200,10 +221,16 @@ export function StatusBar(input: {
   ])
   const leftBudget = Math.max(
     0,
-    termWidth - 2 - sendWidth - (sendSegment.length > 0 ? HINT_ITEM_GAP : 0),
+    termWidth -
+      2 -
+      expandWidth -
+      visibleSendWidth -
+      (expandSegment.length > 0 ? HINT_ITEM_GAP : 0) -
+      (visibleSendSegment.length > 0 ? HINT_ITEM_GAP : 0),
   )
 
   let showCommands =
+    expandSegment.length > 0 ||
     collectionMode !== "collection" ||
     input.footerHints.length > MAX_CONTEXTUAL_HINTS
   let visibleContextual = fitSegments(contextualHints, leftBudget)
@@ -226,13 +253,18 @@ export function StatusBar(input: {
   const visibleTransient = fitSegments(transientHints, termWidth - 2)
   const leftSegments = transient
     ? visibleTransient
-    : [...visibleContextual, ...(visibleCommands ? commandsHint : [])]
+    : [
+        ...expandSegment,
+        ...visibleContextual,
+        ...(visibleCommands ? commandsHint : []),
+      ]
 
   const renderSegment = (seg: HintSegment, id: string) => (
     <box
       key={id}
       style={{
         flexDirection: "row",
+        flexShrink: 0,
         paddingLeft: 1,
         paddingRight: 1,
         backgroundColor:
@@ -292,7 +324,9 @@ export function StatusBar(input: {
           gap: HINT_ITEM_GAP,
         }}
       >
-        {sendSegment.map((seg, i) => renderSegment(seg, `send-${i}`))}
+        {visibleSendSegment.map((seg, i) =>
+          renderSegment(seg, `send-${seg.command ?? seg.key}-${i}`),
+        )}
       </box>
     </box>
   )

@@ -23,27 +23,35 @@ function truncate(text: string, maxWidth: number): string {
 }
 
 export function Header({
+  collectionLabel,
   envLabel,
   envColor,
   onAboutActivate,
+  onCollectionActivate,
   onEnvironmentActivate,
   restartVersion,
   updateAvailable,
 }: {
+  collectionLabel: string
   envLabel: string
   envColor?: string
   onAboutActivate?: () => void
+  onCollectionActivate?: () => void
   onEnvironmentActivate?: () => void
   restartVersion?: string | null
   updateAvailable?: string | null
 }) {
   const theme = useTheme()
   const [hoveringAbout, setHoveringAbout] = useState(false)
+  const [hoveringCollection, setHoveringCollection] = useState(false)
   const [hoveringEnvironment, setHoveringEnvironment] = useState(false)
   const { width: termWidth = 100 } = useTerminalDimensions()
 
   const showVersion = termWidth >= 60
-  const status = showVersion
+  const showStatus = termWidth >= 80
+  const showCollection = termWidth >= 20
+  const showEnvironment = termWidth >= 30
+  const status = showStatus
     ? updateAvailable != null
       ? " ✨ Update available"
       : restartVersion
@@ -51,16 +59,35 @@ export function Header({
         : ""
     : ""
   const titleWidth = 8 + (showVersion ? ` v${pkg.version}`.length : 0)
-  const availableEnvironmentWidth = Math.max(
+  const availableLabelWidth = Math.max(
     0,
-    termWidth - titleWidth - status.length - 4,
+    termWidth -
+      titleWidth -
+      stringWidth(status) -
+      (showCollection ? 7 : 0) -
+      (showEnvironment ? 4 : 0) -
+      2,
   )
+  const rawCollectionText = collectionLabel
   const rawEnvText =
     envLabel === "" || envLabel === "(no env)" ? "no env" : envLabel
-  const envText = truncate(
-    rawEnvText,
-    Math.max(0, availableEnvironmentWidth - 2),
-  )
+  let environmentTextWidth = showEnvironment
+    ? Math.min(stringWidth(rawEnvText), Math.ceil(availableLabelWidth / 2))
+    : 0
+  const collectionTextWidth = showCollection
+    ? Math.min(
+        stringWidth(rawCollectionText),
+        availableLabelWidth - environmentTextWidth,
+      )
+    : 0
+  environmentTextWidth = showEnvironment
+    ? Math.min(
+        stringWidth(rawEnvText),
+        availableLabelWidth - collectionTextWidth,
+      )
+    : 0
+  const collectionText = truncate(rawCollectionText, collectionTextWidth)
+  const envText = truncate(rawEnvText, environmentTextWidth)
   const envMarkerFg = envLabel.includes("(load failed")
     ? theme.error
     : envLabel === "" || envLabel === "(no env)"
@@ -116,9 +143,49 @@ export function Header({
             </text>
           )}
         </box>
+        {showCollection && (
+          <>
+            <text fg={theme.textMuted} selectable={false}>
+              {" / "}
+            </text>
+            <box
+              style={{
+                flexDirection: "row",
+                paddingLeft: 1,
+                paddingRight: 1,
+                backgroundColor: hoveringCollection
+                  ? theme.backgroundElement
+                  : undefined,
+              }}
+              onMouseDown={(event) => {
+                if (event.button === MouseButton.LEFT) {
+                  setHoveringCollection(false)
+                  onCollectionActivate?.()
+                }
+              }}
+              onMouseOver={
+                onCollectionActivate
+                  ? () => setHoveringCollection(true)
+                  : undefined
+              }
+              onMouseOut={
+                onCollectionActivate
+                  ? () => setHoveringCollection(false)
+                  : undefined
+              }
+            >
+              <text
+                fg={onCollectionActivate ? theme.text : theme.textMuted}
+                selectable={false}
+              >
+                {`${collectionText} ▾`}
+              </text>
+            </box>
+          </>
+        )}
         {showVersion && status && <text fg={theme.warning}>{status}</text>}
       </box>
-      {availableEnvironmentWidth > 0 && (
+      {showEnvironment && (
         <box
           style={{
             flexDirection: "row",

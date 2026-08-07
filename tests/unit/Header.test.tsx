@@ -19,6 +19,7 @@ describe("Header", () => {
       await testRender(
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <Header
+            collectionLabel="jsonplaceholder"
             envLabel="development"
             envColor="warning"
             onEnvironmentActivate={() => opened++}
@@ -29,7 +30,11 @@ describe("Header", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
+    expect(frame).toContain(" /  jsonplaceholder ▾")
     expect(frame).toContain("⛁ development")
+    expect(frame.indexOf("jsonplaceholder")).toBeLessThan(
+      frame.indexOf("⛁ development"),
+    )
     expect(frame.indexOf("⛁ development")).toBeGreaterThan(
       frame.indexOf("Noodle"),
     )
@@ -54,7 +59,11 @@ describe("Header", () => {
     let opened = 0
     const { renderOnce, captureCharFrame, mockMouse } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Header envLabel="development" onAboutActivate={() => opened++} />
+        <Header
+          collectionLabel="jsonplaceholder"
+          envLabel="development"
+          onAboutActivate={() => opened++}
+        />
       </ThemeProvider>,
       { width: 80, height: 1 },
     )
@@ -68,11 +77,79 @@ describe("Header", () => {
     expect(opened).toBe(1)
   })
 
+  it("renders the collection after the brand and activates its switcher", async () => {
+    let opened = 0
+    const { renderOnce, captureCharFrame, captureSpans, mockMouse } =
+      await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Header
+            collectionLabel="jsonplaceholder"
+            envLabel="development"
+            onCollectionActivate={() => opened++}
+          />
+        </ThemeProvider>,
+        { width: 80, height: 1 },
+      )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain(" /  jsonplaceholder ▾")
+    expect(frame.indexOf("jsonplaceholder")).toBeGreaterThan(
+      frame.indexOf("Noodle"),
+    )
+
+    const [x, y] = textPosition(frame, "jsonplaceholder")
+    await mockMouse.click(x, y, MouseButtons.RIGHT)
+    expect(opened).toBe(0)
+
+    await act(async () => {
+      await mockMouse.moveTo(0, y)
+      await mockMouse.moveTo(x, y)
+    })
+    await renderOnce()
+    const hoverColor = RGBA.fromHex(THEMES[0]!.backgroundElement)
+    const hoveredSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("jsonplaceholder"))
+    expect(hoveredSpan!.bg.equals(hoverColor)).toBe(true)
+
+    await act(async () => {
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(opened).toBe(1)
+    const clickedSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("jsonplaceholder"))
+    expect(clickedSpan!.bg.equals(hoverColor)).toBe(false)
+  })
+
+  it("keeps the collection visible but muted when switching is disabled", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Header collectionLabel="jsonplaceholder" envLabel="development" />
+      </ThemeProvider>,
+      { width: 80, height: 1 },
+    )
+    await renderOnce()
+
+    const collectionSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("jsonplaceholder"))
+    expect(collectionSpan!.fg.equals(RGBA.fromHex(THEMES[0]!.textMuted))).toBe(
+      true,
+    )
+  })
+
   it("clears the environment hover when it is activated", async () => {
     const { renderOnce, captureCharFrame, captureSpans, mockMouse } =
       await testRender(
         <ThemeProvider activeIndex={0} previewIndex={null}>
-          <Header envLabel="dev" onEnvironmentActivate={() => {}} />
+          <Header
+            collectionLabel="jsonplaceholder"
+            envLabel="dev"
+            onEnvironmentActivate={() => {}}
+          />
         </ThemeProvider>,
         { width: 80, height: 1 },
       )
@@ -101,10 +178,13 @@ describe("Header", () => {
     expect(clickedSpan!.bg.equals(hoverColor)).toBe(false)
   })
 
-  it("truncates a long environment instead of crowding the title", async () => {
+  it("truncates long collection and environment names without overlap", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Header envLabel="a-very-long-development-environment" />
+        <Header
+          collectionLabel="a-very-long-collection-name"
+          envLabel="a-very-long-development-environment"
+        />
       </ThemeProvider>,
       { width: 30, height: 1 },
     )
@@ -112,20 +192,66 @@ describe("Header", () => {
 
     const frame = captureCharFrame()
     expect(frame).toContain("Noodle")
-    expect(frame).toContain("⛁ a-very-long-dev…")
+    expect(frame).toContain(" /  a-v… ▾")
+    expect(frame).toContain("⛁ a-ve…")
+    expect(frame.indexOf("a-v…")).toBeLessThan(frame.indexOf("⛁ a-ve…"))
   })
 
-  it("keeps the title visible with a wide Unicode environment name", async () => {
+  it("keeps the title visible with wide Unicode context names", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Header envLabel="开发😀development" />
+        <Header
+          collectionLabel="请求🚀collection"
+          envLabel="开发😀development"
+        />
       </ThemeProvider>,
-      { width: 20, height: 1 },
+      { width: 34, height: 1 },
     )
     await renderOnce()
 
     const frame = captureCharFrame()
     expect(frame).toContain("Noodle")
+    expect(frame).toContain("▾")
+    expect(frame).toContain("⛁")
     expect(frame).not.toContain("�")
+  })
+
+  it("hides version and update messaging before collection context", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Header
+          collectionLabel="jsonplaceholder-collection"
+          envLabel="production"
+          updateAvailable="v9.9.9"
+        />
+      </ThemeProvider>,
+      { width: 40, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).not.toContain("Update available")
+    expect(frame).not.toContain("v0.6.0")
+    expect(frame).toContain("jsonplac…")
+    expect(frame).toContain("⛁ production")
+  })
+
+  it("keeps wide update status text from shrinking header spacing", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Header
+          collectionLabel="a-very-long-collection-name"
+          envLabel="a-very-long-development-environment"
+          updateAvailable="v9.9.9"
+        />
+      </ThemeProvider>,
+      { width: 80, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("Noodle v0.6.0")
+    expect(frame).toContain(" ✨ Update available")
+    expect(frame).toContain("⛁ a-very")
   })
 })

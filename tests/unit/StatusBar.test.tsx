@@ -198,6 +198,109 @@ describe("StatusBar component", () => {
     expect(frame).toContain("send")
   })
 
+  it("pins pane expand at the left edge when contextual actions overflow", async () => {
+    const footerHints = getKeybindingHints({
+      view: "main",
+      focus: "response",
+      paneMode: "base",
+      collectionMode: "collection",
+      overlayActive: false,
+      jumpMode: false,
+      tab: "body",
+      sendState: {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "{}",
+          timeMs: 10,
+        },
+      },
+      responseBodyEditorAvailable: true,
+      keybinds: kb,
+    }).footer
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          globalHints={emptyHints}
+          footerHints={footerHints}
+          sendCommand="request.send"
+        />
+      </ThemeProvider>,
+      { width: 50, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("f2")
+    expect(frame.indexOf("f2")).toBeLessThan(frame.indexOf("^g"))
+    expect(frame.indexOf("f2")).toBeLessThan(frame.indexOf("^return"))
+  })
+
+  it("keeps pane expand intact when the terminal cannot also fit Send", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          globalHints={emptyHints}
+          footerHints={[
+            { key: "f2", word: "expand", command: "request.expand-toggle" },
+          ]}
+          sendCommand="request.send"
+        />
+      </ThemeProvider>,
+      { width: 20, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("f2 expand")
+    expect(frame).not.toContain("^return")
+    expect(frame).not.toContain("send")
+  })
+
+  it("keeps Commands visible on sparse Response tabs", async () => {
+    const footerHints = getKeybindingHints({
+      view: "main",
+      focus: "response",
+      paneMode: "base",
+      collectionMode: "collection",
+      overlayActive: false,
+      jumpMode: false,
+      tab: "headers",
+      sendState: {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "{}",
+          timeMs: 10,
+        },
+      },
+      keybinds: kb,
+    }).footer
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          globalHints={emptyHints}
+          footerHints={footerHints}
+          sendCommand="request.send"
+        />
+      </ThemeProvider>,
+      { width: 120, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("f2")
+    expect(frame).toContain("commands")
+    expect(frame).toContain("send")
+  })
+
   it("shows Commands in browse and empty collection modes", async () => {
     const activated: string[] = []
 
