@@ -87,4 +87,31 @@ describe("CollectionSwitcherOverlay", () => {
     expect(frame).not.toContain("/tmp/other")
     cleanup()
   })
+
+  it("truncates long collection paths to one line", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const longPath = `/Users/test/${"nested/".repeat(12)}collection`
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CollectionSwitcherOverlay
+            visible
+            collections={[longPath]}
+            activeCollectionDir={longPath}
+            onSelect={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 24 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("...")
+    expect(frame).not.toContain(longPath)
+    expect(
+      frame.split("\n").filter((line) => line.includes("nested")),
+    ).toHaveLength(1)
+    cleanup()
+  })
 })

@@ -89,11 +89,13 @@ export function CollectionSwitcherOverlay({
           <text fg={fg} attributes={active ? TextAttributes.BOLD : undefined}>
             {active ? "●" : " "}
           </text>
-          <box flexDirection="column" flexGrow={1}>
+          <box flexDirection="column" flexGrow={1} minWidth={0}>
             <text fg={fg} attributes={TextAttributes.BOLD}>
               {item.label}
             </text>
-            <text fg={pathFg}>{item.path}</text>
+            <text fg={pathFg} wrapMode="none" truncate>
+              {item.path}
+            </text>
           </box>
         </>
       )
