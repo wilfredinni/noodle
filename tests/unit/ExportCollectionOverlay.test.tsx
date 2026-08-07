@@ -186,6 +186,7 @@ describe("ExportCollectionOverlay", () => {
         { width: 90, height: 22 },
       )
       await render.renderOnce()
+      await render.renderOnce()
       await act(async () => host.press("tab"))
       expect(ref.current?.getFocus()).toBe("output")
       await render.waitForFrame((frame) => frame.includes("Exports/"))
