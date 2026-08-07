@@ -4,6 +4,37 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-06
+
+![path_params](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/response_folding.png)
+
+Noodle makes environment switching more direct with searchable selection, in-place context, and a dedicated creation flow. Response and request JSON handling gains foldable, scrollable rendering and source-accurate validation, alongside focused interaction and layout fixes.
+
+### ✨ Features
+
+- Add a searchable environment picker on `e`, move the full environment editor to `F3`, and show clickable collection and environment context in the header.
+- Add a New Environment form for choosing a validated name and optional color from the environment editor.
+- Render response bodies in the read-only code editor with JSON folding, original source line numbers, a themed scrollbar, and full-source copying across folded rows.
+- Report request JSON validation failures at their source line and column, including errors inside substituted environment-variable values.
+- Add themed scrollbars to overflowing response headers, network traces, timelines, and request tabs.
+
+### 🐞 Fixes
+
+- Keep response-body layout, scrolling, folding gutters, and short JSON width correct in stacked and constrained panes.
+- Keep mouse selections extending beyond the editor viewport, including reverse drags, without shifting the cursor or losing folded source text.
+- Prevent jump mode from opening while a JSONPath query is active, and return filtered response bodies to the top when the query changes.
+- Truncate long collection paths safely in the switcher and keep the expand shortcut visible in the status bar.
+
+### 🔧 Refactors
+
+- Track the active environment by name with an explicit display status, and share code-editor gutter synchronization across request and response surfaces.
+
+### 📚 Documentation
+
+- Update AGENTS.md, in-app tips, and the site guides for environment selection and creation, header context, response folding, and current shortcuts.
+- Update `noodle-dev` with the current response editor, JSON validation, environment overlay, and keymap architecture.
+- Update `noodle-use` with the separate environment-picker and environment-editor keybinding IDs.
+
 ## [0.6.0] - 2026-08-04
 
 Noodle now moves collections in both directions: import OpenAPI, Swagger, Postman, and Insomnia sources, then export portable OpenAPI or Postman output. The conversion path preserves more request detail while keeping generated filessafe to inspect and share.
@@ -33,10 +64,7 @@ Noodle now moves collections in both directions: import OpenAPI, Swagger, Postma
 
 ## [0.5.7] - 2026-08-02
 
-Collections can now be formatted from the automation CLI, giving imported and
-existing request files canonical YAML and readable JSON bodies without losing
-large integer literals. Environment editing, URL path handling, and focused
-UI interactions are also more reliable in everyday use.
+Collections can now be formatted from the automation CLI, giving imported and existing request files canonical YAML and readable JSON bodies without losing large integer literals. Environment editing, URL path handling, and focused UI interactions are also more reliable in everyday use.
 
 ### ✨ Features
 
@@ -280,7 +308,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/wilfredinni/noodle/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/wilfredinni/noodle/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/wilfredinni/noodle/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/wilfredinni/noodle/compare/v0.5.5...v0.5.6

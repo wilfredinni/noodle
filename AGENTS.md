@@ -78,7 +78,7 @@ src/
 └── ui/            # React components + hooks + pure helpers
     ├── App.tsx              # Root component: state wiring, theme, config, env list
     ├── AppInner.tsx         # Core logic: hooks, overlays, keymap, timeline, file actions
-    ├── AppOverlays.tsx      # All overlay rendering (15 overlay slots)
+    ├── AppOverlays.tsx      # Central overlay rendering
     ├── MainView.tsx         # Main vs folder view dispatch (sidebar + content pane)
     ├── RequestResponseView.tsx # UrlBar + RequestPane + ResponsePane layout
     ├── [env-editor]
@@ -88,7 +88,7 @@ src/
     │   └── EnvEditorPane.tsx
     ├── Sidebar.tsx          # Tree sidebar: requests, folders, dirty indicators, method badges
     ├── RequestPane.tsx      # Full request detail + inline editing (6 tabs, including path params)
-    ├── ResponsePane.tsx     # Response rendering (idle/sending/done/error) + network trace + timeline
+    ├── ResponsePane.tsx     # Foldable response body + headers, network trace, timeline
     ├── FolderPane.tsx       # Folder editor: meta, headers, auth overrides, activity
     ├── FolderMetaTab.tsx    # Folder name/seq editing
     ├── FolderActivityTab.tsx # Per-request activity stats in folder
@@ -104,6 +104,8 @@ src/
     │   ├── PickerOverlay.tsx           # Generic searchable picker overlay (base)
     │   ├── CommandPaletteOverlay.tsx   # Command palette: fuzzy-searchable, sectioned
     │   ├── CollectionSwitcherOverlay.tsx # Collection directory picker
+    │   ├── EnvironmentPickerOverlay.tsx # Searchable active-environment picker
+    │   ├── NewEnvironmentOverlay.tsx   # Environment name/color creation form
     │   ├── HelpOverlay.tsx             # F1 keybinding cheatsheet overlay
     │   ├── ConfirmOverlay.tsx          # Yes/No confirmation dialog
     │   ├── NewRequestOverlay.tsx, CloneRequestOverlay.tsx, NewFolderOverlay.tsx
@@ -190,6 +192,8 @@ tests/integration/ # Integration tests
 - **Command actions are centralized** in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. Never duplicate command logic.
 - **Command palette commands return boolean**: `run()` returns `true` (close palette) or `false` (stay open).
 - **PickerOverlay isNavigable**: Pass to skip non-selectable items (section headers) during up/down/return navigation.
+- **Environment controls:** `e` opens the searchable picker from the main view; `F3` opens the full editor. New environments are created through `NewEnvironmentOverlay`, then persisted by `useEnvironmentEditor.createEnv()`.
+- **Response body editor:** `ResponsePane` renders bodies through a read-only `CodeEditorRenderable`; JSON folds retain source line numbers, the gutter owns fold signs, and copy operations must return original source text even when rows are folded.
 
 ## Keybindings (defaults; customizable via `~/.config/noodle/keybinds.yml`)
 

@@ -136,7 +136,7 @@ Follow existing patterns:
 
 - `toggleFold(line)` — fold/unfold by Ctrl+G at cursor line
 - `foldAll()` / `unfoldAll()` — F5/F6 global fold/unfold
-- Folding and fold-display mapping in `codeEditorFoldManager.ts` and `codeEditorFolds.ts`; fold signs show in the line gutter and folded line numbers are hidden
+- Folding and fold-display mapping in `codeEditorFoldManager.ts` and `codeEditorFolds.ts`; fold signs stay aligned with the original source line numbers while folded interior rows are omitted
 - Auto-unfold on edit in folded region
 - Preserves cursor position during fold/unfold operations
 - Fold state persisted across content changes
@@ -144,6 +144,7 @@ Follow existing patterns:
 ### Validation
 
 - `codeEditorValidation.ts` owns `validateContent` callbacks and inline JSON/YAML validation state
+- `jsonValidation.ts` uses `jsonc-parser` to report source line/column errors after `$variable` substitution and identifies invalid substituted values
 - Error notice displayed via `src/ui/editor/ValidationNotice.tsx` component
 
 ### Component registration
@@ -157,6 +158,12 @@ Follow existing patterns:
 - `request-pane/RequestBodyTab.tsx` always renders JSON with `<code-editor>`; it uses the request body while browsing and `editValue` while editing.
 - `RequestResponseView` passes `draft.setBody` as `onBodyChange`, so editor content updates the request draft directly.
 - While editing JSON, Escape and Shift+Tab return to the body-type selector and retain the live draft; Ctrl+Z handles body undo.
+
+### Read-only response body editor
+
+- `ResponsePane` renders response bodies with a read-only `<code-editor>` and `CodeEditorScrollBarRenderable`.
+- JSON folds can be toggled from the gutter or keyboard; `codeEditorGutter.ts` keeps fold signs and source line numbers synchronized.
+- Read-only selections and copy operations expand folded display text back to the original source.
 
 ## Variable completion architecture
 
@@ -316,7 +323,7 @@ App (src/ui/App.tsx)
   ThemeProvider
     Toast
     AppInner (src/ui/AppInner.tsx)
-      ├── Header               ← Version, update status, contextual global hints
+      ├── Header               ← Version/update status plus clickable collection and environment context
       ├── Sidebar              ← Collection tree, cursor navigation
       ├── MainView             ← Dispatches folder vs request view
       │   ├── [folder mode]
@@ -329,16 +336,17 @@ App (src/ui/App.tsx)
       │           ├── RequestPane      ← Tabs: headers/params/body/auth/settings
       │           │   ├── KeyValueSection / JsonBodyViewer / AuthEditor / FormEditor / Select / Checkbox
       │           │   └── [body tab] CodeEditor (JSON) or FormEditor or VarInput
-      │           └── ResponsePane     ← Tabs: body/headers/timeline
+      │           └── ResponsePane     ← Tabs: foldable body/headers/network/timeline
       ├── EnvironmentEditorView  ← 3-pane env editor (sidebar + header + vars)
       │   ├── EnvSidebar
       │   ├── EnvHeaderPane
       │   └── EnvEditorPane
       ├── [overlays] (rendered in AppOverlays.tsx)
-      │   ├── PickerOverlay (generic base) → used by CommandPalette, CollectionSwitcher, ThemePicker, RequestFinder
+      │   ├── PickerOverlay (generic base) → used by command, collection, environment, theme, and request pickers
       │   ├── HelpOverlay, YamlEditorOverlay (CodeEditor for YAML)
       │   ├── NewRequestOverlay, CloneRequestOverlay, NewFolderOverlay
-      │   ├── CommandPaletteOverlay, CollectionSwitcherOverlay, RequestFinderOverlay
+      │   ├── CommandPaletteOverlay, CollectionSwitcherOverlay, EnvironmentPickerOverlay, RequestFinderOverlay
+      │   ├── NewEnvironmentOverlay
       │   ├── ImportCurlOverlay, CodeGeneratorOverlay
       │   ├── ConfirmOverlay (save, delete, undo-all, collection-switch)
       │   └── ValidationNotice
@@ -429,8 +437,8 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 | `useEditBrowse`        | `src/hooks/useEditBrowse.ts`        | `EditState` — `{mode, cursor: {field, row, subfield, addingRow}}`                           |
 | `useFolderEditBrowse`  | `src/hooks/useFolderEditBrowse.ts`  | Edit/browse for folder fields (meta/headers/auth/activity)                                  |
 | `useResponse`          | `src/hooks/useResponse.ts`          | `SendState` — `{status, response, error}`                                                   |
-| `useEnvironments`      | `src/hooks/useEnvironments.ts`      | `{activeIndex, activeEnv, names}`                                                           |
-| `useEnvironmentEditor` | `src/hooks/useEnvironmentEditor.ts` | Full env CRUD state for editor pane                                                         |
+| `useEnvironments`      | `src/hooks/useEnvironments.ts`      | Active environment name/index/data, indicator status, selection, cycling, reload            |
+| `useEnvironmentEditor` | `src/hooks/useEnvironmentEditor.ts` | Full env CRUD state plus validated name/color creation                                      |
 | `useConfig`            | `src/hooks/useConfig.ts`            | `{theme, layout, confirm_undo_all, collections}` persisted to `~/.config/noodle/config.yml` |
 | `useTimeline`          | `src/ui/timeline/useTimeline.ts`    | `TimelineEntry[]` per-request response history                                              |
 | `useUIState`           | `src/ui/tabs/useUIState.ts`         | Per-request tab index state                                                                 |
@@ -441,9 +449,9 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 | Layer         | Condition                                                          | What it handles                                                                                                                                   |
 | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Global        | No editing constraint                                              | Focus cycle, layout toggle, help, yaml editor, expand/collapse, copy body, theme, command palette, collection switcher, undo all, jump mode enter |
+| Global        | No editing constraint                                              | Focus cycle, layout, help, YAML editor, expand, copy body, theme, command palette, collection/environment editor, undo all, jump mode            |
 | URL Bar Focus | `focus=urlbar`, `overlay=none`, `view!=env-editor`                 | Tab between method select and URL text input                                                                                                      |
-| Base          | `mode=base`, `overlay=none`, `view!=env-editor`, `focus!=folder`   | Send, save, env cycle, new/clone/delete, edit overlay, folder new, env editor open                                                                |
+| Base          | `mode=base`, `overlay=none`, `view!=env-editor`, `focus!=folder`   | Send, save, env cycle/picker, new/clone/delete, edit overlay, folder new                                                                          |
 | Request Focus | `focus=request`, `mode=base`, `overlay=none`, `view!=env-editor`   | Enter edit, tab prev/next                                                                                                                         |
 | Browse        | `mode=browse`, `focus!=folder`, `overlay=none`, `view!=env-editor` | Arrow navigation, enter/escape, space toggle, delete, revert all, send, save, toggle form type                                                    |
 | Edit          | `mode=edit`, `focus!=folder`, `overlay=none`, `view!=env-editor`   | Commit (Return), Cancel (Escape), Tab next field                                                                                                  |

@@ -218,7 +218,10 @@ export async function collectionCreate(
   return { path, name }
 }
 
-export async function collectionInit(path: string): Promise<{ path: string }> {
+export async function collectionInit(
+  path: string,
+  configDir = CONFIG_DIR,
+): Promise<{ path: string }> {
   const absolutePath = resolve(path)
   if (!existsSync(absolutePath)) {
     throw new Error(`directory not found: ${absolutePath}`)
@@ -231,8 +234,8 @@ export async function collectionInit(path: string): Promise<{ path: string }> {
   }
 
   await ensureCollectionBootstrapped(absolutePath)
-  const config = loadConfig(CONFIG_DIR)
-  saveConfig(CONFIG_DIR, {
+  const config = loadConfig(configDir)
+  saveConfig(configDir, {
     ...config,
     collections: upsertCollectionPath(config.collections, absolutePath),
   })

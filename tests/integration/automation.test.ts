@@ -66,7 +66,8 @@ describe("automation services", () => {
   })
 
   it("initializes an existing non-collection directory", async () => {
-    const result = await collectionInit(dir)
+    const configDir = join(dir, "config")
+    const result = await collectionInit(dir, configDir)
     expect(result.path).toBe(dir)
     expect(await readFile(join(dir, "settings.yml"), "utf8")).toContain(
       "environment: development",
@@ -74,6 +75,7 @@ describe("automation services", () => {
     expect(await env.listEnvironments(join(dir, ".environments"))).toEqual([
       "development",
     ])
+    expect(await readFile(join(configDir, "config.yml"), "utf8")).toContain(dir)
   })
 
   it("rejects initializing an existing collection", async () => {

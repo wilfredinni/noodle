@@ -34,13 +34,15 @@ const TIPS = [
   "press {F2} to expand a pane fullscreen",
   "edit request YAML directly with {^Alt+E}",
   "JSON bodies use the code editor with folding and variable completion",
+  "fold JSON response blocks with {^G}, or click a gutter marker",
   "undo or redo code editor changes with {^Z} / {^Shift+Z}",
   "jump to a visible pane or tab: press {g}, then its hint letter",
   "in the environment editor, press {g} then {v} to jump to variables",
   "find a request or folder with {^F}",
   "open {^P}, choose Generate Code to export request as client code",
   "check for updates with {noodle update} or {^P} then Update Noodle",
-  "press {e} to open the environment editor",
+  "press {e} to search environments; use {F3} to open the editor",
+  "create an environment with {^N} in the environment editor",
   "recent responses are saved in a timeline per request",
 ]
 

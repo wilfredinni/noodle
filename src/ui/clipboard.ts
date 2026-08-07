@@ -7,12 +7,21 @@ const CLIPBOARD_CMDS: Array<{ cmd: string[]; platform: string }> = [
   { cmd: ["clip.exe"], platform: "win32" },
 ]
 
-export function copyToClipboard(text: string, renderer: CliRenderer): boolean {
+export type ClipboardSpawn = (
+  command: string[],
+  options: { stdin: Uint8Array },
+) => { exitCode: number }
+
+export function copyToClipboard(
+  text: string,
+  renderer: CliRenderer,
+  spawn: ClipboardSpawn = Bun.spawnSync,
+): boolean {
   const stdin = new TextEncoder().encode(text)
 
   for (const { cmd } of CLIPBOARD_CMDS) {
     try {
-      const result = Bun.spawnSync(cmd, { stdin })
+      const result = spawn(cmd, { stdin })
       if (result.exitCode === 0) return true
     } catch {
       continue
