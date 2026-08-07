@@ -38,7 +38,7 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
           setUpdateAvailable(null)
           showToast("Noodle is up to date", "success")
         } else if (status.kind === "error") {
-          showToast(status.message, "error")
+          showToast("Update check failed", "error")
         } else if (status.kind === "update_available") {
           setUpdateFlow({
             phase: "confirm",
@@ -53,8 +53,8 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
           })
         }
       })
-      .catch((error: unknown) => {
-        if (!cancelled) showToast(getErrorMessage(error), "error")
+      .catch(() => {
+        if (!cancelled) showToast("Update check failed", "error")
       })
     return () => {
       cancelled = true
@@ -70,7 +70,7 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
         .then((result) => {
           if (token !== installTokenRef.current) return
           if (result.data.status === "homebrew_updated") {
-            showToast("Updated via Homebrew", "success")
+            showToast("Update completed", "success")
             setUpdateFlow({
               phase: "done",
               version: update.version || "latest",
@@ -81,14 +81,14 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
             const message = result.data.exit_code
               ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
               : "Homebrew upgrade failed"
-            showToast(message, "error")
+            showToast("Update failed", "error")
             setUpdateFlow({ phase: "failed", message })
           }
         })
         .catch((error: unknown) => {
           if (token !== installTokenRef.current) return
           const message = getErrorMessage(error)
-          showToast(message, "error")
+          showToast("Update failed", "error")
           setUpdateFlow({ phase: "failed", message })
         })
       return
@@ -107,21 +107,21 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
           if (token !== installTokenRef.current) return
           if (result.data.status === "updated") {
             const version = result.data.version ?? update.version
-            showToast(`Updated to ${version}`, "success")
+            showToast("Update completed", "success")
             setUpdateFlow({ phase: "done", version })
             setRestartVersion(version)
             setUpdateAvailable(null)
           } else {
             const message =
               (result.data as Record<string, string>).reason ?? "Update failed"
-            showToast(message, "error")
+            showToast("Update failed", "error")
             setUpdateFlow({ phase: "failed", message })
           }
         })
         .catch((error: unknown) => {
           if (token !== installTokenRef.current) return
           const message = getErrorMessage(error)
-          showToast(message, "error")
+          showToast("Update failed", "error")
           setUpdateFlow({ phase: "failed", message })
         })
       return
@@ -137,8 +137,8 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
           setUpdateAvailable(status.latestVersion)
         }
       })
-      .catch((error: unknown) => {
-        if (!cancelled) showToast(getErrorMessage(error), "error")
+      .catch(() => {
+        if (!cancelled) showToast("Update check failed", "error")
       })
     return () => {
       cancelled = true

@@ -166,12 +166,11 @@ export function App({
         try {
           const s = await stat(normalized)
           if (!s.isDirectory()) {
-            showToast(`Not a directory: ${normalized}`, "error")
+            showToast("Not a directory", "error")
             return
           }
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e)
-          showToast(`Failed to open collection: ${msg}`, "error")
+        } catch {
+          showToast("Failed to open collection", "error")
           return
         }
 

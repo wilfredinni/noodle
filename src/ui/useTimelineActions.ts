@@ -36,8 +36,8 @@ export function useTimelineActions(
       kind: "request" | "response",
       body?: string,
     ) => {
-      const path = await exportTimelineEntry(collectionDir, entry, kind, body)
-      showToast(`Timeline entry exported to ${path}`, "success")
+      await exportTimelineEntry(collectionDir, entry, kind, body)
+      showToast("Timeline entry exported", "success")
     },
     [collectionDir],
   )
