@@ -234,6 +234,7 @@ export interface UseEditBrowseResult {
     addingRow?: boolean,
     subfield?: "key" | "value",
   ) => void
+  focusSubfield: (subfield: "key" | "value") => void
   toggleAt: (field: FieldKind, row: number) => void
   canEnterJsonBodyEditor: boolean
   isEditingJsonBody: boolean
@@ -397,6 +398,14 @@ export function useEditBrowse(
     },
     [draftMutators],
   )
+
+  const focusSubfield = useCallback((subfield: "key" | "value") => {
+    setEditState((prev) =>
+      prev.mode === "editing"
+        ? { ...prev, cursor: { ...prev.cursor, subfield } }
+        : prev,
+    )
+  }, [])
 
   const enterAndEdit = useCallback(() => {
     if (activeTab === "activity") return
@@ -861,6 +870,7 @@ export function useEditBrowse(
       cycleInactiveTab,
       enterBrowseAt,
       activateAt,
+      focusSubfield,
       toggleAt,
       canEnterJsonBodyEditor,
       isEditingJsonBody,
@@ -876,6 +886,7 @@ export function useEditBrowse(
       enterBrowse,
       enterBrowseAt,
       activateAt,
+      focusSubfield,
       toggleAt,
       exitBrowse,
       browseUp,

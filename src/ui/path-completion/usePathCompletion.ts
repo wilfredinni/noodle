@@ -43,6 +43,7 @@ export function usePathCompletion({
   const acceptedValue = useRef<string | null>(null)
   const kind = options?.kind
   const root = options?.root
+  const wrapFileSelection = options?.wrapFileSelection
   const query = useMemo(
     () => (kind && isEditing ? getPathCompletionQuery(value, root) : null),
     [isEditing, kind, root, value],
@@ -127,9 +128,12 @@ export function usePathCompletion({
         item.type === "directory" &&
         kind === "directory" &&
         key.name === "return"
-      const nextValue = selectingDirectory
+      let nextValue = selectingDirectory
         ? item.value.replace(/\/$/, "")
         : item.value
+      if (item.type === "file" && wrapFileSelection) {
+        nextValue = `@file(${nextValue})`
+      }
 
       editor.replaceText(nextValue)
       editor.cursorOffset = nextValue.length
@@ -142,7 +146,16 @@ export function usePathCompletion({
       }
       return true
     },
-    [active, getEditor, isEditing, items, kind, onChange, selectedIndex],
+    [
+      active,
+      getEditor,
+      isEditing,
+      items,
+      kind,
+      onChange,
+      selectedIndex,
+      wrapFileSelection,
+    ],
   )
 
   useEffect(() => {

@@ -104,6 +104,7 @@ export function BodySection({
   onEditorActivate,
   onEditorRef,
   onFormRowActivate,
+  onFormSubfieldFocus,
   onFormRowToggle,
 }: {
   request: Request
@@ -119,7 +120,12 @@ export function BodySection({
   onBodyChange: (body: string) => void
   onEditorActivate?: () => void
   onEditorRef?: (editor: CodeEditorRenderable | null) => void
-  onFormRowActivate?: (row: number, addingRow: boolean) => void
+  onFormRowActivate?: (
+    row: number,
+    addingRow: boolean,
+    subfield?: "key" | "value",
+  ) => void
+  onFormSubfieldFocus?: (subfield: "key" | "value") => void
   onFormRowToggle?: (row: number) => void
 }) {
   const bodyType = request.bodyType ?? "json"
@@ -250,6 +256,7 @@ export function BodySection({
           theme={theme}
           activeEnv={activeEnv}
           onActivateRow={onFormRowActivate}
+          onFocusSubfield={onFormSubfieldFocus}
           onToggleRow={onFormRowToggle}
         />
       ) : isBinaryMode ? (

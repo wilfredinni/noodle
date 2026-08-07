@@ -8,7 +8,11 @@ import {
   useRef,
   useState,
 } from "react"
-import type { InputRenderable, TextareaRenderable } from "@opentui/core"
+import {
+  MouseButton,
+  type InputRenderable,
+  type TextareaRenderable,
+} from "@opentui/core"
 import {
   createPortal,
   useRenderer,
@@ -54,6 +58,7 @@ export interface VarInputProps {
   pathParams?: ParamEntry[]
   pathCompletion?: PathCompletionOptions
   stopMousePropagation?: boolean
+  onFocus?: () => void
 }
 
 export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
@@ -75,6 +80,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       pathParams,
       pathCompletion,
       stopMousePropagation = false,
+      onFocus,
     },
     ref,
   ) {
@@ -258,8 +264,18 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         return (
           <box
             onMouseDown={
-              stopMousePropagation || (isEditing && frameCapturesInteractions)
-                ? (event) => event.stopPropagation()
+              onFocus ||
+              stopMousePropagation ||
+              (isEditing && frameCapturesInteractions)
+                ? (event) => {
+                    if (event.button === MouseButton.LEFT) onFocus?.()
+                    if (
+                      stopMousePropagation ||
+                      (isEditing && frameCapturesInteractions)
+                    ) {
+                      event.stopPropagation()
+                    }
+                  }
                 : undefined
             }
             style={{
@@ -288,8 +304,18 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       return (
         <box
           onMouseDown={
-            stopMousePropagation || (isEditing && frameCapturesInteractions)
-              ? (event) => event.stopPropagation()
+            onFocus ||
+            stopMousePropagation ||
+            (isEditing && frameCapturesInteractions)
+              ? (event) => {
+                  if (event.button === MouseButton.LEFT) onFocus?.()
+                  if (
+                    stopMousePropagation ||
+                    (isEditing && frameCapturesInteractions)
+                  ) {
+                    event.stopPropagation()
+                  }
+                }
               : undefined
           }
           style={{

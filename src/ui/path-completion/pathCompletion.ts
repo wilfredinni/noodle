@@ -7,6 +7,7 @@ export type PathCompletionKind = "file" | "directory"
 export interface PathCompletionOptions {
   kind: PathCompletionKind
   root?: string
+  wrapFileSelection?: boolean
 }
 
 export interface PathCompletionItem {
@@ -25,9 +26,14 @@ export function getPathCompletionQuery(
   value: string,
   root = homedir(),
 ): PathCompletionQuery | null {
-  if (!value.startsWith("@")) return null
+  let pathValue = value
+  if (pathValue.startsWith("@file(")) {
+    pathValue = pathValue.slice(6)
+    if (pathValue.endsWith(")")) pathValue = pathValue.slice(0, -1)
+  }
+  if (!pathValue.startsWith("@")) return null
 
-  const raw = value.slice(1).replace(/^\//, "")
+  const raw = pathValue.slice(1).replace(/^\//, "")
   const slash = raw.lastIndexOf("/")
   const directoryPart = slash === -1 ? "" : raw.slice(0, slash)
   const query = slash === -1 ? raw : raw.slice(slash + 1)

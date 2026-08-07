@@ -36,7 +36,13 @@ function CompletionHarness({ environment }: { environment: Environment }) {
   )
 }
 
-function PathCompletionHarness({ root }: { root: string }) {
+function PathCompletionHarness({
+  root,
+  wrapFileSelection = false,
+}: {
+  root: string
+  wrapFileSelection?: boolean
+}) {
   const [value, setValue] = useState("")
   return (
     <VarInput
@@ -45,7 +51,7 @@ function PathCompletionHarness({ root }: { root: string }) {
       isEditing
       isFocused
       onChange={setValue}
-      pathCompletion={{ kind: "file", root }}
+      pathCompletion={{ kind: "file", root, wrapFileSelection }}
     />
   )
 }
@@ -499,6 +505,68 @@ describe("VarInput — edit mode (isEditing=true)", () => {
 })
 
 describe("VarInput — path completion", () => {
+  it("marks an accepted file as explicit file input when requested", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-var-path-"))
+    await writeFile(join(root, "avatar.png"), "avatar")
+    const { keymap, host, cleanup } = createTestKeymap()
+
+    try {
+      const { renderOnce, captureCharFrame, mockInput, waitForFrame } =
+        await testRender(
+          <KeymapProvider
+            keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+          >
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <VariableCompletionInterceptor />
+              <PathCompletionHarness root={root} wrapFileSelection />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 100, height: 12 },
+        )
+      await renderOnce()
+      await act(async () => mockInput.typeText("@"))
+      await waitForFrame((frame) => frame.includes("avatar.png"))
+      await act(async () => host.press("return"))
+      await renderOnce()
+
+      expect(captureCharFrame()).toContain("@file(@/avatar.png)")
+    } finally {
+      cleanup()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it("completes a home path inside explicit file syntax", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-var-path-"))
+    await writeFile(join(root, "avatar.png"), "avatar")
+    const { keymap, host, cleanup } = createTestKeymap()
+
+    try {
+      const { renderOnce, captureCharFrame, mockInput, waitForFrame } =
+        await testRender(
+          <KeymapProvider
+            keymap={keymap as unknown as KeymapProviderProps["keymap"]}
+          >
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <VariableCompletionInterceptor />
+              <PathCompletionHarness root={root} wrapFileSelection />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 100, height: 12 },
+        )
+      await renderOnce()
+      await act(async () => mockInput.typeText("@file(@"))
+      await waitForFrame((frame) => frame.includes("avatar.png"))
+      await act(async () => host.press("return"))
+      await renderOnce()
+
+      expect(captureCharFrame()).toContain("@file(@/avatar.png)")
+    } finally {
+      cleanup()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it("browses directories and selects a file with Return", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-var-path-"))
     await mkdir(join(root, "Documents"))
@@ -615,7 +683,7 @@ describe("VarInput — path completion", () => {
     })
 
     try {
-      const { renderOnce, mockInput, waitForFrame } = await testRender(
+      const { renderOnce, mockInput } = await testRender(
         <KeymapProvider
           keymap={keymap as unknown as KeymapProviderProps["keymap"]}
         >
@@ -628,7 +696,7 @@ describe("VarInput — path completion", () => {
       )
       await renderOnce()
       await act(async () => mockInput.typeText("@file(/tmp/upload.bin)"))
-      await waitForFrame((frame) => frame.includes("Folder unavailable"))
+      await renderOnce()
 
       await act(async () => host.press("return"))
       expect(keys).toContain("return")

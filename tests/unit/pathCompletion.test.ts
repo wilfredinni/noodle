@@ -36,6 +36,11 @@ describe("home path completion", () => {
       query: "rep",
       valueBase: "@/nested/",
     })
+    expect(getPathCompletionQuery("@file(@/nested/rep)", root)).toEqual({
+      directory: join(root, "nested"),
+      query: "rep",
+      valueBase: "@/nested/",
+    })
     expect(getPathCompletionQuery("@/../", root)).toBeNull()
     expect(getPathCompletionQuery("plain/path", root)).toBeNull()
   })
