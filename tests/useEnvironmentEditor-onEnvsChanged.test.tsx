@@ -35,10 +35,12 @@ async function waitForDraft(
 function Harness({
   onEnvsChanged: onChanged,
   onEnvDataChanged,
+  onActiveEnvChanged = () => {},
   editorRef,
 }: {
   onEnvsChanged: () => void
   onEnvDataChanged?: () => void
+  onActiveEnvChanged?: (name: string) => void
   editorRef: { current: ReturnType<typeof useEnvironmentEditor> | null }
 }) {
   const editor = useEnvironmentEditor({
@@ -46,7 +48,7 @@ function Harness({
     envNames: ["alpha", "beta", "gamma"],
     activeEnvName: "alpha",
     onEnvsChanged: onChanged,
-    onActiveEnvChanged: () => {},
+    onActiveEnvChanged,
     onEnvDataChanged,
   })
 
@@ -92,6 +94,126 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
 
     await ref.current!.cloneEnv("alpha-copy")
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it("creates and selects a new empty environment without activating it", async () => {
+    const changed = mock(() => {})
+    const activated = mock(() => {})
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness
+          onEnvsChanged={changed}
+          onActiveEnvChanged={activated}
+          editorRef={ref}
+        />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await waitForDraft(ref, renderOnce)
+
+    await act(async () => {
+      await ref.current!.createEnv({ name: "  staging  ", color: "warning" })
+    })
+    await renderOnce()
+
+    expect(await readFile(join(dir, "staging.env"), "utf8")).toBe(
+      "_color=warning\n",
+    )
+    expect(ref.current!.envNames).toContain("staging")
+    expect(ref.current!.selectedEnvName).toBe("staging")
+    expect(ref.current!.draft).toEqual({
+      name: "staging",
+      color: "warning",
+      varRows: [],
+    })
+    expect(ref.current!.dirty).toBe(false)
+    expect(changed).toHaveBeenCalledTimes(1)
+    expect(activated).not.toHaveBeenCalled()
+  })
+
+  it("coalesces repeated environment creation while saving", async () => {
+    const changed = mock(() => {})
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={changed} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await waitForDraft(ref, renderOnce)
+
+    let first!: Promise<void>
+    let second!: Promise<void>
+    await act(async () => {
+      first = ref.current!.createEnv({ name: "staging", color: undefined })
+      second = ref.current!.createEnv({ name: "staging", color: undefined })
+      await Promise.all([first, second])
+    })
+    await renderOnce()
+
+    expect(second).toBe(first)
+    expect(ref.current!.envNames.filter((name) => name === "staging")).toEqual([
+      "staging",
+    ])
+    expect(changed).toHaveBeenCalledTimes(1)
+  })
+
+  it("rejects duplicate and invalid new environment names", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+    await waitForDraft(ref, renderOnce)
+    const alphaBefore = await readFile(join(dir, "alpha.env"), "utf8")
+
+    await act(async () => {
+      await expect(
+        ref.current!.createEnv({ name: "  ", color: undefined }),
+      ).rejects.toThrow("Environment name is required")
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBe("Environment name is required")
+
+    await act(async () => {
+      await expect(
+        ref.current!.createEnv({ name: "alpha", color: "warning" }),
+      ).rejects.toThrow('An environment named "alpha" already exists')
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBe(
+      'An environment named "alpha" already exists',
+    )
+    await act(async () => {
+      await expect(
+        ref.current!.createEnv({ name: "bad/name", color: undefined }),
+      ).rejects.toThrow("env.save: invalid environment name")
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBe("env.save: invalid environment name")
+
+    expect(await readFile(join(dir, "alpha.env"), "utf8")).toBe(alphaBefore)
+    expect(ref.current!.envNames).not.toContain("bad/name")
+    expect(ref.current!.selectedEnvName).toBe("alpha")
+
+    await act(async () => {
+      await ref.current!.createEnv({ name: "staging", color: undefined })
+    })
+    await renderOnce()
+    expect(ref.current!.envNames).toContain("staging")
+    expect(ref.current!.error).toBeNull()
   })
 
   it("calls onEnvsChanged after deleteEnv", async () => {

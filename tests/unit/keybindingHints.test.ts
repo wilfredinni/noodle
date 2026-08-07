@@ -41,21 +41,9 @@ describe("getKeybindingHints header", () => {
     ])
   })
 
-  it("shows env-editor hints", () => {
-    const r = ctx({ view: "env-editor" })
-    expect(getKeybindingHints(r).header).toEqual([
-      seg("^p", "commands", "app.command-palette"),
-      seg("f1", "help", "app.help"),
-    ])
-  })
-
-  it("shows main view hints", () => {
+  it("hides persistent global hints by default", () => {
     const r = ctx()
-    expect(getKeybindingHints(r).header).toEqual([
-      seg("g", "jump", "jump.enter"),
-      seg("^p", "commands", "app.command-palette"),
-      seg("f1", "help", "app.help"),
-    ])
+    expect(getKeybindingHints(r).header).toEqual([])
   })
 
   it("overlay active takes priority over jump mode", () => {
@@ -77,9 +65,9 @@ describe("getKeybindingHints footer", () => {
     ).toEqual([
       seg("Space", "toggle", "browse.toggle"),
       seg("^d", "revert", "browse.delete"),
+      seg("^s", "save", "browse.save"),
       seg("^r", "revert all", "browse.revert-all"),
       seg("f2", "expand", "request.expand-toggle"),
-      seg("^s", "save", "browse.save"),
     ])
   })
 
@@ -91,8 +79,8 @@ describe("getKeybindingHints footer", () => {
     ).toEqual([
       seg("Space", "toggle", "folder-browse.toggle"),
       seg("^d", "revert", "folder-browse.revert-field"),
-      seg("^r", "revert all", "folder-browse.revert-all"),
       seg("^s", "save", "folder.save"),
+      seg("^r", "revert all", "folder-browse.revert-all"),
     ])
 
     expect(

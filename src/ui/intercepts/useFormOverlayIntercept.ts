@@ -71,6 +71,20 @@ export function useFormOverlayIntercept(opts: {
           onCancel()
           return
         }
+        const focus = handle.getFocus?.()
+        if (
+          focus &&
+          passThroughFocuses?.includes(focus) &&
+          !e.ctrl &&
+          !e.meta &&
+          !e.option &&
+          !e.super &&
+          !e.hyper &&
+          (e.sequence ? e.sequence.charCodeAt(0) >= 32 : e.name.length === 1)
+        ) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
       },
       { priority: 100 },
     )

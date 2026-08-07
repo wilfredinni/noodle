@@ -209,6 +209,7 @@ command_palette: ctrl+p
 | `Ctrl+K` | Clone request |
 | `Ctrl+W` | Delete request |
 | `Ctrl+U` | Cycle environment |
+| `F3` | Open environment editor |
 | `Ctrl+P` | Open command palette |
 | `Ctrl+F` | Find request |
 | `Ctrl+L` | Toggle layout (stacked / side-by-side) |
@@ -223,7 +224,7 @@ command_palette: ctrl+p
 | `Ctrl+O` | Open collection switcher |
 | `Ctrl+Z` | Undo all unsaved changes |
 | `g` | Enter jump mode (press a hint letter to focus that element; `Esc` exits) |
-| `e` | Open environment editor |
+| `e` | Open environment picker |
 | `Ctrl+C` | Quit (copies selection first if text is selected) |
 
 In browse or empty mode, collection-only actions above are unavailable. Command palette still exposes inspection, reload, layout, theme, help, and collection initialization actions.

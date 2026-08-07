@@ -23,6 +23,7 @@ import {
   deleteFolder,
   canGenerateClientCode,
   cycleEnvironment,
+  openEnvironmentPicker,
   openEnvironmentEditor,
   saveEnvironment,
   newEnvironment,
@@ -76,6 +77,10 @@ export interface CommandBuilderContext {
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setAboutVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setNewEnvironmentVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setEnvironmentPickerVisible: (
+    v: boolean | ((prev: boolean) => boolean),
+  ) => void
   setImportCurlVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -153,6 +158,8 @@ export function buildCommandPaletteCommands(
     setEditRequestVisible,
     setYamlEditor,
     setNewRequestVisible,
+    setNewEnvironmentVisible,
+    setEnvironmentPickerVisible,
     setImportCurlVisible,
     setCloneRequestVisible,
     setRequestDeletePending,
@@ -286,6 +293,13 @@ export function buildCommandPaletteCommands(
 
   const mainEnvCommands: CommandItem[] = [
     {
+      id: "env.picker-open",
+      label: "Select Environment",
+      section: "Environment",
+      keybinding: displayKey(keybinds.env_picker),
+      run: () => openEnvironmentPicker(setEnvironmentPickerVisible),
+    },
+    {
       id: "env.cycle",
       label: "Cycle Environment",
       section: "Environment",
@@ -327,8 +341,8 @@ export function buildCommandPaletteCommands(
       section: "Environment",
       keybinding: displayKey(keybinds.env_new),
       run: () => {
-        if (!newEnvironment(c)) return false
-        setFocus("env-header")
+        if (!newEnvironment()) return false
+        setNewEnvironmentVisible(true)
         return true
       },
     },
@@ -475,7 +489,7 @@ export function buildCommandPaletteCommands(
   const systemCommands: CommandItem[] = [
     {
       id: "app.help",
-      label: "Toggle Help",
+      label: "Keyboard Shortcuts",
       section: "System",
       keybinding: displayKey(keybinds.help_toggle),
       run: () => {

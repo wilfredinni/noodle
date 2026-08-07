@@ -203,7 +203,7 @@ function getJsonFoldSummary(
   openingChar: string,
 ): string {
   const bracket = openingChar === "{" ? "}" : "]"
-  return `${lines[startLine].trim().slice(0, 30)}... ${bracket} (${endLine - startLine} lines)`
+  return `${lines[startLine].trim().slice(0, 30)}...${bracket} (${endLine - startLine} lines)`
 }
 
 function getLineIndent(line: string): string {

@@ -24,6 +24,15 @@ describe("parseOverrides", () => {
     expect(result.request_send).toBe("ctrl+return")
   })
 
+  it("configures the picker and editor independently", () => {
+    const result = parseOverrides({
+      env_picker: "ctrl+e",
+      env_editor: "shift+e",
+    })
+    expect(result.env_picker).toBe("ctrl+e")
+    expect(result.env_editor).toBe("shift+e")
+  })
+
   it("ignores fixed key overrides (uses default)", () => {
     const result = parseOverrides({
       focus_next: "ctrl+n",
@@ -73,6 +82,20 @@ describe("CommandMap", () => {
     for (const name of Object.keys(Definitions)) {
       expect(CommandMap).toHaveProperty(name)
     }
+  })
+})
+
+describe("env_picker", () => {
+  it("opens the environment picker with e by default", () => {
+    expect(Definitions.env_picker.default).toBe("e")
+    expect(CommandMap.env_picker).toBe("env.picker-open")
+  })
+})
+
+describe("env_editor", () => {
+  it("opens the environment editor with f3 by default", () => {
+    expect(Definitions.env_editor.default).toBe("f3")
+    expect(CommandMap.env_editor).toBe("env.editor-open")
   })
 })
 

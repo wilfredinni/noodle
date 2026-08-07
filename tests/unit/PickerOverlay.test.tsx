@@ -448,4 +448,144 @@ describe("PickerOverlay", () => {
     expect(frame).toContain("No results found")
     cleanup()
   })
+
+  it("keeps the first action visible when filtering returns no results", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <PickerOverlay
+            visible
+            title="Test"
+            items={testItems}
+            keyExtractor={(item) => item.id}
+            filter={() => false}
+            renderItem={(item) => <text>{item.label}</text>}
+            firstAction={{ label: "Manage items", onSelect: noop }}
+            onSelect={noop}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 20 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("No results found")
+    expect(frame).toContain("Manage items")
+    cleanup()
+  })
+
+  it("selects the first action with the keyboard instead of an item", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const selected: string[] = []
+    let actionCount = 0
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <PickerOverlay
+            visible
+            title="Test"
+            items={testItems}
+            keyExtractor={(item) => item.id}
+            filter={() => true}
+            renderItem={(item) => <text>{item.label}</text>}
+            highlightedItem={testItems[2]}
+            firstAction={{
+              label: "Manage items",
+              onSelect: () => actionCount++,
+            }}
+            onHighlightChange={noop}
+            onSelect={(item) => selected.push(item.id)}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => {
+      host.press("down")
+      host.press("return")
+    })
+
+    expect(actionCount).toBe(1)
+    expect(selected).toEqual([])
+    cleanup()
+  })
+
+  it("wraps keyboard navigation through the first action", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const highlights: Array<string | null> = []
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <PickerOverlay
+            visible
+            title="Test"
+            items={testItems}
+            keyExtractor={(item) => item.id}
+            filter={() => true}
+            renderItem={(item) => <text>{item.label}</text>}
+            highlightedItem={testItems[0]}
+            firstAction={{ label: "Manage items", onSelect: noop }}
+            onHighlightChange={(item) => highlights.push(item?.id ?? null)}
+            onSelect={noop}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => {
+      host.press("up")
+      host.press("up")
+    })
+
+    expect(highlights).toEqual([null, "c"])
+    cleanup()
+  })
+
+  it("selects the first action with the mouse instead of an item", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const selected: string[] = []
+    let actionCount = 0
+    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <PickerOverlay
+            visible
+            title="Test"
+            items={testItems}
+            keyExtractor={(item) => item.id}
+            filter={() => true}
+            renderItem={(item) => <text>{item.label}</text>}
+            firstAction={{
+              label: "Manage items",
+              onSelect: () => actionCount++,
+            }}
+            onSelect={(item) => selected.push(item.id)}
+            onClose={noop}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 60, height: 20 },
+    )
+    await renderOnce()
+
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("Manage items"))
+    const x = rows[y]!.indexOf("Manage items")
+    await act(async () => {
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    })
+
+    expect(actionCount).toBe(1)
+    expect(selected).toEqual([])
+    cleanup()
+  })
 })

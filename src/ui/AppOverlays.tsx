@@ -7,6 +7,7 @@ import {
   type CommandItem,
 } from "./overlays/CommandPaletteOverlay"
 import { CollectionSwitcherOverlay } from "./overlays/CollectionSwitcherOverlay"
+import { EnvironmentPickerOverlay } from "./overlays/EnvironmentPickerOverlay"
 import { RequestFinderOverlay } from "./overlays/RequestFinderOverlay"
 import { ThemePickerOverlay } from "./theme"
 import { YamlEditorOverlay } from "./editor/YamlEditorOverlay"
@@ -14,6 +15,10 @@ import {
   NewRequestOverlay,
   type NewRequestOverlayHandle,
 } from "./overlays/NewRequestOverlay"
+import {
+  NewEnvironmentOverlay,
+  type NewEnvironmentOverlayHandle,
+} from "./overlays/NewEnvironmentOverlay"
 import {
   CloneRequestOverlay,
   type CloneRequestOverlayHandle,
@@ -36,7 +41,7 @@ import type {
 import type { FinderItem } from "./requestFinder"
 import { TimelineDetailOverlay } from "./overlays/TimelineDetailOverlay"
 import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
-import type { Keybinds } from "./keybind"
+import { displayKey, type Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 import { initialYamlEditorState, type YamlEditorState } from "./appState"
@@ -80,6 +85,12 @@ interface AppOverlaysProps {
   collectionDir: string
   requestCollectionSwitch: (nextDir: string) => void
   setCollectionSwitcherVisible: (visible: boolean) => void
+  environmentPickerVisible: boolean
+  environmentNames: string[]
+  activeEnvironmentName: string | null
+  onSelectEnvironment: (name: string) => void
+  onOpenEnvironmentEditor: () => void
+  setEnvironmentPickerVisible: (visible: boolean) => void
   previewIndex: number | null
   activeIndex: number
   setPreviewIndex: (value: number | null) => void
@@ -93,6 +104,9 @@ interface AppOverlaysProps {
   setSaveState: (state: SaveState) => void
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
+  newEnvironmentVisible: boolean
+  newEnvironmentRef: RefObject<NewEnvironmentOverlayHandle | null>
+  newEnvironmentActions: { confirm: () => void; cancel: () => void }
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
   newRequestActions: { confirm: () => void; cancel: () => void }
@@ -168,6 +182,12 @@ export function AppOverlays({
   collectionDir,
   requestCollectionSwitch,
   setCollectionSwitcherVisible,
+  environmentPickerVisible,
+  environmentNames,
+  activeEnvironmentName,
+  onSelectEnvironment,
+  onOpenEnvironmentEditor,
+  setEnvironmentPickerVisible,
   previewIndex,
   activeIndex,
   setPreviewIndex,
@@ -181,6 +201,9 @@ export function AppOverlays({
   setSaveState,
   clearSaveTimer,
   saveTimerRef,
+  newEnvironmentVisible,
+  newEnvironmentRef,
+  newEnvironmentActions,
   newRequestVisible,
   newRequestRef,
   newRequestActions,
@@ -302,6 +325,17 @@ export function AppOverlays({
           onClose={() => setCollectionSwitcherVisible(false)}
         />
       )}
+      {environmentPickerVisible && (
+        <EnvironmentPickerOverlay
+          visible
+          environments={environmentNames}
+          activeEnvironment={activeEnvironmentName}
+          editorShortcut={displayKey(keybinds.env_editor)}
+          onSelect={onSelectEnvironment}
+          onOpenEditor={onOpenEnvironmentEditor}
+          onClose={() => setEnvironmentPickerVisible(false)}
+        />
+      )}
       {previewIndex !== null && (
         <ThemePickerOverlay
           visible
@@ -340,6 +374,14 @@ export function AppOverlays({
             setYamlEditor(initialYamlEditorState)
             setFocus(yamlEditor.returnFocus)
           }}
+        />
+      )}
+      {newEnvironmentVisible && (
+        <NewEnvironmentOverlay
+          visible
+          ref={newEnvironmentRef}
+          onConfirm={newEnvironmentActions.confirm}
+          onClose={newEnvironmentActions.cancel}
         />
       )}
       {newRequestVisible && (

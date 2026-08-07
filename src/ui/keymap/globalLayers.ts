@@ -4,6 +4,7 @@ import {
   copyResponseBody,
   getEditFolderYamlFile,
   getEditRequestYamlFile,
+  openEnvironmentEditor,
   openThemePicker,
   togglePaneExpand,
   undoAll,
@@ -180,6 +181,24 @@ export function createGlobalLayers(
         run: () => global.setCommandPaletteVisible((prev: boolean) => !prev),
       },
       {
+        name: "env.editor-open",
+        enabled: () => {
+          const overlay = keymap.getData("app.overlay")
+          return (
+            global.modeRef.current === "collection" &&
+            (overlay === "none" || overlay === "environment-picker")
+          )
+        },
+        run: () => {
+          global.setEnvironmentPickerVisible(false)
+          if (global.viewRef.current !== "env-editor") {
+            openEnvironmentEditor(actions)
+            global.setView("env-editor")
+          }
+          global.setFocus("env-sidebar")
+        },
+      },
+      {
         name: "request.find",
         enabled: () =>
           keymap.getData("app.overlay") === "none" &&
@@ -237,6 +256,7 @@ export function createGlobalLayers(
       { key: keybinds.response_query, cmd: "response.query" },
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.command_palette, cmd: "app.command-palette" },
+      { key: keybinds.env_editor, cmd: "env.editor-open" },
       { key: keybinds.request_find, cmd: "request.find" },
       { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },

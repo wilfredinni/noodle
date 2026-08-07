@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { basename } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
@@ -68,6 +69,7 @@ import { useCollectionSwitcher } from "./useCollectionSwitcher"
 import { useReloadGuard } from "./useReloadGuard"
 import { useKeymapSync } from "./useKeymapSync"
 import { useEditModeSync } from "./useEditModeSync"
+import { openEnvironmentEditor, openEnvironmentPicker } from "./commandActions"
 
 export function AppInner({
   collectionDir,
@@ -550,11 +552,16 @@ export function AppInner({
     setHelpVisible,
     aboutVisible,
     setAboutVisible,
+    environmentPickerVisible,
+    setEnvironmentPickerVisible,
     yamlEditor,
     setYamlEditor,
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    newEnvironmentVisible,
+    setNewEnvironmentVisible,
+    newEnvironmentRef,
     newRequestVisible,
     setNewRequestVisible,
     newRequestRef,
@@ -708,13 +715,21 @@ export function AppInner({
     setAboutVisible(true)
   }, [setAboutVisible])
 
+  const handleCollectionActivate = useCallback(() => {
+    setCollectionSwitcherVisible(true)
+  }, [setCollectionSwitcherVisible])
+
   const handleEnvironmentActivate = useCallback(() => {
-    eb.commitEdit()
-    folderEb.commitEdit()
-    envEditor.openEditor(envState.activeEnv?.name).catch(() => {})
-    setView("env-editor")
-    setFocus("env-sidebar")
-  }, [eb.commitEdit, envEditor, envState.activeEnv?.name, folderEb.commitEdit])
+    openEnvironmentPicker(setEnvironmentPickerVisible)
+  }, [setEnvironmentPickerVisible])
+
+  const handleEnvironmentSelect = useCallback(
+    (name: string) => {
+      envState.select(name)
+      setEnvironmentPickerVisible(false)
+    },
+    [envState.select, setEnvironmentPickerVisible],
+  )
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
   const trySendRef = useRef(trySend)
@@ -728,6 +743,13 @@ export function AppInner({
 
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
+
+  const handleOpenEnvironmentEditor = useCallback(() => {
+    setEnvironmentPickerVisible(false)
+    openEnvironmentEditor({ envStateRef, envEditorRef })
+    setView("env-editor")
+    setFocus("env-sidebar")
+  }, [setEnvironmentPickerVisible, setView, setFocus])
 
   const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
 
@@ -773,6 +795,7 @@ export function AppInner({
       setYamlEditor,
       setPreviewIndex: setPreviewIndexProp,
       setCollectionSwitcherVisible,
+      setEnvironmentPickerVisible,
       setCommandPaletteVisible,
       setRequestFinderVisible,
       setUndoAllPending,
@@ -806,6 +829,7 @@ export function AppInner({
     environment: {
       envStateRef,
       envEditorRef,
+      setNewEnvironmentVisible,
       setEnvDeletePending,
     },
   })
@@ -847,6 +871,22 @@ export function AppInner({
     setFocus,
     envHeaderRef,
     headerFieldRef,
+    newEnvironmentVisible,
+    newEnvironmentRef,
+    setNewEnvironmentVisible,
+    onNewEnvironmentConfirm: (values) => {
+      envEditor
+        .createEnv(values)
+        .then(() => {
+          setNewEnvironmentVisible(false)
+          focusPane("env-vars")
+        })
+        .catch((e: unknown) => {
+          newEnvironmentRef.current?.setError(
+            e instanceof Error ? e.message : String(e),
+          )
+        })
+    },
     newRequestVisible,
     newRequestRef,
     setNewRequestVisible,
@@ -901,14 +941,6 @@ export function AppInner({
     onCancelUpdate,
   })
 
-  // ── Derived values for render ─────────────────────────────────────
-  const envStats = useMemo(() => {
-    if (!envEditor.draft) return ""
-    const rows = envEditor.draft.varRows
-    const activeCount = rows.filter((r) => r.enabled).length
-    return `${activeCount} active · ${rows.length} var${rows.length !== 1 ? "s" : ""}`
-  }, [envEditor.draft])
-
   const renderer = useRenderer()
   const {
     onLoadTimelineBody,
@@ -949,6 +981,8 @@ export function AppInner({
         onLayoutChange,
         setHelpVisible,
         setAboutVisible,
+        setNewEnvironmentVisible,
+        setEnvironmentPickerVisible,
         setNewRequestVisible,
         setImportCurlVisible,
         setNewFolderVisible,
@@ -996,9 +1030,21 @@ export function AppInner({
       }}
     >
       <Header
-        headerHints={hints.header}
+        collectionLabel={basename(collectionDir) || collectionDir}
+        envLabel={envState.indicatorLabel}
+        envStatus={envState.status}
+        envColor={envState.activeEnv?.color}
         onAboutActivate={handleAboutActivate}
-        onHintActivate={handleHintActivate}
+        onCollectionActivate={
+          view !== "env-editor" && !overlayActive
+            ? handleCollectionActivate
+            : undefined
+        }
+        onEnvironmentActivate={
+          view === "main" && mode === "collection" && !overlayActive
+            ? handleEnvironmentActivate
+            : undefined
+        }
         restartVersion={restartVersion}
         updateAvailable={updateAvailable}
       />
@@ -1134,6 +1180,12 @@ export function AppInner({
           collectionDir={collectionDir}
           requestCollectionSwitch={requestCollectionSwitch}
           setCollectionSwitcherVisible={setCollectionSwitcherVisible}
+          environmentPickerVisible={environmentPickerVisible}
+          environmentNames={envState.names}
+          activeEnvironmentName={envState.activeName}
+          onSelectEnvironment={handleEnvironmentSelect}
+          onOpenEnvironmentEditor={handleOpenEnvironmentEditor}
+          setEnvironmentPickerVisible={setEnvironmentPickerVisible}
           previewIndex={previewIndex}
           activeIndex={activeIndex}
           setPreviewIndex={setPreviewIndexProp}
@@ -1147,6 +1199,9 @@ export function AppInner({
           setSaveState={setSaveState}
           clearSaveTimer={clearSaveTimer}
           saveTimerRef={saveTimerRef}
+          newEnvironmentVisible={newEnvironmentVisible}
+          newEnvironmentRef={newEnvironmentRef}
+          newEnvironmentActions={overlayActions.newEnvironment}
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
           newRequestActions={overlayActions.newRequest}
@@ -1188,26 +1243,14 @@ export function AppInner({
         />
       </box>
       <StatusBar
-        method={draft.draft?.method ?? ""}
-        url={draft.draft?.url ?? ""}
-        isDirty={draft.isDirty}
-        sendState={responseState}
-        envLabel={envState.indicatorLabel}
-        envColor={envState.activeEnv?.color}
-        saveState={saveState}
         kb={keybinds}
         view={view}
-        envStats={envStats}
         jumpMode={jumpMode}
         collectionMode={mode}
         overlayActive={overlayActive}
+        globalHints={hints.header}
         footerHints={hints.footer}
         sendCommand={sendCommand}
-        onEnvironmentActivate={
-          view === "main" && mode === "collection" && !overlayActive
-            ? handleEnvironmentActivate
-            : undefined
-        }
         onHintActivate={handleHintActivate}
       />
     </box>

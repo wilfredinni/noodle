@@ -30,8 +30,7 @@ export function createEnvironmentLayers(
         name: "env.new",
         enabled: canEdit,
         run: () => {
-          newEnvironment(actions)
-          global.setFocus("env-header")
+          if (newEnvironment()) environment.setNewEnvironmentVisible(true)
         },
       },
       {

@@ -7,6 +7,10 @@ import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
+import type {
+  NewEnvironmentOverlayHandle,
+  NewEnvironmentValues,
+} from "./overlays/NewEnvironmentOverlay"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { ActiveOverlay } from "./useOverlayState"
@@ -49,6 +53,10 @@ export function useOverlayIntercepts(opts: {
   setFocus: (f: Focus) => void
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
   headerFieldRef: RefObject<"name" | "color">
+  newEnvironmentVisible: boolean
+  newEnvironmentRef: RefObject<NewEnvironmentOverlayHandle | null>
+  setNewEnvironmentVisible: (v: boolean) => void
+  onNewEnvironmentConfirm: (values: NewEnvironmentValues) => void
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
   setNewRequestVisible: (v: boolean) => void
@@ -110,6 +118,14 @@ export function useOverlayIntercepts(opts: {
 
   const dialogActions = useDialogIntercepts(opts)
 
+  const newEnvironmentActions = useFormOverlayIntercept({
+    visible: opts.newEnvironmentVisible,
+    handleRef: opts.newEnvironmentRef,
+    onConfirm: opts.onNewEnvironmentConfirm,
+    onCancel: () => opts.setNewEnvironmentVisible(false),
+    passThroughFocuses: ["color"],
+  })
+
   const newRequestActions = useFormOverlayIntercept({
     visible: opts.newRequestVisible,
     handleRef: opts.newRequestRef,
@@ -151,6 +167,7 @@ export function useOverlayIntercepts(opts: {
 
   return {
     ...dialogActions,
+    newEnvironment: newEnvironmentActions,
     newRequest: newRequestActions,
     importCurl: importCurlActions,
     editRequest: editRequestActions,

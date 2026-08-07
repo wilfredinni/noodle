@@ -73,6 +73,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
         { key: displayKey(keybinds.request_save), description: "Save to disk" },
         {
+          key: displayKey(keybinds.env_picker),
+          description: "Open environment picker",
+        },
+        {
           key: displayKey(keybinds.env_editor),
           description: "Open environment editor",
         },

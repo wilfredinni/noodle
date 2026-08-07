@@ -5,7 +5,7 @@ import {
   deleteFolder,
   deleteRequest,
   editRequestOverlay,
-  openEnvironmentEditor,
+  openEnvironmentPicker,
   saveRequest,
   sendRequest,
 } from "../commandActions"
@@ -26,12 +26,10 @@ export function createRequestLayers(
     enabled: isMainBase,
     commands: [
       {
-        name: "env.editor-open",
+        name: "env.picker-open",
         enabled: () => keymap.getData("app.focus") === "sidebar" && canEdit(),
         run: () => {
-          openEnvironmentEditor(actions)
-          global.setView("env-editor")
-          global.setFocus("env-sidebar")
+          openEnvironmentPicker(global.setEnvironmentPickerVisible)
         },
       },
       {
@@ -102,7 +100,7 @@ export function createRequestLayers(
       { key: "linefeed", cmd: "request.send" },
       { key: keybinds.request_save, cmd: "request.save" },
       { key: keybinds.env_cycle, cmd: "env.cycle" },
-      { key: keybinds.env_editor, cmd: "env.editor-open" },
+      { key: keybinds.env_picker, cmd: "env.picker-open" },
       { key: keybinds.request_new, cmd: "request.new" },
       { key: keybinds.folder_new, cmd: "folder.new" },
       { key: keybinds.request_edit_overlay, cmd: "request.edit-overlay" },

@@ -50,7 +50,8 @@ Each entry shows: ID, default key, description, whether it's `fixed` (cannot be 
 | `folder_new` | `Ctrl+Alt+N` | New folder | no |
 | `request_clone` | `Ctrl+K` | Clone request | no |
 | `request_delete` | `Ctrl+W` | Delete request | no |
-| `env_editor` | `e` | Open environment editor | no |
+| `env_picker` | `e` | Open environment picker | no |
+| `env_editor` | `F3` | Open environment editor | no |
 | `help_toggle` | `F1` | Toggle help overlay | no |
 | `theme_picker` | `Ctrl+T` | Open theme picker | no |
 | `browse_delete` | `Ctrl+D` | Revert current field (browse mode) | no |

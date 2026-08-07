@@ -169,7 +169,16 @@ export function cycleEnvironment(c: CommandActionsConfig): boolean {
   return true
 }
 
-export function openEnvironmentEditor(c: CommandActionsConfig): boolean {
+export function openEnvironmentPicker(
+  setVisible: (visible: boolean) => void,
+): boolean {
+  setVisible(true)
+  return true
+}
+
+export function openEnvironmentEditor(
+  c: Pick<CommandActionsConfig, "envStateRef" | "envEditorRef">,
+): boolean {
   const name = c.envStateRef.current.activeEnv?.name
   c.envEditorRef.current.openEditor(name)
   return true
@@ -180,8 +189,7 @@ export function saveEnvironment(c: CommandActionsConfig): boolean {
   return true
 }
 
-export function newEnvironment(c: CommandActionsConfig): boolean {
-  c.envEditorRef.current.openEditor()
+export function newEnvironment(): boolean {
   return true
 }
 

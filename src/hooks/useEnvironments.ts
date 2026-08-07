@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Environment } from "../schema"
 import { env } from "../env"
-import { envIndicatorLabel } from "../ui/envIndicator"
+import { envIndicator, type EnvStatus } from "../ui/envIndicator"
 
 export interface UseEnvironmentsResult {
   names: string[]
+  activeName: string | null
   activeIndex: number
   activeEnv: Environment | null
   error: Error | null
   indicatorLabel: string
+  status: EnvStatus
+  select: (name: string) => void
   cycle: (delta: number) => void
   reloadActiveEnv: () => Promise<void>
 }
@@ -20,41 +23,35 @@ export function useEnvironments(
   settingsEnv?: string,
   onEnvChange?: (name: string | null) => void,
 ): UseEnvironmentsResult {
-  const [activeIndex, setActiveIndex] = useState<number>(() => {
+  const [activeName, setActiveName] = useState<string | null>(() => {
     // Priority: CLI --env > settings.yml environment > first env in list
-    if (initialName !== undefined) return envList.indexOf(initialName)
+    if (initialName !== undefined)
+      return envList.includes(initialName) ? initialName : null
     if (settingsEnv !== undefined && envList.includes(settingsEnv))
-      return envList.indexOf(settingsEnv)
-    if (envList.length > 0) return 0
-    return -1
+      return settingsEnv
+    return envList[0] ?? null
   })
+  const activeIndex = activeName === null ? -1 : envList.indexOf(activeName)
   const [activeEnv, setActiveEnv] = useState<Environment | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const genRef = useRef(0)
 
   // mount-only — deps intentionally omitted (stable for App's lifetime)
   useEffect(() => {
-    const target =
-      initialName !== undefined
-        ? envList.includes(initialName)
-          ? initialName
-          : undefined
-        : settingsEnv !== undefined && envList.includes(settingsEnv)
-          ? settingsEnv
-          : envList.length > 0
-            ? envList[0]
-            : undefined
-    if (target === undefined) return
+    const target = activeName
+    if (target === null) return
     let cancelled = false
+    genRef.current += 1
+    const gen = genRef.current
     env
       .loadEnvironment(dir, target)
       .then((loaded) => {
-        if (cancelled) return
+        if (cancelled || gen !== genRef.current) return
         setActiveEnv(loaded)
         setError(null)
       })
       .catch((e: unknown) => {
-        if (cancelled) return
+        if (cancelled || gen !== genRef.current) return
         setError(e instanceof Error ? e : new Error(String(e)))
         setActiveEnv(null)
       })
@@ -63,17 +60,14 @@ export function useEnvironments(
     }
   }, [])
 
-  const cycle = useCallback(
-    (delta: number) => {
-      if (envList.length === 0) return
-      let candidate = activeIndex < 0 ? 0 : activeIndex + delta
-      if (candidate >= envList.length) candidate = 0
-      if (candidate < 0) candidate = envList.length - 1
-      const name = envList[candidate]
+  const select = useCallback(
+    (name: string) => {
+      if (!envList.includes(name)) return
       genRef.current += 1
       const gen = genRef.current
       setError(null)
-      setActiveIndex(candidate)
+      setActiveName(name)
+      setActiveEnv(null)
       env
         .loadEnvironment(dir, name)
         .then((loaded) => {
@@ -89,16 +83,42 @@ export function useEnvironments(
           setActiveEnv(null)
         })
     },
-    [dir, envList, activeIndex, onEnvChange],
+    [dir, envList, onEnvChange],
+  )
+
+  useEffect(() => {
+    if (activeName !== null && envList.includes(activeName)) return
+    const fallback = envList[0]
+    if (fallback !== undefined) {
+      select(fallback)
+    } else if (activeName !== null) {
+      genRef.current += 1
+      setActiveName(null)
+      setActiveEnv(null)
+      setError(null)
+      onEnvChange?.(null)
+    }
+  }, [activeName, envList, onEnvChange, select])
+
+  const cycle = useCallback(
+    (delta: number) => {
+      if (envList.length === 0) return
+      const candidate =
+        activeIndex < 0
+          ? 0
+          : (((activeIndex + delta) % envList.length) + envList.length) %
+            envList.length
+      select(envList[candidate]!)
+    },
+    [envList, activeIndex, select],
   )
 
   const reloadActiveEnv = useCallback(async () => {
-    if (activeIndex < 0 || !envList[activeIndex]) return
+    if (activeName === null || !envList.includes(activeName)) return
     genRef.current += 1
     const gen = genRef.current
-    const name = envList[activeIndex]
     try {
-      const loaded = await env.loadEnvironment(dir, name)
+      const loaded = await env.loadEnvironment(dir, activeName)
       if (gen !== genRef.current) return
       setActiveEnv(loaded)
       setError(null)
@@ -108,19 +128,22 @@ export function useEnvironments(
       setError(err)
       setActiveEnv(null)
     }
-  }, [dir, envList, activeIndex])
+  }, [dir, envList, activeName])
 
-  const indicatorLabel = useMemo(
-    () => envIndicatorLabel(envList, activeIndex, activeEnv, error),
+  const indicator = useMemo(
+    () => envIndicator(envList, activeIndex, activeEnv, error),
     [envList, activeIndex, activeEnv, error],
   )
 
   return {
     names: envList,
+    activeName,
     activeIndex,
     activeEnv,
     error,
-    indicatorLabel,
+    indicatorLabel: indicator.label,
+    status: indicator.status,
+    select,
     cycle,
     reloadActiveEnv,
   }

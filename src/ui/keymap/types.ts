@@ -62,6 +62,9 @@ export interface AppKeymapGlobal {
   setCollectionSwitcherVisible: (
     v: boolean | ((prev: boolean) => boolean),
   ) => void
+  setEnvironmentPickerVisible: (
+    v: boolean | ((prev: boolean) => boolean),
+  ) => void
   setCommandPaletteVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -102,6 +105,7 @@ export interface AppKeymapFolder {
 export interface AppKeymapEnvironment {
   envStateRef: RefObject<UseEnvironmentsResult>
   envEditorRef: RefObject<UseEnvironmentEditorResult>
+  setNewEnvironmentVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEnvDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void

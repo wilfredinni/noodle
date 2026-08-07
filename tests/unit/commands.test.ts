@@ -45,6 +45,8 @@ function minimalContext(): CommandBuilderContext {
     onLayoutChange: () => {},
     setHelpVisible: () => {},
     setAboutVisible: () => {},
+    setNewEnvironmentVisible: () => {},
+    setEnvironmentPickerVisible: () => {},
     setNewRequestVisible: () => {},
     setImportCurlVisible: () => {},
     setNewFolderVisible: () => {},
@@ -79,6 +81,14 @@ describe("buildCommandPaletteCommands", () => {
       expect(cmd.section).toBeTruthy()
       expect(typeof cmd.run).toBe("function")
     }
+  })
+
+  it("labels the help command as keyboard shortcuts", () => {
+    const command = buildCommandPaletteCommands(minimalContext()).find(
+      (item) => item.id === "app.help",
+    )
+
+    expect(command?.label).toBe("Keyboard Shortcuts")
   })
 
   it("sections appear in correct order", () => {
@@ -135,6 +145,22 @@ describe("buildCommandPaletteCommands", () => {
     expect(commands.every((command) => command.section === "Environment")).toBe(
       true,
     )
+  })
+
+  it("opens the new environment overlay from the environment editor", () => {
+    const ctx = minimalContext()
+    ctx.getView = () => "env-editor"
+    let opened = false
+    ctx.setNewEnvironmentVisible = (value) => {
+      opened = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "env.new",
+    )
+
+    expect(command?.run()).toBe(true)
+    expect(opened).toBe(true)
   })
 
   it("opens the cURL import overlay from a folder context menu", () => {
@@ -286,10 +312,27 @@ describe("buildCommandPaletteCommands", () => {
     const command = buildCommandPaletteCommands(ctx).find(
       (item) => item.id === "env.editor-open",
     )!
+    expect(command.keybinding).toBe("f3")
     expect(command.run()).toBe(true)
     expect(opened).toBe("development")
     expect(view).toBe("env-editor")
     expect(focus).toBe("env-sidebar")
+  })
+
+  it("opens the environment picker from the command palette", () => {
+    const ctx = minimalContext()
+    let visible = false
+    ctx.setEnvironmentPickerVisible = (value) => {
+      visible = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "env.picker-open",
+    )!
+
+    expect(command.keybinding).toBe("e")
+    expect(command.run()).toBe(true)
+    expect(visible).toBe(true)
   })
 
   it("opens client code generation for the current request draft", () => {
@@ -533,7 +576,7 @@ describe("buildCommandPaletteCommands", () => {
     expect(sections).toEqual(["Collection", "Workspace", "System"])
   })
 
-  it("excludes env.editor-open command when mode is empty", () => {
+  it("excludes environment commands when mode is empty", () => {
     const ctx = minimalContext()
     ctx.getCollectionMode = () => "empty"
     const commands = buildCommandPaletteCommands(ctx)

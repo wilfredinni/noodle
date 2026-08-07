@@ -50,37 +50,7 @@ function getHeaderHints(ctx: KeybindingHintsContext): HintSegment[] {
       { key: "Esc", word: "dismiss" },
     ]
   }
-  if (ctx.view === "env-editor") {
-    return [
-      {
-        key: displayKey(ctx.keybinds.command_palette),
-        word: "commands",
-        command: "app.command-palette",
-      },
-      {
-        key: displayKey(ctx.keybinds.help_toggle),
-        word: "help",
-        command: "app.help",
-      },
-    ]
-  }
-  return [
-    {
-      key: displayKey(ctx.keybinds.jump_mode),
-      word: "jump",
-      command: "jump.enter",
-    },
-    {
-      key: displayKey(ctx.keybinds.command_palette),
-      word: "commands",
-      command: "app.command-palette",
-    },
-    {
-      key: displayKey(ctx.keybinds.help_toggle),
-      word: "help",
-      command: "app.help",
-    },
-  ]
+  return []
 }
 
 function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
@@ -95,14 +65,14 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       return [
         { key: displayKey(kb.env_new), word: "new", command: "env.new" },
         {
-          key: displayKey(kb.env_delete),
-          word: "delete",
-          command: "env.delete",
-        },
-        {
           key: displayKey(kb.env_clone),
           word: "clone",
           command: "env.clone",
+        },
+        {
+          key: displayKey(kb.env_delete),
+          word: "delete",
+          command: "env.delete",
         },
       ]
     }
@@ -141,14 +111,14 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         command: "folder.new",
       },
       {
-        key: displayKey(kb.request_delete),
-        word: "delete",
-        command: "request.delete",
-      },
-      {
         key: displayKey(kb.request_clone),
         word: "clone",
         command: "request.clone",
+      },
+      {
+        key: displayKey(kb.request_delete),
+        word: "delete",
+        command: "request.delete",
       },
       {
         key: displayKey(kb.request_save),
@@ -201,30 +171,31 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
           (ctx.bodyType === "urlencoded" || ctx.bodyType === "multipart"))
           ? [{ key: "Space", word: "toggle", command: "browse.toggle" }]
           : []
-      return [
-        ...foldSegments,
-        ...toggleSegments,
-        {
-          key: displayKey(kb.browse_delete),
-          word: "revert",
-          command: "browse.delete",
-        },
-        {
-          key: displayKey(kb.browse_revert_all),
-          word: "revert all",
-          command: "browse.revert-all",
-        },
-        {
-          key: displayKey(kb.pane_expand),
-          word: "expand",
-          command: "request.expand-toggle",
-        },
-        {
-          key: displayKey(kb.request_save),
-          word: "save",
-          command: "browse.save",
-        },
-      ]
+      const revert = {
+        key: displayKey(kb.browse_delete),
+        word: "revert",
+        command: "browse.delete",
+      }
+      const revertAll = {
+        key: displayKey(kb.browse_revert_all),
+        word: "revert all",
+        command: "browse.revert-all",
+      }
+      const save = {
+        key: displayKey(kb.request_save),
+        word: "save",
+        command: "browse.save",
+      }
+      const expand = {
+        key: displayKey(kb.pane_expand),
+        word: "expand",
+        command: "request.expand-toggle",
+      }
+      // StatusBar pins expand and shows only MAX_CONTEXTUAL_HINTS; keep save
+      // ahead of revert-all when toggle is present here and in folders below.
+      return toggleSegments.length > 0
+        ? [...toggleSegments, revert, save, revertAll, expand]
+        : [revert, revertAll, save, expand]
     }
     return [
       ...foldSegments,
@@ -294,24 +265,24 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
           ? [{ key: "Space", word: "toggle", command: "folder-browse.toggle" }]
           : []
       if (ctx.tab === "activity") return []
-      return [
-        ...toggleSegments,
-        {
-          key: displayKey(kb.browse_delete),
-          word: "revert",
-          command: "folder-browse.revert-field",
-        },
-        {
-          key: displayKey(kb.browse_revert_all),
-          word: "revert all",
-          command: "folder-browse.revert-all",
-        },
-        {
-          key: displayKey(kb.request_save),
-          word: "save",
-          command: "folder.save",
-        },
-      ]
+      const revert = {
+        key: displayKey(kb.browse_delete),
+        word: "revert",
+        command: "folder-browse.revert-field",
+      }
+      const revertAll = {
+        key: displayKey(kb.browse_revert_all),
+        word: "revert all",
+        command: "folder-browse.revert-all",
+      }
+      const save = {
+        key: displayKey(kb.request_save),
+        word: "save",
+        command: "folder.save",
+      }
+      return toggleSegments.length > 0
+        ? [...toggleSegments, revert, save, revertAll]
+        : [revert, revertAll, save]
     }
     return []
   }

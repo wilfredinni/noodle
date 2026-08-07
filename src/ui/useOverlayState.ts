@@ -6,6 +6,7 @@ import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
+import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverlay"
 
 export type ActiveOverlay =
   | "command-palette"
@@ -14,6 +15,7 @@ export type ActiveOverlay =
   | "help"
   | "about"
   | "theme"
+  | "environment-picker"
   | "env-delete"
   | "undo-all"
   | "reload-confirm"
@@ -21,6 +23,7 @@ export type ActiveOverlay =
   | "collection-switch-confirm"
   | "collection-switcher"
   | "yaml-editor"
+  | "new-environment"
   | "new-request"
   | "import-curl"
   | "edit-request"
@@ -49,11 +52,15 @@ export function useOverlayState({
 }: UseOverlayStateProps) {
   const [helpVisible, setHelpVisible] = useState(false)
   const [aboutVisible, setAboutVisible] = useState(false)
+  const [environmentPickerVisible, setEnvironmentPickerVisible] =
+    useState(false)
   const [yamlEditor, setYamlEditor] = useState<YamlEditorState>(
     initialYamlEditorState,
   )
   const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
   const envDeletePendingRef = useRef(envDeletePending)
+  const [newEnvironmentVisible, setNewEnvironmentVisible] = useState(false)
+  const newEnvironmentRef = useRef<NewEnvironmentOverlayHandle>(null)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
   const [importCurlVisible, setImportCurlVisible] = useState(false)
@@ -89,6 +96,7 @@ export function useOverlayState({
     if (helpVisible) return "help"
     if (aboutVisible) return "about"
     if (previewIndex !== null) return "theme"
+    if (environmentPickerVisible) return "environment-picker"
     if (envDeletePending !== null) return "env-delete"
     if (undoAllPending) return "undo-all"
     if (reloadPending) return "reload-confirm"
@@ -96,6 +104,7 @@ export function useOverlayState({
     if (collectionSwitchPending !== null) return "collection-switch-confirm"
     if (collectionSwitcherVisible) return "collection-switcher"
     if (yamlEditor.visible) return "yaml-editor"
+    if (newEnvironmentVisible) return "new-environment"
     if (newRequestVisible) return "new-request"
     if (importCurlVisible) return "import-curl"
     if (editRequestVisible) return "edit-request"
@@ -113,6 +122,7 @@ export function useOverlayState({
     helpVisible,
     aboutVisible,
     previewIndex,
+    environmentPickerVisible,
     envDeletePending,
     undoAllPending,
     reloadPending,
@@ -120,6 +130,7 @@ export function useOverlayState({
     collectionSwitchPending,
     collectionSwitcherVisible,
     yamlEditor.visible,
+    newEnvironmentVisible,
     newRequestVisible,
     importCurlVisible,
     editRequestVisible,
@@ -137,11 +148,16 @@ export function useOverlayState({
     setHelpVisible,
     aboutVisible,
     setAboutVisible,
+    environmentPickerVisible,
+    setEnvironmentPickerVisible,
     yamlEditor,
     setYamlEditor,
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    newEnvironmentVisible,
+    setNewEnvironmentVisible,
+    newEnvironmentRef,
     newRequestVisible,
     setNewRequestVisible,
     newRequestRef,

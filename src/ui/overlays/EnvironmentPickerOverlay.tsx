@@ -1,0 +1,91 @@
+import { TextAttributes } from "@opentui/core"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { contrastOnPrimary, useTheme } from "../theme"
+import { PickerOverlay } from "./PickerOverlay"
+
+export function EnvironmentPickerOverlay({
+  visible,
+  environments,
+  activeEnvironment,
+  editorShortcut,
+  onSelect,
+  onOpenEditor,
+  onClose,
+}: {
+  visible: boolean
+  environments: string[]
+  activeEnvironment: string | null
+  editorShortcut: string
+  onSelect: (name: string) => void
+  onOpenEditor: () => void
+  onClose: () => void
+}) {
+  const theme = useTheme()
+  const [highlightedEnvironment, setHighlightedEnvironment] = useState<
+    string | null
+  >(null)
+
+  useEffect(() => {
+    if (visible) setHighlightedEnvironment(activeEnvironment)
+  }, [visible, activeEnvironment])
+
+  const highlightedItem = useMemo(
+    () =>
+      environments.find((name) => name === highlightedEnvironment) ??
+      environments[0] ??
+      null,
+    [environments, highlightedEnvironment],
+  )
+
+  const filter = useCallback(
+    (name: string, query: string) =>
+      name.toLowerCase().includes(query.toLowerCase()),
+    [],
+  )
+
+  const renderItem = useCallback(
+    (
+      name: string,
+      { highlighted, active }: { highlighted: boolean; active: boolean },
+    ) => {
+      const foreground = highlighted ? contrastOnPrimary(theme) : theme.text
+
+      return (
+        <>
+          <text fg={highlighted ? foreground : theme.primary}>
+            {active ? "●" : " "}
+          </text>
+          <text
+            fg={foreground}
+            attributes={active ? TextAttributes.BOLD : undefined}
+          >
+            {name}
+          </text>
+        </>
+      )
+    },
+    [theme],
+  )
+
+  return (
+    <PickerOverlay
+      visible={visible}
+      title="Environments"
+      placeholder="Search environments..."
+      items={environments}
+      keyExtractor={(name) => name}
+      filter={filter}
+      renderItem={renderItem}
+      highlightedItem={highlightedItem}
+      activeItem={activeEnvironment}
+      firstAction={{
+        label: "Open Environment Editor",
+        shortcut: editorShortcut,
+        onSelect: onOpenEditor,
+      }}
+      onHighlightChange={setHighlightedEnvironment}
+      onSelect={onSelect}
+      onClose={onClose}
+    />
+  )
+}
