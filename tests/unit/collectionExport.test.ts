@@ -32,6 +32,21 @@ describe("runCollectionExport", () => {
     }
   })
 
+  it("stops suffixing after filesystem errors on a Postman target", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "noodle-export-target-"))
+    const file = join(outputDir, "not-a-directory")
+
+    try {
+      await writeFile(file, "")
+
+      expect(getExportTargetPath(file, "orders", "postman")).toBe(
+        join(file, "orders-postman"),
+      )
+    } finally {
+      await rm(outputDir, { recursive: true, force: true })
+    }
+  })
+
   it("rejects unsaved edits before export", async () => {
     let called = false
     const pending = { current: false }
