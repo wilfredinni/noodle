@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test"
+import { mkdtemp, rm, symlink } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { act, createRef } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -106,5 +109,48 @@ describe("ExportCollectionOverlay", () => {
       "Save all changes before exporting",
     )
     cleanup()
+  })
+
+  it("keeps target preview errors inline", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "noodle-export-preview-"))
+    await symlink("orders-postman", join(outputDir, "orders-postman"))
+    const { keymap, host, cleanup } = setupKeymap()
+    const ref = createRef<ExportCollectionOverlayHandle>()
+
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <ExportCollectionOverlay
+              visible
+              ref={ref}
+              collectionName="orders"
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 90, height: 22 },
+      )
+      await render.renderOnce()
+      act(() => ref.current?.cycleFocus(1))
+      await render.renderOnce()
+      await act(async () => {
+        await render.mockInput.pressKey("BACKSPACE")
+        await render.mockInput.pressKey("BACKSPACE")
+        await render.mockInput.typeText(outputDir)
+      })
+      act(() => ref.current?.cycleFocus(1))
+      act(() => host.press("return"))
+      act(() => host.press("down"))
+      act(() => host.press("return"))
+      await render.renderOnce()
+
+      const frame = render.captureCharFrame()
+      expect(frame).toContain("Export Collection")
+      expect(frame).toContain("Target: unavailable")
+      expect(frame).toContain("Unable to preview target")
+    } finally {
+      cleanup()
+      await rm(outputDir, { recursive: true, force: true })
+    }
   })
 })

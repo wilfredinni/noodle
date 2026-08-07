@@ -203,6 +203,143 @@ describe("ResponsePane status text truncation and layout tests", () => {
     expect(tailLines[responseBottom - 1]).toMatch(/\]\s/)
   })
 
+  it("keeps request and response folds through layout and expand changes", async () => {
+    const { keymap, draft, eb } = createTestProps()
+    keymap.keymap.setData("app.overlay", "none")
+    const body = JSON.stringify(
+      {
+        object: { nested: true },
+        array: [1, 2],
+      },
+      null,
+      2,
+    )
+    const responseOK: SendState = {
+      status: "done",
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body,
+        timeMs: 123,
+      },
+    }
+    let changeLayout = (_layout: "stacked" | "side-by-side") => {}
+    let changeExpanded = (_expanded: "request" | "response" | null) => {}
+    let responseTabChanges = 0
+    const onResponseTabChange = () => {
+      responseTabChanges += 1
+    }
+
+    function FoldPersistenceHarness() {
+      const [layout, setLayout] = useState<"stacked" | "side-by-side">(
+        "stacked",
+      )
+      const [expanded, setExpanded] = useState<"request" | "response" | null>(
+        null,
+      )
+      changeLayout = setLayout
+      changeExpanded = setExpanded
+
+      return (
+        <RequestResponseView
+          draft={
+            {
+              ...draft,
+              draft: { ...draft.draft, id: "folds", body },
+            } as unknown as Parameters<typeof RequestResponseView>[0]["draft"]
+          }
+          eb={eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]}
+          error={null}
+          focus="response"
+          layout={layout}
+          expanded={expanded}
+          activeEnv={null}
+          responseState={responseOK}
+          timelineEntries={[]}
+          onResponseTabChange={onResponseTabChange}
+          setSelectOpen={() => {}}
+          urlbarSubFocus="text"
+          urlbarInteractive={true}
+          responseKey="folds"
+        />
+      )
+    }
+
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box style={{ width: 100, height: 24, flexDirection: "column" }}>
+              <FoldPersistenceHarness />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 24 },
+      )
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await renderOnce()
+
+    const requestEditor = renderer.root.findDescendantById(
+      "request-body-editor",
+    ) as CodeEditorRenderable
+    const responseEditor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    for (const editor of [requestEditor, responseEditor]) {
+      editor.toggleFold(4)
+      editor.toggleFold(1)
+    }
+    await renderOnce()
+
+    const expectFolds = (editor: CodeEditorRenderable) => {
+      expect(editor.getFolds().get(1)?.folded).toBe(true)
+      expect(editor.getFolds().get(4)?.folded).toBe(true)
+    }
+
+    act(() => changeLayout("side-by-side"))
+    await renderOnce()
+    expect(renderer.root.findDescendantById("request-body-editor")).toBe(
+      requestEditor,
+    )
+    expect(renderer.root.findDescendantById("response-body-editor")).toBe(
+      responseEditor,
+    )
+    expectFolds(requestEditor)
+    expectFolds(responseEditor)
+
+    act(() => changeExpanded("request"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Request")
+    expect(captureCharFrame()).not.toContain("Response")
+    expect(responseEditor.focused).toBe(false)
+    await act(async () => mockInput.pressKey("RIGHT"))
+    await renderOnce()
+    expect(responseTabChanges).toBe(0)
+    act(() => changeExpanded(null))
+    await renderOnce()
+    expect(renderer.root.findDescendantById("response-body-editor")).toBe(
+      responseEditor,
+    )
+    expectFolds(responseEditor)
+
+    act(() => changeExpanded("response"))
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("Request")
+    expect(captureCharFrame()).toContain("Response")
+    act(() => changeExpanded(null))
+    await renderOnce()
+    expect(renderer.root.findDescendantById("request-body-editor")).toBe(
+      requestEditor,
+    )
+    expectFolds(requestEditor)
+  })
+
   it("truncates status text > 13 chars with ellipsis", async () => {
     const { keymap, draft, eb } = createTestProps()
     const responseErr: SendState = {

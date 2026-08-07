@@ -16,7 +16,9 @@ function isAvailablePostmanTarget(path: string): boolean {
   try {
     return readdirSync(path).length === 0
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT"
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === "ENOENT" || code === "ENOTDIR") return true
+    throw error
   }
 }
 

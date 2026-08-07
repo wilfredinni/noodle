@@ -366,7 +366,12 @@ export function AppInner({
 
   useEffect(() => {
     if (saveState.kind === "success" || saveState.kind === "error") {
-      showToast(saveState.message, saveState.kind)
+      showToast(
+        saveState.kind === "success"
+          ? "Operation completed"
+          : "Operation failed",
+        saveState.kind,
+      )
     }
   }, [saveState])
 
@@ -930,7 +935,7 @@ export function AppInner({
         .then((result) => {
           if (!result) return
           setExportCollectionVisible(false)
-          showToast(`Collection exported to ${result.path}`, "success")
+          showToast("Collection exported", "success")
         })
         .catch((error: unknown) => {
           exportCollectionRef.current?.setError(

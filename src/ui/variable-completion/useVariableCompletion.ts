@@ -58,6 +58,31 @@ export function useVariableCompletion({
 
   const completion = useMemo(() => getCompletion(), [getCompletion])
 
+  const acceptSuggestion = useCallback(
+    (name: string): boolean => {
+      const editor = getEditor()
+      if (!isEditing || !editor || editor.isDestroyed || !editor.focused) {
+        return false
+      }
+
+      const { token, suggestions, isComplete } = getCompletion()
+      if (
+        !token ||
+        suggestions.length === 0 ||
+        isComplete ||
+        !suggestions.includes(name)
+      ) {
+        return false
+      }
+
+      const result = replaceVariableToken(editor.plainText, token, name)
+      editor.replaceText(result.value)
+      editor.cursorOffset = result.cursorOffset
+      return true
+    },
+    [getCompletion, getEditor, isEditing],
+  )
+
   const makeHandleKey = useCallback(
     ({
       completionDismissed,
@@ -102,9 +127,7 @@ export function useVariableCompletion({
             Math.min(suggestions.length, MAX_COMPLETION_VISIBLE) - 1,
           )
           const name = suggestions[idx] ?? suggestions[0]!
-          const result = replaceVariableToken(editor.plainText, token, name)
-          editor.replaceText(result.value)
-          editor.cursorOffset = result.cursorOffset
+          if (!acceptSuggestion(name)) return false
           setCompletionDismissed(true)
           onAccept(name)
           return true
@@ -117,8 +140,8 @@ export function useVariableCompletion({
 
         return false
       },
-    [getEditor, getCompletion, isEditing],
+    [acceptSuggestion, getEditor, getCompletion, isEditing],
   )
 
-  return { completion, getCompletion, makeHandleKey }
+  return { completion, getCompletion, makeHandleKey, acceptSuggestion }
 }
