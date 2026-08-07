@@ -22,6 +22,7 @@ import type { CodeEditorRenderable } from "./editor/CodeEditor"
 
 interface Props {
   request: Request | null
+  visible?: boolean
   error?: Error | null
   editState: EditState
   editKey: string
@@ -65,6 +66,7 @@ const BASE_TAB_DEFS: TabDef[] = [
 
 export function RequestPane({
   request,
+  visible = true,
   error,
   editState,
   editKey,
@@ -153,6 +155,7 @@ export function RequestPane({
   }, [request, jumpMode])
   return (
     <Frame
+      visible={visible}
       style={{
         flexDirection: "column",
         flexGrow: 1,

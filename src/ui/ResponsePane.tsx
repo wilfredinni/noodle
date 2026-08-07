@@ -45,6 +45,7 @@ const TAB_DEFS: TabDef[] = [
 
 export function ResponsePane({
   state,
+  visible = true,
   focused = false,
   timelineEntries,
   initialTab,
@@ -61,6 +62,7 @@ export function ResponsePane({
   onPaneFocus,
 }: {
   state: SendState
+  visible?: boolean
   focused?: boolean
   timelineEntries?: TimelineEntry[]
   initialTab?: ResponseTabKind
@@ -405,6 +407,7 @@ export function ResponsePane({
 
   return (
     <Frame
+      visible={visible}
       style={{
         flexGrow: 1,
         flexDirection: "column",

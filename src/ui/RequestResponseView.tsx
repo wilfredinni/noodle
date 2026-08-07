@@ -86,56 +86,54 @@ export function RequestResponseView({
 }: RequestResponseViewProps) {
   const content = (
     <>
-      {expanded !== "response" && (
-        <RequestPane
-          request={draft.draft}
-          error={error}
-          editState={eb.editState}
-          editKey={eb.editKey}
-          editValue={eb.editValue}
-          setEditKey={eb.setEditKey}
-          setEditValue={eb.setEditValue}
-          focused={focus === "request"}
-          activeTab={eb.activeTab}
-          activeEnv={activeEnv}
-          onAuthTypeChange={draft.setAuthType}
-          onApiKeyPlacementChange={draft.setApiKeyPlacement}
-          onBodyTypeChange={draft.setBodyType}
-          onBodyChange={draft.setBody}
-          onSelectOpenChange={setSelectOpen}
-          jumpMode={jumpMode}
-          onPaneFocus={() => onPaneFocus("request")}
-          onTabChange={onRequestTabChange}
-          onBodyTypeFocus={onRequestBodyTypeFocus}
-          onAuthFocusRow={onRequestAuthFocusRow}
-          onBodyEditorFocus={onRequestBodyEditorFocus}
-          onFieldActivate={onRequestFieldActivate}
-          onFieldSubfieldFocus={eb.focusSubfield}
-          onFieldToggle={onRequestFieldToggle}
-          onInteraction={onRequestInteraction}
-          interactive={urlbarInteractive}
-        />
-      )}
-      {expanded !== "request" && (
-        <ResponsePane
-          key={responseKey}
-          state={responseState}
-          focused={focus === "response"}
-          timelineEntries={timelineEntries}
-          initialTab={initialResponseTab}
-          onTabChange={onResponseTabChange}
-          onOpenTimelineEntry={onOpenTimelineEntry}
-          responseKey={responseKey}
-          responseQueryRef={responseQueryRef}
-          responseBodyForCopyRef={responseBodyForCopyRef}
-          layout={layout}
-          expanded={expanded}
-          jumpMode={jumpMode && draft.draft !== null}
-          onQueryVisibleChange={onQueryVisibleChange}
-          onBodyEditorAvailableChange={onResponseBodyEditorAvailableChange}
-          onPaneFocus={() => onPaneFocus("response")}
-        />
-      )}
+      <RequestPane
+        request={draft.draft}
+        visible={expanded !== "response"}
+        error={error}
+        editState={eb.editState}
+        editKey={eb.editKey}
+        editValue={eb.editValue}
+        setEditKey={eb.setEditKey}
+        setEditValue={eb.setEditValue}
+        focused={focus === "request"}
+        activeTab={eb.activeTab}
+        activeEnv={activeEnv}
+        onAuthTypeChange={draft.setAuthType}
+        onApiKeyPlacementChange={draft.setApiKeyPlacement}
+        onBodyTypeChange={draft.setBodyType}
+        onBodyChange={draft.setBody}
+        onSelectOpenChange={setSelectOpen}
+        jumpMode={jumpMode}
+        onPaneFocus={() => onPaneFocus("request")}
+        onTabChange={onRequestTabChange}
+        onBodyTypeFocus={onRequestBodyTypeFocus}
+        onAuthFocusRow={onRequestAuthFocusRow}
+        onBodyEditorFocus={onRequestBodyEditorFocus}
+        onFieldActivate={onRequestFieldActivate}
+        onFieldSubfieldFocus={eb.focusSubfield}
+        onFieldToggle={onRequestFieldToggle}
+        onInteraction={onRequestInteraction}
+        interactive={urlbarInteractive}
+      />
+      <ResponsePane
+        key={responseKey}
+        state={responseState}
+        visible={expanded !== "request"}
+        focused={focus === "response"}
+        timelineEntries={timelineEntries}
+        initialTab={initialResponseTab}
+        onTabChange={onResponseTabChange}
+        onOpenTimelineEntry={onOpenTimelineEntry}
+        responseKey={responseKey}
+        responseQueryRef={responseQueryRef}
+        responseBodyForCopyRef={responseBodyForCopyRef}
+        layout={layout}
+        expanded={expanded}
+        jumpMode={jumpMode && draft.draft !== null}
+        onQueryVisibleChange={onQueryVisibleChange}
+        onBodyEditorAvailableChange={onResponseBodyEditorAvailableChange}
+        onPaneFocus={() => onPaneFocus("response")}
+      />
     </>
   )
 
@@ -161,7 +159,6 @@ export function RequestResponseView({
         sending={responseState.status === "sending"}
       />
       <box
-        key={layout}
         style={{
           flexDirection: layout === "side-by-side" ? "row" : "column",
           flexGrow: 1,

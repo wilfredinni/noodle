@@ -9,6 +9,7 @@ export const FrameInteractionContext = createContext(false)
 
 export interface FrameProps {
   children?: ReactNode
+  visible?: boolean
   titleLeft?: ReactNode
   titleRight?: ReactNode
   bottomRight?: ReactNode
@@ -30,6 +31,7 @@ export interface FrameProps {
 
 export function Frame({
   children,
+  visible = true,
   titleLeft,
   titleRight,
   bottomRight,
@@ -50,6 +52,7 @@ export function Frame({
 }: FrameProps) {
   return (
     <box
+      visible={visible}
       style={style}
       border={border}
       customBorderChars={customBorderChars}
