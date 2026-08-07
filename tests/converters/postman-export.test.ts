@@ -1,4 +1,6 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
+import * as os from "node:os"
+import { resolve } from "node:path"
 import { Collection as PmCollection } from "postman-collection"
 import {
   exportPostman,
@@ -308,6 +310,159 @@ describe("Postman export", () => {
         { key: "in", value: "query", type: "string" },
       ],
     })
+  })
+
+  it("expands home-relative file paths without changing other values", () => {
+    const collection: Collection = {
+      id: "paths",
+      name: "Paths",
+      items: [
+        {
+          type: "request",
+          data: request("multipart", "Multipart", {
+            bodyType: "multipart",
+            formData: [
+              {
+                name: "file",
+                value: "@/Documents/upload.bin",
+                enabled: true,
+                type: "file",
+              },
+              {
+                name: "text",
+                value: "@/Documents/upload.bin",
+                enabled: true,
+                type: "text",
+              },
+              {
+                name: "absolute",
+                value: "/tmp/upload.bin",
+                enabled: true,
+                type: "file",
+              },
+              {
+                name: "relative",
+                value: "fixtures/upload.bin",
+                enabled: true,
+                type: "file",
+              },
+              {
+                name: "variable",
+                value: "$path",
+                enabled: true,
+                type: "file",
+              },
+            ],
+          }),
+        },
+        {
+          type: "request",
+          data: request("binary", "Binary", {
+            bodyType: "binary",
+            filePath: "@/Documents/archive.bin",
+          }),
+        },
+      ],
+    }
+
+    const items = exportPostman(collection).document.item as Record<
+      string,
+      unknown
+    >[]
+    expect((items[0]!.request as Record<string, unknown>).body).toEqual({
+      mode: "formdata",
+      formdata: [
+        {
+          key: "file",
+          disabled: false,
+          type: "file",
+          src: resolve(os.homedir(), "Documents/upload.bin"),
+        },
+        {
+          key: "text",
+          disabled: false,
+          type: "text",
+          value: "@/Documents/upload.bin",
+        },
+        {
+          key: "absolute",
+          disabled: false,
+          type: "file",
+          src: "/tmp/upload.bin",
+        },
+        {
+          key: "relative",
+          disabled: false,
+          type: "file",
+          src: "fixtures/upload.bin",
+        },
+        {
+          key: "variable",
+          disabled: false,
+          type: "file",
+          src: "{{path}}",
+        },
+      ],
+    })
+    expect((items[1]!.request as Record<string, unknown>).body).toEqual({
+      mode: "file",
+      file: { src: resolve(os.homedir(), "Documents/archive.bin") },
+    })
+  })
+
+  it("preserves dollar signs introduced by home expansion", () => {
+    const homedirSpy = spyOn(os, "homedir").mockReturnValue("/tmp/noodle$home")
+    try {
+      const items = exportPostman({
+        id: "home-path",
+        name: "Home Path",
+        items: [
+          {
+            type: "request",
+            data: request("multipart", "Multipart", {
+              bodyType: "multipart",
+              formData: [
+                {
+                  name: "file",
+                  value: "@/upload.bin",
+                  enabled: true,
+                  type: "file",
+                },
+              ],
+            }),
+          },
+          {
+            type: "request",
+            data: request("binary", "Binary", {
+              bodyType: "binary",
+              filePath: "@/archive.bin",
+            }),
+          },
+        ],
+      }).document.item as Record<string, unknown>[]
+
+      expect(
+        items.map((item) => (item.request as Record<string, unknown>).body),
+      ).toEqual([
+        {
+          mode: "formdata",
+          formdata: [
+            {
+              key: "file",
+              disabled: false,
+              type: "file",
+              src: "/tmp/noodle$home/upload.bin",
+            },
+          ],
+        },
+        {
+          mode: "file",
+          file: { src: "/tmp/noodle$home/archive.bin" },
+        },
+      ])
+    } finally {
+      homedirSpy.mockRestore()
+    }
   })
 
   it("redacts and deterministically orders environment values", () => {

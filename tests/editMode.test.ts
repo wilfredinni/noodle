@@ -14,6 +14,7 @@ import {
   type EditState,
 } from "../src/ui/editMode"
 import { applyDraft } from "../src/hooks/useRequestDraft"
+import { detectFormType } from "../src/hooks/useEditBrowse"
 import type { Request } from "../src/schema"
 
 const inactive: EditState = initialEditState()
@@ -702,15 +703,23 @@ describe("toggleFormRowType — applyDraft setFormRow", () => {
   })
 
   it("detects file-typed entries in new rows via @file() syntax", () => {
-    const value = "@file(/tmp/upload.bin)"
-    const fileMatch = value.match(/^@file\((.+)\)$/)
-    expect(fileMatch).not.toBeNull()
-    expect(fileMatch![1]).toBe("/tmp/upload.bin")
+    expect(detectFormType("@file(/tmp/upload.bin)")).toEqual({
+      formType: "file",
+      cleanValue: "/tmp/upload.bin",
+    })
+  })
+
+  it("keeps home-relative values as text unless explicitly file-typed", () => {
+    expect(detectFormType("@/Documents/upload.bin")).toEqual({
+      formType: "text",
+      cleanValue: "@/Documents/upload.bin",
+    })
   })
 
   it("does not flag non-@file values as file type", () => {
-    const value = "plain text"
-    const fileMatch = value.match(/^@file\((.+)\)$/)
-    expect(fileMatch).toBeNull()
+    expect(detectFormType("plain text")).toEqual({
+      formType: "text",
+      cleanValue: "plain text",
+    })
   })
 })

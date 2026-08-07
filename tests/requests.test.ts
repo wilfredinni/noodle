@@ -301,6 +301,49 @@ describe("bodyForSend — bodyType routing", () => {
 })
 
 describe("bodyForSend — file validation", () => {
+  it("expands home-relative binary and multipart paths after substitution", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+    const { homedir, tmpdir } = await import("node:os")
+    const { join, relative, sep } = await import("node:path")
+    const dir = mkdtempSync(join(tmpdir(), "noodle-home-path-"))
+    const filePath = join(dir, "data.bin")
+    writeFileSync(filePath, "binary content")
+    const shorthand = `@/${relative(homedir(), filePath).split(sep).join("/")}`
+
+    try {
+      const binary = substitute(
+        makeReq({ bodyType: "binary", filePath: "$UPLOAD" }),
+        { name: "dev", vars: { UPLOAD: shorthand } },
+      )
+      expect(await bodyForSend(binary, new Headers())).toBeDefined()
+
+      const multipart = substitute(
+        makeReq({
+          bodyType: "multipart",
+          formData: [
+            {
+              name: "file",
+              value: "$UPLOAD",
+              enabled: true,
+              type: "file",
+            },
+          ],
+        }),
+        { name: "dev", vars: { UPLOAD: shorthand } },
+      )
+      expect(await bodyForSend(multipart, new Headers())).toBeDefined()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("keeps the home shorthand in missing-file errors", async () => {
+    const value = "@/definitely-missing-noodle-file.bin"
+    await expect(
+      bodyForSend({ bodyType: "binary", filePath: value }, new Headers()),
+    ).rejects.toThrow(`file not found: ${value}`)
+  })
+
   it("throws when multipart file entry path does not exist", async () => {
     const h = new Headers()
     const fn = () =>

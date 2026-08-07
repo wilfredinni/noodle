@@ -11,6 +11,6 @@ form_data:
   - name: comment
     value: hello world
   - name: readme
-    value: /Users/carlosmontecinos/Projects/noodle/README.md
+    value: '@/Projects/noodle/README.md'
     enabled: true
     type: file

@@ -8,7 +8,11 @@ import {
   useRef,
   useState,
 } from "react"
-import type { InputRenderable, TextareaRenderable } from "@opentui/core"
+import {
+  MouseButton,
+  type InputRenderable,
+  type TextareaRenderable,
+} from "@opentui/core"
 import {
   createPortal,
   useRenderer,
@@ -24,6 +28,8 @@ import {
   useVariableCompletion,
   MAX_COMPLETION_VISIBLE,
 } from "./variable-completion/useVariableCompletion"
+import { usePathCompletion } from "./path-completion/usePathCompletion"
+import type { PathCompletionOptions } from "./path-completion/pathCompletion"
 
 export interface VarInputStyle {
   flexGrow?: number
@@ -50,7 +56,9 @@ export interface VarInputProps {
   style?: VarInputStyle
   variableNames?: Iterable<string>
   pathParams?: ParamEntry[]
+  pathCompletion?: PathCompletionOptions
   stopMousePropagation?: boolean
+  onFocus?: () => void
 }
 
 export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
@@ -70,7 +78,9 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       style,
       variableNames,
       pathParams,
+      pathCompletion,
       stopMousePropagation = false,
+      onFocus,
     },
     ref,
   ) {
@@ -106,6 +116,22 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       if (editable)
         highlightVariables(editable, editable.plainText, theme, env, pathParams)
     }, [env, getEditable, theme, pathParams])
+
+    const handlePathChange = useCallback(
+      (nextValue: string) => {
+        onChange?.(nextValue)
+        applyHighlights()
+      },
+      [applyHighlights, onChange],
+    )
+
+    const pathCompletionState = usePathCompletion({
+      getEditor: getEditable,
+      value,
+      isEditing: isEditing && inputFocused,
+      options: pathCompletion,
+      onChange: handlePathChange,
+    })
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -207,13 +233,49 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       suggestions.length > 0 &&
       !isComplete
 
+    const completionPopup = pathCompletionState.active ? (
+      <CompletionPopup
+        id="path-completion-menu"
+        items={pathCompletionState.items
+          .slice(0, MAX_COMPLETION_VISIBLE)
+          .map((item) => ({
+            key: `${item.type}:${item.name}`,
+            label: item.type === "directory" ? `${item.name}/` : item.name,
+          }))}
+        completionIndex={pathCompletionState.selectedIndex}
+        message={pathCompletionState.message}
+        isEditing={isEditing && inputFocused}
+        getEditable={getEditable}
+        value={value}
+      />
+    ) : showCompletion ? (
+      <CompletionPopup
+        id="var-completion-menu"
+        items={suggestions.map((name) => ({ key: name, label: `$${name}` }))}
+        completionIndex={completionIndex}
+        isEditing={isEditing && inputFocused}
+        getEditable={getEditable}
+        value={value}
+      />
+    ) : null
+
     if (isEditing) {
       if (useTextarea) {
         return (
           <box
             onMouseDown={
-              stopMousePropagation || (isEditing && frameCapturesInteractions)
-                ? (event) => event.stopPropagation()
+              onFocus ||
+              stopMousePropagation ||
+              (isEditing && frameCapturesInteractions)
+                ? (event) => {
+                    if (event.button === MouseButton.LEFT) onFocus?.()
+                    if (
+                      stopMousePropagation ||
+                      (isEditing && frameCapturesInteractions)
+                    ) {
+                      event.stopPropagation()
+                    }
+                  }
                 : undefined
             }
             style={{
@@ -234,15 +296,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
               paddingX={paddingX}
               focused={inputFocused}
             />
-            {showCompletion && (
-              <CompletionPopup
-                suggestions={suggestions}
-                completionIndex={completionIndex}
-                isEditing={isEditing && inputFocused}
-                getEditable={getEditable}
-                value={value}
-              />
-            )}
+            {completionPopup}
           </box>
         )
       }
@@ -250,8 +304,18 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       return (
         <box
           onMouseDown={
-            stopMousePropagation || (isEditing && frameCapturesInteractions)
-              ? (event) => event.stopPropagation()
+            onFocus ||
+            stopMousePropagation ||
+            (isEditing && frameCapturesInteractions)
+              ? (event) => {
+                  if (event.button === MouseButton.LEFT) onFocus?.()
+                  if (
+                    stopMousePropagation ||
+                    (isEditing && frameCapturesInteractions)
+                  ) {
+                    event.stopPropagation()
+                  }
+                }
               : undefined
           }
           style={{
@@ -274,15 +338,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
             cursorColor={theme.primary}
             paddingX={paddingX}
           />
-          {showCompletion && (
-            <CompletionPopup
-              suggestions={suggestions}
-              completionIndex={completionIndex}
-              isEditing={isEditing && inputFocused}
-              getEditable={getEditable}
-              value={value}
-            />
-          )}
+          {completionPopup}
         </box>
       )
     }
@@ -310,14 +366,18 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 )
 
 function CompletionPopup({
-  suggestions,
+  id,
+  items,
   completionIndex,
+  message,
   isEditing,
   getEditable,
   value,
 }: {
-  suggestions: string[]
+  id: string
+  items: { key: string; label: string }[]
   completionIndex: number
+  message?: string
   isEditing: boolean
   getEditable: () => (InputRenderable | TextareaRenderable) | null
   value: string
@@ -338,7 +398,10 @@ function CompletionPopup({
       return
     }
     const cursor = editable.visualCursor
-    const visibleCount = Math.min(suggestions.length, MAX_COMPLETION_VISIBLE)
+    const visibleCount = Math.max(
+      message ? 1 : 0,
+      Math.min(items.length, MAX_COMPLETION_VISIBLE),
+    )
     const menuHeight = visibleCount + 2
     const menuWidth = 18
     const rawX = editable.x + cursor.visualCol
@@ -353,7 +416,8 @@ function CompletionPopup({
   }, [
     getEditable,
     isEditing,
-    suggestions.length,
+    items.length,
+    message,
     terminalHeight,
     terminalWidth,
     value,
@@ -365,7 +429,7 @@ function CompletionPopup({
 
   return createPortal(
     <box
-      id="var-completion-menu"
+      id={id}
       style={{
         position: "absolute",
         top: completionAnchor.y,
@@ -381,16 +445,17 @@ function CompletionPopup({
       borderStyle="single"
       borderColor={theme.borderActive}
     >
-      {suggestions.slice(0, MAX_COMPLETION_VISIBLE).map((name, index) => (
+      {message ? <text fg={theme.textMuted}>{message}</text> : null}
+      {items.slice(0, MAX_COMPLETION_VISIBLE).map((item, index) => (
         <box
-          key={name}
+          key={item.key}
           style={{
             backgroundColor:
               index === completionIndex ? theme.backgroundElement : undefined,
           }}
         >
           <text fg={index === completionIndex ? theme.primary : theme.text}>
-            ${name}
+            {item.label}
           </text>
         </box>
       ))}

@@ -20,7 +20,7 @@ One request per file. Fields:
 | `path_params` | no | list | `[]` | Values for `:name` URL path tokens. Omit if empty. See format below. |
 | `body` | no | string | — | Raw request body. Omit if no body |
 | `form_data` | no | list | — | Multipart form entries. Omit if empty |
-| `file_path` | no | string | — | Path to file for binary uploads |
+| `file_path` | no | string | — | Path to file for binary uploads. `@/` starts at the user's home directory |
 | `auth` | no | map | — | Auth config. Omit for no auth |
 
 ### Params
@@ -84,10 +84,16 @@ form_data:
   - name: fieldName
     value: fieldValue
   - name: fileField
-    value: ./path/to/file.pdf
+    value: '@/Documents/file.pdf'
     type: file
 ```
 Each entry: `name` (string, required), `value` (string, required), `enabled` (boolean, default true), `type` (`"text"` or `"file"`, default `"text"`).
+
+File entries and binary `file_path` support `@/relative/path` as a portable
+shorthand for the current user's home directory. Quote these values because a
+YAML plain scalar cannot begin with `@`. Absolute paths, ordinary relative
+paths, and `$variable` paths remain supported; an environment variable may
+also resolve to an `@/` path.
 
 ### Auth
 
@@ -106,7 +112,7 @@ Each entry: `name` (string, required), `value` (string, required), `enabled` (bo
 When `body_type: binary`, set `file_path` to the file to upload:
 ```yaml
 body_type: binary
-file_path: ./data/photo.png
+file_path: '@/Documents/photo.png'
 ```
 
 ### Minimal valid request

@@ -22,6 +22,8 @@ import {
   syncCodeEditorGutter,
 } from "../editor/codeEditorGutter"
 
+const FILE_PATH_COMPLETION = { kind: "file" as const }
+
 export function BodyTypeSelector({
   request,
   editState,
@@ -102,6 +104,7 @@ export function BodySection({
   onEditorActivate,
   onEditorRef,
   onFormRowActivate,
+  onFormSubfieldFocus,
   onFormRowToggle,
 }: {
   request: Request
@@ -117,7 +120,12 @@ export function BodySection({
   onBodyChange: (body: string) => void
   onEditorActivate?: () => void
   onEditorRef?: (editor: CodeEditorRenderable | null) => void
-  onFormRowActivate?: (row: number, addingRow: boolean) => void
+  onFormRowActivate?: (
+    row: number,
+    addingRow: boolean,
+    subfield?: "key" | "value",
+  ) => void
+  onFormSubfieldFocus?: (subfield: "key" | "value") => void
   onFormRowToggle?: (row: number) => void
 }) {
   const bodyType = request.bodyType ?? "json"
@@ -248,6 +256,7 @@ export function BodySection({
           theme={theme}
           activeEnv={activeEnv}
           onActivateRow={onFormRowActivate}
+          onFocusSubfield={onFormSubfieldFocus}
           onToggleRow={onFormRowToggle}
         />
       ) : isBinaryMode ? (
@@ -261,6 +270,7 @@ export function BodySection({
             placeholder="File path..."
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
+            pathCompletion={FILE_PATH_COMPLETION}
           />
         ) : (
           <box

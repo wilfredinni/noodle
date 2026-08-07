@@ -190,6 +190,17 @@ function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
   return FIELD_ORDER[next]!
 }
 
+export function detectFormType(value: string): {
+  formType: "text" | "file"
+  cleanValue: string
+} {
+  const fileMatch = value.match(/^@file\((.+)\)$/)
+  if (fileMatch) {
+    return { formType: "file", cleanValue: fileMatch[1]! }
+  }
+  return { formType: "text", cleanValue: value }
+}
+
 export interface UseEditBrowseResult {
   editState: EditState
   editValue: string
@@ -223,6 +234,7 @@ export interface UseEditBrowseResult {
     addingRow?: boolean,
     subfield?: "key" | "value",
   ) => void
+  focusSubfield: (subfield: "key" | "value") => void
   toggleAt: (field: FieldKind, row: number) => void
   canEnterJsonBodyEditor: boolean
   isEditingJsonBody: boolean
@@ -386,6 +398,14 @@ export function useEditBrowse(
     },
     [draftMutators],
   )
+
+  const focusSubfield = useCallback((subfield: "key" | "value") => {
+    setEditState((prev) =>
+      prev.mode === "editing"
+        ? { ...prev, cursor: { ...prev.cursor, subfield } }
+        : prev,
+    )
+  }, [])
 
   const enterAndEdit = useCallback(() => {
     if (activeTab === "activity") return
@@ -635,17 +655,6 @@ export function useEditBrowse(
     setEditState((prev) => beginEditing(prev))
   }, [])
 
-  function detectFormType(value: string): {
-    formType: "text" | "file"
-    cleanValue: string
-  } {
-    const fileMatch = value.match(/^@file\((.+)\)$/)
-    if (fileMatch) {
-      return { formType: "file", cleanValue: fileMatch[1]! }
-    }
-    return { formType: "text", cleanValue: value }
-  }
-
   const commitEdit = useCallback(() => {
     const state = editStateRef.current
     if (state.mode !== "editing") return
@@ -861,6 +870,7 @@ export function useEditBrowse(
       cycleInactiveTab,
       enterBrowseAt,
       activateAt,
+      focusSubfield,
       toggleAt,
       canEnterJsonBodyEditor,
       isEditingJsonBody,
@@ -876,6 +886,7 @@ export function useEditBrowse(
       enterBrowse,
       enterBrowseAt,
       activateAt,
+      focusSubfield,
       toggleAt,
       exitBrowse,
       browseUp,

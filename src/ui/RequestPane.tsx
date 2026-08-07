@@ -48,6 +48,7 @@ interface Props {
     addingRow?: boolean,
     subfield?: "key" | "value",
   ) => void
+  onFieldSubfieldFocus?: (subfield: "key" | "value") => void
   onFieldToggle?: (field: FieldKind, row: number) => void
   onInteraction?: () => void
   interactive?: boolean
@@ -85,6 +86,7 @@ export function RequestPane({
   onAuthFocusRow,
   onBodyEditorFocus,
   onFieldActivate,
+  onFieldSubfieldFocus,
   onFieldToggle,
   onInteraction,
   interactive = true,
@@ -236,16 +238,18 @@ export function RequestPane({
                   onBodyChange={onBodyChange ?? (() => {})}
                   onFormRowActivate={
                     onFieldActivate
-                      ? (row, addingRow) => {
+                      ? (row, addingRow, subfield) => {
                           onPaneFocus?.()
                           onFieldActivate(
                             "body",
                             addingRow ? -1 : row + 1,
                             addingRow,
+                            subfield,
                           )
                         }
                       : undefined
                   }
+                  onFormSubfieldFocus={onFieldSubfieldFocus}
                   onFormRowToggle={
                     onFieldToggle
                       ? (row) => {
@@ -292,17 +296,19 @@ export function RequestPane({
                       onBodyChange={onBodyChange ?? (() => {})}
                       onFormRowActivate={
                         onFieldActivate
-                          ? (row, addingRow) => {
+                          ? (row, addingRow, subfield) => {
                               onInteraction?.()
                               onPaneFocus?.()
                               onFieldActivate(
                                 "body",
                                 addingRow ? -1 : row + 1,
                                 addingRow,
+                                subfield,
                               )
                             }
                           : undefined
                       }
+                      onFormSubfieldFocus={onFieldSubfieldFocus}
                       onFormRowToggle={
                         onFieldToggle
                           ? (row) => {

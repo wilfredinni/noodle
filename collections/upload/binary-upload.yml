@@ -5,4 +5,4 @@ timeout: 0
 followRedirects: true
 maxRedirects: 5
 body_type: binary
-file_path: /Users/carlosmontecinos/Projects/noodle/README.md
+file_path: '@/Projects/noodle/README.md'

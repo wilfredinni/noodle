@@ -110,6 +110,7 @@ export function RequestResponseView({
           onAuthFocusRow={onRequestAuthFocusRow}
           onBodyEditorFocus={onRequestBodyEditorFocus}
           onFieldActivate={onRequestFieldActivate}
+          onFieldSubfieldFocus={eb.focusSubfield}
           onFieldToggle={onRequestFieldToggle}
           onInteraction={onRequestInteraction}
           interactive={urlbarInteractive}
