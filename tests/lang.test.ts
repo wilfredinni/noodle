@@ -720,6 +720,30 @@ describe("lang.serializeRequest — body_type, form_data, file_path", () => {
     expect(out).toContain("file_path: /tmp/data.bin")
   })
 
+  it("quotes and round-trips home-relative file paths", () => {
+    const binary = makeReq({
+      bodyType: "binary",
+      filePath: "@/Documents/data.bin",
+    })
+    const multipart = makeReq({
+      bodyType: "multipart",
+      formData: [
+        {
+          name: "photo",
+          value: "@/Pictures/photo.png",
+          enabled: true,
+          type: "file",
+        },
+      ],
+    })
+    const binaryYaml = lang.serializeRequest(binary)
+    const multipartYaml = lang.serializeRequest(multipart)
+    expect(binaryYaml).toContain("file_path: '@/Documents/data.bin'")
+    expect(multipartYaml).toContain("value: '@/Pictures/photo.png'")
+    expect(lang.parseRequest(binary.id, binaryYaml)).toEqual(binary)
+    expect(lang.parseRequest(multipart.id, multipartYaml)).toEqual(multipart)
+  })
+
   it("includes body_type when json (explicitly set)", () => {
     const out = lang.serializeRequest(makeReq({ bodyType: "json", body: "hi" }))
     expect(out).toContain("body_type: json")

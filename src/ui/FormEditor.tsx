@@ -6,6 +6,8 @@ import type { Theme } from "./theme"
 import { Checkbox } from "./Checkbox"
 import { VarInput } from "./VarInput"
 
+const FILE_PATH_COMPLETION = { kind: "file" as const }
+
 export interface FormEditorProps {
   request: {
     formData?: FormEntry[]
@@ -202,6 +204,11 @@ export function FormEditor({
                     isEditingThisRow ? theme.backgroundElement : undefined
                   }
                   focusedBackgroundColor={theme.borderSubtle}
+                  pathCompletion={
+                    request.bodyType === "multipart" && entry.type === "file"
+                      ? FILE_PATH_COMPLETION
+                      : undefined
+                  }
                   paddingX={1}
                   style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
                 />
@@ -282,6 +289,11 @@ export function FormEditor({
                       : undefined
                   }
                   focusedBackgroundColor={theme.borderSubtle}
+                  pathCompletion={
+                    request.bodyType === "multipart"
+                      ? FILE_PATH_COMPLETION
+                      : undefined
+                  }
                   paddingX={1}
                   style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
                 />

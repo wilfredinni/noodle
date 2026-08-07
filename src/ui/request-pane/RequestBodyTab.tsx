@@ -22,6 +22,8 @@ import {
   syncCodeEditorGutter,
 } from "../editor/codeEditorGutter"
 
+const FILE_PATH_COMPLETION = { kind: "file" as const }
+
 export function BodyTypeSelector({
   request,
   editState,
@@ -261,6 +263,7 @@ export function BodySection({
             placeholder="File path..."
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.borderSubtle}
+            pathCompletion={FILE_PATH_COMPLETION}
           />
         ) : (
           <box

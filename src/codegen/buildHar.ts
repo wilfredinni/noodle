@@ -1,4 +1,5 @@
 import type { Environment, KvEntry, Request } from "../schema"
+import { expandUserPath } from "../userPath"
 import { hashVars } from "./variableHash"
 
 const VAR_RE = /\$(\w+)/g
@@ -274,18 +275,21 @@ function buildPostData(req: Request): HarPostData | undefined {
       if (entries.length === 0) return undefined
       return {
         mimeType: "multipart/form-data",
-        params: entries.map((e) => ({
-          name: e.name,
-          value: e.value,
-          ...(e.type === "file" ? { fileName: e.value } : {}),
-        })),
+        params: entries.map((e) => {
+          const value = e.type === "file" ? expandUserPath(e.value) : e.value
+          return {
+            name: e.name,
+            value,
+            ...(e.type === "file" ? { fileName: value } : {}),
+          }
+        }),
       }
     }
     case "binary": {
       if (!req.filePath) return undefined
       return {
         mimeType: "application/octet-stream",
-        text: req.filePath,
+        text: expandUserPath(req.filePath),
       }
     }
     default:

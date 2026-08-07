@@ -15,6 +15,7 @@ import type { SubstitutedRequest } from "./substitute"
 import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
+import { expandUserPath } from "../userPath"
 
 export function interpolatePathParams(
   url: string,
@@ -340,10 +341,11 @@ export async function bodyForSend(
     for (const entry of req.formData) {
       if (!entry.enabled) continue
       if (entry.type === "file") {
-        if (!(await Bun.file(entry.value).exists())) {
+        const filePath = expandUserPath(entry.value)
+        if (!(await Bun.file(filePath).exists())) {
           throw new Error(`file not found: ${entry.value}`)
         }
-        fd.append(entry.name, Bun.file(entry.value))
+        fd.append(entry.name, Bun.file(filePath))
       } else {
         fd.append(entry.name, entry.value)
       }
@@ -353,11 +355,12 @@ export async function bodyForSend(
 
   if (req.bodyType === "binary") {
     if (req.filePath) {
-      if (!(await Bun.file(req.filePath).exists())) {
+      const filePath = expandUserPath(req.filePath)
+      if (!(await Bun.file(filePath).exists())) {
         throw new Error(`file not found: ${req.filePath}`)
       }
       headers.set("content-type", "application/octet-stream")
-      return Bun.file(req.filePath) as unknown as BodyInit
+      return Bun.file(filePath) as unknown as BodyInit
     }
     return undefined
   }

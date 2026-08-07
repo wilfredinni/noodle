@@ -90,6 +90,7 @@ plus bearer, basic, and API-key authentication.
   authentication, and request settings.
 - JSON, form, multipart, and binary request bodies, plus bearer, basic, and
   API-key authentication.
+- Home-rooted `@` path completion for multipart file fields and binary uploads.
 - Folders with inheritable headers and authentication, alongside environments
   with `$variable` substitution and a built-in editor.
 

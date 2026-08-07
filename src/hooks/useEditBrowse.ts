@@ -190,6 +190,20 @@ function cycleField(current: FieldKind, delta: 1 | -1): FieldKind {
   return FIELD_ORDER[next]!
 }
 
+export function detectFormType(value: string): {
+  formType: "text" | "file"
+  cleanValue: string
+} {
+  const fileMatch = value.match(/^@file\((.+)\)$/)
+  if (fileMatch) {
+    return { formType: "file", cleanValue: fileMatch[1]! }
+  }
+  if (value.startsWith("@/")) {
+    return { formType: "file", cleanValue: value }
+  }
+  return { formType: "text", cleanValue: value }
+}
+
 export interface UseEditBrowseResult {
   editState: EditState
   editValue: string
@@ -634,17 +648,6 @@ export function useEditBrowse(
     }
     setEditState((prev) => beginEditing(prev))
   }, [])
-
-  function detectFormType(value: string): {
-    formType: "text" | "file"
-    cleanValue: string
-  } {
-    const fileMatch = value.match(/^@file\((.+)\)$/)
-    if (fileMatch) {
-      return { formType: "file", cleanValue: fileMatch[1]! }
-    }
-    return { formType: "text", cleanValue: value }
-  }
 
   const commitEdit = useCallback(() => {
     const state = editStateRef.current

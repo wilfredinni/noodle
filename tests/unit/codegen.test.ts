@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test"
+import { homedir } from "node:os"
+import { join } from "node:path"
 import { generateCode, findCodeTarget } from "../../src/codegen"
 import { buildHar } from "../../src/codegen/buildHar"
 import { CODE_TARGETS } from "../../src/codegen/targets"
@@ -215,6 +217,36 @@ describe("buildHar", () => {
     })
     expect(har.postData?.mimeType).toBe("application/octet-stream")
     expect(har.postData?.text).toBe("$FILE")
+  })
+
+  it("expands home-relative multipart and binary file paths", () => {
+    const path = join(homedir(), "Documents", "upload.bin")
+    const multipart = buildHar(
+      makeRequest({
+        bodyType: "multipart",
+        body: undefined,
+        formData: [
+          {
+            name: "file",
+            value: "@/Documents/upload.bin",
+            enabled: true,
+            type: "file",
+          },
+        ],
+      }),
+    )
+    const binary = buildHar(
+      makeRequest({
+        bodyType: "binary",
+        body: undefined,
+        filePath: "@/Documents/upload.bin",
+      }),
+    )
+
+    expect(multipart.har.postData?.params).toEqual([
+      { name: "file", value: path, fileName: path },
+    ])
+    expect(binary.har.postData?.text).toBe(path)
   })
 
   it("returns no postData for none body type", () => {

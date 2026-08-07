@@ -186,6 +186,7 @@ tests/integration/ # Integration tests
 - **Request IDs** are collection-relative paths without `.yml`; reject traversal, absolute paths, backslashes, empty segments, and hidden segments.
 - **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color.
 - **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth.
+- **`@/path` home syntax** for multipart file values and binary `file_path`; the TUI completes from the user home directory and expands the shorthand only when reading the file.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.
 - **Read-only TUI modes**: Browse and empty modes allow inspection plus global UI actions, but block request/folder/environment edits, saves, sends, and collection-only keybindings until initialized.
 - **UI features require loading the `opentui` skill**. The skill lives at `.agents/skills/opentui/SKILL.md`.

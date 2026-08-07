@@ -117,11 +117,12 @@ form_data:
   - name: description
     value: A photo
   - name: file
-    value: ./photo.png
+    value: '@/Pictures/photo.png'
     type: file
 ```
 
 `form_data` for multipart. Text fields (default `type: "text"`) send string values. File fields (`type: "file"`) send file contents from `value` path.
+`@/` means the current user's home directory and must be quoted in YAML.
 
 ## Complete environment file
 
