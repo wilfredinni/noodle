@@ -107,5 +107,4 @@ describe("ExportCollectionOverlay", () => {
     )
     cleanup()
   })
-
 })
