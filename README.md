@@ -150,8 +150,9 @@ The output directory must be new or empty and is created with
 `<environment>.postman_environment.json` file per Noodle environment. Environment
 values are always redacted to empty strings, while enabled/disabled states are
 preserved. Request literals in URLs, headers, parameters, bodies, file paths, and
-auth fields stay runnable and can contain secrets—review them before sharing an
-export. Response timeline data is never exported.
+auth fields stay runnable and can contain secrets. Home-relative `@/` file paths
+expand to absolute paths, which can expose local usernames and directories, so
+review exports before sharing them. Response timeline data is never exported.
 
 ## Automation CLI
 

@@ -8,6 +8,7 @@ import type {
 } from "../../schema"
 import { Url as PmUrl } from "postman-collection"
 import { mergeFolderOverrides } from "../../requests/mergeFolderOverrides"
+import { expandUserPath } from "../../userPath"
 
 type PostmanObject = Record<string, unknown>
 
@@ -124,7 +125,7 @@ function postmanFormData(
       type: entry.type,
     }
     if (multipart && entry.type === "file") {
-      result.src = toPostmanTpl(entry.value)
+      result.src = expandUserPath(toPostmanTpl(entry.value))
     } else {
       result.value = toPostmanTpl(entry.value)
     }
@@ -157,7 +158,7 @@ function postmanBody(request: Request): PostmanObject | undefined {
   }
   return {
     mode: "file",
-    file: { src: toPostmanTpl(request.filePath ?? "") },
+    file: { src: expandUserPath(toPostmanTpl(request.filePath ?? "")) },
   }
 }
 
