@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect } from "bun:test"
 import { testRender as openTUITestRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import { act } from "react"
 import { useState } from "react"
 import { createTestKeymap } from "@opentui/keymap/testing"
@@ -76,6 +77,12 @@ function hexToRgba(hex: string): RGBA {
     Number.parseInt(hex.slice(3, 5), 16),
     Number.parseInt(hex.slice(5, 7), 16),
   )
+}
+
+function findTextPosition(frame: string, text: string) {
+  const rows = frame.split("\n")
+  const y = rows.findIndex((row) => row.includes(text))
+  return { x: rows[y]!.indexOf(text), y }
 }
 
 describe("VarInput — display mode (isEditing=false)", () => {
@@ -364,6 +371,32 @@ describe("VarInput — edit mode (isEditing=true)", () => {
     cleanup()
   })
 
+  it("accepts a suggestion with the mouse", async () => {
+    const { renderOnce, captureCharFrame, mockInput, mockMouse } =
+      await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CompletionHarness
+            environment={env({ host: "localhost", token: "secret" })}
+          />
+        </ThemeProvider>,
+        { width: 80, height: 8 },
+      )
+    await renderOnce()
+    await act(async () => {
+      await mockInput.typeText("$")
+    })
+    await renderOnce()
+
+    const { x, y } = findTextPosition(captureCharFrame(), "$token")
+    await act(async () => {
+      await mockMouse.click(x, y, MouseButtons.LEFT)
+    })
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("$token")
+    expect(captureCharFrame()).not.toContain("┌")
+  })
+
   it("dismisses completion with Escape, reopens on new $ token", async () => {
     const { keymap, host, cleanup } = createTestKeymap()
     const { renderOnce, captureCharFrame, mockInput } = await testRender(
@@ -519,6 +552,39 @@ describe("VarInput — edit mode (isEditing=true)", () => {
 })
 
 describe("VarInput — path completion", () => {
+  it("accepts a path suggestion with the mouse", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-var-path-"))
+    await writeFile(join(root, "avatar.png"), "avatar")
+
+    try {
+      const {
+        renderOnce,
+        captureCharFrame,
+        mockInput,
+        mockMouse,
+        waitForFrame,
+      } = await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <PathCompletionHarness root={root} wrapFileSelection />
+        </ThemeProvider>,
+        { width: 100, height: 12 },
+      )
+      await renderOnce()
+      await act(async () => mockInput.typeText("@"))
+      await waitForFrame((frame) => frame.includes("avatar.png"))
+
+      const { x, y } = findTextPosition(captureCharFrame(), "avatar.png")
+      await act(async () => {
+        await mockMouse.click(x, y, MouseButtons.LEFT)
+      })
+      await renderOnce()
+
+      expect(captureCharFrame()).toContain("@file(@/avatar.png)")
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it("marks an accepted file as explicit file input when requested", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-var-path-"))
     await writeFile(join(root, "avatar.png"), "avatar")

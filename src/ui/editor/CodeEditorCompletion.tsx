@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { MouseButton } from "@opentui/core"
 import type { CodeEditorRenderable } from "./CodeEditor"
 import type { Environment } from "../../schema"
 import { registerVariableCompletion } from "../variable-completion/variableCompletionInterceptor"
@@ -38,12 +39,23 @@ export function CodeEditorCompletion({
 
   const variableNames = useMemo(() => Object.keys(env?.vars ?? {}), [env?.vars])
 
-  const { completion, makeHandleKey } = useVariableCompletion({
-    getEditor,
-    variableNames,
-    value,
-    isEditing,
-  })
+  const { completion, makeHandleKey, acceptSuggestion } = useVariableCompletion(
+    {
+      getEditor,
+      variableNames,
+      value,
+      isEditing,
+    },
+  )
+
+  const selectCompletion = useCallback(
+    (name: string): boolean => {
+      if (!acceptSuggestion(name)) return false
+      setCompletionDismissed(true)
+      return true
+    },
+    [acceptSuggestion],
+  )
 
   const handleKey = useMemo(
     () =>
@@ -127,6 +139,13 @@ export function CodeEditorCompletion({
         .map((name, index) => (
           <box
             key={name}
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT || !selectCompletion(name))
+                return
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onMouseOver={() => setCompletionIndex(index)}
             style={{
               backgroundColor:
                 index === completionIndex ? theme.backgroundElement : undefined,

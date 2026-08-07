@@ -104,12 +104,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
     const inputFocused = isFocused ?? true
 
-    const { completion, makeHandleKey } = useVariableCompletion({
-      getEditor: getEditable,
-      variableNames: suggestionNames,
-      value,
-      isEditing: isEditing && inputFocused,
-    })
+    const { completion, makeHandleKey, acceptSuggestion } =
+      useVariableCompletion({
+        getEditor: getEditable,
+        variableNames: suggestionNames,
+        value,
+        isEditing: isEditing && inputFocused,
+      })
 
     const applyHighlights = useCallback(() => {
       const editable = getEditable()
@@ -162,6 +163,25 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       applyHighlights()
     }, [applyHighlights, isEditing, value])
 
+    const handleCompletionAccepted = useCallback(() => {
+      const editable = getEditable()
+      if (editable) {
+        const text = editable.plainText
+        onChange?.(text)
+        highlightVariables(editable, text, theme, env, pathParams)
+      }
+    }, [env, getEditable, onChange, pathParams, theme])
+
+    const selectCompletion = useCallback(
+      (name: string): boolean => {
+        if (!acceptSuggestion(name)) return false
+        setCompletionDismissed(true)
+        handleCompletionAccepted()
+        return true
+      },
+      [acceptSuggestion, handleCompletionAccepted],
+    )
+
     const handleCompletionKey = useMemo(
       () =>
         makeHandleKey({
@@ -169,24 +189,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
           completionIndex,
           setCompletionIndex,
           setCompletionDismissed,
-          onAccept: () => {
-            const editable = getEditable()
-            if (editable) {
-              const text = editable.plainText
-              onChange?.(text)
-              highlightVariables(editable, text, theme, env, pathParams)
-            }
-          },
+          onAccept: handleCompletionAccepted,
         }),
       [
         completionDismissed,
         completionIndex,
-        env,
-        getEditable,
+        handleCompletionAccepted,
         makeHandleKey,
-        onChange,
-        theme,
-        pathParams,
       ],
     )
 
@@ -247,6 +256,8 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         isEditing={isEditing && inputFocused}
         getEditable={getEditable}
         value={value}
+        onSelect={pathCompletionState.selectItem}
+        onHighlight={pathCompletionState.setSelectedIndex}
       />
     ) : showCompletion ? (
       <CompletionPopup
@@ -256,6 +267,8 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         isEditing={isEditing && inputFocused}
         getEditable={getEditable}
         value={value}
+        onSelect={(index) => selectCompletion(suggestions[index]!)}
+        onHighlight={setCompletionIndex}
       />
     ) : null
 
@@ -373,6 +386,8 @@ function CompletionPopup({
   isEditing,
   getEditable,
   value,
+  onSelect,
+  onHighlight,
 }: {
   id: string
   items: { key: string; label: string }[]
@@ -381,6 +396,8 @@ function CompletionPopup({
   isEditing: boolean
   getEditable: () => (InputRenderable | TextareaRenderable) | null
   value: string
+  onSelect?: (index: number) => boolean
+  onHighlight?: (index: number) => void
 }) {
   const renderer = useRenderer()
   const { width: terminalWidth, height: terminalHeight } =
@@ -449,6 +466,17 @@ function CompletionPopup({
       {items.slice(0, MAX_COMPLETION_VISIBLE).map((item, index) => (
         <box
           key={item.key}
+          onMouseDown={
+            onSelect
+              ? (event) => {
+                  if (event.button !== MouseButton.LEFT || !onSelect(index))
+                    return
+                  event.preventDefault()
+                  event.stopPropagation()
+                }
+              : undefined
+          }
+          onMouseOver={onHighlight ? () => onHighlight(index) : undefined}
           style={{
             backgroundColor:
               index === completionIndex ? theme.backgroundElement : undefined,

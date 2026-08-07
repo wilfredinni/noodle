@@ -21,6 +21,8 @@ export interface PathCompletionState {
   items: PathCompletionItem[]
   selectedIndex: number
   message?: string
+  selectItem: (index: number) => boolean
+  setSelectedIndex: (index: number) => void
 }
 
 export function usePathCompletion({
@@ -84,6 +86,46 @@ export function usePathCompletion({
   }, [dismissed, kind, query, root, value])
 
   const active = Boolean(query && !dismissed)
+  const selectItem = useCallback(
+    (index: number, finalizeDirectory = true): boolean => {
+      const editor = getEditor()
+      if (
+        !active ||
+        !isEditing ||
+        !kind ||
+        !editor ||
+        editor.isDestroyed ||
+        !editor.focused
+      ) {
+        return false
+      }
+
+      const item = items.slice(0, MAX_COMPLETION_VISIBLE)[index]
+      if (!item) return false
+
+      const selectingDirectory =
+        item.type === "directory" && kind === "directory" && finalizeDirectory
+      let nextValue = selectingDirectory
+        ? item.value.replace(/\/$/, "")
+        : item.value
+      if (item.type === "file" && wrapFileSelection) {
+        nextValue = `@file(${nextValue})`
+      }
+
+      editor.replaceText(nextValue)
+      editor.cursorOffset = nextValue.length
+      onChange?.(nextValue)
+      setSelectedIndex(0)
+
+      if (item.type === "file" || selectingDirectory) {
+        acceptedValue.current = nextValue
+        setDismissed(true)
+      }
+      return true
+    },
+    [active, getEditor, isEditing, items, kind, onChange, wrapFileSelection],
+  )
+
   const handleKey = useCallback(
     (key: CompletionKeyEvent): boolean => {
       const editor = getEditor()
@@ -122,40 +164,9 @@ export function usePathCompletion({
       }
 
       if (key.name !== "tab" && key.name !== "return") return false
-
-      const item = visibleItems[selectedIndex] ?? visibleItems[0]!
-      const selectingDirectory =
-        item.type === "directory" &&
-        kind === "directory" &&
-        key.name === "return"
-      let nextValue = selectingDirectory
-        ? item.value.replace(/\/$/, "")
-        : item.value
-      if (item.type === "file" && wrapFileSelection) {
-        nextValue = `@file(${nextValue})`
-      }
-
-      editor.replaceText(nextValue)
-      editor.cursorOffset = nextValue.length
-      onChange?.(nextValue)
-      setSelectedIndex(0)
-
-      if (item.type === "file" || selectingDirectory) {
-        acceptedValue.current = nextValue
-        setDismissed(true)
-      }
-      return true
+      return selectItem(selectedIndex, key.name === "return")
     },
-    [
-      active,
-      getEditor,
-      isEditing,
-      items,
-      kind,
-      onChange,
-      selectedIndex,
-      wrapFileSelection,
-    ],
+    [active, getEditor, isEditing, items, kind, selectedIndex, selectItem],
   )
 
   useEffect(() => {
@@ -163,5 +174,5 @@ export function usePathCompletion({
     return registerCompletion(handleKey)
   }, [active, handleKey])
 
-  return { active, items, selectedIndex, message }
+  return { active, items, selectedIndex, message, selectItem, setSelectedIndex }
 }

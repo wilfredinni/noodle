@@ -3,6 +3,7 @@ import { act } from "react"
 import { useState } from "react"
 import { extend } from "@opentui/react"
 import { testRender } from "@opentui/react/test-utils"
+import { MouseButtons } from "@opentui/core/testing"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
@@ -20,6 +21,7 @@ function Harness({ env }: { env: Environment }) {
   return (
     <box width={60} height={10}>
       <code-editor
+        id="test-editor"
         ref={(next) => {
           setEditor(next)
           next?.focus()
@@ -62,5 +64,30 @@ describe("CodeEditorCompletion", () => {
     await renderOnce()
     expect(captureCharFrame()).toContain("$host")
     cleanup()
+  })
+
+  it("accepts a suggestion with the mouse", async () => {
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
+      await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            env={{ name: "test", vars: { host: "localhost", token: "secret" } }}
+          />
+        </ThemeProvider>,
+        { width: 60, height: 10 },
+      )
+
+    await renderOnce()
+    const rows = captureCharFrame().split("\n")
+    const y = rows.findIndex((row) => row.includes("$host"))
+    await act(async () => {
+      await mockMouse.click(rows[y]!.indexOf("$host"), y, MouseButtons.LEFT)
+    })
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "test-editor",
+    ) as CodeEditorRenderable
+    expect(editor.plainText).toBe("$host")
   })
 })
