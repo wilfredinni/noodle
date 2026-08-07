@@ -7,6 +7,8 @@ import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
+import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
+import type { ExportCollectionValues } from "./collectionExport"
 import type {
   NewEnvironmentOverlayHandle,
   NewEnvironmentValues,
@@ -74,6 +76,10 @@ export function useOverlayIntercepts(opts: {
     name: string
     folderPath: string
   }) => void
+  exportCollectionVisible: boolean
+  exportCollectionRef: RefObject<ExportCollectionOverlayHandle | null>
+  onExportCollectionCancel: () => void
+  onExportCollectionConfirm: (values: ExportCollectionValues) => void
   editRequestVisible: boolean
   editRequestRef: RefObject<NewRequestOverlayHandle | null>
   setEditRequestVisible: (v: boolean) => void
@@ -141,6 +147,14 @@ export function useOverlayIntercepts(opts: {
     onCancel: () => opts.setImportCurlVisible(false),
   })
 
+  const exportCollectionActions = useFormOverlayIntercept({
+    visible: opts.exportCollectionVisible,
+    handleRef: opts.exportCollectionRef,
+    onConfirm: opts.onExportCollectionConfirm,
+    onCancel: opts.onExportCollectionCancel,
+    passThroughFocuses: ["format"],
+  })
+
   const editRequestActions = useFormOverlayIntercept({
     visible: opts.editRequestVisible,
     handleRef: opts.editRequestRef,
@@ -170,6 +184,7 @@ export function useOverlayIntercepts(opts: {
     newEnvironment: newEnvironmentActions,
     newRequest: newRequestActions,
     importCurl: importCurlActions,
+    exportCollection: exportCollectionActions,
     editRequest: editRequestActions,
     cloneRequest: cloneRequestActions,
     newFolder: newFolderActions,

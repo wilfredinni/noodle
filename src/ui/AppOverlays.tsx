@@ -1,4 +1,5 @@
 import type { RefObject } from "react"
+import { basename } from "node:path"
 import { HelpOverlay } from "./overlays/HelpOverlay"
 import { AboutOverlay } from "./overlays/AboutOverlay"
 import { ConfirmOverlay } from "./overlays/ConfirmOverlay"
@@ -31,6 +32,10 @@ import {
   ImportCurlOverlay,
   type ImportCurlOverlayHandle,
 } from "./overlays/ImportCurlOverlay"
+import {
+  ExportCollectionOverlay,
+  type ExportCollectionOverlayHandle,
+} from "./overlays/ExportCollectionOverlay"
 import type {
   Collection,
   Environment,
@@ -115,6 +120,9 @@ interface AppOverlaysProps {
   importCurlRef: RefObject<ImportCurlOverlayHandle | null>
   importCurlActions: { confirm: () => void; cancel: () => void }
   importCurlInitialFolder: string
+  exportCollectionVisible: boolean
+  exportCollectionRef: RefObject<ExportCollectionOverlayHandle | null>
+  exportCollectionActions: { confirm: () => void; cancel: () => void }
   activeEnv: Environment | null
   editRequestVisible: boolean
   selectedRequest: NoodleRequest | null
@@ -212,6 +220,9 @@ export function AppOverlays({
   importCurlRef,
   importCurlActions,
   importCurlInitialFolder,
+  exportCollectionVisible,
+  exportCollectionRef,
+  exportCollectionActions,
   activeEnv,
   editRequestVisible,
   selectedRequest,
@@ -403,6 +414,17 @@ export function AppOverlays({
           initialFolderPath={importCurlInitialFolder}
           onConfirm={importCurlActions.confirm}
           onClose={importCurlActions.cancel}
+        />
+      )}
+      {exportCollectionVisible && (
+        <ExportCollectionOverlay
+          visible
+          ref={exportCollectionRef}
+          collectionName={
+            collection?.name ?? (basename(collectionDir) || "collection")
+          }
+          onConfirm={exportCollectionActions.confirm}
+          onClose={exportCollectionActions.cancel}
         />
       )}
       {editRequestVisible && (

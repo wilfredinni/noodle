@@ -35,6 +35,7 @@ import {
   undoAll,
   openThemePicker,
   openAbout,
+  openCollectionExport,
   openCollectionSwitcher,
   type CommandActionsConfig,
 } from "./commandActions"
@@ -96,6 +97,9 @@ export interface CommandBuilderContext {
   ) => void
   setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCodeGeneratorVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setExportCollectionVisible: (
+    v: boolean | ((prev: boolean) => boolean),
+  ) => void
   setYamlEditor: (
     v: YamlEditorState | ((prev: YamlEditorState) => YamlEditorState),
   ) => void
@@ -180,6 +184,7 @@ export function buildCommandPaletteCommands(
     setCollectionSwitcherVisible,
     setRequestFinderVisible,
     setCodeGeneratorVisible,
+    setExportCollectionVisible,
     setEnvDeletePending,
     getCollectionMode,
     triggerUpdateCheck,
@@ -368,6 +373,12 @@ export function buildCommandPaletteCommands(
   ]
 
   const workspaceCommands: CommandItem[] = [
+    {
+      id: "collection.export",
+      label: "Export Collection",
+      section: "Workspace",
+      run: () => openCollectionExport(setExportCollectionVisible),
+    },
     {
       id: "folder.new",
       label: "New Folder",
