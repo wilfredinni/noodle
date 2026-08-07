@@ -53,6 +53,7 @@ import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
+import { collapseUserPath } from "../userPath"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 import { parseCurl } from "../converters/curl/parse"
 import type { ResponseQueryController } from "./responseQuery"
@@ -1290,7 +1291,9 @@ export function AppInner({
           importCollectionRef={importCollectionRef}
           importCollectionPending={importCollectionPending}
           importCollectionActions={overlayActions.importCollection}
-          importCollectionInitialParent={dirname(collectionDir)}
+          importCollectionInitialParent={collapseUserPath(
+            dirname(collectionDir),
+          )}
           importOpenPending={importOpenPending}
           codeGeneratorRequest={draft.draft}
           codeGeneratorEnv={envState.activeEnv}

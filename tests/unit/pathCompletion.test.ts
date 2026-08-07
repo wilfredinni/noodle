@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { expandUserPath } from "../../src/userPath"
+import { collapseUserPath, expandUserPath } from "../../src/userPath"
 import {
   getPathCompletionQuery,
   listPathCompletions,
@@ -86,5 +86,11 @@ describe("home path completion", () => {
     )
     expect(expandUserPath("@report", root)).toBe("@report")
     expect(expandUserPath("./report.pdf", root)).toBe("./report.pdf")
+  })
+
+  it("collapses paths inside home without changing outside paths", () => {
+    expect(collapseUserPath(root, root)).toBe("@/")
+    expect(collapseUserPath(join(root, "nested"), root)).toBe("@/nested")
+    expect(collapseUserPath(tmpdir(), root)).toBe(tmpdir())
   })
 })
