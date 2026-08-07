@@ -184,6 +184,17 @@ export class CodeEditorRenderable extends TextareaRenderable {
   get filetype(): string {
     return this._filetype
   }
+  override getSelectedText(): string {
+    const selectedText = super.getSelectedText()
+    if (!selectedText || !this._foldManager.isFoldedDisplay) return selectedText
+
+    const selection = this.getSelection()
+    if (!selection) return selectedText
+    const start = this.editBuffer.offsetToPosition(selection.start)
+    return start
+      ? this._foldManager.getSelectedSourceText(start.row, selectedText)
+      : selectedText
+  }
   override get plainText(): string {
     return this._foldManager.sourceText
   }

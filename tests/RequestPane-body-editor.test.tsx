@@ -736,10 +736,10 @@ describe("BodySection — edit mode", () => {
     })
     await renderOnce()
     const foldedFrame = captureCharFrame()
-    expect(foldedFrame).toContain("{... } (3 lines)")
+    expect(foldedFrame).toContain("{...} (3 lines)")
     const foldedLine = foldedFrame
       .split("\n")
-      .find((line) => line.includes("{... } (3 lines)"))
+      .find((line) => line.includes("{...} (3 lines)"))
     expect(foldedLine).toMatch(/▶ {2}1 /)
     cleanup()
   })

@@ -797,7 +797,7 @@ describe("ResponsePane scrollbox", () => {
     const foldedFrame = captureCharFrame()
     const dataFoldLine = foldedFrame
       .split("\n")
-      .find((line) => line.includes('"data": {... }'))
+      .find((line) => line.includes('"data": {...}'))
     expect(dataFoldLine).toMatch(/▶ {2}3 /)
     const afterLine = foldedFrame
       .split("\n")

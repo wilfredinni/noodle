@@ -55,12 +55,147 @@ describe("CodeEditorRenderable", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).toContain("{... } (3 lines)")
+    expect(frame).toContain("{...} (3 lines)")
     expect(frame).not.toContain('"second"')
     expect(editor!.lineCount).toBeLessThan(originalLineCount)
     expect(editor!.plainText).toBe(content)
     expect(editor!.getHiddenLineNumbers()).toEqual(new Set())
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
+  it("copies original source across folded rows without unfolding", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `{
+  "before": true,
+  "first": {
+    "nested": {
+      "value": 1
+    }
+  },
+  "middle": true,
+  "second": [
+    "a",
+    "b"
+  ],
+  "after": true
+}`
+    const display = `{
+  "before": true,
+  "first": {...} (4 lines)
+  "middle": true,
+  "second": [...] (3 lines)
+  "after": true
+}`
+
+    const { renderOnce } = await testRender(
+      <box width={48} height={10}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="json"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+        />
+      </box>,
+      { width: 48, height: 10 },
+    )
+
+    await renderOnce()
+    computeFolds(editor!)
+    editor!.toggleFold(8)
+    editor!.toggleFold(2)
+    await renderOnce()
+
+    const start = display.indexOf("...") + 1
+    const end = display.lastIndexOf("...") + 2
+    editor!.setSelection(start, end)
+    const selection = editor!.getSelection()
+
+    expect(editor!.getSelectedText()).toBe(
+      content.split("\n").slice(2, 12).join("\n"),
+    )
+    expect(editor!.getSelection()).toEqual(selection)
+    expect(editor!.lineCount).toBe(display.split("\n").length)
+
+    const middle = display.indexOf("middle")
+    editor!.setSelection(middle, middle + 6)
+    expect(editor!.getSelectedText()).toBe("middle")
+  })
+
+  it("copies a complete folded block from a partial mouse selection", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `{
+  "first": 1,
+  "second": 2
+}`
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
+      await testRender(
+        <box width={40} height={8}>
+          <code-editor
+            ref={(r) => {
+              editor = r
+            }}
+            filetype="json"
+            theme={opencodeTheme}
+            initialValue={content}
+            debounceMs={0}
+          />
+        </box>,
+        { width: 40, height: 8 },
+      )
+
+    await renderOnce()
+    computeFolds(editor!)
+    editor!.toggleFold(0)
+    await renderOnce()
+
+    const rows = captureCharFrame().split("\n")
+    const row = rows.find((line) => line.includes("{...}"))
+    if (!row) throw new Error("Expected folded JSON row")
+    const y = rows.indexOf(row)
+    const x = row.indexOf("...")
+
+    await act(async () => {
+      await mockMouse.pressDown(x, y, MouseButtons.LEFT)
+      await mockMouse.moveTo(x + 1, y)
+    })
+
+    expect(renderer.getSelection()?.getSelectedText()).toBe(content)
+    await mockMouse.release(x + 1, y)
+  })
+
+  it("copies original YAML from a folded read-only editor", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = `headers:
+  accept: application/json
+  enabled: true
+body_type: json`
+    const { renderOnce } = await testRender(
+      <box width={40} height={6}>
+        <code-editor
+          ref={(r) => {
+            editor = r
+          }}
+          filetype="yaml"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+        />
+      </box>,
+      { width: 40, height: 6 },
+    )
+
+    await renderOnce()
+    computeFolds(editor!)
+    editor!.toggleFold(0)
+    await renderOnce()
+
+    editor!.setSelection(1, 4)
+    expect(editor!.getSelectedText()).toBe(
+      content.split("\n").slice(0, 3).join("\n"),
+    )
   })
 
   it("uses f5 to fold all and f6 to unfold all", async () => {
@@ -488,7 +623,7 @@ describe("CodeEditorRenderable", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).toContain('"outer": {... } (2 lines)')
+    expect(frame).toContain('"outer": {...} (2 lines)')
     expect(frame).not.toContain('"inner"')
     expect(frame).toContain('"after"')
     expect(editor!.lineCount).toBe(4)
@@ -551,7 +686,7 @@ describe("CodeEditorRenderable", () => {
 
     const frame = captureCharFrame()
     expect(frame).toContain("1")
-    expect(frame).toContain("{... } (3 lines)")
+    expect(frame).toContain("{...} (3 lines)")
     expect(frame).not.toContain('"alpha"')
     expect(editor!.lineCount).toBe(1)
   })
@@ -689,7 +824,7 @@ describe("CodeEditorRenderable", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).toContain('"tags": [... ] (4 lines)')
+    expect(frame).toContain('"tags": [...] (4 lines)')
     expect(frame).not.toContain('"javascript"')
     expect(frame).not.toContain('"tutorial"')
     expect(frame).not.toContain('"web-development"')

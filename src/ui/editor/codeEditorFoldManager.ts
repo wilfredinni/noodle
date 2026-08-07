@@ -176,6 +176,27 @@ export class CodeEditorFoldManager {
     return { line: this.displayLineToSourceLine(cursor.line), col: cursor.col }
   }
 
+  getSelectedSourceText(
+    displayStartLine: number,
+    selectedText: string,
+  ): string {
+    if (!this.isFoldedDisplay || !selectedText) return selectedText
+    const sourceLines = this._sourceText.split("\n")
+    let expanded = false
+    const selectedLines = selectedText.split("\n").map((line, index) => {
+      if (!line) return line
+      const sourceLine = this._displayLineToSourceLine.get(
+        displayStartLine + index,
+      )
+      const fold =
+        sourceLine === undefined ? undefined : this._folds.get(sourceLine)
+      if (!fold?.folded) return line
+      expanded = true
+      return sourceLines.slice(fold.startLine, fold.endLine + 1).join("\n")
+    })
+    return expanded ? selectedLines.join("\n") : selectedText
+  }
+
   restoreSourceDisplay(
     preferredSourceLine?: number,
     preferredSourceCursor?: SourceCursor,
