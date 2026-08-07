@@ -87,7 +87,14 @@ export const ExportCollectionOverlay = forwardRef<
     if (focus === "output") outputRef.current?.focus()
   }, [focus])
 
-  const target = getExportTargetPath(outputDir, collectionName, format)
+  let target: string | null = null
+  let targetError: string | null = null
+  try {
+    target = getExportTargetPath(outputDir, collectionName, format)
+  } catch (error: unknown) {
+    targetError = error instanceof Error ? error.message : String(error)
+  }
+  const displayedError = errorText ?? targetError
 
   return (
     <Overlay visible={visible} width={68} padding={1} gap={1}>
@@ -161,7 +168,7 @@ export const ExportCollectionOverlay = forwardRef<
             />
           </box>
           <text fg={theme.textMuted} wrapMode="word">
-            Target: {target}
+            Target: {target ?? "unavailable"}
           </text>
         </box>
 
@@ -171,9 +178,9 @@ export const ExportCollectionOverlay = forwardRef<
             paths. Review the bundle before sharing.
           </text>
         )}
-        {errorText && (
+        {displayedError && (
           <text fg={theme.error} wrapMode="word">
-            {errorText}
+            {displayedError}
           </text>
         )}
       </box>
