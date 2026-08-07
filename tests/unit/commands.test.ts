@@ -59,6 +59,7 @@ function minimalContext(): CommandBuilderContext {
     setRequestFinderVisible: () => {},
     setCodeGeneratorVisible: () => {},
     setExportCollectionVisible: () => {},
+    setImportCollectionVisible: () => {},
     setYamlEditor: () => {},
     setView: () => {},
     setFocus: () => {},
@@ -301,6 +302,35 @@ describe("buildCommandPaletteCommands", () => {
     expect(
       buildCommandPaletteCommands(ctx).some(
         (item) => item.id === "collection.export",
+      ),
+    ).toBe(false)
+  })
+
+  it("opens collection import only from the full collection palette", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.setImportCollectionVisible = (value) => {
+      opened = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "collection.import",
+    )
+    expect(command?.run()).toBe(true)
+    expect(opened).toBe(true)
+
+    ctx.getCollectionMode = () => "browse"
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (item) => item.id === "collection.import",
+      ),
+    ).toBe(false)
+
+    ctx.getCollectionMode = () => "collection"
+    ctx.paletteTarget = "folder"
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (item) => item.id === "collection.import",
       ),
     ).toBe(false)
   })

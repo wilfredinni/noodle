@@ -296,4 +296,320 @@ describe("import — integration", () => {
       readFileSync(join(outDir, "large-ids", "post-create.yml"), "utf8"),
     ).toContain('body: |-\n  {\n    "id": 9007199254740993\n  }')
   })
+
+  it("imports directly into the current collection without reformatting existing requests", async () => {
+    const collectionDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "spec.json")
+    const existing = [
+      "name: Existing",
+      "method: POST",
+      "url: https://example.com",
+      "timeout: 0",
+      "body: '{\"existing\":true}'",
+      "headers: {}",
+      "params: []",
+      "",
+    ].join("\n")
+    await writeFile(join(collectionDir, "existing.yml"), existing)
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        openapi: "3.0.0",
+        info: { title: "Imported API" },
+        paths: {
+          "/users": {
+            post: {
+              operationId: "createUser",
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { example: { name: "Ada" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+
+    const { runImport } = await import("../../src/app/import")
+    await runImport({
+      source: specPath,
+      destination: { kind: "current", collectionDir },
+    })
+
+    expect(readFileSync(join(collectionDir, "existing.yml"), "utf8")).toBe(
+      existing,
+    )
+    expect(
+      readFileSync(join(collectionDir, "post-users.yml"), "utf8"),
+    ).toContain('body: |-\n  {\n    "name": "Ada"\n  }')
+  })
+
+  it("aborts a current-collection import before any writes when paths conflict", async () => {
+    const collectionDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "spec.json")
+    const existing = "existing content\n"
+    await writeFile(join(collectionDir, "get-users.yml"), existing)
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        openapi: "3.0.0",
+        info: { title: "Conflict API" },
+        paths: {
+          "/users": { get: { operationId: "listUsers" } },
+          "/health": { get: { operationId: "health" } },
+        },
+      }),
+    )
+
+    const { runImport } = await import("../../src/app/import")
+    await expect(
+      runImport({
+        source: specPath,
+        destination: { kind: "current", collectionDir },
+      }),
+    ).rejects.toThrow("import conflicts:\nget-users.yml")
+
+    expect(readFileSync(join(collectionDir, "get-users.yml"), "utf8")).toBe(
+      existing,
+    )
+    expect(existsSync(join(collectionDir, "get-health.yml"))).toBe(false)
+  })
+
+  it("creates a marked new collection and rejects an existing target", async () => {
+    const parentDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "spec.json")
+    await writeFile(
+      specPath,
+      JSON.stringify({
+        openapi: "3.0.0",
+        info: { title: "New API" },
+        paths: { "/ping": { get: { operationId: "ping" } } },
+      }),
+    )
+
+    const { runImport } = await import("../../src/app/import")
+    const first = await runImport({
+      source: specPath,
+      destination: { kind: "new", parentDir },
+    })
+
+    expect(first.path).toBe(join(parentDir, "new-api"))
+    expect(existsSync(join(first.path, "settings.yml"))).toBe(true)
+    expect(existsSync(join(first.path, ".environments"))).toBe(false)
+    await expect(
+      runImport({
+        source: specPath,
+        destination: { kind: "new", parentDir },
+      }),
+    ).rejects.toThrow(`import target already exists: ${first.path}`)
+  })
+
+  it("removes a partial new collection after a late write failure", async () => {
+    const parentDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "cleanup.json")
+    await writeFile(specPath, "{}")
+
+    let failEnvironmentWrite = true
+    const { registerImporter } = await import("../../src/converters")
+    registerImporter({
+      type: "cleanup-test",
+      detect: () => false,
+      import: () => ({
+        collection: {
+          id: "cleanup-test",
+          name: "Cleanup Test",
+          items: [
+            {
+              type: "request",
+              data: {
+                id: "get-ping",
+                name: "Ping",
+                method: "GET",
+                url: "https://example.com/ping",
+                timeout: 0,
+                headers: {},
+                params: [],
+              },
+            },
+          ],
+        },
+        environments: [
+          {
+            name: "default",
+            vars: failEnvironmentWrite
+              ? Object.defineProperty({}, "token", {
+                  enumerable: true,
+                  get: () => {
+                    throw new Error("environment serialization failed")
+                  },
+                })
+              : { token: "ok" },
+          },
+        ],
+      }),
+    })
+
+    const { runImport } = await import("../../src/app/import")
+    const target = join(parentDir, "cleanup-test")
+    await expect(
+      runImport({
+        source: specPath,
+        format: "cleanup-test",
+        silent: true,
+        destination: { kind: "new", parentDir },
+      }),
+    ).rejects.toThrow("environment serialization failed")
+    expect(existsSync(target)).toBe(false)
+
+    failEnvironmentWrite = false
+    await expect(
+      runImport({
+        source: specPath,
+        format: "cleanup-test",
+        silent: true,
+        destination: { kind: "new", parentDir },
+      }),
+    ).resolves.toMatchObject({ path: target })
+  })
+
+  it("auto-detects every provider for current and new destinations", async () => {
+    const providers = [
+      {
+        name: "OpenAPI",
+        collectionId: "openapi-destinations",
+        requestPath: "get-openapi.yml",
+        content: JSON.stringify({
+          openapi: "3.0.0",
+          info: { title: "OpenAPI Destinations" },
+          paths: { "/openapi": { get: { operationId: "openapi" } } },
+        }),
+      },
+      {
+        name: "Swagger",
+        collectionId: "swagger-destinations",
+        requestPath: "get-swagger.yml",
+        content:
+          'swagger: "2.0"\ninfo:\n  title: Swagger Destinations\npaths:\n  /swagger:\n    get:\n      operationId: swagger\n',
+      },
+      {
+        name: "Postman",
+        collectionId: "postman-destinations",
+        requestPath: "get-postman.yml",
+        content: JSON.stringify({
+          info: {
+            name: "Postman Destinations",
+            schema:
+              "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+          },
+          item: [
+            {
+              name: "Postman",
+              request: { method: "GET", url: "https://example.com/postman" },
+            },
+          ],
+        }),
+      },
+      {
+        name: "Insomnia",
+        collectionId: "insomnia-destinations",
+        requestPath: "get-insomnia.yml",
+        content: JSON.stringify({
+          _type: "export",
+          __export_format: 4,
+          resources: [
+            {
+              _id: "workspace",
+              _type: "workspace",
+              parentId: null,
+              name: "Insomnia Destinations",
+            },
+            {
+              _id: "request",
+              _type: "request",
+              parentId: "workspace",
+              name: "Insomnia",
+              method: "GET",
+              url: "https://example.com/insomnia",
+              headers: [],
+              parameters: [],
+              body: {},
+              authentication: {},
+            },
+          ],
+        }),
+      },
+    ]
+
+    const { runImport } = await import("../../src/app/import")
+    for (const provider of providers) {
+      const specDir = tempDir()
+      const specPath = join(specDir, `${provider.name.toLowerCase()}.json`)
+      await writeFile(specPath, provider.content)
+
+      const currentDir = tempDir()
+      await runImport({
+        source: specPath,
+        destination: { kind: "current", collectionDir: currentDir },
+      })
+      expect(existsSync(join(currentDir, provider.requestPath))).toBe(true)
+
+      const parentDir = tempDir()
+      const result = await runImport({
+        source: specPath,
+        destination: { kind: "new", parentDir },
+      })
+      expect(result.path).toBe(join(parentDir, provider.collectionId))
+      expect(existsSync(join(result.path, provider.requestPath))).toBe(true)
+      expect(existsSync(join(result.path, "settings.yml"))).toBe(true)
+    }
+  })
+
+  it("rejects duplicate planned paths before writing anything", async () => {
+    const collectionDir = tempDir()
+    const specDir = tempDir()
+    const specPath = join(specDir, "duplicate.json")
+    await writeFile(specPath, "{}")
+
+    const { runImport } = await import("../../src/app/import")
+    const { registerImporter } = await import("../../src/converters")
+    const duplicateRequest = {
+      id: "get-ping",
+      name: "Ping",
+      method: "GET" as const,
+      url: "https://example.com/ping",
+      timeout: 0,
+      headers: {},
+      params: [],
+    }
+    registerImporter({
+      type: "duplicate-test",
+      detect: () => false,
+      import: () => ({
+        collection: {
+          id: "duplicate-test",
+          name: "Duplicate Test",
+          items: [
+            { type: "request", data: duplicateRequest },
+            { type: "request", data: duplicateRequest },
+          ],
+        },
+        environments: [],
+      }),
+    })
+    await expect(
+      runImport({
+        source: specPath,
+        format: "duplicate-test",
+        destination: { kind: "current", collectionDir },
+      }),
+    ).rejects.toThrow("import conflicts:\nget-ping.yml")
+    expect(existsSync(join(collectionDir, "get-ping.yml"))).toBe(false)
+  })
 })

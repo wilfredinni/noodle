@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs"
-import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { existsSync, readFileSync, statSync } from "node:fs"
+import { mkdir, rm, writeFile } from "node:fs/promises"
+import { dirname, join, posix, relative, resolve, sep } from "node:path"
 import {
   getImporter,
   detectFormat,
@@ -8,9 +8,14 @@ import {
   supportedFormats,
   type ImportResult,
 } from "../converters/index"
-import { saveRequest, saveFolder } from "../filestore"
-import { collectionFormat } from "./services"
-import type { Collection, Environment } from "../schema"
+import { saveRequest, saveFolder, saveSettings } from "../filestore"
+import { formatJson } from "../lang/formatJson"
+import type {
+  Collection,
+  CollectionItem,
+  Environment,
+  Request,
+} from "../schema"
 
 function serializeEnv(env: Environment): string {
   let out = ""
@@ -29,27 +34,161 @@ function serializeEnv(env: Environment): string {
 async function writeCollection(
   dir: string,
   collection: Collection,
+  overwrite = true,
 ): Promise<void> {
   for (const item of collection.items) {
     if (item.type === "request") {
-      await saveRequest(dir, item.data)
+      await saveRequest(dir, item.data, { overwrite })
     } else if (item.type === "folder") {
       const folder = item.data
       await saveFolder(dir, folder)
-      await writeCollection(dir, {
-        id: folder.id,
-        name: folder.name,
-        items: folder.children,
-      })
+      await writeCollection(
+        dir,
+        {
+          id: folder.id,
+          name: folder.name,
+          items: folder.children,
+        },
+        overwrite,
+      )
     }
   }
 }
+
+function formatRequest(request: Request): {
+  request: Request
+  formatted: boolean
+} {
+  if ((request.bodyType ?? "json") !== "json" || request.body === undefined) {
+    return { request, formatted: false }
+  }
+  const body = formatJson(request.body)
+  return {
+    request: body === request.body ? request : { ...request, body },
+    formatted: body !== request.body,
+  }
+}
+
+function formatItems(items: CollectionItem[]): {
+  items: CollectionItem[]
+  formattedJsonBodies: number
+} {
+  let formattedJsonBodies = 0
+  const formattedItems = items.map((item): CollectionItem => {
+    if (item.type === "request") {
+      const formatted = formatRequest(item.data)
+      if (formatted.formatted) formattedJsonBodies++
+      return { type: "request", data: formatted.request }
+    }
+    const children = formatItems(item.data.children)
+    formattedJsonBodies += children.formattedJsonBodies
+    return {
+      type: "folder",
+      data: { ...item.data, children: children.items },
+    }
+  })
+  return { items: formattedItems, formattedJsonBodies }
+}
+
+function importPaths(
+  items: CollectionItem[],
+  environments: Environment[],
+): string[] {
+  const paths: string[] = []
+  const visit = (children: CollectionItem[]) => {
+    for (const item of children) {
+      if (item.type === "request") {
+        paths.push(`${item.data.id}.yml`)
+      } else {
+        paths.push(posix.join(item.data.path, "folder.yml"))
+        visit(item.data.children)
+      }
+    }
+  }
+  visit(items)
+  for (const environment of environments) {
+    paths.push(posix.join(".environments", `${environment.name}.env`))
+  }
+  return paths
+}
+
+function validateEnvironmentNames(environments: Environment[]): void {
+  for (const environment of environments) {
+    if (
+      !environment.name ||
+      environment.name.includes("..") ||
+      environment.name.includes("/") ||
+      environment.name.includes("\\")
+    ) {
+      throw new Error(`invalid imported environment name "${environment.name}"`)
+    }
+  }
+}
+
+function validateImportPath(root: string, path: string): void {
+  const target = resolve(root, path)
+  const rel = relative(resolve(root), target)
+  if (
+    !path ||
+    path.includes("\\") ||
+    rel === ".." ||
+    rel.startsWith(`..${sep}`)
+  ) {
+    throw new Error(`invalid imported path "${path}"`)
+  }
+}
+
+function findConflicts(
+  root: string,
+  paths: string[],
+  checkExisting: boolean,
+): string[] {
+  const conflicts = new Set<string>()
+  const planned = new Set<string>()
+  for (const path of paths) {
+    validateImportPath(root, path)
+    if (planned.has(path)) conflicts.add(path)
+    planned.add(path)
+    if (checkExisting && existsSync(join(root, path))) conflicts.add(path)
+
+    let parent = dirname(path)
+    while (parent !== ".") {
+      const parentPath = join(root, parent)
+      if (
+        checkExisting &&
+        existsSync(parentPath) &&
+        !statSync(parentPath).isDirectory()
+      ) {
+        conflicts.add(parent)
+      }
+      parent = dirname(parent)
+    }
+  }
+  return [...conflicts].sort()
+}
+
+function validateCollectionId(id: string): void {
+  if (
+    !id ||
+    id === "." ||
+    id.includes("..") ||
+    id.includes("/") ||
+    id.includes("\\")
+  ) {
+    throw new Error(`invalid imported collection id "${id}"`)
+  }
+}
+
+export type ImportDestination =
+  | { kind: "current"; collectionDir: string }
+  | { kind: "new"; parentDir: string }
 
 export interface ImportOptions {
   source: string
   format?: string
   outputDir?: string
   silent?: boolean
+  destination?: ImportDestination
 }
 
 let _importersRegistered = false
@@ -107,28 +246,95 @@ export async function runImport(
     throw new Error("nothing to import — spec contains no operations")
   }
 
-  const collDir = join(outputDir, result.collection.id)
-
-  try {
-    await writeCollection(collDir, result.collection)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    throw new Error(`failed to write collection: ${msg}`, { cause: e })
+  const formatted = formatItems(result.collection.items)
+  validateEnvironmentNames(result.environments)
+  result = {
+    ...result,
+    collection: { ...result.collection, items: formatted.items },
   }
 
-  if (result.environments.length > 0) {
-    const envDir = join(collDir, ".environments")
-    await mkdir(envDir, { recursive: true })
-    for (const env of result.environments) {
-      await writeFile(
-        join(envDir, `${env.name}.env`),
-        serializeEnv(env),
-        "utf8",
-      )
+  let collDir: string
+  let overwrite = true
+  const plannedPaths = importPaths(result.collection.items, result.environments)
+  if (options.destination?.kind === "current") {
+    collDir = options.destination.collectionDir
+    if (!existsSync(collDir) || !statSync(collDir).isDirectory()) {
+      throw new Error(`import target is not a directory: ${collDir}`)
     }
+    overwrite = false
+    const conflicts = findConflicts(collDir, plannedPaths, true)
+    if (conflicts.length > 0) {
+      throw new Error(`import conflicts:\n${conflicts.join("\n")}`)
+    }
+  } else if (options.destination?.kind === "new") {
+    validateCollectionId(result.collection.id)
+    const parentDir = options.destination.parentDir
+    if (!existsSync(parentDir) || !statSync(parentDir).isDirectory()) {
+      throw new Error(`import parent is not a directory: ${parentDir}`)
+    }
+    collDir = join(parentDir, result.collection.id)
+    if (existsSync(collDir)) {
+      throw new Error(`import target already exists: ${collDir}`)
+    }
+    const conflicts = findConflicts(collDir, plannedPaths, false)
+    if (conflicts.length > 0) {
+      throw new Error(`import conflicts:\n${conflicts.join("\n")}`)
+    }
+  } else {
+    collDir = join(outputDir, result.collection.id)
   }
 
-  const formatted = await collectionFormat(collDir)
+  for (const path of plannedPaths) {
+    validateImportPath(collDir, path)
+  }
+
+  let removePartialImport = false
+  try {
+    if (options.destination?.kind === "new") {
+      await mkdir(collDir)
+      removePartialImport = true
+    }
+
+    try {
+      await writeCollection(collDir, result.collection, overwrite)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw new Error(`failed to write collection: ${msg}`, { cause: e })
+    }
+
+    if (result.environments.length > 0) {
+      const envDir = join(collDir, ".environments")
+      await mkdir(envDir, { recursive: true })
+      for (const env of result.environments) {
+        await writeFile(
+          join(envDir, `${env.name}.env`),
+          serializeEnv(env),
+          overwrite ? "utf8" : { encoding: "utf8", flag: "wx" },
+        )
+      }
+    }
+
+    if (removePartialImport) {
+      await saveSettings(collDir, {})
+    }
+  } catch (e) {
+    if (removePartialImport) {
+      try {
+        await rm(collDir, { recursive: true, force: true })
+      } catch (cleanupError) {
+        const message = e instanceof Error ? e.message : String(e)
+        const cleanupMessage =
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : String(cleanupError)
+        throw new Error(
+          `${message}; failed to clean up partial import: ${cleanupMessage}`,
+          { cause: cleanupError },
+        )
+      }
+    }
+    throw e
+  }
 
   if (!options.silent)
     process.stdout.write(`Imported ${result.collection.name} → ${collDir}\n`)

@@ -38,6 +38,10 @@ export function upsertCollectionPath(paths: string[], path: string): string[] {
     ...normalizeCollectionPaths(paths).filter((item) => item !== normalized),
   ]
 }
+export function appendCollectionPath(paths: string[], path: string): string[] {
+  if (!path.trim()) return normalizeCollectionPaths(paths)
+  return normalizeCollectionPaths([...paths, path])
+}
 export function normalizeConfig(config: NoodleConfig): NoodleConfig {
   return {
     ...config,

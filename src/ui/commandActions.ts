@@ -295,6 +295,13 @@ export function openCollectionExport(
   return true
 }
 
+export function openCollectionImport(
+  setVisible: (visible: boolean) => void,
+): boolean {
+  setVisible(true)
+  return true
+}
+
 export function closeCollectionExport(
   pending: RefObject<boolean>,
   setVisible: (visible: boolean) => void,

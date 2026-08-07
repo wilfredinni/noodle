@@ -8,7 +8,10 @@ import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
+import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionOverlay"
 import type { ExportCollectionValues } from "./collectionExport"
+import type { CollectionImportValues } from "./collectionImport"
+import type { ImportedCollectionPending } from "./useOverlayState"
 import type {
   NewEnvironmentOverlayHandle,
   NewEnvironmentValues,
@@ -80,6 +83,14 @@ export function useOverlayIntercepts(opts: {
   exportCollectionRef: RefObject<ExportCollectionOverlayHandle | null>
   onExportCollectionCancel: () => void
   onExportCollectionConfirm: (values: ExportCollectionValues) => void
+  importCollectionVisible: boolean
+  importCollectionRef: RefObject<ImportCollectionOverlayHandle | null>
+  importCollectionPendingRef: RefObject<boolean>
+  setImportCollectionVisible: (v: boolean) => void
+  onImportCollectionConfirm: (values: CollectionImportValues) => void
+  importOpenPending: ImportedCollectionPending | null
+  setImportOpenPending: (pending: ImportedCollectionPending | null) => void
+  onImportOpenConfirm: (pending: ImportedCollectionPending) => void
   editRequestVisible: boolean
   editRequestRef: RefObject<NewRequestOverlayHandle | null>
   setEditRequestVisible: (v: boolean) => void
@@ -155,6 +166,18 @@ export function useOverlayIntercepts(opts: {
     passThroughFocuses: ["format"],
   })
 
+  const importCollectionActions = useFormOverlayIntercept({
+    visible: opts.importCollectionVisible,
+    handleRef: opts.importCollectionRef,
+    onConfirm: opts.onImportCollectionConfirm,
+    onCancel: () => {
+      if (!opts.importCollectionPendingRef.current) {
+        opts.setImportCollectionVisible(false)
+      }
+    },
+    passThroughFocuses: ["destination"],
+  })
+
   const editRequestActions = useFormOverlayIntercept({
     visible: opts.editRequestVisible,
     handleRef: opts.editRequestRef,
@@ -185,6 +208,7 @@ export function useOverlayIntercepts(opts: {
     newRequest: newRequestActions,
     importCurl: importCurlActions,
     exportCollection: exportCollectionActions,
+    importCollection: importCollectionActions,
     editRequest: editRequestActions,
     cloneRequest: cloneRequestActions,
     newFolder: newFolderActions,

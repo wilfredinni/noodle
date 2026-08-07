@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { basename } from "node:path"
+import { basename, dirname } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
@@ -53,6 +53,7 @@ import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import type { FieldKind } from "./editMode"
 import type { ResponseTabKind } from "./tabs/uiState"
+import { collapseUserPath } from "../userPath"
 import { VariableCompletionInterceptor } from "./variable-completion/variableCompletionInterceptor"
 import { parseCurl } from "../converters/curl/parse"
 import type { ResponseQueryController } from "./responseQuery"
@@ -75,6 +76,10 @@ import {
   openEnvironmentPicker,
 } from "./commandActions"
 import { runCollectionExport } from "./collectionExport"
+import {
+  runCollectionImport,
+  type CollectionImportValues,
+} from "./collectionImport"
 
 export function AppInner({
   collectionDir,
@@ -98,6 +103,7 @@ export function AppInner({
   onCollectionChange,
   onReloadCollection,
   onCollectionBootstrapped,
+  onCollectionImported,
   mode = "empty",
 }: {
   collectionDir: string
@@ -121,6 +127,7 @@ export function AppInner({
   onCollectionChange: (collectionDir: string) => void
   onReloadCollection: () => void
   onCollectionBootstrapped: (collectionDir: string) => void
+  onCollectionImported: (collectionDir: string) => void
   mode?: "collection" | "browse" | "empty" | "invalid"
 }) {
   const keymap = useKeymap()
@@ -162,6 +169,7 @@ export function AppInner({
   const headerFieldRef = useRef<"name" | "color">("name")
   const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
   const exportPendingRef = useRef(false)
+  const importCollectionPendingRef = useRef(false)
 
   // ── Collection ──────────────────────────────────────────────────────
   const isCollection = mode === "collection"
@@ -603,6 +611,13 @@ export function AppInner({
     exportCollectionVisible,
     setExportCollectionVisible,
     exportCollectionRef,
+    importCollectionVisible,
+    setImportCollectionVisible,
+    importCollectionRef,
+    importCollectionPending,
+    setImportCollectionPending,
+    importOpenPending,
+    setImportOpenPending,
     requestFinderVisible,
     setRequestFinderVisible,
     timelineDetailEntry,
@@ -864,6 +879,58 @@ export function AppInner({
     triggerKey: keybinds.jump_mode,
   })
 
+  const handleImportCollectionConfirm = useCallback(
+    (values: CollectionImportValues) => {
+      if (importCollectionPendingRef.current) return
+      setImportCollectionPending(true)
+      void runCollectionImport({
+        values,
+        collectionDir,
+        hasUnsavedChanges,
+        pending: importCollectionPendingRef,
+      })
+        .then(async (result) => {
+          if (!result) return
+          if (values.destination === "current") {
+            await onEnvListChanged().catch(() => {})
+            setImportCollectionVisible(false)
+            onReloadCollection()
+            showToast("Collection imported", "success")
+            return
+          }
+
+          try {
+            onCollectionImported(result.path)
+          } catch (error: unknown) {
+            const message =
+              error instanceof Error ? error.message : String(error)
+            throw new Error(
+              `Imported to ${result.path}, but could not update config.yml: ${message}`,
+              { cause: error },
+            )
+          }
+          setImportCollectionVisible(false)
+          setImportOpenPending({ path: result.path, name: result.name })
+        })
+        .catch((error: unknown) => {
+          importCollectionRef.current?.setError(
+            error instanceof Error ? error.message : String(error),
+          )
+        })
+        .finally(() => setImportCollectionPending(false))
+    },
+    [
+      collectionDir,
+      hasUnsavedChanges,
+      onCollectionImported,
+      onEnvListChanged,
+      onReloadCollection,
+      setImportCollectionPending,
+      setImportCollectionVisible,
+      setImportOpenPending,
+    ],
+  )
+
   // ── Overlay intercepts ────────────────────────────────────────────
   const overlayActions = useOverlayIntercepts({
     activeOverlay,
@@ -943,6 +1010,14 @@ export function AppInner({
           )
         })
     },
+    importCollectionVisible,
+    importCollectionRef,
+    importCollectionPendingRef,
+    setImportCollectionVisible,
+    onImportCollectionConfirm: handleImportCollectionConfirm,
+    importOpenPending,
+    setImportOpenPending,
+    onImportOpenConfirm: (pending) => requestCollectionSwitch(pending.path),
     editRequestVisible,
     editRequestRef,
     setEditRequestVisible,
@@ -1033,6 +1108,7 @@ export function AppInner({
         setRequestFinderVisible,
         setCodeGeneratorVisible,
         setExportCollectionVisible,
+        setImportCollectionVisible,
         setYamlEditor,
         setView,
         setFocus,
@@ -1051,6 +1127,7 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
+      setImportCollectionVisible,
       requestReload,
       view,
       mode,
@@ -1210,6 +1287,14 @@ export function AppInner({
           exportCollectionVisible={exportCollectionVisible}
           exportCollectionRef={exportCollectionRef}
           exportCollectionActions={overlayActions.exportCollection}
+          importCollectionVisible={importCollectionVisible}
+          importCollectionRef={importCollectionRef}
+          importCollectionPending={importCollectionPending}
+          importCollectionActions={overlayActions.importCollection}
+          importCollectionInitialParent={collapseUserPath(
+            dirname(collectionDir),
+          )}
+          importOpenPending={importOpenPending}
           codeGeneratorRequest={draft.draft}
           codeGeneratorEnv={envState.activeEnv}
           codeGeneratorEnvName={envState.activeEnv?.name}
