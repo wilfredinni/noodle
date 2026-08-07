@@ -1,5 +1,5 @@
-import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { afterEach, describe, it, expect } from "bun:test"
+import { testRender as openTUITestRender } from "@opentui/react/test-utils"
 import { RGBA } from "@opentui/core"
 import { act } from "react"
 import { useState } from "react"
@@ -16,6 +16,20 @@ import {
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+
+let renderer: Awaited<ReturnType<typeof openTUITestRender>>["renderer"] | null =
+  null
+
+async function testRender(...args: Parameters<typeof openTUITestRender>) {
+  const setup = await openTUITestRender(...args)
+  renderer = setup.renderer
+  return setup
+}
+
+afterEach(() => {
+  act(() => renderer?.destroy())
+  renderer = null
+})
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test-env", vars }
