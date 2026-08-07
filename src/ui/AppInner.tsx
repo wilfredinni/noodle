@@ -68,6 +68,7 @@ import { useCollectionSwitcher } from "./useCollectionSwitcher"
 import { useReloadGuard } from "./useReloadGuard"
 import { useKeymapSync } from "./useKeymapSync"
 import { useEditModeSync } from "./useEditModeSync"
+import { openEnvironmentEditor, openEnvironmentPicker } from "./commandActions"
 
 export function AppInner({
   collectionDir,
@@ -714,7 +715,7 @@ export function AppInner({
   }, [setAboutVisible])
 
   const handleEnvironmentActivate = useCallback(() => {
-    setEnvironmentPickerVisible(true)
+    openEnvironmentPicker(setEnvironmentPickerVisible)
   }, [setEnvironmentPickerVisible])
 
   const handleEnvironmentSelect = useCallback(
@@ -737,6 +738,13 @@ export function AppInner({
 
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
+
+  const handleOpenEnvironmentEditor = useCallback(() => {
+    setEnvironmentPickerVisible(false)
+    openEnvironmentEditor({ envStateRef, envEditorRef })
+    setView("env-editor")
+    setFocus("env-sidebar")
+  }, [setEnvironmentPickerVisible, setView, setFocus])
 
   const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
 
@@ -782,6 +790,7 @@ export function AppInner({
       setYamlEditor,
       setPreviewIndex: setPreviewIndexProp,
       setCollectionSwitcherVisible,
+      setEnvironmentPickerVisible,
       setCommandPaletteVisible,
       setRequestFinderVisible,
       setUndoAllPending,
@@ -968,6 +977,7 @@ export function AppInner({
         setHelpVisible,
         setAboutVisible,
         setNewEnvironmentVisible,
+        setEnvironmentPickerVisible,
         setNewRequestVisible,
         setImportCurlVisible,
         setNewFolderVisible,
@@ -1162,6 +1172,7 @@ export function AppInner({
           environmentNames={envState.names}
           activeEnvironmentName={envState.names[envState.activeIndex] ?? null}
           onSelectEnvironment={handleEnvironmentSelect}
+          onOpenEnvironmentEditor={handleOpenEnvironmentEditor}
           setEnvironmentPickerVisible={setEnvironmentPickerVisible}
           previewIndex={previewIndex}
           activeIndex={activeIndex}

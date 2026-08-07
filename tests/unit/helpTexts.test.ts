@@ -77,6 +77,16 @@ describe("getHelpSections", () => {
     expect(keys).toContain("^w")
     expect(keys).toContain("^u")
     expect(keys).toContain("^l")
+    expect(keys).toContain("e")
+    expect(keys).toContain("f3")
+    expect(act.keys).toContainEqual({
+      key: "e",
+      description: "Open environment picker",
+    })
+    expect(act.keys).toContainEqual({
+      key: "f3",
+      description: "Open environment editor",
+    })
   })
 
   it("SYSTEM section contains ^c, f1, command palette, finder, and collection switcher bindings", () => {

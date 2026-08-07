@@ -38,11 +38,14 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     folderCommit: 0,
     envSave: 0,
     envUp: 0,
+    editorOpened: "",
     newEnvironment: false,
+    environmentPicker: false,
     jsonEnter: 0,
     jsonLeave: 0,
     jsonReturnToSelect: 0,
     focus: "",
+    view: "",
     jumpMode: false,
   }
   const request = {
@@ -73,10 +76,16 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     folderViewRef: { current: false },
   }
   const environment = {
+    envStateRef: {
+      current: { activeEnv: { name: "development" } },
+    },
     envEditorRef: {
       current: {
         save: () => calls.envSave++,
         browseUp: () => calls.envUp++,
+        openEditor: (name: string) => {
+          calls.editorOpened = name
+        },
       },
     },
     setNewEnvironmentVisible: (visible: boolean) => {
@@ -100,8 +109,14 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       setFocus: (focus: string) => {
         calls.focus = focus
       },
+      setView: (view: string) => {
+        calls.view = view
+      },
       setJumpMode: (jumpMode: boolean) => {
         calls.jumpMode = jumpMode
+      },
+      setEnvironmentPickerVisible: (visible: boolean) => {
+        calls.environmentPicker = visible
       },
       setUrlbarSubFocus: () => {},
     },
@@ -110,6 +125,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     environment,
     actions: {
       trySendRef: request.trySendRef,
+      envStateRef: environment.envStateRef,
       envEditorRef: environment.envEditorRef,
       focusedFolderPathRef: { current: null },
     },
@@ -137,7 +153,7 @@ describe("app keymap layers", () => {
     expect(layers).toHaveLength(13)
     expect(firstCommandName(layers[0])).toBe("focus.next")
     expect(firstCommandName(layers[1])).toBe("urlbar.tab")
-    expect(firstCommandName(layers[2])).toBe("env.editor-open")
+    expect(firstCommandName(layers[2])).toBe("env.picker-open")
     expect(firstCommandName(layers[5])).toBe("folder.edit-enter")
     expect(firstCommandName(layers[9])).toBe("edit.commit")
     expect(firstCommandName(layers[10])).toBe("env.save")
@@ -152,6 +168,80 @@ describe("app keymap layers", () => {
     host.press("linefeed")
 
     expect(calls.send).toBe(1)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("opens the environment picker with e from the sidebar", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const disposers = register(context)
+
+    host.press("e")
+
+    expect(calls.environmentPicker).toBe(true)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("does not open the environment picker with e outside the sidebar", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.focus", "request")
+    const disposers = register(context)
+
+    host.press("e")
+
+    expect(calls.environmentPicker).toBe(false)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("opens the environment editor with f3 from any pane or input mode", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.focus", "request")
+    keymap.setData("app.mode", "edit")
+    const disposers = register(context)
+
+    host.press("f3")
+
+    expect(calls.editorOpened).toBe("development")
+    expect(calls.view).toBe("env-editor")
+    expect(calls.focus).toBe("env-sidebar")
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("focuses the environment sidebar without reopening an active editor", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "env-editor")
+    context.global.viewRef.current = "env-editor"
+    const disposers = register(context)
+
+    host.press("f3")
+
+    expect(calls.editorOpened).toBe("")
+    expect(calls.view).toBe("")
+    expect(calls.focus).toBe("env-sidebar")
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("opens the editor and closes the environment picker with f3", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    calls.environmentPicker = true
+    keymap.setData("app.overlay", "environment-picker")
+    const disposers = register(context)
+
+    host.press("f3")
+
+    expect(calls.environmentPicker).toBe(false)
+    expect(calls.editorOpened).toBe("development")
+    expect(calls.view).toBe("env-editor")
+    expect(calls.focus).toBe("env-sidebar")
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

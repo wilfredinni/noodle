@@ -41,7 +41,7 @@ import type {
 import type { FinderItem } from "./requestFinder"
 import { TimelineDetailOverlay } from "./overlays/TimelineDetailOverlay"
 import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
-import type { Keybinds } from "./keybind"
+import { displayKey, type Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
 import { initialYamlEditorState, type YamlEditorState } from "./appState"
@@ -89,6 +89,7 @@ interface AppOverlaysProps {
   environmentNames: string[]
   activeEnvironmentName: string | null
   onSelectEnvironment: (name: string) => void
+  onOpenEnvironmentEditor: () => void
   setEnvironmentPickerVisible: (visible: boolean) => void
   previewIndex: number | null
   activeIndex: number
@@ -185,6 +186,7 @@ export function AppOverlays({
   environmentNames,
   activeEnvironmentName,
   onSelectEnvironment,
+  onOpenEnvironmentEditor,
   setEnvironmentPickerVisible,
   previewIndex,
   activeIndex,
@@ -328,7 +330,9 @@ export function AppOverlays({
           visible
           environments={environmentNames}
           activeEnvironment={activeEnvironmentName}
+          editorShortcut={displayKey(keybinds.env_editor)}
           onSelect={onSelectEnvironment}
+          onOpenEditor={onOpenEnvironmentEditor}
           onClose={() => setEnvironmentPickerVisible(false)}
         />
       )}

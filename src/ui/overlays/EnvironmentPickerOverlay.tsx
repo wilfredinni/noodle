@@ -7,13 +7,17 @@ export function EnvironmentPickerOverlay({
   visible,
   environments,
   activeEnvironment,
+  editorShortcut,
   onSelect,
+  onOpenEditor,
   onClose,
 }: {
   visible: boolean
   environments: string[]
   activeEnvironment: string | null
+  editorShortcut: string
   onSelect: (name: string) => void
+  onOpenEditor: () => void
   onClose: () => void
 }) {
   const theme = useTheme()
@@ -74,6 +78,11 @@ export function EnvironmentPickerOverlay({
       renderItem={renderItem}
       highlightedItem={highlightedItem}
       activeItem={activeEnvironment}
+      firstAction={{
+        label: "Open Environment Editor",
+        shortcut: editorShortcut,
+        onSelect: onOpenEditor,
+      }}
       onHighlightChange={setHighlightedEnvironment}
       onSelect={onSelect}
       onClose={onClose}

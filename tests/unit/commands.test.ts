@@ -46,6 +46,7 @@ function minimalContext(): CommandBuilderContext {
     setHelpVisible: () => {},
     setAboutVisible: () => {},
     setNewEnvironmentVisible: () => {},
+    setEnvironmentPickerVisible: () => {},
     setNewRequestVisible: () => {},
     setImportCurlVisible: () => {},
     setNewFolderVisible: () => {},
@@ -311,10 +312,27 @@ describe("buildCommandPaletteCommands", () => {
     const command = buildCommandPaletteCommands(ctx).find(
       (item) => item.id === "env.editor-open",
     )!
+    expect(command.keybinding).toBe("f3")
     expect(command.run()).toBe(true)
     expect(opened).toBe("development")
     expect(view).toBe("env-editor")
     expect(focus).toBe("env-sidebar")
+  })
+
+  it("opens the environment picker from the command palette", () => {
+    const ctx = minimalContext()
+    let visible = false
+    ctx.setEnvironmentPickerVisible = (value) => {
+      visible = value === true
+    }
+
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "env.picker-open",
+    )!
+
+    expect(command.keybinding).toBe("e")
+    expect(command.run()).toBe(true)
+    expect(visible).toBe(true)
   })
 
   it("opens client code generation for the current request draft", () => {
@@ -558,7 +576,7 @@ describe("buildCommandPaletteCommands", () => {
     expect(sections).toEqual(["Collection", "Workspace", "System"])
   })
 
-  it("excludes env.editor-open command when mode is empty", () => {
+  it("excludes environment commands when mode is empty", () => {
     const ctx = minimalContext()
     ctx.getCollectionMode = () => "empty"
     const commands = buildCommandPaletteCommands(ctx)

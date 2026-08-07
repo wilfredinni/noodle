@@ -62,6 +62,9 @@ export interface AppKeymapGlobal {
   setCollectionSwitcherVisible: (
     v: boolean | ((prev: boolean) => boolean),
   ) => void
+  setEnvironmentPickerVisible: (
+    v: boolean | ((prev: boolean) => boolean),
+  ) => void
   setCommandPaletteVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void

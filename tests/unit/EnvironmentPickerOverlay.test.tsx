@@ -11,8 +11,10 @@ const environments = ["development", "staging", "production"]
 
 function Picker({
   onSelect = () => {},
+  onOpenEditor = () => {},
 }: {
   onSelect?: (name: string) => void
+  onOpenEditor?: () => void
 }) {
   return (
     <ThemeProvider activeIndex={0} previewIndex={null}>
@@ -20,7 +22,9 @@ function Picker({
         visible
         environments={environments}
         activeEnvironment="production"
+        editorShortcut="f3"
         onSelect={onSelect}
+        onOpenEditor={onOpenEditor}
         onClose={() => {}}
       />
     </ThemeProvider>
@@ -30,7 +34,7 @@ function Picker({
 describe("EnvironmentPickerOverlay", () => {
   it("renders environments with the active marker", async () => {
     const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
       <KeymapProvider keymap={keymap}>
         <Picker />
       </KeymapProvider>,
@@ -43,7 +47,26 @@ describe("EnvironmentPickerOverlay", () => {
     expect(frame).toContain("development")
     expect(frame).toContain("staging")
     expect(frame).toContain("● production")
+    expect(frame).toContain("Open Environment Editor")
     expect(frame).not.toContain("⛁")
+    const rows = frame.split("\n")
+    const firstEnvironmentRow = rows.findIndex((row) =>
+      row.includes("development"),
+    )
+    const actionRow = rows.findIndex((row) =>
+      row.includes("Open Environment Editor"),
+    )
+    expect(firstEnvironmentRow - actionRow).toBe(1)
+    expect(rows[actionRow]!.indexOf("Open Environment Editor")).toBe(
+      rows[firstEnvironmentRow]!.indexOf("development"),
+    )
+    expect(rows[actionRow]!.indexOf("f3")).toBeGreaterThan(
+      rows[actionRow]!.indexOf("Open Environment Editor") +
+        "Open Environment Editor".length,
+    )
+    expect(
+      renderer.root.findDescendantById("picker-first-action-layout")?.height,
+    ).toBe(15)
     cleanup()
   })
 
@@ -110,6 +133,31 @@ describe("EnvironmentPickerOverlay", () => {
     cleanup()
   })
 
+  it("opens the environment editor from the first action", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const selected: string[] = []
+    let editorOpenCount = 0
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <Picker
+          onSelect={(name) => selected.push(name)}
+          onOpenEditor={() => editorOpenCount++}
+        />
+      </KeymapProvider>,
+      { width: 70, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => {
+      host.press("down")
+      host.press("return")
+    })
+
+    expect(editorOpenCount).toBe(1)
+    expect(selected).toEqual([])
+    cleanup()
+  })
+
   it("shows the empty picker state when no environments exist", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(
@@ -119,7 +167,9 @@ describe("EnvironmentPickerOverlay", () => {
             visible
             environments={[]}
             activeEnvironment={null}
+            editorShortcut="f3"
             onSelect={() => {}}
+            onOpenEditor={() => {}}
             onClose={() => {}}
           />
         </ThemeProvider>
@@ -128,7 +178,9 @@ describe("EnvironmentPickerOverlay", () => {
     )
     await renderOnce()
 
-    expect(captureCharFrame()).toContain("No results found")
+    const frame = captureCharFrame()
+    expect(frame).toContain("No results found")
+    expect(frame).toContain("Open Environment Editor")
     cleanup()
   })
 })
