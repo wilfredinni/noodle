@@ -146,7 +146,8 @@ describe("ExportCollectionOverlay", () => {
 
       const frame = render.captureCharFrame()
       expect(frame).toContain("Export Collection")
-      expect(frame).toContain("ELOOP")
+      expect(frame).toContain("Target: unavailable")
+      expect(frame).toContain("Unable to preview target")
     } finally {
       cleanup()
       await rm(outputDir, { recursive: true, force: true })

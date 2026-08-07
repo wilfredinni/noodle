@@ -92,7 +92,8 @@ export const ExportCollectionOverlay = forwardRef<
   try {
     target = getExportTargetPath(outputDir, collectionName, format)
   } catch (error: unknown) {
-    targetError = error instanceof Error ? error.message : String(error)
+    const message = error instanceof Error ? error.message : String(error)
+    targetError = `Unable to preview target: ${message}`
   }
   const displayedError = errorText ?? targetError
 
