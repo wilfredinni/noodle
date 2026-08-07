@@ -36,6 +36,10 @@ import {
   ExportCollectionOverlay,
   type ExportCollectionOverlayHandle,
 } from "./overlays/ExportCollectionOverlay"
+import {
+  ImportCollectionOverlay,
+  type ImportCollectionOverlayHandle,
+} from "./overlays/ImportCollectionOverlay"
 import type {
   Collection,
   Environment,
@@ -123,6 +127,12 @@ interface AppOverlaysProps {
   exportCollectionVisible: boolean
   exportCollectionRef: RefObject<ExportCollectionOverlayHandle | null>
   exportCollectionActions: { confirm: () => void; cancel: () => void }
+  importCollectionVisible: boolean
+  importCollectionRef: RefObject<ImportCollectionOverlayHandle | null>
+  importCollectionPending: boolean
+  importCollectionActions: { confirm: () => void; cancel: () => void }
+  importCollectionInitialParent: string
+  importOpenPending: { path: string; name: string } | null
   activeEnv: Environment | null
   editRequestVisible: boolean
   selectedRequest: NoodleRequest | null
@@ -223,6 +233,12 @@ export function AppOverlays({
   exportCollectionVisible,
   exportCollectionRef,
   exportCollectionActions,
+  importCollectionVisible,
+  importCollectionRef,
+  importCollectionPending,
+  importCollectionActions,
+  importCollectionInitialParent,
+  importOpenPending,
   activeEnv,
   editRequestVisible,
   selectedRequest,
@@ -296,6 +312,15 @@ export function AppOverlays({
           <ConfirmOverlay
             visible
             message={`Switch to "${collectionSwitchPending}" and discard unsaved changes?`}
+            onConfirm={onConfirmDialog}
+            onCancel={onCancelDialog}
+          />
+        )}
+      {activeOverlay === "import-open-confirm" &&
+        importOpenPending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Imported "${importOpenPending.name}". Open it now?`}
             onConfirm={onConfirmDialog}
             onCancel={onCancelDialog}
           />
@@ -425,6 +450,16 @@ export function AppOverlays({
           }
           onConfirm={exportCollectionActions.confirm}
           onClose={exportCollectionActions.cancel}
+        />
+      )}
+      {importCollectionVisible && (
+        <ImportCollectionOverlay
+          visible
+          ref={importCollectionRef}
+          initialParentDir={importCollectionInitialParent}
+          pending={importCollectionPending}
+          onConfirm={importCollectionActions.confirm}
+          onClose={importCollectionActions.cancel}
         />
       )}
       {editRequestVisible && (

@@ -7,6 +7,7 @@ import {
 } from "../config"
 export {
   CONFIG_FILE_NAME,
+  appendCollectionPath,
   loadConfig,
   normalizeCollectionPath,
   normalizeCollectionPaths,
@@ -22,6 +23,7 @@ export function useConfig(configDir: string): {
   updateConfig: (
     partial:
       Partial<NoodleConfig> | ((prev: NoodleConfig) => Partial<NoodleConfig>),
+    options?: { immediate?: boolean },
   ) => void
 } {
   const [config, setConfig] = useState<NoodleConfig>(() =>
@@ -41,10 +43,19 @@ export function useConfig(configDir: string): {
     (
       partial:
         Partial<NoodleConfig> | ((prev: NoodleConfig) => Partial<NoodleConfig>),
+      options?: { immediate?: boolean },
     ) => {
       const patch =
         typeof partial === "function" ? partial(configRef.current) : partial
       const next = normalizeConfig({ ...configRef.current, ...patch })
+      if (options?.immediate) {
+        saveConfig(configDir, next)
+        if (timerRef.current !== null) clearTimeout(timerRef.current)
+        timerRef.current = null
+        configRef.current = next
+        setConfig(next)
+        return
+      }
       configRef.current = next
       setConfig(next)
       if (timerRef.current !== null) clearTimeout(timerRef.current)

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { join, resolve } from "node:path"
 import { AppInner } from "./AppInner"
-import { useConfig, upsertCollectionPath } from "../hooks/useConfig"
+import {
+  appendCollectionPath,
+  useConfig,
+  upsertCollectionPath,
+} from "../hooks/useConfig"
 import { listEnvironmentsWithColors } from "../env/listWithColors"
 import { ThemeProvider, THEMES, DEFAULT_THEME_INDEX } from "./theme"
 import { stat } from "node:fs/promises"
@@ -155,6 +159,19 @@ export function App({
     [updateConfig],
   )
 
+  const handleCollectionImported = useCallback(
+    (importedDir: string) => {
+      const resolved = resolve(importedDir)
+      updateConfig(
+        (prev) => ({
+          collections: appendCollectionPath(prev.collections, resolved),
+        }),
+        { immediate: true },
+      )
+    },
+    [updateConfig],
+  )
+
   const handleCollectionChange = useCallback(
     async (nextDir: string) => {
       if (switchingRef.current) return
@@ -263,6 +280,7 @@ export function App({
         onCollectionChange={handleCollectionChange}
         onReloadCollection={handleReloadCollection}
         onCollectionBootstrapped={handleCollectionBootstrapped}
+        onCollectionImported={handleCollectionImported}
         mode={mode}
       />
     </ThemeProvider>

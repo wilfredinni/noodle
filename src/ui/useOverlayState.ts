@@ -8,11 +8,19 @@ import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverlay"
 import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
+import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionOverlay"
+
+export interface ImportedCollectionPending {
+  path: string
+  name: string
+}
 
 export type ActiveOverlay =
   | "command-palette"
   | "code-generator"
   | "export-collection"
+  | "import-collection"
+  | "import-open-confirm"
   | "request-finder"
   | "help"
   | "about"
@@ -85,6 +93,11 @@ export function useOverlayState({
   const [codeGeneratorVisible, setCodeGeneratorVisible] = useState(false)
   const [exportCollectionVisible, setExportCollectionVisible] = useState(false)
   const exportCollectionRef = useRef<ExportCollectionOverlayHandle>(null)
+  const [importCollectionVisible, setImportCollectionVisible] = useState(false)
+  const importCollectionRef = useRef<ImportCollectionOverlayHandle>(null)
+  const [importCollectionPending, setImportCollectionPending] = useState(false)
+  const [importOpenPending, setImportOpenPending] =
+    useState<ImportedCollectionPending | null>(null)
   const [requestFinderVisible, setRequestFinderVisible] = useState(false)
   const [timelineDetailEntry, setTimelineDetailEntry] =
     useState<TimelineEntry | null>(null)
@@ -97,6 +110,8 @@ export function useOverlayState({
     if (commandPaletteVisible) return "command-palette"
     if (codeGeneratorVisible) return "code-generator"
     if (exportCollectionVisible) return "export-collection"
+    if (importCollectionVisible) return "import-collection"
+    if (importOpenPending !== null) return "import-open-confirm"
     if (requestFinderVisible) return "request-finder"
     if (helpVisible) return "help"
     if (aboutVisible) return "about"
@@ -124,6 +139,8 @@ export function useOverlayState({
     commandPaletteVisible,
     codeGeneratorVisible,
     exportCollectionVisible,
+    importCollectionVisible,
+    importOpenPending,
     requestFinderVisible,
     helpVisible,
     aboutVisible,
@@ -194,6 +211,13 @@ export function useOverlayState({
     exportCollectionVisible,
     setExportCollectionVisible,
     exportCollectionRef,
+    importCollectionVisible,
+    setImportCollectionVisible,
+    importCollectionRef,
+    importCollectionPending,
+    setImportCollectionPending,
+    importOpenPending,
+    setImportOpenPending,
     requestFinderVisible,
     setRequestFinderVisible,
     timelineDetailEntry,

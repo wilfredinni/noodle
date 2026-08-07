@@ -4,6 +4,7 @@ import { useKeymap } from "@opentui/keymap/react"
 import type { SaveState } from "../saveState"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
 import type { ActiveOverlay } from "../useOverlayState"
+import type { ImportedCollectionPending } from "../useOverlayState"
 
 export function useDialogIntercepts(opts: {
   activeOverlay: ActiveOverlay
@@ -16,6 +17,9 @@ export function useDialogIntercepts(opts: {
   collectionSwitchPending: string | null
   setCollectionSwitchPending: (s: string | null) => void
   onCollectionSwitchConfirm: (collectionDir: string) => void
+  importOpenPending: ImportedCollectionPending | null
+  setImportOpenPending: (pending: ImportedCollectionPending | null) => void
+  onImportOpenConfirm: (pending: ImportedCollectionPending) => void
   reloadPending: boolean
   setReloadPending: (v: boolean) => void
   onReloadConfirm: () => void
@@ -48,6 +52,9 @@ export function useDialogIntercepts(opts: {
     collectionSwitchPending,
     setCollectionSwitchPending,
     onCollectionSwitchConfirm,
+    importOpenPending,
+    setImportOpenPending,
+    onImportOpenConfirm,
     setReloadPending,
     onReloadConfirm,
     setRequestDeletePending,
@@ -117,12 +124,19 @@ export function useDialogIntercepts(opts: {
     onCollectionSwitchConfirm,
   ])
 
+  const confirmImportOpen = useCallback(() => {
+    if (!importOpenPending) return
+    setImportOpenPending(null)
+    onImportOpenConfirm(importOpenPending)
+  }, [importOpenPending, onImportOpenConfirm, setImportOpenPending])
+
   const onConfirm = useCallback(() => {
     if (activeOverlay === "env-delete") confirmEnvDelete()
     else if (activeOverlay === "undo-all") confirmUndoAll()
     else if (activeOverlay === "init-confirm") confirmInit()
     else if (activeOverlay === "collection-switch-confirm")
       confirmCollectionSwitch()
+    else if (activeOverlay === "import-open-confirm") confirmImportOpen()
     else if (activeOverlay === "reload-confirm") onReloadConfirm()
     else if (activeOverlay === "delete-folder") onFolderDeleteConfirm()
     else if (activeOverlay === "request-delete") onRequestDeleteConfirm()
@@ -133,6 +147,7 @@ export function useDialogIntercepts(opts: {
     confirmUndoAll,
     confirmInit,
     confirmCollectionSwitch,
+    confirmImportOpen,
     onReloadConfirm,
     onFolderDeleteConfirm,
     onRequestDeleteConfirm,
@@ -145,6 +160,7 @@ export function useDialogIntercepts(opts: {
     else if (activeOverlay === "init-confirm") setInitPending(false)
     else if (activeOverlay === "collection-switch-confirm")
       setCollectionSwitchPending(null)
+    else if (activeOverlay === "import-open-confirm") setImportOpenPending(null)
     else if (activeOverlay === "reload-confirm") setReloadPending(false)
     else if (activeOverlay === "delete-folder") setFolderDeletePending(null)
     else if (activeOverlay === "request-delete") setRequestDeletePending(null)
@@ -155,6 +171,7 @@ export function useDialogIntercepts(opts: {
     setUndoAllPending,
     setInitPending,
     setCollectionSwitchPending,
+    setImportOpenPending,
     setReloadPending,
     setFolderDeletePending,
     setRequestDeletePending,
@@ -186,6 +203,27 @@ export function useDialogIntercepts(opts: {
   // ── Overlay: Collection switch confirmation ──────────────────────
   useEffect(() => {
     if (activeOverlay !== "collection-switch-confirm") return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onConfirm()
+        } else if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onCancel()
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [activeOverlay, keymap, onConfirm, onCancel])
+
+  useEffect(() => {
+    if (activeOverlay !== "import-open-confirm") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {

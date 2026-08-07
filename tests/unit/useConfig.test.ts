@@ -6,6 +6,7 @@ import { tmpdir } from "node:os"
 import * as yaml from "js-yaml"
 
 import {
+  appendCollectionPath,
   loadConfig,
   saveConfig,
   type NoodleConfig,
@@ -112,6 +113,20 @@ describe("loadConfig", () => {
     )
     const result = loadConfig(dir)
     expect(result.collections).toHaveLength(1)
+  })
+})
+
+describe("appendCollectionPath", () => {
+  it("adds a collection without reordering existing paths", () => {
+    expect(appendCollectionPath(["/tmp/a", "/tmp/b"], "/tmp/c")).toEqual([
+      "/tmp/a",
+      "/tmp/b",
+      "/tmp/c",
+    ])
+    expect(appendCollectionPath(["/tmp/a", "/tmp/b"], "/tmp/a")).toEqual([
+      "/tmp/a",
+      "/tmp/b",
+    ])
   })
 })
 

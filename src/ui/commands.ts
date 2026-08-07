@@ -36,6 +36,7 @@ import {
   openThemePicker,
   openAbout,
   openCollectionExport,
+  openCollectionImport,
   openCollectionSwitcher,
   type CommandActionsConfig,
 } from "./commandActions"
@@ -98,6 +99,9 @@ export interface CommandBuilderContext {
   setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCodeGeneratorVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setExportCollectionVisible: (
+    v: boolean | ((prev: boolean) => boolean),
+  ) => void
+  setImportCollectionVisible: (
     v: boolean | ((prev: boolean) => boolean),
   ) => void
   setYamlEditor: (
@@ -185,6 +189,7 @@ export function buildCommandPaletteCommands(
     setRequestFinderVisible,
     setCodeGeneratorVisible,
     setExportCollectionVisible,
+    setImportCollectionVisible,
     setEnvDeletePending,
     getCollectionMode,
     triggerUpdateCheck,
@@ -373,6 +378,12 @@ export function buildCommandPaletteCommands(
   ]
 
   const workspaceCommands: CommandItem[] = [
+    {
+      id: "collection.import",
+      label: "Import Collection",
+      section: "Workspace",
+      run: () => openCollectionImport(setImportCollectionVisible),
+    },
     {
       id: "collection.export",
       label: "Export Collection",
