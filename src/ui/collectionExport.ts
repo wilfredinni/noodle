@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs"
 import { join } from "node:path"
 import type { ExportOptions, ExportResult } from "../app/export"
 import { expandUserPath } from "../userPath"
@@ -11,16 +12,31 @@ export interface ExportCollectionValues {
 
 type ExportRunner = (options: ExportOptions) => Promise<ExportResult>
 
+function isAvailablePostmanTarget(path: string): boolean {
+  try {
+    return readdirSync(path).length === 0
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT"
+  }
+}
+
 export function getExportTargetPath(
   outputDir: string,
   collectionName: string,
   format: ExportFormat,
 ): string {
-  const name =
-    format === "openapi"
-      ? `${collectionName}.openapi.yml`
-      : `${collectionName}-postman`
-  return join(expandUserPath(outputDir), name)
+  const root = expandUserPath(outputDir)
+  if (format === "openapi") {
+    return join(root, `${collectionName}.openapi.yml`)
+  }
+
+  const name = `${collectionName}-postman`
+  let target = join(root, name)
+  let suffix = 2
+  while (!isAvailablePostmanTarget(target)) {
+    target = join(root, `${name}-${suffix++}`)
+  }
+  return target
 }
 
 export async function runCollectionExport({

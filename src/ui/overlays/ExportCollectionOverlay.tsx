@@ -63,12 +63,13 @@ export const ExportCollectionOverlay = forwardRef<
     },
     commitField: () => setFocus("output"),
     confirm: () => {
-      if (outputDir.trim() === "") {
+      const trimmed = outputDir.trim()
+      if (trimmed === "") {
         setErrorText("Output folder is required")
         return null
       }
       setErrorText(null)
-      return { format, outputDir }
+      return { format, outputDir: trimmed }
     },
     getFocus: () => focus,
     setError: setErrorText,

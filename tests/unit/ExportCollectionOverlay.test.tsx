@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { mkdir, mkdtemp, rm } from "node:fs/promises"
-import { homedir, tmpdir } from "node:os"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act, createRef, useEffect } from "react"
 import { MouseButtons } from "@opentui/core/testing"
@@ -83,7 +83,7 @@ describe("ExportCollectionOverlay", () => {
     expect(frame).toContain("Export Collection")
     expect(frame).toContain("OpenAPI")
     expect(frame).toContain("Output Folder")
-    expect(frame).toContain(join(homedir(), "orders.openapi.yml"))
+    expect(frame).toContain("orders.openapi.yml")
     expect(ref.current?.getFocus()).toBe("format")
     let result: ExportCollectionValues | null | undefined
     act(() => {
@@ -112,7 +112,7 @@ describe("ExportCollectionOverlay", () => {
     await render.renderOnce()
 
     const frame = render.captureCharFrame()
-    expect(frame).toContain(join(homedir(), "orders-postman"))
+    expect(frame).toContain("orders-postman")
     expect(frame).toContain("literal request values")
     let result: ExportCollectionValues | null | undefined
     act(() => {
@@ -148,6 +148,12 @@ describe("ExportCollectionOverlay", () => {
     expect(result).toBeNull()
     await render.renderOnce()
     expect(render.captureCharFrame()).toContain("Output folder is required")
+
+    await act(async () => render.mockInput.typeText("  /exports  "))
+    act(() => {
+      result = ref.current?.confirm()
+    })
+    expect(result).toEqual({ format: "openapi", outputDir: "/exports" })
 
     act(() => ref.current?.setError("Save all changes before exporting"))
     await render.renderOnce()

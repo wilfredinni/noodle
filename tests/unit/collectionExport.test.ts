@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { runCollectionExport } from "../../src/ui/collectionExport"
+import {
+  getExportTargetPath,
+  runCollectionExport,
+} from "../../src/ui/collectionExport"
 import type { ExportOptions, ExportResult } from "../../src/app/export"
 
 const RESULT: ExportResult = {
@@ -11,6 +16,22 @@ const RESULT: ExportResult = {
 }
 
 describe("runCollectionExport", () => {
+  it("increments populated Postman targets for repeat exports", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "noodle-export-target-"))
+
+    try {
+      const firstTarget = join(outputDir, "orders-postman")
+      await mkdir(firstTarget)
+      await writeFile(join(firstTarget, "collection.json"), "{}")
+
+      expect(getExportTargetPath(outputDir, "orders", "postman")).toBe(
+        join(outputDir, "orders-postman-2"),
+      )
+    } finally {
+      await rm(outputDir, { recursive: true, force: true })
+    }
+  })
+
   it("rejects unsaved edits before export", async () => {
     let called = false
     const pending = { current: false }
