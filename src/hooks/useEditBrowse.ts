@@ -198,9 +198,6 @@ export function detectFormType(value: string): {
   if (fileMatch) {
     return { formType: "file", cleanValue: fileMatch[1]! }
   }
-  if (value.startsWith("@/")) {
-    return { formType: "file", cleanValue: value }
-  }
   return { formType: "text", cleanValue: value }
 }
 

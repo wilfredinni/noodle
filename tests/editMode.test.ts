@@ -709,9 +709,9 @@ describe("toggleFormRowType — applyDraft setFormRow", () => {
     })
   })
 
-  it("detects home-path selections as file entries in new rows", () => {
+  it("keeps home-relative values as text unless explicitly file-typed", () => {
     expect(detectFormType("@/Documents/upload.bin")).toEqual({
-      formType: "file",
+      formType: "text",
       cleanValue: "@/Documents/upload.bin",
     })
   })
