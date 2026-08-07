@@ -1032,6 +1032,7 @@ export function AppInner({
       <Header
         collectionLabel={basename(collectionDir) || collectionDir}
         envLabel={envState.indicatorLabel}
+        envStatus={envState.status}
         envColor={envState.activeEnv?.color}
         onAboutActivate={handleAboutActivate}
         onCollectionActivate={
@@ -1181,7 +1182,7 @@ export function AppInner({
           setCollectionSwitcherVisible={setCollectionSwitcherVisible}
           environmentPickerVisible={environmentPickerVisible}
           environmentNames={envState.names}
-          activeEnvironmentName={envState.names[envState.activeIndex] ?? null}
+          activeEnvironmentName={envState.activeName}
           onSelectEnvironment={handleEnvironmentSelect}
           onOpenEnvironmentEditor={handleOpenEnvironmentEditor}
           setEnvironmentPickerVisible={setEnvironmentPickerVisible}

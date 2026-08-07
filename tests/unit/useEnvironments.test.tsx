@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { act } from "react"
+import { act, useEffect, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import {
   useEnvironments,
@@ -13,19 +13,27 @@ function Harness({
   dir,
   onChange,
   onState,
+  onEnvListChange,
 }: {
   dir: string
   onChange: (name: string | null) => void
   onState: (state: UseEnvironmentsResult) => void
+  onEnvListChange?: (setEnvList: (names: string[]) => void) => void
 }) {
+  const [envList, setEnvList] = useState([
+    "development",
+    "production",
+    "broken",
+  ])
   const environments = useEnvironments(
     dir,
-    ["development", "production", "broken"],
+    envList,
     undefined,
     undefined,
     onChange,
   )
-  onState(environments)
+  useEffect(() => onState(environments), [environments, onState])
+  useEffect(() => onEnvListChange?.(setEnvList), [onEnvListChange])
   return null
 }
 
@@ -77,6 +85,7 @@ describe("useEnvironments", () => {
     await waitUntil(() => state?.activeEnv?.name === "production")
 
     expect(state?.activeIndex).toBe(1)
+    expect(state?.status).toBe("active")
     expect(state?.error).toBeNull()
     expect(changes).toEqual(["production"])
   })
@@ -107,6 +116,63 @@ describe("useEnvironments", () => {
     expect(state?.error?.message).toBe(
       'env.load: invalid line (expected KEY=value): "invalid"',
     )
+    expect(state?.status).toBe("error")
     expect(changes).toEqual([])
+  })
+
+  it("wraps arbitrary cycle deltas across the environment list", async () => {
+    let state: UseEnvironmentsResult | undefined
+    const { renderOnce } = await testRender(
+      <Harness
+        dir={dir}
+        onChange={() => {}}
+        onState={(next) => {
+          state = next
+        }}
+      />,
+      { width: 80, height: 4 },
+    )
+
+    await renderOnce()
+    await waitUntil(() => state?.activeEnv?.name === "development")
+    act(() => state!.cycle(7))
+    await waitUntil(() => state?.activeEnv?.name === "production")
+    act(() => state!.cycle(-4))
+    await waitUntil(() => state?.activeEnv?.name === "development")
+  })
+
+  it("preserves the active environment by name when the list changes", async () => {
+    const changes: Array<string | null> = []
+    let state: UseEnvironmentsResult | undefined
+    let setEnvList: ((names: string[]) => void) | undefined
+    const { renderOnce } = await testRender(
+      <Harness
+        dir={dir}
+        onChange={(name) => changes.push(name)}
+        onState={(next) => {
+          state = next
+        }}
+        onEnvListChange={(setter) => {
+          setEnvList = setter
+        }}
+      />,
+      { width: 80, height: 4 },
+    )
+
+    await renderOnce()
+    await waitUntil(() => state?.activeEnv?.name === "development")
+    act(() => state!.select("production"))
+    await waitUntil(() => state?.activeEnv?.name === "production")
+
+    act(() => setEnvList!(["production", "development", "broken"]))
+    await renderOnce()
+    expect(state?.activeName).toBe("production")
+    expect(state?.activeIndex).toBe(0)
+
+    act(() => setEnvList!(["development", "broken"]))
+    await waitUntil(() => state?.activeEnv?.name === "development")
+    expect(state?.activeName).toBe("development")
+    expect(state?.activeIndex).toBe(0)
+    expect(changes).toEqual(["production", "development"])
   })
 })

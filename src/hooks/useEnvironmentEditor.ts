@@ -597,12 +597,14 @@ export function useEnvironmentEditor({
 
       const trimmedName = name.trim()
       if (!trimmedName) {
-        return Promise.reject(new Error("Environment name is required"))
+        const message = "Environment name is required"
+        setError(message)
+        return Promise.reject(new Error(message))
       }
       if (localNamesRef.current.includes(trimmedName)) {
-        return Promise.reject(
-          new Error(`An environment named "${trimmedName}" already exists`),
-        )
+        const message = `An environment named "${trimmedName}" already exists`
+        setError(message)
+        return Promise.reject(new Error(message))
       }
 
       const pending = (async () => {

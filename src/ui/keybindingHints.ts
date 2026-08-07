@@ -191,6 +191,8 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         word: "expand",
         command: "request.expand-toggle",
       }
+      // StatusBar pins expand and shows only MAX_CONTEXTUAL_HINTS; keep save
+      // ahead of revert-all when toggle is present here and in folders below.
       return toggleSegments.length > 0
         ? [...toggleSegments, revert, save, revertAll, expand]
         : [revert, revertAll, save, expand]

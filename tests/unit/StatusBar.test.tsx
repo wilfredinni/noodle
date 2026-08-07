@@ -305,24 +305,26 @@ describe("StatusBar component", () => {
     const activated: string[] = []
 
     for (const collectionMode of ["browse", "empty"] as const) {
-      const { renderOnce, captureCharFrame, mockMouse } = await testRender(
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <StatusBar
-            kb={kb}
-            collectionMode={collectionMode}
-            globalHints={emptyHints}
-            footerHints={emptyHints}
-            onHintActivate={(command) => activated.push(command)}
-          />
-        </ThemeProvider>,
-        { width: 120, height: 1 },
-      )
+      const { renderer, renderOnce, captureCharFrame, mockMouse } =
+        await testRender(
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <StatusBar
+              kb={kb}
+              collectionMode={collectionMode}
+              globalHints={emptyHints}
+              footerHints={emptyHints}
+              onHintActivate={(command) => activated.push(command)}
+            />
+          </ThemeProvider>,
+          { width: 120, height: 1 },
+        )
       await renderOnce()
 
       const frame = captureCharFrame()
       expect(frame).toContain("commands")
       const [x, y] = textPosition(frame, "commands")
       await mockMouse.click(x, y, MouseButtons.LEFT)
+      act(() => renderer.destroy())
     }
 
     expect(activated).toEqual(["app.command-palette", "app.command-palette"])
@@ -349,6 +351,7 @@ describe("StatusBar component", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("^p")
     expect(frame).toContain("send")
+    expect(["Space", "^d", "^s"].some((key) => !frame.includes(key))).toBe(true)
   })
 
   it("renders environment hints without a pinned right-side action", async () => {

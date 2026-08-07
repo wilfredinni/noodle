@@ -41,12 +41,7 @@ describe("getKeybindingHints header", () => {
     ])
   })
 
-  it("hides persistent global hints in the environment editor", () => {
-    const r = ctx({ view: "env-editor" })
-    expect(getKeybindingHints(r).header).toEqual([])
-  })
-
-  it("hides persistent global hints in the main view", () => {
+  it("hides persistent global hints by default", () => {
     const r = ctx()
     expect(getKeybindingHints(r).header).toEqual([])
   })

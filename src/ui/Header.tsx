@@ -3,6 +3,7 @@ import { useTerminalDimensions } from "@opentui/react"
 import { stringWidth } from "bun"
 import { useState } from "react"
 import pkg from "../../package.json" with { type: "json" }
+import type { EnvStatus } from "./envIndicator"
 import { useTheme } from "./theme"
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
@@ -25,6 +26,7 @@ function truncate(text: string, maxWidth: number): string {
 export function Header({
   collectionLabel,
   envLabel,
+  envStatus,
   envColor,
   onAboutActivate,
   onCollectionActivate,
@@ -34,6 +36,7 @@ export function Header({
 }: {
   collectionLabel: string
   envLabel: string
+  envStatus: EnvStatus
   envColor?: string
   onAboutActivate?: () => void
   onCollectionActivate?: () => void
@@ -88,13 +91,17 @@ export function Header({
     : 0
   const collectionText = truncate(rawCollectionText, collectionTextWidth)
   const envText = truncate(rawEnvText, environmentTextWidth)
-  const envMarkerFg = envLabel.includes("(load failed")
-    ? theme.error
-    : envLabel === "" || envLabel === "(no env)"
-      ? theme.textMuted
-      : envColor !== undefined
-        ? ((theme as unknown as Record<string, string>)[envColor] ?? theme.info)
-        : theme.info
+  const environmentEnabled = onEnvironmentActivate !== undefined
+  const envMarkerFg = !environmentEnabled
+    ? theme.textMuted
+    : envStatus === "error"
+      ? theme.error
+      : envStatus === "none"
+        ? theme.textMuted
+        : envColor !== undefined
+          ? ((theme as unknown as Record<string, string>)[envColor] ??
+            theme.info)
+          : theme.info
 
   return (
     <box
@@ -217,7 +224,11 @@ export function Header({
           </text>
           {envText !== "" && (
             <text
-              fg={rawEnvText === "no env" ? theme.textMuted : theme.text}
+              fg={
+                !environmentEnabled || envStatus === "none"
+                  ? theme.textMuted
+                  : theme.text
+              }
               selectable={false}
             >
               {` ${envText}`}

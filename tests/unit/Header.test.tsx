@@ -3,6 +3,7 @@ import { act } from "react"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
+import pkg from "../../package.json" with { type: "json" }
 import { Header } from "../../src/ui/Header"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 
@@ -21,6 +22,7 @@ describe("Header", () => {
           <Header
             collectionLabel="jsonplaceholder"
             envLabel="development"
+            envStatus="active"
             envColor="warning"
             onEnvironmentActivate={() => opened++}
           />
@@ -62,6 +64,7 @@ describe("Header", () => {
         <Header
           collectionLabel="jsonplaceholder"
           envLabel="development"
+          envStatus="active"
           onAboutActivate={() => opened++}
         />
       </ThemeProvider>,
@@ -85,6 +88,7 @@ describe("Header", () => {
           <Header
             collectionLabel="jsonplaceholder"
             envLabel="development"
+            envStatus="active"
             onCollectionActivate={() => opened++}
           />
         </ThemeProvider>,
@@ -127,7 +131,11 @@ describe("Header", () => {
   it("keeps the collection visible but muted when switching is disabled", async () => {
     const { renderOnce, captureSpans } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Header collectionLabel="jsonplaceholder" envLabel="development" />
+        <Header
+          collectionLabel="jsonplaceholder"
+          envLabel="development"
+          envStatus="active"
+        />
       </ThemeProvider>,
       { width: 80, height: 1 },
     )
@@ -139,6 +147,14 @@ describe("Header", () => {
     expect(collectionSpan!.fg.equals(RGBA.fromHex(THEMES[0]!.textMuted))).toBe(
       true,
     )
+    const environmentSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find(
+        (span) => span.text.includes("⛁") && span.text.includes("development"),
+      )
+    expect(environmentSpan!.fg.equals(RGBA.fromHex(THEMES[0]!.textMuted))).toBe(
+      true,
+    )
   })
 
   it("clears the environment hover when it is activated", async () => {
@@ -148,6 +164,7 @@ describe("Header", () => {
           <Header
             collectionLabel="jsonplaceholder"
             envLabel="dev"
+            envStatus="active"
             onEnvironmentActivate={() => {}}
           />
         </ThemeProvider>,
@@ -184,6 +201,7 @@ describe("Header", () => {
         <Header
           collectionLabel="a-very-long-collection-name"
           envLabel="a-very-long-development-environment"
+          envStatus="active"
         />
       </ThemeProvider>,
       { width: 30, height: 1 },
@@ -203,6 +221,7 @@ describe("Header", () => {
         <Header
           collectionLabel="请求🚀collection"
           envLabel="开发😀development"
+          envStatus="active"
         />
       </ThemeProvider>,
       { width: 34, height: 1 },
@@ -222,6 +241,7 @@ describe("Header", () => {
         <Header
           collectionLabel="jsonplaceholder-collection"
           envLabel="production"
+          envStatus="active"
           updateAvailable="v9.9.9"
         />
       </ThemeProvider>,
@@ -231,7 +251,7 @@ describe("Header", () => {
 
     const frame = captureCharFrame()
     expect(frame).not.toContain("Update available")
-    expect(frame).not.toContain("v0.6.0")
+    expect(frame).not.toContain(`v${pkg.version}`)
     expect(frame).toContain("jsonplac…")
     expect(frame).toContain("⛁ production")
   })
@@ -242,6 +262,7 @@ describe("Header", () => {
         <Header
           collectionLabel="a-very-long-collection-name"
           envLabel="a-very-long-development-environment"
+          envStatus="active"
           updateAvailable="v9.9.9"
         />
       </ThemeProvider>,
@@ -250,7 +271,7 @@ describe("Header", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).toContain("Noodle v0.6.0")
+    expect(frame).toContain(`Noodle v${pkg.version}`)
     expect(frame).toContain(" ✨ Update available")
     expect(frame).toContain("⛁ a-very")
   })

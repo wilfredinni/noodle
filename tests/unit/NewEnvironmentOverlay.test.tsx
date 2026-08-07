@@ -9,6 +9,7 @@ import {
 } from "@opentui/keymap/addons"
 import { KeymapProvider, useKeymap } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
+import { VALID_COLORS } from "../../src/env/constants"
 import { ThemeProvider } from "../../src/ui/theme"
 import {
   NewEnvironmentOverlay,
@@ -130,7 +131,7 @@ describe("NewEnvironmentOverlay", () => {
     })
     expect(result).toEqual({
       name: "staging",
-      color: "primary",
+      color: Array.from(VALID_COLORS)[0],
     })
     cleanup()
   })
@@ -201,6 +202,7 @@ describe("NewEnvironmentOverlay", () => {
 
     const rows = captureCharFrame().split("\n")
     const footerY = rows.findIndex((row) => row.includes("save"))
+    expect(footerY).toBeGreaterThanOrEqual(0)
     await act(async () => {
       await mockMouse.click(
         rows[footerY]!.indexOf("save"),

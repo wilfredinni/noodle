@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useTheme } from "../theme"
+import { contrastOnPrimary, useTheme } from "../theme"
 import { PickerOverlay } from "./PickerOverlay"
 
 export function EnvironmentPickerOverlay({
@@ -48,11 +48,11 @@ export function EnvironmentPickerOverlay({
       name: string,
       { highlighted, active }: { highlighted: boolean; active: boolean },
     ) => {
-      const foreground = highlighted ? "#1a1a1a" : theme.text
+      const foreground = highlighted ? contrastOnPrimary(theme) : theme.text
 
       return (
         <>
-          <text fg={highlighted ? "#1a1a1a" : theme.primary}>
+          <text fg={highlighted ? foreground : theme.primary}>
             {active ? "●" : " "}
           </text>
           <text

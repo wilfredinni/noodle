@@ -179,16 +179,41 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     await waitForDraft(ref, renderOnce)
     const alphaBefore = await readFile(join(dir, "alpha.env"), "utf8")
 
-    await expect(
-      ref.current!.createEnv({ name: "alpha", color: "warning" }),
-    ).rejects.toThrow('An environment named "alpha" already exists')
-    await expect(
-      ref.current!.createEnv({ name: "bad/name", color: undefined }),
-    ).rejects.toThrow("env.save: invalid environment name")
+    await act(async () => {
+      await expect(
+        ref.current!.createEnv({ name: "  ", color: undefined }),
+      ).rejects.toThrow("Environment name is required")
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBe("Environment name is required")
+
+    await act(async () => {
+      await expect(
+        ref.current!.createEnv({ name: "alpha", color: "warning" }),
+      ).rejects.toThrow('An environment named "alpha" already exists')
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBe(
+      'An environment named "alpha" already exists',
+    )
+    await act(async () => {
+      await expect(
+        ref.current!.createEnv({ name: "bad/name", color: undefined }),
+      ).rejects.toThrow("env.save: invalid environment name")
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBe("env.save: invalid environment name")
 
     expect(await readFile(join(dir, "alpha.env"), "utf8")).toBe(alphaBefore)
     expect(ref.current!.envNames).not.toContain("bad/name")
     expect(ref.current!.selectedEnvName).toBe("alpha")
+
+    await act(async () => {
+      await ref.current!.createEnv({ name: "staging", color: undefined })
+    })
+    await renderOnce()
+    expect(ref.current!.envNames).toContain("staging")
+    expect(ref.current!.error).toBeNull()
   })
 
   it("calls onEnvsChanged after deleteEnv", async () => {
