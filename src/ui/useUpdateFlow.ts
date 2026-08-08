@@ -15,7 +15,10 @@ function getErrorMessage(error: unknown): string {
 
 export function useUpdateFlow(
   overlayActiveRef: RefObject<boolean>,
-  fetcher: UpdateDependencies["fetcher"] = globalThis.fetch,
+  dependencies: Pick<UpdateDependencies, "fetcher" | "env"> = {
+    fetcher: globalThis.fetch,
+    env: process.env,
+  },
 ) {
   const [checkToken, setCheckToken] = useState(0)
   const [updateFlow, setUpdateFlow] = useState<UpdateFlowState>({
@@ -25,9 +28,12 @@ export function useUpdateFlow(
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
   const updateFlowRef = useRef(updateFlow)
   updateFlowRef.current = updateFlow
-  const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
+  const dependenciesRef = useRef(dependencies)
   const installTokenRef = useRef(0)
+
+  useEffect(() => {
+    dependenciesRef.current = dependencies
+  }, [dependencies])
 
   const triggerUpdateCheck = useCallback(
     () => setCheckToken((token) => token + 1),
@@ -37,7 +43,7 @@ export function useUpdateFlow(
   useEffect(() => {
     if (checkToken === 0 || updateFlowRef.current.phase === "installing") return
     let cancelled = false
-    checkForUpdates(true, { fetcher: fetcherRef.current })
+    checkForUpdates(true, dependenciesRef.current)
       .then((status) => {
         if (cancelled || overlayActiveRef.current) return
         if (status.kind === "up_to_date") {
@@ -72,7 +78,7 @@ export function useUpdateFlow(
     const update = updateFlow
     const token = ++installTokenRef.current
     if (update.installType === "brew") {
-      installBrewUpdate()
+      installBrewUpdate(dependenciesRef.current)
         .then((result) => {
           if (token !== installTokenRef.current) return
           if (result.data.status === "homebrew_updated") {
@@ -108,7 +114,7 @@ export function useUpdateFlow(
         update.version,
         update.assetUrl,
         update.expectedSha256,
-        { fetcher: fetcherRef.current },
+        dependenciesRef.current,
       )
         .then((result) => {
           if (token !== installTokenRef.current) return
@@ -138,7 +144,7 @@ export function useUpdateFlow(
 
   useEffect(() => {
     let cancelled = false
-    checkForUpdates(false, { fetcher: fetcherRef.current })
+    checkForUpdates(false, dependenciesRef.current)
       .then((status) => {
         if (!cancelled && status.kind === "update_available") {
           setUpdateAvailable(status.latestVersion)

@@ -746,15 +746,18 @@ describe("checkForUpdates", () => {
     let receivedArgs: string[] | undefined
     let captured: boolean | undefined
     let signal: AbortSignal | undefined
+    let receivedEnv: Record<string, string | undefined> | undefined
+    const env = { HTTPS_PROXY: "http://proxy.test:8080" }
     const status = await checkForUpdates(false, {
       execPath: "/opt/homebrew/bin/noodle",
       platform: "darwin",
       arch: "arm64",
-      env: {},
+      env,
       runProcess: async (args, capture, options) => {
         receivedArgs = args
         captured = capture
         signal = options?.signal
+        receivedEnv = options?.env
         return {
           exitCode: 0,
           stdout: JSON.stringify({
@@ -771,6 +774,7 @@ describe("checkForUpdates", () => {
     expect(receivedArgs).toEqual(["brew", "info", "--json=v2", "noodle"])
     expect(captured).toBe(true)
     expect(signal).toBeInstanceOf(AbortSignal)
+    expect(receivedEnv).toBe(env)
   })
 
   it("returns update_available for brew when outdated finds newer", async () => {
@@ -1156,13 +1160,16 @@ describe("installBinaryUpdate", () => {
 describe("installBrewUpdate", () => {
   it("runs brew upgrade and returns success", async () => {
     let receivedArgs: string[] | undefined
+    let receivedEnv: Record<string, string | undefined> | undefined
+    const env = { HTTPS_PROXY: "http://proxy.test:8080" }
     const result = await installBrewUpdate({
       execPath: "/opt/homebrew/bin/noodle",
       platform: "darwin",
       arch: "arm64",
-      env: {},
-      runProcess: async (args, capture) => {
+      env,
+      runProcess: async (args, capture, options) => {
         receivedArgs = args
+        receivedEnv = options?.env
         void capture
         return { exitCode: 0 }
       },
@@ -1171,6 +1178,7 @@ describe("installBrewUpdate", () => {
       data: { status: "homebrew_updated", command: "brew upgrade noodle" },
     })
     expect(receivedArgs).toEqual(["brew", "upgrade", "noodle"])
+    expect(receivedEnv).toBe(env)
   })
 
   it("reports brew upgrade failure", async () => {

@@ -22,6 +22,7 @@ import type {
 } from "../schema"
 import {
   createProxyFetcher,
+  environmentForProxyPolicy,
   resolveProxyPolicy,
   type SystemProxySettings,
 } from "../proxy"
@@ -494,8 +495,11 @@ export function AppInner({
       }),
     [noProxy, appProxy, collectionProxy, systemProxy],
   )
-  const updateFetcher = useMemo(
-    () => createProxyFetcher(proxyPolicy, envState.activeEnv),
+  const updateDependencies = useMemo(
+    () => ({
+      fetcher: createProxyFetcher(proxyPolicy, envState.activeEnv),
+      env: environmentForProxyPolicy(proxyPolicy, envState.activeEnv),
+    }),
     [proxyPolicy, envState.activeEnv],
   )
 
@@ -603,7 +607,7 @@ export function AppInner({
     triggerUpdateCheck,
     confirmInstall: onConfirmInstall,
     cancelUpdate: onCancelUpdate,
-  } = useUpdateFlow(overlayActiveRef, updateFetcher)
+  } = useUpdateFlow(overlayActiveRef, updateDependencies)
   const {
     activeOverlay,
     helpVisible,

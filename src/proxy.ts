@@ -123,8 +123,37 @@ export function createProxyFetcher(
     const route = proxyForUrl(policy, target, env ?? undefined)
     const fetchInit: BunFetchRequestInit = { ...init }
     if (route.kind === "proxy") fetchInit.proxy = route.url
+    else delete fetchInit.proxy
     return fetcher(input, fetchInit)
   }
+}
+
+export function environmentForProxyPolicy(
+  policy: ProxyPolicy,
+  env?: Environment | null,
+  baseEnv: Record<string, string | undefined> = process.env,
+): Record<string, string | undefined> {
+  const result = { ...baseEnv }
+  for (const key of PROXY_ENV_KEYS) delete result[key]
+  if (policy.kind === "direct") return result
+
+  if (policy.kind === "system") {
+    setProxyEnvironment(result, policy.settings)
+    return result
+  }
+
+  let url = policy.url
+  try {
+    url = resolveProxyUrl(url, env ?? undefined)
+  } catch {
+    // Keep the template so the subprocess reports the same unresolved proxy.
+  }
+  setProxyEnvironment(result, {
+    http: url,
+    https: url,
+    bypass: policy.bypass,
+  })
+  return result
 }
 
 export function resolveProxyPolicy({
@@ -371,6 +400,17 @@ function effectivePort(url: URL): string {
 
 function splitBypass(value: string | undefined): string[] {
   return value ? normalizeBypass(value.split(",")) : []
+}
+
+function setProxyEnvironment(
+  env: Record<string, string | undefined>,
+  settings: SystemProxySettings,
+): void {
+  if (settings.http) env.HTTP_PROXY = env.http_proxy = settings.http
+  if (settings.https) env.HTTPS_PROXY = env.https_proxy = settings.https
+  if (settings.bypass.length > 0) {
+    env.NO_PROXY = env.no_proxy = settings.bypass.join(",")
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

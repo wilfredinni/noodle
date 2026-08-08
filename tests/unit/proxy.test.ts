@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import {
   buildStructuredProxyTemplate,
   createProxyFetcher,
+  environmentForProxyPolicy,
   parseAppProxy,
   parseCollectionProxy,
   parseStructuredProxyTemplate,
@@ -90,6 +91,42 @@ describe("proxy policy", () => {
     await fetcher("https://example.com")
 
     expect((init as BunFetchRequestInit).proxy).toBe("http://system-https:8080")
+  })
+
+  it("removes a caller proxy from direct fetches", async () => {
+    let init: RequestInit | undefined
+    const fetcher = createProxyFetcher(
+      resolveProxyPolicy({ noProxy: true, systemProxy: system }),
+      undefined,
+      async (_input, options) => {
+        init = options
+        return new Response()
+      },
+    )
+
+    await fetcher("https://example.com", {
+      proxy: "http://caller-proxy:8080",
+    } as BunFetchRequestInit)
+
+    expect("proxy" in (init as BunFetchRequestInit)).toBe(false)
+  })
+
+  it("restores resolved proxy settings for subprocesses", () => {
+    const env = environmentForProxyPolicy(
+      resolveProxyPolicy({ systemProxy: system }),
+      undefined,
+      { PATH: "/usr/bin", HTTPS_PROXY: "http://ambient:8080" },
+    )
+
+    expect(env).toEqual({
+      PATH: "/usr/bin",
+      HTTP_PROXY: "http://system-http:8080",
+      http_proxy: "http://system-http:8080",
+      HTTPS_PROXY: "http://system-https:8080",
+      https_proxy: "http://system-https:8080",
+      NO_PROXY: "localhost,.internal.test",
+      no_proxy: "localhost,.internal.test",
+    })
   })
 
   it("bypasses wildcard, domain, port, and IPv6 entries", () => {
