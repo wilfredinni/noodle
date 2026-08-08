@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { useEffect, useState, type ReactNode } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { act, useEffect, useState, type ReactNode } from "react"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { setupKeymap } from "./_helpers"
 import { useTreeNavigation } from "../../src/hooks/useTreeNavigation"
 import { getEditRequestYamlFile } from "../../src/ui/commandActions"
 import type { CollectionItem } from "../../src/schema"
+
+const testRender = createTestRender()
 
 function req(id: string): CollectionItem {
   return {
@@ -118,7 +120,9 @@ describe("useTreeNavigation", () => {
     await renderOnce()
 
     // Wait for the create flow to complete
-    await new Promise((r) => setTimeout(r, 30))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    })
     await renderOnce()
     const frame = captureCharFrame()
 
@@ -214,7 +218,9 @@ describe("useTreeNavigation", () => {
     )
 
     await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
     await renderOnce()
     const frame = captureCharFrame()
 
@@ -245,7 +251,9 @@ describe("useTreeNavigation", () => {
     )
 
     await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
     await renderOnce()
     const frame = captureCharFrame()
 

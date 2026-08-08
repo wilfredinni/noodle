@@ -2,10 +2,12 @@ import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { EnvironmentPickerOverlay } from "../../src/ui/overlays/EnvironmentPickerOverlay"
 import { ThemeProvider } from "../../src/ui/theme"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 const environments = ["development", "staging", "production"]
 

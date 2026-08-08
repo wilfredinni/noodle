@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { AboutOverlay } from "../../src/ui/overlays/AboutOverlay"
 import pkg from "../../package.json" with { type: "json" }
+
+const testRender = createTestRender()
 
 describe("AboutOverlay", () => {
   it("renders Noodle information and links", async () => {

@@ -1,11 +1,13 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { HelpOverlay } from "../../src/ui/overlays/HelpOverlay"
 import { bindingDefaults } from "../../src/ui/keybind"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 describe("HelpOverlay", () => {
   it("keeps spacing between long key hints and descriptions", async () => {

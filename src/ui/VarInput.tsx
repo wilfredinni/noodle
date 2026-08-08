@@ -143,11 +143,11 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
 
     const handleTextareaChange = useCallback(() => {
       const ta = textareaRef.current
-      if (!ta) return
+      if (!ta || ta.plainText === value) return
       onChange?.(ta.plainText)
       setCompletionDismissed(false)
       applyHighlights()
-    }, [applyHighlights, onChange])
+    }, [applyHighlights, onChange, value])
 
     const handleInput = useCallback(
       (nextValue: string) => {

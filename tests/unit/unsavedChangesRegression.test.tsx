@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { useEffect, useRef, useState } from "react"
 import { useRequestDraft } from "../../src/hooks/useRequestDraft"
 import { useEditBrowse } from "../../src/hooks/useEditBrowse"
 import { useCollectionSwitcher } from "../../src/ui/useCollectionSwitcher"
 import { useReloadGuard } from "../../src/ui/useReloadGuard"
 import type { Request } from "../../src/schema"
+
+const testRender = createTestRender()
 
 const request: Request = {
   id: "request",

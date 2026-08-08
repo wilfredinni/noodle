@@ -7,7 +7,7 @@ import {
   mock,
   spyOn,
 } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "./testRender"
 import { act, useEffect, useRef } from "react"
 import { mkdtemp, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -15,6 +15,8 @@ import { join } from "node:path"
 import { ThemeProvider } from "../src/ui/theme"
 import { useEnvironmentEditor } from "../src/hooks/useEnvironmentEditor"
 import { env } from "../src/env"
+
+const testRender = createTestRender()
 
 let dir: string
 
@@ -27,7 +29,9 @@ async function waitForDraft(
     if (Date.now() >= deadline) {
       throw new Error("Timed out waiting for environment draft")
     }
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
     await renderOnce()
   }
 }
@@ -89,10 +93,11 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
-    await ref.current!.cloneEnv("alpha-copy")
+    await act(async () => {
+      await ref.current!.cloneEnv("alpha-copy")
+    })
     expect(spy).toHaveBeenCalledTimes(1)
   })
 
@@ -112,7 +117,6 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
     await waitForDraft(ref, renderOnce)
 
     await act(async () => {
@@ -146,7 +150,6 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
     await waitForDraft(ref, renderOnce)
 
     let first!: Promise<void>
@@ -175,7 +178,6 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
     await waitForDraft(ref, renderOnce)
     const alphaBefore = await readFile(join(dir, "alpha.env"), "utf8")
 
@@ -228,10 +230,11 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
-    await ref.current!.deleteEnv()
+    await act(async () => {
+      await ref.current!.deleteEnv()
+    })
     expect(spy).toHaveBeenCalledTimes(1)
   })
 
@@ -246,8 +249,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await waitForDraft(ref, renderOnce)
 
     act(() => {
       ref.current!.activateVar(0)
@@ -297,8 +299,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await waitForDraft(ref, renderOnce)
 
     act(() => {
       ref.current!.activateVar(0)
@@ -336,8 +337,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await waitForDraft(ref, renderOnce)
 
     act(() => {
       ref.current!.activateVar(0)
@@ -367,8 +367,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
     const filePath = join(dir, "alpha.env")
     const before = await readFile(filePath, "utf8")
@@ -376,8 +375,9 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       .catch(() => false)
     expect(before).toBe(true)
 
-    await ref.current!.deleteEnv()
-    await new Promise((r) => setTimeout(r, 30))
+    await act(async () => {
+      await ref.current!.deleteEnv()
+    })
 
     const after = await readFile(filePath, "utf8")
       .then(() => true)
@@ -397,13 +397,13 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
     // Change name to trigger rename path
-    ref.current!.setName("alpha-renamed")
-    await ref.current!.save()
-    await renderOnce()
+    await act(async () => {
+      ref.current!.setName("alpha-renamed")
+      await ref.current!.save()
+    })
 
     act(() => {
       ref.current!.setColor("warning")
@@ -436,12 +436,13 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
     // Edit without changing name (simulates color/vars edit)
-    ref.current!.setColor("warning")
-    await ref.current!.save()
+    await act(async () => {
+      ref.current!.setColor("warning")
+      await ref.current!.save()
+    })
     expect(dataSpy).toHaveBeenCalledTimes(1)
   })
 
@@ -455,7 +456,6 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
     await waitForDraft(ref, renderOnce)
 
     act(() => {
@@ -483,7 +483,6 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
     await waitForDraft(ref, renderOnce)
 
     const originalLoad = env.loadEnvironment
@@ -532,8 +531,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
     type LoadedEnvironment = Awaited<ReturnType<typeof env.loadEnvironment>>
     const pending = new Map<string, (environment: LoadedEnvironment) => void>()
@@ -545,8 +543,12 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     )
 
     try {
-      const betaSelection = ref.current!.selectEnv("beta")
-      const gammaSelection = ref.current!.selectEnv("gamma")
+      let betaSelection!: Promise<boolean>
+      let gammaSelection!: Promise<boolean>
+      act(() => {
+        betaSelection = ref.current!.selectEnv("beta")
+        gammaSelection = ref.current!.selectEnv("gamma")
+      })
 
       let gammaIsCurrent = false
       await act(async () => {
@@ -584,7 +586,6 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
     await waitForDraft(ref, renderOnce)
 
     type LoadedEnvironment = Awaited<ReturnType<typeof env.loadEnvironment>>
@@ -597,8 +598,12 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     )
 
     try {
-      const betaSelection = ref.current!.selectEnv("beta")
-      const alphaSelection = await ref.current!.selectEnv("alpha")
+      let betaSelection!: Promise<boolean>
+      let alphaSelection = false
+      await act(async () => {
+        betaSelection = ref.current!.selectEnv("beta")
+        alphaSelection = await ref.current!.selectEnv("alpha")
+      })
 
       expect(alphaSelection).toBe(true)
 
@@ -632,15 +637,13 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
     // Rename "alpha" -> "beta" (beta already exists)
-    ref.current!.setName("beta")
-    await ref.current!.save()
-    // flush React state update from setError
-    await new Promise((r) => setTimeout(r, 10))
-    await renderOnce()
+    await act(async () => {
+      ref.current!.setName("beta")
+      await ref.current!.save()
+    })
 
     const editor = ref.current!
     expect(editor.error).not.toBeNull()
@@ -666,40 +669,35 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await waitForDraft(ref, renderOnce)
 
     // Close current editor, open new blank one
-    ref.current!.closeEditor()
-    await new Promise((r) => setTimeout(r, 10))
+    await act(async () => {
+      ref.current!.closeEditor()
+      await ref.current!.openEditor() // no name = blank draft
+    })
     await renderOnce()
-
-    ref.current!.openEditor() // no name = blank draft (sync in else branch)
-    await new Promise((r) => setTimeout(r, 10))
+    act(() => {
+      ref.current!.setName("new-env")
+      ref.current!.enterBrowse()
+    })
     await renderOnce()
-
-    ref.current!.setName("new-env")
+    act(() => {
+      ref.current!.enterEdit()
+    })
     await renderOnce()
-
-    ref.current!.enterBrowse()
+    act(() => {
+      ref.current!.setEditKey("key")
+      ref.current!.setEditValue("value")
+    })
     await renderOnce()
-
-    ref.current!.enterEdit()
+    act(() => {
+      ref.current!.commitEdit()
+    })
     await renderOnce()
-
-    ref.current!.setEditKey("key")
-    ref.current!.setEditValue("value")
-    await renderOnce()
-
-    ref.current!.commitEdit()
-    await renderOnce()
-
-    console.log("draft before save:", JSON.stringify(ref.current!.draft))
-    console.log("dirty:", ref.current!.dirty)
-
-    await ref.current!.save()
-    // flush setLocalNames state update
-    await new Promise((r) => setTimeout(r, 10))
+    await act(async () => {
+      await ref.current!.save()
+    })
     await renderOnce()
 
     const editor = ref.current!
@@ -718,25 +716,26 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       </ThemeProvider>,
       { width: 40, height: 12 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 50))
-    await renderOnce()
+    await waitForDraft(ref, renderOnce)
 
-    ref.current!.enterBrowse()
-    await new Promise((r) => setTimeout(r, 10))
+    await act(async () => {
+      ref.current!.enterBrowse()
+    })
     await renderOnce()
 
     expect(ref.current!.editState.mode).toBe("browsing")
 
     // Go to last item (add row)
-    ref.current!.browseLast()
-    await new Promise((r) => setTimeout(r, 10))
+    await act(async () => {
+      ref.current!.browseLast()
+    })
     await renderOnce()
     expect(ref.current!.editState.addingRow).toBe(true)
 
     // Go to first item (row 0)
-    ref.current!.browseFirst()
-    await new Promise((r) => setTimeout(r, 10))
+    await act(async () => {
+      ref.current!.browseFirst()
+    })
     await renderOnce()
     expect(ref.current!.editState.row).toBe(0)
     expect(ref.current!.editState.addingRow).toBe(false)

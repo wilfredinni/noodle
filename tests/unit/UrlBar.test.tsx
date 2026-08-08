@@ -1,12 +1,14 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { UrlBar } from "../../src/ui/UrlBar"
 import type { Method } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 function UrlBarHarness({
   subFocus = "text",

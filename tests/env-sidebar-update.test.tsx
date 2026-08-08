@@ -1,8 +1,10 @@
 import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
-import { useEffect, useState } from "react"
+import { createTestRender } from "./testRender"
+import { act, useEffect, useState } from "react"
 import { ThemeProvider } from "../src/ui/theme"
 import { EnvSidebar } from "../src/ui/env-editor/EnvSidebar"
+
+const testRender = createTestRender()
 
 function Harness({ initial, next }: { initial: string[]; next: string[] }) {
   const [names, setNames] = useState(initial)
@@ -37,7 +39,10 @@ describe("EnvSidebar list update", () => {
       { width: 40, height: 12 },
     )
     await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    })
+    await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("beta - Copy")
   })
@@ -53,7 +58,10 @@ describe("EnvSidebar list update", () => {
       { width: 40, height: 12 },
     )
     await renderOnce()
-    await new Promise((r) => setTimeout(r, 30))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    })
+    await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("delta")
   })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { act, createRef } from "react"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerDefaultKeys,
@@ -14,6 +14,8 @@ import {
   ImportCurlOverlay,
   type ImportCurlOverlayHandle,
 } from "../../src/ui/overlays/ImportCurlOverlay"
+
+const testRender = createTestRender()
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()

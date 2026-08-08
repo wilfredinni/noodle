@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { act, createRef, useEffect } from "react"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerDefaultKeys,
@@ -17,6 +17,8 @@ import {
   type NewEnvironmentValues,
 } from "../../src/ui/overlays/NewEnvironmentOverlay"
 import { useFormOverlayIntercept } from "../../src/ui/intercepts/useFormOverlayIntercept"
+
+const testRender = createTestRender()
 
 function setupKeymap() {
   const { keymap, host, cleanup: hostCleanup } = createTestKeymap()

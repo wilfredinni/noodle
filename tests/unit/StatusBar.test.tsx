@@ -2,13 +2,14 @@ import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { StatusBar } from "../../src/ui/StatusBar"
 import { bindingDefaults } from "../../src/ui/keybind"
 import { getKeybindingHints } from "../../src/ui/keybindingHints"
 import type { HintSegment } from "../../src/ui/keybindingHints"
 
+const testRender = createTestRender()
 const kb = bindingDefaults()
 const emptyHints: HintSegment[] = []
 

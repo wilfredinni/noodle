@@ -1,12 +1,14 @@
 import { describe, expect, it } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
 import { THEMES } from "../../src/ui/theme-data"
 import { FolderPane } from "../../src/ui/FolderPane"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 describe("FolderPane blank click commit", () => {
   it("commits a metadata edit when clicking blank pane space", async () => {

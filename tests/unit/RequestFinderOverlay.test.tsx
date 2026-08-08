@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerDefaultKeys,
@@ -9,6 +9,8 @@ import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { RequestFinderOverlay } from "../../src/ui/overlays/RequestFinderOverlay"
+
+const testRender = createTestRender()
 
 function setup() {
   const { keymap, host, cleanup: hostCleanup } = createTestKeymap()

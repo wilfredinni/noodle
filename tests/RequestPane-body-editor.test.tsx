@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { act, useEffect, useState } from "react"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { readFile } from "node:fs/promises"
@@ -22,6 +22,8 @@ import {
   type UseEditBrowseResult,
 } from "../src/hooks/useEditBrowse"
 import { setupKeymap } from "./unit/_helpers"
+
+const testRender = createTestRender()
 
 extend({
   "code-editor": CodeEditorRenderable,

@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test"
 import { act, createRef } from "react"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerEnabledFields,
@@ -17,6 +17,8 @@ import {
   NewRequestOverlay,
   type NewRequestOverlayHandle,
 } from "../../src/ui/overlays/NewRequestOverlay"
+
+const testRender = createTestRender()
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()

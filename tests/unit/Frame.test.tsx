@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { MouseButtons } from "@opentui/core/testing"
 import { Frame } from "../../src/ui/Frame"
+
+const testRender = createTestRender()
 
 describe("Frame", () => {
   it("focuses its pane only on a left click", async () => {

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act, useEffect, useRef, useState } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import type {
   Collection,
   Folder,
@@ -12,6 +12,8 @@ import type {
 import type { UseFolderDraftResult } from "../../src/hooks/useFolderDraft"
 import { useCollectionFileActions } from "../../src/ui/useCollectionFileActions"
 import { lang } from "../../src/lang"
+
+const testRender = createTestRender()
 
 const initialFolder: Folder = {
   id: "api",

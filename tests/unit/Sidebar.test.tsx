@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test"
+import { act } from "react"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { Sidebar } from "../../src/ui/Sidebar"
 import { ThemeProvider } from "../../src/ui/theme"
+
+const testRender = createTestRender()
 
 describe("Sidebar", () => {
   it("selects on left click and opens the request context menu on right click", async () => {
@@ -42,12 +45,16 @@ describe("Sidebar", () => {
     )
     await renderOnce()
 
-    await mockMouse.click(2, 1, MouseButtons.RIGHT)
+    await act(async () => {
+      await mockMouse.click(2, 1, MouseButtons.RIGHT)
+    })
     expect(selected).toBe("")
     expect(focused).toBe(0)
     expect(contextId).toBe("example")
 
-    await mockMouse.click(3, 1, MouseButtons.LEFT)
+    await act(async () => {
+      await mockMouse.click(3, 1, MouseButtons.LEFT)
+    })
     expect(selected).toBe("example")
     expect(focused).toBe(1)
   })
@@ -86,11 +93,15 @@ describe("Sidebar", () => {
     )
     await renderOnce()
 
-    await mockMouse.click(3, 1, MouseButtons.LEFT)
+    await act(async () => {
+      await mockMouse.click(3, 1, MouseButtons.LEFT)
+    })
     expect(toggled).toBe("api")
     expect(selected).toBe("")
 
-    await mockMouse.click(6, 1, MouseButtons.LEFT)
+    await act(async () => {
+      await mockMouse.click(6, 1, MouseButtons.LEFT)
+    })
     expect(selected).toBe("api")
   })
 
@@ -124,7 +135,9 @@ describe("Sidebar", () => {
     )
     await renderOnce()
 
-    await mockMouse.click(6, 1, MouseButtons.RIGHT)
+    await act(async () => {
+      await mockMouse.click(6, 1, MouseButtons.RIGHT)
+    })
     expect(contextId).toBe("api")
   })
 })

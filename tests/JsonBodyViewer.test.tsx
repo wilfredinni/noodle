@@ -1,10 +1,12 @@
 import { act, useState } from "react"
 import { describe, expect, it } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "./testRender"
 import { RGBA } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { ThemeProvider, THEMES } from "../src/ui/theme"
 import { JsonBodyViewer } from "../src/ui/editor/JsonBodyViewer"
+
+const testRender = createTestRender()
 
 describe("JsonBodyViewer", () => {
   it("keeps JSON syntax highlighting when variables make raw JSON invalid", async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { extend } from "@opentui/react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { TextAttributes } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
@@ -16,6 +16,8 @@ import {
   getAvailableTargets,
   computeRequestTabLabels,
 } from "../../src/ui/useJumpMode"
+
+const testRender = createTestRender()
 
 extend({
   "code-editor": CodeEditorRenderable,

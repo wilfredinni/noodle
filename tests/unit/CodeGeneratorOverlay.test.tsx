@@ -1,5 +1,5 @@
 import { describe, expect, it, spyOn } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { act } from "react"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -9,6 +9,8 @@ import { RendererProvider } from "../../src/ui/RendererContext"
 import { CodeGeneratorOverlay } from "../../src/ui/overlays/CodeGeneratorOverlay"
 import * as clipboard from "../../src/ui/clipboard"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 const baseRequest = {
   id: "users",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState, type ComponentProps } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -10,6 +10,8 @@ import {
 } from "../../src/ui/overlays/TimelineDetailOverlay"
 import type { TimelineEntry } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 function makeEntry(over: Partial<TimelineEntry> = {}): TimelineEntry {
   return {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerEnabledFields,
@@ -8,6 +8,8 @@ import {
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { THEMES, ThemePickerOverlay, ThemeProvider } from "../../src/ui/theme"
+
+const testRender = createTestRender()
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()

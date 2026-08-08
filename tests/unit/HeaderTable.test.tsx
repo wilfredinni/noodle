@@ -1,7 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { HeaderTable } from "../../src/ui/HeaderTable"
 import { THEMES, type Theme } from "../../src/ui/theme"
+
+const testRender = createTestRender()
 
 const theme = THEMES[0]! as Theme
 

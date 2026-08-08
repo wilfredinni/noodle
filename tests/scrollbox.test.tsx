@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { act, useMemo, useState } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
 import { RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
@@ -26,6 +26,8 @@ import {
   CodeEditorScrollBarRenderable,
 } from "../src/ui/editor/CodeEditor"
 import { keyEvent } from "./unit/_helpers"
+
+const testRender = createTestRender()
 
 extend({
   "code-editor": CodeEditorRenderable,
@@ -398,18 +400,20 @@ describe("ResponsePane scrollbox", () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
     keymap.setData("app.overlay", "none")
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ResponsePane state={state} focused initialTab="body" />
-      </KeymapProvider>,
-      { width: 80, height: 16 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockInput } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane state={state} focused initialTab="body" />
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
     await renderOnce()
     expect(captureCharFrame()).toContain("Sending")
     await act(async () => mockInput.pressKey("ARROW_RIGHT"))
     await act(async () => mockInput.pressKey("ARROW_RIGHT"))
     await renderOnce()
     expect(captureCharFrame()).toContain("GET example")
+    await act(async () => renderer.destroy())
   })
 
   it("renders trace events after a failed request", async () => {

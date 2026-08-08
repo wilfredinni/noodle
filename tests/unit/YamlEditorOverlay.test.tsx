@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { act } from "react"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { extend } from "@opentui/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -17,6 +17,8 @@ import { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+
+const testRender = createTestRender()
 
 extend({ "code-editor": CodeEditorRenderable })
 
@@ -41,6 +43,35 @@ function setupKeymap() {
 const MOCK_YAML = "name: test\nmethod: GET\nurl: https://example.com\n"
 let testDir: string
 let filePath: string
+
+async function loadEditor(
+  renderOnce: () => Promise<void>,
+  delayMs = 20,
+): Promise<void> {
+  await act(async () => {
+    await renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  })
+  await renderOnce()
+}
+
+async function waitForRow(
+  captureCharFrame: () => string,
+  renderOnce: () => Promise<void>,
+  predicate: (row: string) => boolean,
+): Promise<[string, number]> {
+  const deadline = Date.now() + 2_000
+  while (Date.now() < deadline) {
+    const rows = captureCharFrame().split("\n")
+    const index = rows.findIndex(predicate)
+    if (index >= 0) return [rows[index]!, index]
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+    await renderOnce()
+  }
+  throw new Error("Expected YAML fold icon")
+}
 
 beforeEach(async () => {
   testDir = await mkdtemp(join(tmpdir(), "noodle-yaml-editor-"))
@@ -69,9 +100,7 @@ describe("YamlEditorOverlay", () => {
       </KeymapProvider>,
       { width: 100, height: 30 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 20))
-    await renderOnce()
+    await loadEditor(renderOnce)
     const frame = captureCharFrame()
     expect(frame).toContain("get-users.yml")
     expect(frame).toContain("esc")
@@ -94,9 +123,7 @@ describe("YamlEditorOverlay", () => {
       </KeymapProvider>,
       { width: 100, height: 30 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 20))
-    await renderOnce()
+    await loadEditor(renderOnce)
     const frame = captureCharFrame()
     expect(frame).toContain("^S")
     expect(frame).toContain("save")
@@ -130,9 +157,7 @@ describe("YamlEditorOverlay", () => {
       </KeymapProvider>,
       { width: 100, height: 30 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 20))
-    await renderOnce()
+    await loadEditor(renderOnce)
 
     const rows = captureCharFrame().split("\n")
     const y = rows.findIndex((row) => row.includes("save"))
@@ -169,22 +194,15 @@ describe("YamlEditorOverlay", () => {
       </KeymapProvider>,
       { width: 100, height: 30 },
     )
-    await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 250))
-    await renderOnce()
-
-    const rows = captureCharFrame().split("\n")
-    const row = rows.find(
+    await loadEditor(renderOnce)
+    const [row, rowIndex] = await waitForRow(
+      captureCharFrame,
+      renderOnce,
       (line) => line.includes("▼") && line.includes("headers:"),
     )
-    if (!row) throw new Error("Expected YAML fold icon")
 
     await act(async () => {
-      await mockMouse.click(
-        row.indexOf("▼"),
-        rows.indexOf(row),
-        MouseButtons.LEFT,
-      )
+      await mockMouse.click(row.indexOf("▼"), rowIndex, MouseButtons.LEFT)
     })
     await renderOnce()
     expect(captureCharFrame()).not.toContain("accept: application/json")
@@ -252,9 +270,7 @@ describe("YamlEditorOverlay", () => {
       </KeymapProvider>,
       { width: 100, height: 30 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 20))
-    await renderOnce()
+    await loadEditor(renderOnce)
     const frame = captureCharFrame()
     expect(frame).toMatch(/\^S.*save.*esc.*close/)
     cleanup()
@@ -278,12 +294,12 @@ describe("YamlEditorOverlay", () => {
       </KeymapProvider>,
       { width: 100, height: 30 },
     )
-    await renderOnce()
-    await new Promise((r) => setTimeout(r, 20))
-    await renderOnce()
+    await loadEditor(renderOnce)
 
-    host.press("s", { ctrl: true })
-    await new Promise((r) => setTimeout(r, 20))
+    await act(async () => {
+      host.press("s", { ctrl: true })
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
     await renderOnce()
 
     const frame = captureCharFrame()

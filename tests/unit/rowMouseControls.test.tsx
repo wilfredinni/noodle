@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { initialEditState } from "../../src/ui/editMode"
 import { KeyValueSection } from "../../src/ui/KeyValueSection"
 import { FormEditor } from "../../src/ui/FormEditor"
+
+const testRender = createTestRender()
 
 describe("request row mouse controls", () => {
   it("activates and toggles key/value rows independently", async () => {

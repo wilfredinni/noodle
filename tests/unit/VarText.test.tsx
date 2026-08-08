@@ -1,9 +1,11 @@
 import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { RGBA } from "@opentui/core"
 import { VarText } from "../../src/ui/VarText"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import type { Environment } from "../../src/schema"
+
+const testRender = createTestRender()
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test-env", vars }
