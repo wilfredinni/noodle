@@ -105,6 +105,28 @@ export function takeSystemProxyFromEnv(
   return settings
 }
 
+export function createProxyFetcher(
+  policy: ProxyPolicy,
+  env?: Environment | null,
+  fetcher: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response> = globalThis.fetch,
+) {
+  return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const target =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url
+    const route = proxyForUrl(policy, target, env ?? undefined)
+    const fetchInit: BunFetchRequestInit = { ...init }
+    if (route.kind === "proxy") fetchInit.proxy = route.url
+    return fetcher(input, fetchInit)
+  }
+}
+
 export function resolveProxyPolicy({
   noProxy = false,
   appProxy,
@@ -201,7 +223,10 @@ export function validateProxyTemplate(template: string): string | null {
   const value = template.trim()
   if (!value) return "Proxy URL is required"
   try {
-    const parsed = new URL(value.replace(VAR_RE, "proxy-variable"))
+    const parseable = value
+      .replace(/:\$\w+(?=[/?#]|$)/g, ":8080")
+      .replace(VAR_RE, "proxy-variable")
+    const parsed = new URL(parseable)
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return "Proxy URL must use http or https"
     }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import {
   buildStructuredProxyTemplate,
+  createProxyFetcher,
   parseAppProxy,
   parseCollectionProxy,
   parseStructuredProxyTemplate,
@@ -73,6 +74,22 @@ describe("proxy policy", () => {
       bypass: ["localhost"],
     })
     expect(env).toEqual({})
+  })
+
+  it("applies captured proxy settings to fetches explicitly", async () => {
+    let init: RequestInit | undefined
+    const fetcher = createProxyFetcher(
+      resolveProxyPolicy({ systemProxy: system }),
+      undefined,
+      async (_input, options) => {
+        init = options
+        return new Response()
+      },
+    )
+
+    await fetcher("https://example.com")
+
+    expect((init as BunFetchRequestInit).proxy).toBe("http://system-https:8080")
   })
 
   it("bypasses wildcard, domain, port, and IPv6 entries", () => {
@@ -211,6 +228,17 @@ describe("proxy validation", () => {
         vars: { PROXY_USER: "alice", PROXY_PASSWORD: "secret" },
       }),
     ).toBe("http://alice:secret@proxy.test:8080")
+  })
+
+  it("validates and resolves a variable proxy port", () => {
+    const template = "http://proxy.test:$PROXY_PORT"
+    expect(validateProxyTemplate(template)).toBeNull()
+    expect(
+      resolveProxyUrl(template, {
+        name: "dev",
+        vars: { PROXY_PORT: "8080" },
+      }),
+    ).toBe("http://proxy.test:8080")
   })
 
   it("fails clearly for an unresolved proxy variable", () => {

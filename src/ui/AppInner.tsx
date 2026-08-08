@@ -20,7 +20,11 @@ import type {
   Request as NoodleRequest,
   Method,
 } from "../schema"
-import { resolveProxyPolicy, type SystemProxySettings } from "../proxy"
+import {
+  createProxyFetcher,
+  resolveProxyPolicy,
+  type SystemProxySettings,
+} from "../proxy"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -490,6 +494,10 @@ export function AppInner({
       }),
     [noProxy, appProxy, collectionProxy, systemProxy],
   )
+  const updateFetcher = useMemo(
+    () => createProxyFetcher(proxyPolicy, envState.activeEnv),
+    [proxyPolicy, envState.activeEnv],
+  )
 
   const {
     state: responseState,
@@ -595,7 +603,7 @@ export function AppInner({
     triggerUpdateCheck,
     confirmInstall: onConfirmInstall,
     cancelUpdate: onCancelUpdate,
-  } = useUpdateFlow(overlayActiveRef)
+  } = useUpdateFlow(overlayActiveRef, updateFetcher)
   const {
     activeOverlay,
     helpVisible,
@@ -987,6 +995,10 @@ export function AppInner({
               : { mode: "custom", url: values.url },
           )
         }
+      } else {
+        setProxySettingsVisible(false)
+        showToast("Collection proxy settings are read-only", "error")
+        return
       }
       setProxySettingsVisible(false)
       showToast("Proxy settings saved", "success")
@@ -1428,6 +1440,7 @@ export function AppInner({
           proxySettingsVisible={proxySettingsVisible}
           proxySettingsRef={proxySettingsRef}
           proxySettingsActions={overlayActions.proxySettings}
+          collectionProxyEditable={isCollection}
           appProxy={appProxy}
           collectionProxy={collectionProxy}
           folderDeletePending={folderDeletePending}

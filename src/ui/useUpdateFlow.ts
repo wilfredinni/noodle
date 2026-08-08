@@ -4,6 +4,7 @@ import {
   checkForUpdates,
   installBinaryUpdate,
   installBrewUpdate,
+  type UpdateDependencies,
 } from "../app/commands/update"
 import { showToast } from "./Toast"
 import type { UpdateFlowState } from "./appState"
@@ -12,7 +13,10 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
+export function useUpdateFlow(
+  overlayActiveRef: RefObject<boolean>,
+  fetcher: UpdateDependencies["fetcher"] = globalThis.fetch,
+) {
   const [checkToken, setCheckToken] = useState(0)
   const [updateFlow, setUpdateFlow] = useState<UpdateFlowState>({
     phase: "idle",
@@ -21,6 +25,8 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
   const updateFlowRef = useRef(updateFlow)
   updateFlowRef.current = updateFlow
+  const fetcherRef = useRef(fetcher)
+  fetcherRef.current = fetcher
   const installTokenRef = useRef(0)
 
   const triggerUpdateCheck = useCallback(
@@ -31,7 +37,7 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
   useEffect(() => {
     if (checkToken === 0 || updateFlowRef.current.phase === "installing") return
     let cancelled = false
-    checkForUpdates(true)
+    checkForUpdates(true, { fetcher: fetcherRef.current })
       .then((status) => {
         if (cancelled || overlayActiveRef.current) return
         if (status.kind === "up_to_date") {
@@ -102,6 +108,7 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
         update.version,
         update.assetUrl,
         update.expectedSha256,
+        { fetcher: fetcherRef.current },
       )
         .then((result) => {
           if (token !== installTokenRef.current) return
@@ -131,7 +138,7 @@ export function useUpdateFlow(overlayActiveRef: RefObject<boolean>) {
 
   useEffect(() => {
     let cancelled = false
-    checkForUpdates()
+    checkForUpdates(false, { fetcher: fetcherRef.current })
       .then((status) => {
         if (!cancelled && status.kind === "update_available") {
           setUpdateAvailable(status.latestVersion)

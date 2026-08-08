@@ -15,7 +15,7 @@ import { existsSync, readdirSync, statSync } from "node:fs"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../hooks/useConfig"
-import { systemProxyFromEnv, type SystemProxySettings } from "../proxy"
+import { takeSystemProxyFromEnv, type SystemProxySettings } from "../proxy"
 import type { CollectionSettings } from "../schema"
 import {
   CodeEditorRenderable,
@@ -121,6 +121,7 @@ export function resolveStartupCollectionDir(
 }
 
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
+  const capturedSystemProxy = takeSystemProxyFromEnv()
   let collectionPaths: string[] = []
   try {
     collectionPaths = loadConfig(CONFIG_DIR).collections
@@ -229,7 +230,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
           initialEnvName={initialEnvName}
           initialSettings={initialSettings}
           noProxy={options.noProxy}
-          systemProxy={options.systemProxy ?? systemProxyFromEnv()}
+          systemProxy={options.systemProxy ?? capturedSystemProxy}
           keybinds={keybinds}
           lastRequestId={lastRequestId}
           shouldRegister={shouldRegister}

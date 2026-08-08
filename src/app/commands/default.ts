@@ -1,7 +1,6 @@
 import { defineCommand } from "citty"
 import { resolve } from "node:path"
 import { bootstrap } from "../main"
-import { takeSystemProxyFromEnv } from "../../proxy"
 
 export default defineCommand({
   meta: {
@@ -45,7 +44,6 @@ export default defineCommand({
       collectionDir: args.collection ? resolve(args.collection) : undefined,
       envName: args.env,
       noProxy: args.noproxy,
-      systemProxy: takeSystemProxyFromEnv(),
     })
   },
 })

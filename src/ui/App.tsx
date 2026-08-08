@@ -58,6 +58,8 @@ export function App({
   const [mode, setMode] = useState<CollectionMode>(initialMode)
   const [reloadKey, setReloadKey] = useState(0)
   const [settings, setSettings] = useState<CollectionSettings>(initialSettings)
+  const settingsRef = useRef(initialSettings)
+  const settingsSaveChainRef = useRef<Promise<void>>(Promise.resolve())
   const settingsEnv = settings.environment
   const [lastRequestId, setLastRequestId] = useState<string | undefined>(
     initialLastRequestId,
@@ -133,13 +135,18 @@ export function App({
   const handleCollectionProxyChange = useCallback(
     (proxy: CollectionProxySettings) => {
       if (mode !== "collection") return
-      const nextSettings = { ...settings, proxy }
+      const nextSettings = { ...settingsRef.current, proxy }
+      settingsRef.current = nextSettings
       setSettings(nextSettings)
-      saveSettings(activeCollectionDir, nextSettings).catch(() => {
+      const save = settingsSaveChainRef.current.then(() =>
+        saveSettings(activeCollectionDir, nextSettings),
+      )
+      settingsSaveChainRef.current = save.catch(() => {})
+      save.catch(() => {
         showToast("Failed to save proxy settings", "error")
       })
     },
-    [activeCollectionDir, mode, settings],
+    [activeCollectionDir, mode],
   )
 
   const handleEnvListChanged = useCallback(async () => {
@@ -154,13 +161,17 @@ export function App({
   const handleEnvChange = useCallback(
     (name: string | null) => {
       const envName = name ?? undefined
-      const nextSettings = { ...settings, environment: envName }
+      const nextSettings = { ...settingsRef.current, environment: envName }
+      settingsRef.current = nextSettings
       setSettings(nextSettings)
       if (mode === "collection") {
-        saveSettings(activeCollectionDir, nextSettings).catch(() => {})
+        const save = settingsSaveChainRef.current.then(() =>
+          saveSettings(activeCollectionDir, nextSettings),
+        )
+        settingsSaveChainRef.current = save.catch(() => {})
       }
     },
-    [activeCollectionDir, mode, settings],
+    [activeCollectionDir, mode],
   )
 
   const handleReloadCollection = useCallback(() => {
@@ -171,6 +182,7 @@ export function App({
     (bootstrappedDir: string) => {
       const resolved = resolve(bootstrappedDir)
       setMode("collection")
+      settingsRef.current = {}
       setSettings({})
       updateConfig((prev) => ({
         collections: upsertCollectionPath(prev.collections, resolved),
@@ -257,6 +269,7 @@ export function App({
 
         setEnvNames(nextEnvNames)
         setEnvColors(nextEnvColors)
+        settingsRef.current = nextSettings
         setSettings(nextSettings)
         setLastRequestId(nextLastRequestId)
         setInitialEnvNameState(undefined)

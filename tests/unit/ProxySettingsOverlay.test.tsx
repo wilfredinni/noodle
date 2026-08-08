@@ -53,6 +53,21 @@ describe("ProxySettingsOverlay", () => {
     cleanup()
   })
 
+  it("hides collection scope when it is not editable", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsOverlay visible collectionAvailable={false} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("Current collection")
+    cleanup()
+  })
+
   it("starts with the app system policy and cycles focus", async () => {
     const { keymap, cleanup } = setupKeymap()
     const ref = createRef<ProxySettingsOverlayHandle>()

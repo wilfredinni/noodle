@@ -153,6 +153,7 @@ interface AppOverlaysProps {
   proxySettingsVisible: boolean
   proxySettingsRef: RefObject<ProxySettingsOverlayHandle | null>
   proxySettingsActions: { confirm: () => void; cancel: () => void }
+  collectionProxyEditable: boolean
   appProxy?: import("../schema").AppProxySettings
   collectionProxy?: import("../schema").CollectionProxySettings
   folderDeletePending: string | null
@@ -264,6 +265,7 @@ export function AppOverlays({
   proxySettingsVisible,
   proxySettingsRef,
   proxySettingsActions,
+  collectionProxyEditable,
   appProxy,
   collectionProxy,
   folderDeletePending,
@@ -517,7 +519,7 @@ export function AppOverlays({
         <ProxySettingsOverlay
           visible
           ref={proxySettingsRef}
-          collectionAvailable={collection !== null}
+          collectionAvailable={collectionProxyEditable}
           appProxy={appProxy}
           collectionProxy={collectionProxy}
           activeEnv={activeEnv}
