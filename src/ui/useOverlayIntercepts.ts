@@ -213,7 +213,7 @@ export function useOverlayIntercepts(opts: {
     handleRef: opts.proxySettingsRef,
     onConfirm: opts.onProxySettingsConfirm,
     onCancel: () => opts.setProxySettingsVisible(false),
-    passThroughFocuses: ["scope", "mode"],
+    passThroughFocuses: ["scope", "mode", "editor", "protocol"],
   })
 
   useEnvEditorIntercept(opts)

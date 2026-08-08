@@ -20,6 +20,17 @@ export interface SystemProxySettings {
   bypass: string[]
 }
 
+export interface StructuredProxyFields {
+  protocol: "http" | "https"
+  hostname: string
+  port: string
+  auth: boolean
+  username: string
+  password: string
+}
+
+export type StructuredProxyBuildResult = { url: string } | { error: string }
+
 export type ProxyPolicy =
   | { kind: "direct"; source: "cli" | "global" | "collection" }
   | {
@@ -206,6 +217,70 @@ export function validateProxyTemplate(template: string): string | null {
   }
 }
 
+export function parseStructuredProxyTemplate(
+  template: string,
+): StructuredProxyFields | null {
+  if (template !== template.trim()) return null
+  if (validateProxyTemplate(template) !== null) return null
+
+  const match = template.match(
+    /^(https?):\/\/(?:(\$\w+):(\$\w+)@)?(\[[^\]]+\]|[^:/?#@\s]+)(?::(\d+))?$/,
+  )
+  if (!match) return null
+
+  const [, protocol, username, password, rawHostname, port] = match
+  const hostname = rawHostname!.startsWith("[")
+    ? rawHostname.slice(1, -1)
+    : rawHostname!
+
+  return {
+    protocol: protocol as "http" | "https",
+    hostname,
+    port: port ?? "",
+    auth: username !== undefined,
+    username: username ?? "",
+    password: password ?? "",
+  }
+}
+
+export function buildStructuredProxyTemplate(
+  fields: StructuredProxyFields,
+): StructuredProxyBuildResult {
+  const hostname = fields.hostname.trim()
+  if (!hostname) return { error: "Proxy hostname is required" }
+  if (/[/?#@\s]/.test(hostname)) {
+    return { error: "Proxy hostname is invalid" }
+  }
+
+  const port = fields.port.trim()
+  if (port) {
+    const portNumber = Number(port)
+    if (!/^\d+$/.test(port) || portNumber < 1 || portNumber > 65535) {
+      return { error: "Proxy port must be between 1 and 65535" }
+    }
+  }
+
+  if (fields.auth) {
+    if (!isVariableReference(fields.username)) {
+      return { error: "Username must be a $VARNAME reference" }
+    }
+    if (!isVariableReference(fields.password)) {
+      return { error: "Password must be a $VARNAME reference" }
+    }
+  }
+
+  const host =
+    hostname.includes(":") && !hostname.startsWith("[")
+      ? `[${hostname}]`
+      : hostname
+  const credentials = fields.auth
+    ? `${fields.username}:${fields.password}@`
+    : ""
+  const url = `${fields.protocol}://${credentials}${host}${port ? `:${port}` : ""}`
+  const validationError = validateProxyTemplate(url)
+  return validationError ? { error: validationError } : { url }
+}
+
 function customProxy<T extends AppProxySettings | CollectionProxySettings>(
   url: string,
   bypass: string[],
@@ -275,4 +350,8 @@ function splitBypass(value: string | undefined): string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isVariableReference(value: string): boolean {
+  return /^\$\w+$/.test(value)
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test"
 import {
+  buildStructuredProxyTemplate,
   parseAppProxy,
   parseCollectionProxy,
+  parseStructuredProxyTemplate,
   proxyForUrl,
   redactProxyUrl,
   resolveProxyPolicy,
@@ -102,6 +104,106 @@ describe("proxy policy", () => {
 })
 
 describe("proxy validation", () => {
+  it("builds a structured proxy URL with variable credentials", () => {
+    expect(
+      buildStructuredProxyTemplate({
+        protocol: "https",
+        hostname: "proxy.test",
+        port: "8443",
+        auth: true,
+        username: "$PROXY_USER",
+        password: "$PROXY_PASSWORD",
+      }),
+    ).toEqual({
+      url: "https://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8443",
+    })
+  })
+
+  it("parses HTTP, HTTPS, omitted ports, and IPv4 hosts losslessly", () => {
+    expect(parseStructuredProxyTemplate("http://192.168.1.20")).toEqual({
+      protocol: "http",
+      hostname: "192.168.1.20",
+      port: "",
+      auth: false,
+      username: "",
+      password: "",
+    })
+    expect(
+      parseStructuredProxyTemplate(
+        "https://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8443",
+      ),
+    ).toEqual({
+      protocol: "https",
+      hostname: "proxy.test",
+      port: "8443",
+      auth: true,
+      username: "$PROXY_USER",
+      password: "$PROXY_PASSWORD",
+    })
+  })
+
+  it("builds IPv6 proxy URLs and parses them back losslessly", () => {
+    const fields = {
+      protocol: "http" as const,
+      hostname: "::1",
+      port: "",
+      auth: false,
+      username: "",
+      password: "",
+    }
+    expect(buildStructuredProxyTemplate(fields)).toEqual({
+      url: "http://[::1]",
+    })
+    expect(parseStructuredProxyTemplate("http://[::1]")).toEqual(fields)
+  })
+
+  it("keeps variable-heavy and non-proxy URL forms in advanced mode", () => {
+    expect(parseStructuredProxyTemplate("http://proxy.test/path")).toBeNull()
+    expect(parseStructuredProxyTemplate("http://$PROXY@proxy.test")).toBeNull()
+    expect(
+      parseStructuredProxyTemplate("http://proxy.test?debug=true"),
+    ).toBeNull()
+  })
+
+  it("rejects invalid structured fields", () => {
+    const fields = {
+      protocol: "http" as const,
+      hostname: "",
+      port: "not-a-port",
+      auth: true,
+      username: "literal-user",
+      password: "",
+    }
+    expect(buildStructuredProxyTemplate(fields)).toEqual({
+      error: "Proxy hostname is required",
+    })
+    expect(
+      buildStructuredProxyTemplate({ ...fields, hostname: "proxy.test" }),
+    ).toEqual({ error: "Proxy port must be between 1 and 65535" })
+    expect(
+      buildStructuredProxyTemplate({
+        ...fields,
+        hostname: "proxy.test",
+        port: "65536",
+      }),
+    ).toEqual({ error: "Proxy port must be between 1 and 65535" })
+    expect(
+      buildStructuredProxyTemplate({
+        ...fields,
+        hostname: "proxy.test",
+        port: "8080",
+      }),
+    ).toEqual({ error: "Username must be a $VARNAME reference" })
+    expect(
+      buildStructuredProxyTemplate({
+        ...fields,
+        hostname: "proxy.test",
+        port: "8080",
+        username: "$PROXY_USER",
+      }),
+    ).toEqual({ error: "Password must be a $VARNAME reference" })
+  })
+
   it("resolves credentials from the active environment", () => {
     expect(
       resolveProxyUrl("http://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8080", {

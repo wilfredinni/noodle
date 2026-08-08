@@ -12,7 +12,14 @@ import type {
   CollectionProxySettings,
   Environment,
 } from "../../schema"
-import { normalizeBypass, validateProxyTemplate } from "../../proxy"
+import {
+  buildStructuredProxyTemplate,
+  normalizeBypass,
+  parseStructuredProxyTemplate,
+  validateProxyTemplate,
+  type StructuredProxyFields,
+} from "../../proxy"
+import { Checkbox } from "../Checkbox"
 import { Select, type SelectItem } from "../Select"
 import { VarInput, type VarInputHandle } from "../VarInput"
 import { useTheme } from "../theme"
@@ -29,8 +36,9 @@ export interface ProxySettingsValues {
 export interface ProxySettingsOverlayHandle {
   cycleFocus: (direction: 1 | -1) => void
   commitField: () => void
+  toggleFocused: () => void
   confirm: () => ProxySettingsValues | null
-  getFocus: () => "scope" | "mode" | "proxy-url" | "bypass"
+  getFocus: () => Focus
   setError: (message: string) => void
 }
 
@@ -44,22 +52,65 @@ interface ProxySettingsOverlayProps {
   onClose?: () => void
 }
 
-type Focus = "scope" | "mode" | "proxy-url" | "bypass"
+type EditorMode = "fields" | "advanced"
+type ProxyMode = "system" | "inherit" | "custom" | "off"
+type Focus =
+  | "scope"
+  | "mode"
+  | "editor"
+  | "protocol"
+  | "hostname"
+  | "port"
+  | "auth"
+  | "username"
+  | "password"
+  | "proxy-url"
+  | "bypass"
+
+interface ProxyFormValues {
+  mode: ProxyMode
+  editor: EditorMode
+  fields: StructuredProxyFields
+  url: string
+  bypass: string
+}
+
+const EMPTY_FIELDS: StructuredProxyFields = {
+  protocol: "http",
+  hostname: "",
+  port: "",
+  auth: false,
+  username: "",
+  password: "",
+}
 
 function valuesFor(
   proxy: AppProxySettings | CollectionProxySettings | undefined,
   fallback: "system" | "inherit",
-): {
-  mode: "system" | "inherit" | "custom" | "off"
-  url: string
-  bypass: string
-} {
+): ProxyFormValues {
   if (!proxy || proxy.mode === "system" || proxy.mode === "inherit") {
-    return { mode: fallback, url: "", bypass: "" }
+    return {
+      mode: fallback,
+      editor: "fields",
+      fields: EMPTY_FIELDS,
+      url: "",
+      bypass: "",
+    }
   }
-  if (proxy.mode === "off") return { mode: "off", url: "", bypass: "" }
+  if (proxy.mode === "off") {
+    return {
+      mode: "off",
+      editor: "fields",
+      fields: EMPTY_FIELDS,
+      url: "",
+      bypass: "",
+    }
+  }
+  const fields = parseStructuredProxyTemplate(proxy.url)
   return {
     mode: "custom",
+    editor: fields ? "fields" : "advanced",
+    fields: fields ?? EMPTY_FIELDS,
     url: proxy.url,
     bypass: (proxy.bypass ?? []).join(", "),
   }
@@ -94,15 +145,21 @@ export const ProxySettingsOverlay = forwardRef<
   const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
     null,
   )
+  const hostnameRef = useRef<InputRenderable | null>(null)
+  const portRef = useRef<InputRenderable | null>(null)
+  const usernameRef = useRef<VarInputHandle | null>(null)
+  const passwordRef = useRef<VarInputHandle | null>(null)
   const urlRef = useRef<VarInputHandle | null>(null)
   const bypassRef = useRef<InputRenderable | null>(null)
 
   const current = scope === "app" ? appValues : collectionValues
-  const updateCurrent = (patch: Partial<typeof current>) => {
-    const update = (values: typeof current) => ({ ...values, ...patch })
+  const updateCurrent = (patch: Partial<ProxyFormValues>) => {
+    const update = (values: ProxyFormValues) => ({ ...values, ...patch })
     if (scope === "app") setAppValues(update)
     else setCollectionValues(update)
   }
+  const updateFields = (patch: Partial<StructuredProxyFields>) =>
+    updateCurrent({ fields: { ...current.fields, ...patch } })
 
   const scopeItems = useMemo<SelectItem[]>(
     () => [
@@ -128,10 +185,59 @@ export const ProxySettingsOverlay = forwardRef<
           ],
     [scope],
   )
+  const editorItems = useMemo<SelectItem[]>(
+    () => [
+      { id: "fields", label: "Fields" },
+      { id: "advanced", label: "Advanced URL" },
+    ],
+    [],
+  )
+  const protocolItems = useMemo<SelectItem[]>(
+    () => [
+      { id: "http", label: "HTTP" },
+      { id: "https", label: "HTTPS" },
+    ],
+    [],
+  )
   const focusOrder: Focus[] =
-    current.mode === "custom"
-      ? ["scope", "mode", "proxy-url", "bypass"]
-      : ["scope", "mode"]
+    current.mode !== "custom"
+      ? ["scope", "mode"]
+      : current.editor === "advanced"
+        ? ["scope", "mode", "editor", "proxy-url", "bypass"]
+        : [
+            "scope",
+            "mode",
+            "editor",
+            "protocol",
+            "hostname",
+            "port",
+            "auth",
+            ...(current.fields.auth ? (["username", "password"] as const) : []),
+            "bypass",
+          ]
+
+  const switchEditor = (editor: EditorMode) => {
+    if (editor === current.editor) return
+    if (editor === "fields") {
+      const fields = parseStructuredProxyTemplate(current.url)
+      if (!fields) {
+        setErrorText(
+          "This URL needs Advanced URL mode. Use an HTTP(S) host, optional port, and $VARNAME credentials only.",
+        )
+        return
+      }
+      updateCurrent({ editor, fields })
+    } else {
+      const result = buildStructuredProxyTemplate(current.fields)
+      if ("error" in result) {
+        setErrorText(result.error)
+        return
+      }
+      updateCurrent({ editor, url: result.url })
+    }
+    setErrorText(null)
+    setFocus("editor")
+  }
 
   useImperativeHandle(ref, () => ({
     cycleFocus: (direction) => {
@@ -147,19 +253,34 @@ export const ProxySettingsOverlay = forwardRef<
       const index = focusOrder.indexOf(focus)
       setFocus(focusOrder[(index + 1) % focusOrder.length]!)
     },
+    toggleFocused: () => {
+      if (focus !== "auth") return
+      updateFields({ auth: !current.fields.auth })
+      setErrorText(null)
+    },
     confirm: () => {
+      let url = current.url.trim()
       if (current.mode === "custom") {
-        const validationError = validateProxyTemplate(current.url)
-        if (validationError) {
-          setErrorText(validationError)
-          return null
+        if (current.editor === "fields") {
+          const result = buildStructuredProxyTemplate(current.fields)
+          if ("error" in result) {
+            setErrorText(result.error)
+            return null
+          }
+          url = result.url
+        } else {
+          const validationError = validateProxyTemplate(url)
+          if (validationError) {
+            setErrorText(validationError)
+            return null
+          }
         }
       }
       setErrorText(null)
       return {
         scope,
         mode: current.mode,
-        url: current.url.trim(),
+        url,
         bypass: normalizeBypass(current.bypass.split(",")),
       }
     },
@@ -177,11 +298,12 @@ export const ProxySettingsOverlay = forwardRef<
   }, [visible, appProxy, collectionProxy])
 
   useEffect(() => {
-    if (focus === "proxy-url") urlRef.current?.focus()
+    if (focus === "hostname") hostnameRef.current?.focus()
+    else if (focus === "port") portRef.current?.focus()
+    else if (focus === "username") usernameRef.current?.focus()
+    else if (focus === "password") passwordRef.current?.focus()
+    else if (focus === "proxy-url") urlRef.current?.focus()
     else if (focus === "bypass") bypassRef.current?.focus()
-    else {
-      bypassRef.current?.blur()
-    }
   }, [focus])
 
   return (
@@ -205,76 +327,145 @@ export const ProxySettingsOverlay = forwardRef<
           paddingBottom: 1,
         }}
       >
-        <box style={{ flexDirection: "column", zIndex: selectOpen ? 2 : 0 }}>
-          <text fg={theme.textMuted}>Scope</text>
-          <Select
-            items={scopeItems}
-            value={scope}
-            onChange={(next) => {
-              setScope(next as "app" | "collection")
-              setFocus("scope")
-            }}
-            focused={focus === "scope"}
-            onOpenChange={setSelectOpen}
-            onActivate={() => setFocus("scope")}
-            triggerPriority={110}
-          />
-        </box>
-        <box style={{ flexDirection: "column", zIndex: selectOpen ? 1 : 0 }}>
-          <text fg={theme.textMuted}>Mode</text>
-          <Select
-            items={modeItems}
-            value={current.mode}
-            onChange={(next) => {
-              updateCurrent({
-                mode: next as "system" | "inherit" | "custom" | "off",
-              })
-              setFocus("mode")
-            }}
-            focused={focus === "mode"}
-            onOpenChange={setSelectOpen}
-            onActivate={() => setFocus("mode")}
-            triggerPriority={110}
-          />
-        </box>
+        <SelectField
+          label="Scope"
+          items={scopeItems}
+          value={scope}
+          focused={focus === "scope"}
+          selectOpen={selectOpen}
+          onOpenChange={setSelectOpen}
+          onActivate={() => setFocus("scope")}
+          onChange={(next) => {
+            setScope(next as "app" | "collection")
+            setFocus("scope")
+          }}
+        />
+        <SelectField
+          label="Mode"
+          items={modeItems}
+          value={current.mode}
+          focused={focus === "mode"}
+          selectOpen={selectOpen}
+          onOpenChange={setSelectOpen}
+          onActivate={() => setFocus("mode")}
+          onChange={(next) => {
+            updateCurrent({ mode: next as ProxyMode })
+            setFocus("mode")
+          }}
+        />
         {current.mode === "custom" && (
           <>
-            <box style={{ flexDirection: "column" }}>
-              <text fg={theme.textMuted}>Proxy URL</text>
-              <VarInput
-                ref={urlRef}
+            <SelectField
+              label="Editor"
+              items={editorItems}
+              value={current.editor}
+              focused={focus === "editor"}
+              selectOpen={selectOpen}
+              onOpenChange={setSelectOpen}
+              onActivate={() => setFocus("editor")}
+              onChange={(next) => switchEditor(next as EditorMode)}
+            />
+            {current.editor === "fields" ? (
+              <>
+                <SelectField
+                  label="Protocol"
+                  items={protocolItems}
+                  value={current.fields.protocol}
+                  focused={focus === "protocol"}
+                  selectOpen={selectOpen}
+                  onOpenChange={setSelectOpen}
+                  onActivate={() => setFocus("protocol")}
+                  onChange={(protocol) => {
+                    updateFields({ protocol: protocol as "http" | "https" })
+                    setFocus("protocol")
+                  }}
+                />
+                <TextField
+                  label="Hostname"
+                  inputRef={hostnameRef}
+                  value={current.fields.hostname}
+                  placeholder="proxy.example or ::1"
+                  focused={focus === "hostname"}
+                  theme={theme}
+                  onFocus={() => setFocus("hostname")}
+                  onChange={(hostname) => updateFields({ hostname })}
+                />
+                <TextField
+                  label="Port"
+                  inputRef={portRef}
+                  value={current.fields.port}
+                  placeholder="optional"
+                  focused={focus === "port"}
+                  theme={theme}
+                  onFocus={() => setFocus("port")}
+                  onChange={(port) => updateFields({ port })}
+                />
+                <box
+                  onMouseDown={(event) => {
+                    if (event.button !== MouseButton.LEFT) return
+                    updateFields({ auth: !current.fields.auth })
+                    setFocus("auth")
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                  style={{ flexDirection: "row" }}
+                >
+                  <Checkbox checked={current.fields.auth} theme={theme} />
+                  <text fg={focus === "auth" ? theme.text : theme.textMuted}>
+                    Proxy authentication
+                  </text>
+                </box>
+                {current.fields.auth && (
+                  <>
+                    <VariableField
+                      label="Username variable"
+                      inputRef={usernameRef}
+                      value={current.fields.username}
+                      placeholder="$PROXY_USER"
+                      focused={focus === "username"}
+                      env={activeEnv ?? null}
+                      theme={theme}
+                      onFocus={() => setFocus("username")}
+                      onChange={(username) => updateFields({ username })}
+                    />
+                    <VariableField
+                      label="Password variable"
+                      inputRef={passwordRef}
+                      value={current.fields.password}
+                      placeholder="$PROXY_PASSWORD"
+                      focused={focus === "password"}
+                      env={activeEnv ?? null}
+                      theme={theme}
+                      onFocus={() => setFocus("password")}
+                      onChange={(password) => updateFields({ password })}
+                    />
+                  </>
+                )}
+              </>
+            ) : (
+              <VariableField
+                label="Proxy URL"
+                inputRef={urlRef}
                 value={current.url}
-                env={activeEnv ?? null}
-                isEditing
-                isFocused={focus === "proxy-url"}
-                onChange={(url) => updateCurrent({ url })}
                 placeholder="http://$PROXY_USER:$PROXY_PASSWORD@proxy:8080"
-                backgroundColor={theme.backgroundElement}
-                focusedBackgroundColor={theme.borderSubtle}
+                focused={focus === "proxy-url"}
+                env={activeEnv ?? null}
+                theme={theme}
                 onFocus={() => setFocus("proxy-url")}
+                onChange={(url) => updateCurrent({ url })}
               />
-            </box>
-            <box style={{ flexDirection: "column" }}>
-              <text fg={theme.textMuted}>Bypass hosts</text>
-              <input
-                ref={bypassRef}
-                value={current.bypass}
-                placeholder="localhost, .internal.example, api.example:8443"
-                onInput={(bypass) => updateCurrent({ bypass })}
-                onMouseDown={(event) => {
-                  if (event.button === MouseButton.LEFT) setFocus("bypass")
-                }}
-                focused={focus === "bypass"}
-                backgroundColor={theme.backgroundElement}
-                focusedBackgroundColor={theme.borderSubtle}
-                textColor={theme.text}
-                cursorColor={theme.primary}
-                placeholderColor={theme.textMuted}
-              />
-              <text fg={theme.textMuted}>
-                Comma-separated. Supports *, hosts, .domains, IPs, and ports.
-              </text>
-            </box>
+            )}
+            <TextField
+              label="Bypass hosts"
+              inputRef={bypassRef}
+              value={current.bypass}
+              placeholder="localhost, .internal.example, api.example:8443"
+              focused={focus === "bypass"}
+              theme={theme}
+              onFocus={() => setFocus("bypass")}
+              onChange={(bypass) => updateCurrent({ bypass })}
+              hint="Comma-separated. Supports *, hosts, .domains, IPs, and ports."
+            />
           </>
         )}
         {errorText && <text fg={theme.error}>{errorText}</text>}
@@ -287,47 +478,185 @@ export const ProxySettingsOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onConfirm?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("save")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "save" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>^S</text>
-          <text fg={theme.textMuted}> save</text>
-        </box>
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onClose?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("close")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "close" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}> close</text>
-        </box>
+        <FooterAction
+          keyHint="^S"
+          label="save"
+          hovered={hoveredAction === "save"}
+          theme={theme}
+          onHover={() => setHoveredAction("save")}
+          onLeave={() => setHoveredAction(null)}
+          onClick={onConfirm}
+        />
+        <FooterAction
+          keyHint="esc"
+          label="close"
+          hovered={hoveredAction === "close"}
+          theme={theme}
+          onHover={() => setHoveredAction("close")}
+          onLeave={() => setHoveredAction(null)}
+          onClick={onClose}
+        />
       </box>
     </Overlay>
   )
 })
+
+function SelectField({
+  label,
+  items,
+  value,
+  focused,
+  selectOpen,
+  onOpenChange,
+  onActivate,
+  onChange,
+}: {
+  label: string
+  items: SelectItem[]
+  value: string
+  focused: boolean
+  selectOpen: boolean
+  onOpenChange: (open: boolean) => void
+  onActivate: () => void
+  onChange: (value: string) => void
+}) {
+  const theme = useTheme()
+  return (
+    <box style={{ flexDirection: "column", zIndex: selectOpen ? 2 : 0 }}>
+      <text fg={theme.textMuted}>{label}</text>
+      <Select
+        items={items}
+        value={value}
+        onChange={onChange}
+        focused={focused}
+        onOpenChange={onOpenChange}
+        onActivate={onActivate}
+        triggerPriority={110}
+      />
+    </box>
+  )
+}
+
+function TextField({
+  label,
+  value,
+  placeholder,
+  focused,
+  theme,
+  onFocus,
+  onChange,
+  hint,
+  inputRef,
+}: {
+  label: string
+  value: string
+  placeholder: string
+  focused: boolean
+  theme: ReturnType<typeof useTheme>
+  onFocus: () => void
+  onChange: (value: string) => void
+  hint?: string
+  inputRef: { current: InputRenderable | null }
+}) {
+  return (
+    <box style={{ flexDirection: "column" }}>
+      <text fg={theme.textMuted}>{label}</text>
+      <input
+        ref={inputRef}
+        value={value}
+        placeholder={placeholder}
+        onInput={onChange}
+        onMouseDown={(event) => {
+          if (event.button === MouseButton.LEFT) onFocus()
+        }}
+        focused={focused}
+        backgroundColor={theme.backgroundElement}
+        focusedBackgroundColor={theme.borderSubtle}
+        textColor={theme.text}
+        cursorColor={theme.primary}
+        placeholderColor={theme.textMuted}
+      />
+      {hint && <text fg={theme.textMuted}>{hint}</text>}
+    </box>
+  )
+}
+
+function VariableField({
+  label,
+  value,
+  placeholder,
+  focused,
+  env,
+  theme,
+  onFocus,
+  onChange,
+  inputRef,
+}: {
+  label: string
+  value: string
+  placeholder: string
+  focused: boolean
+  env: Environment | null
+  theme: ReturnType<typeof useTheme>
+  onFocus: () => void
+  onChange: (value: string) => void
+  inputRef: { current: VarInputHandle | null }
+}) {
+  return (
+    <box style={{ flexDirection: "column" }}>
+      <text fg={theme.textMuted}>{label}</text>
+      <VarInput
+        ref={inputRef}
+        value={value}
+        env={env}
+        isEditing
+        isFocused={focused}
+        onChange={onChange}
+        placeholder={placeholder}
+        backgroundColor={theme.backgroundElement}
+        focusedBackgroundColor={theme.borderSubtle}
+        onFocus={onFocus}
+      />
+    </box>
+  )
+}
+
+function FooterAction({
+  keyHint,
+  label,
+  hovered,
+  theme,
+  onHover,
+  onLeave,
+  onClick,
+}: {
+  keyHint: string
+  label: string
+  hovered: boolean
+  theme: ReturnType<typeof useTheme>
+  onHover: () => void
+  onLeave: () => void
+  onClick?: () => void
+}) {
+  return (
+    <box
+      onMouseDown={(event) => {
+        if (event.button !== MouseButton.LEFT) return
+        onClick?.()
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      onMouseOver={onHover}
+      onMouseOut={onLeave}
+      style={{
+        flexDirection: "row",
+        paddingLeft: 1,
+        paddingRight: 1,
+        backgroundColor: hovered ? theme.backgroundElement : undefined,
+      }}
+    >
+      <text fg={theme.text}>{keyHint}</text>
+      <text fg={theme.textMuted}> {label}</text>
+    </box>
+  )
+}

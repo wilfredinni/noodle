@@ -18,11 +18,12 @@ import {
 const testRender = createTestRender()
 
 function setupKeymap() {
-  const { keymap, cleanup: hostCleanup } = createTestKeymap()
+  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
   const disposeEnabled = registerEnabledFields(keymap)
   const disposeKeys = registerDefaultKeys(keymap)
   return {
     keymap: keymap as unknown as KeymapProviderProps["keymap"],
+    host,
     cleanup: () => {
       disposeEnabled()
       disposeKeys()
@@ -77,6 +78,99 @@ describe("ProxySettingsOverlay", () => {
     expect(ref.current?.getFocus()).toBe("scope")
     await act(async () => ref.current?.cycleFocus(1))
     expect(ref.current?.getFocus()).toBe("mode")
+    cleanup()
+  })
+
+  it("opens canonical custom proxies in Fields mode and saves the same URL", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const ref = createRef<ProxySettingsOverlayHandle>()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsOverlay
+            visible
+            collectionAvailable
+            ref={ref}
+            appProxy={{
+              mode: "custom",
+              url: "https://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8443",
+              bypass: ["localhost"],
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 36 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Fields")
+    expect(frame).toContain("Protocol")
+    expect(frame).toContain("Hostname")
+    expect(frame).toContain("Port")
+    expect(frame).toContain("Proxy authentication")
+    expect(frame).toContain("Username variable")
+    expect(frame).toContain("Password variable")
+    let saved: ProxySettingsValues | null | undefined
+    await act(async () => {
+      saved = ref.current?.confirm()
+    })
+    expect(saved).toEqual({
+      scope: "app",
+      mode: "custom",
+      url: "https://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8443",
+      bypass: ["localhost"],
+    })
+
+    const focusOrder = [
+      "scope",
+      "mode",
+      "editor",
+      "protocol",
+      "hostname",
+      "port",
+      "auth",
+      "username",
+      "password",
+      "bypass",
+    ] as const
+    for (const expected of focusOrder.slice(1)) {
+      await act(async () => ref.current?.cycleFocus(1))
+      expect(ref.current?.getFocus()).toBe(expected)
+    }
+    cleanup()
+  })
+
+  it("opens non-lossless URLs in Advanced URL mode", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const ref = createRef<ProxySettingsOverlayHandle>()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsOverlay
+            visible
+            collectionAvailable
+            ref={ref}
+            appProxy={{ mode: "custom", url: "http://proxy.test/path" }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 36 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Advanced URL")
+    expect(captureCharFrame()).toContain("Proxy URL")
+    let saved: ProxySettingsValues | null | undefined
+    await act(async () => {
+      saved = ref.current?.confirm()
+    })
+    expect(saved).toEqual({
+      scope: "app",
+      mode: "custom",
+      url: "http://proxy.test/path",
+      bypass: [],
+    })
+
+    expect(captureCharFrame()).not.toContain("Hostname")
     cleanup()
   })
 })
