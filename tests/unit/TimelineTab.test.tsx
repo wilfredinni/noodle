@@ -18,7 +18,7 @@ function makeEntry(id: string): TimelineEntry {
       id,
       name: id,
       method: "GET",
-      url: `https://example.com/${id}`,
+      url: `https://example.com/${id}/${"segment/".repeat(12)}`,
       headers: {},
       params: [],
     },
@@ -48,9 +48,22 @@ async function renderTimeline(
   )
   await act(async () => {
     await render.renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 20))
   })
-  await render.renderOnce()
+  if (entries.length > 0) {
+    await render.waitForFrame(async (frame) => {
+      if (frame.includes("...")) return true
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      await act(async () => {
+        await render.renderOnce()
+      })
+      return render.captureCharFrame().includes("...")
+    })
+  }
+  await act(async () => {
+    await render.renderOnce()
+  })
   return { ...render, cleanup }
 }
 
