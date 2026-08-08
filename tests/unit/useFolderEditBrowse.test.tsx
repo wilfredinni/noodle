@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, useEffect, useRef, useState } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import {
   useFolderEditBrowse,
@@ -13,6 +13,8 @@ import { useJumpMode, type JumpTarget } from "../../src/ui/useJumpMode"
 import type { Focus } from "../../src/ui/focus"
 import type { EnvHeaderPaneHandle } from "../../src/ui/env-editor/EnvHeaderPane"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 const folder: Folder = {
   id: "folder",

@@ -842,6 +842,7 @@ describe("VarInput — path completion", () => {
 
 describe("VarInput — textarea mode (isEditing=true, useTextarea=true)", () => {
   it("renders textarea with value", async () => {
+    const changes: string[] = []
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <VarInput
@@ -849,7 +850,7 @@ describe("VarInput — textarea mode (isEditing=true, useTextarea=true)", () => 
           env={null}
           isEditing
           useTextarea
-          onChange={() => {}}
+          onChange={(value) => changes.push(value)}
         />
       </ThemeProvider>,
       { width: 80, height: 5 },
@@ -857,6 +858,7 @@ describe("VarInput — textarea mode (isEditing=true, useTextarea=true)", () => 
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("multi")
+    expect(changes).toEqual([])
   })
 
   it("renders empty textarea without crash", async () => {

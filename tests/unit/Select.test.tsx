@@ -1,11 +1,13 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { Select, type SelectItem } from "../../src/ui/Select"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 const testItems: SelectItem[] = [
   { id: "get", label: "GET" },
@@ -137,8 +139,8 @@ describe("Select", () => {
 
     await act(async () => {
       await mockMouse.click(1, 0, MouseButtons.LEFT)
+      await renderOnce()
     })
-    await renderOnce()
 
     expect(activated).toBe(0)
     expect(open).toBe(false)
@@ -167,14 +169,14 @@ describe("Select", () => {
 
     await act(async () => {
       await mockMouse.click(1, 0, MouseButtons.LEFT)
+      await renderOnce()
     })
-    await renderOnce()
     expect(open).toBe(true)
 
     await act(async () => {
       await mockMouse.click(1, 0, MouseButtons.LEFT)
+      await renderOnce()
     })
-    await renderOnce()
     expect(open).toBe(false)
     cleanup()
   })

@@ -1,7 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { RGBA } from "@opentui/core"
 import { GradientBadge } from "../../src/ui/GradientBadge"
+
+const testRender = createTestRender()
 
 function rgbaFromHex(hex: string): RGBA {
   return RGBA.fromHex(hex)

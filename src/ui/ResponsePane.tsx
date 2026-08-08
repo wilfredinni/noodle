@@ -275,9 +275,11 @@ export function ResponsePane({
 
   useEffect(() => {
     if (!queryVisible) return
-    const timer = setTimeout(() => setSettledQuery(query.trim()), 150)
+    const nextQuery = query.trim()
+    if (nextQuery === settledQuery) return
+    const timer = setTimeout(() => setSettledQuery(nextQuery), 150)
     return () => clearTimeout(timer)
-  }, [query, queryVisible])
+  }, [query, queryVisible, settledQuery])
 
   const borderColor = focused ? theme.primary : theme.borderSubtle
 

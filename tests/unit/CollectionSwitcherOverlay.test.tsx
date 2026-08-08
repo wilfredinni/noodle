@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerEnabledFields,
@@ -10,6 +10,8 @@ import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { CollectionSwitcherOverlay } from "../../src/ui/overlays/CollectionSwitcherOverlay"
+
+const testRender = createTestRender()
 
 function setupKeymap() {
   const { keymap, cleanup: hostCleanup } = createTestKeymap()

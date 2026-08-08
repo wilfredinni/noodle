@@ -1,11 +1,13 @@
 import { describe, it, expect } from "bun:test"
 import { act, useState } from "react"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { EnvHeaderPane } from "../../src/ui/env-editor/EnvHeaderPane"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 describe("EnvHeaderPane", () => {
   it("renders name input and color select with placeholder", async () => {

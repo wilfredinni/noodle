@@ -2,10 +2,12 @@ import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import pkg from "../../package.json" with { type: "json" }
 import { Header } from "../../src/ui/Header"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
+
+const testRender = createTestRender()
 
 function textPosition(frame: string, text: string): [number, number] {
   const lines = frame.split("\n")

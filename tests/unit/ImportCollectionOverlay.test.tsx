@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, createRef } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import {
@@ -8,6 +8,8 @@ import {
   type ImportCollectionOverlayHandle,
 } from "../../src/ui/overlays/ImportCollectionOverlay"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 describe("ImportCollectionOverlay", () => {
   it("defaults to a new collection and exposes supported formats", async () => {

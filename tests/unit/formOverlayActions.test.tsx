@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { CloneRequestOverlay } from "../../src/ui/overlays/CloneRequestOverlay"
 import { NewFolderOverlay } from "../../src/ui/overlays/NewFolderOverlay"
+
+const testRender = createTestRender()
 
 describe("form overlay footer actions", () => {
   it("runs Clone Request actions without a separator", async () => {

@@ -3,7 +3,7 @@ import { mkdtemp, rm, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act, createRef } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import {
@@ -12,6 +12,8 @@ import {
 } from "../../src/ui/overlays/ExportCollectionOverlay"
 import type { ExportCollectionValues } from "../../src/ui/collectionExport"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 describe("ExportCollectionOverlay", () => {
   it("defaults to OpenAPI and previews the generated target", async () => {

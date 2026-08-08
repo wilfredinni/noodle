@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -8,6 +8,8 @@ import { RequestPane } from "../../src/ui/RequestPane"
 import type { FieldKind } from "../../src/ui/editMode"
 import type { Request } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 const request: Request = {
   id: "photo",

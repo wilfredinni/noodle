@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerEnabledFields,
@@ -13,6 +13,8 @@ import {
   CommandPaletteOverlay,
   type CommandItem,
 } from "../../src/ui/overlays/CommandPaletteOverlay"
+
+const testRender = createTestRender()
 
 function setupKeymap() {
   const { keymap, host, cleanup: hostCleanup } = createTestKeymap()

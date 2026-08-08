@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test"
 import { useEffect, useState } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { useRequestDraft } from "../../src/hooks/useRequestDraft"
 import { useFolderDraft } from "../../src/hooks/useFolderDraft"
 import type { Auth, Folder, Request } from "../../src/schema"
+
+const testRender = createTestRender()
 
 const request: Request = {
   id: "r1",

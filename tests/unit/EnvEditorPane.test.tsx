@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
+import { act } from "react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { EnvEditorPane } from "../../src/ui/env-editor/EnvEditorPane"
+
+const testRender = createTestRender()
 
 const inactive = {
   mode: "inactive" as const,
@@ -130,10 +133,12 @@ describe("EnvEditorPane", () => {
     )
     await renderOnce()
 
-    await mockMouse.click(10, 2, MouseButtons.LEFT)
-    await mockMouse.click(60, 2, MouseButtons.LEFT)
-    await mockMouse.click(2, 2, MouseButtons.LEFT)
-    await mockMouse.click(10, 3, MouseButtons.LEFT)
+    await act(async () => {
+      await mockMouse.click(10, 2, MouseButtons.LEFT)
+      await mockMouse.click(60, 2, MouseButtons.LEFT)
+      await mockMouse.click(2, 2, MouseButtons.LEFT)
+      await mockMouse.click(10, 3, MouseButtons.LEFT)
+    })
 
     expect(activations).toEqual([
       [0, false, "key"],

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { showToast, Toast } from "../../src/ui/Toast"
+
+const testRender = createTestRender()
 
 describe("Toast", () => {
   it("renders above overlays", async () => {

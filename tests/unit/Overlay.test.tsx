@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { ThemeProvider, opencodeTheme } from "../../src/ui/theme"
 import { Overlay } from "../../src/ui/overlays/Overlay"
+
+const testRender = createTestRender()
 
 function OverlayFrame({ visible }: { visible: boolean }) {
   return (

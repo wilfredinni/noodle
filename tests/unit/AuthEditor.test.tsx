@@ -1,12 +1,14 @@
 import { describe, expect, it } from "bun:test"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { act } from "react"
 import { AuthEditor } from "../../src/ui/AuthEditor"
 import { initialEditState } from "../../src/ui/editMode"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 describe("AuthEditor", () => {
   it("activates the API key placement row before opening its select", async () => {

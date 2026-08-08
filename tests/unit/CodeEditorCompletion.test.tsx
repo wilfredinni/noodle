@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { useState } from "react"
 import { extend } from "@opentui/react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -13,6 +13,8 @@ import { VariableCompletionInterceptor } from "../../src/ui/variable-completion/
 import { ThemeProvider } from "../../src/ui/theme"
 import type { Environment } from "../../src/schema"
 import { opencodeTheme } from "../../src/ui/theme-data"
+
+const testRender = createTestRender()
 
 extend({ "code-editor": CodeEditorRenderable })
 

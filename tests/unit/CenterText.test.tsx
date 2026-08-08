@@ -1,6 +1,8 @@
 import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { CenterText, splitWords } from "../../src/ui/CenterText"
+
+const testRender = createTestRender()
 
 describe("splitWords", () => {
   it("splits single segment into words with trailing space", () => {

@@ -1,12 +1,15 @@
-import { describe, expect, it } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { describe, expect, it, spyOn } from "bun:test"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
+import { act } from "react"
 import {
   HARD_BLOCKING_OVERLAYS,
   EDITABLE_OVERLAYS,
   useModalKeyboardShield,
 } from "../../src/ui/useModalKeyboardShield"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 function Shield({ activeOverlay }: { activeOverlay: string }) {
   useModalKeyboardShield(activeOverlay)
@@ -33,6 +36,7 @@ describe("useModalKeyboardShield", () => {
       expect(event.defaultPrevented).toBe(false)
       expect(event.propagationStopped).toBe(false)
       cleanup()
+      act(() => render.renderer.destroy())
     }
   })
 
@@ -57,10 +61,12 @@ describe("useModalKeyboardShield", () => {
       expect(backgroundKeys).toEqual([])
       dispose()
       cleanup()
+      act(() => render.renderer.destroy())
     }
   })
 
   it("does not hard-block unknown overlays", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {})
     const { keymap, host, cleanup } = setupKeymap()
     const render = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -68,11 +74,18 @@ describe("useModalKeyboardShield", () => {
       </KeymapProvider>,
       { width: 1, height: 1 },
     )
-
-    await render.renderOnce()
-    const event = host.press("e")
-    expect(event.defaultPrevented).toBe(false)
-    expect(event.propagationStopped).toBe(false)
-    cleanup()
+    try {
+      await render.renderOnce()
+      const event = host.press("e")
+      expect(event.defaultPrevented).toBe(false)
+      expect(event.propagationStopped).toBe(false)
+      expect(warn).toHaveBeenCalledWith(
+        'useModalKeyboardShield: unknown overlay "future-overlay"; treating it as editable',
+      )
+    } finally {
+      cleanup()
+      act(() => render.renderer.destroy())
+      warn.mockRestore()
+    }
   })
 })

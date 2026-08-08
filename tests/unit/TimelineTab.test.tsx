@@ -2,12 +2,14 @@ import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { RGBA, ScrollBoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { TimelineTab } from "../../src/ui/timeline/TimelineTab"
 import type { TimelineEntry } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
+
+const testRender = createTestRender()
 
 function makeEntry(id: string): TimelineEntry {
   return {
@@ -23,7 +25,7 @@ function makeEntry(id: string): TimelineEntry {
   }
 }
 
-function renderTimeline(
+async function renderTimeline(
   entries: TimelineEntry[],
   focused: boolean,
   onOpenEntry: (entry: TimelineEntry) => void,
@@ -32,7 +34,7 @@ function renderTimeline(
   ;(
     keymap as unknown as { setData: (key: string, value: string) => void }
   ).setData("app.overlay", "none")
-  return testRender(
+  const render = await testRender(
     <KeymapProvider keymap={keymap}>
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <TimelineTab
@@ -43,7 +45,13 @@ function renderTimeline(
       </ThemeProvider>
     </KeymapProvider>,
     { width: 80, height: 20 },
-  ).then((render) => ({ ...render, cleanup }))
+  )
+  await act(async () => {
+    await render.renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  })
+  await render.renderOnce()
+  return { ...render, cleanup }
 }
 
 describe("TimelineTab", () => {

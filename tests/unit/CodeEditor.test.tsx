@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { extend } from "@opentui/react"
 import { LineNumberRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
@@ -11,6 +11,8 @@ import {
 import { syncCodeEditorGutter } from "../../src/ui/editor/codeEditorGutter"
 import { opencodeTheme } from "../../src/ui/theme-data"
 import { getHighlightCount, keyEvent } from "./_helpers"
+
+const testRender = createTestRender()
 
 extend({ "code-editor": CodeEditorRenderable })
 
@@ -517,7 +519,7 @@ body_type: json`
     expect(editor!.scrollY).toBeGreaterThan(0)
     expect(editor!.logicalCursor).toMatchObject({ row: 5, col: 0 })
     scrollbar.destroy()
-    renderer.destroy()
+    act(() => renderer.destroy())
   })
 
   it("tears down an editor before its scrollbar", async () => {
@@ -548,7 +550,7 @@ body_type: json`
       teardownError = error
     }
     scrollbar.destroy()
-    renderer.destroy()
+    act(() => renderer.destroy())
 
     expect(teardownError).toBeUndefined()
   })
@@ -782,7 +784,7 @@ body_type: json`
 
     lineNumber.destroy()
     editor.destroy()
-    renderer.destroy()
+    act(() => renderer.destroy())
   })
 
   it("collapses a nested JSON array without leaving blank editor rows", async () => {

@@ -1,10 +1,12 @@
 import { describe, it, expect } from "bun:test"
 import { act } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { Tabs } from "../../src/ui/Tabs"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
+
+const testRender = createTestRender()
 
 describe("Tabs", () => {
   it("renders all tab labels", async () => {

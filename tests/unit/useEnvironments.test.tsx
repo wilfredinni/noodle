@@ -3,11 +3,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act, useEffect, useState } from "react"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import {
   useEnvironments,
   type UseEnvironmentsResult,
 } from "../../src/hooks/useEnvironments"
+
+const testRender = createTestRender()
 
 function Harness({
   dir,

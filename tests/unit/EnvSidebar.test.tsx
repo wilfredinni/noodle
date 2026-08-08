@@ -1,9 +1,12 @@
 import { describe, it, expect } from "bun:test"
-import { testRender } from "@opentui/react/test-utils"
+import { createTestRender } from "../testRender"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
+import { act } from "react"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { EnvSidebar } from "../../src/ui/env-editor/EnvSidebar"
+
+const testRender = createTestRender()
 
 describe("EnvSidebar", () => {
   it("renders env names", async () => {
@@ -58,12 +61,16 @@ describe("EnvSidebar", () => {
     )
     await renderOnce()
 
-    await mockMouse.click(2, 3, MouseButtons.RIGHT)
+    await act(async () => {
+      await mockMouse.click(2, 3, MouseButtons.RIGHT)
+    })
     expect(selected).toBe("")
     expect(focused).toBe(0)
     expect(contextName).toBe("staging")
 
-    await mockMouse.click(2, 3, MouseButtons.LEFT)
+    await act(async () => {
+      await mockMouse.click(2, 3, MouseButtons.LEFT)
+    })
     expect(selected).toBe("staging")
     expect(focused).toBe(1)
   })
