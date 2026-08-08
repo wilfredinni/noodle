@@ -1,6 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import * as yaml from "js-yaml"
+import type { AppProxySettings } from "../schema"
+import { parseAppProxy } from "../proxy"
 
 export const CONFIG_FILE_NAME = "config.yml"
 export interface NoodleConfig {
@@ -8,6 +10,7 @@ export interface NoodleConfig {
   layout: "stacked" | "side-by-side"
   confirm_undo_all: boolean
   collections: string[]
+  proxy?: AppProxySettings
 }
 export const DEFAULT_CONFIG: NoodleConfig = {
   theme: "catppuccin",
@@ -43,10 +46,12 @@ export function appendCollectionPath(paths: string[], path: string): string[] {
   return normalizeCollectionPaths([...paths, path])
 }
 export function normalizeConfig(config: NoodleConfig): NoodleConfig {
-  return {
+  const normalized: NoodleConfig = {
     ...config,
     collections: normalizeCollectionPaths(config.collections),
   }
+  if (config.proxy !== undefined) normalized.proxy = config.proxy
+  return normalized
 }
 export function loadConfig(configDir: string): NoodleConfig {
   try {
@@ -66,6 +71,7 @@ export function loadConfig(configDir: string): NoodleConfig {
       collections: Array.isArray(obj.collections)
         ? obj.collections.filter((v): v is string => typeof v === "string")
         : [],
+      proxy: parseAppProxy(obj.proxy),
     })
   } catch {
     return { ...DEFAULT_CONFIG }

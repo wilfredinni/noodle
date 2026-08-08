@@ -9,6 +9,7 @@ import type {
   Folder,
   Request,
 } from "../schema"
+import { parseCollectionProxy } from "../proxy"
 
 export interface CollectionFileError {
   file: string
@@ -323,10 +324,13 @@ export async function loadSettings(dir: string): Promise<CollectionSettings> {
     const data = yaml.load(raw)
     if (!data || typeof data !== "object") return {}
     const obj = data as Record<string, unknown>
-    return {
-      environment:
-        typeof obj.environment === "string" ? obj.environment : undefined,
+    const settings: CollectionSettings = {}
+    if (typeof obj.environment === "string") {
+      settings.environment = obj.environment
     }
+    const proxy = parseCollectionProxy(obj.proxy)
+    if (proxy !== undefined) settings.proxy = proxy
+    return settings
   } catch {
     return {}
   }

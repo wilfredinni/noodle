@@ -137,6 +137,86 @@ describe("send — param deduplication", () => {
 })
 
 describe("send — network trace", () => {
+  it("passes the resolved proxy to fetch and reports the selected route", async () => {
+    const originalFetch = globalThis.fetch
+    let proxy: string | undefined
+    globalThis.fetch = mock(async (_url, init) => {
+      const selected = (init as BunFetchRequestInit).proxy
+      proxy = typeof selected === "string" ? selected : selected?.url
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      const response = await send(
+        makeReq(),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        {
+          kind: "custom",
+          source: "global",
+          url: "http://proxy.test:8080",
+          bypass: [],
+        },
+      )
+      expect(proxy).toBe("http://proxy.test:8080")
+      expect(response.network?.map((event) => event.type)).toEqual([
+        "proxy",
+        "request",
+        "response",
+        "body",
+        "complete",
+      ])
+      expect(response.network?.[0]?.message).toBe("Proxy: global")
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("re-evaluates bypass rules for every redirect hop", async () => {
+    const originalFetch = globalThis.fetch
+    const proxies: Array<string | undefined> = []
+    let calls = 0
+    globalThis.fetch = mock(async (_url, init) => {
+      const selected = (init as BunFetchRequestInit).proxy
+      proxies.push(typeof selected === "string" ? selected : selected?.url)
+      calls++
+      return calls === 1
+        ? new Response(null, {
+            status: 302,
+            headers: { location: "https://internal.test/next" },
+          })
+        : new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      const response = await send(
+        makeReq({ url: "https://public.test/start" }),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        {
+          kind: "custom",
+          source: "global",
+          url: "http://proxy.test:8080",
+          bypass: ["internal.test"],
+        },
+      )
+      expect(proxies).toEqual(["http://proxy.test:8080", undefined])
+      expect(
+        response.network
+          ?.filter((event) => event.type === "proxy")
+          .map((event) => event.message),
+      ).toEqual(["Proxy: global", "Proxy: bypassed"])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it("records request, response, body, and completion", async () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = mock(

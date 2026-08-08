@@ -9,6 +9,7 @@ import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverlay"
 import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
 import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionOverlay"
+import type { ProxySettingsOverlayHandle } from "./overlays/ProxySettingsOverlay"
 
 export interface ImportedCollectionPending {
   path: string
@@ -39,6 +40,7 @@ export type ActiveOverlay =
   | "edit-request"
   | "clone-request"
   | "new-folder"
+  | "proxy-settings"
   | "delete-folder"
   | "request-delete"
   | "update-confirm"
@@ -84,6 +86,8 @@ export function useOverlayState({
   >(null)
   const [newFolderVisible, setNewFolderVisible] = useState(false)
   const newFolderRef = useRef<NewFolderOverlayHandle>(null)
+  const [proxySettingsVisible, setProxySettingsVisible] = useState(false)
+  const proxySettingsRef = useRef<ProxySettingsOverlayHandle>(null)
   const [folderDeletePending, setFolderDeletePending] = useState<string | null>(
     null,
   )
@@ -130,6 +134,7 @@ export function useOverlayState({
     if (editRequestVisible) return "edit-request"
     if (cloneRequestVisible) return "clone-request"
     if (newFolderVisible) return "new-folder"
+    if (proxySettingsVisible) return "proxy-settings"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
     if (updatePhase === "confirm") return "update-confirm"
@@ -159,6 +164,7 @@ export function useOverlayState({
     editRequestVisible,
     cloneRequestVisible,
     newFolderVisible,
+    proxySettingsVisible,
     folderDeletePending,
     requestDeletePending,
     updatePhase,
@@ -198,6 +204,9 @@ export function useOverlayState({
     newFolderVisible,
     setNewFolderVisible,
     newFolderRef,
+    proxySettingsVisible,
+    setProxySettingsVisible,
+    proxySettingsRef,
     folderDeletePending,
     setFolderDeletePending,
     undoAllPending,

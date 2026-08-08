@@ -36,6 +36,7 @@ function isTuiFlag(arg: string): boolean {
   return (
     arg === "-c" ||
     arg === "-e" ||
+    arg === "--noproxy" ||
     arg.startsWith("-c=") ||
     arg.startsWith("-e=") ||
     arg === "--collection" ||

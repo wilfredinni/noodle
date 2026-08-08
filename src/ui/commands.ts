@@ -85,6 +85,7 @@ export interface CommandBuilderContext {
   ) => void
   setImportCurlVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setProxySettingsVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEditRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setRequestDeletePending: (
@@ -179,6 +180,7 @@ export function buildCommandPaletteCommands(
     setLayout,
     onLayoutChange,
     setNewFolderVisible,
+    setProxySettingsVisible,
     setExpanded,
     getKeymapFocus,
     getView,
@@ -536,6 +538,15 @@ export function buildCommandPaletteCommands(
       run: () => {
         setPreviewIndexProp(c.activeIndexRef.current)
         return openThemePicker()
+      },
+    },
+    {
+      id: "app.proxy-settings",
+      label: "Proxy Settings",
+      section: "System",
+      run: () => {
+        setProxySettingsVisible(true)
+        return true
       },
     },
     {

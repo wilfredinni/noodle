@@ -102,7 +102,7 @@ it reads a file or creates an export.
 ### Inspect and iterate
 
 - Formatted response bodies, headers, clipboard copy, and JSONPath filtering.
-- Live network traces for requests, redirects, responses, and failures.
+- Live network traces for proxies, requests, redirects, responses, and failures.
 - Per-request response history with a timeline for revisiting prior work.
 - Fuzzy request and folder search, and a side-by-side or stacked layout.
 
@@ -111,6 +111,19 @@ it reads a file or creates an export.
 - More than 30 built-in themes and customizable keybindings.
 - Keyboard-first navigation, jump mode, and mouse controls including sidebar
   context menus.
+
+### Route through a proxy
+
+Open **Proxy Settings** from the `Ctrl+P` command palette to use the system
+`HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or override
+the current collection in `settings.yml`. Custom proxy credentials can use
+active-environment variables, for example
+`http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080`; literal credentials
+are rejected. Bypass entries are comma-separated and support `*`, hosts,
+`.domain` suffixes, IP addresses, and optional ports.
+
+Use `--noproxy` with the TUI, `collection run`, or `request run` to force
+direct connections for that invocation.
 
 ### Bring in and run existing work
 

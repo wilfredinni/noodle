@@ -14,7 +14,13 @@ import {
 } from "./tree"
 import { useResponse } from "../hooks/useResponse"
 import type { SendCompleteResult } from "../hooks/useResponse"
-import type { Request as NoodleRequest, Method } from "../schema"
+import type {
+  AppProxySettings,
+  CollectionProxySettings,
+  Request as NoodleRequest,
+  Method,
+} from "../schema"
+import { resolveProxyPolicy, type SystemProxySettings } from "../proxy"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -76,6 +82,7 @@ import {
   openEnvironmentPicker,
 } from "./commandActions"
 import { runCollectionExport } from "./collectionExport"
+import type { ProxySettingsValues } from "./overlays/ProxySettingsOverlay"
 import {
   runCollectionImport,
   type CollectionImportValues,
@@ -98,6 +105,12 @@ export function AppInner({
   onEnvChange,
   onEnvListChanged,
   settingsEnv,
+  appProxy,
+  collectionProxy,
+  noProxy,
+  systemProxy,
+  onAppProxyChange,
+  onCollectionProxyChange,
   initialLastRequestId,
   collectionPaths,
   onCollectionChange,
@@ -122,6 +135,12 @@ export function AppInner({
   onEnvChange: (name: string | null) => void
   onEnvListChanged: () => Promise<void>
   settingsEnv?: string
+  appProxy?: AppProxySettings
+  collectionProxy?: CollectionProxySettings
+  noProxy: boolean
+  systemProxy: SystemProxySettings
+  onAppProxyChange: (proxy: AppProxySettings) => void
+  onCollectionProxyChange: (proxy: CollectionProxySettings) => void
   initialLastRequestId?: string
   collectionPaths: string[]
   onCollectionChange: (collectionDir: string) => void
@@ -461,6 +480,17 @@ export function AppInner({
     )
   }
 
+  const proxyPolicy = useMemo(
+    () =>
+      resolveProxyPolicy({
+        noProxy,
+        appProxy,
+        collectionProxy,
+        systemProxy,
+      }),
+    [noProxy, appProxy, collectionProxy, systemProxy],
+  )
+
   const {
     state: responseState,
     trySend,
@@ -471,6 +501,7 @@ export function AppInner({
     onCompleteRef.current,
     collection ?? undefined,
     draft.draft?.id,
+    proxyPolicy,
   )
 
   const responseStateRef = useRef(responseState)
@@ -598,6 +629,9 @@ export function AppInner({
     newFolderVisible,
     setNewFolderVisible,
     newFolderRef,
+    proxySettingsVisible,
+    setProxySettingsVisible,
+    proxySettingsRef,
     folderDeletePending,
     setFolderDeletePending,
     undoAllPending,
@@ -931,6 +965,40 @@ export function AppInner({
     ],
   )
 
+  const handleProxySettingsConfirm = useCallback(
+    (values: ProxySettingsValues) => {
+      if (values.scope === "app") {
+        if (values.mode === "system" || values.mode === "off") {
+          onAppProxyChange({ mode: values.mode })
+        } else if (values.mode === "custom") {
+          onAppProxyChange(
+            values.bypass.length > 0
+              ? { mode: "custom", url: values.url, bypass: values.bypass }
+              : { mode: "custom", url: values.url },
+          )
+        }
+      } else if (isCollection) {
+        if (values.mode === "inherit" || values.mode === "off") {
+          onCollectionProxyChange({ mode: values.mode })
+        } else if (values.mode === "custom") {
+          onCollectionProxyChange(
+            values.bypass.length > 0
+              ? { mode: "custom", url: values.url, bypass: values.bypass }
+              : { mode: "custom", url: values.url },
+          )
+        }
+      }
+      setProxySettingsVisible(false)
+      showToast("Proxy settings saved", "success")
+    },
+    [
+      isCollection,
+      onAppProxyChange,
+      onCollectionProxyChange,
+      setProxySettingsVisible,
+    ],
+  )
+
   // ── Overlay intercepts ────────────────────────────────────────────
   const overlayActions = useOverlayIntercepts({
     activeOverlay,
@@ -1034,6 +1102,10 @@ export function AppInner({
     newFolderRef,
     setNewFolderVisible,
     onNewFolderConfirm: handleNewFolderConfirm,
+    proxySettingsVisible,
+    proxySettingsRef,
+    setProxySettingsVisible,
+    onProxySettingsConfirm: handleProxySettingsConfirm,
     folderDeletePending,
     setFolderDeletePending,
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
@@ -1100,6 +1172,7 @@ export function AppInner({
         setNewRequestVisible,
         setImportCurlVisible,
         setNewFolderVisible,
+        setProxySettingsVisible,
         setCloneRequestVisible,
         setEditRequestVisible,
         setRequestDeletePending,
@@ -1127,6 +1200,7 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
+      setProxySettingsVisible,
       setImportCollectionVisible,
       requestReload,
       view,
@@ -1351,6 +1425,11 @@ export function AppInner({
           newFolderVisible={newFolderVisible}
           newFolderRef={newFolderRef}
           newFolderActions={overlayActions.newFolder}
+          proxySettingsVisible={proxySettingsVisible}
+          proxySettingsRef={proxySettingsRef}
+          proxySettingsActions={overlayActions.proxySettings}
+          appProxy={appProxy}
+          collectionProxy={collectionProxy}
           folderDeletePending={folderDeletePending}
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}

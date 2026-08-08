@@ -114,6 +114,19 @@ describe("loadConfig", () => {
     const result = loadConfig(dir)
     expect(result.collections).toHaveLength(1)
   })
+
+  it("reads a custom app proxy", () => {
+    writeFileSync(
+      join(dir, CONFIG_FILE_NAME),
+      "proxy:\n  mode: custom\n  url: http://$PROXY@proxy.test:8080\n  bypass:\n    - localhost\n",
+      "utf8",
+    )
+    expect(loadConfig(dir).proxy).toEqual({
+      mode: "custom",
+      url: "http://$PROXY@proxy.test:8080",
+      bypass: ["localhost"],
+    })
+  })
 })
 
 describe("appendCollectionPath", () => {
@@ -168,6 +181,15 @@ describe("saveConfig", () => {
     saveConfig(dir, input)
     const result = loadConfig(dir)
     expect(result).toEqual(input)
+  })
+
+  it("round-trips app proxy settings", () => {
+    const input: NoodleConfig = {
+      ...DEFAULTS,
+      proxy: { mode: "off" },
+    }
+    saveConfig(dir, input)
+    expect(loadConfig(dir)).toEqual(input)
   })
 
   it("writes and reads back null lastEnv", () => {

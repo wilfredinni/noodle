@@ -522,6 +522,21 @@ describe("filestore.loadSettings", () => {
     const result = await loadSettings(dir)
     expect(result).toEqual({ environment: "dev" })
   })
+
+  it("reads a collection proxy override", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "proxy:\n  mode: custom\n  url: http://$PROXY@proxy.test:8080\n  bypass:\n    - localhost\n",
+      "utf8",
+    )
+    expect(await loadSettings(dir)).toEqual({
+      proxy: {
+        mode: "custom",
+        url: "http://$PROXY@proxy.test:8080",
+        bypass: ["localhost"],
+      },
+    })
+  })
 })
 
 describe("filestore.saveSettings", () => {
@@ -535,6 +550,13 @@ describe("filestore.saveSettings", () => {
     await saveSettings(dir, { environment: "staging" })
     const result = await loadSettings(dir)
     expect(result).toEqual({ environment: "staging" })
+  })
+
+  it("round-trips a collection proxy override", async () => {
+    await saveSettings(dir, {
+      proxy: { mode: "off" },
+    })
+    expect(await loadSettings(dir)).toEqual({ proxy: { mode: "off" } })
   })
 
   it("writes minimal file when environment is undefined", async () => {

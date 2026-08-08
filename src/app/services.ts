@@ -22,6 +22,13 @@ import { formatJson } from "../lang/formatJson"
 import { lang } from "../lang"
 import { executor, substitute } from "../requests"
 import { withDefaultHttpsScheme } from "../requests/url"
+import {
+  parseCollectionProxy,
+  resolveProxyPolicy,
+  takeSystemProxyFromEnv,
+  type ProxyPolicy,
+  type SystemProxySettings,
+} from "../proxy"
 import type {
   Collection,
   CollectionItem,
@@ -360,20 +367,26 @@ async function auditFile(
   try {
     if (name === "settings.yml") {
       const raw = yaml.load(content)
+      const settings = raw as { environment?: unknown; proxy?: unknown }
+      const proxy = parseCollectionProxy(settings?.proxy)
       if (
         !raw ||
         typeof raw !== "object" ||
         Array.isArray(raw) ||
-        Object.keys(raw as object).some((key) => key !== "environment") ||
-        ((raw as { environment?: unknown }).environment !== undefined &&
-          typeof (raw as { environment?: unknown }).environment !== "string")
+        Object.keys(raw as object).some(
+          (key) => key !== "environment" && key !== "proxy",
+        ) ||
+        (settings.environment !== undefined &&
+          typeof settings.environment !== "string") ||
+        (settings.proxy !== undefined && proxy === undefined)
       )
         throw new Error(
-          "expected settings mapping with optional string environment",
+          "expected settings mapping with optional string environment and valid proxy",
         )
       if (fix) {
         await saveSettings(root, {
-          environment: (raw as { environment?: string }).environment,
+          environment: settings.environment as string | undefined,
+          proxy,
         })
         issues.push({
           path: rel,
@@ -516,9 +529,9 @@ export type RunProgress = (completed: number, total: number) => void
 
 async function runRequest(
   collection: Collection,
-  dir: string,
   request: Request,
   environment?: Environment,
+  proxyPolicy?: ProxyPolicy,
 ): Promise<RequestRunResult> {
   try {
     const response = await executor.send(
@@ -527,6 +540,8 @@ async function runRequest(
       undefined,
       collection,
       request.id,
+      undefined,
+      proxyPolicy,
     )
     const effective = environment ? substitute(request, environment) : request
     return {
@@ -556,15 +571,22 @@ export async function collectionRun(
   path: string,
   environmentName?: string,
   onProgress?: RunProgress,
+  noProxy = false,
+  systemProxy?: SystemProxySettings,
 ): Promise<CollectionRunResult> {
   const dir = await requireCollectionRoot(path)
   const collection = await filestore.loadCollection(dir)
   const environment = await environmentFor(dir, environmentName)
+  const policy = await proxyPolicyFor(
+    dir,
+    noProxy,
+    systemProxy ?? takeSystemProxyFromEnv(),
+  )
   const requests = flattenRequests(collection.items)
   const results: RequestRunResult[] = []
   onProgress?.(0, requests.length)
   for (const request of requests) {
-    results.push(await runRequest(collection, dir, request, environment))
+    results.push(await runRequest(collection, request, environment, policy))
     onProgress?.(results.length, requests.length)
   }
   return { results, failed: results.some((result) => result.ok === false) }
@@ -597,6 +619,8 @@ export async function requestRun(
   collectionDir: string,
   environmentName?: string,
   onProgress?: RunProgress,
+  noProxy = false,
+  systemProxy?: SystemProxySettings,
 ): Promise<{ result: RequestRunResult; failed: boolean }> {
   validateId(id)
   const dir = await requireCollectionRoot(collectionDir)
@@ -608,12 +632,26 @@ export async function requestRun(
   onProgress?.(0, 1)
   const result = await runRequest(
     collection,
-    dir,
     request,
     await environmentFor(dir, environmentName),
+    await proxyPolicyFor(dir, noProxy, systemProxy ?? takeSystemProxyFromEnv()),
   )
   onProgress?.(1, 1)
   return { result, failed: result.ok === false }
+}
+
+async function proxyPolicyFor(
+  dir: string,
+  noProxy: boolean,
+  systemProxy: SystemProxySettings,
+): Promise<ProxyPolicy> {
+  const [settings] = await Promise.all([loadSettings(dir)])
+  return resolveProxyPolicy({
+    noProxy,
+    appProxy: loadConfig(CONFIG_DIR).proxy,
+    collectionProxy: settings.proxy,
+    systemProxy,
+  })
 }
 export async function environmentSet(
   key: string,
