@@ -51,6 +51,7 @@ function minimalContext(): CommandBuilderContext {
     setNewRequestVisible: () => {},
     setImportCurlVisible: () => {},
     setNewFolderVisible: () => {},
+    setProxySettingsVisible: () => {},
     setCloneRequestVisible: () => {},
     setEditRequestVisible: () => {},
     setRequestDeletePending: () => {},

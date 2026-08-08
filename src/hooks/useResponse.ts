@@ -7,6 +7,7 @@ import type {
   Request,
   Response,
 } from "../schema"
+import type { ProxyPolicy } from "../proxy"
 import { executor } from "../requests"
 import {
   startSend,
@@ -35,6 +36,7 @@ export function useResponse(
   onComplete?: (req: Request, result: SendCompleteResult) => void,
   collection?: Collection,
   requestPath?: string,
+  proxyPolicy?: ProxyPolicy,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
@@ -77,10 +79,11 @@ export function useResponse(
         onCompleteRef,
         collection,
         requestPath,
+        proxyPolicy,
       )
       return startSend(prev, req)
     })
-  }, [selectedRequest, env, collection, requestPath])
+  }, [selectedRequest, env, collection, requestPath, proxyPolicy])
 
   const cancelSend = useCallback(() => {
     abortRef.current?.abort()
@@ -101,6 +104,7 @@ async function runSend(
   >,
   collection?: Collection,
   requestPath?: string,
+  proxyPolicy?: ProxyPolicy,
 ): Promise<void> {
   try {
     const res = await executor.send(
@@ -116,6 +120,7 @@ async function runSend(
             : prev,
         )
       },
+      proxyPolicy,
     )
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))

@@ -7,6 +7,7 @@ import type {
 } from "../schema"
 import { send } from "./send"
 import { substitute } from "./substitute"
+import type { ProxyPolicy } from "../proxy"
 
 export interface RequestExecutor {
   send(
@@ -16,6 +17,7 @@ export interface RequestExecutor {
     collection?: Collection,
     requestPath?: string,
     onNetworkEvent?: (network: NetworkEvent[]) => void,
+    proxyPolicy?: ProxyPolicy,
   ): Promise<Response>
 }
 

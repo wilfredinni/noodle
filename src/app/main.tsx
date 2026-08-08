@@ -15,6 +15,8 @@ import { existsSync, readdirSync, statSync } from "node:fs"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../hooks/useConfig"
+import { takeSystemProxyFromEnv, type SystemProxySettings } from "../proxy"
+import type { CollectionSettings } from "../schema"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
@@ -36,6 +38,8 @@ export interface BootstrapOptions {
   targetPath?: string
   collectionDir?: string
   envName?: string
+  noProxy?: boolean
+  systemProxy?: SystemProxySettings
 }
 
 function isDirectoryPath(dir: string): boolean {
@@ -117,6 +121,7 @@ export function resolveStartupCollectionDir(
 }
 
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
+  const capturedSystemProxy = takeSystemProxyFromEnv()
   let collectionPaths: string[] = []
   try {
     collectionPaths = loadConfig(CONFIG_DIR).collections
@@ -157,11 +162,10 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     initialEnvName = options.envName
   }
 
-  let settingsEnv: string | undefined
+  let initialSettings: CollectionSettings = {}
   if (mode === "collection") {
     try {
-      const settings = await loadSettings(collectionDir)
-      settingsEnv = settings.environment
+      initialSettings = await loadSettings(collectionDir)
     } catch {
       // settings.yml missing or invalid — ignore, use defaults
     }
@@ -224,7 +228,9 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
           collectionDir={collectionDir}
           envList={envList}
           initialEnvName={initialEnvName}
-          settingsEnv={settingsEnv}
+          initialSettings={initialSettings}
+          noProxy={options.noProxy}
+          systemProxy={options.systemProxy ?? capturedSystemProxy}
           keybinds={keybinds}
           lastRequestId={lastRequestId}
           shouldRegister={shouldRegister}

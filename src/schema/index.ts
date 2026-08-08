@@ -89,7 +89,7 @@ export interface Response {
 }
 
 export type NetworkEventType =
-  "request" | "redirect" | "response" | "body" | "complete" | "error"
+  "request" | "redirect" | "response" | "body" | "complete" | "error" | "proxy"
 
 export interface NetworkEvent {
   timeMs: number
@@ -149,4 +149,17 @@ export interface TimelineBodyRef {
 
 export interface CollectionSettings {
   environment?: string
+  proxy?: CollectionProxySettings
 }
+
+export interface ProxySettings {
+  mode: "custom"
+  url: string
+  bypass?: string[]
+}
+
+export type AppProxySettings =
+  { mode: "system" } | { mode: "off" } | ProxySettings
+
+export type CollectionProxySettings =
+  { mode: "inherit" } | { mode: "off" } | ProxySettings

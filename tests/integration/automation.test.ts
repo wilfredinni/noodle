@@ -292,6 +292,46 @@ describe("automation services", () => {
     }
   })
 
+  it("passes collection proxy policy and --noproxy to the executor", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "proxy:\n  mode: custom\n  url: http://proxy.test:8080\n",
+    )
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const send = executor.send
+    const policies: unknown[] = []
+    executor.send = async (...args) => {
+      policies.push(args[6])
+      return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
+    }
+    try {
+      await collectionRun(dir, undefined, undefined, false, {
+        http: "http://system.test:8080",
+        https: "http://system.test:8080",
+        bypass: [],
+      })
+      await collectionRun(dir, undefined, undefined, true, {
+        http: "http://system.test:8080",
+        https: "http://system.test:8080",
+        bypass: [],
+      })
+      expect(policies).toEqual([
+        {
+          kind: "custom",
+          source: "collection",
+          url: "http://proxy.test:8080",
+          bypass: [],
+        },
+        { kind: "direct", source: "cli" },
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
   it("does not audit nested settings files as collection settings", async () => {
     await mkdir(join(dir, "folder"))
     await writeFile(join(dir, "settings.yml"), "{}\n")

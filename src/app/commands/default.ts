@@ -25,6 +25,11 @@ export default defineCommand({
       alias: "e",
       description: "Initial environment name",
     },
+    noproxy: {
+      type: "boolean" as const,
+      default: false,
+      description: "Disable proxy use for this session",
+    },
   },
   async run({ args }) {
     if (args.targetPath && args.collection) {
@@ -38,6 +43,7 @@ export default defineCommand({
       targetPath: args.targetPath ? resolve(args.targetPath) : undefined,
       collectionDir: args.collection ? resolve(args.collection) : undefined,
       envName: args.env,
+      noProxy: args.noproxy,
     })
   },
 })

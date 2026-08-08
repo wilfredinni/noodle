@@ -16,6 +16,7 @@ import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
 import { expandUserPath } from "../userPath"
+import { proxyForUrl, redactProxyUrl, type ProxyPolicy } from "../proxy"
 
 export function interpolatePathParams(
   url: string,
@@ -68,6 +69,7 @@ export async function send(
   collection?: Collection,
   requestPath?: string,
   onNetworkEvent?: (network: NetworkEvent[]) => void,
+  proxyPolicy?: ProxyPolicy,
 ): Promise<Response> {
   const merged =
     collection && requestPath
@@ -155,6 +157,26 @@ export async function send(
   const followRedirects = req.followRedirects ?? true
 
   while (true) {
+    const proxyRoute = proxyPolicy
+      ? proxyForUrl(proxyPolicy, currentUrl, env)
+      : undefined
+    if (proxyRoute) {
+      recordNetworkEvent(
+        network,
+        start,
+        "proxy",
+        proxyRoute.kind === "proxy"
+          ? `Proxy: ${proxyRoute.source}`
+          : proxyRoute.reason === "bypass"
+            ? "Proxy: bypassed"
+            : proxyRoute.reason === "cli"
+              ? "Proxy: disabled by --noproxy"
+              : proxyRoute.reason === "off"
+                ? "Proxy: off"
+                : "Proxy: direct",
+        onNetworkEvent,
+      )
+    }
     recordNetworkEvent(
       network,
       start,
@@ -163,9 +185,18 @@ export async function send(
       onNetworkEvent,
     )
     try {
-      res = await fetch(currentUrl, currentInit)
+      const fetchInit: BunFetchRequestInit = { ...currentInit }
+      if (proxyRoute?.kind === "proxy") fetchInit.proxy = proxyRoute.url
+      res = await fetch(currentUrl, fetchInit)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const rawMessage = e instanceof Error ? e.message : String(e)
+      const msg =
+        proxyRoute?.kind === "proxy"
+          ? rawMessage.replaceAll(
+              proxyRoute.url,
+              redactProxyUrl(proxyRoute.url),
+            )
+          : rawMessage
       if (e instanceof DOMException && e.name === "AbortError") throw e
       throw networkFailure(
         `requests.send: fetch failed: ${msg}`,

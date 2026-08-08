@@ -15,6 +15,12 @@ import { loadLastRequest } from "./tabs/uiState"
 import type { Keybinds } from "./keybind"
 import type { CollectionMode } from "../app/main"
 import { classifyPath } from "../app/main"
+import type {
+  AppProxySettings,
+  CollectionProxySettings,
+  CollectionSettings,
+} from "../schema"
+import type { SystemProxySettings } from "../proxy"
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
@@ -22,7 +28,9 @@ export function App({
   collectionDir,
   envList: initialEnvList,
   initialEnvName,
-  settingsEnv: initialSettingsEnv,
+  initialSettings = {},
+  noProxy = false,
+  systemProxy,
   keybinds: keybinds,
   lastRequestId: initialLastRequestId,
   shouldRegister = false,
@@ -31,7 +39,9 @@ export function App({
   collectionDir: string
   envList: string[]
   initialEnvName?: string
-  settingsEnv?: string
+  initialSettings?: CollectionSettings
+  noProxy?: boolean
+  systemProxy: SystemProxySettings
   keybinds: Keybinds
   lastRequestId?: string
   shouldRegister?: boolean
@@ -47,9 +57,10 @@ export function App({
     useState(initialCollectionDir)
   const [mode, setMode] = useState<CollectionMode>(initialMode)
   const [reloadKey, setReloadKey] = useState(0)
-  const [settingsEnv, setSettingsEnv] = useState<string | undefined>(
-    initialSettingsEnv,
-  )
+  const [settings, setSettings] = useState<CollectionSettings>(initialSettings)
+  const settingsRef = useRef(initialSettings)
+  const settingsSaveChainRef = useRef<Promise<void>>(Promise.resolve())
+  const settingsEnv = settings.environment
   const [lastRequestId, setLastRequestId] = useState<string | undefined>(
     initialLastRequestId,
   )
@@ -114,6 +125,30 @@ export function App({
     [updateConfig],
   )
 
+  const handleAppProxyChange = useCallback(
+    (proxy: AppProxySettings) => {
+      updateConfig({ proxy }, { immediate: true })
+    },
+    [updateConfig],
+  )
+
+  const handleCollectionProxyChange = useCallback(
+    (proxy: CollectionProxySettings) => {
+      if (mode !== "collection") return
+      const nextSettings = { ...settingsRef.current, proxy }
+      settingsRef.current = nextSettings
+      setSettings(nextSettings)
+      const save = settingsSaveChainRef.current.then(() =>
+        saveSettings(activeCollectionDir, nextSettings),
+      )
+      settingsSaveChainRef.current = save.catch(() => {})
+      save.catch(() => {
+        showToast("Failed to save proxy settings", "error")
+      })
+    },
+    [activeCollectionDir, mode],
+  )
+
   const handleEnvListChanged = useCallback(async () => {
     if (mode !== "collection") return
     const items = await listEnvironmentsWithColors(activeEnvironmentsDir)
@@ -126,11 +161,14 @@ export function App({
   const handleEnvChange = useCallback(
     (name: string | null) => {
       const envName = name ?? undefined
-      setSettingsEnv(envName)
+      const nextSettings = { ...settingsRef.current, environment: envName }
+      settingsRef.current = nextSettings
+      setSettings(nextSettings)
       if (mode === "collection") {
-        saveSettings(activeCollectionDir, { environment: envName }).catch(
-          () => {},
+        const save = settingsSaveChainRef.current.then(() =>
+          saveSettings(activeCollectionDir, nextSettings),
         )
+        settingsSaveChainRef.current = save.catch(() => {})
       }
     },
     [activeCollectionDir, mode],
@@ -144,6 +182,8 @@ export function App({
     (bootstrappedDir: string) => {
       const resolved = resolve(bootstrappedDir)
       setMode("collection")
+      settingsRef.current = {}
+      setSettings({})
       updateConfig((prev) => ({
         collections: upsertCollectionPath(prev.collections, resolved),
       }))
@@ -209,12 +249,12 @@ export function App({
           }
         }
 
-        let nextSettingsEnv: string | undefined
+        let nextSettings: CollectionSettings = {}
         if (nextMode === "collection") {
           try {
-            nextSettingsEnv = (await loadSettings(normalized)).environment
+            nextSettings = await loadSettings(normalized)
           } catch {
-            nextSettingsEnv = undefined
+            nextSettings = {}
           }
         }
 
@@ -229,7 +269,8 @@ export function App({
 
         setEnvNames(nextEnvNames)
         setEnvColors(nextEnvColors)
-        setSettingsEnv(nextSettingsEnv)
+        settingsRef.current = nextSettings
+        setSettings(nextSettings)
         setLastRequestId(nextLastRequestId)
         setInitialEnvNameState(undefined)
         setActiveCollectionDir(normalized)
@@ -275,6 +316,12 @@ export function App({
         onEnvChange={handleEnvChange}
         onEnvListChanged={handleEnvListChanged}
         settingsEnv={settingsEnv}
+        appProxy={config.proxy}
+        collectionProxy={settings.proxy}
+        noProxy={noProxy}
+        systemProxy={systemProxy}
+        onAppProxyChange={handleAppProxyChange}
+        onCollectionProxyChange={handleCollectionProxyChange}
         initialLastRequestId={lastRequestId}
         collectionPaths={collectionPaths}
         onCollectionChange={handleCollectionChange}

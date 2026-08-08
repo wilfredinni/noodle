@@ -34,7 +34,13 @@ async function runHomebrewUpdate(
   }
   output("Updating noodle via Homebrew...")
   try {
-    const result = await deps.runProcess(["brew", "upgrade", "noodle"], silent)
+    const result = await deps.runProcess(
+      ["brew", "upgrade", "noodle"],
+      silent,
+      {
+        env: deps.env,
+      },
+    )
     if (result.exitCode !== 0) {
       output(`Homebrew upgrade failed (exit code ${result.exitCode}).`)
       return {

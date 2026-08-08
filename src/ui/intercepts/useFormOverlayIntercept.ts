@@ -8,6 +8,7 @@ export function useFormOverlayIntercept(opts: {
     cycleFocus?: (dir: 1 | -1) => void
     getFocus?: () => string
     commitField?: () => void
+    toggleFocused?: () => void
     confirm: () => unknown
   } | null>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,6 +58,12 @@ export function useFormOverlayIntercept(opts: {
             e.stopPropagation()
             handle.commitField?.()
           }
+          return
+        }
+        if (e.name === "space" && handle.getFocus?.() === "auth") {
+          e.preventDefault()
+          e.stopPropagation()
+          handle.toggleFocused?.()
           return
         }
         if (e.name === "s" && e.ctrl) {

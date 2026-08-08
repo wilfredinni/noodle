@@ -20,7 +20,10 @@ export interface UpdateDependencies {
   runProcess: (
     args: string[],
     captureOutput: boolean,
-    options?: { signal?: AbortSignal },
+    options?: {
+      signal?: AbortSignal
+      env?: Record<string, string | undefined>
+    },
   ) => Promise<ProcessResult>
   execPath: string
   platform: string
@@ -41,12 +44,16 @@ export interface ProcessResult {
 async function runProcess(
   args: string[],
   captureOutput: boolean,
-  options?: { signal?: AbortSignal },
+  options?: {
+    signal?: AbortSignal
+    env?: Record<string, string | undefined>
+  },
 ): Promise<ProcessResult> {
   const child = Bun.spawn(args, {
     stdout: captureOutput ? "pipe" : "inherit",
     stderr: captureOutput ? "pipe" : "inherit",
     signal: options?.signal,
+    env: options?.env,
   })
   if (!captureOutput) return { exitCode: await child.exited }
   const [stdout] = await Promise.all([
@@ -136,6 +143,7 @@ export async function checkForUpdates(
           signal: AbortSignal.timeout(
             deps.updateCheckTimeoutMs ?? UPDATE_CHECK_TIMEOUT_MS,
           ),
+          env: deps.env,
         },
       )
       if (result.exitCode !== 0) {

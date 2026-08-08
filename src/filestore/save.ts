@@ -115,6 +115,9 @@ export async function saveSettings(
   if (settings.environment !== undefined) {
     data.environment = settings.environment
   }
+  if (settings.proxy !== undefined) {
+    data.proxy = settings.proxy
+  }
 
   try {
     await writeFile(join(dir, "settings.yml"), yaml.dump(data), "utf8")

@@ -50,4 +50,47 @@ describe("bootstrap", () => {
     exitSpy.mockRestore()
     stderrSpy.mockRestore()
   })
+
+  it("clears ambient proxy variables when --noproxy is used", async () => {
+    const proxyKeys = [
+      "HTTP_PROXY",
+      "HTTPS_PROXY",
+      "NO_PROXY",
+      "http_proxy",
+      "https_proxy",
+      "no_proxy",
+    ] as const
+    const original = new Map(proxyKeys.map((key) => [key, process.env[key]]))
+    process.env.HTTP_PROXY = "http://proxy.test:8080"
+    const exitSpy = spyOn(process, "exit").mockImplementation((() => {
+      throw new Error("process.exit called")
+    }) as never)
+    const stderrSpy = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    )
+
+    try {
+      try {
+        await bootstrapInvalidPath({ noProxy: true })
+      } catch (error) {
+        expect((error as Error).message).toBe("process.exit called")
+      }
+      for (const key of proxyKeys) expect(process.env[key]).toBeUndefined()
+    } finally {
+      for (const [key, value] of original) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+      exitSpy.mockRestore()
+      stderrSpy.mockRestore()
+    }
+  })
+
+  async function bootstrapInvalidPath(options: { noProxy: boolean }) {
+    const { bootstrap } = await import("../src/app/main")
+    return bootstrap({
+      collectionDir: join(tempDir(), "missing"),
+      ...options,
+    })
+  }
 })

@@ -30,6 +30,7 @@ import {
   workspaceList,
 } from "../services"
 import type { Method } from "../../schema"
+import { takeSystemProxyFromEnv } from "../../proxy"
 
 const jsonArg = {
   type: "boolean" as const,
@@ -179,6 +180,7 @@ const collection = defineCommand({
       args: {
         path: { type: "positional", required: true },
         env: { type: "string", alias: "e" },
+        noproxy: { type: "boolean", default: false },
         json: jsonArg,
       },
       run: ({ args }) =>
@@ -191,6 +193,8 @@ const collection = defineCommand({
                 args.path,
                 args.env,
                 progress?.update,
+                args.noproxy,
+                takeSystemProxyFromEnv(),
               )
               return { data, failed: data.failed }
             } finally {
@@ -238,6 +242,7 @@ const request = defineCommand({
         id: { type: "positional", required: true },
         collection: collectionArg,
         env: { type: "string", alias: "e" },
+        noproxy: { type: "boolean", default: false },
         json: jsonArg,
       },
       run: ({ args }) =>
@@ -251,6 +256,8 @@ const request = defineCommand({
                 args.collection,
                 args.env,
                 progress?.update,
+                args.noproxy,
+                takeSystemProxyFromEnv(),
               )
               return { data, failed: data.failed }
             } finally {
