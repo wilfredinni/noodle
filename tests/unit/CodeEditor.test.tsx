@@ -848,7 +848,7 @@ body_type: json`
           }}
           filetype="json"
           theme={opencodeTheme}
-          initialValue={content}
+          initialValue=""
           debounceMs={0}
           extraHighlights={(value) => {
             if (!editor) return []
@@ -872,8 +872,7 @@ body_type: json`
     )
 
     await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    await renderOnce()
+    editor!.value = content
     const highlights = editor!.getLineHighlights(1)
     expect(
       highlights.some(
