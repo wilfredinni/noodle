@@ -113,6 +113,18 @@ describe("SettingsView", () => {
       expect(frame).toContain("Appearance")
       expect(frame).toContain("Keyboard")
       expect(frame).toContain("Theme")
+      if (size.width === 110) {
+        const lines = frame.split("\n")
+        const themeLine = lines.findIndex((line) => line.includes("Theme"))
+        const selectLine = lines.findIndex(
+          (line, index) => index > themeLine && line.includes("aura"),
+        )
+        const descriptionLine = lines.findIndex((line) =>
+          line.includes("Color palette used throughout Noodle."),
+        )
+        expect(themeLine).toBeLessThan(selectLine)
+        expect(selectLine).toBeLessThan(descriptionLine)
+      }
       cleanup()
     }
   })

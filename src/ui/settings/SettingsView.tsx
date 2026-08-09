@@ -1,6 +1,6 @@
 import { MouseButton, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import type {
   AppProxySettings,
   CollectionProxySettings,
@@ -526,34 +526,36 @@ export function SettingsView({
                 <SettingLabel
                   title="Theme"
                   description="Color palette used throughout Noodle."
-                />
-                <Select
-                  items={THEMES.map((item, index) => ({
-                    id: String(index),
-                    label: item.name,
-                  }))}
-                  value={String(activeThemeIndex)}
-                  focused={focus === "settings-content" && contentIndex === 0}
-                  onActivate={() => setContentIndex(0)}
-                  onOpenChange={setSelectOpen}
-                  onChange={(value) => onThemeChange(Number(value))}
-                  maxDropdownHeight={12}
-                />
+                >
+                  <Select
+                    items={THEMES.map((item, index) => ({
+                      id: String(index),
+                      label: item.name,
+                    }))}
+                    value={String(activeThemeIndex)}
+                    focused={focus === "settings-content" && contentIndex === 0}
+                    onActivate={() => setContentIndex(0)}
+                    onOpenChange={setSelectOpen}
+                    onChange={(value) => onThemeChange(Number(value))}
+                    maxDropdownHeight={12}
+                  />
+                </SettingLabel>
                 <SettingLabel
                   title="Layout"
                   description="Arrange request and response panes."
-                />
-                <Select
-                  items={[
-                    { id: "stacked", label: "Stacked" },
-                    { id: "side-by-side", label: "Side by side" },
-                  ]}
-                  value={layout}
-                  focused={focus === "settings-content" && contentIndex === 1}
-                  onActivate={() => setContentIndex(1)}
-                  onOpenChange={setSelectOpen}
-                  onChange={(value) => onLayoutChange(value as typeof layout)}
-                />
+                >
+                  <Select
+                    items={[
+                      { id: "stacked", label: "Stacked" },
+                      { id: "side-by-side", label: "Side by side" },
+                    ]}
+                    value={layout}
+                    focused={focus === "settings-content" && contentIndex === 1}
+                    onActivate={() => setContentIndex(1)}
+                    onOpenChange={setSelectOpen}
+                    onChange={(value) => onLayoutChange(value as typeof layout)}
+                  />
+                </SettingLabel>
               </>
             )}
             {scope === "global" && category === "behavior" && (
@@ -679,20 +681,24 @@ export function SettingsView({
                 <SettingLabel
                   title="Active environment"
                   description="Used for variable substitution when sending requests."
-                />
-                <Select
-                  items={envNames.map((name) => ({ id: name, label: name }))}
-                  value={activeEnvName ?? undefined}
-                  placeholder={
-                    envNames.length === 0
-                      ? "No environments"
-                      : "Select environment"
-                  }
-                  interactive={envNames.length > 0}
-                  focused={focus === "settings-content"}
-                  onOpenChange={setSelectOpen}
-                  onChange={onEnvironmentChange}
-                />
+                >
+                  <Select
+                    items={envNames.map((name) => ({
+                      id: name,
+                      label: name,
+                    }))}
+                    value={activeEnvName ?? undefined}
+                    placeholder={
+                      envNames.length === 0
+                        ? "No environments"
+                        : "Select environment"
+                    }
+                    interactive={envNames.length > 0}
+                    focused={focus === "settings-content"}
+                    onOpenChange={setSelectOpen}
+                    onChange={onEnvironmentChange}
+                  />
+                </SettingLabel>
               </>
             )}
             {message && (
@@ -747,16 +753,17 @@ function ScopeButton({
 function SettingLabel({
   title,
   description,
+  children,
 }: {
   title: string
   description: string
+  children?: ReactNode
 }) {
   const theme = useTheme()
   return (
     <box style={{ flexDirection: "column", gap: 0 }}>
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        {title}
-      </text>
+      <text fg={theme.textMuted}>{title}</text>
+      {children}
       <text fg={theme.textMuted} wrapMode="word">
         {description}
       </text>
