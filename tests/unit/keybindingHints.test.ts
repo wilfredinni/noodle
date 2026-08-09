@@ -59,7 +59,7 @@ describe("getKeybindingHints footer", () => {
         .footer,
     ).toEqual([
       seg("↑/↓", "categories"),
-      seg("Tab", "edit"),
+      seg("←/→", "scope"),
       seg("Esc", "close settings"),
     ])
 
@@ -86,10 +86,20 @@ describe("getKeybindingHints footer", () => {
         }),
       ).footer,
     ).toEqual([
-      seg("Enter", "add"),
+      seg("↑/↓", "select"),
       seg("Ctrl+↑/↓", "reorder"),
       seg("Del", "unregister"),
     ])
+
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "settings",
+          focus: "settings-content",
+          settingsCategory: "general",
+        }),
+      ).footer,
+    ).toEqual([seg("Tab", "next"), seg("Esc", "close settings")])
   })
 
   it("uses the active request browse commands", () => {

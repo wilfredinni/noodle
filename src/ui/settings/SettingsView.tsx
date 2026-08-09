@@ -39,9 +39,9 @@ import { Checkbox } from "../Checkbox"
 import { Select } from "../Select"
 import { VarInput, type VarInputHandle } from "../VarInput"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
+import { SIDEBAR_WIDTH } from "../Sidebar"
 import { ProxySettingsForm } from "./ProxySettingsForm"
 import { moveRegisteredCollection } from "./collectionRegistry"
-import { SIDEBAR_WIDTH } from "../Sidebar"
 
 export type SettingsScope = "global" | "collection"
 export type GlobalSettingsCategory =
@@ -959,6 +959,7 @@ export function SettingsView({
                 <KeyboardRows
                   names={keybindNames}
                   selectedIndex={contentIndex}
+                  active={focus === "settings-content"}
                   captureName={captureName}
                   message={message}
                   keybinds={keybinds}
@@ -1179,7 +1180,10 @@ function SettingsSectionHeader({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", gap: 0 }}>
+    <box
+      id="settings-section-header"
+      style={{ flexDirection: "column", gap: 0 }}
+    >
       <text fg={theme.text}>{title}</text>
       <text fg={theme.textMuted} wrapMode="word">
         {description}
@@ -1191,6 +1195,7 @@ function SettingsSectionHeader({
 function KeyboardRows({
   names,
   selectedIndex,
+  active,
   captureName,
   message,
   keybinds,
@@ -1198,6 +1203,7 @@ function KeyboardRows({
 }: {
   names: KeybindName[]
   selectedIndex: number
+  active: boolean
   captureName: KeybindName | null
   message: { text: string; kind: "success" | "error" } | null
   keybinds: Keybinds
@@ -1211,7 +1217,7 @@ function KeyboardRows({
         const definition = Definitions[name]
         const showCategory = definition.category !== previousCategory
         previousCategory = definition.category
-        const selected = index === selectedIndex
+        const selected = active && index === selectedIndex
         const conflict = findKeybindConflict(name, keybinds[name], keybinds)
         return (
           <box
@@ -1228,6 +1234,7 @@ function KeyboardRows({
               </text>
             )}
             <box
+              id={`settings-key-${name}-row`}
               style={{
                 flexDirection: "row",
                 justifyContent: "space-between",

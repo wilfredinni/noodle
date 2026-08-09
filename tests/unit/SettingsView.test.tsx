@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
-import type { InputRenderable } from "@opentui/core"
+import { type BoxRenderable, type InputRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -20,6 +20,7 @@ import {
   type SettingsCategory,
   type SettingsScope,
 } from "../../src/ui/settings/SettingsView"
+import { SIDEBAR_WIDTH } from "../../src/ui/Sidebar"
 
 const testRender = createTestRender()
 
@@ -50,6 +51,7 @@ function Harness({
   onCollectionUnregister = () => {},
   onKeybindChange = () => true,
   onCollectionSettingsChange = () => true,
+  onThemeChange = () => {},
   appProxy = { mode: "system" },
   initialCollectionSettings = {},
 }: {
@@ -68,6 +70,7 @@ function Harness({
       "name" | "description" | "timelineMaxEntries"
     >,
   ) => boolean
+  onThemeChange?: (index: number) => void
   appProxy?: AppProxySettings
   initialCollectionSettings?: CollectionSettings
 }) {
@@ -108,7 +111,7 @@ function Harness({
       }}
       onPaneFocus={setFocus}
       onClose={onClose}
-      onThemeChange={() => {}}
+      onThemeChange={onThemeChange}
       onLayoutChange={() => true}
       onConfirmUndoAllChange={() => {}}
       onAppProxyChange={() => true}
@@ -151,6 +154,8 @@ describe("SettingsView", () => {
       expect(frame).toContain("Proxy")
       expect(frame).not.toContain("Network")
       expect(frame).toContain("Theme")
+      expect(frame).not.toContain("Settings")
+      expect(frame).not.toContain("Auto-save")
       expect(frame).toContain("Choose how Noodle")
       if (size.width === 110) {
         const lines = frame.split("\n")
@@ -170,6 +175,55 @@ describe("SettingsView", () => {
       }
       cleanup()
     }
+  })
+
+  it("uses the shared sidebar width and keeps core controls visible", async () => {
+    for (const size of [
+      { width: 64, height: 16 },
+      { width: 80, height: 24 },
+      { width: 110, height: 30 },
+    ]) {
+      const { keymap, cleanup } = setupKeymap()
+      const { renderOnce, captureCharFrame, renderer } = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Harness />
+          </ThemeProvider>
+        </KeymapProvider>,
+        size,
+      )
+      await renderOnce()
+
+      const scope = renderer.root.findDescendantById("settings-scope-global")!
+      const section = renderer.root.findDescendantById(
+        "settings-section-header",
+      )!
+      expect(section.screenX - scope.screenX).toBe(SIDEBAR_WIDTH + 1)
+      expect(captureCharFrame()).toContain("Theme")
+      cleanup()
+    }
+  })
+
+  it("uses the shared theme select behavior", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const selected: number[] = []
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialFocus="settings-content"
+            onThemeChange={(index) => selected.push(index)}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+    await act(async () => host.press("return"))
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(selected).toEqual([1])
+    cleanup()
   })
 
   it("keeps Collection disabled in browse/empty modes", async () => {
@@ -220,7 +274,7 @@ describe("SettingsView", () => {
     await act(async () => host.press("right"))
     expect(captureCharFrame()).toContain("Active environment")
     expect(captureCharFrame()).toContain("Describe this collection")
-    expect(captureCharFrame()).toContain("local history")
+    expect(captureCharFrame()).toContain("history.")
     cleanup()
   })
 
@@ -291,7 +345,7 @@ describe("SettingsView", () => {
 
     expect(patches).toEqual([])
     expect(captureCharFrame()).toContain("non-negative")
-    expect(captureCharFrame()).toContain("integer, or blank")
+    expect(captureCharFrame()).toContain("blank for 50")
     cleanup()
   })
 
@@ -501,6 +555,45 @@ describe("SettingsView", () => {
     expect(create.screenY - find.screenY).toBe(1)
     expect(environment.screenY - create.screenY).toBeGreaterThan(1)
     cleanup()
+  })
+
+  it("only highlights a keyboard row while the content pane is active", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness initialCategory="keyboard" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await renderOnce()
+
+    const firstRow = () =>
+      renderer.root.findDescendantById(
+        "settings-key-jump_mode-row",
+      ) as BoxRenderable
+    expect(firstRow().backgroundColor.a).toBe(0)
+    cleanup()
+
+    const activeKeymap = setupKeymap()
+    const activeRender = await testRender(
+      <KeymapProvider keymap={activeKeymap.keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness initialCategory="keyboard" initialFocus="settings-content" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await activeRender.renderOnce()
+    expect(
+      (
+        activeRender.renderer.root.findDescendantById(
+          "settings-key-jump_mode-row",
+        ) as BoxRenderable
+      ).backgroundColor.a,
+    ).toBeGreaterThan(0)
+    activeKeymap.cleanup()
   })
 
   it("keeps the focused proxy field visible in a compact terminal", async () => {

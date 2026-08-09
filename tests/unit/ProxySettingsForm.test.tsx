@@ -125,6 +125,10 @@ describe("ProxySettingsForm", () => {
     expect(frame).toContain("Advanced URL")
     expect(frame).toContain("Proxy URL")
     expect(frame).not.toContain("Hostname")
+    expect(frame).not.toContain("Proxy authentication")
+    expect(frame).not.toContain("Username variable")
+    expect(frame).not.toContain("Password variable")
+    expect(frame).toContain("credentials directly in the URL")
     cleanup()
   })
 

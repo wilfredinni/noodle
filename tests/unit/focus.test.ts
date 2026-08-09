@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { cycleFocus } from "../../src/ui/focus"
+import { cycleFocus, settingsReturnFocus } from "../../src/ui/focus"
 
 describe("cycleFocus", () => {
   it("moves forward from UrlBar to request pane", () => {
@@ -25,5 +25,24 @@ describe("cycleFocus", () => {
     expect(cycleFocus("settings-content", 1, "settings")).toBe(
       "settings-sidebar",
     )
+  })
+})
+
+describe("settingsReturnFocus", () => {
+  it("restores the pane that opened settings from the main view", () => {
+    for (const focus of [
+      "sidebar",
+      "urlbar",
+      "request",
+      "response",
+      "folder",
+    ] as const) {
+      expect(settingsReturnFocus("main", focus)).toBe(focus)
+    }
+  })
+
+  it("falls back to the main sidebar outside the main view", () => {
+    expect(settingsReturnFocus("env-editor", "env-vars")).toBe("sidebar")
+    expect(settingsReturnFocus("settings", "settings-content")).toBe("sidebar")
   })
 })

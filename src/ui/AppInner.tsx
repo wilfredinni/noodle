@@ -40,7 +40,7 @@ import { useFolderDraft } from "../hooks/useFolderDraft"
 import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
-import { type Focus, type UrlBarSubFocus } from "./focus"
+import { settingsReturnFocus, type Focus, type UrlBarSubFocus } from "./focus"
 import {
   buildCommandPaletteCommands,
   type CommandPaletteTarget,
@@ -217,6 +217,7 @@ export function AppInner({
   const [view, setView] = useState<AppView>("main")
   const viewRef = useRef(view)
   viewRef.current = view
+  const settingsReturnFocusRef = useRef<Focus>("sidebar")
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
@@ -909,6 +910,12 @@ export function AppInner({
       scope?: SettingsScope,
       category?: GlobalSettingsCategory | CollectionSettingsCategory,
     ) => {
+      if (viewRef.current !== "settings") {
+        settingsReturnFocusRef.current = settingsReturnFocus(
+          viewRef.current,
+          focusRef.current,
+        )
+      }
       envEditor.closeEditor()
       if (scope) onSettingsScopeChange(scope)
       if (scope === "global" && category) {
@@ -1464,7 +1471,7 @@ export function AppInner({
             onPaneFocus={focusPane}
             onClose={() => {
               setView("main")
-              setFocus("sidebar")
+              setFocus(settingsReturnFocusRef.current)
               setJumpMode(false)
             }}
             onThemeChange={onThemeChange}
