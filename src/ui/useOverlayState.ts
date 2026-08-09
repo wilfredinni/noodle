@@ -27,6 +27,7 @@ export type ActiveOverlay =
   | "theme"
   | "environment-picker"
   | "env-delete"
+  | "collection-unregister"
   | "undo-all"
   | "reload-confirm"
   | "init-confirm"
@@ -69,6 +70,8 @@ export function useOverlayState({
   )
   const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
   const envDeletePendingRef = useRef(envDeletePending)
+  const [collectionUnregisterPending, setCollectionUnregisterPending] =
+    useState<string | null>(null)
   const [newEnvironmentVisible, setNewEnvironmentVisible] = useState(false)
   const newEnvironmentRef = useRef<NewEnvironmentOverlayHandle>(null)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
@@ -118,6 +121,7 @@ export function useOverlayState({
     if (previewIndex !== null) return "theme"
     if (environmentPickerVisible) return "environment-picker"
     if (envDeletePending !== null) return "env-delete"
+    if (collectionUnregisterPending !== null) return "collection-unregister"
     if (undoAllPending) return "undo-all"
     if (reloadPending) return "reload-confirm"
     if (initPending) return "init-confirm"
@@ -147,6 +151,7 @@ export function useOverlayState({
     previewIndex,
     environmentPickerVisible,
     envDeletePending,
+    collectionUnregisterPending,
     undoAllPending,
     reloadPending,
     initPending,
@@ -178,6 +183,8 @@ export function useOverlayState({
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
     newEnvironmentVisible,
     setNewEnvironmentVisible,
     newEnvironmentRef,

@@ -25,10 +25,7 @@ import { Select } from "../Select"
 import { VarInput, type VarInputHandle } from "../VarInput"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
 import { ProxySettingsForm } from "./ProxySettingsForm"
-import {
-  moveRegisteredCollection,
-  unregisterCollection,
-} from "./collectionRegistry"
+import { moveRegisteredCollection } from "./collectionRegistry"
 import { SIDEBAR_WIDTH } from "../Sidebar"
 
 export type SettingsScope = "global" | "collection"
@@ -95,6 +92,7 @@ export function SettingsView({
   onEnvironmentChange,
   onKeybindChange,
   onCollectionsChange,
+  onCollectionUnregister,
   onRegisterCollection,
 }: {
   scope: SettingsScope
@@ -126,6 +124,7 @@ export function SettingsView({
   onEnvironmentChange: (name: string) => void
   onKeybindChange: (name: KeybindName, key: string) => boolean
   onCollectionsChange: (collections: string[]) => boolean
+  onCollectionUnregister: (path: string) => void
   onRegisterCollection: (path: string) => string | null
 }) {
   const theme = useTheme()
@@ -361,15 +360,7 @@ export function SettingsView({
           if (event.name === "delete" && contentIndex < collections.length) {
             event.preventDefault()
             event.stopPropagation()
-            const index = contentIndex
-            const next = unregisterCollection(collections, index)
-            if (next && onCollectionsChange(next)) {
-              setContentIndex(Math.min(contentIndex, next.length))
-              setMessage({
-                text: "Collection unregistered · files were not changed",
-                kind: "success",
-              })
-            }
+            onCollectionUnregister(collections[contentIndex]!)
           }
           return
         }
@@ -409,6 +400,7 @@ export function SettingsView({
     keymap,
     onCategoryChange,
     onClose,
+    onCollectionUnregister,
     onCollectionsChange,
     onConfirmUndoAllChange,
     onKeybindChange,
@@ -639,7 +631,8 @@ export function SettingsView({
                   ) : (
                     <box style={{ flexDirection: "column", gap: 0 }}>
                       {collections.map((path, index) => {
-                        const selected = contentIndex === index
+                        const selected =
+                          focus === "settings-content" && contentIndex === index
                         const hovered = hoveredCollectionIndex === index
                         return (
                           <box

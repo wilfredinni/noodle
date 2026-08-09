@@ -45,6 +45,9 @@ export function useOverlayIntercepts(opts: {
   envDeletePending: string | null
   envDeletePendingRef: RefObject<string | null>
   setEnvDeletePending: (s: string | null) => void
+  collectionUnregisterPending: string | null
+  setCollectionUnregisterPending: (s: string | null) => void
+  onCollectionUnregisterConfirm: (path: string) => void
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>

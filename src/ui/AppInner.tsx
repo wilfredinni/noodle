@@ -94,6 +94,7 @@ import {
   openEnvironmentPicker,
 } from "./commandActions"
 import { runCollectionExport } from "./collectionExport"
+import { unregisterCollection } from "./settings/collectionRegistry"
 import {
   runCollectionImport,
   type CollectionImportValues,
@@ -652,6 +653,8 @@ export function AppInner({
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
     newEnvironmentVisible,
     setNewEnvironmentVisible,
     newEnvironmentRef,
@@ -1074,6 +1077,17 @@ export function AppInner({
     envDeletePending,
     envDeletePendingRef,
     setEnvDeletePending,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
+    onCollectionUnregisterConfirm: (path) => {
+      const next = unregisterCollection(
+        collectionPaths,
+        collectionPaths.indexOf(path),
+      )
+      if (next && onCollectionsChange(next)) {
+        showToast("Collection unregistered · files were not changed", "success")
+      }
+    },
     envEditorRef,
     clearSaveTimer,
     saveTimerRef,
@@ -1440,6 +1454,7 @@ export function AppInner({
             onEnvironmentChange={envState.select}
             onKeybindChange={onKeybindChange}
             onCollectionsChange={onCollectionsChange}
+            onCollectionUnregister={setCollectionUnregisterPending}
             onRegisterCollection={onRegisterCollection}
           />
         ) : null}
@@ -1451,6 +1466,7 @@ export function AppInner({
           aboutVisible={aboutVisible}
           setAboutVisible={setAboutVisible}
           envDeletePending={envDeletePending}
+          collectionUnregisterPending={collectionUnregisterPending}
           undoAllPending={undoAllPending}
           reloadPending={reloadPending}
           initPending={initPending}

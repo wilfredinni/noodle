@@ -70,6 +70,7 @@ interface AppOverlaysProps {
   setAboutVisible: (visible: boolean) => void
   activeOverlay: ActiveOverlay
   envDeletePending: string | null
+  collectionUnregisterPending: string | null
   undoAllPending: boolean
   reloadPending: boolean
   initPending: boolean
@@ -176,6 +177,7 @@ export function AppOverlays({
   setAboutVisible,
   activeOverlay,
   envDeletePending,
+  collectionUnregisterPending,
   undoAllPending,
   reloadPending,
   initPending,
@@ -283,6 +285,15 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
+      {activeOverlay === "collection-unregister" &&
+        collectionUnregisterPending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Unregister collection "${collectionUnregisterPending}"? Files will not be changed.`}
+            onConfirm={onConfirmDialog}
+            onCancel={onCancelDialog}
+          />
+        )}
       {activeOverlay === "undo-all" && undoAllPending && (
         <ConfirmOverlay
           visible

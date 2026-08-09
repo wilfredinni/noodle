@@ -11,6 +11,9 @@ export function useDialogIntercepts(opts: {
   setSaveState: (s: SaveState) => void
   envDeletePending: string | null
   setEnvDeletePending: (s: string | null) => void
+  collectionUnregisterPending: string | null
+  setCollectionUnregisterPending: (s: string | null) => void
+  onCollectionUnregisterConfirm: (path: string) => void
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
@@ -46,6 +49,9 @@ export function useDialogIntercepts(opts: {
     setSaveState,
     envDeletePending,
     setEnvDeletePending,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
+    onCollectionUnregisterConfirm,
     envEditorRef,
     clearSaveTimer,
     saveTimerRef,
@@ -109,6 +115,16 @@ export function useDialogIntercepts(opts: {
     setUndoAllPending(false)
   }, [draftRef, folderDraftRef, envEditorRef, setUndoAllPending])
 
+  const confirmCollectionUnregister = useCallback(() => {
+    if (!collectionUnregisterPending) return
+    setCollectionUnregisterPending(null)
+    onCollectionUnregisterConfirm(collectionUnregisterPending)
+  }, [
+    collectionUnregisterPending,
+    onCollectionUnregisterConfirm,
+    setCollectionUnregisterPending,
+  ])
+
   const confirmInit = useCallback(() => {
     onInitConfirm()
     setInitPending(false)
@@ -132,6 +148,8 @@ export function useDialogIntercepts(opts: {
 
   const onConfirm = useCallback(() => {
     if (activeOverlay === "env-delete") confirmEnvDelete()
+    else if (activeOverlay === "collection-unregister")
+      confirmCollectionUnregister()
     else if (activeOverlay === "undo-all") confirmUndoAll()
     else if (activeOverlay === "init-confirm") confirmInit()
     else if (activeOverlay === "collection-switch-confirm")
@@ -144,6 +162,7 @@ export function useDialogIntercepts(opts: {
   }, [
     activeOverlay,
     confirmEnvDelete,
+    confirmCollectionUnregister,
     confirmUndoAll,
     confirmInit,
     confirmCollectionSwitch,
@@ -156,6 +175,8 @@ export function useDialogIntercepts(opts: {
 
   const onCancel = useCallback(() => {
     if (activeOverlay === "env-delete") setEnvDeletePending(null)
+    else if (activeOverlay === "collection-unregister")
+      setCollectionUnregisterPending(null)
     else if (activeOverlay === "undo-all") setUndoAllPending(false)
     else if (activeOverlay === "init-confirm") setInitPending(false)
     else if (activeOverlay === "collection-switch-confirm")
@@ -168,6 +189,7 @@ export function useDialogIntercepts(opts: {
   }, [
     activeOverlay,
     setEnvDeletePending,
+    setCollectionUnregisterPending,
     setUndoAllPending,
     setInitPending,
     setCollectionSwitchPending,
@@ -181,6 +203,28 @@ export function useDialogIntercepts(opts: {
   // ── Overlay: Delete env confirmation ──────────────────────────────
   useEffect(() => {
     if (activeOverlay !== "env-delete") return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onConfirm()
+        } else if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onCancel()
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [activeOverlay, keymap, onConfirm, onCancel])
+
+  // ── Overlay: Unregister collection confirmation ──────────────────
+  useEffect(() => {
+    if (activeOverlay !== "collection-unregister") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {

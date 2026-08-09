@@ -43,12 +43,16 @@ function Harness({
   initialCategory = "appearance",
   initialFocus = "settings-sidebar",
   onCategoryVisited = () => {},
+  onCollectionsChange = () => true,
+  onCollectionUnregister = () => {},
 }: {
   collectionAvailable?: boolean
   onClose?: () => void
   initialCategory?: SettingsCategory
   initialFocus?: Focus
   onCategoryVisited?: (category: SettingsCategory) => void
+  onCollectionsChange?: (collections: string[]) => boolean
+  onCollectionUnregister?: (path: string) => void
 }) {
   const [scope, setScope] = useState<SettingsScope>("global")
   const [category, setCategory] = useState<SettingsCategory>(initialCategory)
@@ -88,7 +92,8 @@ function Harness({
       onCollectionProxyChange={() => true}
       onEnvironmentChange={() => {}}
       onKeybindChange={() => true}
-      onCollectionsChange={() => true}
+      onCollectionsChange={onCollectionsChange}
+      onCollectionUnregister={onCollectionUnregister}
       onRegisterCollection={() => null}
     />
   )
@@ -228,6 +233,61 @@ describe("SettingsView", () => {
     const first = renderer.root.findDescendantById("settings-collection-0")!
     const second = renderer.root.findDescendantById("settings-collection-1")!
     expect(second.screenY - first.screenY).toBe(1)
+    cleanup()
+  })
+
+  it("only shows a selected collection while the content pane is active", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureSpans, mockMouse, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness initialCategory="collections" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await renderOnce()
+    let spans = captureSpans().lines.flatMap((line) => line.spans)
+    let first = spans.find((span) => span.text.includes("/tmp/one"))!
+    let second = spans.find((span) => span.text.includes("/tmp/two"))!
+    expect(first.fg.equals(second.fg)).toBe(true)
+
+    const row = renderer.root.findDescendantById("settings-collection-0")!
+    await act(async () => {
+      await mockMouse.click(row.screenX + 2, row.screenY, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    spans = captureSpans().lines.flatMap((line) => line.spans)
+    first = spans.find((span) => span.text.includes("/tmp/one"))!
+    second = spans.find((span) => span.text.includes("/tmp/two"))!
+    expect(first.fg.equals(second.fg)).toBe(false)
+    cleanup()
+  })
+
+  it("requests confirmation before unregistering a collection", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const requested: string[] = []
+    let changes = 0
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="collections"
+            initialFocus="settings-content"
+            onCollectionsChange={() => {
+              changes++
+              return true
+            }}
+            onCollectionUnregister={(path) => requested.push(path)}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await renderOnce()
+    await act(async () => host.press("delete"))
+    expect(requested).toEqual(["/tmp/one"])
+    expect(changes).toBe(0)
     cleanup()
   })
 
