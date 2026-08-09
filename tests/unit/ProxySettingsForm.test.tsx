@@ -54,6 +54,12 @@ describe("ProxySettingsForm", () => {
     expect(frame).toContain("Proxy authentication")
     expect(frame).toContain("Username variable")
     expect(frame).toContain("Bypass hosts")
+    const lines = frame.split("\n")
+    expect(
+      lines.findIndex((line) => line.includes("Bypass hosts")),
+    ).toBeLessThan(
+      lines.findIndex((line) => line.includes("Proxy authentication")),
+    )
     cleanup()
   })
 

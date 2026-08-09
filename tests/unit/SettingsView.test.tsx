@@ -40,16 +40,18 @@ function Harness({
   collectionAvailable = true,
   onClose = () => {},
   initialCategory = "appearance",
+  initialFocus = "settings-sidebar",
   onCategoryVisited = () => {},
 }: {
   collectionAvailable?: boolean
   onClose?: () => void
   initialCategory?: SettingsCategory
+  initialFocus?: Focus
   onCategoryVisited?: (category: SettingsCategory) => void
 }) {
   const [scope, setScope] = useState<SettingsScope>("global")
   const [category, setCategory] = useState<SettingsCategory>(initialCategory)
-  const [focus, setFocus] = useState<Focus>("settings-sidebar")
+  const [focus, setFocus] = useState<Focus>(initialFocus)
   return (
     <SettingsView
       scope={scope}
@@ -113,8 +115,13 @@ describe("SettingsView", () => {
       expect(frame).toContain("Appearance")
       expect(frame).toContain("Keyboard")
       expect(frame).toContain("Theme")
+      expect(frame).toContain("Choose how Noodle looks")
       if (size.width === 110) {
         const lines = frame.split("\n")
+        const sectionDescriptionLine = lines.findIndex((line) =>
+          line.includes("Choose how Noodle looks"),
+        )
+        expect(sectionDescriptionLine).toBe(2)
         const themeLine = lines.findIndex((line) => line.includes("Theme"))
         const selectLine = lines.findIndex(
           (line, index) => index > themeLine && line.includes("aura"),
@@ -176,6 +183,50 @@ describe("SettingsView", () => {
     await renderOnce()
     await act(async () => host.press("right"))
     expect(captureCharFrame()).toContain("Active environment")
+    expect(captureCharFrame()).toContain("Choose the environment used")
+    cleanup()
+  })
+
+  it("keeps registered collection rows compact", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="collections"
+            initialFocus="settings-content"
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await renderOnce()
+    await act(async () => host.press("down"))
+    const frame = captureCharFrame()
+    expect(frame).not.toContain("Ctrl+↑/↓ move")
+    const lines = frame.split("\n")
+    const collectionsTitleLine = lines.findIndex((line) =>
+      line.includes("Registered collections"),
+    )
+    const firstPathLine = lines.findIndex((line) => line.includes("/tmp/one"))
+    const secondPathLine = lines.findIndex((line) => line.includes("/tmp/two"))
+    const registerLine = lines.findIndex((line) =>
+      line.includes("Register collection"),
+    )
+    const inputLine = lines.findIndex((line) =>
+      line.includes("@/Projects/my-api"),
+    )
+    const descriptionLine = lines.findIndex((line) =>
+      line.includes("Add an initialized collection."),
+    )
+    expect(collectionsTitleLine).toBeLessThan(firstPathLine)
+    expect(firstPathLine).toBeLessThan(secondPathLine)
+    expect(secondPathLine).toBeLessThan(registerLine)
+    expect(registerLine).toBeLessThan(inputLine)
+    expect(inputLine).toBeLessThan(descriptionLine)
+    const first = renderer.root.findDescendantById("settings-collection-0")!
+    const second = renderer.root.findDescendantById("settings-collection-1")!
+    expect(second.screenY - first.screenY).toBe(1)
     cleanup()
   })
 

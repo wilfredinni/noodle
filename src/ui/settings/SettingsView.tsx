@@ -146,6 +146,7 @@ export function SettingsView({
     0,
     categories.findIndex((item) => item.id === category),
   )
+  const collectionRegisterIndex = collections.length
   const keybindNames = useMemo(
     () =>
       KEYBIND_CATEGORIES.flatMap((group) =>
@@ -168,23 +169,25 @@ export function SettingsView({
     if (
       focus === "settings-content" &&
       category === "collections" &&
-      contentIndex === 0
+      contentIndex === collectionRegisterIndex
     ) {
       pathInputRef.current?.focus()
     }
-  }, [category, contentIndex, focus])
+  }, [category, collectionRegisterIndex, contentIndex, focus])
 
   useEffect(() => {
     if (focus !== "settings-content") return
     if (category === "keyboard") {
       const name = keybindNames[contentIndex]
       if (name) scrollRef.current?.scrollChildIntoView(`settings-key-${name}`)
-    } else if (category === "collections" && contentIndex > 0) {
+    } else if (category === "collections") {
       scrollRef.current?.scrollChildIntoView(
-        `settings-collection-${contentIndex - 1}`,
+        contentIndex < collections.length
+          ? `settings-collection-${contentIndex}`
+          : "settings-collection-register",
       )
     }
-  }, [category, contentIndex, focus, keybindNames])
+  }, [category, contentIndex, collections, focus, keybindNames])
 
   useEffect(() => {
     if (!captureName) return
@@ -299,7 +302,10 @@ export function SettingsView({
         }
 
         if (category === "collections") {
-          if (event.name === "return" && contentIndex === 0) {
+          if (
+            event.name === "return" &&
+            contentIndex === collectionRegisterIndex
+          ) {
             event.preventDefault()
             event.stopPropagation()
             const error = onRegisterCollection(pathInput)
@@ -307,18 +313,21 @@ export function SettingsView({
               text: error ?? "Collection registered",
               kind: error ? "error" : "success",
             })
-            if (!error) setPathInput("")
+            if (!error) {
+              setPathInput("")
+              setContentIndex(collections.length + 1)
+            }
             return
           }
           if (event.name === "up" || event.name === "down") {
             event.preventDefault()
             event.stopPropagation()
-            if (event.ctrl && contentIndex > 0) {
-              const index = contentIndex - 1
+            if (event.ctrl && contentIndex < collections.length) {
+              const index = contentIndex
               const delta = event.name === "up" ? -1 : 1
               const next = moveRegisteredCollection(collections, index, delta)
               if (next && onCollectionsChange(next)) {
-                setContentIndex(index + delta + 1)
+                setContentIndex(index + delta)
               }
             } else {
               setContentIndex(
@@ -332,13 +341,13 @@ export function SettingsView({
             }
             return
           }
-          if (event.name === "delete" && contentIndex > 0) {
+          if (event.name === "delete" && contentIndex < collections.length) {
             event.preventDefault()
             event.stopPropagation()
-            const index = contentIndex - 1
+            const index = contentIndex
             const next = unregisterCollection(collections, index)
             if (next && onCollectionsChange(next)) {
-              setContentIndex(Math.min(contentIndex, collections.length - 1))
+              setContentIndex(Math.min(contentIndex, next.length))
               setMessage({
                 text: "Collection unregistered · files were not changed",
                 kind: "success",
@@ -374,6 +383,7 @@ export function SettingsView({
     category,
     categoryIndex,
     collectionAvailable,
+    collectionRegisterIndex,
     collections,
     confirmUndoAll,
     contentIndex,
@@ -403,7 +413,10 @@ export function SettingsView({
           flexDirection: "column",
           flexShrink: 0,
           backgroundColor: theme.backgroundPanel,
-          padding: 1,
+          paddingTop: 0,
+          paddingBottom: 0,
+          paddingLeft: 1,
+          paddingRight: 1,
           gap: 1,
         }}
         border={[...FullBorder.border]}
@@ -487,7 +500,10 @@ export function SettingsView({
           minWidth: 0,
           minHeight: 0,
           backgroundColor: theme.backgroundPanel,
-          padding: 1,
+          paddingTop: 0,
+          paddingBottom: 0,
+          paddingLeft: 1,
+          paddingRight: 1,
         }}
         border={[...FullBorder.border]}
         customBorderChars={FullBorder.customBorderChars}
@@ -523,6 +539,10 @@ export function SettingsView({
           <box style={{ flexDirection: "column", gap: 1, paddingRight: 1 }}>
             {scope === "global" && category === "appearance" && (
               <>
+                <SettingsSectionHeader
+                  title="Appearance"
+                  description="Choose how Noodle looks and arranges request panes."
+                />
                 <SettingLabel
                   title="Theme"
                   description="Color palette used throughout Noodle."
@@ -559,125 +579,168 @@ export function SettingsView({
               </>
             )}
             {scope === "global" && category === "behavior" && (
-              <box
-                style={{ flexDirection: "row" }}
-                onMouseDown={(event) => {
-                  if (event.button !== MouseButton.LEFT) return
-                  onConfirmUndoAllChange(!confirmUndoAll)
-                  onPaneFocus("settings-content")
-                  event.stopPropagation()
-                }}
-              >
-                <Checkbox checked={confirmUndoAll} theme={theme} />
-                <box style={{ flexDirection: "column", flexGrow: 1 }}>
-                  <text fg={theme.text}>Confirm undo all</text>
-                  <text fg={theme.textMuted} wrapMode="word">
-                    Ask before discarding every unsaved request and folder
-                    change.
-                  </text>
+              <>
+                <SettingsSectionHeader
+                  title="Behavior"
+                  description="Control confirmation prompts for destructive changes."
+                />
+                <box
+                  style={{ flexDirection: "row" }}
+                  onMouseDown={(event) => {
+                    if (event.button !== MouseButton.LEFT) return
+                    onConfirmUndoAllChange(!confirmUndoAll)
+                    onPaneFocus("settings-content")
+                    event.stopPropagation()
+                  }}
+                >
+                  <Checkbox checked={confirmUndoAll} theme={theme} />
+                  <box style={{ flexDirection: "column", flexGrow: 1 }}>
+                    <text fg={theme.text}>Confirm undo all</text>
+                    <text fg={theme.textMuted} wrapMode="word">
+                      Ask before discarding every unsaved request and folder
+                      change.
+                    </text>
+                  </box>
                 </box>
-              </box>
+              </>
             )}
             {category === "network" && (
-              <ProxySettingsForm
-                scope={scope === "global" ? "app" : "collection"}
-                proxy={scope === "global" ? appProxy : collectionProxy}
-                activeEnv={activeEnv}
-                focused={focus === "settings-content"}
-                noProxy={noProxy}
-                onExit={() => onPaneFocus("settings-sidebar")}
-                onChange={(proxy) =>
-                  scope === "global"
-                    ? onAppProxyChange(proxy as AppProxySettings)
-                    : onCollectionProxyChange(proxy as CollectionProxySettings)
-                }
-              />
+              <>
+                <SettingsSectionHeader
+                  title="Network"
+                  description={
+                    scope === "global"
+                      ? "Configure proxy behavior for Noodle requests."
+                      : "Override proxy behavior for this collection."
+                  }
+                />
+                <ProxySettingsForm
+                  scope={scope === "global" ? "app" : "collection"}
+                  proxy={scope === "global" ? appProxy : collectionProxy}
+                  activeEnv={activeEnv}
+                  focused={focus === "settings-content"}
+                  noProxy={noProxy}
+                  onExit={() => onPaneFocus("settings-sidebar")}
+                  onChange={(proxy) =>
+                    scope === "global"
+                      ? onAppProxyChange(proxy as AppProxySettings)
+                      : onCollectionProxyChange(
+                          proxy as CollectionProxySettings,
+                        )
+                  }
+                />
+              </>
             )}
             {scope === "global" && category === "collections" && (
               <>
-                <SettingLabel
-                  title="Register collection"
-                  description="Add an initialized collection. Absolute paths and @/ home paths are supported."
+                <SettingsSectionHeader
+                  title="Collections"
+                  description="Manage registered collection paths and their order."
                 />
-                <VarInput
-                  ref={pathInputRef}
-                  value={pathInput}
-                  env={null}
-                  isEditing={focus === "settings-content" && contentIndex === 0}
-                  isFocused={focus === "settings-content" && contentIndex === 0}
-                  onChange={setPathInput}
-                  onFocus={() => setContentIndex(0)}
-                  placeholder="@/Projects/my-api"
-                  backgroundColor={theme.backgroundElement}
-                  focusedBackgroundColor={theme.borderSubtle}
-                  pathCompletion={{ kind: "directory" }}
-                />
-                {collections.length === 0 ? (
-                  <text fg={theme.textMuted}>No registered collections.</text>
-                ) : (
-                  collections.map((path, index) => {
-                    const selected = contentIndex === index + 1
-                    return (
-                      <box
-                        key={path}
-                        id={`settings-collection-${index}`}
-                        style={{
-                          flexDirection: "column",
-                          backgroundColor: selected
-                            ? theme.backgroundElement
-                            : undefined,
-                          paddingLeft: 1,
-                          paddingRight: 1,
-                        }}
-                        onMouseDown={(event) => {
-                          if (event.button !== MouseButton.LEFT) return
-                          setContentIndex(index + 1)
-                          onPaneFocus("settings-content")
-                          event.stopPropagation()
-                        }}
-                      >
-                        <box
-                          style={{
-                            flexDirection: "row",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <text
-                            fg={selected ? theme.text : theme.textMuted}
-                            truncate
+                <box style={{ flexDirection: "column", gap: 0 }}>
+                  <text fg={theme.text}>Registered collections</text>
+                  {collections.length === 0 ? (
+                    <text fg={theme.textMuted}>No registered collections.</text>
+                  ) : (
+                    <box style={{ flexDirection: "column", gap: 0 }}>
+                      {collections.map((path, index) => {
+                        const selected = contentIndex === index
+                        return (
+                          <box
+                            key={path}
+                            id={`settings-collection-${index}`}
+                            style={{
+                              flexDirection: "column",
+                              backgroundColor: selected
+                                ? theme.backgroundElement
+                                : undefined,
+                              paddingLeft: 1,
+                              paddingRight: 1,
+                            }}
+                            onMouseDown={(event) => {
+                              if (event.button !== MouseButton.LEFT) return
+                              setContentIndex(index)
+                              onPaneFocus("settings-content")
+                              event.stopPropagation()
+                            }}
                           >
-                            {path}
-                          </text>
-                          {path === activeCollectionDir && (
-                            <text fg={theme.primary}> current</text>
-                          )}
-                        </box>
-                        {selected && (
-                          <text fg={theme.textMuted}>
-                            Ctrl+↑/↓ move · Delete unregisters without deleting
-                            files
-                          </text>
-                        )}
-                      </box>
-                    )
-                  })
-                )}
+                            <box
+                              style={{
+                                flexDirection: "row",
+                                justifyContent: "space-between",
+                              }}
+                            >
+                              <text
+                                fg={selected ? theme.text : theme.textMuted}
+                                truncate
+                              >
+                                {path}
+                              </text>
+                              {path === activeCollectionDir && (
+                                <text fg={theme.primary}> current</text>
+                              )}
+                            </box>
+                          </box>
+                        )
+                      })}
+                    </box>
+                  )}
+                </box>
+                <box
+                  id="settings-collection-register"
+                  style={{ flexDirection: "column", gap: 0 }}
+                >
+                  <text fg={theme.text}>Register collection</text>
+                  <VarInput
+                    ref={pathInputRef}
+                    value={pathInput}
+                    env={null}
+                    isEditing={
+                      focus === "settings-content" &&
+                      contentIndex === collectionRegisterIndex
+                    }
+                    isFocused={
+                      focus === "settings-content" &&
+                      contentIndex === collectionRegisterIndex
+                    }
+                    onChange={setPathInput}
+                    onFocus={() => setContentIndex(collectionRegisterIndex)}
+                    placeholder="@/Projects/my-api"
+                    backgroundColor={theme.backgroundElement}
+                    focusedBackgroundColor={theme.borderSubtle}
+                    pathCompletion={{ kind: "directory" }}
+                  />
+                  <text fg={theme.textMuted} wrapMode="word">
+                    Add an initialized collection. Absolute paths and @/ home
+                    paths are supported.
+                  </text>
+                </box>
               </>
             )}
             {scope === "global" && category === "keyboard" && (
-              <KeyboardRows
-                names={keybindNames}
-                selectedIndex={contentIndex}
-                captureName={captureName}
-                keybinds={keybinds}
-                onSelect={(index) => {
-                  setContentIndex(index)
-                  onPaneFocus("settings-content")
-                }}
-              />
+              <>
+                <SettingsSectionHeader
+                  title="Keyboard"
+                  description="Customize shortcuts for actions you use often."
+                />
+                <KeyboardRows
+                  names={keybindNames}
+                  selectedIndex={contentIndex}
+                  captureName={captureName}
+                  keybinds={keybinds}
+                  onSelect={(index) => {
+                    setContentIndex(index)
+                    onPaneFocus("settings-content")
+                  }}
+                />
+              </>
             )}
             {scope === "collection" && category === "general" && (
               <>
+                <SettingsSectionHeader
+                  title="General"
+                  description="Choose the environment used by this collection."
+                />
                 <SettingLabel
                   title="Active environment"
                   description="Used for variable substitution when sending requests."
@@ -762,8 +825,26 @@ function SettingLabel({
   const theme = useTheme()
   return (
     <box style={{ flexDirection: "column", gap: 0 }}>
-      <text fg={theme.textMuted}>{title}</text>
+      <text fg={theme.text}>{title}</text>
       {children}
+      <text fg={theme.textMuted} wrapMode="word">
+        {description}
+      </text>
+    </box>
+  )
+}
+
+function SettingsSectionHeader({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
+  const theme = useTheme()
+  return (
+    <box style={{ flexDirection: "column", gap: 0 }}>
+      <text fg={theme.text}>{title}</text>
       <text fg={theme.textMuted} wrapMode="word">
         {description}
       </text>

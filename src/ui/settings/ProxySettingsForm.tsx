@@ -137,11 +137,11 @@ export function ProxySettingsForm({
               "protocol",
               "hostname",
               "port",
+              "bypass",
               "auth",
               ...(values.fields.auth
                 ? (["username", "password"] as const)
                 : []),
-              "bypass",
             ],
     [values],
   )
@@ -374,49 +374,6 @@ export function ProxySettingsForm({
                 onFocus={() => setField("port")}
                 onChange={(port) => updateFields({ port })}
               />
-              <box
-                onMouseDown={(event) => {
-                  if (event.button !== MouseButton.LEFT) return
-                  setField("auth")
-                  updateFields({ auth: !values.fields.auth })
-                  event.preventDefault()
-                  event.stopPropagation()
-                }}
-                style={{ flexDirection: "row" }}
-              >
-                <Checkbox checked={values.fields.auth} theme={theme} />
-                <text
-                  fg={
-                    focused && field === "auth" ? theme.text : theme.textMuted
-                  }
-                >
-                  Proxy authentication
-                </text>
-              </box>
-              {values.fields.auth && (
-                <>
-                  <VariableField
-                    label="Username variable"
-                    inputRef={usernameRef}
-                    value={values.fields.username}
-                    placeholder="$PROXY_USER"
-                    focused={focused && field === "username"}
-                    env={activeEnv ?? null}
-                    onFocus={() => setField("username")}
-                    onChange={(username) => updateFields({ username })}
-                  />
-                  <VariableField
-                    label="Password variable"
-                    inputRef={passwordRef}
-                    value={values.fields.password}
-                    placeholder="$PROXY_PASSWORD"
-                    focused={focused && field === "password"}
-                    env={activeEnv ?? null}
-                    onFocus={() => setField("password")}
-                    onChange={(password) => updateFields({ password })}
-                  />
-                </>
-              )}
             </>
           ) : (
             <VariableField
@@ -440,6 +397,47 @@ export function ProxySettingsForm({
             onChange={(bypass) => update({ bypass })}
             hint="Comma-separated. Supports *, hosts, .domains, IPs, and ports."
           />
+          <box
+            onMouseDown={(event) => {
+              if (event.button !== MouseButton.LEFT) return
+              setField("auth")
+              updateFields({ auth: !values.fields.auth })
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            style={{ flexDirection: "row" }}
+          >
+            <Checkbox checked={values.fields.auth} theme={theme} />
+            <text
+              fg={focused && field === "auth" ? theme.text : theme.textMuted}
+            >
+              Proxy authentication
+            </text>
+          </box>
+          {values.fields.auth && (
+            <>
+              <VariableField
+                label="Username variable"
+                inputRef={usernameRef}
+                value={values.fields.username}
+                placeholder="$PROXY_USER"
+                focused={focused && field === "username"}
+                env={activeEnv ?? null}
+                onFocus={() => setField("username")}
+                onChange={(username) => updateFields({ username })}
+              />
+              <VariableField
+                label="Password variable"
+                inputRef={passwordRef}
+                value={values.fields.password}
+                placeholder="$PROXY_PASSWORD"
+                focused={focused && field === "password"}
+                env={activeEnv ?? null}
+                onFocus={() => setField("password")}
+                onChange={(password) => updateFields({ password })}
+              />
+            </>
+          )}
         </>
       )}
       {error && <text fg={theme.error}>{error}</text>}
@@ -469,7 +467,7 @@ function SelectField({
   const theme = useTheme()
   return (
     <box style={{ flexDirection: "column", zIndex: selectOpen ? 2 : 0 }}>
-      <text fg={theme.textMuted}>{label}</text>
+      <text fg={theme.text}>{label}</text>
       <Select
         items={items}
         value={value}
@@ -505,7 +503,7 @@ function TextField({
   const theme = useTheme()
   return (
     <box style={{ flexDirection: "column" }}>
-      <text fg={theme.textMuted}>{label}</text>
+      <text fg={theme.text}>{label}</text>
       <input
         ref={inputRef}
         value={value}
@@ -548,7 +546,7 @@ function VariableField({
   const theme = useTheme()
   return (
     <box style={{ flexDirection: "column" }}>
-      <text fg={theme.textMuted}>{label}</text>
+      <text fg={theme.text}>{label}</text>
       <VarInput
         ref={inputRef}
         value={value}
