@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { act } from "react"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerDefaultKeys,
@@ -13,11 +14,12 @@ import { ProxySettingsForm } from "../../src/ui/settings/ProxySettingsForm"
 const testRender = createTestRender()
 
 function setupKeymap() {
-  const { keymap, cleanup: hostCleanup } = createTestKeymap()
+  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
   const disposeEnabled = registerEnabledFields(keymap)
   const disposeKeys = registerDefaultKeys(keymap)
   return {
     keymap: keymap as unknown as KeymapProviderProps["keymap"],
+    host,
     cleanup: () => {
       disposeEnabled()
       disposeKeys()
@@ -27,6 +29,45 @@ function setupKeymap() {
 }
 
 describe("ProxySettingsForm", () => {
+  it("switches between Fields and Advanced URL before either is filled", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsForm
+            scope="app"
+            focused
+            proxy={{ mode: "system" }}
+            activeEnv={null}
+            onChange={() => true}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 18 },
+    )
+    await renderOnce()
+
+    await act(async () => host.press("return"))
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    await act(async () => host.press("tab"))
+    await act(async () => host.press("return"))
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("Proxy URL")
+
+    await act(async () => host.press("return"))
+    await act(async () => host.press("up"))
+    await act(async () => host.press("return"))
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("Hostname")
+    expect(captureCharFrame()).not.toContain("Proxy URL")
+    cleanup()
+  })
+
   it("renders canonical custom proxies as structured fields", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame } = await testRender(

@@ -148,6 +148,8 @@ describe("SettingsView", () => {
       expect(frame).toContain("Collection")
       expect(frame).toContain("Appearance")
       expect(frame).toContain("Keyboard")
+      expect(frame).toContain("Proxy")
+      expect(frame).not.toContain("Network")
       expect(frame).toContain("Theme")
       expect(frame).toContain("Choose how Noodle")
       if (size.width === 110) {

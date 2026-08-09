@@ -229,16 +229,20 @@ export function ProxySettingsForm({
       if (editor === "fields") {
         const fields = parseStructuredProxyTemplate(values.url)
         if (!fields) {
-          setError(
-            "This URL needs Advanced mode. Use an HTTP(S) host, optional port, and $VARNAME credentials only.",
-          )
-          return
-        }
-        update({ editor, fields })
+          if (values.url.trim()) {
+            setError(
+              "This URL needs Advanced mode. Use an HTTP(S) host, optional port, and $VARNAME credentials only.",
+            )
+            return
+          }
+          update({ editor }, false)
+          setError(null)
+        } else update({ editor, fields })
       } else {
         const result = buildStructuredProxyTemplate(values.fields)
         if ("error" in result) {
-          setError(result.error)
+          update({ editor }, false)
+          setError(null)
           return
         }
         update({ editor, url: result.url })

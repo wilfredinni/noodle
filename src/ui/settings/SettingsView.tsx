@@ -56,7 +56,7 @@ const GLOBAL_CATEGORIES: readonly {
 }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "behavior", label: "Behavior" },
-  { id: "network", label: "Network" },
+  { id: "network", label: "Proxy" },
   { id: "collections", label: "Collections" },
   { id: "keyboard", label: "Keyboard" },
 ]
@@ -66,7 +66,7 @@ const COLLECTION_CATEGORIES: readonly {
   label: string
 }[] = [
   { id: "general", label: "General" },
-  { id: "network", label: "Network" },
+  { id: "network", label: "Proxy" },
 ]
 
 const KEYBIND_CATEGORIES: readonly KeybindCategory[] = [
@@ -826,7 +826,7 @@ export function SettingsView({
             {category === "network" && (
               <>
                 <SettingsSectionHeader
-                  title="Network"
+                  title="Proxy"
                   description={
                     scope === "global"
                       ? "Configure proxy behavior for Noodle requests."
