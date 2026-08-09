@@ -126,6 +126,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: displayKey(keybinds.command_palette),
           description: "Open command palette",
         },
+        {
+          key: displayKey(keybinds.settings_open),
+          description: "Open settings",
+        },
         { key: keybinds.help_toggle, description: "Toggle help" },
         {
           key: displayKey(keybinds.theme_picker),

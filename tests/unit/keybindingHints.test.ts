@@ -53,6 +53,45 @@ describe("getKeybindingHints header", () => {
 })
 
 describe("getKeybindingHints footer", () => {
+  it("uses contextual settings hints", () => {
+    expect(
+      getKeybindingHints(ctx({ view: "settings", focus: "settings-sidebar" }))
+        .footer,
+    ).toEqual([
+      seg("↑/↓", "categories"),
+      seg("Tab", "edit"),
+      seg("Esc", "close settings"),
+    ])
+
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "settings",
+          focus: "settings-content",
+          settingsCategory: "keyboard",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("Enter", "rebind"),
+      seg("R", "reset"),
+      seg("Esc", "close settings"),
+    ])
+
+    expect(
+      getKeybindingHints(
+        ctx({
+          view: "settings",
+          focus: "settings-content",
+          settingsCategory: "collections",
+        }),
+      ).footer,
+    ).toEqual([
+      seg("Enter", "add"),
+      seg("Ctrl+↑/↓", "reorder"),
+      seg("Del", "unregister"),
+    ])
+  })
+
   it("uses the active request browse commands", () => {
     expect(
       getKeybindingHints(

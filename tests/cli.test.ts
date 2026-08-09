@@ -7,7 +7,8 @@ import defaultCommand from "../src/app/commands/default"
 import exportCommand from "../src/app/commands/export"
 import importCommand from "../src/app/commands/import"
 import updateCommand from "../src/app/commands/update"
-import { classifyPath, resolveStartupCollectionDir } from "../src/app/main"
+import { resolveStartupCollectionDir } from "../src/app/main"
+import { classifyPath } from "../src/collectionPath"
 import { getUserArgsStart } from "../src/app/argv"
 
 const CLI = join(import.meta.dir, "../src/app/cli.ts")

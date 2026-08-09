@@ -5,6 +5,9 @@ import {
   parseOverrides,
   bindingDefaults,
   displayKey,
+  findKeybindConflict,
+  keyEventToBinding,
+  keybindOverrides,
 } from "../../src/ui/keybind"
 import type { KeybindName } from "../../src/ui/keybind"
 
@@ -74,6 +77,80 @@ describe("bindingDefaults", () => {
   it("includes response_query with default key /", () => {
     const defaults = bindingDefaults()
     expect(defaults.response_query).toBe("/")
+  })
+
+  it("includes settings_open with default key f4", () => {
+    expect(bindingDefaults().settings_open).toBe("f4")
+    expect(CommandMap.settings_open).toBe("app.settings-open")
+  })
+})
+
+describe("shortcut editing", () => {
+  const event = (
+    name: string,
+    modifiers: Partial<{
+      ctrl: boolean
+      shift: boolean
+      option: boolean
+      meta: boolean
+      super: boolean
+      hyper: boolean
+    }> = {},
+  ) => ({
+    name,
+    ctrl: false,
+    shift: false,
+    option: false,
+    meta: false,
+    super: false,
+    hyper: false,
+    ...modifiers,
+  })
+
+  it("normalizes supported modifier chords and rejects reserved input", () => {
+    expect(keyEventToBinding(event("K", { ctrl: true, shift: true }))).toBe(
+      "ctrl+shift+k",
+    )
+    expect(keyEventToBinding(event("x", { option: true }))).toBe("alt+x")
+    expect(keyEventToBinding(event("x", { meta: true }))).toBe("alt+x")
+    expect(keyEventToBinding(event("x", { super: true }))).toBeNull()
+    expect(keyEventToBinding(event("c", { ctrl: true }))).toBeNull()
+    expect(keyEventToBinding(event("g", { ctrl: true }))).toBeNull()
+    expect(keyEventToBinding(event("f5"))).toBeNull()
+    expect(keyEventToBinding(event("escape"))).toBeNull()
+    expect(keyEventToBinding(event("unknown-key"))).toBeNull()
+  })
+
+  it("detects conflicts only across overlapping activation contexts", () => {
+    const keybinds = bindingDefaults()
+    expect(findKeybindConflict("request_save", "ctrl+s", keybinds)).toBeNull()
+    expect(findKeybindConflict("request_save", "f4", keybinds)).toBe(
+      "settings_open",
+    )
+  })
+
+  it("serializes only non-default, non-fixed overrides", () => {
+    const keybinds = {
+      ...bindingDefaults(),
+      request_save: "ctrl+x",
+      request_send: "f9",
+    }
+    expect(keybindOverrides(keybinds)).toEqual({ request_save: "ctrl+x" })
+  })
+
+  it("preserves pre-existing conflicts for the UI to report", () => {
+    const keybinds = {
+      ...bindingDefaults(),
+      request_save: "ctrl+x",
+      request_new: "ctrl+x",
+    }
+    expect(findKeybindConflict("request_save", "ctrl+x", keybinds)).toBe(
+      "request_new",
+    )
+    expect(keybindOverrides(keybinds)).toMatchObject({
+      request_save: "ctrl+x",
+      request_new: "ctrl+x",
+    })
   })
 })
 

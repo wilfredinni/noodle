@@ -9,7 +9,6 @@ import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverlay"
 import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
 import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionOverlay"
-import type { ProxySettingsOverlayHandle } from "./overlays/ProxySettingsOverlay"
 
 export interface ImportedCollectionPending {
   path: string
@@ -28,6 +27,7 @@ export type ActiveOverlay =
   | "theme"
   | "environment-picker"
   | "env-delete"
+  | "collection-unregister"
   | "undo-all"
   | "reload-confirm"
   | "init-confirm"
@@ -40,7 +40,6 @@ export type ActiveOverlay =
   | "edit-request"
   | "clone-request"
   | "new-folder"
-  | "proxy-settings"
   | "delete-folder"
   | "request-delete"
   | "update-confirm"
@@ -71,6 +70,8 @@ export function useOverlayState({
   )
   const [envDeletePending, setEnvDeletePending] = useState<string | null>(null)
   const envDeletePendingRef = useRef(envDeletePending)
+  const [collectionUnregisterPending, setCollectionUnregisterPending] =
+    useState<string | null>(null)
   const [newEnvironmentVisible, setNewEnvironmentVisible] = useState(false)
   const newEnvironmentRef = useRef<NewEnvironmentOverlayHandle>(null)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
@@ -86,8 +87,6 @@ export function useOverlayState({
   >(null)
   const [newFolderVisible, setNewFolderVisible] = useState(false)
   const newFolderRef = useRef<NewFolderOverlayHandle>(null)
-  const [proxySettingsVisible, setProxySettingsVisible] = useState(false)
-  const proxySettingsRef = useRef<ProxySettingsOverlayHandle>(null)
   const [folderDeletePending, setFolderDeletePending] = useState<string | null>(
     null,
   )
@@ -122,6 +121,7 @@ export function useOverlayState({
     if (previewIndex !== null) return "theme"
     if (environmentPickerVisible) return "environment-picker"
     if (envDeletePending !== null) return "env-delete"
+    if (collectionUnregisterPending !== null) return "collection-unregister"
     if (undoAllPending) return "undo-all"
     if (reloadPending) return "reload-confirm"
     if (initPending) return "init-confirm"
@@ -134,7 +134,6 @@ export function useOverlayState({
     if (editRequestVisible) return "edit-request"
     if (cloneRequestVisible) return "clone-request"
     if (newFolderVisible) return "new-folder"
-    if (proxySettingsVisible) return "proxy-settings"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
     if (updatePhase === "confirm") return "update-confirm"
@@ -152,6 +151,7 @@ export function useOverlayState({
     previewIndex,
     environmentPickerVisible,
     envDeletePending,
+    collectionUnregisterPending,
     undoAllPending,
     reloadPending,
     initPending,
@@ -164,7 +164,6 @@ export function useOverlayState({
     editRequestVisible,
     cloneRequestVisible,
     newFolderVisible,
-    proxySettingsVisible,
     folderDeletePending,
     requestDeletePending,
     updatePhase,
@@ -184,6 +183,8 @@ export function useOverlayState({
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
     newEnvironmentVisible,
     setNewEnvironmentVisible,
     newEnvironmentRef,
@@ -204,9 +205,6 @@ export function useOverlayState({
     newFolderVisible,
     setNewFolderVisible,
     newFolderRef,
-    proxySettingsVisible,
-    setProxySettingsVisible,
-    proxySettingsRef,
     folderDeletePending,
     setFolderDeletePending,
     undoAllPending,

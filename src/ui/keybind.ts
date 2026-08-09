@@ -1,62 +1,220 @@
 import type { BindingCommandMap } from "@opentui/keymap/extras"
+import type { KeyEvent } from "@opentui/core"
+
+export type KeybindCategory =
+  "Navigation" | "Request" | "Environment" | "Workspace" | "System"
+
+export type KeybindContext =
+  | "main"
+  | "request-browse"
+  | "request-edit"
+  | "folder"
+  | "folder-browse"
+  | "folder-edit"
+  | "env-editor"
+  | "env-browse"
+  | "env-edit"
+  | "settings"
+
+const EVERY_CONTEXT: readonly KeybindContext[] = [
+  "main",
+  "request-browse",
+  "request-edit",
+  "folder",
+  "folder-browse",
+  "folder-edit",
+  "env-editor",
+  "env-browse",
+  "env-edit",
+  "settings",
+]
 
 export interface KeybindDefinition {
   default: string
   description: string
   fixed: boolean
+  category: KeybindCategory
+  contexts: readonly KeybindContext[]
 }
 
 function keybind(
   value: string,
   description: string,
   fixed = false,
+  category: KeybindCategory = "System",
+  contexts: readonly KeybindContext[] = EVERY_CONTEXT,
 ): KeybindDefinition {
-  return { default: value, description, fixed }
+  return { default: value, description, fixed, category, contexts }
 }
 
 export const Definitions = {
-  request_send: keybind("ctrl+return", "Send request", true),
-  request_save: keybind("ctrl+s", "Save request to disk"),
-  env_cycle: keybind("ctrl+u", "Cycle environment"),
+  request_send: keybind("ctrl+return", "Send request", true, "Request", [
+    "main",
+    "request-browse",
+    "request-edit",
+  ]),
+  request_save: keybind("ctrl+s", "Save request to disk", false, "Request", [
+    "main",
+    "request-browse",
+    "folder",
+  ]),
+  env_cycle: keybind("ctrl+u", "Cycle environment", false, "Environment", [
+    "main",
+  ]),
   command_palette: keybind("ctrl+p", "Open command palette"),
-  request_find: keybind("ctrl+f", "Find request"),
-  collection_switcher: keybind("ctrl+o", "Open collection switcher"),
-  request_new: keybind("ctrl+n", "New request"),
-  folder_new: keybind("ctrl+alt+n", "New folder"),
-  request_clone: keybind("ctrl+k", "Clone request"),
-  request_delete: keybind("ctrl+w", "Delete request"),
-  env_picker: keybind("e", "Open environment picker"),
-  env_editor: keybind("f3", "Open environment editor"),
+  request_find: keybind("ctrl+f", "Find request", false, "Request", ["main"]),
+  collection_switcher: keybind(
+    "ctrl+o",
+    "Open collection switcher",
+    false,
+    "Workspace",
+  ),
+  request_new: keybind("ctrl+n", "New request", false, "Request", [
+    "main",
+    "folder",
+  ]),
+  folder_new: keybind("ctrl+alt+n", "New folder", false, "Workspace", [
+    "main",
+    "folder",
+  ]),
+  request_clone: keybind("ctrl+k", "Clone request", false, "Request", [
+    "main",
+    "folder",
+  ]),
+  request_delete: keybind("ctrl+w", "Delete request", false, "Request", [
+    "main",
+    "folder",
+  ]),
+  env_picker: keybind("e", "Open environment picker", false, "Environment", [
+    "main",
+  ]),
+  env_editor: keybind("f3", "Open environment editor", false, "Environment"),
+  settings_open: keybind("f4", "Open settings"),
   help_toggle: keybind("f1", "Toggle help overlay"),
-  theme_picker: keybind("ctrl+t", "Open theme picker"),
-  browse_delete: keybind("ctrl+d", "Revert field"),
-  browse_revert_all: keybind("ctrl+r", "Revert all fields"),
+  theme_picker: keybind("ctrl+t", "Open theme picker", false, "System", [
+    "main",
+    "folder",
+    "env-editor",
+    "settings",
+  ]),
+  browse_delete: keybind("ctrl+d", "Revert field", false, "Request", [
+    "request-browse",
+    "folder-browse",
+    "env-browse",
+  ]),
+  browse_revert_all: keybind("ctrl+r", "Revert all fields", false, "Request", [
+    "request-browse",
+    "folder-browse",
+  ]),
   global_undo_all: keybind("ctrl+z", "Undo all unsaved changes"),
-  jump_mode: keybind("g", "Enter jump mode"),
+  jump_mode: keybind("g", "Enter jump mode", false, "Navigation"),
 
-  focus_next: keybind("tab", "Next pane", true),
-  focus_prev: keybind("shift+tab", "Previous pane", true),
-  layout_toggle: keybind("ctrl+l", "Toggle layout (stacked/side-by-side)"),
-  pane_expand: keybind("f2", "Expand/collapse focused pane"),
-  response_copy_body: keybind("ctrl+b", "Copy response body"),
-  response_query: keybind("/", "Filter response with JSONPath"),
-  request_edit_yaml: keybind("ctrl+alt+e", "Edit request/folder YAML"),
-  request_edit_overlay: keybind("ctrl+e", "Edit request"),
-  request_edit: keybind("return", "Enter edit-browse (request pane)", true),
-  browse_up: keybind("up", "Cursor up (browse)", true),
-  browse_down: keybind("down", "Cursor down (browse)", true),
-  browse_left: keybind("left", "Previous field (browse)", true),
-  browse_right: keybind("right", "Next field (browse)", true),
-  browse_toggle_form_type: keybind("ctrl+t", "Toggle form entry text/file"),
-  browse_enter: keybind("return", "Enter editing mode", true),
-  browse_escape: keybind("escape", "Exit browse", true),
-  edit_commit: keybind("return", "Commit edit", true),
-  edit_cancel: keybind("escape", "Cancel edit", true),
+  focus_next: keybind("tab", "Next pane", true, "Navigation"),
+  focus_prev: keybind("shift+tab", "Previous pane", true, "Navigation"),
+  layout_toggle: keybind(
+    "ctrl+l",
+    "Toggle layout (stacked/side-by-side)",
+    false,
+    "Workspace",
+  ),
+  pane_expand: keybind(
+    "f2",
+    "Expand/collapse focused pane",
+    false,
+    "Workspace",
+    ["main", "request-browse", "request-edit"],
+  ),
+  response_copy_body: keybind(
+    "ctrl+b",
+    "Copy response body",
+    false,
+    "Request",
+    ["main"],
+  ),
+  response_query: keybind(
+    "/",
+    "Filter response with JSONPath",
+    false,
+    "Request",
+    ["main"],
+  ),
+  request_edit_yaml: keybind(
+    "ctrl+alt+e",
+    "Edit request/folder YAML",
+    false,
+    "Request",
+    ["main", "folder"],
+  ),
+  request_edit_overlay: keybind("ctrl+e", "Edit request", false, "Request", [
+    "main",
+  ]),
+  request_edit: keybind(
+    "return",
+    "Enter edit-browse (request pane)",
+    true,
+    "Request",
+    ["main", "folder"],
+  ),
+  browse_up: keybind("up", "Cursor up (browse)", true, "Navigation", [
+    "request-browse",
+    "folder-browse",
+    "env-browse",
+  ]),
+  browse_down: keybind("down", "Cursor down (browse)", true, "Navigation", [
+    "request-browse",
+    "folder-browse",
+    "env-browse",
+  ]),
+  browse_left: keybind("left", "Previous field (browse)", true, "Navigation", [
+    "request-browse",
+    "folder-browse",
+  ]),
+  browse_right: keybind("right", "Next field (browse)", true, "Navigation", [
+    "request-browse",
+    "folder-browse",
+  ]),
+  browse_toggle_form_type: keybind(
+    "ctrl+t",
+    "Toggle form entry text/file",
+    false,
+    "Request",
+    ["request-browse"],
+  ),
+  browse_enter: keybind("return", "Enter editing mode", true, "Request", [
+    "request-browse",
+    "folder-browse",
+    "env-browse",
+  ]),
+  browse_escape: keybind("escape", "Exit browse", true, "Navigation", [
+    "request-browse",
+    "folder-browse",
+    "env-browse",
+  ]),
+  edit_commit: keybind("return", "Commit edit", true, "Request", [
+    "request-edit",
+    "folder-edit",
+    "env-edit",
+  ]),
+  edit_cancel: keybind("escape", "Cancel edit", true, "Navigation", [
+    "request-edit",
+    "folder-edit",
+    "env-edit",
+  ]),
 
-  env_save: keybind("ctrl+s", "Save environment"),
-  env_new: keybind("ctrl+n", "Create new environment"),
-  env_clone: keybind("ctrl+k", "Clone environment"),
-  env_delete: keybind("ctrl+w", "Delete environment"),
+  env_save: keybind("ctrl+s", "Save environment", false, "Environment", [
+    "env-editor",
+    "env-browse",
+    "env-edit",
+  ]),
+  env_new: keybind("ctrl+n", "Create new environment", false, "Environment", [
+    "env-editor",
+  ]),
+  env_clone: keybind("ctrl+k", "Clone environment", false, "Environment", [
+    "env-editor",
+  ]),
+  env_delete: keybind("ctrl+w", "Delete environment", false, "Environment", [
+    "env-editor",
+  ]),
 } satisfies Record<string, KeybindDefinition>
 
 export type KeybindName = keyof typeof Definitions
@@ -75,6 +233,7 @@ export const CommandMap = {
   collection_switcher: "collection.switcher",
   env_picker: "env.picker-open",
   env_editor: "env.editor-open",
+  settings_open: "app.settings-open",
   help_toggle: "app.help",
   theme_picker: "app.theme",
   request_edit_yaml: "request.edit-yaml",
@@ -139,4 +298,81 @@ export function bindingDefaults(): Keybinds {
 
 export function displayKey(key: string): string {
   return key.replace(/^ctrl\+/, "^")
+}
+
+export function keybindOverrides(keybinds: Keybinds): KeybindOverrides {
+  const overrides: KeybindOverrides = {}
+  for (const name of Object.keys(Definitions) as KeybindName[]) {
+    const definition = Definitions[name]
+    if (!definition.fixed && keybinds[name] !== definition.default) {
+      overrides[name] = keybinds[name]
+    }
+  }
+  return overrides
+}
+
+export function findKeybindConflict(
+  name: KeybindName,
+  key: string,
+  keybinds: Keybinds,
+): KeybindName | null {
+  const contexts = Definitions[name].contexts
+  for (const other of Object.keys(Definitions) as KeybindName[]) {
+    if (other === name || keybinds[other] !== key) continue
+    if (
+      Definitions[other].contexts.some((context) => contexts.includes(context))
+    ) {
+      return other
+    }
+  }
+  return null
+}
+
+export function keyEventToBinding(
+  event: Pick<
+    KeyEvent,
+    "name" | "ctrl" | "shift" | "option" | "meta" | "super" | "hyper"
+  >,
+): string | null {
+  if (event.super || event.hyper) return null
+  const name = event.name === "linefeed" ? "return" : event.name.toLowerCase()
+  if (
+    ["ctrl", "shift", "alt", "option", "meta", "super", "hyper"].includes(name)
+  ) {
+    return null
+  }
+  if (name === "escape" || (event.ctrl && name === "c")) return null
+  const supportedName =
+    name.length === 1 ||
+    /^f(?:[1-9]|1[0-2])$/.test(name) ||
+    [
+      "return",
+      "tab",
+      "space",
+      "backspace",
+      "delete",
+      "up",
+      "down",
+      "left",
+      "right",
+      "home",
+      "end",
+      "pageup",
+      "pagedown",
+    ].includes(name)
+  if (!supportedName) return null
+  const modifiers = [
+    event.ctrl ? "ctrl" : null,
+    event.option || event.meta ? "alt" : null,
+    event.shift ? "shift" : null,
+  ].filter((value): value is string => value !== null)
+  const binding = [...modifiers, name].join("+")
+  if (
+    ["ctrl+c", "ctrl+g", "ctrl+shift+z", "shift+return", "f5", "f6"].includes(
+      binding,
+    )
+  ) {
+    return null
+  }
+  return binding
 }

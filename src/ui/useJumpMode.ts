@@ -24,6 +24,8 @@ export type JumpTarget =
   | { kind: "env-name" }
   | { kind: "env-color" }
   | { kind: "env-vars" }
+  | { kind: "settings-sidebar" }
+  | { kind: "settings-content" }
 
 interface UseJumpModeOpts {
   jumpMode: boolean
@@ -122,6 +124,12 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
           case "env-vars":
             setFocus("env-vars")
             break
+          case "settings-sidebar":
+            setFocus("settings-sidebar")
+            break
+          case "settings-content":
+            setFocus("settings-content")
+            break
         }
         setJumpMode(false)
       },
@@ -148,8 +156,14 @@ export function getAvailableTargets(
   expanded: "request" | "response" | null,
   folderView: boolean,
   environmentView = false,
+  settingsView = false,
 ): Map<string, JumpTarget> {
   const targets = new Map<string, JumpTarget>()
+  if (settingsView) {
+    targets.set("s", { kind: "settings-sidebar" })
+    targets.set("c", { kind: "settings-content" })
+    return targets
+  }
   if (environmentView) {
     targets.set("s", { kind: "env-sidebar" })
     targets.set("m", { kind: "env-name" })

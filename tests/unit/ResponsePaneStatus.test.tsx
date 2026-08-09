@@ -722,6 +722,13 @@ describe("ResponsePane status text truncation and layout tests", () => {
 })
 
 describe("getAvailableTargets", () => {
+  it("exposes only the settings panes in settings view", () => {
+    const targets = getAvailableTargets(false, null, false, false, true)
+    expect([...targets.keys()]).toEqual(["s", "c"])
+    expect(targets.get("s")).toEqual({ kind: "settings-sidebar" })
+    expect(targets.get("c")).toEqual({ kind: "settings-content" })
+  })
+
   it("returns sidebar and folder tabs in folder view", () => {
     const targets = getAvailableTargets(true, null, true)
     expect(targets.size).toBe(5)

@@ -21,6 +21,10 @@ describe("useModalKeyboardShield", () => {
     expect(EDITABLE_OVERLAYS).toContain("export-collection")
   })
 
+  it("treats collection unregister confirmation as hard-blocking", () => {
+    expect(HARD_BLOCKING_OVERLAYS).toContain("collection-unregister")
+  })
+
   it("allows input for every editable overlay", async () => {
     for (const activeOverlay of EDITABLE_OVERLAYS) {
       const { keymap, host, cleanup } = setupKeymap()

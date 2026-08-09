@@ -230,12 +230,11 @@ export function toggleLayout(
       | "side-by-side"
       | ((prev: "stacked" | "side-by-side") => "stacked" | "side-by-side"),
   ) => void,
-  onLayoutChange: (layout: "stacked" | "side-by-side") => void,
+  onLayoutChange: (layout: "stacked" | "side-by-side") => boolean,
 ): boolean {
   setLayout((prev: "stacked" | "side-by-side") => {
     const next = prev === "stacked" ? "side-by-side" : "stacked"
-    onLayoutChange(next)
-    return next
+    return onLayoutChange(next) ? next : prev
   })
   return true
 }
@@ -314,6 +313,20 @@ export function closeCollectionExport(
 export function openCollectionSwitcher(view: string): boolean {
   if (view === "env-editor") {
     showToast("Cannot switch collections from environment editor", "warning")
+    return false
+  }
+  return true
+}
+
+export function openSettings(
+  c: Pick<CommandActionsConfig, "envEditorRef">,
+  view: string,
+): boolean {
+  if (view === "env-editor" && c.envEditorRef.current.dirty) {
+    showToast(
+      "Save or discard environment changes before opening Settings",
+      "warning",
+    )
     return false
   }
   return true

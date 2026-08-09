@@ -6,10 +6,6 @@ import type { EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
 import type { NewFolderOverlayHandle } from "./overlays/NewFolderOverlay"
-import type {
-  ProxySettingsOverlayHandle,
-  ProxySettingsValues,
-} from "./overlays/ProxySettingsOverlay"
 import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
 import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionOverlay"
@@ -49,6 +45,9 @@ export function useOverlayIntercepts(opts: {
   envDeletePending: string | null
   envDeletePendingRef: RefObject<string | null>
   setEnvDeletePending: (s: string | null) => void
+  collectionUnregisterPending: string | null
+  setCollectionUnregisterPending: (s: string | null) => void
+  onCollectionUnregisterConfirm: (path: string) => void
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
@@ -56,8 +55,8 @@ export function useOverlayIntercepts(opts: {
   setHelpVisible: (v: boolean) => void
   aboutVisible: boolean
   setAboutVisible: (v: boolean) => void
-  view: "main" | "env-editor"
-  setView: (v: "main" | "env-editor") => void
+  view: "main" | "env-editor" | "settings"
+  setView: (v: "main" | "env-editor" | "settings") => void
   focusRef: RefObject<Focus>
   setFocus: (f: Focus) => void
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
@@ -115,10 +114,6 @@ export function useOverlayIntercepts(opts: {
   newFolderRef: RefObject<NewFolderOverlayHandle | null>
   setNewFolderVisible: (v: boolean) => void
   onNewFolderConfirm: (name: string) => void
-  proxySettingsVisible: boolean
-  proxySettingsRef: RefObject<ProxySettingsOverlayHandle | null>
-  setProxySettingsVisible: (v: boolean) => void
-  onProxySettingsConfirm: (values: ProxySettingsValues) => void
   folderDeletePending: string | null
   setFolderDeletePending: (s: string | null) => void
   onFolderDeleteConfirm: () => void
@@ -208,14 +203,6 @@ export function useOverlayIntercepts(opts: {
     onCancel: () => opts.setNewFolderVisible(false),
   })
 
-  const proxySettingsActions = useFormOverlayIntercept({
-    visible: opts.proxySettingsVisible,
-    handleRef: opts.proxySettingsRef,
-    onConfirm: opts.onProxySettingsConfirm,
-    onCancel: () => opts.setProxySettingsVisible(false),
-    passThroughFocuses: ["scope", "mode", "editor", "protocol"],
-  })
-
   useEnvEditorIntercept(opts)
 
   return {
@@ -228,6 +215,5 @@ export function useOverlayIntercepts(opts: {
     editRequest: editRequestActions,
     cloneRequest: cloneRequestActions,
     newFolder: newFolderActions,
-    proxySettings: proxySettingsActions,
   }
 }

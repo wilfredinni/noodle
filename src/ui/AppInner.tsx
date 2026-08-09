@@ -4,6 +4,13 @@ import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
+import {
+  SettingsView,
+  type CollectionSettingsCategory,
+  type GlobalSettingsCategory,
+  type SettingsCategory,
+  type SettingsScope,
+} from "./settings/SettingsView"
 import { AppOverlays } from "./AppOverlays"
 import { useCollection } from "../hooks/useCollection"
 import { useTreeNavigation } from "../hooks/useTreeNavigation"
@@ -44,7 +51,7 @@ import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
 import type { FinderItem } from "./requestFinder"
-import { type Keybinds } from "./keybind"
+import { type KeybindName, type Keybinds } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import {
@@ -87,7 +94,7 @@ import {
   openEnvironmentPicker,
 } from "./commandActions"
 import { runCollectionExport } from "./collectionExport"
-import type { ProxySettingsValues } from "./overlays/ProxySettingsOverlay"
+import { unregisterCollection } from "./settings/collectionRegistry"
 import {
   runCollectionImport,
   type CollectionImportValues,
@@ -104,8 +111,16 @@ export function AppInner({
   setPreviewIndex: setPreviewIndexProp,
   onThemeChange,
   keybinds,
+  onKeybindChange,
+  settingsScope,
+  globalSettingsCategory,
+  collectionSettingsCategory,
+  onSettingsScopeChange,
+  onGlobalSettingsCategoryChange,
+  onCollectionSettingsCategoryChange,
   initialLayout,
   confirmUndoAll,
+  onConfirmUndoAllChange,
   onLayoutChange,
   onEnvChange,
   onEnvListChanged,
@@ -118,6 +133,9 @@ export function AppInner({
   onCollectionProxyChange,
   initialLastRequestId,
   collectionPaths,
+  activeCollectionDir,
+  onCollectionsChange,
+  onRegisterCollection,
   onCollectionChange,
   onReloadCollection,
   onCollectionBootstrapped,
@@ -134,9 +152,19 @@ export function AppInner({
   setPreviewIndex: Dispatch<SetStateAction<number | null>>
   onThemeChange: (index: number) => void
   keybinds: Keybinds
+  onKeybindChange: (name: KeybindName, key: string) => boolean
+  settingsScope: SettingsScope
+  globalSettingsCategory: GlobalSettingsCategory
+  collectionSettingsCategory: CollectionSettingsCategory
+  onSettingsScopeChange: (scope: SettingsScope) => void
+  onGlobalSettingsCategoryChange: (category: GlobalSettingsCategory) => void
+  onCollectionSettingsCategoryChange: (
+    category: CollectionSettingsCategory,
+  ) => void
   initialLayout: "stacked" | "side-by-side"
   confirmUndoAll: boolean
-  onLayoutChange: (layout: "stacked" | "side-by-side") => void
+  onConfirmUndoAllChange: (value: boolean) => void
+  onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   onEnvChange: (name: string | null) => void
   onEnvListChanged: () => Promise<void>
   settingsEnv?: string
@@ -144,10 +172,13 @@ export function AppInner({
   collectionProxy?: CollectionProxySettings
   noProxy: boolean
   systemProxy: SystemProxySettings
-  onAppProxyChange: (proxy: AppProxySettings) => void
-  onCollectionProxyChange: (proxy: CollectionProxySettings) => void
+  onAppProxyChange: (proxy: AppProxySettings) => boolean
+  onCollectionProxyChange: (proxy: CollectionProxySettings) => boolean
   initialLastRequestId?: string
   collectionPaths: string[]
+  activeCollectionDir: string
+  onCollectionsChange: (collections: string[]) => boolean
+  onRegisterCollection: (path: string) => string | null
   onCollectionChange: (collectionDir: string) => void
   onReloadCollection: () => void
   onCollectionBootstrapped: (collectionDir: string) => void
@@ -331,6 +362,7 @@ export function AppInner({
         expanded,
         focusedFolder !== null,
         view === "env-editor",
+        view === "settings",
       ),
     [draft.draft, expanded, focusedFolder, view],
   )
@@ -621,6 +653,8 @@ export function AppInner({
     envDeletePending,
     setEnvDeletePending,
     envDeletePendingRef,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
     newEnvironmentVisible,
     setNewEnvironmentVisible,
     newEnvironmentRef,
@@ -641,9 +675,6 @@ export function AppInner({
     newFolderVisible,
     setNewFolderVisible,
     newFolderRef,
-    proxySettingsVisible,
-    setProxySettingsVisible,
-    proxySettingsRef,
     folderDeletePending,
     setFolderDeletePending,
     undoAllPending,
@@ -736,6 +767,13 @@ export function AppInner({
     return undefined
   }, [focus, eb.activeTab, responseTab, folderEb.activeTab])
 
+  const visibleSettingsScope: SettingsScope =
+    settingsScope === "collection" && !isCollection ? "global" : settingsScope
+  const settingsCategory: SettingsCategory =
+    visibleSettingsScope === "global"
+      ? globalSettingsCategory
+      : collectionSettingsCategory
+
   const hints = useMemo(
     () =>
       getKeybindingHints({
@@ -750,6 +788,7 @@ export function AppInner({
         sendState: responseState,
         queryVisible,
         responseBodyEditorAvailable,
+        settingsCategory,
         keybinds,
       }),
     [
@@ -764,6 +803,7 @@ export function AppInner({
       responseState,
       queryVisible,
       responseBodyEditorAvailable,
+      settingsCategory,
       keybinds,
     ],
   )
@@ -818,6 +858,57 @@ export function AppInner({
 
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
+
+  const handleSettingsScopeChange = useCallback(
+    (scope: SettingsScope) => {
+      if (scope === "collection" && !isCollection) return
+      onSettingsScopeChange(scope)
+    },
+    [isCollection, onSettingsScopeChange],
+  )
+
+  const handleSettingsCategoryChange = useCallback(
+    (category: SettingsCategory) => {
+      if (visibleSettingsScope === "global") {
+        onGlobalSettingsCategoryChange(category as GlobalSettingsCategory)
+      } else {
+        onCollectionSettingsCategoryChange(
+          category as CollectionSettingsCategory,
+        )
+      }
+    },
+    [
+      onCollectionSettingsCategoryChange,
+      onGlobalSettingsCategoryChange,
+      visibleSettingsScope,
+    ],
+  )
+
+  const handleOpenSettings = useCallback(
+    (
+      scope?: SettingsScope,
+      category?: GlobalSettingsCategory | CollectionSettingsCategory,
+    ) => {
+      envEditor.closeEditor()
+      if (scope) onSettingsScopeChange(scope)
+      if (scope === "global" && category) {
+        onGlobalSettingsCategoryChange(category as GlobalSettingsCategory)
+      } else if (scope === "collection" && category) {
+        onCollectionSettingsCategoryChange(
+          category as CollectionSettingsCategory,
+        )
+      }
+      setView("settings")
+      setFocus("settings-sidebar")
+      setJumpMode(false)
+    },
+    [
+      envEditor.closeEditor,
+      onCollectionSettingsCategoryChange,
+      onGlobalSettingsCategoryChange,
+      onSettingsScopeChange,
+    ],
+  )
 
   const handleOpenEnvironmentEditor = useCallback(() => {
     setEnvironmentPickerVisible(false)
@@ -875,6 +966,7 @@ export function AppInner({
       setRequestFinderVisible,
       setUndoAllPending,
       setJumpMode,
+      openSettingsView: handleOpenSettings,
       onLayoutChange,
     },
     request: {
@@ -977,44 +1069,6 @@ export function AppInner({
     ],
   )
 
-  const handleProxySettingsConfirm = useCallback(
-    (values: ProxySettingsValues) => {
-      if (values.scope === "app") {
-        if (values.mode === "system" || values.mode === "off") {
-          onAppProxyChange({ mode: values.mode })
-        } else if (values.mode === "custom") {
-          onAppProxyChange(
-            values.bypass.length > 0
-              ? { mode: "custom", url: values.url, bypass: values.bypass }
-              : { mode: "custom", url: values.url },
-          )
-        }
-      } else if (isCollection) {
-        if (values.mode === "inherit" || values.mode === "off") {
-          onCollectionProxyChange({ mode: values.mode })
-        } else if (values.mode === "custom") {
-          onCollectionProxyChange(
-            values.bypass.length > 0
-              ? { mode: "custom", url: values.url, bypass: values.bypass }
-              : { mode: "custom", url: values.url },
-          )
-        }
-      } else {
-        setProxySettingsVisible(false)
-        showToast("Collection proxy settings are read-only", "error")
-        return
-      }
-      setProxySettingsVisible(false)
-      showToast("Proxy settings saved", "success")
-    },
-    [
-      isCollection,
-      onAppProxyChange,
-      onCollectionProxyChange,
-      setProxySettingsVisible,
-    ],
-  )
-
   // ── Overlay intercepts ────────────────────────────────────────────
   const overlayActions = useOverlayIntercepts({
     activeOverlay,
@@ -1023,6 +1077,17 @@ export function AppInner({
     envDeletePending,
     envDeletePendingRef,
     setEnvDeletePending,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
+    onCollectionUnregisterConfirm: (path) => {
+      const next = unregisterCollection(
+        collectionPaths,
+        collectionPaths.indexOf(path),
+      )
+      if (next && onCollectionsChange(next)) {
+        showToast("Collection unregistered · files were not changed", "success")
+      }
+    },
     envEditorRef,
     clearSaveTimer,
     saveTimerRef,
@@ -1118,10 +1183,6 @@ export function AppInner({
     newFolderRef,
     setNewFolderVisible,
     onNewFolderConfirm: handleNewFolderConfirm,
-    proxySettingsVisible,
-    proxySettingsRef,
-    setProxySettingsVisible,
-    onProxySettingsConfirm: handleProxySettingsConfirm,
     folderDeletePending,
     setFolderDeletePending,
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
@@ -1188,7 +1249,7 @@ export function AppInner({
         setNewRequestVisible,
         setImportCurlVisible,
         setNewFolderVisible,
-        setProxySettingsVisible,
+        openSettingsView: handleOpenSettings,
         setCloneRequestVisible,
         setEditRequestVisible,
         setRequestDeletePending,
@@ -1216,7 +1277,7 @@ export function AppInner({
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
-      setProxySettingsVisible,
+      handleOpenSettings,
       setImportCollectionVisible,
       requestReload,
       view,
@@ -1334,7 +1395,7 @@ export function AppInner({
               setCommandPaletteVisible(true)
             }}
           />
-        ) : mode === "collection" ? (
+        ) : view === "env-editor" && mode === "collection" ? (
           <EnvironmentEditorView
             envEditor={envEditor}
             activeEnv={envState.activeEnv}
@@ -1354,6 +1415,48 @@ export function AppInner({
             }}
             setEnvDeletePending={setEnvDeletePending}
           />
+        ) : view === "settings" ? (
+          <SettingsView
+            scope={visibleSettingsScope}
+            category={settingsCategory}
+            collectionAvailable={isCollection}
+            focus={focus}
+            jumpMode={jumpMode}
+            activeThemeIndex={activeIndex}
+            layout={layout}
+            confirmUndoAll={confirmUndoAll}
+            appProxy={appProxy}
+            collectionProxy={collectionProxy}
+            noProxy={noProxy}
+            activeEnv={envState.activeEnv}
+            envNames={envState.names}
+            activeEnvName={envState.activeName}
+            keybinds={keybinds}
+            collections={collectionPaths}
+            activeCollectionDir={activeCollectionDir}
+            onScopeChange={handleSettingsScopeChange}
+            onCategoryChange={handleSettingsCategoryChange}
+            onPaneFocus={focusPane}
+            onClose={() => {
+              setView("main")
+              setFocus("sidebar")
+              setJumpMode(false)
+            }}
+            onThemeChange={onThemeChange}
+            onLayoutChange={(next) => {
+              if (!onLayoutChange(next)) return false
+              setLayout(next)
+              return true
+            }}
+            onConfirmUndoAllChange={onConfirmUndoAllChange}
+            onAppProxyChange={onAppProxyChange}
+            onCollectionProxyChange={onCollectionProxyChange}
+            onEnvironmentChange={envState.select}
+            onKeybindChange={onKeybindChange}
+            onCollectionsChange={onCollectionsChange}
+            onCollectionUnregister={setCollectionUnregisterPending}
+            onRegisterCollection={onRegisterCollection}
+          />
         ) : null}
         <AppOverlays
           keybinds={keybinds}
@@ -1363,6 +1466,7 @@ export function AppInner({
           aboutVisible={aboutVisible}
           setAboutVisible={setAboutVisible}
           envDeletePending={envDeletePending}
+          collectionUnregisterPending={collectionUnregisterPending}
           undoAllPending={undoAllPending}
           reloadPending={reloadPending}
           initPending={initPending}
@@ -1441,12 +1545,6 @@ export function AppInner({
           newFolderVisible={newFolderVisible}
           newFolderRef={newFolderRef}
           newFolderActions={overlayActions.newFolder}
-          proxySettingsVisible={proxySettingsVisible}
-          proxySettingsRef={proxySettingsRef}
-          proxySettingsActions={overlayActions.proxySettings}
-          collectionProxyEditable={isCollection}
-          appProxy={appProxy}
-          collectionProxy={collectionProxy}
           folderDeletePending={folderDeletePending}
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}

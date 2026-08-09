@@ -7,7 +7,8 @@ import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
 import type { HintSegment } from "./keybindingHints"
-import type { CollectionMode } from "../app/main"
+import type { CollectionMode } from "../collectionPath"
+import type { AppView } from "./appState"
 
 const HINT_HORIZONTAL_PADDING = 2
 const HINT_ITEM_GAP = 1
@@ -146,7 +147,7 @@ export function statusBarText(input: {
 
 export function StatusBar(input: {
   kb: Keybinds
-  view?: "main" | "env-editor"
+  view?: AppView
   jumpMode?: boolean
   collectionMode?: CollectionMode
   overlayActive?: boolean

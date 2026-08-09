@@ -40,10 +40,6 @@ import {
   ImportCollectionOverlay,
   type ImportCollectionOverlayHandle,
 } from "./overlays/ImportCollectionOverlay"
-import {
-  ProxySettingsOverlay,
-  type ProxySettingsOverlayHandle,
-} from "./overlays/ProxySettingsOverlay"
 import type {
   Collection,
   Environment,
@@ -74,6 +70,7 @@ interface AppOverlaysProps {
   setAboutVisible: (visible: boolean) => void
   activeOverlay: ActiveOverlay
   envDeletePending: string | null
+  collectionUnregisterPending: string | null
   undoAllPending: boolean
   reloadPending: boolean
   initPending: boolean
@@ -150,12 +147,6 @@ interface AppOverlaysProps {
   newFolderVisible: boolean
   newFolderRef: RefObject<NewFolderOverlayHandle | null>
   newFolderActions: { confirm: () => void; cancel: () => void }
-  proxySettingsVisible: boolean
-  proxySettingsRef: RefObject<ProxySettingsOverlayHandle | null>
-  proxySettingsActions: { confirm: () => void; cancel: () => void }
-  collectionProxyEditable: boolean
-  appProxy?: import("../schema").AppProxySettings
-  collectionProxy?: import("../schema").CollectionProxySettings
   folderDeletePending: string | null
   requestDeletePending: string | null
   timelineDetailEntry: TimelineEntry | null
@@ -186,6 +177,7 @@ export function AppOverlays({
   setAboutVisible,
   activeOverlay,
   envDeletePending,
+  collectionUnregisterPending,
   undoAllPending,
   reloadPending,
   initPending,
@@ -262,12 +254,6 @@ export function AppOverlays({
   newFolderVisible,
   newFolderRef,
   newFolderActions,
-  proxySettingsVisible,
-  proxySettingsRef,
-  proxySettingsActions,
-  collectionProxyEditable,
-  appProxy,
-  collectionProxy,
   folderDeletePending,
   requestDeletePending,
   timelineDetailEntry,
@@ -299,6 +285,15 @@ export function AppOverlays({
           onCancel={onCancelDialog}
         />
       )}
+      {activeOverlay === "collection-unregister" &&
+        collectionUnregisterPending !== null && (
+          <ConfirmOverlay
+            visible
+            message={`Unregister collection "${collectionUnregisterPending}"? Files will not be changed.`}
+            onConfirm={onConfirmDialog}
+            onCancel={onCancelDialog}
+          />
+        )}
       {activeOverlay === "undo-all" && undoAllPending && (
         <ConfirmOverlay
           visible
@@ -513,18 +508,6 @@ export function AppOverlays({
           ref={newFolderRef}
           onConfirm={newFolderActions.confirm}
           onClose={newFolderActions.cancel}
-        />
-      )}
-      {proxySettingsVisible && (
-        <ProxySettingsOverlay
-          visible
-          ref={proxySettingsRef}
-          collectionAvailable={collectionProxyEditable}
-          appProxy={appProxy}
-          collectionProxy={collectionProxy}
-          activeEnv={activeEnv}
-          onConfirm={proxySettingsActions.confirm}
-          onClose={proxySettingsActions.cancel}
         />
       )}
       {activeOverlay === "delete-folder" && folderDeletePending !== null && (

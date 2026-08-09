@@ -20,7 +20,7 @@ export function createRequestLayers(
     keymap.getData("app.mode") === "base" &&
     keymap.getData("app.focus") !== "folder" &&
     keymap.getData("app.overlay") === "none" &&
-    keymap.getData("app.view") !== "env-editor"
+    keymap.getData("app.view") === "main"
 
   const base: UseBindingsLayer = {
     enabled: isMainBase,
@@ -142,7 +142,7 @@ export function createRequestLayers(
       keymap.getData("app.mode") === "browse" &&
       keymap.getData("app.focus") === "request" &&
       keymap.getData("app.overlay") === "none" &&
-      keymap.getData("app.view") !== "env-editor",
+      keymap.getData("app.view") === "main",
     commands: [
       { name: "browse.up", run: () => request.ebRef.current.browseUp() },
       { name: "browse.down", run: () => request.ebRef.current.browseDown() },
@@ -216,7 +216,7 @@ export function createRequestLayers(
       keymap.getData("app.mode") === "edit" &&
       keymap.getData("app.focus") !== "folder" &&
       keymap.getData("app.overlay") === "none" &&
-      keymap.getData("app.view") !== "env-editor",
+      keymap.getData("app.view") === "main",
     commands: [
       {
         name: "edit.commit",
