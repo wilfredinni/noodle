@@ -17,7 +17,7 @@ import {
   type Keybinds,
 } from "../keybind"
 import { THEMES } from "../theme-data"
-import { contrastOnPrimary, useTheme } from "../theme"
+import { useTheme } from "../theme"
 import { FullBorder, LeftBar } from "../borders"
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
@@ -424,22 +424,10 @@ export function SettingsView({
         borderColor={
           focus === "settings-sidebar" ? theme.primary : theme.borderSubtle
         }
-        titleRight={
-          jumpMode ? undefined : (
-            <Badge
-              bg={theme.backgroundPanel}
-              fg={
-                focus === "settings-sidebar" ? theme.primary : theme.textMuted
-              }
-            >
-              Settings
-            </Badge>
-          )
-        }
         onPaneFocus={() => onPaneFocus("settings-sidebar")}
       >
         {jumpMode && <JumpBadge letter="s" style={JUMP_BADGE_TOP_INDENT} />}
-        <box style={{ flexDirection: "row", gap: 1 }}>
+        <box style={{ flexDirection: "row", gap: 0 }}>
           <ScopeButton
             id="settings-scope-global"
             label="Global"
@@ -792,14 +780,14 @@ function ScopeButton({
   onSelect: () => void
 }) {
   const theme = useTheme()
-  const selectedText = contrastOnPrimary(theme)
+  const [hovered, setHovered] = useState(false)
   return (
     <box
       id={id}
       style={{
+        flexDirection: "column",
         flexGrow: 1,
-        justifyContent: "center",
-        backgroundColor: selected ? theme.primary : theme.backgroundElement,
+        flexBasis: 0,
         opacity: disabled ? 0.45 : 1,
       }}
       onMouseDown={(event) => {
@@ -807,8 +795,20 @@ function ScopeButton({
         onSelect()
         event.stopPropagation()
       }}
+      onMouseOver={() => setHovered(true)}
+      onMouseOut={() => setHovered(false)}
     >
-      <text fg={selected ? selectedText : theme.textMuted}>{label}</text>
+      <box style={{ paddingLeft: 1, paddingRight: 1 }}>
+        <text
+          fg={selected ? theme.primary : hovered ? theme.text : theme.textMuted}
+        >
+          {label}
+        </text>
+      </box>
+      <box
+        border={["bottom"]}
+        borderColor={selected ? theme.primary : theme.borderSubtle}
+      />
     </box>
   )
 }

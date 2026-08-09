@@ -466,7 +466,13 @@ function SelectField({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", zIndex: selectOpen ? 2 : 0 }}>
+    <box
+      style={{
+        flexDirection: "column",
+        width: "100%",
+        zIndex: selectOpen ? 2 : 0,
+      }}
+    >
       <text fg={theme.text}>{label}</text>
       <Select
         items={items}
@@ -502,23 +508,26 @@ function TextField({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box style={{ flexDirection: "column", width: "100%" }}>
       <text fg={theme.text}>{label}</text>
-      <input
-        ref={inputRef}
-        value={value}
-        placeholder={placeholder}
-        onInput={onChange}
-        onMouseDown={(event) => {
-          if (event.button === MouseButton.LEFT) onFocus()
-        }}
-        focused={focused}
-        backgroundColor={theme.backgroundElement}
-        focusedBackgroundColor={theme.borderSubtle}
-        textColor={theme.text}
-        cursorColor={theme.primary}
-        placeholderColor={theme.textMuted}
-      />
+      <box style={{ width: "100%", height: 1, overflow: "hidden" }}>
+        <input
+          ref={inputRef}
+          value={value}
+          placeholder={placeholder}
+          onInput={onChange}
+          onMouseDown={(event) => {
+            if (event.button === MouseButton.LEFT) onFocus()
+          }}
+          focused={focused}
+          backgroundColor={theme.backgroundElement}
+          focusedBackgroundColor={theme.borderSubtle}
+          textColor={theme.text}
+          cursorColor={theme.primary}
+          placeholderColor={theme.textMuted}
+          style={{ alignSelf: "stretch" }}
+        />
+      </box>
       {hint && <text fg={theme.textMuted}>{hint}</text>}
     </box>
   )
@@ -545,20 +554,22 @@ function VariableField({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box style={{ flexDirection: "column", width: "100%" }}>
       <text fg={theme.text}>{label}</text>
-      <VarInput
-        ref={inputRef}
-        value={value}
-        env={env}
-        isEditing
-        isFocused={focused}
-        onChange={onChange}
-        placeholder={placeholder}
-        backgroundColor={theme.backgroundElement}
-        focusedBackgroundColor={theme.borderSubtle}
-        onFocus={onFocus}
-      />
+      <box style={{ width: "100%", height: 1, overflow: "hidden" }}>
+        <VarInput
+          ref={inputRef}
+          value={value}
+          env={env}
+          isEditing
+          isFocused={focused}
+          onChange={onChange}
+          placeholder={placeholder}
+          backgroundColor={theme.backgroundElement}
+          focusedBackgroundColor={theme.borderSubtle}
+          onFocus={onFocus}
+        />
+      </box>
     </box>
   )
 }
