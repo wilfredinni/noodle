@@ -26,6 +26,10 @@ const MAIN_FOCUS_ORDER: Focus[] = ["sidebar", "urlbar", "request", "response"]
 const ENV_FOCUS_ORDER: Focus[] = ["env-sidebar", "env-header", "env-vars"]
 const SETTINGS_FOCUS_ORDER: Focus[] = ["settings-sidebar", "settings-content"]
 
+export function settingsReturnFocus(view: string, focus: Focus): Focus {
+  return view === "main" ? focus : "sidebar"
+}
+
 export function cycleFocus(
   current: Focus,
   delta: 1 | -1,

@@ -1,3 +1,5 @@
+name: Noodle Collection
+description: This is a sample collection designed to help Noodle developers.
 environment: development
 proxy:
   mode: inherit

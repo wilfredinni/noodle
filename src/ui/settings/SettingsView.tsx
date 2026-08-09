@@ -1,4 +1,10 @@
-import { MouseButton, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
+import {
+  MouseButton,
+  ScrollBoxRenderable,
+  TextAttributes,
+  type InputRenderable,
+  type TextareaRenderable,
+} from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import {
   useCallback,
@@ -11,8 +17,10 @@ import {
 import type {
   AppProxySettings,
   CollectionProxySettings,
+  CollectionSettings,
   Environment,
 } from "../../schema"
+import { DEFAULT_TIMELINE_MAX_ENTRIES } from "../../filestore"
 import type { Focus } from "../focus"
 import {
   Definitions,
@@ -31,9 +39,9 @@ import { Checkbox } from "../Checkbox"
 import { Select } from "../Select"
 import { VarInput, type VarInputHandle } from "../VarInput"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
+import { SIDEBAR_WIDTH } from "../Sidebar"
 import { ProxySettingsForm } from "./ProxySettingsForm"
 import { moveRegisteredCollection } from "./collectionRegistry"
-import { SIDEBAR_WIDTH } from "../Sidebar"
 
 export type SettingsScope = "global" | "collection"
 export type GlobalSettingsCategory =
@@ -48,7 +56,7 @@ const GLOBAL_CATEGORIES: readonly {
 }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "behavior", label: "Behavior" },
-  { id: "network", label: "Network" },
+  { id: "network", label: "Proxy" },
   { id: "collections", label: "Collections" },
   { id: "keyboard", label: "Keyboard" },
 ]
@@ -58,7 +66,7 @@ const COLLECTION_CATEGORIES: readonly {
   label: string
 }[] = [
   { id: "general", label: "General" },
-  { id: "network", label: "Network" },
+  { id: "network", label: "Proxy" },
 ]
 
 const KEYBIND_CATEGORIES: readonly KeybindCategory[] = [
@@ -68,6 +76,22 @@ const KEYBIND_CATEGORIES: readonly KeybindCategory[] = [
   "Workspace",
   "System",
 ]
+
+export function parseTimelineMaxEntries(
+  rawValue: string,
+): { value: number | undefined } | { error: string } {
+  const raw = rawValue.trim()
+  if (raw !== "" && !/^\d+$/.test(raw)) {
+    return {
+      error:
+        "Timeline entries must be a non-negative integer, or blank for 50.",
+    }
+  }
+  const value = raw === "" ? undefined : Number(raw)
+  return value === undefined || Number.isSafeInteger(value)
+    ? { value }
+    : { error: "Timeline entries must be a non-negative safe integer." }
+}
 
 export function SettingsView({
   scope,
@@ -80,6 +104,9 @@ export function SettingsView({
   confirmUndoAll,
   appProxy,
   collectionProxy,
+  collectionName,
+  collectionDescription,
+  timelineMaxEntries,
   noProxy,
   activeEnv,
   envNames,
@@ -96,6 +123,7 @@ export function SettingsView({
   onConfirmUndoAllChange,
   onAppProxyChange,
   onCollectionProxyChange,
+  onCollectionSettingsChange,
   onEnvironmentChange,
   onKeybindChange,
   onCollectionsChange,
@@ -112,6 +140,9 @@ export function SettingsView({
   confirmUndoAll: boolean
   appProxy?: AppProxySettings
   collectionProxy?: CollectionProxySettings
+  collectionName?: string
+  collectionDescription?: string
+  timelineMaxEntries?: number
   noProxy: boolean
   activeEnv: Environment | null
   envNames: string[]
@@ -128,6 +159,12 @@ export function SettingsView({
   onConfirmUndoAllChange: (value: boolean) => void
   onAppProxyChange: (proxy: AppProxySettings) => boolean
   onCollectionProxyChange: (proxy: CollectionProxySettings) => boolean
+  onCollectionSettingsChange: (
+    patch: Pick<
+      CollectionSettings,
+      "name" | "description" | "timelineMaxEntries"
+    >,
+  ) => boolean
   onEnvironmentChange: (name: string) => void
   onKeybindChange: (name: KeybindName, key: string) => boolean
   onCollectionsChange: (collections: string[]) => boolean
@@ -138,6 +175,9 @@ export function SettingsView({
   const keymap = useKeymap()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const pathInputRef = useRef<VarInputHandle | null>(null)
+  const collectionNameRef = useRef<InputRenderable | null>(null)
+  const collectionDescriptionRef = useRef<TextareaRenderable | null>(null)
+  const timelineMaxEntriesRef = useRef<InputRenderable | null>(null)
   const [contentIndex, setContentIndex] = useState(0)
   const [selectOpen, setSelectOpen] = useState(false)
   const [captureName, setCaptureName] = useState<KeybindName | null>(null)
@@ -146,6 +186,18 @@ export function SettingsView({
     kind: "success" | "error"
   } | null>(null)
   const [pathInput, setPathInput] = useState("")
+  const [collectionNameDraft, setCollectionNameDraft] = useState(
+    collectionName ?? "",
+  )
+  const [collectionDescriptionDraft, setCollectionDescriptionDraft] = useState(
+    collectionDescription ?? "",
+  )
+  const [timelineMaxEntriesDraft, setTimelineMaxEntriesDraft] = useState(
+    String(timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES),
+  )
+  const [collectionGeneralError, setCollectionGeneralError] = useState<
+    string | null
+  >(null)
   const [proxyTextInput, setProxyTextInput] = useState(false)
   const [hoveredCollectionIndex, setHoveredCollectionIndex] = useState<
     number | null
@@ -184,10 +236,96 @@ export function SettingsView({
   }, [])
 
   useEffect(() => {
+    setCollectionNameDraft(collectionName ?? "")
+    setCollectionDescriptionDraft(collectionDescription ?? "")
+    setTimelineMaxEntriesDraft(
+      String(timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES),
+    )
+    setCollectionGeneralError(null)
+  }, [
+    activeCollectionDir,
+    collectionDescription,
+    collectionName,
+    timelineMaxEntries,
+  ])
+
+  const commitCollectionGeneralField = useCallback(
+    (index: number): boolean => {
+      setCollectionGeneralError(null)
+      if (index === 0) {
+        const name = collectionNameDraft.trim() || undefined
+        if (name === collectionName) return true
+        if (!onCollectionSettingsChange({ name })) return false
+        setCollectionNameDraft(name ?? "")
+        return true
+      }
+      if (index === 1) {
+        const description =
+          (
+            collectionDescriptionRef.current?.plainText ??
+            collectionDescriptionDraft
+          ).trim() || undefined
+        if (description === collectionDescription) return true
+        if (!onCollectionSettingsChange({ description })) return false
+        setCollectionDescriptionDraft(description ?? "")
+        return true
+      }
+      if (index !== 2) return true
+
+      const parsed = parseTimelineMaxEntries(timelineMaxEntriesDraft)
+      if ("error" in parsed) {
+        setCollectionGeneralError(parsed.error)
+        return false
+      }
+      const { value } = parsed
+      if (value !== timelineMaxEntries) {
+        if (!onCollectionSettingsChange({ timelineMaxEntries: value })) {
+          return false
+        }
+      }
+      setTimelineMaxEntriesDraft(String(value ?? DEFAULT_TIMELINE_MAX_ENTRIES))
+      return true
+    },
+    [
+      collectionDescription,
+      collectionDescriptionDraft,
+      collectionName,
+      collectionNameDraft,
+      onCollectionSettingsChange,
+      timelineMaxEntries,
+      timelineMaxEntriesDraft,
+    ],
+  )
+
+  const activateCollectionGeneralField = useCallback(
+    (index: number) => {
+      if (
+        contentIndex === index ||
+        commitCollectionGeneralField(contentIndex)
+      ) {
+        setContentIndex(index)
+        onPaneFocus("settings-content")
+      }
+    },
+    [commitCollectionGeneralField, contentIndex, onPaneFocus],
+  )
+
+  const commitCurrentCollectionGeneralField = useCallback(
+    () =>
+      scope !== "collection" ||
+      category !== "general" ||
+      commitCollectionGeneralField(contentIndex),
+    [category, commitCollectionGeneralField, contentIndex, scope],
+  )
+
+  useEffect(() => {
     const textInputActive =
       focus === "settings-content" &&
       ((category === "collections" &&
         contentIndex === collectionRegisterIndex) ||
+        (scope === "collection" &&
+          category === "general" &&
+          contentIndex < 3) ||
         (category === "network" && proxyTextInput))
     keymap.setData("app.text-input", textInputActive)
     return () => keymap.setData("app.text-input", false)
@@ -198,6 +336,7 @@ export function SettingsView({
     focus,
     keymap,
     proxyTextInput,
+    scope,
   ])
 
   useEffect(() => {
@@ -212,12 +351,21 @@ export function SettingsView({
   useEffect(() => {
     if (
       focus === "settings-content" &&
+      scope === "collection" &&
+      category === "general"
+    ) {
+      if (contentIndex === 0) collectionNameRef.current?.focus()
+      else if (contentIndex === 1) collectionDescriptionRef.current?.focus()
+      else if (contentIndex === 2) timelineMaxEntriesRef.current?.focus()
+    }
+    if (
+      focus === "settings-content" &&
       category === "collections" &&
       contentIndex === collectionRegisterIndex
     ) {
       pathInputRef.current?.focus()
     }
-  }, [category, collectionRegisterIndex, contentIndex, focus])
+  }, [category, collectionRegisterIndex, contentIndex, focus, scope])
 
   useEffect(() => {
     if (focus !== "settings-content") return
@@ -230,8 +378,16 @@ export function SettingsView({
           ? `settings-collection-${contentIndex}`
           : "settings-collection-register",
       )
+    } else if (scope === "collection" && category === "general") {
+      const id = [
+        "settings-collection-name",
+        "settings-collection-description",
+        "settings-timeline-max-entries",
+        "settings-active-environment",
+      ][contentIndex]
+      if (id) scrollRef.current?.scrollChildIntoView(id)
     }
-  }, [category, contentIndex, collections, focus, keybindNames, message])
+  }, [category, contentIndex, collections, focus, keybindNames, message, scope])
 
   useEffect(() => {
     if (!captureName) return
@@ -281,6 +437,14 @@ export function SettingsView({
         if (event.name === "escape") {
           event.preventDefault()
           event.stopPropagation()
+          if (!commitCurrentCollectionGeneralField()) {
+            setCollectionNameDraft(collectionName ?? "")
+            setCollectionDescriptionDraft(collectionDescription ?? "")
+            setTimelineMaxEntriesDraft(
+              String(timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES),
+            )
+            setCollectionGeneralError(null)
+          }
           onClose()
           return
         }
@@ -288,6 +452,7 @@ export function SettingsView({
           if (event.name === "left" || event.name === "right") {
             event.preventDefault()
             event.stopPropagation()
+            if (!commitCurrentCollectionGeneralField()) return
             if (scope === "global" && collectionAvailable) {
               onScopeChange("collection")
             } else if (scope === "collection") {
@@ -298,6 +463,7 @@ export function SettingsView({
           if (["up", "down", "home", "end"].includes(event.name)) {
             event.preventDefault()
             event.stopPropagation()
+            if (!commitCurrentCollectionGeneralField()) return
             const next =
               event.name === "home"
                 ? 0
@@ -312,6 +478,29 @@ export function SettingsView({
           return
         }
         if (focus !== "settings-content") return
+
+        if (scope === "collection" && category === "general") {
+          if (event.name === "tab") {
+            event.preventDefault()
+            event.stopPropagation()
+            if (!commitCollectionGeneralField(contentIndex)) return
+            const next = contentIndex + (event.shift ? -1 : 1)
+            if (next < 0 || next >= 4) onPaneFocus("settings-sidebar")
+            else setContentIndex(next)
+          } else if (
+            event.name === "return" &&
+            (contentIndex === 0 || contentIndex === 2)
+          ) {
+            event.preventDefault()
+            event.stopPropagation()
+            commitCollectionGeneralField(contentIndex)
+          } else if (event.name === "return" && contentIndex === 1) {
+            event.preventDefault()
+            event.stopPropagation()
+            collectionDescriptionRef.current?.insertText("\n")
+          }
+          return
+        }
 
         if (category === "keyboard") {
           if (event.name === "up" || event.name === "down") {
@@ -427,6 +616,8 @@ export function SettingsView({
     collectionAvailable,
     collectionRegisterIndex,
     collections,
+    commitCollectionGeneralField,
+    commitCurrentCollectionGeneralField,
     confirmUndoAll,
     contentIndex,
     focus,
@@ -465,7 +656,11 @@ export function SettingsView({
         borderColor={
           focus === "settings-sidebar" ? theme.primary : theme.borderSubtle
         }
-        onPaneFocus={() => onPaneFocus("settings-sidebar")}
+        onPaneFocus={() => {
+          if (commitCurrentCollectionGeneralField()) {
+            onPaneFocus("settings-sidebar")
+          }
+        }}
       >
         {jumpMode && <JumpBadge letter="s" style={JUMP_BADGE_TOP_INDENT} />}
         <box style={{ flexDirection: "row", gap: 0 }}>
@@ -473,7 +668,11 @@ export function SettingsView({
             id="settings-scope-global"
             label="Global"
             selected={scope === "global"}
-            onSelect={() => onScopeChange("global")}
+            onSelect={() => {
+              if (commitCurrentCollectionGeneralField()) {
+                onScopeChange("global")
+              }
+            }}
           />
           <ScopeButton
             id="settings-scope-collection"
@@ -481,7 +680,12 @@ export function SettingsView({
             selected={scope === "collection"}
             disabled={!collectionAvailable}
             onSelect={() => {
-              if (collectionAvailable) onScopeChange("collection")
+              if (
+                collectionAvailable &&
+                commitCurrentCollectionGeneralField()
+              ) {
+                onScopeChange("collection")
+              }
             }}
           />
         </box>
@@ -510,6 +714,7 @@ export function SettingsView({
                 borderColor={selected ? theme.primary : theme.backgroundPanel}
                 onMouseDown={(event) => {
                   if (event.button !== MouseButton.LEFT) return
+                  if (!commitCurrentCollectionGeneralField()) return
                   onCategoryChange(item.id)
                   onPaneFocus("settings-sidebar")
                   event.stopPropagation()
@@ -628,7 +833,7 @@ export function SettingsView({
             {category === "network" && (
               <>
                 <SettingsSectionHeader
-                  title="Network"
+                  title="Proxy"
                   description={
                     scope === "global"
                       ? "Configure proxy behavior for Noodle requests."
@@ -761,6 +966,7 @@ export function SettingsView({
                 <KeyboardRows
                   names={keybindNames}
                   selectedIndex={contentIndex}
+                  active={focus === "settings-content"}
                   captureName={captureName}
                   message={message}
                   keybinds={keybinds}
@@ -775,29 +981,117 @@ export function SettingsView({
               <>
                 <SettingsSectionHeader
                   title="General"
-                  description="Choose the environment used by this collection."
+                  description="Describe this collection and control its local history."
                 />
-                <SettingLabel
-                  title="Active environment"
-                  description="Used for variable substitution when sending requests."
-                >
-                  <Select
-                    items={envNames.map((name) => ({
-                      id: name,
-                      label: name,
-                    }))}
-                    value={activeEnvName ?? undefined}
-                    placeholder={
-                      envNames.length === 0
-                        ? "No environments"
-                        : "Select environment"
-                    }
-                    interactive={envNames.length > 0}
-                    focused={focus === "settings-content"}
-                    onOpenChange={setSelectOpen}
-                    onChange={onEnvironmentChange}
-                  />
-                </SettingLabel>
+                <box id="settings-collection-name">
+                  <SettingLabel
+                    title="Name"
+                    description="Display name used in collection menus. The directory name is used when blank."
+                  >
+                    <input
+                      ref={collectionNameRef}
+                      value={collectionNameDraft}
+                      placeholder="Collection name"
+                      onInput={setCollectionNameDraft}
+                      onMouseDown={() => activateCollectionGeneralField(0)}
+                      focused={
+                        focus === "settings-content" && contentIndex === 0
+                      }
+                      backgroundColor={theme.backgroundElement}
+                      focusedBackgroundColor={theme.borderSubtle}
+                      textColor={theme.text}
+                      cursorColor={theme.primary}
+                      placeholderColor={theme.textMuted}
+                      paddingX={1}
+                    />
+                  </SettingLabel>
+                </box>
+                <box id="settings-collection-description">
+                  <SettingLabel
+                    title="Description"
+                    description="Optional notes stored with this collection."
+                  >
+                    <textarea
+                      key={`${activeCollectionDir}:${collectionDescription ?? ""}`}
+                      ref={collectionDescriptionRef}
+                      initialValue={collectionDescription ?? ""}
+                      placeholder="What is this collection for?"
+                      onContentChange={() =>
+                        setCollectionDescriptionDraft(
+                          collectionDescriptionRef.current?.plainText ?? "",
+                        )
+                      }
+                      onMouseDown={() => activateCollectionGeneralField(1)}
+                      focused={
+                        focus === "settings-content" && contentIndex === 1
+                      }
+                      backgroundColor={theme.backgroundElement}
+                      focusedBackgroundColor={theme.borderSubtle}
+                      textColor={theme.text}
+                      cursorColor={theme.primary}
+                      placeholderColor={theme.textMuted}
+                      height={4}
+                      paddingX={1}
+                    />
+                  </SettingLabel>
+                </box>
+                <box id="settings-timeline-max-entries">
+                  <SettingLabel
+                    title="Timeline entries"
+                    description="Maximum saved responses per request. Use 0 to disable history; blank resets to 50."
+                  >
+                    <input
+                      ref={timelineMaxEntriesRef}
+                      value={timelineMaxEntriesDraft}
+                      placeholder={String(DEFAULT_TIMELINE_MAX_ENTRIES)}
+                      onInput={(value) => {
+                        setTimelineMaxEntriesDraft(value)
+                        setCollectionGeneralError(null)
+                      }}
+                      onMouseDown={() => activateCollectionGeneralField(2)}
+                      focused={
+                        focus === "settings-content" && contentIndex === 2
+                      }
+                      backgroundColor={theme.backgroundElement}
+                      focusedBackgroundColor={theme.borderSubtle}
+                      textColor={theme.text}
+                      cursorColor={theme.primary}
+                      placeholderColor={theme.textMuted}
+                      paddingX={1}
+                    />
+                    {collectionGeneralError && (
+                      <text fg={theme.error} wrapMode="word">
+                        {collectionGeneralError}
+                      </text>
+                    )}
+                  </SettingLabel>
+                </box>
+                <box id="settings-active-environment">
+                  <SettingLabel
+                    title="Active environment"
+                    description="Used for variable substitution when sending requests."
+                  >
+                    <Select
+                      items={envNames.map((name) => ({
+                        id: name,
+                        label: name,
+                      }))}
+                      value={activeEnvName ?? undefined}
+                      placeholder={
+                        envNames.length === 0
+                          ? "No environments"
+                          : "Select environment"
+                      }
+                      interactive={envNames.length > 0}
+                      focused={
+                        focus === "settings-content" && contentIndex === 3
+                      }
+                      onActivate={() => activateCollectionGeneralField(3)}
+                      onOpenChange={setSelectOpen}
+                      onChange={onEnvironmentChange}
+                    />
+                  </SettingLabel>
+                </box>
               </>
             )}
             {message && category !== "keyboard" && (
@@ -893,7 +1187,10 @@ function SettingsSectionHeader({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", gap: 0 }}>
+    <box
+      id="settings-section-header"
+      style={{ flexDirection: "column", gap: 0 }}
+    >
       <text fg={theme.text}>{title}</text>
       <text fg={theme.textMuted} wrapMode="word">
         {description}
@@ -905,6 +1202,7 @@ function SettingsSectionHeader({
 function KeyboardRows({
   names,
   selectedIndex,
+  active,
   captureName,
   message,
   keybinds,
@@ -912,6 +1210,7 @@ function KeyboardRows({
 }: {
   names: KeybindName[]
   selectedIndex: number
+  active: boolean
   captureName: KeybindName | null
   message: { text: string; kind: "success" | "error" } | null
   keybinds: Keybinds
@@ -925,7 +1224,7 @@ function KeyboardRows({
         const definition = Definitions[name]
         const showCategory = definition.category !== previousCategory
         previousCategory = definition.category
-        const selected = index === selectedIndex
+        const selected = active && index === selectedIndex
         const conflict = findKeybindConflict(name, keybinds[name], keybinds)
         return (
           <box
@@ -942,6 +1241,7 @@ function KeyboardRows({
               </text>
             )}
             <box
+              id={`settings-key-${name}-row`}
               style={{
                 flexDirection: "row",
                 justifyContent: "space-between",

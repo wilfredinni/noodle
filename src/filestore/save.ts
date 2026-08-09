@@ -104,6 +104,15 @@ export async function saveSettings(
   dir: string,
   settings: CollectionSettings,
 ): Promise<void> {
+  if (
+    settings.timelineMaxEntries !== undefined &&
+    (!Number.isSafeInteger(settings.timelineMaxEntries) ||
+      settings.timelineMaxEntries < 0)
+  ) {
+    throw new Error(
+      "filestore.saveSettings: timeline max entries must be a non-negative integer",
+    )
+  }
   try {
     await mkdir(dir, { recursive: true })
   } catch (e) {
@@ -112,6 +121,13 @@ export async function saveSettings(
   }
 
   const data: Record<string, unknown> = {}
+  const name = settings.name?.trim()
+  if (name) data.name = name
+  const description = settings.description?.trim()
+  if (description) data.description = description
+  if (settings.timelineMaxEntries !== undefined) {
+    data.timeline_max_entries = settings.timelineMaxEntries
+  }
   if (settings.environment !== undefined) {
     data.environment = settings.environment
   }

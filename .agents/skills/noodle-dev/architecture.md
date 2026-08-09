@@ -83,6 +83,9 @@ Folder overrides are resolved in `requests/mergeFolderOverrides.ts` — walks an
 Collection-level settings at the root, loaded by `filestore/loadSettings()`:
 
 ```yaml
+name: Payments API # Optional display name
+description: Requests for the payments platform. # Optional notes
+timeline_max_entries: 50 # Per-request history retention; 0 disables
 environment: development # Last active environment name
 ```
 
@@ -99,7 +102,7 @@ display and completion.
 
 ### Timeline (`.timeline/`)
 
-Per-request response history stored as YAML arrays of `TimelineEntry` objects. Max 50 entries per request (FIFO — `unshift` + truncate). Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Entries contain substituted request data, so timeline files and sidecars can contain resolved secrets. The detail view masks configured bearer, basic, and header API-key auth for display, but does not redact storage.
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Entries contain substituted request data, so timeline files and sidecars can contain resolved secrets. The detail view masks configured bearer, basic, and header API-key auth for display, but does not redact storage.
 
 ### File write conventions
 

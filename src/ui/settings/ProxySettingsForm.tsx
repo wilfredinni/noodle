@@ -229,16 +229,20 @@ export function ProxySettingsForm({
       if (editor === "fields") {
         const fields = parseStructuredProxyTemplate(values.url)
         if (!fields) {
-          setError(
-            "This URL needs Advanced mode. Use an HTTP(S) host, optional port, and $VARNAME credentials only.",
-          )
-          return
-        }
-        update({ editor, fields })
+          if (values.url.trim()) {
+            setError(
+              "This URL needs Advanced mode. Use an HTTP(S) host, optional port, and $VARNAME credentials only.",
+            )
+            return
+          }
+          update({ editor }, false)
+          setError(null)
+        } else update({ editor, fields })
       } else {
         const result = buildStructuredProxyTemplate(values.fields)
         if ("error" in result) {
-          setError(result.error)
+          update({ editor }, false)
+          setError(null)
           return
         }
         update({ editor, url: result.url })
@@ -404,6 +408,7 @@ export function ProxySettingsForm({
               placeholder="http://$PROXY_USER:$PROXY_PASSWORD@proxy:8080"
               focused={focused && field === "proxy-url"}
               env={activeEnv ?? null}
+              hint="Include $VARNAME credentials directly in the URL."
               onFocus={() => setField("proxy-url")}
               onChange={(url) => update({ url }, false)}
             />
@@ -419,48 +424,54 @@ export function ProxySettingsForm({
             onChange={(bypass) => update({ bypass })}
             hint="Comma-separated. Supports *, hosts, .domains, IPs, and ports."
           />
-          <box
-            id="settings-proxy-auth"
-            onMouseDown={(event) => {
-              if (event.button !== MouseButton.LEFT) return
-              setField("auth")
-              updateFields({ auth: !values.fields.auth })
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            style={{ flexDirection: "row" }}
-          >
-            <Checkbox checked={values.fields.auth} theme={theme} />
-            <text
-              fg={focused && field === "auth" ? theme.text : theme.textMuted}
-            >
-              Proxy authentication
-            </text>
-          </box>
-          {values.fields.auth && (
+          {values.editor === "fields" && (
             <>
-              <VariableField
-                id="settings-proxy-username"
-                label="Username variable"
-                inputRef={usernameRef}
-                value={values.fields.username}
-                placeholder="$PROXY_USER"
-                focused={focused && field === "username"}
-                env={activeEnv ?? null}
-                onFocus={() => setField("username")}
-                onChange={(username) => updateFields({ username })}
-              />
-              <VariableField
-                id="settings-proxy-password"
-                label="Password variable"
-                inputRef={passwordRef}
-                value={values.fields.password}
-                placeholder="$PROXY_PASSWORD"
-                focused={focused && field === "password"}
-                env={activeEnv ?? null}
-                onFocus={() => setField("password")}
-                onChange={(password) => updateFields({ password })}
-              />
+              <box
+                id="settings-proxy-auth"
+                onMouseDown={(event) => {
+                  if (event.button !== MouseButton.LEFT) return
+                  setField("auth")
+                  updateFields({ auth: !values.fields.auth })
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+                style={{ flexDirection: "row" }}
+              >
+                <Checkbox checked={values.fields.auth} theme={theme} />
+                <text
+                  fg={
+                    focused && field === "auth" ? theme.text : theme.textMuted
+                  }
+                >
+                  Proxy authentication
+                </text>
+              </box>
+              {values.fields.auth && (
+                <>
+                  <VariableField
+                    id="settings-proxy-username"
+                    label="Username variable"
+                    inputRef={usernameRef}
+                    value={values.fields.username}
+                    placeholder="$PROXY_USER"
+                    focused={focused && field === "username"}
+                    env={activeEnv ?? null}
+                    onFocus={() => setField("username")}
+                    onChange={(username) => updateFields({ username })}
+                  />
+                  <VariableField
+                    id="settings-proxy-password"
+                    label="Password variable"
+                    inputRef={passwordRef}
+                    value={values.fields.password}
+                    placeholder="$PROXY_PASSWORD"
+                    focused={focused && field === "password"}
+                    env={activeEnv ?? null}
+                    onFocus={() => setField("password")}
+                    onChange={(password) => updateFields({ password })}
+                  />
+                </>
+              )}
             </>
           )}
         </>
@@ -573,6 +584,7 @@ function VariableField({
   onFocus,
   onChange,
   inputRef,
+  hint,
 }: {
   id: string
   label: string
@@ -583,6 +595,7 @@ function VariableField({
   onFocus: () => void
   onChange: (value: string) => void
   inputRef: { current: VarInputHandle | null }
+  hint?: string
 }) {
   const theme = useTheme()
   return (
@@ -602,6 +615,11 @@ function VariableField({
           onFocus={onFocus}
         />
       </box>
+      {hint && (
+        <text fg={theme.textMuted} wrapMode="word">
+          {hint}
+        </text>
+      )}
     </box>
   )
 }

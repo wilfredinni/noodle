@@ -14,6 +14,7 @@ export function queueCollectionSettingsSave(
   saveSettings: (dir: string, settings: CollectionSettings) => Promise<void>,
   setSettings: (settings: CollectionSettings) => void,
   onError: () => void,
+  onSaved?: () => void,
 ): void {
   const save = persistence.saveChain.current.then(() =>
     saveSettings(collectionDir, settings),
@@ -23,6 +24,9 @@ export function queueCollectionSettingsSave(
     () => {
       if (persistence.activeCollectionDir.current === collectionDir) {
         persistence.persistedSettings.current = settings
+      }
+      if (persistence.currentSettings.current === settings) {
+        onSaved?.()
       }
     },
     () => {

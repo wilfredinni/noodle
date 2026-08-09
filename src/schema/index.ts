@@ -148,6 +148,9 @@ export interface TimelineBodyRef {
 }
 
 export interface CollectionSettings {
+  name?: string
+  description?: string
+  timelineMaxEntries?: number
   environment?: string
   proxy?: CollectionProxySettings
 }

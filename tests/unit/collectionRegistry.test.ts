@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
+  collectionDisplayName,
   moveRegisteredCollection,
   resolveCollectionRegistration,
   unregisterCollection,
@@ -26,6 +27,15 @@ afterEach(() => {
 })
 
 describe("collection registry settings", () => {
+  it("uses collection metadata names with a path fallback", () => {
+    expect(
+      collectionDisplayName("/tmp/payments", { name: " Payments API " }),
+    ).toBe("Payments API")
+    expect(collectionDisplayName("/tmp/payments", { name: " " })).toBe(
+      "payments",
+    )
+  })
+
   it("normalizes relative and @/ paths to initialized collections", () => {
     const root = workspace()
     const relative = join(root, "relative")

@@ -59,7 +59,9 @@ auth:
 `meta` is optional. `meta.seq` controls sort order (lower = first, undefined = last). `meta.name` overrides display name (defaults to directory name).
 
 ### Collection settings
-`settings.yml` at collection root: `environment: <name>` sets the default active environment. Single field only.
+`settings.yml` at collection root supports optional `name`, multiline
+`description`, `timeline_max_entries`, `environment`, and `proxy` fields.
+Timeline retention defaults to 50 responses per request; `0` disables history.
 
 ### Path safety
 When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, backslashes, empty path segments, or hidden path segments.

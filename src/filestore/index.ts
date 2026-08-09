@@ -20,6 +20,8 @@ import {
   exportTimelineEntry,
   getDownloadsDir,
   saveTimelineEntry,
+  pruneTimeline,
+  DEFAULT_TIMELINE_MAX_ENTRIES,
   clearTimelineForRequest,
   clearAllTimeline,
 } from "./timeline"
@@ -39,6 +41,8 @@ export {
   exportTimelineEntry,
   getDownloadsDir,
   saveTimelineEntry,
+  pruneTimeline,
+  DEFAULT_TIMELINE_MAX_ENTRIES,
   clearTimelineForRequest,
   clearAllTimeline,
 }

@@ -186,9 +186,17 @@ api_key=sk-abc123
 
 Single file at collection root:
 ```yaml
+name: Payments API
+description: |-
+  Requests for the payments platform.
+timeline_max_entries: 50
 environment: development
 ```
-Sets the default active environment name. Must match an env file in `.environments/`.
+
+- `name`: optional display name; falls back to the collection directory name
+- `description`: optional multiline collection notes
+- `timeline_max_entries`: optional non-negative integer; defaults to 50, and `0` disables history
+- `environment`: default active environment name; must match an env file in `.environments/`
 
 ## Variable substitution rules
 
@@ -200,7 +208,7 @@ Sets the default active environment name. Must match an env file in `.environmen
 
 ## Timeline file (`.timeline/<request-id>.yml`)
 
-Response history for each request. Stored in `<collection>/.timeline/`, one file per request. Max 50 entries, newest first (prepended on save). Bodies larger than 10 KB are stored without truncation as gzip sidecars in `<request-id>.yml.bodies/`; their YAML field is replaced by a `bodyRef`. Treat timeline YAML and sidecars as generated, sensitive data. YAML array:
+Response history for each request. Stored in `<collection>/.timeline/`, one file per request. Retention is controlled by `settings.yml` and defaults to 50 entries, newest first (prepended on save). Bodies larger than 10 KB are stored without truncation as gzip sidecars in `<request-id>.yml.bodies/`; their YAML field is replaced by a `bodyRef`. Treat timeline YAML and sidecars as generated, sensitive data. YAML array:
 
 ```yaml
 - timestamp: 1783374564216

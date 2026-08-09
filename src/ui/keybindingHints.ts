@@ -109,7 +109,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     if (ctx.focus === "settings-sidebar") {
       return [
         { key: "↑/↓", word: "categories" },
-        { key: "Tab", word: "edit" },
+        { key: "←/→", word: "scope" },
         close,
       ]
     }
@@ -122,7 +122,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     }
     if (ctx.settingsCategory === "collections") {
       return [
-        { key: "Enter", word: "add" },
+        { key: "↑/↓", word: "select" },
         { key: "Ctrl+↑/↓", word: "reorder" },
         { key: "Del", word: "unregister" },
       ]
@@ -134,15 +134,15 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         close,
       ]
     }
-    if (
-      ctx.settingsCategory === "appearance" ||
-      ctx.settingsCategory === "general"
-    ) {
+    if (ctx.settingsCategory === "appearance") {
       return [
         { key: "Enter", word: "choose" },
         { key: "Tab", word: "next" },
         close,
       ]
+    }
+    if (ctx.settingsCategory === "general") {
+      return [{ key: "Tab", word: "next" }, close]
     }
     return [{ key: "Tab", word: "next" }, close]
   }

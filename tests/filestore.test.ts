@@ -495,6 +495,28 @@ describe("filestore.loadSettings", () => {
     expect(result).toEqual({ environment: "staging" })
   })
 
+  it("reads collection metadata and timeline retention", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "name: Payments API\ndescription: |-\n  First line.\n  Second line.\ntimeline_max_entries: 25\n",
+      "utf8",
+    )
+    expect(await loadSettings(dir)).toEqual({
+      name: "Payments API",
+      description: "First line.\nSecond line.",
+      timelineMaxEntries: 25,
+    })
+  })
+
+  it("ignores invalid collection metadata and timeline retention", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "name: '   '\ndescription: 42\ntimeline_max_entries: -1\nenvironment: dev\n",
+      "utf8",
+    )
+    expect(await loadSettings(dir)).toEqual({ environment: "dev" })
+  })
+
   it("returns empty for invalid YAML in settings.yml", async () => {
     await writeFile(join(dir, "settings.yml"), "{ broken: : : ", "utf8")
     const result = await loadSettings(dir)
@@ -550,6 +572,27 @@ describe("filestore.saveSettings", () => {
     await saveSettings(dir, { environment: "staging" })
     const result = await loadSettings(dir)
     expect(result).toEqual({ environment: "staging" })
+  })
+
+  it("round-trips collection metadata and timeline retention", async () => {
+    await saveSettings(dir, {
+      name: " Payments API ",
+      description: "First line.\nSecond line.\n",
+      timelineMaxEntries: 0,
+    })
+    expect(await loadSettings(dir)).toEqual({
+      name: "Payments API",
+      description: "First line.\nSecond line.",
+      timelineMaxEntries: 0,
+    })
+    const content = await readFile(join(dir, "settings.yml"), "utf8")
+    expect(content).toContain("timeline_max_entries: 0")
+  })
+
+  it("rejects invalid timeline retention", async () => {
+    await expect(saveSettings(dir, { timelineMaxEntries: -1 })).rejects.toThrow(
+      "timeline max entries must be a non-negative integer",
+    )
   })
 
   it("round-trips a collection proxy override", async () => {
