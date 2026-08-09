@@ -764,6 +764,13 @@ export function AppInner({
     return undefined
   }, [focus, eb.activeTab, responseTab, folderEb.activeTab])
 
+  const visibleSettingsScope: SettingsScope =
+    settingsScope === "collection" && !isCollection ? "global" : settingsScope
+  const settingsCategory: SettingsCategory =
+    visibleSettingsScope === "global"
+      ? globalSettingsCategory
+      : collectionSettingsCategory
+
   const hints = useMemo(
     () =>
       getKeybindingHints({
@@ -778,6 +785,7 @@ export function AppInner({
         sendState: responseState,
         queryVisible,
         responseBodyEditorAvailable,
+        settingsCategory,
         keybinds,
       }),
     [
@@ -792,6 +800,7 @@ export function AppInner({
       responseState,
       queryVisible,
       responseBodyEditorAvailable,
+      settingsCategory,
       keybinds,
     ],
   )
@@ -846,13 +855,6 @@ export function AppInner({
 
   const envEditorRef = useRef(envEditor)
   envEditorRef.current = envEditor
-
-  const visibleSettingsScope: SettingsScope =
-    settingsScope === "collection" && !isCollection ? "global" : settingsScope
-  const settingsCategory: SettingsCategory =
-    visibleSettingsScope === "global"
-      ? globalSettingsCategory
-      : collectionSettingsCategory
 
   const handleSettingsScopeChange = useCallback(
     (scope: SettingsScope) => {

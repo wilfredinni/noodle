@@ -5,6 +5,7 @@ import type { SendState } from "./sendState"
 import type { PaneMode } from "./useEditModeSync"
 import type { CollectionMode } from "../app/main"
 import type { AppView } from "./appState"
+import type { SettingsCategory } from "./settings/SettingsView"
 
 export interface KeybindingHintsContext {
   view: AppView
@@ -18,6 +19,7 @@ export interface KeybindingHintsContext {
   sendState: SendState
   queryVisible?: boolean
   responseBodyEditorAvailable?: boolean
+  settingsCategory?: SettingsCategory
   keybinds: Keybinds
 }
 
@@ -103,7 +105,46 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   }
 
   if (ctx.view === "settings") {
-    return [{ key: "Esc", word: "close settings" }]
+    const close = { key: "Esc", word: "close settings" }
+    if (ctx.focus === "settings-sidebar") {
+      return [
+        { key: "↑/↓", word: "categories" },
+        { key: "Tab", word: "edit" },
+        close,
+      ]
+    }
+    if (ctx.settingsCategory === "keyboard") {
+      return [
+        { key: "Enter", word: "rebind" },
+        { key: "R", word: "reset" },
+        close,
+      ]
+    }
+    if (ctx.settingsCategory === "collections") {
+      return [
+        { key: "Enter", word: "add" },
+        { key: "Ctrl+↑/↓", word: "reorder" },
+        { key: "Del", word: "unregister" },
+      ]
+    }
+    if (ctx.settingsCategory === "behavior") {
+      return [
+        { key: "Space", word: "toggle" },
+        { key: "Tab", word: "categories" },
+        close,
+      ]
+    }
+    if (
+      ctx.settingsCategory === "appearance" ||
+      ctx.settingsCategory === "general"
+    ) {
+      return [
+        { key: "Enter", word: "choose" },
+        { key: "Tab", word: "next" },
+        close,
+      ]
+    }
+    return [{ key: "Tab", word: "next" }, close]
   }
 
   if (ctx.focus === "sidebar") {
