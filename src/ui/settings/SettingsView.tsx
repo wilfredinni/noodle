@@ -332,7 +332,13 @@ export function SettingsView({
               text: "Press a shortcut · Esc cancels",
               kind: "success",
             })
-          } else if (event.name === "r") {
+          } else if (
+            event.name === "r" &&
+            !event.ctrl &&
+            !event.shift &&
+            !event.option &&
+            !event.meta
+          ) {
             event.preventDefault()
             event.stopPropagation()
             const name = keybindNames[contentIndex]

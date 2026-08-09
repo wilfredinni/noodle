@@ -46,6 +46,7 @@ function Harness({
   onCategoryVisited = () => {},
   onCollectionsChange = () => true,
   onCollectionUnregister = () => {},
+  onKeybindChange = () => true,
   appProxy = { mode: "system" },
 }: {
   collectionAvailable?: boolean
@@ -55,6 +56,7 @@ function Harness({
   onCategoryVisited?: (category: SettingsCategory) => void
   onCollectionsChange?: (collections: string[]) => boolean
   onCollectionUnregister?: (path: string) => void
+  onKeybindChange?: (name: string, key: string) => boolean
   appProxy?: AppProxySettings
 }) {
   const [scope, setScope] = useState<SettingsScope>("global")
@@ -94,7 +96,7 @@ function Harness({
       onAppProxyChange={() => true}
       onCollectionProxyChange={() => true}
       onEnvironmentChange={() => {}}
-      onKeybindChange={() => true}
+      onKeybindChange={onKeybindChange}
       onCollectionsChange={onCollectionsChange}
       onCollectionUnregister={onCollectionUnregister}
       onRegisterCollection={() => null}
@@ -444,6 +446,33 @@ describe("SettingsView", () => {
     await renderOnce()
 
     expect(captureCharFrame()).toContain("That key cannot be assigned")
+    cleanup()
+  })
+
+  it("resets shortcuts only for an unmodified r", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let changes = 0
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="keyboard"
+            initialFocus="settings-content"
+            onKeybindChange={() => {
+              changes++
+              return true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 72, height: 12 },
+    )
+    await renderOnce()
+
+    await act(async () => host.press("ctrl+r"))
+    expect(changes).toBe(0)
+    await act(async () => host.press("r"))
+    expect(changes).toBe(1)
     cleanup()
   })
 })

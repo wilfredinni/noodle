@@ -11,8 +11,7 @@ import { loadLastRequest } from "./tabs/uiState"
 import type { Keybinds } from "./keybind"
 import type { KeybindName } from "./keybind"
 import { saveKeybinds } from "./keybindConfig"
-import type { CollectionMode } from "../app/main"
-import { classifyPath } from "../app/main"
+import { classifyPath, type CollectionMode } from "../collectionPath"
 import type {
   AppProxySettings,
   CollectionProxySettings,
@@ -64,6 +63,8 @@ export function App({
   const [reloadKey, setReloadKey] = useState(0)
   const [settings, setSettings] = useState<CollectionSettings>(initialSettings)
   const settingsRef = useRef(initialSettings)
+  const persistedSettingsRef = useRef(initialSettings)
+  const activeCollectionDirRef = useRef(initialCollectionDir)
   const settingsSaveChainRef = useRef<Promise<void>>(Promise.resolve())
   const settingsEnv = settings.environment
   const [lastRequestId, setLastRequestId] = useState<string | undefined>(
@@ -214,9 +215,23 @@ export function App({
         saveSettings(activeCollectionDir, nextSettings),
       )
       settingsSaveChainRef.current = save.catch(() => {})
-      save.catch(() => {
-        showToast("Failed to save proxy settings", "error")
-      })
+      save.then(
+        () => {
+          if (activeCollectionDirRef.current === activeCollectionDir) {
+            persistedSettingsRef.current = nextSettings
+          }
+        },
+        () => {
+          if (
+            activeCollectionDirRef.current === activeCollectionDir &&
+            settingsRef.current === nextSettings
+          ) {
+            settingsRef.current = persistedSettingsRef.current
+            setSettings(persistedSettingsRef.current)
+          }
+          showToast("Failed to save proxy settings", "error")
+        },
+      )
       return true
     },
     [activeCollectionDir, mode],
@@ -242,9 +257,16 @@ export function App({
           saveSettings(activeCollectionDir, nextSettings),
         )
         settingsSaveChainRef.current = save.catch(() => {})
-        save.catch(() => {
-          showToast("Failed to save active environment", "error")
-        })
+        save.then(
+          () => {
+            if (activeCollectionDirRef.current === activeCollectionDir) {
+              persistedSettingsRef.current = nextSettings
+            }
+          },
+          () => {
+            showToast("Failed to save active environment", "error")
+          },
+        )
       }
     },
     [activeCollectionDir, mode],
@@ -259,6 +281,7 @@ export function App({
       const resolved = resolve(bootstrappedDir)
       setMode("collection")
       settingsRef.current = {}
+      persistedSettingsRef.current = {}
       setSettings({})
       updateConfig((prev) => ({
         collections: appendCollectionPath(prev.collections, resolved),
@@ -346,10 +369,12 @@ export function App({
         setEnvNames(nextEnvNames)
         setEnvColors(nextEnvColors)
         settingsRef.current = nextSettings
+        persistedSettingsRef.current = nextSettings
         setSettings(nextSettings)
         setLastRequestId(nextLastRequestId)
         setInitialEnvNameState(undefined)
         setActiveCollectionDir(normalized)
+        activeCollectionDirRef.current = normalized
         setMode(nextMode)
         if (nextMode === "collection") {
           updateConfig((prev) => ({

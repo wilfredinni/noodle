@@ -1,6 +1,6 @@
 import { homedir } from "node:os"
 import { resolve } from "node:path"
-import { classifyPath } from "../../app/main"
+import { classifyPath } from "../../collectionPath"
 import { expandUserPath } from "../../userPath"
 
 export type CollectionRegistrationResult =

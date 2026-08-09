@@ -7,7 +7,7 @@ import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { SaveState } from "./saveState"
 import type { HintSegment } from "./keybindingHints"
-import type { CollectionMode } from "../app/main"
+import type { CollectionMode } from "../collectionPath"
 import type { AppView } from "./appState"
 
 const HINT_HORIZONTAL_PADDING = 2

@@ -3,7 +3,7 @@ import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { PaneMode } from "./useEditModeSync"
-import type { CollectionMode } from "../app/main"
+import type { CollectionMode } from "../collectionPath"
 import type { AppView } from "./appState"
 import type { SettingsCategory } from "./settings/SettingsView"
 

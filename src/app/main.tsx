@@ -11,7 +11,6 @@ import { createNoodleKeymap } from "../hooks/useKeymap"
 import { parseOverrides } from "../ui/keybind"
 import { showToast } from "../ui/Toast"
 import { join, resolve } from "node:path"
-import { existsSync, readdirSync, statSync } from "node:fs"
 import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../hooks/useConfig"
@@ -22,6 +21,11 @@ import {
   CodeEditorScrollBarRenderable,
 } from "../ui/editor/CodeEditor"
 import { codeEditorParsers } from "../ui/editor/codeEditorParsers"
+import {
+  classifyPath,
+  isDirectoryPath,
+  type CollectionMode,
+} from "../collectionPath"
 
 addDefaultParsers([...codeEditorParsers])
 
@@ -32,8 +36,6 @@ extend({
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
-export type CollectionMode = "collection" | "browse" | "empty" | "invalid"
-
 export interface BootstrapOptions {
   targetPath?: string
   collectionDir?: string
@@ -42,71 +44,7 @@ export interface BootstrapOptions {
   systemProxy?: SystemProxySettings
 }
 
-function isDirectoryPath(dir: string): boolean {
-  try {
-    return statSync(dir).isDirectory()
-  } catch {
-    return false
-  }
-}
-
-function hasNoodleContent(dir: string): boolean {
-  try {
-    const entries = readdirSync(dir, { withFileTypes: true })
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue
-      if (
-        entry.isFile() &&
-        entry.name.endsWith(".yml") &&
-        entry.name !== "settings.yml"
-      ) {
-        return true
-      }
-      if (entry.isDirectory()) {
-        if (
-          !entry.name.startsWith(".") &&
-          entry.name !== "node_modules" &&
-          hasNoodleContent(join(dir, entry.name))
-        ) {
-          return true
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return false
-}
-
-export function classifyPath(dir: string): CollectionMode {
-  if (!existsSync(dir)) return "invalid"
-  if (!isDirectoryPath(dir)) return "invalid"
-
-  const envDir = join(dir, ".environments")
-  if (existsSync(envDir)) return "collection"
-  const settingsPath = join(dir, "settings.yml")
-  if (existsSync(settingsPath)) return "collection"
-
-  let entries
-  try {
-    entries = readdirSync(dir, { withFileTypes: true })
-  } catch {
-    return "empty"
-  }
-
-  const hasRootRequest = entries.some(
-    (entry) =>
-      entry.isFile() &&
-      entry.name.endsWith(".yml") &&
-      entry.name !== "folder.yml" &&
-      entry.name !== "settings.yml",
-  )
-  if (hasRootRequest) return "collection"
-
-  if (hasNoodleContent(dir)) return "browse"
-
-  return "empty"
-}
+export { classifyPath, type CollectionMode } from "../collectionPath"
 
 export function resolveStartupCollectionDir(
   options: BootstrapOptions,
