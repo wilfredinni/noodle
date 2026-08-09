@@ -19,6 +19,7 @@ import type {
 } from "../schema"
 import type { SystemProxySettings } from "../proxy"
 import { resolveCollectionRegistration } from "./settings/collectionRegistry"
+import { queueCollectionSettingsSave } from "./settings/settingsPersistence"
 import type {
   CollectionSettingsCategory,
   GlobalSettingsCategory,
@@ -66,6 +67,15 @@ export function App({
   const persistedSettingsRef = useRef(initialSettings)
   const activeCollectionDirRef = useRef(initialCollectionDir)
   const settingsSaveChainRef = useRef<Promise<void>>(Promise.resolve())
+  const settingsPersistence = useMemo(
+    () => ({
+      activeCollectionDir: activeCollectionDirRef,
+      currentSettings: settingsRef,
+      persistedSettings: persistedSettingsRef,
+      saveChain: settingsSaveChainRef,
+    }),
+    [],
+  )
   const settingsEnv = settings.environment
   const [lastRequestId, setLastRequestId] = useState<string | undefined>(
     initialLastRequestId,
@@ -211,30 +221,17 @@ export function App({
       const nextSettings = { ...settingsRef.current, proxy }
       settingsRef.current = nextSettings
       setSettings(nextSettings)
-      const save = settingsSaveChainRef.current.then(() =>
-        saveSettings(activeCollectionDir, nextSettings),
-      )
-      settingsSaveChainRef.current = save.catch(() => {})
-      save.then(
-        () => {
-          if (activeCollectionDirRef.current === activeCollectionDir) {
-            persistedSettingsRef.current = nextSettings
-          }
-        },
-        () => {
-          if (
-            activeCollectionDirRef.current === activeCollectionDir &&
-            settingsRef.current === nextSettings
-          ) {
-            settingsRef.current = persistedSettingsRef.current
-            setSettings(persistedSettingsRef.current)
-          }
-          showToast("Failed to save proxy settings", "error")
-        },
+      queueCollectionSettingsSave(
+        settingsPersistence,
+        activeCollectionDir,
+        nextSettings,
+        saveSettings,
+        setSettings,
+        () => showToast("Failed to save proxy settings", "error"),
       )
       return true
     },
-    [activeCollectionDir, mode],
+    [activeCollectionDir, mode, settingsPersistence],
   )
 
   const handleEnvListChanged = useCallback(async () => {
@@ -253,23 +250,17 @@ export function App({
       settingsRef.current = nextSettings
       setSettings(nextSettings)
       if (mode === "collection") {
-        const save = settingsSaveChainRef.current.then(() =>
-          saveSettings(activeCollectionDir, nextSettings),
-        )
-        settingsSaveChainRef.current = save.catch(() => {})
-        save.then(
-          () => {
-            if (activeCollectionDirRef.current === activeCollectionDir) {
-              persistedSettingsRef.current = nextSettings
-            }
-          },
-          () => {
-            showToast("Failed to save active environment", "error")
-          },
+        queueCollectionSettingsSave(
+          settingsPersistence,
+          activeCollectionDir,
+          nextSettings,
+          saveSettings,
+          setSettings,
+          () => showToast("Failed to save active environment", "error"),
         )
       }
     },
-    [activeCollectionDir, mode],
+    [activeCollectionDir, mode, settingsPersistence],
   )
 
   const handleReloadCollection = useCallback(() => {
