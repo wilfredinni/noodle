@@ -6,6 +6,7 @@ import {
   loadTimeline,
   loadTimelineBody,
   saveTimelineEntry,
+  pruneTimeline,
   clearTimelineForRequest,
   clearAllTimeline,
 } from "../src/filestore/timeline"
@@ -286,6 +287,59 @@ describe("saveTimelineEntry", () => {
     expect(a[0].timestamp).toBe(1)
     expect(b).toHaveLength(1)
     expect(b[0].timestamp).toBe(2)
+  })
+})
+
+describe("pruneTimeline", () => {
+  it("prunes nested request histories and removes evicted sidecars", async () => {
+    const body = "x".repeat(12_000)
+    const evicted = await saveTimelineEntry(
+      dir,
+      "folder/request",
+      makeEntry({
+        timestamp: 1,
+        request: { ...makeEntry().request, body },
+      }),
+      10,
+    )
+    await saveTimelineEntry(
+      dir,
+      "folder/request",
+      makeEntry({ timestamp: 2 }),
+      10,
+    )
+
+    await pruneTimeline(dir, 1)
+
+    expect(
+      (await loadTimeline(dir, "folder/request")).map(
+        (entry) => entry.timestamp,
+      ),
+    ).toEqual([2])
+    await expect(
+      loadTimelineBody(dir, "folder/request", evicted.request.bodyRef!),
+    ).rejects.toThrow()
+  })
+
+  it("clears all history when retention is zero", async () => {
+    await saveTimelineEntry(dir, "one", makeEntry({ timestamp: 1 }))
+    await saveTimelineEntry(dir, "folder/two", makeEntry({ timestamp: 2 }))
+
+    await pruneTimeline(dir, 0)
+
+    expect(await loadTimeline(dir, "one")).toEqual([])
+    expect(await loadTimeline(dir, "folder/two")).toEqual([])
+  })
+
+  it("does nothing when the timeline directory does not exist", async () => {
+    await pruneTimeline(dir, 5)
+    expect(await loadTimeline(dir, "missing")).toEqual([])
+  })
+
+  it("rejects invalid retention limits", async () => {
+    await expect(pruneTimeline(dir, -1)).rejects.toThrow(
+      "max entries must be a non-negative integer",
+    )
   })
 })
 

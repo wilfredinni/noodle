@@ -13,9 +13,10 @@ import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
 import type { Focus } from "../../src/ui/focus"
-import type { AppProxySettings } from "../../src/schema"
+import type { AppProxySettings, CollectionSettings } from "../../src/schema"
 import {
   SettingsView,
+  parseTimelineMaxEntries,
   type SettingsCategory,
   type SettingsScope,
 } from "../../src/ui/settings/SettingsView"
@@ -42,26 +43,40 @@ function Harness({
   collectionAvailable = true,
   onClose = () => {},
   initialCategory = "appearance",
+  initialScope = "global",
   initialFocus = "settings-sidebar",
   onCategoryVisited = () => {},
   onCollectionsChange = () => true,
   onCollectionUnregister = () => {},
   onKeybindChange = () => true,
+  onCollectionSettingsChange = () => true,
   appProxy = { mode: "system" },
+  initialCollectionSettings = {},
 }: {
   collectionAvailable?: boolean
   onClose?: () => void
   initialCategory?: SettingsCategory
+  initialScope?: SettingsScope
   initialFocus?: Focus
   onCategoryVisited?: (category: SettingsCategory) => void
   onCollectionsChange?: (collections: string[]) => boolean
   onCollectionUnregister?: (path: string) => void
   onKeybindChange?: (name: string, key: string) => boolean
+  onCollectionSettingsChange?: (
+    patch: Pick<
+      CollectionSettings,
+      "name" | "description" | "timelineMaxEntries"
+    >,
+  ) => boolean
   appProxy?: AppProxySettings
+  initialCollectionSettings?: CollectionSettings
 }) {
-  const [scope, setScope] = useState<SettingsScope>("global")
+  const [scope, setScope] = useState<SettingsScope>(initialScope)
   const [category, setCategory] = useState<SettingsCategory>(initialCategory)
   const [focus, setFocus] = useState<Focus>(initialFocus)
+  const [collectionSettings, setCollectionSettings] = useState(
+    initialCollectionSettings,
+  )
   return (
     <SettingsView
       scope={scope}
@@ -73,6 +88,9 @@ function Harness({
       confirmUndoAll
       appProxy={appProxy}
       collectionProxy={{ mode: "inherit" }}
+      collectionName={collectionSettings.name}
+      collectionDescription={collectionSettings.description}
+      timelineMaxEntries={collectionSettings.timelineMaxEntries}
       noProxy={false}
       activeEnv={{ name: "development", vars: {} }}
       envNames={["development", "production"]}
@@ -95,6 +113,11 @@ function Harness({
       onConfirmUndoAllChange={() => {}}
       onAppProxyChange={() => true}
       onCollectionProxyChange={() => true}
+      onCollectionSettingsChange={(patch) => {
+        if (!onCollectionSettingsChange(patch)) return false
+        setCollectionSettings((current) => ({ ...current, ...patch }))
+        return true
+      }}
       onEnvironmentChange={() => {}}
       onKeybindChange={onKeybindChange}
       onCollectionsChange={onCollectionsChange}
@@ -189,13 +212,91 @@ describe("SettingsView", () => {
           <Harness />
         </ThemeProvider>
       </KeymapProvider>,
-      { width: 90, height: 22 },
+      { width: 90, height: 32 },
     )
     await renderOnce()
     await act(async () => host.press("right"))
     expect(captureCharFrame()).toContain("Active environment")
-    expect(captureCharFrame()).toContain("Choose the environment used")
+    expect(captureCharFrame()).toContain("Describe this collection")
+    expect(captureCharFrame()).toContain("local history")
     cleanup()
+  })
+
+  it("commits collection name and multiline description when tabbing", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const patches: Array<Partial<CollectionSettings>> = []
+    const { renderOnce, mockInput, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialScope="collection"
+            initialCategory="general"
+            initialFocus="settings-content"
+            onCollectionSettingsChange={(patch) => {
+              patches.push(patch)
+              return true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 26 },
+    )
+    await renderOnce()
+
+    await act(async () => mockInput.typeText("Payments API"))
+    await act(async () => host.press("tab"))
+    await act(async () => mockInput.typeText("First line"))
+    await act(async () => host.press("return"))
+    await act(async () => mockInput.typeText("Second line"))
+    await act(async () => host.press("tab"))
+    await renderOnce()
+
+    expect(patches).toEqual([
+      { name: "Payments API" },
+      { description: "First line\nSecond line" },
+    ])
+    expect(captureCharFrame()).toContain("Timeline entries")
+    cleanup()
+  })
+
+  it("keeps invalid timeline retention unsaved with an inline error", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const patches: Array<Partial<CollectionSettings>> = []
+    const { renderOnce, mockInput, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialScope="collection"
+            initialCategory="general"
+            initialFocus="settings-content"
+            onCollectionSettingsChange={(patch) => {
+              patches.push(patch)
+              return true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 26 },
+    )
+    await renderOnce()
+    await act(async () => host.press("tab"))
+    await act(async () => host.press("tab"))
+    await act(async () => host.press("backspace"))
+    await act(async () => host.press("backspace"))
+    await act(async () => mockInput.typeText("-1"))
+    await act(async () => host.press("tab"))
+    await renderOnce()
+
+    expect(patches).toEqual([])
+    expect(captureCharFrame()).toContain("non-negative")
+    expect(captureCharFrame()).toContain("integer, or blank")
+    cleanup()
+  })
+
+  it("parses blank timeline retention as the default and accepts zero", () => {
+    expect(parseTimelineMaxEntries("  ")).toEqual({ value: undefined })
+    expect(parseTimelineMaxEntries("0")).toEqual({ value: 0 })
+    expect(parseTimelineMaxEntries("-1")).toHaveProperty("error")
   })
 
   it("keeps registered collection rows compact", async () => {

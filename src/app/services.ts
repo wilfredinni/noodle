@@ -32,6 +32,7 @@ import {
 import type {
   Collection,
   CollectionItem,
+  CollectionSettings,
   Environment,
   Request,
 } from "../schema"
@@ -98,7 +99,7 @@ export interface CollectionInspectResult {
   requestCount: number
   folderCount: number
   environments: string[]
-  settings: { environment?: string }
+  settings: CollectionSettings
   tree: CollectionTreeItem[]
 }
 export function collectionTree(items: CollectionItem[]): CollectionTreeItem[] {
@@ -367,24 +368,48 @@ async function auditFile(
   try {
     if (name === "settings.yml") {
       const raw = yaml.load(content)
-      const settings = raw as { environment?: unknown; proxy?: unknown }
+      const settings = raw as {
+        name?: unknown
+        description?: unknown
+        timeline_max_entries?: unknown
+        environment?: unknown
+        proxy?: unknown
+      }
       const proxy = parseCollectionProxy(settings?.proxy)
       if (
         !raw ||
         typeof raw !== "object" ||
         Array.isArray(raw) ||
         Object.keys(raw as object).some(
-          (key) => key !== "environment" && key !== "proxy",
+          (key) =>
+            ![
+              "name",
+              "description",
+              "timeline_max_entries",
+              "environment",
+              "proxy",
+            ].includes(key),
         ) ||
+        (settings.name !== undefined && typeof settings.name !== "string") ||
+        (settings.description !== undefined &&
+          typeof settings.description !== "string") ||
+        (settings.timeline_max_entries !== undefined &&
+          (typeof settings.timeline_max_entries !== "number" ||
+            !Number.isSafeInteger(settings.timeline_max_entries) ||
+            settings.timeline_max_entries < 0)) ||
         (settings.environment !== undefined &&
           typeof settings.environment !== "string") ||
         (settings.proxy !== undefined && proxy === undefined)
       )
         throw new Error(
-          "expected settings mapping with optional string environment and valid proxy",
+          "expected settings mapping with optional string metadata, non-negative integer timeline_max_entries, string environment, and valid proxy",
         )
       if (fix) {
         await saveSettings(root, {
+          name: settings.name as string | undefined,
+          description: settings.description as string | undefined,
+          timelineMaxEntries: settings.timeline_max_entries as
+            number | undefined,
           environment: settings.environment as string | undefined,
           proxy,
         })

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { TimelineEntry } from "../../schema"
-import { loadTimeline, saveTimelineEntry } from "../../filestore"
+import {
+  DEFAULT_TIMELINE_MAX_ENTRIES,
+  loadTimeline,
+  saveTimelineEntry,
+} from "../../filestore"
 
 export interface UseTimelineResult {
   entries: TimelineEntry[]
@@ -12,7 +16,7 @@ export interface UseTimelineResult {
 export function useTimeline(
   collectionDir: string | undefined,
   requestId: string | undefined,
-  maxEntries = 50,
+  maxEntries = DEFAULT_TIMELINE_MAX_ENTRIES,
 ): UseTimelineResult {
   const [entries, setEntries] = useState<TimelineEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -36,26 +40,27 @@ export function useTimeline(
     try {
       const loaded = await loadTimeline(collectionDir, requestId)
       if (mountedRef.current) {
-        setEntries(loaded)
+        setEntries(loaded.slice(0, maxEntries))
       }
     } catch {
       if (mountedRef.current) setEntries([])
     } finally {
       if (mountedRef.current) setLoading(false)
     }
-  }, [collectionDir, requestId])
+  }, [collectionDir, requestId, maxEntries])
 
   useEffect(() => {
-    const key = `${collectionDir ?? ""}||${requestId ?? ""}`
+    const key = `${collectionDir ?? ""}||${requestId ?? ""}||${maxEntries}`
     if (key !== lastKeyRef.current) {
       lastKeyRef.current = key
       doLoad()
     }
-  }, [collectionDir, requestId, doLoad])
+  }, [collectionDir, requestId, maxEntries, doLoad])
 
   const appendEntry = useCallback(
     async (entry: TimelineEntry) => {
       if (!collectionDir || !requestId) return
+      if (maxEntries === 0) return
       const save = saveChainRef.current.then(() =>
         saveTimelineEntry(collectionDir, requestId, entry, maxEntries),
       )

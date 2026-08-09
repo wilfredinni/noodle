@@ -24,6 +24,7 @@ import type { SendCompleteResult } from "../hooks/useResponse"
 import type {
   AppProxySettings,
   CollectionProxySettings,
+  CollectionSettings,
   Request as NoodleRequest,
   Method,
 } from "../schema"
@@ -94,7 +95,10 @@ import {
   openEnvironmentPicker,
 } from "./commandActions"
 import { runCollectionExport } from "./collectionExport"
-import { unregisterCollection } from "./settings/collectionRegistry"
+import {
+  collectionDisplayName,
+  unregisterCollection,
+} from "./settings/collectionRegistry"
 import {
   runCollectionImport,
   type CollectionImportValues,
@@ -127,12 +131,17 @@ export function AppInner({
   settingsEnv,
   appProxy,
   collectionProxy,
+  collectionName,
+  collectionDescription,
+  timelineMaxEntries,
   noProxy,
   systemProxy,
   onAppProxyChange,
   onCollectionProxyChange,
+  onCollectionSettingsChange,
   initialLastRequestId,
   collectionPaths,
+  collectionSettingsByPath,
   activeCollectionDir,
   onCollectionsChange,
   onRegisterCollection,
@@ -170,12 +179,22 @@ export function AppInner({
   settingsEnv?: string
   appProxy?: AppProxySettings
   collectionProxy?: CollectionProxySettings
+  collectionName?: string
+  collectionDescription?: string
+  timelineMaxEntries?: number
   noProxy: boolean
   systemProxy: SystemProxySettings
   onAppProxyChange: (proxy: AppProxySettings) => boolean
   onCollectionProxyChange: (proxy: CollectionProxySettings) => boolean
+  onCollectionSettingsChange: (
+    patch: Pick<
+      CollectionSettings,
+      "name" | "description" | "timelineMaxEntries"
+    >,
+  ) => boolean
   initialLastRequestId?: string
   collectionPaths: string[]
+  collectionSettingsByPath: Record<string, CollectionSettings>
   activeCollectionDir: string
   onCollectionsChange: (collections: string[]) => boolean
   onRegisterCollection: (path: string) => string | null
@@ -457,6 +476,7 @@ export function AppInner({
   const timeline = useTimeline(
     isCollection ? collectionDir : undefined,
     selectedRequest?.id,
+    timelineMaxEntries,
   )
   const timelineAppendRef = useRef(timeline.appendEntry)
   timelineAppendRef.current = timeline.appendEntry
@@ -1298,7 +1318,9 @@ export function AppInner({
       }}
     >
       <Header
-        collectionLabel={basename(collectionDir) || collectionDir}
+        collectionLabel={collectionDisplayName(collectionDir, {
+          name: collectionName,
+        })}
         envLabel={envState.indicatorLabel}
         envStatus={envState.status}
         envColor={envState.activeEnv?.color}
@@ -1427,6 +1449,9 @@ export function AppInner({
             confirmUndoAll={confirmUndoAll}
             appProxy={appProxy}
             collectionProxy={collectionProxy}
+            collectionName={collectionName}
+            collectionDescription={collectionDescription}
+            timelineMaxEntries={timelineMaxEntries}
             noProxy={noProxy}
             activeEnv={envState.activeEnv}
             envNames={envState.names}
@@ -1451,6 +1476,7 @@ export function AppInner({
             onConfirmUndoAllChange={onConfirmUndoAllChange}
             onAppProxyChange={onAppProxyChange}
             onCollectionProxyChange={onCollectionProxyChange}
+            onCollectionSettingsChange={onCollectionSettingsChange}
             onEnvironmentChange={envState.select}
             onKeybindChange={onKeybindChange}
             onCollectionsChange={onCollectionsChange}
@@ -1499,6 +1525,7 @@ export function AppInner({
           setRequestFinderVisible={setRequestFinderVisible}
           collectionSwitcherVisible={collectionSwitcherVisible}
           collectionPaths={collectionPaths}
+          collectionSettingsByPath={collectionSettingsByPath}
           collectionDir={collectionDir}
           requestCollectionSwitch={requestCollectionSwitch}
           setCollectionSwitcherVisible={setCollectionSwitcherVisible}

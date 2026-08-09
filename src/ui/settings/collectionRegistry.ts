@@ -1,10 +1,18 @@
 import { homedir } from "node:os"
-import { resolve } from "node:path"
+import { basename, resolve } from "node:path"
 import { classifyPath } from "../../collectionPath"
+import type { CollectionSettings } from "../../schema"
 import { expandUserPath } from "../../userPath"
 
 export type CollectionRegistrationResult =
   { ok: true; path: string } | { ok: false; error: string }
+
+export function collectionDisplayName(
+  path: string,
+  settings?: Pick<CollectionSettings, "name">,
+): string {
+  return settings?.name?.trim() || basename(path) || path
+}
 
 export function resolveCollectionRegistration(
   rawPath: string,

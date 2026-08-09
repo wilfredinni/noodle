@@ -2,12 +2,19 @@ import { homedir } from "node:os"
 import { randomUUID } from "node:crypto"
 import { gzip, gunzip } from "node:zlib"
 import { promisify } from "node:util"
-import { mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises"
-import { basename, dirname, join } from "node:path"
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises"
+import { basename, dirname, join, relative } from "node:path"
 import * as yaml from "js-yaml"
 import type { ParamEntry, TimelineBodyRef, TimelineEntry } from "../schema"
 
-const DEFAULT_MAX_ENTRIES = 50
+export const DEFAULT_TIMELINE_MAX_ENTRIES = 50
 const INLINE_BODY_LIMIT = 10_000
 const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
@@ -286,7 +293,7 @@ export async function saveTimelineEntry(
   colDir: string,
   reqId: string,
   entry: TimelineEntry,
-  maxEntries = DEFAULT_MAX_ENTRIES,
+  maxEntries = DEFAULT_TIMELINE_MAX_ENTRIES,
 ): Promise<TimelineEntry> {
   const filePath = timelinePath(colDir, reqId)
   await mkdir(dirname(filePath), { recursive: true })
@@ -309,6 +316,61 @@ export async function saveTimelineEntry(
 
   await Promise.all(evicted.map((old) => removeEntryBodies(colDir, reqId, old)))
   return persisted
+}
+
+async function collectTimelineFiles(dir: string): Promise<string[]> {
+  let entries
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw e
+  }
+  const nested = await Promise.all(
+    entries.map((entry) => {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory() && !entry.name.endsWith(".yml.bodies")) {
+        return collectTimelineFiles(path)
+      }
+      return Promise.resolve(
+        entry.isFile() && entry.name.endsWith(".yml") ? [path] : [],
+      )
+    }),
+  )
+  return nested.flat()
+}
+
+export async function pruneTimeline(
+  colDir: string,
+  maxEntries: number,
+): Promise<void> {
+  if (!Number.isSafeInteger(maxEntries) || maxEntries < 0) {
+    throw new Error(
+      "filestore.pruneTimeline: max entries must be a non-negative integer",
+    )
+  }
+  const dir = timelineDir(colDir)
+  try {
+    if (maxEntries === 0) {
+      await rm(dir, { recursive: true, force: true })
+      await mkdir(dir, { recursive: true })
+      return
+    }
+    for (const filePath of await collectTimelineFiles(dir)) {
+      const reqId = relative(dir, filePath).slice(0, -".yml".length)
+      const current = await readTimelineEntries(colDir, reqId)
+      const evicted = current.slice(maxEntries)
+      if (evicted.length === 0) continue
+      await writeFile(filePath, yaml.dump(current.slice(0, maxEntries)), "utf8")
+      await Promise.all(
+        evicted.map((entry) => removeEntryBodies(colDir, reqId, entry)),
+      )
+    }
+  } catch (e) {
+    throw new Error("filestore.pruneTimeline: failed to prune timeline", {
+      cause: e,
+    })
+  }
 }
 
 export async function clearTimelineForRequest(

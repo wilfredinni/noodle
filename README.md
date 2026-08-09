@@ -1,5 +1,7 @@
 # <img src="assets/logo.png" data-canonical-src="/logo.png" width="32" height="32" /> noodle
 
+[![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
+
 ## Readable requests. Versioned workflows. No lock-in.
 
 Noodle is a terminal HTTP client that keeps requests as readable YAML files in
@@ -124,6 +126,18 @@ are rejected. Bypass entries are comma-separated and support `*`, hosts,
 
 Use `--noproxy` with the TUI, `collection run`, or `request run` to force
 direct connections for that invocation.
+
+Collection metadata and response-history retention also live in
+`settings.yml`. `timeline_max_entries` defaults to 50 per request; lowering it
+prunes older entries, and `0` disables timeline recording.
+
+```yaml
+name: Payments API
+description: |-
+  Requests for the payments platform.
+timeline_max_entries: 50
+environment: development
+```
 
 ### Bring in and run existing work
 

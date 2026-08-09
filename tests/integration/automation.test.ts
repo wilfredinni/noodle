@@ -351,6 +351,34 @@ describe("automation services", () => {
     expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe("{}\n")
   })
 
+  it("audits and canonicalizes collection metadata and timeline retention", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "description: |-\n  First line.\n  Second line.\nname: Payments API\ntimeline_max_entries: 0\nenvironment: development\n",
+    )
+
+    const result = await collectionAudit(dir, true)
+
+    expect(result.valid).toBe(true)
+    expect(await collectionInspect(dir)).toMatchObject({
+      settings: {
+        name: "Payments API",
+        description: "First line.\nSecond line.",
+        timelineMaxEntries: 0,
+        environment: "development",
+      },
+    })
+  })
+
+  it("rejects invalid timeline retention during collection audit", async () => {
+    await writeFile(join(dir, "settings.yml"), "timeline_max_entries: -1\n")
+    const result = await collectionAudit(dir, false)
+    expect(result.valid).toBe(false)
+    expect(result.issues[0]?.message).toContain(
+      "non-negative integer timeline_max_entries",
+    )
+  })
+
   it("reports invalid registered collections without changing config", async () => {
     const configDir = join(dir, "config")
     const missing = join(dir, "missing")

@@ -6,7 +6,12 @@ import { listEnvironmentsWithColors } from "../env/listWithColors"
 import { ThemeProvider, THEMES, DEFAULT_THEME_INDEX } from "./theme"
 import { stat } from "node:fs/promises"
 import { Toast, showToast } from "./Toast"
-import { loadSettings, saveSettings } from "../filestore"
+import {
+  DEFAULT_TIMELINE_MAX_ENTRIES,
+  loadSettings,
+  pruneTimeline,
+  saveSettings,
+} from "../filestore"
 import { loadLastRequest } from "./tabs/uiState"
 import type { Keybinds } from "./keybind"
 import type { KeybindName } from "./keybind"
@@ -52,6 +57,7 @@ export function App({
   mode?: CollectionMode
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
+  const collectionPaths = config.collections
   const [liveKeybinds, setLiveKeybinds] = useState(keybinds)
   const switchingRef = useRef(false)
   const initialCollectionDir = useMemo(
@@ -63,6 +69,8 @@ export function App({
   const [mode, setMode] = useState<CollectionMode>(initialMode)
   const [reloadKey, setReloadKey] = useState(0)
   const [settings, setSettings] = useState<CollectionSettings>(initialSettings)
+  const [registeredCollectionSettings, setRegisteredCollectionSettings] =
+    useState<Record<string, CollectionSettings>>({})
   const settingsRef = useRef(initialSettings)
   const persistedSettingsRef = useRef(initialSettings)
   const activeCollectionDirRef = useRef(initialCollectionDir)
@@ -115,6 +123,37 @@ export function App({
       }))
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all(
+      collectionPaths.map(async (path) => {
+        try {
+          return [path, await loadSettings(path)] as const
+        } catch {
+          return [path, {}] as const
+        }
+      }),
+    ).then((entries) => {
+      if (!cancelled)
+        setRegisteredCollectionSettings(Object.fromEntries(entries))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [collectionPaths])
+
+  useEffect(() => {
+    if (mode !== "collection") return
+    const limit = persistedSettingsRef.current.timelineMaxEntries
+    if (limit === undefined) return
+    pruneTimeline(activeCollectionDir, limit).catch(() =>
+      showToast(
+        "Timeline limit loaded, but existing history could not be pruned",
+        "error",
+      ),
+    )
+  }, [activeCollectionDir, mode])
 
   const updateGlobalConfig = useCallback(
     (patch: Parameters<typeof updateConfig>[0], errorMessage: string) => {
@@ -228,6 +267,45 @@ export function App({
         saveSettings,
         setSettings,
         () => showToast("Failed to save proxy settings", "error"),
+      )
+      return true
+    },
+    [activeCollectionDir, mode, settingsPersistence],
+  )
+
+  const handleCollectionSettingsChange = useCallback(
+    (
+      patch: Pick<
+        CollectionSettings,
+        "name" | "description" | "timelineMaxEntries"
+      >,
+    ) => {
+      if (mode !== "collection") return false
+      const previous = settingsRef.current
+      const nextSettings = { ...previous, ...patch }
+      const previousLimit =
+        previous.timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES
+      const nextLimit =
+        nextSettings.timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES
+      settingsRef.current = nextSettings
+      setSettings(nextSettings)
+      queueCollectionSettingsSave(
+        settingsPersistence,
+        activeCollectionDir,
+        nextSettings,
+        saveSettings,
+        setSettings,
+        () => showToast("Failed to save collection settings", "error"),
+        nextLimit < previousLimit
+          ? () => {
+              pruneTimeline(activeCollectionDir, nextLimit).catch(() =>
+                showToast(
+                  "Timeline limit saved, but existing history could not be pruned",
+                  "error",
+                ),
+              )
+            }
+          : undefined,
       )
       return true
     },
@@ -379,7 +457,13 @@ export function App({
     [activeCollectionDir, updateConfig],
   )
 
-  const collectionPaths = config.collections
+  const collectionSettingsByPath = useMemo(
+    () => ({
+      ...registeredCollectionSettings,
+      [activeCollectionDir]: settings,
+    }),
+    [activeCollectionDir, registeredCollectionSettings, settings],
+  )
 
   return (
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
@@ -412,12 +496,17 @@ export function App({
         settingsEnv={settingsEnv}
         appProxy={config.proxy}
         collectionProxy={settings.proxy}
+        collectionName={settings.name}
+        collectionDescription={settings.description}
+        timelineMaxEntries={settings.timelineMaxEntries}
         noProxy={noProxy}
         systemProxy={systemProxy}
         onAppProxyChange={handleAppProxyChange}
         onCollectionProxyChange={handleCollectionProxyChange}
+        onCollectionSettingsChange={handleCollectionSettingsChange}
         initialLastRequestId={lastRequestId}
         collectionPaths={collectionPaths}
+        collectionSettingsByPath={collectionSettingsByPath}
         activeCollectionDir={activeCollectionDir}
         onCollectionsChange={handleCollectionsChange}
         onRegisterCollection={handleRegisterCollection}

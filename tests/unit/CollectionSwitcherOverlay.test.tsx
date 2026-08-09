@@ -62,6 +62,34 @@ describe("CollectionSwitcherOverlay", () => {
     cleanup()
   })
 
+  it("uses collection metadata names and keeps paths searchable", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <CollectionSwitcherOverlay
+            visible
+            collections={collections}
+            collectionSettingsByPath={{
+              [collections[0]!]: { name: "Payments API" },
+            }}
+            activeCollectionDir={collections[0]!}
+            onSelect={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 24 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Payments API")
+
+    await act(async () => mockInput.typeText("/projects/api"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Payments API")
+    cleanup()
+  })
+
   it("filters collections by search text", async () => {
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame, mockInput } = await testRender(

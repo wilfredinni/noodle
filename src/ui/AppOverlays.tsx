@@ -42,6 +42,7 @@ import {
 } from "./overlays/ImportCollectionOverlay"
 import type {
   Collection,
+  CollectionSettings,
   Environment,
   Request as NoodleRequest,
   TimelineEntry,
@@ -56,6 +57,7 @@ import type { SaveState } from "./saveState"
 import { initialYamlEditorState, type YamlEditorState } from "./appState"
 import type { ActiveOverlay } from "./useOverlayState"
 import { buildDisplayUrl } from "./urlParams"
+import { collectionDisplayName } from "./settings/collectionRegistry"
 
 interface FolderPathOption {
   id: string
@@ -92,6 +94,7 @@ interface AppOverlaysProps {
   setRequestFinderVisible: (visible: boolean) => void
   collectionSwitcherVisible: boolean
   collectionPaths: string[]
+  collectionSettingsByPath: Record<string, CollectionSettings>
   collectionDir: string
   requestCollectionSwitch: (nextDir: string) => void
   setCollectionSwitcherVisible: (visible: boolean) => void
@@ -199,6 +202,7 @@ export function AppOverlays({
   setRequestFinderVisible,
   collectionSwitcherVisible,
   collectionPaths,
+  collectionSettingsByPath,
   collectionDir,
   requestCollectionSwitch,
   setCollectionSwitcherVisible,
@@ -289,7 +293,10 @@ export function AppOverlays({
         collectionUnregisterPending !== null && (
           <ConfirmOverlay
             visible
-            message={`Unregister collection "${collectionUnregisterPending}"? Files will not be changed.`}
+            message={`Unregister collection "${collectionDisplayName(
+              collectionUnregisterPending,
+              collectionSettingsByPath[collectionUnregisterPending],
+            )}"? Files will not be changed.`}
             onConfirm={onConfirmDialog}
             onCancel={onCancelDialog}
           />
@@ -367,6 +374,7 @@ export function AppOverlays({
         <CollectionSwitcherOverlay
           visible
           collections={collectionPaths}
+          collectionSettingsByPath={collectionSettingsByPath}
           activeCollectionDir={collectionDir}
           onSelect={requestCollectionSwitch}
           onClose={() => setCollectionSwitcherVisible(false)}

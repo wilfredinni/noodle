@@ -325,6 +325,19 @@ export async function loadSettings(dir: string): Promise<CollectionSettings> {
     if (!data || typeof data !== "object") return {}
     const obj = data as Record<string, unknown>
     const settings: CollectionSettings = {}
+    if (typeof obj.name === "string" && obj.name.trim()) {
+      settings.name = obj.name.trim()
+    }
+    if (typeof obj.description === "string" && obj.description.trim()) {
+      settings.description = obj.description.trim()
+    }
+    if (
+      typeof obj.timeline_max_entries === "number" &&
+      Number.isSafeInteger(obj.timeline_max_entries) &&
+      obj.timeline_max_entries >= 0
+    ) {
+      settings.timelineMaxEntries = obj.timeline_max_entries
+    }
     if (typeof obj.environment === "string") {
       settings.environment = obj.environment
     }

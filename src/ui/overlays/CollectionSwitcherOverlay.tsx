@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { basename } from "node:path"
 import { TextAttributes } from "@opentui/core"
 import { PickerOverlay } from "./PickerOverlay"
 import { useTheme } from "../theme"
+import type { CollectionSettings } from "../../schema"
+import { collectionDisplayName } from "../settings/collectionRegistry"
 
 export interface CollectionSwitcherOverlayProps {
   visible: boolean
   collections: string[]
+  collectionSettingsByPath?: Record<string, CollectionSettings>
   activeCollectionDir: string
   onSelect: (collectionDir: string) => void
   onClose: () => void
@@ -20,6 +22,7 @@ interface CollectionItem {
 export function CollectionSwitcherOverlay({
   visible,
   collections,
+  collectionSettingsByPath = {},
   activeCollectionDir,
   onSelect,
   onClose,
@@ -36,9 +39,9 @@ export function CollectionSwitcherOverlay({
     () =>
       collections.map((path) => ({
         path,
-        label: basename(path) || path,
+        label: collectionDisplayName(path, collectionSettingsByPath[path]),
       })),
-    [collections],
+    [collectionSettingsByPath, collections],
   )
 
   const activeItem = useMemo(

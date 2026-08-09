@@ -19,6 +19,33 @@ async function flush(): Promise<void> {
 }
 
 describe("queueCollectionSettingsSave", () => {
+  it("runs the success callback only after settings persist", async () => {
+    const persisted: CollectionSettings = { timelineMaxEntries: 10 }
+    const persistence = {
+      activeCollectionDir: { current: "/collection" },
+      currentSettings: { current: persisted },
+      persistedSettings: { current: {} },
+      saveChain: { current: Promise.resolve() },
+    }
+    let saved = false
+
+    queueCollectionSettingsSave(
+      persistence,
+      "/collection",
+      persisted,
+      async () => {},
+      () => {},
+      () => {},
+      () => {
+        saved = true
+      },
+    )
+    expect(saved).toBe(false)
+    await persistence.saveChain.current
+    await flush()
+    expect(saved).toBe(true)
+  })
+
   it("restores persisted settings when superseded proxy and environment saves fail", async () => {
     const persisted: CollectionSettings = { environment: "development" }
     const proxySettings: CollectionSettings = {
