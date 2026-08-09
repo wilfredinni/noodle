@@ -554,16 +554,6 @@ export function buildCommandPaletteCommands(
       },
     },
     {
-      id: "app.proxy-settings",
-      label: "Proxy Settings",
-      section: "System",
-      run: () => {
-        if (!openSettings(c, view)) return false
-        openSettingsView("global", "network")
-        return true
-      },
-    },
-    {
       id: "collection.switcher",
       label: "Switch Collection",
       section: "System",

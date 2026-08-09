@@ -416,7 +416,7 @@ describe("buildCommandPaletteCommands", () => {
     expect(visible).toBe(true)
   })
 
-  it("opens Settings and routes Proxy Settings to Global Network", () => {
+  it("exposes Open Settings without a duplicate proxy shortcut", () => {
     const ctx = minimalContext()
     const opened: Array<[string | undefined, string | undefined]> = []
     ctx.openSettingsView = (scope, category) => {
@@ -425,15 +425,13 @@ describe("buildCommandPaletteCommands", () => {
 
     const commands = buildCommandPaletteCommands(ctx)
     const settings = commands.find((item) => item.id === "app.settings-open")!
-    const proxy = commands.find((item) => item.id === "app.proxy-settings")!
 
     expect(settings.keybinding).toBe("f4")
     expect(settings.run()).toBe(true)
-    expect(proxy.run()).toBe(true)
-    expect(opened).toEqual([
-      [undefined, undefined],
-      ["global", "network"],
-    ])
+    expect(commands.find((item) => item.id === "app.proxy-settings")).toBe(
+      undefined,
+    )
+    expect(opened).toEqual([[undefined, undefined]])
   })
 
   it("blocks Settings from a dirty environment editor", () => {
