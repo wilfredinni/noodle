@@ -481,7 +481,7 @@ describe("SettingsView", () => {
       { width: 90, height: 24 },
     )
     await renderOnce()
-    await act(async () => host.press("delete"))
+    await act(async () => host.press("w", { ctrl: true }))
     expect(requested).toEqual(["/tmp/one"])
     expect(changes).toBe(0)
     cleanup()
@@ -679,7 +679,7 @@ describe("SettingsView", () => {
     cleanup()
   })
 
-  it("resets shortcuts only for an unmodified r", async () => {
+  it("resets shortcuts with the revert-field shortcut", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let changes = 0
     const { renderOnce } = await testRender(
@@ -699,9 +699,9 @@ describe("SettingsView", () => {
     )
     await renderOnce()
 
-    await act(async () => host.press("ctrl+r"))
-    expect(changes).toBe(0)
     await act(async () => host.press("r"))
+    expect(changes).toBe(0)
+    await act(async () => host.press("d", { ctrl: true }))
     expect(changes).toBe(1)
     cleanup()
   })

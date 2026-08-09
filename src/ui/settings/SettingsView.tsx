@@ -521,13 +521,7 @@ export function SettingsView({
               text: "Press a shortcut · Esc cancels",
               kind: "success",
             })
-          } else if (
-            event.name === "r" &&
-            !event.ctrl &&
-            !event.shift &&
-            !event.option &&
-            !event.meta
-          ) {
+          } else if (keyEventToBinding(event) === keybinds.browse_delete) {
             event.preventDefault()
             event.stopPropagation()
             const name = keybindNames[contentIndex]
@@ -580,7 +574,10 @@ export function SettingsView({
             }
             return
           }
-          if (event.name === "delete" && contentIndex < collections.length) {
+          if (
+            keyEventToBinding(event) === keybinds.request_delete &&
+            contentIndex < collections.length
+          ) {
             event.preventDefault()
             event.stopPropagation()
             onCollectionUnregister(collections[contentIndex]!)

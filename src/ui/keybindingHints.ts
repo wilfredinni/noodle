@@ -116,7 +116,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     if (ctx.settingsCategory === "keyboard") {
       return [
         { key: "Enter", word: "rebind" },
-        { key: "R", word: "reset" },
+        { key: displayKey(kb.browse_delete), word: "reset" },
         close,
       ]
     }
@@ -124,7 +124,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       return [
         { key: "↑/↓", word: "select" },
         { key: "Ctrl+↑/↓", word: "reorder" },
-        { key: "Del", word: "unregister" },
+        { key: displayKey(kb.request_delete), word: "unregister" },
       ]
     }
     if (ctx.settingsCategory === "behavior") {

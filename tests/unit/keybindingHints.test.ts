@@ -73,7 +73,7 @@ describe("getKeybindingHints footer", () => {
       ).footer,
     ).toEqual([
       seg("Enter", "rebind"),
-      seg("R", "reset"),
+      seg("^d", "reset"),
       seg("Esc", "close settings"),
     ])
 
@@ -88,7 +88,7 @@ describe("getKeybindingHints footer", () => {
     ).toEqual([
       seg("↑/↓", "select"),
       seg("Ctrl+↑/↓", "reorder"),
-      seg("Del", "unregister"),
+      seg("^w", "unregister"),
     ])
 
     expect(

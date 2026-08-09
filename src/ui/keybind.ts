@@ -84,6 +84,7 @@ export const Definitions = {
   request_delete: keybind("ctrl+w", "Delete request", false, "Request", [
     "main",
     "folder",
+    "settings",
   ]),
   env_picker: keybind("e", "Open environment picker", false, "Environment", [
     "main",
@@ -101,6 +102,7 @@ export const Definitions = {
     "request-browse",
     "folder-browse",
     "env-browse",
+    "settings",
   ]),
   browse_revert_all: keybind("ctrl+r", "Revert all fields", false, "Request", [
     "request-browse",
