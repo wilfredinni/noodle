@@ -437,7 +437,14 @@ export function SettingsView({
         if (event.name === "escape") {
           event.preventDefault()
           event.stopPropagation()
-          if (!commitCurrentCollectionGeneralField()) return
+          if (!commitCurrentCollectionGeneralField()) {
+            setCollectionNameDraft(collectionName ?? "")
+            setCollectionDescriptionDraft(collectionDescription ?? "")
+            setTimelineMaxEntriesDraft(
+              String(timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES),
+            )
+            setCollectionGeneralError(null)
+          }
           onClose()
           return
         }

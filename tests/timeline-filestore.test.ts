@@ -211,6 +211,32 @@ describe("saveTimelineEntry", () => {
     expect(result[49].timestamp).toBe(10)
   })
 
+  it("serializes saves with retention pruning", async () => {
+    await saveTimelineEntry(dir, "racing", makeEntry({ timestamp: 1 }), 10)
+    await saveTimelineEntry(dir, "racing", makeEntry({ timestamp: 2 }), 10)
+    const completedBody = "completed-".repeat(2_000)
+
+    await Promise.all([
+      saveTimelineEntry(
+        dir,
+        "racing",
+        makeEntry({
+          timestamp: 3,
+          request: { ...makeEntry().request, body: completedBody },
+        }),
+        10,
+      ),
+      pruneTimeline(dir, 1),
+    ])
+
+    const result = await loadTimeline(dir, "racing")
+    expect(result.map((entry) => entry.timestamp)).toEqual([3])
+    expect(result[0]?.request.bodyRef).toBeDefined()
+    await expect(
+      loadTimelineBody(dir, "racing", result[0]!.request.bodyRef!),
+    ).resolves.toBe(completedBody)
+  })
+
   it("persists full entry data including response and error", async () => {
     const entry = makeEntry({
       timestamp: 500,

@@ -25,7 +25,9 @@ export function queueCollectionSettingsSave(
       if (persistence.activeCollectionDir.current === collectionDir) {
         persistence.persistedSettings.current = settings
       }
-      onSaved?.()
+      if (persistence.currentSettings.current === settings) {
+        onSaved?.()
+      }
     },
     () => {
       if (

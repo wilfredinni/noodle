@@ -18,6 +18,23 @@ export const DEFAULT_TIMELINE_MAX_ENTRIES = 50
 const INLINE_BODY_LIMIT = 10_000
 const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
+const timelineLocks = new Map<string, Promise<void>>()
+
+function withTimelineLock<T>(
+  colDir: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = timelineLocks.get(colDir) ?? Promise.resolve()
+  const current = previous.then(operation)
+  const tail = current.then(
+    () => {},
+    () => {},
+  )
+  timelineLocks.set(colDir, tail)
+  return current.finally(() => {
+    if (timelineLocks.get(colDir) === tail) timelineLocks.delete(colDir)
+  })
+}
 
 export async function getDownloadsDir(): Promise<string> {
   if (process.env.NOODLE_DOWNLOADS_DIR) {
@@ -295,27 +312,31 @@ export async function saveTimelineEntry(
   entry: TimelineEntry,
   maxEntries = DEFAULT_TIMELINE_MAX_ENTRIES,
 ): Promise<TimelineEntry> {
-  const filePath = timelinePath(colDir, reqId)
-  await mkdir(dirname(filePath), { recursive: true })
-  const { entry: persisted, refs } = await persistBodies(colDir, reqId, entry)
-  const current = await readTimelineEntries(colDir, reqId)
-  const next = [persisted, ...current]
-  const evicted = next.splice(maxEntries)
+  return withTimelineLock(colDir, async () => {
+    const filePath = timelinePath(colDir, reqId)
+    await mkdir(dirname(filePath), { recursive: true })
+    const { entry: persisted, refs } = await persistBodies(colDir, reqId, entry)
+    const current = await readTimelineEntries(colDir, reqId)
+    const next = [persisted, ...current]
+    const evicted = next.splice(maxEntries)
 
-  try {
-    await writeFile(filePath, yaml.dump(next), "utf8")
-  } catch (e) {
-    await Promise.all(refs.map((ref) => removeBody(colDir, reqId, ref)))
-    throw new Error(
-      "filestore.saveTimelineEntry: failed to save timeline entry",
-      {
-        cause: e,
-      },
+    try {
+      await writeFile(filePath, yaml.dump(next), "utf8")
+    } catch (e) {
+      await Promise.all(refs.map((ref) => removeBody(colDir, reqId, ref)))
+      throw new Error(
+        "filestore.saveTimelineEntry: failed to save timeline entry",
+        {
+          cause: e,
+        },
+      )
+    }
+
+    await Promise.all(
+      evicted.map((old) => removeEntryBodies(colDir, reqId, old)),
     )
-  }
-
-  await Promise.all(evicted.map((old) => removeEntryBodies(colDir, reqId, old)))
-  return persisted
+    return persisted
+  })
 }
 
 async function collectTimelineFiles(dir: string): Promise<string[]> {
@@ -349,28 +370,34 @@ export async function pruneTimeline(
       "filestore.pruneTimeline: max entries must be a non-negative integer",
     )
   }
-  const dir = timelineDir(colDir)
-  try {
-    if (maxEntries === 0) {
-      await rm(dir, { recursive: true, force: true })
-      await mkdir(dir, { recursive: true })
-      return
+  return withTimelineLock(colDir, async () => {
+    const dir = timelineDir(colDir)
+    try {
+      if (maxEntries === 0) {
+        await rm(dir, { recursive: true, force: true })
+        await mkdir(dir, { recursive: true })
+        return
+      }
+      for (const filePath of await collectTimelineFiles(dir)) {
+        const reqId = relative(dir, filePath).slice(0, -".yml".length)
+        const current = await readTimelineEntries(colDir, reqId)
+        const evicted = current.slice(maxEntries)
+        if (evicted.length === 0) continue
+        await writeFile(
+          filePath,
+          yaml.dump(current.slice(0, maxEntries)),
+          "utf8",
+        )
+        await Promise.all(
+          evicted.map((entry) => removeEntryBodies(colDir, reqId, entry)),
+        )
+      }
+    } catch (e) {
+      throw new Error("filestore.pruneTimeline: failed to prune timeline", {
+        cause: e,
+      })
     }
-    for (const filePath of await collectTimelineFiles(dir)) {
-      const reqId = relative(dir, filePath).slice(0, -".yml".length)
-      const current = await readTimelineEntries(colDir, reqId)
-      const evicted = current.slice(maxEntries)
-      if (evicted.length === 0) continue
-      await writeFile(filePath, yaml.dump(current.slice(0, maxEntries)), "utf8")
-      await Promise.all(
-        evicted.map((entry) => removeEntryBodies(colDir, reqId, entry)),
-      )
-    }
-  } catch (e) {
-    throw new Error("filestore.pruneTimeline: failed to prune timeline", {
-      cause: e,
-    })
-  }
+  })
 }
 
 export async function clearTimelineForRequest(

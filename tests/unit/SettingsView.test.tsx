@@ -349,6 +349,40 @@ describe("SettingsView", () => {
     cleanup()
   })
 
+  it("closes with Escape and discards an invalid timeline retention", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let closed = false
+    const patches: Array<Partial<CollectionSettings>> = []
+    const { renderOnce, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialScope="collection"
+            initialCategory="general"
+            initialFocus="settings-content"
+            onClose={() => (closed = true)}
+            onCollectionSettingsChange={(patch) => {
+              patches.push(patch)
+              return true
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 26 },
+    )
+    await renderOnce()
+    await act(async () => host.press("tab"))
+    await act(async () => host.press("tab"))
+    await act(async () => host.press("backspace"))
+    await act(async () => host.press("backspace"))
+    await act(async () => mockInput.typeText("-1"))
+    await act(async () => host.press("escape"))
+
+    expect(closed).toBe(true)
+    expect(patches).toEqual([])
+    cleanup()
+  })
+
   it("parses blank timeline retention as the default and accepts zero", () => {
     expect(parseTimelineMaxEntries("  ")).toEqual({ value: undefined })
     expect(parseTimelineMaxEntries("0")).toEqual({ value: 0 })

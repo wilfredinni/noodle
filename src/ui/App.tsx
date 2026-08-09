@@ -296,16 +296,20 @@ export function App({
         saveSettings,
         setSettings,
         () => showToast("Failed to save collection settings", "error"),
-        nextLimit < previousLimit
-          ? () => {
-              pruneTimeline(activeCollectionDir, nextLimit).catch(() =>
-                showToast(
-                  "Timeline limit saved, but existing history could not be pruned",
-                  "error",
-                ),
-              )
-            }
-          : undefined,
+        () => {
+          setRegisteredCollectionSettings((current) => ({
+            ...current,
+            [activeCollectionDir]: nextSettings,
+          }))
+          if (nextLimit < previousLimit) {
+            pruneTimeline(activeCollectionDir, nextLimit).catch(() =>
+              showToast(
+                "Timeline limit saved, but existing history could not be pruned",
+                "error",
+              ),
+            )
+          }
+        },
       )
       return true
     },
