@@ -4,6 +4,33 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
+Noodle adds a unified Settings workspace for global preferences and collection configuration, including flexible proxy routing and controllable response-history retention. The release also makes collection metadata more visible and strengthens key handling, settings navigation, and concurrent timeline persistence.
+
+### ✨ Features
+
+- Add the Settings workspace, available with `F4` or **Open Settings** in the command palette, for global appearance, registered collections, keyboard shortcuts, and proxy preferences.
+- Add system, direct, and custom proxy policies with collection-level overrides, environment-variable proxy credentials, bypass rules, and `--noproxy` for TUI, `collection run`, and `request run` invocations.
+- Add collection names, descriptions, and configurable `timeline_max_entries` retention in `settings.yml`; response history keeps 50 entries per request by default and accepts `0` to disable recording.
+
+### 🐞 Fixes
+
+- Prevent global shortcuts from firing while text inputs, dialog fields, and other active edit contexts have focus.
+- Serialize concurrent response-history saves and pruning so timeline files and large-body sidecars remain consistent.
+- Restore the appropriate focus when leaving Settings and keep collection lists, proxy fields, and keyboard hints aligned with the active settings scope.
+
+### 🔧 Refactors
+
+- Centralize keybinding definitions and their contextual hints across the keymap, settings editor, command palette, and help surfaces.
+- Move collection settings persistence behind a serialized save queue and share collection-path classification across startup and workspace management.
+
+### 📚 Documentation
+
+- Document Settings, proxy precedence, collection metadata, timeline retention, and current shortcuts in the README, AGENTS.md, in-app tips, and site references.
+- Update `noodle-dev` with Settings persistence and proxy configuration architecture.
+- Update `noodle-use` with the `settings.yml` proxy schema and global proxy configuration.
+
 ## [0.6.2] - 2026-08-07
 
 ![Export collection overlay](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/import-overlay.png)
@@ -337,7 +364,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/wilfredinni/noodle/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/wilfredinni/noodle/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/wilfredinni/noodle/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/wilfredinni/noodle/compare/v0.5.7...v0.6.0

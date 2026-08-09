@@ -44,6 +44,7 @@ const TIPS = [
   "open {^P}, choose Generate Code to export request as client code",
   "check for updates with {noodle update} or {^P} then Update Noodle",
   "press {e} to search environments; use {F3} to open the editor",
+  "open Settings with {F4} to configure proxies, collections, and shortcuts",
   "create an environment with {^N} in the environment editor",
   "recent responses are saved in a timeline per request",
 ]

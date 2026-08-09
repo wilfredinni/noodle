@@ -114,11 +114,11 @@ it reads a file or creates an export.
 - Keyboard-first navigation, jump mode, and mouse controls including sidebar
   context menus.
 
-### Route through a proxy
+### Configure proxy and collection settings
 
-Open **Proxy Settings** from the `Ctrl+P` command palette to use the system
-`HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or override
-the current collection in `settings.yml`. Custom proxy credentials can use
+Open **Settings** with `F4` or from the `Ctrl+P` command palette to use the
+system `HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or
+override the current collection in `settings.yml`. Custom proxy credentials can use
 active-environment variables, for example
 `http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080`; literal credentials
 are rejected. Bypass entries are comma-separated and support `*`, hosts,

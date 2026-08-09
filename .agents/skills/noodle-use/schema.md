@@ -191,12 +191,19 @@ description: |-
   Requests for the payments platform.
 timeline_max_entries: 50
 environment: development
+proxy:
+  mode: custom
+  url: http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080
+  bypass:
+    - localhost
+    - .internal.example
 ```
 
 - `name`: optional display name; falls back to the collection directory name
 - `description`: optional multiline collection notes
 - `timeline_max_entries`: optional non-negative integer; defaults to 50, and `0` disables history
 - `environment`: default active environment name; must match an env file in `.environments/`
+- `proxy`: optional collection proxy policy. Use `inherit` to follow global settings, `off` for direct connections, or `custom` with an `http` or `https` URL and optional bypass list. Custom credentials may use active-environment `$VARNAME` values; literal credentials are rejected.
 
 ## Variable substitution rules
 

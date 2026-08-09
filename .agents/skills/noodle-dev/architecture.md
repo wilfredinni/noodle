@@ -87,9 +87,19 @@ name: Payments API # Optional display name
 description: Requests for the payments platform. # Optional notes
 timeline_max_entries: 50 # Per-request history retention; 0 disables
 environment: development # Last active environment name
+proxy:
+  mode: custom # "inherit", "off", or "custom"
+  url: http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080
+  bypass: [localhost, .internal.example]
 ```
 
-Falls back to empty object `{}` when file is missing or invalid.
+`name` and `description` drive collection display in the Settings workspace.
+`timeline_max_entries` must be a non-negative safe integer and pruning removes
+evicted large-body sidecars. Collection proxy mode is `inherit`, `off`, or
+`custom`; custom credentials may use active-environment variables. The global
+`config.yml` proxy mode is `system`, `off`, or `custom`. `--noproxy` overrides
+every saved policy for a single TUI or automation run. Settings load as `{}`
+when the file is missing or invalid.
 
 ### User-relative file paths
 
@@ -127,6 +137,7 @@ Save/delete paths must call `validatePathId()`. Current validation rejects:
 Follow existing patterns:
 
 - **Collection-level config**: Add to `settings.yml` via `saveSettings()` + `loadSettings()`
+- **Settings workspace**: Route global and collection forms through `SettingsView.tsx`; queue collection writes with `settingsPersistence.ts` so rapid changes cannot race.
 - **UI state**: Extend `.noodle/ui-state.yml` and its serialized writer in `src/ui/tabs/uiState.ts`; its write mutex preserves concurrent updates to selection, folders, and tab preferences
 - **New hidden directory**: Add name to `SKIP_DIRS` in `load.ts` so `walk()` skips it
 - **Global user config**: Use `~/.config/noodle/config.yml` via `useConfig` hook
@@ -298,6 +309,8 @@ ui/              ← OpenTUI components + pure helpers + keymap layers
   │   ├── variable-completion/variableCompletion.ts — $var autocompletion engine
   │   ├── commands.ts / commandActions.ts — command palette infrastructure
   │   ├── theme.tsx / theme-data.ts — 32 themes with live preview
+  │   ├── settings/SettingsView.tsx — global and collection Settings workspace
+  │   ├── settings/ProxySettingsForm.tsx — proxy policy editor
   │   ├── clipboard.ts — multi-platform clipboard + OSC 52 fallback
   │   ├── editor/codeEditorParsers.ts — tree-sitter parser registration
   │   └── editor/yamlSyntax.ts — YAML syntax styling
@@ -440,8 +453,8 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 **Config files** (read during startup):
 
 - `~/.config/noodle/keybinds.yml` — user keybinding overrides
-- `~/.config/noodle/config.yml` — theme index + layout preference (read by `useConfig` hook)
-- `<collection>/settings.yml` — last active environment name
+- `~/.config/noodle/config.yml` — theme, layout, undo confirmation, registered collections, and global proxy policy
+- `<collection>/settings.yml` — collection metadata, timeline retention, active environment, and collection proxy policy
 - `<collection>/.noodle/ui-state.yml` — last selected item, expanded folders, and per-request tab state
 
 ## State management

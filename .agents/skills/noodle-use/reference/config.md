@@ -13,9 +13,13 @@ confirm_undo_all: true
 collections:
   - /Users/me/Projects/noodle-api
   - /Users/me/Projects/other-api
+proxy:
+  mode: custom
+  url: http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080
+  bypass: [localhost, .internal.example]
 ```
 
-All four fields are optional — missing fields use defaults.
+All fields are optional; missing fields use defaults.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -23,6 +27,7 @@ All four fields are optional — missing fields use defaults.
 | `layout` | `"stacked"` \| `"side-by-side"` | `"stacked"` | Pane arrangement. `stacked` = vertical (sidebar top, request middle, response bottom). `side-by-side` = horizontal split. Invalid values fall back to `"stacked"`. |
 | `confirm_undo_all` | boolean | `true` | Whether `Ctrl+R` (revert all request fields) shows a confirmation dialog before reverting. Set to `false` to skip the confirmation. |
 | `collections` | string[] | `[]` | List of absolute paths to noodle collections. These appear in the workspace selector. Paths are resolved and normalized on load/save (duplicates and empty strings removed). Noodle prepends the current collection to this list when switching directories. TUI startup selects the first registered path that still exists, then falls back to `./collections`. |
+| `proxy` | object | system proxy | Optional global policy: `system`, `off`, or `custom`. A custom policy needs an `http` or `https` URL and may include a string-array `bypass` list. Custom credentials may use active-environment `$VARNAME` values; literal credentials are rejected. |
 
 ## keybinds.yml
 
@@ -52,6 +57,7 @@ Each entry shows: ID, default key, description, whether it's `fixed` (cannot be 
 | `request_delete` | `Ctrl+W` | Delete request | no |
 | `env_picker` | `e` | Open environment picker | no |
 | `env_editor` | `F3` | Open environment editor | no |
+| `settings_open` | `F4` | Open Settings | no |
 | `help_toggle` | `F1` | Toggle help overlay | no |
 | `theme_picker` | `Ctrl+T` | Open theme picker | no |
 | `browse_delete` | `Ctrl+D` | Revert current field (browse mode) | no |

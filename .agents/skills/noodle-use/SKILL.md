@@ -62,6 +62,10 @@ auth:
 `settings.yml` at collection root supports optional `name`, multiline
 `description`, `timeline_max_entries`, `environment`, and `proxy` fields.
 Timeline retention defaults to 50 responses per request; `0` disables history.
+Collection proxy mode is `inherit`, `off`, or `custom`. A custom proxy may use
+`$VARNAME` credentials from the active environment and an optional bypass list;
+`--noproxy` overrides every saved policy for one TUI, `collection run`, or
+`request run` invocation.
 
 ### Path safety
 When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, backslashes, empty path segments, or hidden path segments.
