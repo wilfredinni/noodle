@@ -4,10 +4,11 @@ import { useKeymap } from "@opentui/keymap/react"
 import type { Focus } from "../focus"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "../env-editor/EnvHeaderPane"
+import type { AppView } from "../appState"
 
 export function useEnvEditorIntercept(opts: {
-  view: "main" | "env-editor"
-  setView: (v: "main" | "env-editor") => void
+  view: AppView
+  setView: (v: AppView) => void
   focusRef: RefObject<Focus>
   setFocus: (f: Focus) => void
   envEditorRef: RefObject<UseEnvironmentEditorResult>

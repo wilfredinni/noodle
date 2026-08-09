@@ -69,7 +69,8 @@ export interface AppKeymapGlobal {
   setRequestFinderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setUndoAllPending: (v: boolean | ((prev: boolean) => boolean)) => void
   setJumpMode: (v: boolean | ((prev: boolean) => boolean)) => void
-  onLayoutChange: (layout: "stacked" | "side-by-side") => void
+  openSettingsView: () => void
+  onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
 }
 
 export interface AppKeymapRequest {

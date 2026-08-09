@@ -17,4 +17,13 @@ describe("cycleFocus", () => {
   it("skips hidden response pane when request is expanded", () => {
     expect(cycleFocus("request", 1, "main", "request")).toBe("sidebar")
   })
+
+  it("cycles between settings panes", () => {
+    expect(cycleFocus("settings-sidebar", 1, "settings")).toBe(
+      "settings-content",
+    )
+    expect(cycleFocus("settings-content", 1, "settings")).toBe(
+      "settings-sidebar",
+    )
+  })
 })

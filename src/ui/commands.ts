@@ -5,6 +5,7 @@ import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { Focus } from "./focus"
 import type { AppView, YamlEditorState } from "./appState"
+import type { SettingsCategory, SettingsScope } from "./settings/SettingsView"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
@@ -38,6 +39,7 @@ import {
   openCollectionExport,
   openCollectionImport,
   openCollectionSwitcher,
+  openSettings,
   type CommandActionsConfig,
 } from "./commandActions"
 
@@ -75,7 +77,7 @@ export interface CommandBuilderContext {
       | "side-by-side"
       | ((prev: "stacked" | "side-by-side") => "stacked" | "side-by-side"),
   ) => void
-  onLayoutChange: (layout: "stacked" | "side-by-side") => void
+  onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   setHelpVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setAboutVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
@@ -85,7 +87,7 @@ export interface CommandBuilderContext {
   ) => void
   setImportCurlVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setNewFolderVisible: (v: boolean | ((prev: boolean) => boolean)) => void
-  setProxySettingsVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  openSettingsView: (scope?: SettingsScope, category?: SettingsCategory) => void
   setCloneRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setEditRequestVisible: (v: boolean | ((prev: boolean) => boolean)) => void
   setRequestDeletePending: (
@@ -180,7 +182,7 @@ export function buildCommandPaletteCommands(
     setLayout,
     onLayoutChange,
     setNewFolderVisible,
-    setProxySettingsVisible,
+    openSettingsView,
     setExpanded,
     getKeymapFocus,
     getView,
@@ -512,6 +514,17 @@ export function buildCommandPaletteCommands(
 
   const systemCommands: CommandItem[] = [
     {
+      id: "app.settings-open",
+      label: "Open Settings",
+      section: "System",
+      keybinding: displayKey(keybinds.settings_open),
+      run: () => {
+        if (!openSettings(c, view)) return false
+        openSettingsView()
+        return true
+      },
+    },
+    {
       id: "app.help",
       label: "Keyboard Shortcuts",
       section: "System",
@@ -545,7 +558,8 @@ export function buildCommandPaletteCommands(
       label: "Proxy Settings",
       section: "System",
       run: () => {
-        setProxySettingsVisible(true)
+        if (!openSettings(c, view)) return false
+        openSettingsView("global", "network")
         return true
       },
     },
@@ -644,6 +658,8 @@ export function buildCommandPaletteCommands(
       ...systemCommands,
     ]
   }
+
+  if (view === "settings") return systemCommands
 
   return [
     ...(mode === "collection" ? requestCommands : []),

@@ -4,9 +4,10 @@ import { displayKey } from "./keybind"
 import type { SendState } from "./sendState"
 import type { PaneMode } from "./useEditModeSync"
 import type { CollectionMode } from "../app/main"
+import type { AppView } from "./appState"
 
 export interface KeybindingHintsContext {
-  view: "main" | "env-editor"
+  view: AppView
   focus: Focus
   paneMode: PaneMode
   collectionMode: CollectionMode
@@ -99,6 +100,10 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       ]
     }
     return []
+  }
+
+  if (ctx.view === "settings") {
+    return [{ key: "Esc", word: "close settings" }]
   }
 
   if (ctx.focus === "sidebar") {

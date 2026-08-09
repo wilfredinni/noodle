@@ -47,6 +47,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     focus: "",
     view: "",
     jumpMode: false,
+    settingsOpened: false,
   }
   const request = {
     ebRef: {
@@ -81,6 +82,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     },
     envEditorRef: {
       current: {
+        dirty: false,
         save: () => calls.envSave++,
         browseUp: () => calls.envUp++,
         openEditor: (name: string) => {
@@ -114,6 +116,9 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       },
       setJumpMode: (jumpMode: boolean) => {
         calls.jumpMode = jumpMode
+      },
+      openSettingsView: () => {
+        calls.settingsOpened = true
       },
       setEnvironmentPickerVisible: (visible: boolean) => {
         calls.environmentPicker = visible
@@ -209,6 +214,62 @@ describe("app keymap layers", () => {
     expect(calls.editorOpened).toBe("development")
     expect(calls.view).toBe("env-editor")
     expect(calls.focus).toBe("env-sidebar")
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("opens settings with f4 and blocks a dirty environment editor", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const disposers = register(context)
+
+    host.press("f4")
+    expect(calls.settingsOpened).toBe(true)
+
+    calls.settingsOpened = false
+    context.global.viewRef.current = "env-editor"
+    context.environment.envEditorRef.current.dirty = true
+    host.press("f4")
+    expect(calls.settingsOpened).toBe(false)
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("dispatches a live settings shortcut override instead of the old key", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.keybinds = { ...context.keybinds, settings_open: "f5" }
+    const disposers = register(context)
+
+    host.press("f4")
+    expect(calls.settingsOpened).toBe(false)
+    host.press("f5")
+    expect(calls.settingsOpened).toBe(true)
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("cycles settings focus and suppresses background request commands", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "settings")
+    keymap.setData("app.focus", "settings-sidebar")
+    context.global.viewRef.current = "settings"
+    context.global.focusRef.current = "settings-sidebar"
+    const disposers = register(context)
+
+    host.press("tab")
+    host.press("linefeed")
+    host.press("s", { ctrl: true })
+    host.press("f3")
+
+    expect(calls.focus).toBe("settings-content")
+    expect(calls.send).toBe(0)
+    expect(calls.envSave).toBe(0)
+    expect(calls.editorOpened).toBe("")
+
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

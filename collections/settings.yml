@@ -1,1 +1,3 @@
 environment: development
+proxy:
+  mode: inherit

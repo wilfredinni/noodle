@@ -53,6 +53,13 @@ describe("getKeybindingHints header", () => {
 })
 
 describe("getKeybindingHints footer", () => {
+  it("shows how to close settings", () => {
+    expect(
+      getKeybindingHints(ctx({ view: "settings", focus: "settings-sidebar" }))
+        .footer,
+    ).toEqual([seg("Esc", "close settings")])
+  })
+
   it("uses the active request browse commands", () => {
     expect(
       getKeybindingHints(

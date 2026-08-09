@@ -10,7 +10,7 @@ export function createFolderLayers(
   const isFolder = () =>
     keymap.getData("app.focus") === "folder" &&
     keymap.getData("app.overlay") === "none" &&
-    keymap.getData("app.view") !== "env-editor"
+    keymap.getData("app.view") === "main"
 
   const base: UseBindingsLayer = {
     enabled: () => isFolder() && keymap.getData("app.mode") === "base",

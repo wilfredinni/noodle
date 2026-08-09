@@ -5,6 +5,7 @@ import {
   getEditFolderYamlFile,
   getEditRequestYamlFile,
   openEnvironmentEditor,
+  openSettings,
   openThemePicker,
   togglePaneExpand,
   undoAll,
@@ -24,6 +25,7 @@ export function createGlobalLayers(
         enabled: () => {
           const editState = request.ebRef.current.editState
           if (
+            global.viewRef.current === "main" &&
             editState.mode === "editing" &&
             (editState.cursor.field === "headers" ||
               editState.cursor.field === "params")
@@ -33,7 +35,10 @@ export function createGlobalLayers(
           return keymap.getData("app.overlay") === "none"
         },
         run: () => {
-          if (request.ebRef.current.isEditingJsonBody) {
+          if (
+            global.viewRef.current === "main" &&
+            request.ebRef.current.isEditingJsonBody
+          ) {
             request.ebRef.current.leaveJsonBodyEditor()
           }
           const next = cycleFocus(
@@ -58,8 +63,7 @@ export function createGlobalLayers(
         run: () =>
           global.setLayout((prev: "stacked" | "side-by-side") => {
             const next = prev === "stacked" ? "side-by-side" : "stacked"
-            global.onLayoutChange(next)
-            return next
+            return global.onLayoutChange(next) ? next : prev
           }),
       },
       {
@@ -67,6 +71,7 @@ export function createGlobalLayers(
         enabled: () => {
           const editState = request.ebRef.current.editState
           if (
+            global.viewRef.current === "main" &&
             editState.mode === "editing" &&
             (editState.cursor.field === "headers" ||
               editState.cursor.field === "params")
@@ -76,7 +81,10 @@ export function createGlobalLayers(
           return keymap.getData("app.overlay") === "none"
         },
         run: () => {
-          if (request.ebRef.current.isEditingJsonBody) {
+          if (
+            global.viewRef.current === "main" &&
+            request.ebRef.current.isEditingJsonBody
+          ) {
             request.ebRef.current.leaveJsonBodyEditor()
           }
           const next = cycleFocus(
@@ -103,6 +111,7 @@ export function createGlobalLayers(
       {
         name: "request.edit-yaml",
         enabled: () =>
+          global.viewRef.current === "main" &&
           global.modeRef.current === "collection" &&
           keymap.getData("app.overlay") === "none",
         run: () => {
@@ -137,7 +146,10 @@ export function createGlobalLayers(
         name: "request.expand-toggle",
         enabled: () => {
           const focus = keymap.getData("app.focus")
-          return focus === "request" || focus === "response"
+          return (
+            global.viewRef.current === "main" &&
+            (focus === "request" || focus === "response")
+          )
         },
         run: () => {
           togglePaneExpand(
@@ -149,7 +161,9 @@ export function createGlobalLayers(
       },
       {
         name: "response.copy-body",
-        enabled: () => global.responseStateRef.current.status === "done",
+        enabled: () =>
+          global.viewRef.current === "main" &&
+          global.responseStateRef.current.status === "done",
         run: () => {
           copyResponseBody(actions)
         },
@@ -158,6 +172,7 @@ export function createGlobalLayers(
         name: "response.query",
         enabled: () =>
           keymap.getData("app.overlay") === "none" &&
+          global.viewRef.current === "main" &&
           keymap.getData("app.focus") === "response" &&
           global.responseStateRef.current.status === "done" &&
           (global.responseQueryRef.current?.canOpen() ?? false),
@@ -186,6 +201,7 @@ export function createGlobalLayers(
           const overlay = keymap.getData("app.overlay")
           return (
             global.modeRef.current === "collection" &&
+            global.viewRef.current !== "settings" &&
             (overlay === "none" || overlay === "environment-picker")
           )
         },
@@ -196,6 +212,14 @@ export function createGlobalLayers(
             global.setView("env-editor")
           }
           global.setFocus("env-sidebar")
+        },
+      },
+      {
+        name: "app.settings-open",
+        enabled: () => keymap.getData("app.overlay") === "none",
+        run: () => {
+          if (!openSettings(actions, global.viewRef.current)) return
+          global.openSettingsView()
         },
       },
       {
@@ -216,6 +240,7 @@ export function createGlobalLayers(
       {
         name: "global.undo-all",
         enabled: () =>
+          global.viewRef.current === "main" &&
           global.modeRef.current === "collection" &&
           keymap.getData("app.mode") !== "edit" &&
           keymap.getData("app.overlay") === "none",
@@ -257,6 +282,7 @@ export function createGlobalLayers(
       { key: keybinds.theme_picker, cmd: "app.theme" },
       { key: keybinds.command_palette, cmd: "app.command-palette" },
       { key: keybinds.env_editor, cmd: "env.editor-open" },
+      { key: keybinds.settings_open, cmd: "app.settings-open" },
       { key: keybinds.request_find, cmd: "request.find" },
       { key: keybinds.collection_switcher, cmd: "collection.switcher" },
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
@@ -268,7 +294,7 @@ export function createGlobalLayers(
     enabled: () =>
       keymap.getData("app.focus") === "urlbar" &&
       keymap.getData("app.overlay") === "none" &&
-      keymap.getData("app.view") !== "env-editor",
+      keymap.getData("app.view") === "main",
     commands: [
       {
         name: "urlbar.tab",

@@ -4,6 +4,7 @@ import { useKeymap } from "@opentui/keymap/react"
 
 export function useGlobalIntercepts(opts: {
   activeOverlay: string
+  view: "main" | "env-editor" | "settings"
   cancelSendRef: RefObject<() => void>
   helpVisible: boolean
   setHelpVisible: (v: boolean) => void
@@ -13,6 +14,7 @@ export function useGlobalIntercepts(opts: {
   const keymap = useKeymap()
   const {
     activeOverlay,
+    view,
     cancelSendRef,
     helpVisible,
     setHelpVisible,
@@ -27,6 +29,7 @@ export function useGlobalIntercepts(opts: {
       (ctx) => {
         if (
           activeOverlay === "none" &&
+          view === "main" &&
           ctx.event.name === "escape" &&
           ctx.event.eventType === "press"
         ) {
@@ -36,7 +39,7 @@ export function useGlobalIntercepts(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [activeOverlay, keymap, cancelSendRef])
+  }, [activeOverlay, view, keymap, cancelSendRef])
 
   // ── Overlay: Help ──────────────────────────────────────────────────
   useEffect(() => {

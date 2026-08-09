@@ -43,7 +43,7 @@ function minimalContext(): CommandBuilderContext {
     getView: () => "main",
     getCollectionMode: () => "collection",
     setLayout: () => {},
-    onLayoutChange: () => {},
+    onLayoutChange: () => true,
     setHelpVisible: () => {},
     setAboutVisible: () => {},
     setNewEnvironmentVisible: () => {},
@@ -51,7 +51,7 @@ function minimalContext(): CommandBuilderContext {
     setNewRequestVisible: () => {},
     setImportCurlVisible: () => {},
     setNewFolderVisible: () => {},
-    setProxySettingsVisible: () => {},
+    openSettingsView: () => {},
     setCloneRequestVisible: () => {},
     setEditRequestVisible: () => {},
     setRequestDeletePending: () => {},
@@ -414,6 +414,42 @@ describe("buildCommandPaletteCommands", () => {
     expect(command.keybinding).toBe("e")
     expect(command.run()).toBe(true)
     expect(visible).toBe(true)
+  })
+
+  it("opens Settings and routes Proxy Settings to Global Network", () => {
+    const ctx = minimalContext()
+    const opened: Array<[string | undefined, string | undefined]> = []
+    ctx.openSettingsView = (scope, category) => {
+      opened.push([scope, category])
+    }
+
+    const commands = buildCommandPaletteCommands(ctx)
+    const settings = commands.find((item) => item.id === "app.settings-open")!
+    const proxy = commands.find((item) => item.id === "app.proxy-settings")!
+
+    expect(settings.keybinding).toBe("f4")
+    expect(settings.run()).toBe(true)
+    expect(proxy.run()).toBe(true)
+    expect(opened).toEqual([
+      [undefined, undefined],
+      ["global", "network"],
+    ])
+  })
+
+  it("blocks Settings from a dirty environment editor", () => {
+    const ctx = minimalContext()
+    let opened = false
+    ctx.getView = () => "env-editor"
+    ctx.envEditorRef = { current: { dirty: true } } as never
+    ctx.openSettingsView = () => {
+      opened = true
+    }
+
+    const settings = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "app.settings-open",
+    )!
+    expect(settings.run()).toBe(false)
+    expect(opened).toBe(false)
   })
 
   it("opens client code generation for the current request draft", () => {
