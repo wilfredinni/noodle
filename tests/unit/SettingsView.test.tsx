@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
+import type { InputRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -115,7 +116,7 @@ describe("SettingsView", () => {
       expect(frame).toContain("Appearance")
       expect(frame).toContain("Keyboard")
       expect(frame).toContain("Theme")
-      expect(frame).toContain("Choose how Noodle looks")
+      expect(frame).toContain("Choose how Noodle")
       if (size.width === 110) {
         const lines = frame.split("\n")
         const sectionDescriptionLine = lines.findIndex((line) =>
@@ -227,6 +228,37 @@ describe("SettingsView", () => {
     const first = renderer.root.findDescendantById("settings-collection-0")!
     const second = renderer.root.findDescendantById("settings-collection-1")!
     expect(second.screenY - first.screenY).toBe(1)
+    cleanup()
+  })
+
+  it("focuses the register collection input with the mouse", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, mockMouse, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="collections"
+            initialFocus="settings-content"
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await renderOnce()
+    const register = renderer.root.findDescendantById(
+      "settings-collection-register",
+    )!
+    await act(async () => {
+      await mockMouse.click(
+        register.screenX + 2,
+        register.screenY + 1,
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+    const input = register.getChildren()[1]?.getChildren()[0] as
+      InputRenderable | undefined
+    expect(input?.focused).toBe(true)
     cleanup()
   })
 

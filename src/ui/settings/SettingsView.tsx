@@ -20,7 +20,6 @@ import { THEMES } from "../theme-data"
 import { useTheme } from "../theme"
 import { FullBorder, LeftBar } from "../borders"
 import { Frame } from "../Frame"
-import { Badge } from "../Badge"
 import { Checkbox } from "../Checkbox"
 import { Select } from "../Select"
 import { VarInput, type VarInputHandle } from "../VarInput"
@@ -30,6 +29,7 @@ import {
   moveRegisteredCollection,
   unregisterCollection,
 } from "./collectionRegistry"
+import { SIDEBAR_WIDTH } from "../Sidebar"
 
 export type SettingsScope = "global" | "collection"
 export type GlobalSettingsCategory =
@@ -140,6 +140,21 @@ export function SettingsView({
     kind: "success" | "error"
   } | null>(null)
   const [pathInput, setPathInput] = useState("")
+  const [hoveredCollectionIndex, setHoveredCollectionIndex] = useState<
+    number | null
+  >(null)
+  const [hoveredCategory, setHoveredCategory] =
+    useState<SettingsCategory | null>(null)
+  const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
+  const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
+  const stripeR = Math.round(
+    (((panelNum >> 16) & 0xff) + ((elemNum >> 16) & 0xff)) / 2,
+  )
+  const stripeG = Math.round(
+    (((panelNum >> 8) & 0xff) + ((elemNum >> 8) & 0xff)) / 2,
+  )
+  const stripeB = Math.round(((panelNum & 0xff) + (elemNum & 0xff)) / 2)
+  const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
   const categories =
     scope === "global" ? GLOBAL_CATEGORIES : COLLECTION_CATEGORIES
   const categoryIndex = Math.max(
@@ -162,6 +177,8 @@ export function SettingsView({
     setContentIndex(0)
     setMessage(null)
     setCaptureName(null)
+    setHoveredCollectionIndex(null)
+    setHoveredCategory(null)
     scrollRef.current?.scrollTo(0)
   }, [scope, category])
 
@@ -403,13 +420,11 @@ export function SettingsView({
     selectOpen,
   ])
 
-  const selectedLabel = categories[categoryIndex]?.label ?? "Settings"
-
   return (
     <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
       <Frame
         style={{
-          width: 30,
+          width: SIDEBAR_WIDTH,
           flexDirection: "column",
           flexShrink: 0,
           backgroundColor: theme.backgroundPanel,
@@ -452,27 +467,31 @@ export function SettingsView({
         <box style={{ flexDirection: "column", flexGrow: 1 }}>
           {categories.map((item) => {
             const selected = item.id === category
+            const hovered = hoveredCategory === item.id
             return (
               <box
                 key={item.id}
                 id={`settings-category-${item.id}`}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  paddingLeft: 1,
+                  backgroundColor:
+                    selected || hovered ? theme.backgroundElement : undefined,
+                }}
                 border={[...LeftBar.border]}
                 customBorderChars={LeftBar.customBorderChars}
                 borderColor={selected ? theme.primary : theme.backgroundPanel}
-                style={{
-                  paddingLeft: 1,
-                  backgroundColor: selected
-                    ? theme.backgroundElement
-                    : undefined,
-                }}
                 onMouseDown={(event) => {
                   if (event.button !== MouseButton.LEFT) return
                   onCategoryChange(item.id)
                   onPaneFocus("settings-sidebar")
                   event.stopPropagation()
                 }}
+                onMouseOver={() => setHoveredCategory(item.id)}
+                onMouseOut={() => setHoveredCategory(null)}
               >
-                <text fg={selected ? theme.text : theme.textMuted}>
+                <text fg={theme.text} wrapMode="none" truncate>
                   {item.label}
                 </text>
               </box>
@@ -497,18 +516,6 @@ export function SettingsView({
         customBorderChars={FullBorder.customBorderChars}
         borderColor={
           focus === "settings-content" ? theme.primary : theme.borderSubtle
-        }
-        titleRight={
-          jumpMode ? undefined : (
-            <Badge
-              bg={theme.backgroundPanel}
-              fg={
-                focus === "settings-content" ? theme.primary : theme.textMuted
-              }
-            >
-              {selectedLabel}
-            </Badge>
-          )
         }
         onPaneFocus={() => onPaneFocus("settings-content")}
       >
@@ -633,17 +640,23 @@ export function SettingsView({
                     <box style={{ flexDirection: "column", gap: 0 }}>
                       {collections.map((path, index) => {
                         const selected = contentIndex === index
+                        const hovered = hoveredCollectionIndex === index
                         return (
                           <box
                             key={path}
                             id={`settings-collection-${index}`}
                             style={{
-                              flexDirection: "column",
-                              backgroundColor: selected
-                                ? theme.backgroundElement
-                                : undefined,
+                              flexDirection: "row",
+                              height: 1,
+                              gap: 0,
                               paddingLeft: 1,
                               paddingRight: 1,
+                              backgroundColor:
+                                selected || hovered
+                                  ? theme.backgroundElement
+                                  : index % 2 !== 0
+                                    ? stripeBg
+                                    : undefined,
                             }}
                             onMouseDown={(event) => {
                               if (event.button !== MouseButton.LEFT) return
@@ -651,11 +664,15 @@ export function SettingsView({
                               onPaneFocus("settings-content")
                               event.stopPropagation()
                             }}
+                            onMouseOver={() => setHoveredCollectionIndex(index)}
+                            onMouseOut={() => setHoveredCollectionIndex(null)}
                           >
                             <box
                               style={{
                                 flexDirection: "row",
                                 justifyContent: "space-between",
+                                flexGrow: 1,
+                                minWidth: 0,
                               }}
                             >
                               <text
@@ -683,16 +700,17 @@ export function SettingsView({
                     ref={pathInputRef}
                     value={pathInput}
                     env={null}
-                    isEditing={
-                      focus === "settings-content" &&
-                      contentIndex === collectionRegisterIndex
-                    }
+                    isEditing
                     isFocused={
                       focus === "settings-content" &&
                       contentIndex === collectionRegisterIndex
                     }
                     onChange={setPathInput}
-                    onFocus={() => setContentIndex(collectionRegisterIndex)}
+                    onFocus={() => {
+                      setContentIndex(collectionRegisterIndex)
+                      onPaneFocus("settings-content")
+                      pathInputRef.current?.focus()
+                    }}
                     placeholder="@/Projects/my-api"
                     backgroundColor={theme.backgroundElement}
                     focusedBackgroundColor={theme.borderSubtle}
@@ -801,6 +819,8 @@ function ScopeButton({
       <box style={{ paddingLeft: 1, paddingRight: 1 }}>
         <text
           fg={selected ? theme.primary : hovered ? theme.text : theme.textMuted}
+          wrapMode="none"
+          truncate
         >
           {label}
         </text>
