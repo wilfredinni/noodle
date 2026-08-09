@@ -89,6 +89,8 @@ export function ProxySettingsForm({
   noProxy = false,
   onChange,
   onExit,
+  onFieldFocus,
+  onTextInputFocusChange,
 }: {
   scope: "app" | "collection"
   proxy?: AppProxySettings | CollectionProxySettings
@@ -97,6 +99,8 @@ export function ProxySettingsForm({
   noProxy?: boolean
   onChange: (proxy: AppProxySettings | CollectionProxySettings) => boolean
   onExit?: () => void
+  onFieldFocus?: (field: Field) => void
+  onTextInputFocusChange?: (active: boolean) => void
 }) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -285,13 +289,24 @@ export function ProxySettingsForm({
 
   useEffect(() => {
     if (!focused) return
+    onFieldFocus?.(field)
+    onTextInputFocusChange?.(
+      [
+        "hostname",
+        "port",
+        "username",
+        "password",
+        "proxy-url",
+        "bypass",
+      ].includes(field),
+    )
     if (field === "hostname") hostnameRef.current?.focus()
     else if (field === "port") portRef.current?.focus()
     else if (field === "username") usernameRef.current?.focus()
     else if (field === "password") passwordRef.current?.focus()
     else if (field === "proxy-url") urlRef.current?.focus()
     else if (field === "bypass") bypassRef.current?.focus()
-  }, [field, focused])
+  }, [field, focused, onFieldFocus, onTextInputFocusChange])
 
   const modeItems: SelectItem[] =
     scope === "app"
@@ -315,6 +330,7 @@ export function ProxySettingsForm({
         </text>
       )}
       <SelectField
+        id="settings-proxy-mode"
         label="Mode"
         items={modeItems}
         value={values.mode}
@@ -327,6 +343,7 @@ export function ProxySettingsForm({
       {values.mode === "custom" && (
         <>
           <SelectField
+            id="settings-proxy-editor"
             label="Editor"
             items={[
               { id: "fields", label: "Fields" },
@@ -342,6 +359,7 @@ export function ProxySettingsForm({
           {values.editor === "fields" ? (
             <>
               <SelectField
+                id="settings-proxy-protocol"
                 label="Protocol"
                 items={[
                   { id: "http", label: "HTTP" },
@@ -357,6 +375,7 @@ export function ProxySettingsForm({
                 }
               />
               <TextField
+                id="settings-proxy-hostname"
                 label="Hostname"
                 inputRef={hostnameRef}
                 value={values.fields.hostname}
@@ -366,6 +385,7 @@ export function ProxySettingsForm({
                 onChange={(hostname) => updateFields({ hostname })}
               />
               <TextField
+                id="settings-proxy-port"
                 label="Port"
                 inputRef={portRef}
                 value={values.fields.port}
@@ -377,6 +397,7 @@ export function ProxySettingsForm({
             </>
           ) : (
             <VariableField
+              id="settings-proxy-proxy-url"
               label="Proxy URL"
               inputRef={urlRef}
               value={values.url}
@@ -388,6 +409,7 @@ export function ProxySettingsForm({
             />
           )}
           <TextField
+            id="settings-proxy-bypass"
             label="Bypass hosts"
             inputRef={bypassRef}
             value={values.bypass}
@@ -398,6 +420,7 @@ export function ProxySettingsForm({
             hint="Comma-separated. Supports *, hosts, .domains, IPs, and ports."
           />
           <box
+            id="settings-proxy-auth"
             onMouseDown={(event) => {
               if (event.button !== MouseButton.LEFT) return
               setField("auth")
@@ -417,6 +440,7 @@ export function ProxySettingsForm({
           {values.fields.auth && (
             <>
               <VariableField
+                id="settings-proxy-username"
                 label="Username variable"
                 inputRef={usernameRef}
                 value={values.fields.username}
@@ -427,6 +451,7 @@ export function ProxySettingsForm({
                 onChange={(username) => updateFields({ username })}
               />
               <VariableField
+                id="settings-proxy-password"
                 label="Password variable"
                 inputRef={passwordRef}
                 value={values.fields.password}
@@ -446,6 +471,7 @@ export function ProxySettingsForm({
 }
 
 function SelectField({
+  id,
   label,
   items,
   value,
@@ -455,6 +481,7 @@ function SelectField({
   onActivate,
   onChange,
 }: {
+  id: string
   label: string
   items: SelectItem[]
   value: string
@@ -467,6 +494,7 @@ function SelectField({
   const theme = useTheme()
   return (
     <box
+      id={id}
       style={{
         flexDirection: "column",
         width: "100%",
@@ -488,6 +516,7 @@ function SelectField({
 }
 
 function TextField({
+  id,
   label,
   value,
   placeholder,
@@ -497,6 +526,7 @@ function TextField({
   hint,
   inputRef,
 }: {
+  id: string
   label: string
   value: string
   placeholder: string
@@ -508,7 +538,7 @@ function TextField({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", width: "100%" }}>
+    <box id={id} style={{ flexDirection: "column", width: "100%" }}>
       <text fg={theme.text}>{label}</text>
       <box style={{ width: "100%", height: 1, overflow: "hidden" }}>
         <input
@@ -534,6 +564,7 @@ function TextField({
 }
 
 function VariableField({
+  id,
   label,
   value,
   placeholder,
@@ -543,6 +574,7 @@ function VariableField({
   onChange,
   inputRef,
 }: {
+  id: string
   label: string
   value: string
   placeholder: string
@@ -554,7 +586,7 @@ function VariableField({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", width: "100%" }}>
+    <box id={id} style={{ flexDirection: "column", width: "100%" }}>
       <text fg={theme.text}>{label}</text>
       <box style={{ width: "100%", height: 1, overflow: "hidden" }}>
         <VarInput

@@ -17,6 +17,25 @@ export function createGlobalLayers(
 ): [UseBindingsLayer, UseBindingsLayer] {
   const { keymap, keybinds, global, request, folder, environment, actions } =
     context
+  const isTextInputActive = () => {
+    const focus = keymap.getData("app.focus")
+    return (
+      keymap.getData("app.mode") === "edit" ||
+      keymap.getData("app.text-input") === true ||
+      (focus === "urlbar" && global.urlbarSubFocusRef.current === "text") ||
+      (focus === "env-header" && global.headerFieldRef.current === "name") ||
+      global.responseQueryRef.current?.isOpen() === true
+    )
+  }
+  const shortcutEnabled = (binding: string, enabled = true) => {
+    if (!enabled || !isTextInputActive()) return enabled
+    const key = binding.startsWith("shift+") ? binding.slice(6) : binding
+    return !(
+      !binding.startsWith("ctrl+") &&
+      !binding.startsWith("alt+") &&
+      (key.length === 1 || key === "space")
+    )
+  }
 
   const alwaysOn: UseBindingsLayer = {
     commands: [
@@ -60,6 +79,7 @@ export function createGlobalLayers(
       },
       {
         name: "layout.toggle",
+        enabled: () => shortcutEnabled(keybinds.layout_toggle),
         run: () =>
           global.setLayout((prev: "stacked" | "side-by-side") => {
             const next = prev === "stacked" ? "side-by-side" : "stacked"
@@ -106,14 +126,18 @@ export function createGlobalLayers(
       },
       {
         name: "app.help",
+        enabled: () => shortcutEnabled(keybinds.help_toggle),
         run: () => global.setHelpVisible((prev: boolean) => !prev),
       },
       {
         name: "request.edit-yaml",
         enabled: () =>
-          global.viewRef.current === "main" &&
-          global.modeRef.current === "collection" &&
-          keymap.getData("app.overlay") === "none",
+          shortcutEnabled(
+            keybinds.request_edit_yaml,
+            global.viewRef.current === "main" &&
+              global.modeRef.current === "collection" &&
+              keymap.getData("app.overlay") === "none",
+          ),
         run: () => {
           if (folder.focusedFolderPathRef.current) {
             const file = getEditFolderYamlFile(actions)
@@ -146,9 +170,10 @@ export function createGlobalLayers(
         name: "request.expand-toggle",
         enabled: () => {
           const focus = keymap.getData("app.focus")
-          return (
+          return shortcutEnabled(
+            keybinds.pane_expand,
             global.viewRef.current === "main" &&
-            (focus === "request" || focus === "response")
+              (focus === "request" || focus === "response"),
           )
         },
         run: () => {
@@ -162,8 +187,11 @@ export function createGlobalLayers(
       {
         name: "response.copy-body",
         enabled: () =>
-          global.viewRef.current === "main" &&
-          global.responseStateRef.current.status === "done",
+          shortcutEnabled(
+            keybinds.response_copy_body,
+            global.viewRef.current === "main" &&
+              global.responseStateRef.current.status === "done",
+          ),
         run: () => {
           copyResponseBody(actions)
         },
@@ -171,17 +199,21 @@ export function createGlobalLayers(
       {
         name: "response.query",
         enabled: () =>
-          keymap.getData("app.overlay") === "none" &&
-          global.viewRef.current === "main" &&
-          keymap.getData("app.focus") === "response" &&
-          global.responseStateRef.current.status === "done" &&
-          (global.responseQueryRef.current?.canOpen() ?? false),
+          shortcutEnabled(
+            keybinds.response_query,
+            keymap.getData("app.overlay") === "none" &&
+              global.viewRef.current === "main" &&
+              keymap.getData("app.focus") === "response" &&
+              global.responseStateRef.current.status === "done" &&
+              (global.responseQueryRef.current?.canOpen() ?? false),
+          ),
         run: () => {
           global.responseQueryRef.current?.open()
         },
       },
       {
         name: "app.theme",
+        enabled: () => shortcutEnabled(keybinds.theme_picker),
         run: () => {
           global.setPreviewIndex(global.activeIndexRef.current)
           openThemePicker()
@@ -191,7 +223,10 @@ export function createGlobalLayers(
         name: "app.command-palette",
         enabled: () => {
           const overlay = keymap.getData("app.overlay")
-          return overlay === "none" || overlay === "command-palette"
+          return shortcutEnabled(
+            keybinds.command_palette,
+            overlay === "none" || overlay === "command-palette",
+          )
         },
         run: () => global.setCommandPaletteVisible((prev: boolean) => !prev),
       },
@@ -199,10 +234,11 @@ export function createGlobalLayers(
         name: "env.editor-open",
         enabled: () => {
           const overlay = keymap.getData("app.overlay")
-          return (
+          return shortcutEnabled(
+            keybinds.env_editor,
             global.modeRef.current === "collection" &&
-            global.viewRef.current !== "settings" &&
-            (overlay === "none" || overlay === "environment-picker")
+              global.viewRef.current !== "settings" &&
+              (overlay === "none" || overlay === "environment-picker"),
           )
         },
         run: () => {
@@ -216,7 +252,11 @@ export function createGlobalLayers(
       },
       {
         name: "app.settings-open",
-        enabled: () => keymap.getData("app.overlay") === "none",
+        enabled: () =>
+          shortcutEnabled(
+            keybinds.settings_open,
+            keymap.getData("app.overlay") === "none",
+          ),
         run: () => {
           if (!openSettings(actions, global.viewRef.current)) return
           global.openSettingsView()
@@ -225,25 +265,34 @@ export function createGlobalLayers(
       {
         name: "request.find",
         enabled: () =>
-          keymap.getData("app.overlay") === "none" &&
-          keymap.getData("app.mode") !== "edit" &&
-          global.viewRef.current === "main",
+          shortcutEnabled(
+            keybinds.request_find,
+            keymap.getData("app.overlay") === "none" &&
+              keymap.getData("app.mode") !== "edit" &&
+              global.viewRef.current === "main",
+          ),
         run: () => global.setRequestFinderVisible(true),
       },
       {
         name: "collection.switcher",
         enabled: () =>
-          keymap.getData("app.overlay") === "none" &&
-          keymap.getData("app.view") !== "env-editor",
+          shortcutEnabled(
+            keybinds.collection_switcher,
+            keymap.getData("app.overlay") === "none" &&
+              keymap.getData("app.view") !== "env-editor",
+          ),
         run: () => global.setCollectionSwitcherVisible(true),
       },
       {
         name: "global.undo-all",
         enabled: () =>
-          global.viewRef.current === "main" &&
-          global.modeRef.current === "collection" &&
-          keymap.getData("app.mode") !== "edit" &&
-          keymap.getData("app.overlay") === "none",
+          shortcutEnabled(
+            keybinds.global_undo_all,
+            global.viewRef.current === "main" &&
+              global.modeRef.current === "collection" &&
+              keymap.getData("app.mode") !== "edit" &&
+              keymap.getData("app.overlay") === "none",
+          ),
         run: () => {
           if (undoAll(actions) && context.confirmUndoAll) {
             global.setUndoAllPending(true)
@@ -252,21 +301,12 @@ export function createGlobalLayers(
       },
       {
         name: "jump.enter",
-        enabled: () => {
-          const focus = keymap.getData("app.focus")
-          const editingUrlText =
-            focus === "urlbar" && global.urlbarSubFocusRef.current === "text"
-          const editingEnvName =
-            focus === "env-header" && global.headerFieldRef.current === "name"
-          return (
+        enabled: () =>
+          shortcutEnabled(
+            keybinds.jump_mode,
             keymap.getData("app.overlay") === "none" &&
-            keymap.getData("app.mode") !== "edit" &&
-            keymap.getData("app.jump") !== "active" &&
-            !editingUrlText &&
-            !editingEnvName &&
-            !global.responseQueryRef.current?.isOpen()
-          )
-        },
+              keymap.getData("app.jump") !== "active",
+          ),
         run: () => global.setJumpMode(true),
       },
     ],

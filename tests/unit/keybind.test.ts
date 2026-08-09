@@ -112,6 +112,8 @@ describe("shortcut editing", () => {
       "ctrl+shift+k",
     )
     expect(keyEventToBinding(event("x", { option: true }))).toBe("alt+x")
+    expect(keyEventToBinding(event("x", { meta: true }))).toBe("alt+x")
+    expect(keyEventToBinding(event("x", { super: true }))).toBeNull()
     expect(keyEventToBinding(event("c", { ctrl: true }))).toBeNull()
     expect(keyEventToBinding(event("g", { ctrl: true }))).toBeNull()
     expect(keyEventToBinding(event("f5"))).toBeNull()

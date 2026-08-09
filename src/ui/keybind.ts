@@ -334,7 +334,7 @@ export function keyEventToBinding(
     "name" | "ctrl" | "shift" | "option" | "meta" | "super" | "hyper"
   >,
 ): string | null {
-  if (event.meta || event.super || event.hyper) return null
+  if (event.super || event.hyper) return null
   const name = event.name === "linefeed" ? "return" : event.name.toLowerCase()
   if (
     ["ctrl", "shift", "alt", "option", "meta", "super", "hyper"].includes(name)
@@ -363,7 +363,7 @@ export function keyEventToBinding(
   if (!supportedName) return null
   const modifiers = [
     event.ctrl ? "ctrl" : null,
-    event.option ? "alt" : null,
+    event.option || event.meta ? "alt" : null,
     event.shift ? "shift" : null,
   ].filter((value): value is string => value !== null)
   const binding = [...modifiers, name].join("+")

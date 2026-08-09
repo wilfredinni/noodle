@@ -13,6 +13,7 @@ import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
 import type { Focus } from "../../src/ui/focus"
+import type { AppProxySettings } from "../../src/schema"
 import {
   SettingsView,
   type SettingsCategory,
@@ -45,6 +46,7 @@ function Harness({
   onCategoryVisited = () => {},
   onCollectionsChange = () => true,
   onCollectionUnregister = () => {},
+  appProxy = { mode: "system" },
 }: {
   collectionAvailable?: boolean
   onClose?: () => void
@@ -53,6 +55,7 @@ function Harness({
   onCategoryVisited?: (category: SettingsCategory) => void
   onCollectionsChange?: (collections: string[]) => boolean
   onCollectionUnregister?: (path: string) => void
+  appProxy?: AppProxySettings
 }) {
   const [scope, setScope] = useState<SettingsScope>("global")
   const [category, setCategory] = useState<SettingsCategory>(initialCategory)
@@ -66,7 +69,7 @@ function Harness({
       activeThemeIndex={0}
       layout="stacked"
       confirmUndoAll
-      appProxy={{ mode: "system" }}
+      appProxy={appProxy}
       collectionProxy={{ mode: "inherit" }}
       noProxy={false}
       activeEnv={{ name: "development", vars: {} }}
@@ -392,6 +395,55 @@ describe("SettingsView", () => {
     )!
     expect(create.screenY - find.screenY).toBe(1)
     expect(environment.screenY - create.screenY).toBeGreaterThan(1)
+    cleanup()
+  })
+
+  it("keeps the focused proxy field visible in a compact terminal", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="network"
+            initialFocus="settings-content"
+            appProxy={{
+              mode: "custom",
+              url: "http://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8080",
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 72, height: 12 },
+    )
+    await renderOnce()
+
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("tab"))
+      await renderOnce()
+    }
+
+    expect(captureCharFrame()).toContain("Password variable")
+    expect(keymap.getData("app.text-input")).toBe(true)
+    cleanup()
+  })
+
+  it("shows shortcut capture errors beside the selected binding", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness initialCategory="keyboard" initialFocus="settings-content" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 72, height: 12 },
+    )
+    await renderOnce()
+
+    await act(async () => host.press("return"))
+    await act(async () => host.press("f5"))
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("That key cannot be assigned")
     cleanup()
   })
 })

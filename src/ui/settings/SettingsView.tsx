@@ -1,6 +1,13 @@
 import { MouseButton, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import type {
   AppProxySettings,
   CollectionProxySettings,
@@ -139,6 +146,7 @@ export function SettingsView({
     kind: "success" | "error"
   } | null>(null)
   const [pathInput, setPathInput] = useState("")
+  const [proxyTextInput, setProxyTextInput] = useState(false)
   const [hoveredCollectionIndex, setHoveredCollectionIndex] = useState<
     number | null
   >(null)
@@ -171,6 +179,26 @@ export function SettingsView({
       ),
     [],
   )
+  const revealProxyField = useCallback((field: string) => {
+    scrollRef.current?.scrollChildIntoView(`settings-proxy-${field}`)
+  }, [])
+
+  useEffect(() => {
+    const textInputActive =
+      focus === "settings-content" &&
+      ((category === "collections" &&
+        contentIndex === collectionRegisterIndex) ||
+        (category === "network" && proxyTextInput))
+    keymap.setData("app.text-input", textInputActive)
+    return () => keymap.setData("app.text-input", false)
+  }, [
+    category,
+    collectionRegisterIndex,
+    contentIndex,
+    focus,
+    keymap,
+    proxyTextInput,
+  ])
 
   useEffect(() => {
     setContentIndex(0)
@@ -203,7 +231,7 @@ export function SettingsView({
           : "settings-collection-register",
       )
     }
-  }, [category, contentIndex, collections, focus, keybindNames])
+  }, [category, contentIndex, collections, focus, keybindNames, message])
 
   useEffect(() => {
     if (!captureName) return
@@ -608,6 +636,8 @@ export function SettingsView({
                   focused={focus === "settings-content"}
                   noProxy={noProxy}
                   onExit={() => onPaneFocus("settings-sidebar")}
+                  onFieldFocus={revealProxyField}
+                  onTextInputFocusChange={setProxyTextInput}
                   onChange={(proxy) =>
                     scope === "global"
                       ? onAppProxyChange(proxy as AppProxySettings)
@@ -726,6 +756,7 @@ export function SettingsView({
                   names={keybindNames}
                   selectedIndex={contentIndex}
                   captureName={captureName}
+                  message={message}
                   keybinds={keybinds}
                   onSelect={(index) => {
                     setContentIndex(index)
@@ -763,7 +794,7 @@ export function SettingsView({
                 </SettingLabel>
               </>
             )}
-            {message && (
+            {message && category !== "keyboard" && (
               <text
                 fg={message.kind === "success" ? theme.success : theme.error}
               >
@@ -869,12 +900,14 @@ function KeyboardRows({
   names,
   selectedIndex,
   captureName,
+  message,
   keybinds,
   onSelect,
 }: {
   names: KeybindName[]
   selectedIndex: number
   captureName: KeybindName | null
+  message: { text: string; kind: "success" | "error" } | null
   keybinds: Keybinds
   onSelect: (index: number) => void
 }) {
@@ -934,6 +967,15 @@ function KeyboardRows({
                   : `${displayKey(keybinds[name])}${keybinds[name] === definition.default ? "" : " · custom"}`}
               </text>
             </box>
+            {selected && message && (
+              <text
+                id="settings-key-message"
+                fg={message.kind === "success" ? theme.success : theme.error}
+                wrapMode="word"
+              >
+                {message.text}
+              </text>
+            )}
           </box>
         )
       })}

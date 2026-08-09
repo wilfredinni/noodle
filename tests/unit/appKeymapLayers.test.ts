@@ -251,6 +251,37 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("does not dispatch printable global shortcuts while typing", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.keybinds = { ...context.keybinds, settings_open: "x" }
+    keymap.setData("app.mode", "edit")
+    const disposers = register(context)
+
+    host.press("x")
+
+    expect(calls.settingsOpened).toBe(false)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("does not enter jump mode while typing in settings", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "settings")
+    keymap.setData("app.focus", "settings-content")
+    keymap.setData("app.text-input", true)
+    context.global.viewRef.current = "settings"
+    context.global.focusRef.current = "settings-content"
+    const disposers = register(context)
+
+    host.press("g")
+
+    expect(calls.jumpMode).toBe(false)
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("cycles settings focus and suppresses background request commands", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
