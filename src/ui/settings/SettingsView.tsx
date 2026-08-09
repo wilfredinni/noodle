@@ -150,7 +150,8 @@ export function SettingsView({
     () =>
       KEYBIND_CATEGORIES.flatMap((group) =>
         (Object.keys(Definitions) as KeybindName[]).filter(
-          (name) => Definitions[name].category === group,
+          (name) =>
+            Definitions[name].category === group && !Definitions[name].fixed,
         ),
       ),
     [],
@@ -279,23 +280,16 @@ export function SettingsView({
             event.stopPropagation()
             const name = keybindNames[contentIndex]
             if (!name) return
-            if (Definitions[name].fixed) {
-              setMessage({
-                text: "This navigation shortcut is fixed",
-                kind: "error",
-              })
-            } else {
-              setCaptureName(name)
-              setMessage({
-                text: "Press a shortcut · Esc cancels",
-                kind: "success",
-              })
-            }
+            setCaptureName(name)
+            setMessage({
+              text: "Press a shortcut · Esc cancels",
+              kind: "success",
+            })
           } else if (event.name === "r") {
             event.preventDefault()
             event.stopPropagation()
             const name = keybindNames[contentIndex]
-            if (name && !Definitions[name].fixed) {
+            if (name) {
               if (onKeybindChange(name, Definitions[name].default)) {
                 setMessage({ text: "Shortcut reset", kind: "success" })
               }
@@ -759,7 +753,7 @@ function SettingLabel({
 }) {
   const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box style={{ flexDirection: "column", gap: 0 }}>
       <text fg={theme.text} attributes={TextAttributes.BOLD}>
         {title}
       </text>
@@ -786,7 +780,7 @@ function KeyboardRows({
   const theme = useTheme()
   let previousCategory: KeybindCategory | null = null
   return (
-    <>
+    <box style={{ flexDirection: "column" }}>
       {names.map((name, index) => {
         const definition = Definitions[name]
         const showCategory = definition.category !== previousCategory
@@ -797,7 +791,10 @@ function KeyboardRows({
           <box
             key={name}
             id={`settings-key-${name}`}
-            style={{ flexDirection: "column" }}
+            style={{
+              flexDirection: "column",
+              marginTop: showCategory && index > 0 ? 1 : 0,
+            }}
           >
             {showCategory && (
               <text fg={theme.primary} attributes={TextAttributes.BOLD}>
@@ -830,18 +827,15 @@ function KeyboardRows({
                   </text>
                 )}
               </box>
-              <text fg={definition.fixed ? theme.textMuted : theme.primary}>
+              <text fg={theme.primary}>
                 {captureName === name
                   ? "press keys…"
-                  : `${displayKey(keybinds[name])}${definition.fixed ? " · fixed" : keybinds[name] === definition.default ? "" : " · custom"}`}
+                  : `${displayKey(keybinds[name])}${keybinds[name] === definition.default ? "" : " · custom"}`}
               </text>
             </box>
           </box>
         )
       })}
-      <text fg={theme.textMuted}>
-        Enter rebinds · R resets · Esc closes settings
-      </text>
-    </>
+    </box>
   )
 }

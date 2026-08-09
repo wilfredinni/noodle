@@ -212,9 +212,9 @@ describe("SettingsView", () => {
     cleanup()
   })
 
-  it("shows grouped keyboard bindings and locks fixed rows", async () => {
+  it("shows grouped configurable keyboard bindings", async () => {
     const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
+    const { renderOnce, captureCharFrame, renderer } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <Harness initialCategory="keyboard" />
@@ -227,8 +227,16 @@ describe("SettingsView", () => {
     expect(frame).toContain("Navigation")
     expect(frame).toContain("Request")
     expect(frame).toContain("System")
-    expect(frame).toContain("fixed")
+    expect(frame).not.toContain("fixed")
     expect(frame).toContain("Open settings")
+    expect(frame).not.toContain("Enter rebinds")
+    const find = renderer.root.findDescendantById("settings-key-request_find")!
+    const create = renderer.root.findDescendantById("settings-key-request_new")!
+    const environment = renderer.root.findDescendantById(
+      "settings-key-env_cycle",
+    )!
+    expect(create.screenY - find.screenY).toBe(1)
+    expect(environment.screenY - create.screenY).toBeGreaterThan(1)
     cleanup()
   })
 })
