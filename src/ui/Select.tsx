@@ -32,6 +32,7 @@ export interface SelectProps {
   maxDropdownHeight?: number
   dropdownAlign?: "left" | "right"
   badge?: boolean
+  fitContent?: boolean
   onOpenChange?: (open: boolean) => void
   onActivate?: () => void
   interactive?: boolean
@@ -49,6 +50,7 @@ export function Select({
   maxDropdownHeight = 16,
   dropdownAlign = "left",
   badge = false,
+  fitContent = false,
   onOpenChange,
   onActivate,
   interactive = true,
@@ -227,7 +229,11 @@ export function Select({
     : placeholder
 
   const triggerWidth =
-    width !== undefined ? width : badge ? selectedText.length + 4 : "100%"
+    width !== undefined
+      ? width
+      : fitContent || badge
+        ? selectedText.length + 4
+        : "100%"
 
   return (
     <box

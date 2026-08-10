@@ -155,8 +155,8 @@ export function SettingsSection({
                   </box>
                 </box>
               ) : idx === 3 ? (
-                <box style={{ flexDirection: "column" }}>
-                  <text fg={theme.text}>{row.label}</text>
+                <box style={{ flexDirection: "row", alignItems: "center" }}>
+                  <text fg={theme.text}>{row.label}: </text>
                   <Select
                     items={[
                       {
@@ -167,6 +167,7 @@ export function SettingsSection({
                       { id: "insecure", label: "Do not verify" },
                     ]}
                     value={String(row.value)}
+                    fitContent
                     focused={isActive}
                     interactive={
                       interactive &&

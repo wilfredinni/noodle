@@ -49,6 +49,27 @@ describe("Select", () => {
     cleanup()
   })
 
+  it("fits the trigger to its content when requested", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ flexDirection: "row", width: 30 }}>
+            <Select items={testItems} value="post" fitContent />
+            <text>AFTER</text>
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 30, height: 5 },
+    )
+    await renderOnce()
+
+    const line = captureCharFrame().split("\n")[0]!
+    expect(line.indexOf("AFTER")).toBeGreaterThan(line.indexOf("POST"))
+    expect(line.indexOf("AFTER")).toBeLessThan(20)
+    cleanup()
+  })
+
   it("opens dropdown on Enter when focused", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let open = false

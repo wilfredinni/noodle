@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
+import type { BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
 import { RequestPane } from "../../src/ui/RequestPane"
@@ -63,34 +64,35 @@ describe("RequestPane blank click commit", () => {
     const toggled: Array<[FieldKind, number]> = []
     const changed: Array<boolean | undefined> = []
     try {
-      const { renderOnce, captureCharFrame, mockMouse } = await testRender(
-        <KeymapProvider keymap={keymap}>
-          <ThemeProvider activeIndex={0} previewIndex={null}>
-            <RequestPane
-              request={request}
-              editState={{
-                mode: "browsing",
-                cursor: {
-                  field: "settings",
-                  row: 3,
-                  addingRow: false,
-                },
-                editingRow: -1,
-              }}
-              editKey=""
-              editValue=""
-              setEditKey={() => {}}
-              setEditValue={() => {}}
-              focused
-              activeTab="settings"
-              onFieldActivate={(field, row) => activated.push([field, row])}
-              onFieldToggle={(field, row) => toggled.push([field, row])}
-              onTlsVerifyChange={(verify) => changed.push(verify)}
-            />
-          </ThemeProvider>
-        </KeymapProvider>,
-        { width: 80, height: 24 },
-      )
+      const { renderOnce, captureCharFrame, mockMouse, renderer } =
+        await testRender(
+          <KeymapProvider keymap={keymap}>
+            <ThemeProvider activeIndex={0} previewIndex={null}>
+              <RequestPane
+                request={request}
+                editState={{
+                  mode: "browsing",
+                  cursor: {
+                    field: "settings",
+                    row: 3,
+                    addingRow: false,
+                  },
+                  editingRow: -1,
+                }}
+                editKey=""
+                editValue=""
+                setEditKey={() => {}}
+                setEditValue={() => {}}
+                focused
+                activeTab="settings"
+                onFieldActivate={(field, row) => activated.push([field, row])}
+                onFieldToggle={(field, row) => toggled.push([field, row])}
+                onTlsVerifyChange={(verify) => changed.push(verify)}
+              />
+            </ThemeProvider>
+          </KeymapProvider>,
+          { width: 80, height: 24 },
+        )
 
       await act(async () => {
         await renderOnce()
@@ -103,7 +105,20 @@ describe("RequestPane blank click commit", () => {
       const selectRow = lines.findIndex((line) =>
         line.includes("Inherit (verify)"),
       )
-      expect(selectRow).toBe(labelRow + 1)
+      expect(selectRow).toBe(labelRow)
+      expect(lines[labelRow]!.indexOf("TLS Verification")).toBeLessThan(
+        lines[labelRow]!.indexOf("Inherit (verify)"),
+      )
+      expect(lines[labelRow + 1]).toContain(
+        "Verify the server certificate, or inherit the collection setting",
+      )
+
+      const settingsRow = renderer.root.findDescendantById("settings-3") as
+        BoxRenderable | undefined
+      const contentRow = settingsRow?.getChildren()[0]
+      const select = contentRow?.getChildren()[1]
+      expect(settingsRow?.backgroundColor.a).toBeGreaterThan(0)
+      expect(settingsRow?.width).toBeGreaterThan(select?.width ?? 0)
 
       await act(async () => {
         await mockMouse.click(
