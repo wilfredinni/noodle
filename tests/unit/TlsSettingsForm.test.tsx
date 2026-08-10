@@ -333,6 +333,7 @@ describe("TlsSettingsForm", () => {
           host: "api.example.com",
           certFile: "client.pem",
           keyFile: "key.pem",
+          passphrase: "$OLD",
         },
       ],
     }
@@ -370,12 +371,16 @@ describe("TlsSettingsForm", () => {
     for (let index = 0; index < 8; index++) {
       await act(async () => host.press("down"))
     }
+    for (let index = 0; index < 4; index++) {
+      await act(async () => mockInput.pressBackspace())
+    }
     await act(async () => mockInput.typeText("$NEW"))
     await renderOnce()
     expect(captureCharFrame()).toContain("$NEW")
 
     await act(async () => rollback())
     await renderOnce()
+    expect(captureCharFrame()).toContain("$OLD")
     expect(captureCharFrame()).not.toContain("$NEW")
     cleanup()
   })

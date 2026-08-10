@@ -382,6 +382,12 @@ describe("proxy validation", () => {
     ).toBe("http://alice:secret@proxy.test:8080")
   })
 
+  it("treats dollar signs embedded in literal credentials as literals", () => {
+    expect(resolveProxyUrl("http://alice:pa$word@proxy.test")).toBe(
+      "http://alice:pa%24word@proxy.test",
+    )
+  })
+
   it("validates and resolves a variable proxy port", () => {
     const template = "http://proxy.test:$PROXY_PORT"
     expect(validateProxyTemplate(template)).toBeNull()

@@ -270,7 +270,8 @@ export function resolveProxyUrl(
   template: string,
   variables?: Record<string, string | undefined>,
 ): string {
-  const url = template.replace(VAR_RE, (_, name: string) => {
+  const normalized = encodeLiteralProxyCredentialDollars(template)
+  const url = normalized.replace(VAR_RE, (_, name: string) => {
     const value = variables?.[name]
     if (!variables || !Object.hasOwn(variables, name) || value === undefined) {
       throw new Error(`proxy: unresolved variable "${name}" in proxy.url`)
@@ -287,6 +288,24 @@ export function resolveProxyUrl(
     throw new Error("proxy: URL must use http or https")
   }
   return url
+}
+
+function encodeLiteralProxyCredentialDollars(template: string): string {
+  const match = template.match(/^([a-z][a-z\d+.-]*:\/\/)([^/?#]*)(.*)$/i)
+  if (!match) return template
+  const [, scheme, authority, suffix] = match
+  const at = authority!.lastIndexOf("@")
+  if (at === -1) return template
+
+  const userInfo = authority!.slice(0, at)
+  const colon = userInfo.indexOf(":")
+  const encode = (value: string) =>
+    isVariableReference(value) ? value : value.replaceAll("$", "%24")
+  const credentials =
+    colon === -1
+      ? encode(userInfo)
+      : `${encode(userInfo.slice(0, colon))}:${encode(userInfo.slice(colon + 1))}`
+  return `${scheme}${credentials}${authority!.slice(at)}${suffix}`
 }
 
 export function validateProxyTemplate(template: string): string | null {
