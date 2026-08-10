@@ -118,11 +118,14 @@ it reads a file or creates an export.
 
 Open **Settings** with `F4` or from the `Ctrl+P` command palette to use the
 system `HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or
-override the current collection in `settings.yml`. Custom proxy credentials can use
-active-environment variables, for example
-`http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080`; literal credentials
-are rejected. Bypass entries are comma-separated and support `*`, hosts,
-`.domain` suffixes, IP addresses, and optional ports.
+override the current collection in `settings.yml`. Custom proxy credentials can
+be entered directly or use `$VARNAME` references, for example
+`http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080`. Variables for both app
+and collection proxies come from the active Noodle environment. Direct app
+credentials are stored in the app config, while direct collection credentials
+are stored in `settings.yml`; review either file before sharing it. Bypass
+entries are optional, comma-separated, and support `*`, hosts, `.domain`
+suffixes, IP addresses, and optional ports.
 
 Use `--noproxy` with the TUI, `collection run`, or `request run` to force
 direct connections for that invocation.
@@ -131,8 +134,9 @@ Collection TLS settings support certificate verification, a custom PEM CA
 bundle, and PEM client certificates for mutual TLS. Client certificates match
 the interpolated request host and port exactly; relative paths resolve from the
 collection root, and encrypted private-key passphrases can use an active
-environment variable. A custom CA bundle replaces the default trusted roots,
-so include every root the collection needs.
+environment variable. Passphrases must be stored as one exact `$VARNAME`
+reference; literals and interpolated strings are rejected. A custom CA bundle
+replaces the default trusted roots, so include every root the collection needs.
 
 ```yaml
 tls:
@@ -151,6 +155,12 @@ the collection. Use `--insecure` with the TUI, `collection run`, or `request
 run` for a one-invocation override. PFX/PKCS#12 is not supported by Noodle;
 convert it to a PEM certificate chain and private key first.
 
+Redirects are followed only to HTTP or HTTPS URLs. Noodle refuses HTTPS-to-HTTP
+downgrades and removes authorization, proxy authorization, cookies, `Host`, and
+API-key authentication headers before following a cross-origin redirect.
+Those headers remain removed for the rest of that redirect chain; same-origin
+redirects preserve them.
+
 Collection metadata and response-history retention also live in
 `settings.yml`. `timeline_max_entries` defaults to 50 per request; lowering it
 prunes older entries, and `0` disables timeline recording.
@@ -162,6 +172,11 @@ description: |-
 timeline_max_entries: 50
 environment: development
 ```
+
+`settings.yml` is validated strictly whenever a collection is opened, audited,
+or run. Unknown keys, invalid field types, malformed proxy/TLS blocks, and YAML
+errors stop the operation instead of silently falling back to defaults. A
+missing or empty file still uses defaults.
 
 ### Bring in and run existing work
 

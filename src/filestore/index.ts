@@ -3,6 +3,7 @@ import {
   loadCollection,
   loadCollectionBrowse,
   loadSettings,
+  parseCollectionSettings,
   type LoadOptions,
 } from "./load"
 import {
@@ -28,6 +29,7 @@ import {
 
 export {
   loadSettings,
+  parseCollectionSettings,
   loadCollectionBrowse,
   saveSettings,
   saveRequest,

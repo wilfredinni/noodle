@@ -27,7 +27,7 @@ All fields are optional; missing fields use defaults.
 | `layout` | `"stacked"` \| `"side-by-side"` | `"stacked"` | Pane arrangement. `stacked` = vertical (sidebar top, request middle, response bottom). `side-by-side` = horizontal split. Invalid values fall back to `"stacked"`. |
 | `confirm_undo_all` | boolean | `true` | Whether `Ctrl+R` (revert all request fields) shows a confirmation dialog before reverting. Set to `false` to skip the confirmation. |
 | `collections` | string[] | `[]` | List of absolute paths to noodle collections. These appear in the workspace selector. Paths are resolved and normalized on load/save (duplicates and empty strings removed). Noodle prepends the current collection to this list when switching directories. TUI startup selects the first registered path that still exists, then falls back to `./collections`. |
-| `proxy` | object | system proxy | Optional global policy: `system`, `off`, or `custom`. A custom policy needs an `http` or `https` URL and may include a string-array `bypass` list. Custom credentials may use active-environment `$VARNAME` values; literal credentials are rejected. |
+| `proxy` | object | system proxy | Optional global policy: `system`, `off`, or `custom`. A custom policy needs an `http` or `https` URL and may include a string-array `bypass` list. Credentials may be entered directly or use `$VARNAME` values from the active Noodle environment. Direct credentials are stored in the app config. |
 
 ## keybinds.yml
 

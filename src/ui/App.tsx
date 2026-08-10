@@ -427,8 +427,11 @@ export function App({
         if (nextMode === "collection") {
           try {
             nextSettings = await loadSettings(normalized)
-          } catch {
-            nextSettings = {}
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error)
+            showToast(`Failed to open collection: ${message}`, "error")
+            return
           }
         }
 

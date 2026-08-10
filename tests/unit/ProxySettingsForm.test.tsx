@@ -127,28 +127,86 @@ describe("ProxySettingsForm", () => {
     expect(frame).toContain("Fields")
     expect(frame).toContain("Hostname")
     expect(frame).toContain("Proxy authentication")
-    expect(frame).toContain("Username variable")
-    expect(frame).toContain("Bypass hosts")
+    expect(frame).toContain("Username")
+    expect(frame).toContain("Password (optional)")
+    expect(frame).toContain("Port (optional)")
+    expect(frame).toContain("Bypass hosts (optional)")
     expect(frame).toContain("Choose the system proxy")
     expect(frame).toContain("Use structured fields")
     expect(frame).toContain("Protocol used to connect")
     expect(frame).toContain("Hostname or IP address")
-    expect(frame).toContain("Optional port used")
+    expect(frame).toContain("Optional. Uses the protocol default")
     expect(frame).toContain(
-      "Use environment variables for the proxy credentials",
+      "Optional. Enter credentials directly (stored in app config) or use",
     )
-    expect(frame).toContain(
-      "Environment variable containing the proxy username",
-    )
-    expect(frame).toContain(
-      "Environment variable containing the proxy password",
-    )
+    expect(frame).toContain("Required for authentication")
+    expect(frame).toContain("Enter a literal value or use $VARNAME")
     const lines = frame.split("\n")
     expect(
-      lines.findIndex((line) => line.includes("Bypass hosts")),
+      lines.findIndex((line) => line.includes("Bypass hosts (optional)")),
     ).toBeLessThan(
       lines.findIndex((line) => line.includes("Proxy authentication")),
     )
+    cleanup()
+  })
+
+  it("describes optional collection credentials and where literals are stored", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsForm
+            scope="collection"
+            focused
+            proxy={{
+              mode: "custom",
+              url: "https://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8443",
+            }}
+            activeEnv={{
+              name: "dev",
+              vars: { PROXY_USER: "alice", PROXY_PASSWORD: "secret" },
+            }}
+            onChange={() => true}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 30 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain(
+      "Optional. Enter credentials directly (stored in settings.yml) or use",
+    )
+    expect(captureCharFrame()).toContain("from the active environment")
+    cleanup()
+  })
+
+  it("suggests active environment variables for an app proxy", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsForm
+            scope="app"
+            focused
+            proxy={{ mode: "custom", url: "http://proxy.test/path" }}
+            activeEnv={{
+              name: "dev",
+              vars: { COLLECTION_PROXY_PASSWORD: "secret" },
+            }}
+            onChange={() => true}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 20 },
+    )
+    await renderOnce()
+    await act(async () => host.press("down"))
+    await act(async () => host.press("down"))
+    await act(async () => mockInput.typeText("$COLLECTION"))
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("$COLLECTION_PROXY_PASSWORD")
     cleanup()
   })
 
@@ -212,9 +270,9 @@ describe("ProxySettingsForm", () => {
     expect(frame).toContain("Proxy URL")
     expect(frame).not.toContain("Hostname")
     expect(frame).not.toContain("Proxy authentication")
-    expect(frame).not.toContain("Username variable")
-    expect(frame).not.toContain("Password variable")
-    expect(frame).toContain("credentials directly in the URL")
+    expect(frame).not.toContain("Username")
+    expect(frame).not.toContain("Password (optional)")
+    expect(frame).toContain("Credentials are optional")
     cleanup()
   })
 

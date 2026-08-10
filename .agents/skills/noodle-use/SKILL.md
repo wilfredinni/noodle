@@ -60,12 +60,16 @@ auth:
 
 ### Collection settings
 `settings.yml` at collection root supports optional `name`, multiline
-`description`, `timeline_max_entries`, `environment`, and `proxy` fields.
+`description`, `timeline_max_entries`, `environment`, `proxy`, and `tls` fields.
 Timeline retention defaults to 50 responses per request; `0` disables history.
 Collection proxy mode is `inherit`, `off`, or `custom`. A custom proxy may use
-`$VARNAME` credentials from the active environment and an optional bypass list;
+direct credentials or `$VARNAME` credentials from the active Noodle environment
+and an optional bypass list. Direct credentials are stored in `settings.yml`;
 `--noproxy` overrides every saved policy for one TUI, `collection run`, or
 `request run` invocation.
+TLS settings support verification, a custom PEM CA bundle, and exact-host PEM
+client certificates. Encrypted key passphrases must use one exact `$VARNAME`
+environment reference; literal and interpolated passphrases are invalid.
 
 ### Path safety
 When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, backslashes, empty path segments, or hidden path segments.

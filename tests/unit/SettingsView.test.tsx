@@ -725,7 +725,7 @@ describe("SettingsView", () => {
       await renderOnce()
     }
 
-    expect(captureCharFrame()).toContain("Password variable")
+    expect(captureCharFrame()).toContain("Password (optional)")
     expect(keymap.getData("app.text-input")).toBe(true)
     cleanup()
   })

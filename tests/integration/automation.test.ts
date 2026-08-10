@@ -38,6 +38,26 @@ describe("automation services", () => {
     expect(await collectionList(dir)).toEqual({ path: dir, tree: [] })
   })
 
+  it("discovers collection contents without parsing invalid settings", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "tls:\n  client_certifcates: []\n",
+    )
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    expect((await collectionList(dir)).tree).toEqual([
+      {
+        type: "request",
+        id: "request",
+        name: "Request",
+        method: "GET",
+        url: "https://example.com",
+      },
+    ])
+  })
+
   it("rejects non-collection roots for all collection operations", async () => {
     await expect(collectionInspect(dir)).rejects.toThrow(
       "not a collection root",
@@ -241,9 +261,9 @@ describe("automation services", () => {
       "name: Request\nmethod: GET\nurl: $BASE_URL\n",
     )
     const send = executor.send
-    executor.send = async (_request, environment) => {
-      expect(environment?.name).toBe("development")
-      expect(environment?.vars.BASE_URL).toBe("https://example.com")
+    executor.send = async (_request, options) => {
+      expect(options?.environment?.name).toBe("development")
+      expect(options?.environment?.vars.BASE_URL).toBe("https://example.com")
       return {
         status: 200,
         statusText: "OK",
@@ -303,8 +323,8 @@ describe("automation services", () => {
     )
     const send = executor.send
     const policies: unknown[] = []
-    executor.send = async (...args) => {
-      policies.push(args[6])
+    executor.send = async (_request, options) => {
+      policies.push(options?.proxyPolicy)
       return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
     }
     try {
@@ -343,8 +363,8 @@ describe("automation services", () => {
     )
     const send = executor.send
     const policies: unknown[] = []
-    executor.send = async (...args) => {
-      policies.push(args[7])
+    executor.send = async (_request, options) => {
+      policies.push(options?.tlsPolicy)
       return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
     }
     try {
@@ -356,6 +376,31 @@ describe("automation services", () => {
           insecure: true,
         },
       ])
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("fails closed on invalid settings before sending, even with --insecure", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "tls:\n  client_certifcates: []\n",
+    )
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const send = executor.send
+    let calls = 0
+    executor.send = async () => {
+      calls++
+      return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
+    }
+    try {
+      await expect(
+        collectionRun(dir, undefined, undefined, false, undefined, true),
+      ).rejects.toThrow('tls: unknown key "client_certifcates"')
+      expect(calls).toBe(0)
     } finally {
       executor.send = send
     }
@@ -404,7 +449,7 @@ describe("automation services", () => {
     const result = await collectionAudit(dir, false)
     expect(result.valid).toBe(false)
     expect(result.issues[0]?.message).toContain(
-      "non-negative integer timeline_max_entries",
+      "timeline_max_entries must be a non-negative integer",
     )
   })
 

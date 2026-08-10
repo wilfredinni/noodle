@@ -1,10 +1,12 @@
-import { mkdir, writeFile, unlink, rm } from "node:fs/promises"
+import { mkdir, writeFile, unlink, rm, rename } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
 import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
 import type { CollectionSettings, Folder, Request } from "../schema"
 import { collectionTlsToYaml } from "../tls"
+import { parseCollectionProxyStrict } from "../proxy"
 import { env } from "../env"
 
 function validatePathId(id: string | undefined): void {
@@ -133,16 +135,20 @@ export async function saveSettings(
     data.environment = settings.environment
   }
   if (settings.proxy !== undefined) {
-    data.proxy = settings.proxy
+    data.proxy = parseCollectionProxyStrict(settings.proxy)
   }
   if (settings.tls !== undefined) {
     const tls = collectionTlsToYaml(settings.tls)
     if (Object.keys(tls).length > 0) data.tls = tls
   }
 
+  const targetPath = join(dir, "settings.yml")
+  const temporaryPath = join(dir, `.settings.${randomUUID()}.tmp`)
   try {
-    await writeFile(join(dir, "settings.yml"), yaml.dump(data), "utf8")
+    await writeFile(temporaryPath, yaml.dump(data), "utf8")
+    await rename(temporaryPath, targetPath)
   } catch (e) {
+    await unlink(temporaryPath).catch(() => {})
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveSettings: ${msg}`, { cause: e })
   }

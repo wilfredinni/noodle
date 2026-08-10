@@ -3,6 +3,7 @@ import type {
   CollectionProxySettings,
   Environment,
 } from "./schema"
+import { isVariableReference } from "./variableReference"
 
 const VAR_RE = /\$(\w+)/g
 const PROXY_ENV_KEYS = [
@@ -77,12 +78,49 @@ export function parseCollectionProxy(
   value: unknown,
 ): CollectionProxySettings | undefined {
   if (value === undefined) return undefined
-  if (!isRecord(value) || typeof value.mode !== "string") return undefined
-  if (value.mode === "inherit") return { mode: "inherit" }
-  if (value.mode === "off") return { mode: "off" }
-  if (value.mode !== "custom" || typeof value.url !== "string") return undefined
+  try {
+    return parseCollectionProxyStrict(value)
+  } catch {
+    return undefined
+  }
+}
+
+export function parseCollectionProxyStrict(
+  value: unknown,
+  path = "proxy",
+): CollectionProxySettings {
+  if (!isRecord(value)) throw new Error(`${path}: must be a mapping`)
+  const unknownKey = Object.keys(value).find(
+    (key) => !["mode", "url", "bypass"].includes(key),
+  )
+  if (unknownKey) throw new Error(`${path}: unknown key "${unknownKey}"`)
+  if (typeof value.mode !== "string") {
+    throw new Error(`${path}.mode: must be a string`)
+  }
+  if (value.mode === "inherit" || value.mode === "off") {
+    if (value.url !== undefined || value.bypass !== undefined) {
+      throw new Error(
+        `${path}: mode "${value.mode}" does not accept url or bypass`,
+      )
+    }
+    return { mode: value.mode }
+  }
+  if (value.mode !== "custom") {
+    throw new Error(`${path}.mode: expected inherit, off, or custom`)
+  }
+  if (typeof value.url !== "string") {
+    throw new Error(`${path}.url: must be a string`)
+  }
+  if (
+    value.bypass !== undefined &&
+    (!Array.isArray(value.bypass) ||
+      value.bypass.some((item) => typeof item !== "string"))
+  ) {
+    throw new Error(`${path}.bypass: must be a list of strings`)
+  }
   const url = value.url.trim()
-  if (validateProxyTemplate(url) !== null) return undefined
+  const error = validateProxyTemplate(url)
+  if (error !== null) throw new Error(`${path}.url: ${error}`)
   return customProxy(url, normalizeBypass(value.bypass))
 }
 
@@ -144,7 +182,7 @@ export function environmentForProxyPolicy(
 
   let url = policy.url
   try {
-    url = resolveProxyUrl(url, env ?? undefined)
+    url = resolveProxyUrl(url, env?.vars)
   } catch {
     // Keep the template so the subprocess reports the same unresolved proxy.
   }
@@ -214,7 +252,7 @@ export function proxyForUrl(
     return {
       kind: "proxy",
       source: policy.source,
-      url: resolveProxyUrl(policy.url, env),
+      url: resolveProxyUrl(policy.url, env?.vars),
     }
   }
 
@@ -228,24 +266,46 @@ export function proxyForUrl(
     : { kind: "direct", reason: "unconfigured" }
 }
 
-export function resolveProxyUrl(template: string, env?: Environment): string {
-  const url = template.replace(VAR_RE, (_, name: string) => {
-    if (!env || !Object.hasOwn(env.vars, name)) {
+export function resolveProxyUrl(
+  template: string,
+  variables?: Record<string, string | undefined>,
+): string {
+  const normalized = encodeLiteralProxyCredentialDollars(template)
+  const url = normalized.replace(VAR_RE, (_, name: string) => {
+    const value = variables?.[name]
+    if (!variables || !Object.hasOwn(variables, name) || value === undefined) {
       throw new Error(`proxy: unresolved variable "${name}" in proxy.url`)
     }
-    return env.vars[name]
+    return value
   })
   let parsed: URL
   try {
     parsed = new URL(url)
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    throw new Error(`proxy: invalid proxy URL: ${message}`, { cause: e })
+    throw new Error("proxy: invalid proxy URL", { cause: e })
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error("proxy: URL must use http or https")
   }
   return url
+}
+
+function encodeLiteralProxyCredentialDollars(template: string): string {
+  const match = template.match(/^([a-z][a-z\d+.-]*:\/\/)([^/?#]*)(.*)$/i)
+  if (!match) return template
+  const [, scheme, authority, suffix] = match
+  const at = authority!.lastIndexOf("@")
+  if (at === -1) return template
+
+  const userInfo = authority!.slice(0, at)
+  const colon = userInfo.indexOf(":")
+  const encode = (value: string) =>
+    isVariableReference(value) ? value : value.replaceAll("$", "%24")
+  const credentials =
+    colon === -1
+      ? encode(userInfo)
+      : `${encode(userInfo.slice(0, colon))}:${encode(userInfo.slice(colon + 1))}`
+  return `${scheme}${credentials}${authority!.slice(at)}${suffix}`
 }
 
 export function validateProxyTemplate(template: string): string | null {
@@ -258,12 +318,6 @@ export function validateProxyTemplate(template: string): string | null {
     const parsed = new URL(parseable)
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return "Proxy URL must use http or https"
-    }
-    const authority = value.match(/^[a-z][a-z\d+.-]*:\/\/([^/?#]*)/i)?.[1]
-    const at = authority?.lastIndexOf("@") ?? -1
-    const userInfo = at >= 0 ? authority?.slice(0, at) : undefined
-    if (userInfo && userInfo.replace(VAR_RE, "").replaceAll(":", "")) {
-      return "Use $VARNAME for proxy credentials"
     }
     return null
   } catch {
@@ -278,7 +332,7 @@ export function parseStructuredProxyTemplate(
   if (validateProxyTemplate(template) !== null) return null
 
   const match = template.match(
-    /^(https?):\/\/(?:(\$\w+):(\$\w+)@)?(\[[^\]]+\]|[^:/?#@\s]+)(?::(\d+))?$/,
+    /^(https?):\/\/(?:([^:/?#@\s]+)(?::([^:/?#@\s]+))?@)?(\[[^\]]+\]|[^:/?#@\s]+)(?::(\d+))?$/,
   )
   if (!match) return null
 
@@ -286,14 +340,22 @@ export function parseStructuredProxyTemplate(
   const hostname = rawHostname!.startsWith("[")
     ? rawHostname.slice(1, -1)
     : rawHostname!
+  let decodedUsername: string
+  let decodedPassword: string
+  try {
+    decodedUsername = username ? decodeURIComponent(username) : ""
+    decodedPassword = password ? decodeURIComponent(password) : ""
+  } catch {
+    return null
+  }
 
   return {
     protocol: protocol as "http" | "https",
     hostname,
     port: port ?? "",
     auth: username !== undefined,
-    username: username ?? "",
-    password: password ?? "",
+    username: decodedUsername,
+    password: decodedPassword,
   }
 }
 
@@ -315,12 +377,7 @@ export function buildStructuredProxyTemplate(
   }
 
   if (fields.auth) {
-    if (!isVariableReference(fields.username)) {
-      return { error: "Username must be a $VARNAME reference" }
-    }
-    if (!isVariableReference(fields.password)) {
-      return { error: "Password must be a $VARNAME reference" }
-    }
+    if (!fields.username) return { error: "Proxy username is required" }
   }
 
   const host =
@@ -328,11 +385,17 @@ export function buildStructuredProxyTemplate(
       ? `[${hostname}]`
       : hostname
   const credentials = fields.auth
-    ? `${fields.username}:${fields.password}@`
+    ? `${encodeProxyCredential(fields.username)}${
+        fields.password ? `:${encodeProxyCredential(fields.password)}` : ""
+      }@`
     : ""
   const url = `${fields.protocol}://${credentials}${host}${port ? `:${port}` : ""}`
   const validationError = validateProxyTemplate(url)
   return validationError ? { error: validationError } : { url }
+}
+
+function encodeProxyCredential(value: string): string {
+  return isVariableReference(value) ? value : encodeURIComponent(value)
 }
 
 function customProxy<T extends AppProxySettings | CollectionProxySettings>(
@@ -415,8 +478,4 @@ function setProxyEnvironment(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isVariableReference(value: string): boolean {
-  return /^\$\w+$/.test(value)
 }

@@ -7,8 +7,9 @@ import {
 } from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
-import { act } from "react"
+import { act, useState } from "react"
 import { createTestRender } from "../testRender"
+import type { CollectionTlsSettings } from "../../src/schema"
 import { ThemeProvider } from "../../src/ui/theme"
 import { auraTheme } from "../../src/ui/theme-data"
 import { TlsSettingsForm } from "../../src/ui/settings/TlsSettingsForm"
@@ -101,10 +102,14 @@ describe("TlsSettingsForm", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Verify TLS certificates")
-    expect(frame).toContain("CA bundle")
+    expect(frame).toContain("CA bundle (optional)")
+    expect(frame).toContain("Port (optional)")
+    expect(frame).toContain("Passphrase (optional)")
+    expect(frame).toContain("Optional. Add a certificate and private-key pair")
     expect(frame).toContain("api.example.com")
     expect(frame).toContain("Certificate chain")
     expect(frame).toContain("Private key")
+    expect(frame).not.toContain("secret")
     expect(frame).toContain("Exact host and port match")
     expect(frame).toContain("Bare hostname matched exactly")
     expect(frame).toContain("Private key paired with the certificate chain")
@@ -115,7 +120,7 @@ describe("TlsSettingsForm", () => {
       row.includes("Client certificates"),
     )
     expect(rows[clientCertificatesRow + 1]).toContain(
-      "A list of certificate and private-key pairs",
+      "Optional. Add a certificate and private-key pair",
     )
     expect(frame.match(/\+ Add client certificate/g)).toHaveLength(2)
     expect(
@@ -269,6 +274,114 @@ describe("TlsSettingsForm", () => {
     expect(captureCharFrame()).toContain(
       "disabled for this session by --insecure",
     )
+    cleanup()
+  })
+
+  it("keeps invalid passphrases local and reverts them on blur", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const changes: unknown[] = []
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TlsSettingsForm
+            focused
+            insecure={false}
+            collectionDir="/tmp/collection"
+            activeEnv={{ name: "dev", vars: { PASS: "environment-secret" } }}
+            settings={{
+              clientCertificates: [
+                {
+                  host: "api.example.com",
+                  certFile: "client.pem",
+                  keyFile: "key.pem",
+                },
+              ],
+            }}
+            onChange={(settings) => {
+              changes.push(settings)
+              return true
+            }}
+            onExit={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => mockInput.typeText("literal-secret"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain(
+      "Use an exact $VARNAME reference; literals are not saved.",
+    )
+    expect(changes).toEqual([])
+
+    await act(async () => host.press("down"))
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("literal-secret")
+    expect(captureCharFrame()).not.toContain("environment-secret")
+    cleanup()
+  })
+
+  it("restores a persisted passphrase after a focused save rolls back", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const initialSettings: CollectionTlsSettings = {
+      clientCertificates: [
+        {
+          host: "api.example.com",
+          certFile: "client.pem",
+          keyFile: "key.pem",
+          passphrase: "$OLD",
+        },
+      ],
+    }
+    let rollback = () => {}
+
+    function Harness() {
+      const [settings, setSettings] =
+        useState<CollectionTlsSettings>(initialSettings)
+      rollback = () => setSettings(initialSettings)
+      return (
+        <TlsSettingsForm
+          focused
+          insecure={false}
+          collectionDir="/tmp/collection"
+          activeEnv={null}
+          settings={settings}
+          onChange={(next) => {
+            setSettings(next)
+            return true
+          }}
+          onExit={() => {}}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("down"))
+    }
+    for (let index = 0; index < 4; index++) {
+      await act(async () => mockInput.pressBackspace())
+    }
+    await act(async () => mockInput.typeText("$NEW"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("$NEW")
+
+    await act(async () => rollback())
+    await renderOnce()
+    expect(captureCharFrame()).toContain("$OLD")
+    expect(captureCharFrame()).not.toContain("$NEW")
     cleanup()
   })
 })

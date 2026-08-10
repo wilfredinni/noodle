@@ -51,7 +51,7 @@ function proxyErrorField(
   if (message.startsWith("Username")) return "username"
   if (message.startsWith("Password")) return "password"
   if (message.startsWith("This URL needs Advanced mode")) return "editor"
-  if (message.startsWith("Proxy URL") || message.startsWith("Use $VARNAME")) {
+  if (message.startsWith("Proxy URL")) {
     return editor === "advanced" ? "proxy-url" : "hostname"
   }
   return null
@@ -248,7 +248,7 @@ export function ProxySettingsForm({
         if (!fields) {
           if (values.url.trim()) {
             setError(
-              "This URL needs Advanced mode. Use an HTTP(S) host, optional port, and $VARNAME credentials only.",
+              "This URL needs Advanced mode. The fields editor supports an HTTP(S) host, optional port, and optional credentials.",
             )
             return
           }
@@ -356,6 +356,11 @@ export function ProxySettingsForm({
           { id: "off", label: "Off (direct connections)" },
         ]
 
+  const variableEnv = activeEnv ?? null
+  const credentialStorage = scope === "app" ? "app config" : "settings.yml"
+  const credentialDescription = `Optional. Enter credentials directly (stored in ${credentialStorage}) or use $VARNAME from the active environment.`
+  const advancedCredentialDescription = `Credentials are optional. Enter them directly (stored in ${credentialStorage}) or use $VARNAME from the active environment.`
+
   const errorField = proxyErrorField(error, values.editor)
   const fieldError = (target: Field) =>
     errorField === target ? (error ?? undefined) : undefined
@@ -433,11 +438,11 @@ export function ProxySettingsForm({
               />
               <TextField
                 id="settings-proxy-port"
-                label="Port"
+                label="Port (optional)"
                 inputRef={portRef}
                 value={values.fields.port}
                 placeholder="optional"
-                hint="Optional port used by the proxy server."
+                hint="Optional. Uses the protocol default when empty."
                 focused={focused && field === "port"}
                 error={fieldError("port")}
                 onFocus={() => setField("port")}
@@ -453,29 +458,29 @@ export function ProxySettingsForm({
               placeholder="http://$PROXY_USER:$PROXY_PASSWORD@proxy:8080"
               focused={focused && field === "proxy-url"}
               error={fieldError("proxy-url")}
-              env={activeEnv ?? null}
-              hint="Include $VARNAME credentials directly in the URL."
+              env={variableEnv}
+              hint={advancedCredentialDescription}
               onFocus={() => setField("proxy-url")}
               onChange={(url) => update({ url }, false)}
             />
           )}
           <TextField
             id="settings-proxy-bypass"
-            label="Bypass hosts"
+            label="Bypass hosts (optional)"
             inputRef={bypassRef}
             value={values.bypass}
             placeholder="localhost, .internal.example, api.example:8443"
             focused={focused && field === "bypass"}
             onFocus={() => setField("bypass")}
             onChange={(bypass) => update({ bypass })}
-            hint="Comma-separated. Supports *, hosts, .domains, IPs, and ports."
+            hint="Optional. Comma-separated; supports *, hosts, .domains, IPs, and ports."
           />
           {values.editor === "fields" && (
             <>
               <SettingsField
                 id="settings-proxy-auth"
-                title="Proxy authentication"
-                description="Use environment variables for the proxy credentials."
+                title="Proxy authentication (optional)"
+                description={credentialDescription}
                 active={focused && field === "auth"}
                 onMouseDown={() => {
                   setField("auth")
@@ -488,27 +493,27 @@ export function ProxySettingsForm({
                 <>
                   <VariableField
                     id="settings-proxy-username"
-                    label="Username variable"
+                    label="Username"
                     inputRef={usernameRef}
                     value={values.fields.username}
-                    placeholder="$PROXY_USER"
-                    hint="Environment variable containing the proxy username."
+                    placeholder="username or $PROXY_USER"
+                    hint="Required for authentication. Enter a literal value or use $VARNAME from the active environment."
                     focused={focused && field === "username"}
                     error={fieldError("username")}
-                    env={activeEnv ?? null}
+                    env={variableEnv}
                     onFocus={() => setField("username")}
                     onChange={(username) => updateFields({ username })}
                   />
                   <VariableField
                     id="settings-proxy-password"
-                    label="Password variable"
+                    label="Password (optional)"
                     inputRef={passwordRef}
                     value={values.fields.password}
-                    placeholder="$PROXY_PASSWORD"
-                    hint="Environment variable containing the proxy password."
+                    placeholder="password or $PROXY_PASSWORD"
+                    hint="Optional. Enter a literal value or use $VARNAME from the active environment."
                     focused={focused && field === "password"}
                     error={fieldError("password")}
-                    env={activeEnv ?? null}
+                    env={variableEnv}
                     onFocus={() => setField("password")}
                     onChange={(password) => updateFields({ password })}
                   />

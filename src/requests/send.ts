@@ -16,8 +16,18 @@ import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
 import { expandUserPath } from "../userPath"
-import { proxyForUrl, redactProxyUrl, type ProxyPolicy } from "../proxy"
+import { proxyForUrl, type ProxyPolicy } from "../proxy"
 import { tlsForUrl, type TlsPolicy } from "../tls"
+
+export interface RequestExecutionOptions {
+  environment?: Environment
+  signal?: AbortSignal
+  collection?: Collection
+  requestPath?: string
+  onNetworkEvent?: (network: NetworkEvent[]) => void
+  proxyPolicy?: ProxyPolicy
+  tlsPolicy?: TlsPolicy
+}
 
 export function interpolatePathParams(
   url: string,
@@ -65,14 +75,17 @@ export function interpolatePathParams(
 
 export async function send(
   req: Request,
-  env?: Environment,
-  signal?: AbortSignal,
-  collection?: Collection,
-  requestPath?: string,
-  onNetworkEvent?: (network: NetworkEvent[]) => void,
-  proxyPolicy?: ProxyPolicy,
-  tlsPolicy?: TlsPolicy,
+  options: RequestExecutionOptions = {},
 ): Promise<Response> {
+  const {
+    environment: env,
+    signal,
+    collection,
+    requestPath,
+    onNetworkEvent,
+    proxyPolicy,
+    tlsPolicy,
+  } = options
   const merged =
     collection && requestPath
       ? mergeFolderOverrides(req, collection, requestPath)
@@ -208,17 +221,9 @@ export async function send(
       if (resolvedTls.options) fetchInit.tls = resolvedTls.options
       res = await fetch(currentUrl, fetchInit)
     } catch (e) {
-      const rawMessage = e instanceof Error ? e.message : String(e)
-      const msg =
-        proxyRoute?.kind === "proxy"
-          ? rawMessage.replaceAll(
-              proxyRoute.url,
-              redactProxyUrl(proxyRoute.url),
-            )
-          : rawMessage
       if (e instanceof DOMException && e.name === "AbortError") throw e
       throw networkFailure(
-        `requests.send: fetch failed: ${msg}`,
+        "requests.send: fetch failed",
         e,
         network,
         start,
@@ -252,18 +257,44 @@ export async function send(
     }
     redirectCount++
 
+    const previousUrl = new URL(currentUrl)
+    let nextUrl: URL
     try {
-      currentUrl = new URL(loc, currentUrl).toString()
+      nextUrl = new URL(loc, previousUrl)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
       throw networkFailure(
-        `requests.send: invalid redirect location: ${msg}`,
+        "requests.send: invalid redirect location",
         e,
         network,
         start,
         onNetworkEvent,
       )
     }
+    if (nextUrl.protocol !== "http:" && nextUrl.protocol !== "https:") {
+      throw networkFailure(
+        `requests.send: redirect URL uses unsupported scheme "${nextUrl.protocol}"`,
+        undefined,
+        network,
+        start,
+        onNetworkEvent,
+      )
+    }
+    if (previousUrl.protocol === "https:" && nextUrl.protocol === "http:") {
+      throw networkFailure(
+        "requests.send: refusing HTTPS to HTTP redirect downgrade",
+        undefined,
+        network,
+        start,
+        onNetworkEvent,
+      )
+    }
+    if (previousUrl.origin !== nextUrl.origin) {
+      currentInit = {
+        ...currentInit,
+        headers: stripCrossOriginCredentials(currentInit.headers, ah?.name),
+      }
+    }
+    currentUrl = nextUrl.toString()
     recordNetworkEvent(
       network,
       start,
@@ -328,6 +359,24 @@ export async function send(
     timeMs: performance.now() - start,
     network,
   }
+}
+
+function stripCrossOriginCredentials(
+  headers: HeadersInit | undefined,
+  authHeaderName: string | undefined,
+): Headers {
+  const result = new Headers(headers)
+  for (const name of [
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+    "cookie2",
+    "host",
+    authHeaderName,
+  ]) {
+    if (name) result.delete(name)
+  }
+  return result
 }
 
 function recordNetworkEvent(

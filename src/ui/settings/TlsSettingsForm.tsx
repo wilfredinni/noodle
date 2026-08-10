@@ -13,6 +13,7 @@ import type {
   Environment,
 } from "../../schema"
 import { isValidTlsHost } from "../../tls"
+import { isVariableReference } from "../../variableReference"
 import { Checkbox } from "../Checkbox"
 import { LeftBar } from "../borders"
 import { VarInput } from "../VarInput"
@@ -228,8 +229,8 @@ export function TlsSettingsForm({
       </FieldLabel>
       <FieldLabel
         id="settings-tls-ca-bundle"
-        title="CA bundle"
-        description="PEM bundle that replaces the default trusted roots. Relative paths resolve from the collection."
+        title="CA bundle (optional)"
+        description="Optional. PEM bundle that replaces the default trusted roots. Relative paths resolve from the collection."
         active={focused && field === 1}
       >
         <VarInput
@@ -252,8 +253,8 @@ export function TlsSettingsForm({
           Client certificates ({profiles.length})
         </text>
         <text fg={theme.textMuted} wrapMode="word">
-          A list of certificate and private-key pairs. Add one entry per host
-          and port; the first enabled match wins.
+          Optional. Add a certificate and private-key pair per host and port;
+          the first enabled match wins.
         </text>
       </box>
       <AddCertificateButton
@@ -314,7 +315,7 @@ export function TlsSettingsForm({
             </SettingsField>
             <TextInput
               title="Host"
-              description="Bare hostname matched exactly for this certificate."
+              description="Required. Bare hostname matched exactly for this certificate."
               border={false}
               value={profile.host}
               placeholder="api.internal.example"
@@ -323,8 +324,8 @@ export function TlsSettingsForm({
               onChange={(host) => updateProfile(index, { host })}
             />
             <TextInput
-              title="Port"
-              description="Port matched with the host; blank uses 443."
+              title="Port (optional)"
+              description="Optional. Port matched with the host; blank uses 443."
               border={false}
               value={profile.port === undefined ? "" : String(profile.port)}
               placeholder="443"
@@ -340,7 +341,7 @@ export function TlsSettingsForm({
             />
             <PathInput
               title="Certificate chain"
-              description="PEM certificate chain used for client authentication."
+              description="Required. PEM certificate chain used for client authentication."
               border={false}
               value={profile.certFile}
               placeholder="./certs/client-chain.pem"
@@ -352,7 +353,7 @@ export function TlsSettingsForm({
             />
             <PathInput
               title="Private key"
-              description="Private key paired with the certificate chain."
+              description="Required. Private key paired with the certificate chain."
               border={false}
               value={profile.keyFile}
               placeholder="./certs/client-key.pem"
@@ -362,16 +363,14 @@ export function TlsSettingsForm({
               onFocus={() => setField(base + 4)}
               onChange={(keyFile) => updateProfile(index, { keyFile })}
             />
-            <PathInput
-              title="Passphrase"
-              description="Optional key passphrase; use $VARNAME for an environment value."
+            <PassphraseInput
+              title="Passphrase (optional)"
+              description="Optional. Use $VARNAME for an environment value."
               border={false}
               value={profile.passphrase ?? ""}
               placeholder="$MTLS_PASSPHRASE"
               focused={focused && field === base + 5}
               activeEnv={activeEnv}
-              collectionDir={collectionDir}
-              pathCompletion={false}
               onFocus={() => setField(base + 5)}
               onChange={(passphrase) =>
                 updateProfile(index, { passphrase: passphrase || undefined })
@@ -399,6 +398,68 @@ export function TlsSettingsForm({
         />
       )}
     </box>
+  )
+}
+
+function PassphraseInput({
+  title,
+  description,
+  border,
+  value,
+  placeholder,
+  focused,
+  activeEnv,
+  onFocus,
+  onChange,
+}: {
+  title: string
+  description: string
+  border: boolean
+  value: string
+  placeholder: string
+  focused: boolean
+  activeEnv: Environment | null
+  onFocus: () => void
+  onChange: (value: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  const [error, setError] = useState<string>()
+
+  useEffect(() => {
+    setDraft(value)
+    setError(undefined)
+  }, [focused, value])
+
+  return (
+    <SettingsField
+      title={title}
+      description={description}
+      error={error}
+      border={border}
+      active={focused}
+    >
+      <VarInput
+        value={draft}
+        env={activeEnv}
+        isEditing
+        isFocused={focused}
+        onChange={(next) => {
+          setDraft(next)
+          if (next === "" || isVariableReference(next)) {
+            setError(undefined)
+            onChange(next)
+          } else {
+            setError("Use an exact $VARNAME reference; literals are not saved.")
+          }
+        }}
+        onFocus={onFocus}
+        placeholder={placeholder}
+        backgroundColor="transparent"
+        focusedBackgroundColor="transparent"
+        paddingX={0}
+        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+      />
+    </SettingsField>
   )
 }
 

@@ -12,6 +12,7 @@ import {
   resolveProxyUrl,
   systemProxyFromEnv,
   takeSystemProxyFromEnv,
+  type ProxyPolicy,
   validateProxyTemplate,
 } from "../../src/proxy"
 
@@ -21,6 +22,24 @@ describe("proxy policy", () => {
     HTTPS_PROXY: "http://system-https:8080",
     NO_PROXY: "localhost, .internal.test",
   })
+  const variableProxyUrl = "http://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8080"
+  const appPolicy: ProxyPolicy = {
+    kind: "custom",
+    source: "global",
+    url: variableProxyUrl,
+    bypass: [],
+  }
+  const collectionPolicy: ProxyPolicy = {
+    ...appPolicy,
+    source: "collection",
+  }
+  const collectionEnv = {
+    name: "dev",
+    vars: {
+      PROXY_USER: "collection-user",
+      PROXY_PASSWORD: "collection-password",
+    },
+  }
 
   it("prefers --noproxy over collection, app, and system settings", () => {
     const policy = resolveProxyPolicy({
@@ -129,6 +148,72 @@ describe("proxy policy", () => {
     })
   })
 
+  it("resolves app and collection proxy variables from the active environment", () => {
+    expect(
+      proxyForUrl(appPolicy, "https://example.com", collectionEnv),
+    ).toEqual({
+      kind: "proxy",
+      source: "global",
+      url: "http://collection-user:collection-password@proxy.test:8080",
+    })
+    expect(
+      proxyForUrl(collectionPolicy, "https://example.com", collectionEnv),
+    ).toEqual({
+      kind: "proxy",
+      source: "collection",
+      url: "http://collection-user:collection-password@proxy.test:8080",
+    })
+  })
+
+  it("fails when the active environment cannot resolve custom proxy variables", () => {
+    expect(() =>
+      proxyForUrl(appPolicy, "https://example.com", {
+        name: "dev",
+        vars: {},
+      }),
+    ).toThrow('proxy: unresolved variable "PROXY_USER" in proxy.url')
+    expect(() =>
+      proxyForUrl(collectionPolicy, "https://example.com", {
+        name: "dev",
+        vars: {},
+      }),
+    ).toThrow('proxy: unresolved variable "PROXY_USER" in proxy.url')
+  })
+
+  it("uses active environment variables for app and collection subprocess proxies", () => {
+    const baseEnv = {
+      PATH: "/usr/bin",
+      PROXY_USER: "process-user",
+      PROXY_PASSWORD: "process-password",
+    }
+
+    expect(
+      environmentForProxyPolicy(appPolicy, collectionEnv, baseEnv).HTTPS_PROXY,
+    ).toBe("http://collection-user:collection-password@proxy.test:8080")
+    expect(
+      environmentForProxyPolicy(collectionPolicy, collectionEnv, baseEnv)
+        .HTTPS_PROXY,
+    ).toBe("http://collection-user:collection-password@proxy.test:8080")
+  })
+
+  it("uses the active environment for an app proxy in the fetch wrapper", async () => {
+    let init: RequestInit | undefined
+    const fetcher = createProxyFetcher(
+      appPolicy,
+      collectionEnv,
+      async (_input, options) => {
+        init = options
+        return new Response()
+      },
+    )
+
+    await fetcher("https://example.com")
+
+    expect((init as BunFetchRequestInit).proxy).toBe(
+      "http://collection-user:collection-password@proxy.test:8080",
+    )
+  })
+
   it("bypasses wildcard, domain, port, and IPv6 entries", () => {
     const policy = resolveProxyPolicy({
       appProxy: {
@@ -173,6 +258,44 @@ describe("proxy validation", () => {
     })
   })
 
+  it("builds and parses literal credentials without losing special characters", () => {
+    const fields = {
+      protocol: "https" as const,
+      hostname: "proxy.test",
+      port: "8443",
+      auth: true,
+      username: "alice@example.com",
+      password: "space and:colon$",
+    }
+
+    expect(buildStructuredProxyTemplate(fields)).toEqual({
+      url: "https://alice%40example.com:space%20and%3Acolon%24@proxy.test:8443",
+    })
+    expect(
+      parseStructuredProxyTemplate(
+        "https://alice%40example.com:space%20and%3Acolon%24@proxy.test:8443",
+      ),
+    ).toEqual(fields)
+  })
+
+  it("supports proxy authentication without a password", () => {
+    const fields = {
+      protocol: "http" as const,
+      hostname: "proxy.test",
+      port: "",
+      auth: true,
+      username: "alice",
+      password: "",
+    }
+
+    expect(buildStructuredProxyTemplate(fields)).toEqual({
+      url: "http://alice@proxy.test",
+    })
+    expect(parseStructuredProxyTemplate("http://alice@proxy.test")).toEqual(
+      fields,
+    )
+  })
+
   it("parses HTTP, HTTPS, omitted ports, and IPv4 hosts losslessly", () => {
     expect(parseStructuredProxyTemplate("http://192.168.1.20")).toEqual({
       protocol: "http",
@@ -211,9 +334,8 @@ describe("proxy validation", () => {
     expect(parseStructuredProxyTemplate("http://[::1]")).toEqual(fields)
   })
 
-  it("keeps variable-heavy and non-proxy URL forms in advanced mode", () => {
+  it("keeps URL paths and query strings in advanced mode", () => {
     expect(parseStructuredProxyTemplate("http://proxy.test/path")).toBeNull()
-    expect(parseStructuredProxyTemplate("http://$PROXY@proxy.test")).toBeNull()
     expect(
       parseStructuredProxyTemplate("http://proxy.test?debug=true"),
     ).toBeNull()
@@ -246,54 +368,66 @@ describe("proxy validation", () => {
         ...fields,
         hostname: "proxy.test",
         port: "8080",
+        username: "",
       }),
-    ).toEqual({ error: "Username must be a $VARNAME reference" })
-    expect(
-      buildStructuredProxyTemplate({
-        ...fields,
-        hostname: "proxy.test",
-        port: "8080",
-        username: "$PROXY_USER",
-      }),
-    ).toEqual({ error: "Password must be a $VARNAME reference" })
+    ).toEqual({ error: "Proxy username is required" })
   })
 
-  it("resolves credentials from the active environment", () => {
+  it("resolves credentials from the provided variable source", () => {
     expect(
       resolveProxyUrl("http://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8080", {
-        name: "dev",
-        vars: { PROXY_USER: "alice", PROXY_PASSWORD: "secret" },
+        PROXY_USER: "alice",
+        PROXY_PASSWORD: "secret",
       }),
     ).toBe("http://alice:secret@proxy.test:8080")
+  })
+
+  it("treats dollar signs embedded in literal credentials as literals", () => {
+    expect(resolveProxyUrl("http://alice:pa$word@proxy.test")).toBe(
+      "http://alice:pa%24word@proxy.test",
+    )
   })
 
   it("validates and resolves a variable proxy port", () => {
     const template = "http://proxy.test:$PROXY_PORT"
     expect(validateProxyTemplate(template)).toBeNull()
-    expect(
-      resolveProxyUrl(template, {
-        name: "dev",
-        vars: { PROXY_PORT: "8080" },
-      }),
-    ).toBe("http://proxy.test:8080")
+    expect(resolveProxyUrl(template, { PROXY_PORT: "8080" })).toBe(
+      "http://proxy.test:8080",
+    )
   })
 
   it("fails clearly for an unresolved proxy variable", () => {
-    expect(() =>
-      resolveProxyUrl("http://$PROXY@proxy.test", { name: "dev", vars: {} }),
-    ).toThrow('proxy: unresolved variable "PROXY" in proxy.url')
+    expect(() => resolveProxyUrl("http://$PROXY@proxy.test", {})).toThrow(
+      'proxy: unresolved variable "PROXY" in proxy.url',
+    )
   })
 
-  it("rejects literal stored credentials and invalid protocols", () => {
-    expect(validateProxyTemplate("http://alice:secret@proxy.test")).toBe(
-      "Use $VARNAME for proxy credentials",
-    )
+  it("does not expose resolved credentials in invalid URL errors", () => {
+    expect(() =>
+      resolveProxyUrl("http://$PROXY_PASSWORD@proxy.test:invalid", {
+        PROXY_PASSWORD: "secret-value",
+      }),
+    ).toThrow("proxy: invalid proxy URL")
+    try {
+      resolveProxyUrl("http://$PROXY_PASSWORD@proxy.test:invalid", {
+        PROXY_PASSWORD: "secret-value",
+      })
+    } catch (error) {
+      expect(String(error)).not.toContain("secret-value")
+    }
+  })
+
+  it("accepts literal stored credentials and rejects invalid protocols", () => {
+    const custom = {
+      mode: "custom" as const,
+      url: "http://alice:secret@proxy.test",
+    }
+    expect(validateProxyTemplate(custom.url)).toBeNull()
+    expect(parseAppProxy(custom)).toEqual(custom)
+    expect(parseCollectionProxy(custom)).toEqual(custom)
     expect(validateProxyTemplate("socks5://proxy.test")).toBe(
       "Proxy URL must use http or https",
     )
-    expect(
-      parseAppProxy({ mode: "custom", url: "http://alice@proxy.test" }),
-    ).toBeUndefined()
     expect(
       parseCollectionProxy({ mode: "custom", url: "socks5://proxy.test" }),
     ).toBeUndefined()
