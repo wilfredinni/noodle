@@ -44,6 +44,13 @@ describe("default command (noodle)", () => {
     expect((arg as StringArgDef)?.alias).toBe("e")
   })
 
+  it("has an --insecure TLS override", () => {
+    expect(defaultArgs?.insecure).toMatchObject({
+      type: "boolean",
+      default: false,
+    })
+  })
+
   it("has run handler", () => {
     expect(typeof defaultCommand.run).toBe("function")
   })

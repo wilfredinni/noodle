@@ -41,6 +41,7 @@ export interface BootstrapOptions {
   collectionDir?: string
   envName?: string
   noProxy?: boolean
+  insecure?: boolean
   systemProxy?: SystemProxySettings
 }
 
@@ -168,6 +169,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
           initialEnvName={initialEnvName}
           initialSettings={initialSettings}
           noProxy={options.noProxy}
+          insecure={options.insecure}
           systemProxy={options.systemProxy ?? capturedSystemProxy}
           keybinds={keybinds}
           lastRequestId={lastRequestId}

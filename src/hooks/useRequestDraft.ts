@@ -34,6 +34,7 @@ export interface UseRequestDraftResult {
   setTimeout: (t: number) => void
   setFollowRedirects: (b: boolean) => void
   setMaxRedirects: (n: number) => void
+  setTlsVerify: (verify?: boolean) => void
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
   setAuthType: (t: Auth["type"]) => void
@@ -117,6 +118,10 @@ export function useRequestDraft(
   )
   const setMaxRedirects = useCallback(
     (maxRedirects: number) => apply({ kind: "setMaxRedirects", maxRedirects }),
+    [apply],
+  )
+  const setTlsVerify = useCallback(
+    (verify?: boolean) => apply({ kind: "setTlsVerify", verify }),
     [apply],
   )
   const setHeaderRow = useCallback(
@@ -312,6 +317,7 @@ export function useRequestDraft(
       setTimeout: setTimeoutCb,
       setFollowRedirects,
       setMaxRedirects,
+      setTlsVerify,
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,
@@ -351,6 +357,7 @@ export function useRequestDraft(
       setTimeoutCb,
       setFollowRedirects,
       setMaxRedirects,
+      setTlsVerify,
       setHeaderRow,
       addHeaderRow,
       removeHeaderRow,

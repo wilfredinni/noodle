@@ -45,10 +45,14 @@ export function usePathCompletion({
   const acceptedValue = useRef<string | null>(null)
   const kind = options?.kind
   const root = options?.root
+  const relativeRoot = options?.relativeRoot
   const wrapFileSelection = options?.wrapFileSelection
   const query = useMemo(
-    () => (kind && isEditing ? getPathCompletionQuery(value, root) : null),
-    [isEditing, kind, root, value],
+    () =>
+      kind && isEditing
+        ? getPathCompletionQuery(value, root, relativeRoot)
+        : null,
+    [isEditing, kind, relativeRoot, root, value],
   )
 
   useEffect(() => {
@@ -68,7 +72,7 @@ export function usePathCompletion({
     let cancelled = false
     setItems([])
     setMessage("Loading...")
-    void listPathCompletions(value, { kind, root })
+    void listPathCompletions(value, { kind, root, relativeRoot })
       .then((next) => {
         if (cancelled) return
         setItems(next)
@@ -83,7 +87,7 @@ export function usePathCompletion({
     return () => {
       cancelled = true
     }
-  }, [dismissed, kind, query, root, value])
+  }, [dismissed, kind, query, relativeRoot, root, value])
 
   const active = Boolean(query && !dismissed)
   const selectItem = useCallback(

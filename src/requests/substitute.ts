@@ -78,6 +78,7 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     formData,
     filePath,
     auth,
+    tls: req.tls,
   }
 }
 

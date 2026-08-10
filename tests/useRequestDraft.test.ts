@@ -220,6 +220,14 @@ describe("requestEquals", () => {
       requestEquals(makeReq({ maxRedirects: 5 }), makeReq({ maxRedirects: 0 })),
     ).toBe(false)
   })
+  it("differing TLS verification → false", () => {
+    expect(
+      requestEquals(
+        makeReq({ tls: { verify: true } }),
+        makeReq({ tls: { verify: false } }),
+      ),
+    ).toBe(false)
+  })
   it("name/id differences → still equal (only url/method/headers/params/body/auth compared)", () => {
     const a = makeReq({ id: "r1", name: "A" })
     const b = makeReq({ id: "r2", name: "B" })
@@ -288,6 +296,19 @@ describe("applyDraft", () => {
       timeout: 30000,
     })
     expect(next.get("r1")!.timeout).toBe(30000)
+  })
+  it("setTlsVerify sets and clears the request override", () => {
+    const original = makeReq()
+    const enabled = applyDraft(new Map(), "r1", original, {
+      kind: "setTlsVerify",
+      verify: false,
+    })
+    expect(enabled.get("r1")!.tls).toEqual({ verify: false })
+    const inherited = applyDraft(enabled, "r1", original, {
+      kind: "setTlsVerify",
+      verify: undefined,
+    })
+    expect(inherited.get("r1")!.tls).toBeUndefined()
   })
   it("setHeaderRow replaces i-th entry by insertion order", () => {
     const original = makeReq({
@@ -453,16 +474,17 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.bodyType).toBe("json")
     expect(next.get("r1")!.filePath).toBeUndefined()
   })
-  it("revertField settings restores timeout from original", () => {
-    const original = makeReq({ timeout: 5000 })
+  it("revertField settings restores timeout and TLS from original", () => {
+    const original = makeReq({ timeout: 5000, tls: { verify: true } })
     const map = new Map<string, Request>([
-      ["r1", { ...original, timeout: 30000 }],
+      ["r1", { ...original, timeout: 30000, tls: { verify: false } }],
     ])
     const next = applyDraft(map, "r1", original, {
       kind: "revertField",
       field: "settings",
     })
     expect(next.get("r1")!.timeout).toBe(5000)
+    expect(next.get("r1")!.tls).toEqual({ verify: true })
   })
   it("revertField headers row i restores that row from original", () => {
     const original = makeReq({

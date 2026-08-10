@@ -36,6 +36,7 @@ interface Props {
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
   onBodyTypeChange?: (t: BodyType) => void
   onBodyChange?: (body: string) => void
+  onTlsVerifyChange?: (verify?: boolean) => void
   onSelectOpenChange?: (open: boolean) => void
   jumpMode?: boolean
   onPaneFocus?: () => void
@@ -53,6 +54,8 @@ interface Props {
   onFieldToggle?: (field: FieldKind, row: number) => void
   onInteraction?: () => void
   interactive?: boolean
+  collectionTlsVerify?: boolean
+  insecure?: boolean
 }
 
 const BASE_TAB_DEFS: TabDef[] = [
@@ -80,6 +83,7 @@ export function RequestPane({
   onApiKeyPlacementChange,
   onBodyTypeChange,
   onBodyChange,
+  onTlsVerifyChange,
   onSelectOpenChange,
   jumpMode = false,
   onPaneFocus,
@@ -92,6 +96,8 @@ export function RequestPane({
   onFieldToggle,
   onInteraction,
   interactive = true,
+  collectionTlsVerify,
+  insecure = false,
 }: Props) {
   const theme = useTheme()
   const title = "Request"
@@ -497,6 +503,11 @@ export function RequestPane({
                             }
                           : undefined
                       }
+                      onTlsVerifyChange={onTlsVerifyChange}
+                      onSelectOpenChange={onSelectOpenChange}
+                      collectionTlsVerify={collectionTlsVerify}
+                      insecure={insecure}
+                      interactive={interactive}
                     />
                   )}
                 </scrollbox>

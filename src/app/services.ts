@@ -29,6 +29,7 @@ import {
   type ProxyPolicy,
   type SystemProxySettings,
 } from "../proxy"
+import { parseCollectionTls, type TlsPolicy } from "../tls"
 import type {
   Collection,
   CollectionItem,
@@ -374,8 +375,10 @@ async function auditFile(
         timeline_max_entries?: unknown
         environment?: unknown
         proxy?: unknown
+        tls?: unknown
       }
       const proxy = parseCollectionProxy(settings?.proxy)
+      const tls = parseCollectionTls(settings?.tls)
       if (
         !raw ||
         typeof raw !== "object" ||
@@ -388,6 +391,7 @@ async function auditFile(
               "timeline_max_entries",
               "environment",
               "proxy",
+              "tls",
             ].includes(key),
         ) ||
         (settings.name !== undefined && typeof settings.name !== "string") ||
@@ -399,10 +403,11 @@ async function auditFile(
             settings.timeline_max_entries < 0)) ||
         (settings.environment !== undefined &&
           typeof settings.environment !== "string") ||
-        (settings.proxy !== undefined && proxy === undefined)
+        (settings.proxy !== undefined && proxy === undefined) ||
+        (settings.tls !== undefined && tls === undefined)
       )
         throw new Error(
-          "expected settings mapping with optional string metadata, non-negative integer timeline_max_entries, string environment, and valid proxy",
+          "expected settings mapping with optional string metadata, non-negative integer timeline_max_entries, string environment, valid proxy, and valid tls",
         )
       if (fix) {
         await saveSettings(root, {
@@ -412,6 +417,7 @@ async function auditFile(
             number | undefined,
           environment: settings.environment as string | undefined,
           proxy,
+          tls,
         })
         issues.push({
           path: rel,
@@ -557,6 +563,7 @@ async function runRequest(
   request: Request,
   environment?: Environment,
   proxyPolicy?: ProxyPolicy,
+  tlsPolicy?: TlsPolicy,
 ): Promise<RequestRunResult> {
   try {
     const response = await executor.send(
@@ -567,6 +574,7 @@ async function runRequest(
       request.id,
       undefined,
       proxyPolicy,
+      tlsPolicy,
     )
     const effective = environment ? substitute(request, environment) : request
     return {
@@ -598,6 +606,7 @@ export async function collectionRun(
   onProgress?: RunProgress,
   noProxy = false,
   systemProxy?: SystemProxySettings,
+  insecure = false,
 ): Promise<CollectionRunResult> {
   const dir = await requireCollectionRoot(path)
   const collection = await filestore.loadCollection(dir)
@@ -607,11 +616,14 @@ export async function collectionRun(
     noProxy,
     systemProxy ?? takeSystemProxyFromEnv(),
   )
+  const tlsPolicy = await tlsPolicyFor(dir, insecure)
   const requests = flattenRequests(collection.items)
   const results: RequestRunResult[] = []
   onProgress?.(0, requests.length)
   for (const request of requests) {
-    results.push(await runRequest(collection, request, environment, policy))
+    results.push(
+      await runRequest(collection, request, environment, policy, tlsPolicy),
+    )
     onProgress?.(results.length, requests.length)
   }
   return { results, failed: results.some((result) => result.ok === false) }
@@ -646,6 +658,7 @@ export async function requestRun(
   onProgress?: RunProgress,
   noProxy = false,
   systemProxy?: SystemProxySettings,
+  insecure = false,
 ): Promise<{ result: RequestRunResult; failed: boolean }> {
   validateId(id)
   const dir = await requireCollectionRoot(collectionDir)
@@ -660,9 +673,18 @@ export async function requestRun(
     request,
     await environmentFor(dir, environmentName),
     await proxyPolicyFor(dir, noProxy, systemProxy ?? takeSystemProxyFromEnv()),
+    await tlsPolicyFor(dir, insecure),
   )
   onProgress?.(1, 1)
   return { result, failed: result.ok === false }
+}
+
+async function tlsPolicyFor(
+  dir: string,
+  insecure: boolean,
+): Promise<TlsPolicy> {
+  const settings = await loadSettings(dir)
+  return { collectionDir: dir, settings: settings.tls, insecure }
 }
 
 async function proxyPolicyFor(

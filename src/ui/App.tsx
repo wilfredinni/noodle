@@ -39,6 +39,7 @@ export function App({
   initialEnvName,
   initialSettings = {},
   noProxy = false,
+  insecure = false,
   systemProxy,
   keybinds: keybinds,
   lastRequestId: initialLastRequestId,
@@ -50,6 +51,7 @@ export function App({
   initialEnvName?: string
   initialSettings?: CollectionSettings
   noProxy?: boolean
+  insecure?: boolean
   systemProxy: SystemProxySettings
   keybinds: Keybinds
   lastRequestId?: string
@@ -277,7 +279,7 @@ export function App({
     (
       patch: Pick<
         CollectionSettings,
-        "name" | "description" | "timelineMaxEntries"
+        "name" | "description" | "timelineMaxEntries" | "tls"
       >,
     ) => {
       if (mode !== "collection") return false
@@ -500,10 +502,12 @@ export function App({
         settingsEnv={settingsEnv}
         appProxy={config.proxy}
         collectionProxy={settings.proxy}
+        collectionTls={settings.tls}
         collectionName={settings.name}
         collectionDescription={settings.description}
         timelineMaxEntries={settings.timelineMaxEntries}
         noProxy={noProxy}
+        insecure={insecure}
         systemProxy={systemProxy}
         onAppProxyChange={handleAppProxyChange}
         onCollectionProxyChange={handleCollectionProxyChange}

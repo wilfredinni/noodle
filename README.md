@@ -114,7 +114,7 @@ it reads a file or creates an export.
 - Keyboard-first navigation, jump mode, and mouse controls including sidebar
   context menus.
 
-### Configure proxy and collection settings
+### Configure network and collection settings
 
 Open **Settings** with `F4` or from the `Ctrl+P` command palette to use the
 system `HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or
@@ -126,6 +126,30 @@ are rejected. Bypass entries are comma-separated and support `*`, hosts,
 
 Use `--noproxy` with the TUI, `collection run`, or `request run` to force
 direct connections for that invocation.
+
+Collection TLS settings support certificate verification, a custom PEM CA
+bundle, and PEM client certificates for mutual TLS. Client certificates match
+the interpolated request host and port exactly; relative paths resolve from the
+collection root, and encrypted private-key passphrases can use an active
+environment variable. A custom CA bundle replaces the default trusted roots,
+so include every root the collection needs.
+
+```yaml
+tls:
+  verify: true
+  ca_bundle: ./certs/internal-roots.pem
+  client_certificates:
+    - host: api.internal.example
+      port: 443
+      cert_file: ./certs/client-chain.pem
+      key_file: ./certs/client-key.pem
+      passphrase: $MTLS_PASSPHRASE
+```
+
+Requests can override only verification with `tls.verify`; omit it to inherit
+the collection. Use `--insecure` with the TUI, `collection run`, or `request
+run` for a one-invocation override. PFX/PKCS#12 is not supported by Noodle;
+convert it to a PEM certificate chain and private key first.
 
 Collection metadata and response-history retention also live in
 `settings.yml`. `timeline_max_entries` defaults to 50 per request; lowering it
@@ -190,6 +214,9 @@ auth fields stay runnable and can contain secrets. Home-relative `@/` file paths
 expand to absolute paths, which can expose local usernames and directories, so
 review exports before sharing them. Response timeline data is never exported.
 
+Noodle-specific TLS settings are not translated into OpenAPI or Postman
+exports.
+
 The TUI also offers **Export Collection** from the `Ctrl+P` command palette,
 with OpenAPI and Postman formats and a preview of the target path.
 
@@ -207,7 +234,7 @@ are non-interactive and support `--json`, which emits one
 | `noodle collection format <path>`                                      | Canonicalize request YAML and pretty-print JSON bodies.  |
 | `noodle collection audit <path>`                                       | Validate collection files.                               |
 | `noodle collection run <path>`                                         | Run every request in a collection.                       |
-| `noodle export <path> --format <openapi\|postman> --output <path>`     | Export OpenAPI or a redacted Postman bundle.              |
+| `noodle export <path> --format <openapi\|postman> --output <path>`     | Export OpenAPI or a redacted Postman bundle.             |
 | `noodle request create <id> --url <url> --collection <dir>`            | Create a minimal request.                                |
 | `noodle request run <id> --collection <dir>`                           | Run one request.                                         |
 | `noodle environment set <key> <value> --env <name> --collection <dir>` | Set an environment value.                                |

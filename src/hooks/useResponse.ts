@@ -8,6 +8,7 @@ import type {
   Response,
 } from "../schema"
 import type { ProxyPolicy } from "../proxy"
+import type { TlsPolicy } from "../tls"
 import { executor } from "../requests"
 import {
   startSend,
@@ -37,6 +38,7 @@ export function useResponse(
   collection?: Collection,
   requestPath?: string,
   proxyPolicy?: ProxyPolicy,
+  tlsPolicy?: TlsPolicy,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
@@ -80,10 +82,11 @@ export function useResponse(
         collection,
         requestPath,
         proxyPolicy,
+        tlsPolicy,
       )
       return startSend(prev, req)
     })
-  }, [selectedRequest, env, collection, requestPath, proxyPolicy])
+  }, [selectedRequest, env, collection, requestPath, proxyPolicy, tlsPolicy])
 
   const cancelSend = useCallback(() => {
     abortRef.current?.abort()
@@ -105,6 +108,7 @@ async function runSend(
   collection?: Collection,
   requestPath?: string,
   proxyPolicy?: ProxyPolicy,
+  tlsPolicy?: TlsPolicy,
 ): Promise<void> {
   try {
     const res = await executor.send(
@@ -121,6 +125,7 @@ async function runSend(
         )
       },
       proxyPolicy,
+      tlsPolicy,
     )
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))

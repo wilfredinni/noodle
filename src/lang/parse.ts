@@ -7,6 +7,7 @@ import type {
   Method,
   ParamEntry,
   Request,
+  RequestTlsSettings,
 } from "../schema"
 
 const METHODS: readonly Method[] = [
@@ -85,6 +86,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "body_type",
     "form_data",
     "file_path",
+    "tls",
   ])
   for (const key of Object.keys(raw)) {
     if (!knownKeys.has(key)) {
@@ -175,6 +177,7 @@ export function parseRequest(id: string, yamlText: string): Request {
   }
 
   const auth = parseAuth(raw.auth)
+  const tls = parseRequestTls(raw.tls)
 
   let timeout = 0
   if (raw.timeout !== undefined) {
@@ -206,7 +209,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     maxRedirects = raw.maxRedirects
   }
 
-  const request: Omit<Request, "pathParams"> = {
+  const request: Omit<Request, "pathParams" | "tls"> = {
     id,
     name: raw.name,
     method,
@@ -222,10 +225,28 @@ export function parseRequest(id: string, yamlText: string): Request {
     filePath,
     auth,
   }
+  const requestWithTls = tls === undefined ? request : { ...request, tls }
   if (Object.hasOwn(raw, "path_params") && pathParams.length > 0) {
-    return { ...request, pathParams }
+    return { ...requestWithTls, pathParams }
   }
-  return request as unknown as Request
+  return requestWithTls as Request
+}
+
+function parseRequestTls(value: unknown): RequestTlsSettings | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error('lang.parseRequest: "tls" must be a mapping')
+  }
+  const raw = value as Record<string, unknown>
+  for (const key of Object.keys(raw)) {
+    if (key !== "verify") {
+      throw new Error(`lang.parseRequest: unknown tls field "${key}"`)
+    }
+  }
+  if (raw.verify !== undefined && typeof raw.verify !== "boolean") {
+    throw new Error('lang.parseRequest: "tls.verify" must be a boolean')
+  }
+  return raw.verify === undefined ? undefined : { verify: raw.verify }
 }
 
 export function parseKvMap(

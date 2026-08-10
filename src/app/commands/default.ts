@@ -30,6 +30,11 @@ export default defineCommand({
       default: false,
       description: "Disable proxy use for this session",
     },
+    insecure: {
+      type: "boolean" as const,
+      default: false,
+      description: "Disable TLS certificate verification for this session",
+    },
   },
   async run({ args }) {
     if (args.targetPath && args.collection) {
@@ -44,6 +49,7 @@ export default defineCommand({
       collectionDir: args.collection ? resolve(args.collection) : undefined,
       envName: args.env,
       noProxy: args.noproxy,
+      insecure: args.insecure,
     })
   },
 })

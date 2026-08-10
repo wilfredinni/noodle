@@ -17,6 +17,7 @@ import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
 import { expandUserPath } from "../userPath"
 import { proxyForUrl, redactProxyUrl, type ProxyPolicy } from "../proxy"
+import { tlsForUrl, type TlsPolicy } from "../tls"
 
 export function interpolatePathParams(
   url: string,
@@ -70,6 +71,7 @@ export async function send(
   requestPath?: string,
   onNetworkEvent?: (network: NetworkEvent[]) => void,
   proxyPolicy?: ProxyPolicy,
+  tlsPolicy?: TlsPolicy,
 ): Promise<Response> {
   const merged =
     collection && requestPath
@@ -177,6 +179,22 @@ export async function send(
         onNetworkEvent,
       )
     }
+    let resolvedTls
+    try {
+      resolvedTls = await tlsForUrl(substituted, currentUrl, env, tlsPolicy)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw networkFailure(
+        `requests.send: ${msg}`,
+        e,
+        network,
+        start,
+        onNetworkEvent,
+      )
+    }
+    for (const message of resolvedTls.messages) {
+      recordNetworkEvent(network, start, "tls", message, onNetworkEvent)
+    }
     recordNetworkEvent(
       network,
       start,
@@ -187,6 +205,7 @@ export async function send(
     try {
       const fetchInit: BunFetchRequestInit = { ...currentInit }
       if (proxyRoute?.kind === "proxy") fetchInit.proxy = proxyRoute.url
+      if (resolvedTls.options) fetchInit.tls = resolvedTls.options
       res = await fetch(currentUrl, fetchInit)
     } catch (e) {
       const rawMessage = e instanceof Error ? e.message : String(e)

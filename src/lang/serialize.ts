@@ -21,6 +21,11 @@ export function serializeRequest(req: Request): string {
   out += `followRedirects: ${req.followRedirects ?? true}\n`
   out += `maxRedirects: ${req.maxRedirects ?? 5}\n`
 
+  if (req.tls?.verify !== undefined) {
+    out += "tls:\n"
+    out += `  verify: ${req.tls.verify}\n`
+  }
+
   if (Object.keys(req.headers).length > 0) {
     out += "headers:\n"
     for (const [k, v] of Object.entries(req.headers)) {

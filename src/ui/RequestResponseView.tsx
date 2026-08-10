@@ -20,6 +20,8 @@ interface RequestResponseViewProps {
   layout: "stacked" | "side-by-side"
   expanded: "request" | "response" | null
   activeEnv: Environment | null
+  collectionTlsVerify?: boolean
+  insecure?: boolean
   responseState: SendState
   timelineEntries: TimelineEntry[]
   initialResponseTab?: ResponseTabKind
@@ -59,6 +61,8 @@ export function RequestResponseView({
   layout,
   expanded,
   activeEnv,
+  collectionTlsVerify,
+  insecure = false,
   responseState,
   timelineEntries,
   initialResponseTab,
@@ -104,6 +108,7 @@ export function RequestResponseView({
         onApiKeyPlacementChange={draft.setApiKeyPlacement}
         onBodyTypeChange={draft.setBodyType}
         onBodyChange={draft.setBody}
+        onTlsVerifyChange={draft.setTlsVerify}
         onSelectOpenChange={setSelectOpen}
         jumpMode={jumpMode}
         onPaneFocus={() => onPaneFocus("request")}
@@ -116,6 +121,8 @@ export function RequestResponseView({
         onFieldToggle={onRequestFieldToggle}
         onInteraction={onRequestInteraction}
         interactive={urlbarInteractive}
+        collectionTlsVerify={collectionTlsVerify}
+        insecure={insecure}
       />
       <ResponsePane
         key={responseKey}

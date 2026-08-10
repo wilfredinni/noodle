@@ -27,22 +27,39 @@ describe("home path completion", () => {
 
   it("parses home-rooted queries and rejects traversal above the root", () => {
     expect(getPathCompletionQuery("@Doc", root)).toEqual({
+      root,
       directory: root,
       query: "Doc",
       valueBase: "@/",
     })
     expect(getPathCompletionQuery("@/nested/rep", root)).toEqual({
+      root,
       directory: join(root, "nested"),
       query: "rep",
       valueBase: "@/nested/",
     })
     expect(getPathCompletionQuery("@file(@/nested/rep)", root)).toEqual({
+      root,
       directory: join(root, "nested"),
       query: "rep",
       valueBase: "@/nested/",
     })
     expect(getPathCompletionQuery("@/../", root)).toBeNull()
     expect(getPathCompletionQuery("plain/path", root)).toBeNull()
+  })
+
+  it("completes collection-relative paths without changing home shorthand", async () => {
+    expect(getPathCompletionQuery("./nested/rep", undefined, root)).toEqual({
+      root,
+      directory: join(root, "nested"),
+      query: "rep",
+      valueBase: "./nested/",
+    })
+    const items = await listPathCompletions("./nested/report", {
+      kind: "file",
+      relativeRoot: root,
+    })
+    expect(items[0]?.value).toBe("./nested/report final.pdf")
   })
 
   it("sorts prefix matches first, directories before files, and preserves spaces", async () => {

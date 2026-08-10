@@ -37,6 +37,7 @@ export type DraftOp =
   | { kind: "setTimeout"; timeout: number }
   | { kind: "setFollowRedirects"; followRedirects: boolean }
   | { kind: "setMaxRedirects"; maxRedirects: number }
+  | { kind: "setTlsVerify"; verify?: boolean }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
   | { kind: "setAuthType"; authType: Auth["type"] }
@@ -223,6 +224,9 @@ export function applyDraft(
     case "setMaxRedirects":
       draft.maxRedirects = op.maxRedirects
       break
+    case "setTlsVerify":
+      draft.tls = op.verify === undefined ? undefined : { verify: op.verify }
+      break
     case "setAuthType": {
       const curAuth = current.auth
       if (curAuth && curAuth.type !== "none") {
@@ -264,6 +268,7 @@ export function applyDraft(
         draft.timeout = original.timeout
         draft.followRedirects = original.followRedirects
         draft.maxRedirects = original.maxRedirects
+        draft.tls = original.tls
       } else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)
       } else if (op.field === "params" && op.row !== undefined) {

@@ -7,6 +7,7 @@ export type PathCompletionKind = "file" | "directory"
 export interface PathCompletionOptions {
   kind: PathCompletionKind
   root?: string
+  relativeRoot?: string
   wrapFileSelection?: boolean
 }
 
@@ -17,6 +18,7 @@ export interface PathCompletionItem {
 }
 
 export interface PathCompletionQuery {
+  root: string
   directory: string
   query: string
   valueBase: string
@@ -25,29 +27,43 @@ export interface PathCompletionQuery {
 export function getPathCompletionQuery(
   value: string,
   root = homedir(),
+  relativeRoot?: string,
 ): PathCompletionQuery | null {
   let pathValue = value
   if (pathValue.startsWith("@file(")) {
     pathValue = pathValue.slice(6)
     if (pathValue.endsWith(")")) pathValue = pathValue.slice(0, -1)
   }
-  if (!pathValue.startsWith("@")) return null
+  const isHomePath = pathValue.startsWith("@")
+  const isRelativePath =
+    relativeRoot !== undefined && pathValue.startsWith("./")
+  if (!isHomePath && !isRelativePath) return null
 
-  const raw = pathValue.slice(1).replace(/^\//, "")
+  const completionRoot = resolve(isHomePath ? root : relativeRoot!)
+  const raw = isHomePath
+    ? pathValue.slice(1).replace(/^\//, "")
+    : pathValue.slice(2)
   const slash = raw.lastIndexOf("/")
   const directoryPart = slash === -1 ? "" : raw.slice(0, slash)
   const query = slash === -1 ? raw : raw.slice(slash + 1)
-  const directory = resolve(root, directoryPart || ".")
-  const rel = relative(resolve(root), directory)
+  const directory = resolve(completionRoot, directoryPart || ".")
+  const rel = relative(completionRoot, directory)
 
   if (rel === ".." || rel.startsWith(`..${sep}`)) {
     return null
   }
 
   return {
+    root: completionRoot,
     directory,
     query,
-    valueBase: directoryPart ? `@/${directoryPart}/` : "@/",
+    valueBase: isHomePath
+      ? directoryPart
+        ? `@/${directoryPart}/`
+        : "@/"
+      : directoryPart
+        ? `./${directoryPart}/`
+        : "./",
   }
 }
 
@@ -56,11 +72,11 @@ export async function listPathCompletions(
   options: PathCompletionOptions,
 ): Promise<PathCompletionItem[]> {
   const root = resolve(options.root ?? homedir())
-  const query = getPathCompletionQuery(value, root)
+  const query = getPathCompletionQuery(value, root, options.relativeRoot)
   if (!query) return []
 
   const [realRoot, realDirectory] = await Promise.all([
-    realpath(root),
+    realpath(query.root),
     realpath(query.directory),
   ])
   if (!isWithin(realRoot, realDirectory)) return []

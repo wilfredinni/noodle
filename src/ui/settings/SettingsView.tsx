@@ -18,6 +18,7 @@ import type {
   AppProxySettings,
   CollectionProxySettings,
   CollectionSettings,
+  CollectionTlsSettings,
   Environment,
 } from "../../schema"
 import { DEFAULT_TIMELINE_MAX_ENTRIES } from "../../filestore"
@@ -41,12 +42,13 @@ import { VarInput, type VarInputHandle } from "../VarInput"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
 import { SIDEBAR_WIDTH } from "../Sidebar"
 import { ProxySettingsForm } from "./ProxySettingsForm"
+import { TlsSettingsForm } from "./TlsSettingsForm"
 import { moveRegisteredCollection } from "./collectionRegistry"
 
 export type SettingsScope = "global" | "collection"
 export type GlobalSettingsCategory =
   "appearance" | "behavior" | "network" | "collections" | "keyboard"
-export type CollectionSettingsCategory = "general" | "network"
+export type CollectionSettingsCategory = "general" | "network" | "tls"
 export type SettingsCategory =
   GlobalSettingsCategory | CollectionSettingsCategory
 
@@ -67,6 +69,7 @@ const COLLECTION_CATEGORIES: readonly {
 }[] = [
   { id: "general", label: "General" },
   { id: "network", label: "Proxy" },
+  { id: "tls", label: "TLS" },
 ]
 
 const KEYBIND_CATEGORIES: readonly KeybindCategory[] = [
@@ -104,10 +107,12 @@ export function SettingsView({
   confirmUndoAll,
   appProxy,
   collectionProxy,
+  collectionTls,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
   noProxy,
+  insecure = false,
   activeEnv,
   envNames,
   activeEnvName,
@@ -140,10 +145,12 @@ export function SettingsView({
   confirmUndoAll: boolean
   appProxy?: AppProxySettings
   collectionProxy?: CollectionProxySettings
+  collectionTls?: CollectionTlsSettings
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
   noProxy: boolean
+  insecure?: boolean
   activeEnv: Environment | null
   envNames: string[]
   activeEnvName: string | null
@@ -162,7 +169,7 @@ export function SettingsView({
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries"
+      "name" | "description" | "timelineMaxEntries" | "tls"
     >,
   ) => boolean
   onEnvironmentChange: (name: string) => void
@@ -199,6 +206,7 @@ export function SettingsView({
     string | null
   >(null)
   const [proxyTextInput, setProxyTextInput] = useState(false)
+  const [tlsTextInput, setTlsTextInput] = useState(false)
   const [hoveredCollectionIndex, setHoveredCollectionIndex] = useState<
     number | null
   >(null)
@@ -326,7 +334,8 @@ export function SettingsView({
         (scope === "collection" &&
           category === "general" &&
           contentIndex < 3) ||
-        (category === "network" && proxyTextInput))
+        (category === "network" && proxyTextInput) ||
+        (category === "tls" && tlsTextInput))
     keymap.setData("app.text-input", textInputActive)
     return () => keymap.setData("app.text-input", false)
   }, [
@@ -336,6 +345,7 @@ export function SettingsView({
     focus,
     keymap,
     proxyTextInput,
+    tlsTextInput,
     scope,
   ])
 
@@ -853,6 +863,24 @@ export function SettingsView({
                           proxy as CollectionProxySettings,
                         )
                   }
+                />
+              </>
+            )}
+            {scope === "collection" && category === "tls" && (
+              <>
+                <SettingsSectionHeader
+                  title="TLS"
+                  description="Configure certificate verification, trust roots, and mutual TLS for this collection."
+                />
+                <TlsSettingsForm
+                  settings={collectionTls}
+                  activeEnv={activeEnv}
+                  focused={focus === "settings-content"}
+                  insecure={insecure}
+                  collectionDir={activeCollectionDir}
+                  onExit={() => onPaneFocus("settings-sidebar")}
+                  onTextInputFocusChange={setTlsTextInput}
+                  onChange={(tls) => onCollectionSettingsChange({ tls })}
                 />
               </>
             )}

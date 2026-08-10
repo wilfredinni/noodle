@@ -57,6 +57,93 @@ function EditingPane({
 }
 
 describe("RequestPane blank click commit", () => {
+  it("opens the TLS verification select without entering text edit mode", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const activated: Array<[FieldKind, number]> = []
+    const toggled: Array<[FieldKind, number]> = []
+    const changed: Array<boolean | undefined> = []
+    try {
+      const { renderOnce, captureCharFrame, mockMouse } = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={{
+                mode: "browsing",
+                cursor: {
+                  field: "settings",
+                  row: 3,
+                  addingRow: false,
+                },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused
+              activeTab="settings"
+              onFieldActivate={(field, row) => activated.push([field, row])}
+              onFieldToggle={(field, row) => toggled.push([field, row])}
+              onTlsVerifyChange={(verify) => changed.push(verify)}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 24 },
+      )
+
+      await act(async () => {
+        await renderOnce()
+      })
+      let frame = captureCharFrame()
+      const lines = frame.split("\n")
+      const labelRow = lines.findIndex((line) =>
+        line.includes("TLS Verification"),
+      )
+      const selectRow = lines.findIndex((line) =>
+        line.includes("Inherit (verify)"),
+      )
+      expect(selectRow).toBe(labelRow + 1)
+
+      await act(async () => {
+        await mockMouse.click(
+          lines[selectRow]!.indexOf("Inherit (verify)") + 1,
+          selectRow,
+          MouseButtons.LEFT,
+        )
+      })
+      await act(async () => {
+        await renderOnce()
+      })
+      frame = captureCharFrame()
+      expect(toggled).toEqual([["settings", 3]])
+      expect(activated).toEqual([])
+      expect(frame).toContain("Do not verify")
+
+      await act(async () => {
+        host.press("down")
+      })
+      await act(async () => {
+        await renderOnce()
+      })
+      await act(async () => {
+        host.press("down")
+      })
+      await act(async () => {
+        await renderOnce()
+      })
+      await act(async () => {
+        host.press("return")
+      })
+      await act(async () => {
+        await renderOnce()
+      })
+      expect(changed).toEqual([false])
+    } finally {
+      cleanup()
+    }
+  })
+
   it("commits a Settings edit when clicking blank tab space", async () => {
     const { keymap, cleanup } = setupKeymap()
     let interactions = 0

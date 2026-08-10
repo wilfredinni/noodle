@@ -25,6 +25,7 @@ import type {
   AppProxySettings,
   CollectionProxySettings,
   CollectionSettings,
+  CollectionTlsSettings,
   Request as NoodleRequest,
   Method,
 } from "../schema"
@@ -34,6 +35,7 @@ import {
   resolveProxyPolicy,
   type SystemProxySettings,
 } from "../proxy"
+import type { TlsPolicy } from "../tls"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
 import { useFolderDraft } from "../hooks/useFolderDraft"
@@ -131,10 +133,12 @@ export function AppInner({
   settingsEnv,
   appProxy,
   collectionProxy,
+  collectionTls,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
   noProxy,
+  insecure = false,
   systemProxy,
   onAppProxyChange,
   onCollectionProxyChange,
@@ -179,17 +183,19 @@ export function AppInner({
   settingsEnv?: string
   appProxy?: AppProxySettings
   collectionProxy?: CollectionProxySettings
+  collectionTls?: CollectionTlsSettings
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
   noProxy: boolean
+  insecure?: boolean
   systemProxy: SystemProxySettings
   onAppProxyChange: (proxy: AppProxySettings) => boolean
   onCollectionProxyChange: (proxy: CollectionProxySettings) => boolean
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries"
+      "name" | "description" | "timelineMaxEntries" | "tls"
     >,
   ) => boolean
   initialLastRequestId?: string
@@ -548,6 +554,14 @@ export function AppInner({
       }),
     [noProxy, appProxy, collectionProxy, systemProxy],
   )
+  const tlsPolicy = useMemo<TlsPolicy>(
+    () => ({
+      collectionDir,
+      settings: collectionTls,
+      insecure,
+    }),
+    [collectionDir, collectionTls, insecure],
+  )
   const updateDependencies = useMemo(
     () => ({
       fetcher: createProxyFetcher(proxyPolicy, envState.activeEnv),
@@ -567,6 +581,7 @@ export function AppInner({
     collection ?? undefined,
     draft.draft?.id,
     proxyPolicy,
+    tlsPolicy,
   )
 
   const responseStateRef = useRef(responseState)
@@ -1377,6 +1392,8 @@ export function AppInner({
             layout={layout}
             expanded={expanded}
             activeEnv={envState.activeEnv}
+            collectionTlsVerify={collectionTls?.verify}
+            insecure={insecure}
             responseState={responseState}
             timelineEntries={timeline.entries}
             initialResponseTab={initialResponseTab}
@@ -1456,10 +1473,12 @@ export function AppInner({
             confirmUndoAll={confirmUndoAll}
             appProxy={appProxy}
             collectionProxy={collectionProxy}
+            collectionTls={collectionTls}
             collectionName={collectionName}
             collectionDescription={collectionDescription}
             timelineMaxEntries={timelineMaxEntries}
             noProxy={noProxy}
+            insecure={insecure}
             activeEnv={envState.activeEnv}
             envNames={envState.names}
             activeEnvName={envState.activeName}

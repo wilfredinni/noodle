@@ -2,6 +2,19 @@ import { describe, it, expect } from "bun:test"
 import type { Folder, Request } from "../src/schema"
 import { lang } from "../src/lang"
 
+function makeRequest(overrides: Partial<Request> = {}): Request {
+  return {
+    id: "x",
+    name: "Foo",
+    method: "GET",
+    url: "https://example.com",
+    timeout: 0,
+    headers: {},
+    params: [],
+    ...overrides,
+  }
+}
+
 describe("lang.parseRequest — required fields", () => {
   it("parses a minimal valid request (name, method, url)", () => {
     const yaml = `name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\n`
@@ -133,6 +146,25 @@ describe("lang.parseRequest — strictness", () => {
   it("parses followRedirects: false", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nfollowRedirects: false\n`
     expect(lang.parseRequest("x", yaml).followRedirects).toBe(false)
+  })
+
+  it("parses a TLS verification override", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\ntls:\n  verify: false\n`
+    expect(lang.parseRequest("x", yaml).tls).toEqual({ verify: false })
+  })
+
+  it("rejects invalid TLS verification settings", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\ntls:\n  verify: no\n`
+    expect(() => lang.parseRequest("x", yaml)).toThrow(
+      'lang.parseRequest: "tls.verify" must be a boolean',
+    )
+  })
+
+  it("serializes a TLS verification override", () => {
+    const request = makeRequest({ tls: { verify: false } })
+    const serialized = lang.serializeRequest(request)
+    expect(serialized).toContain("tls:\n  verify: false\n")
+    expect(lang.parseRequest("x", serialized).tls).toEqual({ verify: false })
   })
 
   it("throws on non-integer maxRedirects", () => {

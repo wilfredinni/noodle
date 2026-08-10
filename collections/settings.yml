@@ -3,3 +3,10 @@ description: This is a sample collection designed to help Noodle developers.
 environment: development
 proxy:
   mode: inherit
+tls:
+  verify: true
+  client_certificates:
+    - host: ''
+      cert_file: ''
+      key_file: ''
+      enabled: false

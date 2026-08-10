@@ -71,6 +71,7 @@ export interface Request {
   formData?: FormEntry[]
   filePath?: string
   auth?: Auth
+  tls?: RequestTlsSettings
 }
 
 export interface Collection {
@@ -89,7 +90,14 @@ export interface Response {
 }
 
 export type NetworkEventType =
-  "request" | "redirect" | "response" | "body" | "complete" | "error" | "proxy"
+  | "request"
+  | "redirect"
+  | "response"
+  | "body"
+  | "complete"
+  | "error"
+  | "proxy"
+  | "tls"
 
 export interface NetworkEvent {
   timeMs: number
@@ -153,6 +161,26 @@ export interface CollectionSettings {
   timelineMaxEntries?: number
   environment?: string
   proxy?: CollectionProxySettings
+  tls?: CollectionTlsSettings
+}
+
+export interface RequestTlsSettings {
+  verify?: boolean
+}
+
+export interface ClientCertificateProfile {
+  host: string
+  port?: number
+  certFile: string
+  keyFile: string
+  passphrase?: string
+  enabled?: boolean
+}
+
+export interface CollectionTlsSettings {
+  verify?: boolean
+  caBundle?: string
+  clientCertificates?: ClientCertificateProfile[]
 }
 
 export interface ProxySettings {

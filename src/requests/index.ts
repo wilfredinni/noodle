@@ -8,6 +8,7 @@ import type {
 import { send } from "./send"
 import { substitute } from "./substitute"
 import type { ProxyPolicy } from "../proxy"
+import type { TlsPolicy } from "../tls"
 
 export interface RequestExecutor {
   send(
@@ -18,6 +19,7 @@ export interface RequestExecutor {
     requestPath?: string,
     onNetworkEvent?: (network: NetworkEvent[]) => void,
     proxyPolicy?: ProxyPolicy,
+    tlsPolicy?: TlsPolicy,
   ): Promise<Response>
 }
 

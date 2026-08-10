@@ -33,6 +33,8 @@ interface MainViewProps {
   layout: "stacked" | "side-by-side"
   expanded: "request" | "response" | null
   activeEnv: Environment | null
+  collectionTlsVerify?: boolean
+  insecure?: boolean
   responseState: import("./sendState").SendState
   timelineEntries: import("../schema").TimelineEntry[]
   initialResponseTab?: import("./tabs/uiState").ResponseTabKind
@@ -76,6 +78,8 @@ export function MainView({
   layout,
   expanded,
   activeEnv,
+  collectionTlsVerify,
+  insecure = false,
   responseState,
   timelineEntries,
   initialResponseTab,
@@ -184,6 +188,8 @@ export function MainView({
             layout={layout}
             expanded={expanded}
             activeEnv={activeEnv}
+            collectionTlsVerify={collectionTlsVerify}
+            insecure={insecure}
             responseState={responseState}
             timelineEntries={timelineEntries}
             initialResponseTab={initialResponseTab}

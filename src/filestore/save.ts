@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
 import type { CollectionSettings, Folder, Request } from "../schema"
+import { collectionTlsToYaml } from "../tls"
 import { env } from "../env"
 
 function validatePathId(id: string | undefined): void {
@@ -133,6 +134,10 @@ export async function saveSettings(
   }
   if (settings.proxy !== undefined) {
     data.proxy = settings.proxy
+  }
+  if (settings.tls !== undefined) {
+    const tls = collectionTlsToYaml(settings.tls)
+    if (Object.keys(tls).length > 0) data.tls = tls
   }
 
   try {

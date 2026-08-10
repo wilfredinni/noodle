@@ -30,7 +30,7 @@ function rowCount(req: Request | null): SectionRowCount {
       pathParams: 0,
       body: 0,
       auth: 1,
-      settings: 3,
+      settings: 4,
     }
   let authRows = 1 // type selector row always present
   const a = req.auth
@@ -51,7 +51,7 @@ function rowCount(req: Request | null): SectionRowCount {
     pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
     auth: authRows,
-    settings: 3,
+    settings: 4,
   }
 }
 
@@ -106,6 +106,11 @@ function currentValueFor(
     if (row === 0) return String(draft.timeout)
     if (row === 1) return String(draft.followRedirects ?? true)
     if (row === 2) return String(draft.maxRedirects ?? 5)
+    if (row === 3) {
+      return draft.tls?.verify === undefined
+        ? "inherit"
+        : String(draft.tls.verify)
+    }
     return ""
   }
   if (field === "headers") {
@@ -162,6 +167,8 @@ function currentKeyValueFor(
     if (row === 1)
       return { key: "", value: String(draft.followRedirects ?? true) }
     if (row === 2) return { key: "", value: String(draft.maxRedirects ?? 5) }
+    if (row === 3)
+      return { key: "", value: currentValueFor(draft, field, row, false) }
     return { key: "", value: "" }
   }
   if (field === "body") {
@@ -437,6 +444,10 @@ export function useEditBrowse(
       setEditState(browsed)
       return
     }
+    if (browsed.cursor.field === "settings" && browsed.cursor.row === 3) {
+      setEditState(browsed)
+      return
+    }
 
     const { field, row, addingRow } = browsed.cursor
     if (field === "body" && row === 0) {
@@ -612,6 +623,7 @@ export function useEditBrowse(
       draftMutators.setFollowRedirects(!current)
       return
     }
+    if (field === "settings" && row === 3) return
     const currentDraft = draftRef.current
     if (field === "auth") {
       if (row === 0) {

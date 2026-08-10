@@ -332,6 +332,35 @@ describe("automation services", () => {
     }
   })
 
+  it("passes collection TLS settings and --insecure to the executor", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "tls:\n  verify: true\n  ca_bundle: ./ca.pem\n",
+    )
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const send = executor.send
+    const policies: unknown[] = []
+    executor.send = async (...args) => {
+      policies.push(args[7])
+      return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
+    }
+    try {
+      await collectionRun(dir, undefined, undefined, false, undefined, true)
+      expect(policies).toEqual([
+        {
+          collectionDir: dir,
+          settings: { verify: true, caBundle: "./ca.pem" },
+          insecure: true,
+        },
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
   it("does not audit nested settings files as collection settings", async () => {
     await mkdir(join(dir, "folder"))
     await writeFile(join(dir, "settings.yml"), "{}\n")

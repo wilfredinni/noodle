@@ -181,6 +181,7 @@ const collection = defineCommand({
         path: { type: "positional", required: true },
         env: { type: "string", alias: "e" },
         noproxy: { type: "boolean", default: false },
+        insecure: { type: "boolean", default: false },
         json: jsonArg,
       },
       run: ({ args }) =>
@@ -195,6 +196,7 @@ const collection = defineCommand({
                 progress?.update,
                 args.noproxy,
                 takeSystemProxyFromEnv(),
+                args.insecure,
               )
               return { data, failed: data.failed }
             } finally {
@@ -243,6 +245,7 @@ const request = defineCommand({
         collection: collectionArg,
         env: { type: "string", alias: "e" },
         noproxy: { type: "boolean", default: false },
+        insecure: { type: "boolean", default: false },
         json: jsonArg,
       },
       run: ({ args }) =>
@@ -258,6 +261,7 @@ const request = defineCommand({
                 progress?.update,
                 args.noproxy,
                 takeSystemProxyFromEnv(),
+                args.insecure,
               )
               return { data, failed: data.failed }
             } finally {

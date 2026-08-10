@@ -6,6 +6,7 @@ import type { Theme } from "../theme"
 import { VarInput } from "../VarInput"
 import { Checkbox } from "../Checkbox"
 import { LeftBar } from "../borders"
+import { Select } from "../Select"
 
 export function SettingsSection({
   request,
@@ -17,6 +18,11 @@ export function SettingsSection({
   activeEnv,
   onActivateRow,
   onToggleRow,
+  onTlsVerifyChange,
+  onSelectOpenChange,
+  collectionTlsVerify,
+  insecure = false,
+  interactive = true,
 }: {
   request: Request
   editState: EditState
@@ -27,6 +33,11 @@ export function SettingsSection({
   activeEnv?: Environment | null
   onActivateRow?: (row: number) => void
   onToggleRow?: (row: number) => void
+  onTlsVerifyChange?: (verify?: boolean) => void
+  onSelectOpenChange?: (open: boolean) => void
+  collectionTlsVerify?: boolean
+  insecure?: boolean
+  interactive?: boolean
 }) {
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
   const rows = [
@@ -47,6 +58,24 @@ export function SettingsSection({
       value: request.maxRedirects ?? 5,
       display: String(request.maxRedirects ?? 5),
       desc: "Maximum number of redirects to follow",
+    },
+    {
+      label: "TLS Verification",
+      value:
+        request.tls?.verify === undefined
+          ? "inherit"
+          : request.tls.verify
+            ? "verify"
+            : "insecure",
+      display:
+        request.tls?.verify === undefined
+          ? `Inherit (${collectionTlsVerify === false ? "do not verify" : "verify"})`
+          : request.tls.verify
+            ? "Verify"
+            : "Do not verify",
+      desc: insecure
+        ? "Disabled for this session by --insecure"
+        : "Verify the server certificate, or inherit the collection setting",
     },
   ]
 
@@ -83,7 +112,7 @@ export function SettingsSection({
                     : undefined,
               }}
               onMouseDown={
-                !editingRow && idx !== 1 && onActivateRow
+                !editingRow && idx !== 1 && idx !== 3 && onActivateRow
                   ? (event) => {
                       if (event.button !== MouseButton.LEFT) return
                       onActivateRow(idx)
@@ -94,7 +123,7 @@ export function SettingsSection({
               onMouseOver={canHoverRow ? () => setHoveredRow(idx) : undefined}
               onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
             >
-              {editingRow ? (
+              {editingRow && idx !== 3 ? (
                 <>
                   <text fg={theme.textMuted}>{row.label}: </text>
                   <VarInput
@@ -124,6 +153,34 @@ export function SettingsSection({
                       theme={theme}
                     />
                   </box>
+                </box>
+              ) : idx === 3 ? (
+                <box style={{ flexDirection: "column" }}>
+                  <text fg={theme.text}>{row.label}</text>
+                  <Select
+                    items={[
+                      {
+                        id: "inherit",
+                        label: `Inherit (${collectionTlsVerify === false ? "do not verify" : "verify"})`,
+                      },
+                      { id: "verify", label: "Verify" },
+                      { id: "insecure", label: "Do not verify" },
+                    ]}
+                    value={String(row.value)}
+                    focused={isActive}
+                    interactive={
+                      interactive &&
+                      onTlsVerifyChange !== undefined &&
+                      onToggleRow !== undefined
+                    }
+                    onActivate={() => onToggleRow?.(idx)}
+                    onOpenChange={onSelectOpenChange}
+                    onChange={(value) =>
+                      onTlsVerifyChange?.(
+                        value === "inherit" ? undefined : value === "verify",
+                      )
+                    }
+                  />
                 </box>
               ) : (
                 <VarInput

@@ -10,6 +10,7 @@ import type {
   Request,
 } from "../schema"
 import { parseCollectionProxy } from "../proxy"
+import { parseCollectionTls } from "../tls"
 
 export interface CollectionFileError {
   file: string
@@ -343,6 +344,8 @@ export async function loadSettings(dir: string): Promise<CollectionSettings> {
     }
     const proxy = parseCollectionProxy(obj.proxy)
     if (proxy !== undefined) settings.proxy = proxy
+    const tls = parseCollectionTls(obj.tls)
+    if (tls !== undefined) settings.tls = tls
     return settings
   } catch {
     return {}
