@@ -571,6 +571,13 @@ describe("filestore.loadSettings", () => {
     )
   })
 
+  it("rejects an unquoted timestamp as a non-mapping setting", async () => {
+    await writeFile(join(dir, "settings.yml"), "2024-01-01\n", "utf8")
+    await expect(loadSettings(dir)).rejects.toThrow(
+      "settings.yml: expected a mapping",
+    )
+  })
+
   it("reads a collection proxy override", async () => {
     await writeFile(
       join(dir, "settings.yml"),

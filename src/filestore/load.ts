@@ -332,7 +332,12 @@ export async function loadSettings(dir: string): Promise<CollectionSettings> {
 }
 
 export function parseCollectionSettings(value: unknown): CollectionSettings {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  ) {
     throw new Error("settings.yml: expected a mapping")
   }
   const obj = value as Record<string, unknown>

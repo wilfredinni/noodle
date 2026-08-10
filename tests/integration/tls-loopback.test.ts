@@ -22,24 +22,10 @@ function request(url: string): Request {
   }
 }
 
-async function freePort(): Promise<number> {
-  const server = createServer()
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject)
-    server.listen(0, "127.0.0.1", resolve)
-  })
-  const port = (server.address() as AddressInfo).port
-  await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve())),
-  )
-  return port
-}
-
 async function startTlsServer(requireClientCertificate = false) {
-  const port = await freePort()
   const server = Bun.serve({
     hostname: "127.0.0.1",
-    port,
+    port: 0,
     tls: {
       cert: Bun.file(join(FIXTURES, "server.pem")),
       key: Bun.file(join(FIXTURES, "server-key.pem")),
@@ -57,7 +43,7 @@ async function startTlsServer(requireClientCertificate = false) {
       })
     },
   })
-  return { port, server }
+  return { port: server.port, server }
 }
 
 async function startConnectProxy(): Promise<{

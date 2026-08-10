@@ -16,7 +16,7 @@ import { mergeFolderOverrides } from "./mergeFolderOverrides"
 import { PATH_TOKEN_RE } from "./pathParams"
 import { withDefaultHttpsScheme } from "./url"
 import { expandUserPath } from "../userPath"
-import { proxyForUrl, redactProxyUrl, type ProxyPolicy } from "../proxy"
+import { proxyForUrl, type ProxyPolicy } from "../proxy"
 import { tlsForUrl, type TlsPolicy } from "../tls"
 
 export interface RequestExecutionOptions {
@@ -221,21 +221,9 @@ export async function send(
       if (resolvedTls.options) fetchInit.tls = resolvedTls.options
       res = await fetch(currentUrl, fetchInit)
     } catch (e) {
-      const rawMessage = e instanceof Error ? e.message : String(e)
-      const proxySafeMessage =
-        proxyRoute?.kind === "proxy"
-          ? rawMessage.replaceAll(
-              proxyRoute.url,
-              redactProxyUrl(proxyRoute.url),
-            )
-          : rawMessage
-      const msg = proxySafeMessage.replaceAll(
-        currentUrl,
-        networkUrl(currentUrl),
-      )
       if (e instanceof DOMException && e.name === "AbortError") throw e
       throw networkFailure(
-        `requests.send: fetch failed: ${msg}`,
+        "requests.send: fetch failed",
         e,
         network,
         start,

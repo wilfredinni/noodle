@@ -426,7 +426,6 @@ function PassphraseInput({
   const [error, setError] = useState<string>()
 
   useEffect(() => {
-    if (focused) return
     setDraft(value)
     setError(undefined)
   }, [focused, value])

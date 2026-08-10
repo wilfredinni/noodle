@@ -413,6 +413,7 @@ describe("send — network trace", () => {
       expect(captured[0]?.get("proxy-authorization")).toBe("Basic proxy-secret")
       expect(captured[0]?.get("cookie")).toBe("session=secret")
       expect(captured[0]?.get("cookie2")).toBe("legacy=secret")
+      expect(captured[0]?.get("host")).toBe("api.example.com")
       expect(captured[0]?.get("x-api-key")).toBe("api-secret")
       for (const headers of captured.slice(1)) {
         expect(headers.has("authorization")).toBe(false)
@@ -535,7 +536,8 @@ describe("send — network trace", () => {
       } catch (e) {
         error = e as NetworkError
       }
-      expect(error?.message).toBe("requests.send: fetch failed: offline")
+      expect(error?.message).toBe("requests.send: fetch failed")
+      expect(error?.cause).toEqual(new Error("offline"))
       expect(error?.network?.map((event) => event.type)).toEqual([
         "request",
         "error",
@@ -547,8 +549,11 @@ describe("send — network trace", () => {
 
   it("redacts request credentials and query values from fetch errors", async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = mock(async (url) => {
-      throw new Error(`connection failed for ${String(url)}`)
+    const failure = new Error(
+      "connection failed for user:password@example.com/path?token=query-secret",
+    )
+    globalThis.fetch = mock(async () => {
+      throw failure
     }) as unknown as typeof globalThis.fetch
 
     try {
@@ -564,7 +569,8 @@ describe("send — network trace", () => {
       }
       expect(error?.message).not.toContain("password")
       expect(error?.message).not.toContain("query-secret")
-      expect(error?.message).toContain("https://example.com/path?...")
+      expect(error?.message).toContain("requests.send: fetch failed")
+      expect(error?.cause).toBe(failure)
     } finally {
       globalThis.fetch = originalFetch
     }

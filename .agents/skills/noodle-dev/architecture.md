@@ -101,7 +101,7 @@ Custom credentials at either scope may be entered directly or use variables
 from the active Noodle environment. Direct credentials are stored in the
 corresponding app config or collection `settings.yml`. `--noproxy` overrides
 every saved policy for a single TUI or automation run. Settings load as `{}`
-when the file is missing or invalid.
+when the file is missing. Invalid settings throw and terminate bootstrap.
 
 ### User-relative file paths
 
@@ -121,7 +121,7 @@ Per-request response history stored as YAML arrays of `TimelineEntry` objects. R
 - **`saveRequest()`**: `validatePathId()` → `mkdir` parent → write `.yml` file. Non-atomic (direct write).
 - **`saveFolder()`**: `validatePathId()` → `mkdir` dir → write `folder.yml`. Non-atomic.
 - **`saveEnvironment()`** (`env/save.ts`): Atomic — writes to `.tmp` then `rename()`.
-- **`saveSettings()`**: Direct write to `settings.yml`; not atomic.
+- **`saveSettings()`**: Atomic — writes to a temporary file then replaces `settings.yml`.
 - **`deleteFolder()`**: `rm(path, { recursive: true, force: true })` — wipes entire folder including .yml files and subdirs.
 - **Migration** (in `walk()`): If a normal collection `.yml` file lacks `timeout:` field, auto-serializes and writes the request back. Browse mode disables migration and tolerates invalid request YAML.
 

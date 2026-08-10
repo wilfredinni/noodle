@@ -7,8 +7,9 @@ import {
 } from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
-import { act } from "react"
+import { act, useState } from "react"
 import { createTestRender } from "../testRender"
+import type { CollectionTlsSettings } from "../../src/schema"
 import { ThemeProvider } from "../../src/ui/theme"
 import { auraTheme } from "../../src/ui/theme-data"
 import { TlsSettingsForm } from "../../src/ui/settings/TlsSettingsForm"
@@ -321,6 +322,61 @@ describe("TlsSettingsForm", () => {
     await renderOnce()
     expect(captureCharFrame()).not.toContain("literal-secret")
     expect(captureCharFrame()).not.toContain("environment-secret")
+    cleanup()
+  })
+
+  it("restores a persisted passphrase after a focused save rolls back", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const initialSettings: CollectionTlsSettings = {
+      clientCertificates: [
+        {
+          host: "api.example.com",
+          certFile: "client.pem",
+          keyFile: "key.pem",
+        },
+      ],
+    }
+    let rollback = () => {}
+
+    function Harness() {
+      const [settings, setSettings] =
+        useState<CollectionTlsSettings>(initialSettings)
+      rollback = () => setSettings(initialSettings)
+      return (
+        <TlsSettingsForm
+          focused
+          insecure={false}
+          collectionDir="/tmp/collection"
+          activeEnv={null}
+          settings={settings}
+          onChange={(next) => {
+            setSettings(next)
+            return true
+          }}
+          onExit={() => {}}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => mockInput.typeText("$NEW"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("$NEW")
+
+    await act(async () => rollback())
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("$NEW")
     cleanup()
   })
 })
