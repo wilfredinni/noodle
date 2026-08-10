@@ -220,13 +220,15 @@ export function TlsSettingsForm({
         />
       </FieldLabel>
 
-      <text fg={theme.text} attributes={1}>
-        Client certificates
-      </text>
-      <text fg={theme.textMuted} wrapMode="word">
-        PEM certificate chains and private keys are selected by exact host and
-        port. The first enabled match wins.
-      </text>
+      <box style={{ flexDirection: "column", gap: 0 }}>
+        <text fg={theme.text} attributes={1}>
+          Client certificates
+        </text>
+        <text fg={theme.textMuted} wrapMode="word">
+          PEM certificate chains and private keys are selected by exact host and
+          port. The first enabled match wins.
+        </text>
+      </box>
       {profiles.map((profile, index) => {
         const base = 2 + index * PROFILE_FIELD_COUNT
         const complete = Boolean(

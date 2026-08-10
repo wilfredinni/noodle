@@ -5,8 +5,4 @@ proxy:
   mode: inherit
 tls:
   verify: true
-  client_certificates:
-    - host: ''
-      cert_file: ''
-      key_file: ''
-      enabled: false
+  client_certificates: []

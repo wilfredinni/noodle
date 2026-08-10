@@ -67,6 +67,13 @@ describe("TlsSettingsForm", () => {
     expect(frame).toContain("api.example.com")
     expect(frame).toContain("Certificate chain")
     expect(frame).toContain("Private key")
+    const rows = frame.split("\n")
+    const clientCertificatesRow = rows.findIndex((row) =>
+      row.includes("Client certificates"),
+    )
+    expect(rows[clientCertificatesRow + 1]).toContain(
+      "PEM certificate chains and private keys",
+    )
     cleanup()
   })
 
