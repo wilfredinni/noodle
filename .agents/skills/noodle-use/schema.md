@@ -204,7 +204,7 @@ proxy:
 - `description`: optional multiline collection notes
 - `timeline_max_entries`: optional non-negative integer; defaults to 50, and `0` disables history
 - `environment`: default active environment name; must match an env file in `.environments/`
-- `proxy`: optional collection proxy policy. Use `inherit` to follow global settings, `off` for direct connections, or `custom` with an `http` or `https` URL and optional bypass list. Custom credentials may use active-environment `$VARNAME` values; literal credentials are rejected.
+- `proxy`: optional collection proxy policy. Use `inherit` to follow global settings, `off` for direct connections, or `custom` with an `http` or `https` URL and optional bypass list. Credentials may be entered directly or use `$VARNAME` values from the active Noodle environment. Direct credentials are stored in `settings.yml`.
 - `tls`: optional collection TLS policy with `verify` (boolean), `ca_bundle` (PEM path), and `client_certificates` (list). Each client certificate requires an exact `host`, optional `port` (default 443), `cert_file`, `key_file`, optional exact `$VARNAME` `passphrase`, and optional `enabled`. Relative paths resolve from the collection root. Literal or interpolated passphrases are rejected.
 
 Settings are strict: unknown keys, wrong field types, malformed proxy/TLS

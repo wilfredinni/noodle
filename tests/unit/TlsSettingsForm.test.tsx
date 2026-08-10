@@ -101,7 +101,10 @@ describe("TlsSettingsForm", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("Verify TLS certificates")
-    expect(frame).toContain("CA bundle")
+    expect(frame).toContain("CA bundle (optional)")
+    expect(frame).toContain("Port (optional)")
+    expect(frame).toContain("Passphrase (optional)")
+    expect(frame).toContain("Optional. Add a certificate and private-key pair")
     expect(frame).toContain("api.example.com")
     expect(frame).toContain("Certificate chain")
     expect(frame).toContain("Private key")
@@ -116,7 +119,7 @@ describe("TlsSettingsForm", () => {
       row.includes("Client certificates"),
     )
     expect(rows[clientCertificatesRow + 1]).toContain(
-      "A list of certificate and private-key pairs",
+      "Optional. Add a certificate and private-key pair",
     )
     expect(frame.match(/\+ Add client certificate/g)).toHaveLength(2)
     expect(

@@ -182,7 +182,7 @@ export function environmentForProxyPolicy(
 
   let url = policy.url
   try {
-    url = resolveProxyUrl(url, env ?? undefined)
+    url = resolveProxyUrl(url, env?.vars)
   } catch {
     // Keep the template so the subprocess reports the same unresolved proxy.
   }
@@ -252,7 +252,7 @@ export function proxyForUrl(
     return {
       kind: "proxy",
       source: policy.source,
-      url: resolveProxyUrl(policy.url, env),
+      url: resolveProxyUrl(policy.url, env?.vars),
     }
   }
 
@@ -266,19 +266,22 @@ export function proxyForUrl(
     : { kind: "direct", reason: "unconfigured" }
 }
 
-export function resolveProxyUrl(template: string, env?: Environment): string {
+export function resolveProxyUrl(
+  template: string,
+  variables?: Record<string, string | undefined>,
+): string {
   const url = template.replace(VAR_RE, (_, name: string) => {
-    if (!env || !Object.hasOwn(env.vars, name)) {
+    const value = variables?.[name]
+    if (!variables || !Object.hasOwn(variables, name) || value === undefined) {
       throw new Error(`proxy: unresolved variable "${name}" in proxy.url`)
     }
-    return env.vars[name]
+    return value
   })
   let parsed: URL
   try {
     parsed = new URL(url)
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    throw new Error(`proxy: invalid proxy URL: ${message}`, { cause: e })
+    throw new Error("proxy: invalid proxy URL", { cause: e })
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error("proxy: URL must use http or https")
@@ -297,12 +300,6 @@ export function validateProxyTemplate(template: string): string | null {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return "Proxy URL must use http or https"
     }
-    const authority = value.match(/^[a-z][a-z\d+.-]*:\/\/([^/?#]*)/i)?.[1]
-    const at = authority?.lastIndexOf("@") ?? -1
-    const userInfo = at >= 0 ? authority?.slice(0, at) : undefined
-    if (userInfo && userInfo.replace(VAR_RE, "").replaceAll(":", "")) {
-      return "Use $VARNAME for proxy credentials"
-    }
     return null
   } catch {
     return "Proxy URL is invalid"
@@ -316,7 +313,7 @@ export function parseStructuredProxyTemplate(
   if (validateProxyTemplate(template) !== null) return null
 
   const match = template.match(
-    /^(https?):\/\/(?:(\$\w+):(\$\w+)@)?(\[[^\]]+\]|[^:/?#@\s]+)(?::(\d+))?$/,
+    /^(https?):\/\/(?:([^:/?#@\s]+)(?::([^:/?#@\s]+))?@)?(\[[^\]]+\]|[^:/?#@\s]+)(?::(\d+))?$/,
   )
   if (!match) return null
 
@@ -324,14 +321,22 @@ export function parseStructuredProxyTemplate(
   const hostname = rawHostname!.startsWith("[")
     ? rawHostname.slice(1, -1)
     : rawHostname!
+  let decodedUsername: string
+  let decodedPassword: string
+  try {
+    decodedUsername = username ? decodeURIComponent(username) : ""
+    decodedPassword = password ? decodeURIComponent(password) : ""
+  } catch {
+    return null
+  }
 
   return {
     protocol: protocol as "http" | "https",
     hostname,
     port: port ?? "",
     auth: username !== undefined,
-    username: username ?? "",
-    password: password ?? "",
+    username: decodedUsername,
+    password: decodedPassword,
   }
 }
 
@@ -353,12 +358,7 @@ export function buildStructuredProxyTemplate(
   }
 
   if (fields.auth) {
-    if (!isVariableReference(fields.username)) {
-      return { error: "Username must be a $VARNAME reference" }
-    }
-    if (!isVariableReference(fields.password)) {
-      return { error: "Password must be a $VARNAME reference" }
-    }
+    if (!fields.username) return { error: "Proxy username is required" }
   }
 
   const host =
@@ -366,11 +366,17 @@ export function buildStructuredProxyTemplate(
       ? `[${hostname}]`
       : hostname
   const credentials = fields.auth
-    ? `${fields.username}:${fields.password}@`
+    ? `${encodeProxyCredential(fields.username)}${
+        fields.password ? `:${encodeProxyCredential(fields.password)}` : ""
+      }@`
     : ""
   const url = `${fields.protocol}://${credentials}${host}${port ? `:${port}` : ""}`
   const validationError = validateProxyTemplate(url)
   return validationError ? { error: validationError } : { url }
+}
+
+function encodeProxyCredential(value: string): string {
+  return isVariableReference(value) ? value : encodeURIComponent(value)
 }
 
 function customProxy<T extends AppProxySettings | CollectionProxySettings>(

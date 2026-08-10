@@ -282,6 +282,36 @@ describe("collection TLS settings", () => {
     expect(resolved.messages).toContain("TLS verification enabled by request")
   })
 
+  it("does not resolve a client key passphrase from the process environment", async () => {
+    await writeFile(join(dir, "client.pem"), "test cert")
+    await writeFile(join(dir, "key.pem"), "test key")
+    const original = process.env.NOODLE_TEST_TLS_PASSPHRASE
+    process.env.NOODLE_TEST_TLS_PASSPHRASE = "process-secret"
+
+    try {
+      await expect(
+        tlsForUrl(makeRequest(), "https://api.example.com", undefined, {
+          collectionDir: dir,
+          settings: {
+            clientCertificates: [
+              {
+                host: "api.example.com",
+                certFile: "client.pem",
+                keyFile: "key.pem",
+                passphrase: "$NOODLE_TEST_TLS_PASSPHRASE",
+              },
+            ],
+          },
+        }),
+      ).rejects.toThrow(
+        'tls: unresolved variable "NOODLE_TEST_TLS_PASSPHRASE" in client certificate passphrase',
+      )
+    } finally {
+      if (original === undefined) delete process.env.NOODLE_TEST_TLS_PASSPHRASE
+      else process.env.NOODLE_TEST_TLS_PASSPHRASE = original
+    }
+  })
+
   it("lets --insecure override saved verification", async () => {
     const resolved = await tlsForUrl(
       makeRequest({ tls: { verify: true } }),

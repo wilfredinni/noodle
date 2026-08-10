@@ -137,6 +137,40 @@ describe("send — param deduplication", () => {
 })
 
 describe("send — network trace", () => {
+  it("resolves an app proxy from the active Noodle environment", async () => {
+    const originalFetch = globalThis.fetch
+    let proxy: string | undefined
+    globalThis.fetch = mock(async (_url, init) => {
+      const selected = (init as BunFetchRequestInit).proxy
+      proxy = typeof selected === "string" ? selected : selected?.url
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await send(makeReq(), {
+        environment: {
+          name: "dev",
+          vars: {
+            NOODLE_TEST_APP_PROXY_USER: "collection-user",
+            NOODLE_TEST_APP_PROXY_PASSWORD: "collection-password",
+          },
+        },
+        proxyPolicy: {
+          kind: "custom",
+          source: "global",
+          url: "http://$NOODLE_TEST_APP_PROXY_USER:$NOODLE_TEST_APP_PROXY_PASSWORD@proxy.test:8080",
+          bypass: [],
+        },
+      })
+
+      expect(proxy).toBe(
+        "http://collection-user:collection-password@proxy.test:8080",
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it("passes the resolved proxy to fetch and reports the selected route", async () => {
     const originalFetch = globalThis.fetch
     let proxy: string | undefined

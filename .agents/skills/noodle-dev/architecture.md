@@ -96,8 +96,10 @@ proxy:
 `name` and `description` drive collection display in the Settings workspace.
 `timeline_max_entries` must be a non-negative safe integer and pruning removes
 evicted large-body sidecars. Collection proxy mode is `inherit`, `off`, or
-`custom`; custom credentials may use active-environment variables. The global
-`config.yml` proxy mode is `system`, `off`, or `custom`. `--noproxy` overrides
+`custom`. The global `config.yml` proxy mode is `system`, `off`, or `custom`.
+Custom credentials at either scope may be entered directly or use variables
+from the active Noodle environment. Direct credentials are stored in the
+corresponding app config or collection `settings.yml`. `--noproxy` overrides
 every saved policy for a single TUI or automation run. Settings load as `{}`
 when the file is missing or invalid.
 

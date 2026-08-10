@@ -229,8 +229,8 @@ export function TlsSettingsForm({
       </FieldLabel>
       <FieldLabel
         id="settings-tls-ca-bundle"
-        title="CA bundle"
-        description="PEM bundle that replaces the default trusted roots. Relative paths resolve from the collection."
+        title="CA bundle (optional)"
+        description="Optional. PEM bundle that replaces the default trusted roots. Relative paths resolve from the collection."
         active={focused && field === 1}
       >
         <VarInput
@@ -253,8 +253,8 @@ export function TlsSettingsForm({
           Client certificates ({profiles.length})
         </text>
         <text fg={theme.textMuted} wrapMode="word">
-          A list of certificate and private-key pairs. Add one entry per host
-          and port; the first enabled match wins.
+          Optional. Add a certificate and private-key pair per host and port;
+          the first enabled match wins.
         </text>
       </box>
       <AddCertificateButton
@@ -315,7 +315,7 @@ export function TlsSettingsForm({
             </SettingsField>
             <TextInput
               title="Host"
-              description="Bare hostname matched exactly for this certificate."
+              description="Required. Bare hostname matched exactly for this certificate."
               border={false}
               value={profile.host}
               placeholder="api.internal.example"
@@ -324,8 +324,8 @@ export function TlsSettingsForm({
               onChange={(host) => updateProfile(index, { host })}
             />
             <TextInput
-              title="Port"
-              description="Port matched with the host; blank uses 443."
+              title="Port (optional)"
+              description="Optional. Port matched with the host; blank uses 443."
               border={false}
               value={profile.port === undefined ? "" : String(profile.port)}
               placeholder="443"
@@ -341,7 +341,7 @@ export function TlsSettingsForm({
             />
             <PathInput
               title="Certificate chain"
-              description="PEM certificate chain used for client authentication."
+              description="Required. PEM certificate chain used for client authentication."
               border={false}
               value={profile.certFile}
               placeholder="./certs/client-chain.pem"
@@ -353,7 +353,7 @@ export function TlsSettingsForm({
             />
             <PathInput
               title="Private key"
-              description="Private key paired with the certificate chain."
+              description="Required. Private key paired with the certificate chain."
               border={false}
               value={profile.keyFile}
               placeholder="./certs/client-key.pem"
@@ -364,8 +364,8 @@ export function TlsSettingsForm({
               onChange={(keyFile) => updateProfile(index, { keyFile })}
             />
             <PassphraseInput
-              title="Passphrase"
-              description="Optional key passphrase; use $VARNAME for an environment value."
+              title="Passphrase (optional)"
+              description="Optional. Use $VARNAME for an environment value."
               border={false}
               value={profile.passphrase ?? ""}
               placeholder="$MTLS_PASSPHRASE"

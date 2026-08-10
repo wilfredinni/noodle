@@ -118,11 +118,14 @@ it reads a file or creates an export.
 
 Open **Settings** with `F4` or from the `Ctrl+P` command palette to use the
 system `HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or
-override the current collection in `settings.yml`. Custom proxy credentials can use
-active-environment variables, for example
-`http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080`; literal credentials
-are rejected. Bypass entries are comma-separated and support `*`, hosts,
-`.domain` suffixes, IP addresses, and optional ports.
+override the current collection in `settings.yml`. Custom proxy credentials can
+be entered directly or use `$VARNAME` references, for example
+`http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080`. Variables for both app
+and collection proxies come from the active Noodle environment. Direct app
+credentials are stored in the app config, while direct collection credentials
+are stored in `settings.yml`; review either file before sharing it. Bypass
+entries are optional, comma-separated, and support `*`, hosts, `.domain`
+suffixes, IP addresses, and optional ports.
 
 Use `--noproxy` with the TUI, `collection run`, or `request run` to force
 direct connections for that invocation.
