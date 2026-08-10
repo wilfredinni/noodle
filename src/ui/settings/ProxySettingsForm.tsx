@@ -17,6 +17,7 @@ import { Checkbox } from "../Checkbox"
 import { Select, type SelectItem } from "../Select"
 import { VarInput, type VarInputHandle } from "../VarInput"
 import { useTheme } from "../theme"
+import { SettingsField } from "./SettingsField"
 
 type EditorMode = "fields" | "advanced"
 type ProxyMode = "system" | "inherit" | "custom" | "off"
@@ -38,6 +39,22 @@ interface FormValues {
   fields: StructuredProxyFields
   url: string
   bypass: string
+}
+
+function proxyErrorField(
+  message: string | null,
+  editor: EditorMode,
+): Field | null {
+  if (!message) return null
+  if (message.startsWith("Proxy hostname")) return "hostname"
+  if (message.startsWith("Proxy port")) return "port"
+  if (message.startsWith("Username")) return "username"
+  if (message.startsWith("Password")) return "password"
+  if (message.startsWith("This URL needs Advanced mode")) return "editor"
+  if (message.startsWith("Proxy URL") || message.startsWith("Use $VARNAME")) {
+    return editor === "advanced" ? "proxy-url" : "hostname"
+  }
+  return null
 }
 
 const EMPTY_FIELDS: StructuredProxyFields = {
@@ -257,7 +274,21 @@ export function ProxySettingsForm({
     const dispose = keymap.intercept(
       "key",
       (ctx) => {
-        if (ctx.event.name === "tab") {
+        if (["up", "down", "home", "end"].includes(ctx.event.name)) {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          const index = focusOrder.indexOf(field)
+          const next =
+            ctx.event.name === "home"
+              ? 0
+              : ctx.event.name === "end"
+                ? focusOrder.length - 1
+                : Math.min(
+                    focusOrder.length - 1,
+                    Math.max(0, index + (ctx.event.name === "up" ? -1 : 1)),
+                  )
+          setField(focusOrder[next]!)
+        } else if (ctx.event.name === "tab") {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           if (field === "proxy-url") commitCurrent()
@@ -325,6 +356,10 @@ export function ProxySettingsForm({
           { id: "off", label: "Off (direct connections)" },
         ]
 
+  const errorField = proxyErrorField(error, values.editor)
+  const fieldError = (target: Field) =>
+    errorField === target ? (error ?? undefined) : undefined
+
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
       {noProxy && scope === "app" && (
@@ -336,10 +371,14 @@ export function ProxySettingsForm({
       <SelectField
         id="settings-proxy-mode"
         label="Mode"
+        hint={
+          scope === "app"
+            ? "Choose the system proxy, a custom proxy, or direct connections."
+            : "Inherit the app proxy, configure a custom proxy, or use direct connections."
+        }
         items={modeItems}
         value={values.mode}
         focused={focused && field === "mode"}
-        selectOpen={selectOpen}
         onOpenChange={setSelectOpen}
         onActivate={() => setField("mode")}
         onChange={(mode) => update({ mode: mode as ProxyMode })}
@@ -349,13 +388,14 @@ export function ProxySettingsForm({
           <SelectField
             id="settings-proxy-editor"
             label="Editor"
+            hint="Use structured fields or enter the complete proxy URL."
             items={[
               { id: "fields", label: "Fields" },
               { id: "advanced", label: "Advanced URL" },
             ]}
             value={values.editor}
             focused={focused && field === "editor"}
-            selectOpen={selectOpen}
+            error={fieldError("editor")}
             onOpenChange={setSelectOpen}
             onActivate={() => setField("editor")}
             onChange={(value) => switchEditor(value as EditorMode)}
@@ -365,13 +405,14 @@ export function ProxySettingsForm({
               <SelectField
                 id="settings-proxy-protocol"
                 label="Protocol"
+                hint="Protocol used to connect to the proxy server."
                 items={[
                   { id: "http", label: "HTTP" },
                   { id: "https", label: "HTTPS" },
                 ]}
                 value={values.fields.protocol}
                 focused={focused && field === "protocol"}
-                selectOpen={selectOpen}
+                error={fieldError("protocol")}
                 onOpenChange={setSelectOpen}
                 onActivate={() => setField("protocol")}
                 onChange={(protocol) =>
@@ -384,7 +425,9 @@ export function ProxySettingsForm({
                 inputRef={hostnameRef}
                 value={values.fields.hostname}
                 placeholder="proxy.example or ::1"
+                hint="Hostname or IP address of the proxy server."
                 focused={focused && field === "hostname"}
+                error={fieldError("hostname")}
                 onFocus={() => setField("hostname")}
                 onChange={(hostname) => updateFields({ hostname })}
               />
@@ -394,7 +437,9 @@ export function ProxySettingsForm({
                 inputRef={portRef}
                 value={values.fields.port}
                 placeholder="optional"
+                hint="Optional port used by the proxy server."
                 focused={focused && field === "port"}
+                error={fieldError("port")}
                 onFocus={() => setField("port")}
                 onChange={(port) => updateFields({ port })}
               />
@@ -407,6 +452,7 @@ export function ProxySettingsForm({
               value={values.url}
               placeholder="http://$PROXY_USER:$PROXY_PASSWORD@proxy:8080"
               focused={focused && field === "proxy-url"}
+              error={fieldError("proxy-url")}
               env={activeEnv ?? null}
               hint="Include $VARNAME credentials directly in the URL."
               onFocus={() => setField("proxy-url")}
@@ -426,26 +472,18 @@ export function ProxySettingsForm({
           />
           {values.editor === "fields" && (
             <>
-              <box
+              <SettingsField
                 id="settings-proxy-auth"
-                onMouseDown={(event) => {
-                  if (event.button !== MouseButton.LEFT) return
+                title="Proxy authentication"
+                description="Use environment variables for the proxy credentials."
+                active={focused && field === "auth"}
+                onMouseDown={() => {
                   setField("auth")
                   updateFields({ auth: !values.fields.auth })
-                  event.preventDefault()
-                  event.stopPropagation()
                 }}
-                style={{ flexDirection: "row" }}
               >
                 <Checkbox checked={values.fields.auth} theme={theme} />
-                <text
-                  fg={
-                    focused && field === "auth" ? theme.text : theme.textMuted
-                  }
-                >
-                  Proxy authentication
-                </text>
-              </box>
+              </SettingsField>
               {values.fields.auth && (
                 <>
                   <VariableField
@@ -454,7 +492,9 @@ export function ProxySettingsForm({
                     inputRef={usernameRef}
                     value={values.fields.username}
                     placeholder="$PROXY_USER"
+                    hint="Environment variable containing the proxy username."
                     focused={focused && field === "username"}
+                    error={fieldError("username")}
                     env={activeEnv ?? null}
                     onFocus={() => setField("username")}
                     onChange={(username) => updateFields({ username })}
@@ -465,7 +505,9 @@ export function ProxySettingsForm({
                     inputRef={passwordRef}
                     value={values.fields.password}
                     placeholder="$PROXY_PASSWORD"
+                    hint="Environment variable containing the proxy password."
                     focused={focused && field === "password"}
+                    error={fieldError("password")}
                     env={activeEnv ?? null}
                     onFocus={() => setField("password")}
                     onChange={(password) => updateFields({ password })}
@@ -476,7 +518,7 @@ export function ProxySettingsForm({
           )}
         </>
       )}
-      {error && <text fg={theme.error}>{error}</text>}
+      {error && !errorField && <text fg={theme.error}>{error}</text>}
     </box>
   )
 }
@@ -487,7 +529,8 @@ function SelectField({
   items,
   value,
   focused,
-  selectOpen,
+  hint,
+  error,
   onOpenChange,
   onActivate,
   onChange,
@@ -497,32 +540,31 @@ function SelectField({
   items: SelectItem[]
   value: string
   focused: boolean
-  selectOpen: boolean
+  hint?: string
+  error?: string
   onOpenChange: (open: boolean) => void
   onActivate: () => void
   onChange: (value: string) => void
 }) {
-  const theme = useTheme()
   return (
-    <box
+    <SettingsField
       id={id}
-      style={{
-        flexDirection: "column",
-        width: "100%",
-        zIndex: selectOpen ? 2 : 0,
-      }}
+      title={label}
+      description={hint}
+      error={error}
+      active={focused}
     >
-      <text fg={theme.text}>{label}</text>
       <Select
         items={items}
         value={value}
+        fitContent
         onChange={onChange}
         focused={focused}
         onOpenChange={onOpenChange}
         onActivate={onActivate}
         triggerPriority={110}
       />
-    </box>
+    </SettingsField>
   )
 }
 
@@ -535,6 +577,7 @@ function TextField({
   onFocus,
   onChange,
   hint,
+  error,
   inputRef,
 }: {
   id: string
@@ -545,13 +588,19 @@ function TextField({
   onFocus: () => void
   onChange: (value: string) => void
   hint?: string
+  error?: string
   inputRef: { current: InputRenderable | null }
 }) {
   const theme = useTheme()
   return (
-    <box id={id} style={{ flexDirection: "column", width: "100%" }}>
-      <text fg={theme.text}>{label}</text>
-      <box style={{ width: "100%", height: 1, overflow: "hidden" }}>
+    <SettingsField
+      id={id}
+      title={label}
+      active={focused}
+      description={hint}
+      error={error}
+    >
+      <box style={{ flexGrow: 1, minWidth: 0, height: 1, overflow: "hidden" }}>
         <input
           ref={inputRef}
           value={value}
@@ -561,16 +610,15 @@ function TextField({
             if (event.button === MouseButton.LEFT) onFocus()
           }}
           focused={focused}
-          backgroundColor={theme.backgroundElement}
-          focusedBackgroundColor={theme.borderSubtle}
+          backgroundColor="transparent"
+          focusedBackgroundColor="transparent"
           textColor={theme.text}
           cursorColor={theme.primary}
           placeholderColor={theme.textMuted}
-          style={{ alignSelf: "stretch" }}
+          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
         />
       </box>
-      {hint && <text fg={theme.textMuted}>{hint}</text>}
-    </box>
+    </SettingsField>
   )
 }
 
@@ -585,6 +633,7 @@ function VariableField({
   onChange,
   inputRef,
   hint,
+  error,
 }: {
   id: string
   label: string
@@ -596,12 +645,17 @@ function VariableField({
   onChange: (value: string) => void
   inputRef: { current: VarInputHandle | null }
   hint?: string
+  error?: string
 }) {
-  const theme = useTheme()
   return (
-    <box id={id} style={{ flexDirection: "column", width: "100%" }}>
-      <text fg={theme.text}>{label}</text>
-      <box style={{ width: "100%", height: 1, overflow: "hidden" }}>
+    <SettingsField
+      id={id}
+      title={label}
+      active={focused}
+      description={hint}
+      error={error}
+    >
+      <box style={{ flexGrow: 1, minWidth: 0, height: 1, overflow: "hidden" }}>
         <VarInput
           ref={inputRef}
           value={value}
@@ -610,16 +664,12 @@ function VariableField({
           isFocused={focused}
           onChange={onChange}
           placeholder={placeholder}
-          backgroundColor={theme.backgroundElement}
-          focusedBackgroundColor={theme.borderSubtle}
+          backgroundColor="transparent"
+          focusedBackgroundColor="transparent"
           onFocus={onFocus}
+          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
         />
       </box>
-      {hint && (
-        <text fg={theme.textMuted} wrapMode="word">
-          {hint}
-        </text>
-      )}
-    </box>
+    </SettingsField>
   )
 }

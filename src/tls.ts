@@ -45,7 +45,7 @@ export function parseCollectionTls(
   for (const raw of value.client_certificates ?? []) {
     const profile = parseClientCertificate(raw)
     if (!profile) return undefined
-    profiles.push(profile)
+    if (!isEmptyClientCertificateProfile(profile)) profiles.push(profile)
   }
 
   const settings: CollectionTlsSettings = {}
@@ -64,19 +64,21 @@ export function collectionTlsToYaml(
   if (settings.verify !== undefined) result.verify = settings.verify
   if (settings.caBundle !== undefined) result.ca_bundle = settings.caBundle
   if (settings.clientCertificates !== undefined) {
-    result.client_certificates = settings.clientCertificates.map((profile) => {
-      const value: Record<string, unknown> = {
-        host: profile.host,
-        cert_file: profile.certFile,
-        key_file: profile.keyFile,
-      }
-      if (profile.port !== undefined) value.port = profile.port
-      if (profile.passphrase !== undefined) {
-        value.passphrase = profile.passphrase
-      }
-      if (profile.enabled !== undefined) value.enabled = profile.enabled
-      return value
-    })
+    result.client_certificates = settings.clientCertificates
+      .filter((profile) => !isEmptyClientCertificateProfile(profile))
+      .map((profile) => {
+        const value: Record<string, unknown> = {
+          host: profile.host,
+          cert_file: profile.certFile,
+          key_file: profile.keyFile,
+        }
+        if (profile.port !== undefined) value.port = profile.port
+        if (profile.passphrase !== undefined) {
+          value.passphrase = profile.passphrase
+        }
+        if (profile.enabled !== undefined) value.enabled = profile.enabled
+        return value
+      })
   }
   return result
 }
@@ -238,6 +240,19 @@ function parseClientCertificate(
     passphrase: value.passphrase as string | undefined,
     enabled: value.enabled as boolean | undefined,
   }
+}
+
+function isEmptyClientCertificateProfile(
+  profile: ClientCertificateProfile,
+): boolean {
+  return (
+    profile.enabled === false &&
+    profile.host.trim() === "" &&
+    profile.certFile.trim() === "" &&
+    profile.keyFile.trim() === "" &&
+    profile.port === undefined &&
+    !profile.passphrase?.trim()
+  )
 }
 
 function resolvePassphrase(value: string, env?: Environment): string {

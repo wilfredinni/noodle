@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import type { Request } from "../../src/schema"
@@ -101,6 +101,16 @@ describe("collection TLS settings", () => {
     ).toBeUndefined()
   })
 
+  it("ignores an empty disabled client certificate placeholder", () => {
+    expect(
+      parseCollectionTls({
+        client_certificates: [
+          { host: "", cert_file: "", key_file: "", enabled: false },
+        ],
+      }),
+    ).toEqual({ clientCertificates: [] })
+  })
+
   it("accepts only bare hostnames and IP addresses", () => {
     expect(isValidTlsHost("api.example.com")).toBe(true)
     expect(isValidTlsHost("127.0.0.1")).toBe(true)
@@ -139,6 +149,22 @@ describe("collection TLS settings", () => {
         ],
       },
     })
+  })
+
+  it("does not persist an empty disabled client certificate placeholder", async () => {
+    await saveSettings(dir, {
+      tls: {
+        clientCertificates: [
+          { host: "", certFile: "", keyFile: "", enabled: false },
+        ],
+      },
+    })
+    expect(await loadSettings(dir)).toEqual({
+      tls: { clientCertificates: [] },
+    })
+    expect(await readFile(join(dir, "settings.yml"), "utf8")).toContain(
+      "client_certificates: []",
+    )
   })
 
   it("matches the first enabled certificate by exact host and port", () => {

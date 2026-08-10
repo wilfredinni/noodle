@@ -42,6 +42,7 @@ import { VarInput, type VarInputHandle } from "../VarInput"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
 import { SIDEBAR_WIDTH } from "../Sidebar"
 import { ProxySettingsForm } from "./ProxySettingsForm"
+import { SettingsField } from "./SettingsField"
 import { TlsSettingsForm } from "./TlsSettingsForm"
 import { moveRegisteredCollection } from "./collectionRegistry"
 
@@ -212,23 +213,13 @@ export function SettingsView({
   >(null)
   const [hoveredCategory, setHoveredCategory] =
     useState<SettingsCategory | null>(null)
-  const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
-  const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
-  const stripeR = Math.round(
-    (((panelNum >> 16) & 0xff) + ((elemNum >> 16) & 0xff)) / 2,
-  )
-  const stripeG = Math.round(
-    (((panelNum >> 8) & 0xff) + ((elemNum >> 8) & 0xff)) / 2,
-  )
-  const stripeB = Math.round(((panelNum & 0xff) + (elemNum & 0xff)) / 2)
-  const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
   const categories =
     scope === "global" ? GLOBAL_CATEGORIES : COLLECTION_CATEGORIES
   const categoryIndex = Math.max(
     0,
     categories.findIndex((item) => item.id === category),
   )
-  const collectionRegisterIndex = collections.length
+  const collectionRegisterIndex = 0
   const keybindNames = useMemo(
     () =>
       KEYBIND_CATEGORIES.flatMap((group) =>
@@ -384,8 +375,8 @@ export function SettingsView({
       if (name) scrollRef.current?.scrollChildIntoView(`settings-key-${name}`)
     } else if (category === "collections") {
       scrollRef.current?.scrollChildIntoView(
-        contentIndex < collections.length
-          ? `settings-collection-${contentIndex}`
+        contentIndex > 0 && contentIndex <= collections.length
+          ? `settings-collection-${contentIndex - 1}`
           : "settings-collection-register",
       )
     } else if (scope === "collection" && category === "general") {
@@ -490,7 +481,24 @@ export function SettingsView({
         if (focus !== "settings-content") return
 
         if (scope === "collection" && category === "general") {
-          if (event.name === "tab") {
+          if (["up", "down", "home", "end"].includes(event.name)) {
+            event.preventDefault()
+            event.stopPropagation()
+            if (!commitCollectionGeneralField(contentIndex)) return
+            const next =
+              event.name === "home"
+                ? 0
+                : event.name === "end"
+                  ? 3
+                  : Math.min(
+                      3,
+                      Math.max(
+                        0,
+                        contentIndex + (event.name === "up" ? -1 : 1),
+                      ),
+                    )
+            setContentIndex(next)
+          } else if (event.name === "tab") {
             event.preventDefault()
             event.stopPropagation()
             if (!commitCollectionGeneralField(contentIndex)) return
@@ -565,12 +573,12 @@ export function SettingsView({
           if (event.name === "up" || event.name === "down") {
             event.preventDefault()
             event.stopPropagation()
-            if (event.ctrl && contentIndex < collections.length) {
-              const index = contentIndex
+            if (event.ctrl && contentIndex > 0) {
+              const index = contentIndex - 1
               const delta = event.name === "up" ? -1 : 1
               const next = moveRegisteredCollection(collections, index, delta)
               if (next && onCollectionsChange(next)) {
-                setContentIndex(index + delta)
+                setContentIndex(index + delta + 1)
               }
             } else {
               setContentIndex(
@@ -590,13 +598,26 @@ export function SettingsView({
           ) {
             event.preventDefault()
             event.stopPropagation()
-            onCollectionUnregister(collections[contentIndex]!)
+            onCollectionUnregister(collections[contentIndex - 1]!)
           }
           return
         }
 
         const fieldCount = category === "appearance" ? 2 : 1
-        if (event.name === "tab") {
+        if (["up", "down", "home", "end"].includes(event.name)) {
+          event.preventDefault()
+          event.stopPropagation()
+          const next =
+            event.name === "home"
+              ? 0
+              : event.name === "end"
+                ? fieldCount - 1
+                : Math.min(
+                    fieldCount - 1,
+                    Math.max(0, contentIndex + (event.name === "up" ? -1 : 1)),
+                  )
+          setContentIndex(next)
+        } else if (event.name === "tab") {
           event.preventDefault()
           event.stopPropagation()
           const direction = event.shift ? -1 : 1
@@ -777,8 +798,10 @@ export function SettingsView({
                   description="Choose how Noodle looks and arranges request panes."
                 />
                 <SettingLabel
+                  id="settings-appearance-theme"
                   title="Theme"
                   description="Color palette used throughout Noodle."
+                  active={focus === "settings-content" && contentIndex === 0}
                 >
                   <Select
                     items={THEMES.map((item, index) => ({
@@ -786,6 +809,7 @@ export function SettingsView({
                       label: item.name,
                     }))}
                     value={String(activeThemeIndex)}
+                    fitContent
                     focused={focus === "settings-content" && contentIndex === 0}
                     onActivate={() => setContentIndex(0)}
                     onOpenChange={setSelectOpen}
@@ -794,8 +818,10 @@ export function SettingsView({
                   />
                 </SettingLabel>
                 <SettingLabel
+                  id="settings-appearance-layout"
                   title="Layout"
                   description="Arrange request and response panes."
+                  active={focus === "settings-content" && contentIndex === 1}
                 >
                   <Select
                     items={[
@@ -803,6 +829,7 @@ export function SettingsView({
                       { id: "side-by-side", label: "Side by side" },
                     ]}
                     value={layout}
+                    fitContent
                     focused={focus === "settings-content" && contentIndex === 1}
                     onActivate={() => setContentIndex(1)}
                     onOpenChange={setSelectOpen}
@@ -817,24 +844,17 @@ export function SettingsView({
                   title="Behavior"
                   description="Control confirmation prompts for destructive changes."
                 />
-                <box
-                  style={{ flexDirection: "row" }}
-                  onMouseDown={(event) => {
-                    if (event.button !== MouseButton.LEFT) return
+                <SettingLabel
+                  title="Confirm undo all"
+                  description="Ask before discarding every unsaved request and folder change."
+                  active={focus === "settings-content" && contentIndex === 0}
+                  onMouseDown={() => {
                     onConfirmUndoAllChange(!confirmUndoAll)
                     onPaneFocus("settings-content")
-                    event.stopPropagation()
                   }}
                 >
                   <Checkbox checked={confirmUndoAll} theme={theme} />
-                  <box style={{ flexDirection: "column", flexGrow: 1 }}>
-                    <text fg={theme.text}>Confirm undo all</text>
-                    <text fg={theme.textMuted} wrapMode="word">
-                      Ask before discarding every unsaved request and folder
-                      change.
-                    </text>
-                  </box>
-                </box>
+                </SettingLabel>
               </>
             )}
             {category === "network" && (
@@ -890,6 +910,42 @@ export function SettingsView({
                   title="Collections"
                   description="Manage registered collection paths and their order."
                 />
+                <SettingsField
+                  id="settings-collection-register"
+                  title="Register collection"
+                  description="Add an initialized collection. Absolute paths and @/ home paths are supported."
+                  active={
+                    focus === "settings-content" &&
+                    contentIndex === collectionRegisterIndex
+                  }
+                  onMouseDown={() => {
+                    setContentIndex(collectionRegisterIndex)
+                    onPaneFocus("settings-content")
+                    pathInputRef.current?.focus()
+                  }}
+                >
+                  <VarInput
+                    ref={pathInputRef}
+                    value={pathInput}
+                    env={null}
+                    isEditing
+                    isFocused={
+                      focus === "settings-content" &&
+                      contentIndex === collectionRegisterIndex
+                    }
+                    onChange={setPathInput}
+                    onFocus={() => {
+                      setContentIndex(collectionRegisterIndex)
+                      onPaneFocus("settings-content")
+                      pathInputRef.current?.focus()
+                    }}
+                    placeholder="@/Projects/my-api"
+                    backgroundColor="transparent"
+                    focusedBackgroundColor="transparent"
+                    pathCompletion={{ kind: "directory" }}
+                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+                  />
+                </SettingsField>
                 <box style={{ flexDirection: "column", gap: 0 }}>
                   <text fg={theme.text}>Registered collections</text>
                   {collections.length === 0 ? (
@@ -898,28 +954,34 @@ export function SettingsView({
                     <box style={{ flexDirection: "column", gap: 0 }}>
                       {collections.map((path, index) => {
                         const selected =
-                          focus === "settings-content" && contentIndex === index
+                          focus === "settings-content" &&
+                          contentIndex === index + 1
                         const hovered = hoveredCollectionIndex === index
                         return (
                           <box
                             key={path}
                             id={`settings-collection-${index}`}
+                            border={[...LeftBar.border]}
+                            customBorderChars={LeftBar.customBorderChars}
+                            borderColor={
+                              selected ? theme.primary : theme.borderSubtle
+                            }
                             style={{
                               flexDirection: "row",
                               height: 1,
                               gap: 0,
+                              width: "100%",
+                              minWidth: 0,
                               paddingLeft: 1,
                               paddingRight: 1,
                               backgroundColor:
                                 selected || hovered
                                   ? theme.backgroundElement
-                                  : index % 2 !== 0
-                                    ? stripeBg
-                                    : undefined,
+                                  : undefined,
                             }}
                             onMouseDown={(event) => {
                               if (event.button !== MouseButton.LEFT) return
-                              setContentIndex(index)
+                              setContentIndex(index + 1)
                               onPaneFocus("settings-content")
                               event.stopPropagation()
                             }}
@@ -949,36 +1011,6 @@ export function SettingsView({
                       })}
                     </box>
                   )}
-                </box>
-                <box
-                  id="settings-collection-register"
-                  style={{ flexDirection: "column", gap: 0 }}
-                >
-                  <text fg={theme.text}>Register collection</text>
-                  <VarInput
-                    ref={pathInputRef}
-                    value={pathInput}
-                    env={null}
-                    isEditing
-                    isFocused={
-                      focus === "settings-content" &&
-                      contentIndex === collectionRegisterIndex
-                    }
-                    onChange={setPathInput}
-                    onFocus={() => {
-                      setContentIndex(collectionRegisterIndex)
-                      onPaneFocus("settings-content")
-                      pathInputRef.current?.focus()
-                    }}
-                    placeholder="@/Projects/my-api"
-                    backgroundColor={theme.backgroundElement}
-                    focusedBackgroundColor={theme.borderSubtle}
-                    pathCompletion={{ kind: "directory" }}
-                  />
-                  <text fg={theme.textMuted} wrapMode="word">
-                    Add an initialized collection. Absolute paths and @/ home
-                    paths are supported.
-                  </text>
                 </box>
               </>
             )}
@@ -1012,8 +1044,10 @@ export function SettingsView({
                   <SettingLabel
                     title="Name"
                     description="Display name used in collection menus. The directory name is used when blank."
+                    active={focus === "settings-content" && contentIndex === 0}
                   >
                     <input
+                      id="settings-collection-name-input"
                       ref={collectionNameRef}
                       value={collectionNameDraft}
                       placeholder="Collection name"
@@ -1022,12 +1056,13 @@ export function SettingsView({
                       focused={
                         focus === "settings-content" && contentIndex === 0
                       }
-                      backgroundColor={theme.backgroundElement}
-                      focusedBackgroundColor={theme.borderSubtle}
+                      backgroundColor="transparent"
+                      focusedBackgroundColor="transparent"
                       textColor={theme.text}
                       cursorColor={theme.primary}
                       placeholderColor={theme.textMuted}
-                      paddingX={1}
+                      paddingX={0}
+                      style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
                     />
                   </SettingLabel>
                 </box>
@@ -1035,8 +1070,11 @@ export function SettingsView({
                   <SettingLabel
                     title="Description"
                     description="Optional notes stored with this collection."
+                    active={focus === "settings-content" && contentIndex === 1}
+                    stacked
                   >
                     <textarea
+                      id="settings-collection-description-input"
                       key={`${activeCollectionDir}:${collectionDescription ?? ""}`}
                       ref={collectionDescriptionRef}
                       initialValue={collectionDescription ?? ""}
@@ -1057,6 +1095,7 @@ export function SettingsView({
                       placeholderColor={theme.textMuted}
                       height={4}
                       paddingX={1}
+                      style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
                     />
                   </SettingLabel>
                 </box>
@@ -1064,6 +1103,7 @@ export function SettingsView({
                   <SettingLabel
                     title="Timeline entries"
                     description="Maximum saved responses per request. Use 0 to disable history; blank resets to 50."
+                    active={focus === "settings-content" && contentIndex === 2}
                   >
                     <input
                       ref={timelineMaxEntriesRef}
@@ -1077,12 +1117,13 @@ export function SettingsView({
                       focused={
                         focus === "settings-content" && contentIndex === 2
                       }
-                      backgroundColor={theme.backgroundElement}
-                      focusedBackgroundColor={theme.borderSubtle}
+                      backgroundColor="transparent"
+                      focusedBackgroundColor="transparent"
                       textColor={theme.text}
                       cursorColor={theme.primary}
                       placeholderColor={theme.textMuted}
-                      paddingX={1}
+                      paddingX={0}
+                      style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
                     />
                     {collectionGeneralError && (
                       <text fg={theme.error} wrapMode="word">
@@ -1095,6 +1136,7 @@ export function SettingsView({
                   <SettingLabel
                     title="Active environment"
                     description="Used for variable substitution when sending requests."
+                    active={focus === "settings-content" && contentIndex === 3}
                   >
                     <Select
                       items={envNames.map((name) => ({
@@ -1107,6 +1149,7 @@ export function SettingsView({
                           ? "No environments"
                           : "Select environment"
                       }
+                      fitContent
                       interactive={envNames.length > 0}
                       focused={
                         focus === "settings-content" && contentIndex === 3
@@ -1183,23 +1226,36 @@ function ScopeButton({
 }
 
 function SettingLabel({
+  id,
   title,
   description,
+  active = false,
+  alignItems,
+  stacked = false,
+  onMouseDown,
   children,
 }: {
+  id?: string
   title: string
   description: string
+  active?: boolean
+  alignItems?: "center" | "flex-start"
+  stacked?: boolean
+  onMouseDown?: () => void
   children?: ReactNode
 }) {
-  const theme = useTheme()
   return (
-    <box style={{ flexDirection: "column", gap: 0 }}>
-      <text fg={theme.text}>{title}</text>
+    <SettingsField
+      id={id}
+      title={title}
+      description={description}
+      active={active}
+      alignItems={alignItems}
+      stacked={stacked}
+      onMouseDown={onMouseDown}
+    >
       {children}
-      <text fg={theme.textMuted} wrapMode="word">
-        {description}
-      </text>
-    </box>
+    </SettingsField>
   )
 }
 

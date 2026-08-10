@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
-import { type BoxRenderable, type InputRenderable } from "@opentui/core"
+import {
+  type BoxRenderable,
+  type InputRenderable,
+  type TextareaRenderable,
+} from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -165,12 +169,12 @@ describe("SettingsView", () => {
         expect(sectionDescriptionLine).toBe(2)
         const themeLine = lines.findIndex((line) => line.includes("Theme"))
         const selectLine = lines.findIndex(
-          (line, index) => index > themeLine && line.includes("aura"),
+          (line, index) => index >= themeLine && line.includes("aura"),
         )
         const descriptionLine = lines.findIndex((line) =>
           line.includes("Color palette used throughout Noodle."),
         )
-        expect(themeLine).toBeLessThan(selectLine)
+        expect(selectLine).toBe(themeLine)
         expect(selectLine).toBeLessThan(descriptionLine)
       }
       cleanup()
@@ -223,6 +227,37 @@ describe("SettingsView", () => {
     await act(async () => host.press("down"))
     await act(async () => host.press("return"))
     expect(selected).toEqual([1])
+    cleanup()
+  })
+
+  it("moves between appearance fields with the arrow keys", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness initialFocus="settings-content" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 24 },
+    )
+    await renderOnce()
+
+    const theme = renderer.root.findDescendantById(
+      "settings-appearance-theme",
+    ) as BoxRenderable
+    const layout = renderer.root.findDescendantById(
+      "settings-appearance-layout",
+    ) as BoxRenderable
+    expect(theme.backgroundColor.a).toBeGreaterThan(0)
+    expect(layout.backgroundColor.a).toBe(0)
+
+    await act(async () => host.press("down"))
+    expect(theme.backgroundColor.a).toBe(0)
+    expect(layout.backgroundColor.a).toBeGreaterThan(0)
+
+    await act(async () => host.press("up"))
+    expect(theme.backgroundColor.a).toBeGreaterThan(0)
+    expect(layout.backgroundColor.a).toBe(0)
     cleanup()
   })
 
@@ -315,6 +350,33 @@ describe("SettingsView", () => {
     cleanup()
   })
 
+  it("keeps ordinary inputs inline while preserving the description surface", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialScope="collection"
+            initialCategory="general"
+            initialFocus="settings-content"
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 26 },
+    )
+    await renderOnce()
+
+    const nameInput = renderer.root.findDescendantById(
+      "settings-collection-name-input",
+    ) as InputRenderable
+    const descriptionInput = renderer.root.findDescendantById(
+      "settings-collection-description-input",
+    ) as TextareaRenderable
+    expect(nameInput.backgroundColor.a).toBe(0)
+    expect(descriptionInput.backgroundColor.a).toBeGreaterThan(0)
+    cleanup()
+  })
+
   it("keeps invalid timeline retention unsaved with an inline error", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const patches: Array<Partial<CollectionSettings>> = []
@@ -345,7 +407,8 @@ describe("SettingsView", () => {
 
     expect(patches).toEqual([])
     expect(captureCharFrame()).toContain("non-negative")
-    expect(captureCharFrame()).toContain("blank for 50")
+    expect(captureCharFrame()).toContain("blank for")
+    expect(captureCharFrame()).toContain("50.")
     cleanup()
   })
 
@@ -421,10 +484,10 @@ describe("SettingsView", () => {
     const descriptionLine = lines.findIndex((line) =>
       line.includes("Add an initialized collection."),
     )
+    expect(registerLine).toBeLessThan(collectionsTitleLine)
     expect(collectionsTitleLine).toBeLessThan(firstPathLine)
     expect(firstPathLine).toBeLessThan(secondPathLine)
-    expect(secondPathLine).toBeLessThan(registerLine)
-    expect(registerLine).toBeLessThan(inputLine)
+    expect(registerLine).toBe(inputLine)
     expect(inputLine).toBeLessThan(descriptionLine)
     const first = renderer.root.findDescendantById("settings-collection-0")!
     const second = renderer.root.findDescendantById("settings-collection-1")!
@@ -481,6 +544,7 @@ describe("SettingsView", () => {
       { width: 90, height: 24 },
     )
     await renderOnce()
+    await act(async () => host.press("down"))
     await act(async () => host.press("w", { ctrl: true }))
     expect(requested).toEqual(["/tmp/one"])
     expect(changes).toBe(0)
@@ -504,16 +568,23 @@ describe("SettingsView", () => {
     const register = renderer.root.findDescendantById(
       "settings-collection-register",
     )!
+    const inputBefore = register
+      .getChildren()[1]
+      ?.getChildren()[0]
+      ?.getChildren()[0] as InputRenderable | undefined
+    expect(inputBefore?.focused).toBe(true)
     await act(async () => {
       await mockMouse.click(
-        register.screenX + 2,
-        register.screenY + 1,
+        inputBefore!.screenX + 1,
+        register.screenY,
         MouseButtons.LEFT,
       )
     })
     await renderOnce()
-    const input = register.getChildren()[1]?.getChildren()[0] as
-      InputRenderable | undefined
+    const input = register
+      .getChildren()[1]
+      ?.getChildren()[0]
+      ?.getChildren()[0] as InputRenderable | undefined
     expect(input?.focused).toBe(true)
     cleanup()
   })
