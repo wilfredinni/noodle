@@ -111,13 +111,12 @@ async function runSend(
   tlsPolicy?: TlsPolicy,
 ): Promise<void> {
   try {
-    const res = await executor.send(
-      req,
-      env,
+    const res = await executor.send(req, {
+      environment: env,
       signal,
       collection,
       requestPath,
-      (network: NetworkEvent[]) => {
+      onNetworkEvent: (network: NetworkEvent[]) => {
         setState((prev) =>
           prev.status === "sending" && prev.request.id === req.id
             ? { ...prev, network }
@@ -126,7 +125,7 @@ async function runSend(
       },
       proxyPolicy,
       tlsPolicy,
-    )
+    })
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))
     onCompleteRef.current?.(req, { status: "done", response: res })

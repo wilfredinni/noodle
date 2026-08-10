@@ -69,6 +69,7 @@ describe("collection TLS settings", () => {
   })
 
   it("rejects invalid ports and incomplete enabled profiles", () => {
+    expect(parseCollectionTls({ ca_bundle: "   " })).toBeUndefined()
     expect(
       parseCollectionTls({
         client_certificates: [
@@ -118,6 +119,36 @@ describe("collection TLS settings", () => {
     expect(isValidTlsHost("api.example.com:8443")).toBe(false)
     expect(isValidTlsHost("*.example.com")).toBe(false)
     expect(isValidTlsHost("https://api.example.com")).toBe(false)
+    expect(isValidTlsHost("api\\example.com")).toBe(false)
+    expect(isValidTlsHost(".")).toBe(false)
+    expect(isValidTlsHost("-")).toBe(false)
+  })
+
+  it("accepts only exact environment references for key passphrases", () => {
+    expect(
+      parseCollectionTls({
+        client_certificates: [
+          {
+            host: "api.example.com",
+            cert_file: "client.pem",
+            key_file: "key.pem",
+            passphrase: "pa$word",
+          },
+        ],
+      }),
+    ).toBeUndefined()
+    expect(
+      parseCollectionTls({
+        client_certificates: [
+          {
+            host: "api.example.com",
+            cert_file: "client.pem",
+            key_file: "key.pem",
+            passphrase: "$PASS",
+          },
+        ],
+      })?.clientCertificates?.[0]?.passphrase,
+    ).toBe("$PASS")
   })
 
   it("round-trips collection TLS settings", async () => {
@@ -336,22 +367,18 @@ describe("collection TLS settings", () => {
           followRedirects: true,
           maxRedirects: 5,
         }),
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
         {
-          collectionDir: dir,
-          settings: {
-            clientCertificates: [
-              {
-                host: "api.example.com",
-                certFile: "client.pem",
-                keyFile: "key.pem",
-              },
-            ],
+          tlsPolicy: {
+            collectionDir: dir,
+            settings: {
+              clientCertificates: [
+                {
+                  host: "api.example.com",
+                  certFile: "client.pem",
+                  keyFile: "key.pem",
+                },
+              ],
+            },
           },
         },
       )

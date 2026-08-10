@@ -8,12 +8,13 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { basename, join, relative, resolve } from "node:path"
-import * as yaml from "js-yaml"
+import { load as yamlLoad } from "js-yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
 import { env } from "../env"
 import {
   filestore,
   loadSettings,
+  parseCollectionSettings,
   saveRequest,
   saveSettings,
   ensureCollectionBootstrapped,
@@ -23,13 +24,12 @@ import { lang } from "../lang"
 import { executor, substitute } from "../requests"
 import { withDefaultHttpsScheme } from "../requests/url"
 import {
-  parseCollectionProxy,
   resolveProxyPolicy,
   takeSystemProxyFromEnv,
   type ProxyPolicy,
   type SystemProxySettings,
 } from "../proxy"
-import { parseCollectionTls, type TlsPolicy } from "../tls"
+import type { TlsPolicy } from "../tls"
 import type {
   Collection,
   CollectionItem,
@@ -368,57 +368,11 @@ async function auditFile(
   const content = await readFile(path, "utf8")
   try {
     if (name === "settings.yml") {
-      const raw = yaml.load(content)
-      const settings = raw as {
-        name?: unknown
-        description?: unknown
-        timeline_max_entries?: unknown
-        environment?: unknown
-        proxy?: unknown
-        tls?: unknown
-      }
-      const proxy = parseCollectionProxy(settings?.proxy)
-      const tls = parseCollectionTls(settings?.tls)
-      if (
-        !raw ||
-        typeof raw !== "object" ||
-        Array.isArray(raw) ||
-        Object.keys(raw as object).some(
-          (key) =>
-            ![
-              "name",
-              "description",
-              "timeline_max_entries",
-              "environment",
-              "proxy",
-              "tls",
-            ].includes(key),
-        ) ||
-        (settings.name !== undefined && typeof settings.name !== "string") ||
-        (settings.description !== undefined &&
-          typeof settings.description !== "string") ||
-        (settings.timeline_max_entries !== undefined &&
-          (typeof settings.timeline_max_entries !== "number" ||
-            !Number.isSafeInteger(settings.timeline_max_entries) ||
-            settings.timeline_max_entries < 0)) ||
-        (settings.environment !== undefined &&
-          typeof settings.environment !== "string") ||
-        (settings.proxy !== undefined && proxy === undefined) ||
-        (settings.tls !== undefined && tls === undefined)
-      )
-        throw new Error(
-          "expected settings mapping with optional string metadata, non-negative integer timeline_max_entries, string environment, valid proxy, and valid tls",
-        )
+      const settings = content.trim()
+        ? parseCollectionSettings(yamlLoad(content))
+        : {}
       if (fix) {
-        await saveSettings(root, {
-          name: settings.name as string | undefined,
-          description: settings.description as string | undefined,
-          timelineMaxEntries: settings.timeline_max_entries as
-            number | undefined,
-          environment: settings.environment as string | undefined,
-          proxy,
-          tls,
-        })
+        await saveSettings(root, settings)
         issues.push({
           path: rel,
           kind: "settings",
@@ -531,9 +485,10 @@ export async function collectionAudit(
 
 async function environmentFor(
   dir: string,
+  settings: CollectionSettings,
   name?: string,
 ): Promise<Environment | undefined> {
-  const environmentName = name ?? (await loadSettings(dir)).environment
+  const environmentName = name ?? settings.environment
   return environmentName
     ? env.loadEnvironment(join(dir, ".environments"), environmentName)
     : undefined
@@ -566,16 +521,13 @@ async function runRequest(
   tlsPolicy?: TlsPolicy,
 ): Promise<RequestRunResult> {
   try {
-    const response = await executor.send(
-      request,
+    const response = await executor.send(request, {
       environment,
-      undefined,
       collection,
-      request.id,
-      undefined,
+      requestPath: request.id,
       proxyPolicy,
       tlsPolicy,
-    )
+    })
     const effective = environment ? substitute(request, environment) : request
     return {
       id: request.id,
@@ -609,14 +561,15 @@ export async function collectionRun(
   insecure = false,
 ): Promise<CollectionRunResult> {
   const dir = await requireCollectionRoot(path)
+  const settings = await loadSettings(dir)
   const collection = await filestore.loadCollection(dir)
-  const environment = await environmentFor(dir, environmentName)
-  const policy = await proxyPolicyFor(
-    dir,
+  const environment = await environmentFor(dir, settings, environmentName)
+  const policy = proxyPolicyFor(
+    settings,
     noProxy,
     systemProxy ?? takeSystemProxyFromEnv(),
   )
-  const tlsPolicy = await tlsPolicyFor(dir, insecure)
+  const tlsPolicy = tlsPolicyFor(dir, settings, insecure)
   const requests = flattenRequests(collection.items)
   const results: RequestRunResult[] = []
   onProgress?.(0, requests.length)
@@ -662,6 +615,7 @@ export async function requestRun(
 ): Promise<{ result: RequestRunResult; failed: boolean }> {
   validateId(id)
   const dir = await requireCollectionRoot(collectionDir)
+  const settings = await loadSettings(dir)
   const collection = await filestore.loadCollection(dir)
   const request = flattenRequests(collection.items).find(
     (item) => item.id === id,
@@ -671,28 +625,27 @@ export async function requestRun(
   const result = await runRequest(
     collection,
     request,
-    await environmentFor(dir, environmentName),
-    await proxyPolicyFor(dir, noProxy, systemProxy ?? takeSystemProxyFromEnv()),
-    await tlsPolicyFor(dir, insecure),
+    await environmentFor(dir, settings, environmentName),
+    proxyPolicyFor(settings, noProxy, systemProxy ?? takeSystemProxyFromEnv()),
+    tlsPolicyFor(dir, settings, insecure),
   )
   onProgress?.(1, 1)
   return { result, failed: result.ok === false }
 }
 
-async function tlsPolicyFor(
+function tlsPolicyFor(
   dir: string,
+  settings: CollectionSettings,
   insecure: boolean,
-): Promise<TlsPolicy> {
-  const settings = await loadSettings(dir)
+): TlsPolicy {
   return { collectionDir: dir, settings: settings.tls, insecure }
 }
 
-async function proxyPolicyFor(
-  dir: string,
+function proxyPolicyFor(
+  settings: CollectionSettings,
   noProxy: boolean,
   systemProxy: SystemProxySettings,
-): Promise<ProxyPolicy> {
-  const [settings] = await Promise.all([loadSettings(dir)])
+): ProxyPolicy {
   return resolveProxyPolicy({
     noProxy,
     appProxy: loadConfig(CONFIG_DIR).proxy,

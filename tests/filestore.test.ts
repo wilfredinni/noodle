@@ -508,19 +508,18 @@ describe("filestore.loadSettings", () => {
     })
   })
 
-  it("ignores invalid collection metadata and timeline retention", async () => {
+  it("rejects invalid collection metadata and timeline retention", async () => {
     await writeFile(
       join(dir, "settings.yml"),
       "name: '   '\ndescription: 42\ntimeline_max_entries: -1\nenvironment: dev\n",
       "utf8",
     )
-    expect(await loadSettings(dir)).toEqual({ environment: "dev" })
+    await expect(loadSettings(dir)).rejects.toThrow("settings.yml: description")
   })
 
-  it("returns empty for invalid YAML in settings.yml", async () => {
+  it("rejects invalid YAML in settings.yml", async () => {
     await writeFile(join(dir, "settings.yml"), "{ broken: : : ", "utf8")
-    const result = await loadSettings(dir)
-    expect(result).toEqual({})
+    await expect(loadSettings(dir)).rejects.toThrow("filestore.loadSettings")
   })
 
   it("returns empty for empty settings.yml", async () => {
@@ -529,20 +528,47 @@ describe("filestore.loadSettings", () => {
     expect(result).toEqual({})
   })
 
-  it("returns empty when environment key is not a string", async () => {
+  it("rejects an environment key that is not a string", async () => {
     await writeFile(join(dir, "settings.yml"), "environment: 42\n", "utf8")
-    const result = await loadSettings(dir)
-    expect(result).toEqual({})
+    await expect(loadSettings(dir)).rejects.toThrow("settings.yml: environment")
   })
 
-  it("ignores unknown keys in settings.yml", async () => {
+  it("rejects unknown keys in settings.yml", async () => {
     await writeFile(
       join(dir, "settings.yml"),
       "environment: dev\nunknown_key: foo\n",
       "utf8",
     )
-    const result = await loadSettings(dir)
-    expect(result).toEqual({ environment: "dev" })
+    await expect(loadSettings(dir)).rejects.toThrow(
+      'settings.yml: unknown key "unknown_key"',
+    )
+  })
+
+  it("rejects a malformed TLS block instead of silently disabling it", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "tls:\n  client_certifcates: []\n",
+      "utf8",
+    )
+    await expect(loadSettings(dir)).rejects.toThrow(
+      'tls: unknown key "client_certifcates"',
+    )
+  })
+
+  it("rejects non-mapping settings and malformed proxy fields", async () => {
+    await writeFile(join(dir, "settings.yml"), "- not\n- a mapping\n", "utf8")
+    await expect(loadSettings(dir)).rejects.toThrow(
+      "settings.yml: expected a mapping",
+    )
+
+    await writeFile(
+      join(dir, "settings.yml"),
+      "proxy:\n  mode: custom\n  url: http://proxy.test:8080\n  bypass: localhost\n",
+      "utf8",
+    )
+    await expect(loadSettings(dir)).rejects.toThrow(
+      "proxy.bypass: must be a list of strings",
+    )
   })
 
   it("reads a collection proxy override", async () => {
@@ -621,6 +647,39 @@ describe("filestore.saveSettings", () => {
     const content = await readFile(join(dir, "settings.yml"), "utf8")
     expect(content).toContain("environment: new")
     expect(content).not.toContain("old")
+  })
+
+  it("keeps the previous file and leaves no temporary file on failure", async () => {
+    await writeFile(join(dir, "settings.yml"), "environment: old\n", "utf8")
+
+    await expect(
+      saveSettings(dir, {
+        tls: {
+          clientCertificates: [
+            {
+              host: "api.example.com",
+              certFile: "client.pem",
+              keyFile: "key.pem",
+              passphrase: "literal-secret",
+            },
+          ],
+        },
+      }),
+    ).rejects.toThrow("must be an exact $VARNAME reference")
+
+    expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe(
+      "environment: old\n",
+    )
+    expect(
+      (await readdir(dir)).filter((name) => name.startsWith(".settings.")),
+    ).toEqual([])
+  })
+
+  it("leaves no temporary file after an atomic replacement", async () => {
+    await saveSettings(dir, { environment: "new" })
+    expect(
+      (await readdir(dir)).filter((name) => name.startsWith(".settings.")),
+    ).toEqual([])
   })
 })
 

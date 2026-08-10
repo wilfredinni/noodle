@@ -6,8 +6,7 @@ import type {
   Request,
 } from "./schema"
 import { expandUserPath } from "./userPath"
-
-const VAR_RE = /\$(\w+)/g
+import { isVariableReference, variableReferenceName } from "./variableReference"
 
 export interface TlsPolicy {
   collectionDir: string
@@ -24,27 +23,44 @@ export function parseCollectionTls(
   value: unknown,
 ): CollectionTlsSettings | undefined {
   if (value === undefined) return undefined
-  if (!isRecord(value)) return undefined
-  if (hasUnknownKeys(value, ["verify", "ca_bundle", "client_certificates"])) {
+  try {
+    return parseCollectionTlsStrict(value)
+  } catch {
     return undefined
   }
+}
+
+export function parseCollectionTlsStrict(
+  value: unknown,
+  path = "tls",
+): CollectionTlsSettings {
+  if (!isRecord(value)) throw invalid(path, "must be a mapping")
+  const unknownKey = Object.keys(value).find(
+    (key) => !["verify", "ca_bundle", "client_certificates"].includes(key),
+  )
+  if (unknownKey) throw invalid(path, `unknown key "${unknownKey}"`)
   if (value.verify !== undefined && typeof value.verify !== "boolean") {
-    return undefined
+    throw invalid(`${path}.verify`, "must be a boolean")
   }
   if (value.ca_bundle !== undefined && typeof value.ca_bundle !== "string") {
-    return undefined
+    throw invalid(`${path}.ca_bundle`, "must be a string")
+  }
+  if (typeof value.ca_bundle === "string" && !value.ca_bundle.trim()) {
+    throw invalid(`${path}.ca_bundle`, "must not be empty")
   }
   if (
     value.client_certificates !== undefined &&
     !Array.isArray(value.client_certificates)
   ) {
-    return undefined
+    throw invalid(`${path}.client_certificates`, "must be a list")
   }
 
   const profiles: ClientCertificateProfile[] = []
-  for (const raw of value.client_certificates ?? []) {
-    const profile = parseClientCertificate(raw)
-    if (!profile) return undefined
+  for (const [index, raw] of (value.client_certificates ?? []).entries()) {
+    const profile = parseClientCertificate(
+      raw,
+      `${path}.client_certificates[${index}]`,
+    )
     if (!isEmptyClientCertificateProfile(profile)) profiles.push(profile)
   }
 
@@ -80,6 +96,7 @@ export function collectionTlsToYaml(
         return value
       })
   }
+  parseCollectionTlsStrict(result)
   return result
 }
 
@@ -159,7 +176,10 @@ export function isValidTlsHost(value: string): boolean {
     host.includes("@") ||
     host.includes("?") ||
     host.includes("#") ||
-    host.includes("*")
+    host.includes("*") ||
+    host.includes("\\") ||
+    host === "." ||
+    host === "-"
   ) {
     return false
   }
@@ -188,26 +208,27 @@ export function resolveTlsPath(value: string, collectionDir: string): string {
 
 function parseClientCertificate(
   value: unknown,
-): ClientCertificateProfile | undefined {
-  if (!isRecord(value)) return undefined
-  if (
-    hasUnknownKeys(value, [
-      "host",
-      "port",
-      "cert_file",
-      "key_file",
-      "passphrase",
-      "enabled",
-    ])
-  ) {
-    return undefined
-  }
+  path: string,
+): ClientCertificateProfile {
+  if (!isRecord(value)) throw invalid(path, "must be a mapping")
+  const unknownKey = Object.keys(value).find(
+    (key) =>
+      ![
+        "host",
+        "port",
+        "cert_file",
+        "key_file",
+        "passphrase",
+        "enabled",
+      ].includes(key),
+  )
+  if (unknownKey) throw invalid(path, `unknown key "${unknownKey}"`)
   if (
     typeof value.host !== "string" ||
     typeof value.cert_file !== "string" ||
     typeof value.key_file !== "string"
   ) {
-    return undefined
+    throw invalid(path, "host, cert_file, and key_file must be strings")
   }
   if (
     value.port !== undefined &&
@@ -216,13 +237,23 @@ function parseClientCertificate(
       value.port < 1 ||
       value.port > 65535)
   ) {
-    return undefined
+    throw invalid(`${path}.port`, "must be an integer from 1 to 65535")
   }
   if (value.passphrase !== undefined && typeof value.passphrase !== "string") {
-    return undefined
+    throw invalid(`${path}.passphrase`, "must be a string")
   }
   if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
-    return undefined
+    throw invalid(`${path}.enabled`, "must be a boolean")
+  }
+  if (
+    typeof value.passphrase === "string" &&
+    value.passphrase.trim() &&
+    !isVariableReference(value.passphrase)
+  ) {
+    throw invalid(
+      `${path}.passphrase`,
+      "must be an exact $VARNAME reference; move the secret to an environment file",
+    )
   }
   if (
     value.enabled !== false &&
@@ -230,14 +261,20 @@ function parseClientCertificate(
       !value.cert_file.trim() ||
       !value.key_file.trim())
   ) {
-    return undefined
+    throw invalid(
+      path,
+      "enabled profiles require a valid host, cert_file, and key_file",
+    )
   }
   return {
     host: value.host,
     port: value.port as number | undefined,
     certFile: value.cert_file,
     keyFile: value.key_file,
-    passphrase: value.passphrase as string | undefined,
+    passphrase:
+      typeof value.passphrase === "string" && value.passphrase.trim()
+        ? value.passphrase
+        : undefined,
     enabled: value.enabled as boolean | undefined,
   }
 }
@@ -256,14 +293,13 @@ function isEmptyClientCertificateProfile(
 }
 
 function resolvePassphrase(value: string, env?: Environment): string {
-  return value.replace(VAR_RE, (_, name: string) => {
-    if (!env || !Object.hasOwn(env.vars, name)) {
-      throw new Error(
-        `tls: unresolved variable "${name}" in client certificate passphrase`,
-      )
-    }
-    return env.vars[name]!
-  })
+  const name = variableReferenceName(value)
+  if (!name || !env || !Object.hasOwn(env.vars, name)) {
+    throw new Error(
+      `tls: unresolved variable "${name ?? value}" in client certificate passphrase`,
+    )
+  }
+  return env.vars[name]!
 }
 
 async function requiredFile(path: string, label: string): Promise<Bun.BunFile> {
@@ -277,9 +313,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function hasUnknownKeys(
-  value: Record<string, unknown>,
-  keys: string[],
-): boolean {
-  return Object.keys(value).some((key) => !keys.includes(key))
+function invalid(path: string, message: string): Error {
+  return new Error(`${path}: ${message}`)
 }

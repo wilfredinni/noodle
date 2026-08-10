@@ -1,5 +1,5 @@
 import { describe, it, expect, spyOn, afterAll } from "bun:test"
-import { mkdtempSync } from "node:fs"
+import { mkdtempSync, writeFileSync } from "node:fs"
 import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -49,6 +49,33 @@ describe("bootstrap", () => {
 
     exitSpy.mockRestore()
     stderrSpy.mockRestore()
+  })
+
+  it("exits before rendering when collection settings are invalid", async () => {
+    const tmpDir = tempDir()
+    writeFileSync(
+      join(tmpDir, "settings.yml"),
+      "tls:\n  client_certifcates: []\n",
+    )
+    const exitSpy = spyOn(process, "exit").mockImplementation((() => {
+      throw new Error("process.exit called")
+    }) as never)
+    const stderrSpy = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    )
+
+    try {
+      const { bootstrap } = await import("../src/app/main")
+      await expect(bootstrap({ collectionDir: tmpDir })).rejects.toThrow(
+        "process.exit called",
+      )
+      expect(String(stderrSpy.mock.calls[0]?.[0])).toContain(
+        'tls: unknown key "client_certifcates"',
+      )
+    } finally {
+      exitSpy.mockRestore()
+      stderrSpy.mockRestore()
+    }
   })
 
   it("clears ambient proxy variables when --noproxy is used", async () => {

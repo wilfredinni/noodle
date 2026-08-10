@@ -9,8 +9,8 @@ import type {
   Folder,
   Request,
 } from "../schema"
-import { parseCollectionProxy } from "../proxy"
-import { parseCollectionTls } from "../tls"
+import { parseCollectionProxyStrict } from "../proxy"
+import { parseCollectionTlsStrict } from "../tls"
 
 export interface CollectionFileError {
   file: string
@@ -322,32 +322,69 @@ export async function loadSettings(dir: string): Promise<CollectionSettings> {
     throw new Error(`filestore.loadSettings: ${msg}`, { cause: e })
   }
   try {
+    if (!raw.trim()) return {}
     const data = yaml.load(raw)
-    if (!data || typeof data !== "object") return {}
-    const obj = data as Record<string, unknown>
-    const settings: CollectionSettings = {}
-    if (typeof obj.name === "string" && obj.name.trim()) {
-      settings.name = obj.name.trim()
-    }
-    if (typeof obj.description === "string" && obj.description.trim()) {
-      settings.description = obj.description.trim()
-    }
-    if (
-      typeof obj.timeline_max_entries === "number" &&
-      Number.isSafeInteger(obj.timeline_max_entries) &&
-      obj.timeline_max_entries >= 0
-    ) {
-      settings.timelineMaxEntries = obj.timeline_max_entries
-    }
-    if (typeof obj.environment === "string") {
-      settings.environment = obj.environment
-    }
-    const proxy = parseCollectionProxy(obj.proxy)
-    if (proxy !== undefined) settings.proxy = proxy
-    const tls = parseCollectionTls(obj.tls)
-    if (tls !== undefined) settings.tls = tls
-    return settings
-  } catch {
-    return {}
+    return parseCollectionSettings(data)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`filestore.loadSettings: ${msg}`, { cause: e })
   }
+}
+
+export function parseCollectionSettings(value: unknown): CollectionSettings {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("settings.yml: expected a mapping")
+  }
+  const obj = value as Record<string, unknown>
+  const allowed = new Set([
+    "name",
+    "description",
+    "timeline_max_entries",
+    "environment",
+    "proxy",
+    "tls",
+  ])
+  const unknownKey = Object.keys(obj).find((key) => !allowed.has(key))
+  if (unknownKey) {
+    throw new Error(`settings.yml: unknown key "${unknownKey}"`)
+  }
+
+  const settings: CollectionSettings = {}
+  if (obj.name !== undefined) {
+    if (typeof obj.name !== "string") {
+      throw new Error("settings.yml: name must be a string")
+    }
+    if (obj.name.trim()) settings.name = obj.name.trim()
+  }
+  if (obj.description !== undefined) {
+    if (typeof obj.description !== "string") {
+      throw new Error("settings.yml: description must be a string")
+    }
+    if (obj.description.trim()) settings.description = obj.description.trim()
+  }
+  if (obj.timeline_max_entries !== undefined) {
+    if (
+      typeof obj.timeline_max_entries !== "number" ||
+      !Number.isSafeInteger(obj.timeline_max_entries) ||
+      obj.timeline_max_entries < 0
+    ) {
+      throw new Error(
+        "settings.yml: timeline_max_entries must be a non-negative integer",
+      )
+    }
+    settings.timelineMaxEntries = obj.timeline_max_entries
+  }
+  if (obj.environment !== undefined) {
+    if (typeof obj.environment !== "string") {
+      throw new Error("settings.yml: environment must be a string")
+    }
+    settings.environment = obj.environment
+  }
+  if (obj.proxy !== undefined) {
+    settings.proxy = parseCollectionProxyStrict(obj.proxy)
+  }
+  if (obj.tls !== undefined) {
+    settings.tls = parseCollectionTlsStrict(obj.tls)
+  }
+  return settings
 }

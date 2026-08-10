@@ -105,8 +105,10 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
   if (mode === "collection") {
     try {
       initialSettings = await loadSettings(collectionDir)
-    } catch {
-      // settings.yml missing or invalid — ignore, use defaults
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      process.stderr.write(`error: ${message}\n`)
+      process.exit(1)
     }
   }
 

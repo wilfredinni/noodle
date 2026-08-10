@@ -13,6 +13,7 @@ import type {
   Environment,
 } from "../../schema"
 import { isValidTlsHost } from "../../tls"
+import { isVariableReference } from "../../variableReference"
 import { Checkbox } from "../Checkbox"
 import { LeftBar } from "../borders"
 import { VarInput } from "../VarInput"
@@ -362,7 +363,7 @@ export function TlsSettingsForm({
               onFocus={() => setField(base + 4)}
               onChange={(keyFile) => updateProfile(index, { keyFile })}
             />
-            <PathInput
+            <PassphraseInput
               title="Passphrase"
               description="Optional key passphrase; use $VARNAME for an environment value."
               border={false}
@@ -370,8 +371,6 @@ export function TlsSettingsForm({
               placeholder="$MTLS_PASSPHRASE"
               focused={focused && field === base + 5}
               activeEnv={activeEnv}
-              collectionDir={collectionDir}
-              pathCompletion={false}
               onFocus={() => setField(base + 5)}
               onChange={(passphrase) =>
                 updateProfile(index, { passphrase: passphrase || undefined })
@@ -399,6 +398,69 @@ export function TlsSettingsForm({
         />
       )}
     </box>
+  )
+}
+
+function PassphraseInput({
+  title,
+  description,
+  border,
+  value,
+  placeholder,
+  focused,
+  activeEnv,
+  onFocus,
+  onChange,
+}: {
+  title: string
+  description: string
+  border: boolean
+  value: string
+  placeholder: string
+  focused: boolean
+  activeEnv: Environment | null
+  onFocus: () => void
+  onChange: (value: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  const [error, setError] = useState<string>()
+
+  useEffect(() => {
+    if (focused) return
+    setDraft(value)
+    setError(undefined)
+  }, [focused, value])
+
+  return (
+    <SettingsField
+      title={title}
+      description={description}
+      error={error}
+      border={border}
+      active={focused}
+    >
+      <VarInput
+        value={draft}
+        env={activeEnv}
+        isEditing
+        isFocused={focused}
+        onChange={(next) => {
+          setDraft(next)
+          if (next === "" || isVariableReference(next)) {
+            setError(undefined)
+            onChange(next)
+          } else {
+            setError("Use an exact $VARNAME reference; literals are not saved.")
+          }
+        }}
+        onFocus={onFocus}
+        placeholder={placeholder}
+        backgroundColor="transparent"
+        focusedBackgroundColor="transparent"
+        paddingX={0}
+        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
+      />
+    </SettingsField>
   )
 }
 

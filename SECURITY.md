@@ -13,11 +13,15 @@ Noodle is a local terminal HTTP client. It runs on your machine and sends HTTP r
 
 ### No sandbox
 
-Noodle does not sandbox requests. It executes the requests you define, exactly as configured. The substitution system uses environment values as-is. There is no input sanitization or validation beyond format checks.
+Noodle does not sandbox requests. It executes the requests you define. The substitution system uses environment values as-is, while request URLs and collection settings are validated at their execution boundaries.
+
+Redirects are restricted to HTTP and HTTPS. HTTPS-to-HTTP downgrades are blocked, and credential-bearing headers are stripped on cross-origin redirects.
 
 ### Credential handling
 
 Environment files (`.env`) under `.environments/` may contain API keys, tokens, and secrets. These files live on disk alongside your collections. Noodle does not encrypt them, transmit them separately, or log them (except in the timeline, which is local). Treat `.environments/` directories like any local secrets store.
+
+Encrypted mTLS private-key passphrases must be referenced from an environment as an exact `$VARNAME`; literal passphrases are rejected in collection settings.
 
 ### Out of scope
 

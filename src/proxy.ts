@@ -3,6 +3,7 @@ import type {
   CollectionProxySettings,
   Environment,
 } from "./schema"
+import { isVariableReference } from "./variableReference"
 
 const VAR_RE = /\$(\w+)/g
 const PROXY_ENV_KEYS = [
@@ -77,12 +78,49 @@ export function parseCollectionProxy(
   value: unknown,
 ): CollectionProxySettings | undefined {
   if (value === undefined) return undefined
-  if (!isRecord(value) || typeof value.mode !== "string") return undefined
-  if (value.mode === "inherit") return { mode: "inherit" }
-  if (value.mode === "off") return { mode: "off" }
-  if (value.mode !== "custom" || typeof value.url !== "string") return undefined
+  try {
+    return parseCollectionProxyStrict(value)
+  } catch {
+    return undefined
+  }
+}
+
+export function parseCollectionProxyStrict(
+  value: unknown,
+  path = "proxy",
+): CollectionProxySettings {
+  if (!isRecord(value)) throw new Error(`${path}: must be a mapping`)
+  const unknownKey = Object.keys(value).find(
+    (key) => !["mode", "url", "bypass"].includes(key),
+  )
+  if (unknownKey) throw new Error(`${path}: unknown key "${unknownKey}"`)
+  if (typeof value.mode !== "string") {
+    throw new Error(`${path}.mode: must be a string`)
+  }
+  if (value.mode === "inherit" || value.mode === "off") {
+    if (value.url !== undefined || value.bypass !== undefined) {
+      throw new Error(
+        `${path}: mode "${value.mode}" does not accept url or bypass`,
+      )
+    }
+    return { mode: value.mode }
+  }
+  if (value.mode !== "custom") {
+    throw new Error(`${path}.mode: expected inherit, off, or custom`)
+  }
+  if (typeof value.url !== "string") {
+    throw new Error(`${path}.url: must be a string`)
+  }
+  if (
+    value.bypass !== undefined &&
+    (!Array.isArray(value.bypass) ||
+      value.bypass.some((item) => typeof item !== "string"))
+  ) {
+    throw new Error(`${path}.bypass: must be a list of strings`)
+  }
   const url = value.url.trim()
-  if (validateProxyTemplate(url) !== null) return undefined
+  const error = validateProxyTemplate(url)
+  if (error !== null) throw new Error(`${path}.url: ${error}`)
   return customProxy(url, normalizeBypass(value.bypass))
 }
 
@@ -415,8 +453,4 @@ function setProxyEnvironment(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isVariableReference(value: string): boolean {
-  return /^\$\w+$/.test(value)
 }

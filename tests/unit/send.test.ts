@@ -147,20 +147,14 @@ describe("send — network trace", () => {
     }) as unknown as typeof globalThis.fetch
 
     try {
-      const response = await send(
-        makeReq(),
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        {
+      const response = await send(makeReq(), {
+        proxyPolicy: {
           kind: "custom",
           source: "global",
           url: "http://proxy.test:8080",
           bypass: [],
         },
-      )
+      })
       expect(proxy).toBe("http://proxy.test:8080")
       expect(response.network?.map((event) => event.type)).toEqual([
         "proxy",
@@ -194,16 +188,13 @@ describe("send — network trace", () => {
     try {
       const response = await send(
         makeReq({ url: "https://public.test/start" }),
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
         {
-          kind: "custom",
-          source: "global",
-          url: "http://proxy.test:8080",
-          bypass: ["internal.test"],
+          proxyPolicy: {
+            kind: "custom",
+            source: "global",
+            url: "http://proxy.test:8080",
+            bypass: ["internal.test"],
+          },
         },
       )
       expect(proxies).toEqual(["http://proxy.test:8080", undefined])
@@ -249,14 +240,10 @@ describe("send — network trace", () => {
 
     try {
       const snapshots: string[][] = []
-      await send(
-        makeReq(),
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        (network) => snapshots.push(network.map((event) => event.type)),
-      )
+      await send(makeReq(), {
+        onNetworkEvent: (network) =>
+          snapshots.push(network.map((event) => event.type)),
+      })
       expect(snapshots).toEqual([
         ["request"],
         ["request", "response"],
@@ -303,6 +290,204 @@ describe("send — network trace", () => {
     }
   })
 
+  it("rejects redirects to non-HTTP protocols before another fetch", async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = mock(async () => {
+      calls++
+      return new Response(null, {
+        status: 302,
+        headers: { location: "file:///etc/hosts" },
+      })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await expect(send(makeReq())).rejects.toThrow(
+        'redirect URL uses unsupported scheme "file:"',
+      )
+      expect(calls).toBe(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("blocks HTTPS to HTTP redirect downgrades", async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = mock(async () => {
+      calls++
+      return new Response(null, {
+        status: 302,
+        headers: { location: "http://api.example.com/insecure" },
+      })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await expect(send(makeReq())).rejects.toThrow(
+        "refusing HTTPS to HTTP redirect downgrade",
+      )
+      expect(calls).toBe(1)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("strips credentials on cross-origin redirects and keeps them stripped", async () => {
+    const originalFetch = globalThis.fetch
+    const captured: Headers[] = []
+    let calls = 0
+    globalThis.fetch = mock(async (_url, init) => {
+      calls++
+      captured.push(new Headers(init?.headers))
+      if (calls === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://other.test/next" },
+        })
+      }
+      if (calls === 2) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://api.example.com/final" },
+        })
+      }
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await send(
+        makeReq({
+          headers: {
+            Authorization: { value: "Bearer header-secret", enabled: true },
+            "Proxy-Authorization": {
+              value: "Basic proxy-secret",
+              enabled: true,
+            },
+            Cookie: { value: "session=secret", enabled: true },
+            Cookie2: { value: "legacy=secret", enabled: true },
+            Host: { value: "api.example.com", enabled: true },
+          },
+          auth: {
+            type: "api_key",
+            key: "X-API-Key",
+            value: "api-secret",
+            placement: "header",
+          },
+        }),
+      )
+      expect(captured[0]?.get("authorization")).toBe("Bearer header-secret")
+      expect(captured[0]?.get("proxy-authorization")).toBe("Basic proxy-secret")
+      expect(captured[0]?.get("cookie")).toBe("session=secret")
+      expect(captured[0]?.get("cookie2")).toBe("legacy=secret")
+      expect(captured[0]?.get("x-api-key")).toBe("api-secret")
+      for (const headers of captured.slice(1)) {
+        expect(headers.has("authorization")).toBe(false)
+        expect(headers.has("proxy-authorization")).toBe(false)
+        expect(headers.has("cookie")).toBe(false)
+        expect(headers.has("cookie2")).toBe(false)
+        expect(headers.has("host")).toBe(false)
+        expect(headers.has("x-api-key")).toBe(false)
+      }
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("preserves credentials on same-origin redirects", async () => {
+    const originalFetch = globalThis.fetch
+    const captured: Headers[] = []
+    let calls = 0
+    globalThis.fetch = mock(async (_url, init) => {
+      calls++
+      captured.push(new Headers(init?.headers))
+      return calls === 1
+        ? new Response(null, {
+            status: 302,
+            headers: { location: "/next" },
+          })
+        : new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await send(
+        makeReq({
+          auth: { type: "bearer", token: "same-origin-secret" },
+        }),
+      )
+      expect(captured.map((headers) => headers.get("authorization"))).toEqual([
+        "Bearer same-origin-secret",
+        "Bearer same-origin-secret",
+      ])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("converts redirecting POST requests to GET for 301, 302, and 303", async () => {
+    for (const status of [301, 302, 303]) {
+      const originalFetch = globalThis.fetch
+      const captured: RequestInit[] = []
+      let calls = 0
+      globalThis.fetch = mock(async (_url, init) => {
+        calls++
+        captured.push(init ?? {})
+        return calls === 1
+          ? new Response(null, { status, headers: { location: "/next" } })
+          : new Response("ok", { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      try {
+        await send(
+          makeReq({
+            method: "POST",
+            bodyType: "json",
+            body: '{"ok":true}',
+          }),
+        )
+        expect(captured[0]?.method).toBe("POST")
+        expect(captured[1]?.method).toBe("GET")
+        expect(captured[1]?.body).toBeUndefined()
+        expect(new Headers(captured[1]?.headers).has("content-type")).toBe(
+          false,
+        )
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    }
+  })
+
+  it("preserves the method and body for 307 and 308 redirects", async () => {
+    for (const status of [307, 308]) {
+      const originalFetch = globalThis.fetch
+      const captured: RequestInit[] = []
+      let calls = 0
+      globalThis.fetch = mock(async (_url, init) => {
+        calls++
+        captured.push(init ?? {})
+        return calls === 1
+          ? new Response(null, { status, headers: { location: "/next" } })
+          : new Response("ok", { status: 200 })
+      }) as unknown as typeof globalThis.fetch
+
+      try {
+        await send(
+          makeReq({
+            method: "POST",
+            bodyType: "json",
+            body: '{"ok":true}',
+          }),
+        )
+        expect(captured.map((init) => init.method)).toEqual(["POST", "POST"])
+        expect(captured[1]?.body).toBe('{"ok":true}')
+        expect(new Headers(captured[1]?.headers).get("content-type")).toBe(
+          "application/json",
+        )
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    }
+  })
+
   it("attaches network activity to fetch errors", async () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = mock(async () => {
@@ -321,6 +506,31 @@ describe("send — network trace", () => {
         "request",
         "error",
       ])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("redacts request credentials and query values from fetch errors", async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = mock(async (url) => {
+      throw new Error(`connection failed for ${String(url)}`)
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      let error: NetworkError | undefined
+      try {
+        await send(
+          makeReq({
+            url: "https://user:password@example.com/path?token=query-secret",
+          }),
+        )
+      } catch (caught) {
+        error = caught as NetworkError
+      }
+      expect(error?.message).not.toContain("password")
+      expect(error?.message).not.toContain("query-secret")
+      expect(error?.message).toContain("https://example.com/path?...")
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -583,9 +793,9 @@ describe("send — required path parameters", () => {
       await expect(send(req)).rejects.toThrow(
         'path parameter ":id" has no value',
       )
-      await expect(send(req, { name: "test", vars: {} })).rejects.toThrow(
-        'path parameter ":id" has no value',
-      )
+      await expect(
+        send(req, { environment: { name: "test", vars: {} } }),
+      ).rejects.toThrow('path parameter ":id" has no value')
       expect(calls).toBe(0)
     } finally {
       globalThis.fetch = orig

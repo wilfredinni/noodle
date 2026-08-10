@@ -105,6 +105,7 @@ describe("TlsSettingsForm", () => {
     expect(frame).toContain("api.example.com")
     expect(frame).toContain("Certificate chain")
     expect(frame).toContain("Private key")
+    expect(frame).not.toContain("secret")
     expect(frame).toContain("Exact host and port match")
     expect(frame).toContain("Bare hostname matched exactly")
     expect(frame).toContain("Private key paired with the certificate chain")
@@ -269,6 +270,54 @@ describe("TlsSettingsForm", () => {
     expect(captureCharFrame()).toContain(
       "disabled for this session by --insecure",
     )
+    cleanup()
+  })
+
+  it("keeps invalid passphrases local and reverts them on blur", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const changes: unknown[] = []
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TlsSettingsForm
+            focused
+            insecure={false}
+            collectionDir="/tmp/collection"
+            activeEnv={{ name: "dev", vars: { PASS: "environment-secret" } }}
+            settings={{
+              clientCertificates: [
+                {
+                  host: "api.example.com",
+                  certFile: "client.pem",
+                  keyFile: "key.pem",
+                },
+              ],
+            }}
+            onChange={(settings) => {
+              changes.push(settings)
+              return true
+            }}
+            onExit={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => mockInput.typeText("literal-secret"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain(
+      "Use an exact $VARNAME reference; literals are not saved.",
+    )
+    expect(changes).toEqual([])
+
+    await act(async () => host.press("down"))
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("literal-secret")
+    expect(captureCharFrame()).not.toContain("environment-secret")
     cleanup()
   })
 })
