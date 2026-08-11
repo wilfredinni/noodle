@@ -33,6 +33,20 @@ describe("cloneEnvironment", () => {
     expect(loaded.disabledVars).toEqual({ old_key: "old_val" })
   })
 
+  it("clones secret declarations without copying values", async () => {
+    await env.saveEnvironment(dir, {
+      name: "with-secret",
+      vars: { TOKEN: "must-not-persist" },
+      secretVars: { TOKEN: "keychain" },
+    })
+    await env.cloneEnvironment(dir, "with-secret", "secret-copy")
+    const loaded = await env.loadEnvironment(dir, "secret-copy", {
+      resolveSecrets: false,
+    })
+    expect(loaded.vars).toEqual({})
+    expect(loaded.secretVars).toEqual({ TOKEN: "missing" })
+  })
+
   it("rejects invalid target name", async () => {
     await expect(
       env.cloneEnvironment(dir, "original", "../bad"),

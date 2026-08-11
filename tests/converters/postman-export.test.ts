@@ -483,4 +483,17 @@ describe("Postman export", () => {
       _postman_variable_scope: "environment",
     })
   })
+
+  it("marks declared environment secrets for Postman", () => {
+    const exported = exportPostmanEnvironment({
+      name: "production",
+      vars: {},
+      secretVars: { TOKEN: "missing" },
+    }) as {
+      values: { key: string; value: string; type: string; enabled: boolean }[]
+    }
+    expect(exported.values).toEqual([
+      { key: "TOKEN", value: "", type: "secret", enabled: true },
+    ])
+  })
 })

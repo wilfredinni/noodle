@@ -25,6 +25,11 @@ export function EnvEditorPane({
   onInteraction,
   onActivateRow,
   onToggleRow,
+  onToggleSecret,
+  onRevealSecret,
+  revealedRowId,
+  secretConfirmRowId,
+  clonePrompt,
 }: {
   draft: EnvDraft | null
   editState: EnvEditState
@@ -44,6 +49,11 @@ export function EnvEditorPane({
     subfield?: "key" | "value",
   ) => void
   onToggleRow?: (row: number) => void
+  onToggleSecret?: (row: number) => void
+  onRevealSecret?: (row: number) => void
+  revealedRowId?: number | null
+  secretConfirmRowId?: number | null
+  clonePrompt?: { source: string; target: string } | null
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -173,6 +183,15 @@ export function EnvEditorPane({
 
           const keyBaseColor = dimmed ? theme.textMuted : theme.primary
           const valueBaseColor = dimmed ? theme.textMuted : theme.text
+          const revealed = revealedRowId === row.id
+          const displayValue =
+            row.secret || row.originSecret
+              ? revealed
+                ? row.value
+                : row.value
+                  ? "••••••••"
+                  : ""
+              : row.value
           const rowBg =
             cursorOnThisRow || isEditingThisRow
               ? theme.backgroundElement
@@ -217,6 +236,22 @@ export function EnvEditorPane({
                 <Checkbox checked={row.enabled} theme={theme} />
               </box>
               <box
+                style={{ width: 3, justifyContent: "center" }}
+                onMouseDown={
+                  onToggleSecret
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onToggleSecret(i)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
+              >
+                <text fg={row.secret ? theme.warning : theme.textMuted}>
+                  {row.secret ? "🔒" : "·"}
+                </text>
+              </box>
+              <box
                 onMouseDown={
                   canActivateRow
                     ? (event) => {
@@ -258,11 +293,18 @@ export function EnvEditorPane({
                 style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
               >
                 <VarInput
-                  value={isEditingThisRow ? editValue : row.value}
-                  placeholder="Value..."
+                  value={isEditingThisRow ? editValue : displayValue}
+                  placeholder={
+                    row.secret && row.secretStatus === "missing"
+                      ? "(missing)"
+                      : "Value..."
+                  }
                   env={draftEnv}
                   isEditing={isEditingThisRow}
                   onChange={setEditValue}
+                  masked={Boolean(
+                    (row.secret || row.originSecret) && isEditingThisRow,
+                  )}
                   isFocused={isEditingThisRow && editState.subfield === "value"}
                   baseColor={valueBaseColor}
                   backgroundColor={
@@ -274,6 +316,30 @@ export function EnvEditorPane({
                   variableNames={variableNames}
                 />
               </box>
+              {row.secret && (
+                <box
+                  style={{ width: 12, justifyContent: "flex-end" }}
+                  onMouseDown={
+                    onRevealSecret
+                      ? (event) => {
+                          if (event.button !== MouseButton.LEFT) return
+                          onRevealSecret(i)
+                          event.stopPropagation()
+                        }
+                      : undefined
+                  }
+                >
+                  <text
+                    fg={
+                      row.secretStatus === "missing"
+                        ? theme.error
+                        : theme.textMuted
+                    }
+                  >
+                    {revealed ? "hide" : (row.secretStatus ?? "secret")}
+                  </text>
+                </box>
+              )}
             </box>
           )
         })}
@@ -388,6 +454,17 @@ export function EnvEditorPane({
         })()}
       </scrollbox>
       {error && <text fg={theme.error}>Error: {error}</text>}
+      {secretConfirmRowId !== null && (
+        <text fg={theme.warning}>
+          Press s again to confirm storing this value as plaintext
+        </text>
+      )}
+      {clonePrompt && (
+        <text fg={theme.warning}>
+          Copy stored secrets to {clonePrompt.target}? y copy · n declarations
+          only
+        </text>
+      )}
       {saving && <text fg={theme.info}>Saving...</text>}
     </Frame>
   )

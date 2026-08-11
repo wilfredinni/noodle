@@ -1,9 +1,14 @@
-import type { TimelineEntry, Method } from "../../schema"
+import type { Environment, TimelineEntry, Method } from "../../schema"
 import type { NetworkError } from "../../schema"
 import type { Request } from "../../schema"
 import type { SendCompleteResult } from "../../hooks/useResponse"
-import type { SubstitutedRequest } from "../../requests/substitute"
 import { randomUUID } from "node:crypto"
+import {
+  environmentSecretValues,
+  isSensitiveHeader,
+  redactKnownSecrets,
+  REDACTED,
+} from "../../secrets/redact"
 
 function responseSize(body: string): number {
   return new TextEncoder().encode(body).length
@@ -13,53 +18,95 @@ export function buildTimelineEntry(
   req: Request,
   result: SendCompleteResult,
   envName?: string,
-  substituted?: SubstitutedRequest,
+  environment?: Environment | null,
 ): TimelineEntry {
+  const secretValues = environmentSecretValues(environment)
+  const redact = (value: string) => redactKnownSecrets(value, secretValues)
+  const redactHeaders = (headers: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(headers).map(([key, value]) => [
+        key,
+        isSensitiveHeader(key) ? REDACTED : redact(value),
+      ]),
+    )
+  const requestHeaders = Object.fromEntries(
+    Object.entries(req.headers).map(([key, value]) => [
+      key,
+      {
+        ...value,
+        value: isSensitiveHeader(key) ? REDACTED : redact(value.value),
+      },
+    ]),
+  )
+  const redactAuth = (auth: Request["auth"]): Request["auth"] => {
+    if (!auth || auth.type === "none" || auth.type === "inherit") return auth
+    if (auth.type === "bearer") {
+      return {
+        type: "bearer",
+        token: auth.token.includes("$") ? redact(auth.token) : REDACTED,
+      }
+    }
+    if (auth.type === "basic") {
+      return {
+        type: "basic",
+        user: redact(auth.user),
+        pass: auth.pass.includes("$") ? redact(auth.pass) : REDACTED,
+      }
+    }
+    return {
+      ...auth,
+      key: redact(auth.key),
+      value: auth.value.includes("$") ? redact(auth.value) : REDACTED,
+    }
+  }
   return {
     id: randomUUID(),
     timestamp: Date.now(),
     envName,
     network:
       result.status === "done"
-        ? result.response.network?.map((event) => ({ ...event }))
+        ? result.response.network?.map((event) => ({
+            ...event,
+            message: redact(event.message),
+          }))
         : (result.error as NetworkError).network?.map((event) => ({
             ...event,
+            message: redact(event.message),
           })),
     request: {
       id: req.id,
       name: req.name,
       method: req.method,
-      url: substituted?.url ?? req.url,
-      headers: substituted
-        ? Object.fromEntries(
-            Object.entries(substituted.headers).map(([k, v]) => [
-              k,
-              { value: v, enabled: true },
-            ]),
-          )
-        : { ...req.headers },
-      params: substituted
-        ? substituted.params.map((p) => ({ ...p }))
-        : [...req.params],
-      pathParams: substituted
-        ? (substituted.pathParams ?? []).map((p) => ({ ...p }))
-        : [...(req.pathParams ?? [])],
-      body: substituted?.body ?? req.body,
-      auth: substituted?.auth ?? (req.auth ? { ...req.auth } : undefined),
+      url: redact(req.url),
+      headers: requestHeaders,
+      params: req.params.map((param) => ({
+        ...param,
+        name: redact(param.name),
+        value: redact(param.value),
+      })),
+      pathParams: (req.pathParams ?? []).map((param) => ({
+        ...param,
+        name: redact(param.name),
+        value: redact(param.value),
+      })),
+      body: req.body === undefined ? undefined : redact(req.body),
+      auth: redactAuth(req.auth),
     },
     response:
       result.status === "done"
         ? {
             status: result.response.status,
             statusText: result.response.statusText,
-            headers: { ...result.response.headers },
-            body: result.response.body,
+            headers: redactHeaders(result.response.headers),
+            body: redact(result.response.body),
             timeMs: result.response.timeMs,
             size: responseSize(result.response.body),
           }
         : undefined,
     error:
-      result.status === "error" ? { message: result.error.message } : undefined,
+      result.status === "error"
+        ? { message: redact(result.error.message) }
+        : undefined,
   }
 }
 

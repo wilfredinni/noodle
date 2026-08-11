@@ -47,6 +47,15 @@ const jsonPlaceholderEnv: Environment = {
 }
 
 describe("requestFinder", () => {
+  it("does not resolve declared secrets in finder URLs", () => {
+    expect(
+      resolveFinderUrl("https://example.com/$TOKEN/$PUBLIC", {
+        name: "dev",
+        vars: { TOKEN: "secret", PUBLIC: "visible" },
+        secretVars: { TOKEN: "keychain" },
+      }),
+    ).toBe("https://example.com/$TOKEN/visible")
+  })
   it("shows all requests for an empty query and derives folders", () => {
     const items = requestFinderItems(requests)
     expect(searchRequests(items, "")).toHaveLength(3)

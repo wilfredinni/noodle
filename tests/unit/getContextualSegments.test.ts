@@ -425,6 +425,8 @@ describe("getContextualSegments", () => {
     })
     expect(r.footer).toMatchObject([
       seg("Space", "toggle"),
+      seg("s", "secret"),
+      seg("r", "reveal"),
       seg("^d", "revert"),
       seg("^s", "save"),
     ])

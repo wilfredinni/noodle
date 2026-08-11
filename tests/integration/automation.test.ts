@@ -284,6 +284,40 @@ describe("automation services", () => {
     }
   })
 
+  it("redacts secrets from automation response fields", async () => {
+    const key = "NOODLE_AUTOMATION_RESPONSE_SECRET"
+    process.env[key] = "response-secret"
+    await writeFile(join(dir, "settings.yml"), "environment: development\n")
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: {},
+      secretVars: { [key]: "process" },
+    })
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "response-secret",
+      headers: { "x-echo": "response-secret" },
+      body: "echo:response-secret",
+      timeMs: 1,
+    })
+    try {
+      const result = await collectionRun(dir)
+      expect(result.results[0]!.response).toMatchObject({
+        statusText: "[REDACTED]",
+        headers: { "x-echo": "[REDACTED]" },
+        body: "echo:[REDACTED]",
+      })
+    } finally {
+      executor.send = send
+      delete process.env[key]
+    }
+  })
+
   it("reports run progress before and after each collection request", async () => {
     await writeFile(join(dir, "settings.yml"), "{}\n")
     await writeFile(

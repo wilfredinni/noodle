@@ -15,6 +15,55 @@ const inactive = {
 }
 
 describe("EnvEditorPane", () => {
+  it("masks secret values and shows their source status", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={80} height={8}>
+          <EnvEditorPane
+            draft={{
+              name: "development",
+              color: undefined,
+              varRows: [
+                {
+                  id: 1,
+                  key: "TOKEN",
+                  value: "do-not-render",
+                  enabled: true,
+                  secret: true,
+                  secretStatus: "keychain",
+                },
+                {
+                  id: 2,
+                  key: "PROCESS_TOKEN",
+                  value: "process-value-must-stay-masked",
+                  enabled: true,
+                  secret: false,
+                  originSecret: true,
+                  secretStatus: "process",
+                },
+              ],
+            }}
+            editState={inactive}
+            editKey=""
+            editValue=""
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            saving={false}
+            error={null}
+            focused
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 80, height: 8 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).not.toContain("do-not-render")
+    expect(frame).not.toContain("process-value-must-stay-masked")
+    expect(frame).toContain("••••••••")
+    expect(frame).toContain("keychain")
+  })
+
   it("commits when clicking pane background but not the active input", async () => {
     let interactions = 0
     const { renderOnce, captureCharFrame, mockMouse } = await testRender(

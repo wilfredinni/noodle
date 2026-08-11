@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { dirname, join, posix, relative, resolve, sep } from "node:path"
+import { randomUUID } from "node:crypto"
 import {
   getImporter,
   detectFormat,
@@ -315,7 +316,7 @@ export async function runImport(
     }
 
     if (removePartialImport) {
-      await saveSettings(collDir, {})
+      await saveSettings(collDir, { collectionId: randomUUID() })
     }
   } catch (e) {
     if (removePartialImport) {

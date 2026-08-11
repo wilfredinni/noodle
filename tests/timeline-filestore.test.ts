@@ -9,6 +9,7 @@ import {
   pruneTimeline,
   clearTimelineForRequest,
   clearAllTimeline,
+  redactTimelineSecrets,
 } from "../src/filestore/timeline"
 import type { TimelineEntry } from "../src/schema"
 
@@ -16,6 +17,42 @@ let dir: string
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-tl-"))
+})
+
+describe("redactTimelineSecrets", () => {
+  it("redacts inline and compressed bodies in place", async () => {
+    const secret = "super-secret-value"
+    await saveTimelineEntry(
+      dir,
+      "redact",
+      makeEntry({
+        request: {
+          ...makeEntry().request,
+          url: `https://example.com?token=${secret}`,
+        },
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: { "x-result": secret },
+          body: `${"x".repeat(10_100)}${secret}`,
+          timeMs: 1,
+          size: 10_100 + secret.length,
+        },
+      }),
+    )
+
+    await redactTimelineSecrets(dir, [secret])
+    const [entry] = await loadTimeline(dir, "redact")
+    expect(entry!.request.url).toContain("[REDACTED]")
+    expect(entry!.response!.headers["x-result"]).toBe("[REDACTED]")
+    const body = await loadTimelineBody(
+      dir,
+      "redact",
+      entry!.response!.bodyRef!,
+    )
+    expect(body).not.toContain(secret)
+    expect(body).toContain("[REDACTED]")
+  })
 })
 
 afterEach(async () => {

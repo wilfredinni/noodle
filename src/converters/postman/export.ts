@@ -225,19 +225,32 @@ export function exportPostman(collection: Collection): PostmanExportResult {
 export function exportPostmanEnvironment(
   environment: Environment,
 ): PostmanObject {
+  const secretKeys = new Set(Object.keys(environment.secretVars ?? {}))
   const values = [
     ...Object.entries(environment.vars).map(([key]) => ({
       key,
       value: "",
-      type: "default",
+      type: secretKeys.has(key) ? "secret" : "default",
       enabled: true,
     })),
     ...Object.entries(environment.disabledVars ?? {}).map(([key]) => ({
       key,
       value: "",
-      type: "default",
+      type: secretKeys.has(key) ? "secret" : "default",
       enabled: false,
     })),
+    ...Object.entries(environment.secretVars ?? {})
+      .filter(
+        ([key]) =>
+          !Object.hasOwn(environment.vars, key) &&
+          !Object.hasOwn(environment.disabledVars ?? {}, key),
+      )
+      .map(([key, status]) => ({
+        key,
+        value: "",
+        type: "secret",
+        enabled: status !== "disabled",
+      })),
   ].sort(
     (a, b) =>
       a.key.localeCompare(b.key) || Number(b.enabled) - Number(a.enabled),

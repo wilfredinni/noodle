@@ -67,9 +67,6 @@ import { useOverlayIntercepts } from "./useOverlayIntercepts"
 import { useCollectionFileActions } from "./useCollectionFileActions"
 import { useTimeline } from "./timeline/useTimeline"
 import { buildTimelineEntry } from "./timeline/formatTimeline"
-import { substitute } from "../requests"
-import type { SubstitutedRequest } from "../requests/substitute"
-import { interpolatePathParams } from "../requests/send"
 import { flattenRequests, getRequestIds, findFolderByPath } from "./tree"
 import { useUIState } from "./tabs/useUIState"
 import type { FieldKind } from "./editMode"
@@ -492,55 +489,13 @@ export function AppInner({
     (_req: NoodleRequest, _result: SendCompleteResult) => {},
   )
   onCompleteRef.current = (req: NoodleRequest, result: SendCompleteResult) => {
-    let substituted: SubstitutedRequest | undefined
-    const activeEnv = envStateRef.current.activeEnv
-    if (activeEnv) {
-      try {
-        substituted = substitute(req, activeEnv)
-        const pathParams = substituted.pathParams ?? []
-        if (pathParams.length > 0) {
-          try {
-            substituted = {
-              ...substituted,
-              url: interpolatePathParams(substituted.url, pathParams),
-            }
-          } catch {
-            // keep unresolved URL
-          }
-        }
-      } catch {
-        substituted = undefined
-      }
-    } else {
-      const rawPathParams = req.pathParams ?? []
-      if (rawPathParams.length > 0) {
-        try {
-          const headers: Record<string, string> = {}
-          for (const [k, v] of Object.entries(req.headers)) {
-            if (v.enabled) headers[k] = v.value
-          }
-          substituted = {
-            id: req.id,
-            name: req.name,
-            method: req.method,
-            url: interpolatePathParams(req.url, rawPathParams),
-            timeout: req.timeout,
-            headers,
-            params: [...req.params],
-            pathParams: rawPathParams.map((p) => ({ ...p })),
-            body: req.body,
-            bodyType: req.bodyType,
-            formData: req.formData,
-            filePath: req.filePath,
-            auth: req.auth,
-          }
-        } catch {
-          // keep undefined — timeline stores template URL
-        }
-      }
-    }
     timelineAppendRef.current(
-      buildTimelineEntry(req, result, envNameRef.current, substituted),
+      buildTimelineEntry(
+        req,
+        result,
+        envNameRef.current,
+        envStateRef.current.activeEnv,
+      ),
     )
   }
 

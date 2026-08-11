@@ -595,6 +595,15 @@ describe("filestore.loadSettings", () => {
 })
 
 describe("filestore.saveSettings", () => {
+  it("round-trips a collection credential namespace id", async () => {
+    const collectionId = "123e4567-e89b-42d3-a456-426614174000"
+    await saveSettings(dir, { collectionId })
+    expect(await loadSettings(dir)).toEqual({ collectionId })
+    expect(await readFile(join(dir, "settings.yml"), "utf8")).toContain(
+      `collection_id: ${collectionId}`,
+    )
+  })
+
   it("writes environment to settings.yml", async () => {
     await saveSettings(dir, { environment: "production" })
     const content = await readFile(join(dir, "settings.yml"), "utf8")

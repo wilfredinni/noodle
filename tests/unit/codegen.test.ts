@@ -264,6 +264,22 @@ describe("buildHar", () => {
 })
 
 describe("generateCode", () => {
+  it("does not interpolate declared secrets", () => {
+    const generated = generateCode(
+      makeRequest({ url: "https://example.com/$TOKEN/$PUBLIC" }),
+      CODE_TARGETS[0]!,
+      undefined,
+      {
+        name: "dev",
+        vars: { TOKEN: "secret", PUBLIC: "visible" },
+        secretVars: { TOKEN: "keychain" },
+      },
+      true,
+    )
+    expect(generated.code).toContain("$TOKEN")
+    expect(generated.code).not.toContain("secret")
+    expect(generated.code).toContain("visible")
+  })
   it("generates a cURL snippet", () => {
     const result = generateCode(makeRequest(), curlTarget())
     expect(result.code).toContain("curl")

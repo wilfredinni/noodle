@@ -170,6 +170,39 @@ export function formatEnvironmentSet(data: {
   return `${color("✓", "green")} Set ${data.key} in ${data.environment}`
 }
 
+export function formatSecretSet(data: {
+  environment: string
+  key: string
+}): string {
+  return `${color("✓", "green")} Stored ${data.key} securely for ${data.environment}`
+}
+
+export function formatSecretList(data: {
+  environment: string
+  secrets: { key: string; enabled: boolean; status: string }[]
+}): string {
+  if (data.secrets.length === 0) {
+    return `No secrets declared in ${data.environment}.`
+  }
+  return [
+    `Secrets in ${data.environment}`,
+    ...data.secrets.map(
+      (secret) =>
+        `  ${secret.enabled ? "●" : "○"} ${secret.key}  ${color(secret.status, secret.status === "missing" ? "yellow" : "dim")}`,
+    ),
+  ].join("\n")
+}
+
+export function formatSecretDelete(data: {
+  environment: string
+  key: string
+  deleted: boolean
+}): string {
+  return data.deleted
+    ? `${color("✓", "green")} Removed the local value for ${data.key} in ${data.environment}`
+    : `No local value was stored for ${data.key} in ${data.environment}`
+}
+
 export function formatImport(data: {
   path: string
   name: string

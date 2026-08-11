@@ -29,15 +29,27 @@ export async function saveEnvironment(
     lines.push(`_color=${env.color}`)
   }
 
+  const secretKeys = new Set(Object.keys(env.secretVars ?? {}))
+
   for (const [key, value] of Object.entries(env.vars)) {
     if (key === "") continue
+    if (secretKeys.has(key)) continue
     lines.push(`${key}=${value}`)
   }
 
   const disabledVars = env.disabledVars ?? {}
   for (const [key, value] of Object.entries(disabledVars)) {
     if (key === "") continue
+    if (secretKeys.has(key)) continue
     lines.push(`# ${key}=${value}`)
+  }
+
+  for (const [key, status] of Object.entries(env.secretVars ?? {})) {
+    if (!/^\w+$/.test(key)) {
+      throw new Error(`env.save: invalid secret key "${key}"`)
+    }
+    lines.push(`# @secret ${key}`)
+    lines.push(status === "disabled" ? `# ${key}=` : `${key}=`)
   }
 
   lines.push("")

@@ -8,6 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { basename, join, relative, resolve } from "node:path"
+import { randomUUID } from "node:crypto"
 import { load as yamlLoad } from "js-yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
 import { env } from "../env"
@@ -18,6 +19,7 @@ import {
   saveRequest,
   saveSettings,
   ensureCollectionBootstrapped,
+  redactTimelineSecrets,
 } from "../filestore"
 import { formatJson } from "../lang/formatJson"
 import { lang } from "../lang"
@@ -37,6 +39,13 @@ import type {
   Environment,
   Request,
 } from "../schema"
+import {
+  deleteStoredSecret,
+  ensureCollectionId,
+  getStoredSecret,
+  setStoredSecret,
+} from "../secrets"
+import { environmentSecretValues, redactKnownSecrets } from "../secrets/redact"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -205,7 +214,10 @@ export async function collectionCreate(
   const path = resolve(output, name)
   if (existsSync(path)) throw new Error(`collection already exists: ${path}`)
   await mkdir(join(path, ".environments"), { recursive: true })
-  await saveSettings(path, { environment: "development" })
+  await saveSettings(path, {
+    collectionId: randomUUID(),
+    environment: "development",
+  })
   await env.saveEnvironment(join(path, ".environments"), {
     name: "development",
     vars: {},
@@ -412,8 +424,12 @@ async function auditFile(
       const parsed = await env.loadEnvironment(
         join(path, ".."),
         name.slice(0, -4),
+        { resolveSecrets: false },
       )
       if (fix) {
+        if (Object.keys(parsed.secretVars ?? {}).length > 0) {
+          await ensureCollectionId(root)
+        }
         await env.saveEnvironment(join(path, ".."), parsed)
         issues.push({
           path: rel,
@@ -520,6 +536,8 @@ async function runRequest(
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
 ): Promise<RequestRunResult> {
+  const secretValues = environmentSecretValues(environment)
+  const redact = (value: string) => redactKnownSecrets(value, secretValues)
   try {
     const response = await executor.send(request, {
       environment,
@@ -532,12 +550,17 @@ async function runRequest(
     return {
       id: request.id,
       method: request.method,
-      url: effective.url,
+      url: redact(effective.url),
       response: {
         status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        body: response.body,
+        statusText: redact(response.statusText),
+        headers: Object.fromEntries(
+          Object.entries(response.headers).map(([key, value]) => [
+            redact(key),
+            redact(value),
+          ]),
+        ),
+        body: redact(response.body),
         timeMs: response.timeMs,
       },
       ok: response.status < 400,
@@ -546,8 +569,8 @@ async function runRequest(
     return {
       id: request.id,
       method: request.method,
-      url: request.url,
-      error: errorMessage(error),
+      url: redact(request.url),
+      error: redact(errorMessage(error)),
       ok: false,
     }
   }
@@ -663,7 +686,14 @@ export async function environmentSet(
     throw new Error(`invalid environment key "${key}"`)
   const collectionRoot = await requireCollectionRoot(collectionDir)
   const dir = join(collectionRoot, ".environments")
-  const current = await env.loadEnvironment(dir, name)
+  const current = await env.loadEnvironment(dir, name, {
+    resolveSecrets: false,
+  })
+  if (current.secretVars?.[key]) {
+    throw new Error(
+      `"${key}" is a secret; use "noodle secret set ${key} --env ${name}"`,
+    )
+  }
   const disabled = { ...(current.disabledVars ?? {}) }
   delete disabled[key]
   await env.saveEnvironment(dir, {
@@ -672,4 +702,101 @@ export async function environmentSet(
     disabledVars: Object.keys(disabled).length ? disabled : undefined,
   })
   return { environment: name, key }
+}
+
+export interface SecretListItem {
+  key: string
+  enabled: boolean
+  status: "process" | "keychain" | "missing" | "disabled"
+}
+
+function validateSecretKey(key: string): void {
+  if (!/^\w+$/.test(key)) {
+    throw new Error(
+      `invalid secret key "${key}"; expected letters, numbers, or _`,
+    )
+  }
+}
+
+export async function secretSet(
+  key: string,
+  value: string,
+  name: string,
+  collectionDir: string,
+): Promise<{ environment: string; key: string; status: "stored" }> {
+  validateSecretKey(key)
+  if (!value) throw new Error("secret value must not be empty")
+  const collectionRoot = await requireCollectionRoot(collectionDir)
+  const directory = join(collectionRoot, ".environments")
+  const current = await env.loadEnvironment(directory, name, {
+    resolveSecrets: false,
+  })
+  const oldPlaintext = current.vars[key] ?? current.disabledVars?.[key]
+  if (oldPlaintext) await redactTimelineSecrets(collectionRoot, [oldPlaintext])
+
+  const previous = await getStoredSecret(collectionRoot, name, key)
+  await setStoredSecret(collectionRoot, name, key, value)
+  const wasDisabled =
+    current.secretVars?.[key] === "disabled" ||
+    Object.hasOwn(current.disabledVars ?? {}, key)
+  const vars = { ...current.vars }
+  const disabledVars = { ...(current.disabledVars ?? {}) }
+  delete vars[key]
+  delete disabledVars[key]
+  try {
+    await env.saveEnvironment(directory, {
+      ...current,
+      vars,
+      disabledVars: Object.keys(disabledVars).length ? disabledVars : undefined,
+      secretVars: {
+        ...(current.secretVars ?? {}),
+        [key]: wasDisabled ? "disabled" : "keychain",
+      },
+    })
+  } catch (error) {
+    if (previous) await setStoredSecret(collectionRoot, name, key, previous)
+    else await deleteStoredSecret(collectionRoot, name, key).catch(() => false)
+    throw error
+  }
+  return { environment: name, key, status: "stored" }
+}
+
+export async function secretList(
+  name: string,
+  collectionDir: string,
+): Promise<{ environment: string; secrets: SecretListItem[] }> {
+  const collectionRoot = await requireCollectionRoot(collectionDir)
+  const current = await env.loadEnvironment(
+    join(collectionRoot, ".environments"),
+    name,
+  )
+  return {
+    environment: name,
+    secrets: Object.entries(current.secretVars ?? {})
+      .map(([key, status]) => ({
+        key,
+        enabled: status !== "disabled",
+        status,
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key)),
+  }
+}
+
+export async function secretDelete(
+  key: string,
+  name: string,
+  collectionDir: string,
+): Promise<{ environment: string; key: string; deleted: boolean }> {
+  validateSecretKey(key)
+  const collectionRoot = await requireCollectionRoot(collectionDir)
+  const current = await env.loadEnvironment(
+    join(collectionRoot, ".environments"),
+    name,
+    { resolveSecrets: false },
+  )
+  if (!current.secretVars?.[key]) {
+    throw new Error(`secret "${key}" is not declared in ${name}`)
+  }
+  const deleted = await deleteStoredSecret(collectionRoot, name, key)
+  return { environment: name, key, deleted }
 }

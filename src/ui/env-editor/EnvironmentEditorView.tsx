@@ -1,7 +1,7 @@
 import { EnvSidebar } from "./EnvSidebar"
 import { EnvHeaderPane, type EnvHeaderPaneHandle } from "./EnvHeaderPane"
 import { EnvEditorPane } from "./EnvEditorPane"
-import type { RefObject } from "react"
+import { useEffect, type RefObject } from "react"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
 import type { Environment } from "../../schema"
 import type { Focus } from "../focus"
@@ -31,6 +31,11 @@ export function EnvironmentEditorView({
   onEnvironmentContextMenu,
   setEnvDeletePending,
 }: EnvironmentEditorViewProps) {
+  const remaskSecrets = envEditor.remaskSecrets
+  useEffect(() => {
+    if (focus !== "env-vars") remaskSecrets()
+  }, [focus, remaskSecrets])
+
   return (
     <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
       <EnvSidebar
@@ -57,7 +62,10 @@ export function EnvironmentEditorView({
         }}
         focused={focus === "env-sidebar"}
         jumpMode={jumpMode}
-        onPaneFocus={() => onPaneFocus("env-sidebar")}
+        onPaneFocus={() => {
+          envEditor.remaskSecrets()
+          onPaneFocus("env-sidebar")
+        }}
         onEnvironmentContextMenu={onEnvironmentContextMenu}
       />
       <box
@@ -77,7 +85,10 @@ export function EnvironmentEditorView({
           focused={focus === "env-header"}
           jumpMode={jumpMode}
           onColorFocus={() => onHeaderFieldFocus?.("color")}
-          onPaneFocus={() => onPaneFocus("env-header")}
+          onPaneFocus={() => {
+            envEditor.remaskSecrets()
+            onPaneFocus("env-header")
+          }}
         />
         <EnvEditorPane
           draft={envEditor.draft}
@@ -101,6 +112,15 @@ export function EnvironmentEditorView({
             envEditor.commitEdit()
             envEditor.toggleVar(row)
           }}
+          onToggleSecret={(row) => {
+            onPaneFocus("env-vars")
+            envEditor.commitEdit()
+            envEditor.toggleSecret(row)
+          }}
+          onRevealSecret={envEditor.toggleReveal}
+          revealedRowId={envEditor.revealedRowId}
+          secretConfirmRowId={envEditor.secretConfirmRowId}
+          clonePrompt={envEditor.clonePrompt}
         />
       </box>
     </box>

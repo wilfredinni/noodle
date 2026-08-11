@@ -59,6 +59,7 @@ export interface VarInputProps {
   pathCompletion?: PathCompletionOptions
   stopMousePropagation?: boolean
   onFocus?: () => void
+  masked?: boolean
 }
 
 export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
@@ -81,6 +82,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       pathCompletion,
       stopMousePropagation = false,
       onFocus,
+      masked = false,
     },
     ref,
   ) {
@@ -98,9 +100,15 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       return editable && !editable.isDestroyed ? editable : null
     }, [])
     const suggestionNames = useMemo(() => {
+      if (masked) return []
       if (variableNames != null) return [...variableNames]
-      return Object.keys(env?.vars ?? {})
-    }, [variableNames, env?.vars])
+      return [
+        ...new Set([
+          ...Object.keys(env?.vars ?? {}),
+          ...Object.keys(env?.secretVars ?? {}),
+        ]),
+      ]
+    }, [masked, variableNames, env?.vars])
 
     const inputFocused = isFocused ?? true
 
@@ -149,13 +157,25 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
       applyHighlights()
     }, [applyHighlights, onChange, value])
 
+    const displayValue = masked ? "•".repeat([...value].length) : value
+
     const handleInput = useCallback(
       (nextValue: string) => {
-        onChange?.(nextValue)
+        if (masked) {
+          const previousLength = [...displayValue].length
+          const nextLength = [...nextValue].length
+          if (nextLength < previousLength) {
+            onChange?.([...value].slice(0, nextLength).join(""))
+          } else if (nextLength > previousLength) {
+            onChange?.(value + [...nextValue].slice(previousLength).join(""))
+          }
+        } else {
+          onChange?.(nextValue)
+        }
         setCompletionDismissed(false)
         applyHighlights()
       },
-      [applyHighlights, onChange],
+      [applyHighlights, displayValue, masked, onChange, value],
     )
 
     useEffect(() => {
@@ -339,7 +359,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
         >
           <input
             ref={inputRef}
-            value={value}
+            value={displayValue}
             placeholder={placeholder}
             onInput={handleInput}
             focused={inputFocused}
@@ -357,7 +377,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     }
 
     const displayColor = value ? defaultColor : theme.textMuted
-    const displayText = value ? value : (placeholder ?? "")
+    const displayText = value ? displayValue : (placeholder ?? "")
 
     return (
       <box

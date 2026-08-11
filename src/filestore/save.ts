@@ -1,13 +1,11 @@
 import { mkdir, writeFile, unlink, rm, rename } from "node:fs/promises"
 import { randomUUID } from "node:crypto"
-import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import * as yaml from "js-yaml"
 import { lang } from "../lang"
 import type { CollectionSettings, Folder, Request } from "../schema"
 import { collectionTlsToYaml } from "../tls"
 import { parseCollectionProxyStrict } from "../proxy"
-import { env } from "../env"
 
 function validatePathId(id: string | undefined): void {
   if (!id) {
@@ -124,6 +122,16 @@ export async function saveSettings(
   }
 
   const data: Record<string, unknown> = {}
+  if (settings.collectionId !== undefined) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        settings.collectionId,
+      )
+    ) {
+      throw new Error("filestore.saveSettings: collection id must be a UUID")
+    }
+    data.collection_id = settings.collectionId
+  }
   const name = settings.name?.trim()
   if (name) data.name = name
   const description = settings.description?.trim()
@@ -151,18 +159,5 @@ export async function saveSettings(
     await unlink(temporaryPath).catch(() => {})
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`filestore.saveSettings: ${msg}`, { cause: e })
-  }
-}
-
-export async function ensureCollectionBootstrapped(dir: string): Promise<void> {
-  const envDir = join(dir, ".environments")
-  const settingsPath = join(dir, "settings.yml")
-
-  if (!existsSync(settingsPath)) {
-    await saveSettings(dir, { environment: "development" })
-  }
-  if (!existsSync(envDir)) {
-    await mkdir(envDir, { recursive: true })
-    await env.saveEnvironment(envDir, { name: "development", vars: {} })
   }
 }

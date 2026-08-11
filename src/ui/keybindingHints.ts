@@ -88,6 +88,8 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     if (ctx.focus === "env-vars" && ctx.paneMode === "browse") {
       return [
         { key: "Space", word: "toggle", command: "env-browse.toggle" },
+        { key: "s", word: "secret", command: "env-browse.secret" },
+        { key: "r", word: "reveal", command: "env-browse.reveal" },
         {
           key: displayKey(kb.browse_delete),
           word: "revert",
