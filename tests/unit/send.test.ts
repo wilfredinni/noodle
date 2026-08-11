@@ -174,6 +174,29 @@ describe("send — network trace", () => {
     }
   })
 
+  it("attaches network activity to incomplete proxy authentication", async () => {
+    let error: NetworkError | undefined
+    try {
+      await send(makeReq(), {
+        proxyPolicy: {
+          kind: "custom",
+          source: "global",
+          url: "http://proxy.test:8080",
+          bypass: [],
+          auth: true,
+          credentials: {},
+        },
+      })
+    } catch (caught) {
+      error = caught as NetworkError
+    }
+
+    expect(error?.message).toContain(
+      "authentication is enabled for the global proxy, but its username secret is missing",
+    )
+    expect(error?.network?.map((event) => event.type)).toEqual(["error"])
+  })
+
   it("passes the resolved proxy to fetch and reports the selected route", async () => {
     const originalFetch = globalThis.fetch
     let proxy: string | undefined

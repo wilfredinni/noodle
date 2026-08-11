@@ -638,9 +638,10 @@ export function ProxySettingsForm({
                       setError(
                         "Proxy username is required when authentication is enabled",
                       )
+                      return false
                     }
                     return saveCredentials({
-                      username: username || undefined,
+                      username,
                     })
                   }}
                   onError={(message) => setError(message ?? null)}

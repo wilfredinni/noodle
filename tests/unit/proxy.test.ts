@@ -84,6 +84,28 @@ describe("proxy policy", () => {
     )
   })
 
+  it("rejects proxy fetches asynchronously when authentication is incomplete", async () => {
+    const fetcher = createProxyFetcher(
+      resolveProxyPolicy({
+        appProxy: {
+          mode: "custom",
+          url: "http://proxy.test:8080",
+          auth: true,
+        },
+        appCredentials: {},
+        systemProxy: system,
+      }),
+    )
+    let request: Promise<Response> | undefined
+
+    expect(() => {
+      request = fetcher("https://example.com")
+    }).not.toThrow()
+    await expect(request!).rejects.toThrow(
+      "authentication is enabled for the global proxy, but its username secret is missing",
+    )
+  })
+
   it("falls back to system HTTP and HTTPS proxies", () => {
     const policy = resolveProxyPolicy({ systemProxy: system })
 

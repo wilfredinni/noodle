@@ -70,12 +70,20 @@ function sameCertificateProfile(
 function certificateProfileIndex(
   profiles: ClientCertificateProfile[],
   target: ClientCertificateProfile,
+  preferredIndex?: number,
 ): number {
   if (target.secretId) {
     const index = profiles.findIndex(
       (profile) => profile.secretId === target.secretId,
     )
     if (index !== -1) return index
+  }
+  if (
+    preferredIndex !== undefined &&
+    profiles[preferredIndex] &&
+    sameCertificateProfile(profiles[preferredIndex], target)
+  ) {
+    return preferredIndex
   }
   const index = profiles.findIndex((profile) =>
     sameCertificateProfile(profile, target),
@@ -104,6 +112,7 @@ function rebaseTlsSettings(
       const currentIndex = certificateProfileIndex(
         currentProfiles,
         previousProfile,
+        index,
       )
       if (currentIndex === -1) continue
       currentProfiles[currentIndex] = {
@@ -437,7 +446,7 @@ export function App({
 
   const handleAppProxyCredentialsChange = useCallback(
     async (credentials: ProxyCredentials) => {
-      if (config.proxy?.mode !== "custom") return false
+      if (config.proxy?.mode !== "custom" || !credentials.username) return false
       try {
         const proxy: AppProxySettings = {
           ...config.proxy,
@@ -482,7 +491,12 @@ export function App({
   const handleCollectionProxyCredentialsChange = useCallback(
     async (credentials: ProxyCredentials) => {
       const current = settingsRef.current.proxy
-      if (mode !== "collection" || current?.mode !== "custom") return false
+      if (
+        mode !== "collection" ||
+        current?.mode !== "custom" ||
+        !credentials.username
+      )
+        return false
       const dir = activeCollectionDirRef.current
       try {
         await persistCollectionSettingsTransaction(
@@ -606,6 +620,7 @@ export function App({
             const targetIndex = certificateProfileIndex(
               currentProfiles,
               profile,
+              index,
             )
             if (!currentProfiles[targetIndex]) return settings
             return {
@@ -706,6 +721,7 @@ export function App({
             const targetIndex = certificateProfileIndex(
               currentProfiles,
               profile,
+              index,
             )
             if (!currentProfiles[targetIndex]) return settings
             return {
@@ -933,10 +949,14 @@ export function App({
           }
         }
 
-        while (true) {
-          const pending = settingsSaveChainRef.current
-          await pending
-          if (pending === settingsSaveChainRef.current) break
+        const pending = settingsSaveChainRef.current
+        await pending
+        if (pending !== settingsSaveChainRef.current) {
+          showToast(
+            "Settings changed while switching collections; try again",
+            "error",
+          )
+          return
         }
         setEnvNames(nextEnvNames)
         setEnvColors(nextEnvColors)

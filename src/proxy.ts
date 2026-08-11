@@ -170,7 +170,10 @@ export function createProxyFetcher(
     init?: RequestInit,
   ) => Promise<Response> = globalThis.fetch,
 ) {
-  return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  return async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const target =
       typeof input === "string"
         ? input

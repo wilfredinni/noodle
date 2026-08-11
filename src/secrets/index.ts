@@ -185,9 +185,10 @@ export async function loadCollectionProxyCredentials(
   proxy: CollectionProxySettings | undefined,
 ): Promise<ProxyCredentials> {
   if (proxy?.mode !== "custom" || proxy.auth !== true) return {}
+  const collectionId = await ensureCollectionId(collectionDir)
   const [username, password] = await Promise.all([
-    getCollectionSettingSecret(collectionDir, "proxy:username"),
-    getCollectionSettingSecret(collectionDir, "proxy:password"),
+    getSecret(collectionSettingSecretAccount(collectionId, "proxy:username")),
+    getSecret(collectionSettingSecretAccount(collectionId, "proxy:password")),
   ])
   return {
     username: username ?? undefined,
@@ -206,14 +207,18 @@ export async function loadTlsPassphrases(
         .filter((id): id is string => id !== undefined),
     ),
   ]
+  if (ids.length === 0) return {}
+  const collectionId = await ensureCollectionId(collectionDir)
   const entries = await Promise.all(
     ids.map(
       async (id) =>
         [
           id,
-          await getCollectionSettingSecret(
-            collectionDir,
-            `tls:${id}:passphrase`,
+          await getSecret(
+            collectionSettingSecretAccount(
+              collectionId,
+              `tls:${id}:passphrase`,
+            ),
           ),
         ] as const,
     ),
@@ -253,8 +258,11 @@ export async function applySettingsSecretTransaction(
         else await mutation.set(snapshot)
       }
     } catch (rollbackError) {
-      throw new Error(
-        `settings secret update failed and rollback also failed: ${
+      throw new AggregateError(
+        [error, rollbackError],
+        `settings secret update failed (${
+          error instanceof Error ? error.message : String(error)
+        }) and rollback also failed: ${
           rollbackError instanceof Error
             ? rollbackError.message
             : String(rollbackError)

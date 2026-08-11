@@ -141,6 +141,41 @@ describe("secret storage", () => {
     expect(await getAppSettingSecret("proxy:password")).toBe("old-password")
   })
 
+  it("preserves the update and rollback failures when both fail", async () => {
+    const updateError = new Error("disk full")
+    const rollbackError = new Error("credential store offline")
+    let error: Error | undefined
+
+    try {
+      await applySettingsSecretTransaction(
+        [
+          {
+            get: async () => "old-secret",
+            set: async (value) => {
+              if (value === "old-secret") throw rollbackError
+            },
+            delete: async () => false,
+            value: "new-secret",
+          },
+        ],
+        () => {
+          throw updateError
+        },
+      )
+    } catch (caught) {
+      error = caught as Error
+    }
+
+    expect(error?.message).toContain("disk full")
+    expect(error?.message).toContain("credential store offline")
+    expect(error).toBeInstanceOf(AggregateError)
+    expect((error as AggregateError).errors).toEqual([
+      updateError,
+      rollbackError,
+    ])
+    expect(error?.cause).toBe(rollbackError)
+  })
+
   it("namespaces credentials and resolves process values before the keychain", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-secret-"))
     const directory = join(root, ".environments")

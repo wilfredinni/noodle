@@ -375,6 +375,9 @@ describe("TlsSettingsForm", () => {
     await renderOnce()
     expect(captureCharFrame()).toContain("******")
     expect(captureCharFrame()).not.toContain("new-secret")
+    await act(async () => host.press("up"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("old-secret")
     cleanup()
   })
 

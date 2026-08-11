@@ -315,6 +315,47 @@ describe("ProxySettingsForm", () => {
     cleanup()
   })
 
+  it("does not persist an empty username while authentication is enabled", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const commits: ProxyCredentials[] = []
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsForm
+            scope="app"
+            focused
+            proxy={{
+              mode: "custom",
+              url: "https://proxy.test:8443",
+              auth: true,
+            }}
+            credentials={{ username: "alice" }}
+            onChange={() => true}
+            onCredentialsChange={async (credentials) => {
+              commits.push(credentials)
+              return true
+            }}
+            onAuthDisable={async () => true}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 7; index++) {
+      await act(async () => host.press("down"))
+    }
+    for (let index = 0; index < 5; index++) {
+      await act(async () => mockInput.pressBackspace())
+    }
+    await act(async () => host.press("down"))
+    await renderOnce()
+
+    expect(commits).toEqual([])
+    expect(captureCharFrame()).toContain("Could not save secret")
+    cleanup()
+  })
+
   it("disables proxy authentication with Space", async () => {
     const { keymap, host, cleanup } = setupKeymap()
 
@@ -464,6 +505,10 @@ describe("ProxySettingsForm", () => {
     const firstSave = new Promise<void>((resolve) => {
       finishFirstSave = resolve
     })
+    let markSecondSaveStarted = () => {}
+    const secondSaveStarted = new Promise<void>((resolve) => {
+      markSecondSaveStarted = resolve
+    })
     const commits: ProxyCredentials[] = []
 
     function Harness() {
@@ -485,6 +530,7 @@ describe("ProxySettingsForm", () => {
           onCredentialsChange={async (next) => {
             commits.push(next)
             if (commits.length === 1) await firstSave
+            else markSecondSaveStarted()
             setCredentials(next)
             return true
           }}
@@ -513,8 +559,7 @@ describe("ProxySettingsForm", () => {
     expect(commits).toEqual([{ username: "alice2", password: "secret" }])
     await act(async () => {
       finishFirstSave()
-      await firstSave
-      await Promise.resolve()
+      await secondSaveStarted
     })
     expect(commits).toEqual([
       { username: "alice2", password: "secret" },
@@ -528,6 +573,10 @@ describe("ProxySettingsForm", () => {
     let finishFirstSave = () => {}
     const firstSave = new Promise<void>((resolve) => {
       finishFirstSave = resolve
+    })
+    let markSecondSaveStarted = () => {}
+    const secondSaveStarted = new Promise<void>((resolve) => {
+      markSecondSaveStarted = resolve
     })
     const commits: ProxyCredentials[] = []
 
@@ -550,6 +599,7 @@ describe("ProxySettingsForm", () => {
           onCredentialsChange={async (next) => {
             commits.push(next)
             if (commits.length === 1) await firstSave
+            else markSecondSaveStarted()
             setCredentials(next)
             return true
           }}
@@ -578,8 +628,7 @@ describe("ProxySettingsForm", () => {
     expect(commits).toEqual([{ username: "alice", password: "secret2" }])
     await act(async () => {
       finishFirstSave()
-      await firstSave
-      await Promise.resolve()
+      await secondSaveStarted
     })
     expect(commits).toEqual([
       { username: "alice", password: "secret2" },
