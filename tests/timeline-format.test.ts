@@ -884,4 +884,28 @@ describe("buildTimelineEntry", () => {
     expect(entry.request.body).toBeUndefined()
     expect(entry.response?.size).toBe(0)
   })
+
+  it("redacts loaded settings secrets from timeline errors", () => {
+    const req = {
+      id: "settings-secret",
+      name: "Settings secret",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: [],
+      timeout: 0,
+    }
+    const entry = buildTimelineEntry(
+      req,
+      {
+        status: "error" as const,
+        error: new Error("proxy rejected bun-proxy-password"),
+        request: req,
+      },
+      undefined,
+      undefined,
+      ["bun-proxy-password"],
+    )
+    expect(entry.error?.message).toBe("proxy rejected [REDACTED]")
+  })
 })

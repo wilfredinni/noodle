@@ -89,8 +89,12 @@ async function startConnectProxy(): Promise<{
   }
 }
 
-function tlsPolicy(settings?: CollectionTlsSettings, insecure = false) {
-  return { collectionDir: FIXTURES, settings, insecure }
+function tlsPolicy(
+  settings?: CollectionTlsSettings,
+  insecure = false,
+  passphrases?: Record<string, string>,
+) {
+  return { collectionDir: FIXTURES, settings, insecure, passphrases }
 }
 
 describe("TLS loopback integration", () => {
@@ -144,23 +148,24 @@ describe("TLS loopback integration", () => {
       }),
     ).rejects.toThrow("requests.send: fetch failed")
 
+    const secretId = "123e4567-e89b-42d3-a456-426614174000"
     const response = await send(request(url), {
-      environment: {
-        name: "test",
-        vars: { CLIENT_KEY_PASSPHRASE: "test-passphrase" },
-      },
-      tlsPolicy: tlsPolicy({
-        caBundle: "ca.pem",
-        clientCertificates: [
-          {
-            host: "localhost",
-            port: mtlsServer.port,
-            certFile: "client.pem",
-            keyFile: "client-encrypted-key.pem",
-            passphrase: "$CLIENT_KEY_PASSPHRASE",
-          },
-        ],
-      }),
+      tlsPolicy: tlsPolicy(
+        {
+          caBundle: "ca.pem",
+          clientCertificates: [
+            {
+              host: "localhost",
+              port: mtlsServer.port,
+              certFile: "client.pem",
+              keyFile: "client-encrypted-key.pem",
+              secretId,
+            },
+          ],
+        },
+        false,
+        { [secretId]: "test-passphrase" },
+      ),
     })
     expect(response.body).toBe("mutual")
   })

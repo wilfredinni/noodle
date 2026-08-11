@@ -177,7 +177,7 @@ export interface ClientCertificateProfile {
   port?: number
   certFile: string
   keyFile: string
-  passphrase?: string
+  secretId?: string
   enabled?: boolean
 }
 
@@ -191,6 +191,12 @@ export interface ProxySettings {
   mode: "custom"
   url: string
   bypass?: string[]
+  auth?: boolean
+}
+
+export interface ProxyCredentials {
+  username?: string
+  password?: string
 }
 
 export type AppProxySettings =

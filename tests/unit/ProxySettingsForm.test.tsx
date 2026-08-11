@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
-import { act } from "react"
+import { act, useState } from "react"
 import { type BoxRenderable } from "@opentui/core"
+import { MouseButtons } from "@opentui/core/testing"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerDefaultKeys,
@@ -11,6 +12,7 @@ import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { ProxySettingsForm } from "../../src/ui/settings/ProxySettingsForm"
+import type { AppProxySettings, ProxyCredentials } from "../../src/schema"
 
 const testRender = createTestRender()
 
@@ -39,7 +41,6 @@ describe("ProxySettingsForm", () => {
             scope="app"
             focused
             proxy={{ mode: "custom", url: "http://proxy.test:8080" }}
-            activeEnv={null}
             onChange={() => true}
           />
         </ThemeProvider>
@@ -72,7 +73,6 @@ describe("ProxySettingsForm", () => {
             scope="app"
             focused
             proxy={{ mode: "system" }}
-            activeEnv={null}
             onChange={() => true}
           />
         </ThemeProvider>
@@ -112,10 +112,11 @@ describe("ProxySettingsForm", () => {
             focused
             proxy={{
               mode: "custom",
-              url: "https://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8443",
+              url: "https://proxy.test:8443",
               bypass: ["localhost"],
+              auth: true,
             }}
-            activeEnv={null}
+            credentials={{ username: "alice", password: "secret" }}
             onChange={() => true}
           />
         </ThemeProvider>
@@ -136,77 +137,14 @@ describe("ProxySettingsForm", () => {
     expect(frame).toContain("Protocol used to connect")
     expect(frame).toContain("Hostname or IP address")
     expect(frame).toContain("Optional. Uses the protocol default")
-    expect(frame).toContain(
-      "Optional. Enter credentials directly (stored in app config) or use",
-    )
-    expect(frame).toContain("Required for authentication")
-    expect(frame).toContain("Enter a literal value or use $VARNAME")
+    expect(frame).toContain("Credentials are stored securely")
+    expect(frame).toContain("Required when proxy authentication is enabled")
     const lines = frame.split("\n")
     expect(
       lines.findIndex((line) => line.includes("Bypass hosts (optional)")),
     ).toBeLessThan(
       lines.findIndex((line) => line.includes("Proxy authentication")),
     )
-    cleanup()
-  })
-
-  it("describes optional collection credentials and where literals are stored", async () => {
-    const { keymap, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ProxySettingsForm
-            scope="collection"
-            focused
-            proxy={{
-              mode: "custom",
-              url: "https://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8443",
-            }}
-            activeEnv={{
-              name: "dev",
-              vars: { PROXY_USER: "alice", PROXY_PASSWORD: "secret" },
-            }}
-            onChange={() => true}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 90, height: 30 },
-    )
-    await renderOnce()
-
-    expect(captureCharFrame()).toContain(
-      "Optional. Enter credentials directly (stored in settings.yml) or use",
-    )
-    expect(captureCharFrame()).toContain("from the active environment")
-    cleanup()
-  })
-
-  it("suggests active environment variables for an app proxy", async () => {
-    const { keymap, host, cleanup } = setupKeymap()
-    const { renderOnce, captureCharFrame, mockInput } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <ProxySettingsForm
-            scope="app"
-            focused
-            proxy={{ mode: "custom", url: "http://proxy.test/path" }}
-            activeEnv={{
-              name: "dev",
-              vars: { COLLECTION_PROXY_PASSWORD: "secret" },
-            }}
-            onChange={() => true}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 90, height: 20 },
-    )
-    await renderOnce()
-    await act(async () => host.press("down"))
-    await act(async () => host.press("down"))
-    await act(async () => mockInput.typeText("$COLLECTION"))
-    await renderOnce()
-
-    expect(captureCharFrame()).toContain("$COLLECTION_PROXY_PASSWORD")
     cleanup()
   })
 
@@ -219,7 +157,6 @@ describe("ProxySettingsForm", () => {
             scope="app"
             focused
             proxy={{ mode: "custom", url: "http://proxy.test:8080" }}
-            activeEnv={null}
             onChange={() => true}
           />
         </ThemeProvider>
@@ -257,7 +194,6 @@ describe("ProxySettingsForm", () => {
             scope="collection"
             focused
             proxy={{ mode: "custom", url: "http://proxy.test/path" }}
-            activeEnv={null}
             onChange={() => true}
           />
         </ThemeProvider>
@@ -269,10 +205,10 @@ describe("ProxySettingsForm", () => {
     expect(frame).toContain("Advanced URL")
     expect(frame).toContain("Proxy URL")
     expect(frame).not.toContain("Hostname")
-    expect(frame).not.toContain("Proxy authentication")
+    expect(frame).toContain("Proxy authentication")
     expect(frame).not.toContain("Username")
     expect(frame).not.toContain("Password (optional)")
-    expect(frame).toContain("Credentials are optional")
+    expect(frame).toContain("Enter only the proxy URL here")
     cleanup()
   })
 
@@ -286,7 +222,6 @@ describe("ProxySettingsForm", () => {
             focused
             noProxy
             proxy={{ mode: "system" }}
-            activeEnv={null}
             onChange={() => true}
           />
         </ThemeProvider>
@@ -297,6 +232,422 @@ describe("ProxySettingsForm", () => {
     expect(captureCharFrame()).toContain(
       "disabled for this session by --no-proxy",
     )
+    cleanup()
+  })
+
+  it("masks stored credentials until focused and commits them on navigation", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const commits: unknown[] = []
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsForm
+            scope="app"
+            focused
+            proxy={{
+              mode: "custom",
+              url: "https://proxy.test:8443",
+              auth: true,
+            }}
+            credentials={{ username: "alice", password: "secret" }}
+            onChange={() => true}
+            onCredentialsChange={async (credentials) => {
+              commits.push(credentials)
+              return true
+            }}
+            onAuthDisable={async () => true}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Username: ******")
+    expect(captureCharFrame()).not.toContain("alice")
+    for (let index = 0; index < 7; index++) {
+      await act(async () => host.press("down"))
+    }
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Username: alice")
+    await act(async () => mockInput.typeText("2"))
+    expect(commits).toEqual([])
+    await act(async () => host.press("down"))
+    await renderOnce()
+    expect(commits).toHaveLength(1)
+    cleanup()
+  })
+
+  it("clears the required username error while a non-empty draft is visible", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsForm
+            scope="app"
+            focused
+            proxy={{
+              mode: "custom",
+              url: "https://proxy.test:8443",
+              auth: true,
+            }}
+            credentials={{}}
+            onChange={() => true}
+            onCredentialsChange={async () => true}
+            onAuthDisable={async () => true}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain(
+      "Username is required when proxy authentication is enabled",
+    )
+    for (let index = 0; index < 7; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => mockInput.typeText("alice"))
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain(
+      "Username is required when proxy authentication is enabled",
+    )
+    await act(async () => host.press("escape"))
+    cleanup()
+  })
+
+  it("disables proxy authentication with Space", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+
+    function Harness() {
+      const [proxy, setProxy] = useState<AppProxySettings>({
+        mode: "custom",
+        url: "https://proxy.test:8443",
+        auth: true,
+      })
+      return (
+        <ProxySettingsForm
+          scope="app"
+          focused
+          proxy={proxy}
+          credentials={{ username: "alice" }}
+          onChange={(next) => {
+            setProxy(next as AppProxySettings)
+            return true
+          }}
+          onCredentialsChange={async () => true}
+          onAuthDisable={async () => {
+            setProxy({ mode: "custom", url: "https://proxy.test:8443" })
+            return true
+          }}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame, renderer, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Harness />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 90, height: 30 },
+      )
+    await renderOnce()
+    for (let index = 0; index < 6; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => host.press("space"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Proxy authentication (optional): [ ]")
+    expect(captureCharFrame()).not.toContain("Username:")
+    const authRow = renderer.root.findDescendantById(
+      "settings-proxy-auth",
+    ) as BoxRenderable
+    await act(async () => {
+      await mockMouse.pressDown(
+        authRow.screenX + 1,
+        authRow.screenY,
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Proxy authentication (optional): [x]")
+    cleanup()
+  })
+
+  it("disables proxy authentication with Return", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+
+    function Harness() {
+      const [proxy, setProxy] = useState<AppProxySettings>({
+        mode: "custom",
+        url: "https://proxy.test:8443",
+        auth: true,
+      })
+      return (
+        <ProxySettingsForm
+          scope="app"
+          focused
+          proxy={proxy}
+          credentials={{ username: "alice" }}
+          onChange={(next) => {
+            setProxy(next as AppProxySettings)
+            return true
+          }}
+          onCredentialsChange={async () => true}
+          onAuthDisable={async () => {
+            setProxy({ mode: "custom", url: "https://proxy.test:8443" })
+            return true
+          }}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 30 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 6; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => host.press("return"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Proxy authentication (optional): [ ]")
+    cleanup()
+  })
+
+  it("disables local authentication when the invalid proxy was never persisted", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let disableCalls = 0
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ProxySettingsForm
+            scope="app"
+            focused
+            proxy={{ mode: "system" }}
+            onChange={() => true}
+            onAuthDisable={async () => {
+              disableCalls++
+              return false
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 30 },
+    )
+    await renderOnce()
+    await act(async () => host.press("return"))
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    for (let index = 0; index < 6; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => host.press("space"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Proxy authentication (optional): [x]")
+    await act(async () => host.press("space"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Proxy authentication (optional): [ ]")
+    expect(disableCalls).toBe(0)
+    cleanup()
+  })
+
+  it("merges a password commit behind a pending username save", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let finishFirstSave = () => {}
+    const firstSave = new Promise<void>((resolve) => {
+      finishFirstSave = resolve
+    })
+    const commits: ProxyCredentials[] = []
+
+    function Harness() {
+      const [credentials, setCredentials] = useState<ProxyCredentials>({
+        username: "alice",
+        password: "secret",
+      })
+      return (
+        <ProxySettingsForm
+          scope="app"
+          focused
+          proxy={{
+            mode: "custom",
+            url: "https://proxy.test:8443",
+            auth: true,
+          }}
+          credentials={credentials}
+          onChange={() => true}
+          onCredentialsChange={async (next) => {
+            commits.push(next)
+            if (commits.length === 1) await firstSave
+            setCredentials(next)
+            return true
+          }}
+          onAuthDisable={async () => true}
+        />
+      )
+    }
+
+    const { renderOnce, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 7; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => mockInput.typeText("2"))
+    await act(async () => host.press("down"))
+    await act(async () => mockInput.typeText("2"))
+    await act(async () => host.press("up"))
+
+    expect(commits).toEqual([{ username: "alice2", password: "secret" }])
+    await act(async () => {
+      finishFirstSave()
+      await firstSave
+      await Promise.resolve()
+    })
+    expect(commits).toEqual([
+      { username: "alice2", password: "secret" },
+      { username: "alice2", password: "secret2" },
+    ])
+    cleanup()
+  })
+
+  it("merges a username commit behind a pending password save", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let finishFirstSave = () => {}
+    const firstSave = new Promise<void>((resolve) => {
+      finishFirstSave = resolve
+    })
+    const commits: ProxyCredentials[] = []
+
+    function Harness() {
+      const [credentials, setCredentials] = useState<ProxyCredentials>({
+        username: "alice",
+        password: "secret",
+      })
+      return (
+        <ProxySettingsForm
+          scope="app"
+          focused
+          proxy={{
+            mode: "custom",
+            url: "https://proxy.test:8443",
+            auth: true,
+          }}
+          credentials={credentials}
+          onChange={() => true}
+          onCredentialsChange={async (next) => {
+            commits.push(next)
+            if (commits.length === 1) await firstSave
+            setCredentials(next)
+            return true
+          }}
+          onAuthDisable={async () => true}
+        />
+      )
+    }
+
+    const { renderOnce, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => mockInput.typeText("2"))
+    await act(async () => host.press("up"))
+    await act(async () => mockInput.typeText("2"))
+    await act(async () => host.press("down"))
+
+    expect(commits).toEqual([{ username: "alice", password: "secret2" }])
+    await act(async () => {
+      finishFirstSave()
+      await firstSave
+      await Promise.resolve()
+    })
+    expect(commits).toEqual([
+      { username: "alice", password: "secret2" },
+      { username: "alice2", password: "secret2" },
+    ])
+    cleanup()
+  })
+
+  it("keeps authentication disabled when a username commit is still pending", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let finishCredentialSave = () => {}
+    const credentialSave = new Promise<void>((resolve) => {
+      finishCredentialSave = resolve
+    })
+
+    function Harness() {
+      const [proxy, setProxy] = useState<AppProxySettings>({
+        mode: "custom",
+        url: "https://proxy.test:8443",
+        auth: true,
+      })
+      return (
+        <ProxySettingsForm
+          scope="app"
+          focused
+          proxy={proxy}
+          credentials={{}}
+          onChange={(next) => {
+            setProxy(next as AppProxySettings)
+            return true
+          }}
+          onCredentialsChange={async () => {
+            await credentialSave
+            setProxy({
+              mode: "custom",
+              url: "https://proxy.test:8443",
+              auth: true,
+            })
+            return true
+          }}
+          onAuthDisable={async () => {
+            setProxy({ mode: "custom", url: "https://proxy.test:8443" })
+            return true
+          }}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 30 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 7; index++) {
+      await act(async () => host.press("down"))
+    }
+    await act(async () => mockInput.typeText("alice"))
+    await act(async () => host.press("up"))
+    await act(async () => host.press("space"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Proxy authentication (optional): [ ]")
+    await act(async () => finishCredentialSave())
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Proxy authentication (optional): [ ]")
     cleanup()
   })
 })

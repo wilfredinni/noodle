@@ -1,11 +1,11 @@
 import type {
   AppProxySettings,
   CollectionProxySettings,
-  Environment,
+  ProxyCredentials,
+  ProxySettings,
 } from "./schema"
-import { isVariableReference } from "./variableReference"
 
-const VAR_RE = /\$(\w+)/g
+const VARIABLE_RE = /\$\w+/
 const PROXY_ENV_KEYS = [
   "HTTP_PROXY",
   "HTTPS_PROXY",
@@ -25,9 +25,6 @@ export interface StructuredProxyFields {
   protocol: "http" | "https"
   hostname: string
   port: string
-  auth: boolean
-  username: string
-  password: string
 }
 
 export type StructuredProxyBuildResult = { url: string } | { error: string }
@@ -39,6 +36,8 @@ export type ProxyPolicy =
       source: "global" | "collection"
       url: string
       bypass: string[]
+      auth?: boolean
+      credentials?: ProxyCredentials
     }
   | { kind: "system"; source: "system"; settings: SystemProxySettings }
 
@@ -65,13 +64,18 @@ export function normalizeBypass(value: unknown): string[] {
 
 export function parseAppProxy(value: unknown): AppProxySettings | undefined {
   if (value === undefined) return undefined
-  if (!isRecord(value) || typeof value.mode !== "string") return undefined
-  if (value.mode === "system") return { mode: "system" }
-  if (value.mode === "off") return { mode: "off" }
-  if (value.mode !== "custom" || typeof value.url !== "string") return undefined
-  const url = value.url.trim()
-  if (validateProxyTemplate(url) !== null) return undefined
-  return customProxy(url, normalizeBypass(value.bypass))
+  try {
+    return parseAppProxyStrict(value)
+  } catch {
+    return undefined
+  }
+}
+
+export function parseAppProxyStrict(
+  value: unknown,
+  path = "proxy",
+): AppProxySettings {
+  return parseProxyStrict(value, path, "app") as AppProxySettings
 }
 
 export function parseCollectionProxy(
@@ -89,24 +93,37 @@ export function parseCollectionProxyStrict(
   value: unknown,
   path = "proxy",
 ): CollectionProxySettings {
+  return parseProxyStrict(value, path, "collection") as CollectionProxySettings
+}
+
+function parseProxyStrict(
+  value: unknown,
+  path: string,
+  scope: "app" | "collection",
+): AppProxySettings | CollectionProxySettings {
   if (!isRecord(value)) throw new Error(`${path}: must be a mapping`)
   const unknownKey = Object.keys(value).find(
-    (key) => !["mode", "url", "bypass"].includes(key),
+    (key) => !["mode", "url", "bypass", "auth"].includes(key),
   )
   if (unknownKey) throw new Error(`${path}: unknown key "${unknownKey}"`)
   if (typeof value.mode !== "string") {
     throw new Error(`${path}.mode: must be a string`)
   }
-  if (value.mode === "inherit" || value.mode === "off") {
-    if (value.url !== undefined || value.bypass !== undefined) {
+  const defaultMode = scope === "app" ? "system" : "inherit"
+  if (value.mode === defaultMode || value.mode === "off") {
+    if (
+      value.url !== undefined ||
+      value.bypass !== undefined ||
+      value.auth !== undefined
+    ) {
       throw new Error(
-        `${path}: mode "${value.mode}" does not accept url or bypass`,
+        `${path}: mode "${value.mode}" does not accept url, bypass, or auth`,
       )
     }
     return { mode: value.mode }
   }
   if (value.mode !== "custom") {
-    throw new Error(`${path}.mode: expected inherit, off, or custom`)
+    throw new Error(`${path}.mode: expected ${defaultMode}, off, or custom`)
   }
   if (typeof value.url !== "string") {
     throw new Error(`${path}.url: must be a string`)
@@ -118,10 +135,13 @@ export function parseCollectionProxyStrict(
   ) {
     throw new Error(`${path}.bypass: must be a list of strings`)
   }
+  if (value.auth !== undefined && typeof value.auth !== "boolean") {
+    throw new Error(`${path}.auth: must be a boolean`)
+  }
   const url = value.url.trim()
   const error = validateProxyTemplate(url)
   if (error !== null) throw new Error(`${path}.url: ${error}`)
-  return customProxy(url, normalizeBypass(value.bypass))
+  return customProxy(url, normalizeBypass(value.bypass), value.auth)
 }
 
 export function systemProxyFromEnv(
@@ -145,7 +165,6 @@ export function takeSystemProxyFromEnv(
 
 export function createProxyFetcher(
   policy: ProxyPolicy,
-  env?: Environment | null,
   fetcher: (
     input: RequestInfo | URL,
     init?: RequestInit,
@@ -158,7 +177,7 @@ export function createProxyFetcher(
         : input instanceof URL
           ? input.href
           : input.url
-    const route = proxyForUrl(policy, target, env ?? undefined)
+    const route = proxyForUrl(policy, target)
     const fetchInit: BunFetchRequestInit = { ...init }
     if (route.kind === "proxy") fetchInit.proxy = route.url
     else delete fetchInit.proxy
@@ -168,7 +187,6 @@ export function createProxyFetcher(
 
 export function environmentForProxyPolicy(
   policy: ProxyPolicy,
-  env?: Environment | null,
   baseEnv: Record<string, string | undefined> = process.env,
 ): Record<string, string | undefined> {
   const result = { ...baseEnv }
@@ -180,12 +198,7 @@ export function environmentForProxyPolicy(
     return result
   }
 
-  let url = policy.url
-  try {
-    url = resolveProxyUrl(url, env?.vars)
-  } catch {
-    // Keep the template so the subprocess reports the same unresolved proxy.
-  }
+  const url = resolvedCustomProxyUrl(policy)
   setProxyEnvironment(result, {
     http: url,
     https: url,
@@ -198,11 +211,15 @@ export function resolveProxyPolicy({
   noProxy = false,
   appProxy,
   collectionProxy,
+  appCredentials,
+  collectionCredentials,
   systemProxy,
 }: {
   noProxy?: boolean
   appProxy?: AppProxySettings
   collectionProxy?: CollectionProxySettings
+  appCredentials?: ProxyCredentials
+  collectionCredentials?: ProxyCredentials
   systemProxy: SystemProxySettings
 }): ProxyPolicy {
   if (noProxy) return { kind: "direct", source: "cli" }
@@ -210,21 +227,31 @@ export function resolveProxyPolicy({
     return { kind: "direct", source: "collection" }
   }
   if (collectionProxy?.mode === "custom") {
-    return {
+    const policy: ProxyPolicy = {
       kind: "custom",
       source: "collection",
       url: collectionProxy.url,
       bypass: collectionProxy.bypass ?? [],
     }
+    if (collectionProxy.auth) {
+      policy.auth = true
+      policy.credentials = collectionCredentials
+    }
+    return policy
   }
   if (appProxy?.mode === "off") return { kind: "direct", source: "global" }
   if (appProxy?.mode === "custom") {
-    return {
+    const policy: ProxyPolicy = {
       kind: "custom",
       source: "global",
       url: appProxy.url,
       bypass: appProxy.bypass ?? [],
     }
+    if (appProxy.auth) {
+      policy.auth = true
+      policy.credentials = appCredentials
+    }
+    return policy
   }
   return { kind: "system", source: "system", settings: systemProxy }
 }
@@ -232,7 +259,6 @@ export function resolveProxyPolicy({
 export function proxyForUrl(
   policy: ProxyPolicy | undefined,
   target: string,
-  env?: Environment,
 ): ProxyRoute {
   if (!policy) return { kind: "direct", reason: "unconfigured" }
   if (policy.kind === "direct") {
@@ -252,7 +278,7 @@ export function proxyForUrl(
     return {
       kind: "proxy",
       source: policy.source,
-      url: resolveProxyUrl(policy.url, env?.vars),
+      url: resolvedCustomProxyUrl(policy),
     }
   }
 
@@ -266,58 +292,22 @@ export function proxyForUrl(
     : { kind: "direct", reason: "unconfigured" }
 }
 
-export function resolveProxyUrl(
-  template: string,
-  variables?: Record<string, string | undefined>,
-): string {
-  const normalized = encodeLiteralProxyCredentialDollars(template)
-  const url = normalized.replace(VAR_RE, (_, name: string) => {
-    const value = variables?.[name]
-    if (!variables || !Object.hasOwn(variables, name) || value === undefined) {
-      throw new Error(`proxy: unresolved variable "${name}" in proxy.url`)
-    }
-    return value
-  })
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch (e) {
-    throw new Error("proxy: invalid proxy URL", { cause: e })
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("proxy: URL must use http or https")
-  }
-  return url
-}
-
-function encodeLiteralProxyCredentialDollars(template: string): string {
-  const match = template.match(/^([a-z][a-z\d+.-]*:\/\/)([^/?#]*)(.*)$/i)
-  if (!match) return template
-  const [, scheme, authority, suffix] = match
-  const at = authority!.lastIndexOf("@")
-  if (at === -1) return template
-
-  const userInfo = authority!.slice(0, at)
-  const colon = userInfo.indexOf(":")
-  const encode = (value: string) =>
-    isVariableReference(value) ? value : value.replaceAll("$", "%24")
-  const credentials =
-    colon === -1
-      ? encode(userInfo)
-      : `${encode(userInfo.slice(0, colon))}:${encode(userInfo.slice(colon + 1))}`
-  return `${scheme}${credentials}${authority!.slice(at)}${suffix}`
-}
-
 export function validateProxyTemplate(template: string): string | null {
   const value = template.trim()
   if (!value) return "Proxy URL is required"
+  if (/^[a-z][a-z\d+.-]*:\/\/[^/?#]*@/i.test(value)) {
+    return "Proxy URL cannot contain credentials; configure authentication in Settings"
+  }
+  if (VARIABLE_RE.test(value)) {
+    return "Proxy URL cannot contain variables; configure authentication in Settings"
+  }
   try {
-    const parseable = value
-      .replace(/:\$\w+(?=[/?#]|$)/g, ":8080")
-      .replace(VAR_RE, "proxy-variable")
-    const parsed = new URL(parseable)
+    const parsed = new URL(value)
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return "Proxy URL must use http or https"
+    }
+    if (parsed.username || parsed.password) {
+      return "Proxy URL cannot contain credentials; configure authentication in Settings"
     }
     return null
   } catch {
@@ -332,30 +322,19 @@ export function parseStructuredProxyTemplate(
   if (validateProxyTemplate(template) !== null) return null
 
   const match = template.match(
-    /^(https?):\/\/(?:([^:/?#@\s]+)(?::([^:/?#@\s]+))?@)?(\[[^\]]+\]|[^:/?#@\s]+)(?::(\d+))?$/,
+    /^(https?):\/\/(\[[^\]]+\]|[^:/?#@\s]+)(?::(\d+))?$/,
   )
   if (!match) return null
 
-  const [, protocol, username, password, rawHostname, port] = match
+  const [, protocol, rawHostname, port] = match
   const hostname = rawHostname!.startsWith("[")
     ? rawHostname.slice(1, -1)
     : rawHostname!
-  let decodedUsername: string
-  let decodedPassword: string
-  try {
-    decodedUsername = username ? decodeURIComponent(username) : ""
-    decodedPassword = password ? decodeURIComponent(password) : ""
-  } catch {
-    return null
-  }
 
   return {
     protocol: protocol as "http" | "https",
     hostname,
     port: port ?? "",
-    auth: username !== undefined,
-    username: decodedUsername,
-    password: decodedPassword,
   }
 }
 
@@ -376,37 +355,43 @@ export function buildStructuredProxyTemplate(
     }
   }
 
-  if (fields.auth) {
-    if (!fields.username) return { error: "Proxy username is required" }
-  }
-
   const host =
     hostname.includes(":") && !hostname.startsWith("[")
       ? `[${hostname}]`
       : hostname
-  const credentials = fields.auth
-    ? `${encodeProxyCredential(fields.username)}${
-        fields.password ? `:${encodeProxyCredential(fields.password)}` : ""
-      }@`
-    : ""
-  const url = `${fields.protocol}://${credentials}${host}${port ? `:${port}` : ""}`
+  const url = `${fields.protocol}://${host}${port ? `:${port}` : ""}`
   const validationError = validateProxyTemplate(url)
   return validationError ? { error: validationError } : { url }
-}
-
-function encodeProxyCredential(value: string): string {
-  return isVariableReference(value) ? value : encodeURIComponent(value)
 }
 
 function customProxy<T extends AppProxySettings | CollectionProxySettings>(
   url: string,
   bypass: string[],
+  auth: unknown,
 ): T {
-  return (
-    bypass.length > 0
-      ? { mode: "custom", url, bypass }
-      : { mode: "custom", url }
-  ) as T
+  const result: ProxySettings = {
+    mode: "custom",
+    url,
+  }
+  if (bypass.length > 0) result.bypass = bypass
+  if (auth === true) result.auth = true
+  return result as T
+}
+
+function resolvedCustomProxyUrl(
+  policy: Extract<ProxyPolicy, { kind: "custom" }>,
+): string {
+  if (!policy.auth) return policy.url
+  const username = policy.credentials?.username
+  if (!username) {
+    throw new Error(
+      `proxy: authentication is enabled for the ${policy.source} proxy, but its username secret is missing`,
+    )
+  }
+  const url = new URL(policy.url)
+  url.username = username
+  url.password = policy.credentials?.password ?? ""
+  return url.toString()
 }
 
 export function redactProxyUrl(value: string): string {

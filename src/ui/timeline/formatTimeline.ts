@@ -20,8 +20,12 @@ export function buildTimelineEntry(
   result: SendCompleteResult,
   envName?: string,
   environment?: Environment | null,
+  settingsSecrets: string[] = [],
 ): TimelineEntry {
-  const secretValues = environmentSecretValues(environment)
+  const secretValues = [
+    ...environmentSecretValues(environment),
+    ...settingsSecrets,
+  ]
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   const resolvePublicVars = (value: string) =>
     environment

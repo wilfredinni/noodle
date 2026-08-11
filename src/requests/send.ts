@@ -173,7 +173,7 @@ export async function send(
 
   while (true) {
     const proxyRoute = proxyPolicy
-      ? proxyForUrl(proxyPolicy, currentUrl, env)
+      ? proxyForUrl(proxyPolicy, currentUrl)
       : undefined
     if (proxyRoute) {
       recordNetworkEvent(
@@ -194,7 +194,7 @@ export async function send(
     }
     let resolvedTls
     try {
-      resolvedTls = await tlsForUrl(substituted, currentUrl, env, tlsPolicy)
+      resolvedTls = await tlsForUrl(substituted, currentUrl, tlsPolicy)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       throw networkFailure(

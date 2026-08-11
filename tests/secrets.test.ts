@@ -13,9 +13,18 @@ import {
 } from "../src/app/services"
 import {
   SECRET_SERVICE,
+  appSettingSecretAccount,
+  applySettingsSecretTransaction,
+  collectionSettingSecretAccount,
+  deleteAppSettingSecret,
+  deleteCollectionSettingSecret,
   deleteStoredSecret,
+  getAppSettingSecret,
+  getCollectionSettingSecret,
   secretAccount,
   setSecretBackendForTests,
+  setAppSettingSecret,
+  setCollectionSettingSecret,
   setStoredSecret,
   type SecretBackend,
 } from "../src/secrets"
@@ -51,6 +60,87 @@ afterEach(() => {
 })
 
 describe("secret storage", () => {
+  it("isolates app, collection, proxy, and TLS setting accounts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-settings-secret-"))
+    const collectionId = "123e4567-e89b-42d3-a456-426614174000"
+    const tlsId = "223e4567-e89b-42d3-a456-426614174000"
+    await saveSettings(root, { collectionId })
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+
+    await setAppSettingSecret("proxy:username", "app-user")
+    await setCollectionSettingSecret(root, "proxy:username", "collection-user")
+    await setCollectionSettingSecret(
+      root,
+      `tls:${tlsId}:passphrase`,
+      "tls-secret",
+    )
+
+    expect(await getAppSettingSecret("proxy:username")).toBe("app-user")
+    expect(await getCollectionSettingSecret(root, "proxy:username")).toBe(
+      "collection-user",
+    )
+    expect(
+      await getCollectionSettingSecret(root, `tls:${tlsId}:passphrase`),
+    ).toBe("tls-secret")
+    expect(appSettingSecretAccount("proxy:username")).toBe(
+      "app:settings:proxy:username",
+    )
+    expect(collectionSettingSecretAccount(collectionId, "proxy:password")).toBe(
+      `${collectionId}:settings:proxy:password`,
+    )
+  })
+
+  it("sets, replaces, deletes, and reports missing setting secrets", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-settings-secret-"))
+    await saveSettings(root, {
+      collectionId: "123e4567-e89b-42d3-a456-426614174000",
+    })
+    setSecretBackendForTests(memoryBackend())
+
+    expect(await getAppSettingSecret("proxy:password")).toBeNull()
+    await setAppSettingSecret("proxy:password", "first")
+    await setAppSettingSecret("proxy:password", "second")
+    expect(await getAppSettingSecret("proxy:password")).toBe("second")
+    expect(await deleteAppSettingSecret("proxy:password")).toBe(true)
+    expect(await deleteAppSettingSecret("proxy:password")).toBe(false)
+
+    await setCollectionSettingSecret(root, "proxy:password", "value")
+    expect(await deleteCollectionSettingSecret(root, "proxy:password")).toBe(
+      true,
+    )
+  })
+
+  it("restores setting secrets when persistence fails", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    await setAppSettingSecret("proxy:username", "old-user")
+    await setAppSettingSecret("proxy:password", "old-password")
+
+    await expect(
+      applySettingsSecretTransaction(
+        [
+          {
+            get: () => getAppSettingSecret("proxy:username"),
+            set: (value) => setAppSettingSecret("proxy:username", value),
+            delete: () => deleteAppSettingSecret("proxy:username"),
+            value: "new-user",
+          },
+          {
+            get: () => getAppSettingSecret("proxy:password"),
+            set: (value) => setAppSettingSecret("proxy:password", value),
+            delete: () => deleteAppSettingSecret("proxy:password"),
+          },
+        ],
+        () => {
+          throw new Error("disk full")
+        },
+      ),
+    ).rejects.toThrow("disk full")
+    expect(await getAppSettingSecret("proxy:username")).toBe("old-user")
+    expect(await getAppSettingSecret("proxy:password")).toBe("old-password")
+  })
+
   it("namespaces credentials and resolves process values before the keychain", async () => {
     const root = await mkdtemp(join(tmpdir(), "noodle-secret-"))
     const directory = join(root, ".environments")
@@ -156,6 +246,9 @@ describe("secret storage", () => {
     })
     await expect(env.loadEnvironment(directory, "dev")).rejects.toThrow(
       /secret read failed: backend unavailable.*credential|secret read failed: backend unavailable.*Secret Service/,
+    )
+    await expect(getAppSettingSecret("proxy:username")).rejects.toThrow(
+      "secret read failed: backend unavailable",
     )
   })
 })

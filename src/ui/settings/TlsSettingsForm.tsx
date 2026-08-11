@@ -10,15 +10,14 @@ import {
 import type {
   ClientCertificateProfile,
   CollectionTlsSettings,
-  Environment,
 } from "../../schema"
 import { isValidTlsHost } from "../../tls"
-import { isVariableReference } from "../../variableReference"
 import { Checkbox } from "../Checkbox"
 import { LeftBar } from "../borders"
 import { VarInput } from "../VarInput"
 import { useTheme } from "../theme"
 import { SettingsField } from "./SettingsField"
+import { SecretInput } from "./SecretInput"
 
 const PROFILE_FIELD_COUNT = 7
 const ADD_PROFILE_FIELD = 2
@@ -26,20 +25,24 @@ const PROFILE_START_FIELD = 3
 
 export function TlsSettingsForm({
   settings,
-  activeEnv,
+  passphrases = {},
   focused,
   insecure,
   collectionDir,
   onChange,
+  onPassphraseChange,
+  onRemoveProfile,
   onExit,
   onTextInputFocusChange,
 }: {
   settings?: CollectionTlsSettings
-  activeEnv: Environment | null
+  passphrases?: Record<string, string>
   focused: boolean
   insecure: boolean
   collectionDir: string
   onChange: (settings: CollectionTlsSettings) => boolean
+  onPassphraseChange?: (index: number, value: string) => Promise<boolean>
+  onRemoveProfile?: (index: number) => Promise<boolean>
   onExit: () => void
   onTextInputFocusChange?: (focused: boolean) => void
 }) {
@@ -105,9 +108,10 @@ export function TlsSettingsForm({
 
   const removeProfile = useCallback(
     (index: number) => {
-      save({ clientCertificates: profiles.filter((_, i) => i !== index) })
+      if (onRemoveProfile) void onRemoveProfile(index)
+      else save({ clientCertificates: profiles.filter((_, i) => i !== index) })
     },
-    [profiles, save],
+    [onRemoveProfile, profiles, save],
   )
 
   useEffect(() => {
@@ -346,7 +350,6 @@ export function TlsSettingsForm({
               value={profile.certFile}
               placeholder="./certs/client-chain.pem"
               focused={focused && field === base + 3}
-              activeEnv={null}
               collectionDir={collectionDir}
               onFocus={() => setField(base + 3)}
               onChange={(certFile) => updateProfile(index, { certFile })}
@@ -358,22 +361,25 @@ export function TlsSettingsForm({
               value={profile.keyFile}
               placeholder="./certs/client-key.pem"
               focused={focused && field === base + 4}
-              activeEnv={null}
               collectionDir={collectionDir}
               onFocus={() => setField(base + 4)}
               onChange={(keyFile) => updateProfile(index, { keyFile })}
             />
             <PassphraseInput
               title="Passphrase (optional)"
-              description="Optional. Use $VARNAME for an environment value."
+              description="Stored securely and revealed only while focused."
               border={false}
-              value={profile.passphrase ?? ""}
-              placeholder="$MTLS_PASSPHRASE"
+              value={
+                profile.secretId ? passphrases[profile.secretId] : undefined
+              }
+              hasValue={Boolean(profile.secretId)}
+              placeholder="optional"
               focused={focused && field === base + 5}
-              activeEnv={activeEnv}
               onFocus={() => setField(base + 5)}
-              onChange={(passphrase) =>
-                updateProfile(index, { passphrase: passphrase || undefined })
+              onCommit={(passphrase) =>
+                onPassphraseChange
+                  ? onPassphraseChange(index, passphrase)
+                  : Promise.resolve(false)
               }
             />
             <RemoveCertificateButton
@@ -406,29 +412,23 @@ function PassphraseInput({
   description,
   border,
   value,
+  hasValue,
   placeholder,
   focused,
-  activeEnv,
   onFocus,
-  onChange,
+  onCommit,
 }: {
   title: string
   description: string
   border: boolean
-  value: string
+  value?: string
+  hasValue?: boolean
   placeholder: string
   focused: boolean
-  activeEnv: Environment | null
   onFocus: () => void
-  onChange: (value: string) => void
+  onCommit: (value: string) => Promise<boolean>
 }) {
-  const [draft, setDraft] = useState(value)
   const [error, setError] = useState<string>()
-
-  useEffect(() => {
-    setDraft(value)
-    setError(undefined)
-  }, [focused, value])
 
   return (
     <SettingsField
@@ -438,26 +438,14 @@ function PassphraseInput({
       border={border}
       active={focused}
     >
-      <VarInput
-        value={draft}
-        env={activeEnv}
-        isEditing
-        isFocused={focused}
-        onChange={(next) => {
-          setDraft(next)
-          if (next === "" || isVariableReference(next)) {
-            setError(undefined)
-            onChange(next)
-          } else {
-            setError("Use an exact $VARNAME reference; literals are not saved.")
-          }
-        }}
+      <SecretInput
+        value={value}
+        hasValue={hasValue}
+        focused={focused}
         onFocus={onFocus}
+        onCommit={onCommit}
+        onError={setError}
         placeholder={placeholder}
-        backgroundColor="transparent"
-        focusedBackgroundColor="transparent"
-        paddingX={0}
-        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
       />
     </SettingsField>
   )
@@ -623,7 +611,6 @@ function PathInput({
   value,
   placeholder,
   focused,
-  activeEnv,
   collectionDir,
   pathCompletion = true,
   onFocus,
@@ -635,7 +622,6 @@ function PathInput({
   value: string
   placeholder: string
   focused: boolean
-  activeEnv: Environment | null
   collectionDir: string
   pathCompletion?: boolean
   onFocus: () => void
@@ -650,7 +636,7 @@ function PathInput({
     >
       <VarInput
         value={value}
-        env={activeEnv}
+        env={null}
         isEditing
         isFocused={focused}
         onChange={onChange}

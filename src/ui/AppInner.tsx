@@ -26,6 +26,7 @@ import type {
   CollectionProxySettings,
   CollectionSettings,
   CollectionTlsSettings,
+  ProxyCredentials,
   Request as NoodleRequest,
   Method,
 } from "../schema"
@@ -129,8 +130,11 @@ export function AppInner({
   onEnvListChanged,
   settingsEnv,
   appProxy,
+  appProxyCredentials,
   collectionProxy,
+  collectionProxyCredentials,
   collectionTls,
+  tlsPassphrases,
   collectionName,
   collectionDescription,
   timelineMaxEntries,
@@ -139,6 +143,11 @@ export function AppInner({
   systemProxy,
   onAppProxyChange,
   onCollectionProxyChange,
+  onAppProxyCredentialsChange,
+  onCollectionProxyCredentialsChange,
+  onProxyAuthDisable,
+  onTlsPassphraseChange,
+  onTlsProfileRemove,
   onCollectionSettingsChange,
   initialLastRequestId,
   collectionPaths,
@@ -179,8 +188,11 @@ export function AppInner({
   onEnvListChanged: () => Promise<void>
   settingsEnv?: string
   appProxy?: AppProxySettings
+  appProxyCredentials: ProxyCredentials
   collectionProxy?: CollectionProxySettings
+  collectionProxyCredentials: ProxyCredentials
   collectionTls?: CollectionTlsSettings
+  tlsPassphrases: Record<string, string>
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
@@ -189,6 +201,15 @@ export function AppInner({
   systemProxy: SystemProxySettings
   onAppProxyChange: (proxy: AppProxySettings) => boolean
   onCollectionProxyChange: (proxy: CollectionProxySettings) => boolean
+  onAppProxyCredentialsChange: (
+    credentials: ProxyCredentials,
+  ) => Promise<boolean>
+  onCollectionProxyCredentialsChange: (
+    credentials: ProxyCredentials,
+  ) => Promise<boolean>
+  onProxyAuthDisable: (scope: "app" | "collection") => Promise<boolean>
+  onTlsPassphraseChange: (index: number, value: string) => Promise<boolean>
+  onTlsProfileRemove: (index: number) => Promise<boolean>
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
@@ -495,6 +516,11 @@ export function AppInner({
         result,
         envNameRef.current,
         envStateRef.current.activeEnv,
+        [
+          ...Object.values(appProxyCredentials),
+          ...Object.values(collectionProxyCredentials),
+          ...Object.values(tlsPassphrases),
+        ].filter((value): value is string => Boolean(value)),
       ),
     )
   }
@@ -505,24 +531,34 @@ export function AppInner({
         noProxy,
         appProxy,
         collectionProxy,
+        appCredentials: appProxyCredentials,
+        collectionCredentials: collectionProxyCredentials,
         systemProxy,
       }),
-    [noProxy, appProxy, collectionProxy, systemProxy],
+    [
+      noProxy,
+      appProxy,
+      collectionProxy,
+      appProxyCredentials,
+      collectionProxyCredentials,
+      systemProxy,
+    ],
   )
   const tlsPolicy = useMemo<TlsPolicy>(
     () => ({
       collectionDir,
       settings: collectionTls,
       insecure,
+      passphrases: tlsPassphrases,
     }),
-    [collectionDir, collectionTls, insecure],
+    [collectionDir, collectionTls, insecure, tlsPassphrases],
   )
   const updateDependencies = useMemo(
     () => ({
-      fetcher: createProxyFetcher(proxyPolicy, envState.activeEnv),
-      env: environmentForProxyPolicy(proxyPolicy, envState.activeEnv),
+      fetcher: createProxyFetcher(proxyPolicy),
+      env: environmentForProxyPolicy(proxyPolicy),
     }),
-    [proxyPolicy, envState.activeEnv],
+    [proxyPolicy],
   )
 
   const {
@@ -1427,14 +1463,16 @@ export function AppInner({
             layout={layout}
             confirmUndoAll={confirmUndoAll}
             appProxy={appProxy}
+            appProxyCredentials={appProxyCredentials}
             collectionProxy={collectionProxy}
+            collectionProxyCredentials={collectionProxyCredentials}
             collectionTls={collectionTls}
+            tlsPassphrases={tlsPassphrases}
             collectionName={collectionName}
             collectionDescription={collectionDescription}
             timelineMaxEntries={timelineMaxEntries}
             noProxy={noProxy}
             insecure={insecure}
-            activeEnv={envState.activeEnv}
             envNames={envState.names}
             activeEnvName={envState.activeName}
             keybinds={keybinds}
@@ -1457,6 +1495,13 @@ export function AppInner({
             onConfirmUndoAllChange={onConfirmUndoAllChange}
             onAppProxyChange={onAppProxyChange}
             onCollectionProxyChange={onCollectionProxyChange}
+            onAppProxyCredentialsChange={onAppProxyCredentialsChange}
+            onCollectionProxyCredentialsChange={
+              onCollectionProxyCredentialsChange
+            }
+            onProxyAuthDisable={onProxyAuthDisable}
+            onTlsPassphraseChange={onTlsPassphraseChange}
+            onTlsProfileRemove={onTlsProfileRemove}
             onCollectionSettingsChange={onCollectionSettingsChange}
             onEnvironmentChange={envState.select}
             onKeybindChange={onKeybindChange}
