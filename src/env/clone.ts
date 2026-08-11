@@ -14,11 +14,14 @@ export async function cloneEnvironment(
     throw new Error("env.clone: invalid target name")
   }
 
-  const source = await loadEnvironment(dir, sourceName)
+  const source = await loadEnvironment(dir, sourceName, {
+    resolveSecrets: false,
+  })
   await saveEnvironment(dir, {
     name: targetName,
     vars: source.vars,
     color: source.color,
     disabledVars: source.disabledVars,
+    secretVars: source.secretVars,
   })
 }

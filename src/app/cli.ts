@@ -11,6 +11,7 @@ import {
   collection,
   request,
   environment,
+  secret,
 } from "./commands/automation"
 
 const rawArgs = process.argv.slice(2)
@@ -27,6 +28,7 @@ const KNOWN_SUBCOMMANDS = new Set([
   "collection",
   "request",
   "environment",
+  "secret",
 ])
 
 const userArgsStart = getUserArgsStart(process.argv)
@@ -73,6 +75,7 @@ const main = defineCommand({
     collection,
     request,
     environment,
+    secret,
   },
   default: "noodle",
 })

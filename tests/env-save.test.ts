@@ -63,4 +63,14 @@ describe("saveEnvironment", () => {
       }),
     ).rejects.toThrow('env.save: unknown color "nonexistent"')
   })
+
+  it("rejects the reserved _color secret key", async () => {
+    await expect(
+      env.saveEnvironment(dir, {
+        name: "test",
+        vars: {},
+        secretVars: { _color: "missing" },
+      }),
+    ).rejects.toThrow('env.save: invalid secret key "_color"')
+  })
 })

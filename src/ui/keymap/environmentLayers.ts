@@ -52,12 +52,28 @@ export function createEnvironmentLayers(
           if (target) environment.setEnvDeletePending(target.envName)
         },
       },
+      {
+        name: "env.clone.copy-secrets",
+        enabled: () => environment.envEditorRef.current.clonePrompt !== null,
+        run: () => {
+          void environment.envEditorRef.current.confirmClone(true)
+        },
+      },
+      {
+        name: "env.clone.declarations-only",
+        enabled: () => environment.envEditorRef.current.clonePrompt !== null,
+        run: () => {
+          void environment.envEditorRef.current.confirmClone(false)
+        },
+      },
     ],
     bindings: [
       { key: keybinds.env_save, cmd: "env.save" },
       { key: keybinds.env_new, cmd: "env.new" },
       { key: keybinds.env_clone, cmd: "env.clone" },
       { key: keybinds.env_delete, cmd: "env.delete" },
+      { key: "y", cmd: "env.clone.copy-secrets" },
+      { key: "n", cmd: "env.clone.declarations-only" },
     ],
   }
 
@@ -113,6 +129,25 @@ export function createEnvironmentLayers(
         },
       },
       {
+        name: "env-browse.secret",
+        enabled: canEdit,
+        run: () => {
+          const state = environment.envEditorRef.current.editState
+          if (!state.addingRow && state.row >= 0) {
+            environment.envEditorRef.current.toggleSecret(state.row)
+          }
+        },
+      },
+      {
+        name: "env-browse.reveal",
+        run: () => {
+          const state = environment.envEditorRef.current.editState
+          if (!state.addingRow && state.row >= 0) {
+            environment.envEditorRef.current.toggleReveal(state.row)
+          }
+        },
+      },
+      {
         name: "env.save",
         enabled: canEdit,
         run: () => {
@@ -129,6 +164,8 @@ export function createEnvironmentLayers(
       { key: "escape", cmd: "env-browse.escape" },
       { key: "space", cmd: "env-browse.toggle" },
       { key: keybinds.browse_delete, cmd: "env-browse.revert" },
+      { key: keybinds.env_secret, cmd: "env-browse.secret" },
+      { key: keybinds.env_reveal, cmd: "env-browse.reveal" },
       { key: keybinds.env_save, cmd: "env.save" },
     ],
   }

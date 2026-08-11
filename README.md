@@ -82,6 +82,20 @@ Use `$variables` from an environment file, keep required URL segments in
 supports headers, query parameters, JSON, form, multipart, and binary bodies,
 plus bearer, basic, and API-key authentication.
 
+Mark sensitive environment values as secrets in the environment editor, or
+declare them directly with a blank placeholder:
+
+```dotenv
+# @secret API_TOKEN
+API_TOKEN=
+```
+
+The value is stored in macOS Keychain, Linux Secret Service, or Windows
+Credential Manager instead of the `.env` file. A nonempty process environment
+value takes precedence, which keeps CI setup simple. Secret values remain
+masked in the editor and are excluded from persisted request history, code
+generation, request search, and exports.
+
 For multipart file entries and binary `file_path` values, use a quoted `@/`
 path such as `'@/Documents/report.pdf'` to start from the current user's home
 directory. Noodle completes the shorthand in the TUI and expands it only when
@@ -166,12 +180,16 @@ Collection metadata and response-history retention also live in
 prunes older entries, and `0` disables timeline recording.
 
 ```yaml
+collection_id: 123e4567-e89b-42d3-a456-426614174000
 name: Payments API
 description: |-
   Requests for the payments platform.
 timeline_max_entries: 50
 environment: development
 ```
+
+Noodle creates and maintains `collection_id`; it is public metadata used only
+to keep credential-store entries stable when a collection moves.
 
 `settings.yml` is validated strictly whenever a collection is opened, audited,
 or run. Unknown keys, invalid field types, malformed proxy/TLS blocks, and YAML
@@ -253,6 +271,10 @@ are non-interactive and support `--json`, which emits one
 | `noodle request create <id> --url <url> --collection <dir>`            | Create a minimal request.                                |
 | `noodle request run <id> --collection <dir>`                           | Run one request.                                         |
 | `noodle environment set <key> <value> --env <name> --collection <dir>` | Set an environment value.                                |
+| `noodle secret set <key> --env <name> --collection <dir>`              | Prompt for and securely store a secret.                  |
+| `noodle secret set <key> --env <name> --stdin`                         | Read a secret from stdin for automation.                 |
+| `noodle secret list --env <name> --collection <dir>`                   | List secret names and their active source.               |
+| `noodle secret delete <key> --env <name> --collection <dir>`           | Remove only the locally stored secret value.             |
 
 Run commands accept `--env <name>` when you want to override the collection's
 default environment. Request IDs are collection-relative paths without `.yml`,

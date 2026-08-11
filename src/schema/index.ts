@@ -114,7 +114,10 @@ export interface Environment {
   vars: Record<string, string>
   color?: string
   disabledVars?: Record<string, string>
+  secretVars?: Record<string, SecretStatus>
 }
+
+export type SecretStatus = "process" | "keychain" | "missing" | "disabled"
 
 export interface TimelineEntry {
   id?: string
@@ -156,6 +159,7 @@ export interface TimelineBodyRef {
 }
 
 export interface CollectionSettings {
+  collectionId?: string
   name?: string
   description?: string
   timelineMaxEntries?: number

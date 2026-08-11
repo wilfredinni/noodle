@@ -66,6 +66,9 @@ describe("import — integration", () => {
 
     const collDir = join(outDir, "test-api")
     expect(existsSync(collDir)).toBe(true)
+    expect(readFileSync(join(collDir, "settings.yml"), "utf8")).toMatch(
+      /^collection_id: [0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\s*$/im,
+    )
 
     const listUsersYml = readFileSync(
       join(collDir, "users", "get-users.yml"),

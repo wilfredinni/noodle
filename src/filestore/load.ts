@@ -342,6 +342,7 @@ export function parseCollectionSettings(value: unknown): CollectionSettings {
   }
   const obj = value as Record<string, unknown>
   const allowed = new Set([
+    "collection_id",
     "name",
     "description",
     "timeline_max_entries",
@@ -355,6 +356,17 @@ export function parseCollectionSettings(value: unknown): CollectionSettings {
   }
 
   const settings: CollectionSettings = {}
+  if (obj.collection_id !== undefined) {
+    if (
+      typeof obj.collection_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        obj.collection_id,
+      )
+    ) {
+      throw new Error("settings.yml: collection_id must be a UUID")
+    }
+    settings.collectionId = obj.collection_id
+  }
   if (obj.name !== undefined) {
     if (typeof obj.name !== "string") {
       throw new Error("settings.yml: name must be a string")

@@ -25,6 +25,10 @@ export function EnvEditorPane({
   onInteraction,
   onActivateRow,
   onToggleRow,
+  onToggleSecret,
+  onRevealSecret,
+  revealedRowId,
+  clonePrompt,
 }: {
   draft: EnvDraft | null
   editState: EnvEditState
@@ -44,6 +48,10 @@ export function EnvEditorPane({
     subfield?: "key" | "value",
   ) => void
   onToggleRow?: (row: number) => void
+  onToggleSecret?: (row: number) => void
+  onRevealSecret?: (row: number) => void
+  revealedRowId?: number | null
+  clonePrompt?: { source: string; target: string } | null
 }) {
   const theme = useTheme()
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
@@ -165,14 +173,29 @@ export function EnvEditorPane({
           const cursorOnThisRow =
             inBrowse && !editState.addingRow && editState.row === i
           const dimmed = (inEdit && !isEditingThisRow) || !row.enabled
-          const canHoverRow =
-            !isEditingThisRow &&
-            (onActivateRow !== undefined || onToggleRow !== undefined)
+          const processManaged = row.secret && row.secretStatus === "process"
+          const missingSecret = row.secret && row.secretStatus === "missing"
           const canActivateRow =
-            !isEditingThisRow && onActivateRow !== undefined
+            !isEditingThisRow && !processManaged && onActivateRow !== undefined
+          const canHoverRow =
+            !isEditingThisRow && (canActivateRow || onToggleRow !== undefined)
 
-          const keyBaseColor = dimmed ? theme.textMuted : theme.primary
-          const valueBaseColor = dimmed ? theme.textMuted : theme.text
+          const keyBaseColor = missingSecret
+            ? theme.error
+            : dimmed || processManaged
+              ? theme.textMuted
+              : theme.primary
+          const valueBaseColor =
+            dimmed || processManaged ? theme.textMuted : theme.text
+          const revealed = revealedRowId === row.id
+          const displayValue =
+            row.secret || row.originSecret
+              ? revealed
+                ? row.value
+                : row.value
+                  ? "••••••••"
+                  : ""
+              : row.value
           const rowBg =
             cursorOnThisRow || isEditingThisRow
               ? theme.backgroundElement
@@ -258,7 +281,7 @@ export function EnvEditorPane({
                 style={{ flexGrow: 6, flexShrink: 1, flexBasis: 0 }}
               >
                 <VarInput
-                  value={isEditingThisRow ? editValue : row.value}
+                  value={isEditingThisRow ? editValue : displayValue}
                   placeholder="Value..."
                   env={draftEnv}
                   isEditing={isEditingThisRow}
@@ -273,6 +296,36 @@ export function EnvEditorPane({
                   style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
                   variableNames={variableNames}
                 />
+              </box>
+              <box
+                style={{ width: 12, justifyContent: "flex-end" }}
+                onMouseDown={
+                  processManaged && onRevealSecret
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onRevealSecret(i)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
+              >
+                {processManaged && <text fg={theme.textMuted}>process</text>}
+              </box>
+              <box
+                style={{ width: 10, justifyContent: "flex-end" }}
+                onMouseDown={
+                  onToggleSecret
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onToggleSecret(i)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
+              >
+                <text fg={row.secret ? theme.warning : theme.textMuted}>
+                  {row.secret ? "[secret]" : "[plain]"}
+                </text>
               </box>
             </box>
           )
@@ -383,11 +436,19 @@ export function EnvEditorPane({
                   variableNames={variableNames}
                 />
               </box>
+              <box style={{ width: 12 }} />
+              <box style={{ width: 10 }} />
             </box>
           )
         })()}
       </scrollbox>
       {error && <text fg={theme.error}>Error: {error}</text>}
+      {clonePrompt && (
+        <text fg={theme.warning}>
+          Copy stored secrets to {clonePrompt.target}? y copy · n declarations
+          only
+        </text>
+      )}
       {saving && <text fg={theme.info}>Saving...</text>}
     </Frame>
   )

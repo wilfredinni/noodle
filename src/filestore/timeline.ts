@@ -6,6 +6,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  rename,
   rm,
   unlink,
   writeFile,
@@ -13,6 +14,7 @@ import {
 import { basename, dirname, join, relative } from "node:path"
 import * as yaml from "js-yaml"
 import type { ParamEntry, TimelineBodyRef, TimelineEntry } from "../schema"
+import { redactKnownSecrets } from "../secrets/redact"
 
 export const DEFAULT_TIMELINE_MAX_ENTRIES = 50
 const INLINE_BODY_LIMIT = 10_000
@@ -423,4 +425,97 @@ export async function clearAllTimeline(colDir: string): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+function redactValue(value: unknown, secrets: string[]): unknown {
+  if (typeof value === "string") return redactKnownSecrets(value, secrets)
+  if (Array.isArray(value))
+    return value.map((item) => redactValue(item, secrets))
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        redactKnownSecrets(key, secrets),
+        redactValue(item, secrets),
+      ]),
+    )
+  }
+  return value
+}
+
+function redactTimelineEntry(value: unknown, secrets: string[]): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value
+  const entry = value as Record<string, unknown>
+  return {
+    ...entry,
+    request: redactValue(entry.request, secrets),
+    network: redactValue(entry.network, secrets),
+    error: redactValue(entry.error, secrets),
+  }
+}
+
+async function atomicWrite(
+  path: string,
+  data: string | Uint8Array,
+): Promise<void> {
+  const temporary = `${path}.${randomUUID()}.tmp`
+  await writeFile(temporary, data)
+  try {
+    await rename(temporary, path)
+  } catch (error) {
+    await unlink(temporary).catch(() => {})
+    throw error
+  }
+}
+
+async function collectAllTimelineFiles(dir: string): Promise<string[]> {
+  let entries
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw error
+  }
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const path = join(dir, entry.name)
+      return entry.isDirectory() ? collectAllTimelineFiles(path) : [path]
+    }),
+  )
+  return files.flat()
+}
+
+export async function redactTimelineSecrets(
+  colDir: string,
+  values: string[],
+): Promise<void> {
+  const secrets = [...new Set(values.filter(Boolean))].sort(
+    (a, b) => b.length - a.length,
+  )
+  if (secrets.length === 0) return
+  return withTimelineLock(colDir, async () => {
+    try {
+      for (const path of await collectAllTimelineFiles(timelineDir(colDir))) {
+        if (path.endsWith(".yml")) {
+          const raw = await readFile(path, "utf8")
+          const parsed = yaml.load(raw)
+          const redacted = yaml.dump(
+            Array.isArray(parsed)
+              ? parsed.map((entry) => redactTimelineEntry(entry, secrets))
+              : parsed,
+          )
+          if (redacted !== raw) await atomicWrite(path, redacted)
+        } else if (path.endsWith(".gz") && !/-response\.gz$/i.test(path)) {
+          const raw = await gunzipAsync(await readFile(path))
+          const redacted = redactKnownSecrets(raw.toString("utf8"), secrets)
+          if (redacted !== raw.toString("utf8")) {
+            await atomicWrite(path, await gzipAsync(Buffer.from(redacted)))
+          }
+        }
+      }
+    } catch (error) {
+      throw new Error("filestore.redactTimelineSecrets: redaction failed", {
+        cause: error,
+      })
+    }
+  })
 }

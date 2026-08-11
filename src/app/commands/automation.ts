@@ -10,6 +10,9 @@ import {
   formatCollectionList,
   formatCollectionRun,
   formatEnvironmentSet,
+  formatSecretDelete,
+  formatSecretList,
+  formatSecretSet,
   formatRequestCreate,
   formatRequestRun,
   formatWorkspaceAudit,
@@ -24,6 +27,9 @@ import {
   collectionList,
   collectionRun,
   environmentSet,
+  secretDelete,
+  secretList,
+  secretSet,
   requestCreate,
   requestRun,
   workspaceAudit,
@@ -51,6 +57,58 @@ const methods: Method[] = [
   "HEAD",
   "OPTIONS",
 ]
+
+async function readSecretInput(fromStdin: boolean): Promise<string> {
+  if (fromStdin) {
+    const value = await Bun.stdin.text()
+    return value.replace(/\r?\n$/, "")
+  }
+  if (!process.stdin.isTTY || !process.stderr.isTTY) {
+    throw new Error("secret input requires a TTY; use --stdin for automation")
+  }
+  process.stderr.write("Secret value: ")
+  return new Promise((resolve, reject) => {
+    const input = process.stdin
+    const wasRaw = input.isRaw
+    let value = ""
+    const cleanup = () => {
+      input.off("data", onData)
+      input.setRawMode?.(Boolean(wasRaw))
+      input.pause()
+    }
+    const onData = (chunk: Buffer | string) => {
+      const text = chunk.toString()
+      for (const char of text) {
+        if (char === "\u0003") {
+          cleanup()
+          process.stderr.write("\n")
+          reject(new Error("secret input cancelled"))
+          return
+        }
+        if (char === "\r" || char === "\n") {
+          cleanup()
+          process.stderr.write("\n")
+          resolve(value)
+          return
+        }
+        if (char === "\u007f" || char === "\b") {
+          if (value) {
+            value = [...value].slice(0, -1).join("")
+            process.stderr.write("\b \b")
+          }
+          continue
+        }
+        if (char >= " ") {
+          value += char
+          process.stderr.write("•")
+        }
+      }
+    }
+    input.setRawMode?.(true)
+    input.resume()
+    input.on("data", onData)
+  })
+}
 
 const workspace = defineCommand({
   meta: { name: "workspace", description: "Manage registered collections" },
@@ -301,4 +359,67 @@ const environment = defineCommand({
     }),
   },
 })
-export { workspace, collection, request, environment }
+const secret = defineCommand({
+  meta: { name: "secret", description: "Manage secure environment values" },
+  subCommands: {
+    set: defineCommand({
+      meta: { name: "set", description: "Store or replace a secret value" },
+      args: {
+        key: { type: "positional", required: true },
+        env: { type: "string", required: true },
+        collection: collectionArg,
+        stdin: {
+          type: "boolean",
+          default: false,
+          description: "Read the secret value from stdin",
+        },
+        json: jsonArg,
+      },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({
+            data: await secretSet(
+              args.key,
+              await readSecretInput(args.stdin),
+              args.env,
+              args.collection,
+            ),
+          }),
+          formatSecretSet,
+        ),
+    }),
+    list: defineCommand({
+      meta: { name: "list", description: "List secret names and status" },
+      args: {
+        env: { type: "string", required: true },
+        collection: collectionArg,
+        json: jsonArg,
+      },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({ data: await secretList(args.env, args.collection) }),
+          formatSecretList,
+        ),
+    }),
+    delete: defineCommand({
+      meta: { name: "delete", description: "Remove a local secret value" },
+      args: {
+        key: { type: "positional", required: true },
+        env: { type: "string", required: true },
+        collection: collectionArg,
+        json: jsonArg,
+      },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({
+            data: await secretDelete(args.key, args.env, args.collection),
+          }),
+          formatSecretDelete,
+        ),
+    }),
+  },
+})
+export { workspace, collection, request, environment, secret }

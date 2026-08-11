@@ -77,6 +77,7 @@ export function buildHar(
 function interpolateRequest(req: Request, env: Environment): Request {
   const resolveVar = (s: string): string => {
     return s.replace(VAR_RE, (_, name) => {
+      if (Object.hasOwn(env.secretVars ?? {}, name)) return `$${name}`
       if (Object.hasOwn(env.vars, name)) return env.vars[name]
       return `$${name}`
     })

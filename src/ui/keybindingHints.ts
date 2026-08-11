@@ -89,11 +89,21 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       return [
         { key: "Space", word: "toggle", command: "env-browse.toggle" },
         {
+          key: displayKey(kb.env_secret),
+          word: "secret",
+          command: "env-browse.secret",
+        },
+        { key: displayKey(kb.env_save), word: "save", command: "env.save" },
+        {
+          key: displayKey(kb.env_reveal),
+          word: "reveal",
+          command: "env-browse.reveal",
+        },
+        {
           key: displayKey(kb.browse_delete),
           word: "revert",
           command: "env-browse.revert",
         },
-        { key: displayKey(kb.env_save), word: "save", command: "env.save" },
       ]
     }
     if (ctx.focus === "env-vars" && ctx.paneMode === "edit") {

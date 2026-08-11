@@ -31,9 +31,13 @@ describe("parseOverrides", () => {
     const result = parseOverrides({
       env_picker: "ctrl+e",
       env_editor: "shift+e",
+      env_secret: "x",
+      env_reveal: "v",
     })
     expect(result.env_picker).toBe("ctrl+e")
     expect(result.env_editor).toBe("shift+e")
+    expect(result.env_secret).toBe("x")
+    expect(result.env_reveal).toBe("v")
   })
 
   it("ignores fixed key overrides (uses default)", () => {
@@ -126,6 +130,10 @@ describe("shortcut editing", () => {
     expect(findKeybindConflict("request_save", "ctrl+s", keybinds)).toBeNull()
     expect(findKeybindConflict("request_save", "f4", keybinds)).toBe(
       "settings_open",
+    )
+    expect(findKeybindConflict("env_save", "s", keybinds)).toBe("env_secret")
+    expect(findKeybindConflict("browse_delete", "r", keybinds)).toBe(
+      "env_reveal",
     )
   })
 

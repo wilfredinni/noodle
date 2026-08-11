@@ -533,6 +533,41 @@ describe("buildTimelineEntry", () => {
     expect(entry.envName).toBe("dev")
   })
 
+  it("redacts request credentials without altering the server response", () => {
+    const secret = "timeline-secret"
+    const req = {
+      id: "req-secret",
+      name: "Secret",
+      method: "POST" as const,
+      url: "https://api.example.com/$TOKEN",
+      headers: {
+        Authorization: { value: "Bearer $TOKEN", enabled: true },
+      },
+      params: [],
+      body: '{"token":"$TOKEN"}',
+      timeout: 0,
+    }
+    const response = {
+      status: 200,
+      statusText: secret,
+      headers: { "set-cookie": secret, "x-echo": secret },
+      body: `echo:${secret}`,
+      timeMs: 1,
+    }
+    const entry = buildTimelineEntry(req, { status: "done", response }, "dev", {
+      name: "dev",
+      vars: { TOKEN: secret },
+      secretVars: { TOKEN: "keychain" },
+    })
+    expect(entry.request.url).toBe("https://api.example.com/$TOKEN")
+    expect(entry.request.headers.Authorization!.value).toBe("[REDACTED]")
+    expect(entry.response?.statusText).toBe(secret)
+    expect(entry.response?.headers["set-cookie"]).toBe(secret)
+    expect(entry.response?.headers["x-echo"]).toBe(secret)
+    expect(entry.response?.body).toBe(`echo:${secret}`)
+    expect(response.body).toBe(`echo:${secret}`)
+  })
+
   it("copies network activity into the saved entry", () => {
     const req = {
       id: "req-network",
@@ -585,16 +620,24 @@ describe("buildTimelineEntry", () => {
     expect(entry.network).toEqual(error.network)
   })
 
-  it("uses resolvedUrl when provided", () => {
+  it("resolves public variables and path params while preserving secret placeholders", () => {
     const req = {
       id: "req-3",
       name: "Env",
       method: "GET" as const,
-      url: "https://api.example.com/$base/path",
-      headers: {},
-      params: [],
-      body: undefined,
-      auth: undefined,
+      url: "$base_url/comments/:commentId/$TOKEN",
+      headers: {
+        "X-Comment": { value: "$comment_id", enabled: true },
+        "X-Disabled": { value: "$comment_id", enabled: false },
+        Authorization: { value: "Bearer $TOKEN", enabled: true },
+      },
+      params: [
+        { name: "$comment_name", value: "$comment_id", enabled: true },
+        { name: "disabled", value: "$comment_id", enabled: false },
+      ],
+      pathParams: [{ name: "commentId", value: "$comment_id", enabled: true }],
+      body: '{"id":"$comment_id","token":"$TOKEN"}',
+      auth: { type: "basic" as const, user: "$comment_id", pass: "$TOKEN" },
       timeout: 0,
     }
     const result = {
@@ -610,15 +653,34 @@ describe("buildTimelineEntry", () => {
       envName: "dev",
     }
     const entry = buildTimelineEntry(req, result, "dev", {
-      id: req.id,
-      name: req.name,
-      method: req.method,
-      url: "https://api.example.com/v1/path",
-      timeout: req.timeout,
-      headers: {},
-      params: [],
+      name: "dev",
+      vars: {
+        base_url: "https://api.example.com",
+        comment_id: "42",
+        comment_name: "comment",
+        TOKEN: "top-secret",
+      },
+      secretVars: { TOKEN: "keychain" },
     })
-    expect(entry.request.url).toBe("https://api.example.com/v1/path")
+    expect(entry.request.url).toBe("https://api.example.com/comments/42/$TOKEN")
+    expect(entry.request.headers).toEqual({
+      "X-Comment": { value: "42", enabled: true },
+      "X-Disabled": { value: "$comment_id", enabled: false },
+      Authorization: { value: "[REDACTED]", enabled: true },
+    })
+    expect(entry.request.params).toEqual([
+      { name: "comment", value: "42", enabled: true },
+      { name: "disabled", value: "$comment_id", enabled: false },
+    ])
+    expect(entry.request.pathParams).toEqual([
+      { name: "commentId", value: "42", enabled: true },
+    ])
+    expect(entry.request.body).toBe('{"id":"42","token":"$TOKEN"}')
+    expect(entry.request.auth).toEqual({
+      type: "basic",
+      user: "42",
+      pass: "$TOKEN",
+    })
   })
 
   it("builds error entry", () => {

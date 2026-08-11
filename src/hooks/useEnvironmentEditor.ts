@@ -1,5 +1,13 @@
 import { useCallback, useRef, useState } from "react"
 import { env } from "../env"
+import { dirname } from "node:path"
+import type { Environment, SecretStatus } from "../schema"
+import {
+  deleteStoredSecret,
+  getStoredSecret,
+  setStoredSecret,
+} from "../secrets"
+import { redactTimelineSecrets } from "../filestore"
 
 let nextVarId = 1
 
@@ -8,6 +16,10 @@ export interface VarRow {
   key: string
   value: string
   enabled: boolean
+  secret?: boolean
+  originSecret?: boolean
+  secretStatus?: SecretStatus
+  valueChanged?: boolean
 }
 
 export interface EnvDraft {
@@ -28,11 +40,38 @@ function initialEditState(): EnvEditState {
   return { mode: "inactive", row: -1, addingRow: false, editingRow: -1 }
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+async function attemptRollback(
+  failures: unknown[],
+  operation: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await operation()
+  } catch (error) {
+    failures.push(error)
+  }
+}
+
+function withRollbackFailures(original: unknown, failures: unknown[]): Error {
+  if (failures.length === 0) {
+    return original instanceof Error ? original : new Error(String(original))
+  }
+  return new Error(
+    `${errorMessage(original)}; rollback failed: ${failures.map(errorMessage).join("; ")}`,
+    { cause: original },
+  )
+}
+
 interface OriginalEnv {
   name: string
   color: string | undefined
   vars: Record<string, string>
   disabledVars: Record<string, string>
+  secretVars: Record<string, SecretStatus>
+  varRows: VarRow[]
 }
 
 export interface UseEnvironmentEditorProps {
@@ -79,6 +118,12 @@ export interface UseEnvironmentEditorResult {
   cancelEdit: () => void
   browseTab: () => void
   toggleVar: (index: number) => void
+  toggleSecret: (index: number) => void
+  toggleReveal: (index: number) => void
+  revealedRowId: number | null
+  clonePrompt: { source: string; target: string } | null
+  confirmClone: (copySecrets: boolean) => Promise<void>
+  remaskSecrets: () => void
   revertVar: (index: number) => void
   save: () => Promise<void>
   createEnv: (values: {
@@ -90,16 +135,29 @@ export interface UseEnvironmentEditorResult {
   revertDraft: () => void
 }
 
-function envToVarRows(
-  vars: Record<string, string>,
-  disabledVars: Record<string, string>,
-): VarRow[] {
+function envToVarRows(environment: Environment): VarRow[] {
+  const vars = environment.vars
+  const disabledVars = environment.disabledVars ?? {}
+  const secretVars = environment.secretVars ?? {}
   const rows: VarRow[] = []
   for (const [key, value] of Object.entries(vars)) {
-    rows.push({ id: nextVarId++, key, value, enabled: true })
+    if (secretVars[key]) continue
+    rows.push({ id: nextVarId++, key, value, enabled: true, secret: false })
   }
   for (const [key, value] of Object.entries(disabledVars)) {
-    rows.push({ id: nextVarId++, key, value, enabled: false })
+    if (secretVars[key]) continue
+    rows.push({ id: nextVarId++, key, value, enabled: false, secret: false })
+  }
+  for (const [key, status] of Object.entries(secretVars)) {
+    rows.push({
+      id: nextVarId++,
+      key,
+      value: vars[key] ?? "",
+      enabled: status !== "disabled",
+      secret: true,
+      originSecret: true,
+      secretStatus: status,
+    })
   }
   return rows
 }
@@ -107,18 +165,26 @@ function envToVarRows(
 function varRowsToEnv(rows: VarRow[]): {
   vars: Record<string, string>
   disabledVars: Record<string, string>
+  secretVars: Record<string, SecretStatus>
 } {
   const vars: Record<string, string> = {}
   const disabledVars: Record<string, string> = {}
+  const secretVars: Record<string, SecretStatus> = {}
   for (const row of rows) {
     if (row.key === "") continue
+    if (row.secret) {
+      secretVars[row.key] = row.enabled
+        ? (row.secretStatus ?? "missing")
+        : "disabled"
+      continue
+    }
     if (row.enabled) {
       vars[row.key] = row.value
     } else {
       disabledVars[row.key] = row.value
     }
   }
-  return { vars, disabledVars }
+  return { vars, disabledVars, secretVars }
 }
 
 function dirtyChanged(
@@ -131,16 +197,30 @@ function dirtyChanged(
   if (name !== original.name) return true
   if (color !== original.color) return true
 
-  const { vars, disabledVars } = varRowsToEnv(rows)
+  const { vars, disabledVars, secretVars } = varRowsToEnv(rows)
   const allKeys = new Set([
     ...Object.keys(original.vars),
     ...Object.keys(original.disabledVars),
     ...Object.keys(vars),
     ...Object.keys(disabledVars),
+    ...Object.keys(original.secretVars),
+    ...Object.keys(secretVars),
   ])
   for (const key of allKeys) {
     const origEnabled = key in original.vars
     const nowEnabled = key in vars
+    const wasSecret = key in original.secretVars
+    const isSecret = key in secretVars
+    if (wasSecret !== isSecret) return true
+    if (key in secretVars) {
+      const originallyDisabled = original.secretVars[key] === "disabled"
+      const nowDisabled = secretVars[key] === "disabled"
+      if (originallyDisabled !== nowDisabled) return true
+      const originalRow = original.varRows.find((row) => row.key === key)
+      const nextRow = rows.find((row) => row.key === key)
+      if (originalRow?.id !== nextRow?.id || nextRow?.valueChanged) return true
+      continue
+    }
     if (origEnabled !== nowEnabled) return true
     const origVal = origEnabled
       ? original.vars[key]
@@ -169,6 +249,11 @@ export function useEnvironmentEditor({
   const [editValue, setEditValue] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [revealedRowId, setRevealedRowId] = useState<number | null>(null)
+  const [clonePrompt, setClonePrompt] = useState<{
+    source: string
+    target: string
+  } | null>(null)
 
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -200,7 +285,7 @@ export function useEnvironmentEditor({
       try {
         const loaded = await env.loadEnvironment(environmentsDir, name)
         if (generation !== loadGenerationRef.current) return false
-        const rows = envToVarRows(loaded.vars, loaded.disabledVars ?? {})
+        const rows = envToVarRows(loaded)
         const nextDraft = {
           name: loaded.name,
           color: loaded.color,
@@ -211,6 +296,8 @@ export function useEnvironmentEditor({
           color: loaded.color,
           vars: { ...loaded.vars },
           disabledVars: { ...(loaded.disabledVars ?? {}) },
+          secretVars: { ...(loaded.secretVars ?? {}) },
+          varRows: rows.map((row) => ({ ...row })),
         }
         draftRef.current = nextDraft
         setDraft(nextDraft)
@@ -223,6 +310,7 @@ export function useEnvironmentEditor({
         setEditKey("")
         setEditValue("")
         setError(null)
+        setRevealedRowId(null)
         return true
       } catch (e: unknown) {
         if (generation !== loadGenerationRef.current) return false
@@ -272,6 +360,7 @@ export function useEnvironmentEditor({
     setEditValue("")
     setError(null)
     setSaving(false)
+    setRevealedRowId(null)
   }, [])
 
   const selectEnv = useCallback(
@@ -335,6 +424,7 @@ export function useEnvironmentEditor({
   }, [])
 
   const browseUp = useCallback(() => {
+    setRevealedRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       if (prev.addingRow) {
@@ -347,6 +437,7 @@ export function useEnvironmentEditor({
   }, [])
 
   const browseDown = useCallback(() => {
+    setRevealedRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       const rows = draftRef.current?.varRows.length ?? 0
@@ -359,6 +450,7 @@ export function useEnvironmentEditor({
   }, [])
 
   const browseFirst = useCallback(() => {
+    setRevealedRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       const rows = draftRef.current?.varRows.length ?? 0
@@ -370,6 +462,7 @@ export function useEnvironmentEditor({
   }, [])
 
   const browseLast = useCallback(() => {
+    setRevealedRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       return { ...prev, row: -1, addingRow: true }
@@ -385,6 +478,7 @@ export function useEnvironmentEditor({
       setEditValue("")
     } else {
       const row = currentDraft?.varRows[state.row]
+      if (row?.secret && row.secretStatus === "process") return
       setEditKey(row?.key ?? "")
       setEditValue(row?.value ?? "")
     }
@@ -408,15 +502,30 @@ export function useEnvironmentEditor({
 
     if (state.addingRow) {
       if (key !== "") {
-        rows = [...rows, { id: nextVarId++, key, value, enabled: true }]
+        rows = [
+          ...rows,
+          { id: nextVarId++, key, value, enabled: true, secret: false },
+        ]
       }
     } else {
       if (key === "") {
         rows = rows.filter((_, i) => i !== state.editingRow)
       } else {
-        rows = rows.map((r, i) =>
-          i === state.editingRow ? { ...r, key, value } : r,
-        )
+        rows = rows.map((r, i) => {
+          if (i !== state.editingRow) return r
+          const tracksSecretValue = r.secret || r.originSecret
+          const originalRow = originalRef.current?.varRows.find(
+            (candidate) => candidate.id === r.id,
+          )
+          return {
+            ...r,
+            key,
+            value,
+            valueChanged: tracksSecretValue
+              ? value !== (originalRow?.value ?? r.value) || undefined
+              : r.valueChanged,
+          }
+        })
       }
     }
 
@@ -448,8 +557,10 @@ export function useEnvironmentEditor({
       const currentRow = addingRow
         ? undefined
         : draftRef.current?.varRows[resolvedRow]
+      if (currentRow?.secret && currentRow.secretStatus === "process") return
       setEditKey(currentRow?.key ?? "")
       setEditValue(currentRow?.value ?? "")
+      setRevealedRowId(null)
       setEditState({
         mode: "editing",
         row: resolvedRow,
@@ -489,10 +600,56 @@ export function useEnvironmentEditor({
     const rows = [...prev.varRows]
     if (index >= 0 && index < rows.length) {
       rows[index] = { ...rows[index]!, enabled: !rows[index]!.enabled }
+      if (rows[index]!.secret) {
+        rows[index] = {
+          ...rows[index]!,
+          secretStatus: rows[index]!.enabled
+            ? rows[index]!.secretStatus === "disabled"
+              ? "missing"
+              : rows[index]!.secretStatus
+            : "disabled",
+        }
+      }
     }
     const next = { ...prev, varRows: rows }
     draftRef.current = next
     setDraft(next)
+  }, [])
+
+  const toggleSecret = useCallback((index: number) => {
+    const prev = draftRef.current
+    const row = prev?.varRows[index]
+    if (!prev || !row || !row.key) return
+    const rows = prev.varRows.map((item, i) =>
+      i === index
+        ? {
+            ...item,
+            secret: !item.secret,
+            originSecret: item.secret ? item.originSecret : false,
+            secretStatus: item.secret
+              ? item.secretStatus
+              : item.originSecret && item.secretStatus
+                ? item.secretStatus
+                : item.enabled
+                  ? ("missing" as const)
+                  : ("disabled" as const),
+          }
+        : item,
+    )
+    const next = { ...prev, varRows: rows }
+    draftRef.current = next
+    setDraft(next)
+    setRevealedRowId(null)
+  }, [])
+
+  const toggleReveal = useCallback((index: number) => {
+    const row = draftRef.current?.varRows[index]
+    if (!row?.secret || !row.value) return
+    setRevealedRowId((current) => (current === row.id ? null : row.id))
+  }, [])
+
+  const remaskSecrets = useCallback(() => {
+    setRevealedRowId(null)
   }, [])
 
   const revertVar = useCallback((index: number) => {
@@ -539,31 +696,205 @@ export function useEnvironmentEditor({
     setError(null)
 
     try {
-      const { vars, disabledVars } = varRowsToEnv(curDraft.varRows)
+      const collectionDir = dirname(environmentsDir)
+      const duplicate = curDraft.varRows.find(
+        (row, index) =>
+          row.key &&
+          curDraft.varRows.findIndex(
+            (candidate) => candidate.key === row.key,
+          ) !== index,
+      )
+      if (duplicate) throw new Error(`Duplicate variable "${duplicate.key}"`)
 
-      await env.saveEnvironment(environmentsDir, {
-        name: curDraft.name,
-        vars,
-        color: curDraft.color,
-        disabledVars,
-      })
-
-      if (oldName) {
-        try {
-          await env.deleteEnvironment(environmentsDir, oldName)
-        } catch {
-          // old file may already be gone
+      const originalById = new Map(
+        (curOriginal?.varRows ?? []).map((row) => [row.id, row]),
+      )
+      const plaintextToRedact: string[] = []
+      for (const row of curDraft.varRows) {
+        const before = originalById.get(row.id)
+        if (row.secret && !before?.secret && before?.value) {
+          plaintextToRedact.push(before.value)
         }
       }
+      await redactTimelineSecrets(collectionDir, plaintextToRedact)
 
-      const nextOriginal = {
-        name: curDraft.name,
-        color: curDraft.color,
-        vars,
-        disabledVars,
+      const written: {
+        environment: string
+        key: string
+        previous: string | null
+      }[] = []
+      const deleted: {
+        environment: string
+        key: string
+        previous: string
+      }[] = []
+      const cleanup: { environment: string; key: string }[] = []
+      try {
+        for (const row of curDraft.varRows) {
+          const before = originalById.get(row.id)
+          if (row.secret) {
+            const destinationChanged =
+              !before?.secret ||
+              before.key !== row.key ||
+              curOriginal?.name !== curDraft.name
+            if (
+              destinationChanged &&
+              before?.secretStatus === "process" &&
+              !row.valueChanged
+            ) {
+              throw new Error(
+                `Enter a replacement value before renaming process-sourced secret "${before.key}"`,
+              )
+            }
+            let value: string | undefined
+            if (row.valueChanged || !before?.secret) value = row.value
+            else if (destinationChanged && before.secretStatus === "keychain") {
+              value = before.value
+            }
+            if (value) {
+              const previous = await getStoredSecret(
+                collectionDir,
+                curDraft.name,
+                row.key,
+              )
+              await setStoredSecret(
+                collectionDir,
+                curDraft.name,
+                row.key,
+                value,
+              )
+              written.push({
+                environment: curDraft.name,
+                key: row.key,
+                previous,
+              })
+              row.secretStatus = row.enabled
+                ? process.env[row.key] !== undefined
+                  ? "process"
+                  : "keychain"
+                : "disabled"
+            } else if (process.env[row.key] !== undefined) {
+              row.secretStatus = row.enabled ? "process" : "disabled"
+            } else if (!before?.secret || row.valueChanged) {
+              throw new Error(`Secret "${row.key}" must not be empty`)
+            }
+            if (
+              before?.secret &&
+              (before.key !== row.key || curOriginal?.name !== curDraft.name)
+            ) {
+              cleanup.push({
+                environment: curOriginal!.name,
+                key: before.key,
+              })
+            }
+          } else if (before?.secret) {
+            const canReuseStoredValue =
+              before.secretStatus === "keychain" && row.value !== ""
+            if (!row.valueChanged && !canReuseStoredValue) {
+              throw new Error(
+                `Enter a plaintext value before unmarking "${row.key}"`,
+              )
+            }
+            cleanup.push({ environment: curOriginal!.name, key: before.key })
+          }
+        }
+
+        for (const before of curOriginal?.varRows ?? []) {
+          if (
+            before.secret &&
+            !curDraft.varRows.some((row) => row.id === before.id)
+          ) {
+            cleanup.push({ environment: curOriginal!.name, key: before.key })
+          }
+        }
+
+        const { vars, disabledVars, secretVars } = varRowsToEnv(
+          curDraft.varRows,
+        )
+
+        for (const target of cleanup) {
+          const previous = await getStoredSecret(
+            collectionDir,
+            target.environment,
+            target.key,
+          )
+          const removed = await deleteStoredSecret(
+            collectionDir,
+            target.environment,
+            target.key,
+          )
+          if (removed && previous !== null) {
+            deleted.push({ ...target, previous })
+          }
+        }
+
+        await env.saveEnvironment(environmentsDir, {
+          name: curDraft.name,
+          vars,
+          color: curDraft.color,
+          disabledVars,
+          secretVars,
+        })
+
+        if (oldName) {
+          try {
+            await env.deleteEnvironment(environmentsDir, oldName)
+          } catch {
+            // old file may already be gone
+          }
+        }
+
+        const savedRows = curDraft.varRows.map((row) => ({
+          ...row,
+          originSecret: row.secret,
+          secretStatus: row.secret ? row.secretStatus : undefined,
+          valueChanged: false,
+        }))
+        const nextOriginal = {
+          name: curDraft.name,
+          color: curDraft.color,
+          vars,
+          disabledVars,
+          secretVars,
+          varRows: savedRows.map((row) => ({ ...row })),
+        }
+        const nextDraft = { ...curDraft, varRows: savedRows }
+        draftRef.current = nextDraft
+        setDraft(nextDraft)
+        originalRef.current = nextOriginal
+        setOriginal(nextOriginal)
+      } catch (error) {
+        const rollbackFailures: unknown[] = []
+        for (const item of deleted.reverse()) {
+          await attemptRollback(rollbackFailures, () =>
+            setStoredSecret(
+              collectionDir,
+              item.environment,
+              item.key,
+              item.previous,
+            ),
+          )
+        }
+        for (const item of written.reverse()) {
+          const previous = item.previous
+          if (previous !== null) {
+            await attemptRollback(rollbackFailures, () =>
+              setStoredSecret(
+                collectionDir,
+                item.environment,
+                item.key,
+                previous,
+              ),
+            )
+          } else {
+            await attemptRollback(rollbackFailures, () =>
+              deleteStoredSecret(collectionDir, item.environment, item.key),
+            )
+          }
+        }
+        throw withRollbackFailures(error, rollbackFailures)
       }
-      originalRef.current = nextOriginal
-      setOriginal(nextOriginal)
+
       setSelectedEnvName(curDraft.name)
       loadedEnvNameRef.current = curDraft.name
       if (oldName) {
@@ -583,6 +914,7 @@ export function useEnvironmentEditor({
         onActiveEnvChangedRef.current?.(curDraft.name)
         onEnvDataChangedRef.current?.()
       }
+      setRevealedRowId(null)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
@@ -624,6 +956,8 @@ export function useEnvironmentEditor({
             color,
             vars: {},
             disabledVars: {},
+            secretVars: {},
+            varRows: [],
           }
           const nextNames = [...localNamesRef.current, trimmedName]
           draftRef.current = nextDraft
@@ -663,7 +997,24 @@ export function useEnvironmentEditor({
     if (!name) return
     setSaving(true)
     setError(null)
+    const deleted: { key: string; previous: string }[] = []
     try {
+      const current = await env.loadEnvironment(environmentsDir, name, {
+        resolveSecrets: false,
+      })
+      for (const key of Object.keys(current.secretVars ?? {})) {
+        const previous = await getStoredSecret(
+          dirname(environmentsDir),
+          name,
+          key,
+        )
+        const removed = await deleteStoredSecret(
+          dirname(environmentsDir),
+          name,
+          key,
+        )
+        if (removed && previous !== null) deleted.push({ key, previous })
+      }
       await env.deleteEnvironment(environmentsDir, name)
       if (activeEnvName === name) {
         const remaining = localNames.filter((n) => n !== name)
@@ -673,8 +1024,18 @@ export function useEnvironmentEditor({
       onEnvsChangedRef.current?.()
       closeEditor()
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      setError(msg)
+      const rollbackFailures: unknown[] = []
+      for (const item of deleted.reverse()) {
+        await attemptRollback(rollbackFailures, () =>
+          setStoredSecret(
+            dirname(environmentsDir),
+            name,
+            item.key,
+            item.previous,
+          ),
+        )
+      }
+      setError(withRollbackFailures(e, rollbackFailures).message)
     } finally {
       setSaving(false)
     }
@@ -693,6 +1054,13 @@ export function useEnvironmentEditor({
       setSaving(true)
       setError(null)
       try {
+        const source = await env.loadEnvironment(environmentsDir, name, {
+          resolveSecrets: false,
+        })
+        if (Object.keys(source.secretVars ?? {}).length > 0) {
+          setClonePrompt({ source: name, target: targetName })
+          return
+        }
         await env.cloneEnvironment(environmentsDir, name, targetName)
         const updatedNames = [...localNames, targetName]
         setLocalNames(updatedNames)
@@ -709,6 +1077,70 @@ export function useEnvironmentEditor({
     [environmentsDir, localNames, loadEnv],
   )
 
+  const confirmClone = useCallback(
+    async (copySecrets: boolean) => {
+      const pending = clonePrompt
+      if (!pending) return
+      setClonePrompt(null)
+      setSaving(true)
+      setError(null)
+      const copied: string[] = []
+      let cloned = false
+      try {
+        const source = await env.loadEnvironment(
+          environmentsDir,
+          pending.source,
+          { resolveSecrets: false },
+        )
+        await env.cloneEnvironment(
+          environmentsDir,
+          pending.source,
+          pending.target,
+        )
+        cloned = true
+        if (copySecrets) {
+          for (const key of Object.keys(source.secretVars ?? {})) {
+            if (process.env[key] !== undefined) continue
+            const value = await getStoredSecret(
+              dirname(environmentsDir),
+              pending.source,
+              key,
+            )
+            if (!value) continue
+            await setStoredSecret(
+              dirname(environmentsDir),
+              pending.target,
+              key,
+              value,
+            )
+            copied.push(key)
+          }
+        }
+        const updatedNames = [...localNamesRef.current, pending.target]
+        setLocalNames(updatedNames)
+        onEnvsChangedRef.current?.()
+        setSelectedEnvName(pending.target)
+        await loadEnv(pending.target)
+      } catch (e: unknown) {
+        const rollbackFailures: unknown[] = []
+        for (const key of copied.reverse()) {
+          await attemptRollback(rollbackFailures, () =>
+            deleteStoredSecret(dirname(environmentsDir), pending.target, key),
+          )
+        }
+        if (cloned) {
+          await attemptRollback(rollbackFailures, () =>
+            env.deleteEnvironment(environmentsDir, pending.target),
+          )
+        }
+        setError(withRollbackFailures(e, rollbackFailures).message)
+      } finally {
+        setSaving(false)
+      }
+    },
+    [clonePrompt, environmentsDir, loadEnv],
+  )
+
   const revertDraft = useCallback(() => {
     draftRef.current = null
     originalRef.current = null
@@ -720,6 +1152,8 @@ export function useEnvironmentEditor({
     setEditKey("")
     setEditValue("")
     setError(null)
+    setRevealedRowId(null)
+    setClonePrompt(null)
   }, [])
 
   const dirty = dirtyChanged(
@@ -760,6 +1194,12 @@ export function useEnvironmentEditor({
     cancelEdit,
     browseTab,
     toggleVar,
+    toggleSecret,
+    toggleReveal,
+    revealedRowId,
+    clonePrompt,
+    confirmClone,
+    remaskSecrets,
     revertVar,
     save,
     createEnv,

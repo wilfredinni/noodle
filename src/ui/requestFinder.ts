@@ -28,9 +28,10 @@ export function resolveFinderUrl(
   activeEnv: Environment | null,
 ): string {
   if (activeEnv === null) return url
-  return url.replace(VAR_RE, (match, name: string) =>
-    Object.hasOwn(activeEnv.vars, name) ? activeEnv.vars[name]! : match,
-  )
+  return url.replace(VAR_RE, (match, name: string) => {
+    if (Object.hasOwn(activeEnv.secretVars ?? {}, name)) return match
+    return Object.hasOwn(activeEnv.vars, name) ? activeEnv.vars[name]! : match
+  })
 }
 
 function fuzzyMatch(value: string, token: string): boolean {

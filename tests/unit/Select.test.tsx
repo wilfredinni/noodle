@@ -160,8 +160,8 @@ describe("Select", () => {
 
     await act(async () => {
       await mockMouse.click(1, 0, MouseButtons.LEFT)
-      await renderOnce()
     })
+    await renderOnce()
 
     expect(activated).toBe(0)
     expect(open).toBe(false)

@@ -389,6 +389,53 @@ describe("CLI integration", () => {
     expect(out).toContain("collection")
   })
 
+  it("lists secret status without printing a process-provided value", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-secret-"))
+    try {
+      await mkdir(join(dir, ".environments"))
+      await writeFile(
+        join(dir, "settings.yml"),
+        "collection_id: 123e4567-e89b-42d3-a456-426614174000\n",
+      )
+      await writeFile(
+        join(dir, ".environments", "dev.env"),
+        "# @secret CLI_SECRET_TEST\nCLI_SECRET_TEST=\n",
+      )
+      const proc = Bun.spawnSync(
+        [
+          "bun",
+          CLI,
+          "secret",
+          "list",
+          "--env",
+          "dev",
+          "--collection",
+          dir,
+          "--json",
+        ],
+        { env: { ...process.env, CLI_SECRET_TEST: "never-print-this" } },
+      )
+      expect(proc.exitCode).toBe(0)
+      expect(proc.stdout.toString()).not.toContain("never-print-this")
+      expect(JSON.parse(proc.stdout.toString())).toEqual({
+        status: "success",
+        data: {
+          environment: "dev",
+          secrets: [
+            {
+              key: "CLI_SECRET_TEST",
+              enabled: true,
+              status: "process",
+            },
+          ],
+        },
+        errors: [],
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("accepts --env with -e alias", () => {
     const proc = Bun.spawnSync([
       "bun",

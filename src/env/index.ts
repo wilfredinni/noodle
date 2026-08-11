@@ -1,4 +1,4 @@
-import { loadEnvironment } from "./load"
+import { loadEnvironment, type LoadEnvironmentOptions } from "./load"
 import { listEnvironments } from "./list"
 import { saveEnvironment } from "./save"
 import { deleteEnvironment } from "./delete"
@@ -6,7 +6,11 @@ import { cloneEnvironment } from "./clone"
 import type { Environment } from "../schema"
 
 export interface Env {
-  loadEnvironment(dir: string, name: string): Promise<Environment>
+  loadEnvironment(
+    dir: string,
+    name: string,
+    options?: LoadEnvironmentOptions,
+  ): Promise<Environment>
   listEnvironments(dir: string): Promise<string[]>
   saveEnvironment(dir: string, env: Environment): Promise<void>
   deleteEnvironment(dir: string, name: string): Promise<void>

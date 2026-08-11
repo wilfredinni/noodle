@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { dirname, join, posix, relative, resolve, sep } from "node:path"
+import { randomUUID } from "node:crypto"
 import {
   getImporter,
   detectFormat,
@@ -8,7 +9,12 @@ import {
   supportedFormats,
   type ImportResult,
 } from "../converters/index"
-import { saveRequest, saveFolder, saveSettings } from "../filestore"
+import {
+  loadSettings,
+  saveRequest,
+  saveFolder,
+  saveSettings,
+} from "../filestore"
 import { formatJson } from "../lang/formatJson"
 import type {
   Collection,
@@ -289,6 +295,7 @@ export async function runImport(
   }
 
   let removePartialImport = false
+  const initializeCollectionId = options.destination?.kind !== "current"
   try {
     if (options.destination?.kind === "new") {
       await mkdir(collDir)
@@ -314,8 +321,12 @@ export async function runImport(
       }
     }
 
-    if (removePartialImport) {
-      await saveSettings(collDir, {})
+    if (initializeCollectionId) {
+      const settings = await loadSettings(collDir)
+      await saveSettings(collDir, {
+        ...settings,
+        collectionId: settings.collectionId ?? randomUUID(),
+      })
     }
   } catch (e) {
     if (removePartialImport) {

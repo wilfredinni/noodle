@@ -11,10 +11,45 @@ import { createTestRender } from "./testRender"
 import { act, useEffect, useRef } from "react"
 import { mkdtemp, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { ThemeProvider } from "../src/ui/theme"
 import { useEnvironmentEditor } from "../src/hooks/useEnvironmentEditor"
 import { env } from "../src/env"
+import {
+  getStoredSecret,
+  setSecretBackendForTests,
+  setStoredSecret,
+  type SecretBackend,
+} from "../src/secrets"
+
+function memoryBackend(): SecretBackend & {
+  values: Map<string, string>
+  failDelete: boolean
+  failSet: boolean
+} {
+  const values = new Map<string, string>()
+  const result: SecretBackend & {
+    values: Map<string, string>
+    failDelete: boolean
+    failSet: boolean
+  } = {
+    values,
+    failDelete: false,
+    failSet: false,
+    async get({ service, name }) {
+      return values.get(`${service}:${name}`) ?? null
+    },
+    async set({ service, name, value }) {
+      if (result.failSet) throw new Error("backend set unavailable")
+      values.set(`${service}:${name}`, value)
+    },
+    async delete({ service, name }) {
+      if (result.failDelete) throw new Error("backend delete unavailable")
+      return values.delete(`${service}:${name}`)
+    },
+  }
+  return result
+}
 
 const testRender = createTestRender()
 
@@ -78,6 +113,8 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
   })
 
   afterEach(async () => {
+    delete process.env.NOODLE_PROCESS_SECRET
+    setSecretBackendForTests(undefined)
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -99,6 +136,32 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       await ref.current!.cloneEnv("alpha-copy")
     })
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it("reports source load failures while cloning", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    const loadSpy = spyOn(env, "loadEnvironment").mockRejectedValue(
+      new Error("source load failed"),
+    )
+    try {
+      await act(async () => {
+        await ref.current!.cloneEnv("alpha-copy")
+      })
+      await renderOnce()
+      expect(ref.current!.error).toBe("source load failed")
+    } finally {
+      loadSpy.mockRestore()
+    }
   })
 
   it("creates and selects a new empty environment without activating it", async () => {
@@ -383,6 +446,41 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       .then(() => true)
       .catch(() => false)
     expect(after).toBe(false)
+  })
+
+  it("keeps an environment retryable when secret cleanup fails", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    backend.failDelete = true
+    await act(async () => {
+      await ref.current!.deleteEnv()
+    })
+    await renderOnce()
+
+    expect(ref.current!.error).toContain("secret delete failed")
+    expect(await readFile(join(dir, "alpha.env"), "utf8")).toContain(
+      "# @secret TOKEN",
+    )
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBe(
+      "keychain-value",
+    )
   })
 
   it("calls onEnvsChanged after save with rename", async () => {
@@ -739,5 +837,283 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     await renderOnce()
     expect(ref.current!.editState.row).toBe(0)
     expect(ref.current!.editState.addingRow).toBe(false)
+  })
+
+  it("edits a keychain secret without dirtying it unchanged", async () => {
+    setSecretBackendForTests(memoryBackend())
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    expect(ref.current!.editValue).toBe("keychain-value")
+
+    act(() => ref.current!.commitEdit())
+    await renderOnce()
+    expect(ref.current!.dirty).toBe(false)
+    expect(ref.current!.draft!.varRows[0]!.valueChanged).toBeUndefined()
+
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    act(() => ref.current!.setEditValue("updated-keychain-value"))
+    await renderOnce()
+    act(() => ref.current!.commitEdit())
+    await renderOnce()
+    expect(ref.current!.dirty).toBe(true)
+    expect(ref.current!.draft!.varRows[0]!.valueChanged).toBe(true)
+
+    await act(async () => ref.current!.save())
+    await renderOnce()
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBe(
+      "updated-keychain-value",
+    )
+  })
+
+  it("keeps active process-sourced secrets read-only", async () => {
+    process.env.NOODLE_PROCESS_SECRET = "process-only"
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { NOODLE_PROCESS_SECRET: "process" },
+    })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    expect(ref.current!.editState.mode).toBe("inactive")
+
+    act(() => ref.current!.enterBrowse())
+    await renderOnce()
+    act(() => ref.current!.enterEdit())
+    await renderOnce()
+    expect(ref.current!.editState.mode).toBe("browsing")
+  })
+
+  it("requires and records an explicit replacement when unmarking a process secret", async () => {
+    setSecretBackendForTests(memoryBackend())
+    process.env.NOODLE_PROCESS_SECRET = "process-only"
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { NOODLE_PROCESS_SECRET: "process" },
+    })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => {
+      ref.current!.toggleSecret(0)
+    })
+    await renderOnce()
+    expect(ref.current!.draft!.varRows[0]).toMatchObject({
+      secret: false,
+      originSecret: true,
+    })
+    expect(ref.current!.draft!.varRows[0]!.valueChanged).toBeUndefined()
+
+    await act(async () => ref.current!.save())
+    await renderOnce()
+    expect(ref.current!.error).toBe(
+      'Enter a plaintext value before unmarking "NOODLE_PROCESS_SECRET"',
+    )
+    expect(await readFile(join(dir, "alpha.env"), "utf8")).toContain(
+      "# @secret NOODLE_PROCESS_SECRET",
+    )
+
+    act(() => {
+      ref.current!.activateVar(0, false, "value")
+    })
+    await renderOnce()
+    expect(ref.current!.editValue).toBe("process-only")
+
+    act(() => {
+      ref.current!.setEditValue("explicit-plaintext")
+    })
+    await renderOnce()
+    act(() => {
+      ref.current!.commitEdit()
+    })
+    await renderOnce()
+
+    expect(ref.current!.draft!.varRows[0]).toMatchObject({
+      value: "explicit-plaintext",
+      valueChanged: true,
+    })
+
+    await act(async () => ref.current!.save())
+    await renderOnce()
+    expect(ref.current!.error).toBeNull()
+    const saved = await readFile(join(dir, "alpha.env"), "utf8")
+    expect(saved).toContain("NOODLE_PROCESS_SECRET=explicit-plaintext")
+    expect(saved).not.toContain("# @secret NOODLE_PROCESS_SECRET")
+  })
+
+  it("restores an unsaved plaintext value after toggling secret off", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+
+    expect(ref.current!.draft!.varRows[0]).toMatchObject({
+      secret: false,
+      originSecret: false,
+      value: "val",
+    })
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    expect(ref.current!.editValue).toBe("val")
+  })
+
+  it("moves a keychain secret to plaintext with one toggle", async () => {
+    setSecretBackendForTests(memoryBackend())
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => {
+      ref.current!.toggleSecret(0)
+    })
+    await renderOnce()
+
+    expect(ref.current!.draft!.varRows[0]!.secret).toBe(false)
+    expect(ref.current!.draft!.varRows[0]!.valueChanged).toBeUndefined()
+
+    await act(async () => {
+      await ref.current!.save()
+    })
+    await renderOnce()
+    expect(ref.current!.error).toBeNull()
+    const saved = await readFile(join(dir, "alpha.env"), "utf8")
+    expect(saved).toContain("TOKEN=keychain-value")
+    expect(saved).not.toContain("# @secret TOKEN")
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBeNull()
+  })
+
+  it("keeps a secret declared when keychain cleanup fails", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+    backend.failDelete = true
+    await act(async () => {
+      await ref.current!.save()
+    })
+    await renderOnce()
+
+    expect(ref.current!.error).toContain("secret delete failed")
+    expect(await readFile(join(dir, "alpha.env"), "utf8")).toContain(
+      "# @secret TOKEN",
+    )
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBe(
+      "keychain-value",
+    )
+  })
+
+  it("reports rollback failures after an environment save fails", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+    backend.failSet = true
+    const saveSpy = spyOn(env, "saveEnvironment").mockRejectedValue(
+      new Error("environment save unavailable"),
+    )
+    try {
+      await act(async () => ref.current!.save())
+      await renderOnce()
+      expect(ref.current!.error).toContain("environment save unavailable")
+      expect(ref.current!.error).toContain("rollback failed")
+      expect(ref.current!.error).toContain("backend set unavailable")
+    } finally {
+      saveSpy.mockRestore()
+    }
   })
 })

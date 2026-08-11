@@ -99,8 +99,13 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     }, [])
     const suggestionNames = useMemo(() => {
       if (variableNames != null) return [...variableNames]
-      return Object.keys(env?.vars ?? {})
-    }, [variableNames, env?.vars])
+      return [
+        ...new Set([
+          ...Object.keys(env?.vars ?? {}),
+          ...Object.keys(env?.secretVars ?? {}),
+        ]),
+      ]
+    }, [variableNames, env?.vars, env?.secretVars])
 
     const inputFocused = isFocused ?? true
 
@@ -357,7 +362,7 @@ export const VarInput = forwardRef<VarInputHandle, VarInputProps>(
     }
 
     const displayColor = value ? defaultColor : theme.textMuted
-    const displayText = value ? value : (placeholder ?? "")
+    const displayText = value || (placeholder ?? "")
 
     return (
       <box

@@ -38,7 +38,9 @@ async function exportEnvironments(
   const environments = await Promise.all(
     names.map(async (name) => {
       try {
-        return await env.loadEnvironment(directory, name)
+        return await env.loadEnvironment(directory, name, {
+          resolveSecrets: false,
+        })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         throw new Error(
