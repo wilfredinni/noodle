@@ -18,12 +18,14 @@ import {
 import { collection as collectionCommand } from "../../src/app/commands/automation"
 import { env } from "../../src/env"
 import { executor } from "../../src/requests"
+import { setSecretBackendForTests, type SecretBackend } from "../../src/secrets"
 
 let dir: string
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "noodle-automation-"))
 })
 afterEach(async () => {
+  setSecretBackendForTests(undefined)
   await rm(dir, { recursive: true, force: true })
 })
 
@@ -382,6 +384,82 @@ describe("automation services", () => {
           bypass: [],
         },
         { kind: "direct", source: "cli" },
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("does not read authenticated proxy secrets when --noproxy wins", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "proxy:\n  mode: custom\n  url: http://proxy.test:8080\n  auth: true\n",
+    )
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const unavailable: SecretBackend = {
+      get: async () => {
+        throw new Error("keychain unavailable")
+      },
+      set: async () => {},
+      delete: async () => false,
+    }
+    setSecretBackendForTests(unavailable)
+    const send = executor.send
+    const policies: unknown[] = []
+    executor.send = async (_request, options) => {
+      policies.push(options?.proxyPolicy)
+      return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
+    }
+    try {
+      await collectionRun(dir, undefined, undefined, true)
+      expect(policies).toEqual([{ kind: "direct", source: "cli" }])
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("loads credentials only for the selected collection proxy", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "collection_id: 11111111-1111-4111-8111-111111111111\nproxy:\n  mode: custom\n  url: http://proxy.test:8080\n  auth: true\n",
+    )
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const reads: string[] = []
+    setSecretBackendForTests({
+      get: async ({ name }) => {
+        reads.push(name)
+        return name.endsWith("username") ? "alice" : "secret"
+      },
+      set: async () => {},
+      delete: async () => false,
+    })
+    const send = executor.send
+    const policies: unknown[] = []
+    executor.send = async (_request, options) => {
+      policies.push(options?.proxyPolicy)
+      return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
+    }
+    try {
+      await collectionRun(dir)
+      expect(reads.sort()).toEqual([
+        "11111111-1111-4111-8111-111111111111:settings:proxy:password",
+        "11111111-1111-4111-8111-111111111111:settings:proxy:username",
+      ])
+      expect(policies).toEqual([
+        {
+          kind: "custom",
+          source: "collection",
+          url: "http://proxy.test:8080",
+          bypass: [],
+          auth: true,
+          credentials: { username: "alice", password: "secret" },
+        },
       ])
     } finally {
       executor.send = send

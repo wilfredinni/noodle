@@ -581,13 +581,13 @@ describe("filestore.loadSettings", () => {
   it("reads a collection proxy override", async () => {
     await writeFile(
       join(dir, "settings.yml"),
-      "proxy:\n  mode: custom\n  url: http://$PROXY@proxy.test:8080\n  bypass:\n    - localhost\n",
+      "proxy:\n  mode: custom\n  url: http://proxy.test:8080\n  bypass:\n    - localhost\n",
       "utf8",
     )
     expect(await loadSettings(dir)).toEqual({
       proxy: {
         mode: "custom",
-        url: "http://$PROXY@proxy.test:8080",
+        url: "http://proxy.test:8080",
         bypass: ["localhost"],
       },
     })
@@ -644,6 +644,34 @@ describe("filestore.saveSettings", () => {
     expect(await loadSettings(dir)).toEqual({ proxy: { mode: "off" } })
   })
 
+  it("round-trips proxy authentication metadata without credentials", async () => {
+    await saveSettings(dir, {
+      proxy: {
+        mode: "custom",
+        url: "http://proxy.test:8080",
+        auth: true,
+      },
+    })
+    const raw = await readFile(join(dir, "settings.yml"), "utf8")
+    expect(raw).toContain("auth: true")
+    expect(await loadSettings(dir)).toEqual({
+      proxy: {
+        mode: "custom",
+        url: "http://proxy.test:8080",
+        auth: true,
+      },
+    })
+    await expect(
+      saveSettings(dir, {
+        proxy: {
+          mode: "custom",
+          url: "http://must-not-persist:secret@proxy.test:8080",
+          auth: true,
+        },
+      }),
+    ).rejects.toThrow("Proxy URL cannot contain credentials")
+  })
+
   it("writes minimal file when environment is undefined", async () => {
     await saveSettings(dir, {})
     const content = await readFile(join(dir, "settings.yml"), "utf8")
@@ -676,12 +704,12 @@ describe("filestore.saveSettings", () => {
               host: "api.example.com",
               certFile: "client.pem",
               keyFile: "key.pem",
-              passphrase: "literal-secret",
+              secretId: "not-a-uuid",
             },
           ],
         },
       }),
-    ).rejects.toThrow("must be an exact $VARNAME reference")
+    ).rejects.toThrow("must be a UUID")
 
     expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe(
       "environment: old\n",

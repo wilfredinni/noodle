@@ -8,6 +8,7 @@ import {
   findClientCertificate,
   isValidTlsHost,
   parseCollectionTls,
+  parseCollectionTlsStrict,
   resolveTlsPath,
   tlsForUrl,
 } from "../../src/tls"
@@ -48,7 +49,7 @@ describe("collection TLS settings", () => {
             port: 8443,
             cert_file: "./certs/client.pem",
             key_file: "./certs/key.pem",
-            passphrase: "$PASSPHRASE",
+            secret_id: "123e4567-e89b-42d3-a456-426614174000",
           },
         ],
       }),
@@ -61,7 +62,7 @@ describe("collection TLS settings", () => {
           port: 8443,
           certFile: "./certs/client.pem",
           keyFile: "./certs/key.pem",
-          passphrase: "$PASSPHRASE",
+          secretId: "123e4567-e89b-42d3-a456-426614174000",
           enabled: undefined,
         },
       ],
@@ -124,31 +125,43 @@ describe("collection TLS settings", () => {
     expect(isValidTlsHost("-")).toBe(false)
   })
 
-  it("accepts only exact environment references for key passphrases", () => {
-    expect(
-      parseCollectionTls({
-        client_certificates: [
+  it("rejects legacy literal and environment-reference passphrases", () => {
+    const legacy = {
+      client_certificates: [
+        {
+          host: "api.example.com",
+          cert_file: "client.pem",
+          key_file: "key.pem",
+          passphrase: "$PASS",
+        },
+      ],
+    }
+    expect(parseCollectionTls(legacy)).toBeUndefined()
+    expect(() => parseCollectionTlsStrict(legacy)).toThrow(
+      "passphrase: is no longer supported; remove it and configure the passphrase in Settings",
+    )
+  })
+
+  it("round-trips secret ids without a plaintext passphrase", async () => {
+    const secretId = "123e4567-e89b-42d3-a456-426614174000"
+    await saveSettings(dir, {
+      tls: {
+        clientCertificates: [
           {
             host: "api.example.com",
-            cert_file: "client.pem",
-            key_file: "key.pem",
-            passphrase: "pa$word",
+            certFile: "client.pem",
+            keyFile: "key.pem",
+            secretId,
           },
         ],
-      }),
-    ).toBeUndefined()
+      },
+    })
+    const raw = await readFile(join(dir, "settings.yml"), "utf8")
+    expect(raw).toContain(`secret_id: ${secretId}`)
+    expect(raw).not.toContain("passphrase:")
     expect(
-      parseCollectionTls({
-        client_certificates: [
-          {
-            host: "api.example.com",
-            cert_file: "client.pem",
-            key_file: "key.pem",
-            passphrase: "$PASS",
-          },
-        ],
-      })?.clientCertificates?.[0]?.passphrase,
-    ).toBe("$PASS")
+      (await loadSettings(dir)).tls?.clientCertificates?.[0]?.secretId,
+    ).toBe(secretId)
   })
 
   it("round-trips collection TLS settings", async () => {
@@ -253,10 +266,10 @@ describe("collection TLS settings", () => {
     await writeFile(join(dir, "client.pem"), "test cert")
     await writeFile(join(dir, "key.pem"), "test key")
 
+    const secretId = "123e4567-e89b-42d3-a456-426614174000"
     const resolved = await tlsForUrl(
       makeRequest({ tls: { verify: true } }),
       "https://api.example.com/path",
-      { name: "dev", vars: { PASS: "secret" } },
       {
         collectionDir: dir,
         settings: {
@@ -267,10 +280,11 @@ describe("collection TLS settings", () => {
               host: "api.example.com",
               certFile: "./client.pem",
               keyFile: "./key.pem",
-              passphrase: "$PASS",
+              secretId,
             },
           ],
         },
+        passphrases: { [secretId]: "secret" },
       },
     )
 
@@ -282,41 +296,52 @@ describe("collection TLS settings", () => {
     expect(resolved.messages).toContain("TLS verification enabled by request")
   })
 
-  it("does not resolve a client key passphrase from the process environment", async () => {
+  it("resolves a Bun-backed passphrase by secret id", async () => {
     await writeFile(join(dir, "client.pem"), "test cert")
     await writeFile(join(dir, "key.pem"), "test key")
-    const original = process.env.NOODLE_TEST_TLS_PASSPHRASE
-    process.env.NOODLE_TEST_TLS_PASSPHRASE = "process-secret"
-
-    try {
-      await expect(
-        tlsForUrl(makeRequest(), "https://api.example.com", undefined, {
-          collectionDir: dir,
-          settings: {
-            clientCertificates: [
-              {
-                host: "api.example.com",
-                certFile: "client.pem",
-                keyFile: "key.pem",
-                passphrase: "$NOODLE_TEST_TLS_PASSPHRASE",
-              },
-            ],
+    const secretId = "123e4567-e89b-42d3-a456-426614174000"
+    const resolved = await tlsForUrl(makeRequest(), "https://api.example.com", {
+      collectionDir: dir,
+      settings: {
+        clientCertificates: [
+          {
+            host: "api.example.com",
+            certFile: "client.pem",
+            keyFile: "key.pem",
+            secretId,
           },
-        }),
-      ).rejects.toThrow(
-        'tls: unresolved variable "NOODLE_TEST_TLS_PASSPHRASE" in client certificate passphrase',
-      )
-    } finally {
-      if (original === undefined) delete process.env.NOODLE_TEST_TLS_PASSPHRASE
-      else process.env.NOODLE_TEST_TLS_PASSPHRASE = original
-    }
+        ],
+      },
+      passphrases: { [secretId]: "bun-secret" },
+    })
+    expect(resolved.options?.passphrase).toBe("bun-secret")
+  })
+
+  it("fails clearly when a referenced TLS passphrase secret is missing", async () => {
+    await writeFile(join(dir, "client.pem"), "test cert")
+    await writeFile(join(dir, "key.pem"), "test key")
+    await expect(
+      tlsForUrl(makeRequest(), "https://api.example.com", {
+        collectionDir: dir,
+        settings: {
+          clientCertificates: [
+            {
+              host: "api.example.com",
+              certFile: "client.pem",
+              keyFile: "key.pem",
+              secretId: "123e4567-e89b-42d3-a456-426614174000",
+            },
+          ],
+        },
+        passphrases: {},
+      }),
+    ).rejects.toThrow("has a missing passphrase secret")
   })
 
   it("lets --insecure override saved verification", async () => {
     const resolved = await tlsForUrl(
       makeRequest({ tls: { verify: true } }),
       "https://example.com",
-      undefined,
       {
         collectionDir: dir,
         settings: { verify: true, caBundle: "missing.pem" },
@@ -334,7 +359,6 @@ describe("collection TLS settings", () => {
     const resolved = await tlsForUrl(
       makeRequest({ tls: { verify: false } }),
       "https://example.com",
-      undefined,
       {
         collectionDir: dir,
         settings: { caBundle: "missing.pem" },
@@ -347,18 +371,15 @@ describe("collection TLS settings", () => {
   })
 
   it("verifies certificates by default", async () => {
-    const resolved = await tlsForUrl(
-      makeRequest(),
-      "https://example.com",
-      undefined,
-      { collectionDir: dir },
-    )
+    const resolved = await tlsForUrl(makeRequest(), "https://example.com", {
+      collectionDir: dir,
+    })
     expect(resolved.options?.rejectUnauthorized).toBe(true)
   })
 
   it("fails before fetch when a configured certificate file is missing", async () => {
     await expect(
-      tlsForUrl(makeRequest(), "https://api.example.com", undefined, {
+      tlsForUrl(makeRequest(), "https://api.example.com", {
         collectionDir: dir,
         settings: {
           clientCertificates: [

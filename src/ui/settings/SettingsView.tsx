@@ -19,7 +19,7 @@ import type {
   CollectionProxySettings,
   CollectionSettings,
   CollectionTlsSettings,
-  Environment,
+  ProxyCredentials,
 } from "../../schema"
 import { DEFAULT_TIMELINE_MAX_ENTRIES } from "../../filestore"
 import type { Focus } from "../focus"
@@ -107,14 +107,16 @@ export function SettingsView({
   layout,
   confirmUndoAll,
   appProxy,
+  appProxyCredentials = {},
   collectionProxy,
+  collectionProxyCredentials = {},
   collectionTls,
+  tlsPassphrases = {},
   collectionName,
   collectionDescription,
   timelineMaxEntries,
   noProxy,
   insecure = false,
-  activeEnv,
   envNames,
   activeEnvName,
   keybinds,
@@ -129,6 +131,11 @@ export function SettingsView({
   onConfirmUndoAllChange,
   onAppProxyChange,
   onCollectionProxyChange,
+  onAppProxyCredentialsChange = async () => false,
+  onCollectionProxyCredentialsChange = async () => false,
+  onProxyAuthDisable = async () => false,
+  onTlsPassphraseChange = async () => false,
+  onTlsProfileRemove = async () => false,
   onCollectionSettingsChange,
   onEnvironmentChange,
   onKeybindChange,
@@ -145,14 +152,16 @@ export function SettingsView({
   layout: "stacked" | "side-by-side"
   confirmUndoAll: boolean
   appProxy?: AppProxySettings
+  appProxyCredentials?: ProxyCredentials
   collectionProxy?: CollectionProxySettings
+  collectionProxyCredentials?: ProxyCredentials
   collectionTls?: CollectionTlsSettings
+  tlsPassphrases?: Record<string, string>
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
   noProxy: boolean
   insecure?: boolean
-  activeEnv: Environment | null
   envNames: string[]
   activeEnvName: string | null
   keybinds: Keybinds
@@ -167,6 +176,15 @@ export function SettingsView({
   onConfirmUndoAllChange: (value: boolean) => void
   onAppProxyChange: (proxy: AppProxySettings) => boolean
   onCollectionProxyChange: (proxy: CollectionProxySettings) => boolean
+  onAppProxyCredentialsChange?: (
+    credentials: ProxyCredentials,
+  ) => Promise<boolean>
+  onCollectionProxyCredentialsChange?: (
+    credentials: ProxyCredentials,
+  ) => Promise<boolean>
+  onProxyAuthDisable?: (scope: "app" | "collection") => Promise<boolean>
+  onTlsPassphraseChange?: (index: number, value: string) => Promise<boolean>
+  onTlsProfileRemove?: (index: number) => Promise<boolean>
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
@@ -870,7 +888,11 @@ export function SettingsView({
                 <ProxySettingsForm
                   scope={scope === "global" ? "app" : "collection"}
                   proxy={scope === "global" ? appProxy : collectionProxy}
-                  activeEnv={activeEnv}
+                  credentials={
+                    scope === "global"
+                      ? appProxyCredentials
+                      : collectionProxyCredentials
+                  }
                   focused={focus === "settings-content"}
                   noProxy={noProxy}
                   onExit={() => onPaneFocus("settings-sidebar")}
@@ -883,6 +905,16 @@ export function SettingsView({
                           proxy as CollectionProxySettings,
                         )
                   }
+                  onCredentialsChange={(credentials) =>
+                    scope === "global"
+                      ? onAppProxyCredentialsChange(credentials)
+                      : onCollectionProxyCredentialsChange(credentials)
+                  }
+                  onAuthDisable={() =>
+                    onProxyAuthDisable(
+                      scope === "global" ? "app" : "collection",
+                    )
+                  }
                 />
               </>
             )}
@@ -894,13 +926,15 @@ export function SettingsView({
                 />
                 <TlsSettingsForm
                   settings={collectionTls}
-                  activeEnv={activeEnv}
+                  passphrases={tlsPassphrases}
                   focused={focus === "settings-content"}
                   insecure={insecure}
                   collectionDir={activeCollectionDir}
                   onExit={() => onPaneFocus("settings-sidebar")}
                   onTextInputFocusChange={setTlsTextInput}
                   onChange={(tls) => onCollectionSettingsChange({ tls })}
+                  onPassphraseChange={onTlsPassphraseChange}
+                  onRemoveProfile={onTlsProfileRemove}
                 />
               </>
             )}

@@ -172,9 +172,21 @@ export async function send(
   const followRedirects = req.followRedirects ?? true
 
   while (true) {
-    const proxyRoute = proxyPolicy
-      ? proxyForUrl(proxyPolicy, currentUrl, env)
-      : undefined
+    let proxyRoute
+    try {
+      proxyRoute = proxyPolicy
+        ? proxyForUrl(proxyPolicy, currentUrl)
+        : undefined
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw networkFailure(
+        `requests.send: ${msg}`,
+        e,
+        network,
+        start,
+        onNetworkEvent,
+      )
+    }
     if (proxyRoute) {
       recordNetworkEvent(
         network,
@@ -194,7 +206,7 @@ export async function send(
     }
     let resolvedTls
     try {
-      resolvedTls = await tlsForUrl(substituted, currentUrl, env, tlsPolicy)
+      resolvedTls = await tlsForUrl(substituted, currentUrl, tlsPolicy)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       throw networkFailure(

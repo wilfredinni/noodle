@@ -43,6 +43,9 @@ import {
   deleteStoredSecret,
   ensureCollectionId,
   getStoredSecret,
+  loadAppProxyCredentials,
+  loadCollectionProxyCredentials,
+  loadTlsPassphrases,
   setStoredSecret,
 } from "../secrets"
 import { environmentSecretValues, redactKnownSecrets } from "../secrets/redact"
@@ -536,7 +539,13 @@ async function runRequest(
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
 ): Promise<RequestRunResult> {
-  const secretValues = environmentSecretValues(environment)
+  const secretValues = [
+    ...environmentSecretValues(environment),
+    ...(proxyPolicy?.kind === "custom"
+      ? Object.values(proxyPolicy.credentials ?? {})
+      : []),
+    ...Object.values(tlsPolicy?.passphrases ?? {}),
+  ].filter((value): value is string => Boolean(value))
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   try {
     const response = await executor.send(request, {
@@ -582,12 +591,13 @@ export async function collectionRun(
   const settings = await loadSettings(dir)
   const collection = await filestore.loadCollection(dir)
   const environment = await environmentFor(dir, settings, environmentName)
-  const policy = proxyPolicyFor(
+  const policy = await proxyPolicyFor(
+    dir,
     settings,
     noProxy,
     systemProxy ?? takeSystemProxyFromEnv(),
   )
-  const tlsPolicy = tlsPolicyFor(dir, settings, insecure)
+  const tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
   const requests = flattenRequests(collection.items)
   const results: RequestRunResult[] = []
   onProgress?.(0, requests.length)
@@ -644,32 +654,51 @@ export async function requestRun(
     collection,
     request,
     await environmentFor(dir, settings, environmentName),
-    proxyPolicyFor(settings, noProxy, systemProxy ?? takeSystemProxyFromEnv()),
-    tlsPolicyFor(dir, settings, insecure),
+    await proxyPolicyFor(
+      dir,
+      settings,
+      noProxy,
+      systemProxy ?? takeSystemProxyFromEnv(),
+    ),
+    await tlsPolicyFor(dir, settings, insecure),
   )
   onProgress?.(1, 1)
   return { result, failed: result.ok === false }
 }
 
-function tlsPolicyFor(
+async function tlsPolicyFor(
   dir: string,
   settings: CollectionSettings,
   insecure: boolean,
-): TlsPolicy {
-  return { collectionDir: dir, settings: settings.tls, insecure }
+): Promise<TlsPolicy> {
+  const passphrases = await loadTlsPassphrases(dir, settings.tls)
+  return {
+    collectionDir: dir,
+    settings: settings.tls,
+    insecure,
+    ...(Object.keys(passphrases).length > 0 ? { passphrases } : {}),
+  }
 }
 
-function proxyPolicyFor(
+async function proxyPolicyFor(
+  dir: string,
   settings: CollectionSettings,
   noProxy: boolean,
   systemProxy: SystemProxySettings,
-): ProxyPolicy {
-  return resolveProxyPolicy({
+): Promise<ProxyPolicy> {
+  const appProxy = loadConfig(CONFIG_DIR).proxy
+  const policy = resolveProxyPolicy({
     noProxy,
-    appProxy: loadConfig(CONFIG_DIR).proxy,
+    appProxy,
     collectionProxy: settings.proxy,
     systemProxy,
   })
+  if (policy.kind !== "custom" || !policy.auth) return policy
+  const credentials =
+    policy.source === "collection"
+      ? await loadCollectionProxyCredentials(dir, settings.proxy)
+      : await loadAppProxyCredentials(appProxy)
+  return { ...policy, credentials }
 }
 export async function environmentSet(
   key: string,

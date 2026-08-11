@@ -137,7 +137,7 @@ describe("send — param deduplication", () => {
 })
 
 describe("send — network trace", () => {
-  it("resolves an app proxy from the active Noodle environment", async () => {
+  it("uses Bun-backed app proxy credentials without environment overrides", async () => {
     const originalFetch = globalThis.fetch
     let proxy: string | undefined
     globalThis.fetch = mock(async (_url, init) => {
@@ -158,17 +158,43 @@ describe("send — network trace", () => {
         proxyPolicy: {
           kind: "custom",
           source: "global",
-          url: "http://$NOODLE_TEST_APP_PROXY_USER:$NOODLE_TEST_APP_PROXY_PASSWORD@proxy.test:8080",
+          url: "http://proxy.test:8080",
           bypass: [],
+          auth: true,
+          credentials: {
+            username: "bun-user",
+            password: "bun-password",
+          },
         },
       })
 
-      expect(proxy).toBe(
-        "http://collection-user:collection-password@proxy.test:8080",
-      )
+      expect(proxy).toBe("http://bun-user:bun-password@proxy.test:8080/")
     } finally {
       globalThis.fetch = originalFetch
     }
+  })
+
+  it("attaches network activity to incomplete proxy authentication", async () => {
+    let error: NetworkError | undefined
+    try {
+      await send(makeReq(), {
+        proxyPolicy: {
+          kind: "custom",
+          source: "global",
+          url: "http://proxy.test:8080",
+          bypass: [],
+          auth: true,
+          credentials: {},
+        },
+      })
+    } catch (caught) {
+      error = caught as NetworkError
+    }
+
+    expect(error?.message).toContain(
+      "authentication is enabled for the global proxy, but its username secret is missing",
+    )
+    expect(error?.network?.map((event) => event.type)).toEqual(["error"])
   })
 
   it("passes the resolved proxy to fetch and reports the selected route", async () => {

@@ -3,7 +3,13 @@ import { link, mkdir, readFile, unlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { loadSettings } from "../filestore/load"
 import { saveSettings } from "../filestore/save"
-import type { SecretStatus } from "../schema"
+import type {
+  AppProxySettings,
+  CollectionProxySettings,
+  CollectionTlsSettings,
+  ProxyCredentials,
+  SecretStatus,
+} from "../schema"
 
 export const SECRET_SERVICE = "dev.noodlerest.noodle"
 
@@ -29,9 +35,7 @@ export function setSecretBackendForTests(
 function backend(): SecretBackend {
   const candidate = testBackend ?? Bun.secrets
   if (!candidate) {
-    throw new Error(
-      "secure credential storage is unavailable in this Bun runtime",
-    )
+    throw new Error("secure credential storage is unavailable on this system")
   }
   return candidate
 }
@@ -58,6 +62,216 @@ export function secretAccount(
     .update(key)
     .digest("hex")
   return `${collectionId}:${digest}`
+}
+
+export type AppSettingSecret = "proxy:username" | "proxy:password"
+export type CollectionSettingSecret =
+  "proxy:username" | "proxy:password" | `tls:${string}:passphrase`
+
+export function appSettingSecretAccount(secret: AppSettingSecret): string {
+  return `app:settings:${secret}`
+}
+
+export function collectionSettingSecretAccount(
+  collectionId: string,
+  secret: CollectionSettingSecret,
+): string {
+  return `${collectionId}:settings:${secret}`
+}
+
+async function getSecret(name: string): Promise<string | null> {
+  try {
+    return await backend().get({ service: SECRET_SERVICE, name })
+  } catch (error) {
+    throw storageError("read", error)
+  }
+}
+
+async function setSecret(name: string, value: string): Promise<void> {
+  if (value.length === 0) throw new Error("secret value must not be empty")
+  try {
+    await backend().set({
+      service: SECRET_SERVICE,
+      name,
+      value,
+      allowUnrestrictedAccess: false,
+    })
+  } catch (error) {
+    throw storageError("write", error)
+  }
+}
+
+async function deleteSecret(name: string): Promise<boolean> {
+  try {
+    return await backend().delete({ service: SECRET_SERVICE, name })
+  } catch (error) {
+    throw storageError("delete", error)
+  }
+}
+
+export function getAppSettingSecret(
+  secret: AppSettingSecret,
+): Promise<string | null> {
+  return getSecret(appSettingSecretAccount(secret))
+}
+
+export function setAppSettingSecret(
+  secret: AppSettingSecret,
+  value: string,
+): Promise<void> {
+  return setSecret(appSettingSecretAccount(secret), value)
+}
+
+export function deleteAppSettingSecret(
+  secret: AppSettingSecret,
+): Promise<boolean> {
+  return deleteSecret(appSettingSecretAccount(secret))
+}
+
+export async function getCollectionSettingSecret(
+  collectionDir: string,
+  secret: CollectionSettingSecret,
+): Promise<string | null> {
+  return getSecret(
+    collectionSettingSecretAccount(
+      await ensureCollectionId(collectionDir),
+      secret,
+    ),
+  )
+}
+
+export async function setCollectionSettingSecret(
+  collectionDir: string,
+  secret: CollectionSettingSecret,
+  value: string,
+): Promise<void> {
+  return setSecret(
+    collectionSettingSecretAccount(
+      await ensureCollectionId(collectionDir),
+      secret,
+    ),
+    value,
+  )
+}
+
+export async function deleteCollectionSettingSecret(
+  collectionDir: string,
+  secret: CollectionSettingSecret,
+): Promise<boolean> {
+  return deleteSecret(
+    collectionSettingSecretAccount(
+      await ensureCollectionId(collectionDir),
+      secret,
+    ),
+  )
+}
+
+export async function loadAppProxyCredentials(
+  proxy: AppProxySettings | undefined,
+): Promise<ProxyCredentials> {
+  if (proxy?.mode !== "custom" || proxy.auth !== true) return {}
+  const [username, password] = await Promise.all([
+    getAppSettingSecret("proxy:username"),
+    getAppSettingSecret("proxy:password"),
+  ])
+  return {
+    username: username ?? undefined,
+    password: password ?? undefined,
+  }
+}
+
+export async function loadCollectionProxyCredentials(
+  collectionDir: string,
+  proxy: CollectionProxySettings | undefined,
+): Promise<ProxyCredentials> {
+  if (proxy?.mode !== "custom" || proxy.auth !== true) return {}
+  const collectionId = await ensureCollectionId(collectionDir)
+  const [username, password] = await Promise.all([
+    getSecret(collectionSettingSecretAccount(collectionId, "proxy:username")),
+    getSecret(collectionSettingSecretAccount(collectionId, "proxy:password")),
+  ])
+  return {
+    username: username ?? undefined,
+    password: password ?? undefined,
+  }
+}
+
+export async function loadTlsPassphrases(
+  collectionDir: string,
+  tls: CollectionTlsSettings | undefined,
+): Promise<Record<string, string>> {
+  const ids = [
+    ...new Set(
+      (tls?.clientCertificates ?? [])
+        .map((profile) => profile.secretId)
+        .filter((id): id is string => id !== undefined),
+    ),
+  ]
+  if (ids.length === 0) return {}
+  const collectionId = await ensureCollectionId(collectionDir)
+  const entries = await Promise.all(
+    ids.map(
+      async (id) =>
+        [
+          id,
+          await getSecret(
+            collectionSettingSecretAccount(
+              collectionId,
+              `tls:${id}:passphrase`,
+            ),
+          ),
+        ] as const,
+    ),
+  )
+  return Object.fromEntries(
+    entries.filter(
+      (entry): entry is readonly [string, string] => entry[1] !== null,
+    ),
+  )
+}
+
+export interface SecretMutation {
+  get: () => Promise<string | null>
+  set: (value: string) => Promise<void>
+  delete: () => Promise<boolean>
+  value?: string
+}
+
+export async function applySettingsSecretTransaction(
+  mutations: SecretMutation[],
+  persist: () => Promise<void> | void,
+): Promise<void> {
+  const snapshots = await Promise.all(
+    mutations.map((mutation) => mutation.get()),
+  )
+  try {
+    for (const mutation of mutations) {
+      if (mutation.value) await mutation.set(mutation.value)
+      else await mutation.delete()
+    }
+    await persist()
+  } catch (error) {
+    try {
+      for (const [index, mutation] of mutations.entries()) {
+        const snapshot = snapshots[index]
+        if (snapshot === null) await mutation.delete()
+        else await mutation.set(snapshot)
+      }
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [error, rollbackError],
+        `settings secret update failed (${
+          error instanceof Error ? error.message : String(error)
+        }) and rollback also failed: ${
+          rollbackError instanceof Error
+            ? rollbackError.message
+            : String(rollbackError)
+        }`,
+        { cause: rollbackError },
+      )
+    }
+    throw error
+  }
 }
 
 async function reserveCollectionId(collectionDir: string): Promise<string> {

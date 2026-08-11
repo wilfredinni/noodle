@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import * as yaml from "js-yaml"
 import type { AppProxySettings } from "../schema"
-import { parseAppProxy } from "../proxy"
+import { parseAppProxyStrict } from "../proxy"
 
 export const CONFIG_FILE_NAME = "config.yml"
 export interface NoodleConfig {
@@ -50,32 +50,33 @@ export function normalizeConfig(config: NoodleConfig): NoodleConfig {
     ...config,
     collections: normalizeCollectionPaths(config.collections),
   }
-  if (config.proxy !== undefined) normalized.proxy = config.proxy
+  if (config.proxy !== undefined) {
+    normalized.proxy = parseAppProxyStrict(config.proxy)
+  }
   return normalized
 }
 export function loadConfig(configDir: string): NoodleConfig {
+  let data: unknown
   try {
-    const data = yaml.load(
-      readFileSync(join(configDir, CONFIG_FILE_NAME), "utf8"),
-    )
-    if (!data || typeof data !== "object") return { ...DEFAULT_CONFIG }
-    const obj = data as Record<string, unknown>
-    return normalizeConfig({
-      theme: typeof obj.theme === "string" ? obj.theme : DEFAULT_CONFIG.theme,
-      layout:
-        obj.layout === "side-by-side" ? "side-by-side" : DEFAULT_CONFIG.layout,
-      confirm_undo_all:
-        typeof obj.confirm_undo_all === "boolean"
-          ? obj.confirm_undo_all
-          : DEFAULT_CONFIG.confirm_undo_all,
-      collections: Array.isArray(obj.collections)
-        ? obj.collections.filter((v): v is string => typeof v === "string")
-        : [],
-      proxy: parseAppProxy(obj.proxy),
-    })
+    data = yaml.load(readFileSync(join(configDir, CONFIG_FILE_NAME), "utf8"))
   } catch {
     return { ...DEFAULT_CONFIG }
   }
+  if (!data || typeof data !== "object") return { ...DEFAULT_CONFIG }
+  const obj = data as Record<string, unknown>
+  return normalizeConfig({
+    theme: typeof obj.theme === "string" ? obj.theme : DEFAULT_CONFIG.theme,
+    layout:
+      obj.layout === "side-by-side" ? "side-by-side" : DEFAULT_CONFIG.layout,
+    confirm_undo_all:
+      typeof obj.confirm_undo_all === "boolean"
+        ? obj.confirm_undo_all
+        : DEFAULT_CONFIG.confirm_undo_all,
+    collections: Array.isArray(obj.collections)
+      ? obj.collections.filter((v): v is string => typeof v === "string")
+      : [],
+    proxy: obj.proxy === undefined ? undefined : parseAppProxyStrict(obj.proxy),
+  })
 }
 export function saveConfig(configDir: string, config: NoodleConfig): void {
   mkdirSync(configDir, { recursive: true })

@@ -15,6 +15,7 @@ import { auraTheme } from "../../src/ui/theme-data"
 import { TlsSettingsForm } from "../../src/ui/settings/TlsSettingsForm"
 
 const testRender = createTestRender()
+const TLS_SECRET_ID = "123e4567-e89b-42d3-a456-426614174000"
 
 function setupKeymap() {
   const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
@@ -42,7 +43,6 @@ describe("TlsSettingsForm", () => {
             focused
             insecure={false}
             collectionDir="/tmp/collection"
-            activeEnv={null}
             settings={{ verify: true }}
             onChange={() => true}
             onExit={() => {}}
@@ -78,7 +78,7 @@ describe("TlsSettingsForm", () => {
               focused
               insecure={false}
               collectionDir="/tmp/collection"
-              activeEnv={{ name: "dev", vars: { PASS: "secret" } }}
+              passphrases={{ [TLS_SECRET_ID]: "secret" }}
               settings={{
                 verify: true,
                 caBundle: "./certs/ca.pem",
@@ -88,7 +88,7 @@ describe("TlsSettingsForm", () => {
                     port: 8443,
                     certFile: "./certs/client.pem",
                     keyFile: "./certs/key.pem",
-                    passphrase: "$PASS",
+                    secretId: TLS_SECRET_ID,
                   },
                 ],
               }}
@@ -110,6 +110,7 @@ describe("TlsSettingsForm", () => {
     expect(frame).toContain("Certificate chain")
     expect(frame).toContain("Private key")
     expect(frame).not.toContain("secret")
+    expect(frame).toContain("******")
     expect(frame).toContain("Exact host and port match")
     expect(frame).toContain("Bare hostname matched exactly")
     expect(frame).toContain("Private key paired with the certificate chain")
@@ -158,7 +159,6 @@ describe("TlsSettingsForm", () => {
             focused
             insecure={false}
             collectionDir="/tmp/collection"
-            activeEnv={null}
             settings={{ verify: true, clientCertificates: [] }}
             onChange={() => true}
             onExit={() => {}}
@@ -185,7 +185,6 @@ describe("TlsSettingsForm", () => {
             focused
             insecure={false}
             collectionDir="/tmp/collection"
-            activeEnv={null}
             settings={{
               clientCertificates: [
                 {
@@ -234,7 +233,6 @@ describe("TlsSettingsForm", () => {
             focused
             insecure={false}
             collectionDir="/tmp/collection"
-            activeEnv={null}
             onChange={(settings) => {
               changes.push(settings)
               return true
@@ -261,7 +259,6 @@ describe("TlsSettingsForm", () => {
             focused
             insecure
             collectionDir="/tmp/collection"
-            activeEnv={null}
             settings={{ verify: true }}
             onChange={() => true}
             onExit={() => {}}
@@ -277,7 +274,7 @@ describe("TlsSettingsForm", () => {
     cleanup()
   })
 
-  it("keeps invalid passphrases local and reverts them on blur", async () => {
+  it("keeps passphrase edits local until blur", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const changes: unknown[] = []
     const { renderOnce, captureCharFrame, mockInput } = await testRender(
@@ -287,7 +284,6 @@ describe("TlsSettingsForm", () => {
             focused
             insecure={false}
             collectionDir="/tmp/collection"
-            activeEnv={{ name: "dev", vars: { PASS: "environment-secret" } }}
             settings={{
               clientCertificates: [
                 {
@@ -297,8 +293,9 @@ describe("TlsSettingsForm", () => {
                 },
               ],
             }}
-            onChange={(settings) => {
-              changes.push(settings)
+            onChange={() => true}
+            onPassphraseChange={async (_index, value) => {
+              changes.push(value)
               return true
             }}
             onExit={() => {}}
@@ -313,19 +310,17 @@ describe("TlsSettingsForm", () => {
     }
     await act(async () => mockInput.typeText("literal-secret"))
     await renderOnce()
-    expect(captureCharFrame()).toContain(
-      "Use an exact $VARNAME reference; literals are not saved.",
-    )
+    expect(captureCharFrame()).toContain("literal-secret")
     expect(changes).toEqual([])
 
     await act(async () => host.press("down"))
     await renderOnce()
+    expect(changes).toEqual(["literal-secret"])
     expect(captureCharFrame()).not.toContain("literal-secret")
-    expect(captureCharFrame()).not.toContain("environment-secret")
     cleanup()
   })
 
-  it("restores a persisted passphrase after a focused save rolls back", async () => {
+  it("restores a persisted passphrase after a failed commit", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const initialSettings: CollectionTlsSettings = {
       clientCertificates: [
@@ -333,27 +328,25 @@ describe("TlsSettingsForm", () => {
           host: "api.example.com",
           certFile: "client.pem",
           keyFile: "key.pem",
-          passphrase: "$OLD",
+          secretId: TLS_SECRET_ID,
         },
       ],
     }
-    let rollback = () => {}
-
     function Harness() {
       const [settings, setSettings] =
         useState<CollectionTlsSettings>(initialSettings)
-      rollback = () => setSettings(initialSettings)
       return (
         <TlsSettingsForm
           focused
           insecure={false}
           collectionDir="/tmp/collection"
-          activeEnv={null}
+          passphrases={{ [TLS_SECRET_ID]: "old-secret" }}
           settings={settings}
           onChange={(next) => {
             setSettings(next)
             return true
           }}
+          onPassphraseChange={async () => false}
           onExit={() => {}}
         />
       )
@@ -371,17 +364,114 @@ describe("TlsSettingsForm", () => {
     for (let index = 0; index < 8; index++) {
       await act(async () => host.press("down"))
     }
-    for (let index = 0; index < 4; index++) {
+    for (let index = 0; index < 10; index++) {
       await act(async () => mockInput.pressBackspace())
     }
-    await act(async () => mockInput.typeText("$NEW"))
+    await act(async () => mockInput.typeText("new-secret"))
     await renderOnce()
-    expect(captureCharFrame()).toContain("$NEW")
+    expect(captureCharFrame()).toContain("new-secret")
 
-    await act(async () => rollback())
+    await act(async () => host.press("down"))
     await renderOnce()
-    expect(captureCharFrame()).toContain("$OLD")
-    expect(captureCharFrame()).not.toContain("$NEW")
+    expect(captureCharFrame()).toContain("******")
+    expect(captureCharFrame()).not.toContain("new-secret")
+    await act(async () => host.press("up"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("old-secret")
+    cleanup()
+  })
+
+  it("Escape cancels a passphrase edit and remasks the old value", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const commits: string[] = []
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TlsSettingsForm
+            focused
+            insecure={false}
+            collectionDir="/tmp/collection"
+            passphrases={{ [TLS_SECRET_ID]: "old-secret" }}
+            settings={{
+              clientCertificates: [
+                {
+                  host: "api.example.com",
+                  certFile: "client.pem",
+                  keyFile: "key.pem",
+                  secretId: TLS_SECRET_ID,
+                },
+              ],
+            }}
+            onChange={() => true}
+            onPassphraseChange={async (_index, value) => {
+              commits.push(value)
+              return true
+            }}
+            onExit={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("down"))
+    }
+    await renderOnce()
+    expect(captureCharFrame()).toContain("old-secret")
+    await act(async () => mockInput.typeText("edited"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("edited")
+    await act(async () => host.press("escape"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("******")
+    expect(captureCharFrame()).not.toContain("edited")
+    expect(commits).toEqual([])
+    cleanup()
+  })
+
+  it("commits an empty passphrase as a deletion", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const commits: string[] = []
+    const { renderOnce, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TlsSettingsForm
+            focused
+            insecure={false}
+            collectionDir="/tmp/collection"
+            passphrases={{ [TLS_SECRET_ID]: "secret" }}
+            settings={{
+              clientCertificates: [
+                {
+                  host: "api.example.com",
+                  certFile: "client.pem",
+                  keyFile: "key.pem",
+                  secretId: TLS_SECRET_ID,
+                },
+              ],
+            }}
+            onChange={() => true}
+            onPassphraseChange={async (_index, value) => {
+              commits.push(value)
+              return true
+            }}
+            onExit={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 34 },
+    )
+    await renderOnce()
+    for (let index = 0; index < 8; index++) {
+      await act(async () => host.press("down"))
+    }
+    for (let index = 0; index < 6; index++) {
+      await act(async () => mockInput.pressBackspace())
+    }
+    await act(async () => host.press("down"))
+    await renderOnce()
+    expect(commits).toEqual([""])
     cleanup()
   })
 })

@@ -94,12 +94,12 @@ function Harness({
       layout="stacked"
       confirmUndoAll
       appProxy={appProxy}
+      appProxyCredentials={{ username: "alice", password: "secret" }}
       collectionProxy={{ mode: "inherit" }}
       collectionName={collectionSettings.name}
       collectionDescription={collectionSettings.description}
       timelineMaxEntries={collectionSettings.timelineMaxEntries}
       noProxy={false}
-      activeEnv={{ name: "development", vars: {} }}
       envNames={["development", "production"]}
       activeEnvName="development"
       keybinds={bindingDefaults()}
@@ -711,7 +711,8 @@ describe("SettingsView", () => {
             initialFocus="settings-content"
             appProxy={{
               mode: "custom",
-              url: "http://$PROXY_USER:$PROXY_PASSWORD@proxy.test:8080",
+              url: "http://proxy.test:8080",
+              auth: true,
             }}
           />
         </ThemeProvider>

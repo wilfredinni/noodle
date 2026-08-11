@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { randomUUID } from "node:crypto"
 import { join, resolve } from "node:path"
 import { AppInner } from "./AppInner"
 import { appendCollectionPath, useConfig } from "../hooks/useConfig"
@@ -19,25 +20,125 @@ import { saveKeybinds } from "./keybindConfig"
 import { classifyPath, type CollectionMode } from "../collectionPath"
 import type {
   AppProxySettings,
+  ClientCertificateProfile,
   CollectionProxySettings,
   CollectionSettings,
+  CollectionTlsSettings,
+  ProxyCredentials,
 } from "../schema"
 import type { SystemProxySettings } from "../proxy"
 import { resolveCollectionRegistration } from "./settings/collectionRegistry"
-import { queueCollectionSettingsSave } from "./settings/settingsPersistence"
+import {
+  queueCollectionSettingsSave,
+  type CollectionSettingsUpdate,
+} from "./settings/settingsPersistence"
 import type {
   CollectionSettingsCategory,
   GlobalSettingsCategory,
   SettingsScope,
 } from "./settings/SettingsView"
+import {
+  applySettingsSecretTransaction,
+  deleteAppSettingSecret,
+  deleteCollectionSettingSecret,
+  getAppSettingSecret,
+  getCollectionSettingSecret,
+  ensureCollectionId,
+  loadCollectionProxyCredentials,
+  loadTlsPassphrases,
+  setAppSettingSecret,
+  setCollectionSettingSecret,
+  type SecretMutation,
+} from "../secrets"
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
+
+function sameCertificateProfile(
+  left: ClientCertificateProfile,
+  right: ClientCertificateProfile,
+): boolean {
+  return (
+    left.host === right.host &&
+    left.port === right.port &&
+    left.certFile === right.certFile &&
+    left.keyFile === right.keyFile &&
+    left.secretId === right.secretId &&
+    left.enabled === right.enabled
+  )
+}
+
+function certificateProfileIndex(
+  profiles: ClientCertificateProfile[],
+  target: ClientCertificateProfile,
+  preferredIndex?: number,
+): number {
+  if (target.secretId) {
+    const index = profiles.findIndex(
+      (profile) => profile.secretId === target.secretId,
+    )
+    if (index !== -1) return index
+  }
+  if (
+    preferredIndex !== undefined &&
+    profiles[preferredIndex] &&
+    sameCertificateProfile(profiles[preferredIndex], target)
+  ) {
+    return preferredIndex
+  }
+  const index = profiles.findIndex((profile) =>
+    sameCertificateProfile(profile, target),
+  )
+  return index
+}
+
+function rebaseTlsSettings(
+  current: CollectionTlsSettings | undefined,
+  previous: CollectionTlsSettings | undefined,
+  next: CollectionTlsSettings | undefined,
+): CollectionTlsSettings | undefined {
+  if (!next) return undefined
+  const result = { ...current }
+  if (previous?.verify !== next.verify) result.verify = next.verify
+  if (previous?.caBundle !== next.caBundle) result.caBundle = next.caBundle
+
+  const previousProfiles = previous?.clientCertificates ?? []
+  const nextProfiles = next.clientCertificates ?? []
+  const currentProfiles = [...(current?.clientCertificates ?? [])]
+  if (nextProfiles.length === previousProfiles.length) {
+    for (const [index, profile] of nextProfiles.entries()) {
+      const previousProfile = previousProfiles[index]
+      if (!previousProfile || sameCertificateProfile(previousProfile, profile))
+        continue
+      const currentIndex = certificateProfileIndex(
+        currentProfiles,
+        previousProfile,
+        index,
+      )
+      if (currentIndex === -1) continue
+      currentProfiles[currentIndex] = {
+        ...profile,
+        secretId: currentProfiles[currentIndex]?.secretId,
+      }
+    }
+    result.clientCertificates = currentProfiles
+  } else if (nextProfiles.length > previousProfiles.length) {
+    result.clientCertificates = [
+      ...currentProfiles,
+      ...nextProfiles.slice(previousProfiles.length),
+    ]
+  }
+  return result
+}
 
 export function App({
   collectionDir,
   envList: initialEnvList,
   initialEnvName,
   initialSettings = {},
+  initialAppProxyCredentials = {},
+  initialCollectionProxyCredentials = {},
+  initialTlsPassphrases = {},
+  initialSettingsSecretError,
   noProxy = false,
   insecure = false,
   systemProxy,
@@ -50,6 +151,10 @@ export function App({
   envList: string[]
   initialEnvName?: string
   initialSettings?: CollectionSettings
+  initialAppProxyCredentials?: ProxyCredentials
+  initialCollectionProxyCredentials?: ProxyCredentials
+  initialTlsPassphrases?: Record<string, string>
+  initialSettingsSecretError?: string
   noProxy?: boolean
   insecure?: boolean
   systemProxy: SystemProxySettings
@@ -71,18 +176,27 @@ export function App({
   const [mode, setMode] = useState<CollectionMode>(initialMode)
   const [reloadKey, setReloadKey] = useState(0)
   const [settings, setSettings] = useState<CollectionSettings>(initialSettings)
+  const [appProxyCredentials, setAppProxyCredentials] = useState(
+    initialAppProxyCredentials,
+  )
+  const [collectionProxyCredentials, setCollectionProxyCredentials] = useState(
+    initialCollectionProxyCredentials,
+  )
+  const [tlsPassphrases, setTlsPassphrases] = useState(initialTlsPassphrases)
   const [registeredCollectionSettings, setRegisteredCollectionSettings] =
     useState<Record<string, CollectionSettings>>({})
   const settingsRef = useRef(initialSettings)
   const persistedSettingsRef = useRef(initialSettings)
   const activeCollectionDirRef = useRef(initialCollectionDir)
   const settingsSaveChainRef = useRef<Promise<void>>(Promise.resolve())
+  const pendingSettingsUpdatesRef = useRef<CollectionSettingsUpdate[]>([])
   const settingsPersistence = useMemo(
     () => ({
       activeCollectionDir: activeCollectionDirRef,
       currentSettings: settingsRef,
       persistedSettings: persistedSettingsRef,
       saveChain: settingsSaveChainRef,
+      pendingUpdates: pendingSettingsUpdatesRef,
     }),
     [],
   )
@@ -109,6 +223,15 @@ export function App({
   const [envColors, setEnvColors] = useState<
     Record<string, string | undefined>
   >({})
+
+  useEffect(() => {
+    if (initialSettingsSecretError) {
+      showToast(
+        `Failed to load settings secrets: ${initialSettingsSecretError}`,
+        "error",
+      )
+    }
+  }, [initialSettingsSecretError])
 
   const activeEnvironmentsDir = useMemo(
     () => join(activeCollectionDir, ".environments"),
@@ -259,13 +382,21 @@ export function App({
   const handleCollectionProxyChange = useCallback(
     (proxy: CollectionProxySettings) => {
       if (mode !== "collection") return false
-      const nextSettings = { ...settingsRef.current, proxy }
-      settingsRef.current = nextSettings
-      setSettings(nextSettings)
-      queueCollectionSettingsSave(
+      void queueCollectionSettingsSave(
         settingsPersistence,
         activeCollectionDir,
-        nextSettings,
+        (settings) => ({
+          ...settings,
+          proxy:
+            proxy.mode === "custom"
+              ? {
+                  ...proxy,
+                  ...(settings.proxy?.mode === "custom" && settings.proxy.auth
+                    ? { auth: true }
+                    : {}),
+                }
+              : proxy,
+        }),
         saveSettings,
         setSettings,
         () => showToast("Failed to save proxy settings", "error"),
@@ -273,6 +404,355 @@ export function App({
       return true
     },
     [activeCollectionDir, mode, settingsPersistence],
+  )
+
+  const persistCollectionSettingsTransaction = useCallback(
+    (
+      dir: string,
+      update: CollectionSettingsUpdate,
+      mutations: SecretMutation[],
+    ) =>
+      queueCollectionSettingsSave(
+        settingsPersistence,
+        dir,
+        update,
+        async (collectionDir, nextSettings) => {
+          const collectionId =
+            nextSettings.collectionId ??
+            (await ensureCollectionId(collectionDir))
+          if (!nextSettings.collectionId) {
+            persistedSettingsRef.current = {
+              ...persistedSettingsRef.current,
+              collectionId,
+            }
+          }
+          const persisted = { ...nextSettings, collectionId }
+          await applySettingsSecretTransaction(mutations, () =>
+            saveSettings(collectionDir, persisted),
+          )
+          return persisted
+        },
+        setSettings,
+        () => {},
+        (persisted) => {
+          setRegisteredCollectionSettings((current) => ({
+            ...current,
+            [dir]: persisted,
+          }))
+        },
+      ),
+    [settingsPersistence],
+  )
+
+  const handleAppProxyCredentialsChange = useCallback(
+    async (credentials: ProxyCredentials) => {
+      if (config.proxy?.mode !== "custom" || !credentials.username) return false
+      try {
+        const proxy: AppProxySettings = {
+          ...config.proxy,
+          auth: true,
+        }
+        await applySettingsSecretTransaction(
+          [
+            {
+              get: () => getAppSettingSecret("proxy:username"),
+              set: (value) => setAppSettingSecret("proxy:username", value),
+              delete: () => deleteAppSettingSecret("proxy:username"),
+              value: credentials.username,
+            },
+            {
+              get: () => getAppSettingSecret("proxy:password"),
+              set: (value) => setAppSettingSecret("proxy:password", value),
+              delete: () => deleteAppSettingSecret("proxy:password"),
+              value: credentials.password,
+            },
+          ],
+          () => {
+            if (
+              !updateGlobalConfig({ proxy }, "Failed to save proxy settings")
+            ) {
+              throw new Error("failed to persist proxy settings")
+            }
+          },
+        )
+        setAppProxyCredentials(credentials)
+        return true
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        )
+        return false
+      }
+    },
+    [config.proxy, updateGlobalConfig],
+  )
+
+  const handleCollectionProxyCredentialsChange = useCallback(
+    async (credentials: ProxyCredentials) => {
+      const current = settingsRef.current.proxy
+      if (
+        mode !== "collection" ||
+        current?.mode !== "custom" ||
+        !credentials.username
+      )
+        return false
+      const dir = activeCollectionDirRef.current
+      try {
+        await persistCollectionSettingsTransaction(
+          dir,
+          (settings) => ({
+            ...settings,
+            proxy:
+              settings.proxy?.mode === "custom"
+                ? { ...settings.proxy, auth: true }
+                : settings.proxy,
+          }),
+          [
+            {
+              get: () => getCollectionSettingSecret(dir, "proxy:username"),
+              set: (value) =>
+                setCollectionSettingSecret(dir, "proxy:username", value),
+              delete: () =>
+                deleteCollectionSettingSecret(dir, "proxy:username"),
+              value: credentials.username,
+            },
+            {
+              get: () => getCollectionSettingSecret(dir, "proxy:password"),
+              set: (value) =>
+                setCollectionSettingSecret(dir, "proxy:password", value),
+              delete: () =>
+                deleteCollectionSettingSecret(dir, "proxy:password"),
+              value: credentials.password,
+            },
+          ],
+        )
+        setCollectionProxyCredentials(credentials)
+        return true
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        )
+        return false
+      }
+    },
+    [mode, persistCollectionSettingsTransaction],
+  )
+
+  const handleProxyAuthDisable = useCallback(
+    async (scope: "app" | "collection") => {
+      const current = scope === "app" ? config.proxy : settingsRef.current.proxy
+      if (current?.mode !== "custom") return false
+      const proxy = {
+        ...current,
+        auth: undefined,
+      }
+      const dir = activeCollectionDirRef.current
+      try {
+        const names = ["proxy:username", "proxy:password"] as const
+        const mutations = names.map((name) => ({
+          get: () =>
+            scope === "app"
+              ? getAppSettingSecret(name)
+              : getCollectionSettingSecret(dir, name),
+          set: (value: string) =>
+            scope === "app"
+              ? setAppSettingSecret(name, value)
+              : setCollectionSettingSecret(dir, name, value),
+          delete: () =>
+            scope === "app"
+              ? deleteAppSettingSecret(name)
+              : deleteCollectionSettingSecret(dir, name),
+        }))
+        if (scope === "app") {
+          await applySettingsSecretTransaction(mutations, () => {
+            if (
+              !updateGlobalConfig(
+                { proxy: proxy as AppProxySettings },
+                "Failed to save proxy settings",
+              )
+            ) {
+              throw new Error("failed to persist proxy settings")
+            }
+          })
+        } else {
+          await persistCollectionSettingsTransaction(
+            dir,
+            (settings) => ({
+              ...settings,
+              proxy:
+                settings.proxy?.mode === "custom"
+                  ? { ...settings.proxy, auth: undefined }
+                  : settings.proxy,
+            }),
+            mutations,
+          )
+        }
+        if (scope === "app") setAppProxyCredentials({})
+        else setCollectionProxyCredentials({})
+        return true
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        )
+        return false
+      }
+    },
+    [config.proxy, persistCollectionSettingsTransaction, updateGlobalConfig],
+  )
+
+  const handleTlsPassphraseChange = useCallback(
+    async (index: number, value: string) => {
+      if (mode !== "collection") return false
+      const currentTls = settingsRef.current.tls ?? {}
+      const profiles = currentTls.clientCertificates ?? []
+      const profile = profiles[index]
+      if (!profile) return false
+      const secretId = profile.secretId ?? randomUUID()
+      const dir = activeCollectionDirRef.current
+      try {
+        await persistCollectionSettingsTransaction(
+          dir,
+          (settings) => {
+            const currentProfiles = settings.tls?.clientCertificates ?? []
+            const targetIndex = certificateProfileIndex(
+              currentProfiles,
+              profile,
+              index,
+            )
+            if (!currentProfiles[targetIndex]) return settings
+            return {
+              ...settings,
+              tls: {
+                ...settings.tls,
+                clientCertificates: currentProfiles.map((item, current) =>
+                  current === targetIndex
+                    ? {
+                        ...item,
+                        secretId: value ? secretId : undefined,
+                      }
+                    : item,
+                ),
+              },
+            }
+          },
+          [
+            {
+              get: () =>
+                getCollectionSettingSecret(dir, `tls:${secretId}:passphrase`),
+              set: (secret) =>
+                setCollectionSettingSecret(
+                  dir,
+                  `tls:${secretId}:passphrase`,
+                  secret,
+                ),
+              delete: () =>
+                deleteCollectionSettingSecret(
+                  dir,
+                  `tls:${secretId}:passphrase`,
+                ),
+              value: value || undefined,
+            },
+          ],
+        )
+        setTlsPassphrases((current) => {
+          const next = { ...current }
+          if (
+            value &&
+            settingsRef.current.tls?.clientCertificates?.some(
+              (item) => item.secretId === secretId,
+            )
+          ) {
+            next[secretId] = value
+          } else {
+            delete next[secretId]
+          }
+          return next
+        })
+        return true
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        )
+        return false
+      }
+    },
+    [mode, persistCollectionSettingsTransaction],
+  )
+
+  const handleTlsProfileRemove = useCallback(
+    async (index: number) => {
+      if (mode !== "collection") return false
+      const currentTls = settingsRef.current.tls ?? {}
+      const profiles = currentTls.clientCertificates ?? []
+      const profile = profiles[index]
+      if (!profile) return false
+      const dir = activeCollectionDirRef.current
+      try {
+        const mutations = profile.secretId
+          ? [
+              {
+                get: () =>
+                  getCollectionSettingSecret(
+                    dir,
+                    `tls:${profile.secretId}:passphrase`,
+                  ),
+                set: (value: string) =>
+                  setCollectionSettingSecret(
+                    dir,
+                    `tls:${profile.secretId}:passphrase`,
+                    value,
+                  ),
+                delete: () =>
+                  deleteCollectionSettingSecret(
+                    dir,
+                    `tls:${profile.secretId}:passphrase`,
+                  ),
+              },
+            ]
+          : []
+        await persistCollectionSettingsTransaction(
+          dir,
+          (settings) => {
+            const currentProfiles = settings.tls?.clientCertificates ?? []
+            const targetIndex = certificateProfileIndex(
+              currentProfiles,
+              profile,
+              index,
+            )
+            if (!currentProfiles[targetIndex]) return settings
+            return {
+              ...settings,
+              tls: {
+                ...settings.tls,
+                clientCertificates: currentProfiles.filter(
+                  (_, current) => current !== targetIndex,
+                ),
+              },
+            }
+          },
+          mutations,
+        )
+        if (profile.secretId) {
+          setTlsPassphrases((current) => {
+            const next = { ...current }
+            delete next[profile.secretId!]
+            return next
+          })
+        }
+        return true
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        )
+        return false
+      }
+    },
+    [mode, persistCollectionSettingsTransaction],
   )
 
   const handleCollectionSettingsChange = useCallback(
@@ -289,19 +769,26 @@ export function App({
         previous.timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES
       const nextLimit =
         nextSettings.timelineMaxEntries ?? DEFAULT_TIMELINE_MAX_ENTRIES
-      settingsRef.current = nextSettings
-      setSettings(nextSettings)
-      queueCollectionSettingsSave(
+      void queueCollectionSettingsSave(
         settingsPersistence,
         activeCollectionDir,
-        nextSettings,
+        (settings) => {
+          if (!("tls" in patch)) {
+            return { ...settings, ...patch }
+          }
+          return {
+            ...settings,
+            ...patch,
+            tls: rebaseTlsSettings(settings.tls, previous.tls, patch.tls),
+          }
+        },
         saveSettings,
         setSettings,
         () => showToast("Failed to save collection settings", "error"),
-        () => {
+        (persisted) => {
           setRegisteredCollectionSettings((current) => ({
             ...current,
-            [activeCollectionDir]: nextSettings,
+            [activeCollectionDir]: persisted,
           }))
           if (nextLimit < previousLimit) {
             pruneTimeline(activeCollectionDir, nextLimit).catch(() =>
@@ -330,18 +817,19 @@ export function App({
   const handleEnvChange = useCallback(
     (name: string | null) => {
       const envName = name ?? undefined
-      const nextSettings = { ...settingsRef.current, environment: envName }
-      settingsRef.current = nextSettings
-      setSettings(nextSettings)
       if (mode === "collection") {
-        queueCollectionSettingsSave(
+        void queueCollectionSettingsSave(
           settingsPersistence,
           activeCollectionDir,
-          nextSettings,
+          (settings) => ({ ...settings, environment: envName }),
           saveSettings,
           setSettings,
           () => showToast("Failed to save active environment", "error"),
         )
+      } else {
+        const nextSettings = { ...settingsRef.current, environment: envName }
+        settingsRef.current = nextSettings
+        setSettings(nextSettings)
       }
     },
     [activeCollectionDir, mode, settingsPersistence],
@@ -444,11 +932,39 @@ export function App({
           }
         }
 
+        let nextCollectionProxyCredentials: ProxyCredentials = {}
+        let nextTlsPassphrases: Record<string, string> = {}
+        if (nextMode === "collection") {
+          try {
+            ;[nextCollectionProxyCredentials, nextTlsPassphrases] =
+              await Promise.all([
+                loadCollectionProxyCredentials(normalized, nextSettings.proxy),
+                loadTlsPassphrases(normalized, nextSettings.tls),
+              ])
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error)
+            showToast(`Failed to load settings secrets: ${message}`, "error")
+            return
+          }
+        }
+
+        const pending = settingsSaveChainRef.current
+        await pending
+        if (pending !== settingsSaveChainRef.current) {
+          showToast(
+            "Settings changed while switching collections; try again",
+            "error",
+          )
+          return
+        }
         setEnvNames(nextEnvNames)
         setEnvColors(nextEnvColors)
         settingsRef.current = nextSettings
         persistedSettingsRef.current = nextSettings
         setSettings(nextSettings)
+        setCollectionProxyCredentials(nextCollectionProxyCredentials)
+        setTlsPassphrases(nextTlsPassphrases)
         setLastRequestId(nextLastRequestId)
         setInitialEnvNameState(undefined)
         setActiveCollectionDir(normalized)
@@ -504,8 +1020,11 @@ export function App({
         onEnvListChanged={handleEnvListChanged}
         settingsEnv={settingsEnv}
         appProxy={config.proxy}
+        appProxyCredentials={appProxyCredentials}
         collectionProxy={settings.proxy}
+        collectionProxyCredentials={collectionProxyCredentials}
         collectionTls={settings.tls}
+        tlsPassphrases={tlsPassphrases}
         collectionName={settings.name}
         collectionDescription={settings.description}
         timelineMaxEntries={settings.timelineMaxEntries}
@@ -514,6 +1033,13 @@ export function App({
         systemProxy={systemProxy}
         onAppProxyChange={handleAppProxyChange}
         onCollectionProxyChange={handleCollectionProxyChange}
+        onAppProxyCredentialsChange={handleAppProxyCredentialsChange}
+        onCollectionProxyCredentialsChange={
+          handleCollectionProxyCredentialsChange
+        }
+        onProxyAuthDisable={handleProxyAuthDisable}
+        onTlsPassphraseChange={handleTlsPassphraseChange}
+        onTlsProfileRemove={handleTlsProfileRemove}
         onCollectionSettingsChange={handleCollectionSettingsChange}
         initialLastRequestId={lastRequestId}
         collectionPaths={collectionPaths}

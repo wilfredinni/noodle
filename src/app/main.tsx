@@ -15,7 +15,12 @@ import * as yaml from "js-yaml"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../hooks/useConfig"
 import { takeSystemProxyFromEnv, type SystemProxySettings } from "../proxy"
-import type { CollectionSettings } from "../schema"
+import type { CollectionSettings, ProxyCredentials } from "../schema"
+import {
+  loadAppProxyCredentials,
+  loadCollectionProxyCredentials,
+  loadTlsPassphrases,
+} from "../secrets"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
@@ -61,11 +66,17 @@ export function resolveStartupCollectionDir(
 
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
   const capturedSystemProxy = takeSystemProxyFromEnv()
-  let collectionPaths: string[] = []
+  let collectionPaths: string[]
+  let appProxy
   try {
-    collectionPaths = loadConfig(CONFIG_DIR).collections
-  } catch {
-    // config unavailable
+    const config = loadConfig(CONFIG_DIR)
+    collectionPaths = config.collections
+    appProxy = config.proxy
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`error: ${message}\n`)
+    process.exit(1)
+    return
   }
   const collectionDir = resolveStartupCollectionDir(options, collectionPaths)
 
@@ -110,6 +121,29 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
       process.stderr.write(`error: ${message}\n`)
       process.exit(1)
     }
+  }
+
+  let initialAppProxyCredentials: ProxyCredentials = {}
+  let initialCollectionProxyCredentials: ProxyCredentials = {}
+  let initialTlsPassphrases: Record<string, string> = {}
+  let initialSettingsSecretError: string | undefined
+  try {
+    ;[
+      initialAppProxyCredentials,
+      initialCollectionProxyCredentials,
+      initialTlsPassphrases,
+    ] = await Promise.all([
+      loadAppProxyCredentials(appProxy),
+      mode === "collection"
+        ? loadCollectionProxyCredentials(collectionDir, initialSettings.proxy)
+        : Promise.resolve({}),
+      mode === "collection"
+        ? loadTlsPassphrases(collectionDir, initialSettings.tls)
+        : Promise.resolve({}),
+    ])
+  } catch (error) {
+    initialSettingsSecretError =
+      error instanceof Error ? error.message : String(error)
   }
 
   let lastRequestId: string | undefined
@@ -170,6 +204,10 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
           envList={envList}
           initialEnvName={initialEnvName}
           initialSettings={initialSettings}
+          initialAppProxyCredentials={initialAppProxyCredentials}
+          initialCollectionProxyCredentials={initialCollectionProxyCredentials}
+          initialTlsPassphrases={initialTlsPassphrases}
+          initialSettingsSecretError={initialSettingsSecretError}
           noProxy={options.noProxy}
           insecure={options.insecure}
           systemProxy={options.systemProxy ?? capturedSystemProxy}

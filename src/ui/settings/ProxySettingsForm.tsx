@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type {
   AppProxySettings,
   CollectionProxySettings,
-  Environment,
+  ProxyCredentials,
 } from "../../schema"
 import {
   buildStructuredProxyTemplate,
@@ -15,9 +15,9 @@ import {
 } from "../../proxy"
 import { Checkbox } from "../Checkbox"
 import { Select, type SelectItem } from "../Select"
-import { VarInput, type VarInputHandle } from "../VarInput"
 import { useTheme } from "../theme"
 import { SettingsField } from "./SettingsField"
+import { SecretInput } from "./SecretInput"
 
 type EditorMode = "fields" | "advanced"
 type ProxyMode = "system" | "inherit" | "custom" | "off"
@@ -37,6 +37,7 @@ interface FormValues {
   mode: ProxyMode
   editor: EditorMode
   fields: StructuredProxyFields
+  auth: boolean
   url: string
   bypass: string
 }
@@ -61,9 +62,6 @@ const EMPTY_FIELDS: StructuredProxyFields = {
   protocol: "http",
   hostname: "",
   port: "",
-  auth: false,
-  username: "",
-  password: "",
 }
 
 function valuesFor(
@@ -75,6 +73,7 @@ function valuesFor(
       mode: fallback,
       editor: "fields",
       fields: EMPTY_FIELDS,
+      auth: false,
       url: "",
       bypass: "",
     }
@@ -84,6 +83,7 @@ function valuesFor(
       mode: "off",
       editor: "fields",
       fields: EMPTY_FIELDS,
+      auth: false,
       url: "",
       bypass: "",
     }
@@ -93,6 +93,7 @@ function valuesFor(
     mode: "custom",
     editor: fields ? "fields" : "advanced",
     fields: fields ?? EMPTY_FIELDS,
+    auth: proxy.auth === true,
     url: proxy.url,
     bypass: (proxy.bypass ?? []).join(", "),
   }
@@ -101,20 +102,24 @@ function valuesFor(
 export function ProxySettingsForm({
   scope,
   proxy,
-  activeEnv,
+  credentials = {},
   focused,
   noProxy = false,
   onChange,
+  onCredentialsChange = async () => false,
+  onAuthDisable = async () => false,
   onExit,
   onFieldFocus,
   onTextInputFocusChange,
 }: {
   scope: "app" | "collection"
   proxy?: AppProxySettings | CollectionProxySettings
-  activeEnv?: Environment | null
+  credentials?: ProxyCredentials
   focused: boolean
   noProxy?: boolean
   onChange: (proxy: AppProxySettings | CollectionProxySettings) => boolean
+  onCredentialsChange?: (credentials: ProxyCredentials) => Promise<boolean>
+  onAuthDisable?: () => Promise<boolean>
   onExit?: () => void
   onFieldFocus?: (field: Field) => void
   onTextInputFocusChange?: (active: boolean) => void
@@ -127,31 +132,49 @@ export function ProxySettingsForm({
   valuesRef.current = values
   const [field, setField] = useState<Field>("mode")
   const [error, setError] = useState<string | null>(null)
+  const [usernameDraft, setUsernameDraft] = useState<string>()
   const [selectOpen, setSelectOpen] = useState(false)
   const hostnameRef = useRef<InputRenderable | null>(null)
   const portRef = useRef<InputRenderable | null>(null)
-  const usernameRef = useRef<VarInputHandle | null>(null)
-  const passwordRef = useRef<VarInputHandle | null>(null)
-  const urlRef = useRef<VarInputHandle | null>(null)
+  const urlRef = useRef<InputRenderable | null>(null)
   const bypassRef = useRef<InputRenderable | null>(null)
   const lastPublishedRef = useRef<string | null>(null)
+  const savedCredentialsRef = useRef(credentials)
+  const credentialSaveChainRef = useRef<Promise<void>>(Promise.resolve())
+  const pendingCredentialSavesRef = useRef(0)
+  const disablingAuthRef = useRef(false)
   const proxyFingerprint = `${scope}:${JSON.stringify(proxy)}`
+  const proxyRef = useRef(proxy)
+  proxyRef.current = proxy
+  const credentialFingerprint = JSON.stringify(credentials)
+
+  useEffect(() => {
+    if (pendingCredentialSavesRef.current === 0) {
+      savedCredentialsRef.current = credentials
+    }
+  }, [credentialFingerprint, credentials])
 
   useEffect(() => {
     if (lastPublishedRef.current === proxyFingerprint) return
-    const next = valuesFor(proxy, fallback)
+    const next = valuesFor(proxyRef.current, fallback)
     valuesRef.current = next
     setValues(next)
-    setField("mode")
     setError(null)
-  }, [fallback, proxy, proxyFingerprint])
+  }, [fallback, proxyFingerprint])
 
   const focusOrder = useMemo<Field[]>(
     () =>
       values.mode !== "custom"
         ? ["mode"]
         : values.editor === "advanced"
-          ? ["mode", "editor", "proxy-url", "bypass"]
+          ? [
+              "mode",
+              "editor",
+              "proxy-url",
+              "bypass",
+              "auth",
+              ...(values.auth ? (["username", "password"] as const) : []),
+            ]
           : [
               "mode",
               "editor",
@@ -160,9 +183,7 @@ export function ProxySettingsForm({
               "port",
               "bypass",
               "auth",
-              ...(values.fields.auth
-                ? (["username", "password"] as const)
-                : []),
+              ...(values.auth ? (["username", "password"] as const) : []),
             ],
     [values],
   )
@@ -194,15 +215,21 @@ export function ProxySettingsForm({
       }
       setError(null)
       const bypass = normalizeBypass(next.bypass.split(","))
-      const output: AppProxySettings | CollectionProxySettings =
-        bypass.length > 0
-          ? { mode: "custom", url, bypass }
-          : { mode: "custom", url }
+      const persistedAuth =
+        proxyRef.current?.mode === "custom" && proxyRef.current.auth === true
+      const output: AppProxySettings | CollectionProxySettings = {
+        mode: "custom",
+        url,
+        ...(bypass.length > 0 ? { bypass } : {}),
+        ...(next.auth && (persistedAuth || credentials.username)
+          ? { auth: true }
+          : {}),
+      }
       if (!onChange(output)) return "failed"
       lastPublishedRef.current = `${scope}:${JSON.stringify(output)}`
       return "saved"
     },
-    [onChange, scope],
+    [credentials.username, onChange, scope],
   )
 
   const update = useCallback(
@@ -240,6 +267,78 @@ export function ProxySettingsForm({
     [publish],
   )
 
+  const saveCredentials = useCallback(
+    (patch: Partial<ProxyCredentials>) => {
+      pendingCredentialSavesRef.current++
+      const pending = credentialSaveChainRef.current.then(async () => {
+        const next = { ...savedCredentialsRef.current, ...patch }
+        const saved = await onCredentialsChange(next)
+        if (saved) savedCredentialsRef.current = next
+        return saved
+      })
+      credentialSaveChainRef.current = pending.then(
+        () => {},
+        () => {},
+      )
+      void pending.then(
+        () => pendingCredentialSavesRef.current--,
+        () => pendingCredentialSavesRef.current--,
+      )
+      return pending
+    },
+    [onCredentialsChange],
+  )
+
+  const disableAuth = useCallback(async () => {
+    if (disablingAuthRef.current) return false
+    disablingAuthRef.current = true
+    const current = valuesRef.current
+    const disabled = {
+      ...current,
+      auth: false,
+    }
+    valuesRef.current = disabled
+    setValues(disabled)
+    setUsernameDraft(undefined)
+    setError(null)
+    try {
+      const stored = proxyRef.current
+      if (
+        pendingCredentialSavesRef.current === 0 &&
+        (stored?.mode !== "custom" || stored.auth !== true)
+      ) {
+        return true
+      }
+      await credentialSaveChainRef.current
+      const saved = await onAuthDisable()
+      if (saved) {
+        savedCredentialsRef.current = {}
+        return true
+      }
+      const latest = valuesRef.current
+      const restored = {
+        ...latest,
+        auth: true,
+      }
+      valuesRef.current = restored
+      setValues(restored)
+      setError("Could not disable proxy authentication")
+      return false
+    } catch (error) {
+      const latest = valuesRef.current
+      const restored = {
+        ...latest,
+        auth: true,
+      }
+      valuesRef.current = restored
+      setValues(restored)
+      setError(error instanceof Error ? error.message : String(error))
+      return false
+    } finally {
+      disablingAuthRef.current = false
+    }
+  }, [onAuthDisable])
+
   const switchEditor = useCallback(
     (editor: EditorMode) => {
       if (editor === values.editor) return
@@ -254,7 +353,12 @@ export function ProxySettingsForm({
           }
           update({ editor }, false)
           setError(null)
-        } else update({ editor, fields })
+        } else {
+          update({
+            editor,
+            fields,
+          })
+        }
       } else {
         const result = buildStructuredProxyTemplate(values.fields)
         if ("error" in result) {
@@ -301,10 +405,17 @@ export function ProxySettingsForm({
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
           commitCurrent()
-        } else if (ctx.event.name === "space" && field === "auth") {
+        } else if (
+          (ctx.event.name === "space" || ctx.event.name === "return") &&
+          field === "auth"
+        ) {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
-          updateFields({ auth: !values.fields.auth })
+          if (values.auth) {
+            void disableAuth()
+          } else {
+            update({ auth: true }, Boolean(credentials.username))
+          }
         }
       },
       { priority: 100 },
@@ -317,9 +428,11 @@ export function ProxySettingsForm({
     focused,
     keymap,
     onExit,
+    disableAuth,
     selectOpen,
-    updateFields,
-    values.fields.auth,
+    update,
+    credentials.username,
+    values.auth,
   ])
 
   useEffect(() => {
@@ -337,8 +450,6 @@ export function ProxySettingsForm({
     )
     if (field === "hostname") hostnameRef.current?.focus()
     else if (field === "port") portRef.current?.focus()
-    else if (field === "username") usernameRef.current?.focus()
-    else if (field === "password") passwordRef.current?.focus()
     else if (field === "proxy-url") urlRef.current?.focus()
     else if (field === "bypass") bypassRef.current?.focus()
   }, [field, focused, onFieldFocus, onTextInputFocusChange])
@@ -356,14 +467,21 @@ export function ProxySettingsForm({
           { id: "off", label: "Off (direct connections)" },
         ]
 
-  const variableEnv = activeEnv ?? null
-  const credentialStorage = scope === "app" ? "app config" : "settings.yml"
-  const credentialDescription = `Optional. Enter credentials directly (stored in ${credentialStorage}) or use $VARNAME from the active environment.`
-  const advancedCredentialDescription = `Credentials are optional. Enter them directly (stored in ${credentialStorage}) or use $VARNAME from the active environment.`
+  useEffect(() => {
+    setUsernameDraft(undefined)
+  }, [credentials.username, proxyFingerprint])
+  const credentialDescription =
+    "Credentials are stored securely and are revealed only while focused."
+  const advancedCredentialDescription =
+    "Enter only the proxy URL here. Configure credentials with the secret fields below."
 
-  const errorField = proxyErrorField(error, values.editor)
+  const displayedError =
+    values.auth && !(usernameDraft ?? credentials.username)
+      ? "Username is required when proxy authentication is enabled"
+      : error
+  const errorField = proxyErrorField(displayedError, values.editor)
   const fieldError = (target: Field) =>
-    errorField === target ? (error ?? undefined) : undefined
+    errorField === target ? (displayedError ?? undefined) : undefined
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
@@ -386,7 +504,18 @@ export function ProxySettingsForm({
         focused={focused && field === "mode"}
         onOpenChange={setSelectOpen}
         onActivate={() => setField("mode")}
-        onChange={(mode) => update({ mode: mode as ProxyMode })}
+        onChange={(mode) => {
+          const nextMode = mode as ProxyMode
+          if (
+            values.mode === "custom" &&
+            nextMode !== "custom" &&
+            values.auth
+          ) {
+            void disableAuth().then((saved) => {
+              if (saved) update({ mode: nextMode })
+            })
+          } else update({ mode: nextMode })
+        }}
       />
       {values.mode === "custom" && (
         <>
@@ -450,15 +579,14 @@ export function ProxySettingsForm({
               />
             </>
           ) : (
-            <VariableField
+            <TextField
               id="settings-proxy-proxy-url"
               label="Proxy URL"
               inputRef={urlRef}
               value={values.url}
-              placeholder="http://$PROXY_USER:$PROXY_PASSWORD@proxy:8080"
+              placeholder="http://proxy.example:8080"
               focused={focused && field === "proxy-url"}
               error={fieldError("proxy-url")}
-              env={variableEnv}
               hint={advancedCredentialDescription}
               onFocus={() => setField("proxy-url")}
               onChange={(url) => update({ url }, false)}
@@ -475,56 +603,126 @@ export function ProxySettingsForm({
             onChange={(bypass) => update({ bypass })}
             hint="Optional. Comma-separated; supports *, hosts, .domains, IPs, and ports."
           />
-          {values.editor === "fields" && (
-            <>
-              <SettingsField
-                id="settings-proxy-auth"
-                title="Proxy authentication (optional)"
-                description={credentialDescription}
-                active={focused && field === "auth"}
-                onMouseDown={() => {
-                  setField("auth")
-                  updateFields({ auth: !values.fields.auth })
-                }}
-              >
-                <Checkbox checked={values.fields.auth} theme={theme} />
-              </SettingsField>
-              {values.fields.auth && (
-                <>
-                  <VariableField
-                    id="settings-proxy-username"
-                    label="Username"
-                    inputRef={usernameRef}
-                    value={values.fields.username}
-                    placeholder="username or $PROXY_USER"
-                    hint="Required for authentication. Enter a literal value or use $VARNAME from the active environment."
-                    focused={focused && field === "username"}
-                    error={fieldError("username")}
-                    env={variableEnv}
-                    onFocus={() => setField("username")}
-                    onChange={(username) => updateFields({ username })}
-                  />
-                  <VariableField
-                    id="settings-proxy-password"
-                    label="Password (optional)"
-                    inputRef={passwordRef}
-                    value={values.fields.password}
-                    placeholder="password or $PROXY_PASSWORD"
-                    hint="Optional. Enter a literal value or use $VARNAME from the active environment."
-                    focused={focused && field === "password"}
-                    error={fieldError("password")}
-                    env={variableEnv}
-                    onFocus={() => setField("password")}
-                    onChange={(password) => updateFields({ password })}
-                  />
-                </>
-              )}
-            </>
-          )}
+          <>
+            <SettingsField
+              id="settings-proxy-auth"
+              title="Proxy authentication (optional)"
+              description={credentialDescription}
+              active={focused && field === "auth"}
+              onMouseDown={() => {
+                setField("auth")
+                if (values.auth) {
+                  void disableAuth()
+                } else {
+                  update({ auth: true }, Boolean(credentials.username))
+                }
+              }}
+            >
+              <Checkbox checked={values.auth} theme={theme} />
+            </SettingsField>
+            {values.auth && (
+              <>
+                <SecretField
+                  id="settings-proxy-username"
+                  label="Username"
+                  value={credentials.username}
+                  hasValue={Boolean(credentials.username)}
+                  placeholder="username"
+                  hint="Required when proxy authentication is enabled."
+                  focused={focused && field === "username"}
+                  error={fieldError("username")}
+                  onFocus={() => setField("username")}
+                  onDraftChange={setUsernameDraft}
+                  onCommit={async (username) => {
+                    if (!username) {
+                      setError(
+                        "Proxy username is required when authentication is enabled",
+                      )
+                      return false
+                    }
+                    return saveCredentials({
+                      username,
+                    })
+                  }}
+                  onError={(message) => setError(message ?? null)}
+                />
+                <SecretField
+                  id="settings-proxy-password"
+                  label="Password (optional)"
+                  value={credentials.password}
+                  hasValue={Boolean(credentials.password)}
+                  placeholder="optional"
+                  hint="Optional. Clear the field to delete the stored password."
+                  focused={focused && field === "password"}
+                  error={fieldError("password")}
+                  onFocus={() => setField("password")}
+                  onCommit={(password) =>
+                    saveCredentials({
+                      password: password || undefined,
+                    })
+                  }
+                  onError={(message) => setError(message ?? null)}
+                />
+              </>
+            )}
+          </>
         </>
       )}
-      {error && !errorField && <text fg={theme.error}>{error}</text>}
+      {displayedError && !errorField && (
+        <text fg={theme.error}>{displayedError}</text>
+      )}
     </box>
+  )
+}
+
+function SecretField({
+  id,
+  label,
+  value,
+  hasValue,
+  placeholder,
+  focused,
+  onFocus,
+  onCommit,
+  onDraftChange,
+  onError,
+  hint,
+  error,
+}: {
+  id: string
+  label: string
+  value?: string
+  hasValue?: boolean
+  placeholder: string
+  focused: boolean
+  onFocus: () => void
+  onCommit: (value: string) => Promise<boolean>
+  onDraftChange?: (value: string) => void
+  onError: (message?: string) => void
+  hint?: string
+  error?: string
+}) {
+  return (
+    <SettingsField
+      id={id}
+      title={label}
+      active={focused}
+      description={hint}
+      error={error}
+    >
+      <box style={{ flexGrow: 1, minWidth: 0, height: 1, overflow: "hidden" }}>
+        <SecretInput
+          value={value}
+          hasValue={hasValue}
+          focused={focused}
+          placeholder={placeholder}
+          onFocus={onFocus}
+          onCommit={onCommit}
+          onDraftChange={onDraftChange}
+          onError={onError}
+        />
+      </box>
+    </SettingsField>
   )
 }
 
@@ -620,58 +818,6 @@ function TextField({
           textColor={theme.text}
           cursorColor={theme.primary}
           placeholderColor={theme.textMuted}
-          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
-        />
-      </box>
-    </SettingsField>
-  )
-}
-
-function VariableField({
-  id,
-  label,
-  value,
-  placeholder,
-  focused,
-  env,
-  onFocus,
-  onChange,
-  inputRef,
-  hint,
-  error,
-}: {
-  id: string
-  label: string
-  value: string
-  placeholder: string
-  focused: boolean
-  env: Environment | null
-  onFocus: () => void
-  onChange: (value: string) => void
-  inputRef: { current: VarInputHandle | null }
-  hint?: string
-  error?: string
-}) {
-  return (
-    <SettingsField
-      id={id}
-      title={label}
-      active={focused}
-      description={hint}
-      error={error}
-    >
-      <box style={{ flexGrow: 1, minWidth: 0, height: 1, overflow: "hidden" }}>
-        <VarInput
-          ref={inputRef}
-          value={value}
-          env={env}
-          isEditing
-          isFocused={focused}
-          onChange={onChange}
-          placeholder={placeholder}
-          backgroundColor="transparent"
-          focusedBackgroundColor="transparent"
-          onFocus={onFocus}
           style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
         />
       </box>

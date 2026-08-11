@@ -2,16 +2,15 @@ import { isAbsolute, resolve } from "node:path"
 import type {
   ClientCertificateProfile,
   CollectionTlsSettings,
-  Environment,
   Request,
 } from "./schema"
 import { expandUserPath } from "./userPath"
-import { isVariableReference, variableReferenceName } from "./variableReference"
 
 export interface TlsPolicy {
   collectionDir: string
   settings?: CollectionTlsSettings
   insecure?: boolean
+  passphrases?: Record<string, string>
 }
 
 export interface ResolvedTls {
@@ -89,9 +88,7 @@ export function collectionTlsToYaml(
           key_file: profile.keyFile,
         }
         if (profile.port !== undefined) value.port = profile.port
-        if (profile.passphrase !== undefined) {
-          value.passphrase = profile.passphrase
-        }
+        if (profile.secretId !== undefined) value.secret_id = profile.secretId
         if (profile.enabled !== undefined) value.enabled = profile.enabled
         return value
       })
@@ -103,7 +100,6 @@ export function collectionTlsToYaml(
 export async function tlsForUrl(
   request: Pick<Request, "tls">,
   url: string,
-  env: Environment | undefined,
   policy: TlsPolicy | undefined,
 ): Promise<ResolvedTls> {
   const parsed = new URL(url)
@@ -141,8 +137,14 @@ export async function tlsForUrl(
     const keyPath = resolveTlsPath(profile.keyFile, policy.collectionDir)
     options.cert = await requiredFile(certPath, "client certificate")
     options.key = await requiredFile(keyPath, "client key")
-    if (profile.passphrase) {
-      options.passphrase = resolvePassphrase(profile.passphrase, env)
+    if (profile.secretId) {
+      const passphrase = policy.passphrases?.[profile.secretId]
+      if (passphrase === undefined) {
+        throw new Error(
+          `TLS client certificate for ${profile.host} has a missing passphrase secret`,
+        )
+      }
+      options.passphrase = passphrase
     }
     messages.push(`TLS client certificate selected for ${profile.host}`)
   }
@@ -211,6 +213,12 @@ function parseClientCertificate(
   path: string,
 ): ClientCertificateProfile {
   if (!isRecord(value)) throw invalid(path, "must be a mapping")
+  if (Object.hasOwn(value, "passphrase")) {
+    throw invalid(
+      `${path}.passphrase`,
+      "is no longer supported; remove it and configure the passphrase in Settings",
+    )
+  }
   const unknownKey = Object.keys(value).find(
     (key) =>
       ![
@@ -218,7 +226,7 @@ function parseClientCertificate(
         "port",
         "cert_file",
         "key_file",
-        "passphrase",
+        "secret_id",
         "enabled",
       ].includes(key),
   )
@@ -239,21 +247,17 @@ function parseClientCertificate(
   ) {
     throw invalid(`${path}.port`, "must be an integer from 1 to 65535")
   }
-  if (value.passphrase !== undefined && typeof value.passphrase !== "string") {
-    throw invalid(`${path}.passphrase`, "must be a string")
+  if (
+    value.secret_id !== undefined &&
+    (typeof value.secret_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value.secret_id,
+      ))
+  ) {
+    throw invalid(`${path}.secret_id`, "must be a UUID")
   }
   if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
     throw invalid(`${path}.enabled`, "must be a boolean")
-  }
-  if (
-    typeof value.passphrase === "string" &&
-    value.passphrase.trim() &&
-    !isVariableReference(value.passphrase)
-  ) {
-    throw invalid(
-      `${path}.passphrase`,
-      "must be an exact $VARNAME reference; move the secret to an environment file",
-    )
   }
   if (
     value.enabled !== false &&
@@ -271,10 +275,7 @@ function parseClientCertificate(
     port: value.port as number | undefined,
     certFile: value.cert_file,
     keyFile: value.key_file,
-    passphrase:
-      typeof value.passphrase === "string" && value.passphrase.trim()
-        ? value.passphrase
-        : undefined,
+    secretId: value.secret_id as string | undefined,
     enabled: value.enabled as boolean | undefined,
   }
 }
@@ -288,18 +289,8 @@ function isEmptyClientCertificateProfile(
     profile.certFile.trim() === "" &&
     profile.keyFile.trim() === "" &&
     profile.port === undefined &&
-    !profile.passphrase?.trim()
+    !profile.secretId
   )
-}
-
-function resolvePassphrase(value: string, env?: Environment): string {
-  const name = variableReferenceName(value)
-  if (!name || !env || !Object.hasOwn(env.vars, name)) {
-    throw new Error(
-      `tls: unresolved variable "${name ?? value}" in client certificate passphrase`,
-    )
-  }
-  return env.vars[name]!
 }
 
 async function requiredFile(path: string, label: string): Promise<Bun.BunFile> {

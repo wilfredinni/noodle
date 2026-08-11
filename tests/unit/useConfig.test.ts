@@ -115,17 +115,15 @@ describe("loadConfig", () => {
     expect(result.collections).toHaveLength(1)
   })
 
-  it("reads a custom app proxy", () => {
+  it("rejects legacy app proxy credentials", () => {
     writeFileSync(
       join(dir, CONFIG_FILE_NAME),
       "proxy:\n  mode: custom\n  url: http://$PROXY@proxy.test:8080\n  bypass:\n    - localhost\n",
       "utf8",
     )
-    expect(loadConfig(dir).proxy).toEqual({
-      mode: "custom",
-      url: "http://$PROXY@proxy.test:8080",
-      bypass: ["localhost"],
-    })
+    expect(() => loadConfig(dir)).toThrow(
+      "Proxy URL cannot contain credentials; configure authentication in Settings",
+    )
   })
 })
 
