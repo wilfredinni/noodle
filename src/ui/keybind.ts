@@ -208,10 +208,10 @@ export const Definitions = {
     "env-browse",
     "env-edit",
   ]),
-  env_secret: keybind("s", "Toggle environment secret", true, "Environment", [
+  env_secret: keybind("s", "Toggle environment secret", false, "Environment", [
     "env-browse",
   ]),
-  env_reveal: keybind("r", "Reveal environment secret", true, "Environment", [
+  env_reveal: keybind("r", "Reveal environment secret", false, "Environment", [
     "env-browse",
   ]),
   env_new: keybind("ctrl+n", "Create new environment", false, "Environment", [

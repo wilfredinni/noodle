@@ -31,9 +31,13 @@ describe("parseOverrides", () => {
     const result = parseOverrides({
       env_picker: "ctrl+e",
       env_editor: "shift+e",
+      env_secret: "x",
+      env_reveal: "v",
     })
     expect(result.env_picker).toBe("ctrl+e")
     expect(result.env_editor).toBe("shift+e")
+    expect(result.env_secret).toBe("x")
+    expect(result.env_reveal).toBe("v")
   })
 
   it("ignores fixed key overrides (uses default)", () => {

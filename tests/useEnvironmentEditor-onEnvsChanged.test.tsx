@@ -25,18 +25,22 @@ import {
 function memoryBackend(): SecretBackend & {
   values: Map<string, string>
   failDelete: boolean
+  failSet: boolean
 } {
   const values = new Map<string, string>()
   const result: SecretBackend & {
     values: Map<string, string>
     failDelete: boolean
+    failSet: boolean
   } = {
     values,
     failDelete: false,
+    failSet: false,
     async get({ service, name }) {
       return values.get(`${service}:${name}`) ?? null
     },
     async set({ service, name, value }) {
+      if (result.failSet) throw new Error("backend set unavailable")
       values.set(`${service}:${name}`, value)
     },
     async delete({ service, name }) {
@@ -909,6 +913,7 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
   })
 
   it("requires and records an explicit replacement when unmarking a process secret", async () => {
+    setSecretBackendForTests(memoryBackend())
     process.env.NOODLE_PROCESS_SECRET = "process-only"
     await env.saveEnvironment(dir, {
       name: "alpha",
@@ -1073,5 +1078,42 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBe(
       "keychain-value",
     )
+  })
+
+  it("reports rollback failures after an environment save fails", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+    backend.failSet = true
+    const saveSpy = spyOn(env, "saveEnvironment").mockRejectedValue(
+      new Error("environment save unavailable"),
+    )
+    try {
+      await act(async () => ref.current!.save())
+      await renderOnce()
+      expect(ref.current!.error).toContain("environment save unavailable")
+      expect(ref.current!.error).toContain("rollback failed")
+      expect(ref.current!.error).toContain("backend set unavailable")
+    } finally {
+      saveSpy.mockRestore()
+    }
   })
 })

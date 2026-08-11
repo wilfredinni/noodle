@@ -40,6 +40,31 @@ function initialEditState(): EnvEditState {
   return { mode: "inactive", row: -1, addingRow: false, editingRow: -1 }
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+async function attemptRollback(
+  failures: unknown[],
+  operation: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await operation()
+  } catch (error) {
+    failures.push(error)
+  }
+}
+
+function withRollbackFailures(original: unknown, failures: unknown[]): Error {
+  if (failures.length === 0) {
+    return original instanceof Error ? original : new Error(String(original))
+  }
+  return new Error(
+    `${errorMessage(original)}; rollback failed: ${failures.map(errorMessage).join("; ")}`,
+    { cause: original },
+  )
+}
+
 interface OriginalEnv {
   name: string
   color: string | undefined
@@ -839,31 +864,35 @@ export function useEnvironmentEditor({
         originalRef.current = nextOriginal
         setOriginal(nextOriginal)
       } catch (error) {
+        const rollbackFailures: unknown[] = []
         for (const item of deleted.reverse()) {
-          await setStoredSecret(
-            collectionDir,
-            item.environment,
-            item.key,
-            item.previous,
-          ).catch(() => {})
-        }
-        for (const item of written.reverse()) {
-          if (item.previous) {
-            await setStoredSecret(
+          await attemptRollback(rollbackFailures, () =>
+            setStoredSecret(
               collectionDir,
               item.environment,
               item.key,
               item.previous,
-            ).catch(() => {})
+            ),
+          )
+        }
+        for (const item of written.reverse()) {
+          const previous = item.previous
+          if (previous !== null) {
+            await attemptRollback(rollbackFailures, () =>
+              setStoredSecret(
+                collectionDir,
+                item.environment,
+                item.key,
+                previous,
+              ),
+            )
           } else {
-            await deleteStoredSecret(
-              collectionDir,
-              item.environment,
-              item.key,
-            ).catch(() => false)
+            await attemptRollback(rollbackFailures, () =>
+              deleteStoredSecret(collectionDir, item.environment, item.key),
+            )
           }
         }
-        throw error
+        throw withRollbackFailures(error, rollbackFailures)
       }
 
       setSelectedEnvName(curDraft.name)
@@ -995,16 +1024,18 @@ export function useEnvironmentEditor({
       onEnvsChangedRef.current?.()
       closeEditor()
     } catch (e: unknown) {
+      const rollbackFailures: unknown[] = []
       for (const item of deleted.reverse()) {
-        await setStoredSecret(
-          dirname(environmentsDir),
-          name,
-          item.key,
-          item.previous,
-        ).catch(() => {})
+        await attemptRollback(rollbackFailures, () =>
+          setStoredSecret(
+            dirname(environmentsDir),
+            name,
+            item.key,
+            item.previous,
+          ),
+        )
       }
-      const msg = e instanceof Error ? e.message : String(e)
-      setError(msg)
+      setError(withRollbackFailures(e, rollbackFailures).message)
     } finally {
       setSaving(false)
     }
@@ -1054,6 +1085,7 @@ export function useEnvironmentEditor({
       setSaving(true)
       setError(null)
       const copied: string[] = []
+      let cloned = false
       try {
         const source = await env.loadEnvironment(
           environmentsDir,
@@ -1065,6 +1097,7 @@ export function useEnvironmentEditor({
           pending.source,
           pending.target,
         )
+        cloned = true
         if (copySecrets) {
           for (const key of Object.keys(source.secretVars ?? {})) {
             if (process.env[key] !== undefined) continue
@@ -1089,19 +1122,18 @@ export function useEnvironmentEditor({
         setSelectedEnvName(pending.target)
         await loadEnv(pending.target)
       } catch (e: unknown) {
-        await Promise.all(
-          copied.map((key) =>
-            deleteStoredSecret(
-              dirname(environmentsDir),
-              pending.target,
-              key,
-            ).catch(() => false),
-          ),
-        )
-        await env
-          .deleteEnvironment(environmentsDir, pending.target)
-          .catch(() => {})
-        setError(e instanceof Error ? e.message : String(e))
+        const rollbackFailures: unknown[] = []
+        for (const key of copied.reverse()) {
+          await attemptRollback(rollbackFailures, () =>
+            deleteStoredSecret(dirname(environmentsDir), pending.target, key),
+          )
+        }
+        if (cloned) {
+          await attemptRollback(rollbackFailures, () =>
+            env.deleteEnvironment(environmentsDir, pending.target),
+          )
+        }
+        setError(withRollbackFailures(e, rollbackFailures).message)
       } finally {
         setSaving(false)
       }
