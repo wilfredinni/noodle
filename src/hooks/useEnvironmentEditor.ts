@@ -698,6 +698,11 @@ export function useEnvironmentEditor({
         key: string
         previous: string | null
       }[] = []
+      const deleted: {
+        environment: string
+        key: string
+        previous: string
+      }[] = []
       const cleanup: { environment: string; key: string }[] = []
       try {
         for (const row of curDraft.varRows) {
@@ -739,11 +744,11 @@ export function useEnvironmentEditor({
                 previous,
               })
               row.secretStatus = row.enabled
-                ? process.env[row.key]
+                ? process.env[row.key] !== undefined
                   ? "process"
                   : "keychain"
                 : "disabled"
-            } else if (process.env[row.key]) {
+            } else if (process.env[row.key] !== undefined) {
               row.secretStatus = row.enabled ? "process" : "disabled"
             } else if (!before?.secret || row.valueChanged) {
               throw new Error(`Secret "${row.key}" must not be empty`)
@@ -782,6 +787,22 @@ export function useEnvironmentEditor({
           curDraft.varRows,
         )
 
+        for (const target of cleanup) {
+          const previous = await getStoredSecret(
+            collectionDir,
+            target.environment,
+            target.key,
+          )
+          const removed = await deleteStoredSecret(
+            collectionDir,
+            target.environment,
+            target.key,
+          )
+          if (removed && previous !== null) {
+            deleted.push({ ...target, previous })
+          }
+        }
+
         await env.saveEnvironment(environmentsDir, {
           name: curDraft.name,
           vars,
@@ -789,14 +810,6 @@ export function useEnvironmentEditor({
           disabledVars,
           secretVars,
         })
-
-        for (const target of cleanup) {
-          await deleteStoredSecret(
-            collectionDir,
-            target.environment,
-            target.key,
-          ).catch(() => false)
-        }
 
         if (oldName) {
           try {
@@ -826,6 +839,14 @@ export function useEnvironmentEditor({
         originalRef.current = nextOriginal
         setOriginal(nextOriginal)
       } catch (error) {
+        for (const item of deleted.reverse()) {
+          await setStoredSecret(
+            collectionDir,
+            item.environment,
+            item.key,
+            item.previous,
+          ).catch(() => {})
+        }
         for (const item of written.reverse()) {
           if (item.previous) {
             await setStoredSecret(
@@ -947,18 +968,25 @@ export function useEnvironmentEditor({
     if (!name) return
     setSaving(true)
     setError(null)
+    const deleted: { key: string; previous: string }[] = []
     try {
       const current = await env.loadEnvironment(environmentsDir, name, {
         resolveSecrets: false,
       })
+      for (const key of Object.keys(current.secretVars ?? {})) {
+        const previous = await getStoredSecret(
+          dirname(environmentsDir),
+          name,
+          key,
+        )
+        const removed = await deleteStoredSecret(
+          dirname(environmentsDir),
+          name,
+          key,
+        )
+        if (removed && previous !== null) deleted.push({ key, previous })
+      }
       await env.deleteEnvironment(environmentsDir, name)
-      await Promise.all(
-        Object.keys(current.secretVars ?? {}).map((key) =>
-          deleteStoredSecret(dirname(environmentsDir), name, key).catch(
-            () => false,
-          ),
-        ),
-      )
       if (activeEnvName === name) {
         const remaining = localNames.filter((n) => n !== name)
         onActiveEnvChangedRef.current?.(remaining[0] ?? "")
@@ -967,6 +995,14 @@ export function useEnvironmentEditor({
       onEnvsChangedRef.current?.()
       closeEditor()
     } catch (e: unknown) {
+      for (const item of deleted.reverse()) {
+        await setStoredSecret(
+          dirname(environmentsDir),
+          name,
+          item.key,
+          item.previous,
+        ).catch(() => {})
+      }
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
     } finally {
@@ -984,16 +1020,16 @@ export function useEnvironmentEditor({
     async (targetName: string) => {
       const name = selectedEnvNameRef.current
       if (!name) return
-      const source = await env.loadEnvironment(environmentsDir, name, {
-        resolveSecrets: false,
-      })
-      if (Object.keys(source.secretVars ?? {}).length > 0) {
-        setClonePrompt({ source: name, target: targetName })
-        return
-      }
       setSaving(true)
       setError(null)
       try {
+        const source = await env.loadEnvironment(environmentsDir, name, {
+          resolveSecrets: false,
+        })
+        if (Object.keys(source.secretVars ?? {}).length > 0) {
+          setClonePrompt({ source: name, target: targetName })
+          return
+        }
         await env.cloneEnvironment(environmentsDir, name, targetName)
         const updatedNames = [...localNames, targetName]
         setLocalNames(updatedNames)
@@ -1031,7 +1067,7 @@ export function useEnvironmentEditor({
         )
         if (copySecrets) {
           for (const key of Object.keys(source.secretVars ?? {})) {
-            if (process.env[key]) continue
+            if (process.env[key] !== undefined) continue
             const value = await getStoredSecret(
               dirname(environmentsDir),
               pending.source,

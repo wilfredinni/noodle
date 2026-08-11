@@ -127,6 +127,10 @@ describe("shortcut editing", () => {
     expect(findKeybindConflict("request_save", "f4", keybinds)).toBe(
       "settings_open",
     )
+    expect(findKeybindConflict("env_save", "s", keybinds)).toBe("env_secret")
+    expect(findKeybindConflict("browse_delete", "r", keybinds)).toBe(
+      "env_reveal",
+    )
   })
 
   it("serializes only non-default, non-fixed overrides", () => {

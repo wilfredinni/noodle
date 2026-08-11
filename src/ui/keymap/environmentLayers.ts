@@ -164,8 +164,8 @@ export function createEnvironmentLayers(
       { key: "escape", cmd: "env-browse.escape" },
       { key: "space", cmd: "env-browse.toggle" },
       { key: keybinds.browse_delete, cmd: "env-browse.revert" },
-      { key: "s", cmd: "env-browse.secret" },
-      { key: "r", cmd: "env-browse.reveal" },
+      { key: keybinds.env_secret, cmd: "env-browse.secret" },
+      { key: keybinds.env_reveal, cmd: "env-browse.reveal" },
       { key: keybinds.env_save, cmd: "env.save" },
     ],
   }

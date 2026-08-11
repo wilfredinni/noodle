@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "node:crypto"
+import { link, mkdir, readFile, unlink, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { loadSettings } from "../filestore/load"
 import { saveSettings } from "../filestore/save"
 import type { SecretStatus } from "../schema"
@@ -58,14 +60,33 @@ export function secretAccount(
   return `${collectionId}:${digest}`
 }
 
+async function reserveCollectionId(collectionDir: string): Promise<string> {
+  const stateDir = join(collectionDir, ".noodle")
+  const reservationPath = join(stateDir, "collection-id")
+  const candidate = randomUUID()
+  const candidatePath = `${reservationPath}.${candidate}.tmp`
+  await mkdir(stateDir, { recursive: true })
+  await writeFile(candidatePath, candidate, "utf8")
+  try {
+    await link(candidatePath, reservationPath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error
+  } finally {
+    await unlink(candidatePath).catch(() => {})
+  }
+  return (await readFile(reservationPath, "utf8")).trim()
+}
+
 export async function ensureCollectionId(
   collectionDir: string,
 ): Promise<string> {
   const settings = await loadSettings(collectionDir)
   if (settings.collectionId) return settings.collectionId
-  const collectionId = randomUUID()
-  await saveSettings(collectionDir, { ...settings, collectionId })
-  return collectionId
+  const reservedId = await reserveCollectionId(collectionDir)
+  const current = await loadSettings(collectionDir)
+  if (current.collectionId) return current.collectionId
+  await saveSettings(collectionDir, { ...current, collectionId: reservedId })
+  return reservedId
 }
 
 export async function getStoredSecret(
@@ -126,7 +147,9 @@ export async function resolveStoredSecret(
   key: string,
 ): Promise<{ value?: string; status: SecretStatus }> {
   const processValue = process.env[key]
-  if (processValue) return { value: processValue, status: "process" }
+  if (processValue !== undefined) {
+    return { value: processValue, status: "process" }
+  }
   const stored = await getStoredSecret(collectionDir, environment, key)
   return stored ? { value: stored, status: "keychain" } : { status: "missing" }
 }

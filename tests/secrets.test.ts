@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -37,9 +37,17 @@ function memoryBackend(): SecretBackend & { values: Map<string, string> } {
   }
 }
 
+let originalSecretTest: string | undefined
+
+beforeEach(() => {
+  originalSecretTest = process.env.NOODLE_SECRET_TEST
+  delete process.env.NOODLE_SECRET_TEST
+})
+
 afterEach(() => {
   setSecretBackendForTests(undefined)
-  delete process.env.NOODLE_SECRET_TEST
+  if (originalSecretTest === undefined) delete process.env.NOODLE_SECRET_TEST
+  else process.env.NOODLE_SECRET_TEST = originalSecretTest
 })
 
 describe("secret storage", () => {
@@ -66,6 +74,11 @@ describe("secret storage", () => {
     loaded = await env.loadEnvironment(directory, "dev")
     expect(loaded.vars.NOODLE_SECRET_TEST).toBe("process")
     expect(loaded.secretVars?.NOODLE_SECRET_TEST).toBe("process")
+
+    process.env.NOODLE_SECRET_TEST = ""
+    loaded = await env.loadEnvironment(directory, "dev")
+    expect(loaded.vars.NOODLE_SECRET_TEST).toBe("")
+    expect(loaded.secretVars?.NOODLE_SECRET_TEST).toBe("process")
     expect(
       backend.values.has(
         `${SECRET_SERVICE}:${secretAccount(
@@ -86,6 +99,30 @@ describe("secret storage", () => {
     await deleteStoredSecret(root, "dev", "TOKEN")
     expect((await loadSettings(root)).collectionId).toBe(first)
     expect(first).toMatch(/^[0-9a-f-]{36}$/)
+  })
+
+  it("uses one collection id when secret operations initialize concurrently", async () => {
+    const root = await mkdtemp(join(tmpdir(), "noodle-secret-race-"))
+    await saveSettings(root, { environment: "dev" })
+    const collectionIds = new Set<string>()
+    const backend = memoryBackend()
+    setSecretBackendForTests({
+      ...backend,
+      async set(options) {
+        collectionIds.add(options.name.split(":", 1)[0]!)
+        await backend.set(options)
+      },
+    })
+
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        setStoredSecret(root, "dev", `TOKEN_${index}`, `value-${index}`),
+      ),
+    )
+
+    const savedId = (await loadSettings(root)).collectionId
+    expect(savedId).toBeDefined()
+    expect(collectionIds).toEqual(new Set([savedId!]))
   })
 
   it("rejects empty values", async () => {

@@ -143,9 +143,9 @@ describe("getKeybindingHints footer", () => {
     ).toEqual([
       seg("Space", "toggle", "env-browse.toggle"),
       seg("s", "secret", "env-browse.secret"),
+      seg("^s", "save", "env.save"),
       seg("r", "reveal", "env-browse.reveal"),
       seg("^d", "revert", "env-browse.revert"),
-      seg("^s", "save", "env.save"),
     ])
   })
 })

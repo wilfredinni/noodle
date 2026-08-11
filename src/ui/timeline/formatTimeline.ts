@@ -49,7 +49,11 @@ export function buildTimelineEntry(
       key,
       {
         ...value,
-        value: isSensitiveHeader(key) ? REDACTED : redact(value.value),
+        value: isSensitiveHeader(key)
+          ? REDACTED
+          : redact(
+              value.enabled ? resolvePublicVars(value.value) : value.value,
+            ),
       },
     ]),
   )
@@ -58,20 +62,26 @@ export function buildTimelineEntry(
     if (auth.type === "bearer") {
       return {
         type: "bearer",
-        token: auth.token.includes("$") ? redact(auth.token) : REDACTED,
+        token: auth.token.includes("$")
+          ? redact(resolvePublicVars(auth.token))
+          : REDACTED,
       }
     }
     if (auth.type === "basic") {
       return {
         type: "basic",
-        user: redact(auth.user),
-        pass: auth.pass.includes("$") ? redact(auth.pass) : REDACTED,
+        user: redact(resolvePublicVars(auth.user)),
+        pass: auth.pass.includes("$")
+          ? redact(resolvePublicVars(auth.pass))
+          : REDACTED,
       }
     }
     return {
       ...auth,
-      key: redact(auth.key),
-      value: auth.value.includes("$") ? redact(auth.value) : REDACTED,
+      key: redact(resolvePublicVars(auth.key)),
+      value: auth.value.includes("$")
+        ? redact(resolvePublicVars(auth.value))
+        : REDACTED,
     }
   }
   return {
@@ -96,15 +106,22 @@ export function buildTimelineEntry(
       headers: requestHeaders,
       params: req.params.map((param) => ({
         ...param,
-        name: redact(param.name),
-        value: redact(param.value),
+        name: redact(
+          param.enabled ? resolvePublicVars(param.name) : param.name,
+        ),
+        value: redact(
+          param.enabled ? resolvePublicVars(param.value) : param.value,
+        ),
       })),
       pathParams: (req.pathParams ?? []).map((param) => ({
         ...param,
-        name: redact(param.name),
-        value: redact(param.value),
+        name: redact(resolvePublicVars(param.name)),
+        value: redact(resolvePublicVars(param.value)),
       })),
-      body: req.body === undefined ? undefined : redact(req.body),
+      body:
+        req.body === undefined
+          ? undefined
+          : redact(resolvePublicVars(req.body)),
       auth: redactAuth(req.auth),
     },
     response:

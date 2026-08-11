@@ -9,7 +9,12 @@ import {
   supportedFormats,
   type ImportResult,
 } from "../converters/index"
-import { saveRequest, saveFolder, saveSettings } from "../filestore"
+import {
+  loadSettings,
+  saveRequest,
+  saveFolder,
+  saveSettings,
+} from "../filestore"
 import { formatJson } from "../lang/formatJson"
 import type {
   Collection,
@@ -290,6 +295,7 @@ export async function runImport(
   }
 
   let removePartialImport = false
+  const initializeCollectionId = options.destination?.kind !== "current"
   try {
     if (options.destination?.kind === "new") {
       await mkdir(collDir)
@@ -315,8 +321,12 @@ export async function runImport(
       }
     }
 
-    if (removePartialImport) {
-      await saveSettings(collDir, { collectionId: randomUUID() })
+    if (initializeCollectionId) {
+      const settings = await loadSettings(collDir)
+      await saveSettings(collDir, {
+        ...settings,
+        collectionId: settings.collectionId ?? randomUUID(),
+      })
     }
   } catch (e) {
     if (removePartialImport) {

@@ -626,11 +626,18 @@ describe("buildTimelineEntry", () => {
       name: "Env",
       method: "GET" as const,
       url: "$base_url/comments/:commentId/$TOKEN",
-      headers: {},
-      params: [],
+      headers: {
+        "X-Comment": { value: "$comment_id", enabled: true },
+        "X-Disabled": { value: "$comment_id", enabled: false },
+        Authorization: { value: "Bearer $TOKEN", enabled: true },
+      },
+      params: [
+        { name: "$comment_name", value: "$comment_id", enabled: true },
+        { name: "disabled", value: "$comment_id", enabled: false },
+      ],
       pathParams: [{ name: "commentId", value: "$comment_id", enabled: true }],
-      body: undefined,
-      auth: undefined,
+      body: '{"id":"$comment_id","token":"$TOKEN"}',
+      auth: { type: "basic" as const, user: "$comment_id", pass: "$TOKEN" },
       timeout: 0,
     }
     const result = {
@@ -650,11 +657,30 @@ describe("buildTimelineEntry", () => {
       vars: {
         base_url: "https://api.example.com",
         comment_id: "42",
+        comment_name: "comment",
         TOKEN: "top-secret",
       },
       secretVars: { TOKEN: "keychain" },
     })
     expect(entry.request.url).toBe("https://api.example.com/comments/42/$TOKEN")
+    expect(entry.request.headers).toEqual({
+      "X-Comment": { value: "42", enabled: true },
+      "X-Disabled": { value: "$comment_id", enabled: false },
+      Authorization: { value: "[REDACTED]", enabled: true },
+    })
+    expect(entry.request.params).toEqual([
+      { name: "comment", value: "42", enabled: true },
+      { name: "disabled", value: "$comment_id", enabled: false },
+    ])
+    expect(entry.request.pathParams).toEqual([
+      { name: "commentId", value: "42", enabled: true },
+    ])
+    expect(entry.request.body).toBe('{"id":"42","token":"$TOKEN"}')
+    expect(entry.request.auth).toEqual({
+      type: "basic",
+      user: "42",
+      pass: "$TOKEN",
+    })
   })
 
   it("builds error entry", () => {

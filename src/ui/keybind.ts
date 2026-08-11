@@ -208,6 +208,12 @@ export const Definitions = {
     "env-browse",
     "env-edit",
   ]),
+  env_secret: keybind("s", "Toggle environment secret", true, "Environment", [
+    "env-browse",
+  ]),
+  env_reveal: keybind("r", "Reveal environment secret", true, "Environment", [
+    "env-browse",
+  ]),
   env_new: keybind("ctrl+n", "Create new environment", false, "Environment", [
     "env-editor",
   ]),
@@ -260,6 +266,8 @@ export const CommandMap = {
   edit_commit: "edit.commit",
   edit_cancel: "edit.cancel",
   env_save: "env.save",
+  env_secret: "env-browse.secret",
+  env_reveal: "env-browse.reveal",
   env_new: "env.new",
   env_clone: "env.clone",
   env_delete: "env.delete",

@@ -22,9 +22,17 @@ import {
   type SecretBackend,
 } from "../src/secrets"
 
-function memoryBackend(): SecretBackend {
+function memoryBackend(): SecretBackend & {
+  values: Map<string, string>
+  failDelete: boolean
+} {
   const values = new Map<string, string>()
-  return {
+  const result: SecretBackend & {
+    values: Map<string, string>
+    failDelete: boolean
+  } = {
+    values,
+    failDelete: false,
     async get({ service, name }) {
       return values.get(`${service}:${name}`) ?? null
     },
@@ -32,9 +40,11 @@ function memoryBackend(): SecretBackend {
       values.set(`${service}:${name}`, value)
     },
     async delete({ service, name }) {
+      if (result.failDelete) throw new Error("backend delete unavailable")
       return values.delete(`${service}:${name}`)
     },
   }
+  return result
 }
 
 const testRender = createTestRender()
@@ -122,6 +132,32 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       await ref.current!.cloneEnv("alpha-copy")
     })
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it("reports source load failures while cloning", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    const loadSpy = spyOn(env, "loadEnvironment").mockRejectedValue(
+      new Error("source load failed"),
+    )
+    try {
+      await act(async () => {
+        await ref.current!.cloneEnv("alpha-copy")
+      })
+      await renderOnce()
+      expect(ref.current!.error).toBe("source load failed")
+    } finally {
+      loadSpy.mockRestore()
+    }
   })
 
   it("creates and selects a new empty environment without activating it", async () => {
@@ -406,6 +442,41 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       .then(() => true)
       .catch(() => false)
     expect(after).toBe(false)
+  })
+
+  it("keeps an environment retryable when secret cleanup fails", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    backend.failDelete = true
+    await act(async () => {
+      await ref.current!.deleteEnv()
+    })
+    await renderOnce()
+
+    expect(ref.current!.error).toContain("secret delete failed")
+    expect(await readFile(join(dir, "alpha.env"), "utf8")).toContain(
+      "# @secret TOKEN",
+    )
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBe(
+      "keychain-value",
+    )
   })
 
   it("calls onEnvsChanged after save with rename", async () => {
@@ -965,5 +1036,42 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     expect(saved).toContain("TOKEN=keychain-value")
     expect(saved).not.toContain("# @secret TOKEN")
     expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBeNull()
+  })
+
+  it("keeps a secret declared when keychain cleanup fails", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+    backend.failDelete = true
+    await act(async () => {
+      await ref.current!.save()
+    })
+    await renderOnce()
+
+    expect(ref.current!.error).toContain("secret delete failed")
+    expect(await readFile(join(dir, "alpha.env"), "utf8")).toContain(
+      "# @secret TOKEN",
+    )
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBe(
+      "keychain-value",
+    )
   })
 })

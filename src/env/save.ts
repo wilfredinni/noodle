@@ -45,7 +45,7 @@ export async function saveEnvironment(
   }
 
   for (const [key, status] of Object.entries(env.secretVars ?? {})) {
-    if (!/^\w+$/.test(key)) {
+    if (key === "_color" || !/^\w+$/.test(key)) {
       throw new Error(`env.save: invalid secret key "${key}"`)
     }
     lines.push(`# @secret ${key}`)
