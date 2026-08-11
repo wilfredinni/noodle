@@ -442,6 +442,17 @@ function redactValue(value: unknown, secrets: string[]): unknown {
   return value
 }
 
+function redactTimelineEntry(value: unknown, secrets: string[]): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value
+  const entry = value as Record<string, unknown>
+  return {
+    ...entry,
+    request: redactValue(entry.request, secrets),
+    network: redactValue(entry.network, secrets),
+    error: redactValue(entry.error, secrets),
+  }
+}
+
 async function atomicWrite(
   path: string,
   data: string | Uint8Array,
@@ -487,9 +498,13 @@ export async function redactTimelineSecrets(
         if (path.endsWith(".yml")) {
           const raw = await readFile(path, "utf8")
           const parsed = yaml.load(raw)
-          const redacted = yaml.dump(redactValue(parsed, secrets))
+          const redacted = yaml.dump(
+            Array.isArray(parsed)
+              ? parsed.map((entry) => redactTimelineEntry(entry, secrets))
+              : parsed,
+          )
           if (redacted !== raw) await atomicWrite(path, redacted)
-        } else if (path.endsWith(".gz")) {
+        } else if (path.endsWith(".gz") && !/-response\.gz$/i.test(path)) {
           const raw = await gunzipAsync(await readFile(path))
           const redacted = redactKnownSecrets(raw.toString("utf8"), secrets)
           if (redacted !== raw.toString("utf8")) {

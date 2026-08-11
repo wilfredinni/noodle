@@ -28,7 +28,6 @@ export function EnvEditorPane({
   onToggleSecret,
   onRevealSecret,
   revealedRowId,
-  secretConfirmRowId,
   clonePrompt,
 }: {
   draft: EnvDraft | null
@@ -52,7 +51,6 @@ export function EnvEditorPane({
   onToggleSecret?: (row: number) => void
   onRevealSecret?: (row: number) => void
   revealedRowId?: number | null
-  secretConfirmRowId?: number | null
   clonePrompt?: { source: string; target: string } | null
 }) {
   const theme = useTheme()
@@ -175,14 +173,20 @@ export function EnvEditorPane({
           const cursorOnThisRow =
             inBrowse && !editState.addingRow && editState.row === i
           const dimmed = (inEdit && !isEditingThisRow) || !row.enabled
-          const canHoverRow =
-            !isEditingThisRow &&
-            (onActivateRow !== undefined || onToggleRow !== undefined)
+          const processManaged = row.secret && row.secretStatus === "process"
+          const missingSecret = row.secret && row.secretStatus === "missing"
           const canActivateRow =
-            !isEditingThisRow && onActivateRow !== undefined
+            !isEditingThisRow && !processManaged && onActivateRow !== undefined
+          const canHoverRow =
+            !isEditingThisRow && (canActivateRow || onToggleRow !== undefined)
 
-          const keyBaseColor = dimmed ? theme.textMuted : theme.primary
-          const valueBaseColor = dimmed ? theme.textMuted : theme.text
+          const keyBaseColor = missingSecret
+            ? theme.error
+            : dimmed || processManaged
+              ? theme.textMuted
+              : theme.primary
+          const valueBaseColor =
+            dimmed || processManaged ? theme.textMuted : theme.text
           const revealed = revealedRowId === row.id
           const displayValue =
             row.secret || row.originSecret
@@ -236,22 +240,6 @@ export function EnvEditorPane({
                 <Checkbox checked={row.enabled} theme={theme} />
               </box>
               <box
-                style={{ width: 3, justifyContent: "center" }}
-                onMouseDown={
-                  onToggleSecret
-                    ? (event) => {
-                        if (event.button !== MouseButton.LEFT) return
-                        onToggleSecret(i)
-                        event.stopPropagation()
-                      }
-                    : undefined
-                }
-              >
-                <text fg={row.secret ? theme.warning : theme.textMuted}>
-                  {row.secret ? "🔒" : "·"}
-                </text>
-              </box>
-              <box
                 onMouseDown={
                   canActivateRow
                     ? (event) => {
@@ -294,17 +282,10 @@ export function EnvEditorPane({
               >
                 <VarInput
                   value={isEditingThisRow ? editValue : displayValue}
-                  placeholder={
-                    row.secret && row.secretStatus === "missing"
-                      ? "(missing)"
-                      : "Value..."
-                  }
+                  placeholder="Value..."
                   env={draftEnv}
                   isEditing={isEditingThisRow}
                   onChange={setEditValue}
-                  masked={Boolean(
-                    (row.secret || row.originSecret) && isEditingThisRow,
-                  )}
                   isFocused={isEditingThisRow && editState.subfield === "value"}
                   baseColor={valueBaseColor}
                   backgroundColor={
@@ -316,30 +297,36 @@ export function EnvEditorPane({
                   variableNames={variableNames}
                 />
               </box>
-              {row.secret && (
-                <box
-                  style={{ width: 12, justifyContent: "flex-end" }}
-                  onMouseDown={
-                    onRevealSecret
-                      ? (event) => {
-                          if (event.button !== MouseButton.LEFT) return
-                          onRevealSecret(i)
-                          event.stopPropagation()
-                        }
-                      : undefined
-                  }
-                >
-                  <text
-                    fg={
-                      row.secretStatus === "missing"
-                        ? theme.error
-                        : theme.textMuted
-                    }
-                  >
-                    {revealed ? "hide" : (row.secretStatus ?? "secret")}
-                  </text>
-                </box>
-              )}
+              <box
+                style={{ width: 12, justifyContent: "flex-end" }}
+                onMouseDown={
+                  processManaged && onRevealSecret
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onRevealSecret(i)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
+              >
+                {processManaged && <text fg={theme.textMuted}>process</text>}
+              </box>
+              <box
+                style={{ width: 10, justifyContent: "flex-end" }}
+                onMouseDown={
+                  onToggleSecret
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onToggleSecret(i)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
+              >
+                <text fg={row.secret ? theme.warning : theme.textMuted}>
+                  {row.secret ? "[secret]" : "[plain]"}
+                </text>
+              </box>
             </box>
           )
         })}
@@ -449,16 +436,13 @@ export function EnvEditorPane({
                   variableNames={variableNames}
                 />
               </box>
+              <box style={{ width: 12 }} />
+              <box style={{ width: 10 }} />
             </box>
           )
         })()}
       </scrollbox>
       {error && <text fg={theme.error}>Error: {error}</text>}
-      {secretConfirmRowId !== null && (
-        <text fg={theme.warning}>
-          Press s again to confirm storing this value as plaintext
-        </text>
-      )}
       {clonePrompt && (
         <text fg={theme.warning}>
           Copy stored secrets to {clonePrompt.target}? y copy · n declarations

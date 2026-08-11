@@ -553,14 +553,9 @@ async function runRequest(
       url: redact(effective.url),
       response: {
         status: response.status,
-        statusText: redact(response.statusText),
-        headers: Object.fromEntries(
-          Object.entries(response.headers).map(([key, value]) => [
-            redact(key),
-            redact(value),
-          ]),
-        ),
-        body: redact(response.body),
+        statusText: response.statusText,
+        headers: response.headers,
+        body: response.body,
         timeMs: response.timeMs,
       },
       ok: response.status < 400,

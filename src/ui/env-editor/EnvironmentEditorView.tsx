@@ -119,7 +119,6 @@ export function EnvironmentEditorView({
           }}
           onRevealSecret={envEditor.toggleReveal}
           revealedRowId={envEditor.revealedRowId}
-          secretConfirmRowId={envEditor.secretConfirmRowId}
           clonePrompt={envEditor.clonePrompt}
         />
       </box>

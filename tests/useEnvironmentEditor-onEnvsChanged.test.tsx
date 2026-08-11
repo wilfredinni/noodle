@@ -16,6 +16,7 @@ import { ThemeProvider } from "../src/ui/theme"
 import { useEnvironmentEditor } from "../src/hooks/useEnvironmentEditor"
 import { env } from "../src/env"
 import {
+  getStoredSecret,
   setSecretBackendForTests,
   setStoredSecret,
   type SecretBackend,
@@ -763,6 +764,79 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     expect(ref.current!.editState.addingRow).toBe(false)
   })
 
+  it("edits a keychain secret without dirtying it unchanged", async () => {
+    setSecretBackendForTests(memoryBackend())
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { TOKEN: "keychain" },
+    })
+    await setStoredSecret(dirname(dir), "alpha", "TOKEN", "keychain-value")
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    expect(ref.current!.editValue).toBe("keychain-value")
+
+    act(() => ref.current!.commitEdit())
+    await renderOnce()
+    expect(ref.current!.dirty).toBe(false)
+    expect(ref.current!.draft!.varRows[0]!.valueChanged).toBeUndefined()
+
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    act(() => ref.current!.setEditValue("updated-keychain-value"))
+    await renderOnce()
+    act(() => ref.current!.commitEdit())
+    await renderOnce()
+    expect(ref.current!.dirty).toBe(true)
+    expect(ref.current!.draft!.varRows[0]!.valueChanged).toBe(true)
+
+    await act(async () => ref.current!.save())
+    await renderOnce()
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBe(
+      "updated-keychain-value",
+    )
+  })
+
+  it("keeps active process-sourced secrets read-only", async () => {
+    process.env.NOODLE_PROCESS_SECRET = "process-only"
+    await env.saveEnvironment(dir, {
+      name: "alpha",
+      vars: {},
+      secretVars: { NOODLE_PROCESS_SECRET: "process" },
+    })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    expect(ref.current!.editState.mode).toBe("inactive")
+
+    act(() => ref.current!.enterBrowse())
+    await renderOnce()
+    act(() => ref.current!.enterEdit())
+    await renderOnce()
+    expect(ref.current!.editState.mode).toBe("browsing")
+  })
+
   it("requires and records an explicit replacement when unmarking a process secret", async () => {
     process.env.NOODLE_PROCESS_SECRET = "process-only"
     await env.saveEnvironment(dir, {
@@ -785,23 +859,26 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       ref.current!.toggleSecret(0)
     })
     await renderOnce()
-    expect(ref.current!.secretConfirmRowId).not.toBeNull()
-
-    act(() => {
-      ref.current!.toggleSecret(0)
-    })
-    await renderOnce()
     expect(ref.current!.draft!.varRows[0]).toMatchObject({
       secret: false,
       originSecret: true,
     })
     expect(ref.current!.draft!.varRows[0]!.valueChanged).toBeUndefined()
 
+    await act(async () => ref.current!.save())
+    await renderOnce()
+    expect(ref.current!.error).toBe(
+      'Enter a plaintext value before unmarking "NOODLE_PROCESS_SECRET"',
+    )
+    expect(await readFile(join(dir, "alpha.env"), "utf8")).toContain(
+      "# @secret NOODLE_PROCESS_SECRET",
+    )
+
     act(() => {
       ref.current!.activateVar(0, false, "value")
     })
     await renderOnce()
-    expect(ref.current!.editValue).toBe("")
+    expect(ref.current!.editValue).toBe("process-only")
 
     act(() => {
       ref.current!.setEditValue("explicit-plaintext")
@@ -816,9 +893,43 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       value: "explicit-plaintext",
       valueChanged: true,
     })
+
+    await act(async () => ref.current!.save())
+    await renderOnce()
+    expect(ref.current!.error).toBeNull()
+    const saved = await readFile(join(dir, "alpha.env"), "utf8")
+    expect(saved).toContain("NOODLE_PROCESS_SECRET=explicit-plaintext")
+    expect(saved).not.toContain("# @secret NOODLE_PROCESS_SECRET")
   })
 
-  it("rejects unmarking a keychain secret without an explicit replacement", async () => {
+  it("restores an unsaved plaintext value after toggling secret off", async () => {
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness onEnvsChanged={() => {}} editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await waitForDraft(ref, renderOnce)
+
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+    act(() => ref.current!.toggleSecret(0))
+    await renderOnce()
+
+    expect(ref.current!.draft!.varRows[0]).toMatchObject({
+      secret: false,
+      originSecret: false,
+      value: "val",
+    })
+    act(() => ref.current!.activateVar(0, false, "value"))
+    await renderOnce()
+    expect(ref.current!.editValue).toBe("val")
+  })
+
+  it("moves a keychain secret to plaintext with one toggle", async () => {
     setSecretBackendForTests(memoryBackend())
     await env.saveEnvironment(dir, {
       name: "alpha",
@@ -841,10 +952,6 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       ref.current!.toggleSecret(0)
     })
     await renderOnce()
-    act(() => {
-      ref.current!.toggleSecret(0)
-    })
-    await renderOnce()
 
     expect(ref.current!.draft!.varRows[0]!.secret).toBe(false)
     expect(ref.current!.draft!.varRows[0]!.valueChanged).toBeUndefined()
@@ -853,11 +960,10 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
       await ref.current!.save()
     })
     await renderOnce()
-    expect(ref.current!.error).toBe(
-      'Enter a plaintext value before unmarking "TOKEN"',
-    )
-    expect(await readFile(join(dir, "alpha.env"), "utf8")).toContain(
-      "# @secret TOKEN",
-    )
+    expect(ref.current!.error).toBeNull()
+    const saved = await readFile(join(dir, "alpha.env"), "utf8")
+    expect(saved).toContain("TOKEN=keychain-value")
+    expect(saved).not.toContain("# @secret TOKEN")
+    expect(await getStoredSecret(dirname(dir), "alpha", "TOKEN")).toBeNull()
   })
 })

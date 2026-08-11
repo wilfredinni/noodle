@@ -284,7 +284,7 @@ describe("automation services", () => {
     }
   })
 
-  it("redacts secrets from automation response fields", async () => {
+  it("keeps server response fields intact in automation output", async () => {
     const key = "NOODLE_AUTOMATION_RESPONSE_SECRET"
     process.env[key] = "response-secret"
     await writeFile(join(dir, "settings.yml"), "environment: development\n")
@@ -308,9 +308,9 @@ describe("automation services", () => {
     try {
       const result = await collectionRun(dir)
       expect(result.results[0]!.response).toMatchObject({
-        statusText: "[REDACTED]",
-        headers: { "x-echo": "[REDACTED]" },
-        body: "echo:[REDACTED]",
+        statusText: "response-secret",
+        headers: { "x-echo": "response-secret" },
+        body: "echo:response-secret",
       })
     } finally {
       executor.send = send

@@ -3,6 +3,7 @@ import type { NetworkError } from "../../schema"
 import type { Request } from "../../schema"
 import type { SendCompleteResult } from "../../hooks/useResponse"
 import { randomUUID } from "node:crypto"
+import { interpolatePathParams } from "../../requests/send"
 import {
   environmentSecretValues,
   isSensitiveHeader,
@@ -22,13 +23,27 @@ export function buildTimelineEntry(
 ): TimelineEntry {
   const secretValues = environmentSecretValues(environment)
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
-  const redactHeaders = (headers: Record<string, string>) =>
-    Object.fromEntries(
-      Object.entries(headers).map(([key, value]) => [
-        key,
-        isSensitiveHeader(key) ? REDACTED : redact(value),
-      ]),
+  const resolvePublicVars = (value: string) =>
+    environment
+      ? value.replace(/\$(\w+)/g, (token, key: string) =>
+          !environment.secretVars?.[key] && Object.hasOwn(environment.vars, key)
+            ? environment.vars[key]!
+            : token,
+        )
+      : value
+  let url = req.url
+  try {
+    url = interpolatePathParams(
+      resolvePublicVars(req.url),
+      (req.pathParams ?? []).map((param) => ({
+        ...param,
+        name: resolvePublicVars(param.name),
+        value: resolvePublicVars(param.value),
+      })),
     )
+  } catch {
+    // Preserve the template when substitution fails, matching send errors.
+  }
   const requestHeaders = Object.fromEntries(
     Object.entries(req.headers).map(([key, value]) => [
       key,
@@ -77,7 +92,7 @@ export function buildTimelineEntry(
       id: req.id,
       name: req.name,
       method: req.method,
-      url: redact(req.url),
+      url: redact(url),
       headers: requestHeaders,
       params: req.params.map((param) => ({
         ...param,
@@ -97,8 +112,8 @@ export function buildTimelineEntry(
         ? {
             status: result.response.status,
             statusText: result.response.statusText,
-            headers: redactHeaders(result.response.headers),
-            body: redact(result.response.body),
+            headers: result.response.headers,
+            body: result.response.body,
             timeMs: result.response.timeMs,
             size: responseSize(result.response.body),
           }

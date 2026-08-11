@@ -20,7 +20,7 @@ beforeEach(async () => {
 })
 
 describe("redactTimelineSecrets", () => {
-  it("redacts inline and compressed bodies in place", async () => {
+  it("redacts request history without rewriting compressed response bodies", async () => {
     const secret = "super-secret-value"
     await saveTimelineEntry(
       dir,
@@ -44,14 +44,14 @@ describe("redactTimelineSecrets", () => {
     await redactTimelineSecrets(dir, [secret])
     const [entry] = await loadTimeline(dir, "redact")
     expect(entry!.request.url).toContain("[REDACTED]")
-    expect(entry!.response!.headers["x-result"]).toBe("[REDACTED]")
+    expect(entry!.response!.headers["x-result"]).toBe(secret)
     const body = await loadTimelineBody(
       dir,
       "redact",
       entry!.response!.bodyRef!,
     )
-    expect(body).not.toContain(secret)
-    expect(body).toContain("[REDACTED]")
+    expect(body).toContain(secret)
+    expect(body).not.toContain("[REDACTED]")
   })
 })
 

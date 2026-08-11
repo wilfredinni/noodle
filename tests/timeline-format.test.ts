@@ -533,7 +533,7 @@ describe("buildTimelineEntry", () => {
     expect(entry.envName).toBe("dev")
   })
 
-  it("redacts known values and sensitive headers only in the timeline entry", () => {
+  it("redacts request credentials without altering the server response", () => {
     const secret = "timeline-secret"
     const req = {
       id: "req-secret",
@@ -549,7 +549,7 @@ describe("buildTimelineEntry", () => {
     }
     const response = {
       status: 200,
-      statusText: "OK",
+      statusText: secret,
       headers: { "set-cookie": secret, "x-echo": secret },
       body: `echo:${secret}`,
       timeMs: 1,
@@ -561,9 +561,10 @@ describe("buildTimelineEntry", () => {
     })
     expect(entry.request.url).toBe("https://api.example.com/$TOKEN")
     expect(entry.request.headers.Authorization!.value).toBe("[REDACTED]")
-    expect(entry.response?.headers["set-cookie"]).toBe("[REDACTED]")
-    expect(entry.response?.headers["x-echo"]).toBe("[REDACTED]")
-    expect(entry.response?.body).toBe("echo:[REDACTED]")
+    expect(entry.response?.statusText).toBe(secret)
+    expect(entry.response?.headers["set-cookie"]).toBe(secret)
+    expect(entry.response?.headers["x-echo"]).toBe(secret)
+    expect(entry.response?.body).toBe(`echo:${secret}`)
     expect(response.body).toBe(`echo:${secret}`)
   })
 
@@ -619,14 +620,15 @@ describe("buildTimelineEntry", () => {
     expect(entry.network).toEqual(error.network)
   })
 
-  it("persists the template URL instead of a resolved URL", () => {
+  it("resolves public variables and path params while preserving secret placeholders", () => {
     const req = {
       id: "req-3",
       name: "Env",
       method: "GET" as const,
-      url: "https://api.example.com/$base/path",
+      url: "$base_url/comments/:commentId/$TOKEN",
       headers: {},
       params: [],
+      pathParams: [{ name: "commentId", value: "$comment_id", enabled: true }],
       body: undefined,
       auth: undefined,
       timeout: 0,
@@ -643,8 +645,16 @@ describe("buildTimelineEntry", () => {
       request: req,
       envName: "dev",
     }
-    const entry = buildTimelineEntry(req, result, "dev")
-    expect(entry.request.url).toBe("https://api.example.com/$base/path")
+    const entry = buildTimelineEntry(req, result, "dev", {
+      name: "dev",
+      vars: {
+        base_url: "https://api.example.com",
+        comment_id: "42",
+        TOKEN: "top-secret",
+      },
+      secretVars: { TOKEN: "keychain" },
+    })
+    expect(entry.request.url).toBe("https://api.example.com/comments/42/$TOKEN")
   })
 
   it("builds error entry", () => {

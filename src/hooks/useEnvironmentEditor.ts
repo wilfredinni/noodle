@@ -96,7 +96,6 @@ export interface UseEnvironmentEditorResult {
   toggleSecret: (index: number) => void
   toggleReveal: (index: number) => void
   revealedRowId: number | null
-  secretConfirmRowId: number | null
   clonePrompt: { source: string; target: string } | null
   confirmClone: (copySecrets: boolean) => Promise<void>
   remaskSecrets: () => void
@@ -131,6 +130,7 @@ function envToVarRows(environment: Environment): VarRow[] {
       value: vars[key] ?? "",
       enabled: status !== "disabled",
       secret: true,
+      originSecret: true,
       secretStatus: status,
     })
   }
@@ -225,9 +225,6 @@ export function useEnvironmentEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [revealedRowId, setRevealedRowId] = useState<number | null>(null)
-  const [secretConfirmRowId, setSecretConfirmRowId] = useState<number | null>(
-    null,
-  )
   const [clonePrompt, setClonePrompt] = useState<{
     source: string
     target: string
@@ -289,7 +286,6 @@ export function useEnvironmentEditor({
         setEditValue("")
         setError(null)
         setRevealedRowId(null)
-        setSecretConfirmRowId(null)
         return true
       } catch (e: unknown) {
         if (generation !== loadGenerationRef.current) return false
@@ -340,7 +336,6 @@ export function useEnvironmentEditor({
     setError(null)
     setSaving(false)
     setRevealedRowId(null)
-    setSecretConfirmRowId(null)
   }, [])
 
   const selectEnv = useCallback(
@@ -405,7 +400,6 @@ export function useEnvironmentEditor({
 
   const browseUp = useCallback(() => {
     setRevealedRowId(null)
-    setSecretConfirmRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       if (prev.addingRow) {
@@ -419,7 +413,6 @@ export function useEnvironmentEditor({
 
   const browseDown = useCallback(() => {
     setRevealedRowId(null)
-    setSecretConfirmRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       const rows = draftRef.current?.varRows.length ?? 0
@@ -433,7 +426,6 @@ export function useEnvironmentEditor({
 
   const browseFirst = useCallback(() => {
     setRevealedRowId(null)
-    setSecretConfirmRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       const rows = draftRef.current?.varRows.length ?? 0
@@ -446,7 +438,6 @@ export function useEnvironmentEditor({
 
   const browseLast = useCallback(() => {
     setRevealedRowId(null)
-    setSecretConfirmRowId(null)
     setEditState((prev) => {
       if (prev.mode !== "browsing") return prev
       return { ...prev, row: -1, addingRow: true }
@@ -462,8 +453,9 @@ export function useEnvironmentEditor({
       setEditValue("")
     } else {
       const row = currentDraft?.varRows[state.row]
+      if (row?.secret && row.secretStatus === "process") return
       setEditKey(row?.key ?? "")
-      setEditValue(row?.secret || row?.originSecret ? "" : (row?.value ?? ""))
+      setEditValue(row?.value ?? "")
     }
     setEditState({
       mode: "editing",
@@ -496,14 +488,17 @@ export function useEnvironmentEditor({
       } else {
         rows = rows.map((r, i) => {
           if (i !== state.editingRow) return r
-          if ((r.secret || r.originSecret) && value === "") {
-            return { ...r, key }
-          }
+          const tracksSecretValue = r.secret || r.originSecret
+          const originalRow = originalRef.current?.varRows.find(
+            (candidate) => candidate.id === r.id,
+          )
           return {
             ...r,
             key,
             value,
-            valueChanged: r.secret || r.originSecret ? true : r.valueChanged,
+            valueChanged: tracksSecretValue
+              ? value !== (originalRow?.value ?? r.value) || undefined
+              : r.valueChanged,
           }
         })
       }
@@ -537,14 +532,10 @@ export function useEnvironmentEditor({
       const currentRow = addingRow
         ? undefined
         : draftRef.current?.varRows[resolvedRow]
+      if (currentRow?.secret && currentRow.secretStatus === "process") return
       setEditKey(currentRow?.key ?? "")
-      setEditValue(
-        currentRow?.secret || currentRow?.originSecret
-          ? ""
-          : (currentRow?.value ?? ""),
-      )
+      setEditValue(currentRow?.value ?? "")
       setRevealedRowId(null)
-      setSecretConfirmRowId(null)
       setEditState({
         mode: "editing",
         row: resolvedRow,
@@ -600,51 +591,40 @@ export function useEnvironmentEditor({
     setDraft(next)
   }, [])
 
-  const toggleSecret = useCallback(
-    (index: number) => {
-      const prev = draftRef.current
-      const row = prev?.varRows[index]
-      if (!prev || !row || !row.key) return
-      if (row.secret && secretConfirmRowId !== row.id) {
-        setSecretConfirmRowId(row.id)
-        setRevealedRowId(null)
-        return
-      }
-      const rows = prev.varRows.map((item, i) =>
-        i === index
-          ? {
-              ...item,
-              secret: !item.secret,
-              originSecret: item.secret ? true : false,
-              secretStatus: item.secret
+  const toggleSecret = useCallback((index: number) => {
+    const prev = draftRef.current
+    const row = prev?.varRows[index]
+    if (!prev || !row || !row.key) return
+    const rows = prev.varRows.map((item, i) =>
+      i === index
+        ? {
+            ...item,
+            secret: !item.secret,
+            originSecret: item.secret ? item.originSecret : false,
+            secretStatus: item.secret
+              ? item.secretStatus
+              : item.originSecret && item.secretStatus
                 ? item.secretStatus
-                : item.originSecret && item.secretStatus
-                  ? item.secretStatus
-                  : item.enabled
-                    ? ("missing" as const)
-                    : ("disabled" as const),
-            }
-          : item,
-      )
-      const next = { ...prev, varRows: rows }
-      draftRef.current = next
-      setDraft(next)
-      setSecretConfirmRowId(null)
-      setRevealedRowId(null)
-    },
-    [secretConfirmRowId],
-  )
+                : item.enabled
+                  ? ("missing" as const)
+                  : ("disabled" as const),
+          }
+        : item,
+    )
+    const next = { ...prev, varRows: rows }
+    draftRef.current = next
+    setDraft(next)
+    setRevealedRowId(null)
+  }, [])
 
   const toggleReveal = useCallback((index: number) => {
     const row = draftRef.current?.varRows[index]
     if (!row?.secret || !row.value) return
     setRevealedRowId((current) => (current === row.id ? null : row.id))
-    setSecretConfirmRowId(null)
   }, [])
 
   const remaskSecrets = useCallback(() => {
     setRevealedRowId(null)
-    setSecretConfirmRowId(null)
   }, [])
 
   const revertVar = useCallback((index: number) => {
@@ -778,7 +758,9 @@ export function useEnvironmentEditor({
               })
             }
           } else if (before?.secret) {
-            if (!row.valueChanged) {
+            const canReuseStoredValue =
+              before.secretStatus === "keychain" && row.value !== ""
+            if (!row.valueChanged && !canReuseStoredValue) {
               throw new Error(
                 `Enter a plaintext value before unmarking "${row.key}"`,
               )
@@ -826,7 +808,7 @@ export function useEnvironmentEditor({
 
         const savedRows = curDraft.varRows.map((row) => ({
           ...row,
-          originSecret: false,
+          originSecret: row.secret,
           secretStatus: row.secret ? row.secretStatus : undefined,
           valueChanged: false,
         }))
@@ -883,7 +865,6 @@ export function useEnvironmentEditor({
         onEnvDataChangedRef.current?.()
       }
       setRevealedRowId(null)
-      setSecretConfirmRowId(null)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
@@ -1104,7 +1085,6 @@ export function useEnvironmentEditor({
     setEditValue("")
     setError(null)
     setRevealedRowId(null)
-    setSecretConfirmRowId(null)
     setClonePrompt(null)
   }, [])
 
@@ -1149,7 +1129,6 @@ export function useEnvironmentEditor({
     toggleSecret,
     toggleReveal,
     revealedRowId,
-    secretConfirmRowId,
     clonePrompt,
     confirmClone,
     remaskSecrets,
