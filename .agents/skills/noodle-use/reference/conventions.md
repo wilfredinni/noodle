@@ -29,7 +29,7 @@ Avoid generic names like `get.yml` or `post.yml` — they're ambiguous when read
 
 - Name env files after deployment stages: `development.env`, `staging.env`, `production.env`
 - Always include `_color` as first line. Use `success` for production, `warning` for staging, `info` for development.
-- Never commit real secrets to env files. Use placeholder values and override locally.
+- Never commit real secrets to env files. Use `# @secret KEY` plus a blank `KEY=` placeholder, then store the value with `noodle secret set` or provide it through the process environment.
 - Keep all env files in sync — every env should declare the same set of variable names (different values).
 - Comment out (`#`) variables that don't apply to a specific environment, don't delete them.
 

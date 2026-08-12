@@ -175,18 +175,22 @@ Dotenv format in `<collection>/.environments/<name>.env`:
 ```
 _color=success
 base_url=https://api.example.com
-api_key=sk-abc123
+# @secret api_key
+api_key=
 # disabled_key=this_var_is_disabled
 ```
 
 - `_color=<name>`: sidebar badge color. Valid: `primary`, `secondary`, `accent`, `error`, `warning`, `success`, `info`, `text`, `textMuted`, `background`, `backgroundPanel`, `backgroundElement`, `border`, `borderActive`, `borderSubtle`.
-- `KEY=value`: active variable
+- `KEY=value`: active public variable
 - `# KEY=value`: commented out = disabled variable. Noodle skips these.
+- `# @secret KEY` followed immediately by a blank `KEY=`: enabled secure value. The value resolves from `process.env.KEY` first, then the OS credential vault.
+- `# @secret KEY` followed by `# KEY=`: disabled secure declaration. Secret placeholders must stay blank.
 
 ## Collection settings (`settings.yml`)
 
 Single file at collection root:
 ```yaml
+collection_id: 123e4567-e89b-42d3-a456-426614174000
 name: Payments API
 description: |-
   Requests for the payments platform.
@@ -194,18 +198,29 @@ timeline_max_entries: 50
 environment: development
 proxy:
   mode: custom
-  url: http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080
+  url: http://proxy.example:8080
   bypass:
     - localhost
     - .internal.example
+  auth: true
+tls:
+  verify: true
+  ca_bundle: ./certs/internal-roots.pem
+  client_certificates:
+    - host: api.internal.example
+      port: 443
+      cert_file: ./certs/client-chain.pem
+      key_file: ./certs/client-key.pem
+      secret_id: 123e4567-e89b-42d3-a456-426614174001
 ```
 
+- `collection_id`: generated UUID used to keep OS-vault accounts stable when the collection moves; preserve it and do not copy one collection's ID into another
 - `name`: optional display name; falls back to the collection directory name
 - `description`: optional multiline collection notes
 - `timeline_max_entries`: optional non-negative integer; defaults to 50, and `0` disables history
 - `environment`: default active environment name; must match an env file in `.environments/`
-- `proxy`: optional collection proxy policy. Use `inherit` to follow global settings, `off` for direct connections, or `custom` with an `http` or `https` URL and optional bypass list. Credentials may be entered directly or use `$VARNAME` values from the active Noodle environment. Direct credentials are stored in `settings.yml`.
-- `tls`: optional collection TLS policy with `verify` (boolean), `ca_bundle` (PEM path), and `client_certificates` (list). Each client certificate requires an exact `host`, optional `port` (default 443), `cert_file`, `key_file`, optional exact `$VARNAME` `passphrase`, and optional `enabled`. Relative paths resolve from the collection root. Literal or interpolated passphrases are rejected.
+- `proxy`: optional collection proxy policy. Use `inherit` to follow global settings, `off` for direct connections, or `custom` with a credential-free `http` or `https` URL and optional bypass list. Settings persists `auth: true` when proxy authentication is enabled; credentials live in the OS vault. URLs containing credentials or variables are invalid.
+- `tls`: optional collection TLS policy with `verify` (boolean), `ca_bundle` (PEM path), and `client_certificates` (list). Each client certificate requires an exact `host`, optional `port` (default 443), `cert_file`, `key_file`, optional generated UUID `secret_id`, and optional `enabled`. Relative paths resolve from the collection root. Enter encrypted-key passphrases in Settings; do not put them in YAML.
 
 Settings are strict: unknown keys, wrong field types, malformed proxy/TLS
 blocks, and YAML errors fail loading and automation runs. A missing or empty
@@ -256,7 +271,7 @@ Each entry has:
 | `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number — response time in ms), `size` (number — response body size in bytes) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
 
-The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Agents should read timeline data but should not create, rename, or edit sidecars directly.
+The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment secrets, proxy/TLS secrets, sensitive headers, and literal auth credentials are redacted from persisted request fields, but ordinary variables and server response fields remain intact. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
 **Useful queries agents can answer from timeline data:**
 - Average response time for a request: sum all `response.timeMs` / count

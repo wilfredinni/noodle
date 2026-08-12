@@ -7,6 +7,7 @@ Restructure, rename, and refactor existing noodle collections.
 - **Never break IDs**: Requests and folders are identified by their relative path (ID). Moving or renaming changes the ID. If the user has timeline data or UI state, the old ID will be orphaned.
 - **Always ask before bulk changes**: Restructuring affects all IDs. Confirm the plan before executing.
 - **Preserve folder.yml**: When moving files between folders, the `folder.yml` overrides may change behavior. Warn if auth/headers will change.
+- **Preserve collection identity**: Keep the generated `collection_id` when moving or renaming one collection so OS-vault secrets remain available. Never copy that ID into a different collection.
 
 ## Rename a request
 

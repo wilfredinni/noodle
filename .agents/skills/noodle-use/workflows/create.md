@@ -203,7 +203,16 @@ auth:
 
 ### Step 3: Ensure the env has the auth variable
 
-Add `api_token=<placeholder>` to environments if `$api_token` is used and not yet declared.
+Declare sensitive values without plaintext and set them through the secret CLI:
+
+```dotenv
+# @secret api_token
+api_token=
+```
+
+```bash
+noodle secret set api_token --env <environment> --collection <dir>
+```
 
 ## Add an environment
 
@@ -221,8 +230,14 @@ File: `<dir>/.environments/<name>.env`:
 ```
 _color=success
 base_url=https://api.example.com
-api_key=sk-placeholder
+# @secret api_key
+api_key=
 ```
+
+After writing the declaration, use
+`noodle secret set api_key --env <name> --collection <dir>` to store the value
+in the OS credential vault. A same-named process environment value takes
+precedence for CI and other automation.
 
 ### Step 4: Set _color appropriately
 

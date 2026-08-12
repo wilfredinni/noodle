@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (~1180 across 73 suites)
+bun test                              # all tests (~2466 across 161 files)
 bun test tests/lang.test.ts           # single file
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
@@ -20,21 +20,22 @@ bun run release:check -- --tag vX.Y.Z # validate code, docs site, and release re
 ## CLI usage
 
 ```
-noodle [<path>] [--collection <dir>] [--env <name>] [--noproxy]
+noodle [<path>] [--collection <dir>] [--env <name>] [--noproxy] [--insecure]
 noodle import <source> [--format <format>] [--output <dir>]
 noodle export <collection> --format <openapi|postman> --output <file|dir>
 noodle update
 noodle workspace list [--json]
-noodle collection <create|init|list|inspect|format|audit|run> ... [--noproxy] [--json]
-noodle request <create|run> ... [--noproxy] [--json]
+noodle collection <create|init|list|inspect|format|audit|run> ... [--noproxy] [--insecure] [--json]
+noodle request <create|run> ... [--noproxy] [--insecure] [--json]
 noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
+noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 ```
 
-- **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, `--env/-e`, and `--noproxy`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then the current directory. `--noproxy` forces direct connections for that invocation.
+- **Default command** (TUI mode): optional positional `<path>` (use `.` for current directory), `--collection/-c`, `--env/-e`, `--noproxy`, and `--insecure`. Positional path overrides `--collection`; supplying both is invalid. Without either, the first existing registered collection in `~/.config/noodle/config.yml` is used, then the current directory. `--noproxy` forces direct connections and `--insecure` disables TLS verification for that invocation.
 - **Import subcommand**: `source` (positional, required), `--format/-i` (`openapi`, `swagger`, `postman`, or `insomnia`; auto-detected if omitted), `--output/-o` (default: ./collections)
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values except that `@/` file paths expand to absolute home paths, so review exports for secrets and local path disclosure before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
-- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [--env] [--noproxy]`; `request create --url --method --collection`, `run [--env] [--noproxy]`; and `environment set`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
+- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [--env] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; and `secret set|list|delete`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
 - **TUI path modes**: Existing collection roots open in collection mode. Directories containing request YAML but no collection markers open in read-only browse mode; empty directories open in read-only empty mode. Invalid or non-directory paths exit with an error. Initialize browse/empty directories from the command palette before editing or sending.
 - `--help`, `--version` auto-generated by citty
@@ -59,7 +60,9 @@ src/
 │       ├── json/  # tree-sitter-json.wasm, highlights.scm
 │       └── yaml/  # tree-sitter-yaml.wasm, highlights.scm
 ├── filestore/     # loadCollection(dir) / saveRequest(dir, req) — disk I/O
-├── env/           # loadEnvironment, listEnvironments — env file I/O + validation
+├── env/           # loadEnvironment, listEnvironments — env file I/O + secret resolution
+├── secrets/       # OS credential-vault storage + redaction helpers
+├── tls.ts         # TLS/mTLS validation and per-request policy resolution
 ├── requests/      # executor.send + substitute ($var replacement)
 ├── hooks/         # React hooks
 │   ├── useCollection.ts, useTreeNavigation.ts, useSidebarSelection.ts
@@ -184,17 +187,18 @@ tests/integration/ # Integration tests
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
 - **Requests are `.yml` files**, one per request. Extension is `.yml` not `.yaml`.
 - **Request IDs** are collection-relative paths without `.yml`; reject traversal, absolute paths, backslashes, empty segments, and hidden segments.
-- **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color.
+- **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color. `# @secret NAME` followed by a blank `NAME=` placeholder declares a credential-vault value; process environment wins over the stored value.
 - **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth.
 - **`@/path` home syntax** for multipart file values and binary `file_path`; the TUI completes the shorthand from the user home directory, while expansion happens only at output boundaries, including file reads during request sending, HAR generation through `buildHar`, and Postman export.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.
-- **Settings and proxy policy:** `F4` opens Settings. Global proxy mode is `system`, `off`, or `custom`; a collection may `inherit`, use `off`, or define `custom`. Custom URLs accept `$VARNAME` only for credentials, and `--noproxy` takes precedence for a single run. Collection `settings.yml` also stores optional `name`, `description`, `timeline_max_entries`, and active `environment`.
+- **Settings, proxy, and TLS policy:** `F4` opens Settings. Global proxy mode is `system`, `off`, or `custom`; a collection may `inherit`, use `off`, or define `custom`. Custom URLs reject credentials and variables; authenticated proxies persist only `auth: true`, while credentials live in the OS vault. `--noproxy` takes precedence for one run. Collection `settings.yml` also stores generated `collection_id`, optional `name`, `description`, `timeline_max_entries`, active `environment`, and TLS verification, CA, and exact-host client-certificate metadata. Encrypted key passphrases live in the OS vault; `--insecure` disables verification for one run. Settings parsing is strict.
 - **Read-only TUI modes**: Browse and empty modes allow inspection plus global UI actions, but block request/folder/environment edits, saves, sends, and collection-only keybindings until initialized.
 - **UI features require loading the `opentui` skill**. The skill lives at `.agents/skills/opentui/SKILL.md`.
 - **Command actions are centralized** in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. Never duplicate command logic.
 - **Command palette commands return boolean**: `run()` returns `true` (close palette) or `false` (stay open).
 - **PickerOverlay isNavigable**: Pass to skip non-selectable items (section headers) during up/down/return navigation.
-- **Environment controls:** `e` opens the searchable picker from the main view; `F3` opens the full editor. New environments are created through `NewEnvironmentOverlay`, then persisted by `useEnvironmentEditor.createEnv()`.
+- **Environment controls:** `e` opens the searchable picker from the main view; `F3` opens the full editor. New environments are created through `NewEnvironmentOverlay`, then persisted by `useEnvironmentEditor.createEnv()`. In environment browse mode, configurable `env_secret` (`s`) toggles secure storage and `env_reveal` (`r`) reveals the selected secret for the session.
+- **Timeline security:** Request snapshots resolve ordinary variables, redact declared environment secrets and settings secrets, and mask sensitive headers/auth before persistence. Server response fields are stored intact. Timeline YAML and gzip sidecars may still contain sensitive payloads.
 - **Response body editor:** `ResponsePane` renders bodies through a read-only `CodeEditorRenderable`; JSON folds retain source line numbers, the gutter owns fold signs, and copy operations must return original source text even when rows are folded.
 
 ## Keybindings (defaults; customizable via `~/.config/noodle/keybinds.yml`)
@@ -320,6 +324,8 @@ In the environment editor, only these environment targets are available:
 | `Ctrl+N` | Create new environment |
 | `Ctrl+K` | Clone selected environment |
 | `Ctrl+W` | Delete selected environment |
+| `s` | Toggle secure storage for the selected variable (browse mode) |
+| `r` | Reveal or mask the selected secret (browse mode) |
 
 ## Focus model
 

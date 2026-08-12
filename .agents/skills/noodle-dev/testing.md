@@ -5,7 +5,7 @@
 `bun test` (NOT jest/vitest). Uses `describe`, `it`, `expect` from `bun:test`.
 
 ```bash
-bun test                                    # all ~1180 tests
+bun test                                    # all ~2466 tests
 bun test tests/lang.test.ts                 # single file
 bun test --test-name-pattern "parseFolder"  # by name
 ```
@@ -91,6 +91,9 @@ Mount the visible hard-blocking overlay before pressing keys. Its shield has hig
 | YAML parse/serialize                 | `tests/lang.test.ts`                                                                                             |
 | File I/O (filestore)                 | `tests/filestore.test.ts`                                                                                        |
 | Environment load/save                | `tests/env*.test.ts`                                                                                             |
+| Environment/settings secret storage  | `tests/secrets.test.ts`                                                                                          |
+| Proxy resolution and settings UI     | `tests/unit/proxy.test.ts`, `tests/unit/ProxySettingsForm.test.tsx`                                              |
+| TLS parsing, resolution, and loopback | `tests/unit/tls.test.ts`, `tests/integration/tls-loopback.test.ts`                                               |
 | HTTP execution, substitution         | `tests/requests.test.ts`                                                                                         |
 | Folder overrides                     | `tests/unit/mergeFolderOverrides.test.ts`                                                                        |
 | Pure helper function                 | `tests/unit/<name>.test.ts`                                                                                      |

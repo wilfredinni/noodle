@@ -17,6 +17,9 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Canonicalize valid files | `noodle collection audit <dir> --fix --json` |
 | Create a minimal request | `noodle request create <id> --url <url> --method <method> --collection <dir> --json` |
 | Update an existing environment variable | `noodle environment set <key> <value> --env <name> --collection <dir> --json` |
+| Store or replace a declared secret | `noodle secret set <key> --env <name> --collection <dir> --stdin --json` |
+| Inspect declared secret names and sources | `noodle secret list --env <name> --collection <dir> --json` |
+| Delete a local vault value without removing its declaration | `noodle secret delete <key> --env <name> --collection <dir> --json` |
 | Run one request or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> ... --json` |
 
 ## Rules
@@ -27,6 +30,8 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - `collection format` rewrites every request file with canonical YAML and pretty-prints valid JSON bodies. It leaves invalid JSON body text unchanged. Obtain user authorization before running it because it modifies collection files.
 - Request IDs are relative paths without `.yml`, such as `users/list`. Do not use traversal, empty segments, or hidden segments.
 - `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment; ensure referenced `$vars` exist there.
+- Add `--insecure` to `request run` or `collection run` only when the user explicitly authorizes disabling TLS certificate verification for that invocation.
+- `secret set` creates or updates the blank `# @secret KEY` declaration and stores the value in the OS vault. Prefer masked TTY input for humans; use `--stdin` only when automation can supply the value without exposing it in arguments or logs. `environment set` refuses declared secret keys.
 - `collection audit --fix` writes canonical forms for valid files. Obtain user authorization before running it.
 
 ## Fall back to files

@@ -91,7 +91,7 @@ API_TOKEN=
 ```
 
 The value is stored in macOS Keychain, Linux Secret Service, or Windows
-Credential Manager instead of the `.env` file. A nonempty process environment
+Credential Manager instead of the `.env` file. A same-named process environment
 value takes precedence, which keeps CI setup simple. Secret values remain
 masked in the editor and are excluded from persisted request history, code
 generation, request search, and exports.
@@ -132,12 +132,12 @@ it reads a file or creates an export.
 
 Open **Settings** with `F4` or from the `Ctrl+P` command palette to use the
 system `HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or
-override the current collection in `settings.yml`. Custom proxy credentials can
-be entered directly or use `$VARNAME` references, for example
-`http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080`. Variables for both app
-and collection proxies come from the active Noodle environment. Direct app
-credentials are stored in the app config, while direct collection credentials
-are stored in `settings.yml`; review either file before sharing it. Bypass
+override the current collection in `settings.yml`. Custom proxy URLs contain
+only the protocol, host, and optional port, such as
+`http://proxy.example:8080`. Enable authentication in Settings and enter a
+username plus an optional password; Noodle stores both in the OS credential
+vault. Configuration persists only the credential-free URL and `auth: true`.
+Credentials and `$VARNAME` placeholders inside `proxy.url` are rejected. Bypass
 entries are optional, comma-separated, and support `*`, hosts, `.domain`
 suffixes, IP addresses, and optional ports.
 
@@ -147,10 +147,10 @@ direct connections for that invocation.
 Collection TLS settings support certificate verification, a custom PEM CA
 bundle, and PEM client certificates for mutual TLS. Client certificates match
 the interpolated request host and port exactly; relative paths resolve from the
-collection root, and encrypted private-key passphrases can use an active
-environment variable. Passphrases must be stored as one exact `$VARNAME`
-reference; literals and interpolated strings are rejected. A custom CA bundle
-replaces the default trusted roots, so include every root the collection needs.
+collection root. Enter encrypted private-key passphrases in Settings; Noodle
+stores them in the OS credential vault and writes only a generated `secret_id`
+to `settings.yml`. A custom CA bundle replaces the default trusted roots, so
+include every root the collection needs.
 
 ```yaml
 tls:
@@ -161,7 +161,7 @@ tls:
       port: 443
       cert_file: ./certs/client-chain.pem
       key_file: ./certs/client-key.pem
-      passphrase: $MTLS_PASSPHRASE
+      secret_id: 123e4567-e89b-42d3-a456-426614174000
 ```
 
 Requests can override only verification with `tls.verify`; omit it to inherit

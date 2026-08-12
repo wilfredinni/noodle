@@ -22,7 +22,7 @@ const TIPS = [
   "scroll the response with {↑}/{↓} or {PgUp}/{PgDn}",
   "response body auto-formats JSON when detected",
   "open the Network response tab to follow requests, redirects, and responses",
-  "create a new request — save with {^S} and type a new name",
+  "create a new request with {^N}",
   "import OpenAPI, Swagger, Postman, or Insomnia files with {noodle import <path>}",
   "export a collection as OpenAPI or Postman with {noodle export <collection> --format <format> --output <path>}",
   "open {^P}, choose Import Collection to bring a source into a new or current collection",
@@ -44,8 +44,10 @@ const TIPS = [
   "open {^P}, choose Generate Code to export request as client code",
   "check for updates with {noodle update} or {^P} then Update Noodle",
   "press {e} to search environments; use {F3} to open the editor",
-  "open Settings with {F4} to configure proxies, collections, and shortcuts",
+  "open Settings with {F4} to configure proxies, TLS, collections, and shortcuts",
   "create an environment with {^N} in the environment editor",
+  "mark an environment value secret with {s} in environment browse mode",
+  "temporarily disable TLS verification with {noodle --insecure}",
   "recent responses are saved in a timeline per request",
 ]
 

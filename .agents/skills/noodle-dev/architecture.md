@@ -6,7 +6,7 @@ Example collection on disk:
 
 ```
 my-collection/
-├── settings.yml              ← { environment: "dev" }
+├── settings.yml              ← { collection_id: UUID, environment: "dev" }
 ├── list-users.yml            ← Request file: id = "list-users"
 ├── get-user.yml              ← Request file: id = "get-user"
 ├── auth/
@@ -14,9 +14,10 @@ my-collection/
 │   ├── login.yml             ← Request: id = "auth/login"
 │   └── refresh.yml           ← Request: id = "auth/refresh"
 ├── .environments/
-│   ├── development.env       ← KEY=value (dotenv format)
+│   ├── development.env       ← KEY=value or # @secret KEY + blank KEY=
 │   └── production.env
 ├── .noodle/
+│   ├── collection-id         ← Concurrency-safe ID reservation
 │   └── ui-state.yml          ← Last selection, expanded folders, per-request tabs
 ├── .timeline/                ← Per-request response history (max 50 entries each)
 │   ├── list-users.yml
@@ -83,25 +84,39 @@ Folder overrides are resolved in `requests/mergeFolderOverrides.ts` — walks an
 Collection-level settings at the root, loaded by `filestore/loadSettings()`:
 
 ```yaml
+collection_id: 123e4567-e89b-42d3-a456-426614174000 # Generated vault namespace
 name: Payments API # Optional display name
 description: Requests for the payments platform. # Optional notes
 timeline_max_entries: 50 # Per-request history retention; 0 disables
 environment: development # Last active environment name
 proxy:
   mode: custom # "inherit", "off", or "custom"
-  url: http://$PROXY_USER:$PROXY_PASSWORD@proxy.example:8080
+  url: http://proxy.example:8080
   bypass: [localhost, .internal.example]
+  auth: true # Credentials live in the OS vault
+tls:
+  verify: true
+  ca_bundle: ./certs/internal-roots.pem
+  client_certificates:
+    - host: api.internal.example
+      cert_file: ./certs/client-chain.pem
+      key_file: ./certs/client-key.pem
+      secret_id: 123e4567-e89b-42d3-a456-426614174001
 ```
 
 `name` and `description` drive collection display in the Settings workspace.
 `timeline_max_entries` must be a non-negative safe integer and pruning removes
 evicted large-body sidecars. Collection proxy mode is `inherit`, `off`, or
 `custom`. The global `config.yml` proxy mode is `system`, `off`, or `custom`.
-Custom credentials at either scope may be entered directly or use variables
-from the active Noodle environment. Direct credentials are stored in the
-corresponding app config or collection `settings.yml`. `--noproxy` overrides
-every saved policy for a single TUI or automation run. Settings load as `{}`
-when the file is missing. Invalid settings throw and terminate bootstrap.
+Custom URLs reject credentials and variables. `auth: true` records that
+credentials are enabled; the username and optional password live in the OS
+vault. `--noproxy` overrides every saved policy for a single TUI or automation
+run. TLS supports verification, one custom CA bundle, and exact-host/port PEM
+client certificates. Encrypted-key passphrases live in the vault and profiles
+retain only a generated `secret_id`; `--insecure` disables verification for one
+run. `collection_id` is generated and persisted so collection-scoped vault
+accounts survive directory moves. Settings load as `{}` when the file is
+missing or empty. Invalid settings throw and terminate bootstrap.
 
 ### User-relative file paths
 
@@ -114,7 +129,7 @@ display and completion.
 
 ### Timeline (`.timeline/`)
 
-Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Entries contain substituted request data, so timeline files and sidecars can contain resolved secrets. The detail view masks configured bearer, basic, and header API-key auth for display, but does not redact storage.
+Per-request response history stored as YAML arrays of `TimelineEntry` objects. Retention defaults to 50 entries per request and is configurable through `timeline_max_entries` (FIFO — `unshift` + truncate); `0` disables history. Files mirror the request ID structure: `.timeline/auth/login.yml` for request `auth/login`. Bodies over 10 KB are gzip-compressed into a sibling `.yml.bodies/` directory; the entry stores a `bodyRef` with its filename, encoding, and byte size. Eviction and timeline clearing remove associated sidecars. Request snapshots resolve ordinary variables and redact declared environment secrets, settings secrets, sensitive headers, and literal auth credentials before persistence. Server response fields remain intact, so timeline files and sidecars can still contain sensitive payloads.
 
 ### File write conventions
 
@@ -143,6 +158,7 @@ Follow existing patterns:
 - **UI state**: Extend `.noodle/ui-state.yml` and its serialized writer in `src/ui/tabs/uiState.ts`; its write mutex preserves concurrent updates to selection, folders, and tab preferences
 - **New hidden directory**: Add name to `SKIP_DIRS` in `load.ts` so `walk()` skips it
 - **Global user config**: Use `~/.config/noodle/config.yml` via `useConfig` hook
+- **Secrets**: Store values through `src/secrets/index.ts`; persist only declaration or ID metadata and wrap coupled settings/vault changes in `applySettingsSecretTransaction()`
 
 ## Code editor architecture
 
@@ -343,8 +359,9 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      2. substitute(req, env) — $var replacement
      3. Build URL with params
      4. Set auth headers via authHeader()
-     5. fetch() with AbortSignal.timeout
-     6. Manual redirect handling
+     5. Resolve proxy and TLS policy from RequestExecutionOptions
+     6. fetch() with proxy/TLS options and AbortSignal.timeout
+     7. Manually follow HTTP(S) redirects; block downgrades and strip cross-origin credentials
   → useResponse: SendState FSM → idle → sending → done | error
   → ResponsePane: renders body (JSON highlighting), headers, timeline
 ```
@@ -421,11 +438,11 @@ createMain(main) — citty argparse
    │     ├── Caches validated manifest data for one hour, with a seven-day stale fallback
    │     └── Downloads, SHA-256 verifies, and atomically replaces standalone binary
    │
-   └── "workspace" | "collection" | "request" | "environment"
+   └── "workspace" | "collection" | "request" | "environment" | "secret"
          └── commands/automation.ts → services.ts → filestore/env/executor
               ├── non-interactive resource operations
               ├── optional --json result envelope via commandResult.ts
-              └── collection/request run resolves --env, then settings.yml
+              └── collection/request run resolves --env, proxy/TLS vault data, then settings.yml
 ```
 
 ### TUI path classification
@@ -450,13 +467,13 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Update mode** (`src/app/commands/update.ts`): Standalone release binaries read the Noodle update manifest and cache its validated version and checksums in `~/.config/noodle/update-cache.json`. A valid cached manifest avoids repeat checks for one hour and remains available for update fallback for seven days. Downloaded binaries must match the manifest SHA-256 before atomic replacement. Homebrew installs run `brew upgrade noodle`; Bun development runtimes cannot self-update.
 
-**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, and setting existing environment variables. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, and secure value set/list/delete. Run commands support one-shot `--noproxy` and `--insecure` overrides. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
 **Config files** (read during startup):
 
 - `~/.config/noodle/keybinds.yml` — user keybinding overrides
-- `~/.config/noodle/config.yml` — theme, layout, undo confirmation, registered collections, and global proxy policy
-- `<collection>/settings.yml` — collection metadata, timeline retention, active environment, and collection proxy policy
+- `~/.config/noodle/config.yml` — theme, layout, undo confirmation, registered collections, and credential-free global proxy policy
+- `<collection>/settings.yml` — collection ID/metadata, timeline retention, active environment, credential-free proxy policy, and TLS metadata
 - `<collection>/.noodle/ui-state.yml` — last selected item, expanded folders, and per-request tab state
 
 ## State management
@@ -507,7 +524,9 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Tree-sitter parsers         | `src/lang/parsers/json/`, `src/lang/parsers/yaml/`, `src/ui/editor/codeEditorParsers.ts`                                                                                                                                                                                                                                     |
 | File I/O                    | `src/filestore/load.ts`, `src/filestore/save.ts`, `src/filestore/timeline.ts`                                                                                                                                                                                                                                                |
 | Environments                | `src/env/load.ts`, `src/env/save.ts`                                                                                                                                                                                                                                                                                         |
+| Secrets and redaction       | `src/secrets/index.ts`, `src/secrets/redact.ts`                                                                                                                                                                                                                                                                              |
 | HTTP execution              | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts`                                                                                                                                                                                                                                 |
+| TLS and proxy policy        | `src/tls.ts`, `src/proxy.ts`                                                                                                                                                                                                                                                                                                 |
 | Hooks                       | `src/hooks/*.ts`                                                                                                                                                                                                                                                                                                             |
 | Code editor                 | `src/ui/editor/CodeEditor.ts`, `CodeEditorCompletion.tsx`, `codeEditorParsers.ts`, `codeEditorFoldManager.ts`, `codeEditorFolds.ts`, `codeEditorHighlightRenderer.ts`, `codeEditorHighlighting.ts`, `codeEditorKeys.ts`, `codeEditorStyles.ts`, `codeEditorValidation.ts`, `YamlEditorOverlay.tsx`, `ValidationNotice.tsx` |
 | Variable completion         | `src/ui/variable-completion/variableCompletion.ts`, `src/ui/variable-completion/useVariableCompletion.ts`, `src/ui/variable-completion/variableCompletionInterceptor.tsx`, `src/ui/variable-completion/variableHighlight.ts`, `src/ui/variable-completion/highlightOffsets.ts`, `src/ui/variable-completion/envHighlight.ts` |

@@ -4,6 +4,43 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-11
+
+![Export collection overlay](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/screts.png)
+
+Noodle 0.7.1 adds TLS and mutual-TLS controls plus OS-backed secret storage for environment values, proxy authentication, and encrypted client-key passphrases. It also hardens settings validation and redirects, while making secret-aware request history and automation practical from both the TUI and CLI.
+
+### ⚠️ Breaking Changes
+
+- Custom proxy URLs can no longer contain credentials or `$VARNAME` placeholders. Remove user information from `proxy.url`, then re-enter the proxy username and optional password in **Settings**; Noodle stores them in the OS credential vault and persists only `auth: true` beside the credential-free URL.
+- Invalid `settings.yml` files no longer silently fall back to defaults. Unknown keys, malformed YAML, wrong field types, and invalid proxy or TLS blocks now stop collection opening, auditing, and automation until corrected.
+- Redirect handling is intentionally stricter: Noodle rejects HTTPS-to-HTTP downgrades and strips authorization, proxy authorization, cookies, `Host`, and header API-key credentials before following a cross-origin redirect.
+
+### ✨ Features
+
+- Add collection TLS settings for certificate verification, custom PEM CA bundles, and exact-host PEM client certificates, plus request-level verification overrides and `--insecure` for one TUI or automation invocation.
+- Add secure environment declarations with `# @secret NAME` plus a blank placeholder; resolve them from the OS credential vault or a same-named process variable, mask them in the environment editor, and redact them from persisted request snapshots, request search, code generation, and exports.
+- Add `noodle secret set`, `list`, and `delete` automation commands, including masked terminal input, `--stdin`, JSON envelopes, and secret-source status.
+- Store proxy credentials and encrypted mTLS private-key passphrases in the OS credential vault while keeping only non-secret metadata in global or collection configuration.
+
+### 🐞 Fixes
+
+- Keep server response status text, headers, and bodies intact instead of redacting values that happen to match a request secret, while continuing to redact known secrets from request snapshots, network messages, and errors.
+- Make environment-secret toggling, reveal, cloning, rollback, reserved `_color` handling, and customizable secret keybindings reliable.
+- Require a username when proxy authentication is enabled, preserve literal dollar signs in credentials, and keep failed settings-secret transactions from leaving configuration and credential storage out of sync.
+- Make collection settings writes atomic, preserve concurrent Settings edits, reject malformed settings consistently, and keep click-to-commit behavior reliable across request and settings fields.
+
+### 🔧 Refactors
+
+- Give collections a generated `collection_id` so credential-vault entries remain stable when a collection moves, and route proxy and TLS secrets through shared transactional storage helpers.
+- Centralize TLS policy resolution, redirect credential stripping, and request execution options across TUI and automation sends.
+
+### 📚 Documentation
+
+- Document TLS/mTLS, secure environment values, proxy credential migration, strict settings validation, redirect hardening, and the new CLI flags and secret commands across the README, SECURITY.md, AGENTS.md, in-app tips, and the documentation site.
+- Update `noodle-dev` with the credential-vault, TLS, settings-persistence, environment-secret, and timeline-redaction architecture.
+- Update `noodle-use` with secure environment workflows, secret automation commands, proxy/TLS schemas, and current timeline security guidance.
+
 ## [0.7.0] - 2026-08-09
 
 Noodle adds a unified Settings workspace for global preferences and collection configuration, including flexible proxy routing and controllable response-history retention. The release also makes collection metadata more visible and strengthens key handling, settings navigation, and concurrent timeline persistence.
@@ -364,7 +401,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/wilfredinni/noodle/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/wilfredinni/noodle/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/wilfredinni/noodle/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/wilfredinni/noodle/compare/v0.6.0...v0.6.1

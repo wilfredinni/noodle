@@ -9,7 +9,8 @@ Noodle is a local terminal HTTP client. It runs on your machine and sends HTTP r
 - Sends real HTTP requests over your network
 - Substitutes `$VARIABLE` values from local `.env` files
 - Stores request definitions as YAML files on disk
-- Stores environment variables as dotenv files under `<collection>/.environments/`
+- Stores ordinary environment variables as dotenv files under `<collection>/.environments/`
+- Stores declared environment secrets, proxy credentials, and encrypted mTLS key passphrases in the operating system credential vault
 
 ### No sandbox
 
@@ -19,9 +20,11 @@ Redirects are restricted to HTTP and HTTPS. HTTPS-to-HTTP downgrades are blocked
 
 ### Credential handling
 
-Environment files (`.env`) under `.environments/` may contain API keys, tokens, and secrets. These files live on disk alongside your collections. Noodle does not encrypt them, transmit them separately, or log them (except in the timeline, which is local). Treat `.environments/` directories like any local secrets store.
+Ordinary environment values remain plaintext in `.env` files. Declare a secure value with `# @secret NAME` followed by a blank `NAME=` placeholder, then set it from the environment editor or `noodle secret set`. Noodle stores the value in macOS Keychain, Linux Secret Service, or Windows Credential Manager; a same-named process environment value takes precedence.
 
-Encrypted mTLS private-key passphrases must be referenced from an environment as an exact `$VARNAME`; literal passphrases are rejected in collection settings.
+Custom proxy URLs cannot contain credentials or variables. Proxy usernames and passwords, plus encrypted mTLS private-key passphrases, are entered through Settings and stored in the OS credential vault. Configuration files retain only non-secret metadata.
+
+Persisted timeline request snapshots redact declared environment secrets, sensitive header values, proxy credentials, and mTLS passphrases. Server response headers and bodies are retained exactly as received, and ordinary environment values are not treated as secrets. Timeline files and compressed body sidecars can therefore still contain sensitive payloads; do not commit `.timeline/`.
 
 ### Out of scope
 

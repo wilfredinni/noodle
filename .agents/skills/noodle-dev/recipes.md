@@ -189,15 +189,16 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - `src/hooks/useEnvironments.ts` — cycling, loading, active env
 - `src/hooks/useEnvironmentEditor.ts` — full CRUD for env editor view
 
-**Follow:** Dotenv format: `KEY=value`. Lines starting with `#` are disabled vars. `_color=<name>` is special.
+**Follow:** Dotenv format: `KEY=value`. Lines starting with `#` are disabled vars. `_color=<name>` is special. `# @secret NAME` immediately followed by a blank placeholder is a secure declaration whose value resolves from the process environment or OS vault.
 
 **Implement:**
 1. For new load feature: add function in `src/env/` that reads/parses `.env` files
 2. For new env field type: update `Environment` type in `schema/index.ts`
 3. Wire into `useEnvironments` or `useEnvironmentEditor` as needed
 4. If user-facing: add UI in env editor panes (`EnvHeaderPane.tsx`, `EnvEditorPane.tsx`)
+5. If values are secret: use `src/secrets/index.ts`, preserve blank declarations on disk, redact at output boundaries, and make coupled file/vault changes transactional
 
-**Test:** Use `mkdtemp` for temp env dirs. Write `.env` files, load, assert fields. Clean up with `rm` in `afterEach`.
+**Test:** Use `mkdtemp` for temp env dirs. Write `.env` files, load, assert fields, and inject a `SecretBackend` with `setSecretBackendForTests()` instead of touching the real OS vault. Clean up with `rm` in `afterEach`.
 
 **Verify:** `bun test tests/env*.test.ts && bun run lint && bun run typecheck`
 

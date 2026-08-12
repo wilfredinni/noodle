@@ -20,7 +20,7 @@ Read every `.yml` file in the collection directory (recursively, excluding hidde
 
 ### Step 3: Load all environments
 
-Read every `.env` file in `.environments/`. Extract declared vars, disabled vars, and `_color`.
+Read every `.env` file in `.environments/`. Extract public declarations, disabled vars, `# @secret` declarations, and `_color`. Never attempt to read secret values from the OS credential vault during an audit.
 
 ### Step 4: Run each check below
 
@@ -89,7 +89,16 @@ headers:
 
 **Why it's bad**: Env files may be shared or committed accidentally. Placeholder values are safer.
 
-**Fix**: Replace with placeholder: `api_key=sk-your-key-here`. Keep real secrets in a local-only, gitignored file or a secrets manager.
+**Fix**: Replace the plaintext with a secure declaration, then store the value through Noodle without putting it in command arguments:
+
+```dotenv
+# @secret api_key
+api_key=
+```
+
+```bash
+noodle secret set api_key --env <name> --collection <dir>
+```
 
 **Severity**: critical
 
@@ -102,6 +111,32 @@ headers:
 **Fix**: Use `https://` in production and staging environments.
 
 **Severity**: warning (critical for production env)
+
+### Disabled TLS verification
+
+**Pattern**: Collection or request YAML contains `tls.verify: false`, or an
+automation workflow uses `--insecure` routinely.
+
+**Why it's bad**: Certificate and hostname verification are disabled, allowing
+machine-in-the-middle interception.
+
+**Fix**: Restore verification and configure the required PEM CA bundle. Reserve
+`--insecure` for an explicitly authorized, one-off diagnostic.
+
+**Severity**: critical for production; warning otherwise
+
+### Credentials in proxy URLs
+
+**Pattern**: `proxy.url` contains user information or `$VARNAME` placeholders.
+
+**Why it's bad**: Noodle rejects credential-bearing or variable proxy URLs, and
+putting credentials in YAML exposes them to version control.
+
+**Fix**: Keep only the proxy scheme, host, and port in YAML; configure
+authentication in Settings so only `auth: true` is persisted and values remain
+in the OS vault.
+
+**Severity**: critical when literal credentials are present; warning for invalid variable URLs
 
 ### Missing auth on endpoints that should be authenticated
 
@@ -254,7 +289,7 @@ meta:
 
 ## Timeline security
 
-Timeline history stores substituted request data, including resolved variable values, on disk under `.timeline/`. Detail views mask configured bearer, basic, and header API-key auth, but this is display masking, not storage redaction. Treat `.timeline/` as sensitive data and avoid committing it.
+Timeline history stores ordinary substituted request values and server response fields on disk under `.timeline/`. Noodle redacts declared environment secrets, proxy/TLS settings secrets, sensitive headers, and literal auth credentials from request snapshots before persistence, but public variables and response payloads remain intact. Treat `.timeline/` as sensitive data and avoid committing it.
 
 ## Environment checks
 

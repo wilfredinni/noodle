@@ -134,11 +134,16 @@ _color=success
 base_url=https://jsonplaceholder.typicode.com
 post_id=1
 user_id=1
-api_token=dev-token-placeholder
-x_api_key=dev-key-placeholder
+# @secret api_token
+api_token=
+# @secret x_api_key
+x_api_key=
 ```
 
-`_color` on line 1 sets sidebar badge to green. All vars declared as `KEY=value`. No commented-out vars in this example — that would be `# disabled_key=value`.
+`_color` on line 1 sets the sidebar badge to green. `api_token` and `x_api_key`
+are secure declarations whose values must come from `noodle secret set` or the
+process environment; their placeholders stay blank. An ordinary disabled
+variable would use `# disabled_key=value`.
 
 ## Complete collection layout
 
