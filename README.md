@@ -3,8 +3,8 @@
 ## Your API client should live with your code.
 
 Noodle is a fast, keyboard-first HTTP client for the terminal. Requests stay as
-readable YAML files in your repository—easy to review, share, automate, and
-keep long after the tool is gone.
+readable YAML files in your repository. They are easy to review, share,
+automate, and keep long after the tool is gone.
 
 No cloud account. No workspace sync. No proprietary format.
 
@@ -26,7 +26,7 @@ opposite approach: your repository is the source of truth.
 - **Requests you can read.** One small `.yml` file per request. Diff it, review
   it, copy it, or edit it with any text editor.
 - **A workflow that travels.** Open the same collection in the TUI, run it from
-  the CLI, or hand it to an agent—without translating it first.
+  the CLI, or hand it to an agent without translating it first.
 - **Your data stays yours.** Noodle works from local files and stores declared
   secrets in your operating system's credential vault.
 - **No clean-slate migration.** Bring in OpenAPI, Swagger, Postman, or Insomnia
@@ -127,11 +127,11 @@ noodle import ./specs/api.yaml --output ./collections
 ```
 
 You can also export a collection to OpenAPI or Postman, so adopting Noodle is a
-choice—not a trap.
+choice, not a trap.
 
 [Learn about imports and exports →](https://noodlerest.dev/docs/)
 
-## Built for people—and agents—who work in repositories
+## Built for people and agents who work in repositories
 
 Because Noodle collections are plain files with a non-interactive CLI, coding
 agents can create, organize, audit, and run them without screen scraping or a
