@@ -486,6 +486,31 @@ describe("exportOpenApi", () => {
     expect(JSON.stringify(result.document)).not.toContain("super-secret")
   })
 
+  it("exports NTLM as an HTTP security marker without credentials", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            auth: {
+              type: "ntlm",
+              username: "alice",
+              password: "super-secret",
+              domain: "EXAMPLE",
+              workstation: "NOODLE",
+            },
+          }),
+        },
+      ]),
+    )
+    expect(result.document.components).toEqual({
+      securitySchemes: {
+        ntlmAuth: { type: "http", scheme: "ntlm" },
+      },
+    })
+    expect(JSON.stringify(result.document)).not.toContain("super-secret")
+  })
+
   it("does not merge API-key schemes whose sanitized names collide", () => {
     const result = exportOpenApi(
       collection([

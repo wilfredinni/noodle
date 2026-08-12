@@ -199,12 +199,22 @@ function lookupScheme(
 
 function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
   const type = scheme.type
-  const schemeName = scheme.scheme
+  const schemeName =
+    typeof scheme.scheme === "string" ? scheme.scheme.toLowerCase() : undefined
   if (type === "http" && schemeName === "bearer") {
     return { type: "bearer", token: "$token" }
   }
   if (type === "http" && schemeName === "basic") {
     return { type: "basic", user: "$user", pass: "$pass" }
+  }
+  if (type === "http" && schemeName === "ntlm") {
+    return {
+      type: "ntlm",
+      username: "$NTLM_USERNAME",
+      password: "$NTLM_PASSWORD",
+      domain: "$NTLM_DOMAIN",
+      workstation: "$NTLM_WORKSTATION",
+    }
   }
   if (type === "apiKey") {
     const name = typeof scheme.name === "string" ? scheme.name : "X-API-Key"
@@ -472,6 +482,12 @@ export function mapCollection(n: Normalized): ImportResult {
       if (mu) envVarsFound.add(mu[1])
       const mp = a.pass.match(/\$(\w+)/)
       if (mp) envVarsFound.add(mp[1])
+    }
+    if (a.type === "ntlm") {
+      for (const value of [a.username, a.password, a.domain, a.workstation]) {
+        const matches = value.matchAll(/\$(\w+)/g)
+        for (const match of matches) envVarsFound.add(match[1]!)
+      }
     }
     if (a.type === "api_key") {
       const m = a.value.match(/\$(\w+)/)

@@ -1094,3 +1094,40 @@ describe("authEqual — aws_sigv4", () => {
     ).toBe(false)
   })
 })
+
+describe("authEqual — ntlm", () => {
+  const auth = {
+    type: "ntlm" as const,
+    username: "alice",
+    password: "secret",
+    domain: "EXAMPLE",
+    workstation: "NOODLE",
+  }
+
+  it("compares every NTLM credential field", () => {
+    expect(
+      requestEquals(makeReq({ auth }), makeReq({ auth: { ...auth } })),
+    ).toBe(true)
+    expect(
+      requestEquals(
+        makeReq({ auth }),
+        makeReq({ auth: { ...auth, workstation: "OTHER" } }),
+      ),
+    ).toBe(false)
+  })
+
+  it("creates an empty NTLM draft when switching types", () => {
+    const original = makeReq()
+    const result = applyDraft(new Map(), original.id, original, {
+      kind: "setAuthType",
+      authType: "ntlm",
+    })
+    expect(result.get(original.id)?.auth).toEqual({
+      type: "ntlm",
+      username: "",
+      password: "",
+      domain: "",
+      workstation: "",
+    })
+  })
+})

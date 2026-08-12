@@ -9,12 +9,15 @@ import {
   useState,
 } from "react"
 import {
+  InputRenderable,
   MouseButton,
-  type InputRenderable,
-  type TextareaRenderable,
+  ScrollBoxRenderable,
+  TextareaRenderable,
+  type OptimizedBuffer,
 } from "@opentui/core"
 import {
   createPortal,
+  extend,
   useRenderer,
   useTerminalDimensions,
 } from "@opentui/react"
@@ -30,6 +33,53 @@ import {
 } from "./variable-completion/useVariableCompletion"
 import { usePathCompletion } from "./path-completion/usePathCompletion"
 import type { PathCompletionOptions } from "./path-completion/pathCompletion"
+
+function cursorIsOutsideScrollbox(editable: TextareaRenderable): boolean {
+  const cursor = editable.visualCursor
+  const cursorX = editable.screenX + cursor.visualCol + 1
+  const cursorY = editable.screenY + cursor.visualRow + 1
+  let ancestor = editable.parent
+
+  while (ancestor) {
+    if (ancestor instanceof ScrollBoxRenderable) {
+      const viewport = ancestor.viewport
+      if (
+        cursorX <= viewport.screenX ||
+        cursorX > viewport.screenX + viewport.width ||
+        cursorY <= viewport.screenY ||
+        cursorY > viewport.screenY + viewport.height
+      ) {
+        return true
+      }
+    }
+    ancestor = ancestor.parent
+  }
+
+  return false
+}
+
+class ViewportTextareaRenderable extends TextareaRenderable {
+  override render(buffer: OptimizedBuffer, deltaTime: number) {
+    super.render(buffer, deltaTime)
+    if (this.focused && this.showCursor && cursorIsOutsideScrollbox(this)) {
+      this._ctx.setCursorPosition(0, 0, false)
+    }
+  }
+}
+
+class ViewportInputRenderable extends InputRenderable {
+  override render(buffer: OptimizedBuffer, deltaTime: number) {
+    super.render(buffer, deltaTime)
+    if (this.focused && this.showCursor && cursorIsOutsideScrollbox(this)) {
+      this._ctx.setCursorPosition(0, 0, false)
+    }
+  }
+}
+
+extend({
+  input: ViewportInputRenderable,
+  textarea: ViewportTextareaRenderable,
+})
 
 export interface VarInputStyle {
   flexGrow?: number

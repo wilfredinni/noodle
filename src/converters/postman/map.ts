@@ -80,6 +80,15 @@ function mapAuth(
       pass: convertTpl(params?.get("password") ?? ""),
     }
   }
+  if (type === "ntlm") {
+    return {
+      type: "ntlm",
+      username: convertTpl(params?.get("username") ?? ""),
+      password: convertTpl(params?.get("password") ?? ""),
+      domain: convertTpl(params?.get("domain") ?? ""),
+      workstation: convertTpl(params?.get("workstation") ?? ""),
+    }
+  }
 
   if (type === "apikey") {
     const key = params?.get("key") ?? ""

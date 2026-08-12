@@ -174,6 +174,10 @@ export function canGenerateClientCode(c: CommandActionsConfig): boolean {
     )
     return false
   }
+  if (effective.auth?.type === "ntlm") {
+    showToast("Code generation is unavailable for NTLM requests", "warning")
+    return false
+  }
   return true
 }
 

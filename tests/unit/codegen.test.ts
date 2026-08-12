@@ -264,6 +264,56 @@ describe("buildHar", () => {
 })
 
 describe("generateCode", () => {
+  it("rejects NTLM because it needs a connection-bound challenge", () => {
+    expect(() =>
+      generateCode(
+        makeRequest({
+          auth: {
+            type: "ntlm",
+            username: "$NTLM_USERNAME",
+            password: "$NTLM_PASSWORD",
+            domain: "",
+            workstation: "",
+          },
+        }),
+        curlTarget(),
+      ),
+    ).toThrow("connection-bound challenge exchange")
+  })
+
+  it("rejects inherited NTLM auth", () => {
+    expect(() =>
+      generateCode(
+        makeRequest({ id: "ntlm/request", auth: { type: "inherit" } }),
+        curlTarget(),
+        {
+          id: "collection",
+          name: "Collection",
+          items: [
+            {
+              type: "folder",
+              data: {
+                id: "ntlm",
+                name: "ntlm",
+                path: "ntlm",
+                overrides: {
+                  auth: {
+                    type: "ntlm",
+                    username: "alice",
+                    password: "secret",
+                    domain: "EXAMPLE",
+                    workstation: "NOODLE",
+                  },
+                },
+                children: [],
+              },
+            },
+          ],
+        },
+      ),
+    ).toThrow("connection-bound challenge exchange")
+  })
+
   it("rejects AWS Signature v4 instead of generating an expiring signature", () => {
     expect(() =>
       generateCode(

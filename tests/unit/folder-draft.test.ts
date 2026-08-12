@@ -33,6 +33,27 @@ describe("applyDraftOp", () => {
     expect(r?.seq).toBe(5)
   })
 
+  it("creates and edits an NTLM auth override", () => {
+    const folder = makeFolder()
+    const selected = applyDraftOp(folder, {
+      kind: "setAuthType",
+      authType: "ntlm",
+    })
+    const edited = applyDraftOp(selected, {
+      kind: "setAuthField",
+      authType: "ntlm",
+      field: "username",
+      value: "alice",
+    })
+    expect(edited?.overrides?.auth).toEqual({
+      type: "ntlm",
+      username: "alice",
+      password: "",
+      domain: "",
+      workstation: "",
+    })
+  })
+
   it("addHeaderRow adds to empty overrides", () => {
     const f = makeFolder()
     const r = applyDraftOp(f, {

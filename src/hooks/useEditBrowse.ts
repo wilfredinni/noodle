@@ -37,6 +37,7 @@ function rowCount(req: Request | null): SectionRowCount {
   if (a) {
     if (a.type === "bearer") authRows = 2
     else if (a.type === "basic") authRows = 3
+    else if (a.type === "ntlm") authRows = 5
     else if (a.type === "api_key") authRows = 4
     else if (a.type === "aws_sigv4") authRows = 6
   }
@@ -94,6 +95,12 @@ function currentValueFor(
       if (row === 0) return ""
       if (row === 1) return a.user
       if (row === 2) return a.pass
+    }
+    if (a.type === "ntlm") {
+      if (row === 1) return a.username
+      if (row === 2) return a.password
+      if (row === 3) return a.domain
+      if (row === 4) return a.workstation
     }
     if (a.type === "api_key") {
       if (row === 0) return ""
@@ -719,6 +726,15 @@ export function useEditBrowse(
           if (row === 1) draftMutators.setAuthField("api_key", "key", val)
           else if (row === 2)
             draftMutators.setAuthField("api_key", "value", val)
+        } else if (currentAuth.type === "ntlm") {
+          const authField = [
+            "",
+            "username",
+            "password",
+            "domain",
+            "workstation",
+          ][row]
+          if (authField) draftMutators.setAuthField("ntlm", authField, val)
         } else if (currentAuth.type === "aws_sigv4") {
           const fields = [
             "",

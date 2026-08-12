@@ -65,6 +65,64 @@ describe("truncateUrl", () => {
   })
 })
 
+describe("NTLM timeline security", () => {
+  it("masks the challenge header", () => {
+    expect(
+      maskedAuthHeader({
+        type: "ntlm",
+        username: "alice",
+        password: "secret",
+        domain: "EXAMPLE",
+        workstation: "NOODLE",
+      }),
+    ).toEqual({ key: "Authorization", value: "NTLM ••••••••" })
+  })
+
+  it("redacts the password while retaining public identity fields", () => {
+    const entry = buildTimelineEntry(
+      {
+        id: "ntlm",
+        name: "NTLM",
+        method: "GET",
+        url: "https://example.com",
+        timeout: 0,
+        headers: {},
+        params: [],
+        auth: {
+          type: "ntlm",
+          username: "$USER",
+          password: "$PASSWORD",
+          domain: "$DOMAIN",
+          workstation: "NOODLE",
+        },
+      },
+      {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "",
+          timeMs: 1,
+        },
+      },
+      "dev",
+      {
+        name: "dev",
+        vars: { USER: "alice", PASSWORD: "secret", DOMAIN: "EXAMPLE" },
+        secretVars: { PASSWORD: "keychain" },
+      },
+    )
+    expect(entry.request.auth).toEqual({
+      type: "ntlm",
+      username: "alice",
+      password: "[REDACTED]",
+      domain: "EXAMPLE",
+      workstation: "NOODLE",
+    })
+  })
+})
+
 describe("relativeTime", () => {
   it('returns "now" for very recent timestamps', () => {
     expect(relativeTime(Date.now())).toBe("now")

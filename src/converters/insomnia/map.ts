@@ -71,6 +71,15 @@ function mapAuth(value: unknown): Auth {
       pass: convertTpl(stringValue(auth.password)),
     }
   }
+  if (auth.type === "ntlm") {
+    return {
+      type: "ntlm",
+      username: convertTpl(stringValue(auth.username)),
+      password: convertTpl(stringValue(auth.password)),
+      domain: convertTpl(stringValue(auth.domain)),
+      workstation: convertTpl(stringValue(auth.workstation)),
+    }
+  }
   if (auth.type === "apikey") {
     return {
       type: "api_key",

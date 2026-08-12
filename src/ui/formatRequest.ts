@@ -39,6 +39,12 @@ export function formatAuth(auth?: Auth): string {
   if (auth.type === "bearer") return "bearer: \u2022\u2022\u2022\u2022"
   if (auth.type === "basic")
     return `basic: ${auth.user}:\u2022\u2022\u2022\u2022`
+  if (auth.type === "ntlm") {
+    const username = auth.domain
+      ? `${auth.domain}\\${auth.username}`
+      : auth.username
+    return `ntlm: ${username}`
+  }
   if (auth.type === "api_key")
     return `api_key: ${auth.key}:\u2022\u2022\u2022\u2022`
   if (auth.type === "aws_sigv4")

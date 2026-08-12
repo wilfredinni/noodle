@@ -12,6 +12,7 @@ const AUTH_TYPE_ITEMS: SelectItem[] = [
   { id: "inherit", label: "Inherit" },
   { id: "bearer", label: "Bearer Token" },
   { id: "basic", label: "Basic Auth" },
+  { id: "ntlm", label: "NTLMv2" },
   { id: "api_key", label: "API Key" },
   { id: "aws_sigv4", label: "AWS Signature v4" },
 ]
@@ -82,6 +83,43 @@ function getAuthRows(auth: Auth | undefined): AuthRows {
           isSecret: true,
           required: true,
           description: "Password used for HTTP Basic authentication.",
+        },
+      ],
+    }
+  }
+  if (auth.type === "ntlm") {
+    return {
+      type: "ntlm",
+      fieldDefs: [
+        {
+          row: 1,
+          label: "Username",
+          field: "username",
+          isSecret: false,
+          required: true,
+          description: "Username used for NTLMv2 authentication.",
+        },
+        {
+          row: 2,
+          label: "Password",
+          field: "password",
+          isSecret: true,
+          required: true,
+          description: "Password used to derive the NTLMv2 response.",
+        },
+        {
+          row: 3,
+          label: "Domain",
+          field: "domain",
+          isSecret: false,
+          description: "Optional Windows domain.",
+        },
+        {
+          row: 4,
+          label: "Workstation",
+          field: "workstation",
+          isSecret: false,
+          description: "Optional workstation name.",
         },
       ],
     }
@@ -170,6 +208,13 @@ function getFieldValue(auth: Auth, field: string): string {
   if (auth.type === "basic") {
     if (field === "user") return auth.user
     if (field === "pass") return auth.pass
+    return ""
+  }
+  if (auth.type === "ntlm") {
+    if (field === "username") return auth.username
+    if (field === "password") return auth.password
+    if (field === "domain") return auth.domain
+    if (field === "workstation") return auth.workstation
     return ""
   }
   if (auth.type === "api_key") {

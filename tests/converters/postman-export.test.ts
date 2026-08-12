@@ -28,6 +28,37 @@ function request(
 }
 
 describe("Postman export", () => {
+  it("exports NTLM credentials in Postman format", () => {
+    const exported = exportPostman({
+      id: "ntlm",
+      name: "NTLM",
+      items: [
+        {
+          type: "request",
+          data: request("ntlm", "NTLM", {
+            auth: {
+              type: "ntlm",
+              username: "$NTLM_USERNAME",
+              password: "$NTLM_PASSWORD",
+              domain: "EXAMPLE",
+              workstation: "NOODLE",
+            },
+          }),
+        },
+      ],
+    })
+    const item = (exported.document.item as Record<string, unknown>[])[0]!
+    expect((item.request as Record<string, unknown>).auth).toEqual({
+      type: "ntlm",
+      ntlm: [
+        { key: "username", value: "{{NTLM_USERNAME}}", type: "string" },
+        { key: "password", value: "{{NTLM_PASSWORD}}", type: "string" },
+        { key: "domain", value: "EXAMPLE", type: "string" },
+        { key: "workstation", value: "NOODLE", type: "string" },
+      ],
+    })
+  })
+
   it("converts Noodle and dynamic templates to Postman syntax", () => {
     expect(toPostmanTpl("$base/$$randomUUID/$user-id")).toBe(
       "{{base}}/{{$randomUUID}}/{{user}}-id",

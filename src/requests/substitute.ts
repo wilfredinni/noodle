@@ -99,6 +99,15 @@ function substituteAuth(
       placement: auth.placement,
     }
   }
+  if (auth.type === "ntlm") {
+    return {
+      type: "ntlm",
+      username: resolve(auth.username, "auth.username"),
+      password: resolve(auth.password, "auth.password"),
+      domain: resolve(auth.domain, "auth.domain"),
+      workstation: resolve(auth.workstation, "auth.workstation"),
+    }
+  }
   if (auth.type === "aws_sigv4") {
     return {
       type: "aws_sigv4",
