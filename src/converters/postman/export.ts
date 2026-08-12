@@ -60,7 +60,7 @@ function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {
       },
       { key: "region", value: toPostmanTpl(auth.region), type: "string" },
       { key: "service", value: toPostmanTpl(auth.service), type: "string" },
-      { key: "addAuthDataToQuery", value: "false", type: "boolean" },
+      { key: "addAuthDataToQuery", value: false, type: "boolean" },
     ]
     if (auth.session_token) {
       awsv4.push({

@@ -328,4 +328,20 @@ describe("folderEqual", () => {
     const b = makeFolder()
     expect(folderEqual(a, b)).toBe(true)
   })
+
+  it("treats missing and empty AWS session tokens as equal", () => {
+    const auth = {
+      type: "aws_sigv4" as const,
+      access_key: "access",
+      secret_key: "secret",
+      region: "us-east-1",
+      service: "execute-api",
+    }
+    const a = makeFolder({ overrides: { auth } })
+    const b = makeFolder({
+      overrides: { auth: { ...auth, session_token: "" } },
+    })
+
+    expect(folderEqual(a, b)).toBe(true)
+  })
 })

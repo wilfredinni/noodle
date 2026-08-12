@@ -197,7 +197,7 @@ export function authEqual(
       a.secret_key === b.secret_key &&
       a.region === b.region &&
       a.service === b.service &&
-      a.session_token === b.session_token
+      (a.session_token ?? "") === (b.session_token ?? "")
     )
   }
   return false

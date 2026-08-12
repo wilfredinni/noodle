@@ -338,7 +338,7 @@ describe("Postman export", () => {
         },
         { key: "region", value: "us-east-1", type: "string" },
         { key: "service", value: "execute-api", type: "string" },
-        { key: "addAuthDataToQuery", value: "false", type: "boolean" },
+        { key: "addAuthDataToQuery", value: false, type: "boolean" },
         {
           key: "sessionToken",
           value: "{{AWS_SESSION_TOKEN}}",

@@ -1066,3 +1066,31 @@ describe("authEqual — api_key", () => {
     expect(requestEquals(a, b)).toBe(false)
   })
 })
+
+describe("authEqual — aws_sigv4", () => {
+  const auth = {
+    type: "aws_sigv4" as const,
+    access_key: "access",
+    secret_key: "secret",
+    region: "us-east-1",
+    service: "execute-api",
+  }
+
+  it("treats a missing and empty session token as equal", () => {
+    expect(
+      requestEquals(
+        makeReq({ auth }),
+        makeReq({ auth: { ...auth, session_token: "" } }),
+      ),
+    ).toBe(true)
+  })
+
+  it("keeps different non-empty session tokens unequal", () => {
+    expect(
+      requestEquals(
+        makeReq({ auth: { ...auth, session_token: "one" } }),
+        makeReq({ auth: { ...auth, session_token: "two" } }),
+      ),
+    ).toBe(false)
+  })
+})

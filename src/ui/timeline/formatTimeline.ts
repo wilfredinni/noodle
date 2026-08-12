@@ -66,40 +66,30 @@ export function buildTimelineEntry(
     if (auth.type === "bearer") {
       return {
         type: "bearer",
-        token: auth.token.includes("$")
-          ? redact(resolvePublicVars(auth.token))
-          : REDACTED,
+        token: REDACTED,
       }
     }
     if (auth.type === "basic") {
       return {
         type: "basic",
         user: redact(resolvePublicVars(auth.user)),
-        pass: auth.pass.includes("$")
-          ? redact(resolvePublicVars(auth.pass))
-          : REDACTED,
+        pass: REDACTED,
       }
     }
     if (auth.type === "aws_sigv4") {
-      const redactCredential = (value: string) =>
-        value.includes("$") ? redact(resolvePublicVars(value)) : REDACTED
       return {
         type: "aws_sigv4",
-        access_key: redactCredential(auth.access_key),
-        secret_key: redactCredential(auth.secret_key),
+        access_key: REDACTED,
+        secret_key: REDACTED,
         region: redact(resolvePublicVars(auth.region)),
         service: redact(resolvePublicVars(auth.service)),
-        ...(auth.session_token
-          ? { session_token: redactCredential(auth.session_token) }
-          : {}),
+        ...(auth.session_token ? { session_token: REDACTED } : {}),
       }
     }
     return {
       ...auth,
       key: redact(resolvePublicVars(auth.key)),
-      value: auth.value.includes("$")
-        ? redact(resolvePublicVars(auth.value))
-        : REDACTED,
+      value: REDACTED,
     }
   }
   return {
