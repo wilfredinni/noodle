@@ -54,6 +54,14 @@ export type Auth =
       value: string
       placement: "header" | "query"
     }
+  | {
+      type: "aws_sigv4"
+      access_key: string
+      secret_key: string
+      region: string
+      service: string
+      session_token?: string
+    }
 
 export interface Request {
   id: string

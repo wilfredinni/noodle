@@ -152,6 +152,17 @@ function substituteAuth(
       value: resolveVar(auth.value),
       placement: auth.placement,
     }
+  if (auth.type === "aws_sigv4")
+    return {
+      type: "aws_sigv4",
+      access_key: resolveVar(auth.access_key),
+      secret_key: resolveVar(auth.secret_key),
+      region: resolveVar(auth.region),
+      service: resolveVar(auth.service),
+      ...(auth.session_token
+        ? { session_token: resolveVar(auth.session_token) }
+        : {}),
+    }
   return auth
 }
 

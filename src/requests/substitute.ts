@@ -99,6 +99,18 @@ function substituteAuth(
       placement: auth.placement,
     }
   }
+  if (auth.type === "aws_sigv4") {
+    return {
+      type: "aws_sigv4",
+      access_key: resolve(auth.access_key, "auth.access_key"),
+      secret_key: resolve(auth.secret_key, "auth.secret_key"),
+      region: resolve(auth.region, "auth.region"),
+      service: resolve(auth.service, "auth.service"),
+      ...(auth.session_token
+        ? { session_token: resolve(auth.session_token, "auth.session_token") }
+        : {}),
+    }
+  }
   return {
     type: "basic",
     user: resolve(auth.user, "auth.user"),

@@ -136,6 +136,110 @@ describe("send — param deduplication", () => {
   })
 })
 
+describe("send — AWS SigV4", () => {
+  const awsAuth = {
+    type: "aws_sigv4" as const,
+    access_key: "AKIDEXAMPLE",
+    secret_key: "secret",
+    region: "us-east-1",
+    service: "execute-api",
+  }
+
+  it("signs the final URL and exact JSON body", async () => {
+    const originalFetch = globalThis.fetch
+    let capturedUrl = ""
+    let capturedInit: RequestInit | undefined
+    globalThis.fetch = mock(async (url, init) => {
+      capturedUrl = url.toString()
+      capturedInit = init
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await send(
+        makeReq({
+          method: "POST",
+          url: "https://api.example.com/items?existing=1",
+          params: [{ name: "filter", value: "active", enabled: true }],
+          bodyType: "json",
+          body: '{"ok":true}',
+          auth: awsAuth,
+        }),
+      )
+      const headers = new Headers(capturedInit?.headers)
+      expect(capturedUrl).toContain("existing=1&filter=active")
+      expect(capturedInit?.body).toBe('{"ok":true}')
+      expect(headers.get("authorization")).toContain("AWS4-HMAC-SHA256")
+      expect(headers.get("authorization")).toContain(
+        "/execute-api/aws4_request",
+      )
+      expect(headers.get("x-amz-date")).not.toBeNull()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("re-signs same-origin redirects and stops signing cross-origin hops", async () => {
+    const originalFetch = globalThis.fetch
+    const authorizations: Array<string | null> = []
+    let calls = 0
+    globalThis.fetch = mock(async (_url, init) => {
+      calls++
+      authorizations.push(new Headers(init?.headers).get("authorization"))
+      if (calls === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "/next" },
+        })
+      }
+      if (calls === 2) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://other.example/final" },
+        })
+      }
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await send(
+        makeReq({ url: "https://api.example.com/start", auth: awsAuth }),
+      )
+      expect(authorizations[0]).toContain("AWS4-HMAC-SHA256")
+      expect(authorizations[1]).toContain("AWS4-HMAC-SHA256")
+      expect(authorizations[0]).not.toBe(authorizations[1])
+      expect(authorizations[2]).toBeNull()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("rejects multipart before fetch", async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = mock(async () => {
+      calls++
+      return new Response("ok")
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await expect(
+        send(
+          makeReq({
+            method: "POST",
+            auth: awsAuth,
+            bodyType: "multipart",
+            formData: [],
+          }),
+        ),
+      ).rejects.toThrow("AWS SigV4 does not support multipart bodies")
+      expect(calls).toBe(0)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
+
 describe("send — network trace", () => {
   it("uses Bun-backed app proxy credentials without environment overrides", async () => {
     const originalFetch = globalThis.fetch

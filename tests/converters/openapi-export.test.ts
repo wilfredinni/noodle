@@ -460,6 +460,32 @@ describe("exportOpenApi", () => {
     expect(JSON.stringify(result.document)).not.toContain("super-secret")
   })
 
+  it("exports AWS Signature v4 security without credentials", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            auth: {
+              type: "aws_sigv4",
+              access_key: "AKID",
+              secret_key: "super-secret",
+              region: "us-east-1",
+              service: "execute-api",
+            },
+          }),
+        },
+      ]),
+    )
+
+    expect(result.document.components).toEqual({
+      securitySchemes: {
+        awsSigV4: { type: "http", scheme: "AWS4-HMAC-SHA256" },
+      },
+    })
+    expect(JSON.stringify(result.document)).not.toContain("super-secret")
+  })
+
   it("does not merge API-key schemes whose sanitized names collide", () => {
     const result = exportOpenApi(
       collection([

@@ -11,6 +11,51 @@ import { setupKeymap } from "./_helpers"
 const testRender = createTestRender()
 
 describe("AuthEditor", () => {
+  it("renders AWS fields and masks secret values", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={70} height={30}>
+            <AuthEditor
+              auth={{
+                type: "aws_sigv4",
+                access_key: "$AWS_ACCESS_KEY_ID",
+                secret_key: "do-not-render",
+                region: "us-east-1",
+                service: "execute-api",
+                session_token: "also-secret",
+              }}
+              editState={initialEditState()}
+              inEdit={false}
+              browseActive={false}
+              setEditValue={() => {}}
+              theme={THEMES[0]!}
+              onAuthTypeChange={() => {}}
+              onApiKeyPlacementChange={() => {}}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 70, height: 30 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("AWS Signature v4")
+    expect(frame).toContain("Access Key*")
+    expect(frame).toContain("Secret Key*")
+    expect(frame).toContain("Region*")
+    expect(frame).toContain("Service*")
+    expect(frame).toContain("Session Token")
+    expect(frame).toContain("us-east-1")
+    expect(frame).toContain("execute-api")
+    expect(frame).toContain("AWS access key ID used to identify the signer.")
+    expect(frame).toContain("Optional token for temporary AWS credentials.")
+    expect(frame).not.toContain("do-not-render")
+    expect(frame).not.toContain("also-secret")
+    cleanup()
+  })
+
   it("activates the API key placement row before opening its select", async () => {
     const { keymap, cleanup } = setupKeymap()
     let focusedRow = -1

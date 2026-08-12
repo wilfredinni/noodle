@@ -43,6 +43,15 @@ type RawAuth =
       placement?: string
       [k: string]: unknown
     }
+  | {
+      type: "aws_sigv4"
+      access_key: string
+      secret_key: string
+      region: string
+      service: string
+      session_token?: string
+      [k: string]: unknown
+    }
   | { type: string; [k: string]: unknown }
 
 interface RawRequest {
@@ -388,7 +397,28 @@ function parseAuth(value: unknown): Auth {
     const placement = a.placement === "query" ? "query" : "header"
     return { type: "api_key", key: a.key, value: a.value, placement }
   }
+  if (a.type === "aws_sigv4") {
+    if (
+      typeof a.access_key !== "string" ||
+      typeof a.secret_key !== "string" ||
+      typeof a.region !== "string" ||
+      typeof a.service !== "string" ||
+      (a.session_token !== undefined && typeof a.session_token !== "string")
+    ) {
+      throw new Error(
+        'lang.parseRequest: auth.aws_sigv4 requires "access_key", "secret_key", "region", and "service"; "session_token" must be a string when present',
+      )
+    }
+    return {
+      type: "aws_sigv4",
+      access_key: a.access_key,
+      secret_key: a.secret_key,
+      region: a.region,
+      service: a.service,
+      ...(a.session_token ? { session_token: a.session_token } : {}),
+    }
+  }
   throw new Error(
-    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|inherit|bearer|basic|api_key`,
+    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|inherit|bearer|basic|api_key|aws_sigv4`,
   )
 }

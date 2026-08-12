@@ -25,6 +25,12 @@ export function generateCode(
       ? request
       : mergeFolderOverrides(request, collection, request.id)
 
+  if (effective.auth?.type === "aws_sigv4") {
+    throw new Error(
+      "codegen.generateCode: AWS SigV4 requests are not supported because generated signatures expire",
+    )
+  }
+
   const { har, unhash } = buildHar(effective, env, interpolate)
 
   try {

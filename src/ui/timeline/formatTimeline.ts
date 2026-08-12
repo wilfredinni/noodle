@@ -80,6 +80,20 @@ export function buildTimelineEntry(
           : REDACTED,
       }
     }
+    if (auth.type === "aws_sigv4") {
+      const redactCredential = (value: string) =>
+        value.includes("$") ? redact(resolvePublicVars(value)) : REDACTED
+      return {
+        type: "aws_sigv4",
+        access_key: redactCredential(auth.access_key),
+        secret_key: redactCredential(auth.secret_key),
+        region: redact(resolvePublicVars(auth.region)),
+        service: redact(resolvePublicVars(auth.service)),
+        ...(auth.session_token
+          ? { session_token: redactCredential(auth.session_token) }
+          : {}),
+      }
+    }
     return {
       ...auth,
       key: redact(resolvePublicVars(auth.key)),
@@ -223,6 +237,8 @@ export function maskedAuthHeader(
     return { key: "Authorization", value: "Bearer ••••••••" }
   if (auth.type === "basic")
     return { key: "Authorization", value: "Basic ••••••••" }
+  if (auth.type === "aws_sigv4")
+    return { key: "Authorization", value: "AWS4-HMAC-SHA256 ••••••••" }
   if (auth.type === "api_key" && auth.placement === "header") {
     return { key: auth.key, value: "••••••••" }
   }

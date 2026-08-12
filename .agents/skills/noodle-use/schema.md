@@ -103,15 +103,25 @@ directory paths and should be reviewed before sharing.
 
 ### Auth
 
-| Field | Bearer | Basic | API Key |
-|-------|--------|-------|---------|
-| `type` | `"bearer"` | `"basic"` | `"api_key"` |
-| `token` | yes | — | — |
-| `user` | — | yes | — |
-| `pass` | — | yes | — |
-| `key` | — | — | yes |
-| `value` | — | — | yes |
-| `placement` | — | — | `"header"` (default) or `"query"` |
+| Field | Bearer | Basic | API Key | AWS SigV4 |
+|-------|--------|-------|---------|-----------|
+| `type` | `"bearer"` | `"basic"` | `"api_key"` | `"aws_sigv4"` |
+| `token` | yes | — | — | — |
+| `user` | — | yes | — | — |
+| `pass` | — | yes | — | — |
+| `key` | — | — | yes | — |
+| `value` | — | — | yes | — |
+| `placement` | — | — | `"header"` (default) or `"query"` | — |
+| `access_key` | — | — | — | yes |
+| `secret_key` | — | — | — | yes |
+| `region` | — | — | — | yes |
+| `service` | — | — | — | yes |
+| `session_token` | — | — | — | optional |
+
+AWS SigV4 is added as request headers after environment substitution. It supports
+text, JSON, URL-encoded, and binary bodies. Multipart bodies are rejected because
+their runtime-generated boundary and bytes cannot be signed reliably in advance.
+Keep credentials in secret environment variables rather than literal YAML.
 
 ### Binary body
 

@@ -93,6 +93,18 @@ function mapAuth(
       placement: rawPlacement.includes("query") ? "query" : "header",
     }
   }
+  if (type === "awsv4") {
+    return {
+      type: "aws_sigv4",
+      access_key: convertTpl(params?.get("accessKey") ?? ""),
+      secret_key: convertTpl(params?.get("secretKey") ?? ""),
+      region: convertTpl(params?.get("region") ?? ""),
+      service: convertTpl(params?.get("service") ?? ""),
+      ...(params?.get("sessionToken")
+        ? { session_token: convertTpl(params.get("sessionToken")!) }
+        : {}),
+    }
+  }
 
   return { type: "none" }
 }

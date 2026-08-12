@@ -4,10 +4,11 @@ import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
 import { RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
-import type { Request, KvEntry, CollectionItem } from "../src/schema"
+import type { Request, KvEntry, CollectionItem, Folder } from "../src/schema"
 import type { VisibleNode } from "../src/ui/tree"
 import { Sidebar } from "../src/ui/Sidebar"
 import { RequestPane } from "../src/ui/RequestPane"
+import { FolderPane } from "../src/ui/FolderPane"
 import { ResponsePane } from "../src/ui/ResponsePane"
 import type { SendState } from "../src/ui/sendState"
 import { initialEditState } from "../src/ui/editMode"
@@ -928,6 +929,162 @@ describe("ResponsePane scrollbox", () => {
 })
 
 describe("RequestPane scrollbox", () => {
+  it("keeps the active AWS auth row inside the request viewport", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const awsRequest: Request = {
+      ...makeRequest(1),
+      auth: {
+        type: "aws_sigv4",
+        access_key: "$AWS_ACCESS_KEY_ID",
+        secret_key: "$AWS_SECRET_ACCESS_KEY",
+        region: "us-east-1",
+        service: "execute-api",
+        session_token: "$AWS_SESSION_TOKEN",
+      },
+    }
+    let setAuthRow: ((row: number) => void) | undefined
+    function AwsAuthPane() {
+      const [row, setRow] = useState(0)
+      setAuthRow = setRow
+      return (
+        <RequestPane
+          request={awsRequest}
+          editState={{
+            mode: "browsing",
+            cursor: { field: "auth", row, addingRow: false },
+            editingRow: -1,
+          }}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="auth"
+        />
+      )
+    }
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <AwsAuthPane />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 14 },
+    )
+
+    await renderOnce()
+    await act(async () => setAuthRow?.(5))
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById(
+      "request-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(captureCharFrame()).toContain("Session Token")
+  })
+
+  it("keeps the active multipart row inside the request viewport", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const request: Request = {
+      ...makeRequest(1),
+      bodyType: "multipart",
+      formData: Array.from({ length: 30 }, (_, i) => ({
+        name: `field-${i}`,
+        value: `value-${i}`,
+        enabled: true,
+        type: "text" as const,
+      })),
+    }
+    let setBodyRow: ((row: number) => void) | undefined
+    function MultipartPane() {
+      const [row, setRow] = useState(0)
+      setBodyRow = setRow
+      return (
+        <RequestPane
+          request={request}
+          editState={{
+            mode: "browsing",
+            cursor: { field: "body", row, addingRow: false },
+            editingRow: -1,
+          }}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="body"
+        />
+      )
+    }
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <MultipartPane />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+
+    await renderOnce()
+    await act(async () => setBodyRow?.(30))
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById(
+      "request-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(captureCharFrame()).toContain("field-29")
+  })
+
+  it("keeps the active request setting inside the request viewport", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    let setSettingsRow: ((row: number) => void) | undefined
+    function SettingsPane() {
+      const [row, setRow] = useState(0)
+      setSettingsRow = setRow
+      return (
+        <RequestPane
+          request={makeRequest(1)}
+          editState={{
+            mode: "browsing",
+            cursor: { field: "settings", row, addingRow: false },
+            editingRow: -1,
+          }}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="settings"
+        />
+      )
+    }
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <SettingsPane />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+
+    await renderOnce()
+    await act(async () => setSettingsRow?.(3))
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById(
+      "request-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(captureCharFrame()).toContain("TLS Verification")
+  })
+
   it("renders with many headers without overflowing", async () => {
     const manyHeaders: Record<string, KvEntry> = {}
     for (let i = 0; i < 30; i++) {
@@ -1169,6 +1326,106 @@ describe("RequestPane scrollbox", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("id")
     expect(frame).toContain("complianceAuditId")
+  })
+})
+
+describe("FolderPane scrollbox", () => {
+  const awsAuth = {
+    type: "aws_sigv4" as const,
+    access_key: "$AWS_ACCESS_KEY_ID",
+    secret_key: "$AWS_SECRET_ACCESS_KEY",
+    region: "us-east-1",
+    service: "execute-api",
+    session_token: "$AWS_SESSION_TOKEN",
+  }
+
+  async function renderFolderPane(folder: Folder, activeTab: FieldKind) {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    let setFolderRow: ((row: number) => void) | undefined
+    function FolderScrollPane() {
+      const [row, setRow] = useState(0)
+      setFolderRow = setRow
+      return (
+        <FolderPane
+          collectionDir="/tmp/collection"
+          folder={folder}
+          focused
+          editState={{
+            mode: "browsing",
+            cursor: { field: activeTab, row, addingRow: false },
+            editingRow: -1,
+          }}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          activeTab={activeTab}
+          onAuthTypeChange={() => {}}
+          onApiKeyPlacementChange={() => {}}
+          activeEnv={null}
+          theme={THEMES[0]!}
+        />
+      )
+    }
+    const rendered = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <FolderScrollPane />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 12 },
+    )
+    return { ...rendered, setFolderRow: (row: number) => setFolderRow?.(row) }
+  }
+
+  it("keeps the active folder header inside the viewport", async () => {
+    const headers: Record<string, KvEntry> = {}
+    for (let i = 0; i < 30; i++) {
+      headers[`X-Folder-${i}`] = { value: `value-${i}`, enabled: true }
+    }
+    const folder: Folder = {
+      id: "api",
+      path: "api",
+      name: "API",
+      overrides: { headers },
+      children: [],
+    }
+    const { renderer, renderOnce, captureCharFrame, setFolderRow } =
+      await renderFolderPane(folder, "headers")
+
+    await renderOnce()
+    await act(async () => setFolderRow(29))
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById(
+      "folder-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(captureCharFrame()).toContain("X-Folder-29")
+  })
+
+  it("keeps the active folder AWS auth row inside the viewport", async () => {
+    const folder: Folder = {
+      id: "api",
+      path: "api",
+      name: "API",
+      overrides: { auth: awsAuth },
+      children: [],
+    }
+    const { renderer, renderOnce, captureCharFrame, setFolderRow } =
+      await renderFolderPane(folder, "auth")
+
+    await renderOnce()
+    await act(async () => setFolderRow(5))
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById(
+      "folder-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(captureCharFrame()).toContain("Session Token")
   })
 })
 

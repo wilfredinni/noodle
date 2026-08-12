@@ -264,6 +264,57 @@ describe("buildHar", () => {
 })
 
 describe("generateCode", () => {
+  it("rejects AWS Signature v4 instead of generating an expiring signature", () => {
+    expect(() =>
+      generateCode(
+        makeRequest({
+          auth: {
+            type: "aws_sigv4",
+            access_key: "$AWS_ACCESS_KEY_ID",
+            secret_key: "$AWS_SECRET_ACCESS_KEY",
+            region: "us-east-1",
+            service: "execute-api",
+          },
+        }),
+        curlTarget(),
+      ),
+    ).toThrow("generated signatures expire")
+  })
+
+  it("rejects inherited AWS Signature v4 auth", () => {
+    expect(() =>
+      generateCode(
+        makeRequest({ id: "aws/request", auth: { type: "inherit" } }),
+        curlTarget(),
+        {
+          id: "col",
+          name: "col",
+          items: [
+            {
+              type: "folder",
+              data: {
+                id: "aws",
+                name: "aws",
+                path: "aws",
+                seq: 1,
+                overrides: {
+                  auth: {
+                    type: "aws_sigv4",
+                    access_key: "AKID",
+                    secret_key: "secret",
+                    region: "us-east-1",
+                    service: "execute-api",
+                  },
+                },
+                children: [],
+              },
+            },
+          ],
+        },
+      ),
+    ).toThrow("generated signatures expire")
+  })
+
   it("does not interpolate declared secrets", () => {
     const generated = generateCode(
       makeRequest({ url: "https://example.com/$TOKEN/$PUBLIC" }),

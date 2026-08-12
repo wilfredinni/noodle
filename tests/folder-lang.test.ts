@@ -79,6 +79,30 @@ describe("lang.parseFolder", () => {
   })
 })
 
+describe("AWS SigV4 folder auth", () => {
+  it("round-trips inherited AWS signing configuration", () => {
+    const folder = {
+      id: "aws",
+      name: "aws",
+      path: "aws",
+      overrides: {
+        auth: {
+          type: "aws_sigv4" as const,
+          access_key: "$AWS_ACCESS_KEY_ID",
+          secret_key: "$AWS_SECRET_ACCESS_KEY",
+          region: "us-east-1",
+          service: "s3",
+        },
+      },
+      children: [],
+    }
+    const serialized = lang.serializeFolder(folder)
+    expect(lang.parseFolder(serialized).overrides?.auth).toEqual(
+      folder.overrides.auth,
+    )
+  })
+})
+
 describe("lang.serializeFolder", () => {
   it("serializes folder with name override", () => {
     const result = lang.serializeFolder({

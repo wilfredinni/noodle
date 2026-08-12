@@ -18,6 +18,7 @@ import { withDefaultHttpsScheme } from "./url"
 import { expandUserPath } from "../userPath"
 import { proxyForUrl, type ProxyPolicy } from "../proxy"
 import { tlsForUrl, type TlsPolicy } from "../tls"
+import { clearAwsSignerHeaders, signAwsRequest } from "./awsSigV4"
 
 export interface RequestExecutionOptions {
   environment?: Environment
@@ -154,7 +155,22 @@ export async function send(
       : timeoutSignal
   }
 
-  const substitutedBody = await bodyForSend(substituted, headersInst)
+  if (
+    substituted.auth?.type === "aws_sigv4" &&
+    substituted.bodyType === "multipart"
+  ) {
+    throw new Error(
+      "requests.send: AWS SigV4 does not support multipart bodies",
+    )
+  }
+
+  let substitutedBody = await bodyForSend(substituted, headersInst)
+  if (
+    substituted.auth?.type === "aws_sigv4" &&
+    substitutedBody instanceof Blob
+  ) {
+    substitutedBody = Buffer.from(await substitutedBody.arrayBuffer())
+  }
   const init: RequestInit = {
     method: substituted.method,
     headers: headersInst,
@@ -168,6 +184,7 @@ export async function send(
   let currentUrl = finalUrl
   let currentInit: RequestInit = { ...init, redirect: "manual" }
   let redirectCount = 0
+  let awsSigningEnabled = substituted.auth?.type === "aws_sigv4"
   const maxRedirects = req.maxRedirects ?? 5
   const followRedirects = req.followRedirects ?? true
 
@@ -228,7 +245,11 @@ export async function send(
       onNetworkEvent,
     )
     try {
-      const fetchInit: BunFetchRequestInit = { ...currentInit }
+      const signedInit =
+        awsSigningEnabled && substituted.auth?.type === "aws_sigv4"
+          ? signAwsRequest(currentUrl, currentInit, substituted.auth)
+          : currentInit
+      const fetchInit: BunFetchRequestInit = { ...signedInit }
       if (proxyRoute?.kind === "proxy") fetchInit.proxy = proxyRoute.url
       if (resolvedTls.options) fetchInit.tls = resolvedTls.options
       res = await fetch(currentUrl, fetchInit)
@@ -301,9 +322,12 @@ export async function send(
       )
     }
     if (previousUrl.origin !== nextUrl.origin) {
+      awsSigningEnabled = false
       currentInit = {
         ...currentInit,
-        headers: stripCrossOriginCredentials(currentInit.headers, ah?.name),
+        headers: clearAwsSignerHeaders(
+          stripCrossOriginCredentials(currentInit.headers, ah?.name),
+        ),
       }
     }
     currentUrl = nextUrl.toString()

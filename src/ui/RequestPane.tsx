@@ -136,10 +136,18 @@ export function RequestPane({
       )
     } else if (field === "body" && addingRow) {
       scrollRef.current?.scrollChildIntoView("body-add")
+    } else if (
+      field === "body" &&
+      row > 0 &&
+      (request?.bodyType === "multipart" || request?.bodyType === "urlencoded")
+    ) {
+      scrollRef.current?.scrollChildIntoView(`body-${row - 1}`)
+    } else if ((field === "auth" || field === "settings") && row > 0) {
+      scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
     } else {
       scrollRef.current?.scrollChildIntoView(`${field}-field`)
     }
-  }, [editState.cursor, editState.mode])
+  }, [editState.cursor, editState.mode, request?.bodyType])
 
   const handleSelectOpenChange = useCallback(
     (open: boolean) => {

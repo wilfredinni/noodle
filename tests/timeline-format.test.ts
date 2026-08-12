@@ -392,6 +392,18 @@ describe("maskedAuthHeader", () => {
         placement: "query",
       }),
     ).toBeNull()
+    expect(
+      maskedAuthHeader({
+        type: "aws_sigv4",
+        access_key: "AKID",
+        secret_key: "secret",
+        region: "us-east-1",
+        service: "execute-api",
+      }),
+    ).toEqual({
+      key: "Authorization",
+      value: "AWS4-HMAC-SHA256 ••••••••",
+    })
   })
 })
 
@@ -566,6 +578,57 @@ describe("buildTimelineEntry", () => {
     expect(entry.response?.headers["x-echo"]).toBe(secret)
     expect(entry.response?.body).toBe(`echo:${secret}`)
     expect(response.body).toBe(`echo:${secret}`)
+  })
+
+  it("redacts literal and secret-variable AWS credentials", () => {
+    const req = {
+      id: "req-aws",
+      name: "AWS",
+      method: "GET" as const,
+      url: "https://service.us-east-1.amazonaws.com",
+      headers: {},
+      params: [],
+      auth: {
+        type: "aws_sigv4" as const,
+        access_key: "literal-access",
+        secret_key: "$AWS_SECRET_ACCESS_KEY",
+        region: "us-east-1",
+        service: "execute-api",
+        session_token: "literal-session",
+      },
+      timeout: 0,
+    }
+    const entry = buildTimelineEntry(
+      req,
+      {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "",
+          timeMs: 1,
+        },
+      },
+      "dev",
+      {
+        name: "dev",
+        vars: { AWS_SECRET_ACCESS_KEY: "resolved-secret" },
+        secretVars: { AWS_SECRET_ACCESS_KEY: "keychain" },
+      },
+    )
+
+    expect(entry.request.auth).toEqual({
+      type: "aws_sigv4",
+      access_key: "[REDACTED]",
+      secret_key: "$AWS_SECRET_ACCESS_KEY",
+      region: "us-east-1",
+      service: "execute-api",
+      session_token: "[REDACTED]",
+    })
+    expect(JSON.stringify(entry.request)).not.toContain("literal-access")
+    expect(JSON.stringify(entry.request)).not.toContain("literal-session")
+    expect(JSON.stringify(entry.request)).not.toContain("resolved-secret")
   })
 
   it("copies network activity into the saved entry", () => {

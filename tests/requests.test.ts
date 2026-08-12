@@ -145,6 +145,59 @@ describe("substitute — formData", () => {
   })
 })
 
+describe("substitute — AWS SigV4", () => {
+  it("substitutes every credential and scope field", () => {
+    const result = substitute(
+      makeReq({
+        auth: {
+          type: "aws_sigv4",
+          access_key: "$ACCESS",
+          secret_key: "$SECRET",
+          region: "$REGION",
+          service: "$SERVICE",
+          session_token: "$SESSION",
+        },
+      }),
+      {
+        name: "dev",
+        vars: {
+          ACCESS: "AKID",
+          SECRET: "secret",
+          REGION: "us-east-1",
+          SERVICE: "execute-api",
+          SESSION: "token",
+        },
+      },
+    )
+
+    expect(result.auth).toEqual({
+      type: "aws_sigv4",
+      access_key: "AKID",
+      secret_key: "secret",
+      region: "us-east-1",
+      service: "execute-api",
+      session_token: "token",
+    })
+  })
+
+  it("reports the unresolved AWS field", () => {
+    expect(() =>
+      substitute(
+        makeReq({
+          auth: {
+            type: "aws_sigv4",
+            access_key: "AKID",
+            secret_key: "$MISSING",
+            region: "us-east-1",
+            service: "execute-api",
+          },
+        }),
+        { name: "dev", vars: {} },
+      ),
+    ).toThrow('unresolved variable "MISSING" in auth.secret_key')
+  })
+})
+
 describe("substitute — params", () => {
   it("substitutes $var in param name and value", () => {
     const env: Environment = {

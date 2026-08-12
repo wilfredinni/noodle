@@ -128,6 +128,41 @@ describe("mapCollection — auth variants", () => {
     expect(r.auth).toEqual({ type: "basic", user: "admin", pass: "pass" })
   })
 
+  it("maps AWS Signature v4 auth", () => {
+    const result = makeCollection({
+      info: { name: "Auth" },
+      item: [
+        {
+          name: "AWS Req",
+          request: {
+            method: "GET",
+            url: "https://service.us-east-1.amazonaws.com",
+            header: [],
+            auth: {
+              type: "awsv4",
+              awsv4: [
+                { key: "accessKey", value: "{{AWS_ACCESS_KEY_ID}}" },
+                { key: "secretKey", value: "{{AWS_SECRET_ACCESS_KEY}}" },
+                { key: "region", value: "us-east-1" },
+                { key: "service", value: "execute-api" },
+                { key: "sessionToken", value: "{{AWS_SESSION_TOKEN}}" },
+              ],
+            },
+          },
+        },
+      ],
+    })
+    const r = reqs(result)[0] as Record<string, unknown>
+    expect(r.auth).toEqual({
+      type: "aws_sigv4",
+      access_key: "$AWS_ACCESS_KEY_ID",
+      secret_key: "$AWS_SECRET_ACCESS_KEY",
+      region: "us-east-1",
+      service: "execute-api",
+      session_token: "$AWS_SESSION_TOKEN",
+    })
+  })
+
   it("maps standard API key fields and templates", () => {
     const result = makeCollection({
       info: { name: "Auth" },

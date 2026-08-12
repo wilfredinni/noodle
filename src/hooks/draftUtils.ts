@@ -191,6 +191,15 @@ export function authEqual(
   if (a.type === "api_key" && b.type === "api_key") {
     return a.key === b.key && a.value === b.value && a.placement === b.placement
   }
+  if (a.type === "aws_sigv4" && b.type === "aws_sigv4") {
+    return (
+      a.access_key === b.access_key &&
+      a.secret_key === b.secret_key &&
+      a.region === b.region &&
+      a.service === b.service &&
+      a.session_token === b.session_token
+    )
+  }
   return false
 }
 
@@ -273,6 +282,14 @@ export function defaultAuth(authType: Auth["type"]): Auth {
       return { type: "basic", user: "", pass: "" }
     case "api_key":
       return { type: "api_key", key: "", value: "", placement: "header" }
+    case "aws_sigv4":
+      return {
+        type: "aws_sigv4",
+        access_key: "",
+        secret_key: "",
+        region: "",
+        service: "",
+      }
     default:
       return { type: "none" }
   }

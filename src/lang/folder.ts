@@ -79,6 +79,15 @@ type RawFolderAuth =
       placement?: string
       [k: string]: unknown
     }
+  | {
+      type: "aws_sigv4"
+      access_key: string
+      secret_key: string
+      region: string
+      service: string
+      session_token?: string
+      [k: string]: unknown
+    }
   | { type: string; [k: string]: unknown }
 
 function parseFolderAuth(value: unknown): Auth {
@@ -115,6 +124,27 @@ function parseFolderAuth(value: unknown): Auth {
     }
     const placement = a.placement === "query" ? "query" : "header"
     return { type: "api_key", key: a.key, value: a.value, placement }
+  }
+  if (a.type === "aws_sigv4") {
+    if (
+      typeof a.access_key !== "string" ||
+      typeof a.secret_key !== "string" ||
+      typeof a.region !== "string" ||
+      typeof a.service !== "string" ||
+      (a.session_token !== undefined && typeof a.session_token !== "string")
+    ) {
+      throw new Error(
+        'lang.parseFolder: auth.aws_sigv4 requires "access_key", "secret_key", "region", and "service"; "session_token" must be a string when present',
+      )
+    }
+    return {
+      type: "aws_sigv4",
+      access_key: a.access_key,
+      secret_key: a.secret_key,
+      region: a.region,
+      service: a.service,
+      ...(a.session_token ? { session_token: a.session_token } : {}),
+    }
   }
   throw new Error(`lang.parseFolder: invalid auth.type "${String(a.type)}"`)
 }
@@ -172,6 +202,15 @@ export function serializeFolder(folder: Folder): string {
         out += `  key: ${yamlVal(o.auth.key, 2)}\n`
         out += `  value: ${yamlVal(o.auth.value, 2)}\n`
         out += `  placement: ${o.auth.placement}\n`
+      } else if (o.auth.type === "aws_sigv4") {
+        out += "  type: aws_sigv4\n"
+        out += `  access_key: ${yamlVal(o.auth.access_key, 2)}\n`
+        out += `  secret_key: ${yamlVal(o.auth.secret_key, 2)}\n`
+        out += `  region: ${yamlVal(o.auth.region, 2)}\n`
+        out += `  service: ${yamlVal(o.auth.service, 2)}\n`
+        if (o.auth.session_token) {
+          out += `  session_token: ${yamlVal(o.auth.session_token, 2)}\n`
+        }
       }
     }
   }

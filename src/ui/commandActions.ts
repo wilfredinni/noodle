@@ -11,6 +11,7 @@ import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
+import { mergeFolderOverrides } from "../requests/mergeFolderOverrides"
 import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
 
@@ -159,9 +160,21 @@ export function openResponseQuery(c: CommandActionsConfig): boolean {
 }
 
 export function canGenerateClientCode(c: CommandActionsConfig): boolean {
-  return (
-    c.focusedFolderPathRef.current === null && c.draftRef.current.draft !== null
-  )
+  if (c.focusedFolderPathRef.current !== null) return false
+  const request = c.draftRef.current.draft
+  if (!request) return false
+  const collection = c.collectionRef.current
+  const effective = collection
+    ? mergeFolderOverrides(request, collection, request.id)
+    : request
+  if (effective.auth?.type === "aws_sigv4") {
+    showToast(
+      "Code generation is unavailable for AWS SigV4 requests",
+      "warning",
+    )
+    return false
+  }
+  return true
 }
 
 export function cycleEnvironment(c: CommandActionsConfig): boolean {
