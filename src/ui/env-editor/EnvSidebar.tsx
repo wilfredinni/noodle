@@ -55,8 +55,10 @@ export function EnvSidebar({
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
-        padding: 1,
-        gap: 1,
+        paddingTop: 0,
+        paddingBottom: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}

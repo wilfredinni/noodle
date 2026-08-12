@@ -37,7 +37,7 @@ describe("EnvSidebar", () => {
     let selected = ""
     let focused = 0
     let contextName = ""
-    const { renderOnce, mockMouse } = await testRender(
+    const { renderOnce, mockMouse, renderer } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <EnvSidebar
           envNames={["dev", "staging"]}
@@ -60,16 +60,25 @@ describe("EnvSidebar", () => {
       { width: 40, height: 12 },
     )
     await renderOnce()
+    const staging = renderer.root.findDescendantById("env-1")!
 
     await act(async () => {
-      await mockMouse.click(2, 3, MouseButtons.RIGHT)
+      await mockMouse.click(
+        staging.screenX + 1,
+        staging.screenY,
+        MouseButtons.RIGHT,
+      )
     })
     expect(selected).toBe("")
     expect(focused).toBe(0)
     expect(contextName).toBe("staging")
 
     await act(async () => {
-      await mockMouse.click(2, 3, MouseButtons.LEFT)
+      await mockMouse.click(
+        staging.screenX + 1,
+        staging.screenY,
+        MouseButtons.LEFT,
+      )
     })
     expect(selected).toBe("staging")
     expect(focused).toBe(1)

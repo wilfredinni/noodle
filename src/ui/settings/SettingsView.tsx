@@ -695,7 +695,6 @@ export function SettingsView({
           paddingBottom: 0,
           paddingLeft: 1,
           paddingRight: 1,
-          gap: 1,
         }}
         border={[...FullBorder.border]}
         customBorderChars={FullBorder.customBorderChars}
