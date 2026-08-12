@@ -6,7 +6,7 @@ All notable changes to Noodle are documented in this file.
 
 ## [0.7.1] - 2026-08-11
 
-![Export collection overlay](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/screts.png)
+![Noodle secrets](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/secrets.png)
 
 Noodle 0.7.1 adds TLS and mutual-TLS controls plus OS-backed secret storage for environment values, proxy authentication, and encrypted client-key passphrases. It also hardens settings validation and redirects, while making secret-aware request history and automation practical from both the TUI and CLI.
 
