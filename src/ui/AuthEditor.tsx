@@ -51,15 +51,38 @@ function getAuthRows(auth: Auth | undefined): AuthRows {
   if (auth.type === "bearer") {
     return {
       type: "bearer",
-      fieldDefs: [{ row: 1, label: "Token", field: "token", isSecret: true }],
+      fieldDefs: [
+        {
+          row: 1,
+          label: "Token",
+          field: "token",
+          isSecret: true,
+          required: true,
+          description: "Bearer token sent in the Authorization header.",
+        },
+      ],
     }
   }
   if (auth.type === "basic") {
     return {
       type: "basic",
       fieldDefs: [
-        { row: 1, label: "Username", field: "user", isSecret: false },
-        { row: 2, label: "Password", field: "pass", isSecret: true },
+        {
+          row: 1,
+          label: "Username",
+          field: "user",
+          isSecret: false,
+          required: true,
+          description: "Username used for HTTP Basic authentication.",
+        },
+        {
+          row: 2,
+          label: "Password",
+          field: "pass",
+          isSecret: true,
+          required: true,
+          description: "Password used for HTTP Basic authentication.",
+        },
       ],
     }
   }
@@ -112,14 +135,29 @@ function getAuthRows(auth: Auth | undefined): AuthRows {
   return {
     type: "api_key",
     fieldDefs: [
-      { row: 1, label: "Key", field: "key", isSecret: false },
-      { row: 2, label: "Value", field: "value", isSecret: true },
+      {
+        row: 1,
+        label: "Key",
+        field: "key",
+        isSecret: false,
+        required: true,
+        description: "Header or query parameter name for the API key.",
+      },
+      {
+        row: 2,
+        label: "Value",
+        field: "value",
+        isSecret: true,
+        required: true,
+        description: "API key value sent with the request.",
+      },
       {
         row: 3,
         label: "Add To",
         field: "placement",
         isSecret: false,
         isPlacement: true,
+        description: "Where to send the API key.",
       },
     ],
   }

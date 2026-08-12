@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -189,48 +190,127 @@ describe("AuthEditor", () => {
     cleanup()
   })
 
+  it("renders descriptions and required markers for other auth fields", async () => {
+    const cases: Array<{
+      auth: Auth
+      labels: string[]
+      descriptions: string[]
+    }> = [
+      {
+        auth: { type: "bearer", token: "token" },
+        labels: ["Token*"],
+        descriptions: ["Bearer token sent in the Authorization header."],
+      },
+      {
+        auth: { type: "basic", user: "user", pass: "pass" },
+        labels: ["Username*", "Password*"],
+        descriptions: [
+          "Username used for HTTP Basic authentication.",
+          "Password used for HTTP Basic authentication.",
+        ],
+      },
+      {
+        auth: {
+          type: "api_key",
+          key: "X-API-Key",
+          value: "secret",
+          placement: "header",
+        },
+        labels: ["Key*", "Value*", "Add To"],
+        descriptions: [
+          "Header or query parameter name for the API key.",
+          "API key value sent with the request.",
+          "Where to send the API key.",
+        ],
+      },
+    ]
+
+    for (const { auth, labels, descriptions } of cases) {
+      const { keymap, cleanup } = setupKeymap()
+      const { renderOnce, captureCharFrame } = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box width={70} height={20}>
+              <AuthEditor
+                auth={auth}
+                editState={initialEditState()}
+                inEdit={false}
+                browseActive={false}
+                editValue=""
+                setEditValue={() => {}}
+                theme={THEMES[0]!}
+                onAuthTypeChange={() => {}}
+                onApiKeyPlacementChange={() => {}}
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 70, height: 20 },
+      )
+      await renderOnce()
+      const frame = captureCharFrame()
+      for (const label of labels) expect(frame).toContain(label)
+      for (const description of descriptions) {
+        expect(frame).toContain(description)
+      }
+      cleanup()
+    }
+  })
+
   it("activates the API key placement row before opening its select", async () => {
     const { keymap, cleanup } = setupKeymap()
     let focusedRow = -1
-    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box width={60} height={10}>
-            <AuthEditor
-              auth={{
-                type: "api_key",
-                key: "X-API-Key",
-                value: "secret",
-                placement: "header",
-              }}
-              editState={initialEditState()}
-              inEdit={false}
-              browseActive={false}
-              editValue=""
-              setEditValue={() => {}}
-              theme={THEMES[0]!}
-              onAuthTypeChange={() => {}}
-              onApiKeyPlacementChange={() => {}}
-              onFocusRow={(row) => {
-                focusedRow = row
-              }}
-            />
-          </box>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 60, height: 10 },
-    )
+    const { renderOnce, captureCharFrame, mockMouse, renderer } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box width={60} height={10}>
+              <AuthEditor
+                auth={{
+                  type: "api_key",
+                  key: "X-API-Key",
+                  value: "secret",
+                  placement: "header",
+                }}
+                editState={initialEditState()}
+                inEdit={false}
+                browseActive={false}
+                editValue=""
+                setEditValue={() => {}}
+                theme={THEMES[0]!}
+                onAuthTypeChange={() => {}}
+                onApiKeyPlacementChange={() => {}}
+                onFocusRow={(row) => {
+                  focusedRow = row
+                }}
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 60, height: 10 },
+      )
     await renderOnce()
-    const rows = captureCharFrame().split("\n")
-    const y = rows.findIndex((row) => row.includes("Header"))
+    const placementRow = renderer.root.findDescendantById(
+      "auth-3",
+    ) as BoxRenderable
+    const placementLine = captureCharFrame().split("\n")[placementRow.screenY]!
+    const placementLabelX = placementLine.indexOf("Header")
 
     await act(async () => {
-      await mockMouse.click(50, y, MouseButtons.LEFT)
+      await mockMouse.click(
+        placementRow.screenX + 50,
+        placementRow.screenY,
+        MouseButtons.LEFT,
+      )
     })
     expect(focusedRow).toBe(-1)
 
     await act(async () => {
-      await mockMouse.click(rows[y]!.indexOf("Header"), y, MouseButtons.LEFT)
+      await mockMouse.click(
+        placementLabelX,
+        placementRow.screenY,
+        MouseButtons.LEFT,
+      )
     })
     expect(focusedRow).toBe(3)
     cleanup()
