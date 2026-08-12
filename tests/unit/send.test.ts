@@ -1,6 +1,20 @@
-import { describe, it, expect, mock } from "bun:test"
+import { afterEach, describe, it, expect, mock } from "bun:test"
 import type { Collection, NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
+
+const servers: Bun.Server<undefined>[] = []
+
+afterEach(() => {
+  for (const server of servers.splice(0)) server.stop(true)
+})
+
+function startServer(
+  handler: (request: globalThis.Request) => Response | Promise<Response>,
+): string {
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: handler })
+  servers.push(server)
+  return `http://127.0.0.1:${server.port}`
+}
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -321,84 +335,66 @@ describe("send — NTLMv2", () => {
   }
 
   it("performs the standard three-request handshake on replayable bodies", async () => {
-    const originalFetch = globalThis.fetch
     const headers: Array<string | null> = []
-    const bodies: unknown[] = []
-    const challenges: Response[] = []
-    globalThis.fetch = mock(async (_url, init) => {
-      headers.push(new Headers(init?.headers).get("authorization"))
-      bodies.push(init?.body)
+    const bodies: string[] = []
+    const url = startServer(async (request) => {
+      headers.push(request.headers.get("authorization"))
+      bodies.push(await request.text())
       if (headers.length === 1) {
-        const response = new Response("offer", {
+        return new Response("offer", {
           status: 401,
           headers: { "www-authenticate": "Negotiate, NTLM" },
         })
-        challenges.push(response)
-        return response
       }
       if (headers.length === 2) {
-        const response = new Response("challenge", {
+        return new Response("challenge", {
           status: 401,
           headers: { "www-authenticate": `NTLM ${type2Token()}` },
         })
-        challenges.push(response)
-        return response
       }
-      return new Response("ok", { status: 200 })
-    }) as unknown as typeof globalThis.fetch
+      return new Response("ok")
+    })
 
-    try {
-      const response = await send(
-        makeReq({
-          method: "POST",
-          auth: ntlmAuth,
-          bodyType: "json",
-          body: '{"ok":true}',
-        }),
-        { environment: environment() },
-      )
-      expect(response.status).toBe(200)
-      expect(headers).toHaveLength(3)
-      expect(headers[0]).toBeNull()
-      expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(
-        1,
-      )
-      expect(Buffer.from(headers[2]!.slice(5), "base64").readUInt32LE(8)).toBe(
-        3,
-      )
-      expect(bodies).toEqual(['{"ok":true}', '{"ok":true}', '{"ok":true}'])
-      expect(challenges.every((challenge) => challenge.bodyUsed)).toBe(true)
-      expect(
-        response.network?.filter((event) => event.type === "request"),
-      ).toHaveLength(3)
-      expect(JSON.stringify(response.network)).not.toContain(headers[2])
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    const result = await send(
+      makeReq({
+        url,
+        method: "POST",
+        auth: ntlmAuth,
+        bodyType: "json",
+        body: '{"ok":true}',
+      }),
+      { environment: environment() },
+    )
+    expect(result.status).toBe(200)
+    expect(headers).toHaveLength(3)
+    expect(headers[0]).toBeNull()
+    expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(1)
+    expect(Buffer.from(headers[2]!.slice(5), "base64").readUInt32LE(8)).toBe(3)
+    expect(bodies).toEqual(['{"ok":true}', '{"ok":true}', '{"ok":true}'])
+    expect(
+      result.network?.filter((event) => event.type === "request"),
+    ).toHaveLength(3)
+    expect(JSON.stringify(result.network)).not.toContain(headers[2])
   })
 
   it("uses the two-request shortcut for an eager Type 2 without MIC", async () => {
-    const originalFetch = globalThis.fetch
     const headers: Array<string | null> = []
-    globalThis.fetch = mock(async (_url, init) => {
-      headers.push(new Headers(init?.headers).get("authorization"))
-      return headers.length === 1
-        ? new Response("challenge", {
-            status: 401,
-            headers: { "www-authenticate": `NTLM ${type2Token()}` },
-          })
-        : new Response("ok", { status: 200 })
-    }) as unknown as typeof globalThis.fetch
+    const url = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
+      if (headers.length === 1) {
+        return new Response("challenge", {
+          status: 401,
+          headers: { "www-authenticate": `NTLM ${type2Token()}` },
+        })
+      }
+      return new Response("ok")
+    })
 
-    try {
-      await send(makeReq({ auth: ntlmAuth }), { environment: environment() })
-      expect(headers).toHaveLength(2)
-      expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(
-        3,
-      )
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    await send(makeReq({ url, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(headers).toHaveLength(2)
+    expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(3)
   })
 
   it("obtains a Type 1 transcript when an eager challenge requires MIC", async () => {
@@ -407,37 +403,31 @@ describe("send — NTLMv2", () => {
     targetInfo.writeUInt16LE(8, 2)
     targetInfo.writeBigUInt64LE(1n, 4)
     const token = type2Token(targetInfo)
-    const originalFetch = globalThis.fetch
     const headers: Array<string | null> = []
-    globalThis.fetch = mock(async (_url, init) => {
-      headers.push(new Headers(init?.headers).get("authorization"))
+    const url = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
       if (headers.length < 3) {
         return new Response("challenge", {
           status: 401,
           headers: { "www-authenticate": `NTLM ${token}` },
         })
       }
-      return new Response("ok", { status: 200 })
-    }) as unknown as typeof globalThis.fetch
+      return new Response("ok")
+    })
 
-    try {
-      await send(makeReq({ auth: ntlmAuth }), { environment: environment() })
-      expect(headers).toHaveLength(3)
-      expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(
-        1,
-      )
-      const type3 = Buffer.from(headers[2]!.slice(5), "base64")
-      expect(type3.readUInt32LE(8)).toBe(3)
-      expect(type3.subarray(72, 88).equals(Buffer.alloc(16))).toBe(false)
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    await send(makeReq({ url, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(headers).toHaveLength(3)
+    expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(1)
+    const type3 = Buffer.from(headers[2]!.slice(5), "base64")
+    expect(type3.readUInt32LE(8)).toBe(3)
+    expect(type3.subarray(72, 88).equals(Buffer.alloc(16))).toBe(false)
   })
 
   it("returns the final 401 without looping and rejects malformed NTLM", async () => {
-    const originalFetch = globalThis.fetch
     let calls = 0
-    globalThis.fetch = mock(async () => {
+    const url = startServer(() => {
       calls++
       return new Response("no", {
         status: 401,
@@ -445,59 +435,49 @@ describe("send — NTLMv2", () => {
           "www-authenticate": calls === 1 ? "NTLM" : `NTLM ${type2Token()}`,
         },
       })
-    }) as unknown as typeof globalThis.fetch
+    })
 
-    try {
-      const response = await send(makeReq({ auth: ntlmAuth }), {
-        environment: environment(),
+    const result = await send(makeReq({ url, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(result.status).toBe(401)
+    expect(calls).toBe(3)
+
+    const malformedUrl = startServer(() => {
+      return new Response("bad", {
+        status: 401,
+        headers: { "www-authenticate": "NTLM !!!" },
       })
-      expect(response.status).toBe(401)
-      expect(calls).toBe(3)
-
-      globalThis.fetch = mock(
-        async () =>
-          new Response("bad", {
-            status: 401,
-            headers: { "www-authenticate": "NTLM !!!" },
-          }),
-      ) as unknown as typeof globalThis.fetch
-      await expect(
-        send(makeReq({ auth: ntlmAuth }), { environment: environment() }),
-      ).rejects.toThrow("invalid NTLM challenge")
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    })
+    await expect(
+      send(makeReq({ url: malformedUrl, auth: ntlmAuth }), {
+        environment: environment(),
+      }),
+    ).rejects.toThrow("invalid NTLM challenge")
   })
 
   it("does not send NTLM credentials across an origin-changing redirect", async () => {
-    const originalFetch = globalThis.fetch
     const headers: Array<string | null> = []
-    let calls = 0
-    globalThis.fetch = mock(async (_url, init) => {
-      calls++
-      headers.push(new Headers(init?.headers).get("authorization"))
-      if (calls === 1) {
-        return new Response(null, {
-          status: 302,
-          headers: { location: "https://other.example/protected" },
-        })
-      }
+    const destination = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
       return new Response("protected", {
         status: 401,
         headers: { "www-authenticate": "NTLM" },
       })
-    }) as unknown as typeof globalThis.fetch
-
-    try {
-      const response = await send(makeReq({ auth: ntlmAuth }), {
-        environment: environment(),
+    })
+    const source = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
+      return new Response(null, {
+        status: 302,
+        headers: { location: `${destination}/protected` },
       })
-      expect(response.status).toBe(401)
-      expect(calls).toBe(2)
-      expect(headers).toEqual([null, null])
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    })
+
+    const result = await send(makeReq({ url: source, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(result.status).toBe(401)
+    expect(headers).toEqual([null, null])
   })
 })
 
