@@ -245,6 +245,7 @@ export function FolderPane({
                     editState={editState}
                     inEdit={inEdit}
                     browseActive={browseActive}
+                    editValue={editValue}
                     setEditValue={setEditValue}
                     theme={theme}
                     activeEnv={activeEnv}

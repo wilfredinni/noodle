@@ -410,6 +410,8 @@ describe("ProxySettingsForm", () => {
         authRow.screenY,
         MouseButtons.LEFT,
       )
+      await mockMouse.moveTo(89, 29)
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
     await renderOnce()
     expect(captureCharFrame()).toContain("Proxy authentication (optional): [x]")

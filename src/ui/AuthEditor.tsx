@@ -155,6 +155,7 @@ export interface AuthEditorProps {
   editState: EditState
   inEdit: boolean
   browseActive: boolean
+  editValue: string
   setEditValue: (v: string) => void
   theme: Theme
   activeEnv?: Environment | null
@@ -173,6 +174,7 @@ export function AuthEditor({
   editState,
   inEdit,
   browseActive,
+  editValue,
   setEditValue,
   theme,
   activeEnv,
@@ -295,7 +297,7 @@ export function AuthEditor({
                 <>
                   <text fg={theme.textMuted}>{displayLabel}: </text>
                   <VarInput
-                    value={fieldValue}
+                    value={editValue}
                     env={activeEnv ?? null}
                     isEditing
                     useTextarea

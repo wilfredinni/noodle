@@ -1,5 +1,5 @@
 import { describe, it, expect, mock } from "bun:test"
-import type { NetworkError, Request } from "../../src/schema"
+import type { Collection, NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
 
 function makeReq(over: Partial<Request> = {}): Request {
@@ -179,6 +179,52 @@ describe("send — AWS SigV4", () => {
     }
   })
 
+  it("should substitute AWS auth fields before signing", async () => {
+    const originalFetch = globalThis.fetch
+    let capturedInit: RequestInit | undefined
+    globalThis.fetch = mock(async (_url, init) => {
+      capturedInit = init
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    try {
+      await send(
+        makeReq({
+          auth: {
+            type: "aws_sigv4",
+            access_key: "$ACCESS",
+            secret_key: "$SECRET",
+            region: "$REGION",
+            service: "$SERVICE",
+            session_token: "$SESSION",
+          },
+        }),
+        {
+          environment: {
+            name: "dev",
+            vars: {
+              ACCESS: "AKIDEXAMPLE",
+              SECRET: "secret",
+              REGION: "us-west-2",
+              SERVICE: "execute-api",
+              SESSION: "session-token",
+            },
+          },
+        },
+      )
+
+      const headers = new Headers(capturedInit?.headers)
+      expect(headers.get("authorization")).toContain("Credential=AKIDEXAMPLE/")
+      expect(headers.get("authorization")).toContain(
+        "/us-west-2/execute-api/aws4_request",
+      )
+      expect(headers.get("authorization")).not.toContain("$")
+      expect(headers.get("x-amz-security-token")).toBe("session-token")
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it("re-signs same-origin redirects and stops signing cross-origin hops", async () => {
     const originalFetch = globalThis.fetch
     const authorizations: Array<string | null> = []
@@ -234,6 +280,52 @@ describe("send — AWS SigV4", () => {
         ),
       ).rejects.toThrow("AWS SigV4 does not support multipart bodies")
       expect(calls).toBe(0)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+})
+
+describe("send — inherited auth", () => {
+  it("should substitute auth inherited from a folder before sending", async () => {
+    const originalFetch = globalThis.fetch
+    let capturedInit: RequestInit | undefined
+    globalThis.fetch = mock(async (_url, init) => {
+      capturedInit = init
+      return new Response("ok", { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+    const collection: Collection = {
+      id: "collection",
+      name: "Collection",
+      items: [
+        {
+          type: "folder",
+          data: {
+            id: "api",
+            name: "API",
+            path: "api",
+            overrides: {
+              auth: { type: "bearer", token: "$FOLDER_TOKEN" },
+            },
+            children: [],
+          },
+        },
+      ],
+    }
+
+    try {
+      await send(makeReq({ auth: { type: "inherit" } }), {
+        collection,
+        requestPath: "api/test",
+        environment: {
+          name: "dev",
+          vars: { FOLDER_TOKEN: "inherited-token" },
+        },
+      })
+
+      expect(new Headers(capturedInit?.headers).get("authorization")).toBe(
+        "Bearer inherited-token",
+      )
     } finally {
       globalThis.fetch = originalFetch
     }

@@ -145,6 +145,59 @@ describe("substitute — formData", () => {
   })
 })
 
+describe("substitute — auth", () => {
+  it("should substitute a bearer token", () => {
+    const result = substitute(
+      makeReq({ auth: { type: "bearer", token: "$TOKEN" } }),
+      { name: "dev", vars: { TOKEN: "secret-token" } },
+    )
+
+    expect(result.auth).toEqual({ type: "bearer", token: "secret-token" })
+  })
+
+  it("should substitute basic auth credentials", () => {
+    const result = substitute(
+      makeReq({
+        auth: { type: "basic", user: "$USER", pass: "$PASSWORD" },
+      }),
+      {
+        name: "dev",
+        vars: { USER: "noodle", PASSWORD: "secret-password" },
+      },
+    )
+
+    expect(result.auth).toEqual({
+      type: "basic",
+      user: "noodle",
+      pass: "secret-password",
+    })
+  })
+
+  it("should substitute an API key while preserving its placement", () => {
+    const result = substitute(
+      makeReq({
+        auth: {
+          type: "api_key",
+          key: "$KEY_NAME",
+          value: "$KEY_VALUE",
+          placement: "header",
+        },
+      }),
+      {
+        name: "dev",
+        vars: { KEY_NAME: "X-Api-Key", KEY_VALUE: "secret-api-key" },
+      },
+    )
+
+    expect(result.auth).toEqual({
+      type: "api_key",
+      key: "X-Api-Key",
+      value: "secret-api-key",
+      placement: "header",
+    })
+  })
+})
+
 describe("substitute — AWS SigV4", () => {
   it("substitutes every credential and scope field", () => {
     const result = substitute(
