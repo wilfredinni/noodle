@@ -67,6 +67,7 @@ function folderRowCount(folder: Folder | null): FolderRowCount {
     if (a.type === "bearer") authRows = 2
     else if (a.type === "basic") authRows = 3
     else if (a.type === "api_key") authRows = 4
+    else if (a.type === "aws_sigv4") authRows = 6
   }
   return {
     meta: 1,
@@ -105,6 +106,13 @@ function folderCurrentValueFor(
       if (row === 1) return a.key
       if (row === 2) return a.value
       if (row === 3) return a.placement
+    }
+    if (a.type === "aws_sigv4") {
+      if (row === 1) return a.access_key
+      if (row === 2) return a.secret_key
+      if (row === 3) return a.region
+      if (row === 4) return a.service
+      if (row === 5) return a.session_token ?? ""
     }
     return ""
   }
@@ -410,6 +418,19 @@ export function useFolderEditBrowse(
           if (row === 1) draftMutators.setAuthField("api_key", "key", val)
           else if (row === 2)
             draftMutators.setAuthField("api_key", "value", val)
+        } else if (currentAuth.type === "aws_sigv4") {
+          const fields = [
+            "",
+            "access_key",
+            "secret_key",
+            "region",
+            "service",
+            "session_token",
+          ]
+          const authField = fields[row]
+          if (authField) {
+            draftMutators.setAuthField("aws_sigv4", authField, val)
+          }
         }
       }
     } else if (field === "headers") {

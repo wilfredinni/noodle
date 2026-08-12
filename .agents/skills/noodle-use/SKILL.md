@@ -79,9 +79,10 @@ proxy/TLS blocks fail collection opening, auditing, and execution.
 When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, backslashes, empty path segments, or hidden path segments.
 
 ### Authorization
-Auth types: `none`, `inherit`, `bearer`, `basic`, `api_key`.
+Auth types: `none`, `inherit`, `bearer`, `basic`, `api_key`, `aws_sigv4`.
 - `none`: No auth. Omit the `auth` field entirely (don't write `{ type: none }`).
 - `inherit`: Use parent folder's auth override. Only valid when a parent folder defines auth.
 - `bearer`: `{ type: bearer, token: "$TOKEN" }`
 - `basic`: `{ type: basic, user: "$USER", pass: "$PASS" }`
 - `api_key`: `{ type: api_key, key: "X-API-Key", value: "$KEY", placement: "header" }`. Placement is `"header"` or `"query"`.
+- `aws_sigv4`: `{ type: aws_sigv4, access_key: "$AWS_ACCESS_KEY_ID", secret_key: "$AWS_SECRET_ACCESS_KEY", region: "us-east-1", service: "execute-api", session_token: "$AWS_SESSION_TOKEN" }`. `session_token` is optional. Signing uses headers and supports text, JSON, URL-encoded, and binary bodies; multipart is not supported.

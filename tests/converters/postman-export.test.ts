@@ -272,6 +272,19 @@ describe("Postman export", () => {
             },
           }),
         },
+        {
+          type: "request",
+          data: request("aws", "AWS", {
+            auth: {
+              type: "aws_sigv4",
+              access_key: "$AWS_ACCESS_KEY_ID",
+              secret_key: "$AWS_SECRET_ACCESS_KEY",
+              region: "us-east-1",
+              service: "execute-api",
+              session_token: "$AWS_SESSION_TOKEN",
+            },
+          }),
+        },
       ],
     }
 
@@ -308,6 +321,29 @@ describe("Postman export", () => {
         { key: "key", value: "{{key}}", type: "string" },
         { key: "value", value: "{{$randomUUID}}", type: "string" },
         { key: "in", value: "query", type: "string" },
+      ],
+    })
+    expect((items[5]!.request as Record<string, unknown>).auth).toEqual({
+      type: "awsv4",
+      awsv4: [
+        {
+          key: "accessKey",
+          value: "{{AWS_ACCESS_KEY_ID}}",
+          type: "string",
+        },
+        {
+          key: "secretKey",
+          value: "{{AWS_SECRET_ACCESS_KEY}}",
+          type: "string",
+        },
+        { key: "region", value: "us-east-1", type: "string" },
+        { key: "service", value: "execute-api", type: "string" },
+        { key: "addAuthDataToQuery", value: false, type: "boolean" },
+        {
+          key: "sessionToken",
+          value: "{{AWS_SESSION_TOKEN}}",
+          type: "string",
+        },
       ],
     })
   })

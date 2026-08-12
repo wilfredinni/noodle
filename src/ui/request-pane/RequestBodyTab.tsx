@@ -234,11 +234,11 @@ export function BodySection({
       style={{
         flexDirection: "column",
         gap: 1,
-        flexGrow: 1,
-        flexShrink: 1,
-        flexBasis: 0,
+        flexGrow: isFormMode ? undefined : 1,
+        flexShrink: isFormMode ? 0 : 1,
+        flexBasis: isFormMode ? undefined : 0,
         minHeight: 0,
-        overflow: "hidden",
+        overflow: isFormMode ? undefined : "hidden",
       }}
     >
       {bodyType === "none" ? null : isFormMode ? (

@@ -1,4 +1,5 @@
-import { useMemo } from "react"
+import type { ScrollBoxRenderable } from "@opentui/core"
+import { useEffect, useMemo, useRef } from "react"
 import type { Folder, Environment, Auth } from "../schema"
 import type { EditState, FieldKind, FolderFieldKind } from "./editMode"
 import { Tabs } from "./Tabs"
@@ -69,6 +70,23 @@ export function FolderPane({
 }: FolderPaneProps) {
   const browseActive = editState.mode === "browsing"
   const inEdit = editState.mode === "editing"
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+
+  useEffect(() => {
+    if (editState.mode === "inactive") return
+    const { field, row, addingRow } = editState.cursor
+    if (field === "headers") {
+      scrollRef.current?.scrollChildIntoView(
+        addingRow ? "hdr-add" : `hdr-${row}`,
+      )
+    } else if (field === "auth") {
+      scrollRef.current?.scrollChildIntoView(
+        row === 0 ? "auth-field" : `auth-${row}`,
+      )
+    } else if (field === "meta") {
+      scrollRef.current?.scrollChildIntoView("folder-meta-field")
+    }
+  }, [editState.cursor, editState.mode])
 
   const { stats: activityStats, loading: activityLoading } = useFolderActivity(
     collectionDir,
@@ -147,6 +165,8 @@ export function FolderPane({
             }}
           >
             <scrollbox
+              id="folder-tab-scrollbox"
+              ref={scrollRef}
               scrollY
               style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
             >
@@ -225,6 +245,7 @@ export function FolderPane({
                     editState={editState}
                     inEdit={inEdit}
                     browseActive={browseActive}
+                    editValue={editValue}
                     setEditValue={setEditValue}
                     theme={theme}
                     activeEnv={activeEnv}

@@ -116,5 +116,14 @@ function authToObj(auth: Auth): Record<string, unknown> {
       value: auth.value,
       placement: auth.placement,
     }
+  if (auth.type === "aws_sigv4")
+    return {
+      type: "aws_sigv4",
+      access_key: auth.access_key,
+      secret_key: auth.secret_key,
+      region: auth.region,
+      service: auth.service,
+      ...(auth.session_token ? { session_token: auth.session_token } : {}),
+    }
   return { type: "none" }
 }

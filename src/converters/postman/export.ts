@@ -46,6 +46,31 @@ function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {
       ],
     }
   }
+  if (auth.type === "aws_sigv4") {
+    const awsv4 = [
+      {
+        key: "accessKey",
+        value: toPostmanTpl(auth.access_key),
+        type: "string",
+      },
+      {
+        key: "secretKey",
+        value: toPostmanTpl(auth.secret_key),
+        type: "string",
+      },
+      { key: "region", value: toPostmanTpl(auth.region), type: "string" },
+      { key: "service", value: toPostmanTpl(auth.service), type: "string" },
+      { key: "addAuthDataToQuery", value: false, type: "boolean" },
+    ]
+    if (auth.session_token) {
+      awsv4.push({
+        key: "sessionToken",
+        value: toPostmanTpl(auth.session_token),
+        type: "string",
+      })
+    }
+    return { type: "awsv4", awsv4 }
+  }
   return {
     type: "apikey",
     apikey: [

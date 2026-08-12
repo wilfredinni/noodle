@@ -314,6 +314,9 @@ function securityFor(
   } else if (auth.type === "basic") {
     name = "basicAuth"
     schemes[name] ??= { type: "http", scheme: "basic" }
+  } else if (auth.type === "aws_sigv4") {
+    name = "awsSigV4"
+    schemes[name] ??= { type: "http", scheme: "AWS4-HMAC-SHA256" }
   } else {
     const suffix = auth.key
       .replace(/[^a-zA-Z0-9]+/g, " ")

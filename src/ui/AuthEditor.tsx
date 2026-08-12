@@ -13,6 +13,7 @@ const AUTH_TYPE_ITEMS: SelectItem[] = [
   { id: "bearer", label: "Bearer Token" },
   { id: "basic", label: "Basic Auth" },
   { id: "api_key", label: "API Key" },
+  { id: "aws_sigv4", label: "AWS Signature v4" },
 ]
 
 const PLACEMENT_ITEMS: SelectItem[] = [
@@ -26,6 +27,8 @@ interface FieldDef {
   field: string
   isSecret: boolean
   isPlacement?: boolean
+  description?: string
+  required?: boolean
 }
 
 interface AuthRows {
@@ -48,29 +51,113 @@ function getAuthRows(auth: Auth | undefined): AuthRows {
   if (auth.type === "bearer") {
     return {
       type: "bearer",
-      fieldDefs: [{ row: 1, label: "Token", field: "token", isSecret: true }],
+      fieldDefs: [
+        {
+          row: 1,
+          label: "Token",
+          field: "token",
+          isSecret: true,
+          required: true,
+          description: "Bearer token sent in the Authorization header.",
+        },
+      ],
     }
   }
   if (auth.type === "basic") {
     return {
       type: "basic",
       fieldDefs: [
-        { row: 1, label: "Username", field: "user", isSecret: false },
-        { row: 2, label: "Password", field: "pass", isSecret: true },
+        {
+          row: 1,
+          label: "Username",
+          field: "user",
+          isSecret: false,
+          required: true,
+          description: "Username used for HTTP Basic authentication.",
+        },
+        {
+          row: 2,
+          label: "Password",
+          field: "pass",
+          isSecret: true,
+          required: true,
+          description: "Password used for HTTP Basic authentication.",
+        },
+      ],
+    }
+  }
+  if (auth.type === "aws_sigv4") {
+    return {
+      type: "aws_sigv4",
+      fieldDefs: [
+        {
+          row: 1,
+          label: "Access Key",
+          field: "access_key",
+          isSecret: false,
+          required: true,
+          description: "AWS access key ID used to identify the signer.",
+        },
+        {
+          row: 2,
+          label: "Secret Key",
+          field: "secret_key",
+          isSecret: true,
+          required: true,
+          description: "AWS secret access key used to derive the signature.",
+        },
+        {
+          row: 3,
+          label: "Region",
+          field: "region",
+          isSecret: false,
+          required: true,
+          description: "AWS region where the service request is sent.",
+        },
+        {
+          row: 4,
+          label: "Service",
+          field: "service",
+          isSecret: false,
+          required: true,
+          description: "AWS service name, such as execute-api or s3.",
+        },
+        {
+          row: 5,
+          label: "Session Token",
+          field: "session_token",
+          isSecret: true,
+          description: "Optional token for temporary AWS credentials.",
+        },
       ],
     }
   }
   return {
     type: "api_key",
     fieldDefs: [
-      { row: 1, label: "Key", field: "key", isSecret: false },
-      { row: 2, label: "Value", field: "value", isSecret: true },
+      {
+        row: 1,
+        label: "Key",
+        field: "key",
+        isSecret: false,
+        required: true,
+        description: "Header or query parameter name for the API key.",
+      },
+      {
+        row: 2,
+        label: "Value",
+        field: "value",
+        isSecret: true,
+        required: true,
+        description: "API key value sent with the request.",
+      },
       {
         row: 3,
         label: "Add To",
         field: "placement",
         isSecret: false,
         isPlacement: true,
+        description: "Where to send the API key.",
       },
     ],
   }
@@ -91,6 +178,13 @@ function getFieldValue(auth: Auth, field: string): string {
     if (field === "placement") return auth.placement
     return ""
   }
+  if (auth.type === "aws_sigv4") {
+    if (field === "access_key") return auth.access_key
+    if (field === "secret_key") return auth.secret_key
+    if (field === "region") return auth.region
+    if (field === "service") return auth.service
+    if (field === "session_token") return auth.session_token ?? ""
+  }
   return ""
 }
 
@@ -99,6 +193,7 @@ export interface AuthEditorProps {
   editState: EditState
   inEdit: boolean
   browseActive: boolean
+  editValue: string
   setEditValue: (v: string) => void
   theme: Theme
   activeEnv?: Environment | null
@@ -117,6 +212,7 @@ export function AuthEditor({
   editState,
   inEdit,
   browseActive,
+  editValue,
   setEditValue,
   theme,
   activeEnv,
@@ -191,10 +287,12 @@ export function AuthEditor({
         const displayValue = def.isSecret
           ? maskIfSecret(fieldValue, true)
           : fieldValue
+        const displayLabel = `${def.label}${def.required ? "*" : ""}`
 
         return (
           <box
             key={def.field}
+            id={`${idPrefix}-${def.row}`}
             style={{
               flexDirection: "column",
               zIndex: def.isPlacement && placementSelectOpen ? 1 : undefined,
@@ -235,9 +333,9 @@ export function AuthEditor({
             >
               {isEditingRow && !def.isPlacement ? (
                 <>
-                  <text fg={theme.textMuted}>{def.label}: </text>
+                  <text fg={theme.textMuted}>{displayLabel}: </text>
                   <VarInput
-                    value={fieldValue}
+                    value={editValue}
                     env={activeEnv ?? null}
                     isEditing
                     useTextarea
@@ -246,7 +344,7 @@ export function AuthEditor({
                 </>
               ) : def.isPlacement ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
-                  <text fg={theme.text}>{def.label}: </text>
+                  <text fg={theme.text}>{displayLabel}: </text>
                   <Select
                     items={PLACEMENT_ITEMS}
                     value={fieldValue || "header"}
@@ -263,13 +361,22 @@ export function AuthEditor({
                 </box>
               ) : (
                 <VarInput
-                  value={`${def.label}: ${displayValue}`}
+                  value={`${displayLabel}: ${displayValue}`}
                   env={activeEnv ?? null}
                   isEditing={false}
                   baseColor={theme.text}
                 />
               )}
             </box>
+            {def.description && (
+              <text
+                fg={theme.textMuted}
+                wrapMode="word"
+                style={{ paddingLeft: 1 }}
+              >
+                {def.description}
+              </text>
+            )}
           </box>
         )
       })}

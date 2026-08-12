@@ -66,26 +66,30 @@ export function buildTimelineEntry(
     if (auth.type === "bearer") {
       return {
         type: "bearer",
-        token: auth.token.includes("$")
-          ? redact(resolvePublicVars(auth.token))
-          : REDACTED,
+        token: REDACTED,
       }
     }
     if (auth.type === "basic") {
       return {
         type: "basic",
         user: redact(resolvePublicVars(auth.user)),
-        pass: auth.pass.includes("$")
-          ? redact(resolvePublicVars(auth.pass))
-          : REDACTED,
+        pass: REDACTED,
+      }
+    }
+    if (auth.type === "aws_sigv4") {
+      return {
+        type: "aws_sigv4",
+        access_key: REDACTED,
+        secret_key: REDACTED,
+        region: redact(resolvePublicVars(auth.region)),
+        service: redact(resolvePublicVars(auth.service)),
+        ...(auth.session_token ? { session_token: REDACTED } : {}),
       }
     }
     return {
       ...auth,
       key: redact(resolvePublicVars(auth.key)),
-      value: auth.value.includes("$")
-        ? redact(resolvePublicVars(auth.value))
-        : REDACTED,
+      value: REDACTED,
     }
   }
   return {
@@ -223,6 +227,8 @@ export function maskedAuthHeader(
     return { key: "Authorization", value: "Bearer ••••••••" }
   if (auth.type === "basic")
     return { key: "Authorization", value: "Basic ••••••••" }
+  if (auth.type === "aws_sigv4")
+    return { key: "Authorization", value: "AWS4-HMAC-SHA256 ••••••••" }
   if (auth.type === "api_key" && auth.placement === "header") {
     return { key: auth.key, value: "••••••••" }
   }

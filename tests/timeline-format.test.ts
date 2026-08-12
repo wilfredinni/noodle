@@ -14,7 +14,7 @@ import {
   maskedAuthHeader,
   buildDetailRequestHeaders,
 } from "../src/ui/timeline/formatTimeline"
-import type { TimelineEntry } from "../src/schema"
+import type { Auth, TimelineEntry } from "../src/schema"
 
 describe("truncateUrl", () => {
   it("returns full URL when shorter than max", () => {
@@ -392,6 +392,18 @@ describe("maskedAuthHeader", () => {
         placement: "query",
       }),
     ).toBeNull()
+    expect(
+      maskedAuthHeader({
+        type: "aws_sigv4",
+        access_key: "AKID",
+        secret_key: "secret",
+        region: "us-east-1",
+        service: "execute-api",
+      }),
+    ).toEqual({
+      key: "Authorization",
+      value: "AWS4-HMAC-SHA256 ••••••••",
+    })
   })
 })
 
@@ -568,6 +580,141 @@ describe("buildTimelineEntry", () => {
     expect(response.body).toBe(`echo:${secret}`)
   })
 
+  it("redacts literal and secret-variable AWS credentials", () => {
+    const req = {
+      id: "req-aws",
+      name: "AWS",
+      method: "GET" as const,
+      url: "https://service.us-east-1.amazonaws.com",
+      headers: {},
+      params: [],
+      auth: {
+        type: "aws_sigv4" as const,
+        access_key: "literal-access",
+        secret_key: "$AWS_SECRET_ACCESS_KEY",
+        region: "us-east-1",
+        service: "execute-api",
+        session_token: "literal-session",
+      },
+      timeout: 0,
+    }
+    const entry = buildTimelineEntry(
+      req,
+      {
+        status: "done",
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: "",
+          timeMs: 1,
+        },
+      },
+      "dev",
+      {
+        name: "dev",
+        vars: { AWS_SECRET_ACCESS_KEY: "resolved-secret" },
+        secretVars: { AWS_SECRET_ACCESS_KEY: "keychain" },
+      },
+    )
+
+    expect(entry.request.auth).toEqual({
+      type: "aws_sigv4",
+      access_key: "[REDACTED]",
+      secret_key: "[REDACTED]",
+      region: "us-east-1",
+      service: "execute-api",
+      session_token: "[REDACTED]",
+    })
+    expect(JSON.stringify(entry.request)).not.toContain("literal-access")
+    expect(JSON.stringify(entry.request)).not.toContain("literal-session")
+    expect(JSON.stringify(entry.request)).not.toContain("resolved-secret")
+  })
+
+  it("redacts auth secrets supplied through public variables", () => {
+    const result = {
+      status: "done" as const,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      },
+    }
+    const environment = {
+      name: "dev",
+      vars: {
+        USER: "alice",
+        KEY: "X-API-Key",
+        TOKEN: "public-token",
+        PASSWORD: "public-password",
+        API_VALUE: "public-api-value",
+        ACCESS: "public-access",
+        SECRET: "public-secret",
+        SESSION: "public-session",
+        REGION: "us-east-1",
+        SERVICE: "execute-api",
+      },
+    }
+    const auths: Auth[] = [
+      { type: "bearer", token: "$TOKEN" },
+      { type: "basic", user: "$USER", pass: "$PASSWORD" },
+      {
+        type: "api_key",
+        key: "$KEY",
+        value: "$API_VALUE",
+        placement: "header",
+      },
+      {
+        type: "aws_sigv4",
+        access_key: "$ACCESS",
+        secret_key: "$SECRET",
+        session_token: "$SESSION",
+        region: "$REGION",
+        service: "$SERVICE",
+      },
+    ]
+    const snapshots = auths.map(
+      (auth) =>
+        buildTimelineEntry(
+          {
+            id: "auth",
+            name: "Auth",
+            method: "GET",
+            url: "https://example.com",
+            headers: {},
+            params: [],
+            timeout: 0,
+            auth,
+          },
+          result,
+          "dev",
+          environment,
+        ).request.auth,
+    )
+
+    expect(snapshots).toEqual([
+      { type: "bearer", token: "[REDACTED]" },
+      { type: "basic", user: "alice", pass: "[REDACTED]" },
+      {
+        type: "api_key",
+        key: "X-API-Key",
+        value: "[REDACTED]",
+        placement: "header",
+      },
+      {
+        type: "aws_sigv4",
+        access_key: "[REDACTED]",
+        secret_key: "[REDACTED]",
+        session_token: "[REDACTED]",
+        region: "us-east-1",
+        service: "execute-api",
+      },
+    ])
+    expect(JSON.stringify(snapshots)).not.toContain("public-")
+  })
+
   it("copies network activity into the saved entry", () => {
     const req = {
       id: "req-network",
@@ -679,7 +826,7 @@ describe("buildTimelineEntry", () => {
     expect(entry.request.auth).toEqual({
       type: "basic",
       user: "42",
-      pass: "$TOKEN",
+      pass: "[REDACTED]",
     })
   })
 

@@ -15,6 +15,36 @@ function makeRequest(overrides: Partial<Request> = {}): Request {
   }
 }
 
+describe("AWS SigV4 auth language", () => {
+  it("parses and serializes credentials with an optional session token", () => {
+    const request = lang.parseRequest(
+      "aws",
+      `name: AWS\nmethod: GET\nurl: https://example.com\nauth:\n  type: aws_sigv4\n  access_key: $AWS_ACCESS_KEY_ID\n  secret_key: $AWS_SECRET_ACCESS_KEY\n  region: us-east-1\n  service: execute-api\n  session_token: $AWS_SESSION_TOKEN\n`,
+    )
+
+    expect(request.auth).toEqual({
+      type: "aws_sigv4",
+      access_key: "$AWS_ACCESS_KEY_ID",
+      secret_key: "$AWS_SECRET_ACCESS_KEY",
+      region: "us-east-1",
+      service: "execute-api",
+      session_token: "$AWS_SESSION_TOKEN",
+    })
+    expect(
+      lang.parseRequest("aws", lang.serializeRequest(request)).auth,
+    ).toEqual(request.auth)
+  })
+
+  it("requires all non-optional fields", () => {
+    expect(() =>
+      lang.parseRequest(
+        "aws",
+        `name: AWS\nmethod: GET\nurl: https://example.com\nauth:\n  type: aws_sigv4\n  access_key: key\n  secret_key: secret\n  region: us-east-1\n`,
+      ),
+    ).toThrow("auth.aws_sigv4 requires")
+  })
+})
+
 describe("lang.parseRequest — required fields", () => {
   it("parses a minimal valid request (name, method, url)", () => {
     const yaml = `name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\n`
