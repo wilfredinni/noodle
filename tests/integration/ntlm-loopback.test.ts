@@ -34,6 +34,7 @@ function type2Token(): string {
 describe("NTLM loopback", () => {
   it("keeps all handshake legs on one TCP connection", async () => {
     const sockets = new Set<object>()
+    const signatures: string[] = []
     const messageTypes: number[] = []
     const server = createServer((request, response) => {
       sockets.add(request.socket)
@@ -44,7 +45,7 @@ describe("NTLM loopback", () => {
         return
       }
       const message = Buffer.from(authorization.slice(5), "base64")
-      expect(message.subarray(0, 8).toString("ascii")).toBe("NTLMSSP\0")
+      signatures.push(message.subarray(0, 8).toString("ascii"))
       const type = message.readUInt32LE(8)
       messageTypes.push(type)
       if (type === 1) {
@@ -84,6 +85,7 @@ describe("NTLM loopback", () => {
 
     expect(result.status).toBe(200)
     expect(result.body).toBe("authenticated")
+    expect(signatures).toEqual(["NTLMSSP\0", "NTLMSSP\0"])
     expect(messageTypes).toEqual([1, 3])
     expect(sockets.size).toBe(1)
   })

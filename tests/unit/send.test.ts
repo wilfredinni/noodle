@@ -371,7 +371,7 @@ describe("send — NTLMv2", () => {
       expect(
         response.network?.filter((event) => event.type === "request"),
       ).toHaveLength(3)
-      expect(JSON.stringify(response.network)).not.toContain(headers[1])
+      expect(JSON.stringify(response.network)).not.toContain(headers[2])
     } finally {
       globalThis.fetch = originalFetch
     }

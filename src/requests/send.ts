@@ -409,11 +409,7 @@ export async function send(
       currentInit = {
         ...currentInit,
         headers: clearAwsSignerHeaders(
-          stripCrossOriginCredentials(
-            currentInit.headers,
-            ah?.name ??
-              (substituted.auth?.type === "ntlm" ? "Authorization" : undefined),
-          ),
+          stripCrossOriginCredentials(currentInit.headers, ah?.name),
         ),
       }
     }

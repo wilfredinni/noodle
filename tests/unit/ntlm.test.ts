@@ -116,9 +116,30 @@ describe("NTLMv2 messages", () => {
     expect(() => parseType2Message(type2Token(undefined, 0x00880204))).toThrow(
       "Unicode",
     )
+    expect(() => parseType2Message(type2Token(undefined, 0x00888005))).toThrow(
+      "does not negotiate NTLM",
+    )
     expect(() => parseType2Message(type2Token(undefined, 0x00808205))).toThrow(
       "extended session security",
     )
+    expect(() =>
+      parseType2Message(type2Token(Buffer.from([1, 0, 0, 0]))),
+    ).toThrow("missing its terminator")
+  })
+
+  it("rejects a client challenge that is not 8 bytes", () => {
+    expect(() =>
+      createType3Message(
+        parseType2Message(type2Token()),
+        {
+          username: "alice",
+          password: "secret",
+          domain: "EXAMPLE",
+          workstation: "NOODLE",
+        },
+        { clientChallenge: Buffer.alloc(7) },
+      ),
+    ).toThrow("NTLM client challenge must be 8 bytes")
   })
 
   it("extracts combined challenges and ignores SPNEGO Negotiate tokens", () => {
