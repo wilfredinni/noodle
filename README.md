@@ -1,70 +1,56 @@
 # <img src="assets/logo.png" data-canonical-src="/logo.png" width="32" height="32" /> noodle
 
-[![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
+## Your API client should live with your code.
 
-## Readable requests. Versioned workflows. No lock-in.
+Noodle is a fast, keyboard-first HTTP client for the terminal. Requests stay as
+readable YAML files in your repository—easy to review, share, automate, and
+keep long after the tool is gone.
 
-Noodle is a terminal HTTP client that keeps requests as readable YAML files in
-your repository. Write, send, inspect, and automate API requests without a
-database, cloud account, or proprietary format.
+No cloud account. No workspace sync. No proprietary format.
 
-![Noodle TUI](assets/noodle.png)
+![Noodle terminal interface](assets/noodle.png)
 
 <p align="center">
+  <a href="https://noodlerest.dev/docs/getting-started/quick-start/"><strong>Get started</strong></a> ·
   <a href="https://noodlerest.dev/">Website</a> ·
-  <a href="https://noodlerest.dev/docs/getting-started/quick-start/">Quick Start</a> ·
   <a href="https://noodlerest.dev/docs/">Docs</a> ·
   <a href="https://github.com/wilfredinni/noodle/blob/main/CHANGELOG.md">Changelog</a> ·
   <a href="https://app.notion.com/p/39128d9edba9809da834f351332baf57?v=39228d9edba98042ad07000cdbe5d751&source=copy_link">Roadmap</a>
 </p>
 
-## Why Noodle
+## API work without the workspace gravity
 
-- **Keep requests in files you own.** One `.yml` file per request makes API
-  work easy to review, share, and version with Git.
-- **Keep shared context beside code.** Folders provide inheritable headers and
-  auth; environments resolve `$variables` for development, staging, and
-  production.
-- **Work interactively or automate confidently.** Use the terminal UI for
-  everyday exploration, then run, audit, and manage collections from scripts
-  or agent workflows.
+Most API clients want to become the place your work lives. Noodle takes the
+opposite approach: your repository is the source of truth.
 
-## Get started
+- **Requests you can read.** One small `.yml` file per request. Diff it, review
+  it, copy it, or edit it with any text editor.
+- **A workflow that travels.** Open the same collection in the TUI, run it from
+  the CLI, or hand it to an agent—without translating it first.
+- **Your data stays yours.** Noodle works from local files and stores declared
+  secrets in your operating system's credential vault.
+- **No clean-slate migration.** Bring in OpenAPI, Swagger, Postman, or Insomnia
+  collections and export to OpenAPI or Postman when you need to leave.
 
-### Install
+## From first request to repeatable workflow
+
+Install Noodle:
 
 ```bash
 curl -LsSf https://noodlerest.dev/install.sh | sh
 ```
 
-Or install with Homebrew:
-
-```bash
-brew tap wilfredinni/noodle
-brew trust wilfredinni/noodle
-brew install noodle
-```
-
-The curl installer places the binary in `~/.local/bin/noodle` and verifies the
-release SHA-256 checksum before replacing an existing binary. See the
-[installation guide](https://noodlerest.dev/docs/getting-started/installation/)
-for supported platforms and source builds.
-
-### Create and send a request
+Create a collection and make your first request:
 
 ```bash
 noodle collection create my-api
-noodle request create users/get --url https://api.example.com/users/42 --collection ./my-api
-noodle request run users/get --collection ./my-api
-```
-
-Open the same collection in the TUI whenever you want to edit and inspect it:
-
-```bash
+noodle request create users/get \
+  --url https://api.example.com/users/42 \
+  --collection ./my-api
 noodle --collection ./my-api
 ```
 
-## A request is just YAML
+What you edit in the terminal is simply a file:
 
 ```yaml
 name: Get User
@@ -77,255 +63,111 @@ headers:
   Accept: application/json
 ```
 
-Use `$variables` from an environment file, keep required URL segments in
-`path_params`, and commit the request with the rest of your project. Noodle
-supports headers, query parameters, JSON, form, multipart, and binary bodies,
-plus bearer, basic, and API-key authentication.
+Commit it beside the code it exercises. Teammates get the request, its folder
+structure, and its shared configuration through the same workflow they already
+use for everything else.
 
-Mark sensitive environment values as secrets in the environment editor, or
-declare them directly with a blank placeholder:
+Prefer Homebrew?
 
-```dotenv
-# @secret API_TOKEN
-API_TOKEN=
+```bash
+brew tap wilfredinni/noodle
+brew trust wilfredinni/noodle
+brew install noodle
 ```
 
-The value is stored in macOS Keychain, Linux Secret Service, or Windows
-Credential Manager instead of the `.env` file. A same-named process environment
-value takes precedence, which keeps CI setup simple. Secret values remain
-masked in the editor and are excluded from persisted request history, code
-generation, request search, and exports.
+[See every installation option →](https://noodlerest.dev/docs/getting-started/installation/)
 
-For multipart file entries and binary `file_path` values, use a quoted `@/`
-path such as `'@/Documents/report.pdf'` to start from the current user's home
-directory. Noodle completes the shorthand in the TUI and expands it only when
-it reads a file or creates an export.
+## Made for the whole API loop
 
-## Features
+### Explore without leaving the terminal
 
-### Create and organize requests
+Edit URLs, parameters, headers, authentication, and bodies inline. Jump between
+panes from the keyboard, switch environments in a keystroke, search large
+collections, and choose from more than 30 themes.
 
-- One Git-friendly YAML file per request, with direct YAML editing when you
-  need it.
-- Inline editing for URLs, headers, query and path parameters, bodies,
-  authentication, and request settings.
-- JSON, form, multipart, and binary request bodies, plus bearer, basic, and
-  API-key authentication.
-- Home-rooted `@/` path completion for multipart file fields and binary uploads.
-- Folders with inheritable headers and authentication, alongside environments
-  with `$variable` substitution and a built-in editor.
+![Variable completion in Noodle](assets/autocomplete.png)
 
-### Inspect and iterate
+### See what actually happened
 
-- Formatted response bodies, headers, clipboard copy, and JSONPath filtering.
-- Live network traces for proxies, requests, redirects, responses, and failures.
-- Per-request response history with a timeline for revisiting prior work.
-- Fuzzy request and folder search, and a side-by-side or stacked layout.
+Inspect formatted bodies and headers, filter JSON with JSONPath, follow the
+network trace across redirects and proxies, and revisit previous responses in
+the per-request timeline.
 
-### Make the terminal yours
+![Response timeline in Noodle](assets/timeline.png)
 
-- More than 30 built-in themes and customizable keybindings.
-- Keyboard-first navigation, jump mode, and mouse controls including sidebar
-  context menus.
+### Share configuration, not secrets
 
-### Configure network and collection settings
+Use environment variables for development, staging, and production. Mark
+sensitive values as secrets and Noodle keeps them out of environment files,
+request history, generated code, search results, and exports.
 
-Open **Settings** with `F4` or from the `Ctrl+P` command palette to use the
-system `HTTP_PROXY`/`HTTPS_PROXY` settings, set an app-wide custom proxy, or
-override the current collection in `settings.yml`. Custom proxy URLs contain
-only the protocol, host, and optional port, such as
-`http://proxy.example:8080`. Enable authentication in Settings and enter a
-username plus an optional password; Noodle stores both in the OS credential
-vault. Configuration persists only the credential-free URL and `auth: true`.
-Credentials and `$VARNAME` placeholders inside `proxy.url` are rejected. Bypass
-entries are optional, comma-separated, and support `*`, hosts, `.domain`
-suffixes, IP addresses, and optional ports.
+![Secret management in Noodle](assets/secrets.png)
 
-Use `--noproxy` with the TUI, `collection run`, or `request run` to force
-direct connections for that invocation.
+### Automate the work you already explored
 
-Collection TLS settings support certificate verification, a custom PEM CA
-bundle, and PEM client certificates for mutual TLS. Client certificates match
-the interpolated request host and port exactly; relative paths resolve from the
-collection root. Enter encrypted private-key passphrases in Settings; Noodle
-stores them in the OS credential vault and writes only a generated `secret_id`
-to `settings.yml`. A custom CA bundle replaces the default trusted roots, so
-include every root the collection needs.
+Every collection can be inspected, audited, formatted, and run without opening
+the TUI. Commands support structured JSON output, so the same requests work in
+scripts, CI, and agent workflows.
 
-```yaml
-tls:
-  verify: true
-  ca_bundle: ./certs/internal-roots.pem
-  client_certificates:
-    - host: api.internal.example
-      port: 443
-      cert_file: ./certs/client-chain.pem
-      key_file: ./certs/client-key.pem
-      secret_id: 123e4567-e89b-42d3-a456-426614174000
+```bash
+noodle request run users/get --collection ./my-api --env staging
+noodle collection audit ./my-api --json
+noodle collection run ./my-api --json
 ```
 
-Requests can override only verification with `tls.verify`; omit it to inherit
-the collection. Use `--insecure` with the TUI, `collection run`, or `request
-run` for a one-invocation override. PFX/PKCS#12 is not supported by Noodle;
-convert it to a PEM certificate chain and private key first.
+[Explore the CLI →](https://noodlerest.dev/docs/getting-started/cli/)
 
-Redirects are followed only to HTTP or HTTPS URLs. Noodle refuses HTTPS-to-HTTP
-downgrades and removes authorization, proxy authorization, cookies, `Host`, and
-API-key authentication headers before following a cross-origin redirect.
-Those headers remain removed for the rest of that redirect chain; same-origin
-redirects preserve them.
+## Bring your existing work
 
-Collection metadata and response-history retention also live in
-`settings.yml`. `timeline_max_entries` defaults to 50 per request; lowering it
-prunes older entries, and `0` disables timeline recording.
-
-```yaml
-collection_id: 123e4567-e89b-42d3-a456-426614174000
-name: Payments API
-description: |-
-  Requests for the payments platform.
-timeline_max_entries: 50
-environment: development
-```
-
-Noodle creates and maintains `collection_id`; it is public metadata used only
-to keep credential-store entries stable when a collection moves.
-
-`settings.yml` is validated strictly whenever a collection is opened, audited,
-or run. Unknown keys, invalid field types, malformed proxy/TLS blocks, and YAML
-errors stop the operation instead of silently falling back to defaults. A
-missing or empty file still uses defaults.
-
-### Bring in and run existing work
-
-- OpenAPI 3.0, Swagger 2.0, Postman, and Insomnia collection imports.
-- A non-interactive CLI for collection inspection, validation, request runs,
-  and agent workflows.
-
-## Import an existing collection
-
-Bring an OpenAPI 3.0/Swagger 2.0 specification, Postman collection, or Insomnia export into Noodle:
+Import an OpenAPI 3.0 or Swagger 2.0 specification, a Postman collection, or an
+Insomnia export:
 
 ```bash
 noodle import ./specs/api.yaml --output ./collections
 ```
 
-Noodle detects the supported format automatically. Use `--format openapi`,
-`--format swagger`, `--format postman`, or `--format insomnia` when you need to choose explicitly. Imported valid JSON
-request bodies are pretty-printed automatically.
+You can also export a collection to OpenAPI or Postman, so adopting Noodle is a
+choice—not a trap.
 
-In the TUI, open the command palette with `Ctrl+P` and choose **Import
-Collection**. Choose whether to create a new collection or import into the
-current one; save pending changes before importing into the current collection.
+[Learn about imports and exports →](https://noodlerest.dev/docs/)
 
-## Export a collection
+## Built for people—and agents—who work in repositories
 
-Export a collection as an OpenAPI 3.0.3 request catalog:
+Because Noodle collections are plain files with a non-interactive CLI, coding
+agents can create, organize, audit, and run them without screen scraping or a
+hosted integration.
 
-```bash
-noodle export ./collections --format openapi --output ./specs/openapi.yml
-```
-
-The export includes requests, enabled parameters and headers, request-body
-examples, folders as tags, and supported authentication schemes. Each
-environment with an enabled, nonempty `base_url` becomes an OpenAPI server;
-other environment values and response timeline data are never exported. The
-output file must be outside the collection directory.
-
-Export to Postman Collection v2.1 as a bundle directory instead:
-
-```bash
-noodle export ./collections --format postman --output ./exports/postman
-```
-
-The output directory must be new or empty and is created with
-`collection.postman_collection.json` plus one
-`<environment>.postman_environment.json` file per Noodle environment. Environment
-values are always redacted to empty strings, while enabled/disabled states are
-preserved. Request literals in URLs, headers, parameters, bodies, file paths, and
-auth fields stay runnable and can contain secrets. Home-relative `@/` file paths
-expand to absolute paths, which can expose local usernames and directories, so
-review exports before sharing them. Response timeline data is never exported.
-
-Noodle-specific TLS settings are not translated into OpenAPI or Postman
-exports.
-
-The TUI also offers **Export Collection** from the `Ctrl+P` command palette,
-with OpenAPI and Postman formats and a preview of the target path.
-
-## Automation CLI
-
-`noodle` without a subcommand opens the interactive TUI. The commands below
-are non-interactive and support `--json`, which emits one
-`{ status, data, errors }` envelope for scripts and agents.
-
-| Command                                                                | Use it to                                                |
-| ---------------------------------------------------------------------- | -------------------------------------------------------- |
-| `noodle workspace list`                                                | List registered collections.                             |
-| `noodle collection create <name>`                                      | Create and register a collection.                        |
-| `noodle collection inspect <path>`                                     | Inspect a collection's tree, metadata, and environments. |
-| `noodle collection format <path>`                                      | Canonicalize request YAML and pretty-print JSON bodies.  |
-| `noodle collection audit <path>`                                       | Validate collection files.                               |
-| `noodle collection run <path>`                                         | Run every request in a collection.                       |
-| `noodle export <path> --format <openapi\|postman> --output <path>`     | Export OpenAPI or a redacted Postman bundle.             |
-| `noodle request create <id> --url <url> --collection <dir>`            | Create a minimal request.                                |
-| `noodle request run <id> --collection <dir>`                           | Run one request.                                         |
-| `noodle environment set <key> <value> --env <name> --collection <dir>` | Set an environment value.                                |
-| `noodle secret set <key> --env <name> --collection <dir>`              | Prompt for and securely store a secret.                  |
-| `noodle secret set <key> --env <name> --stdin`                         | Read a secret from stdin for automation.                 |
-| `noodle secret list --env <name> --collection <dir>`                   | List secret names and their active source.               |
-| `noodle secret delete <key> --env <name> --collection <dir>`           | Remove only the locally stored secret value.             |
-
-Run commands accept `--env <name>` when you want to override the collection's
-default environment. Request IDs are collection-relative paths without `.yml`,
-such as `users/get`.
-
-For all commands, path rules, and JSON output details, see the
-[CLI reference](https://noodlerest.dev/docs/getting-started/cli/).
-
-## Use with AI agents
-
-Install the `noodle-use` skill to teach supported coding agents how to create,
-organize, audit, import, and automate Noodle collections.
+Install the `noodle-use` skill:
 
 ```bash
 npx skills add wilfredinni/noodle --skill noodle-use -g
 ```
 
-Try prompts such as:
+Then ask your agent to:
 
-- “Scaffold a Noodle collection for the Stripe API with authentication and a few endpoints.”
-- “Audit this collection for security issues and REST best practices.”
-- “Convert this Insomnia export to a Noodle collection.”
+- “Scaffold a Noodle collection for this API.”
+- “Audit these requests for security issues and REST best practices.”
+- “Convert this Insomnia export into a Noodle collection.”
 
-Read the [AI agent skills guide](https://noodlerest.dev/docs/guides/ai-agent-skills/)
-for supported workflows and examples.
+[Use Noodle with AI agents →](https://noodlerest.dev/docs/guides/ai-agent-skills/)
 
-## Updating
+## Dive deeper
 
-```bash
-noodle update
-```
+- [Quick start](https://noodlerest.dev/docs/getting-started/quick-start/)
+- [Documentation](https://noodlerest.dev/docs/)
+- [CLI reference](https://noodlerest.dev/docs/getting-started/cli/)
+- [Changelog](CHANGELOG.md)
+- [Security policy](SECURITY.md)
 
-Standalone installs use Noodle's update manifest and verify the matching
-binary's SHA-256 checksum before replacement. Update checks are cached for one
-hour; use `noodle update --force` to check immediately. Homebrew installs run
-`brew upgrade noodle`.
+## Contributing
 
-## Development
+Noodle is built with Bun, TypeScript, React, and OpenTUI. To run it locally:
 
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test
-bun run lint
-bun run typecheck
-bunx prettier --check ./src ./tests
 ```
 
-`bun install` also enables the project's Git hooks. The pre-commit hook formats
-and lints staged source and test files; the pre-push hook runs type checking
-and the full test suite.
+See [AGENTS.md](AGENTS.md) for the architecture, conventions, and test commands.
 
-See [AGENTS.md](AGENTS.md) for architecture, conventions, testing guidance,
-and release commands.
+Apache-2.0 licensed.
