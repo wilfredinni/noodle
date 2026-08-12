@@ -17,6 +17,7 @@ import {
 } from "node:net"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { gzipSync } from "node:zlib"
 import type { Request } from "../../src/schema"
 import { send } from "../../src/requests/send"
 import { ntlmV2Hash } from "../../src/requests/ntlm"
@@ -50,8 +51,15 @@ async function startConnectProxy() {
     sockets.add(client)
     client.on("close", () => sockets.delete(client))
     client.on("error", () => {})
-    client.once("data", (chunk) => {
-      const head = chunk.toString("latin1")
+    let buffered = Buffer.alloc(0)
+    const onHead = (chunk: Buffer) => {
+      buffered = Buffer.concat([buffered, chunk])
+      const headEnd = buffered.indexOf("\r\n\r\n")
+      if (headEnd < 0) return
+      client.off("data", onHead)
+      client.pause()
+      const head = buffered.subarray(0, headEnd + 4).toString("latin1")
+      const remainder = buffered.subarray(headEnd + 4)
       const firstLine = head.split("\r\n", 1)[0] ?? ""
       const match = firstLine.match(/^CONNECT ([^:]+):(\d+) HTTP\/1\.[01]$/)
       proxyAuthorization = head
@@ -64,13 +72,16 @@ async function startConnectProxy() {
       connectionCount++
       const upstream = connect(Number(match[2]), match[1], () => {
         client.write("HTTP/1.1 200 Connection Established\r\n\r\n")
+        if (remainder.length > 0) client.unshift(remainder)
         client.pipe(upstream)
         upstream.pipe(client)
+        client.resume()
       })
       sockets.add(upstream)
       upstream.on("close", () => sockets.delete(upstream))
       upstream.on("error", () => client.destroy())
-    })
+    }
+    client.on("data", onHead)
   })
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject)
@@ -163,7 +174,8 @@ function ntlmHandler(
       response.end("challenge")
       return
     }
-    response.end("authenticated")
+    response.writeHead(200, { "Content-Encoding": "x-gzip, identity" })
+    response.end(gzipSync("authenticated"))
   }
 }
 
@@ -188,6 +200,7 @@ describe("NTLM loopback", () => {
 
     expect(result.status).toBe(200)
     expect(result.body).toBe("authenticated")
+    expect(result.headers["content-encoding"]).toBeUndefined()
     expect(signatures).toEqual(["NTLMSSP\0", "NTLMSSP\0"])
     expect(messageTypes).toEqual([1, 3])
     expect(sockets.size).toBe(1)

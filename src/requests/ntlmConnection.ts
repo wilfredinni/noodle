@@ -5,12 +5,13 @@ import {
   type TLSSocket,
 } from "node:tls"
 import type { Duplex } from "node:stream"
-import {
-  brotliDecompressSync,
-  gunzipSync,
-  inflateSync,
-  zstdDecompressSync,
-} from "node:zlib"
+import { brotliDecompress, gunzip, inflate, zstdDecompress } from "node:zlib"
+import { promisify } from "node:util"
+
+const brotliDecompressAsync = promisify(brotliDecompress)
+const gunzipAsync = promisify(gunzip)
+const inflateAsync = promisify(inflate)
+const zstdDecompressAsync = promisify(zstdDecompress)
 
 export interface NtlmConnection {
   request(headers: Headers): Promise<Response>
@@ -115,7 +116,7 @@ async function readResponse(
         : await reader.readExact(parseContentLength(contentLength))
   }
 
-  body = decodeBody(body, parsed.headers)
+  body = await decodeBody(body, parsed.headers)
   return new Response(body.length === 0 ? null : new Uint8Array(body), {
     status: parsed.status,
     statusText: parsed.statusText,
@@ -185,17 +186,19 @@ async function readChunkedBody(reader: SocketReader): Promise<Buffer> {
   }
 }
 
-function decodeBody(body: Buffer, headers: Headers): Buffer {
+async function decodeBody(body: Buffer, headers: Headers): Promise<Buffer> {
   const encodings = (headers.get("content-encoding") ?? "")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean)
   if (encodings.length === 0) return body
-  for (const encoding of encodings.reverse()) {
-    if (encoding === "gzip") body = gunzipSync(body)
-    else if (encoding === "deflate") body = inflateSync(body)
-    else if (encoding === "br") body = brotliDecompressSync(body)
-    else if (encoding === "zstd") body = zstdDecompressSync(body)
+  for (let encoding of encodings.reverse()) {
+    if (encoding === "identity") continue
+    if (encoding === "x-gzip") encoding = "gzip"
+    if (encoding === "gzip") body = await gunzipAsync(body)
+    else if (encoding === "deflate") body = await inflateAsync(body)
+    else if (encoding === "br") body = await brotliDecompressAsync(body)
+    else if (encoding === "zstd") body = await zstdDecompressAsync(body)
     else throw new Error(`unsupported response content encoding: ${encoding}`)
   }
   headers.delete("content-encoding")
@@ -251,8 +254,13 @@ async function openTunnel(
   }
 
   proxyReader.release()
-  const socket = await connectTlsOverSocket(proxySocket, tls, signal)
-  return { socket, reader: new SocketReader(socket) }
+  try {
+    const socket = await connectTlsOverSocket(proxySocket, tls, signal)
+    return { socket, reader: new SocketReader(socket) }
+  } catch (e) {
+    proxySocket.destroy()
+    throw e
+  }
 }
 
 function connectTcp(
