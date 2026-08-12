@@ -188,6 +188,14 @@ export function authEqual(
   if (a.type === "basic" && b.type === "basic") {
     return a.user === b.user && a.pass === b.pass
   }
+  if (a.type === "ntlm" && b.type === "ntlm") {
+    return (
+      a.username === b.username &&
+      a.password === b.password &&
+      a.domain === b.domain &&
+      a.workstation === b.workstation
+    )
+  }
   if (a.type === "api_key" && b.type === "api_key") {
     return a.key === b.key && a.value === b.value && a.placement === b.placement
   }
@@ -280,6 +288,14 @@ export function defaultAuth(authType: Auth["type"]): Auth {
       return { type: "bearer", token: "" }
     case "basic":
       return { type: "basic", user: "", pass: "" }
+    case "ntlm":
+      return {
+        type: "ntlm",
+        username: "",
+        password: "",
+        domain: "",
+        workstation: "",
+      }
     case "api_key":
       return { type: "api_key", key: "", value: "", placement: "header" }
     case "aws_sigv4":

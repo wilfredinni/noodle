@@ -15,6 +15,28 @@ const testRender = createTestRender()
 describe("AuthEditor", () => {
   const autocompleteCases: Array<{ name: string; auth: Auth; row: number }> = [
     {
+      name: "NTLM username",
+      auth: {
+        type: "ntlm",
+        username: "",
+        password: "",
+        domain: "",
+        workstation: "",
+      },
+      row: 1,
+    },
+    {
+      name: "NTLM password",
+      auth: {
+        type: "ntlm",
+        username: "",
+        password: "",
+        domain: "",
+        workstation: "",
+      },
+      row: 2,
+    },
+    {
       name: "bearer token",
       auth: { type: "bearer", token: "" },
       row: 1,
@@ -96,6 +118,45 @@ describe("AuthEditor", () => {
       row: 5,
     },
   ]
+
+  it("renders NTLM fields and masks the password", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={70} height={30}>
+            <AuthEditor
+              auth={{
+                type: "ntlm",
+                username: "alice",
+                password: "do-not-render",
+                domain: "EXAMPLE",
+                workstation: "NOODLE",
+              }}
+              editState={initialEditState()}
+              inEdit={false}
+              browseActive={false}
+              editValue=""
+              setEditValue={() => {}}
+              theme={THEMES[0]!}
+              onAuthTypeChange={() => {}}
+              onApiKeyPlacementChange={() => {}}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 70, height: 30 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("NTLMv2")
+    expect(frame).toContain("Username*")
+    expect(frame).toContain("Password*")
+    expect(frame).toContain("Domain")
+    expect(frame).toContain("Workstation")
+    expect(frame).not.toContain("do-not-render")
+    cleanup()
+  })
 
   for (const { name, auth, row } of autocompleteCases) {
     it(`shows variable autocomplete for ${name}`, async () => {

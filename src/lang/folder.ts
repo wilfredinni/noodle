@@ -73,6 +73,14 @@ type RawFolderAuth =
   | { type: "bearer"; token: string; [k: string]: unknown }
   | { type: "basic"; user: string; pass: string; [k: string]: unknown }
   | {
+      type: "ntlm"
+      username: string
+      password: string
+      domain?: string
+      workstation?: string
+      [k: string]: unknown
+    }
+  | {
       type: "api_key"
       key: string
       value: string
@@ -106,6 +114,25 @@ function parseFolderAuth(value: unknown): Auth {
       throw new Error('lang.parseFolder: auth.basic requires "user" and "pass"')
     }
     return { type: "basic", user: a.user, pass: a.pass }
+  }
+  if (a.type === "ntlm") {
+    if (
+      typeof a.username !== "string" ||
+      typeof a.password !== "string" ||
+      (a.domain !== undefined && typeof a.domain !== "string") ||
+      (a.workstation !== undefined && typeof a.workstation !== "string")
+    ) {
+      throw new Error(
+        'lang.parseFolder: auth.ntlm requires "username" and "password"; "domain" and "workstation" must be strings when present',
+      )
+    }
+    return {
+      type: "ntlm",
+      username: a.username,
+      password: a.password,
+      domain: a.domain ?? "",
+      workstation: a.workstation ?? "",
+    }
   }
   if (a.type === "api_key") {
     if (typeof a.key !== "string" || typeof a.value !== "string") {
@@ -197,6 +224,14 @@ export function serializeFolder(folder: Folder): string {
         out += "  type: basic\n"
         out += `  user: ${yamlVal(o.auth.user, 2)}\n`
         out += `  pass: ${yamlVal(o.auth.pass, 2)}\n`
+      } else if (o.auth.type === "ntlm") {
+        out += "  type: ntlm\n"
+        out += `  username: ${yamlVal(o.auth.username, 2)}\n`
+        out += `  password: ${yamlVal(o.auth.password, 2)}\n`
+        if (o.auth.domain) out += `  domain: ${yamlVal(o.auth.domain, 2)}\n`
+        if (o.auth.workstation) {
+          out += `  workstation: ${yamlVal(o.auth.workstation, 2)}\n`
+        }
       } else if (o.auth.type === "api_key") {
         out += "  type: api_key\n"
         out += `  key: ${yamlVal(o.auth.key, 2)}\n`

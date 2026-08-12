@@ -416,6 +416,25 @@ describe("mapCollection — auth resolution", () => {
     })
   })
 
+  it("maps an NTLM HTTP scheme to credential placeholders", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: {
+          securitySchemes: { ntlmAuth: { type: "http", scheme: "NTLM" } },
+        },
+        security: [{ ntlmAuth: [] }],
+        paths: { "/x": { get: { operationId: "getX" } } },
+      }),
+    )
+    expect(reqs(c)[0].auth).toEqual({
+      type: "ntlm",
+      username: "$NTLM_USERNAME",
+      password: "$NTLM_PASSWORD",
+      domain: "$NTLM_DOMAIN",
+      workstation: "$NTLM_WORKSTATION",
+    })
+  })
+
   it("maps apiKey header scheme", () => {
     const c = mapCollection(
       makeNormalized({

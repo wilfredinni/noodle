@@ -30,6 +30,11 @@ export function generateCode(
       "codegen.generateCode: AWS SigV4 requests are not supported because generated signatures expire",
     )
   }
+  if (effective.auth?.type === "ntlm") {
+    throw new Error(
+      "codegen.generateCode: NTLM requests are not supported because authentication requires a connection-bound challenge exchange",
+    )
+  }
 
   const { har, unhash } = buildHar(effective, env, interpolate)
 

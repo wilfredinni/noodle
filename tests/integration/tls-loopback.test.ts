@@ -57,8 +57,16 @@ async function startConnectProxy(): Promise<{
     sockets.add(client)
     client.on("close", () => sockets.delete(client))
     client.on("error", () => {})
-    client.once("data", (chunk) => {
-      const firstLine = chunk.toString("utf8").split("\r\n", 1)[0] ?? ""
+    let buffered = Buffer.alloc(0)
+    const onHead = (chunk: Buffer) => {
+      buffered = Buffer.concat([buffered, chunk])
+      const headEnd = buffered.indexOf("\r\n\r\n")
+      if (headEnd < 0) return
+      client.off("data", onHead)
+      client.pause()
+      const head = buffered.subarray(0, headEnd + 4).toString("latin1")
+      const remainder = buffered.subarray(headEnd + 4)
+      const firstLine = head.split("\r\n", 1)[0] ?? ""
       const match = firstLine.match(/^CONNECT ([^:]+):(\d+) HTTP\/1\.[01]$/)
       if (!match) {
         client.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n")
@@ -67,13 +75,16 @@ async function startConnectProxy(): Promise<{
       connectionCount++
       const upstream = connect(Number(match[2]), match[1], () => {
         client.write("HTTP/1.1 200 Connection Established\r\n\r\n")
+        if (remainder.length > 0) client.unshift(remainder)
         client.pipe(upstream)
         upstream.pipe(client)
+        client.resume()
       })
       sockets.add(upstream)
       upstream.on("close", () => sockets.delete(upstream))
       upstream.on("error", () => client.destroy())
-    })
+    }
+    client.on("data", onHead)
   })
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject)

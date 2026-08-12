@@ -50,6 +50,40 @@ describe("convertTpl", () => {
   })
 })
 
+describe("Postman NTLM import", () => {
+  it("maps all NTLM credential fields", () => {
+    const result = makeCollection({
+      info: { name: "NTLM" },
+      item: [
+        {
+          name: "Protected",
+          request: {
+            method: "GET",
+            url: "http://example.com",
+            header: [],
+            auth: {
+              type: "ntlm",
+              ntlm: [
+                { key: "username", value: "{{user}}", type: "string" },
+                { key: "password", value: "{{pass}}", type: "string" },
+                { key: "domain", value: "EXAMPLE", type: "string" },
+                { key: "workstation", value: "NOODLE", type: "string" },
+              ],
+            },
+          },
+        },
+      ],
+    })
+    expect((reqs(result)[0] as { auth: unknown }).auth).toEqual({
+      type: "ntlm",
+      username: "$user",
+      password: "$pass",
+      domain: "EXAMPLE",
+      workstation: "NOODLE",
+    })
+  })
+})
+
 describe("mapCollection — flat collection, single request", () => {
   it("maps a minimal GET request with no body or auth", () => {
     const result = makeCollection({

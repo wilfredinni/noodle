@@ -109,6 +109,14 @@ function authToObj(auth: Auth): Record<string, unknown> {
   if (auth.type === "bearer") return { type: "bearer", token: auth.token }
   if (auth.type === "basic")
     return { type: "basic", user: auth.user, pass: auth.pass }
+  if (auth.type === "ntlm")
+    return {
+      type: "ntlm",
+      username: auth.username,
+      password: auth.password,
+      ...(auth.domain ? { domain: auth.domain } : {}),
+      ...(auth.workstation ? { workstation: auth.workstation } : {}),
+    }
   if (auth.type === "api_key")
     return {
       type: "api_key",

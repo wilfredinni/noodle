@@ -45,6 +45,35 @@ describe("AWS SigV4 auth language", () => {
   })
 })
 
+describe("NTLMv2 auth language", () => {
+  it("round-trips required credentials and omits empty optional fields", () => {
+    const request = lang.parseRequest(
+      "ntlm",
+      `name: NTLM\nmethod: GET\nurl: https://example.com\nauth:\n  type: ntlm\n  username: $NTLM_USERNAME\n  password: $NTLM_PASSWORD\n`,
+    )
+    expect(request.auth).toEqual({
+      type: "ntlm",
+      username: "$NTLM_USERNAME",
+      password: "$NTLM_PASSWORD",
+      domain: "",
+      workstation: "",
+    })
+    const serialized = lang.serializeRequest(request)
+    expect(serialized).not.toContain("domain:")
+    expect(serialized).not.toContain("workstation:")
+    expect(lang.parseRequest("ntlm", serialized).auth).toEqual(request.auth)
+  })
+
+  it("requires username and password", () => {
+    expect(() =>
+      lang.parseRequest(
+        "ntlm",
+        `name: NTLM\nmethod: GET\nurl: https://example.com\nauth:\n  type: ntlm\n  username: user\n`,
+      ),
+    ).toThrow("auth.ntlm requires")
+  })
+})
+
 describe("lang.parseRequest — required fields", () => {
   it("parses a minimal valid request (name, method, url)", () => {
     const yaml = `name: Get user\nmethod: GET\nurl: https://api.example.com/users/1\n`
@@ -224,7 +253,7 @@ describe("lang.parseRequest — strictness", () => {
   it("throws on invalid auth.type", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nauth:\n  type: oauth\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
-      'lang.parseRequest: invalid auth.type "oauth", expected none|inherit|bearer|basic|api_key',
+      'lang.parseRequest: invalid auth.type "oauth", expected none|inherit|bearer|basic|ntlm|api_key|aws_sigv4',
     )
   })
 

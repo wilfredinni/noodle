@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { lang } from "../src/lang"
+import type { Folder } from "../src/schema"
 
 describe("lang.parseFolder", () => {
   it("returns empty for empty yaml", () => {
@@ -99,6 +100,30 @@ describe("AWS SigV4 folder auth", () => {
     const serialized = lang.serializeFolder(folder)
     expect(lang.parseFolder(serialized).overrides?.auth).toEqual(
       folder.overrides.auth,
+    )
+  })
+})
+
+describe("NTLMv2 folder auth", () => {
+  it("round-trips optional domain and workstation fields", () => {
+    const folder: Folder = {
+      id: "ntlm",
+      name: "ntlm",
+      path: "ntlm",
+      overrides: {
+        auth: {
+          type: "ntlm",
+          username: "$NTLM_USERNAME",
+          password: "$NTLM_PASSWORD",
+          domain: "$NTLM_DOMAIN",
+          workstation: "$NTLM_WORKSTATION",
+        },
+      },
+      children: [],
+    }
+    const serialized = lang.serializeFolder(folder)
+    expect(lang.parseFolder(serialized).overrides?.auth).toEqual(
+      folder.overrides?.auth,
     )
   })
 })

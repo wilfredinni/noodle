@@ -143,6 +143,17 @@ describe("formatAuth", () => {
       "basic: alice:\u2022\u2022\u2022\u2022",
     )
   })
+  it("shows an NTLM domain and username without its password", () => {
+    expect(
+      formatAuth({
+        type: "ntlm",
+        username: "alice",
+        password: "secret",
+        domain: "EXAMPLE",
+        workstation: "NOODLE",
+      }),
+    ).toBe("ntlm: EXAMPLE\\alice")
+  })
   it("masks api_key value with fixed dots, shows key in cleartext", () => {
     expect(
       formatAuth({

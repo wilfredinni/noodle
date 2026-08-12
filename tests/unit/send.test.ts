@@ -1,6 +1,20 @@
-import { describe, it, expect, mock } from "bun:test"
+import { afterEach, describe, it, expect, mock } from "bun:test"
 import type { Collection, NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
+
+const servers: Bun.Server<undefined>[] = []
+
+afterEach(() => {
+  for (const server of servers.splice(0)) server.stop(true)
+})
+
+function startServer(
+  handler: (request: globalThis.Request) => Response | Promise<Response>,
+): string {
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: handler })
+  servers.push(server)
+  return `http://127.0.0.1:${server.port}`
+}
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -283,6 +297,187 @@ describe("send — AWS SigV4", () => {
     } finally {
       globalThis.fetch = originalFetch
     }
+  })
+})
+
+describe("send — NTLMv2", () => {
+  const ntlmAuth = {
+    type: "ntlm" as const,
+    username: "$USER",
+    password: "$PASSWORD",
+    domain: "$DOMAIN",
+    workstation: "$WORKSTATION",
+  }
+
+  function type2Token(targetInfo = Buffer.from([0, 0, 0, 0])): string {
+    const message = Buffer.alloc(48 + targetInfo.length)
+    Buffer.from("NTLMSSP\0", "ascii").copy(message)
+    message.writeUInt32LE(2, 8)
+    message.writeUInt32LE(0x00888205, 20)
+    Buffer.from("0123456789abcdef", "hex").copy(message, 24)
+    message.writeUInt16LE(targetInfo.length, 40)
+    message.writeUInt16LE(targetInfo.length, 42)
+    message.writeUInt32LE(48, 44)
+    targetInfo.copy(message, 48)
+    return message.toString("base64")
+  }
+
+  function environment() {
+    return {
+      name: "dev",
+      vars: {
+        USER: "alice",
+        PASSWORD: "secret",
+        DOMAIN: "EXAMPLE",
+        WORKSTATION: "NOODLE",
+      },
+    }
+  }
+
+  it("performs the standard three-request handshake on replayable bodies", async () => {
+    const headers: Array<string | null> = []
+    const bodies: string[] = []
+    const url = startServer(async (request) => {
+      headers.push(request.headers.get("authorization"))
+      bodies.push(await request.text())
+      if (headers.length === 1) {
+        return new Response("offer", {
+          status: 401,
+          headers: { "www-authenticate": "Negotiate, NTLM" },
+        })
+      }
+      if (headers.length === 2) {
+        return new Response("challenge", {
+          status: 401,
+          headers: { "www-authenticate": `NTLM ${type2Token()}` },
+        })
+      }
+      return new Response("ok")
+    })
+
+    const result = await send(
+      makeReq({
+        url,
+        method: "POST",
+        auth: ntlmAuth,
+        bodyType: "json",
+        body: '{"ok":true}',
+      }),
+      { environment: environment() },
+    )
+    expect(result.status).toBe(200)
+    expect(headers).toHaveLength(3)
+    expect(headers[0]).toBeNull()
+    expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(1)
+    expect(Buffer.from(headers[2]!.slice(5), "base64").readUInt32LE(8)).toBe(3)
+    expect(bodies).toEqual(['{"ok":true}', '{"ok":true}', '{"ok":true}'])
+    expect(
+      result.network?.filter((event) => event.type === "request"),
+    ).toHaveLength(3)
+    expect(JSON.stringify(result.network)).not.toContain(headers[2])
+  })
+
+  it("uses the two-request shortcut for an eager Type 2 without MIC", async () => {
+    const headers: Array<string | null> = []
+    const url = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
+      if (headers.length === 1) {
+        return new Response("challenge", {
+          status: 401,
+          headers: { "www-authenticate": `NTLM ${type2Token()}` },
+        })
+      }
+      return new Response("ok")
+    })
+
+    await send(makeReq({ url, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(headers).toHaveLength(2)
+    expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(3)
+  })
+
+  it("obtains a Type 1 transcript when an eager challenge requires MIC", async () => {
+    const targetInfo = Buffer.alloc(16)
+    targetInfo.writeUInt16LE(7, 0)
+    targetInfo.writeUInt16LE(8, 2)
+    targetInfo.writeBigUInt64LE(1n, 4)
+    const token = type2Token(targetInfo)
+    const headers: Array<string | null> = []
+    const url = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
+      if (headers.length < 3) {
+        return new Response("challenge", {
+          status: 401,
+          headers: { "www-authenticate": `NTLM ${token}` },
+        })
+      }
+      return new Response("ok")
+    })
+
+    await send(makeReq({ url, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(headers).toHaveLength(3)
+    expect(Buffer.from(headers[1]!.slice(5), "base64").readUInt32LE(8)).toBe(1)
+    const type3 = Buffer.from(headers[2]!.slice(5), "base64")
+    expect(type3.readUInt32LE(8)).toBe(3)
+    expect(type3.subarray(72, 88).equals(Buffer.alloc(16))).toBe(false)
+  })
+
+  it("returns the final 401 without looping and rejects malformed NTLM", async () => {
+    let calls = 0
+    const url = startServer(() => {
+      calls++
+      return new Response("no", {
+        status: 401,
+        headers: {
+          "www-authenticate": calls === 1 ? "NTLM" : `NTLM ${type2Token()}`,
+        },
+      })
+    })
+
+    const result = await send(makeReq({ url, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(result.status).toBe(401)
+    expect(calls).toBe(3)
+
+    const malformedUrl = startServer(() => {
+      return new Response("bad", {
+        status: 401,
+        headers: { "www-authenticate": "NTLM !!!" },
+      })
+    })
+    await expect(
+      send(makeReq({ url: malformedUrl, auth: ntlmAuth }), {
+        environment: environment(),
+      }),
+    ).rejects.toThrow("invalid NTLM challenge")
+  })
+
+  it("does not send NTLM credentials across an origin-changing redirect", async () => {
+    const headers: Array<string | null> = []
+    const destination = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
+      return new Response("protected", {
+        status: 401,
+        headers: { "www-authenticate": "NTLM" },
+      })
+    })
+    const source = startServer((request) => {
+      headers.push(request.headers.get("authorization"))
+      return new Response(null, {
+        status: 302,
+        headers: { location: `${destination}/protected` },
+      })
+    })
+
+    const result = await send(makeReq({ url: source, auth: ntlmAuth }), {
+      environment: environment(),
+    })
+    expect(result.status).toBe(401)
+    expect(headers).toEqual([null, null])
   })
 })
 

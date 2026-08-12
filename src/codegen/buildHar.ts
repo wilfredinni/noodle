@@ -145,6 +145,14 @@ function substituteAuth(
       user: resolveVar(auth.user),
       pass: resolveVar(auth.pass),
     }
+  if (auth.type === "ntlm")
+    return {
+      type: "ntlm",
+      username: resolveVar(auth.username),
+      password: resolveVar(auth.password),
+      domain: resolveVar(auth.domain),
+      workstation: resolveVar(auth.workstation),
+    }
   if (auth.type === "api_key")
     return {
       type: "api_key",

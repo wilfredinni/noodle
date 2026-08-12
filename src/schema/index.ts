@@ -49,6 +49,13 @@ export type Auth =
   | { type: "bearer"; token: string }
   | { type: "basic"; user: string; pass: string }
   | {
+      type: "ntlm"
+      username: string
+      password: string
+      domain: string
+      workstation: string
+    }
+  | {
       type: "api_key"
       key: string
       value: string

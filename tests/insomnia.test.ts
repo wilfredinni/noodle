@@ -191,6 +191,36 @@ describe("insomniaImporter", () => {
     })
   })
 
+  it("maps NTLM authentication", () => {
+    const result = insomniaImporter.import(
+      exportJson([
+        { _id: "wrk", _type: "workspace", name: "NTLM" },
+        {
+          _id: "ntlm",
+          _type: "request",
+          parentId: "wrk",
+          name: "NTLM",
+          method: "GET",
+          url: "https://x",
+          authentication: {
+            type: "ntlm",
+            username: "{{ user }}",
+            password: "{{ password }}",
+            domain: "EXAMPLE",
+            workstation: "NOODLE",
+          },
+        },
+      ]),
+    )
+    expect(requests(result.collection.items)[0]?.auth).toEqual({
+      type: "ntlm",
+      username: "$user",
+      password: "$password",
+      domain: "EXAMPLE",
+      workstation: "NOODLE",
+    })
+  })
+
   it("skips unsupported methods while keeping missing and blank methods as GET", () => {
     const result = insomniaImporter.import(
       exportJson([

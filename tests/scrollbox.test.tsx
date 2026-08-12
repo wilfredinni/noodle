@@ -985,6 +985,138 @@ describe("RequestPane scrollbox", () => {
     expect(captureCharFrame()).toContain("Session Token")
   })
 
+  it("hides the editing auth cursor outside the request viewport", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const awsRequest: Request = {
+      ...makeRequest(1),
+      auth: {
+        type: "aws_sigv4",
+        access_key: "$AWS_ACCESS_KEY_ID",
+        secret_key: "$AWS_SECRET_ACCESS_KEY",
+        region: "us-east-1",
+        service: "execute-api",
+        session_token: "$AWS_SESSION_TOKEN",
+      },
+    }
+    let startEditing: (() => void) | undefined
+    function EditingAwsAuthPane() {
+      const [editState, setEditState] = useState<EditState>({
+        mode: "browsing",
+        cursor: { field: "auth", row: 0, addingRow: false },
+        editingRow: -1,
+      })
+      startEditing = () =>
+        setEditState({
+          mode: "editing",
+          cursor: { field: "auth", row: 5, addingRow: false },
+          editingRow: 5,
+        })
+      return (
+        <RequestPane
+          request={awsRequest}
+          editState={editState}
+          editKey=""
+          editValue="$AWS_SESSION_TOKEN"
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="auth"
+        />
+      )
+    }
+    const { renderer, renderOnce, captureSpans } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <EditingAwsAuthPane />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 14 },
+    )
+
+    await renderOnce()
+    await act(async () => startEditing?.())
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById(
+      "request-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(captureSpans().cursor).not.toEqual([1, 1])
+    scrollbox.scrollTo(0)
+    await renderOnce()
+    expect(captureSpans().cursor).toEqual([1, 1])
+  })
+
+  it("hides the editing header cursor outside the request viewport", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const headers: Record<string, KvEntry> = {}
+    for (let i = 0; i < 30; i++) {
+      headers[`X-Header-${i}`] = { value: `value-${i}`, enabled: true }
+    }
+    const request: Request = { ...makeRequest(1), headers }
+    let startEditing: (() => void) | undefined
+    function EditingHeadersPane() {
+      const [editState, setEditState] = useState<EditState>({
+        mode: "browsing",
+        cursor: {
+          field: "headers",
+          row: 0,
+          addingRow: false,
+          subfield: "value",
+        },
+        editingRow: -1,
+      })
+      startEditing = () =>
+        setEditState({
+          mode: "editing",
+          cursor: {
+            field: "headers",
+            row: 29,
+            addingRow: false,
+            subfield: "value",
+          },
+          editingRow: 29,
+        })
+      return (
+        <RequestPane
+          request={request}
+          editState={editState}
+          editKey="X-Header-29"
+          editValue="value-29"
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="headers"
+        />
+      )
+    }
+    const { renderer, renderOnce, captureSpans } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <EditingHeadersPane />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 14 },
+    )
+
+    await renderOnce()
+    await act(async () => startEditing?.())
+    await renderOnce()
+
+    const scrollbox = renderer.root.findDescendantById(
+      "request-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    expect(scrollbox.scrollTop).toBeGreaterThan(0)
+    expect(captureSpans().cursor).not.toEqual([1, 1])
+    scrollbox.scrollTo(0)
+    await renderOnce()
+    expect(captureSpans().cursor).toEqual([1, 1])
+  })
+
   it("keeps the active multipart row inside the request viewport", async () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap

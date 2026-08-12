@@ -76,6 +76,15 @@ export function buildTimelineEntry(
         pass: REDACTED,
       }
     }
+    if (auth.type === "ntlm") {
+      return {
+        type: "ntlm",
+        username: redact(resolvePublicVars(auth.username)),
+        password: REDACTED,
+        domain: redact(resolvePublicVars(auth.domain)),
+        workstation: redact(resolvePublicVars(auth.workstation)),
+      }
+    }
     if (auth.type === "aws_sigv4") {
       return {
         type: "aws_sigv4",
@@ -227,6 +236,8 @@ export function maskedAuthHeader(
     return { key: "Authorization", value: "Bearer ••••••••" }
   if (auth.type === "basic")
     return { key: "Authorization", value: "Basic ••••••••" }
+  if (auth.type === "ntlm")
+    return { key: "Authorization", value: "NTLM ••••••••" }
   if (auth.type === "aws_sigv4")
     return { key: "Authorization", value: "AWS4-HMAC-SHA256 ••••••••" }
   if (auth.type === "api_key" && auth.placement === "header") {

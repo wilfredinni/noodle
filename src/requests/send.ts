@@ -19,6 +19,13 @@ import { expandUserPath } from "../userPath"
 import { proxyForUrl, type ProxyPolicy } from "../proxy"
 import { tlsForUrl, type TlsPolicy } from "../tls"
 import { clearAwsSignerHeaders, signAwsRequest } from "./awsSigV4"
+import {
+  createType1Message,
+  createType3Message,
+  getNtlmChallenge,
+  type NtlmChallenge,
+} from "./ntlm"
+import { createNtlmConnection, type NtlmConnection } from "./ntlmConnection"
 
 export interface RequestExecutionOptions {
   environment?: Environment
@@ -146,6 +153,9 @@ export async function send(
   if (ah) {
     headersInst.set(ah.name, ah.value)
   }
+  if (substituted.auth?.type === "ntlm") {
+    headersInst.delete("authorization")
+  }
 
   let effectiveSignal = signal
   if (req.timeout > 0) {
@@ -185,6 +195,7 @@ export async function send(
   let currentInit: RequestInit = { ...init, redirect: "manual" }
   let redirectCount = 0
   let awsSigningEnabled = substituted.auth?.type === "aws_sigv4"
+  let ntlmEnabled = substituted.auth?.type === "ntlm"
   const maxRedirects = req.maxRedirects ?? 5
   const followRedirects = req.followRedirects ?? true
 
@@ -237,40 +248,131 @@ export async function send(
     for (const message of resolvedTls.messages) {
       recordNetworkEvent(network, start, "tls", message, onNetworkEvent)
     }
-    recordNetworkEvent(
-      network,
-      start,
-      "request",
-      `${currentInit.method ?? substituted.method} ${networkUrl(currentUrl)}`,
-      onNetworkEvent,
-    )
-    try {
-      const signedInit =
-        awsSigningEnabled && substituted.auth?.type === "aws_sigv4"
-          ? signAwsRequest(currentUrl, currentInit, substituted.auth)
-          : currentInit
-      const fetchInit: BunFetchRequestInit = { ...signedInit }
-      if (proxyRoute?.kind === "proxy") fetchInit.proxy = proxyRoute.url
-      if (resolvedTls.options) fetchInit.tls = resolvedTls.options
-      res = await fetch(currentUrl, fetchInit)
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") throw e
-      throw networkFailure(
-        "requests.send: fetch failed",
-        e,
+    let ntlmConnection: NtlmConnection | undefined
+    const fetchOnce = async (authorization?: string) => {
+      const legHeaders = new Headers(currentInit.headers)
+      if (ntlmEnabled) {
+        if (authorization) legHeaders.set("authorization", authorization)
+        else legHeaders.delete("authorization")
+      }
+      const legInit: RequestInit = {
+        ...currentInit,
+        headers: legHeaders,
+        ...(ntlmEnabled ? { keepalive: true } : {}),
+      }
+      recordNetworkEvent(
         network,
         start,
+        "request",
+        `${legInit.method ?? substituted.method} ${networkUrl(currentUrl)}`,
         onNetworkEvent,
       )
+      let response: globalThis.Response
+      try {
+        const signedInit =
+          awsSigningEnabled && substituted.auth?.type === "aws_sigv4"
+            ? signAwsRequest(currentUrl, legInit, substituted.auth)
+            : legInit
+        if (ntlmEnabled) {
+          ntlmConnection ??= await createNtlmConnection(
+            currentUrl,
+            signedInit,
+            proxyRoute?.kind === "proxy" ? proxyRoute.url : undefined,
+            resolvedTls.options,
+          )
+          response = await ntlmConnection.request(legHeaders)
+        } else {
+          const fetchInit: BunFetchRequestInit = { ...signedInit }
+          if (proxyRoute?.kind === "proxy") fetchInit.proxy = proxyRoute.url
+          if (resolvedTls.options) fetchInit.tls = resolvedTls.options
+          response = await fetch(currentUrl, fetchInit)
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") throw e
+        throw networkFailure(
+          "requests.send: fetch failed",
+          e,
+          network,
+          start,
+          onNetworkEvent,
+        )
+      }
+      recordNetworkEvent(
+        network,
+        start,
+        "response",
+        `${response.status} ${response.statusText || "Response"} - ${[...response.headers].length} headers`,
+        onNetworkEvent,
+      )
+      return response
     }
 
-    recordNetworkEvent(
-      network,
-      start,
-      "response",
-      `${res.status} ${res.statusText || "Response"} - ${[...res.headers].length} headers`,
-      onNetworkEvent,
-    )
+    const challengeFor = (response: globalThis.Response): NtlmChallenge => {
+      try {
+        return getNtlmChallenge(response.headers.get("www-authenticate"))
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        throw networkFailure(
+          `requests.send: invalid NTLM challenge: ${message}`,
+          e,
+          network,
+          start,
+          onNetworkEvent,
+        )
+      }
+    }
+
+    const consumeChallenge = async (response: globalThis.Response) => {
+      try {
+        await response.arrayBuffer()
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") throw e
+        throw networkFailure(
+          "requests.send: failed to consume NTLM challenge response",
+          e,
+          network,
+          start,
+          onNetworkEvent,
+        )
+      }
+    }
+
+    try {
+      res = await fetchOnce()
+      if (
+        ntlmEnabled &&
+        substituted.auth?.type === "ntlm" &&
+        res.status === 401
+      ) {
+        let challenge = challengeFor(res)
+        let type1: Buffer | undefined
+
+        if (
+          challenge.kind === "offer" ||
+          (challenge.kind === "type2" && challenge.message.requiresMic)
+        ) {
+          await consumeChallenge(res)
+          type1 = createType1Message()
+          const scheme = challenge.scheme
+          res = await fetchOnce(`${scheme} ${type1.toString("base64")}`)
+          challenge = res.status === 401 ? challengeFor(res) : { kind: "none" }
+        }
+
+        if (challenge.kind === "type2") {
+          await consumeChallenge(res)
+          const type3 = createType3Message(
+            challenge.message,
+            substituted.auth,
+            { type1 },
+          )
+          res = await fetchOnce(
+            `${challenge.scheme} ${type3.toString("base64")}`,
+          )
+        }
+      }
+    } finally {
+      ntlmConnection?.close()
+    }
 
     if (!followRedirects || ![301, 302, 303, 307, 308].includes(res.status)) {
       break
@@ -323,6 +425,7 @@ export async function send(
     }
     if (previousUrl.origin !== nextUrl.origin) {
       awsSigningEnabled = false
+      ntlmEnabled = false
       currentInit = {
         ...currentInit,
         headers: clearAwsSignerHeaders(

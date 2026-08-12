@@ -46,6 +46,35 @@ function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {
       ],
     }
   }
+  if (auth.type === "ntlm") {
+    const ntlm = [
+      {
+        key: "username",
+        value: toPostmanTpl(auth.username),
+        type: "string",
+      },
+      {
+        key: "password",
+        value: toPostmanTpl(auth.password),
+        type: "string",
+      },
+    ]
+    if (auth.domain) {
+      ntlm.push({
+        key: "domain",
+        value: toPostmanTpl(auth.domain),
+        type: "string",
+      })
+    }
+    if (auth.workstation) {
+      ntlm.push({
+        key: "workstation",
+        value: toPostmanTpl(auth.workstation),
+        type: "string",
+      })
+    }
+    return { type: "ntlm", ntlm }
+  }
   if (auth.type === "aws_sigv4") {
     const awsv4 = [
       {
