@@ -72,6 +72,10 @@ run`, or `request run` invocation.
 TLS settings support verification, a custom PEM CA bundle, and exact-host PEM
 client certificates. Enter encrypted-key passphrases in Settings; config retains
 only a generated `secret_id`. `--insecure` disables verification for one run.
+Collection cookies are enabled by default and stored per collection. Use the
+non-interactive `cookie list` command to inspect cookies plus storage warnings;
+use `cookie clear` for explicit recovery because it backs up unreadable state
+before resetting the jar. Plaintext fallback is mode `0600` and always reported.
 Settings parsing is strict: malformed YAML, unknown keys, wrong types, and invalid
 proxy/TLS blocks fail collection opening, auditing, and execution.
 

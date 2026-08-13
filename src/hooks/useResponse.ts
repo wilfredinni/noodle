@@ -9,6 +9,7 @@ import type {
 } from "../schema"
 import type { ProxyPolicy } from "../proxy"
 import type { TlsPolicy } from "../tls"
+import type { CollectionCookieJar } from "../cookies"
 import { executor } from "../requests"
 import {
   startSend,
@@ -39,6 +40,7 @@ export function useResponse(
   requestPath?: string,
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
+  cookies?: CollectionCookieJar | null,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
@@ -83,10 +85,19 @@ export function useResponse(
         requestPath,
         proxyPolicy,
         tlsPolicy,
+        cookies,
       )
       return startSend(prev, req)
     })
-  }, [selectedRequest, env, collection, requestPath, proxyPolicy, tlsPolicy])
+  }, [
+    selectedRequest,
+    env,
+    collection,
+    requestPath,
+    proxyPolicy,
+    tlsPolicy,
+    cookies,
+  ])
 
   const cancelSend = useCallback(() => {
     abortRef.current?.abort()
@@ -109,6 +120,7 @@ async function runSend(
   requestPath?: string,
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
+  cookies?: CollectionCookieJar | null,
 ): Promise<void> {
   try {
     const res = await executor.send(req, {
@@ -125,6 +137,7 @@ async function runSend(
       },
       proxyPolicy,
       tlsPolicy,
+      ...(cookies ? { cookies } : {}),
     })
     cacheRef.current.set(req.id, { status: "done", response: res })
     setState((prev) => finishSend(prev, req, res))

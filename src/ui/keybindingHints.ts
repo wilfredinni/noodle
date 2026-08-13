@@ -114,6 +114,46 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     return []
   }
 
+  if (ctx.view === "cookie-jar") {
+    if (!col) return []
+    if (ctx.focus === "cookie-sidebar") {
+      return [
+        {
+          key: displayKey(kb.cookie_delete),
+          word: "delete domain",
+          command: "cookie.delete",
+        },
+        {
+          key: displayKey(kb.cookie_clear),
+          word: "clear all",
+          command: "cookie.clear",
+        },
+        { key: "Esc", word: "close", command: "cookie.close" },
+      ]
+    }
+    return [
+      { key: displayKey(kb.cookie_new), word: "add", command: "cookie.new" },
+      {
+        key: displayKey(kb.cookie_edit),
+        word: "edit",
+        command: "cookie.edit",
+      },
+      { key: "Enter", word: "expand", command: "cookie.expand" },
+      {
+        key: displayKey(kb.cookie_delete_domain),
+        word: "delete",
+        command: "cookie.delete-cookie",
+      },
+      {
+        key: displayKey(kb.cookie_copy),
+        word: "copy",
+        command: "cookie.copy",
+      },
+      { key: "/", word: "filter", command: "cookie.filter" },
+      { key: "Esc", word: "close", command: "cookie.close" },
+    ]
+  }
+
   if (ctx.view === "settings") {
     const close = { key: "Esc", word: "close settings" }
     if (ctx.focus === "settings-sidebar") {
@@ -264,6 +304,17 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   }
 
   if (ctx.focus === "response") {
+    if (ctx.sendState.status === "done" && ctx.tab === "cookies") {
+      return [
+        { key: "↑/↓", word: "select" },
+        { key: "Enter", word: "details" },
+        {
+          key: displayKey(kb.pane_expand),
+          word: "expand",
+          command: "request.expand-toggle",
+        },
+      ]
+    }
     if (ctx.sendState.status === "done" && ctx.tab === "body") {
       if (ctx.queryVisible) return []
       const foldSegments =

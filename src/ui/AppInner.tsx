@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { basename, dirname } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
+import { CookieJarView } from "./cookie-jar/CookieJarView"
 import {
   SettingsView,
   type CollectionSettingsCategory,
@@ -43,6 +51,8 @@ import { useFolderDraft } from "../hooks/useFolderDraft"
 import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
+import { useCollectionCookieJar } from "../hooks/useCollectionCookieJar"
+import { useCookieJarView } from "../hooks/useCookieJarView"
 import { settingsReturnFocus, type Focus, type UrlBarSubFocus } from "./focus"
 import {
   buildCommandPaletteCommands,
@@ -138,6 +148,7 @@ export function AppInner({
   collectionName,
   collectionDescription,
   timelineMaxEntries,
+  cookiesEnabled = true,
   noProxy,
   insecure = false,
   systemProxy,
@@ -196,6 +207,7 @@ export function AppInner({
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
+  cookiesEnabled?: boolean
   noProxy: boolean
   insecure?: boolean
   systemProxy: SystemProxySettings
@@ -213,7 +225,7 @@ export function AppInner({
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries" | "tls"
+      "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
     >,
   ) => boolean
   initialLastRequestId?: string
@@ -407,6 +419,7 @@ export function AppInner({
         focusedFolder !== null,
         view === "env-editor",
         view === "settings",
+        view === "cookie-jar",
       ),
     [draft.draft, expanded, focusedFolder, view],
   )
@@ -553,6 +566,24 @@ export function AppInner({
     }),
     [collectionDir, collectionTls, insecure, tlsPassphrases],
   )
+  const cookieStorage = useCollectionCookieJar(
+    isCollection && cookiesEnabled ? collectionDir : undefined,
+  )
+  const cookieJar = cookieStorage.jar
+  const previousCookieStatus = useRef(cookieStorage.status.state)
+  useEffect(() => {
+    const state = cookieStorage.status.state
+    if (state === previousCookieStatus.current) return
+    previousCookieStatus.current = state
+    if (state === "plaintext-warning") {
+      showToast("Cookie storage is plaintext", "error")
+    } else if (state === "unavailable") {
+      showToast(
+        "Cookie storage is unavailable; requests will run jar-less",
+        "error",
+      )
+    }
+  }, [cookieStorage.status])
   const updateDependencies = useMemo(
     () => ({
       fetcher: createProxyFetcher(proxyPolicy),
@@ -573,6 +604,7 @@ export function AppInner({
     draft.draft?.id,
     proxyPolicy,
     tlsPolicy,
+    cookieJar,
   )
 
   const responseStateRef = useRef(responseState)
@@ -685,6 +717,13 @@ export function AppInner({
     newEnvironmentVisible,
     setNewEnvironmentVisible,
     newEnvironmentRef,
+    cookieFormVisible,
+    setCookieFormVisible,
+    cookieFormRef,
+    cookieFormInitial,
+    setCookieFormInitial,
+    cookieDeletePending,
+    setCookieDeletePending,
     newRequestVisible,
     setNewRequestVisible,
     newRequestRef,
@@ -952,6 +991,30 @@ export function AppInner({
 
   const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
 
+  const cookieJarView = useCookieJarView(cookieJar)
+  const cookieJarViewRef = useRef(cookieJarView)
+  useLayoutEffect(() => {
+    cookieJarViewRef.current = cookieJarView
+  }, [cookieJarView])
+
+  const retryCookieStorage = useCallback(() => {
+    const retry = cookieJar
+      ? cookieJar.refresh().then(() => cookieStorage.flush())
+      : cookieStorage.retry()
+    void retry
+      .then(() => showToast("Cookie storage reloaded", "success"))
+      .catch((error: unknown) =>
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        ),
+      )
+  }, [cookieJar, cookieStorage.flush, cookieStorage.retry])
+
+  const requestCookieStorageReset = useCallback(() => {
+    setCookieDeletePending({ kind: "reset" })
+  }, [setCookieDeletePending])
+
   const activeIndexRef = useRef(activeIndex)
   activeIndexRef.current = activeIndex
 
@@ -1031,6 +1094,13 @@ export function AppInner({
       envEditorRef,
       setNewEnvironmentVisible,
       setEnvDeletePending,
+    },
+    cookies: {
+      cookieJarViewRef,
+      setCookieFormVisible,
+      setCookieFormInitial,
+      setCookieDeletePending,
+      retryCookieStorage,
     },
   })
 
@@ -1149,6 +1219,85 @@ export function AppInner({
             e instanceof Error ? e.message : String(e),
           )
         })
+    },
+    cookieFormVisible,
+    cookieFormRef,
+    setCookieFormVisible,
+    onCookieFormConfirm: (values) => {
+      const jar = cookieJar
+      if (!jar) return
+      const initial = cookieFormInitial
+      const expiresText = values.expires.trim()
+      const input = {
+        name: values.name,
+        value: values.value,
+        domain: values.domain,
+        path: values.path,
+        ...(expiresText !== "" ? { expires: new Date(expiresText) } : {}),
+        secure: values.secure,
+        httpOnly: values.httpOnly,
+        hostOnly: values.hostOnly,
+        ...(values.sameSite ? { sameSite: values.sameSite } : {}),
+      }
+      try {
+        jar.put(input)
+      } catch (error) {
+        cookieFormRef.current?.setError(
+          error instanceof Error ? error.message : String(error),
+        )
+        return
+      }
+      if (
+        initial &&
+        (initial.name !== values.name ||
+          initial.domain !== values.domain ||
+          initial.path !== values.path)
+      ) {
+        void jar
+          .deleteCookie(initial.domain, initial.path, initial.name)
+          .catch((error: unknown) =>
+            showToast(
+              error instanceof Error ? error.message : String(error),
+              "error",
+            ),
+          )
+      }
+      setCookieFormVisible(false)
+    },
+    cookieDeletePending,
+    setCookieDeletePending,
+    onCookieDeleteConfirm: (pending) => {
+      const jar = cookieJar
+      void (async () => {
+        try {
+          if (pending.kind === "reset" || jar?.status.state === "unavailable") {
+            if (jar) await jar.clear()
+            const { backupPath } = await cookieStorage.reset()
+            showToast(
+              backupPath
+                ? `Cookie storage reset; backup saved to ${backupPath}`
+                : "Cookie storage reset",
+              "success",
+            )
+          } else if (!jar) {
+            return
+          } else if (pending.kind === "cookie") {
+            await jar.deleteCookie(pending.domain, pending.path, pending.name)
+            await cookieStorage.flush()
+          } else if (pending.kind === "domain") {
+            await jar.deleteDomain(pending.domain)
+            await cookieStorage.flush()
+          } else {
+            await jar.clear()
+            await cookieStorage.flush()
+          }
+        } catch (error) {
+          showToast(
+            error instanceof Error ? error.message : String(error),
+            "error",
+          )
+        }
+      })()
     },
     newRequestVisible,
     newRequestRef,
@@ -1339,7 +1488,7 @@ export function AppInner({
         envColor={envState.activeEnv?.color}
         onAboutActivate={handleAboutActivate}
         onCollectionActivate={
-          view !== "env-editor" && !overlayActive
+          view !== "env-editor" && view !== "cookie-jar" && !overlayActive
             ? handleCollectionActivate
             : undefined
         }
@@ -1452,6 +1601,16 @@ export function AppInner({
             }}
             setEnvDeletePending={setEnvDeletePending}
           />
+        ) : view === "cookie-jar" && mode === "collection" ? (
+          <CookieJarView
+            view={cookieJarView}
+            status={cookieStorage.status}
+            focus={focus}
+            jumpMode={jumpMode}
+            onPaneFocus={focusPane}
+            onRetry={retryCookieStorage}
+            onReset={requestCookieStorageReset}
+          />
         ) : view === "settings" ? (
           <SettingsView
             scope={visibleSettingsScope}
@@ -1471,6 +1630,7 @@ export function AppInner({
             collectionName={collectionName}
             collectionDescription={collectionDescription}
             timelineMaxEntries={timelineMaxEntries}
+            cookiesEnabled={cookiesEnabled}
             noProxy={noProxy}
             insecure={insecure}
             envNames={envState.names}
@@ -1577,6 +1737,11 @@ export function AppInner({
           newEnvironmentVisible={newEnvironmentVisible}
           newEnvironmentRef={newEnvironmentRef}
           newEnvironmentActions={overlayActions.newEnvironment}
+          cookieFormVisible={cookieFormVisible}
+          cookieFormRef={cookieFormRef}
+          cookieFormInitial={cookieFormInitial}
+          cookieFormActions={overlayActions.cookieForm}
+          cookieDeletePending={cookieDeletePending}
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
           newRequestActions={overlayActions.newRequest}
@@ -1626,6 +1791,7 @@ export function AppInner({
         globalHints={hints.header}
         footerHints={hints.footer}
         sendCommand={sendCommand}
+        cookieStatus={cookieStorage.status}
         onHintActivate={handleHintActivate}
       />
     </box>

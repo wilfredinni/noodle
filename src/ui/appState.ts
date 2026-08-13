@@ -1,7 +1,7 @@
 import type { Focus } from "./focus"
 import type { UpdateAvailableInfo } from "../app/commands/update"
 
-export type AppView = "main" | "env-editor" | "settings"
+export type AppView = "main" | "env-editor" | "cookie-jar" | "settings"
 
 export interface YamlEditorState {
   visible: boolean

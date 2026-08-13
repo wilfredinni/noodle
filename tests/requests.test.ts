@@ -20,6 +20,15 @@ function makeReq(over: Partial<Request> = {}): Request {
 }
 
 describe("substitute — formData", () => {
+  it("preserves per-request cookie suppression", () => {
+    const result = substitute(makeReq({ sendCookies: false }), {
+      name: "dev",
+      vars: {},
+    })
+
+    expect(result.sendCookies).toBe(false)
+  })
+
   it("substitutes $var in formData name and value", () => {
     const env: Environment = {
       name: "dev",

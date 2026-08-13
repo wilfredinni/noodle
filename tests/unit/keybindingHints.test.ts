@@ -148,4 +148,24 @@ describe("getKeybindingHints footer", () => {
       seg("^d", "revert", "env-browse.revert"),
     ])
   })
+
+  it("uses Ctrl+W for domains and Ctrl+D for individual cookies", () => {
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
+        .footer,
+    ).toContainEqual(seg("^e", "edit", "cookie.edit"))
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
+        .footer,
+    ).toContainEqual(seg("Enter", "expand", "cookie.expand"))
+
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-sidebar" }))
+        .footer,
+    ).toContainEqual(seg("^w", "delete domain", "cookie.delete"))
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
+        .footer,
+    ).toContainEqual(seg("^d", "delete", "cookie.delete-cookie"))
+  })
 })

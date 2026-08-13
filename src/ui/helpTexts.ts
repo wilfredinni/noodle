@@ -167,5 +167,35 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
       ],
     },
+    {
+      title: "Cookie Jar",
+      keys: [
+        {
+          key: displayKey(keybinds.cookie_new),
+          description: "Add cookie",
+        },
+        {
+          key: displayKey(keybinds.cookie_edit),
+          description: "Edit selected cookie",
+        },
+        { key: "Enter", description: "Expand selected cookie" },
+        {
+          key: displayKey(keybinds.cookie_copy),
+          description: "Copy selected cookie",
+        },
+        {
+          key: displayKey(keybinds.cookie_delete),
+          description: "Delete selected domain",
+        },
+        {
+          key: displayKey(keybinds.cookie_delete_domain),
+          description: "Delete selected cookie",
+        },
+        {
+          key: displayKey(keybinds.cookie_clear),
+          description: "Clear cookie jar",
+        },
+      ],
+    },
   ]
 }

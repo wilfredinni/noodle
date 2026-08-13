@@ -758,6 +758,295 @@ describe("ResponsePane scrollbox", () => {
     expect((bodyScrollbar as CodeEditorScrollBarRenderable).visible).toBe(false)
   })
 
+  it("separates sent and received cookies with response attributes", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "",
+              timeMs: 1,
+              sentCookies: [{ name: "session", value: "outgoing" }],
+              cookies: [
+                {
+                  name: "session",
+                  value: "incoming",
+                  domain: ".example.com",
+                  path: "/",
+                  expires: "2027-08-13T14:53:10.000Z",
+                  secure: true,
+                  httpOnly: true,
+                  sameSite: "strict",
+                },
+                {
+                  name: "__Secure-STRP",
+                  value: "secure-incoming",
+                  domain: "secure.example.com",
+                  path: "/",
+                  expires: "2027-08-13T14:53:10.000Z",
+                  secure: true,
+                  httpOnly: false,
+                  sameSite: "strict",
+                },
+              ],
+            },
+          }}
+          focused
+          initialTab="cookies"
+        />
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("▸ SENT")
+    expect(frame).toMatch(/SENT\s+session\s+outgoing/)
+    expect(frame).toMatch(/RECEIVED\s+session\s+incoming/)
+    expect(frame).toMatch(/RECEIVED\s+__Secure-STRP\s+secure-incoming/)
+    const sentLine = frame
+      .split("\n")
+      .find((line) => line.includes("SENT") && line.includes("outgoing"))!
+    const secureLine = frame
+      .split("\n")
+      .find(
+        (line) => line.includes("RECEIVED") && line.includes("secure-incoming"),
+      )!
+    expect(sentLine.indexOf("SENT")).toBe(secureLine.indexOf("RECEIVED"))
+    expect(sentLine.indexOf("session")).toBe(
+      secureLine.indexOf("__Secure-STRP"),
+    )
+    expect(sentLine.indexOf("outgoing")).toBe(
+      secureLine.indexOf("secure-incoming"),
+    )
+    const receivedLine = frame
+      .split("\n")
+      .find((line) => line.includes("session") && line.includes("incoming"))!
+    expect(receivedLine).not.toContain("=")
+    expect(receivedLine.indexOf("RECEIVED")).toBeLessThan(
+      receivedLine.indexOf("session"),
+    )
+    expect(receivedLine.indexOf("session")).toBeLessThan(
+      receivedLine.indexOf("incoming"),
+    )
+
+    await act(async () => mockInput.pressKey("ARROW_DOWN"))
+    await renderOnce()
+    await act(async () => mockInput.pressKey("ARROW_DOWN"))
+    await renderOnce()
+    await act(async () => mockInput.pressKey("RETURN"))
+    await renderOnce()
+    const expandedFrame = captureCharFrame()
+    expect(expandedFrame).toContain("▾ RECEIVED")
+    expect(expandedFrame).toContain("Value")
+    expect(expandedFrame).toMatch(/Domain\s+secure\.example\.com/)
+    expect(expandedFrame).toMatch(/Path\s+\//)
+    expect(expandedFrame).toMatch(/Expires\s+2027-08-13 14:53 GMT/)
+    const expandedSummaryLine = expandedFrame
+      .split("\n")
+      .find(
+        (line) => line.includes("RECEIVED") && line.includes("secure-incoming"),
+      )!
+    const expandedValueLine = expandedFrame
+      .split("\n")
+      .find((line) => line.includes("Value"))!
+    expect(expandedValueLine.indexOf("Value")).toBe(
+      expandedSummaryLine.indexOf("RECEIVED"),
+    )
+  })
+
+  it("wraps cookie values in narrow response panes", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const sentValue = `sent-${"x".repeat(70)}-tail`
+    const receivedValue = `received-${"y".repeat(70)}-tail`
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "",
+              timeMs: 1,
+              sentCookies: [{ name: "session", value: sentValue }],
+              cookies: [
+                {
+                  name: "session",
+                  value: receivedValue,
+                  domain: ".example.com",
+                  path: "/",
+                  expires: null,
+                  secure: true,
+                  httpOnly: false,
+                  sameSite: "lax",
+                },
+              ],
+            },
+          }}
+          focused
+          initialTab="cookies"
+        />
+      </KeymapProvider>,
+      { width: 48, height: 28 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    const content = frame
+      .split("\n")
+      .map((line) => line.slice(1, -1).replace(/[\u2588\u2591]/g, ""))
+      .join("")
+      .replace(/\s/g, "")
+
+    expect(content).toContain("sent-")
+    expect(content).toContain("received-")
+    expect(content).toContain("...")
+    const receivedLine = frame
+      .split("\n")
+      .find((line) => line.includes("session") && line.includes("received-"))!
+    expect(receivedLine).not.toContain("=")
+    expect(receivedLine.indexOf("RECEIVED")).toBeLessThan(
+      receivedLine.indexOf("session"),
+    )
+    expect(receivedLine.indexOf("session")).toBeLessThan(
+      receivedLine.indexOf("received-"),
+    )
+  })
+
+  it("selects and expands cookie rows with the mouse", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    let paneFocused = false
+    const { renderer, renderOnce, captureCharFrame, captureSpans, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ResponsePane
+            state={{
+              status: "done",
+              response: {
+                status: 200,
+                statusText: "OK",
+                headers: {},
+                body: "",
+                timeMs: 1,
+                sentCookies: [{ name: "session", value: "outgoing" }],
+                cookies: [
+                  {
+                    name: "session",
+                    value: "incoming",
+                    domain: ".example.com",
+                    path: "/",
+                    expires: null,
+                    secure: true,
+                    httpOnly: false,
+                    sameSite: "lax",
+                  },
+                ],
+              },
+            }}
+            focused
+            initialTab="cookies"
+            onPaneFocus={() => {
+              paneFocused = true
+            }}
+          />
+        </KeymapProvider>,
+        { width: 80, height: 20 },
+      )
+    await renderOnce()
+
+    const receivedRow = renderer.root.findDescendantById("response-cookie-1")
+    expect(receivedRow).toBeDefined()
+    const x = receivedRow!.screenX + 3
+    const y = receivedRow!.screenY
+    await act(async () => mockMouse.moveTo(x, y))
+    await renderOnce()
+    const hoveredSpan = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("RECEIVED"))
+    expect(
+      hoveredSpan?.bg.equals(RGBA.fromHex(THEMES[0]!.backgroundElement)),
+    ).toBe(true)
+
+    await act(async () => mockMouse.click(x, y, MouseButtons.LEFT))
+    await renderOnce()
+    expect(paneFocused).toBe(true)
+    expect(captureCharFrame()).toContain("▾ RECEIVED")
+    expect(captureCharFrame()).toContain("Domain")
+
+    await act(async () => mockMouse.click(x, y, MouseButtons.LEFT))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("▸ RECEIVED")
+  })
+
+  it("marks expired cookies as deleted and preserves exact duplicates", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const deletedCookie = {
+      name: "__Secure-STRP",
+      value: "expired-value",
+      domain: "www.google.com",
+      path: "/",
+      expires: "1990-01-01T00:00:00.000Z",
+      secure: true,
+      httpOnly: false,
+    }
+    const { renderOnce, captureCharFrame, mockInput } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ResponsePane
+          state={{
+            status: "done",
+            response: {
+              status: 200,
+              statusText: "OK",
+              headers: {},
+              body: "",
+              timeMs: 1,
+              cookies: [
+                deletedCookie,
+                { ...deletedCookie },
+                { ...deletedCookie, domain: "google.com" },
+                { ...deletedCookie, domain: "google.com" },
+              ],
+            },
+          }}
+          focused
+          initialTab="cookies"
+        />
+      </KeymapProvider>,
+      { width: 76, height: 22 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame.match(/RECEIVED/g)).toHaveLength(4)
+    expect(frame).toMatch(/RECEIVED\s+__Secure-STRP\s+Deleted/)
+    expect(frame.match(/__Secure-STRP/g)).toHaveLength(4)
+    await act(async () => mockInput.pressKey("RETURN"))
+    await renderOnce()
+    const expandedFrame = captureCharFrame()
+    expect(expandedFrame).toMatch(/Expired\s+1990-01-01 00:00 GMT/)
+    expect(expandedFrame).toMatch(/Domain\s+www\.google\.com/)
+    expect(expandedFrame).not.toMatch(/Domain\s+google\.com/)
+    const deletedLine = frame
+      .split("\n")
+      .find((line) => line.includes("RECEIVED") && line.includes("Deleted"))!
+    expect(deletedLine).toContain("Deleted")
+  })
+
   it("folds the response body from the keyboard", async () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap

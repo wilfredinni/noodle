@@ -64,7 +64,8 @@ export function secretAccount(
   return `${collectionId}:${digest}`
 }
 
-export type AppSettingSecret = "proxy:username" | "proxy:password"
+export type AppSettingSecret =
+  "proxy:username" | "proxy:password" | "cookie-jar-key"
 export type CollectionSettingSecret =
   "proxy:username" | "proxy:password" | `tls:${string}:passphrase`
 

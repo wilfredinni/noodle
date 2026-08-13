@@ -21,6 +21,11 @@ describe("useModalKeyboardShield", () => {
     expect(EDITABLE_OVERLAYS).toContain("export-collection")
   })
 
+  it("classifies cookie overlays", () => {
+    expect(EDITABLE_OVERLAYS).toContain("cookie-form")
+    expect(HARD_BLOCKING_OVERLAYS).toContain("cookie-delete")
+  })
+
   it("treats collection unregister confirmation as hard-blocking", () => {
     expect(HARD_BLOCKING_OVERLAYS).toContain("collection-unregister")
   })

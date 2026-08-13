@@ -1,5 +1,6 @@
 import type {
   Auth,
+  CookiePair,
   Collection,
   Environment,
   KvEntry,
@@ -26,6 +27,7 @@ import {
   type NtlmChallenge,
 } from "./ntlm"
 import { createNtlmConnection, type NtlmConnection } from "./ntlmConnection"
+import { parseResponseCookies, type CollectionCookieJar } from "../cookies"
 
 export interface RequestExecutionOptions {
   environment?: Environment
@@ -35,6 +37,7 @@ export interface RequestExecutionOptions {
   onNetworkEvent?: (network: NetworkEvent[]) => void
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
+  cookies?: CollectionCookieJar
 }
 
 export function interpolatePathParams(
@@ -93,6 +96,7 @@ export async function send(
     onNetworkEvent,
     proxyPolicy,
     tlsPolicy,
+    cookies,
   } = options
   const merged =
     collection && requestPath
@@ -100,6 +104,11 @@ export async function send(
       : req
 
   const substituted = env !== undefined ? substitute(merged, env) : merged
+
+  if (cookies && substituted.sendCookies !== false) {
+    // Storage failures are reflected by the jar status; HTTP still runs jar-less.
+    await cookies.refresh().catch(() => {})
+  }
 
   const headers: Record<string, string> =
     substituted === merged
@@ -196,6 +205,7 @@ export async function send(
   let redirectCount = 0
   let awsSigningEnabled = substituted.auth?.type === "aws_sigv4"
   let ntlmEnabled = substituted.auth?.type === "ntlm"
+  let sentCookies: CookiePair[] = []
   const maxRedirects = req.maxRedirects ?? 5
   const followRedirects = req.followRedirects ?? true
 
@@ -255,11 +265,22 @@ export async function send(
         if (authorization) legHeaders.set("authorization", authorization)
         else legHeaders.delete("authorization")
       }
+      if (cookies && substituted.sendCookies !== false) {
+        const jarHeader = cookies.cookieHeaderFor(currentUrl)
+        if (jarHeader) {
+          const existing = legHeaders.get("cookie")
+          legHeaders.set(
+            "cookie",
+            existing ? mergeCookieHeader(existing, jarHeader) : jarHeader,
+          )
+        }
+      }
       const legInit: RequestInit = {
         ...currentInit,
         headers: legHeaders,
         ...(ntlmEnabled ? { keepalive: true } : {}),
       }
+      sentCookies = parseCookieHeader(legHeaders.get("cookie"))
       recordNetworkEvent(
         network,
         start,
@@ -304,6 +325,9 @@ export async function send(
         `${response.status} ${response.statusText || "Response"} - ${[...response.headers].length} headers`,
         onNetworkEvent,
       )
+      if (cookies) {
+        cookies.storeResponseCookies(currentUrl, response.headers)
+      }
       return response
     }
 
@@ -497,7 +521,19 @@ export async function send(
     body,
     timeMs: performance.now() - start,
     network,
+    sentCookies,
+    cookies: parseResponseCookies(res.headers),
   }
+}
+
+function parseCookieHeader(header: string | null): CookiePair[] {
+  if (!header) return []
+  return header.split(";").flatMap((part) => {
+    const separator = part.indexOf("=")
+    const name = part.slice(0, separator).trim()
+    if (separator < 1 || name === "") return []
+    return [{ name, value: part.slice(separator + 1).trim() }]
+  })
 }
 
 function stripCrossOriginCredentials(
@@ -516,6 +552,21 @@ function stripCrossOriginCredentials(
     if (name) result.delete(name)
   }
   return result
+}
+
+// User-authored Cookie header entries win; jar cookies fill missing names.
+function mergeCookieHeader(userHeader: string, jarHeader: string): string {
+  const names = new Set(
+    userHeader
+      .split(";")
+      .map((part) => part.split("=")[0]?.trim())
+      .filter(Boolean),
+  )
+  const extras = jarHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part && !names.has(part.split("=")[0]?.trim()))
+  return [userHeader, ...extras].join("; ")
 }
 
 function recordNetworkEvent(

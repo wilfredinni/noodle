@@ -115,6 +115,15 @@ noodle collection audit ./my-api --json
 noodle collection run ./my-api --json
 ```
 
+Noodle keeps one cookie jar per collection. Inspect it with
+`noodle cookie list --collection ./my-api`; JSON output includes the storage
+state, any non-fatal warnings, and each cookie's host-only scope. If the OS
+credential vault is unavailable, Noodle uses a mode-`0600` plaintext file and
+reports a persistent warning. Unreadable or corrupt storage is never replaced
+automatically: requests continue without jar cookies, and an explicit
+`noodle cookie clear --collection ./my-api` preserves the original as a backup
+before resetting the jar.
+
 [Explore the CLI →](https://noodlerest.dev/docs/getting-started/cli/)
 
 ## Bring your existing work

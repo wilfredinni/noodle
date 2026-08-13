@@ -9,7 +9,7 @@ import {
 } from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
-import type { NetworkError, TimelineEntry } from "../schema"
+import type { NetworkError, ResponseCookie, TimelineEntry } from "../schema"
 import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
@@ -33,6 +33,7 @@ import { TimelineTab } from "./timeline/TimelineTab"
 import { NetworkTab } from "./NetworkTab"
 import { Badge } from "./Badge"
 import type { ResponseTabKind } from "./tabs/uiState"
+import { CookieRow, cookieDetails, cookieNameWidth } from "./CookieRow"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -41,7 +42,24 @@ const TAB_DEFS: TabDef[] = [
   { id: "headers", label: "Headers" },
   { id: "network", label: "Network" },
   { id: "timeline", label: "Timeline" },
+  { id: "cookies", label: "Cookies" },
 ]
+
+function isDeletedCookie(cookie: ResponseCookie): boolean {
+  if (cookie.expires === null) return false
+  const expires = Date.parse(cookie.expires)
+  return !Number.isNaN(expires) && expires <= Date.now()
+}
+
+type CookieTimelineRow =
+  | { kind: "sent"; name: string; value: string }
+  | {
+      kind: "received"
+      name: string
+      value: string
+      cookie: ResponseCookie
+      deleted: boolean
+    }
 
 export function ResponsePane({
   state,
@@ -105,11 +123,41 @@ export function ResponsePane({
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
   const isDone = state.status === "done"
+  const sentCookies = isDone ? (state.response.sentCookies ?? []) : []
+  const responseCookies = isDone ? (state.response.cookies ?? []) : []
+  const cookieRows: CookieTimelineRow[] = [
+    ...sentCookies.map(({ name, value }) => ({
+      kind: "sent" as const,
+      name,
+      value,
+    })),
+    ...responseCookies.map((cookie) => ({
+      kind: "received" as const,
+      name: cookie.name,
+      value: cookie.value,
+      cookie,
+      deleted: isDeletedCookie(cookie),
+    })),
+  ]
+  const cookieNameColumnWidth =
+    cookieRows.length === 0 ? 0 : cookieNameWidth(cookieRows)
+  const [selectedCookieIdx, setSelectedCookieIdx] = useState(0)
+  const [expandedCookieIdx, setExpandedCookieIdx] = useState<number | null>(
+    null,
+  )
+  const [hoveredCookieIdx, setHoveredCookieIdx] = useState<number | null>(null)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const onBodyEditorAvailableChangeRef = useRef(onBodyEditorAvailableChange)
+
+  useEffect(() => {
+    if (activeTab !== "cookies" || cookieRows.length === 0) return
+    scrollRef.current?.scrollChildIntoView(
+      `response-cookie-${selectedCookieIdx}`,
+    )
+  }, [activeTab, cookieRows.length, selectedCookieIdx])
   onBodyEditorAvailableChangeRef.current = onBodyEditorAvailableChange
   const [bodyEditor, setBodyEditor] = useState<CodeEditorRenderable | null>(
     null,
@@ -151,6 +199,12 @@ export function ResponsePane({
     onQueryVisibleChangeRef.current?.(queryVisible)
   }, [queryVisible])
 
+  useEffect(() => {
+    setSelectedCookieIdx(0)
+    setExpandedCookieIdx(null)
+    setHoveredCookieIdx(null)
+  }, [activeTab, responseKey, state.status])
+
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (!isActiveRef.current) return
@@ -159,20 +213,76 @@ export function ResponsePane({
     if (!key.shift && key.name === "left") {
       key.preventDefault()
       setActiveTab((prev) => {
-        const ids = ["body", "headers", "network", "timeline"] as const
+        const ids = [
+          "body",
+          "headers",
+          "network",
+          "timeline",
+          "cookies",
+        ] as const
         const idx = ids.indexOf(prev)
         return ids[(idx - 1 + ids.length) % ids.length]
       })
     } else if (!key.shift && key.name === "right") {
       key.preventDefault()
       setActiveTab((prev) => {
-        const ids = ["body", "headers", "network", "timeline"] as const
+        const ids = [
+          "body",
+          "headers",
+          "network",
+          "timeline",
+          "cookies",
+        ] as const
         const idx = ids.indexOf(prev)
         return ids[(idx + 1) % ids.length]
       })
     } else if (key.name === "v" && activeTab === "body") {
       setShowLargeBody(true)
     } else if (activeTab === "timeline") {
+      return
+    } else if (activeTab === "cookies") {
+      if (cookieRows.length === 0) return
+      if (key.name === "up" || key.name === "down") {
+        key.preventDefault()
+        setSelectedCookieIdx((prev) => {
+          const next =
+            key.name === "up"
+              ? prev <= 0
+                ? cookieRows.length - 1
+                : prev - 1
+              : prev >= cookieRows.length - 1
+                ? 0
+                : prev + 1
+          return next
+        })
+      } else if (key.name === "return") {
+        key.preventDefault()
+        setExpandedCookieIdx((prev) =>
+          prev === selectedCookieIdx ? null : selectedCookieIdx,
+        )
+        queueMicrotask(() =>
+          scrollRef.current?.scrollChildIntoView(
+            `response-cookie-${selectedCookieIdx}`,
+          ),
+        )
+      } else if (key.name === "pagedown") {
+        scrollRef.current?.scrollBy(1, "viewport")
+      } else if (key.name === "pageup") {
+        scrollRef.current?.scrollBy(-1, "viewport")
+      } else if (key.name === "home") {
+        key.preventDefault()
+        setSelectedCookieIdx(0)
+        scrollRef.current?.scrollTo(0)
+      } else if (key.name === "end") {
+        key.preventDefault()
+        setSelectedCookieIdx(Math.max(0, cookieRows.length - 1))
+        scrollRef.current?.scrollTo(
+          Math.max(
+            0,
+            scrollRef.current.scrollHeight - scrollRef.current.height,
+          ),
+        )
+      }
       return
     } else if (activeTab === "body" && bodyEditorRef.current) {
       if (key.shift && bodyEditorRef.current.handleKeyPress(key)) {
@@ -656,6 +766,78 @@ export function ResponsePane({
                   </box>
                 )}
               </box>
+            )
+          ) : activeTab === "cookies" ? (
+            state.status === "done" ? (
+              <scrollbox
+                id="response-cookies-scrollbox"
+                ref={scrollRef}
+                scrollY
+                verticalScrollbarOptions={{
+                  trackOptions: {
+                    backgroundColor: theme.background,
+                    foregroundColor: theme.borderActive,
+                  },
+                }}
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
+                {cookieRows.length === 0 ? (
+                  <text fg={theme.textMuted}>No cookies captured.</text>
+                ) : (
+                  <box style={{ flexDirection: "column", gap: 0 }}>
+                    {cookieRows.map((row, idx) => {
+                      const isSelected = idx === selectedCookieIdx
+                      const isExpanded = idx === expandedCookieIdx
+                      const deleted = row.kind === "received" && row.deleted
+                      return (
+                        <CookieRow
+                          id={`response-cookie-${idx}`}
+                          key={`${row.kind}:${row.name}:${idx}`}
+                          kindLabel={row.kind.toUpperCase()}
+                          kindColor={
+                            row.kind === "sent" ? theme.info : theme.secondary
+                          }
+                          name={row.name}
+                          value={row.value}
+                          nameWidth={cookieNameColumnWidth}
+                          selected={isSelected}
+                          expanded={isExpanded}
+                          hovered={hoveredCookieIdx === idx}
+                          deleted={deleted}
+                          valueColor={deleted ? theme.error : theme.textMuted}
+                          details={
+                            row.kind === "received"
+                              ? [
+                                  {
+                                    label: "Value",
+                                    value: row.deleted
+                                      ? "Deleted"
+                                      : row.value || "(empty)",
+                                  },
+                                  ...cookieDetails(row.cookie, row.deleted),
+                                ]
+                              : undefined
+                          }
+                          onSelect={() => setSelectedCookieIdx(idx)}
+                          onToggleExpanded={() =>
+                            setExpandedCookieIdx((prev) =>
+                              prev === idx ? null : idx,
+                            )
+                          }
+                          onHover={(isHovered) =>
+                            setHoveredCookieIdx(isHovered ? idx : null)
+                          }
+                          onPaneFocus={onPaneFocus}
+                        />
+                      )
+                    })}
+                  </box>
+                )}
+              </scrollbox>
+            ) : state.status === "error" ? (
+              <text fg={theme.textMuted}>No cookies available.</text>
+            ) : (
+              <Tips />
             )
           ) : state.status === "done" ? (
             <scrollbox

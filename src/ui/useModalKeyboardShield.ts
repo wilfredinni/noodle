@@ -16,6 +16,7 @@ export const EDITABLE_OVERLAYS = new Set([
   "edit-request",
   "clone-request",
   "new-folder",
+  "cookie-form",
 ])
 
 export const HARD_BLOCKING_OVERLAYS = new Set([
@@ -31,6 +32,7 @@ export const HARD_BLOCKING_OVERLAYS = new Set([
   "code-generator",
   "delete-folder",
   "request-delete",
+  "cookie-delete",
   "update-confirm",
   "timeline-detail",
 ])

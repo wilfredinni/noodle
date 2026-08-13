@@ -26,6 +26,7 @@ import {
   cycleEnvironment,
   openEnvironmentPicker,
   openEnvironmentEditor,
+  openCookieJar,
   saveEnvironment,
   newEnvironment,
   cloneEnvironment,
@@ -331,6 +332,15 @@ export function buildCommandPaletteCommands(
         setFocus("env-sidebar")
         return true
       },
+    },
+    {
+      id: "cookie-jar.open",
+      label: "Cookies",
+      section: "Workspace",
+      keybinding: keybinds.cookie_jar_open
+        ? displayKey(keybinds.cookie_jar_open)
+        : undefined,
+      run: () => openCookieJar(setView, setFocus),
     },
   ]
 
@@ -648,6 +658,8 @@ export function buildCommandPaletteCommands(
       ...systemCommands,
     ]
   }
+
+  if (view === "cookie-jar") return systemCommands
 
   if (view === "settings") return systemCommands
 

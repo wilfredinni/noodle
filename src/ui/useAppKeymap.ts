@@ -5,6 +5,7 @@ import type { AppKeymapContext, UseAppKeymapArgs } from "./keymap/types"
 import type { CommandActionsConfig } from "./commandActions"
 
 export type {
+  AppKeymapCookieJar,
   AppKeymapEnvironment,
   AppKeymapFolder,
   AppKeymapGlobal,
@@ -53,6 +54,7 @@ export function useAppKeymap(args: UseAppKeymapArgs): void {
     request: args.request,
     folder: args.folder,
     environment: args.environment,
+    cookies: args.cookies,
     actions: createActionsConfig(args, renderer),
   }
   const layers = createAppKeymapLayers(context)
@@ -70,4 +72,7 @@ export function useAppKeymap(args: UseAppKeymapArgs): void {
   useBindings(() => layers[10])
   useBindings(() => layers[11])
   useBindings(() => layers[12])
+  useBindings(() => layers[13])
+  useBindings(() => layers[14])
+  useBindings(() => layers[15])
 }

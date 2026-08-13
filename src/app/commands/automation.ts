@@ -9,6 +9,8 @@ import {
   formatCollectionInit,
   formatCollectionList,
   formatCollectionRun,
+  formatCookieClear,
+  formatCookieList,
   formatEnvironmentSet,
   formatSecretDelete,
   formatSecretList,
@@ -26,6 +28,8 @@ import {
   collectionInspect,
   collectionList,
   collectionRun,
+  cookieClear,
+  cookieList,
   environmentSet,
   secretDelete,
   secretList,
@@ -422,4 +426,33 @@ const secret = defineCommand({
     }),
   },
 })
-export { workspace, collection, request, environment, secret }
+
+const cookie = defineCommand({
+  meta: {
+    name: "cookie",
+    description: "Inspect and clear the collection cookie jar",
+  },
+  subCommands: {
+    list: defineCommand({
+      meta: { name: "list", description: "Print every cookie in the jar" },
+      args: { collection: collectionArg, json: jsonArg },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({ data: await cookieList(args.collection) }),
+          formatCookieList,
+        ),
+    }),
+    clear: defineCommand({
+      meta: { name: "clear", description: "Remove every cookie from the jar" },
+      args: { collection: collectionArg, json: jsonArg },
+      run: ({ args }) =>
+        emitCommand(
+          args.json,
+          async () => ({ data: await cookieClear(args.collection) }),
+          formatCookieClear,
+        ),
+    }),
+  },
+})
+export { workspace, collection, request, environment, secret, cookie }

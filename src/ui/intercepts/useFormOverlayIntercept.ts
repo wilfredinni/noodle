@@ -15,8 +15,16 @@ export function useFormOverlayIntercept(opts: {
   onConfirm: (result: any) => void
   onCancel: () => void
   passThroughFocuses?: string[]
+  toggleFocuses?: string[]
 }): { confirm: () => void; cancel: () => void } {
-  const { visible, handleRef, onConfirm, onCancel, passThroughFocuses } = opts
+  const {
+    visible,
+    handleRef,
+    onConfirm,
+    onCancel,
+    passThroughFocuses,
+    toggleFocuses,
+  } = opts
   const keymap = useKeymap()
   const confirm = useCallback(() => {
     const result = handleRef.current?.confirm()
@@ -60,7 +68,10 @@ export function useFormOverlayIntercept(opts: {
           }
           return
         }
-        if (e.name === "space" && handle.getFocus?.() === "auth") {
+        if (
+          e.name === "space" &&
+          (toggleFocuses ?? ["auth"]).includes(handle.getFocus?.() ?? "")
+        ) {
           e.preventDefault()
           e.stopPropagation()
           handle.toggleFocused?.()
@@ -96,7 +107,15 @@ export function useFormOverlayIntercept(opts: {
       { priority: 100 },
     )
     return dispose
-  }, [visible, keymap, handleRef, confirm, onCancel, passThroughFocuses])
+  }, [
+    visible,
+    keymap,
+    handleRef,
+    confirm,
+    onCancel,
+    passThroughFocuses,
+    toggleFocuses,
+  ])
 
   return { confirm, cancel: onCancel }
 }

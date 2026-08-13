@@ -28,6 +28,21 @@ describe("bootstrap", () => {
     expect(typeof mod.bootstrap).toBe("function")
   })
 
+  it("reports cookie flush failures before shutdown", async () => {
+    const { flushCookieJarsForShutdown } = await import("../src/app/main")
+    const messages: string[] = []
+    const ok = await flushCookieJarsForShutdown(
+      async () => {
+        throw new Error("disk full")
+      },
+      (message) => messages.push(message),
+    )
+    expect(ok).toBe(false)
+    expect(messages).toEqual([
+      "warning: failed to flush cookie storage before shutdown: disk full",
+    ])
+  })
+
   it("exits with error when env name not found", async () => {
     const tmpDir = tempDir()
     const exitSpy = spyOn(process, "exit").mockImplementation((() => {

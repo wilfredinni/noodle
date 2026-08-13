@@ -1,6 +1,7 @@
 import type { RefObject } from "react"
 import type { SaveState } from "./saveState"
 import type { Focus } from "./focus"
+import type { AppView } from "./appState"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
@@ -16,6 +17,11 @@ import type {
   NewEnvironmentOverlayHandle,
   NewEnvironmentValues,
 } from "./overlays/NewEnvironmentOverlay"
+import type {
+  CookieFormOverlayHandle,
+  CookieFormValues,
+} from "./overlays/CookieFormOverlay"
+import type { CookieDeletePending } from "./useOverlayState"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { ActiveOverlay } from "./useOverlayState"
@@ -55,8 +61,8 @@ export function useOverlayIntercepts(opts: {
   setHelpVisible: (v: boolean) => void
   aboutVisible: boolean
   setAboutVisible: (v: boolean) => void
-  view: "main" | "env-editor" | "settings"
-  setView: (v: "main" | "env-editor" | "settings") => void
+  view: AppView
+  setView: (v: AppView) => void
   focusRef: RefObject<Focus>
   setFocus: (f: Focus) => void
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
@@ -65,6 +71,13 @@ export function useOverlayIntercepts(opts: {
   newEnvironmentRef: RefObject<NewEnvironmentOverlayHandle | null>
   setNewEnvironmentVisible: (v: boolean) => void
   onNewEnvironmentConfirm: (values: NewEnvironmentValues) => void
+  cookieFormVisible: boolean
+  cookieFormRef: RefObject<CookieFormOverlayHandle | null>
+  setCookieFormVisible: (v: boolean) => void
+  onCookieFormConfirm: (values: CookieFormValues) => void
+  cookieDeletePending: CookieDeletePending | null
+  setCookieDeletePending: (pending: CookieDeletePending | null) => void
+  onCookieDeleteConfirm: (pending: CookieDeletePending) => void
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
   setNewRequestVisible: (v: boolean) => void
@@ -146,6 +159,15 @@ export function useOverlayIntercepts(opts: {
     passThroughFocuses: ["color"],
   })
 
+  const cookieFormActions = useFormOverlayIntercept({
+    visible: opts.cookieFormVisible,
+    handleRef: opts.cookieFormRef,
+    onConfirm: opts.onCookieFormConfirm,
+    onCancel: () => opts.setCookieFormVisible(false),
+    passThroughFocuses: ["sameSite"],
+    toggleFocuses: ["secure", "httpOnly", "hostOnly"],
+  })
+
   const newRequestActions = useFormOverlayIntercept({
     visible: opts.newRequestVisible,
     handleRef: opts.newRequestRef,
@@ -208,6 +230,7 @@ export function useOverlayIntercepts(opts: {
   return {
     ...dialogActions,
     newEnvironment: newEnvironmentActions,
+    cookieForm: cookieFormActions,
     newRequest: newRequestActions,
     importCurl: importCurlActions,
     exportCollection: exportCollectionActions,

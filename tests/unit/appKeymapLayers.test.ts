@@ -48,6 +48,14 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     view: "",
     jumpMode: false,
     settingsOpened: false,
+    cookieExpand: 0,
+    cookieEdit: 0,
+    cookieDelete: [] as Array<{
+      kind: string
+      domain?: string
+      name?: string
+      path?: string
+    }>,
   }
   const request = {
     ebRef: {
@@ -94,6 +102,38 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       calls.newEnvironment = visible
     },
   }
+  const cookies = {
+    cookieJarViewRef: {
+      current: {
+        domains: [],
+        cookies: [],
+        selectedDomain: null,
+        cookieIndex: 0,
+        filtering: false,
+        domainUp: () => {},
+        domainDown: () => {},
+        cookieUp: () => {},
+        cookieDown: () => {},
+        toggleCookieExpanded: () => calls.cookieExpand++,
+        deleteSelectedCookie: () => {},
+        deleteSelectedDomain: () => {},
+        clearAll: () => {},
+      },
+    },
+    setCookieFormVisible: (visible: boolean) => {
+      if (visible) calls.cookieEdit++
+    },
+    setCookieFormInitial: () => {},
+    setCookieDeletePending: (pending: {
+      kind: string
+      domain?: string
+      name?: string
+      path?: string
+    }) => {
+      calls.cookieDelete.push(pending)
+    },
+    retryCookieStorage: () => {},
+  }
   const context = {
     keymap,
     renderer: {},
@@ -128,6 +168,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     request,
     folder,
     environment,
+    cookies,
     actions: {
       trySendRef: request.trySendRef,
       envStateRef: environment.envStateRef,
@@ -155,13 +196,144 @@ describe("app keymap layers", () => {
 
     const layers = createAppKeymapLayers(context)
 
-    expect(layers).toHaveLength(13)
+    expect(layers).toHaveLength(16)
     expect(firstCommandName(layers[0])).toBe("focus.next")
     expect(firstCommandName(layers[1])).toBe("urlbar.tab")
     expect(firstCommandName(layers[2])).toBe("env.picker-open")
     expect(firstCommandName(layers[5])).toBe("folder.edit-enter")
     expect(firstCommandName(layers[9])).toBe("edit.commit")
     expect(firstCommandName(layers[10])).toBe("env.save")
+    expect(firstCommandName(layers[13])).toBe("cookie.close")
+    expect(firstCommandName(layers[14])).toBe("cookie.filter.exit")
+    expect(firstCommandName(layers[15])).toBe("cookie.up")
+    cleanup()
+  })
+
+  it("keeps Ctrl+W for primary items and Ctrl+D for secondary rows", () => {
+    const { keymap, cleanup } = setup()
+    const { context } = createContext(keymap)
+    const layers = createAppKeymapLayers(context)
+    const bindings = (index: number) =>
+      layers[index]!.bindings as Array<{ key: string; cmd: string }>
+
+    expect(bindings(2)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "request.delete",
+    })
+    expect(bindings(4)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "browse.delete",
+    })
+    expect(bindings(6)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "folder.delete",
+    })
+    expect(bindings(7)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "folder-browse.revert-field",
+    })
+    expect(bindings(10)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "env.delete",
+    })
+    expect(bindings(11)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "env-browse.revert",
+    })
+    expect(bindings(13)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "cookie.delete",
+    })
+    expect(bindings(13)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "cookie.delete-cookie",
+    })
+    cleanup()
+  })
+
+  it("uses Enter to expand, Ctrl+E to edit, and keeps clone non-destructive", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.cookies.cookieJarViewRef.current.cookies = [
+      {
+        name: "session",
+        value: "abc",
+        domain: "example.com",
+        path: "/",
+        expires: null,
+        secure: false,
+        httpOnly: false,
+        hostOnly: true,
+      },
+    ]
+    keymap.setData("app.view", "cookie-jar")
+    keymap.setData("app.focus", "cookie-list")
+    const disposers = register(context)
+    host.press("return")
+    host.press("e", { ctrl: true })
+    expect(calls.cookieExpand).toBe(1)
+    expect(calls.cookieEdit).toBe(1)
+
+    const cookieBindings = createAppKeymapLayers(context)[13]!
+      .bindings as Array<{ key: string; cmd: string }>
+
+    expect(cookieBindings).toContainEqual({
+      key: "ctrl+e",
+      cmd: "cookie.edit",
+    })
+    expect(cookieBindings).toContainEqual({
+      key: "ctrl+w",
+      cmd: "cookie.delete",
+    })
+    expect(cookieBindings).toContainEqual({
+      key: "ctrl+alt+w",
+      cmd: "cookie.clear",
+    })
+    expect(cookieBindings).not.toContainEqual({
+      key: "ctrl+k",
+      cmd: "cookie.clear",
+    })
+    expect(cookieBindings).not.toContainEqual({
+      key: "return",
+      cmd: "cookie.edit",
+    })
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("uses Ctrl+W for the primary domain and Ctrl+D for its cookie", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.cookies.cookieJarViewRef.current.domains = [
+      { domain: "example.com", count: 1 },
+    ]
+    context.cookies.cookieJarViewRef.current.selectedDomain = "example.com"
+    context.cookies.cookieJarViewRef.current.cookies = [
+      {
+        name: "session",
+        value: "abc",
+        domain: "example.com",
+        path: "/",
+        expires: null,
+        secure: false,
+        httpOnly: false,
+        hostOnly: true,
+      },
+    ]
+    keymap.setData("app.view", "cookie-jar")
+    keymap.setData("app.overlay", "none")
+    const disposers = register(context)
+
+    keymap.setData("app.focus", "cookie-sidebar")
+    host.press("w", { ctrl: true })
+    keymap.setData("app.focus", "cookie-list")
+    host.press("d", { ctrl: true })
+
+    expect(calls.cookieDelete).toEqual([
+      { kind: "domain", domain: "example.com" },
+      { kind: "cookie", name: "session", domain: "example.com", path: "/" },
+    ])
+    disposers.forEach((dispose) => dispose())
     cleanup()
   })
 
@@ -247,6 +419,29 @@ describe("app keymap layers", () => {
     host.press("f5")
     expect(calls.settingsOpened).toBe(true)
 
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("leaves Cookies unbound until the user configures a shortcut", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const defaultBindings = createAppKeymapLayers(context)[0]!
+      .bindings as Array<{
+      key: string
+      cmd: string
+    }>
+    expect(defaultBindings).not.toContainEqual({
+      key: "",
+      cmd: "cookie-jar.open",
+    })
+
+    context.keybinds = { ...context.keybinds, cookie_jar_open: "ctrl+shift+c" }
+    const disposers = register(context)
+    host.press("c", { ctrl: true, shift: true })
+
+    expect(calls.view).toBe("cookie-jar")
+    expect(calls.focus).toBe("cookie-sidebar")
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

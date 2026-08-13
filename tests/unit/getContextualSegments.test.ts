@@ -288,6 +288,15 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([seg("f2", "expand")])
   })
 
+  it("response when done on cookies tab shows cookie navigation", () => {
+    const r = base({ focus: "response", sendState: done, tab: "cookies" })
+    expect(r.footer).toMatchObject([
+      seg("↑/↓", "select"),
+      seg("Enter", "details"),
+      seg("f2", "expand"),
+    ])
+  })
+
   it("response when done on network tab shows expand", () => {
     const r = base({ focus: "response", sendState: done, tab: "network" })
     expect(r.footer).toMatchObject([seg("f2", "expand")])

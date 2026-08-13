@@ -648,6 +648,7 @@ describe("SettingsView", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("Navigation")
     expect(frame).toContain("Request")
+    expect(frame).toContain("Cookies")
     expect(frame).toContain("System")
     expect(frame).not.toContain("fixed")
     expect(frame).toContain("Open settings")
@@ -657,6 +658,15 @@ describe("SettingsView", () => {
     const environment = renderer.root.findDescendantById(
       "settings-key-env_cycle",
     )!
+    expect(
+      renderer.root.findDescendantById("settings-key-cookie_new"),
+    ).toBeDefined()
+    expect(
+      renderer.root.findDescendantById("settings-key-cookie_jar_open"),
+    ).toBeDefined()
+    expect(
+      renderer.root.findDescendantById("settings-key-cookie_clear"),
+    ).toBeDefined()
     expect(create.screenY - find.screenY).toBe(1)
     expect(environment.screenY - create.screenY).toBeGreaterThan(1)
     cleanup()

@@ -107,6 +107,22 @@ describe("buildCommandPaletteCommands", () => {
     expect(command?.label).toBe("Keyboard Shortcuts")
   })
 
+  it("labels the cookie jar command as Cookies", () => {
+    const ctx = minimalContext()
+    const command = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "cookie-jar.open",
+    )
+
+    expect(command?.label).toBe("Cookies")
+    expect(command?.keybinding).toBeUndefined()
+
+    ctx.keybinds.cookie_jar_open = "ctrl+shift+c"
+    const customized = buildCommandPaletteCommands(ctx).find(
+      (item) => item.id === "cookie-jar.open",
+    )
+    expect(customized?.keybinding).toBe("^shift+c")
+  })
+
   it("sections appear in correct order", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
     const sections = [...new Set(commands.map((c) => c.section))]

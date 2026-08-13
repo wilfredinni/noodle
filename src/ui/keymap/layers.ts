@@ -1,4 +1,5 @@
 import type { UseBindingsLayer } from "@opentui/keymap/react"
+import { createCookieJarLayers } from "./cookieLayers"
 import { createEnvironmentLayers } from "./environmentLayers"
 import { createFolderLayers } from "./folderLayers"
 import { createGlobalLayers } from "./globalLayers"
@@ -6,6 +7,9 @@ import { createRequestLayers } from "./requestLayers"
 import type { AppKeymapContext } from "./types"
 
 export type AppKeymapLayers = readonly [
+  UseBindingsLayer,
+  UseBindingsLayer,
+  UseBindingsLayer,
   UseBindingsLayer,
   UseBindingsLayer,
   UseBindingsLayer,
@@ -31,6 +35,8 @@ export function createAppKeymapLayers(
   const [folderBase, folderFocus, folderBrowse, folderEdit] =
     createFolderLayers(context)
   const [envBase, envBrowse, envEdit] = createEnvironmentLayers(context)
+  const [cookieBase, cookieFilter, cookieNavigate] =
+    createCookieJarLayers(context)
 
   return [
     alwaysOn,
@@ -46,5 +52,8 @@ export function createAppKeymapLayers(
     envBase,
     envBrowse,
     envEdit,
+    cookieBase,
+    cookieFilter,
+    cookieNavigate,
   ]
 }

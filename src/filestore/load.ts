@@ -349,6 +349,7 @@ export function parseCollectionSettings(value: unknown): CollectionSettings {
     "environment",
     "proxy",
     "tls",
+    "cookies",
   ])
   const unknownKey = Object.keys(obj).find((key) => !allowed.has(key))
   if (unknownKey) {
@@ -402,6 +403,27 @@ export function parseCollectionSettings(value: unknown): CollectionSettings {
   }
   if (obj.tls !== undefined) {
     settings.tls = parseCollectionTlsStrict(obj.tls)
+  }
+  if (obj.cookies !== undefined) {
+    if (
+      !obj.cookies ||
+      typeof obj.cookies !== "object" ||
+      Array.isArray(obj.cookies) ||
+      Object.getPrototypeOf(obj.cookies) !== Object.prototype
+    ) {
+      throw new Error("settings.yml: cookies must be a mapping")
+    }
+    const cookies = obj.cookies as Record<string, unknown>
+    const unknownCookieKey = Object.keys(cookies).find(
+      (key) => key !== "enabled",
+    )
+    if (unknownCookieKey) {
+      throw new Error(`settings.yml: unknown cookies key "${unknownCookieKey}"`)
+    }
+    if (cookies.enabled !== undefined && typeof cookies.enabled !== "boolean") {
+      throw new Error("settings.yml: cookies.enabled must be a boolean")
+    }
+    settings.cookies = { enabled: cookies.enabled ?? true }
   }
   return settings
 }
