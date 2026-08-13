@@ -90,23 +90,23 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 - `src/schema/index.ts` — `Auth` discriminated union
 - `src/lang/parse.ts` — `parseAuth()` function
 - `src/lang/serialize.ts` — `serializeAuth()` in request serialization
-- `src/requests/send.ts` — `authHeader()` function
+- `src/requests/send.ts` — request authentication dispatch
 - `src/hooks/requestDraftReducer.ts` — `DraftOp` type + reducer
 - `src/ui/AuthEditor.tsx` — Auth field editor component
 
-**Follow:** Existing auth types: `none`, `inherit`, `bearer`, `basic`, `api_key`. Each adds one variant to the `Auth` union.
+**Follow:** Existing auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`. Each adds one variant to the `Auth` union. Bearer, basic, and API-key auth can use `authHeader()`; connection-bound or request-signing schemes need their own send path.
 
 **Implement:**
 1. Add type to `Auth` union in `schema/index.ts` — define fields specific to that auth type
 2. Add parse case in `lang/parse.ts` `parseAuth()` — read fields from YAML
 3. Add serialize case in `lang/serialize.ts` — omit empty auth type
-4. Add header construction in `requests/send.ts` `authHeader()` — return `Record<string, string>`
+4. Add request execution in `requests/send.ts`: use `authHeader()` only for static header schemes; implement and test any handshake or signing flow separately, including redirects and body constraints
 5. Add `DraftOp` variant (e.g., `{ kind: "setAuthYourType"; field: string; value: string }`)
 6. Handle in `requestDraftReducer.ts` — switch on `op.kind`, cache prior auth state when switching
 7. Add UI in `AuthEditor.tsx` — render fields for the new auth type when selected
 8. Add to auth type Select options in `AuthEditor.tsx`
 
-**Test:** Unit tests for parse/serialize round-trip, authHeader output, draft application. Integration test for auth editor UI.
+**Test:** Unit tests for parse/serialize round-trip, auth handling, draft application, and converter mappings where supported. Add loopback coverage for connection-bound exchanges or request signing, plus auth-editor UI coverage.
 
 **Verify:** `bun test tests/lang.test.ts tests/requests.test.ts && bun run lint && bun run typecheck`
 
