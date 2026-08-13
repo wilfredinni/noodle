@@ -48,6 +48,8 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     view: "",
     jumpMode: false,
     settingsOpened: false,
+    cookieExpand: 0,
+    cookieEdit: 0,
   }
   const request = {
     ebRef: {
@@ -100,15 +102,24 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         domains: [],
         cookies: [],
         selectedDomain: null,
+        cookieIndex: 0,
+        filtering: false,
         domainUp: () => {},
         domainDown: () => {},
         cookieUp: () => {},
         cookieDown: () => {},
+        toggleCookieExpanded: () => calls.cookieExpand++,
         deleteSelectedCookie: () => {},
         deleteSelectedDomain: () => {},
         clearAll: () => {},
       },
     },
+    setCookieFormVisible: (visible: boolean) => {
+      if (visible) calls.cookieEdit++
+    },
+    setCookieFormInitial: () => {},
+    setCookieDeletePending: () => {},
+    retryCookieStorage: () => {},
   }
   const context = {
     keymap,
@@ -185,9 +196,29 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
-  it("uses Ctrl+E for cookie editing and keeps the clone shortcut non-destructive", () => {
-    const { keymap, cleanup } = setup()
-    const { context } = createContext(keymap)
+  it("uses Enter to expand, Ctrl+E to edit, and keeps clone non-destructive", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.cookies.cookieJarViewRef.current.cookies = [
+      {
+        name: "session",
+        value: "abc",
+        domain: "example.com",
+        path: "/",
+        expires: null,
+        secure: false,
+        httpOnly: false,
+        hostOnly: true,
+      },
+    ]
+    keymap.setData("app.view", "cookie-jar")
+    keymap.setData("app.focus", "cookie-list")
+    const disposers = register(context)
+    host.press("return")
+    host.press("e", { ctrl: true })
+    expect(calls.cookieExpand).toBe(1)
+    expect(calls.cookieEdit).toBe(1)
+
     const cookieBindings = createAppKeymapLayers(context)[13]!
       .bindings as Array<{ key: string; cmd: string }>
 
@@ -211,6 +242,7 @@ describe("app keymap layers", () => {
       key: "return",
       cmd: "cookie.edit",
     })
+    disposers.forEach((dispose) => dispose())
     cleanup()
   })
 

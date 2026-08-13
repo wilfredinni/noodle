@@ -154,6 +154,10 @@ describe("getKeybindingHints footer", () => {
       getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
         .footer,
     ).toContainEqual(seg("^e", "edit", "cookie.edit"))
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
+        .footer,
+    ).toContainEqual(seg("Enter", "expand", "cookie.expand"))
 
     expect(
       getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-sidebar" }))

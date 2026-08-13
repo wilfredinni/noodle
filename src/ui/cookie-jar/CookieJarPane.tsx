@@ -9,23 +9,9 @@ import {
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
-import type { CookieJarStatus, JarCookie } from "../../cookies"
+import type { CookieJarStatus } from "../../cookies"
 import type { UseCookieJarViewResult } from "../../hooks/useCookieJarView"
-
-function expiresLabel(cookie: JarCookie): string {
-  if (cookie.expires === null) return "session"
-  const date = cookie.expires.toISOString().slice(0, 10)
-  return cookie.expires.getTime() < Date.now() ? `expired ${date}` : date
-}
-
-function flags(cookie: JarCookie): string {
-  const parts: string[] = []
-  if (cookie.httpOnly) parts.push("HttpOnly")
-  if (cookie.secure) parts.push("Secure")
-  parts.push(cookie.hostOnly ? "HostOnly" : "Domain")
-  if (cookie.sameSite) parts.push(cookie.sameSite)
-  return parts.join(" ")
-}
+import { CookieRow, cookieDetails, cookieNameWidth } from "../CookieRow"
 
 export function CookieJarPane({
   view,
@@ -49,26 +35,17 @@ export function CookieJarPane({
   const theme = useTheme()
   const cookies = view.cookies
   const cookieIndex = view.cookieIndex
+  const expandedCookieIndex = view.expandedCookieIndex
+  const cookieNameColumnWidth = cookieNameWidth(cookies)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [hovered, setHovered] = useState<number | null>(null)
   const filterRef = useRef<InputRenderable | null>(null)
-
-  const panelNum = parseInt(theme.backgroundPanel.slice(1), 16)
-  const elemNum = parseInt(theme.backgroundElement.slice(1), 16)
-  const stripeR = Math.round(
-    (((panelNum >> 16) & 0xff) + ((elemNum >> 16) & 0xff)) / 2,
-  )
-  const stripeG = Math.round(
-    (((panelNum >> 8) & 0xff) + ((elemNum >> 8) & 0xff)) / 2,
-  )
-  const stripeB = Math.round(((panelNum & 0xff) + (elemNum & 0xff)) / 2)
-  const stripeBg = `#${stripeR.toString(16).padStart(2, "0")}${stripeG.toString(16).padStart(2, "0")}${stripeB.toString(16).padStart(2, "0")}`
 
   useEffect(() => {
     if (cookieIndex >= 0) {
       scrollRef.current?.scrollChildIntoView(`cookie-row-${cookieIndex}`)
     }
-  }, [cookieIndex])
+  }, [cookieIndex, expandedCookieIndex])
 
   useEffect(() => {
     if (view.filtering) filterRef.current?.focus()
@@ -181,104 +158,45 @@ export function CookieJarPane({
                 : "(no cookies for this domain)"}
             </text>
           ) : (
-            <>
-              <box style={{ flexDirection: "row", paddingY: 0 }}>
-                <text fg={theme.textMuted} width={16} wrapMode="none" truncate>
-                  Name
-                </text>
-                <text fg={theme.textMuted} width={30} wrapMode="none" truncate>
-                  Value
-                </text>
-                <text fg={theme.textMuted} width={12} wrapMode="none" truncate>
-                  Path
-                </text>
-                <text fg={theme.textMuted} width={12} wrapMode="none" truncate>
-                  Expires
-                </text>
-                <text fg={theme.textMuted} wrapMode="none" truncate>
-                  Flags
-                </text>
-              </box>
-              <scrollbox
-                ref={scrollRef}
-                scrollY
-                key={cookies.length}
-                style={{ flexGrow: 1, minHeight: 0 }}
-                verticalScrollbarOptions={{
-                  trackOptions: {
-                    backgroundColor: theme.background,
-                    foregroundColor: theme.borderActive,
-                  },
-                }}
-              >
+            <scrollbox
+              ref={scrollRef}
+              scrollY
+              key={cookies.length}
+              style={{ flexGrow: 1, minHeight: 0 }}
+              verticalScrollbarOptions={{
+                trackOptions: {
+                  backgroundColor: theme.background,
+                  foregroundColor: theme.borderActive,
+                },
+              }}
+            >
+              <box style={{ flexDirection: "column", gap: 0 }}>
                 {cookies.map((cookie, i) => {
-                  const isSelected = i === cookieIndex
-                  const isHovered = hovered === i
-                  const rowBg =
-                    isSelected || isHovered
-                      ? theme.backgroundElement
-                      : i % 2 !== 0
-                        ? stripeBg
-                        : undefined
                   return (
-                    <box
+                    <CookieRow
                       key={`${cookie.name}:${cookie.path}`}
                       id={`cookie-row-${i}`}
-                      style={{
-                        flexDirection: "row",
-                        paddingY: 0,
-                        backgroundColor: rowBg,
-                      }}
-                      onMouseDown={(event) => {
-                        event.stopPropagation()
-                        if (event.button === MouseButton.LEFT) {
-                          view.selectCookie(i)
-                        }
-                        onPaneFocus?.()
-                      }}
-                      onMouseOver={() => setHovered(i)}
-                      onMouseOut={() => setHovered(null)}
-                    >
-                      <text
-                        fg={isSelected ? theme.primary : theme.text}
-                        width={16}
-                        wrapMode="none"
-                        truncate
-                      >
-                        {cookie.name}
-                      </text>
-                      <text
-                        fg={theme.textMuted}
-                        width={30}
-                        wrapMode="none"
-                        truncate
-                      >
-                        {cookie.value}
-                      </text>
-                      <text
-                        fg={theme.textMuted}
-                        width={12}
-                        wrapMode="none"
-                        truncate
-                      >
-                        {cookie.path}
-                      </text>
-                      <text
-                        fg={theme.textMuted}
-                        width={12}
-                        wrapMode="none"
-                        truncate
-                      >
-                        {expiresLabel(cookie)}
-                      </text>
-                      <text fg={theme.textMuted} wrapMode="none" truncate>
-                        {flags(cookie)}
-                      </text>
-                    </box>
+                      kindLabel="COOKIE"
+                      kindColor={theme.secondary}
+                      name={cookie.name}
+                      value={cookie.value}
+                      nameWidth={cookieNameColumnWidth}
+                      selected={i === cookieIndex}
+                      expanded={i === expandedCookieIndex}
+                      hovered={hovered === i}
+                      details={[
+                        { label: "Value", value: cookie.value || "(empty)" },
+                        ...cookieDetails(cookie),
+                      ]}
+                      onSelect={() => view.selectCookie(i)}
+                      onToggleExpanded={() => view.toggleCookieExpanded(i)}
+                      onHover={(isHovered) => setHovered(isHovered ? i : null)}
+                      onPaneFocus={onPaneFocus}
+                    />
                   )
                 })}
-              </scrollbox>
-            </>
+              </box>
+            </scrollbox>
           )}
         </>
       )}

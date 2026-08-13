@@ -138,6 +138,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
         word: "edit",
         command: "cookie.edit",
       },
+      { key: "Enter", word: "expand", command: "cookie.expand" },
       {
         key: displayKey(kb.cookie_copy),
         word: "copy",

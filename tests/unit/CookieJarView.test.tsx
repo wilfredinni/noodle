@@ -10,6 +10,8 @@ import {
 } from "../../src/cookies"
 import { CookieJarView } from "../../src/ui/cookie-jar/CookieJarView"
 import { act, useRef } from "react"
+import { MouseButtons } from "@opentui/core/testing"
+import type { Focus } from "../../src/ui/focus"
 
 const testRender = createTestRender()
 
@@ -73,9 +75,13 @@ const twoCookies = jarWith([
 function Harness({
   jar,
   onReady,
+  focus = "cookie-sidebar",
+  onPaneFocus,
 }: {
   jar: CollectionCookieJar
   onReady?: (v: ReturnType<typeof useCookieJarView>) => void
+  focus?: Focus
+  onPaneFocus?: (focus: Focus) => void
 }) {
   const view = useCookieJarView(jar)
   const ref = useRef(onReady)
@@ -86,8 +92,8 @@ function Harness({
     <CookieJarView
       view={view}
       status={{ state: "encrypted" }}
-      focus="cookie-sidebar"
-      onPaneFocus={() => {}}
+      focus={focus}
+      onPaneFocus={onPaneFocus}
     />
   )
 }
@@ -105,8 +111,141 @@ describe("CookieJarView", () => {
     expect(frame).toContain("example.com")
     expect(frame).toContain("session")
     expect(frame).toContain("scoped")
-    expect(frame).toContain("HttpOnly")
-    expect(frame).toContain("session")
+    expect(frame).toContain("COOKIE")
+  })
+
+  it("uses the response cookie accordion layout and expands details", async () => {
+    let view: ReturnType<typeof useCookieJarView> | undefined
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness jar={twoCookies} onReady={(next) => (view = next)} />
+      </ThemeProvider>,
+      { width: 100, height: 20 },
+    )
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("▸ COOKIE")
+    act(() => view!.toggleCookieExpanded())
+    await renderOnce()
+
+    const expanded = captureCharFrame()
+    expect(expanded).toContain("▾ COOKIE")
+    expect(expanded).toContain("Value")
+    expect(expanded).toContain("Domain")
+    expect(expanded).toContain("Path")
+    expect(expanded).toContain("Expires")
+    expect(expanded).toContain("Flags")
+    expect(expanded).toContain("Domain")
+  })
+
+  it("resets the expanded cookie when filtering changes the cookie list", async () => {
+    let view: ReturnType<typeof useCookieJarView> | undefined
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness jar={twoCookies} onReady={(next) => (view = next)} />
+      </ThemeProvider>,
+      { width: 100, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => view!.toggleCookieExpanded())
+    await renderOnce()
+    expect(view!.expandedCookieIndex).toBe(0)
+
+    act(() => view!.setFilter("scoped"))
+    await renderOnce()
+    expect(view!.expandedCookieIndex).toBeNull()
+  })
+
+  it("resets the expanded cookie when switching domains", async () => {
+    let view: ReturnType<typeof useCookieJarView> | undefined
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness
+          jar={jarWith([
+            {
+              name: "first",
+              value: "one",
+              domain: "a.example.com",
+              path: "/",
+              expires: null,
+              secure: false,
+              httpOnly: false,
+              hostOnly: true,
+            },
+            {
+              name: "second",
+              value: "two",
+              domain: "b.example.com",
+              path: "/",
+              expires: null,
+              secure: false,
+              httpOnly: false,
+              hostOnly: true,
+            },
+          ])}
+          onReady={(next) => (view = next)}
+        />
+      </ThemeProvider>,
+      { width: 100, height: 20 },
+    )
+    await renderOnce()
+
+    act(() => view!.toggleCookieExpanded())
+    await renderOnce()
+    expect(view!.expandedCookieIndex).toBe(0)
+
+    act(() => view!.selectDomain("b.example.com"))
+    await renderOnce()
+    expect(view!.selectedDomain).toBe("b.example.com")
+    expect(view!.expandedCookieIndex).toBeNull()
+  })
+
+  it("wraps long cookie values and toggles expansion with a mouse click", async () => {
+    let paneFocused = false
+    const longValue = `prefix-${"x".repeat(90)}-tail`
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
+      await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            jar={jarWith([
+              {
+                name: "session",
+                value: longValue,
+                domain: "example.com",
+                path: "/",
+                expires: null,
+                secure: true,
+                httpOnly: true,
+                hostOnly: false,
+                sameSite: "strict",
+              },
+            ])}
+            focus="cookie-list"
+            onPaneFocus={() => {
+              paneFocused = true
+            }}
+          />
+        </ThemeProvider>,
+        { width: 100, height: 24 },
+      )
+    await renderOnce()
+
+    const row = renderer.root.findDescendantById("cookie-row-0")
+    expect(row).toBeDefined()
+    const x = row!.screenX + 3
+    const y = row!.screenY
+    await act(async () => mockMouse.click(x, y, MouseButtons.LEFT))
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(paneFocused).toBe(true)
+    expect(frame).toContain("▾ COOKIE")
+    expect(frame).toContain("Value")
+    expect(frame).toContain("tail")
+    expect(frame).toMatch(
+      /Flags\s+Secure · HttpOnly · SameSite=strict · Doma[\s\S]*\n.*in/,
+    )
   })
 
   it("groups cookies by domain and selects first", async () => {
@@ -228,6 +367,7 @@ describe("CookieJarView", () => {
             selectedDomain: null,
             domainIndex: 0,
             cookieIndex: 0,
+            expandedCookieIndex: null,
             filter: "",
             filtering: false,
             refresh: () => {},
@@ -237,6 +377,7 @@ describe("CookieJarView", () => {
             cookieUp: () => {},
             cookieDown: () => {},
             selectCookie: () => {},
+            toggleCookieExpanded: () => {},
             setFilter: () => {},
             setFiltering: () => {},
             deleteSelectedCookie: () => {},

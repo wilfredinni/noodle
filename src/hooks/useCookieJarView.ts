@@ -13,6 +13,7 @@ export interface UseCookieJarViewResult {
   selectedDomain: string | null
   domainIndex: number
   cookieIndex: number
+  expandedCookieIndex: number | null
   filter: string
   filtering: boolean
   refresh: () => void
@@ -22,6 +23,7 @@ export interface UseCookieJarViewResult {
   cookieUp: () => void
   cookieDown: () => void
   selectCookie: (index: number) => void
+  toggleCookieExpanded: (index?: number) => void
   setFilter: (value: string) => void
   setFiltering: (value: boolean) => void
   deleteSelectedCookie: () => void
@@ -54,6 +56,9 @@ export function useCookieJarView(
   const [version, setVersion] = useState(0)
   const [domainIndex, setDomainIndex] = useState(0)
   const [cookieIndex, setCookieIndex] = useState(0)
+  const [expandedCookieIndex, setExpandedCookieIndex] = useState<number | null>(
+    null,
+  )
   const [filter, setFilter] = useState("")
   const [filtering, setFiltering] = useState(false)
 
@@ -77,6 +82,9 @@ export function useCookieJarView(
   useEffect(() => {
     setCookieIndex((index) => Math.min(index, Math.max(cookies.length - 1, 0)))
   }, [cookies.length])
+  useEffect(() => {
+    setExpandedCookieIndex(null)
+  }, [selectedDomain, filter, version])
 
   const refresh = useCallback(() => setVersion((v) => v + 1), [])
   useEffect(() => jar?.subscribe(refresh), [jar, refresh])
@@ -127,6 +135,14 @@ export function useCookieJarView(
       ),
     [cookies.length],
   )
+  const toggleCookieExpanded = useCallback(
+    (targetIndex = cookieIndex) => {
+      setExpandedCookieIndex((currentIndex) =>
+        currentIndex === targetIndex ? null : targetIndex,
+      )
+    },
+    [cookieIndex],
+  )
 
   const deleteSelectedCookie = useCallback(() => {
     if (!jar) return
@@ -154,6 +170,7 @@ export function useCookieJarView(
     selectedDomain,
     domainIndex,
     cookieIndex,
+    expandedCookieIndex,
     filter,
     filtering,
     refresh,
@@ -163,6 +180,7 @@ export function useCookieJarView(
     cookieUp,
     cookieDown,
     selectCookie,
+    toggleCookieExpanded,
     setFilter,
     setFiltering,
     deleteSelectedCookie,

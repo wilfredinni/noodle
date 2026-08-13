@@ -82,6 +82,12 @@ export function createCookieJarLayers(
         },
       },
       {
+        name: "cookie.expand",
+        enabled: () =>
+          isList() && !view().filtering && Boolean(view().cookies.length),
+        run: () => view().toggleCookieExpanded(),
+      },
+      {
         name: "cookie.copy",
         enabled: () => isList() && Boolean(view().cookies.length),
         run: () => {
@@ -121,6 +127,7 @@ export function createCookieJarLayers(
       { key: keybinds.cookie_clear, cmd: "cookie.clear" },
       { key: keybinds.cookie_new, cmd: "cookie.new" },
       { key: keybinds.cookie_edit, cmd: "cookie.edit" },
+      { key: "return", cmd: "cookie.expand" },
       { key: keybinds.cookie_copy, cmd: "cookie.copy" },
       { key: "/", cmd: "cookie.filter" },
       { key: "r", cmd: "cookie.retry-storage" },
