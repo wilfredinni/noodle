@@ -9,7 +9,7 @@ import {
 } from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
-import type { NetworkError, TimelineEntry } from "../schema"
+import type { NetworkError, ResponseCookie, TimelineEntry } from "../schema"
 import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
@@ -36,6 +36,7 @@ import type { ResponseTabKind } from "./tabs/uiState"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
+const COOKIE_CHEVRON_WIDTH = 2
 const TAB_DEFS: TabDef[] = [
   { id: "body", label: "Body" },
   { id: "headers", label: "Headers" },
@@ -43,6 +44,54 @@ const TAB_DEFS: TabDef[] = [
   { id: "timeline", label: "Timeline" },
   { id: "cookies", label: "Cookies" },
 ]
+
+function cookieNameWidth(cookies: Array<{ name: string }>): number {
+  return Math.min(24, Math.max(...cookies.map(({ name }) => name.length)) + 2)
+}
+
+function formatCookieExpiry(expires: string | null): string {
+  if (expires === null) return "session"
+  const parsed = new Date(expires)
+  if (Number.isNaN(parsed.getTime())) return expires
+  return `${parsed.toISOString().slice(0, 16).replace("T", " ")} GMT`
+}
+
+function isDeletedCookie(cookie: ResponseCookie): boolean {
+  if (cookie.expires === null) return false
+  const expires = Date.parse(cookie.expires)
+  return !Number.isNaN(expires) && expires <= Date.now()
+}
+
+function cookieDetails(
+  cookie: ResponseCookie,
+  deleted: boolean,
+): Array<{ label: string; value: string }> {
+  const flags = [
+    cookie.secure ? "Secure" : "",
+    cookie.httpOnly ? "HttpOnly" : "",
+    cookie.sameSite ? `SameSite=${cookie.sameSite}` : "",
+  ].filter(Boolean)
+
+  return [
+    { label: "Domain", value: cookie.domain ?? "host only" },
+    { label: "Path", value: cookie.path ?? "default path" },
+    {
+      label: deleted ? "Expired" : "Expires",
+      value: formatCookieExpiry(cookie.expires),
+    },
+    ...(flags.length > 0 ? [{ label: "Flags", value: flags.join(" · ") }] : []),
+  ]
+}
+
+type CookieTimelineRow =
+  | { kind: "sent"; name: string; value: string }
+  | {
+      kind: "received"
+      name: string
+      value: string
+      cookie: ResponseCookie
+      deleted: boolean
+    }
 
 export function ResponsePane({
   state,
@@ -106,6 +155,29 @@ export function ResponsePane({
   const [settledQuery, setSettledQuery] = useState("")
   const [showLargeBody, setShowLargeBody] = useState(false)
   const isDone = state.status === "done"
+  const sentCookies = isDone ? (state.response.sentCookies ?? []) : []
+  const responseCookies = isDone ? (state.response.cookies ?? []) : []
+  const cookieRows: CookieTimelineRow[] = [
+    ...sentCookies.map(({ name, value }) => ({
+      kind: "sent" as const,
+      name,
+      value,
+    })),
+    ...responseCookies.map((cookie) => ({
+      kind: "received" as const,
+      name: cookie.name,
+      value: cookie.value,
+      cookie,
+      deleted: isDeletedCookie(cookie),
+    })),
+  ]
+  const cookieNameColumnWidth =
+    cookieRows.length === 0 ? 0 : cookieNameWidth(cookieRows)
+  const [selectedCookieIdx, setSelectedCookieIdx] = useState(0)
+  const [expandedCookieIdx, setExpandedCookieIdx] = useState<number | null>(
+    null,
+  )
+  const [hoveredCookieIdx, setHoveredCookieIdx] = useState<number | null>(null)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const queryInputRef = useRef<InputRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
@@ -152,6 +224,12 @@ export function ResponsePane({
     onQueryVisibleChangeRef.current?.(queryVisible)
   }, [queryVisible])
 
+  useEffect(() => {
+    setSelectedCookieIdx(0)
+    setExpandedCookieIdx(null)
+    setHoveredCookieIdx(null)
+  }, [activeTab, responseKey, state.status])
+
   useKeyboard((key) => {
     if (!focusedRef.current) return
     if (!isActiveRef.current) return
@@ -186,6 +264,53 @@ export function ResponsePane({
     } else if (key.name === "v" && activeTab === "body") {
       setShowLargeBody(true)
     } else if (activeTab === "timeline") {
+      return
+    } else if (activeTab === "cookies") {
+      if (cookieRows.length === 0) return
+      if (key.name === "up" || key.name === "down") {
+        key.preventDefault()
+        setSelectedCookieIdx((prev) => {
+          const next =
+            key.name === "up"
+              ? prev <= 0
+                ? cookieRows.length - 1
+                : prev - 1
+              : prev >= cookieRows.length - 1
+                ? 0
+                : prev + 1
+          queueMicrotask(() =>
+            scrollRef.current?.scrollChildIntoView(`response-cookie-${next}`),
+          )
+          return next
+        })
+      } else if (key.name === "return") {
+        key.preventDefault()
+        setExpandedCookieIdx((prev) =>
+          prev === selectedCookieIdx ? null : selectedCookieIdx,
+        )
+        queueMicrotask(() =>
+          scrollRef.current?.scrollChildIntoView(
+            `response-cookie-${selectedCookieIdx}`,
+          ),
+        )
+      } else if (key.name === "pagedown") {
+        scrollRef.current?.scrollBy(1, "viewport")
+      } else if (key.name === "pageup") {
+        scrollRef.current?.scrollBy(-1, "viewport")
+      } else if (key.name === "home") {
+        key.preventDefault()
+        setSelectedCookieIdx(0)
+        scrollRef.current?.scrollTo(0)
+      } else if (key.name === "end") {
+        key.preventDefault()
+        setSelectedCookieIdx(Math.max(0, cookieRows.length - 1))
+        scrollRef.current?.scrollTo(
+          Math.max(
+            0,
+            scrollRef.current.scrollHeight - scrollRef.current.height,
+          ),
+        )
+      }
       return
     } else if (activeTab === "body" && bodyEditorRef.current) {
       if (key.shift && bodyEditorRef.current.handleKeyPress(key)) {
@@ -297,7 +422,6 @@ export function ResponsePane({
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   const responseHeaders = isDone ? formatHeaders(state.response) : []
-  const responseCookies = isDone ? (state.response.cookies ?? []) : []
   const networkEvents =
     state.status === "sending"
       ? state.network
@@ -685,65 +809,165 @@ export function ResponsePane({
                 }}
                 style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
               >
-                {responseCookies.length === 0 ? (
-                  <text fg={theme.textMuted}>No cookies in this response.</text>
+                {cookieRows.length === 0 ? (
+                  <text fg={theme.textMuted}>No cookies captured.</text>
                 ) : (
                   <box style={{ flexDirection: "column", gap: 0 }}>
-                    {responseCookies.map((cookie, i) => (
-                      <box
-                        key={`${cookie.name}:${cookie.path ?? "/"}`}
-                        style={{
-                          flexDirection: "row",
-                          gap: 0,
-                          backgroundColor:
-                            i % 2 !== 0 ? theme.backgroundElement : undefined,
-                        }}
-                      >
-                        <text
-                          fg={theme.primary}
-                          width={18}
-                          wrapMode="none"
-                          truncate
+                    {cookieRows.map((row, idx) => {
+                      const isSelected = idx === selectedCookieIdx
+                      const isExpanded = idx === expandedCookieIdx
+                      const deleted = row.kind === "received" && row.deleted
+                      const rowColor =
+                        row.kind === "sent" ? theme.info : theme.secondary
+                      const valueColor = deleted ? theme.error : theme.textMuted
+                      const direction = row.kind.toUpperCase()
+                      const chevron = isExpanded ? "▾" : "▸"
+
+                      return (
+                        <box
+                          id={`response-cookie-${idx}`}
+                          key={`${row.kind}:${row.name}:${idx}`}
+                          style={{
+                            flexDirection: "column",
+                            paddingLeft: 1,
+                            paddingRight: 1,
+                            backgroundColor:
+                              isSelected || hoveredCookieIdx === idx
+                                ? theme.backgroundElement
+                                : undefined,
+                          }}
+                          onMouseDown={(event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            onPaneFocus?.()
+                            setSelectedCookieIdx(idx)
+                            setExpandedCookieIdx((prev) =>
+                              prev === idx ? null : idx,
+                            )
+                            event.stopPropagation()
+                          }}
+                          onMouseOver={() => setHoveredCookieIdx(idx)}
+                          onMouseOut={() => setHoveredCookieIdx(null)}
                         >
-                          {cookie.name}
-                        </text>
-                        <text
-                          fg={theme.text}
-                          width={34}
-                          wrapMode="none"
-                          truncate
-                        >
-                          {cookie.value}
-                        </text>
-                        <text
-                          fg={theme.textMuted}
-                          width={12}
-                          wrapMode="none"
-                          truncate
-                        >
-                          {cookie.path ?? "/"}
-                        </text>
-                        <text
-                          fg={theme.textMuted}
-                          width={12}
-                          wrapMode="none"
-                          truncate
-                        >
-                          {cookie.expires === null
-                            ? "session"
-                            : cookie.expires.slice(0, 10)}
-                        </text>
-                        <text fg={theme.textMuted} wrapMode="none" truncate>
-                          {[
-                            cookie.httpOnly ? "HttpOnly" : "",
-                            cookie.secure ? "Secure" : "",
-                            cookie.sameSite ?? "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </text>
-                      </box>
-                    ))}
+                          <box style={{ flexDirection: "row", minWidth: 0 }}>
+                            <box
+                              style={{
+                                width: COOKIE_CHEVRON_WIDTH,
+                                flexShrink: 0,
+                              }}
+                            >
+                              <text
+                                fg={isSelected ? theme.text : theme.textMuted}
+                              >
+                                {chevron}
+                              </text>
+                            </box>
+                            <box style={{ width: 10, flexShrink: 0 }}>
+                              <text fg={rowColor} wrapMode="none">
+                                {direction}
+                              </text>
+                            </box>
+                            <box
+                              style={{
+                                width: cookieNameColumnWidth,
+                                flexShrink: 0,
+                                overflow: "hidden",
+                              }}
+                            >
+                              <text fg={theme.text} wrapMode="none" truncate>
+                                {row.name}
+                              </text>
+                            </box>
+                            <text
+                              fg={valueColor}
+                              wrapMode="none"
+                              truncate
+                              style={{
+                                flexGrow: 1,
+                                flexShrink: 1,
+                                minWidth: 0,
+                              }}
+                            >
+                              {deleted ? "Deleted" : row.value || "(empty)"}
+                            </text>
+                          </box>
+                          {isExpanded && row.kind === "received" ? (
+                            <>
+                              <box
+                                style={{
+                                  flexDirection: "row",
+                                  paddingLeft: COOKIE_CHEVRON_WIDTH,
+                                }}
+                              >
+                                <text
+                                  fg={theme.text}
+                                  width={cookieNameColumnWidth}
+                                  wrapMode="none"
+                                >
+                                  Value
+                                </text>
+                                <text
+                                  fg={valueColor}
+                                  wrapMode="char"
+                                  style={{
+                                    flexGrow: 1,
+                                    flexShrink: 1,
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  {row.deleted
+                                    ? "Deleted"
+                                    : row.value || "(empty)"}
+                                </text>
+                              </box>
+                              {cookieDetails(row.cookie, row.deleted).map(
+                                ({ label, value }) => (
+                                  <box
+                                    key={label}
+                                    style={{
+                                      flexDirection: "row",
+                                      paddingLeft: COOKIE_CHEVRON_WIDTH,
+                                    }}
+                                  >
+                                    <text
+                                      fg={theme.text}
+                                      width={cookieNameColumnWidth}
+                                      wrapMode="none"
+                                    >
+                                      {label}
+                                    </text>
+                                    <text
+                                      fg={theme.textMuted}
+                                      wrapMode="char"
+                                      style={{
+                                        flexGrow: 1,
+                                        flexShrink: 1,
+                                        minWidth: 0,
+                                      }}
+                                    >
+                                      {value}
+                                    </text>
+                                  </box>
+                                ),
+                              )}
+                            </>
+                          ) : isExpanded ? (
+                            <box style={{ paddingLeft: COOKIE_CHEVRON_WIDTH }}>
+                              <text
+                                fg={valueColor}
+                                wrapMode="char"
+                                style={{
+                                  flexGrow: 1,
+                                  flexShrink: 1,
+                                  minWidth: 0,
+                                }}
+                              >
+                                {row.value || "(empty)"}
+                              </text>
+                            </box>
+                          ) : null}
+                        </box>
+                      )
+                    })}
                   </box>
                 )}
               </scrollbox>

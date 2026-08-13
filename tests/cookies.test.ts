@@ -257,6 +257,20 @@ describe("CollectionCookieJar", () => {
     expect(storedExpiry).toBeLessThanOrEqual(Date.now() + 3_700_000)
   })
 
+  it("reports zero Max-Age expiry for a non-empty response cookie", () => {
+    const headers = new Headers({
+      "set-cookie": "session=revoke; Path=/; Max-Age=0",
+    })
+
+    expect(parseResponseCookies(headers)).toEqual([
+      expect.objectContaining({
+        name: "session",
+        value: "revoke",
+        expires: "1970-01-01T00:00:00.000Z",
+      }),
+    ])
+  })
+
   it("merges mutations from independently opened handles", async () => {
     const first = await CollectionCookieJar.open(configDir, "shared")
     const second = await CollectionCookieJar.open(configDir, "shared")

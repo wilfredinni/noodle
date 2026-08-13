@@ -93,9 +93,13 @@ describe("send with cookie jar", () => {
       ...baseReq,
       url: `http://localhost:${port}/admin/users`,
     }
-    await send(check, { cookies: jar })
+    const checkResponse = await send(check, { cookies: jar })
     expect(seenCookies).toContain("scoped=yes; session=abc123")
     expect(seenCookies).not.toContain("other=x")
+    expect(checkResponse.sentCookies).toEqual([
+      { name: "scoped", value: "yes" },
+      { name: "session", value: "abc123" },
+    ])
   })
 
   it("captures cookies across redirects and keeps user Cookie header precedence", async () => {
@@ -106,8 +110,11 @@ describe("send with cookie jar", () => {
       url: `http://localhost:${port}/redirect`,
       headers: { Cookie: { enabled: true, value: "session=userwin" } },
     }
-    await send(req, { cookies: jar })
+    const response = await send(req, { cookies: jar })
     expect(seenCookies).toEqual(["session=userwin", "session=userwin"])
+    expect(response.sentCookies).toEqual([
+      { name: "session", value: "userwin" },
+    ])
   })
 
   it("does not send cookies without an explicit jar option", async () => {

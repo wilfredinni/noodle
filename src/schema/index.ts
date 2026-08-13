@@ -103,7 +103,13 @@ export interface Response {
   body: string
   timeMs: number
   network?: NetworkEvent[]
+  sentCookies?: CookiePair[]
   cookies?: ResponseCookie[]
+}
+
+export interface CookiePair {
+  name: string
+  value: string
 }
 
 export type NetworkEventType =

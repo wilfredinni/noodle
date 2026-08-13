@@ -1,5 +1,6 @@
 import type {
   Auth,
+  CookiePair,
   Collection,
   Environment,
   KvEntry,
@@ -204,6 +205,7 @@ export async function send(
   let redirectCount = 0
   let awsSigningEnabled = substituted.auth?.type === "aws_sigv4"
   let ntlmEnabled = substituted.auth?.type === "ntlm"
+  let sentCookies: CookiePair[] = []
   const maxRedirects = req.maxRedirects ?? 5
   const followRedirects = req.followRedirects ?? true
 
@@ -278,6 +280,7 @@ export async function send(
         headers: legHeaders,
         ...(ntlmEnabled ? { keepalive: true } : {}),
       }
+      sentCookies = parseCookieHeader(legHeaders.get("cookie"))
       recordNetworkEvent(
         network,
         start,
@@ -518,8 +521,19 @@ export async function send(
     body,
     timeMs: performance.now() - start,
     network,
+    sentCookies,
     cookies: parseResponseCookies(res.headers),
   }
+}
+
+function parseCookieHeader(header: string | null): CookiePair[] {
+  if (!header) return []
+  return header.split(";").flatMap((part) => {
+    const separator = part.indexOf("=")
+    const name = part.slice(0, separator).trim()
+    if (separator < 1 || name === "") return []
+    return [{ name, value: part.slice(separator + 1).trim() }]
+  })
 }
 
 function stripCrossOriginCredentials(

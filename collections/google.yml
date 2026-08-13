@@ -1,0 +1,8 @@
+name: Google
+method: GET
+url: www.google.com
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body: ''
+body_type: none
