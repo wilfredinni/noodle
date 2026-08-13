@@ -77,6 +77,7 @@ const KEYBIND_CATEGORIES: readonly KeybindCategory[] = [
   "Navigation",
   "Request",
   "Environment",
+  "Cookies",
   "Workspace",
   "System",
 ]

@@ -260,10 +260,13 @@ describe("request_edit_yaml", () => {
 })
 
 describe("cookie jar shortcuts", () => {
-  it("uses edit, delete, and bulk-delete conventions", () => {
+  it("uses Ctrl+W for domains and Ctrl+D for cookies", () => {
     expect(Definitions.cookie_edit.default).toBe("ctrl+e")
     expect(Definitions.cookie_delete.default).toBe("ctrl+w")
-    expect(Definitions.cookie_clear.default).toBe("ctrl+shift+w")
+    expect(Definitions.cookie_delete.description).toBe("Delete domain")
+    expect(Definitions.cookie_delete_domain.default).toBe("ctrl+d")
+    expect(Definitions.cookie_delete_domain.description).toBe("Delete cookie")
+    expect(Definitions.cookie_clear.default).toBe("ctrl+alt+w")
   })
 })
 

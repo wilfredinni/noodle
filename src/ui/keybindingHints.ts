@@ -119,9 +119,9 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     if (ctx.focus === "cookie-sidebar") {
       return [
         {
-          key: displayKey(kb.cookie_delete_domain),
+          key: displayKey(kb.cookie_delete),
           word: "delete domain",
-          command: "cookie.delete-domain",
+          command: "cookie.delete",
         },
         {
           key: displayKey(kb.cookie_clear),
@@ -140,14 +140,14 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       },
       { key: "Enter", word: "expand", command: "cookie.expand" },
       {
+        key: displayKey(kb.cookie_delete_domain),
+        word: "delete",
+        command: "cookie.delete-cookie",
+      },
+      {
         key: displayKey(kb.cookie_copy),
         word: "copy",
         command: "cookie.copy",
-      },
-      {
-        key: displayKey(kb.cookie_delete),
-        word: "delete",
-        command: "cookie.delete",
       },
       { key: "/", word: "filter", command: "cookie.filter" },
       { key: "Esc", word: "close", command: "cookie.close" },

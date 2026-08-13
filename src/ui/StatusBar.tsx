@@ -13,7 +13,7 @@ import type { CookieJarStatus } from "../cookies"
 
 const HINT_HORIZONTAL_PADDING = 2
 const HINT_ITEM_GAP = 1
-const MAX_CONTEXTUAL_HINTS = 3
+const MAX_CONTEXTUAL_HINTS = 5
 
 export interface StatusBarSections {
   left: string
@@ -244,9 +244,10 @@ export function StatusBar(input: {
   )
 
   let showCommands =
-    expandSegment.length > 0 ||
-    collectionMode !== "collection" ||
-    input.footerHints.length > MAX_CONTEXTUAL_HINTS
+    view !== "cookie-jar" &&
+    (expandSegment.length > 0 ||
+      collectionMode !== "collection" ||
+      input.footerHints.length > MAX_CONTEXTUAL_HINTS)
   let visibleContextual = fitSegments(contextualHints, leftBudget)
   if (visibleContextual.length < contextualHints.length) showCommands = true
 

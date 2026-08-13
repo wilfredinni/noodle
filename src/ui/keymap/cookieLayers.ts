@@ -26,6 +26,15 @@ export function createCookieJarLayers(
       },
       {
         name: "cookie.delete",
+        enabled: () => isSidebar() && view().selectedDomain !== null,
+        run: () => {
+          const state = view()
+          const domain = state.selectedDomain
+          if (domain) cookies.setCookieDeletePending({ kind: "domain", domain })
+        },
+      },
+      {
+        name: "cookie.delete-cookie",
         enabled: () => isList() && Boolean(view().cookies.length),
         run: () => {
           const state = view()
@@ -37,15 +46,6 @@ export function createCookieJarLayers(
             domain: cookie.domain,
             path: cookie.path,
           })
-        },
-      },
-      {
-        name: "cookie.delete-domain",
-        enabled: () => isSidebar() && view().selectedDomain !== null,
-        run: () => {
-          const domain = view().selectedDomain
-          if (!domain) return
-          cookies.setCookieDeletePending({ kind: "domain", domain })
         },
       },
       {
@@ -123,7 +123,7 @@ export function createCookieJarLayers(
     bindings: [
       { key: "escape", cmd: "cookie.close" },
       { key: keybinds.cookie_delete, cmd: "cookie.delete" },
-      { key: keybinds.cookie_delete_domain, cmd: "cookie.delete-domain" },
+      { key: keybinds.cookie_delete_domain, cmd: "cookie.delete-cookie" },
       { key: keybinds.cookie_clear, cmd: "cookie.clear" },
       { key: keybinds.cookie_new, cmd: "cookie.new" },
       { key: keybinds.cookie_edit, cmd: "cookie.edit" },

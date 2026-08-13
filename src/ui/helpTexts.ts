@@ -185,11 +185,11 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
         {
           key: displayKey(keybinds.cookie_delete),
-          description: "Delete cookie",
+          description: "Delete selected domain",
         },
         {
           key: displayKey(keybinds.cookie_delete_domain),
-          description: "Delete cookies for domain",
+          description: "Delete selected cookie",
         },
         {
           key: displayKey(keybinds.cookie_clear),

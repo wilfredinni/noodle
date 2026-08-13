@@ -149,7 +149,7 @@ describe("getKeybindingHints footer", () => {
     ])
   })
 
-  it("uses Ctrl+E to edit and a bulk-delete shortcut to clear cookies", () => {
+  it("uses Ctrl+W for domains and Ctrl+D for individual cookies", () => {
     expect(
       getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
         .footer,
@@ -162,6 +162,10 @@ describe("getKeybindingHints footer", () => {
     expect(
       getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-sidebar" }))
         .footer,
-    ).toContainEqual(seg("^shift+w", "clear all", "cookie.clear"))
+    ).toContainEqual(seg("^w", "delete domain", "cookie.delete"))
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
+        .footer,
+    ).toContainEqual(seg("^d", "delete", "cookie.delete-cookie"))
   })
 })

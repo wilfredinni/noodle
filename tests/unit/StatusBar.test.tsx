@@ -52,7 +52,7 @@ describe("StatusBar component", () => {
     expect(captureCharFrame()).toContain("cookies plaintext")
   })
 
-  it("renders three contextual actions, Commands, and pinned Send", async () => {
+  it("renders up to five contextual actions and pinned Send", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
@@ -71,13 +71,11 @@ describe("StatusBar component", () => {
     expect(frame).not.toContain("SIDEBAR")
     expect(frame).toContain("new folder")
     expect(frame).toContain("clone")
-    expect(frame).toContain("commands")
     expect(frame).toContain("send")
-    expect(frame).not.toContain("delete")
-    expect(frame).not.toContain("save")
+    expect(frame).toContain("delete")
+    expect(frame).toContain("save")
     expect(frame).not.toContain("jump")
     expect(frame).not.toContain("help")
-    expect(frame.indexOf("send")).toBeGreaterThan(frame.indexOf("commands"))
   })
 
   it("replaces the footer with transient overlay and jump instructions", async () => {
@@ -188,13 +186,46 @@ describe("StatusBar component", () => {
     expect(frame).toContain("Space")
     expect(frame).toContain("^d")
     expect(frame).toContain("^s")
-    expect(frame).toContain("^p")
+    expect(frame).not.toContain("^p")
     expect(frame).not.toContain("toggle")
     expect(frame).not.toContain("commands")
     expect(frame).toContain("send")
   })
 
-  it("keeps Commands and Send on narrow terminals", async () => {
+  it("prioritizes Cookie Jar delete and hides Commands from its footer", async () => {
+    const footerHints = getKeybindingHints({
+      view: "cookie-jar",
+      focus: "cookie-list",
+      paneMode: "base",
+      collectionMode: "collection",
+      overlayActive: false,
+      jumpMode: false,
+      sendState: { status: "idle" },
+      keybinds: kb,
+    }).footer
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          view="cookie-jar"
+          globalHints={emptyHints}
+          footerHints={footerHints}
+        />
+      </ThemeProvider>,
+      { width: 100, height: 1 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("add")
+    expect(frame).toContain("edit")
+    expect(frame).toContain("expand")
+    expect(frame).toContain("delete")
+    expect(frame).toContain("^d")
+    expect(frame).not.toContain("commands")
+  })
+
+  it("keeps contextual hints and Send on narrow terminals", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <StatusBar
@@ -214,7 +245,7 @@ describe("StatusBar component", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).toContain("^p")
+    expect(frame).not.toContain("^p")
     expect(frame).toContain("send")
   })
 

@@ -50,6 +50,12 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     settingsOpened: false,
     cookieExpand: 0,
     cookieEdit: 0,
+    cookieDelete: [] as Array<{
+      kind: string
+      domain?: string
+      name?: string
+      path?: string
+    }>,
   }
   const request = {
     ebRef: {
@@ -118,7 +124,14 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       if (visible) calls.cookieEdit++
     },
     setCookieFormInitial: () => {},
-    setCookieDeletePending: () => {},
+    setCookieDeletePending: (pending: {
+      kind: string
+      domain?: string
+      name?: string
+      path?: string
+    }) => {
+      calls.cookieDelete.push(pending)
+    },
     retryCookieStorage: () => {},
   }
   const context = {
@@ -196,6 +209,48 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("keeps Ctrl+W for primary items and Ctrl+D for secondary rows", () => {
+    const { keymap, cleanup } = setup()
+    const { context } = createContext(keymap)
+    const layers = createAppKeymapLayers(context)
+    const bindings = (index: number) =>
+      layers[index]!.bindings as Array<{ key: string; cmd: string }>
+
+    expect(bindings(2)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "request.delete",
+    })
+    expect(bindings(4)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "browse.delete",
+    })
+    expect(bindings(6)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "folder.delete",
+    })
+    expect(bindings(7)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "folder-browse.revert-field",
+    })
+    expect(bindings(10)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "env.delete",
+    })
+    expect(bindings(11)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "env-browse.revert",
+    })
+    expect(bindings(13)).toContainEqual({
+      key: "ctrl+w",
+      cmd: "cookie.delete",
+    })
+    expect(bindings(13)).toContainEqual({
+      key: "ctrl+d",
+      cmd: "cookie.delete-cookie",
+    })
+    cleanup()
+  })
+
   it("uses Enter to expand, Ctrl+E to edit, and keeps clone non-destructive", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
@@ -231,7 +286,7 @@ describe("app keymap layers", () => {
       cmd: "cookie.delete",
     })
     expect(cookieBindings).toContainEqual({
-      key: "ctrl+shift+w",
+      key: "ctrl+alt+w",
       cmd: "cookie.clear",
     })
     expect(cookieBindings).not.toContainEqual({
@@ -242,6 +297,42 @@ describe("app keymap layers", () => {
       key: "return",
       cmd: "cookie.edit",
     })
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("uses Ctrl+W for the primary domain and Ctrl+D for its cookie", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.cookies.cookieJarViewRef.current.domains = [
+      { domain: "example.com", count: 1 },
+    ]
+    context.cookies.cookieJarViewRef.current.selectedDomain = "example.com"
+    context.cookies.cookieJarViewRef.current.cookies = [
+      {
+        name: "session",
+        value: "abc",
+        domain: "example.com",
+        path: "/",
+        expires: null,
+        secure: false,
+        httpOnly: false,
+        hostOnly: true,
+      },
+    ]
+    keymap.setData("app.view", "cookie-jar")
+    keymap.setData("app.overlay", "none")
+    const disposers = register(context)
+
+    keymap.setData("app.focus", "cookie-sidebar")
+    host.press("w", { ctrl: true })
+    keymap.setData("app.focus", "cookie-list")
+    host.press("d", { ctrl: true })
+
+    expect(calls.cookieDelete).toEqual([
+      { kind: "domain", domain: "example.com" },
+      { kind: "cookie", name: "session", domain: "example.com", path: "/" },
+    ])
     disposers.forEach((dispose) => dispose())
     cleanup()
   })
