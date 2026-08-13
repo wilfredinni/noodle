@@ -26,6 +26,7 @@ import {
   type NtlmChallenge,
 } from "./ntlm"
 import { createNtlmConnection, type NtlmConnection } from "./ntlmConnection"
+import { parseResponseCookies, type CollectionCookieJar } from "../cookies"
 
 export interface RequestExecutionOptions {
   environment?: Environment
@@ -35,6 +36,7 @@ export interface RequestExecutionOptions {
   onNetworkEvent?: (network: NetworkEvent[]) => void
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
+  cookies?: CollectionCookieJar
 }
 
 export function interpolatePathParams(
@@ -93,6 +95,7 @@ export async function send(
     onNetworkEvent,
     proxyPolicy,
     tlsPolicy,
+    cookies,
   } = options
   const merged =
     collection && requestPath
@@ -255,6 +258,16 @@ export async function send(
         if (authorization) legHeaders.set("authorization", authorization)
         else legHeaders.delete("authorization")
       }
+      if (cookies && substituted.sendCookies !== false) {
+        const jarHeader = cookies.cookieHeaderFor(currentUrl)
+        if (jarHeader) {
+          const existing = legHeaders.get("cookie")
+          legHeaders.set(
+            "cookie",
+            existing ? mergeCookieHeader(existing, jarHeader) : jarHeader,
+          )
+        }
+      }
       const legInit: RequestInit = {
         ...currentInit,
         headers: legHeaders,
@@ -339,6 +352,9 @@ export async function send(
 
     try {
       res = await fetchOnce()
+      if (cookies && substituted.sendCookies !== false) {
+        cookies.storeResponseCookies(currentUrl, res.headers)
+      }
       if (
         ntlmEnabled &&
         substituted.auth?.type === "ntlm" &&
@@ -497,6 +513,7 @@ export async function send(
     body,
     timeMs: performance.now() - start,
     network,
+    cookies: parseResponseCookies(res.headers),
   }
 }
 
@@ -516,6 +533,21 @@ function stripCrossOriginCredentials(
     if (name) result.delete(name)
   }
   return result
+}
+
+// User-authored Cookie header entries win; jar cookies fill missing names.
+function mergeCookieHeader(userHeader: string, jarHeader: string): string {
+  const names = new Set(
+    userHeader
+      .split(";")
+      .map((part) => part.split("=")[0]?.trim())
+      .filter(Boolean),
+  )
+  const extras = jarHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part && !names.has(part.split("=")[0]?.trim()))
+  return [userHeader, ...extras].join("; ")
 }
 
 function recordNetworkEvent(
