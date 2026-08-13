@@ -9,6 +9,8 @@ import {
   collectionInit,
   collectionList,
   collectionRun,
+  cookieClear,
+  cookieList,
   environmentSet,
   requestCreate,
   requestRun,
@@ -621,5 +623,83 @@ describe("automation services", () => {
     for (const id of ["../secret", "nested/", "nested//request", ".hidden"]) {
       expect(() => validateId(id)).toThrow(`invalid request id "${id}"`)
     }
+  })
+})
+
+describe("automation cookie jar", () => {
+  function memoryBackend(): SecretBackend {
+    const values = new Map<string, string>()
+    return {
+      async get({ service, name }) {
+        return values.get(`${service}:${name}`) ?? null
+      },
+      async set({ service, name, value }) {
+        values.set(`${service}:${name}`, value)
+      },
+      async delete({ service, name }) {
+        return values.delete(`${service}:${name}`)
+      },
+    }
+  }
+
+  it("lists and clears the per-collection cookie jar", async () => {
+    setSecretBackendForTests(memoryBackend())
+    const collectionDir = join(dir, "collection")
+    await mkdir(collectionDir)
+    await writeFile(join(collectionDir, "settings.yml"), "", "utf8")
+    await writeFile(
+      join(collectionDir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+      "utf8",
+    )
+    const configDir = join(dir, "config")
+
+    expect(await cookieList(collectionDir, configDir)).toEqual({
+      disabled: false,
+      cookies: [],
+    })
+
+    const { loadSettings } = await import("../../src/filestore")
+    const collectionId = (await loadSettings(collectionDir)).collectionId
+    expect(collectionId).toBeDefined()
+
+    const { CollectionCookieJar } = await import("../../src/cookies")
+    const jar = await CollectionCookieJar.open(configDir, collectionId!)
+    jar.put({ name: "session", value: "abc", domain: "example.com" })
+    await jar.saveNow()
+
+    const { cookies } = await cookieList(collectionDir, configDir)
+    expect(cookies).toHaveLength(1)
+    expect(cookies[0]).toMatchObject({
+      name: "session",
+      value: "abc",
+      domain: "example.com",
+    })
+
+    expect(await cookieClear(collectionDir, configDir)).toEqual({
+      disabled: false,
+    })
+    expect(await cookieList(collectionDir, configDir)).toEqual({
+      disabled: false,
+      cookies: [],
+    })
+  })
+
+  it("reports disabled when cookies.enabled is false", async () => {
+    setSecretBackendForTests(memoryBackend())
+    const collectionDir = join(dir, "disabled")
+    await mkdir(collectionDir)
+    await writeFile(
+      join(collectionDir, "settings.yml"),
+      "cookies:\n  enabled: false\n",
+      "utf8",
+    )
+    expect(await cookieList(collectionDir, join(dir, "config"))).toEqual({
+      disabled: true,
+      cookies: [],
+    })
+    expect(await cookieClear(collectionDir, join(dir, "config"))).toEqual({
+      disabled: true,
+    })
   })
 })

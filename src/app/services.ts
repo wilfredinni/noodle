@@ -32,6 +32,7 @@ import {
   type SystemProxySettings,
 } from "../proxy"
 import type { TlsPolicy } from "../tls"
+import { CollectionCookieJar } from "../cookies"
 import type {
   Collection,
   CollectionItem,
@@ -538,6 +539,7 @@ async function runRequest(
   environment?: Environment,
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
+  cookies?: CollectionCookieJar,
 ): Promise<RequestRunResult> {
   const secretValues = [
     ...environmentSecretValues(environment),
@@ -554,6 +556,7 @@ async function runRequest(
       requestPath: request.id,
       proxyPolicy,
       tlsPolicy,
+      cookies,
     })
     const effective = environment ? substitute(request, environment) : request
     return {
@@ -598,14 +601,26 @@ export async function collectionRun(
     systemProxy ?? takeSystemProxyFromEnv(),
   )
   const tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
+  const cookies = await cookieJarFor(dir, settings, CONFIG_DIR)
   const requests = flattenRequests(collection.items)
   const results: RequestRunResult[] = []
   onProgress?.(0, requests.length)
-  for (const request of requests) {
-    results.push(
-      await runRequest(collection, request, environment, policy, tlsPolicy),
-    )
-    onProgress?.(results.length, requests.length)
+  try {
+    for (const request of requests) {
+      results.push(
+        await runRequest(
+          collection,
+          request,
+          environment,
+          policy,
+          tlsPolicy,
+          cookies,
+        ),
+      )
+      onProgress?.(results.length, requests.length)
+    }
+  } finally {
+    await cookies?.saveNow()
   }
   return { results, failed: results.some((result) => result.ok === false) }
 }
@@ -650,20 +665,88 @@ export async function requestRun(
   )
   if (!request) throw new Error(`request not found: ${id}`)
   onProgress?.(0, 1)
-  const result = await runRequest(
-    collection,
-    request,
-    await environmentFor(dir, settings, environmentName),
-    await proxyPolicyFor(
-      dir,
-      settings,
-      noProxy,
-      systemProxy ?? takeSystemProxyFromEnv(),
-    ),
-    await tlsPolicyFor(dir, settings, insecure),
-  )
+  const cookies = await cookieJarFor(dir, settings, CONFIG_DIR)
+  let result: RequestRunResult
+  try {
+    result = await runRequest(
+      collection,
+      request,
+      await environmentFor(dir, settings, environmentName),
+      await proxyPolicyFor(
+        dir,
+        settings,
+        noProxy,
+        systemProxy ?? takeSystemProxyFromEnv(),
+      ),
+      await tlsPolicyFor(dir, settings, insecure),
+      cookies,
+    )
+  } finally {
+    await cookies?.saveNow()
+  }
   onProgress?.(1, 1)
   return { result, failed: result.ok === false }
+}
+
+async function cookieJarFor(
+  dir: string,
+  settings: CollectionSettings,
+  configDir: string,
+): Promise<CollectionCookieJar | undefined> {
+  if (!(settings.cookies?.enabled ?? true)) return undefined
+  const collectionId = await ensureCollectionId(dir)
+  return CollectionCookieJar.open(configDir, collectionId)
+}
+
+export interface CookieListItem {
+  name: string
+  value: string
+  domain: string
+  path: string
+  expires: string | null
+  secure: boolean
+  httpOnly: boolean
+  sameSite?: "strict" | "lax" | "none"
+}
+
+export async function cookieList(
+  collectionDir: string,
+  configDir = CONFIG_DIR,
+): Promise<{ disabled: boolean; cookies: CookieListItem[] }> {
+  const dir = await requireCollectionRoot(collectionDir)
+  const settings = await loadSettings(dir)
+  if (!(settings.cookies?.enabled ?? true)) {
+    return { disabled: true, cookies: [] }
+  }
+  const jar = await cookieJarFor(dir, settings, configDir)
+  if (!jar) return { disabled: true, cookies: [] }
+  return {
+    disabled: false,
+    cookies: jar.list().map((cookie) => ({
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path,
+      expires: cookie.expires ? cookie.expires.toISOString() : null,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      ...(cookie.sameSite ? { sameSite: cookie.sameSite } : {}),
+    })),
+  }
+}
+
+export async function cookieClear(
+  collectionDir: string,
+  configDir = CONFIG_DIR,
+): Promise<{ disabled: boolean }> {
+  const dir = await requireCollectionRoot(collectionDir)
+  const settings = await loadSettings(dir)
+  if (!(settings.cookies?.enabled ?? true)) return { disabled: true }
+  const jar = await cookieJarFor(dir, settings, configDir)
+  if (!jar) return { disabled: true }
+  await jar.clear()
+  await jar.saveNow()
+  return { disabled: false }
 }
 
 async function tlsPolicyFor(

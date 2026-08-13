@@ -262,3 +262,51 @@ export function createRunProgressReporter(): RunProgressReporter | undefined {
     },
   }
 }
+
+export function formatCookieList(data: {
+  disabled: boolean
+  cookies: {
+    name: string
+    value: string
+    domain: string
+    path: string
+    expires: string | null
+    secure: boolean
+    httpOnly: boolean
+    sameSite?: "strict" | "lax" | "none"
+  }[]
+}): string {
+  if (data.disabled) return "The cookie jar is disabled for this collection."
+  if (data.cookies.length === 0) return "The cookie jar is empty."
+  const domains = new Map<string, typeof data.cookies>()
+  for (const cookie of data.cookies) {
+    const group = domains.get(cookie.domain) ?? []
+    group.push(cookie)
+    domains.set(cookie.domain, group)
+  }
+  const lines: string[] = []
+  for (const [domain, cookies] of domains) {
+    lines.push(domain)
+    for (const cookie of cookies) {
+      const flags = [
+        cookie.httpOnly ? "HttpOnly" : "",
+        cookie.secure ? "Secure" : "",
+        cookie.sameSite ?? "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+      const expires =
+        cookie.expires === null ? "session" : cookie.expires.slice(0, 10)
+      lines.push(
+        `  ${cookie.name} = ${cookie.value}  path=${cookie.path}  expires=${expires}${flags ? `  ${flags}` : ""}`,
+      )
+    }
+  }
+  return lines.join("\n")
+}
+
+export function formatCookieClear(data: { disabled: boolean }): string {
+  return data.disabled
+    ? "The cookie jar is disabled for this collection."
+    : "Cookie jar cleared."
+}
