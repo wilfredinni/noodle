@@ -148,4 +148,16 @@ describe("getKeybindingHints footer", () => {
       seg("^d", "revert", "env-browse.revert"),
     ])
   })
+
+  it("uses Ctrl+E to edit and a bulk-delete shortcut to clear cookies", () => {
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-list" }))
+        .footer,
+    ).toContainEqual(seg("^e", "edit", "cookie.edit"))
+
+    expect(
+      getKeybindingHints(ctx({ view: "cookie-jar", focus: "cookie-sidebar" }))
+        .footer,
+    ).toContainEqual(seg("^shift+w", "clear all", "cookie.clear"))
+  })
 })

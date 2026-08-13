@@ -225,6 +225,9 @@ export const Definitions = {
   env_delete: keybind("ctrl+w", "Delete environment", false, "Environment", [
     "env-editor",
   ]),
+  cookie_edit: keybind("ctrl+e", "Edit cookie", false, "Cookies", [
+    "cookie-jar",
+  ]),
   cookie_delete: keybind("ctrl+w", "Delete cookie", false, "Cookies", [
     "cookie-jar",
   ]),
@@ -235,7 +238,7 @@ export const Definitions = {
     "Cookies",
     ["cookie-jar"],
   ),
-  cookie_clear: keybind("ctrl+k", "Clear cookie jar", false, "Cookies", [
+  cookie_clear: keybind("ctrl+shift+w", "Clear cookie jar", false, "Cookies", [
     "cookie-jar",
   ]),
   cookie_new: keybind("ctrl+n", "Add cookie", false, "Cookies", ["cookie-jar"]),
@@ -290,6 +293,7 @@ export const CommandMap = {
   env_new: "env.new",
   env_clone: "env.clone",
   env_delete: "env.delete",
+  cookie_edit: "cookie.edit",
   cookie_delete: "cookie.delete",
   cookie_delete_domain: "cookie.delete-domain",
   cookie_clear: "cookie.clear",

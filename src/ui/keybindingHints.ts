@@ -133,7 +133,11 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     }
     return [
       { key: displayKey(kb.cookie_new), word: "add", command: "cookie.new" },
-      { key: "Enter", word: "edit", command: "cookie.edit" },
+      {
+        key: displayKey(kb.cookie_edit),
+        word: "edit",
+        command: "cookie.edit",
+      },
       {
         key: displayKey(kb.cookie_copy),
         word: "copy",

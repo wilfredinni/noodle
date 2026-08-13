@@ -174,7 +174,10 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
           key: displayKey(keybinds.cookie_new),
           description: "Add cookie",
         },
-        { key: "Enter", description: "Edit selected cookie" },
+        {
+          key: displayKey(keybinds.cookie_edit),
+          description: "Edit selected cookie",
+        },
         {
           key: displayKey(keybinds.cookie_copy),
           description: "Copy selected cookie",

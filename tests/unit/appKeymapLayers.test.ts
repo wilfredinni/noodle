@@ -185,6 +185,35 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("uses Ctrl+E for cookie editing and keeps the clone shortcut non-destructive", () => {
+    const { keymap, cleanup } = setup()
+    const { context } = createContext(keymap)
+    const cookieBindings = createAppKeymapLayers(context)[13]!
+      .bindings as Array<{ key: string; cmd: string }>
+
+    expect(cookieBindings).toContainEqual({
+      key: "ctrl+e",
+      cmd: "cookie.edit",
+    })
+    expect(cookieBindings).toContainEqual({
+      key: "ctrl+w",
+      cmd: "cookie.delete",
+    })
+    expect(cookieBindings).toContainEqual({
+      key: "ctrl+shift+w",
+      cmd: "cookie.clear",
+    })
+    expect(cookieBindings).not.toContainEqual({
+      key: "ctrl+k",
+      cmd: "cookie.clear",
+    })
+    expect(cookieBindings).not.toContainEqual({
+      key: "return",
+      cmd: "cookie.edit",
+    })
+    cleanup()
+  })
+
   it("dispatches request send from the production base layer", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)

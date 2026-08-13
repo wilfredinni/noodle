@@ -259,6 +259,14 @@ describe("request_edit_yaml", () => {
   })
 })
 
+describe("cookie jar shortcuts", () => {
+  it("uses edit, delete, and bulk-delete conventions", () => {
+    expect(Definitions.cookie_edit.default).toBe("ctrl+e")
+    expect(Definitions.cookie_delete.default).toBe("ctrl+w")
+    expect(Definitions.cookie_clear.default).toBe("ctrl+shift+w")
+  })
+})
+
 describe("collection_switcher", () => {
   it("has default ctrl+o", () => {
     expect(Definitions.collection_switcher.default).toBe("ctrl+o")
