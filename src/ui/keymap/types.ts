@@ -127,6 +127,7 @@ export interface AppKeymapCookieJar {
       | null
       | ((prev: CookieDeletePending | null) => CookieDeletePending | null),
   ) => void
+  retryCookieStorage: () => void
 }
 
 export interface UseAppKeymapArgs {

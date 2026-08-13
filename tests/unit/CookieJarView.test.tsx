@@ -3,7 +3,11 @@ import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { CookieJarSidebar } from "../../src/ui/cookie-jar/CookieJarSidebar"
 import { useCookieJarView } from "../../src/hooks/useCookieJarView"
-import type { CollectionCookieJar, JarCookie } from "../../src/cookies"
+import {
+  CookieJarStorageError,
+  type CollectionCookieJar,
+  type JarCookie,
+} from "../../src/cookies"
 import { CookieJarView } from "../../src/ui/cookie-jar/CookieJarView"
 import { act, useRef } from "react"
 
@@ -51,6 +55,7 @@ const twoCookies = jarWith([
     expires: null,
     secure: true,
     httpOnly: true,
+    hostOnly: false,
   },
   {
     name: "scoped",
@@ -60,6 +65,7 @@ const twoCookies = jarWith([
     expires: new Date(Date.now() + 86400000),
     secure: false,
     httpOnly: false,
+    hostOnly: false,
     sameSite: "lax",
   },
 ])
@@ -77,7 +83,12 @@ function Harness({
   useRef(view)
   if (ref.current) ref.current(view)
   return (
-    <CookieJarView view={view} focus="cookie-sidebar" onPaneFocus={() => {}} />
+    <CookieJarView
+      view={view}
+      status={{ state: "encrypted" }}
+      focus="cookie-sidebar"
+      onPaneFocus={() => {}}
+    />
   )
 }
 
@@ -126,6 +137,7 @@ describe("CookieJarView", () => {
               expires: null,
               secure: false,
               httpOnly: false,
+              hostOnly: false,
             },
             {
               name: "b",
@@ -135,6 +147,7 @@ describe("CookieJarView", () => {
               expires: null,
               secure: false,
               httpOnly: false,
+              hostOnly: false,
             },
           ])}
           onReady={(v) => (view = v)}
@@ -195,10 +208,60 @@ describe("CookieJarView", () => {
         expires: null,
         secure: false,
         httpOnly: false,
+        hostOnly: false,
       }),
     )
     await renderOnce()
 
     expect(view!.domains).toEqual([{ domain: "example.com", count: 1 }])
+  })
+
+  it("shows complete unavailable diagnostics and recovery actions", async () => {
+    const jar = jarWith([])
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <CookieJarView
+          view={{
+            jar,
+            domains: [],
+            cookies: [],
+            selectedDomain: null,
+            domainIndex: 0,
+            cookieIndex: 0,
+            filter: "",
+            filtering: false,
+            refresh: () => {},
+            selectDomain: () => {},
+            domainUp: () => {},
+            domainDown: () => {},
+            cookieUp: () => {},
+            cookieDown: () => {},
+            selectCookie: () => {},
+            setFilter: () => {},
+            setFiltering: () => {},
+            deleteSelectedCookie: () => {},
+            deleteSelectedDomain: () => {},
+            clearAll: () => {},
+          }}
+          status={{
+            state: "unavailable",
+            error: new CookieJarStorageError(
+              "malformed",
+              "Cookie storage is malformed.",
+              "/tmp/cookies/demo.json",
+            ),
+          }}
+          focus="cookie-list"
+        />
+      </ThemeProvider>,
+      { width: 120, height: 12 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("cookies unavailable")
+    expect(frame).toContain("Cookie storage is malformed")
+    expect(frame).toContain("malformed · /tmp/cookies/demo.json")
+    expect(frame).toContain("Retry (r)")
+    expect(frame).toContain("Reset with backup (^K)")
   })
 })

@@ -32,7 +32,12 @@ import {
   type SystemProxySettings,
 } from "../proxy"
 import type { TlsPolicy } from "../tls"
-import { CollectionCookieJar } from "../cookies"
+import {
+  CollectionCookieJar,
+  CookieJarStorageError,
+  cookieJarWarnings,
+  type CookieJarStatus,
+} from "../cookies"
 import type {
   Collection,
   CollectionItem,
@@ -526,10 +531,12 @@ export interface RequestRunResult {
     timeMs: number
   }
   error?: string
+  warnings?: string[]
 }
 export interface CollectionRunResult {
   results: RequestRunResult[]
   failed: boolean
+  warnings?: string[]
 }
 export type RunProgress = (completed: number, total: number) => void
 
@@ -601,7 +608,8 @@ export async function collectionRun(
     systemProxy ?? takeSystemProxyFromEnv(),
   )
   const tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
-  const cookies = await cookieJarFor(dir, settings, CONFIG_DIR)
+  const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
+  const cookies = cookieAccess.jar
   const requests = flattenRequests(collection.items)
   const results: RequestRunResult[] = []
   onProgress?.(0, requests.length)
@@ -620,9 +628,14 @@ export async function collectionRun(
       onProgress?.(results.length, requests.length)
     }
   } finally {
-    await cookies?.saveNow()
+    await closeCookieJar(cookies)
   }
-  return { results, failed: results.some((result) => result.ok === false) }
+  const warnings = cookies?.warnings ?? cookieAccess.warnings
+  return {
+    results,
+    failed: results.some((result) => result.ok === false),
+    ...(warnings.length > 0 ? { warnings } : {}),
+  }
 }
 export async function requestCreate(
   id: string,
@@ -665,7 +678,8 @@ export async function requestRun(
   )
   if (!request) throw new Error(`request not found: ${id}`)
   onProgress?.(0, 1)
-  const cookies = await cookieJarFor(dir, settings, CONFIG_DIR)
+  const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
+  const cookies = cookieAccess.jar
   let result: RequestRunResult
   try {
     result = await runRequest(
@@ -682,20 +696,54 @@ export async function requestRun(
       cookies,
     )
   } finally {
-    await cookies?.saveNow()
+    await closeCookieJar(cookies)
   }
+  const warnings = cookies?.warnings ?? cookieAccess.warnings
+  if (warnings.length > 0) result.warnings = warnings
   onProgress?.(1, 1)
   return { result, failed: result.ok === false }
+}
+
+async function closeCookieJar(
+  cookies: CollectionCookieJar | undefined,
+): Promise<void> {
+  if (!cookies) return
+  try {
+    await cookies.close()
+  } catch {
+    // The handle records a persistent warning. Cookie persistence alone does
+    // not turn a completed HTTP request into a failed automation command.
+  }
 }
 
 async function cookieJarFor(
   dir: string,
   settings: CollectionSettings,
   configDir: string,
-): Promise<CollectionCookieJar | undefined> {
-  if (!(settings.cookies?.enabled ?? true)) return undefined
-  const collectionId = await ensureCollectionId(dir)
-  return CollectionCookieJar.open(configDir, collectionId)
+): Promise<{
+  jar?: CollectionCookieJar
+  status: CookieJarStatus
+  warnings: string[]
+}> {
+  if (!(settings.cookies?.enabled ?? true)) {
+    return { status: { state: "disabled" }, warnings: [] }
+  }
+  try {
+    const collectionId = await ensureCollectionId(dir)
+    const jar = await CollectionCookieJar.open(configDir, collectionId)
+    return { jar, status: jar.status, warnings: jar.warnings }
+  } catch (error) {
+    const storageError = new CookieJarStorageError(
+      "read",
+      `Cookie storage could not be initialized: ${errorMessage(error)}`,
+      dir,
+      { cause: error },
+    )
+    return {
+      status: { state: "unavailable", error: storageError },
+      warnings: [storageError.message],
+    }
+  }
 }
 
 export interface CookieListItem {
@@ -706,22 +754,40 @@ export interface CookieListItem {
   expires: string | null
   secure: boolean
   httpOnly: boolean
+  hostOnly: boolean
   sameSite?: "strict" | "lax" | "none"
+}
+
+export interface CookieAutomationResult {
+  disabled: boolean
+  state: CookieJarStatus["state"]
+  warnings: string[]
+  backupPath?: string
 }
 
 export async function cookieList(
   collectionDir: string,
   configDir = CONFIG_DIR,
-): Promise<{ disabled: boolean; cookies: CookieListItem[] }> {
+): Promise<CookieAutomationResult & { cookies: CookieListItem[] }> {
   const dir = await requireCollectionRoot(collectionDir)
   const settings = await loadSettings(dir)
   if (!(settings.cookies?.enabled ?? true)) {
-    return { disabled: true, cookies: [] }
+    return { disabled: true, state: "disabled", warnings: [], cookies: [] }
   }
-  const jar = await cookieJarFor(dir, settings, configDir)
-  if (!jar) return { disabled: true, cookies: [] }
-  return {
+  const access = await cookieJarFor(dir, settings, configDir)
+  const jar = access.jar
+  if (!jar) {
+    return {
+      disabled: false,
+      state: access.status.state,
+      warnings: access.warnings,
+      cookies: [],
+    }
+  }
+  const result = {
     disabled: false,
+    state: jar.status.state,
+    warnings: cookieJarWarnings(jar.status),
     cookies: jar.list().map((cookie) => ({
       name: cookie.name,
       value: cookie.value,
@@ -730,23 +796,40 @@ export async function cookieList(
       expires: cookie.expires ? cookie.expires.toISOString() : null,
       secure: cookie.secure,
       httpOnly: cookie.httpOnly,
+      hostOnly: cookie.hostOnly,
       ...(cookie.sameSite ? { sameSite: cookie.sameSite } : {}),
     })),
   }
+  await closeCookieJar(jar)
+  return result
 }
 
 export async function cookieClear(
   collectionDir: string,
   configDir = CONFIG_DIR,
-): Promise<{ disabled: boolean }> {
+): Promise<CookieAutomationResult> {
   const dir = await requireCollectionRoot(collectionDir)
   const settings = await loadSettings(dir)
-  if (!(settings.cookies?.enabled ?? true)) return { disabled: true }
-  const jar = await cookieJarFor(dir, settings, configDir)
-  if (!jar) return { disabled: true }
+  if (!(settings.cookies?.enabled ?? true)) {
+    return { disabled: true, state: "disabled", warnings: [] }
+  }
+  const access = await cookieJarFor(dir, settings, configDir)
+  const jar = access.jar
+  if (!jar)
+    throw new Error(access.warnings[0] ?? "Cookie storage is unavailable")
   await jar.clear()
-  await jar.saveNow()
-  return { disabled: false }
+  const recovery =
+    jar.status.state === "unavailable"
+      ? await jar.reset()
+      : (await jar.saveNow(), {})
+  const result = {
+    disabled: false,
+    state: jar.status.state,
+    warnings: jar.warnings,
+    ...recovery,
+  }
+  await closeCookieJar(jar)
+  return result
 }
 
 async function tlsPolicyFor(

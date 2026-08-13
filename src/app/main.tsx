@@ -31,6 +31,7 @@ import {
   isDirectoryPath,
   type CollectionMode,
 } from "../collectionPath"
+import { flushAll } from "../cookies"
 
 addDefaultParsers([...codeEditorParsers])
 
@@ -51,6 +52,22 @@ export interface BootstrapOptions {
 }
 
 export { classifyPath, type CollectionMode } from "../collectionPath"
+
+export async function flushCookieJarsForShutdown(
+  flush: () => Promise<void> = flushAll,
+  report: (message: string) => void = (message) =>
+    process.stderr.write(`${message}\n`),
+): Promise<boolean> {
+  try {
+    await flush()
+    return true
+  } catch (error) {
+    report(
+      `warning: failed to flush cookie storage before shutdown: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    return false
+  }
+}
 
 export function resolveStartupCollectionDir(
   options: BootstrapOptions,
@@ -168,6 +185,14 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
 
   const renderer = await createCliRenderer({ exitOnCtrlC: false })
   const keymap = createNoodleKeymap(renderer)
+  let shuttingDown = false
+  const shutdown = () => {
+    if (shuttingDown) return
+    shuttingDown = true
+    void flushCookieJarsForShutdown().finally(() => renderer.destroy())
+  }
+  process.once("SIGTERM", shutdown)
+  process.once("SIGHUP", shutdown)
 
   renderer.on("selection", (selection) => {
     const text = selection.getSelectedText()
@@ -192,7 +217,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
         showToast("Copied to clipboard", "info")
         return
       }
-      renderer.destroy()
+      shutdown()
     }
   })
 

@@ -21,6 +21,7 @@ export interface CookieFormValues {
   expires: string
   secure: boolean
   httpOnly: boolean
+  hostOnly: boolean
   sameSite: "strict" | "lax" | "none" | ""
 }
 
@@ -32,6 +33,7 @@ export type CookieFormFocus =
   | "expires"
   | "secure"
   | "httpOnly"
+  | "hostOnly"
   | "sameSite"
 
 export interface CookieFormOverlayHandle {
@@ -58,6 +60,7 @@ const FIELDS: CookieFormFocus[] = [
   "expires",
   "secure",
   "httpOnly",
+  "hostOnly",
   "sameSite",
 ]
 
@@ -69,6 +72,7 @@ const LABELS: Record<CookieFormFocus, string> = {
   expires: "Expires",
   secure: "Secure",
   httpOnly: "HttpOnly",
+  hostOnly: "Host only",
   sameSite: "SameSite",
 }
 
@@ -84,6 +88,7 @@ export const CookieFormOverlay = forwardRef<
   const [expires, setExpires] = useState("")
   const [secure, setSecure] = useState(false)
   const [httpOnly, setHttpOnly] = useState(false)
+  const [hostOnly, setHostOnly] = useState(false)
   const [sameSite, setSameSite] = useState<"strict" | "lax" | "none" | "">("")
   const [focus, setFocus] = useState<CookieFormFocus>("name")
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -140,6 +145,7 @@ export const CookieFormOverlay = forwardRef<
         expires,
         secure,
         httpOnly,
+        hostOnly,
         sameSite,
       }
     },
@@ -149,6 +155,7 @@ export const CookieFormOverlay = forwardRef<
       setErrorText(null)
       if (focus === "secure") setSecure((current) => !current)
       else if (focus === "httpOnly") setHttpOnly((current) => !current)
+      else if (focus === "hostOnly") setHostOnly((current) => !current)
     },
   }))
 
@@ -165,6 +172,7 @@ export const CookieFormOverlay = forwardRef<
     )
     setSecure(initial?.secure ?? false)
     setHttpOnly(initial?.httpOnly ?? false)
+    setHostOnly(initial?.hostOnly ?? false)
     setSameSite(initial?.sameSite ?? "")
     setFocus("name")
     setErrorText(null)
@@ -172,7 +180,7 @@ export const CookieFormOverlay = forwardRef<
 
   useEffect(() => {
     if (!visible) return
-    const field = ["secure", "httpOnly", "sameSite"].includes(focus)
+    const field = ["secure", "httpOnly", "hostOnly", "sameSite"].includes(focus)
       ? undefined
       : focus
     if (field) inputRefs.current[field]?.focus()
@@ -258,6 +266,25 @@ export const CookieFormOverlay = forwardRef<
                   }}
                 >
                   <Checkbox checked={httpOnly} theme={theme} />
+                </box>
+              ) : field === "hostOnly" ? (
+                <box
+                  style={{
+                    flexDirection: "row",
+                    gap: 1,
+                    backgroundColor: isActive
+                      ? theme.backgroundElement
+                      : undefined,
+                  }}
+                  onMouseDown={(event) => {
+                    if (event.button !== MouseButton.LEFT) return
+                    setFocus(field)
+                    setHostOnly((current) => !current)
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                >
+                  <Checkbox checked={hostOnly} theme={theme} />
                 </box>
               ) : field === "sameSite" ? (
                 <Select

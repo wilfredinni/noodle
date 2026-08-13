@@ -50,8 +50,17 @@ export function createCookieJarLayers(
       },
       {
         name: "cookie.clear",
-        enabled: () => view().domains.length > 0,
-        run: () => cookies.setCookieDeletePending({ kind: "all" }),
+        enabled: () =>
+          view().domains.length > 0 ||
+          view().jar?.status.state === "unavailable",
+        run: () =>
+          cookies.setCookieDeletePending({
+            kind: view().jar?.status.state === "unavailable" ? "reset" : "all",
+          }),
+      },
+      {
+        name: "cookie.retry-storage",
+        run: cookies.retryCookieStorage,
       },
       {
         name: "cookie.new",
@@ -114,6 +123,7 @@ export function createCookieJarLayers(
       { key: keybinds.cookie_copy, cmd: "cookie.copy" },
       { key: "return", cmd: "cookie.edit" },
       { key: "/", cmd: "cookie.filter" },
+      { key: "r", cmd: "cookie.retry-storage" },
     ],
   }
 

@@ -135,6 +135,9 @@ export function formatRunResult(result: RequestRunResult): string {
   return [
     `${result.ok ? color("✓", "green") : color("✗", "red")} ${color(result.method, "cyan")} ${result.id}  ${statusLabel(result)}${duration}`,
     `  ${result.url}${result.error ? `\n  ${color(result.error, "red")}` : ""}`,
+    ...(result.warnings ?? []).map(
+      (warning) => `  ${color("warning", "yellow")}: ${warning}`,
+    ),
   ].join("\n")
 }
 
@@ -153,6 +156,9 @@ export function formatCollectionRun(data: CollectionRunResult): string {
     ...data.results.flatMap((result) => formatRunResult(result).split("\n")),
     "",
     `Summary: ${color(`${passed} passed`, "green")}, ${failed ? color(`${failed} failed`, "red") : "0 failed"}, ${totalTime}ms`,
+    ...(data.warnings ?? []).map(
+      (warning) => `${color("warning", "yellow")}: ${warning}`,
+    ),
   ].join("\n")
 }
 
@@ -265,6 +271,8 @@ export function createRunProgressReporter(): RunProgressReporter | undefined {
 
 export function formatCookieList(data: {
   disabled: boolean
+  state: string
+  warnings: string[]
   cookies: {
     name: string
     value: string
@@ -273,11 +281,18 @@ export function formatCookieList(data: {
     expires: string | null
     secure: boolean
     httpOnly: boolean
+    hostOnly: boolean
     sameSite?: "strict" | "lax" | "none"
   }[]
 }): string {
   if (data.disabled) return "The cookie jar is disabled for this collection."
-  if (data.cookies.length === 0) return "The cookie jar is empty."
+  if (data.cookies.length === 0)
+    return [
+      "The cookie jar is empty.",
+      ...data.warnings.map(
+        (warning) => `${color("warning", "yellow")}: ${warning}`,
+      ),
+    ].join("\n")
   const domains = new Map<string, typeof data.cookies>()
   for (const cookie of data.cookies) {
     const group = domains.get(cookie.domain) ?? []
@@ -289,6 +304,7 @@ export function formatCookieList(data: {
     lines.push(domain)
     for (const cookie of cookies) {
       const flags = [
+        cookie.hostOnly ? "HostOnly" : "Domain",
         cookie.httpOnly ? "HttpOnly" : "",
         cookie.secure ? "Secure" : "",
         cookie.sameSite ?? "",
@@ -302,11 +318,27 @@ export function formatCookieList(data: {
       )
     }
   }
-  return lines.join("\n")
+  return [
+    `Storage: ${data.state}`,
+    ...data.warnings.map(
+      (warning) => `${color("warning", "yellow")}: ${warning}`,
+    ),
+    ...lines,
+  ].join("\n")
 }
 
-export function formatCookieClear(data: { disabled: boolean }): string {
-  return data.disabled
-    ? "The cookie jar is disabled for this collection."
-    : "Cookie jar cleared."
+export function formatCookieClear(data: {
+  disabled: boolean
+  state: string
+  warnings: string[]
+  backupPath?: string
+}): string {
+  if (data.disabled) return "The cookie jar is disabled for this collection."
+  return [
+    "Cookie jar cleared.",
+    ...(data.backupPath ? [`Backup: ${data.backupPath}`] : []),
+    ...data.warnings.map(
+      (warning) => `${color("warning", "yellow")}: ${warning}`,
+    ),
+  ].join("\n")
 }

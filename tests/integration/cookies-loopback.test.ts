@@ -138,4 +138,22 @@ describe("send with cookie jar", () => {
     await send(enabled, { cookies: jar })
     expect(seenCookies).toContain("session=manual")
   })
+
+  it("refreshes cookies committed by another handle before sending", async () => {
+    seenCookies = []
+    const writer = await CollectionCookieJar.open(configDir, "shared-refresh")
+    const reader = await CollectionCookieJar.open(configDir, "shared-refresh")
+    writer.put({ name: "fresh", value: "yes", domain: "localhost" })
+    await writer.saveNow()
+
+    await send(
+      {
+        ...baseReq,
+        url: `http://localhost:${port}/admin/users`,
+      },
+      { cookies: reader },
+    )
+
+    expect(seenCookies).toEqual(["fresh=yes"])
+  })
 })

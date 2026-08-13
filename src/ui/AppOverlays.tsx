@@ -472,7 +472,9 @@ export function AppOverlays({
               ? `Delete cookie "${cookieDeletePending.name}" from ${cookieDeletePending.domain}?`
               : cookieDeletePending.kind === "domain"
                 ? `Delete all cookies for ${cookieDeletePending.domain}?`
-                : "Clear the entire cookie jar? (y/n)"
+                : cookieDeletePending.kind === "reset"
+                  ? "Back up unreadable cookie storage and reset the jar? (y/n)"
+                  : "Clear the entire cookie jar? (y/n)"
           }
           onConfirm={onConfirmDialog}
           onCancel={onCancelDialog}

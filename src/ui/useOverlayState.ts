@@ -21,6 +21,7 @@ export type CookieDeletePending =
   | { kind: "cookie"; name: string; domain: string; path: string }
   | { kind: "domain"; domain: string }
   | { kind: "all" }
+  | { kind: "reset" }
 
 export type ActiveOverlay =
   | "command-palette"

@@ -559,9 +559,24 @@ export function AppInner({
     }),
     [collectionDir, collectionTls, insecure, tlsPassphrases],
   )
-  const cookieJar = useCollectionCookieJar(
+  const cookieStorage = useCollectionCookieJar(
     isCollection && cookiesEnabled ? collectionDir : undefined,
   )
+  const cookieJar = cookieStorage.jar
+  const previousCookieStatus = useRef(cookieStorage.status.state)
+  useEffect(() => {
+    const state = cookieStorage.status.state
+    if (state === previousCookieStatus.current) return
+    previousCookieStatus.current = state
+    if (state === "plaintext-warning") {
+      showToast("Cookie storage is plaintext", "error")
+    } else if (state === "unavailable") {
+      showToast(
+        "Cookie storage is unavailable; requests will run jar-less",
+        "error",
+      )
+    }
+  }, [cookieStorage.status])
   const updateDependencies = useMemo(
     () => ({
       fetcher: createProxyFetcher(proxyPolicy),
@@ -973,6 +988,24 @@ export function AppInner({
   const cookieJarViewRef = useRef(cookieJarView)
   cookieJarViewRef.current = cookieJarView
 
+  const retryCookieStorage = useCallback(() => {
+    if (!cookieJar) return
+    void cookieJar
+      .refresh()
+      .then(() => cookieStorage.flush())
+      .then(() => showToast("Cookie storage reloaded", "success"))
+      .catch((error: unknown) =>
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        ),
+      )
+  }, [cookieJar, cookieStorage.flush])
+
+  const requestCookieStorageReset = useCallback(() => {
+    setCookieDeletePending({ kind: "reset" })
+  }, [setCookieDeletePending])
+
   const activeIndexRef = useRef(activeIndex)
   activeIndexRef.current = activeIndex
 
@@ -1058,6 +1091,7 @@ export function AppInner({
       setCookieFormVisible,
       setCookieFormInitial,
       setCookieDeletePending,
+      retryCookieStorage,
     },
   })
 
@@ -1193,10 +1227,16 @@ export function AppInner({
         ...(expiresText !== "" ? { expires: new Date(expiresText) } : {}),
         secure: values.secure,
         httpOnly: values.httpOnly,
-        ...(initial?.hostOnly !== undefined
-          ? { hostOnly: initial.hostOnly }
-          : {}),
+        hostOnly: values.hostOnly,
         ...(values.sameSite ? { sameSite: values.sameSite } : {}),
+      }
+      try {
+        jar.put(input)
+      } catch (error) {
+        cookieFormRef.current?.setError(
+          error instanceof Error ? error.message : String(error),
+        )
+        return
       }
       if (
         initial &&
@@ -1206,10 +1246,13 @@ export function AppInner({
       ) {
         void jar
           .deleteCookie(initial.domain, initial.path, initial.name)
-          .catch(() => {})
+          .catch((error: unknown) =>
+            showToast(
+              error instanceof Error ? error.message : String(error),
+              "error",
+            ),
+          )
       }
-      jar.put(input)
-      cookieJarView.refresh()
       setCookieFormVisible(false)
     },
     cookieDeletePending,
@@ -1217,22 +1260,37 @@ export function AppInner({
     onCookieDeleteConfirm: (pending) => {
       const jar = cookieJar
       if (!jar) return
-      if (pending.kind === "cookie") {
-        void jar
-          .deleteCookie(pending.domain, pending.path, pending.name)
-          .then(() => cookieJarView.refresh())
-          .catch(() => {})
-      } else if (pending.kind === "domain") {
-        void jar
-          .deleteDomain(pending.domain)
-          .then(() => cookieJarView.refresh())
-          .catch(() => {})
-      } else {
-        void jar
-          .clear()
-          .then(() => cookieJarView.refresh())
-          .catch(() => {})
-      }
+      void (async () => {
+        try {
+          if (pending.kind === "cookie") {
+            await jar.deleteCookie(pending.domain, pending.path, pending.name)
+            await cookieStorage.flush()
+          } else if (pending.kind === "domain") {
+            await jar.deleteDomain(pending.domain)
+            await cookieStorage.flush()
+          } else if (
+            pending.kind === "reset" ||
+            jar.status.state === "unavailable"
+          ) {
+            await jar.clear()
+            const { backupPath } = await cookieStorage.reset()
+            showToast(
+              backupPath
+                ? `Cookie storage reset; backup saved to ${backupPath}`
+                : "Cookie storage reset",
+              "success",
+            )
+          } else {
+            await jar.clear()
+            await cookieStorage.flush()
+          }
+        } catch (error) {
+          showToast(
+            error instanceof Error ? error.message : String(error),
+            "error",
+          )
+        }
+      })()
     },
     newRequestVisible,
     newRequestRef,
@@ -1539,9 +1597,12 @@ export function AppInner({
         ) : view === "cookie-jar" && mode === "collection" ? (
           <CookieJarView
             view={cookieJarView}
+            status={cookieStorage.status}
             focus={focus}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
+            onRetry={retryCookieStorage}
+            onReset={requestCookieStorageReset}
           />
         ) : view === "settings" ? (
           <SettingsView
@@ -1723,6 +1784,7 @@ export function AppInner({
         globalHints={hints.header}
         footerHints={hints.footer}
         sendCommand={sendCommand}
+        cookieStatus={cookieStorage.status}
         onHintActivate={handleHintActivate}
       />
     </box>

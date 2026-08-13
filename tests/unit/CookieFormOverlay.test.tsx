@@ -45,7 +45,7 @@ function KeyboardHarness({
     onConfirm: () => {},
     onCancel: () => {},
     passThroughFocuses: ["sameSite"],
-    toggleFocuses: ["secure", "httpOnly"],
+    toggleFocuses: ["secure", "httpOnly", "hostOnly"],
   })
   return (
     <CookieFormOverlay
@@ -59,6 +59,7 @@ function KeyboardHarness({
         expires: null,
         secure: false,
         httpOnly: false,
+        hostOnly: false,
       }}
     />
   )
@@ -102,6 +103,7 @@ describe("CookieFormOverlay", () => {
               expires: null,
               secure: true,
               httpOnly: true,
+              hostOnly: false,
               sameSite: "lax",
             }}
           />
@@ -120,6 +122,7 @@ describe("CookieFormOverlay", () => {
       expires: "",
       secure: true,
       httpOnly: true,
+      hostOnly: false,
       sameSite: "lax",
     })
     cleanup()
@@ -149,7 +152,7 @@ describe("CookieFormOverlay", () => {
     cleanup()
   })
 
-  it("cycles focus through all eight fields", async () => {
+  it("cycles focus through all nine fields", async () => {
     const { keymap, cleanup } = setupKeymap()
     const ref = createRef<CookieFormOverlayHandle>()
     const { renderOnce } = await testRender(
@@ -163,7 +166,7 @@ describe("CookieFormOverlay", () => {
     await renderOnce()
 
     const seen: string[] = []
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 9; i++) {
       seen.push(ref.current?.getFocus() ?? "")
       act(() => ref.current?.cycleFocus(1))
     }
@@ -175,13 +178,14 @@ describe("CookieFormOverlay", () => {
       "expires",
       "secure",
       "httpOnly",
+      "hostOnly",
       "sameSite",
     ])
     expect(ref.current?.getFocus()).toBe("name")
     cleanup()
   })
 
-  it("toggles secure and httpOnly through the handle", async () => {
+  it("toggles secure, httpOnly, and hostOnly through the handle", async () => {
     const { keymap, cleanup } = setupKeymap()
     const ref = createRef<CookieFormOverlayHandle>()
     const { renderOnce } = await testRender(
@@ -198,6 +202,7 @@ describe("CookieFormOverlay", () => {
               expires: null,
               secure: false,
               httpOnly: false,
+              hostOnly: false,
             }}
           />
         </ThemeProvider>
@@ -211,6 +216,8 @@ describe("CookieFormOverlay", () => {
     act(() => ref.current?.toggleFocused())
     act(() => ref.current?.cycleFocus(1))
     act(() => ref.current?.toggleFocused())
+    act(() => ref.current?.cycleFocus(1))
+    act(() => ref.current?.toggleFocused())
     await renderOnce()
     let result: CookieFormValues | null | undefined
     act(() => {
@@ -218,6 +225,7 @@ describe("CookieFormOverlay", () => {
     })
     expect(result?.secure).toBe(true)
     expect(result?.httpOnly).toBe(true)
+    expect(result?.hostOnly).toBe(true)
     cleanup()
   })
 

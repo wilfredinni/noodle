@@ -134,25 +134,18 @@ export function useCookieJarView(
     if (!cookie) return
     void jar
       .deleteCookie(cookie.domain, cookie.path, cookie.name)
-      .then(refresh)
       .catch(() => {})
-  }, [jar, cookies, cookieIndex, refresh])
+  }, [jar, cookies, cookieIndex])
 
   const deleteSelectedDomain = useCallback(() => {
     if (!jar || !selectedDomain) return
-    void jar
-      .deleteDomain(selectedDomain)
-      .then(refresh)
-      .catch(() => {})
-  }, [jar, selectedDomain, refresh])
+    void jar.deleteDomain(selectedDomain).catch(() => {})
+  }, [jar, selectedDomain])
 
   const clearAll = useCallback(() => {
     if (!jar) return
-    void jar
-      .clear()
-      .then(refresh)
-      .catch(() => {})
-  }, [jar, refresh])
+    void jar.clear().catch(() => {})
+  }, [jar])
 
   return {
     jar,

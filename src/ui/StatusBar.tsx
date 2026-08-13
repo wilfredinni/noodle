@@ -9,6 +9,7 @@ import type { SaveState } from "./saveState"
 import type { HintSegment } from "./keybindingHints"
 import type { CollectionMode } from "../collectionPath"
 import type { AppView } from "./appState"
+import type { CookieJarStatus } from "../cookies"
 
 const HINT_HORIZONTAL_PADDING = 2
 const HINT_ITEM_GAP = 1
@@ -154,6 +155,7 @@ export function StatusBar(input: {
   globalHints: HintSegment[]
   footerHints: HintSegment[]
   sendCommand?: string
+  cookieStatus?: CookieJarStatus
   onHintActivate?: (command: string) => void
 }) {
   const theme = useTheme()
@@ -197,6 +199,13 @@ export function StatusBar(input: {
   )
   const expandWidth = segmentsWidth(expandSegment)
   const sendWidth = segmentsWidth(sendSegment)
+  const cookieIndicator =
+    input.cookieStatus?.state === "plaintext-warning"
+      ? "⚠ cookies plaintext"
+      : input.cookieStatus?.state === "unavailable"
+        ? "✗ cookies unavailable"
+        : ""
+  const cookieIndicatorWidth = cookieIndicator.length
   const visibleSendSegment =
     sendWidth <=
     Math.max(
@@ -204,6 +213,8 @@ export function StatusBar(input: {
       termWidth -
         2 -
         expandWidth -
+        cookieIndicatorWidth -
+        (cookieIndicator ? HINT_ITEM_GAP : 0) -
         (expandSegment.length > 0 ? HINT_ITEM_GAP : 0),
     )
       ? sendSegment
@@ -226,6 +237,8 @@ export function StatusBar(input: {
       2 -
       expandWidth -
       visibleSendWidth -
+      cookieIndicatorWidth -
+      (cookieIndicator ? HINT_ITEM_GAP : 0) -
       (expandSegment.length > 0 ? HINT_ITEM_GAP : 0) -
       (visibleSendSegment.length > 0 ? HINT_ITEM_GAP : 0),
   )
@@ -325,6 +338,17 @@ export function StatusBar(input: {
           gap: HINT_ITEM_GAP,
         }}
       >
+        {cookieIndicator && (
+          <text
+            fg={
+              input.cookieStatus?.state === "unavailable"
+                ? theme.error
+                : theme.warning
+            }
+          >
+            {cookieIndicator}
+          </text>
+        )}
         {visibleSendSegment.map((seg, i) =>
           renderSegment(seg, `send-${seg.command ?? seg.key}-${i}`),
         )}

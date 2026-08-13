@@ -33,6 +33,25 @@ function sidebarHints(): HintSegment[] {
 }
 
 describe("StatusBar component", () => {
+  it("keeps cookie storage warnings visible", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          globalHints={emptyHints}
+          footerHints={sidebarHints()}
+          cookieStatus={{
+            state: "plaintext-warning",
+            warning: "Cookie storage is plaintext.",
+          }}
+        />
+      </ThemeProvider>,
+      { width: 100, height: 1 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("cookies plaintext")
+  })
+
   it("renders three contextual actions, Commands, and pinned Send", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>

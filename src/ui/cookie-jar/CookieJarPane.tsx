@@ -9,7 +9,7 @@ import {
 import { Frame } from "../Frame"
 import { Badge } from "../Badge"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
-import type { JarCookie } from "../../cookies"
+import type { CookieJarStatus, JarCookie } from "../../cookies"
 import type { UseCookieJarViewResult } from "../../hooks/useCookieJarView"
 
 function expiresLabel(cookie: JarCookie): string {
@@ -22,22 +22,29 @@ function flags(cookie: JarCookie): string {
   const parts: string[] = []
   if (cookie.httpOnly) parts.push("HttpOnly")
   if (cookie.secure) parts.push("Secure")
+  parts.push(cookie.hostOnly ? "HostOnly" : "Domain")
   if (cookie.sameSite) parts.push(cookie.sameSite)
   return parts.join(" ")
 }
 
 export function CookieJarPane({
   view,
+  status,
   domain,
   focused,
   jumpMode = false,
   onPaneFocus,
+  onRetry,
+  onReset,
 }: {
   view: UseCookieJarViewResult
+  status: CookieJarStatus
   domain: string | null
   focused: boolean
   jumpMode?: boolean
   onPaneFocus?: () => void
+  onRetry?: () => void
+  onReset?: () => void
 }) {
   const theme = useTheme()
   const cookies = view.cookies
@@ -93,6 +100,58 @@ export function CookieJarPane({
       onPaneFocus={onPaneFocus}
     >
       {jumpMode && <JumpBadge letter="c" style={JUMP_BADGE_TOP_INDENT} />}
+      {status.state === "plaintext-warning" && (
+        <box
+          style={{
+            flexDirection: "column",
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor: theme.backgroundElement,
+          }}
+        >
+          <text fg={theme.warning}>cookies plaintext</text>
+          <text fg={theme.textMuted}>{status.warning}</text>
+        </box>
+      )}
+      {status.state === "unavailable" && (
+        <box
+          style={{
+            flexDirection: "column",
+            gap: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor: theme.backgroundElement,
+          }}
+        >
+          <text fg={theme.error}>cookies unavailable</text>
+          <text fg={theme.text}>{status.error.message}</text>
+          <text fg={theme.textMuted}>
+            {`${status.error.code} · ${status.error.file}`}
+          </text>
+          <box style={{ flexDirection: "row", gap: 2 }}>
+            <box
+              onMouseDown={(event) => {
+                if (event.button !== MouseButton.LEFT) return
+                onRetry?.()
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <text fg={theme.primary}>Retry (r)</text>
+            </box>
+            <box
+              onMouseDown={(event) => {
+                if (event.button !== MouseButton.LEFT) return
+                onReset?.()
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <text fg={theme.error}>Reset with backup (^K)</text>
+            </box>
+          </box>
+        </box>
+      )}
       {domain === null ? (
         <text fg={theme.textMuted}>
           Select a domain to inspect its cookies.

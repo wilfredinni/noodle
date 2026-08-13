@@ -104,6 +104,11 @@ export async function send(
 
   const substituted = env !== undefined ? substitute(merged, env) : merged
 
+  if (cookies && substituted.sendCookies !== false) {
+    // Storage failures are reflected by the jar status; HTTP still runs jar-less.
+    await cookies.refresh().catch(() => {})
+  }
+
   const headers: Record<string, string> =
     substituted === merged
       ? filterKv(merged.headers)

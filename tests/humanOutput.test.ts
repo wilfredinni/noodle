@@ -4,6 +4,8 @@ import {
   formatCollectionInspect,
   formatCollectionRun,
   formatCollectionList,
+  formatCookieClear,
+  formatCookieList,
   formatImport,
   formatRequestRun,
   formatWorkspaceAudit,
@@ -119,6 +121,69 @@ describe("human CLI output", () => {
     )
     expect(output).toContain("Summary: 1 passed, 1 failed, 14ms")
     expect(output).not.toContain('{"users":[]}')
+  })
+
+  it("prints cookie warnings, storage state, and recovery backups", () => {
+    const listed = plain(
+      formatCookieList({
+        disabled: false,
+        state: "plaintext-warning",
+        warnings: ["Credential vault unavailable"],
+        cookies: [
+          {
+            name: "session",
+            value: "abc",
+            domain: "example.com",
+            path: "/",
+            expires: null,
+            secure: true,
+            httpOnly: true,
+            hostOnly: true,
+          },
+        ],
+      }),
+    )
+    expect(listed).toContain("Storage: plaintext-warning")
+    expect(listed).toContain("warning: Credential vault unavailable")
+    expect(listed).toContain("HostOnly")
+    expect(
+      plain(
+        formatCookieClear({
+          disabled: false,
+          state: "encrypted",
+          warnings: [],
+          backupPath: "/tmp/cookies.backup",
+        }),
+      ),
+    ).toContain("Backup: /tmp/cookies.backup")
+  })
+
+  it("prints non-fatal cookie warnings for request and collection runs", () => {
+    const warning = "Cookie storage is unavailable"
+    const result = {
+      id: "users/list",
+      method: "GET" as const,
+      url: "https://example.com/users",
+      ok: true,
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      },
+      warnings: [warning],
+    }
+    expect(plain(formatRequestRun({ result }))).toContain(`warning: ${warning}`)
+    expect(
+      plain(
+        formatCollectionRun({
+          results: [result],
+          failed: false,
+          warnings: [warning],
+        }),
+      ),
+    ).toContain(`warning: ${warning}`)
   })
 
   it("renders imported collections as a confirmation", () => {

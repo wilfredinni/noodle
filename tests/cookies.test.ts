@@ -1,8 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { CollectionCookieJar, parseResponseCookies } from "../src/cookies"
+import {
+  CollectionCookieJar,
+  flushAll,
+  parseResponseCookies,
+  setCookieJarTimingForTests,
+} from "../src/cookies"
 import { setSecretBackendForTests, type SecretBackend } from "../src/secrets"
 
 function memoryBackend(): SecretBackend & { values: Map<string, string> } {
@@ -35,6 +49,8 @@ describe("CollectionCookieJar", () => {
   })
 
   afterEach(async () => {
+    await flushAll().catch(() => {})
+    setCookieJarTimingForTests()
     setSecretBackendForTests(undefined)
     await rm(configDir, { recursive: true, force: true })
   })
@@ -111,9 +127,9 @@ describe("CollectionCookieJar", () => {
       },
     })
 
-    await expect(CollectionCookieJar.open(configDir, "col-1")).rejects.toThrow(
-      "cookie jar encryption key is unavailable",
-    )
+    const unavailable = await CollectionCookieJar.open(configDir, "col-1")
+    expect(unavailable.status.state).toBe("unavailable")
+    expect(unavailable.cookieHeaderFor("https://example.com/")).toBe("")
     expect(await readFile(file, "utf8")).toBe(encrypted)
   })
 
@@ -239,5 +255,289 @@ describe("CollectionCookieJar", () => {
     const storedExpiry = jar.list()[0]!.expires?.getTime()
     expect(storedExpiry).toBeGreaterThanOrEqual(before)
     expect(storedExpiry).toBeLessThanOrEqual(Date.now() + 3_700_000)
+  })
+
+  it("merges mutations from independently opened handles", async () => {
+    const first = await CollectionCookieJar.open(configDir, "shared")
+    const second = await CollectionCookieJar.open(configDir, "shared")
+    first.put({ name: "first", value: "1", domain: "example.com" })
+    second.put({ name: "second", value: "2", domain: "example.com" })
+
+    await Promise.all([first.saveNow(), second.saveNow()])
+
+    const reopened = await CollectionCookieJar.open(configDir, "shared")
+    expect(
+      reopened
+        .list()
+        .map((cookie) => cookie.name)
+        .sort(),
+    ).toEqual(["first", "second"])
+  })
+
+  it("replays concurrent deletes against the latest committed state", async () => {
+    const initial = await CollectionCookieJar.open(configDir, "shared")
+    initial.put({ name: "old", value: "1", domain: "example.com" })
+    await initial.saveNow()
+    const deleting = await CollectionCookieJar.open(configDir, "shared")
+    const adding = await CollectionCookieJar.open(configDir, "shared")
+
+    await deleting.deleteCookie("example.com", "/", "old")
+    adding.put({ name: "new", value: "2", domain: "example.com" })
+    await Promise.all([deleting.saveNow(), adding.saveNow()])
+
+    const reopened = await CollectionCookieJar.open(configDir, "shared")
+    expect(reopened.list().map((cookie) => cookie.name)).toEqual(["new"])
+  })
+
+  it("orders clear and set operations by lock commit order", async () => {
+    const setting = await CollectionCookieJar.open(configDir, "shared")
+    const clearing = await CollectionCookieJar.open(configDir, "shared")
+    setting.put({ name: "first", value: "1", domain: "example.com" })
+    await clearing.clear()
+
+    await setting.saveNow()
+    await clearing.saveNow()
+    let reopened = await CollectionCookieJar.open(configDir, "shared")
+    expect(reopened.list()).toEqual([])
+
+    setting.put({ name: "second", value: "2", domain: "example.com" })
+    await setting.saveNow()
+    reopened = await CollectionCookieJar.open(configDir, "shared")
+    expect(reopened.list().map((cookie) => cookie.name)).toEqual(["second"])
+  })
+
+  it("serializes overlapping saves from one handle", async () => {
+    const jar = await CollectionCookieJar.open(configDir, "shared")
+    jar.put({ name: "first", value: "1", domain: "example.com" })
+    const firstSave = jar.saveNow()
+    jar.put({ name: "second", value: "2", domain: "example.com" })
+    await Promise.all([firstSave, jar.saveNow()])
+
+    const reopened = await CollectionCookieJar.open(configDir, "shared")
+    expect(
+      reopened
+        .list()
+        .map((cookie) => cookie.name)
+        .sort(),
+    ).toEqual(["first", "second"])
+  })
+
+  it("creates one encryption key across concurrent first saves", async () => {
+    let sets = 0
+    const values = new Map<string, string>()
+    setSecretBackendForTests({
+      async get({ service, name }) {
+        return values.get(`${service}:${name}`) ?? null
+      },
+      async set({ service, name, value }) {
+        sets += 1
+        values.set(`${service}:${name}`, value)
+      },
+      async delete() {
+        return false
+      },
+    })
+    const first = await CollectionCookieJar.open(configDir, "shared")
+    const second = await CollectionCookieJar.open(configDir, "shared")
+    first.put({ name: "first", value: "1", domain: "example.com" })
+    second.put({ name: "second", value: "2", domain: "example.com" })
+
+    await Promise.all([first.saveNow(), second.saveNow()])
+
+    expect(sets).toBe(1)
+  })
+
+  it("times out on an active lock and retries retained mutations", async () => {
+    setCookieJarTimingForTests({
+      lockTimeoutMs: 20,
+      minBackoffMs: 1,
+      maxBackoffMs: 2,
+    })
+    const jar = await CollectionCookieJar.open(configDir, "locked")
+    jar.put({ name: "pending", value: "1", domain: "example.com" })
+    const lockDir = `${jar.file}.lock`
+    await mkdir(lockDir, { recursive: true })
+
+    await expect(jar.saveNow()).rejects.toMatchObject({
+      code: "lock-timeout",
+    })
+    await rm(lockDir, { recursive: true })
+    await jar.saveNow()
+
+    const reopened = await CollectionCookieJar.open(configDir, "locked")
+    expect(reopened.list().map((cookie) => cookie.name)).toEqual(["pending"])
+  })
+
+  it("recovers a stale lock without leaving shared temporary files", async () => {
+    setCookieJarTimingForTests({ staleLockMs: 10 })
+    const jar = await CollectionCookieJar.open(configDir, "stale")
+    jar.put({ name: "saved", value: "1", domain: "example.com" })
+    const lockDir = `${jar.file}.lock`
+    await mkdir(lockDir, { recursive: true })
+    await writeFile(join(lockDir, "owner"), "abandoned")
+    const old = new Date(Date.now() - 1000)
+    await utimes(lockDir, old, old)
+
+    await jar.saveNow()
+
+    const entries = await readdir(join(configDir, "cookies"))
+    expect(entries.some((entry) => entry.includes(".lock"))).toBe(false)
+    expect(entries.some((entry) => entry.includes(".tmp-"))).toBe(false)
+  })
+
+  it("preserves malformed and unknown storage until explicit reset", async () => {
+    const cookiesDir = join(configDir, "cookies")
+    const file = join(cookiesDir, "broken.json")
+    await mkdir(cookiesDir, { recursive: true })
+    await writeFile(file, "plain:{not-json", "utf8")
+    const jar = await CollectionCookieJar.open(configDir, "broken")
+    expect(jar.status).toMatchObject({
+      state: "unavailable",
+      error: { code: "malformed" },
+    })
+    jar.put({ name: "pending", value: "1", domain: "example.com" })
+
+    await expect(jar.saveNow()).rejects.toMatchObject({ code: "malformed" })
+    expect(await readFile(file, "utf8")).toBe("plain:{not-json")
+    const reset = await jar.reset()
+
+    expect(reset.backupPath).toBeDefined()
+    expect(await readFile(reset.backupPath!, "utf8")).toBe("plain:{not-json")
+    expect(jar.status.state).toBe("encrypted")
+    expect(jar.list().map((cookie) => cookie.name)).toEqual(["pending"])
+
+    await writeFile(file, "future:v2:anything", "utf8")
+    const unknown = await CollectionCookieJar.open(configDir, "broken")
+    expect(unknown.status).toMatchObject({
+      state: "unavailable",
+      error: { code: "unknown-format" },
+    })
+    expect(await readFile(file, "utf8")).toBe("future:v2:anything")
+  })
+
+  it("reports bad ciphertext without modifying it", async () => {
+    backend.values.set(
+      "dev.noodlerest.noodle:app:settings:cookie-jar-key",
+      Buffer.alloc(32, 7).toString("hex"),
+    )
+    const file = join(configDir, "cookies", "bad.json")
+    await mkdir(join(configDir, "cookies"), { recursive: true })
+    await writeFile(file, "enc:v1:00:00:not-ciphertext", "utf8")
+
+    const jar = await CollectionCookieJar.open(configDir, "bad")
+
+    expect(jar.status).toMatchObject({
+      state: "unavailable",
+      error: { code: "decrypt" },
+    })
+    expect(await readFile(file, "utf8")).toBe("enc:v1:00:00:not-ciphertext")
+  })
+
+  it("treats non-ENOENT read failures as unavailable storage", async () => {
+    const file = join(configDir, "cookies", "unreadable.json")
+    await mkdir(file, { recursive: true })
+
+    const jar = await CollectionCookieJar.open(configDir, "unreadable")
+
+    expect(jar.status).toMatchObject({
+      state: "unavailable",
+      error: { code: "read" },
+    })
+    expect((await stat(file)).isDirectory()).toBe(true)
+  })
+
+  it("marks plaintext storage and restricts its file permissions", async () => {
+    setSecretBackendForTests({
+      async get() {
+        throw new Error("no keyring")
+      },
+      async set() {
+        throw new Error("no keyring")
+      },
+      async delete() {
+        return false
+      },
+    })
+    const jar = await CollectionCookieJar.open(configDir, "plain")
+    jar.put({ name: "saved", value: "1", domain: "example.com" })
+    await jar.saveNow()
+
+    expect(jar.status.state).toBe("plaintext-warning")
+    expect((await stat(jar.file)).mode & 0o777).toBe(0o600)
+    expect(jar.warnings).toHaveLength(1)
+  })
+
+  it("strictly validates manual domains, paths, and cookie prefixes", async () => {
+    const jar = await CollectionCookieJar.open(configDir, "validation")
+    let changes = 0
+    jar.subscribe(() => {
+      changes += 1
+    })
+    expect(() => jar.put({ name: "a", value: "1", domain: "com" })).toThrow(
+      "domain or attributes",
+    )
+    expect(() =>
+      jar.put({ name: "a", value: "1", domain: "example.com", path: "x" }),
+    ).toThrow("path must start")
+    expect(() =>
+      jar.put({ name: "a", value: "not;valid", domain: "example.com" }),
+    ).toThrow("invalid name or value")
+    expect(() =>
+      jar.put({ name: "__Secure-a", value: "1", domain: "example.com" }),
+    ).toThrow("must be Secure")
+    expect(() =>
+      jar.put({
+        name: "__Host-a",
+        value: "1",
+        domain: "example.com",
+        secure: true,
+        hostOnly: false,
+      }),
+    ).toThrow("host-only")
+    expect(jar.list()).toEqual([])
+    expect(changes).toBe(0)
+  })
+
+  it("ignores invalid server cookies without publishing a mutation", async () => {
+    const jar = await CollectionCookieJar.open(configDir, "server-validation")
+    let changes = 0
+    jar.subscribe(() => {
+      changes += 1
+    })
+
+    jar.storeResponseCookies(
+      "https://example.com/",
+      new Headers({ "set-cookie": "invalid-cookie-without-equals" }),
+    )
+
+    expect(jar.list()).toEqual([])
+    expect(changes).toBe(0)
+  })
+
+  it("refreshes concurrent commits before the next request", async () => {
+    const first = await CollectionCookieJar.open(configDir, "shared")
+    const second = await CollectionCookieJar.open(configDir, "shared")
+    first.put({ name: "fresh", value: "1", domain: "example.com" })
+    await first.saveNow()
+
+    expect(second.cookieHeaderFor("https://example.com/")).toBe("")
+    await second.refresh()
+    expect(second.cookieHeaderFor("https://example.com/")).toBe("fresh=1")
+  })
+
+  it("flushes all active handles", async () => {
+    const first = await CollectionCookieJar.open(configDir, "first")
+    const second = await CollectionCookieJar.open(configDir, "second")
+    first.put({ name: "a", value: "1", domain: "example.com" })
+    second.put({ name: "b", value: "2", domain: "example.com" })
+
+    await flushAll()
+
+    expect(
+      (await CollectionCookieJar.open(configDir, "first")).list()[0]?.name,
+    ).toBe("a")
+    expect(
+      (await CollectionCookieJar.open(configDir, "second")).list()[0]?.name,
+    ).toBe("b")
   })
 })

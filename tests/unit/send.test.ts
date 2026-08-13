@@ -406,6 +406,7 @@ describe("send — NTLMv2", () => {
     })
     const captured: string[] = []
     const cookies = {
+      refresh: async () => {},
       cookieHeaderFor: () => "",
       storeResponseCookies: (_url: string, headers: Headers) => {
         captured.push(headers.get("set-cookie") ?? "")

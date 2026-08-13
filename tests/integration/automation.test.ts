@@ -656,6 +656,8 @@ describe("automation cookie jar", () => {
 
     expect(await cookieList(collectionDir, configDir)).toEqual({
       disabled: false,
+      state: "encrypted",
+      warnings: [],
       cookies: [],
     })
 
@@ -678,9 +680,13 @@ describe("automation cookie jar", () => {
 
     expect(await cookieClear(collectionDir, configDir)).toEqual({
       disabled: false,
+      state: "encrypted",
+      warnings: [],
     })
     expect(await cookieList(collectionDir, configDir)).toEqual({
       disabled: false,
+      state: "encrypted",
+      warnings: [],
       cookies: [],
     })
   })
@@ -696,10 +702,90 @@ describe("automation cookie jar", () => {
     )
     expect(await cookieList(collectionDir, join(dir, "config"))).toEqual({
       disabled: true,
+      state: "disabled",
+      warnings: [],
       cookies: [],
     })
     expect(await cookieClear(collectionDir, join(dir, "config"))).toEqual({
       disabled: true,
+      state: "disabled",
+      warnings: [],
     })
+  })
+
+  it("reports plaintext warnings and host-only metadata", async () => {
+    const failingBackend: SecretBackend = {
+      async get() {
+        throw new Error("no keyring")
+      },
+      async set() {
+        throw new Error("no keyring")
+      },
+      async delete() {
+        return false
+      },
+    }
+    setSecretBackendForTests(failingBackend)
+    const collectionDir = join(dir, "plaintext")
+    await mkdir(collectionDir)
+    await writeFile(join(collectionDir, "settings.yml"), "", "utf8")
+    await writeFile(
+      join(collectionDir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+      "utf8",
+    )
+    const configDir = join(dir, "config")
+    await cookieList(collectionDir, configDir)
+    const { loadSettings } = await import("../../src/filestore")
+    const { CollectionCookieJar } = await import("../../src/cookies")
+    const collectionId = (await loadSettings(collectionDir)).collectionId!
+    const jar = await CollectionCookieJar.open(configDir, collectionId)
+    jar.put({
+      name: "session",
+      value: "abc",
+      domain: "example.com",
+      hostOnly: true,
+    })
+    await jar.saveNow()
+
+    const result = await cookieList(collectionDir, configDir)
+
+    expect(result.state).toBe("plaintext-warning")
+    expect(result.warnings).toHaveLength(1)
+    expect(result.cookies[0]?.hostOnly).toBe(true)
+  })
+
+  it("backs up unreadable storage when cookie clear resets it", async () => {
+    setSecretBackendForTests(memoryBackend())
+    const collectionDir = join(dir, "recovery")
+    await mkdir(collectionDir)
+    await writeFile(join(collectionDir, "settings.yml"), "", "utf8")
+    await writeFile(
+      join(collectionDir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+      "utf8",
+    )
+    const configDir = join(dir, "config")
+    await cookieList(collectionDir, configDir)
+    const { loadSettings } = await import("../../src/filestore")
+    const collectionId = (await loadSettings(collectionDir)).collectionId!
+    const file = join(configDir, "cookies", `${collectionId}.json`)
+    await writeFile(file, "plain:{broken", "utf8")
+
+    const unavailable = await cookieList(collectionDir, configDir)
+    expect(unavailable.state).toBe("unavailable")
+    expect(unavailable.warnings).toHaveLength(1)
+    expect(await readFile(file, "utf8")).toBe("plain:{broken")
+
+    const cleared = await cookieClear(collectionDir, configDir)
+
+    expect(cleared).toMatchObject({
+      disabled: false,
+      state: "encrypted",
+      warnings: [],
+    })
+    expect(cleared.backupPath).toBeDefined()
+    expect(await readFile(cleared.backupPath!, "utf8")).toBe("plain:{broken")
+    expect((await cookieList(collectionDir, configDir)).cookies).toEqual([])
   })
 })
