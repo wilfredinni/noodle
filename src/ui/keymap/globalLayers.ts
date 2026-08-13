@@ -4,6 +4,7 @@ import {
   copyResponseBody,
   getEditFolderYamlFile,
   getEditRequestYamlFile,
+  openCookieJar,
   openEnvironmentEditor,
   openSettings,
   openThemePicker,
@@ -284,6 +285,20 @@ export function createGlobalLayers(
         run: () => global.setCollectionSwitcherVisible(true),
       },
       {
+        name: "cookie-jar.open",
+        enabled: () =>
+          shortcutEnabled(
+            keybinds.cookie_jar_open,
+            keybinds.cookie_jar_open !== "" &&
+              global.modeRef.current === "collection" &&
+              global.viewRef.current === "main" &&
+              keymap.getData("app.overlay") === "none",
+          ),
+        run: () => {
+          openCookieJar(global.setView, global.setFocus)
+        },
+      },
+      {
         name: "global.undo-all",
         enabled: () =>
           shortcutEnabled(
@@ -325,6 +340,9 @@ export function createGlobalLayers(
       { key: keybinds.settings_open, cmd: "app.settings-open" },
       { key: keybinds.request_find, cmd: "request.find" },
       { key: keybinds.collection_switcher, cmd: "collection.switcher" },
+      ...(keybinds.cookie_jar_open
+        ? [{ key: keybinds.cookie_jar_open, cmd: "cookie-jar.open" }]
+        : []),
       { key: keybinds.global_undo_all, cmd: "global.undo-all" },
       { key: keybinds.jump_mode, cmd: "jump.enter" },
     ],

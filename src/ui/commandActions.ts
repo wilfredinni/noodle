@@ -3,6 +3,7 @@ import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { Focus } from "./focus"
 import { toggleExpand } from "./focus"
+import type { AppView } from "./appState"
 import { copyToClipboard } from "./clipboard"
 import { showToast } from "./Toast"
 import { findRequestById } from "./tree"
@@ -198,6 +199,15 @@ export function openEnvironmentEditor(
 ): boolean {
   const name = c.envStateRef.current.activeEnv?.name
   c.envEditorRef.current.openEditor(name)
+  return true
+}
+
+export function openCookieJar(
+  setView: (v: AppView | ((prev: AppView) => AppView)) => void,
+  setFocus: (focus: Focus | ((prev: Focus) => Focus)) => void,
+): boolean {
+  setView("cookie-jar")
+  setFocus("cookie-sidebar")
   return true
 }
 

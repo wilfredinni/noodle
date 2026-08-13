@@ -112,6 +112,44 @@ describe("CookieJarView", () => {
     expect(frame).toContain("session")
     expect(frame).toContain("scoped")
     expect(frame).toContain("COOKIE")
+    expect(frame).not.toContain("Cookie Jar")
+    expect(frame.match(/example\.com/g)).toHaveLength(1)
+  })
+
+  it("does not show cookie counts beside sidebar domains", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <CookieJarSidebar
+          domains={[{ domain: "example.com", count: 42 }]}
+          selectedDomain="example.com"
+          domainIndex={0}
+          focused
+          onSelectDomain={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 50, height: 8 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("example.com")
+    expect(frame).not.toContain("42")
+  })
+
+  it("leaves a space between the domain left bar and its label", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <CookieJarSidebar
+          domains={[{ domain: "example.com", count: 1 }]}
+          selectedDomain="example.com"
+          domainIndex={0}
+          focused
+          onSelectDomain={() => {}}
+        />
+      </ThemeProvider>,
+      { width: 50, height: 8 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("┃ example.com")
   })
 
   it("uses the response cookie accordion layout and expands details", async () => {
@@ -243,8 +281,8 @@ describe("CookieJarView", () => {
     expect(frame).toContain("▾ COOKIE")
     expect(frame).toContain("Value")
     expect(frame).toContain("tail")
-    expect(frame).toMatch(
-      /Flags\s+Secure · HttpOnly · SameSite=strict · Doma[\s\S]*\n.*in/,
+    expect(frame).toContain(
+      "Flags    Secure · HttpOnly · SameSite=strict · Domain",
     )
   })
 

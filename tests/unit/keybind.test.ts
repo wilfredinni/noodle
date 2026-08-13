@@ -260,6 +260,14 @@ describe("request_edit_yaml", () => {
 })
 
 describe("cookie jar shortcuts", () => {
+  it("leaves opening Cookies unbound by default and allows overrides", () => {
+    expect(Definitions.cookie_jar_open.default).toBe("")
+    expect(Definitions.cookie_jar_open.fixed).toBe(false)
+    expect(
+      parseOverrides({ cookie_jar_open: "ctrl+shift+c" }).cookie_jar_open,
+    ).toBe("ctrl+shift+c")
+  })
+
   it("uses Ctrl+W for domains and Ctrl+D for cookies", () => {
     expect(Definitions.cookie_edit.default).toBe("ctrl+e")
     expect(Definitions.cookie_delete.default).toBe("ctrl+w")

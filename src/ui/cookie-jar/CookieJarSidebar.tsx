@@ -3,7 +3,6 @@ import { FullBorder, LeftBar } from "../borders"
 import { useEffect, useRef, useState } from "react"
 import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
 import { Frame } from "../Frame"
-import { Badge } from "../Badge"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
 import type { CookieDomainGroup } from "../../hooks/useCookieJarView"
 
@@ -49,16 +48,6 @@ export function CookieJarSidebar({
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      titleRight={
-        jumpMode ? undefined : (
-          <Badge
-            bg={theme.backgroundPanel}
-            fg={focused ? theme.primary : theme.textMuted}
-          >
-            Cookie Jar
-          </Badge>
-        )
-      }
       onPaneFocus={onPaneFocus}
     >
       {jumpMode && <JumpBadge letter="s" style={JUMP_BADGE_TOP_INDENT} />}
@@ -87,6 +76,7 @@ export function CookieJarSidebar({
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
+                  paddingLeft: 1,
                   backgroundColor:
                     isSelected || isHovered
                       ? theme.backgroundElement
@@ -108,7 +98,6 @@ export function CookieJarSidebar({
                 <text fg={theme.text} wrapMode="none" truncate>
                   {group.domain}
                 </text>
-                <text fg={theme.textMuted}>{group.count}</text>
               </box>
             )
           })}

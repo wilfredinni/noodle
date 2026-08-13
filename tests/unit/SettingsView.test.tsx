@@ -662,6 +662,9 @@ describe("SettingsView", () => {
       renderer.root.findDescendantById("settings-key-cookie_new"),
     ).toBeDefined()
     expect(
+      renderer.root.findDescendantById("settings-key-cookie_jar_open"),
+    ).toBeDefined()
+    expect(
       renderer.root.findDescendantById("settings-key-cookie_clear"),
     ).toBeDefined()
     expect(create.screenY - find.screenY).toBe(1)

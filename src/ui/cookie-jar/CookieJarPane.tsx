@@ -7,7 +7,6 @@ import {
   type ScrollBoxRenderable,
 } from "@opentui/core"
 import { Frame } from "../Frame"
-import { Badge } from "../Badge"
 import { JumpBadge, JUMP_BADGE_TOP_INDENT } from "../JumpBadge"
 import type { CookieJarStatus } from "../../cookies"
 import type { UseCookieJarViewResult } from "../../hooks/useCookieJarView"
@@ -57,23 +56,13 @@ export function CookieJarPane({
         flexDirection: "column",
         flexGrow: 1,
         minHeight: 0,
-        padding: 1,
+        padding: 0,
         gap: 1,
         backgroundColor: theme.backgroundPanel,
       }}
       border={[...FullBorder.border]}
       customBorderChars={FullBorder.customBorderChars}
       borderColor={focused ? theme.primary : theme.borderSubtle}
-      titleRight={
-        jumpMode ? undefined : (
-          <Badge
-            bg={theme.backgroundPanel}
-            fg={focused ? theme.primary : theme.textMuted}
-          >
-            {domain ?? "Cookies"}
-          </Badge>
-        )
-      }
       onPaneFocus={onPaneFocus}
     >
       {jumpMode && <JumpBadge letter="c" style={JUMP_BADGE_TOP_INDENT} />}

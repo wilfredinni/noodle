@@ -225,6 +225,7 @@ export const Definitions = {
   env_delete: keybind("ctrl+w", "Delete environment", false, "Environment", [
     "env-editor",
   ]),
+  cookie_jar_open: keybind("", "Open Cookies", false, "Cookies", ["main"]),
   cookie_edit: keybind("ctrl+e", "Edit cookie", false, "Cookies", [
     "cookie-jar",
   ]),
@@ -289,6 +290,7 @@ export const CommandMap = {
   env_new: "env.new",
   env_clone: "env.clone",
   env_delete: "env.delete",
+  cookie_jar_open: "cookie-jar.open",
   cookie_edit: "cookie.edit",
   cookie_delete: "cookie.delete",
   cookie_delete_domain: "cookie.delete-cookie",

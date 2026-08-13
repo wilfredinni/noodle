@@ -423,6 +423,29 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("leaves Cookies unbound until the user configures a shortcut", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    const defaultBindings = createAppKeymapLayers(context)[0]!
+      .bindings as Array<{
+      key: string
+      cmd: string
+    }>
+    expect(defaultBindings).not.toContainEqual({
+      key: "",
+      cmd: "cookie-jar.open",
+    })
+
+    context.keybinds = { ...context.keybinds, cookie_jar_open: "ctrl+shift+c" }
+    const disposers = register(context)
+    host.press("c", { ctrl: true, shift: true })
+
+    expect(calls.view).toBe("cookie-jar")
+    expect(calls.focus).toBe("cookie-sidebar")
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("does not dispatch printable global shortcuts while typing", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
