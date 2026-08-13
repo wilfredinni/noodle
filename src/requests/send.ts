@@ -317,6 +317,9 @@ export async function send(
         `${response.status} ${response.statusText || "Response"} - ${[...response.headers].length} headers`,
         onNetworkEvent,
       )
+      if (cookies && substituted.sendCookies !== false) {
+        cookies.storeResponseCookies(currentUrl, response.headers)
+      }
       return response
     }
 
@@ -352,9 +355,6 @@ export async function send(
 
     try {
       res = await fetchOnce()
-      if (cookies && substituted.sendCookies !== false) {
-        cookies.storeResponseCookies(currentUrl, res.headers)
-      }
       if (
         ntlmEnabled &&
         substituted.auth?.type === "ntlm" &&

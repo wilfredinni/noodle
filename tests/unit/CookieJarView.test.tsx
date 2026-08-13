@@ -5,17 +5,41 @@ import { CookieJarSidebar } from "../../src/ui/cookie-jar/CookieJarSidebar"
 import { useCookieJarView } from "../../src/hooks/useCookieJarView"
 import type { CollectionCookieJar, JarCookie } from "../../src/cookies"
 import { CookieJarView } from "../../src/ui/cookie-jar/CookieJarView"
-import { useRef } from "react"
+import { act, useRef } from "react"
 
 const testRender = createTestRender()
 
 function jarWith(cookies: JarCookie[]): CollectionCookieJar {
   return {
     list: () => cookies,
+    subscribe: () => () => {},
     deleteCookie: async () => {},
     deleteDomain: async () => {},
     clear: async () => {},
   } as unknown as CollectionCookieJar
+}
+
+function observableJar(initial: JarCookie[]) {
+  let cookies = initial
+  let listener: (() => void) | undefined
+  return {
+    jar: {
+      list: () => cookies,
+      subscribe: (next: () => void) => {
+        listener = next
+        return () => {
+          if (listener === next) listener = undefined
+        }
+      },
+      deleteCookie: async () => {},
+      deleteDomain: async () => {},
+      clear: async () => {},
+    } as unknown as CollectionCookieJar,
+    add(cookie: JarCookie) {
+      cookies = [...cookies, cookie]
+      listener?.()
+    },
+  }
 }
 
 const twoCookies = jarWith([
@@ -148,5 +172,33 @@ describe("CookieJarView", () => {
     )
     await renderOnce()
     expect(captureCharFrame()).toContain("Select a domain")
+  })
+
+  it("refreshes when the jar changes outside the cookie view", async () => {
+    const source = observableJar([])
+    let view: ReturnType<typeof useCookieJarView> | undefined
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Harness jar={source.jar} onReady={(next) => (view = next)} />
+      </ThemeProvider>,
+      { width: 100, height: 8 },
+    )
+    await renderOnce()
+    expect(view!.domains).toEqual([])
+
+    act(() =>
+      source.add({
+        name: "session",
+        value: "abc",
+        domain: "example.com",
+        path: "/",
+        expires: null,
+        secure: false,
+        httpOnly: false,
+      }),
+    )
+    await renderOnce()
+
+    expect(view!.domains).toEqual([{ domain: "example.com", count: 1 }])
   })
 })

@@ -13,6 +13,7 @@ export interface JarCookie {
   expires: Date | null
   secure: boolean
   httpOnly: boolean
+  hostOnly?: boolean
   sameSite?: "strict" | "lax" | "none"
 }
 
@@ -24,7 +25,17 @@ export interface CookieInput {
   expires?: Date | null
   secure?: boolean
   httpOnly?: boolean
+  hostOnly?: boolean
   sameSite?: "strict" | "lax" | "none"
+}
+
+function expiryDate(cookie: Cookie): Date | null {
+  const expires = cookie.expiryTime()
+  if (expires === undefined || expires === Infinity || Number.isNaN(expires)) {
+    return null
+  }
+  if (expires === -Infinity) return new Date(0)
+  return new Date(expires)
 }
 
 export function parseResponseCookies(headers: Headers): ResponseCookie[] {
@@ -37,8 +48,7 @@ export function parseResponseCookies(headers: Headers): ResponseCookie[] {
       value: cookie.value,
       ...(cookie.domain ? { domain: cookie.domain } : {}),
       ...(cookie.path ? { path: cookie.path } : {}),
-      expires:
-        cookie.expires instanceof Date ? cookie.expires.toISOString() : null,
+      expires: expiryDate(cookie)?.toISOString() ?? null,
       secure: cookie.secure,
       httpOnly: cookie.httpOnly,
       ...(cookie.sameSite === "strict" ||
@@ -62,6 +72,7 @@ export class CollectionCookieJar {
   private keyLoaded = false
   private timer: ReturnType<typeof setTimeout> | null = null
   private lastSaved: string | null = null
+  private listeners = new Set<() => void>()
   private constructor(readonly file: string) {}
 
   static async open(
@@ -77,7 +88,13 @@ export class CollectionCookieJar {
       if (serialized.startsWith(ENC_PREFIX)) {
         handle.key = await loadOrCreateKey()
         handle.keyLoaded = true
-        if (handle.key) plain = decrypt(serialized, handle.key)
+        if (!handle.key) {
+          throw new Error("cookie jar encryption key is unavailable")
+        }
+        plain = decrypt(serialized, handle.key)
+        if (plain === null) {
+          throw new Error("cookie jar encrypted state could not be decrypted")
+        }
       } else if (serialized.startsWith(PLAIN_PREFIX)) {
         plain = serialized.slice(PLAIN_PREFIX.length)
       }
@@ -97,17 +114,23 @@ export class CollectionCookieJar {
     return this.jar.getCookieStringSync(url)
   }
 
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
   storeResponseCookies(url: string, headers: Headers): void {
     let stored = false
     for (const setCookie of headers.getSetCookie()) {
       try {
-        this.jar.setCookieSync(setCookie, url, { ignoreError: true })
-        stored = true
+        if (this.jar.setCookieSync(setCookie, url, { ignoreError: true })) {
+          stored = true
+        }
       } catch {
         // ignore malformed Set-Cookie headers
       }
     }
-    if (stored) this.scheduleSave()
+    if (stored) this.changed()
   }
 
   put(cookie: CookieInput): void {
@@ -118,20 +141,25 @@ export class CollectionCookieJar {
     const path = cookie.path || "/"
     const value = cookie.value ?? ""
     const expires = cookie.expires ?? null
+    const secure = cookie.secure ?? false
     const instance = new Cookie({
       key: name,
       value,
-      domain,
+      ...(!cookie.hostOnly ? { domain } : {}),
       path,
       expires,
-      secure: cookie.secure ?? false,
+      secure,
       httpOnly: cookie.httpOnly ?? false,
       ...(cookie.sameSite ? { sameSite: cookie.sameSite } : {}),
     })
-    this.jar.setCookieSync(instance, `http://${domain}${path}`, {
-      ignoreError: true,
-    })
-    this.scheduleSave()
+    this.jar.setCookieSync(
+      instance,
+      `${secure ? "https" : "http"}://${domain}${path}`,
+      {
+        ignoreError: true,
+      },
+    )
+    this.changed()
   }
 
   list(): JarCookie[] {
@@ -151,17 +179,22 @@ export class CollectionCookieJar {
     name: string,
   ): Promise<void> {
     await this.jar.store.removeCookie(domain, path, name)
-    this.scheduleSave()
+    this.changed()
   }
 
   async deleteDomain(domain: string): Promise<void> {
     await this.jar.store.removeCookies(domain, null)
-    this.scheduleSave()
+    this.changed()
   }
 
   async clear(): Promise<void> {
     this.jar.removeAllCookiesSync()
+    this.changed()
+  }
+
+  private changed(): void {
     this.scheduleSave()
+    for (const listener of this.listeners) listener()
   }
 
   scheduleSave(): void {
@@ -203,12 +236,6 @@ export class CollectionCookieJar {
 }
 
 function toJarCookie(cookie: Cookie): JarCookie {
-  const expires =
-    cookie.expires === "Infinity" || cookie.expires === null
-      ? null
-      : cookie.expires instanceof Date
-        ? cookie.expires
-        : new Date(cookie.expires as string)
   const sameSite =
     cookie.sameSite === "strict" ||
     cookie.sameSite === "lax" ||
@@ -220,9 +247,10 @@ function toJarCookie(cookie: Cookie): JarCookie {
     value: cookie.value,
     domain: cookie.domain ?? "",
     path: cookie.path ?? "/",
-    expires,
+    expires: expiryDate(cookie),
     secure: cookie.secure,
     httpOnly: cookie.httpOnly,
+    hostOnly: cookie.hostOnly ?? false,
     ...(sameSite ? { sameSite } : {}),
   }
 }

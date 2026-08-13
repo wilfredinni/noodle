@@ -165,6 +165,7 @@ export function useOverlayIntercepts(opts: {
     onConfirm: opts.onCookieFormConfirm,
     onCancel: () => opts.setCookieFormVisible(false),
     passThroughFocuses: ["sameSite"],
+    toggleFocuses: ["secure", "httpOnly"],
   })
 
   const newRequestActions = useFormOverlayIntercept({

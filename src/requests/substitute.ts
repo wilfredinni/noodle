@@ -70,6 +70,7 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     timeout: req.timeout,
     followRedirects: req.followRedirects,
     maxRedirects: req.maxRedirects,
+    sendCookies: req.sendCookies,
     headers,
     params,
     pathParams,

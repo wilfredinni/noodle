@@ -231,7 +231,11 @@ export const CookieFormOverlay = forwardRef<
                       : undefined,
                   }}
                   onMouseDown={(event) => {
-                    if (event.button === MouseButton.LEFT) setFocus(field)
+                    if (event.button !== MouseButton.LEFT) return
+                    setFocus(field)
+                    setSecure((current) => !current)
+                    event.preventDefault()
+                    event.stopPropagation()
                   }}
                 >
                   <Checkbox checked={secure} theme={theme} />
@@ -246,7 +250,11 @@ export const CookieFormOverlay = forwardRef<
                       : undefined,
                   }}
                   onMouseDown={(event) => {
-                    if (event.button === MouseButton.LEFT) setFocus(field)
+                    if (event.button !== MouseButton.LEFT) return
+                    setFocus(field)
+                    setHttpOnly((current) => !current)
+                    event.preventDefault()
+                    event.stopPropagation()
                   }}
                 >
                   <Checkbox checked={httpOnly} theme={theme} />

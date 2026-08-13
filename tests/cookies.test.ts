@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { CollectionCookieJar } from "../src/cookies"
+import { CollectionCookieJar, parseResponseCookies } from "../src/cookies"
 import { setSecretBackendForTests, type SecretBackend } from "../src/secrets"
 
 function memoryBackend(): SecretBackend & { values: Map<string, string> } {
@@ -93,6 +93,30 @@ describe("CollectionCookieJar", () => {
     )
   })
 
+  it("does not replace an encrypted jar when its vault key is unavailable", async () => {
+    const jar = await CollectionCookieJar.open(configDir, "col-1")
+    jar.put({ name: "session", value: "secret", domain: "example.com" })
+    await jar.saveNow()
+    const file = join(configDir, "cookies", "col-1.json")
+    const encrypted = await readFile(file, "utf8")
+    setSecretBackendForTests({
+      async get() {
+        throw new Error("no keyring")
+      },
+      async set() {
+        throw new Error("no keyring")
+      },
+      async delete() {
+        return false
+      },
+    })
+
+    await expect(CollectionCookieJar.open(configDir, "col-1")).rejects.toThrow(
+      "cookie jar encryption key is unavailable",
+    )
+    expect(await readFile(file, "utf8")).toBe(encrypted)
+  })
+
   it("deletes cookies and domains", async () => {
     const jar = await CollectionCookieJar.open(configDir, "col-1")
     jar.storeResponseCookies(
@@ -161,6 +185,21 @@ describe("CollectionCookieJar", () => {
     expect(jar.list()).toHaveLength(1)
   })
 
+  it("preserves host-only scope when editing a captured cookie", async () => {
+    const jar = await CollectionCookieJar.open(configDir, "col-1")
+    jar.storeResponseCookies(
+      "https://example.com/login",
+      new Headers({ "set-cookie": "session=one; Path=/" }),
+    )
+    const captured = jar.list()[0]!
+    expect(captured.hostOnly).toBe(true)
+
+    jar.put({ ...captured, value: "two" })
+
+    expect(jar.cookieHeaderFor("https://example.com/")).toBe("session=two")
+    expect(jar.cookieHeaderFor("https://sub.example.com/")).toBe("")
+  })
+
   it("rejects put() without a name or domain", async () => {
     const jar = await CollectionCookieJar.open(configDir, "col-1")
     expect(() =>
@@ -182,5 +221,23 @@ describe("CollectionCookieJar", () => {
     )
     expect(jar.cookieHeaderFor("https://example.com/")).toBe("a=1")
     expect(jar.cookieHeaderFor("https://example.com/admin")).toContain("b=2")
+  })
+
+  it("reports Max-Age expiry for response and stored cookies", async () => {
+    const before = Date.now() + 3_500_000
+    const headers = new Headers({
+      "set-cookie": "session=abc; Path=/; Max-Age=3600",
+    })
+    const responseExpiry = Date.parse(
+      parseResponseCookies(headers)[0]!.expires!,
+    )
+    expect(responseExpiry).toBeGreaterThanOrEqual(before)
+    expect(responseExpiry).toBeLessThanOrEqual(Date.now() + 3_700_000)
+
+    const jar = await CollectionCookieJar.open(configDir, "col-1")
+    jar.storeResponseCookies("https://example.com/", headers)
+    const storedExpiry = jar.list()[0]!.expires?.getTime()
+    expect(storedExpiry).toBeGreaterThanOrEqual(before)
+    expect(storedExpiry).toBeLessThanOrEqual(Date.now() + 3_700_000)
   })
 })

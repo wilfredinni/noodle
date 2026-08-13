@@ -474,16 +474,29 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.bodyType).toBe("json")
     expect(next.get("r1")!.filePath).toBeUndefined()
   })
-  it("revertField settings restores timeout and TLS from original", () => {
-    const original = makeReq({ timeout: 5000, tls: { verify: true } })
+  it("revertField settings restores timeout, cookies, and TLS from original", () => {
+    const original = makeReq({
+      timeout: 5000,
+      sendCookies: false,
+      tls: { verify: true },
+    })
     const map = new Map<string, Request>([
-      ["r1", { ...original, timeout: 30000, tls: { verify: false } }],
+      [
+        "r1",
+        {
+          ...original,
+          timeout: 30000,
+          sendCookies: true,
+          tls: { verify: false },
+        },
+      ],
     ])
     const next = applyDraft(map, "r1", original, {
       kind: "revertField",
       field: "settings",
     })
     expect(next.get("r1")!.timeout).toBe(5000)
+    expect(next.get("r1")!.sendCookies).toBe(false)
     expect(next.get("r1")!.tls).toEqual({ verify: true })
   })
   it("revertField headers row i restores that row from original", () => {

@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect, mock } from "bun:test"
 import type { Collection, NetworkError, Request } from "../../src/schema"
 import { send, interpolatePathParams } from "../../src/requests/send"
+import type { CollectionCookieJar } from "../../src/cookies"
 
 const servers: Bun.Server<undefined>[] = []
 
@@ -375,6 +376,52 @@ describe("send — NTLMv2", () => {
       result.network?.filter((event) => event.type === "request"),
     ).toHaveLength(3)
     expect(JSON.stringify(result.network)).not.toContain(headers[2])
+  })
+
+  it("captures Set-Cookie headers from every handshake response", async () => {
+    let leg = 0
+    const url = startServer(() => {
+      leg++
+      if (leg === 1) {
+        return new Response("offer", {
+          status: 401,
+          headers: {
+            "www-authenticate": "NTLM",
+            "set-cookie": "offer=1; Path=/",
+          },
+        })
+      }
+      if (leg === 2) {
+        return new Response("challenge", {
+          status: 401,
+          headers: {
+            "www-authenticate": `NTLM ${type2Token()}`,
+            "set-cookie": "challenge=1; Path=/",
+          },
+        })
+      }
+      return new Response("ok", {
+        headers: { "set-cookie": "final=1; Path=/" },
+      })
+    })
+    const captured: string[] = []
+    const cookies = {
+      cookieHeaderFor: () => "",
+      storeResponseCookies: (_url: string, headers: Headers) => {
+        captured.push(headers.get("set-cookie") ?? "")
+      },
+    } as unknown as CollectionCookieJar
+
+    await send(makeReq({ url, auth: ntlmAuth }), {
+      environment: environment(),
+      cookies,
+    })
+
+    expect(captured).toEqual([
+      "offer=1; Path=/",
+      "challenge=1; Path=/",
+      "final=1; Path=/",
+    ])
   })
 
   it("uses the two-request shortcut for an eager Type 2 without MIC", async () => {

@@ -272,6 +272,7 @@ export function applyDraft(
         draft.timeout = original.timeout
         draft.followRedirects = original.followRedirects
         draft.maxRedirects = original.maxRedirects
+        draft.sendCookies = original.sendCookies
         draft.tls = original.tls
       } else if (op.field === "headers" && op.row !== undefined) {
         draft.headers = revertRow(current.headers, original.headers, op.row)

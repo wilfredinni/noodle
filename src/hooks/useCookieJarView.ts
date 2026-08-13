@@ -79,6 +79,7 @@ export function useCookieJarView(
   }, [cookies.length])
 
   const refresh = useCallback(() => setVersion((v) => v + 1), [])
+  useEffect(() => jar?.subscribe(refresh), [jar, refresh])
   const selectDomain = useCallback(
     (domain: string) => {
       setDomainIndex((index) => {

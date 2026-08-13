@@ -1193,6 +1193,9 @@ export function AppInner({
         ...(expiresText !== "" ? { expires: new Date(expiresText) } : {}),
         secure: values.secure,
         httpOnly: values.httpOnly,
+        ...(initial?.hostOnly !== undefined
+          ? { hostOnly: initial.hostOnly }
+          : {}),
         ...(values.sameSite ? { sameSite: values.sameSite } : {}),
       }
       if (
