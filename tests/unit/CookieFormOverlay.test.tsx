@@ -128,7 +128,7 @@ describe("CookieFormOverlay", () => {
     cleanup()
   })
 
-  it("validates name, domain, and expires", async () => {
+  it("validates the required cookie name", async () => {
     const { keymap, cleanup } = setupKeymap()
     const ref = createRef<CookieFormOverlayHandle>()
     const { renderOnce, captureCharFrame } = await testRender(

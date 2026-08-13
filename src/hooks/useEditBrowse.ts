@@ -509,7 +509,11 @@ export function useEditBrowse(
     }
 
     setEditState(beginEditing(browsed))
-  }, [activeTab])
+  }, [
+    activeTab,
+    draftMutators.setFollowRedirects,
+    draftMutators.setSendCookies,
+  ])
 
   const exitBrowse = useCallback(() => {
     setEditState((prev) => {
@@ -694,7 +698,7 @@ export function useEditBrowse(
       setEditValue(kv.value)
     }
     setEditState((prev) => beginEditing(prev))
-  }, [])
+  }, [draftMutators.setFollowRedirects, draftMutators.setSendCookies])
 
   const commitEdit = useCallback(() => {
     const state = editStateRef.current

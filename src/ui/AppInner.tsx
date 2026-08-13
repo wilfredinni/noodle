@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { basename, dirname } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
@@ -986,13 +993,15 @@ export function AppInner({
 
   const cookieJarView = useCookieJarView(cookieJar)
   const cookieJarViewRef = useRef(cookieJarView)
-  cookieJarViewRef.current = cookieJarView
+  useLayoutEffect(() => {
+    cookieJarViewRef.current = cookieJarView
+  }, [cookieJarView])
 
   const retryCookieStorage = useCallback(() => {
-    if (!cookieJar) return
-    void cookieJar
-      .refresh()
-      .then(() => cookieStorage.flush())
+    const retry = cookieJar
+      ? cookieJar.refresh().then(() => cookieStorage.flush())
+      : cookieStorage.retry()
+    void retry
       .then(() => showToast("Cookie storage reloaded", "success"))
       .catch((error: unknown) =>
         showToast(
@@ -1000,7 +1009,7 @@ export function AppInner({
           "error",
         ),
       )
-  }, [cookieJar, cookieStorage.flush])
+  }, [cookieJar, cookieStorage.flush, cookieStorage.retry])
 
   const requestCookieStorageReset = useCallback(() => {
     setCookieDeletePending({ kind: "reset" })
@@ -1259,20 +1268,10 @@ export function AppInner({
     setCookieDeletePending,
     onCookieDeleteConfirm: (pending) => {
       const jar = cookieJar
-      if (!jar) return
       void (async () => {
         try {
-          if (pending.kind === "cookie") {
-            await jar.deleteCookie(pending.domain, pending.path, pending.name)
-            await cookieStorage.flush()
-          } else if (pending.kind === "domain") {
-            await jar.deleteDomain(pending.domain)
-            await cookieStorage.flush()
-          } else if (
-            pending.kind === "reset" ||
-            jar.status.state === "unavailable"
-          ) {
-            await jar.clear()
+          if (pending.kind === "reset" || jar?.status.state === "unavailable") {
+            if (jar) await jar.clear()
             const { backupPath } = await cookieStorage.reset()
             showToast(
               backupPath
@@ -1280,6 +1279,14 @@ export function AppInner({
                 : "Cookie storage reset",
               "success",
             )
+          } else if (!jar) {
+            return
+          } else if (pending.kind === "cookie") {
+            await jar.deleteCookie(pending.domain, pending.path, pending.name)
+            await cookieStorage.flush()
+          } else if (pending.kind === "domain") {
+            await jar.deleteDomain(pending.domain)
+            await cookieStorage.flush()
           } else {
             await jar.clear()
             await cookieStorage.flush()

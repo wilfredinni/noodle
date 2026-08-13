@@ -6,5 +6,5 @@ followRedirects: true
 maxRedirects: 5
 path_params:
   - name: postId
-    value: '1'
+    value: $post_id
 body_type: none

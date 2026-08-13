@@ -325,7 +325,7 @@ export async function send(
         `${response.status} ${response.statusText || "Response"} - ${[...response.headers].length} headers`,
         onNetworkEvent,
       )
-      if (cookies && substituted.sendCookies !== false) {
+      if (cookies) {
         cookies.storeResponseCookies(currentUrl, response.headers)
       }
       return response

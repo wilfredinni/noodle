@@ -257,6 +257,21 @@ describe("CollectionCookieJar", () => {
     expect(storedExpiry).toBeLessThanOrEqual(Date.now() + 3_700_000)
   })
 
+  it("preserves Max-Age expiry when replaying response mutations", async () => {
+    const jar = await CollectionCookieJar.open(configDir, "max-age-replay")
+    jar.storeResponseCookies(
+      "https://example.com/",
+      new Headers({ "set-cookie": "session=abc; Path=/; Max-Age=3600" }),
+    )
+    const initialExpiry = jar.list()[0]!.expires?.getTime()
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await jar.saveNow()
+
+    const reopened = await CollectionCookieJar.open(configDir, "max-age-replay")
+    expect(reopened.list()[0]!.expires?.getTime()).toBe(initialExpiry)
+  })
+
   it("reports zero Max-Age expiry for a non-empty response cookie", () => {
     const headers = new Headers({
       "set-cookie": "session=revoke; Path=/; Max-Age=0",
@@ -380,6 +395,23 @@ describe("CollectionCookieJar", () => {
 
     const reopened = await CollectionCookieJar.open(configDir, "locked")
     expect(reopened.list().map((cookie) => cookie.name)).toEqual(["pending"])
+  })
+
+  it("unregisters a closed handle when its final save fails", async () => {
+    setCookieJarTimingForTests({
+      lockTimeoutMs: 5,
+      minBackoffMs: 1,
+      maxBackoffMs: 1,
+    })
+    const jar = await CollectionCookieJar.open(configDir, "close-failure")
+    jar.put({ name: "pending", value: "1", domain: "example.com" })
+    const lockDir = `${jar.file}.lock`
+    await mkdir(lockDir, { recursive: true })
+
+    await expect(jar.close()).rejects.toMatchObject({ code: "lock-timeout" })
+    await expect(flushAll()).resolves.toBeUndefined()
+
+    await rm(lockDir, { recursive: true, force: true })
   })
 
   it("recovers a stale lock without leaving shared temporary files", async () => {

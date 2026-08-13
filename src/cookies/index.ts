@@ -146,7 +146,7 @@ export function setCookieJarTimingForTests(
 }
 
 type CookieMutation =
-  | { type: "response"; url: string; setCookie: string }
+  | { type: "response"; url: string; setCookie: string; now: Date }
   | { type: "put"; cookie: RequiredManualCookie }
   | { type: "delete"; domain: string; path: string; name: string }
   | { type: "delete-domain"; domain: string }
@@ -195,11 +195,13 @@ export class CollectionCookieJar {
       join(configDir, "cookies", `${collectionId}.json`),
     )
     let lock: LockHandle | null = null
+    let loadSucceeded = false
     try {
       lock = await acquireLock(handle.file)
       const loaded = await loadJar(handle.file)
       handle.jar = loaded.jar
       handle.currentStatus = loaded.status
+      loadSucceeded = true
     } catch (error) {
       handle.currentStatus = {
         state: "unavailable",
@@ -209,9 +211,11 @@ export class CollectionCookieJar {
       try {
         await lock?.release()
       } catch (error) {
-        handle.currentStatus = {
-          state: "unavailable",
-          error: asStorageError(error, handle.file, "write"),
+        if (!loadSucceeded) {
+          handle.currentStatus = {
+            state: "unavailable",
+            error: asStorageError(error, handle.file, "write"),
+          }
         }
       }
     }
@@ -240,7 +244,12 @@ export class CollectionCookieJar {
   storeResponseCookies(url: string, headers: Headers): void {
     let stored = false
     for (const setCookie of headers.getSetCookie()) {
-      const mutation: CookieMutation = { type: "response", url, setCookie }
+      const mutation: CookieMutation = {
+        type: "response",
+        url,
+        setCookie,
+        now: new Date(),
+      }
       try {
         if (applyResponseMutation(this.jar, mutation)) {
           this.journal.push(mutation)
@@ -383,10 +392,14 @@ export class CollectionCookieJar {
 
   async close(): Promise<void> {
     if (this.closed) return
-    await this.saveNow()
     this.closed = true
     activeHandles.delete(this)
-    this.listeners.clear()
+    try {
+      await this.saveNow()
+    } finally {
+      this.clearTimer()
+      this.listeners.clear()
+    }
   }
 
   private changed(): void {
@@ -475,6 +488,7 @@ function applyResponseMutation(
     return Boolean(
       jar.setCookieSync(mutation.setCookie, mutation.url, {
         ignoreError: true,
+        now: mutation.now,
       }),
     )
   } catch {
@@ -762,7 +776,6 @@ async function acquireLock(file: string): Promise<LockHandle> {
       }
     }
 
-    if (await recoverStaleLock(lockDir)) continue
     if (Date.now() - started >= timing.lockTimeoutMs) {
       throw new CookieJarStorageError(
         "lock-timeout",
@@ -770,6 +783,7 @@ async function acquireLock(file: string): Promise<LockHandle> {
         file,
       )
     }
+    if (await recoverStaleLock(lockDir)) continue
     const spread = timing.maxBackoffMs - timing.minBackoffMs
     const delay = timing.minBackoffMs + Math.floor(Math.random() * (spread + 1))
     await new Promise((resolve) => setTimeout(resolve, delay))

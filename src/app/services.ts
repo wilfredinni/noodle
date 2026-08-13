@@ -817,19 +817,21 @@ export async function cookieClear(
   const jar = access.jar
   if (!jar)
     throw new Error(access.warnings[0] ?? "Cookie storage is unavailable")
-  await jar.clear()
-  const recovery =
-    jar.status.state === "unavailable"
-      ? await jar.reset()
-      : (await jar.saveNow(), {})
-  const result = {
-    disabled: false,
-    state: jar.status.state,
-    warnings: jar.warnings,
-    ...recovery,
+  try {
+    await jar.clear()
+    const recovery =
+      jar.status.state === "unavailable"
+        ? await jar.reset()
+        : (await jar.saveNow(), {})
+    return {
+      disabled: false,
+      state: jar.status.state,
+      warnings: jar.warnings,
+      ...recovery,
+    }
+  } finally {
+    await closeCookieJar(jar)
   }
-  await closeCookieJar(jar)
-  return result
 }
 
 async function tlsPolicyFor(

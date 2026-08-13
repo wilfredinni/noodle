@@ -143,7 +143,7 @@ src/
     │   ├── keybind.ts                  # Keybinding definitions, CommandMap, parseOverrides
     │   ├── helpTexts.ts                # Help overlay section/keys builder
     │   ├── useJumpMode.ts              # Jump mode hook (leader-key focus jumps)
-    │   ├── useAppKeymap.ts             # All keymap layers (17 layers)
+    │   ├── useAppKeymap.ts             # All keymap layers (16 layers)
     │   ├── focus.ts                    # Focus type, cycleFocus, toggleExpand
     │   ├── commands.ts                 # buildCommandPaletteCommands
     │   ├── commandActions.ts           # All command action implementations
@@ -344,6 +344,7 @@ In the cookie jar, only these cookie jar targets are available:
 | `r` | Reveal or mask the selected secret (browse mode) |
 
 ### Cookie jar mode
+
 | Key | Action |
 |-----|--------|
 | `↑/↓` | Select domain (sidebar) or cookie (list) |
@@ -360,7 +361,7 @@ The cookie jar is opened from the command palette (**Open Cookie Jar**). It capt
 
 ## Focus model
 
-3 pane cycles controlled by the active view (main, folder, env editor, cookie jar):
+4 pane cycles controlled by the active view (main, folder, env editor, cookie jar):
 
 - **Main view:** `sidebar → urlbar → request → response` (4 panes). Tab/Shift+Tab wraps. URL bar has method and URL sub-focuses; Tab moves between them while focused.
 - **Folder view:** `sidebar → folder` (2 panes, when a folder is the selected item).

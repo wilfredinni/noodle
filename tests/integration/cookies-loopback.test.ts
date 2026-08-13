@@ -129,7 +129,7 @@ describe("send with cookie jar", () => {
 
   it("respects sendCookies=false on the request", async () => {
     seenCookies = []
-    const jar = await CollectionCookieJar.open(configDir, "col-1")
+    const jar = await CollectionCookieJar.open(configDir, "col-send-toggle")
     jar.put({ name: "session", value: "manual", domain: "localhost" })
     const disabled: Request = {
       ...baseReq,
@@ -144,6 +144,29 @@ describe("send with cookie jar", () => {
     }
     await send(enabled, { cookies: jar })
     expect(seenCookies).toContain("session=manual")
+  })
+
+  it("captures response cookies when sendCookies=false", async () => {
+    seenCookies = []
+    const jar = await CollectionCookieJar.open(configDir, "col-capture-toggle")
+    await send(
+      {
+        ...baseReq,
+        url: `http://localhost:${port}/login`,
+        sendCookies: false,
+      },
+      { cookies: jar },
+    )
+
+    expect(seenCookies).toEqual([""])
+    await send(
+      {
+        ...baseReq,
+        url: `http://localhost:${port}/admin/users`,
+      },
+      { cookies: jar },
+    )
+    expect(seenCookies[1]).toContain("session=abc123")
   })
 
   it("refreshes cookies committed by another handle before sending", async () => {

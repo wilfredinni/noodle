@@ -151,6 +151,13 @@ export function ResponsePane({
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const onBodyEditorAvailableChangeRef = useRef(onBodyEditorAvailableChange)
+
+  useEffect(() => {
+    if (activeTab !== "cookies" || cookieRows.length === 0) return
+    scrollRef.current?.scrollChildIntoView(
+      `response-cookie-${selectedCookieIdx}`,
+    )
+  }, [activeTab, cookieRows.length, selectedCookieIdx])
   onBodyEditorAvailableChangeRef.current = onBodyEditorAvailableChange
   const [bodyEditor, setBodyEditor] = useState<CodeEditorRenderable | null>(
     null,
@@ -246,9 +253,6 @@ export function ResponsePane({
               : prev >= cookieRows.length - 1
                 ? 0
                 : prev + 1
-          queueMicrotask(() =>
-            scrollRef.current?.scrollChildIntoView(`response-cookie-${next}`),
-          )
           return next
         })
       } else if (key.name === "return") {

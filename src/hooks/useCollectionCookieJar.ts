@@ -12,16 +12,19 @@ export interface CollectionCookieJarState {
   jar: CollectionCookieJar | null
   status: CookieJarStatus
   flush: () => Promise<void>
+  retry: () => Promise<void>
   reset: () => Promise<{ backupPath?: string }>
 }
 
 export function useCollectionCookieJar(
   collectionDir: string | undefined,
+  configDir = CONFIG_DIR,
 ): CollectionCookieJarState {
   const [jar, setJar] = useState<CollectionCookieJar | null>(null)
   const [status, setStatus] = useState<CookieJarStatus>(
     collectionDir ? { state: "loading" } : { state: "disabled" },
   )
+  const [retryToken, setRetryToken] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -33,7 +36,7 @@ export function useCollectionCookieJar(
     void (async () => {
       try {
         const collectionId = await ensureCollectionId(collectionDir)
-        handle = await CollectionCookieJar.open(CONFIG_DIR, collectionId)
+        handle = await CollectionCookieJar.open(configDir, collectionId)
         if (cancelled) {
           await handle.close().catch(() => {})
           return
@@ -63,7 +66,7 @@ export function useCollectionCookieJar(
         )
       })
     }
-  }, [collectionDir])
+  }, [collectionDir, configDir, retryToken])
 
   const flush = useCallback(async () => {
     if (!jar) return
@@ -71,12 +74,37 @@ export function useCollectionCookieJar(
     setStatus(jar.status)
   }, [jar])
 
-  const reset = useCallback(async () => {
-    if (!jar) return {}
-    const result = await jar.reset()
-    setStatus(jar.status)
-    return result
-  }, [jar])
+  const retry = useCallback(async () => {
+    if (!collectionDir) return
+    const collectionId = await ensureCollectionId(collectionDir)
+    const probe = await CollectionCookieJar.open(configDir, collectionId)
+    try {
+      if (probe.status.state === "unavailable") throw probe.status.error
+    } finally {
+      await probe.close()
+    }
+    setRetryToken((current) => current + 1)
+  }, [collectionDir, configDir])
 
-  return { jar, status, flush, reset }
+  const reset = useCallback(async () => {
+    let recoveryJar = jar
+    if (!recoveryJar) {
+      if (!collectionDir) return {}
+      const collectionId = await ensureCollectionId(collectionDir)
+      recoveryJar = await CollectionCookieJar.open(configDir, collectionId)
+    }
+    const temporary = recoveryJar !== jar
+    try {
+      const result = await recoveryJar.reset()
+      setStatus(recoveryJar.status)
+      return result
+    } finally {
+      if (temporary) {
+        await recoveryJar.close()
+        setRetryToken((current) => current + 1)
+      }
+    }
+  }, [collectionDir, configDir, jar])
+
+  return { jar, status, flush, retry, reset }
 }
