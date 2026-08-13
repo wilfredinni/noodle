@@ -77,6 +77,12 @@ export function SettingsSection({
         ? "Disabled for this session by --insecure"
         : "Verify the server certificate, or inherit the collection setting",
     },
+    {
+      label: "Send Cookies",
+      value: request.sendCookies ?? true,
+      display: String(request.sendCookies ?? true),
+      desc: "Send cookies from the collection cookie jar",
+    },
   ]
 
   return (
@@ -92,7 +98,9 @@ export function SettingsSection({
           editState.cursor.row === idx
         const canHoverRow =
           !editingRow &&
-          (idx === 1 ? onToggleRow !== undefined : onActivateRow !== undefined)
+          (idx === 1 || idx === 4
+            ? onToggleRow !== undefined
+            : onActivateRow !== undefined)
 
         return (
           <box key={row.label} style={{ flexDirection: "column" }}>
@@ -112,7 +120,11 @@ export function SettingsSection({
                     : undefined,
               }}
               onMouseDown={
-                !editingRow && idx !== 1 && idx !== 3 && onActivateRow
+                !editingRow &&
+                idx !== 1 &&
+                idx !== 3 &&
+                idx !== 4 &&
+                onActivateRow
                   ? (event) => {
                       if (event.button !== MouseButton.LEFT) return
                       onActivateRow(idx)
@@ -123,7 +135,7 @@ export function SettingsSection({
               onMouseOver={canHoverRow ? () => setHoveredRow(idx) : undefined}
               onMouseOut={canHoverRow ? () => setHoveredRow(null) : undefined}
             >
-              {editingRow && idx !== 3 ? (
+              {editingRow && idx !== 3 && idx !== 4 ? (
                 <>
                   <text fg={theme.textMuted}>{row.label}: </text>
                   <VarInput
@@ -134,7 +146,7 @@ export function SettingsSection({
                     onChange={setEditValue}
                   />
                 </>
-              ) : idx === 1 ? (
+              ) : idx === 1 || idx === 4 ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
                   <text fg={theme.text}>{row.label}: </text>
                   <box
@@ -149,7 +161,11 @@ export function SettingsSection({
                     }
                   >
                     <Checkbox
-                      checked={request.followRedirects ?? true}
+                      checked={
+                        idx === 1
+                          ? (request.followRedirects ?? true)
+                          : (request.sendCookies ?? true)
+                      }
                       theme={theme}
                     />
                   </box>

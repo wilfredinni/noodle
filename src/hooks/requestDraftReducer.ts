@@ -37,6 +37,7 @@ export type DraftOp =
   | { kind: "setTimeout"; timeout: number }
   | { kind: "setFollowRedirects"; followRedirects: boolean }
   | { kind: "setMaxRedirects"; maxRedirects: number }
+  | { kind: "setSendCookies"; sendCookies: boolean }
   | { kind: "setTlsVerify"; verify?: boolean }
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
@@ -223,6 +224,9 @@ export function applyDraft(
       break
     case "setMaxRedirects":
       draft.maxRedirects = op.maxRedirects
+      break
+    case "setSendCookies":
+      draft.sendCookies = op.sendCookies
       break
     case "setTlsVerify":
       draft.tls = op.verify === undefined ? undefined : { verify: op.verify }

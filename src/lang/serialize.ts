@@ -20,6 +20,9 @@ export function serializeRequest(req: Request): string {
   out += `timeout: ${String(req.timeout)}\n`
   out += `followRedirects: ${req.followRedirects ?? true}\n`
   out += `maxRedirects: ${req.maxRedirects ?? 5}\n`
+  if (req.sendCookies !== undefined) {
+    out += `sendCookies: ${req.sendCookies}\n`
+  }
 
   if (req.tls?.verify !== undefined) {
     out += "tls:\n"

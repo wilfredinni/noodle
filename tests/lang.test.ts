@@ -197,6 +197,25 @@ describe("lang.parseRequest — strictness", () => {
     )
   })
 
+  it("parses sendCookies and rejects non-boolean values", () => {
+    const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nsendCookies: false\n`
+    const parsed = lang.parseRequest("x", yaml)
+    expect(parsed.sendCookies).toBe(false)
+    expect(lang.serializeRequest(parsed)).toContain("sendCookies: false")
+
+    const omitted = lang.parseRequest(
+      "y",
+      `name: Foo\nmethod: GET\nurl: https://example.com\n`,
+    )
+    expect(omitted.sendCookies).toBeUndefined()
+    expect(lang.serializeRequest(omitted)).not.toContain("sendCookies")
+
+    const bad = `name: Foo\nmethod: GET\nurl: https://example.com\nsendCookies: nope\n`
+    expect(() => lang.parseRequest("z", bad)).toThrow(
+      'lang.parseRequest: "sendCookies" must be a boolean',
+    )
+  })
+
   it("defaults followRedirects to true when omitted", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\n`
     expect(lang.parseRequest("x", yaml).followRedirects).toBe(true)

@@ -95,6 +95,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "timeout",
     "followRedirects",
     "maxRedirects",
+    "sendCookies",
     "headers",
     "params",
     "path_params",
@@ -226,6 +227,14 @@ export function parseRequest(id: string, yamlText: string): Request {
     maxRedirects = raw.maxRedirects
   }
 
+  let sendCookies: boolean | undefined
+  if (raw.sendCookies !== undefined) {
+    if (typeof raw.sendCookies !== "boolean") {
+      throw new Error('lang.parseRequest: "sendCookies" must be a boolean')
+    }
+    sendCookies = raw.sendCookies
+  }
+
   const request: Omit<Request, "pathParams" | "tls"> = {
     id,
     name: raw.name,
@@ -234,6 +243,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     timeout,
     followRedirects,
     maxRedirects,
+    ...(sendCookies !== undefined ? { sendCookies } : {}),
     headers,
     params,
     body,

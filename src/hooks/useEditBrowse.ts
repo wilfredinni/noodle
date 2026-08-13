@@ -30,7 +30,7 @@ function rowCount(req: Request | null): SectionRowCount {
       pathParams: 0,
       body: 0,
       auth: 1,
-      settings: 4,
+      settings: 5,
     }
   let authRows = 1 // type selector row always present
   const a = req.auth
@@ -53,7 +53,7 @@ function rowCount(req: Request | null): SectionRowCount {
     pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
     auth: authRows,
-    settings: 4,
+    settings: 5,
   }
 }
 
@@ -416,6 +416,9 @@ export function useEditBrowse(
       else if (field === "settings" && row === 1) {
         const current = draftRef.current?.followRedirects ?? true
         draftMutators.setFollowRedirects(!current)
+      } else if (field === "settings" && row === 4) {
+        const current = draftRef.current?.sendCookies ?? true
+        draftMutators.setSendCookies(!current)
       }
     },
     [draftMutators],
@@ -456,6 +459,12 @@ export function useEditBrowse(
     if (browsed.cursor.field === "settings" && browsed.cursor.row === 1) {
       const current = currentDraft?.followRedirects ?? true
       draftMutators.setFollowRedirects(!current)
+      setEditState(browsed)
+      return
+    }
+    if (browsed.cursor.field === "settings" && browsed.cursor.row === 4) {
+      const current = currentDraft?.sendCookies ?? true
+      draftMutators.setSendCookies(!current)
       setEditState(browsed)
       return
     }
@@ -636,6 +645,11 @@ export function useEditBrowse(
     if (field === "settings" && row === 1) {
       const current = draftRef.current?.followRedirects ?? true
       draftMutators.setFollowRedirects(!current)
+      return
+    }
+    if (field === "settings" && row === 4) {
+      const current = draftRef.current?.sendCookies ?? true
+      draftMutators.setSendCookies(!current)
       return
     }
     if (field === "settings" && row === 3) return
@@ -858,6 +872,9 @@ export function useEditBrowse(
     else if (field === "settings" && row === 1) {
       const current = draftRef.current?.followRedirects ?? true
       draftMutators.setFollowRedirects(!current)
+    } else if (field === "settings" && row === 4) {
+      const current = draftRef.current?.sendCookies ?? true
+      draftMutators.setSendCookies(!current)
     }
   }, [draftMutators])
 
