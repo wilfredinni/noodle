@@ -99,7 +99,7 @@ src/
     ├── VarInput.tsx         # Variable-aware input/textarea with completion popup
     ├── VarText.tsx          # Variable-highlighted read-only text rendering
     ├── KeyValueSection.tsx  # Key/Value pair editor (headers/params)
-    ├── AuthEditor.tsx       # Auth type selector + fields (none/inherit/bearer/basic/api_key)
+    ├── AuthEditor.tsx       # Auth type selector + fields (none/inherit/bearer/basic/ntlm/api_key/aws_sigv4)
     ├── FormEditor.tsx       # Multipart/urlencoded form editor with text/file toggle
     ├── Checkbox.tsx, Select.tsx, Tabs.tsx, Frame.tsx, Badge.tsx, GradientBadge.tsx
     ├── CenterText.tsx, Toast.tsx, Tips.tsx
@@ -189,6 +189,7 @@ tests/integration/ # Integration tests
 - **Request IDs** are collection-relative paths without `.yml`; reject traversal, absolute paths, backslashes, empty segments, and hidden segments.
 - **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color. `# @secret NAME` followed by a blank `NAME=` placeholder declares a credential-vault value; process environment wins over the stored value.
 - **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth.
+- **Authentication:** In addition to bearer, basic, and API-key auth, requests and folder overrides support connection-bound server NTLMv2 and AWS SigV4. Keep NTLM/AWS credentials in secret environment variables. SigV4 supports text, JSON, URL-encoded, and binary bodies but not multipart; generated client code is unavailable for both NTLM and SigV4 requests.
 - **`@/path` home syntax** for multipart file values and binary `file_path`; the TUI completes the shorthand from the user home directory, while expansion happens only at output boundaries, including file reads during request sending, HAR generation through `buildHar`, and Postman export.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.
 - **Settings, proxy, and TLS policy:** `F4` opens Settings. Global proxy mode is `system`, `off`, or `custom`; a collection may `inherit`, use `off`, or define `custom`. Custom URLs reject credentials and variables; authenticated proxies persist only `auth: true`, while credentials live in the OS vault. `--noproxy` takes precedence for one run. Collection `settings.yml` also stores generated `collection_id`, optional `name`, `description`, `timeline_max_entries`, active `environment`, and TLS verification, CA, and exact-host client-certificate metadata. Encrypted key passphrases live in the OS vault; `--insecure` disables verification for one run. Settings parsing is strict.

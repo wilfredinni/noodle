@@ -95,6 +95,10 @@ OpenAPI 3.0 imports map:
 - `components.securitySchemes` → `folder.yml` auth override or inline `auth` on requests
 - Tags → folder grouping
 
+HTTP `bearer`, `basic`, and `ntlm` security schemes map to their matching Noodle
+auth types. NTLM credentials use generated environment-variable placeholders;
+declare the password as a secret before running the imported request.
+
 Multiple servers in the spec create multiple environments.
 
 Swagger 2.0 imports convert the specification to the same request model, including paths, supported parameters, request bodies, and security definitions. Swagger's `host`, `basePath`, and schemes become server environments.
@@ -110,7 +114,11 @@ Postman imports map:
 - Tests → not imported
 - Collection variables → environment file
 
-Insomnia v4/v5 JSON imports preserve supported workspaces, request groups, requests, environments, headers, params, body types, and auth. Cyclic request groups are skipped.
+Postman `ntlm` and `awsv4` auth map to Noodle NTLMv2 and AWS SigV4. Review the
+resulting region, service, and optional session token, and move credentials to
+secret environment declarations before sending.
+
+Insomnia v4/v5 JSON imports preserve supported workspaces, request groups, requests, environments, headers, params, body types, and auth, including NTLM. Cyclic request groups are skipped.
 
 ## Export a collection
 
@@ -121,9 +129,9 @@ noodle export <collection-path> --format openapi --output ./openapi.yml --json
 noodle export <collection-path> --format postman --output ./postman-bundle --json
 ```
 
-OpenAPI exports write a 3.0.3 document. Enabled parameters and headers, request-body examples, folders as tags, supported auth, and enabled nonempty `base_url` values as servers are included. Other environment values and response timeline data are not exported.
+OpenAPI exports write a 3.0.3 document. Enabled parameters and headers, request-body examples, folders as tags, supported auth, and enabled nonempty `base_url` values as servers are included. NTLM and AWS SigV4 are represented as HTTP security schemes; validate compatibility with the target OpenAPI consumer. Other environment values and response timeline data are not exported.
 
-Postman exports require a new or empty output directory. They create `collection.postman_collection.json` and one redacted environment file per Noodle environment. Literal request values are retained except that `@/` file paths expand to absolute home paths, so inspect the bundle for secrets and local path disclosure before sharing it. Keep the shorthand in source collection files; both formats require an output path outside the collection. Noodle-specific TLS settings are not translated to either export format.
+Postman exports require a new or empty output directory. They create `collection.postman_collection.json` and one redacted environment file per Noodle environment. NTLM and AWS SigV4 use Postman's matching auth representations. Literal request values are retained except that `@/` file paths expand to absolute home paths, so inspect the bundle for secrets and local path disclosure before sharing it. Keep the shorthand in source collection files; both formats require an output path outside the collection. Noodle-specific TLS settings are not translated to either export format.
 
 ## After import
 

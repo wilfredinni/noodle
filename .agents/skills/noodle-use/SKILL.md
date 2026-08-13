@@ -87,3 +87,5 @@ Auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`
 - `api_key`: `{ type: api_key, key: "X-API-Key", value: "$KEY", placement: "header" }`. Placement is `"header"` or `"query"`.
 - `ntlm`: `{ type: ntlm, username: "$NTLM_USERNAME", password: "$NTLM_PASSWORD", domain: "$NTLM_DOMAIN", workstation: "$NTLM_WORKSTATION" }`. Domain and workstation are optional. Noodle supports connection-bound server NTLMv2 authentication only; keep the password in a secret environment variable.
 - `aws_sigv4`: `{ type: aws_sigv4, access_key: "$AWS_ACCESS_KEY_ID", secret_key: "$AWS_SECRET_ACCESS_KEY", region: "us-east-1", service: "execute-api", session_token: "$AWS_SESSION_TOKEN" }`. `session_token` is optional. Signing uses headers and supports text, JSON, URL-encoded, and binary bodies; multipart is not supported.
+
+Noodle cannot generate client-code snippets for NTLM or AWS SigV4 requests: NTLM needs a connection-bound challenge exchange, and SigV4 signatures expire. Keep these requests in the collection and run them with noodle instead.
