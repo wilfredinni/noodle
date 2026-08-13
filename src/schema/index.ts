@@ -78,6 +78,7 @@ export interface Request {
   timeout: number
   followRedirects?: boolean
   maxRedirects?: number
+  sendCookies?: boolean
   headers: Record<string, KvEntry>
   params: ParamEntry[]
   pathParams?: ParamEntry[]
@@ -102,6 +103,7 @@ export interface Response {
   body: string
   timeMs: number
   network?: NetworkEvent[]
+  cookies?: ResponseCookie[]
 }
 
 export type NetworkEventType =
@@ -122,6 +124,17 @@ export interface NetworkEvent {
 
 export interface NetworkError extends Error {
   network?: NetworkEvent[]
+}
+
+export interface ResponseCookie {
+  name: string
+  value: string
+  domain?: string
+  path?: string
+  expires: string | null
+  secure: boolean
+  httpOnly: boolean
+  sameSite?: "strict" | "lax" | "none"
 }
 
 export interface Environment {
@@ -181,6 +194,7 @@ export interface CollectionSettings {
   environment?: string
   proxy?: CollectionProxySettings
   tls?: CollectionTlsSettings
+  cookies?: { enabled?: boolean }
 }
 
 export interface RequestTlsSettings {
