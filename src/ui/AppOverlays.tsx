@@ -21,6 +21,12 @@ import {
   type NewEnvironmentOverlayHandle,
 } from "./overlays/NewEnvironmentOverlay"
 import {
+  CookieFormOverlay,
+  type CookieFormOverlayHandle,
+} from "./overlays/CookieFormOverlay"
+import type { CookieDeletePending } from "./useOverlayState"
+import type { JarCookie } from "../cookies"
+import {
   CloneRequestOverlay,
   type CloneRequestOverlayHandle,
 } from "./overlays/CloneRequestOverlay"
@@ -120,6 +126,11 @@ interface AppOverlaysProps {
   newEnvironmentVisible: boolean
   newEnvironmentRef: RefObject<NewEnvironmentOverlayHandle | null>
   newEnvironmentActions: { confirm: () => void; cancel: () => void }
+  cookieFormVisible: boolean
+  cookieFormRef: RefObject<CookieFormOverlayHandle | null>
+  cookieFormInitial: JarCookie | null
+  cookieFormActions: { confirm: () => void; cancel: () => void }
+  cookieDeletePending: CookieDeletePending | null
   newRequestVisible: boolean
   newRequestRef: RefObject<NewRequestOverlayHandle | null>
   newRequestActions: { confirm: () => void; cancel: () => void }
@@ -228,6 +239,11 @@ export function AppOverlays({
   newEnvironmentVisible,
   newEnvironmentRef,
   newEnvironmentActions,
+  cookieFormVisible,
+  cookieFormRef,
+  cookieFormInitial,
+  cookieFormActions,
+  cookieDeletePending,
   newRequestVisible,
   newRequestRef,
   newRequestActions,
@@ -437,6 +453,29 @@ export function AppOverlays({
           ref={newEnvironmentRef}
           onConfirm={newEnvironmentActions.confirm}
           onClose={newEnvironmentActions.cancel}
+        />
+      )}
+      {cookieFormVisible && (
+        <CookieFormOverlay
+          visible
+          ref={cookieFormRef}
+          initial={cookieFormInitial}
+          onConfirm={cookieFormActions.confirm}
+          onClose={cookieFormActions.cancel}
+        />
+      )}
+      {activeOverlay === "cookie-delete" && cookieDeletePending !== null && (
+        <ConfirmOverlay
+          visible
+          message={
+            cookieDeletePending.kind === "cookie"
+              ? `Delete cookie "${cookieDeletePending.name}" from ${cookieDeletePending.domain}?`
+              : cookieDeletePending.kind === "domain"
+                ? `Delete all cookies for ${cookieDeletePending.domain}?`
+                : "Clear the entire cookie jar? (y/n)"
+          }
+          onConfirm={onConfirmDialog}
+          onCancel={onCancelDialog}
         />
       )}
       {newRequestVisible && (

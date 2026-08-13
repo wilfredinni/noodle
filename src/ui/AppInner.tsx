@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
+import { CookieJarView } from "./cookie-jar/CookieJarView"
 import {
   SettingsView,
   type CollectionSettingsCategory,
@@ -43,6 +44,8 @@ import { useFolderDraft } from "../hooks/useFolderDraft"
 import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
 import { useEnvironmentEditor } from "../hooks/useEnvironmentEditor"
+import { useCollectionCookieJar } from "../hooks/useCollectionCookieJar"
+import { useCookieJarView } from "../hooks/useCookieJarView"
 import { settingsReturnFocus, type Focus, type UrlBarSubFocus } from "./focus"
 import {
   buildCommandPaletteCommands,
@@ -138,6 +141,7 @@ export function AppInner({
   collectionName,
   collectionDescription,
   timelineMaxEntries,
+  cookiesEnabled = true,
   noProxy,
   insecure = false,
   systemProxy,
@@ -196,6 +200,7 @@ export function AppInner({
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
+  cookiesEnabled?: boolean
   noProxy: boolean
   insecure?: boolean
   systemProxy: SystemProxySettings
@@ -213,7 +218,7 @@ export function AppInner({
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries" | "tls"
+      "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
     >,
   ) => boolean
   initialLastRequestId?: string
@@ -407,6 +412,7 @@ export function AppInner({
         focusedFolder !== null,
         view === "env-editor",
         view === "settings",
+        view === "cookie-jar",
       ),
     [draft.draft, expanded, focusedFolder, view],
   )
@@ -553,6 +559,9 @@ export function AppInner({
     }),
     [collectionDir, collectionTls, insecure, tlsPassphrases],
   )
+  const cookieJar = useCollectionCookieJar(
+    isCollection && cookiesEnabled ? collectionDir : undefined,
+  )
   const updateDependencies = useMemo(
     () => ({
       fetcher: createProxyFetcher(proxyPolicy),
@@ -573,6 +582,7 @@ export function AppInner({
     draft.draft?.id,
     proxyPolicy,
     tlsPolicy,
+    cookieJar,
   )
 
   const responseStateRef = useRef(responseState)
@@ -685,6 +695,13 @@ export function AppInner({
     newEnvironmentVisible,
     setNewEnvironmentVisible,
     newEnvironmentRef,
+    cookieFormVisible,
+    setCookieFormVisible,
+    cookieFormRef,
+    cookieFormInitial,
+    setCookieFormInitial,
+    cookieDeletePending,
+    setCookieDeletePending,
     newRequestVisible,
     setNewRequestVisible,
     newRequestRef,
@@ -952,6 +969,10 @@ export function AppInner({
 
   const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
 
+  const cookieJarView = useCookieJarView(cookieJar)
+  const cookieJarViewRef = useRef(cookieJarView)
+  cookieJarViewRef.current = cookieJarView
+
   const activeIndexRef = useRef(activeIndex)
   activeIndexRef.current = activeIndex
 
@@ -1031,6 +1052,12 @@ export function AppInner({
       envEditorRef,
       setNewEnvironmentVisible,
       setEnvDeletePending,
+    },
+    cookies: {
+      cookieJarViewRef,
+      setCookieFormVisible,
+      setCookieFormInitial,
+      setCookieDeletePending,
     },
   })
 
@@ -1149,6 +1176,60 @@ export function AppInner({
             e instanceof Error ? e.message : String(e),
           )
         })
+    },
+    cookieFormVisible,
+    cookieFormRef,
+    setCookieFormVisible,
+    onCookieFormConfirm: (values) => {
+      const jar = cookieJar
+      if (!jar) return
+      const initial = cookieFormInitial
+      const expiresText = values.expires.trim()
+      const input = {
+        name: values.name,
+        value: values.value,
+        domain: values.domain,
+        path: values.path,
+        ...(expiresText !== "" ? { expires: new Date(expiresText) } : {}),
+        secure: values.secure,
+        httpOnly: values.httpOnly,
+        ...(values.sameSite ? { sameSite: values.sameSite } : {}),
+      }
+      if (
+        initial &&
+        (initial.name !== values.name ||
+          initial.domain !== values.domain ||
+          initial.path !== values.path)
+      ) {
+        void jar
+          .deleteCookie(initial.domain, initial.path, initial.name)
+          .catch(() => {})
+      }
+      jar.put(input)
+      cookieJarView.refresh()
+      setCookieFormVisible(false)
+    },
+    cookieDeletePending,
+    setCookieDeletePending,
+    onCookieDeleteConfirm: (pending) => {
+      const jar = cookieJar
+      if (!jar) return
+      if (pending.kind === "cookie") {
+        void jar
+          .deleteCookie(pending.domain, pending.path, pending.name)
+          .then(() => cookieJarView.refresh())
+          .catch(() => {})
+      } else if (pending.kind === "domain") {
+        void jar
+          .deleteDomain(pending.domain)
+          .then(() => cookieJarView.refresh())
+          .catch(() => {})
+      } else {
+        void jar
+          .clear()
+          .then(() => cookieJarView.refresh())
+          .catch(() => {})
+      }
     },
     newRequestVisible,
     newRequestRef,
@@ -1339,7 +1420,7 @@ export function AppInner({
         envColor={envState.activeEnv?.color}
         onAboutActivate={handleAboutActivate}
         onCollectionActivate={
-          view !== "env-editor" && !overlayActive
+          view !== "env-editor" && view !== "cookie-jar" && !overlayActive
             ? handleCollectionActivate
             : undefined
         }
@@ -1452,6 +1533,13 @@ export function AppInner({
             }}
             setEnvDeletePending={setEnvDeletePending}
           />
+        ) : view === "cookie-jar" && mode === "collection" ? (
+          <CookieJarView
+            view={cookieJarView}
+            focus={focus}
+            jumpMode={jumpMode}
+            onPaneFocus={focusPane}
+          />
         ) : view === "settings" ? (
           <SettingsView
             scope={visibleSettingsScope}
@@ -1471,6 +1559,7 @@ export function AppInner({
             collectionName={collectionName}
             collectionDescription={collectionDescription}
             timelineMaxEntries={timelineMaxEntries}
+            cookiesEnabled={cookiesEnabled}
             noProxy={noProxy}
             insecure={insecure}
             envNames={envState.names}
@@ -1577,6 +1666,11 @@ export function AppInner({
           newEnvironmentVisible={newEnvironmentVisible}
           newEnvironmentRef={newEnvironmentRef}
           newEnvironmentActions={overlayActions.newEnvironment}
+          cookieFormVisible={cookieFormVisible}
+          cookieFormRef={cookieFormRef}
+          cookieFormInitial={cookieFormInitial}
+          cookieFormActions={overlayActions.cookieForm}
+          cookieDeletePending={cookieDeletePending}
           newRequestVisible={newRequestVisible}
           newRequestRef={newRequestRef}
           newRequestActions={overlayActions.newRequest}

@@ -763,7 +763,8 @@ describe("getAvailableTargets", () => {
     expect(targets.has("e")).toBe(true)
     expect(targets.has("n")).toBe(true)
     expect(targets.has("l")).toBe(true)
-    expect(targets.size).toBe(13)
+    expect(targets.has("k")).toBe(true)
+    expect(targets.size).toBe(14)
   })
 
   it("excludes response targets when expanded=request", () => {
@@ -774,6 +775,7 @@ describe("getAvailableTargets", () => {
     expect(targets.has("e")).toBe(false)
     expect(targets.has("n")).toBe(false)
     expect(targets.has("l")).toBe(false)
+    expect(targets.has("k")).toBe(false)
   })
 
   it("excludes request targets when expanded=response", () => {

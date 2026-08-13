@@ -759,7 +759,7 @@ export function App({
     (
       patch: Pick<
         CollectionSettings,
-        "name" | "description" | "timelineMaxEntries" | "tls"
+        "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
       >,
     ) => {
       if (mode !== "collection") return false
@@ -1028,6 +1028,7 @@ export function App({
         collectionName={settings.name}
         collectionDescription={settings.description}
         timelineMaxEntries={settings.timelineMaxEntries}
+        cookiesEnabled={settings.cookies?.enabled ?? true}
         noProxy={noProxy}
         insecure={insecure}
         systemProxy={systemProxy}

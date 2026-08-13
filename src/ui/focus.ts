@@ -7,6 +7,8 @@ export type Focus =
   | "env-sidebar"
   | "env-header"
   | "env-vars"
+  | "cookie-sidebar"
+  | "cookie-list"
   | "settings-sidebar"
   | "settings-content"
 
@@ -24,6 +26,7 @@ export function toggleExpand(
 
 const MAIN_FOCUS_ORDER: Focus[] = ["sidebar", "urlbar", "request", "response"]
 const ENV_FOCUS_ORDER: Focus[] = ["env-sidebar", "env-header", "env-vars"]
+const COOKIE_FOCUS_ORDER: Focus[] = ["cookie-sidebar", "cookie-list"]
 const SETTINGS_FOCUS_ORDER: Focus[] = ["settings-sidebar", "settings-content"]
 
 export function settingsReturnFocus(view: string, focus: Focus): Focus {
@@ -46,9 +49,11 @@ export function cycleFocus(
   const order =
     view === "env-editor"
       ? ENV_FOCUS_ORDER
-      : view === "settings"
-        ? SETTINGS_FOCUS_ORDER
-        : MAIN_FOCUS_ORDER
+      : view === "cookie-jar"
+        ? COOKIE_FOCUS_ORDER
+        : view === "settings"
+          ? SETTINGS_FOCUS_ORDER
+          : MAIN_FOCUS_ORDER
   const idx = order.indexOf(current)
   let next = (idx + delta + order.length) % order.length
   const candidate = order[next]!

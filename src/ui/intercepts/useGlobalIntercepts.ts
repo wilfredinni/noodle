@@ -1,10 +1,11 @@
 import { useEffect } from "react"
 import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
+import type { AppView } from "../appState"
 
 export function useGlobalIntercepts(opts: {
   activeOverlay: string
-  view: "main" | "env-editor" | "settings"
+  view: AppView
   cancelSendRef: RefObject<() => void>
   helpVisible: boolean
   setHelpVisible: (v: boolean) => void

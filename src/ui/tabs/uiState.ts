@@ -3,7 +3,8 @@ import { join } from "node:path"
 import * as yaml from "js-yaml"
 import type { FieldKind } from "../editMode"
 
-export type ResponseTabKind = "body" | "headers" | "network" | "timeline"
+export type ResponseTabKind =
+  "body" | "headers" | "network" | "timeline" | "cookies"
 
 export interface TabPrefs {
   requestTab: FieldKind
@@ -119,9 +120,17 @@ export async function loadUIState(
       if (key === "lastRequest" || key === "expanded_folders") continue
       if (val && typeof val === "object" && !Array.isArray(val)) {
         const v = val as Record<string, unknown>
+        const response =
+          v.response === "body" ||
+          v.response === "headers" ||
+          v.response === "network" ||
+          v.response === "timeline" ||
+          v.response === "cookies"
+            ? v.response
+            : DEFAULTS.responseTab
         map.set(key, {
           requestTab: v.request as FieldKind,
-          responseTab: v.response as ResponseTabKind,
+          responseTab: response as ResponseTabKind,
         })
       }
     }

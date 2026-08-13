@@ -7,6 +7,9 @@ import type { UseEnvironmentsResult } from "../../hooks/useEnvironments"
 import type { UseFolderDraftResult } from "../../hooks/useFolderDraft"
 import type { UseFolderEditBrowseResult } from "../../hooks/useFolderEditBrowse"
 import type { UseRequestDraftResult } from "../../hooks/useRequestDraft"
+import type { UseCookieJarViewResult } from "../../hooks/useCookieJarView"
+import type { JarCookie } from "../../cookies"
+import type { CookieDeletePending } from "../useOverlayState"
 import type { Collection } from "../../schema"
 import type { AppView, YamlEditorState } from "../appState"
 import type { CommandActionsConfig } from "../commandActions"
@@ -112,12 +115,27 @@ export interface AppKeymapEnvironment {
   ) => void
 }
 
+export interface AppKeymapCookieJar {
+  cookieJarViewRef: RefObject<UseCookieJarViewResult>
+  setCookieFormVisible: (v: boolean | ((prev: boolean) => boolean)) => void
+  setCookieFormInitial: (
+    c: JarCookie | null | ((prev: JarCookie | null) => JarCookie | null),
+  ) => void
+  setCookieDeletePending: (
+    p:
+      | CookieDeletePending
+      | null
+      | ((prev: CookieDeletePending | null) => CookieDeletePending | null),
+  ) => void
+}
+
 export interface UseAppKeymapArgs {
   runtime: Omit<AppKeymapRuntime, "keymap" | "renderer">
   global: AppKeymapGlobal
   request: AppKeymapRequest
   folder: AppKeymapFolder
   environment: AppKeymapEnvironment
+  cookies: AppKeymapCookieJar
 }
 
 export interface AppKeymapContext extends AppKeymapRuntime {
@@ -125,5 +143,6 @@ export interface AppKeymapContext extends AppKeymapRuntime {
   request: AppKeymapRequest
   folder: AppKeymapFolder
   environment: AppKeymapEnvironment
+  cookies: AppKeymapCookieJar
   actions: CommandActionsConfig
 }

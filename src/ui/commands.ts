@@ -332,6 +332,16 @@ export function buildCommandPaletteCommands(
         return true
       },
     },
+    {
+      id: "cookie-jar.open",
+      label: "Open Cookie Jar",
+      section: "Workspace",
+      run: () => {
+        setView("cookie-jar")
+        setFocus("cookie-sidebar")
+        return true
+      },
+    },
   ]
 
   const editorEnvCommands: CommandItem[] = [
@@ -648,6 +658,8 @@ export function buildCommandPaletteCommands(
       ...systemCommands,
     ]
   }
+
+  if (view === "cookie-jar") return systemCommands
 
   if (view === "settings") return systemCommands
 

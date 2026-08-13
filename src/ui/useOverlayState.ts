@@ -9,11 +9,18 @@ import type { ImportCurlOverlayHandle } from "./overlays/ImportCurlOverlay"
 import type { NewEnvironmentOverlayHandle } from "./overlays/NewEnvironmentOverlay"
 import type { ExportCollectionOverlayHandle } from "./overlays/ExportCollectionOverlay"
 import type { ImportCollectionOverlayHandle } from "./overlays/ImportCollectionOverlay"
+import type { CookieFormOverlayHandle } from "./overlays/CookieFormOverlay"
+import type { JarCookie } from "../cookies"
 
 export interface ImportedCollectionPending {
   path: string
   name: string
 }
+
+export type CookieDeletePending =
+  | { kind: "cookie"; name: string; domain: string; path: string }
+  | { kind: "domain"; domain: string }
+  | { kind: "all" }
 
 export type ActiveOverlay =
   | "command-palette"
@@ -42,6 +49,8 @@ export type ActiveOverlay =
   | "new-folder"
   | "delete-folder"
   | "request-delete"
+  | "cookie-form"
+  | "cookie-delete"
   | "update-confirm"
   | "timeline-detail"
   | "none"
@@ -74,6 +83,14 @@ export function useOverlayState({
     useState<string | null>(null)
   const [newEnvironmentVisible, setNewEnvironmentVisible] = useState(false)
   const newEnvironmentRef = useRef<NewEnvironmentOverlayHandle>(null)
+  const [cookieFormVisible, setCookieFormVisible] = useState(false)
+  const cookieFormRef = useRef<CookieFormOverlayHandle>(null)
+  const [cookieFormInitial, setCookieFormInitial] = useState<JarCookie | null>(
+    null,
+  )
+  const [cookieDeletePending, setCookieDeletePending] =
+    useState<CookieDeletePending | null>(null)
+  const cookieDeletePendingRef = useRef(cookieDeletePending)
   const [newRequestVisible, setNewRequestVisible] = useState(false)
   const newRequestRef = useRef<NewRequestOverlayHandle>(null)
   const [importCurlVisible, setImportCurlVisible] = useState(false)
@@ -109,6 +126,10 @@ export function useOverlayState({
     envDeletePendingRef.current = envDeletePending
   }, [envDeletePending])
 
+  useEffect(() => {
+    cookieDeletePendingRef.current = cookieDeletePending
+  }, [cookieDeletePending])
+
   const activeOverlay = useMemo((): ActiveOverlay => {
     if (commandPaletteVisible) return "command-palette"
     if (codeGeneratorVisible) return "code-generator"
@@ -129,6 +150,8 @@ export function useOverlayState({
     if (collectionSwitcherVisible) return "collection-switcher"
     if (yamlEditor.visible) return "yaml-editor"
     if (newEnvironmentVisible) return "new-environment"
+    if (cookieFormVisible) return "cookie-form"
+    if (cookieDeletePending !== null) return "cookie-delete"
     if (newRequestVisible) return "new-request"
     if (importCurlVisible) return "import-curl"
     if (editRequestVisible) return "edit-request"
@@ -159,6 +182,8 @@ export function useOverlayState({
     collectionSwitcherVisible,
     yamlEditor.visible,
     newEnvironmentVisible,
+    cookieFormVisible,
+    cookieDeletePending,
     newRequestVisible,
     importCurlVisible,
     editRequestVisible,
@@ -188,6 +213,14 @@ export function useOverlayState({
     newEnvironmentVisible,
     setNewEnvironmentVisible,
     newEnvironmentRef,
+    cookieFormVisible,
+    setCookieFormVisible,
+    cookieFormRef,
+    cookieFormInitial,
+    setCookieFormInitial,
+    cookieDeletePending,
+    setCookieDeletePending,
+    cookieDeletePendingRef,
     newRequestVisible,
     setNewRequestVisible,
     newRequestRef,

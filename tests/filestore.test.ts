@@ -544,6 +544,37 @@ describe("filestore.loadSettings", () => {
     )
   })
 
+  it("parses and round-trips the cookies setting", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "cookies:\n  enabled: false\n",
+      "utf8",
+    )
+    const settings = await loadSettings(dir)
+    expect(settings.cookies).toEqual({ enabled: false })
+    await saveSettings(dir, settings)
+    expect(await loadSettings(dir)).toEqual(settings)
+
+    await writeFile(join(dir, "settings.yml"), "cookies: {}\n", "utf8")
+    expect((await loadSettings(dir)).cookies).toEqual({ enabled: true })
+  })
+
+  it("rejects invalid cookies settings", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "cookies:\n  enabled: maybe\n",
+      "utf8",
+    )
+    await expect(loadSettings(dir)).rejects.toThrow(
+      "settings.yml: cookies.enabled must be a boolean",
+    )
+
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  jar: on\n", "utf8")
+    await expect(loadSettings(dir)).rejects.toThrow(
+      'settings.yml: unknown cookies key "jar"',
+    )
+  })
+
   it("rejects a malformed TLS block instead of silently disabling it", async () => {
     await writeFile(
       join(dir, "settings.yml"),

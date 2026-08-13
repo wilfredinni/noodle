@@ -5,12 +5,12 @@ import { bindingDefaults } from "../../src/ui/keybind"
 const defaults = bindingDefaults()
 
 describe("getHelpSections", () => {
-  it("returns exactly 6 sections", () => {
+  it("returns exactly 7 sections", () => {
     const sections = getHelpSections(defaults)
-    expect(sections).toHaveLength(6)
+    expect(sections).toHaveLength(7)
   })
 
-  it("section titles are NAVIGATION, REQUEST EDITING, CODE EDITOR, ACTIONS, SYSTEM, ENV EDITOR", () => {
+  it("section titles are NAVIGATION, REQUEST EDITING, CODE EDITOR, ACTIONS, SYSTEM, ENV EDITOR, COOKIE JAR", () => {
     const sections = getHelpSections(defaults)
     expect(sections[0]!.title).toBe("Navigation")
     expect(sections[1]!.title).toBe("Request Editing")
@@ -18,6 +18,7 @@ describe("getHelpSections", () => {
     expect(sections[3]!.title).toBe("Actions")
     expect(sections[4]!.title).toBe("System")
     expect(sections[5]!.title).toBe("Env Editor")
+    expect(sections[6]!.title).toBe("Cookie Jar")
   })
 
   it("each section has at least 1 key entry", () => {

@@ -5,6 +5,7 @@ import type { SaveState } from "../saveState"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
 import type { ActiveOverlay } from "../useOverlayState"
 import type { ImportedCollectionPending } from "../useOverlayState"
+import type { CookieDeletePending } from "../useOverlayState"
 
 export function useDialogIntercepts(opts: {
   activeOverlay: ActiveOverlay
@@ -32,6 +33,9 @@ export function useDialogIntercepts(opts: {
   folderDeletePending: string | null
   setFolderDeletePending: (s: string | null) => void
   onFolderDeleteConfirm: () => void
+  cookieDeletePending: CookieDeletePending | null
+  setCookieDeletePending: (pending: CookieDeletePending | null) => void
+  onCookieDeleteConfirm: (pending: CookieDeletePending) => void
   undoAllPending: boolean
   setUndoAllPending: (v: boolean) => void
   draftRef: RefObject<{ revertAllRequests: () => void }>
@@ -67,6 +71,9 @@ export function useDialogIntercepts(opts: {
     onRequestDeleteConfirm,
     setFolderDeletePending,
     onFolderDeleteConfirm,
+    cookieDeletePending,
+    setCookieDeletePending,
+    onCookieDeleteConfirm,
     setUndoAllPending,
     draftRef,
     folderDraftRef,
@@ -146,6 +153,12 @@ export function useDialogIntercepts(opts: {
     onImportOpenConfirm(importOpenPending)
   }, [importOpenPending, onImportOpenConfirm, setImportOpenPending])
 
+  const confirmCookieDelete = useCallback(() => {
+    if (!cookieDeletePending) return
+    setCookieDeletePending(null)
+    onCookieDeleteConfirm(cookieDeletePending)
+  }, [cookieDeletePending, setCookieDeletePending, onCookieDeleteConfirm])
+
   const onConfirm = useCallback(() => {
     if (activeOverlay === "env-delete") confirmEnvDelete()
     else if (activeOverlay === "collection-unregister")
@@ -158,6 +171,7 @@ export function useDialogIntercepts(opts: {
     else if (activeOverlay === "reload-confirm") onReloadConfirm()
     else if (activeOverlay === "delete-folder") onFolderDeleteConfirm()
     else if (activeOverlay === "request-delete") onRequestDeleteConfirm()
+    else if (activeOverlay === "cookie-delete") confirmCookieDelete()
     else if (activeOverlay === "update-confirm") onConfirmInstall()
   }, [
     activeOverlay,
@@ -170,6 +184,7 @@ export function useDialogIntercepts(opts: {
     onReloadConfirm,
     onFolderDeleteConfirm,
     onRequestDeleteConfirm,
+    confirmCookieDelete,
     onConfirmInstall,
   ])
 
@@ -185,6 +200,7 @@ export function useDialogIntercepts(opts: {
     else if (activeOverlay === "reload-confirm") setReloadPending(false)
     else if (activeOverlay === "delete-folder") setFolderDeletePending(null)
     else if (activeOverlay === "request-delete") setRequestDeletePending(null)
+    else if (activeOverlay === "cookie-delete") setCookieDeletePending(null)
     else if (activeOverlay === "update-confirm") onCancelUpdate()
   }, [
     activeOverlay,
@@ -197,6 +213,7 @@ export function useDialogIntercepts(opts: {
     setReloadPending,
     setFolderDeletePending,
     setRequestDeletePending,
+    setCookieDeletePending,
     onCancelUpdate,
   ])
 
@@ -225,6 +242,28 @@ export function useDialogIntercepts(opts: {
   // ── Overlay: Unregister collection confirmation ──────────────────
   useEffect(() => {
     if (activeOverlay !== "collection-unregister") return
+    const dispose = keymap.intercept(
+      "key",
+      (ctx) => {
+        const name = ctx.event.name
+        if (name === "y" || name === "return") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onConfirm()
+        } else if (name === "n" || name === "escape") {
+          ctx.event.preventDefault()
+          ctx.event.stopPropagation()
+          onCancel()
+        }
+      },
+      { priority: 100 },
+    )
+    return dispose
+  }, [activeOverlay, keymap, onConfirm, onCancel])
+
+  // ── Overlay: Cookie delete confirmation ──────────────────────────
+  useEffect(() => {
+    if (activeOverlay !== "cookie-delete") return
     const dispose = keymap.intercept(
       "key",
       (ctx) => {

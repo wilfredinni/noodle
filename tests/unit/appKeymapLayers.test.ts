@@ -94,6 +94,22 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       calls.newEnvironment = visible
     },
   }
+  const cookies = {
+    cookieJarViewRef: {
+      current: {
+        domains: [],
+        cookies: [],
+        selectedDomain: null,
+        domainUp: () => {},
+        domainDown: () => {},
+        cookieUp: () => {},
+        cookieDown: () => {},
+        deleteSelectedCookie: () => {},
+        deleteSelectedDomain: () => {},
+        clearAll: () => {},
+      },
+    },
+  }
   const context = {
     keymap,
     renderer: {},
@@ -128,6 +144,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     request,
     folder,
     environment,
+    cookies,
     actions: {
       trySendRef: request.trySendRef,
       envStateRef: environment.envStateRef,
@@ -155,13 +172,16 @@ describe("app keymap layers", () => {
 
     const layers = createAppKeymapLayers(context)
 
-    expect(layers).toHaveLength(13)
+    expect(layers).toHaveLength(16)
     expect(firstCommandName(layers[0])).toBe("focus.next")
     expect(firstCommandName(layers[1])).toBe("urlbar.tab")
     expect(firstCommandName(layers[2])).toBe("env.picker-open")
     expect(firstCommandName(layers[5])).toBe("folder.edit-enter")
     expect(firstCommandName(layers[9])).toBe("edit.commit")
     expect(firstCommandName(layers[10])).toBe("env.save")
+    expect(firstCommandName(layers[13])).toBe("cookie.close")
+    expect(firstCommandName(layers[14])).toBe("cookie.filter.exit")
+    expect(firstCommandName(layers[15])).toBe("cookie.up")
     cleanup()
   })
 

@@ -41,6 +41,7 @@ const TAB_DEFS: TabDef[] = [
   { id: "headers", label: "Headers" },
   { id: "network", label: "Network" },
   { id: "timeline", label: "Timeline" },
+  { id: "cookies", label: "Cookies" },
 ]
 
 export function ResponsePane({
@@ -159,14 +160,26 @@ export function ResponsePane({
     if (!key.shift && key.name === "left") {
       key.preventDefault()
       setActiveTab((prev) => {
-        const ids = ["body", "headers", "network", "timeline"] as const
+        const ids = [
+          "body",
+          "headers",
+          "network",
+          "timeline",
+          "cookies",
+        ] as const
         const idx = ids.indexOf(prev)
         return ids[(idx - 1 + ids.length) % ids.length]
       })
     } else if (!key.shift && key.name === "right") {
       key.preventDefault()
       setActiveTab((prev) => {
-        const ids = ["body", "headers", "network", "timeline"] as const
+        const ids = [
+          "body",
+          "headers",
+          "network",
+          "timeline",
+          "cookies",
+        ] as const
         const idx = ids.indexOf(prev)
         return ids[(idx + 1) % ids.length]
       })
@@ -284,6 +297,7 @@ export function ResponsePane({
   const borderColor = focused ? theme.primary : theme.borderSubtle
 
   const responseHeaders = isDone ? formatHeaders(state.response) : []
+  const responseCookies = isDone ? (state.response.cookies ?? []) : []
   const networkEvents =
     state.status === "sending"
       ? state.network
@@ -656,6 +670,87 @@ export function ResponsePane({
                   </box>
                 )}
               </box>
+            )
+          ) : activeTab === "cookies" ? (
+            state.status === "done" ? (
+              <scrollbox
+                id="response-cookies-scrollbox"
+                ref={scrollRef}
+                scrollY
+                verticalScrollbarOptions={{
+                  trackOptions: {
+                    backgroundColor: theme.background,
+                    foregroundColor: theme.borderActive,
+                  },
+                }}
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
+                {responseCookies.length === 0 ? (
+                  <text fg={theme.textMuted}>No cookies in this response.</text>
+                ) : (
+                  <box style={{ flexDirection: "column", gap: 0 }}>
+                    {responseCookies.map((cookie, i) => (
+                      <box
+                        key={`${cookie.name}:${cookie.path ?? "/"}`}
+                        style={{
+                          flexDirection: "row",
+                          gap: 0,
+                          backgroundColor:
+                            i % 2 !== 0 ? theme.backgroundElement : undefined,
+                        }}
+                      >
+                        <text
+                          fg={theme.primary}
+                          width={18}
+                          wrapMode="none"
+                          truncate
+                        >
+                          {cookie.name}
+                        </text>
+                        <text
+                          fg={theme.text}
+                          width={34}
+                          wrapMode="none"
+                          truncate
+                        >
+                          {cookie.value}
+                        </text>
+                        <text
+                          fg={theme.textMuted}
+                          width={12}
+                          wrapMode="none"
+                          truncate
+                        >
+                          {cookie.path ?? "/"}
+                        </text>
+                        <text
+                          fg={theme.textMuted}
+                          width={12}
+                          wrapMode="none"
+                          truncate
+                        >
+                          {cookie.expires === null
+                            ? "session"
+                            : cookie.expires.slice(0, 10)}
+                        </text>
+                        <text fg={theme.textMuted} wrapMode="none" truncate>
+                          {[
+                            cookie.httpOnly ? "HttpOnly" : "",
+                            cookie.secure ? "Secure" : "",
+                            cookie.sameSite ?? "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        </text>
+                      </box>
+                    ))}
+                  </box>
+                )}
+              </scrollbox>
+            ) : state.status === "error" ? (
+              <text fg={theme.textMuted}>No cookies available.</text>
+            ) : (
+              <Tips />
             )
           ) : state.status === "done" ? (
             <scrollbox

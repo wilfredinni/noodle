@@ -2,7 +2,7 @@ import type { BindingCommandMap } from "@opentui/keymap/extras"
 import type { KeyEvent } from "@opentui/core"
 
 export type KeybindCategory =
-  "Navigation" | "Request" | "Environment" | "Workspace" | "System"
+  "Navigation" | "Request" | "Environment" | "Cookies" | "Workspace" | "System"
 
 export type KeybindContext =
   | "main"
@@ -14,6 +14,7 @@ export type KeybindContext =
   | "env-editor"
   | "env-browse"
   | "env-edit"
+  | "cookie-jar"
   | "settings"
 
 const EVERY_CONTEXT: readonly KeybindContext[] = [
@@ -26,6 +27,7 @@ const EVERY_CONTEXT: readonly KeybindContext[] = [
   "env-editor",
   "env-browse",
   "env-edit",
+  "cookie-jar",
   "settings",
 ]
 
@@ -223,6 +225,23 @@ export const Definitions = {
   env_delete: keybind("ctrl+w", "Delete environment", false, "Environment", [
     "env-editor",
   ]),
+  cookie_delete: keybind("ctrl+w", "Delete cookie", false, "Cookies", [
+    "cookie-jar",
+  ]),
+  cookie_delete_domain: keybind(
+    "ctrl+d",
+    "Delete cookies for domain",
+    false,
+    "Cookies",
+    ["cookie-jar"],
+  ),
+  cookie_clear: keybind("ctrl+k", "Clear cookie jar", false, "Cookies", [
+    "cookie-jar",
+  ]),
+  cookie_new: keybind("ctrl+n", "Add cookie", false, "Cookies", ["cookie-jar"]),
+  cookie_copy: keybind("ctrl+b", "Copy cookie", false, "Cookies", [
+    "cookie-jar",
+  ]),
 } satisfies Record<string, KeybindDefinition>
 
 export type KeybindName = keyof typeof Definitions
@@ -271,6 +290,11 @@ export const CommandMap = {
   env_new: "env.new",
   env_clone: "env.clone",
   env_delete: "env.delete",
+  cookie_delete: "cookie.delete",
+  cookie_delete_domain: "cookie.delete-domain",
+  cookie_clear: "cookie.clear",
+  cookie_new: "cookie.new",
+  cookie_copy: "cookie.copy",
 } satisfies BindingCommandMap
 
 const AllNames = new Set(Object.keys(Definitions))

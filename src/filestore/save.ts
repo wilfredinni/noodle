@@ -149,6 +149,13 @@ export async function saveSettings(
     const tls = collectionTlsToYaml(settings.tls)
     if (Object.keys(tls).length > 0) data.tls = tls
   }
+  if (settings.cookies !== undefined) {
+    const cookies: Record<string, unknown> = {}
+    if (settings.cookies.enabled !== undefined) {
+      cookies.enabled = settings.cookies.enabled
+    }
+    if (Object.keys(cookies).length > 0) data.cookies = cookies
+  }
 
   const targetPath = join(dir, "settings.yml")
   const temporaryPath = join(dir, `.settings.${randomUUID()}.tmp`)

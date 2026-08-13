@@ -114,6 +114,41 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     return []
   }
 
+  if (ctx.view === "cookie-jar") {
+    if (!col) return []
+    if (ctx.focus === "cookie-sidebar") {
+      return [
+        {
+          key: displayKey(kb.cookie_delete_domain),
+          word: "delete domain",
+          command: "cookie.delete-domain",
+        },
+        {
+          key: displayKey(kb.cookie_clear),
+          word: "clear all",
+          command: "cookie.clear",
+        },
+        { key: "Esc", word: "close", command: "cookie.close" },
+      ]
+    }
+    return [
+      { key: displayKey(kb.cookie_new), word: "add", command: "cookie.new" },
+      { key: "Enter", word: "edit", command: "cookie.edit" },
+      {
+        key: displayKey(kb.cookie_copy),
+        word: "copy",
+        command: "cookie.copy",
+      },
+      {
+        key: displayKey(kb.cookie_delete),
+        word: "delete",
+        command: "cookie.delete",
+      },
+      { key: "/", word: "filter", command: "cookie.filter" },
+      { key: "Esc", word: "close", command: "cookie.close" },
+    ]
+  }
+
   if (ctx.view === "settings") {
     const close = { key: "Esc", word: "close settings" }
     if (ctx.focus === "settings-sidebar") {

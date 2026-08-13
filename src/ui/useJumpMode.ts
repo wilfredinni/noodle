@@ -24,6 +24,8 @@ export type JumpTarget =
   | { kind: "env-name" }
   | { kind: "env-color" }
   | { kind: "env-vars" }
+  | { kind: "cookie-sidebar" }
+  | { kind: "cookie-list" }
   | { kind: "settings-sidebar" }
   | { kind: "settings-content" }
 
@@ -124,6 +126,12 @@ export function useJumpMode(opts: UseJumpModeOpts): void {
           case "env-vars":
             setFocus("env-vars")
             break
+          case "cookie-sidebar":
+            setFocus("cookie-sidebar")
+            break
+          case "cookie-list":
+            setFocus("cookie-list")
+            break
           case "settings-sidebar":
             setFocus("settings-sidebar")
             break
@@ -157,6 +165,7 @@ export function getAvailableTargets(
   folderView: boolean,
   environmentView = false,
   settingsView = false,
+  cookieJarView = false,
 ): Map<string, JumpTarget> {
   const targets = new Map<string, JumpTarget>()
   if (settingsView) {
@@ -169,6 +178,11 @@ export function getAvailableTargets(
     targets.set("m", { kind: "env-name" })
     targets.set("c", { kind: "env-color" })
     targets.set("v", { kind: "env-vars" })
+    return targets
+  }
+  if (cookieJarView) {
+    targets.set("s", { kind: "cookie-sidebar" })
+    targets.set("c", { kind: "cookie-list" })
     return targets
   }
   if (folderView) {
@@ -196,6 +210,7 @@ export function getAvailableTargets(
       targets.set("e", { kind: "response-tab", tab: "headers" })
       targets.set("n", { kind: "response-tab", tab: "network" })
       targets.set("l", { kind: "response-tab", tab: "timeline" })
+      targets.set("k", { kind: "response-tab", tab: "cookies" })
     }
   }
   return targets
@@ -218,7 +233,7 @@ export const RESPONSE_TAB_HINTS: Record<string, string> = {
 }
 
 export const REQUEST_TAB_HINT_ORDER: string[] = ["h", "p", "x", "b", "a", "t"]
-export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "n", "l"]
+export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "n", "l", "k"]
 export const FOLDER_TAB_HINT_ORDER: string[] = ["m", "h", "a", "y"]
 
 export function computeRequestTabLabels(request: Request | null): string[] {

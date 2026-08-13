@@ -115,6 +115,7 @@ export function SettingsView({
   collectionName,
   collectionDescription,
   timelineMaxEntries,
+  cookiesEnabled = true,
   noProxy,
   insecure = false,
   envNames,
@@ -160,6 +161,7 @@ export function SettingsView({
   collectionName?: string
   collectionDescription?: string
   timelineMaxEntries?: number
+  cookiesEnabled?: boolean
   noProxy: boolean
   insecure?: boolean
   envNames: string[]
@@ -188,7 +190,7 @@ export function SettingsView({
   onCollectionSettingsChange: (
     patch: Pick<
       CollectionSettings,
-      "name" | "description" | "timelineMaxEntries" | "tls"
+      "name" | "description" | "timelineMaxEntries" | "tls" | "cookies"
     >,
   ) => boolean
   onEnvironmentChange: (name: string) => void
@@ -403,6 +405,7 @@ export function SettingsView({
         "settings-collection-description",
         "settings-timeline-max-entries",
         "settings-active-environment",
+        "settings-cookies-enabled",
       ][contentIndex]
       if (id) scrollRef.current?.scrollChildIntoView(id)
     }
@@ -507,9 +510,9 @@ export function SettingsView({
               event.name === "home"
                 ? 0
                 : event.name === "end"
-                  ? 3
+                  ? 4
                   : Math.min(
-                      3,
+                      4,
                       Math.max(
                         0,
                         contentIndex + (event.name === "up" ? -1 : 1),
@@ -521,7 +524,7 @@ export function SettingsView({
             event.stopPropagation()
             if (!commitCollectionGeneralField(contentIndex)) return
             const next = contentIndex + (event.shift ? -1 : 1)
-            if (next < 0 || next >= 4) onPaneFocus("settings-sidebar")
+            if (next < 0 || next >= 5) onPaneFocus("settings-sidebar")
             else setContentIndex(next)
           } else if (
             event.name === "return" &&
@@ -534,6 +537,15 @@ export function SettingsView({
             event.preventDefault()
             event.stopPropagation()
             collectionDescriptionRef.current?.insertText("\n")
+          } else if (
+            (event.name === "space" || event.name === "return") &&
+            contentIndex === 4
+          ) {
+            event.preventDefault()
+            event.stopPropagation()
+            onCollectionSettingsChange({
+              cookies: { enabled: !cookiesEnabled },
+            })
           }
           return
         }
@@ -666,11 +678,13 @@ export function SettingsView({
     commitCurrentCollectionGeneralField,
     confirmUndoAll,
     contentIndex,
+    cookiesEnabled,
     focus,
     keybindNames,
     keymap,
     onCategoryChange,
     onClose,
+    onCollectionSettingsChange,
     onCollectionUnregister,
     onCollectionsChange,
     onConfirmUndoAllChange,
@@ -1191,6 +1205,21 @@ export function SettingsView({
                       onOpenChange={setSelectOpen}
                       onChange={onEnvironmentChange}
                     />
+                  </SettingLabel>
+                </box>
+                <box id="settings-cookies-enabled">
+                  <SettingLabel
+                    title="Cookie jar"
+                    description="Capture Set-Cookie responses and send them back to matching hosts. Toggle off to disable per collection."
+                    active={focus === "settings-content" && contentIndex === 4}
+                    onMouseDown={() => {
+                      onCollectionSettingsChange({
+                        cookies: { enabled: !cookiesEnabled },
+                      })
+                      onPaneFocus("settings-content")
+                    }}
+                  >
+                    <Checkbox checked={cookiesEnabled} theme={theme} />
                   </SettingLabel>
                 </box>
               </>
