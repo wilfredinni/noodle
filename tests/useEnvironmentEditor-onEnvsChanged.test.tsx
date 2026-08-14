@@ -155,10 +155,16 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     )
     await renderOnce()
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10))
-    })
-    await renderOnce()
+    const deadline = Date.now() + 1_000
+    while (!ref.current?.envNames.includes("development")) {
+      if (Date.now() >= deadline) {
+        throw new Error("Timed out waiting for external environment names")
+      }
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      })
+      await renderOnce()
+    }
 
     expect(ref.current!.envNames).toEqual(["development"])
   })

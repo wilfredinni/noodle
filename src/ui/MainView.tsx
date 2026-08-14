@@ -111,7 +111,7 @@ export function MainView({
 }: MainViewProps) {
   const theme = useTheme()
 
-  if (mode !== "collection") {
+  if (mode === "empty") {
     return (
       <EmptyState
         title="Noodle"
