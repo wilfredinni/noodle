@@ -11,6 +11,8 @@ import type { UrlBarSubFocus } from "./focus"
 import type { Keybinds } from "./keybind"
 import type { VisibleNode } from "./tree"
 import { RequestResponseView } from "./RequestResponseView"
+import { EmptyState } from "./EmptyState"
+import { FullBorder } from "./borders"
 import type { RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
 
@@ -49,6 +51,8 @@ interface MainViewProps {
   jumpMode?: boolean
   onQueryVisibleChange?: (v: boolean) => void
   onResponseBodyEditorAvailableChange?: (available: boolean) => void
+  onInitialize: () => void
+  onCreateRequest: () => void
   onPaneFocus?: (focus: Focus) => void
   onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
   onSend?: () => void
@@ -94,6 +98,8 @@ export function MainView({
   jumpMode = false,
   onQueryVisibleChange,
   onResponseBodyEditorAvailableChange,
+  onInitialize,
+  onCreateRequest,
   onPaneFocus = () => {},
   onUrlbarFocus,
   onSend,
@@ -104,6 +110,29 @@ export function MainView({
   onFolderContextMenu,
 }: MainViewProps) {
   const theme = useTheme()
+
+  if (mode === "empty") {
+    return (
+      <EmptyState
+        title="Noodle"
+        actionActive
+        message="Initialize this collection"
+        onAction={onInitialize}
+      />
+    )
+  }
+
+  if (!loading && !error && items.length === 0) {
+    return (
+      <EmptyState
+        border={FullBorder}
+        actionActive
+        subtitle="No requests in this collection"
+        message="Create request"
+        onAction={onCreateRequest}
+      />
+    )
+  }
 
   return (
     <box
@@ -143,13 +172,6 @@ export function MainView({
           minHeight: 0,
         }}
       >
-        {mode !== "collection" && (
-          <box style={{ paddingLeft: 1, paddingRight: 1 }}>
-            <text fg={theme.warning}>
-              Read-only folder. Initialize collection to edit or send requests.
-            </text>
-          </box>
-        )}
         {focusedFolderPresent ? (
           <FolderPane
             collectionDir={collectionDir}

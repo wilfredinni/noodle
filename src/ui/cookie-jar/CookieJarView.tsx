@@ -3,6 +3,8 @@ import { CookieJarPane } from "./CookieJarPane"
 import type { UseCookieJarViewResult } from "../../hooks/useCookieJarView"
 import type { Focus } from "../focus"
 import type { CookieJarStatus } from "../../cookies"
+import { EmptyState } from "../EmptyState"
+import { FullBorder } from "../borders"
 
 export function CookieJarView({
   view,
@@ -10,6 +12,7 @@ export function CookieJarView({
   focus,
   jumpMode = false,
   onPaneFocus = () => {},
+  onAddCookie,
   onRetry,
   onReset,
   resetKey,
@@ -19,10 +22,27 @@ export function CookieJarView({
   focus: Focus
   jumpMode?: boolean
   onPaneFocus?: (focus: Focus) => void
+  onAddCookie?: () => void
   onRetry?: () => void
   onReset?: () => void
   resetKey?: string
 }) {
+  if (
+    view.domains.length === 0 &&
+    status.state === "encrypted" &&
+    onAddCookie !== undefined
+  ) {
+    return (
+      <EmptyState
+        border={FullBorder}
+        actionActive
+        subtitle="No cookies in this collection"
+        message="Add a cookie"
+        onAction={onAddCookie}
+      />
+    )
+  }
+
   return (
     <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
       <CookieJarSidebar

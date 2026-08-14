@@ -8,7 +8,7 @@ import {
   spyOn,
 } from "bun:test"
 import { createTestRender } from "./testRender"
-import { act, useEffect, useRef } from "react"
+import { act, useEffect, useRef, useState } from "react"
 import { mkdtemp, rm, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -104,6 +104,29 @@ function Harness({
   return <box />
 }
 
+function ExternalNamesHarness({
+  editorRef,
+}: {
+  editorRef: { current: ReturnType<typeof useEnvironmentEditor> | null }
+}) {
+  const [names, setNames] = useState<string[]>([])
+  const editor = useEnvironmentEditor({
+    environmentsDir: dir,
+    envNames: names,
+    activeEnvName: undefined,
+    onEnvsChanged: () => {},
+    onActiveEnvChanged: () => {},
+  })
+
+  editorRef.current = editor
+
+  useEffect(() => {
+    setNames(["development"])
+  }, [])
+
+  return <box />
+}
+
 describe("useEnvironmentEditor onEnvsChanged callback", () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "noodle-onEnvsChanged-"))
@@ -116,6 +139,34 @@ describe("useEnvironmentEditor onEnvsChanged callback", () => {
     delete process.env.NOODLE_PROCESS_SECRET
     setSecretBackendForTests(undefined)
     await rm(dir, { recursive: true, force: true })
+  })
+
+  it("picks up environment names added outside the editor", async () => {
+    await env.saveEnvironment(dir, { name: "development", vars: {} })
+    const ref: { current: ReturnType<typeof useEnvironmentEditor> | null } = {
+      current: null,
+    }
+
+    const { renderOnce } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <ExternalNamesHarness editorRef={ref} />
+      </ThemeProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+
+    const deadline = Date.now() + 1_000
+    while (!ref.current?.envNames.includes("development")) {
+      if (Date.now() >= deadline) {
+        throw new Error("Timed out waiting for external environment names")
+      }
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      })
+      await renderOnce()
+    }
+
+    expect(ref.current!.envNames).toEqual(["development"])
   })
 
   it("calls onEnvsChanged after cloneEnv", async () => {

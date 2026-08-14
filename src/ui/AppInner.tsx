@@ -1553,6 +1553,8 @@ export function AppInner({
             responseBodyForCopyRef={responseBodyForCopyRef}
             onQueryVisibleChange={setQueryVisible}
             onResponseBodyEditorAvailableChange={setResponseBodyEditorAvailable}
+            onInitialize={() => setInitPending(true)}
+            onCreateRequest={() => setNewRequestVisible(true)}
             mode={mode}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
@@ -1600,6 +1602,7 @@ export function AppInner({
               headerFieldRef.current = field
             }}
             onPaneFocus={focusPane}
+            onCreateEnvironment={() => setNewEnvironmentVisible(true)}
             onEnvironmentContextMenu={async (name) => {
               focusPane("env-sidebar")
               if (!(await envEditor.selectEnv(name))) return
@@ -1615,6 +1618,10 @@ export function AppInner({
             focus={focus}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
+            onAddCookie={() => {
+              setCookieFormInitial(null)
+              setCookieFormVisible(true)
+            }}
             onRetry={retryCookieStorage}
             onReset={requestCookieStorageReset}
             resetKey={displayKey(keybinds.cookie_clear)}
@@ -1798,6 +1805,7 @@ export function AppInner({
         overlayActive={overlayActive}
         globalHints={hints.header}
         footerHints={hints.footer}
+        collectionPath={collectionDir}
         sendCommand={sendCommand}
         cookieStatus={cookieStorage.status}
         onHintActivate={handleHintActivate}

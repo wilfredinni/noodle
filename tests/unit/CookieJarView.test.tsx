@@ -10,8 +10,12 @@ import {
 } from "../../src/cookies"
 import { CookieJarView } from "../../src/ui/cookie-jar/CookieJarView"
 import { act, useRef } from "react"
+import type { BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
+import { KeymapProvider } from "@opentui/keymap/react"
 import type { Focus } from "../../src/ui/focus"
+import { setupKeymap } from "./_helpers"
+import { FullBorder } from "../../src/ui/borders"
 
 const testRender = createTestRender()
 
@@ -75,11 +79,13 @@ const twoCookies = jarWith([
 function Harness({
   jar,
   onReady,
+  onAddCookie,
   focus = "cookie-sidebar",
   onPaneFocus,
 }: {
   jar: CollectionCookieJar
   onReady?: (v: ReturnType<typeof useCookieJarView>) => void
+  onAddCookie?: () => void
   focus?: Focus
   onPaneFocus?: (focus: Focus) => void
 }) {
@@ -93,6 +99,7 @@ function Harness({
       view={view}
       status={{ state: "encrypted" }}
       focus={focus}
+      onAddCookie={onAddCookie}
       onPaneFocus={onPaneFocus}
     />
   )
@@ -354,14 +361,44 @@ describe("CookieJarView", () => {
   })
 
   it("renders the no-domain pane state", async () => {
-    const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Harness jar={jarWith([])} />
-      </ThemeProvider>,
-      { width: 100, height: 6 },
-    )
+    const { keymap, cleanup } = setupKeymap()
+    let addCookieCalls = 0
+    const { renderOnce, captureCharFrame, renderer, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <Harness jar={jarWith([])} onAddCookie={() => addCookieCalls++} />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 12 },
+      )
     await renderOnce()
-    expect(captureCharFrame()).toContain("Select a domain")
+    const frame = captureCharFrame()
+    expect(frame).toContain("Add a cookie")
+    expect(frame).toContain("No cookies in this collection")
+    expect(frame).not.toContain("Select a domain")
+    expect(
+      renderer.root.findDescendantById("empty-state-title"),
+    ).toBeUndefined()
+    const emptyState = renderer.root.findDescendantById(
+      "empty-state",
+    ) as BoxRenderable
+    expect(emptyState.border).toEqual([...FullBorder.border])
+    expect(frame).toContain("┌")
+    expect(addCookieCalls).toBe(0)
+
+    const action = renderer.root.findDescendantById(
+      "empty-state-action",
+    ) as BoxRenderable
+    await act(async () => {
+      await mockMouse.click(
+        action.screenX + Math.floor(action.width / 2),
+        action.screenY,
+        MouseButtons.LEFT,
+      )
+    })
+    expect(addCookieCalls).toBe(1)
+    cleanup()
   })
 
   it("refreshes when the jar changes outside the cookie view", async () => {
