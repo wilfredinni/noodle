@@ -249,13 +249,15 @@ describe("CookieFormOverlay", () => {
     await renderOnce()
 
     const rows = captureCharFrame().split("\n")
+    const secureLabelY = rows.findIndex((row) => row.includes("Secure:"))
     const httpOnlyLabelY = rows.findIndex((row) => row.includes("HttpOnly"))
-    const httpOnlyY = rows.findIndex(
-      (row, index) => index > httpOnlyLabelY && row.includes("[ ]"),
-    )
-    const httpOnlyX = rows[httpOnlyY]!.indexOf("[ ]") + 1
+    const hostOnlyLabelY = rows.findIndex((row) => row.includes("Host only"))
+    expect(httpOnlyLabelY).toBe(secureLabelY + 1)
+    expect(hostOnlyLabelY).toBe(httpOnlyLabelY + 1)
+    expect(rows[httpOnlyLabelY]).toContain("HttpOnly: [ ]")
+    const httpOnlyX = rows[httpOnlyLabelY]!.indexOf("[ ]") + 1
     await act(async () => {
-      await mockMouse.click(httpOnlyX, httpOnlyY, MouseButtons.LEFT)
+      await mockMouse.click(httpOnlyX, httpOnlyLabelY, MouseButtons.LEFT)
     })
     await renderOnce()
 

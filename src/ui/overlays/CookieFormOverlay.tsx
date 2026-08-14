@@ -214,26 +214,41 @@ export const CookieFormOverlay = forwardRef<
         style={{
           paddingX: 2,
           flexDirection: "column",
-          gap: 1,
+          gap: 0,
           paddingBottom: 1,
         }}
       >
         {FIELDS.map((field) => {
           const isActive = focus === field
+          const isCheckbox =
+            field === "secure" || field === "httpOnly" || field === "hostOnly"
           return (
             <box
               key={field}
               style={{
-                flexDirection: "column",
+                flexDirection: isCheckbox ? "row" : "column",
+                alignItems: isCheckbox ? "center" : undefined,
+                gap: isCheckbox ? 1 : undefined,
+                marginBottom: isCheckbox
+                  ? field === "hostOnly"
+                    ? 1
+                    : 0
+                  : field === "sameSite"
+                    ? errorText
+                      ? 1
+                      : 0
+                    : 1,
                 zIndex: field === "sameSite" && selectOpen ? 1 : undefined,
               }}
             >
-              <text fg={theme.textMuted}>{LABELS[field]}</text>
+              <text fg={theme.textMuted}>
+                {LABELS[field]}
+                {isCheckbox ? ":" : ""}
+              </text>
               {field === "secure" ? (
                 <box
                   style={{
                     flexDirection: "row",
-                    gap: 1,
                     backgroundColor: isActive
                       ? theme.backgroundElement
                       : undefined,
@@ -252,7 +267,6 @@ export const CookieFormOverlay = forwardRef<
                 <box
                   style={{
                     flexDirection: "row",
-                    gap: 1,
                     backgroundColor: isActive
                       ? theme.backgroundElement
                       : undefined,
@@ -271,7 +285,6 @@ export const CookieFormOverlay = forwardRef<
                 <box
                   style={{
                     flexDirection: "row",
-                    gap: 1,
                     backgroundColor: isActive
                       ? theme.backgroundElement
                       : undefined,
