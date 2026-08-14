@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { env } from "../env"
 import { dirname } from "node:path"
 import type { Environment, SecretStatus } from "../schema"
@@ -271,6 +271,7 @@ export function useEnvironmentEditor({
   onActiveEnvChangedRef.current = onActiveEnvChanged
   const localNamesRef = useRef(localNames)
   localNamesRef.current = localNames
+  const externalNamesRef = useRef(envNames)
   const editStateRef = useRef(editState)
   editStateRef.current = editState
   const editKeyRef = useRef(editKey)
@@ -278,6 +279,19 @@ export function useEnvironmentEditor({
   const editValueRef = useRef(editValue)
   editValueRef.current = editValue
   const createEnvPendingRef = useRef<Promise<void> | null>(null)
+
+  useEffect(() => {
+    const previousNames = externalNamesRef.current
+    if (
+      previousNames.length === envNames.length &&
+      previousNames.every((name, index) => name === envNames[index])
+    ) {
+      return
+    }
+    externalNamesRef.current = envNames
+    localNamesRef.current = envNames
+    setLocalNames(envNames)
+  }, [envNames])
 
   const loadEnv = useCallback(
     async (name: string) => {
