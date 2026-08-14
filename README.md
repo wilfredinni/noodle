@@ -145,6 +145,12 @@ automatically: requests continue without jar cookies, and an explicit
 `noodle cookie clear --collection ./my-api` preserves the original as a backup
 before resetting the jar.
 
+On Linux, Noodle uses Secret Service through GNOME Keyring or KWallet. Desktop
+sessions normally start and unlock the provider; headless sessions need a user
+D-Bus session and an unlocked keyring. See the [Linux secret storage setup](https://noodlerest.dev/docs/reference/environment-format/#linux-and-headless-environments)
+guide if `noodle secret set` reports that the `login` keyring collection is
+unavailable.
+
 [Explore the CLI →](https://noodlerest.dev/docs/getting-started/cli/)
 
 ## Bring your existing work
