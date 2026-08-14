@@ -396,6 +396,55 @@ describe("OAuth 1 signing", () => {
     expect((await send(request("cross-start"))).body).toBe("cross-origin")
     expect(crossOriginAuthorization).toBeNull()
   })
+
+  it("does not forward an OAuth 1 PLAINTEXT form signature across a 307 redirect", async () => {
+    const originalFetch = globalThis.fetch
+    const bodies: string[] = []
+    let calls = 0
+    globalThis.fetch = (async (_url, init) => {
+      calls++
+      bodies.push(String(init?.body ?? ""))
+      return calls === 1
+        ? new Response(null, {
+            status: 307,
+            headers: { location: "http://identity.example/final" },
+          })
+        : new Response("ok")
+    }) as typeof globalThis.fetch
+
+    try {
+      await send({
+        id: "plaintext-redirect",
+        name: "PLAINTEXT redirect",
+        method: "POST",
+        url: "http://127.0.0.1:9876/start",
+        timeout: 5_000,
+        headers: {},
+        params: [],
+        bodyType: "urlencoded",
+        formData: [
+          { name: "field", value: "value", enabled: true, type: "text" },
+        ],
+        auth: {
+          ...defaultOAuth1Auth(),
+          consumer_key: "consumer",
+          consumer_secret: "consumer-secret",
+          access_token: "token",
+          access_token_secret: "token-secret",
+          signature_method: "PLAINTEXT",
+          placement: "body",
+        },
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+
+    expect(new URLSearchParams(bodies[0]).get("oauth_signature")).toBe(
+      "consumer-secret&token-secret",
+    )
+    expect(new URLSearchParams(bodies[1]).get("oauth_signature")).toBeNull()
+    expect(new URLSearchParams(bodies[1]).get("field")).toBe("value")
+  })
 })
 
 describe("OAuth 2 execution", () => {
