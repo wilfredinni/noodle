@@ -28,6 +28,9 @@ import {
 } from "./ntlm"
 import { createNtlmConnection, type NtlmConnection } from "./ntlmConnection"
 import { parseResponseCookies, type CollectionCookieJar } from "../cookies"
+import { signOAuth1Request, stripOAuth1Credentials } from "./oauth1"
+import { resolveOAuth2Token, type OAuth2Mode } from "./oauth2"
+import type { OAuthBrowserLauncher } from "./oauth2Browser"
 
 export interface RequestExecutionOptions {
   environment?: Environment
@@ -38,6 +41,10 @@ export interface RequestExecutionOptions {
   proxyPolicy?: ProxyPolicy
   tlsPolicy?: TlsPolicy
   cookies?: CollectionCookieJar
+  collectionDir?: string
+  oauthMode?: OAuth2Mode
+  openOAuthBrowser?: OAuthBrowserLauncher
+  allowCrossOriginRedirects?: boolean
 }
 
 export function interpolatePathParams(
@@ -97,6 +104,10 @@ export async function send(
     proxyPolicy,
     tlsPolicy,
     cookies,
+    collectionDir,
+    oauthMode = "cached-only",
+    openOAuthBrowser,
+    allowCrossOriginRedirects = true,
   } = options
   const merged =
     collection && requestPath
@@ -199,12 +210,55 @@ export async function send(
 
   const start = performance.now()
   const network: NetworkEvent[] = []
+  let oauth2Token: string | undefined
+  if (substituted.auth?.type === "oauth2") {
+    if (
+      substituted.auth.token_placement === "header" &&
+      !substituted.auth.token_header.trim()
+    ) {
+      throw new Error("requests.send: OAuth 2 token_header must not be empty")
+    }
+    if (
+      substituted.auth.token_placement === "query" &&
+      !substituted.auth.token_query_key.trim()
+    ) {
+      throw new Error(
+        "requests.send: OAuth 2 token_query_key must not be empty",
+      )
+    }
+    try {
+      oauth2Token = (
+        await resolveOAuth2Token(substituted.auth, {
+          collectionDir,
+          mode: oauthMode,
+          // Browser authorization owns its five-minute timeout. The request
+          // timeout still applies to each token/resource HTTP call.
+          signal,
+          proxyPolicy,
+          tlsPolicy,
+          openBrowser: openOAuthBrowser,
+          onAuthEvent: (message) =>
+            recordNetworkEvent(network, start, "auth", message, onNetworkEvent),
+        })
+      ).token
+    } catch (e) {
+      throw networkFailure(
+        `requests.send: ${e instanceof Error ? e.message : String(e)}`,
+        e,
+        network,
+        start,
+        onNetworkEvent,
+      )
+    }
+  }
   let res: globalThis.Response
   let currentUrl = finalUrl
   let currentInit: RequestInit = { ...init, redirect: "manual" }
   let redirectCount = 0
   let awsSigningEnabled = substituted.auth?.type === "aws_sigv4"
   let ntlmEnabled = substituted.auth?.type === "ntlm"
+  let oauth1SigningEnabled = substituted.auth?.type === "oauth1"
+  let oauth2Enabled = substituted.auth?.type === "oauth2"
   let sentCookies: CookiePair[] = []
   const maxRedirects = req.maxRedirects ?? 5
   const followRedirects = req.followRedirects ?? true
@@ -261,9 +315,27 @@ export async function send(
     let ntlmConnection: NtlmConnection | undefined
     const fetchOnce = async (authorization?: string) => {
       const legHeaders = new Headers(currentInit.headers)
+      let requestUrl = currentUrl
       if (ntlmEnabled) {
         if (authorization) legHeaders.set("authorization", authorization)
         else legHeaders.delete("authorization")
+      }
+      if (oauth2Enabled && oauth2Token && substituted.auth?.type === "oauth2") {
+        if (substituted.auth.token_placement === "header") {
+          legHeaders.set(
+            substituted.auth.token_header,
+            substituted.auth.token_prefix
+              ? `${substituted.auth.token_prefix} ${oauth2Token}`
+              : oauth2Token,
+          )
+        } else {
+          const tokenUrl = new URL(currentUrl)
+          tokenUrl.searchParams.set(
+            substituted.auth.token_query_key,
+            oauth2Token,
+          )
+          requestUrl = tokenUrl.toString()
+        }
       }
       if (cookies && substituted.sendCookies !== false) {
         const jarHeader = cookies.cookieHeaderFor(currentUrl)
@@ -290,10 +362,20 @@ export async function send(
       )
       let response: globalThis.Response
       try {
-        const signedInit =
+        let signedInit =
           awsSigningEnabled && substituted.auth?.type === "aws_sigv4"
             ? signAwsRequest(currentUrl, legInit, substituted.auth)
             : legInit
+        if (oauth1SigningEnabled && substituted.auth?.type === "oauth1") {
+          const signed = await signOAuth1Request(
+            currentUrl,
+            signedInit,
+            substituted.auth,
+            collectionDir,
+          )
+          requestUrl = signed.url
+          signedInit = signed.init
+        }
         if (ntlmEnabled) {
           ntlmConnection ??= await createNtlmConnection(
             currentUrl,
@@ -306,7 +388,7 @@ export async function send(
           const fetchInit: BunFetchRequestInit = { ...signedInit }
           if (proxyRoute?.kind === "proxy") fetchInit.proxy = proxyRoute.url
           if (resolvedTls.options) fetchInit.tls = resolvedTls.options
-          response = await fetch(currentUrl, fetchInit)
+          response = await fetch(requestUrl, fetchInit)
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") throw e
@@ -448,12 +530,32 @@ export async function send(
       )
     }
     if (previousUrl.origin !== nextUrl.origin) {
+      if (!allowCrossOriginRedirects) {
+        throw networkFailure(
+          "requests.send: refusing a cross-origin redirect for a credential-bearing request",
+          undefined,
+          network,
+          start,
+          onNetworkEvent,
+        )
+      }
       awsSigningEnabled = false
       ntlmEnabled = false
+      oauth1SigningEnabled = false
+      oauth2Enabled = false
+      nextUrl = new URL(stripOAuth1Credentials(nextUrl.toString()))
+      if (substituted.auth?.type === "oauth2") {
+        nextUrl.searchParams.delete(substituted.auth.token_query_key)
+      }
       currentInit = {
         ...currentInit,
         headers: clearAwsSignerHeaders(
-          stripCrossOriginCredentials(currentInit.headers, ah?.name),
+          stripCrossOriginCredentials(
+            currentInit.headers,
+            substituted.auth?.type === "oauth2"
+              ? substituted.auth.token_header
+              : ah?.name,
+          ),
         ),
       }
     }

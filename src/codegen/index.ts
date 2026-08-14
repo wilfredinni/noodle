@@ -35,6 +35,16 @@ export function generateCode(
       "codegen.generateCode: NTLM requests are not supported because authentication requires a connection-bound challenge exchange",
     )
   }
+  if (effective.auth?.type === "oauth1") {
+    throw new Error(
+      "codegen.generateCode: OAuth 1.0a requests are not supported because signatures are request-specific",
+    )
+  }
+  if (effective.auth?.type === "oauth2") {
+    throw new Error(
+      "codegen.generateCode: OAuth 2.0 requests are not supported because access tokens use external secure state",
+    )
+  }
 
   const { har, unhash } = buildHar(effective, env, interpolate)
 

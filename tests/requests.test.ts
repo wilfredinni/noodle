@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test"
 import type { Request, Environment } from "../src/schema"
 import { substitute } from "../src/requests/substitute"
 import { bodyForSend } from "../src/requests/send"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -257,6 +258,91 @@ describe("substitute — AWS SigV4", () => {
         { name: "dev", vars: {} },
       ),
     ).toThrow('unresolved variable "MISSING" in auth.secret_key')
+  })
+})
+
+describe("substitute — OAuth", () => {
+  it("substitutes OAuth credentials, endpoints, and additional parameters", () => {
+    const environment: Environment = {
+      name: "dev",
+      vars: {
+        CONSUMER: "consumer",
+        CONSUMER_SECRET: "consumer-secret",
+        CLIENT: "client",
+        CLIENT_SECRET: "client-secret",
+        TOKEN_URL: "https://identity.example/token",
+        EXTRA_NAME: "resource",
+        EXTRA_VALUE: "https://api.example",
+      },
+    }
+    expect(
+      substitute(
+        makeReq({
+          auth: {
+            ...defaultOAuth1Auth(),
+            consumer_key: "$CONSUMER",
+            consumer_secret: "$CONSUMER_SECRET",
+          },
+        }),
+        environment,
+      ).auth,
+    ).toMatchObject({
+      type: "oauth1",
+      consumer_key: "consumer",
+      consumer_secret: "consumer-secret",
+    })
+    expect(
+      substitute(
+        makeReq({
+          auth: {
+            ...defaultOAuth2Auth(),
+            access_token_url: "$TOKEN_URL",
+            client_id: "$CLIENT",
+            client_secret: "$CLIENT_SECRET",
+            additional_parameters: {
+              authorization: [],
+              token: [
+                {
+                  name: "$EXTRA_NAME",
+                  value: "$EXTRA_VALUE",
+                  enabled: true,
+                  placement: "body",
+                },
+                {
+                  name: "disabled",
+                  value: "$MISSING_DISABLED",
+                  enabled: false,
+                  placement: "body",
+                },
+              ],
+              refresh: [],
+            },
+          },
+        }),
+        environment,
+      ).auth,
+    ).toMatchObject({
+      type: "oauth2",
+      access_token_url: "https://identity.example/token",
+      client_id: "client",
+      client_secret: "client-secret",
+      additional_parameters: {
+        token: [
+          {
+            name: "resource",
+            value: "https://api.example",
+            enabled: true,
+            placement: "body",
+          },
+          {
+            name: "disabled",
+            value: "$MISSING_DISABLED",
+            enabled: false,
+            placement: "body",
+          },
+        ],
+      },
+    })
   })
 })
 
