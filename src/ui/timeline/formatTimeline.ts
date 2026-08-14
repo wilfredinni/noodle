@@ -95,6 +95,65 @@ export function buildTimelineEntry(
         ...(auth.session_token ? { session_token: REDACTED } : {}),
       }
     }
+    if (auth.type === "oauth1") {
+      return {
+        ...auth,
+        consumer_key: redact(resolvePublicVars(auth.consumer_key)),
+        consumer_secret: REDACTED,
+        access_token: REDACTED,
+        access_token_secret: REDACTED,
+        private_key: REDACTED,
+        callback_url: redact(resolvePublicVars(auth.callback_url)),
+        verifier: REDACTED,
+        timestamp: REDACTED,
+        nonce: REDACTED,
+        realm: redact(resolvePublicVars(auth.realm)),
+      }
+    }
+    if (auth.type === "oauth2") {
+      const redactParameters = (
+        parameters: typeof auth.additional_parameters.token,
+      ) =>
+        parameters.map((parameter) => ({
+          ...parameter,
+          name: redact(resolvePublicVars(parameter.name)),
+          value: REDACTED,
+        }))
+      return {
+        ...auth,
+        authorization_url: redact(resolvePublicVars(auth.authorization_url)),
+        access_token_url: redact(resolvePublicVars(auth.access_token_url)),
+        refresh_token_url: redact(resolvePublicVars(auth.refresh_token_url)),
+        client_id: redact(resolvePublicVars(auth.client_id)),
+        client_secret: REDACTED,
+        username: redact(resolvePublicVars(auth.username)),
+        password: REDACTED,
+        scope: redact(resolvePublicVars(auth.scope)),
+        audience: redact(resolvePublicVars(auth.audience)),
+        redirect_uri: redact(resolvePublicVars(auth.redirect_uri)),
+        credentials_id: redact(resolvePublicVars(auth.credentials_id)),
+        client_assertion_key: REDACTED,
+        client_assertion_issuer: redact(
+          resolvePublicVars(auth.client_assertion_issuer),
+        ),
+        client_assertion_subject: redact(
+          resolvePublicVars(auth.client_assertion_subject),
+        ),
+        client_assertion_audience: redact(
+          resolvePublicVars(auth.client_assertion_audience),
+        ),
+        token_header: redact(resolvePublicVars(auth.token_header)),
+        token_prefix: redact(resolvePublicVars(auth.token_prefix)),
+        token_query_key: redact(resolvePublicVars(auth.token_query_key)),
+        additional_parameters: {
+          authorization: redactParameters(
+            auth.additional_parameters.authorization,
+          ),
+          token: redactParameters(auth.additional_parameters.token),
+          refresh: redactParameters(auth.additional_parameters.refresh),
+        },
+      }
+    }
     return {
       ...auth,
       key: redact(resolvePublicVars(auth.key)),
@@ -240,6 +299,14 @@ export function maskedAuthHeader(
     return { key: "Authorization", value: "NTLM ••••••••" }
   if (auth.type === "aws_sigv4")
     return { key: "Authorization", value: "AWS4-HMAC-SHA256 ••••••••" }
+  if (auth.type === "oauth1" && auth.placement === "header")
+    return { key: "Authorization", value: "OAuth ••••••••" }
+  if (auth.type === "oauth2" && auth.token_placement === "header") {
+    return {
+      key: auth.token_header,
+      value: auth.token_prefix ? `${auth.token_prefix} ••••••••` : "••••••••",
+    }
+  }
   if (auth.type === "api_key" && auth.placement === "header") {
     return { key: auth.key, value: "••••••••" }
   }

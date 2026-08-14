@@ -13,6 +13,14 @@ import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
 import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import { mergeFolderOverrides } from "../requests/mergeFolderOverrides"
+import { substitute } from "../requests/substitute"
+import {
+  clearOAuth2Token,
+  currentOAuth2Token,
+  resolveOAuth2Token,
+} from "../requests/oauth2"
+import type { ProxyPolicy } from "../proxy"
+import type { TlsPolicy } from "../tls"
 import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
 
@@ -38,6 +46,8 @@ export interface CommandActionsConfig {
   focusedFolderPathRef: RefObject<string | null>
   focusedFolderNameRef: RefObject<string | null>
   folderDeletePathRef: RefObject<string | null>
+  proxyPolicy?: ProxyPolicy
+  tlsPolicy?: TlsPolicy
 }
 
 export function sendRequest(c: CommandActionsConfig): boolean {
@@ -179,6 +189,109 @@ export function canGenerateClientCode(c: CommandActionsConfig): boolean {
     showToast("Code generation is unavailable for NTLM requests", "warning")
     return false
   }
+  if (effective.auth?.type === "oauth1" || effective.auth?.type === "oauth2") {
+    showToast(
+      `Code generation is unavailable for ${effective.auth.type === "oauth1" ? "OAuth 1.0a" : "OAuth 2.0"} requests`,
+      "warning",
+    )
+    return false
+  }
+  return true
+}
+
+function oauth2Auth(c: CommandActionsConfig) {
+  try {
+    if (c.focusedFolderPathRef.current !== null) return null
+    const request = c.draftRef.current.draft
+    if (!request) return null
+    const collection = c.collectionRef.current
+    const effective = collection
+      ? mergeFolderOverrides(request, collection, request.id)
+      : request
+    const resolved = c.envStateRef.current.activeEnv
+      ? substitute(effective, c.envStateRef.current.activeEnv)
+      : effective
+    return resolved.auth?.type === "oauth2" ? resolved.auth : null
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : String(error), "error")
+    return null
+  }
+}
+
+export function hasOAuth2Auth(c: CommandActionsConfig): boolean {
+  if (c.focusedFolderPathRef.current !== null) return false
+  const request = c.draftRef.current?.draft
+  if (!request) return false
+  const collection = c.collectionRef.current ?? null
+  const effective = collection
+    ? mergeFolderOverrides(request, collection, request.id)
+    : request
+  return effective.auth?.type === "oauth2"
+}
+
+function showOAuth2Event(message: string): void {
+  showToast(
+    message,
+    /unavailable|session only|legacy|not recommended/i.test(message)
+      ? "warning"
+      : "info",
+  )
+}
+
+export function fetchOAuth2Token(c: CommandActionsConfig): boolean {
+  const auth = oauth2Auth(c)
+  if (!auth) return false
+  void resolveOAuth2Token(
+    auth,
+    {
+      collectionDir: c.collectionDir,
+      mode: "interactive",
+      proxyPolicy: c.proxyPolicy,
+      tlsPolicy: c.tlsPolicy,
+      onAuthEvent: showOAuth2Event,
+    },
+    { force: true },
+  )
+    .then(() => showToast("OAuth 2 token ready", "success"))
+    .catch((error: unknown) =>
+      showToast(
+        error instanceof Error ? error.message : String(error),
+        "error",
+      ),
+    )
+  return true
+}
+
+export function copyOAuth2Token(c: CommandActionsConfig): boolean {
+  const auth = oauth2Auth(c)
+  if (!auth) return false
+  void currentOAuth2Token(auth, c.collectionDir, showOAuth2Event)
+    .then((token) => {
+      if (!token) showToast("No OAuth 2 token is cached", "warning")
+      else if (copyToClipboard(token, c.renderer))
+        showToast("OAuth 2 token copied", "success")
+      else showToast("Failed to copy OAuth 2 token", "error")
+    })
+    .catch((error: unknown) =>
+      showToast(
+        error instanceof Error ? error.message : String(error),
+        "error",
+      ),
+    )
+  return true
+}
+
+export function clearCurrentOAuth2Token(c: CommandActionsConfig): boolean {
+  const auth = oauth2Auth(c)
+  if (!auth) return false
+  void clearOAuth2Token(auth, c.collectionDir)
+    .then(() => showToast("OAuth 2 token cleared", "success"))
+    .catch((error: unknown) =>
+      showToast(
+        error instanceof Error ? error.message : String(error),
+        "error",
+      ),
+    )
   return true
 }
 

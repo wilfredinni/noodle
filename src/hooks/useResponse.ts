@@ -41,6 +41,7 @@ export function useResponse(
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
   cookies?: CollectionCookieJar | null,
+  collectionDir?: string,
 ): UseResponseResult {
   const [state, setState] = useState<SendState>({ status: "idle" })
   const cacheRef = useRef<Map<string, CachedResult>>(new Map())
@@ -86,6 +87,7 @@ export function useResponse(
         proxyPolicy,
         tlsPolicy,
         cookies,
+        collectionDir,
       )
       return startSend(prev, req)
     })
@@ -97,6 +99,7 @@ export function useResponse(
     proxyPolicy,
     tlsPolicy,
     cookies,
+    collectionDir,
   ])
 
   const cancelSend = useCallback(() => {
@@ -121,6 +124,7 @@ async function runSend(
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
   cookies?: CollectionCookieJar | null,
+  collectionDir?: string,
 ): Promise<void> {
   try {
     const res = await executor.send(req, {
@@ -137,6 +141,8 @@ async function runSend(
       },
       proxyPolicy,
       tlsPolicy,
+      collectionDir,
+      oauthMode: "interactive",
       ...(cookies ? { cookies } : {}),
     })
     cacheRef.current.set(req.id, { status: "done", response: res })

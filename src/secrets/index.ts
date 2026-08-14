@@ -80,6 +80,14 @@ export function collectionSettingSecretAccount(
   return `${collectionId}:settings:${secret}`
 }
 
+export function oauth2CredentialAccount(
+  collectionId: string,
+  credentialKey: string,
+): string {
+  const digest = createHash("sha256").update(credentialKey).digest("hex")
+  return `${collectionId}:oauth2:${digest}`
+}
+
 async function getSecret(name: string): Promise<string | null> {
   try {
     return await backend().get({ service: SECRET_SERVICE, name })
@@ -163,6 +171,44 @@ export async function deleteCollectionSettingSecret(
     collectionSettingSecretAccount(
       await ensureCollectionId(collectionDir),
       secret,
+    ),
+  )
+}
+
+export async function getOAuth2Credential(
+  collectionDir: string,
+  credentialKey: string,
+): Promise<string | null> {
+  return getSecret(
+    oauth2CredentialAccount(
+      await ensureCollectionId(collectionDir),
+      credentialKey,
+    ),
+  )
+}
+
+export async function setOAuth2Credential(
+  collectionDir: string,
+  credentialKey: string,
+  value: string,
+): Promise<void> {
+  return setSecret(
+    oauth2CredentialAccount(
+      await ensureCollectionId(collectionDir),
+      credentialKey,
+    ),
+    value,
+  )
+}
+
+export async function deleteOAuth2Credential(
+  collectionDir: string,
+  credentialKey: string,
+): Promise<boolean> {
+  return deleteSecret(
+    oauth2CredentialAccount(
+      await ensureCollectionId(collectionDir),
+      credentialKey,
     ),
   )
 }

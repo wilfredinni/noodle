@@ -106,6 +106,7 @@ export function RequestResponseView({
         activeEnv={activeEnv}
         onAuthTypeChange={draft.setAuthType}
         onApiKeyPlacementChange={draft.setApiKeyPlacement}
+        onAuthFieldChange={draft.setAuthField}
         onBodyTypeChange={draft.setBodyType}
         onBodyChange={draft.setBody}
         onTlsVerifyChange={draft.setTlsVerify}

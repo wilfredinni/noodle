@@ -6,6 +6,7 @@ import {
   removeRequestDraftEntry,
 } from "../src/hooks/useRequestDraft"
 import type { Request } from "../src/schema"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
 
 function makeReq(over: Partial<Request> = {}): Request {
   return {
@@ -1142,5 +1143,75 @@ describe("authEqual — ntlm", () => {
       domain: "",
       workstation: "",
     })
+  })
+})
+
+describe("OAuth draft behavior", () => {
+  it("compares every OAuth field and nested additional parameter", () => {
+    const oauth1 = { ...defaultOAuth1Auth(), consumer_key: "consumer" }
+    expect(
+      requestEquals(
+        makeReq({ auth: oauth1 }),
+        makeReq({ auth: { ...oauth1 } }),
+      ),
+    ).toBe(true)
+    expect(
+      requestEquals(
+        makeReq({ auth: oauth1 }),
+        makeReq({ auth: { ...oauth1, nonce: "different" } }),
+      ),
+    ).toBe(false)
+
+    const oauth2 = {
+      ...defaultOAuth2Auth(),
+      additional_parameters: {
+        authorization: [
+          {
+            name: "prompt",
+            value: "consent",
+            enabled: true,
+            placement: "query" as const,
+          },
+        ],
+        token: [],
+        refresh: [],
+      },
+    }
+    expect(
+      requestEquals(makeReq({ auth: oauth2 }), makeReq({ auth: oauth2 })),
+    ).toBe(true)
+    expect(
+      requestEquals(
+        makeReq({ auth: oauth2 }),
+        makeReq({
+          auth: {
+            ...oauth2,
+            additional_parameters: {
+              ...oauth2.additional_parameters,
+              authorization: [
+                {
+                  ...oauth2.additional_parameters.authorization[0]!,
+                  value: "login",
+                },
+              ],
+            },
+          },
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it("creates OAuth defaults when switching auth types", () => {
+    const original = makeReq()
+    const oauth1 = applyDraft(new Map(), original.id, original, {
+      kind: "setAuthType",
+      authType: "oauth1",
+    })
+    expect(oauth1.get(original.id)?.auth).toEqual(defaultOAuth1Auth())
+    const oauth2 = applyDraft(new Map(), original.id, original, {
+      kind: "setAuthType",
+      authType: "oauth2",
+    })
+    expect(oauth2.get(original.id)?.auth).toEqual(defaultOAuth2Auth())
   })
 })

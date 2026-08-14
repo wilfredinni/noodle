@@ -1,0 +1,16 @@
+name: OAuth 1.0a Auth
+method: GET
+url: https://api.example.com/v1/profile
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body_type: none
+auth:
+  type: oauth1
+  consumer_key: $oauth1_consumer_key
+  consumer_secret: $oauth1_consumer_secret
+  access_token: $oauth1_access_token
+  access_token_secret: $oauth1_access_token_secret
+  signature_method: HMAC-SHA256
+  placement: header
+  include_body_hash: false

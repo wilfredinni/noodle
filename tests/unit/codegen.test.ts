@@ -5,6 +5,7 @@ import { generateCode, findCodeTarget } from "../../src/codegen"
 import { buildHar } from "../../src/codegen/buildHar"
 import { CODE_TARGETS } from "../../src/codegen/targets"
 import type { Request, Environment } from "../../src/schema"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../src/auth/defaults"
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -264,6 +265,20 @@ describe("buildHar", () => {
 })
 
 describe("generateCode", () => {
+  it("rejects OAuth auth that depends on request signatures or cached token state", () => {
+    expect(() =>
+      generateCode(
+        makeRequest({
+          auth: { ...defaultOAuth1Auth(), consumer_key: "consumer" },
+        }),
+        curlTarget(),
+      ),
+    ).toThrow("OAuth 1.0a")
+    expect(() =>
+      generateCode(makeRequest({ auth: defaultOAuth2Auth() }), curlTarget()),
+    ).toThrow("OAuth 2.0")
+  })
+
   it("rejects NTLM because it needs a connection-bound challenge", () => {
     expect(() =>
       generateCode(

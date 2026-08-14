@@ -163,6 +163,7 @@ export function MainView({
             activeTab={folderEb.activeTab}
             onAuthTypeChange={folderDraft.setAuthType}
             onApiKeyPlacementChange={folderDraft.setApiKeyPlacement}
+            onAuthFieldChange={folderDraft.setAuthField}
             onSelectOpenChange={setSelectOpen}
             activeEnv={activeEnv}
             theme={theme}

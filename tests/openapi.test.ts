@@ -482,6 +482,111 @@ describe("mapCollection — auth resolution", () => {
     expect(reqs(c)[0].auth).toEqual({ type: "none" })
   })
 
+  it("maps all four OAuth 2 flows with endpoints, scopes, and credential placeholders", () => {
+    const c = mapCollection(
+      makeNormalized({
+        components: {
+          securitySchemes: {
+            code: {
+              type: "oauth2",
+              flows: {
+                authorizationCode: {
+                  authorizationUrl: "https://identity.example/authorize",
+                  tokenUrl: "https://identity.example/token",
+                  refreshUrl: "https://identity.example/refresh",
+                  scopes: { openid: "OpenID", profile: "Profile" },
+                },
+              },
+            },
+            client: {
+              type: "oauth2",
+              flows: {
+                clientCredentials: {
+                  tokenUrl: "https://identity.example/client-token",
+                  scopes: { read: "Read" },
+                },
+              },
+            },
+            implicit: {
+              type: "oauth2",
+              flows: {
+                implicit: {
+                  authorizationUrl: "https://identity.example/implicit",
+                  scopes: { legacy: "Legacy" },
+                },
+              },
+            },
+            password: {
+              type: "oauth2",
+              flows: {
+                password: {
+                  tokenUrl: "https://identity.example/password-token",
+                  scopes: {},
+                },
+              },
+            },
+          },
+        },
+        paths: {
+          "/code": {
+            get: { operationId: "code", security: [{ code: ["openid"] }] },
+          },
+          "/client": {
+            get: { operationId: "client", security: [{ client: ["read"] }] },
+          },
+          "/implicit": {
+            get: {
+              operationId: "implicit",
+              security: [{ implicit: ["legacy"] }],
+            },
+          },
+          "/password": {
+            get: {
+              operationId: "password",
+              security: [{ password: [] }],
+            },
+          },
+        },
+      }),
+    )
+    const byName = Object.fromEntries(
+      reqs(c).map((request) => [request.name, request]),
+    )
+    expect(byName.code?.auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "authorization_code",
+      authorization_url: "https://identity.example/authorize",
+      access_token_url: "https://identity.example/token",
+      refresh_token_url: "https://identity.example/refresh",
+      client_id: "$OAUTH_CLIENT_ID",
+      client_secret: "$OAUTH_CLIENT_SECRET",
+      scope: "openid",
+    })
+    expect(byName.client?.auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "client_credentials",
+      access_token_url: "https://identity.example/client-token",
+      scope: "read",
+    })
+    expect(byName.implicit?.auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "implicit",
+      authorization_url: "https://identity.example/implicit",
+    })
+    expect(byName.password?.auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "password",
+      username: "$OAUTH_USERNAME",
+      password: "$OAUTH_PASSWORD",
+    })
+    expect(c.environments[0]?.vars).toMatchObject({
+      OAUTH_CLIENT_ID: "",
+      OAUTH_CLIENT_SECRET: "",
+      OAUTH_USERNAME: "",
+      OAUTH_PASSWORD: "",
+    })
+  })
+
   it("maps openIdConnect to none", () => {
     const c = mapCollection(
       makeNormalized({

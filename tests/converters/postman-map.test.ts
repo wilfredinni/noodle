@@ -266,7 +266,7 @@ describe("mapCollection — auth variants", () => {
     expect(r.auth).toEqual({ type: "inherit" })
   })
 
-  it("maps unsupported auth (oauth2) to none", () => {
+  it("maps OAuth 2 auth", () => {
     const result = makeCollection({
       info: { name: "Auth" },
       item: [
@@ -276,13 +276,108 @@ describe("mapCollection — auth variants", () => {
             method: "GET",
             url: "http://example.com",
             header: [],
-            auth: { type: "oauth2" },
+            auth: {
+              type: "oauth2",
+              oauth2: [
+                { key: "grant_type", value: "client_credentials" },
+                {
+                  key: "accessTokenUrl",
+                  value: "https://identity.example/token",
+                },
+                { key: "clientId", value: "{{OAUTH_CLIENT_ID}}" },
+                { key: "clientSecret", value: "{{OAUTH_CLIENT_SECRET}}" },
+                { key: "scope", value: "read write" },
+                { key: "addTokenTo", value: "queryParams" },
+                { key: "headerPrefix", value: "Token" },
+              ],
+            },
           },
         },
       ],
     })
     const r = reqs(result)[0] as Record<string, unknown>
-    expect(r.auth).toEqual({ type: "none" })
+    expect(r.auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "client_credentials",
+      access_token_url: "https://identity.example/token",
+      client_id: "$OAUTH_CLIENT_ID",
+      client_secret: "$OAUTH_CLIENT_SECRET",
+      scope: "read write",
+      pkce: false,
+      token_placement: "query",
+      token_prefix: "Token",
+    })
+  })
+
+  it("maps OAuth 1 auth", () => {
+    const result = makeCollection({
+      info: { name: "Auth" },
+      item: [
+        {
+          name: "OAuth 1 Req",
+          request: {
+            method: "GET",
+            url: "http://example.com",
+            header: [],
+            auth: {
+              type: "oauth1",
+              oauth1: [
+                { key: "consumerKey", value: "{{CONSUMER_KEY}}" },
+                { key: "consumerSecret", value: "{{CONSUMER_SECRET}}" },
+                { key: "token", value: "{{ACCESS_TOKEN}}" },
+                { key: "tokenSecret", value: "{{TOKEN_SECRET}}" },
+                { key: "signatureMethod", value: "RSA-SHA256" },
+                { key: "privateKey", value: "{{PRIVATE_KEY}}" },
+                { key: "privateKeyType", value: "file" },
+                { key: "placement", value: "query" },
+                { key: "includeBodyHash", value: "true" },
+              ],
+            },
+          },
+        },
+      ],
+    })
+    const request = reqs(result)[0] as Record<string, unknown>
+    expect(request.auth).toMatchObject({
+      type: "oauth1",
+      consumer_key: "$CONSUMER_KEY",
+      consumer_secret: "$CONSUMER_SECRET",
+      access_token: "$ACCESS_TOKEN",
+      access_token_secret: "$TOKEN_SECRET",
+      signature_method: "RSA-SHA256",
+      private_key: "$PRIVATE_KEY",
+      private_key_type: "file",
+      placement: "query",
+      include_body_hash: true,
+    })
+  })
+
+  it("maps boolean OAuth 1 parameters retained by the Postman SDK", () => {
+    const result = makeCollection({
+      info: { name: "Auth" },
+      item: [
+        {
+          name: "OAuth 1 Req",
+          request: {
+            method: "GET",
+            url: "http://example.com",
+            auth: {
+              type: "oauth1",
+              oauth1: [
+                { key: "addParamsToHeader", value: false, type: "boolean" },
+                { key: "includeBodyHash", value: true, type: "boolean" },
+              ],
+            },
+          },
+        },
+      ],
+    })
+
+    expect((reqs(result)[0] as Record<string, unknown>).auth).toMatchObject({
+      type: "oauth1",
+      placement: "query",
+      include_body_hash: true,
+    })
   })
 })
 

@@ -34,6 +34,11 @@ interface Props {
   activeEnv?: Environment | null
   onAuthTypeChange?: (t: Auth["type"]) => void
   onApiKeyPlacementChange?: (placement: "header" | "query") => void
+  onAuthFieldChange?: (
+    authType: Auth["type"],
+    field: string,
+    value: string | boolean | number,
+  ) => void
   onBodyTypeChange?: (t: BodyType) => void
   onBodyChange?: (body: string) => void
   onTlsVerifyChange?: (verify?: boolean) => void
@@ -81,6 +86,7 @@ export function RequestPane({
   activeEnv,
   onAuthTypeChange,
   onApiKeyPlacementChange,
+  onAuthFieldChange,
   onBodyTypeChange,
   onBodyChange,
   onTlsVerifyChange,
@@ -466,6 +472,7 @@ export function RequestPane({
                       onApiKeyPlacementChange={
                         onApiKeyPlacementChange ?? (() => {})
                       }
+                      onAuthFieldChange={onAuthFieldChange}
                       onSelectOpenChange={handleSelectOpenChange}
                       interactive={interactive}
                       onFocusRow={(row) => {

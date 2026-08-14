@@ -541,6 +541,7 @@ export interface CollectionRunResult {
 export type RunProgress = (completed: number, total: number) => void
 
 async function runRequest(
+  collectionDir: string,
   collection: Collection,
   request: Request,
   environment?: Environment,
@@ -564,7 +565,18 @@ async function runRequest(
       proxyPolicy,
       tlsPolicy,
       cookies,
+      collectionDir,
+      oauthMode: "cached-only",
     })
+    const authWarnings = (response.network ?? [])
+      .filter(
+        (event) =>
+          event.type === "auth" &&
+          /unavailable|session only|legacy|not recommended/i.test(
+            event.message,
+          ),
+      )
+      .map((event) => event.message)
     const effective = environment ? substitute(request, environment) : request
     return {
       id: request.id,
@@ -578,6 +590,9 @@ async function runRequest(
         timeMs: response.timeMs,
       },
       ok: response.status < 400,
+      ...(authWarnings.length > 0
+        ? { warnings: [...new Set(authWarnings)] }
+        : {}),
     }
   } catch (error) {
     return {
@@ -617,6 +632,7 @@ export async function collectionRun(
     for (const request of requests) {
       results.push(
         await runRequest(
+          dir,
           collection,
           request,
           environment,
@@ -683,6 +699,7 @@ export async function requestRun(
   let result: RequestRunResult
   try {
     result = await runRequest(
+      dir,
       collection,
       request,
       await environmentFor(dir, settings, environmentName),
@@ -699,7 +716,9 @@ export async function requestRun(
     await closeCookieJar(cookies)
   }
   const warnings = cookies?.warnings ?? cookieAccess.warnings
-  if (warnings.length > 0) result.warnings = warnings
+  if (warnings.length > 0) {
+    result.warnings = [...new Set([...(result.warnings ?? []), ...warnings])]
+  }
   onProgress?.(1, 1)
   return { result, failed: result.ok === false }
 }

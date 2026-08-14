@@ -4,9 +4,13 @@ import { buildCommandPaletteCommands } from "../../src/ui/commands"
 import type { CommandBuilderContext } from "../../src/ui/commands"
 import { bindingDefaults } from "../../src/ui/keybind"
 import type { Collection } from "../../src/schema"
+import { defaultOAuth2Auth } from "../../src/auth/defaults"
 import {
+  clearCurrentOAuth2Token,
   closeCollectionExport,
   cloneRequest,
+  copyOAuth2Token,
+  fetchOAuth2Token,
   getEditRequestYamlFile,
   saveFolder,
   saveRequest,
@@ -97,6 +101,62 @@ describe("buildCommandPaletteCommands", () => {
       expect(cmd.section).toBeTruthy()
       expect(typeof cmd.run).toBe("function")
     }
+  })
+
+  it("shows token actions only for the effective OAuth 2 request", () => {
+    const ctx = minimalContext()
+    const request = {
+      id: "oauth",
+      name: "OAuth",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      timeout: 0,
+      headers: {},
+      params: [],
+      auth: defaultOAuth2Auth(),
+    }
+    ctx.draftRef = { current: { draft: request } } as never
+    const oauthIds = buildCommandPaletteCommands(ctx).map(
+      (command) => command.id,
+    )
+    expect(oauthIds).toContain("request.oauth2-fetch-token")
+    expect(oauthIds).toContain("request.oauth2-copy-token")
+    expect(oauthIds).toContain("request.oauth2-clear-token")
+
+    ctx.draftRef = {
+      current: { draft: { ...request, auth: { type: "none" } } },
+    } as never
+    const regularIds = buildCommandPaletteCommands(ctx).map(
+      (command) => command.id,
+    )
+    expect(regularIds).not.toContain("request.oauth2-fetch-token")
+    expect(regularIds).not.toContain("request.oauth2-copy-token")
+    expect(regularIds).not.toContain("request.oauth2-clear-token")
+  })
+
+  it("keeps OAuth 2 token actions open when auth variables are unresolved", () => {
+    const ctx = minimalContext()
+    ctx.draftRef = {
+      current: {
+        draft: {
+          id: "oauth",
+          name: "OAuth",
+          method: "GET",
+          url: "https://api.example.com",
+          timeout: 0,
+          headers: {},
+          params: [],
+          auth: { ...defaultOAuth2Auth(), client_id: "$MISSING" },
+        },
+      },
+    } as never
+    ctx.envStateRef = {
+      current: { activeEnv: { name: "development", vars: {} } },
+    } as never
+
+    expect(fetchOAuth2Token(ctx)).toBe(false)
+    expect(copyOAuth2Token(ctx)).toBe(false)
+    expect(clearCurrentOAuth2Token(ctx)).toBe(false)
   })
 
   it("labels the help command as keyboard shortcuts", () => {

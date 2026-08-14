@@ -39,7 +39,11 @@ export interface UseRequestDraftResult {
   revertField: (field: FieldKind, row?: number) => void
   revertAll: () => void
   setAuthType: (t: Auth["type"]) => void
-  setAuthField: (authType: string, field: string, value: string) => void
+  setAuthField: (
+    authType: string,
+    field: string,
+    value: string | boolean | number,
+  ) => void
   setApiKeyPlacement: (placement: "header" | "query") => void
   setBodyType: (t: BodyType) => void
   setFormRow: (
@@ -186,7 +190,7 @@ export function useRequestDraft(
     [apply],
   )
   const setAuthFieldCb = useCallback(
-    (authType: string, field: string, value: string) =>
+    (authType: string, field: string, value: string | boolean | number) =>
       apply({ kind: "setAuthField", authType, field, value }),
     [apply],
   )

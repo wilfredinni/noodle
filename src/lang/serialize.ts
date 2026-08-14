@@ -1,5 +1,6 @@
 import yaml from "js-yaml"
-import type { Auth, Request } from "../schema"
+import type { Request } from "../schema"
+import { authToObj } from "./auth"
 
 function yamlVal(val: string, indent = 0): string {
   const dumped = yaml.dump(val, { lineWidth: -1 }).trim()
@@ -89,52 +90,11 @@ export function serializeRequest(req: Request): string {
   }
 
   if (req.auth && req.auth.type !== "none") {
-    const authObj = authToObj(req.auth)
-    out += "auth:\n"
-    for (const [k, v] of Object.entries(authObj)) {
-      const dumped = yaml.dump(v, { lineWidth: -1 }).trim()
-      const valFormatted = dumped.includes("\n")
-        ? dumped
-            .split("\n")
-            .map((line, idx) => (idx === 0 ? line : `  ${line}`))
-            .join("\n")
-        : dumped
-      out += `  ${k}: ${valFormatted}\n`
-    }
+    out += yaml.dump(
+      { auth: authToObj(req.auth) },
+      { lineWidth: -1, noRefs: true },
+    )
   }
 
   return out
-}
-
-function authToObj(auth: Auth): Record<string, unknown> {
-  if (auth.type === "none") return { type: "none" }
-  if (auth.type === "inherit") return { type: "inherit" }
-  if (auth.type === "bearer") return { type: "bearer", token: auth.token }
-  if (auth.type === "basic")
-    return { type: "basic", user: auth.user, pass: auth.pass }
-  if (auth.type === "ntlm")
-    return {
-      type: "ntlm",
-      username: auth.username,
-      password: auth.password,
-      ...(auth.domain ? { domain: auth.domain } : {}),
-      ...(auth.workstation ? { workstation: auth.workstation } : {}),
-    }
-  if (auth.type === "api_key")
-    return {
-      type: "api_key",
-      key: auth.key,
-      value: auth.value,
-      placement: auth.placement,
-    }
-  if (auth.type === "aws_sigv4")
-    return {
-      type: "aws_sigv4",
-      access_key: auth.access_key,
-      secret_key: auth.secret_key,
-      region: auth.region,
-      service: auth.service,
-      ...(auth.session_token ? { session_token: auth.session_token } : {}),
-    }
-  return { type: "none" }
 }

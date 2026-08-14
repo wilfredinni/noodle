@@ -16,6 +16,7 @@ import {
   defaultAuth,
 } from "./draftUtils"
 import type { Method } from "../schema"
+import { updateAuthField } from "../ui/authRows"
 
 export type DraftOp =
   | { kind: "setMethod"; method: Method }
@@ -42,7 +43,12 @@ export type DraftOp =
   | { kind: "revertField"; field: FieldKind; row?: number }
   | { kind: "revertAll" }
   | { kind: "setAuthType"; authType: Auth["type"] }
-  | { kind: "setAuthField"; authType: string; field: string; value: string }
+  | {
+      kind: "setAuthField"
+      authType: string
+      field: string
+      value: string | boolean | number
+    }
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
   | { kind: "setBodyType"; bodyType: BodyType }
   | {
@@ -252,7 +258,7 @@ export function applyDraft(
       const currentAuth = draft.auth
       if (!currentAuth || currentAuth.type !== op.authType) break
       if (currentAuth.type === "none") break
-      draft.auth = { ...currentAuth, [op.field]: op.value } as Auth
+      draft.auth = updateAuthField(currentAuth, op.field, op.value)
       break
     }
     case "setApiKeyPlacement": {

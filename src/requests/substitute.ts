@@ -121,6 +121,95 @@ function substituteAuth(
         : {}),
     }
   }
+  if (auth.type === "oauth1") {
+    return {
+      ...auth,
+      consumer_key: resolve(auth.consumer_key, "auth.consumer_key"),
+      consumer_secret: resolve(auth.consumer_secret, "auth.consumer_secret"),
+      access_token: resolve(auth.access_token, "auth.access_token"),
+      access_token_secret: resolve(
+        auth.access_token_secret,
+        "auth.access_token_secret",
+      ),
+      private_key: resolve(auth.private_key, "auth.private_key"),
+      callback_url: resolve(auth.callback_url, "auth.callback_url"),
+      verifier: resolve(auth.verifier, "auth.verifier"),
+      timestamp: resolve(auth.timestamp, "auth.timestamp"),
+      nonce: resolve(auth.nonce, "auth.nonce"),
+      version: resolve(auth.version, "auth.version"),
+      realm: resolve(auth.realm, "auth.realm"),
+    }
+  }
+  if (auth.type === "oauth2") {
+    const resolveParam = (
+      parameter: (typeof auth.additional_parameters.token)[number],
+      phase: "authorization" | "token" | "refresh",
+      index: number,
+    ) =>
+      parameter.enabled
+        ? {
+            ...parameter,
+            name: resolve(
+              parameter.name,
+              `auth.additional_parameters.${phase}[${index}].name`,
+            ),
+            value: resolve(
+              parameter.value,
+              `auth.additional_parameters.${phase}[${index}].value`,
+            ),
+          }
+        : { ...parameter }
+    return {
+      ...auth,
+      authorization_url: resolve(
+        auth.authorization_url,
+        "auth.authorization_url",
+      ),
+      access_token_url: resolve(auth.access_token_url, "auth.access_token_url"),
+      refresh_token_url: resolve(
+        auth.refresh_token_url,
+        "auth.refresh_token_url",
+      ),
+      client_id: resolve(auth.client_id, "auth.client_id"),
+      client_secret: resolve(auth.client_secret, "auth.client_secret"),
+      username: resolve(auth.username, "auth.username"),
+      password: resolve(auth.password, "auth.password"),
+      scope: resolve(auth.scope, "auth.scope"),
+      audience: resolve(auth.audience, "auth.audience"),
+      redirect_uri: resolve(auth.redirect_uri, "auth.redirect_uri"),
+      credentials_id: resolve(auth.credentials_id, "auth.credentials_id"),
+      client_assertion_key: resolve(
+        auth.client_assertion_key,
+        "auth.client_assertion_key",
+      ),
+      client_assertion_issuer: resolve(
+        auth.client_assertion_issuer,
+        "auth.client_assertion_issuer",
+      ),
+      client_assertion_subject: resolve(
+        auth.client_assertion_subject,
+        "auth.client_assertion_subject",
+      ),
+      client_assertion_audience: resolve(
+        auth.client_assertion_audience,
+        "auth.client_assertion_audience",
+      ),
+      token_header: resolve(auth.token_header, "auth.token_header"),
+      token_prefix: resolve(auth.token_prefix, "auth.token_prefix"),
+      token_query_key: resolve(auth.token_query_key, "auth.token_query_key"),
+      additional_parameters: {
+        authorization: auth.additional_parameters.authorization.map((p, i) =>
+          resolveParam(p, "authorization", i),
+        ),
+        token: auth.additional_parameters.token.map((p, i) =>
+          resolveParam(p, "token", i),
+        ),
+        refresh: auth.additional_parameters.refresh.map((p, i) =>
+          resolveParam(p, "refresh", i),
+        ),
+      },
+    }
+  }
   return {
     type: "basic",
     user: resolve(auth.user, "auth.user"),

@@ -10,6 +10,7 @@ import {
   defaultAuth,
   cacheSet,
 } from "./draftUtils"
+import { updateAuthField } from "../ui/authRows"
 
 const authTypeCache = new Map<string, Record<string, Auth>>()
 
@@ -21,7 +22,12 @@ export type FolderDraftOp =
   | { kind: "removeHeaderRow"; index: number }
   | { kind: "toggleHeaderRow"; index: number }
   | { kind: "setAuthType"; authType: Auth["type"] }
-  | { kind: "setAuthField"; authType: string; field: string; value: string }
+  | {
+      kind: "setAuthField"
+      authType: string
+      field: string
+      value: string | boolean | number
+    }
   | { kind: "setApiKeyPlacement"; placement: "header" | "query" }
   | { kind: "revert" }
   | { kind: "markSaved" }
@@ -111,7 +117,7 @@ export function applyDraftOp(
       if (currentAuth.type === "none") break
       draft.overrides = {
         ...draft.overrides,
-        auth: { ...currentAuth, [op.field]: op.value },
+        auth: updateAuthField(currentAuth, op.field, op.value),
       }
       break
     }
@@ -156,7 +162,11 @@ export interface UseFolderDraftResult {
   removeHeaderRow: (index: number) => void
   toggleHeaderRow: (index: number) => void
   setAuthType: (authType: Auth["type"]) => void
-  setAuthField: (authType: string, field: string, value: string) => void
+  setAuthField: (
+    authType: string,
+    field: string,
+    value: string | boolean | number,
+  ) => void
   setApiKeyPlacement: (placement: "header" | "query") => void
   revertAll: () => void
   markSaved: (folder: Folder) => void
@@ -249,7 +259,7 @@ export function useFolderDraft(folder: Folder | null): UseFolderDraftResult {
     [dispatch],
   )
   const setAuthField = useCallback(
-    (authType: string, field: string, value: string) =>
+    (authType: string, field: string, value: string | boolean | number) =>
       dispatch({ kind: "setAuthField", authType, field, value }),
     [dispatch],
   )

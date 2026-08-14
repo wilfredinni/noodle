@@ -14,6 +14,7 @@ import {
   openApiPathTemplateToColon,
   URL_PATH_TOKEN_RE,
 } from "../../requests/pathParams"
+import { defaultOAuth2Auth } from "../../auth/defaults"
 
 export { slugify, METHOD_UPPER }
 
@@ -197,7 +198,10 @@ function lookupScheme(
   return isMapping(s) ? s : null
 }
 
-function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
+function schemeToAuth(
+  scheme: Record<string, unknown>,
+  requiredScopes?: unknown,
+): Auth | null {
   const type = scheme.type
   const schemeName =
     typeof scheme.scheme === "string" ? scheme.scheme.toLowerCase() : undefined
@@ -214,6 +218,44 @@ function schemeToAuth(scheme: Record<string, unknown>): Auth | null {
       password: "$NTLM_PASSWORD",
       domain: "$NTLM_DOMAIN",
       workstation: "$NTLM_WORKSTATION",
+    }
+  }
+  if (type === "oauth2" && isMapping(scheme.flows)) {
+    const candidates = [
+      ["authorizationCode", "authorization_code"],
+      ["clientCredentials", "client_credentials"],
+      ["implicit", "implicit"],
+      ["password", "password"],
+    ] as const
+    for (const [flowName, grantType] of candidates) {
+      const flow = scheme.flows[flowName]
+      if (!isMapping(flow)) continue
+      const scopes = Array.isArray(requiredScopes)
+        ? requiredScopes.filter(
+            (scope): scope is string => typeof scope === "string",
+          )
+        : isMapping(flow.scopes)
+          ? Object.keys(flow.scopes)
+          : []
+      return {
+        ...defaultOAuth2Auth(),
+        grant_type: grantType,
+        authorization_url:
+          typeof flow.authorizationUrl === "string"
+            ? convertTpl(flow.authorizationUrl)
+            : "",
+        access_token_url:
+          typeof flow.tokenUrl === "string" ? convertTpl(flow.tokenUrl) : "",
+        refresh_token_url:
+          typeof flow.refreshUrl === "string"
+            ? convertTpl(flow.refreshUrl)
+            : "",
+        client_id: "$OAUTH_CLIENT_ID",
+        client_secret: "$OAUTH_CLIENT_SECRET",
+        username: grantType === "password" ? "$OAUTH_USERNAME" : "",
+        password: grantType === "password" ? "$OAUTH_PASSWORD" : "",
+        scope: scopes.join(" "),
+      }
     }
   }
   if (type === "apiKey") {
@@ -235,10 +277,10 @@ function resolveAuth(op: Record<string, unknown>, n: Normalized): Auth {
   for (const req of security) {
     if (!isMapping(req)) continue
     const entries = Object.entries(req)
-    for (const [schemeName] of entries) {
+    for (const [schemeName, requiredScopes] of entries) {
       const scheme = lookupScheme(n, schemeName)
       if (!scheme) continue
-      const auth = schemeToAuth(scheme)
+      const auth = schemeToAuth(scheme, requiredScopes)
       if (auth !== null) return auth
     }
   }
@@ -492,6 +534,32 @@ export function mapCollection(n: Normalized): ImportResult {
     if (a.type === "api_key") {
       const m = a.value.match(/\$(\w+)/)
       if (m) envVarsFound.add(m[1])
+    }
+    if (a.type === "oauth1") {
+      for (const value of [
+        a.consumer_key,
+        a.consumer_secret,
+        a.access_token,
+        a.access_token_secret,
+        a.private_key,
+      ]) {
+        for (const match of value.matchAll(/\$(\w+)/g)) {
+          envVarsFound.add(match[1]!)
+        }
+      }
+    }
+    if (a.type === "oauth2") {
+      for (const value of [
+        a.client_id,
+        a.client_secret,
+        a.username,
+        a.password,
+        a.client_assertion_key,
+      ]) {
+        for (const match of value.matchAll(/\$(\w+)/g)) {
+          envVarsFound.add(match[1]!)
+        }
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 import type { Auth, FormEntry, KvEntry, ParamEntry, Request } from "../schema"
+import { defaultAuth } from "../auth/defaults"
 
 const CACHE_MAX = 100
 
@@ -208,6 +209,12 @@ export function authEqual(
       (a.session_token ?? "") === (b.session_token ?? "")
     )
   }
+  if (a.type === "oauth1" && b.type === "oauth1") {
+    return JSON.stringify(a) === JSON.stringify(b)
+  }
+  if (a.type === "oauth2" && b.type === "oauth2") {
+    return JSON.stringify(a) === JSON.stringify(b)
+  }
   return false
 }
 
@@ -278,37 +285,4 @@ export function removeRequestDraftEntry<T>(
   return next
 }
 
-export function defaultAuth(authType: Auth["type"]): Auth {
-  switch (authType) {
-    case "none":
-      return { type: "none" }
-    case "inherit":
-      return { type: "inherit" }
-    case "bearer":
-      return { type: "bearer", token: "" }
-    case "basic":
-      return { type: "basic", user: "", pass: "" }
-    case "ntlm":
-      return {
-        type: "ntlm",
-        username: "",
-        password: "",
-        domain: "",
-        workstation: "",
-      }
-    case "api_key":
-      return { type: "api_key", key: "", value: "", placement: "header" }
-    case "aws_sigv4":
-      return {
-        type: "aws_sigv4",
-        access_key: "",
-        secret_key: "",
-        region: "",
-        service: "",
-      }
-    default:
-      return { type: "none" }
-  }
-}
-
-export { cacheSet, sortedEntries, CACHE_MAX }
+export { cacheSet, sortedEntries, CACHE_MAX, defaultAuth }

@@ -21,6 +21,7 @@ import {
 import type { UseRequestDraftResult } from "./useRequestDraft"
 import { formatBody } from "../ui/formatRequest"
 import { syncPathParamsWithUrl } from "../ui/urlParams"
+import { authFieldAtRow, authRowCount, authValueAtRow } from "../ui/authRows"
 
 function rowCount(req: Request | null): SectionRowCount {
   if (!req)
@@ -32,15 +33,7 @@ function rowCount(req: Request | null): SectionRowCount {
       auth: 1,
       settings: 5,
     }
-  let authRows = 1 // type selector row always present
-  const a = req.auth
-  if (a) {
-    if (a.type === "bearer") authRows = 2
-    else if (a.type === "basic") authRows = 3
-    else if (a.type === "ntlm") authRows = 5
-    else if (a.type === "api_key") authRows = 4
-    else if (a.type === "aws_sigv4") authRows = 6
-  }
+  const authRows = authRowCount(req.auth)
   const body =
     req.bodyType === "none"
       ? 1
@@ -85,37 +78,7 @@ function currentValueFor(
     return draft.body ?? ""
   }
   if (field === "auth") {
-    const a = draft.auth
-    if (!a || a.type === "none") return ""
-    if (a.type === "bearer") {
-      if (row === 0) return ""
-      if (row === 1) return a.token
-    }
-    if (a.type === "basic") {
-      if (row === 0) return ""
-      if (row === 1) return a.user
-      if (row === 2) return a.pass
-    }
-    if (a.type === "ntlm") {
-      if (row === 1) return a.username
-      if (row === 2) return a.password
-      if (row === 3) return a.domain
-      if (row === 4) return a.workstation
-    }
-    if (a.type === "api_key") {
-      if (row === 0) return ""
-      if (row === 1) return a.key
-      if (row === 2) return a.value
-      if (row === 3) return a.placement
-    }
-    if (a.type === "aws_sigv4") {
-      if (row === 1) return a.access_key
-      if (row === 2) return a.secret_key
-      if (row === 3) return a.region
-      if (row === 4) return a.service
-      if (row === 5) return a.session_token ?? ""
-    }
-    return ""
+    return authValueAtRow(draft.auth, row)
   }
   if (field === "settings") {
     if (row === 0) return String(draft.timeout)
@@ -662,6 +625,16 @@ export function useEditBrowse(
       if (row === 0) {
         return
       }
+      const definition = authFieldAtRow(currentDraft?.auth, row)
+      if (!definition || definition.kind === "select") return
+      if (definition.kind === "boolean" && currentDraft?.auth) {
+        draftMutators.setAuthField(
+          currentDraft.auth.type,
+          definition.field,
+          authValueAtRow(currentDraft.auth, row) !== "true",
+        )
+        return
+      }
       const init = currentValueFor(currentDraft, field, row, false)
       setEditValue(init)
       setEditState((prev) => beginEditing(prev))
@@ -698,7 +671,11 @@ export function useEditBrowse(
       setEditValue(kv.value)
     }
     setEditState((prev) => beginEditing(prev))
-  }, [draftMutators.setFollowRedirects, draftMutators.setSendCookies])
+  }, [
+    draftMutators.setAuthField,
+    draftMutators.setFollowRedirects,
+    draftMutators.setSendCookies,
+  ])
 
   const commitEdit = useCallback(() => {
     const state = editStateRef.current
@@ -734,39 +711,9 @@ export function useEditBrowse(
     } else if (field === "auth") {
       const row = state.cursor.row
       const currentAuth = draftRef.current?.auth
-      if (currentAuth) {
-        if (currentAuth.type === "bearer" && row === 1) {
-          draftMutators.setAuthField("bearer", "token", val)
-        } else if (currentAuth.type === "basic") {
-          if (row === 1) draftMutators.setAuthField("basic", "user", val)
-          else if (row === 2) draftMutators.setAuthField("basic", "pass", val)
-        } else if (currentAuth.type === "api_key") {
-          if (row === 1) draftMutators.setAuthField("api_key", "key", val)
-          else if (row === 2)
-            draftMutators.setAuthField("api_key", "value", val)
-        } else if (currentAuth.type === "ntlm") {
-          const authField = [
-            "",
-            "username",
-            "password",
-            "domain",
-            "workstation",
-          ][row]
-          if (authField) draftMutators.setAuthField("ntlm", authField, val)
-        } else if (currentAuth.type === "aws_sigv4") {
-          const fields = [
-            "",
-            "access_key",
-            "secret_key",
-            "region",
-            "service",
-            "session_token",
-          ]
-          const authField = fields[row]
-          if (authField) {
-            draftMutators.setAuthField("aws_sigv4", authField, val)
-          }
-        }
+      const definition = authFieldAtRow(currentAuth, row)
+      if (currentAuth && definition) {
+        draftMutators.setAuthField(currentAuth.type, definition.field, val)
       }
     } else if (field === "settings") {
       const row = state.cursor.row
@@ -862,6 +809,18 @@ export function useEditBrowse(
     if (state.mode !== "browsing") return
     const { field, addingRow, row } = state.cursor
     if (addingRow) return
+    if (field === "auth") {
+      const auth = draftRef.current?.auth
+      const definition = authFieldAtRow(auth, row)
+      if (auth && definition?.kind === "boolean") {
+        draftMutators.setAuthField(
+          auth.type,
+          definition.field,
+          authValueAtRow(auth, row) !== "true",
+        )
+      }
+      return
+    }
     if (field === "body") {
       if (row === 0) return
       const bodyType = draftRef.current?.bodyType
