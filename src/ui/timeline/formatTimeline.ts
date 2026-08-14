@@ -121,10 +121,17 @@ export function buildTimelineEntry(
         }))
       return {
         ...auth,
+        authorization_url: redact(resolvePublicVars(auth.authorization_url)),
+        access_token_url: redact(resolvePublicVars(auth.access_token_url)),
+        refresh_token_url: redact(resolvePublicVars(auth.refresh_token_url)),
         client_id: redact(resolvePublicVars(auth.client_id)),
         client_secret: REDACTED,
         username: redact(resolvePublicVars(auth.username)),
         password: REDACTED,
+        scope: redact(resolvePublicVars(auth.scope)),
+        audience: redact(resolvePublicVars(auth.audience)),
+        redirect_uri: redact(resolvePublicVars(auth.redirect_uri)),
+        credentials_id: redact(resolvePublicVars(auth.credentials_id)),
         client_assertion_key: REDACTED,
         client_assertion_issuer: redact(
           resolvePublicVars(auth.client_assertion_issuer),
@@ -132,6 +139,12 @@ export function buildTimelineEntry(
         client_assertion_subject: redact(
           resolvePublicVars(auth.client_assertion_subject),
         ),
+        client_assertion_audience: redact(
+          resolvePublicVars(auth.client_assertion_audience),
+        ),
+        token_header: redact(resolvePublicVars(auth.token_header)),
+        token_prefix: redact(resolvePublicVars(auth.token_prefix)),
+        token_query_key: redact(resolvePublicVars(auth.token_query_key)),
         additional_parameters: {
           authorization: redactParameters(
             auth.additional_parameters.authorization,

@@ -7,6 +7,15 @@ import { expandUserPath } from "../userPath"
 
 const OAUTH_PARAMETER_PREFIX = "oauth_"
 
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === "127.0.0.1" ||
+    hostname === "localhost" ||
+    hostname === "[::1]" ||
+    hostname === "::1"
+  )
+}
+
 export interface OAuth1SignedRequest {
   url: string
   init: RequestInit
@@ -92,6 +101,15 @@ export async function signOAuth1Request(
   }
 
   const cleanUrl = stripOAuthParameters(url)
+  if (
+    auth.signature_method === "PLAINTEXT" &&
+    cleanUrl.protocol !== "https:" &&
+    !(cleanUrl.protocol === "http:" && isLoopbackHost(cleanUrl.hostname))
+  ) {
+    throw new Error(
+      "requests.send: OAuth 1 PLAINTEXT signing requires HTTPS unless it targets a loopback host",
+    )
+  }
   const headers = new Headers(init.headers)
   const contentType = headers
     .get("content-type")

@@ -15,7 +15,10 @@ import {
   resolveOAuth2Token,
   validateOAuthEndpoint,
 } from "../src/requests/oauth2"
-import { validateLoopbackRedirect } from "../src/requests/oauth2Browser"
+import {
+  runLoopbackAuthorization,
+  validateLoopbackRedirect,
+} from "../src/requests/oauth2Browser"
 import { send } from "../src/requests/send"
 import {
   setOAuth2Credential,
@@ -316,6 +319,21 @@ describe("OAuth 1 signing", () => {
     )
   })
 
+  it("rejects OAuth 1 PLAINTEXT signing over non-loopback HTTP", async () => {
+    await expect(
+      signOAuth1Request(
+        "http://identity.example/resource",
+        { method: "GET" },
+        {
+          ...defaultOAuth1Auth(),
+          consumer_key: "consumer",
+          consumer_secret: "consumer-secret",
+          signature_method: "PLAINTEXT",
+        },
+      ),
+    ).rejects.toThrow("requires HTTPS")
+  })
+
   it("re-signs same-origin redirects and strips credentials across origins", async () => {
     let crossOriginAuthorization: string | null = "not-called"
     const targetPort = await unusedPort()
@@ -602,6 +620,184 @@ describe("OAuth 2 execution", () => {
     expect(stored.refresh_token).toBe("rotated-refresh")
   })
 
+  it("fetches a new token when a stored refresh token is rejected", async () => {
+    const backend = memoryBackend()
+    setSecretBackendForTests(backend)
+    const dir = await mkdtemp(join(tmpdir(), "noodle-oauth-refresh-fallback-"))
+    tempDirs.push(dir)
+    await writeFile(
+      join(dir, "settings.yml"),
+      "collection_id: 66666666-6666-4666-8666-666666666666\n",
+    )
+    let refreshCalls = 0
+    let tokenCalls = 0
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      fetch(request) {
+        const path = new URL(request.url).pathname
+        if (path === "/refresh") {
+          refreshCalls++
+          return Response.json(
+            { error: "invalid_grant", error_description: "refresh revoked" },
+            { status: 400 },
+          )
+        }
+        tokenCalls++
+        return Response.json({ access_token: "replacement-token" })
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      access_token_url: `http://127.0.0.1:${server.port}/token`,
+      refresh_token_url: `http://127.0.0.1:${server.port}/refresh`,
+      client_id: "refresh-fallback-client",
+      credentials_id: `refresh-fallback-${crypto.randomUUID()}`,
+    }
+    authToClear.push({ auth, dir })
+    await setOAuth2Credential(
+      dir,
+      oauth2CredentialKey(auth),
+      JSON.stringify({
+        access_token: "expired-token",
+        refresh_token: "revoked-refresh",
+        _noodle_expires_at: 1,
+      }),
+    )
+
+    const result = await resolveOAuth2Token(auth, {
+      collectionDir: dir,
+      mode: "cached-only",
+    })
+
+    expect(result.token).toBe("replacement-token")
+    expect(refreshCalls).toBe(1)
+    expect(tokenCalls).toBe(1)
+  })
+
+  it("includes OAuth token endpoint error details", async () => {
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      fetch() {
+        return Response.json(
+          { error: "invalid_client", error_description: "bad credentials" },
+          { status: 400 },
+        )
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      access_token_url: `http://127.0.0.1:${server.port}/token`,
+      client_id: "error-client",
+      credentials_id: `error-${crypto.randomUUID()}`,
+    }
+
+    await expect(
+      resolveOAuth2Token(auth, { mode: "cached-only" }),
+    ).rejects.toThrow(
+      "OAuth 2 token endpoint returned HTTP 400: invalid_client - bad credentials",
+    )
+  })
+
+  it("does not coalesce forced and non-forced token acquisition", async () => {
+    let tokenCalls = 0
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      async fetch() {
+        const call = ++tokenCalls
+        await gate
+        return Response.json({ access_token: `token-${call}` })
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      access_token_url: `http://127.0.0.1:${server.port}/token`,
+      client_id: "force-client",
+      credentials_id: `force-${crypto.randomUUID()}`,
+    }
+    authToClear.push({ auth })
+
+    const normal = resolveOAuth2Token(auth, { mode: "cached-only" })
+    const forced = resolveOAuth2Token(
+      auth,
+      { mode: "cached-only" },
+      { force: true },
+    )
+    await Bun.sleep(25)
+    release()
+    const results = await Promise.all([normal, forced])
+
+    expect(tokenCalls).toBe(2)
+    expect(new Set(results.map((result) => result.token)).size).toBe(2)
+  })
+
+  it("does not coalesce cached-only and interactive token acquisition", async () => {
+    const callbackPort = await unusedPort()
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      fetch(request) {
+        if (new URL(request.url).pathname === "/token") {
+          return Response.json({ access_token: "interactive-token" })
+        }
+        return new Response("not found", { status: 404 })
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      authorization_url: `http://127.0.0.1:${server.port}/authorize`,
+      access_token_url: `http://127.0.0.1:${server.port}/token`,
+      redirect_uri: `http://127.0.0.1:${callbackPort}/oauth/callback`,
+      client_id: "mode-client",
+      credentials_id: `mode-${crypto.randomUUID()}`,
+    }
+    authToClear.push({ auth })
+
+    const cachedOnly = resolveOAuth2Token(auth, { mode: "cached-only" })
+    const interactive = resolveOAuth2Token(auth, {
+      mode: "interactive",
+      openBrowser: async (authorizationUrl) => {
+        const authorization = new URL(authorizationUrl)
+        const callback = new URL(
+          authorization.searchParams.get("redirect_uri")!,
+        )
+        callback.searchParams.set("code", "mode-code")
+        callback.searchParams.set(
+          "state",
+          authorization.searchParams.get("state")!,
+        )
+        await fetch(callback)
+      },
+    })
+    const [cachedResult, interactiveResult] = await Promise.allSettled([
+      cachedOnly,
+      interactive,
+    ])
+
+    expect(cachedResult.status).toBe("rejected")
+    expect(interactiveResult.status).toBe("fulfilled")
+    if (interactiveResult.status === "fulfilled") {
+      expect(interactiveResult.value.token).toBe("interactive-token")
+    }
+  })
+
   it("authorizes with the injected browser, validates state, and sends S256 PKCE", async () => {
     const backend = memoryBackend()
     setSecretBackendForTests(backend)
@@ -652,7 +848,8 @@ describe("OAuth 2 execution", () => {
           const callback = new URL(url.searchParams.get("redirect_uri")!)
           callback.searchParams.set("code", "approved-code")
           callback.searchParams.set("state", url.searchParams.get("state")!)
-          await fetch(callback)
+          const completion = await fetch(callback)
+          expect(await completion.text()).toContain("Authorization complete")
         },
       },
     )
@@ -930,5 +1127,60 @@ describe("OAuth 2 execution", () => {
       }),
     ).rejects.toThrow("Open this request in the Noodle TUI")
     expect(opened).toBe(false)
+  })
+
+  it("lets cancellation finish while the browser launcher is pending", async () => {
+    const callbackPort = await unusedPort()
+    const controller = new AbortController()
+    let releaseLauncher!: () => void
+    const launcher = new Promise<void>((resolve) => {
+      releaseLauncher = resolve
+    })
+    const pending = runLoopbackAuthorization({
+      authorizationUrl: "https://identity.example/authorize",
+      redirectUri: `http://127.0.0.1:${callbackPort}/oauth/callback`,
+      state: "pending-launcher",
+      implicit: false,
+      signal: controller.signal,
+      openBrowser: () => launcher,
+    })
+    controller.abort()
+    const outcome = await Promise.race([
+      pending.then(
+        () => "resolved",
+        (error: unknown) =>
+          error instanceof DOMException && error.name === "AbortError"
+            ? "aborted"
+            : "rejected",
+      ),
+      Bun.sleep(50).then(() => "pending"),
+    ])
+    releaseLauncher()
+    await pending.catch(() => {})
+
+    expect(outcome).toBe("aborted")
+  })
+
+  it("does not leave browser authorization active after redirect validation fails", async () => {
+    await expect(
+      runLoopbackAuthorization({
+        authorizationUrl: "https://identity.example/authorize",
+        redirectUri: "https://identity.example/callback",
+        state: "invalid-redirect",
+        implicit: false,
+      }),
+    ).rejects.toThrow("must use http")
+
+    const callbackPort = await unusedPort()
+    const controller = new AbortController()
+    const next = runLoopbackAuthorization({
+      authorizationUrl: "https://identity.example/authorize",
+      redirectUri: `http://127.0.0.1:${callbackPort}/oauth/callback`,
+      state: "valid-redirect",
+      implicit: false,
+      signal: controller.signal,
+      openBrowser: async () => controller.abort(),
+    })
+    await expect(next).rejects.toMatchObject({ name: "AbortError" })
   })
 })

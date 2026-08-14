@@ -58,6 +58,7 @@ describe("Postman export", () => {
               access_token_url: "https://identity.example/token",
               client_id: "$CLIENT_ID",
               client_secret: "$CLIENT_SECRET",
+              credentials_placement: "basic",
               token_placement: "query",
             },
           }),
@@ -78,6 +79,7 @@ describe("Postman export", () => {
       oauth2: expect.arrayContaining([
         { key: "grant_type", value: "client_credentials", type: "string" },
         { key: "clientId", value: "{{CLIENT_ID}}", type: "string" },
+        { key: "client_authentication", value: "header", type: "string" },
         { key: "addTokenTo", value: "queryParams", type: "string" },
       ]),
     })

@@ -449,7 +449,26 @@ async function requestToken(
     allowCrossOriginRedirects: false,
   })
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(`OAuth 2 token endpoint returned HTTP ${response.status}`)
+    let detail = ""
+    try {
+      const parsed = tokenResponseObject(
+        response.body,
+        response.headers["content-type"],
+      )
+      const code = typeof parsed.error === "string" ? parsed.error : undefined
+      const description =
+        typeof parsed.error_description === "string"
+          ? parsed.error_description
+          : undefined
+      if (code || description) {
+        detail = `: ${code ?? ""}${code && description ? " - " : ""}${description ?? ""}`
+      }
+    } catch {
+      // Preserve the status-only error when the response body is invalid.
+    }
+    throw new Error(
+      `OAuth 2 token endpoint returned HTTP ${response.status}${detail}`,
+    )
   }
   return normalizeTokenResponse(
     tokenResponseObject(response.body, response.headers["content-type"]),
@@ -571,18 +590,32 @@ async function resolveUncoalesced(
     return cached
   }
   if (!force && cached?.refresh_token && auth.auto_refresh_token) {
-    const refreshed = await requestToken(
-      auth,
-      context,
-      "refresh",
-      {
-        grant_type: "refresh_token",
-        refresh_token: cached.refresh_token,
-      },
-      cached.refresh_token,
-    )
-    await saveToken(auth, context, refreshed)
-    return refreshed
+    try {
+      const refreshed = await requestToken(
+        auth,
+        context,
+        "refresh",
+        {
+          grant_type: "refresh_token",
+          refresh_token: cached.refresh_token,
+        },
+        cached.refresh_token,
+      )
+      await saveToken(auth, context, refreshed)
+      return refreshed
+    } catch (e) {
+      if (
+        context.signal?.aborted ||
+        (e instanceof Error && e.name === "AbortError")
+      ) {
+        throw e
+      }
+      if (!auth.auto_fetch_token) throw e
+      warn(
+        context,
+        `OAuth 2 token refresh failed; requesting a new token: ${e instanceof Error ? e.message : String(e)}`,
+      )
+    }
   }
   if (!force && !auth.auto_fetch_token) {
     throw new Error(
@@ -601,15 +634,18 @@ export async function resolveOAuth2Token(
 ): Promise<{ token: string; tokenSet: OAuth2TokenSet }> {
   if (context.mode === "disabled")
     throw new Error("OAuth 2 resolution is disabled for this request")
-  const key = memoryKey(context.collectionDir, oauth2CredentialKey(auth))
-  let pending = inflight.get(key)
+  const force = options.force ?? false
+  const key = `${memoryKey(context.collectionDir, oauth2CredentialKey(auth))}\0${context.mode}`
+  let pending = force ? undefined : inflight.get(key)
   if (!pending) {
-    pending = resolveUncoalesced(auth, context, options.force ?? false)
-    inflight.set(key, pending)
-    void pending.then(
-      () => inflight.delete(key),
-      () => inflight.delete(key),
-    )
+    pending = resolveUncoalesced(auth, context, force)
+    if (!force) {
+      inflight.set(key, pending)
+      const clear = () => {
+        if (inflight.get(key) === pending) inflight.delete(key)
+      }
+      void pending.then(clear, clear)
+    }
   }
   const tokenSet = await pending
   const token = tokenValue(auth, tokenSet)

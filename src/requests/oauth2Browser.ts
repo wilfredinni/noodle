@@ -41,7 +41,7 @@ export async function openSystemBrowser(url: string): Promise<void> {
     process.platform === "darwin"
       ? ["open", url]
       : process.platform === "win32"
-        ? ["cmd", "/c", "start", "", url]
+        ? ["explorer.exe", url]
         : ["xdg-open", url]
   let processHandle: ReturnType<typeof Bun.spawn>
   try {
@@ -83,8 +83,8 @@ export async function runLoopbackAuthorization(options: {
   if (options.signal?.aborted) {
     throw new DOMException("Aborted", "AbortError")
   }
-  browserFlowActive = true
   const redirect = validateLoopbackRedirect(options.redirectUri)
+  browserFlowActive = true
   const timeoutMs = options.timeoutMs ?? 5 * 60_000
   let server: ReturnType<typeof Bun.serve> | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -147,11 +147,13 @@ export async function runLoopbackAuthorization(options: {
     // Bun.serve failures reject the callback promise from its executor. Do not
     // open a browser when there is no callback listener to receive the result.
     if (!server) return await callback
-    await (options.openBrowser ?? openSystemBrowser)(options.authorizationUrl)
-    return await callback
+    const launch = (options.openBrowser ?? openSystemBrowser)(
+      options.authorizationUrl,
+    )
+    return await Promise.race([callback, launch.then(() => callback)])
   } finally {
     if (timer) clearTimeout(timer)
-    server?.stop(true)
+    server?.stop()
     browserFlowActive = false
   }
 }

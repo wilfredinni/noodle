@@ -377,7 +377,7 @@ export function useFolderEditBrowse(
     setEditKey(kv.key)
     setEditValue(kv.value)
     setEditState((prev) => beginEditing(prev))
-  }, [])
+  }, [draftMutators.setAuthField])
 
   const commitEdit = useCallback(() => {
     const state = editStateRef.current

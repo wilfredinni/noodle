@@ -611,6 +611,7 @@ describe("buildTimelineEntry", () => {
         auth: {
           ...defaultOAuth2Auth(),
           client_id: "public-client",
+          token_prefix: "$TOKEN_PREFIX",
           client_secret: "client-secret",
           username: "username",
           password: "password-secret",
@@ -630,6 +631,8 @@ describe("buildTimelineEntry", () => {
         },
       },
       { status: "done", response },
+      "dev",
+      { name: "dev", vars: { TOKEN_PREFIX: "Token" } },
     )
     expect(JSON.stringify(oauth1.request)).not.toMatch(
       /consumer-secret|access-token|token-secret|private-key|secret-verifier-value|secret-nonce-value|secret-timestamp-value/,
@@ -639,6 +642,8 @@ describe("buildTimelineEntry", () => {
       /client-secret|password-secret|assertion-key|authorization-secret/,
     )
     expect(JSON.stringify(oauth2.request)).toContain("public-client")
+    expect(JSON.stringify(oauth2.request)).toContain("Token")
+    expect(JSON.stringify(oauth2.request)).not.toContain("$TOKEN_PREFIX")
   })
 
   it("builds entry from request and done result", () => {

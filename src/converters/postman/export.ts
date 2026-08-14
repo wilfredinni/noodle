@@ -199,7 +199,7 @@ function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {
         },
         {
           key: "client_authentication",
-          value: auth.credentials_placement,
+          value: auth.credentials_placement === "basic" ? "header" : "body",
           type: "string",
         },
         {
