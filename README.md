@@ -184,8 +184,7 @@ auth:
 Authorization-code and implicit sends in the TUI open the system browser and
 receive the result on the configured loopback callback, following the
 [native-app browser and loopback guidance](https://www.rfc-editor.org/rfc/rfc8252.html).
-The implicit and
-password grants, plus plain PKCE, are retained for compatibility but are
+The implicit and password grants, plus plain PKCE, are retained for compatibility but are
 legacy; prefer authorization code with S256 PKCE. Non-interactive commands
 never open a browser: they may reuse or refresh stored browser credentials,
 while client-credentials and password grants may fetch a token directly.
@@ -193,9 +192,11 @@ while client-credentials and password grants may fetch a token directly.
 OAuth 2 token responses live in the operating system credential vault. If the
 vault is unavailable, Noodle keeps the token in memory for the current session
 and reports a warning; it never writes plaintext OAuth tokens. Use the command
-palette to fetch/authorize, copy, or clear the current OAuth 2 token. OAuth 1
-signatures and OAuth 2 cached state are intentionally excluded from generated
-client code and exports.
+palette to fetch/authorize, copy, or clear the current OAuth 2 token. Generated
+client code is unavailable for OAuth 1.0a and OAuth 2.0 requests. Postman
+exports preserve supported OAuth configuration, OpenAPI exports preserve OAuth
+2.0 schemes, and neither format includes cached tokens or generated signing
+state.
 
 ### Automate the work you already explored
 

@@ -133,6 +133,107 @@ text, JSON, URL-encoded, and binary bodies. Multipart bodies are rejected becaus
 their runtime-generated boundary and bytes cannot be signed reliably in advance.
 Keep credentials in secret environment variables rather than literal YAML.
 
+#### OAuth 1.0a
+
+```yaml
+auth:
+  type: oauth1
+  consumer_key: $oauth1_consumer_key
+  consumer_secret: $oauth1_consumer_secret
+  access_token: $oauth1_access_token
+  access_token_secret: $oauth1_access_token_secret
+  signature_method: HMAC-SHA256
+  private_key: ""
+  private_key_type: text
+  callback_url: ""
+  verifier: ""
+  timestamp: ""
+  nonce: ""
+  version: "1.0"
+  realm: ""
+  placement: header
+  include_body_hash: false
+```
+
+`consumer_key`, `consumer_secret`, `access_token`, and `access_token_secret`
+are strings. The token pair may be blank when the provider does not require it.
+Supported `signature_method` values are `HMAC-SHA1`, `HMAC-SHA256`,
+`HMAC-SHA512`, `RSA-SHA1`, `RSA-SHA256`, `RSA-SHA512`, and `PLAINTEXT`; the
+default is `HMAC-SHA1`. RSA methods require `private_key`, with
+`private_key_type` set to `text` or `file`. File values may be
+collection-relative or use `@/` home shorthand.
+
+`placement` is `header` by default and may be `query` or `body`. Body placement
+requires a URL-encoded body. `include_body_hash: true` adds an OAuth body hash,
+but multipart bodies are not supported. Blank `timestamp` and `nonce` values
+are generated for each signing operation. PLAINTEXT is allowed only over HTTPS
+or loopback HTTP. Noodle signs each allowed redirect leg again and removes
+OAuth credentials when the origin changes.
+
+#### OAuth 2.0
+
+```yaml
+auth:
+  type: oauth2
+  grant_type: authorization_code
+  authorization_url: https://identity.example.com/oauth/authorize
+  access_token_url: https://identity.example.com/oauth/token
+  refresh_token_url: https://identity.example.com/oauth/token
+  client_id: $oauth2_client_id
+  client_secret: $oauth2_client_secret
+  username: ""
+  password: ""
+  scope: openid profile
+  audience: https://api.example.com
+  redirect_uri: http://127.0.0.1:8765/oauth/callback
+  credentials_id: example-api
+  auto_fetch_token: true
+  auto_refresh_token: true
+  pkce: true
+  pkce_method: S256
+  implicit_response_type: token
+  credentials_placement: body
+  client_authentication: client_secret
+  client_assertion_algorithm: RS256
+  client_assertion_key: ""
+  client_assertion_key_type: text
+  client_assertion_issuer: ""
+  client_assertion_subject: ""
+  client_assertion_audience: ""
+  client_assertion_lifetime: 300
+  token_source: access_token
+  token_placement: header
+  token_header: Authorization
+  token_prefix: Bearer
+  token_query_key: access_token
+  additional_parameters:
+    authorization:
+      - name: prompt
+        value: consent
+        enabled: true
+        placement: query
+    token: []
+    refresh: []
+```
+
+| Field group | Rules |
+| ----------- | ----- |
+| Grant | `grant_type` is `authorization_code`, `client_credentials`, `implicit`, or `password`. Authorization code and implicit require `authorization_url`; all non-implicit grants use `access_token_url`. `refresh_token_url` is optional. |
+| Resource owner | `username` and `password` apply only to the password grant. Keep the password secret. |
+| Browser flow | `redirect_uri` must be a loopback HTTP URL whose path is `/oauth/callback`. Authorization code defaults to `pkce: true` and `pkce_method: S256`; `plain` is supported only for compatibility. `implicit_response_type` is `token`, `id_token`, or `token id_token`. |
+| Token lifecycle | `auto_fetch_token` and `auto_refresh_token` default to `true`. `credentials_id` is an optional stable key for sharing stored token state across compatible requests. |
+| Client credentials | `credentials_placement` is `body` or `basic`. `client_authentication` is `client_secret` or `client_assertion`. |
+| Client assertion | Algorithms are HS, RS, PS, or ES with 256, 384, or 512 suffixes. The key may be `text` or `file`; file paths may be collection-relative or use `@/`. Issuer, subject, and audience are optional overrides. Lifetime must be a positive integer and defaults to 300 seconds. |
+| Resource token | `token_source` is `access_token` or `id_token`. `token_placement` is `header` or `query`; customize `token_header`, `token_prefix`, or `token_query_key` as needed. |
+| Additional parameters | `authorization` entries support query placement only. `token` and `refresh` entries support body, header, or query placement. Every entry has `name`, `value`, optional `enabled` (default `true`), and `placement`. |
+
+OAuth endpoints require HTTPS except for loopback hosts. The TUI may open the
+system browser for authorization code and implicit grants. Automation never
+opens a browser, but it may reuse or refresh stored browser credentials and may
+fetch client-credentials or password tokens directly. Token responses prefer
+the OS credential vault and fall back to memory for the current process only;
+they are never serialized to YAML.
+
 ### Binary body
 
 When `body_type: binary`, set `file_path` to the file to upload:

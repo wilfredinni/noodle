@@ -98,6 +98,10 @@ OpenAPI 3.0 imports map:
 HTTP `bearer`, `basic`, and `ntlm` security schemes map to their matching Noodle
 auth types. NTLM credentials use generated environment-variable placeholders;
 declare the password as a secret before running the imported request.
+OpenAPI OAuth 2.0 authorization code, client credentials, implicit, and password
+flows map to Noodle OAuth 2.0 auth with endpoint URLs, required scopes, and
+generated credential placeholders. OAuth 1.0a has no OpenAPI 3.0 security-scheme
+representation and is not imported from OpenAPI.
 
 Multiple servers in the spec create multiple environments.
 
@@ -114,11 +118,14 @@ Postman imports map:
 - Tests → not imported
 - Collection variables → environment file
 
-Postman `ntlm` and `awsv4` auth map to Noodle NTLMv2 and AWS SigV4. Review the
-resulting region, service, and optional session token, and move credentials to
-secret environment declarations before sending.
+Postman `ntlm`, `awsv4`, `oauth1`, and `oauth2` auth map to Noodle NTLMv2, AWS
+SigV4, OAuth 1.0a, and OAuth 2.0. Review signing methods, grant types, endpoint
+URLs, token placement, region, service, and optional session tokens. Move every
+credential and private key to a secret environment declaration before sending.
 
-Insomnia v4/v5 JSON imports preserve supported workspaces, request groups, requests, environments, headers, params, body types, and auth, including NTLM. Cyclic request groups are skipped.
+Insomnia v4/v5 JSON imports preserve supported workspaces, request groups,
+requests, environments, headers, params, body types, and auth, including NTLM,
+OAuth 1.0a, and OAuth 2.0. Cyclic request groups are skipped.
 
 ## Export a collection
 
@@ -129,9 +136,25 @@ noodle export <collection-path> --format openapi --output ./openapi.yml --json
 noodle export <collection-path> --format postman --output ./postman-bundle --json
 ```
 
-OpenAPI exports write a 3.0.3 document. Enabled parameters and headers, request-body examples, folders as tags, supported auth, and enabled nonempty `base_url` values as servers are included. NTLM and AWS SigV4 are represented as HTTP security schemes; validate compatibility with the target OpenAPI consumer. Other environment values and response timeline data are not exported.
+OpenAPI exports write a 3.0.3 document. Enabled parameters and headers,
+request-body examples, folders as tags, supported auth, and enabled nonempty
+`base_url` values as servers are included. NTLM and AWS SigV4 are represented
+as HTTP security schemes; validate compatibility with the target OpenAPI
+consumer. OAuth 2.0 exports as standard flows with endpoint URLs and scopes,
+without client credentials or cached tokens. OAuth 1.0a auth is omitted because
+OpenAPI 3.0 has no matching security-scheme type. Other environment values and
+response timeline data are not exported.
 
-Postman exports require a new or empty output directory. They create `collection.postman_collection.json` and one redacted environment file per Noodle environment. NTLM and AWS SigV4 use Postman's matching auth representations. Literal request values are retained except that `@/` file paths expand to absolute home paths, so inspect the bundle for secrets and local path disclosure before sharing it. Keep the shorthand in source collection files; both formats require an output path outside the collection. Noodle-specific TLS settings are not translated to either export format.
+Postman exports require a new or empty output directory. They create
+`collection.postman_collection.json` and one redacted environment file per
+Noodle environment. NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 use Postman's
+matching auth representations. OAuth configuration is retained, but cached
+OAuth 2 tokens and generated OAuth 1 signatures are not exported. Literal
+request values are retained except that `@/` file paths expand to absolute home
+paths, so inspect the bundle for secrets and local path disclosure before
+sharing it. Keep the shorthand in source collection files; both formats
+require an output path outside the collection. Noodle-specific TLS settings are
+not translated to either export format.
 
 ## After import
 

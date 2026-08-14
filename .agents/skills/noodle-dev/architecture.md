@@ -276,6 +276,7 @@ Cursor-aware `$variable` completion system across all text inputs:
   `saveRequest`, `editRequestOverlay`, `getEditRequestYamlFile`, `getEditFolderYamlFile`,
   `newRequest`, `cloneRequest`, `deleteRequest`, `deleteFolder`,
   `copyResponseBody`, `openResponseQuery`, `canGenerateClientCode`,
+  `fetchOAuth2Token`, `copyOAuth2Token`, `clearCurrentOAuth2Token`,
   `cycleEnvironment`, `openEnvironmentEditor`,
   `saveEnvironment`, `newEnvironment`, `cloneEnvironment`, `deleteEnvironment`,
   `newFolder`, `toggleLayout`, `togglePaneExpand`, `undoAll`,
@@ -329,7 +330,9 @@ the application services.
 ```
 schema/          ← Zero-dependency types: Request, Folder, Auth, Response, Environment, TimelineEntry
   ↓
-lang/            ← YAML ↔ typed objects: parseRequest, serializeRequest, parseFolder
+auth/            ← Shared defaults for auth variants
+  ↓
+lang/            ← YAML ↔ typed objects: parseRequest, serializeRequest, parseFolder, shared auth parser
   │   (also: tree-sitter WASM parsers for JSON/YAML in lang/parsers/)
   ↓
 filestore/       ← Disk I/O: loadCollection, saveRequest, deleteRequest, timeline, settings
@@ -338,7 +341,7 @@ env/             ← Dotenv files: loadEnvironment, listEnvironments, save, clon
   ↓
 cookies/         ← Per-collection tough-cookie jar, encrypted persistence, locking, recovery
   ↓
-requests/        ← HTTP layer: send, substitute, mergeFolderOverrides, authHeader
+requests/        ← HTTP layer: send, substitute, mergeFolderOverrides, static auth, OAuth signing and tokens
   ↓
 hooks/           ← React state: useCollection, useRequestDraft, useResponse, useEditBrowse, useEnvironments,
   │                 useConfig, useEnvironmentEditor, useFolderDraft, etc.
@@ -379,12 +382,13 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      1. mergeFolderOverrides(req, collection, path)
      2. substitute(req, env) — $var replacement
      3. Build URL with params
-     4. Set auth headers via authHeader()
-     5. Resolve proxy and TLS policy from RequestExecutionOptions
+     4. Apply static auth headers, or resolve OAuth 2 secure token state before the request loop
+     5. Resolve proxy and TLS policy from RequestExecutionOptions for each leg
      6. Merge matching jar cookies for this redirect leg unless `sendCookies: false`; explicit request cookies win by name
-     7. fetch() with proxy/TLS options and AbortSignal.timeout
-     8. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
-     9. Manually follow HTTP(S) redirects; block downgrades and strip cross-origin credentials
+     7. Apply OAuth 2 tokens, AWS SigV4 signing, OAuth 1.0a signing, or the NTLM handshake path as required
+     8. fetch() with proxy/TLS options and AbortSignal timeout
+     9. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
+     10. Manually follow HTTP(S) redirects; block downgrades, strip cross-origin credentials, and reapply allowed auth per leg
   → useResponse: SendState FSM → idle → sending → done | error
   → ResponsePane: renders body (JSON highlighting), headers, network, timeline, and final-leg sent/received cookies
 ```
@@ -551,13 +555,14 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Concern                     | Files                                                                                                                                                                                                                                                                                                                        |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Types                       | `src/schema/index.ts`                                                                                                                                                                                                                                                                                                        |
-| YAML parse/serialize        | `src/lang/parse.ts`, `src/lang/serialize.ts`, `src/lang/folder.ts`                                                                                                                                                                                                                                                           |
+| YAML parse/serialize        | `src/lang/parse.ts`, `src/lang/serialize.ts`, `src/lang/folder.ts`, `src/lang/auth.ts`                                                                                                                                                                                                                                      |
+| Authentication              | `src/auth/defaults.ts`, `src/requests/auth.ts`, `src/requests/oauth1.ts`, `src/requests/oauth2.ts`, `src/requests/oauth2Browser.ts`, `src/ui/authRows.ts`, `src/ui/AuthEditor.tsx`                                                                                                                                           |
 | Tree-sitter parsers         | `src/lang/parsers/json/`, `src/lang/parsers/yaml/`, `src/ui/editor/codeEditorParsers.ts`                                                                                                                                                                                                                                     |
 | File I/O                    | `src/filestore/load.ts`, `src/filestore/save.ts`, `src/filestore/timeline.ts`                                                                                                                                                                                                                                                |
 | Environments                | `src/env/load.ts`, `src/env/save.ts`                                                                                                                                                                                                                                                                                         |
 | Secrets and redaction       | `src/secrets/index.ts`, `src/secrets/redact.ts`                                                                                                                                                                                                                                                                              |
 | Cookie storage and UI       | `src/cookies/index.ts`, `src/hooks/useCollectionCookieJar.ts`, `src/hooks/useCookieJarView.ts`, `src/ui/cookie-jar/`, `src/ui/overlays/CookieFormOverlay.tsx`                                                                                                                  |
-| HTTP execution              | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts`                                                                                                                                                                                                                                 |
+| HTTP execution              | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts`, `src/requests/oauth1.ts`, `src/requests/oauth2.ts`, `src/requests/oauth2Browser.ts`                                                                                                                                              |
 | TLS and proxy policy        | `src/tls.ts`, `src/proxy.ts`                                                                                                                                                                                                                                                                                                 |
 | Hooks                       | `src/hooks/*.ts`                                                                                                                                                                                                                                                                                                             |
 | Code editor                 | `src/ui/editor/CodeEditor.ts`, `CodeEditorCompletion.tsx`, `codeEditorParsers.ts`, `codeEditorFoldManager.ts`, `codeEditorFolds.ts`, `codeEditorHighlightRenderer.ts`, `codeEditorHighlighting.ts`, `codeEditorKeys.ts`, `codeEditorStyles.ts`, `codeEditorValidation.ts`, `YamlEditorOverlay.tsx`, `ValidationNotice.tsx` |

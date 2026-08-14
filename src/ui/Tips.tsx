@@ -42,6 +42,7 @@ const TIPS = [
   "in the environment editor, press {g} then {v} to jump to variables",
   "find a request or folder with {^F}",
   "open {^P}, choose Generate Code to export request as client code",
+  "open {^P} to fetch, copy, or clear the selected request's OAuth 2 token",
   "check for updates with {noodle update} or {^P} then Update Noodle",
   "press {e} to search environments; use {F3} to open the editor",
   "open Settings with {F4} to configure proxies, TLS, collections, and shortcuts",

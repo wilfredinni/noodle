@@ -4,6 +4,35 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-08-14
+
+Noodle 0.7.4 adds first-class OAuth 1.0a signing and OAuth 2.0 token workflows to request and folder authentication. It covers interactive browser authorization, secure token storage, converters, timeline safety, and request-specific execution without placing generated OAuth state in collection files.
+
+### ✨ Features
+
+- Add OAuth 1.0a request signing with HMAC-SHA1/256/512, RSA-SHA1/256/512, and PLAINTEXT methods; header, query, and URL-encoded body placement; optional body hashes; RSA keys from text or collection and home-relative files; and safe redirect behavior.
+- Add OAuth 2.0 authorization code, client credentials, implicit, and password grants with S256 or plain PKCE, refresh handling, client secret or signed client assertion authentication, configurable token placement, and phase-specific additional parameters.
+- Store OAuth 2 token responses in the OS credential vault, with a session-only in-memory fallback and visible warning when the vault is unavailable. Keep generated state, PKCE verifiers, authorization codes, and cached tokens out of request YAML.
+- Add command-palette actions to fetch or authorize, copy, and clear the selected request's OAuth 2 token. TUI sends can open the system browser for authorization code and implicit flows, while non-interactive runs reuse or refresh stored credentials without opening a browser.
+- Import OAuth 2.0 flows from OpenAPI and import OAuth 1.0a and OAuth 2.0 configuration from Postman and Insomnia. Export OAuth 2.0 schemes to OpenAPI and both OAuth configurations to Postman without cached tokens or generated signing state.
+- Add OAuth authentication events to the live network trace, mask OAuth credentials and generated authorization material in timeline snapshots, and exclude OAuth requests from generated client code because their signatures or tokens depend on request-specific secure state.
+
+### 🐞 Fixes
+
+- Re-sign OAuth 1.0a requests on same-origin redirects, strip OAuth credentials on origin changes, reject PLAINTEXT signing over non-loopback HTTP, and avoid forwarding a signed URL-encoded body across a 307 redirect.
+- Prevent duplicate concurrent OAuth 2 token acquisition, keep abortable requests from sharing acquisition work, rotate refresh tokens safely, and strip header or query tokens before cross-origin redirects.
+
+### 🔧 Refactors
+
+- Centralize authentication defaults, strict YAML parsing and serialization, editor rows, substitution, and effective request or folder auth handling across all supported auth types.
+
+### 📚 Documentation
+
+- Update the README and `AGENTS.md` with OAuth 1.0a and OAuth 2.0 authoring, secure token behavior, command-palette actions, converter coverage, and code-generation restrictions.
+- Update `noodle-dev` with the shared authentication architecture, OAuth execution paths, extension recipe, and focused test guidance.
+- Update `noodle-use` with OAuth schemas, secure authoring guidance, browser and automation constraints, and import or export coverage.
+- Document OAuth configuration, TUI token workflows, converters, environment substitution, network events, and agent guidance on the documentation site.
+
 ## [0.7.3] - 2026-08-14
 
 ![Noodle aws sig](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/cookie-tab.png)
@@ -455,7 +484,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/wilfredinni/noodle/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/wilfredinni/noodle/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/wilfredinni/noodle/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/wilfredinni/noodle/compare/v0.7.0...v0.7.1

@@ -86,7 +86,7 @@ invalid proxy/TLS/cookie blocks fail collection opening, auditing, and execution
 When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, backslashes, empty path segments, or hidden path segments.
 
 ### Authorization
-Auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`.
+Auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`, `oauth1`, `oauth2`.
 - `none`: No auth. Omit the `auth` field entirely (don't write `{ type: none }`).
 - `inherit`: Use parent folder's auth override. Only valid when a parent folder defines auth.
 - `bearer`: `{ type: bearer, token: "$TOKEN" }`
@@ -94,5 +94,9 @@ Auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`
 - `api_key`: `{ type: api_key, key: "X-API-Key", value: "$KEY", placement: "header" }`. Placement is `"header"` or `"query"`.
 - `ntlm`: `{ type: ntlm, username: "$NTLM_USERNAME", password: "$NTLM_PASSWORD", domain: "$NTLM_DOMAIN", workstation: "$NTLM_WORKSTATION" }`. Domain and workstation are optional. Noodle supports connection-bound server NTLMv2 authentication only; keep the password in a secret environment variable.
 - `aws_sigv4`: `{ type: aws_sigv4, access_key: "$AWS_ACCESS_KEY_ID", secret_key: "$AWS_SECRET_ACCESS_KEY", region: "us-east-1", service: "execute-api", session_token: "$AWS_SESSION_TOKEN" }`. `session_token` is optional. Signing uses headers and supports text, JSON, URL-encoded, and binary bodies; multipart is not supported.
+- `oauth1`: Start with `{ type: oauth1, consumer_key: "$OAUTH1_CONSUMER_KEY", consumer_secret: "$OAUTH1_CONSUMER_SECRET", access_token: "$OAUTH1_ACCESS_TOKEN", access_token_secret: "$OAUTH1_ACCESS_TOKEN_SECRET", signature_method: "HMAC-SHA1", placement: "header" }`. Supported methods are HMAC-SHA1/256/512, RSA-SHA1/256/512, and PLAINTEXT. Placement is `header`, `query`, or `body`; body placement requires URL-encoded form data. RSA keys may be inline text or a collection-relative or `@/` file path.
+- `oauth2`: Start with `{ type: oauth2, grant_type: authorization_code, authorization_url: "https://identity.example/authorize", access_token_url: "https://identity.example/token", client_id: "$OAUTH2_CLIENT_ID", client_secret: "$OAUTH2_CLIENT_SECRET", scope: "openid profile", redirect_uri: "http://127.0.0.1:8765/oauth/callback" }`. Supported grants are `authorization_code`, `client_credentials`, `implicit`, and `password`; authorization code defaults to S256 PKCE. Read [schema.md](schema.md) before authoring advanced token, client assertion, or additional-parameter fields.
 
-Noodle cannot generate client-code snippets for NTLM or AWS SigV4 requests: NTLM needs a connection-bound challenge exchange, and SigV4 signatures expire. Keep these requests in the collection and run them with noodle instead.
+Keep OAuth consumer secrets, token secrets, client secrets, passwords, and private signing keys in secret environment variables. OAuth 2 token responses live in the OS credential vault, with a session-only memory fallback if the vault is unavailable; never write tokens, authorization codes, PKCE verifiers, or generated state into collection files. Browser authorization is a TUI-only human workflow. Non-interactive `request run` and `collection run` may reuse or refresh stored browser credentials, and may acquire client-credentials or password tokens directly, but never open a browser.
+
+Noodle cannot generate client-code snippets for NTLM, AWS SigV4, OAuth 1.0a, or OAuth 2.0 requests. Keep these requests in the collection and run them with noodle instead.

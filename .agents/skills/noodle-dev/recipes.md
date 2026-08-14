@@ -88,27 +88,28 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Locate:**
 - `src/schema/index.ts` — `Auth` discriminated union
-- `src/lang/parse.ts` — `parseAuth()` function
-- `src/lang/serialize.ts` — `serializeAuth()` in request serialization
+- `src/auth/defaults.ts`: shared defaults and type switching
+- `src/lang/auth.ts`: strict shared parsing and serialization for request and folder auth
+- `src/requests/substitute.ts`: environment-variable substitution for auth fields
 - `src/requests/send.ts` — request authentication dispatch
-- `src/hooks/requestDraftReducer.ts` — `DraftOp` type + reducer
-- `src/ui/AuthEditor.tsx` — Auth field editor component
+- `src/hooks/draftUtils.ts` and `src/hooks/requestDraftReducer.ts`: equality, cached state, and generic auth mutations
+- `src/ui/authRows.ts` and `src/ui/AuthEditor.tsx`: shared field definitions, mutation, and type selector
 
-**Follow:** Existing auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`. Each adds one variant to the `Auth` union. Bearer, basic, and API-key auth can use `authHeader()`; connection-bound or request-signing schemes need their own send path.
+**Follow:** Existing auth types: `none`, `inherit`, `bearer`, `basic`, `ntlm`, `api_key`, `aws_sigv4`, `oauth1`, and `oauth2`. Each adds one variant to the `Auth` union. Bearer, basic, and API-key auth can use `authHeader()`; connection-bound, request-signing, or external-token schemes need their own send path.
 
 **Implement:**
 1. Add type to `Auth` union in `schema/index.ts` — define fields specific to that auth type
-2. Add parse case in `lang/parse.ts` `parseAuth()` — read fields from YAML
-3. Add serialize case in `lang/serialize.ts` — omit empty auth type
-4. Add request execution in `requests/send.ts`: use `authHeader()` only for static header schemes; implement and test any handshake or signing flow separately, including redirects and body constraints
-5. Add `DraftOp` variant (e.g., `{ kind: "setAuthYourType"; field: string; value: string }`)
-6. Handle in `requestDraftReducer.ts` — switch on `op.kind`, cache prior auth state when switching
-7. Add UI in `AuthEditor.tsx` — render fields for the new auth type when selected
-8. Add to auth type Select options in `AuthEditor.tsx`
+2. Add a default in `auth/defaults.ts`, then update auth equality and type-switch caching in `draftUtils.ts`
+3. Add strict parse and serialize handling in `lang/auth.ts`; both request and folder formats use it
+4. Add environment substitution for every user-provided string field in `requests/substitute.ts`
+5. Add request execution in `requests/send.ts`: use `authHeader()` only for static header schemes; implement and test any handshake, signing, or token flow separately, including redirects, aborts, and body constraints
+6. Add shared field definitions and mutation handling in `ui/authRows.ts`, then add the type to `AUTH_TYPES` in `AuthEditor.tsx`
+7. Review timeline masking, request summaries, network events, generated-code eligibility, and all supported converters for safe representation
+8. Keep command actions in `commandActions.ts` if the scheme needs palette workflows; call them from `commands.ts` rather than duplicating behavior
 
-**Test:** Unit tests for parse/serialize round-trip, auth handling, draft application, and converter mappings where supported. Add loopback coverage for connection-bound exchanges or request signing, plus auth-editor UI coverage.
+**Test:** Unit tests for request and folder parse/serialize round-trips, substitution, auth handling, draft application, timeline masking, code generation, command actions, and converter mappings where supported. Add loopback coverage for connection-bound exchanges, signing, token acquisition, refresh, redirects, aborts, or browser callbacks, plus auth-editor UI coverage.
 
-**Verify:** `bun test tests/lang.test.ts tests/requests.test.ts && bun run lint && bun run typecheck`
+**Verify:** `bun test tests/lang.test.ts tests/requests.test.ts tests/oauth.test.ts tests/authRows.test.ts tests/unit/AuthEditor.test.tsx && bun run lint && bun run typecheck`
 
 ---
 

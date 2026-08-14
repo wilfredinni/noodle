@@ -74,6 +74,53 @@ auth:
 
 Request inherits `basic` auth from parent folder. No need to repeat credentials.
 
+## OAuth 1.0a request
+
+```yaml
+name: OAuth 1 Resource
+method: GET
+url: $base_url/resource
+body_type: none
+timeout: 0
+auth:
+  type: oauth1
+  consumer_key: $oauth1_consumer_key
+  consumer_secret: $oauth1_consumer_secret
+  access_token: $oauth1_access_token
+  access_token_secret: $oauth1_access_token_secret
+  signature_method: HMAC-SHA256
+  placement: header
+```
+
+Declare the four credential variables as secrets. Noodle generates the nonce,
+timestamp, and request-specific signature at send time.
+
+## OAuth 2.0 authorization code request
+
+```yaml
+name: OAuth 2 Resource
+method: GET
+url: $base_url/resource
+body_type: none
+timeout: 0
+auth:
+  type: oauth2
+  grant_type: authorization_code
+  authorization_url: https://identity.example.com/oauth/authorize
+  access_token_url: https://identity.example.com/oauth/token
+  refresh_token_url: https://identity.example.com/oauth/token
+  client_id: $oauth2_client_id
+  client_secret: $oauth2_client_secret
+  scope: openid profile
+  redirect_uri: http://127.0.0.1:8765/oauth/callback
+  pkce: true
+  pkce_method: S256
+```
+
+The human user must complete first-time browser authorization in the TUI.
+Later automation runs may reuse or refresh the stored token, but they never
+open a browser or write the token into this file.
+
 ## Folder with headers override
 
 Folder (`posts/folder.yml`):

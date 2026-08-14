@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (~2630 across 169 files)
+bun test                              # all tests (2675 across 171 files)
 bun test tests/lang.test.ts           # single file
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
@@ -57,15 +57,17 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 src/
 ├── schema/        # Types: Method, Auth, Request, Collection, Response, Environment, ParamEntry, FormEntry, KvEntry
 ├── lang/          # YAML request language: parse + serialize
+│   ├── auth.ts     # Shared strict auth parsing and serialization
 │   └── parsers/   # Tree-sitter WASM + highlights.scm for JSON and YAML
 │       ├── json/  # tree-sitter-json.wasm, highlights.scm
 │       └── yaml/  # tree-sitter-yaml.wasm, highlights.scm
 ├── filestore/     # loadCollection(dir) / saveRequest(dir, req) — disk I/O
 ├── env/           # loadEnvironment, listEnvironments — env file I/O + secret resolution
+├── auth/          # Shared auth defaults for request, folder, UI, and converters
 ├── secrets/       # OS credential-vault storage + redaction helpers
 ├── cookies/       # Per-collection cookie jar (tough-cookie + encrypted persistence)
 ├── tls.ts         # TLS/mTLS validation and per-request policy resolution
-├── requests/      # executor.send + substitute ($var replacement)
+├── requests/      # executor.send, OAuth 1 signing, OAuth 2 tokens, substitution
 ├── hooks/         # React hooks
 │   ├── useCollection.ts, useTreeNavigation.ts, useSidebarSelection.ts
 │   ├── useRequestDraft.ts, useFolderDraft.ts
@@ -105,7 +107,8 @@ src/
     ├── VarInput.tsx         # Variable-aware input/textarea with completion popup
     ├── VarText.tsx          # Variable-highlighted read-only text rendering
     ├── KeyValueSection.tsx  # Key/Value pair editor (headers/params)
-    ├── AuthEditor.tsx       # Auth type selector + fields (none/inherit/bearer/basic/ntlm/api_key/aws_sigv4)
+    ├── AuthEditor.tsx       # Auth type selector + rows for all supported auth schemes
+    ├── authRows.ts          # Auth field metadata shared by request and folder editors
     ├── FormEditor.tsx       # Multipart/urlencoded form editor with text/file toggle
     ├── Checkbox.tsx, Select.tsx, Tabs.tsx, Frame.tsx, Badge.tsx, GradientBadge.tsx
     ├── CenterText.tsx, Toast.tsx, Tips.tsx
@@ -195,7 +198,7 @@ tests/integration/ # Integration tests
 - **Request IDs** are collection-relative paths without `.yml`; reject traversal, absolute paths, backslashes, empty segments, and hidden segments.
 - **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color. `# @secret NAME` followed by a blank `NAME=` placeholder declares a credential-vault value; process environment wins over the stored value.
 - **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth.
-- **Authentication:** In addition to bearer, basic, and API-key auth, requests and folder overrides support connection-bound server NTLMv2 and AWS SigV4. Keep NTLM/AWS credentials in secret environment variables. SigV4 supports text, JSON, URL-encoded, and binary bodies but not multipart; generated client code is unavailable for both NTLM and SigV4 requests.
+- **Authentication:** Requests and folder overrides support bearer, basic, API key, connection-bound server NTLMv2, AWS SigV4, OAuth 1.0a, and OAuth 2.0. OAuth 1.0a supports HMAC, RSA, and PLAINTEXT signatures with header, query, or URL-encoded body placement. OAuth 2.0 supports authorization code, client credentials, implicit, and password grants; browser grants run interactively in the TUI, while automation only reuses, refreshes, or directly acquires non-browser credentials. Cached tokens live in the OS vault with a session-only memory fallback and are never written to request YAML. Keep all credentials in secret environment variables. Generated client code is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests.
 - **`@/path` home syntax** for multipart file values and binary `file_path`; the TUI completes the shorthand from the user home directory, while expansion happens only at output boundaries, including file reads during request sending, HAR generation through `buildHar`, and Postman export.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.
 - **Settings, proxy, and TLS policy:** `F4` opens Settings. Global proxy mode is `system`, `off`, or `custom`; a collection may `inherit`, use `off`, or define `custom`. Custom URLs reject credentials and variables; authenticated proxies persist only `auth: true`, while credentials live in the OS vault. `--noproxy` takes precedence for one run. Collection `settings.yml` also stores generated `collection_id`, optional `name`, `description`, `timeline_max_entries`, active `environment`, cookie jar toggle (`cookies.enabled`, default on), and TLS verification, CA, and exact-host client-certificate metadata. Encrypted key passphrases live in the OS vault; `--insecure` disables verification for one run. Settings parsing is strict.
@@ -205,7 +208,7 @@ tests/integration/ # Integration tests
 - **Command palette commands return boolean**: `run()` returns `true` (close palette) or `false` (stay open).
 - **PickerOverlay isNavigable**: Pass to skip non-selectable items (section headers) during up/down/return navigation.
 - **Environment controls:** `e` opens the searchable picker from the main view; `F3` opens the full editor. New environments are created through `NewEnvironmentOverlay`, then persisted by `useEnvironmentEditor.createEnv()`. In environment browse mode, configurable `env_secret` (`s`) toggles secure storage and `env_reveal` (`r`) reveals the selected secret for the session.
-- **Timeline security:** Request snapshots resolve ordinary variables, redact declared environment secrets and settings secrets, and mask sensitive headers/auth before persistence. Server response fields are stored intact. Timeline YAML and gzip sidecars may still contain sensitive payloads.
+- **Timeline security:** Request snapshots resolve ordinary variables, redact declared environment secrets and settings secrets, and mask sensitive headers, auth credentials, OAuth signatures, assertions, and tokens before persistence. Server response fields are stored intact. Timeline YAML and gzip sidecars may still contain sensitive payloads.
 - **Cookie jar security:** Jar contents are encrypted at rest (`~/.config/noodle/cookies/`), jar-sent `Cookie` headers are masked in timeline snapshots, and `Set-Cookie` response headers are stored in the timeline like all other response fields.
 - **Response body editor:** `ResponsePane` renders bodies through a read-only `CodeEditorRenderable`; JSON folds retain source line numbers, the gutter owns fold signs, and copy operations must return original source text even when rows are folded.
 
@@ -248,7 +251,7 @@ command_palette: ctrl+p
 
 In browse or empty mode, collection-only actions above are unavailable. Command palette still exposes inspection, reload, layout, theme, help, and collection initialization actions.
 
-The command palette also provides **Import Collection** (as a new collection or into the current collection), **Export Collection** (OpenAPI or Postman), **Import cURL Request**, and **Generate Code** for the selected request. Code generation supports choosing a language and library, and can optionally interpolate the active environment. Save pending changes before importing into the current collection.
+The command palette also provides **Import Collection** (as a new collection or into the current collection), **Export Collection** (OpenAPI or Postman), **Import cURL Request**, and **Generate Code** for the selected request. For an effective OAuth 2.0 request it also provides actions to fetch or authorize, copy, and clear the current token. Code generation supports choosing a language and library, and can optionally interpolate the active environment, but is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests. Save pending changes before importing into the current collection.
 
 ### Jump mode (leader-key focus jumps)
 Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable element; press a letter to focus that element, or `Esc` to cancel. Non-matching keys are swallowed (mode stays active).
