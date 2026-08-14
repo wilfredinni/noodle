@@ -43,6 +43,101 @@ export interface Folder {
 export type CollectionItem =
   { type: "request"; data: Request } | { type: "folder"; data: Folder }
 
+export type OAuth1SignatureMethod =
+  | "HMAC-SHA1"
+  | "HMAC-SHA256"
+  | "HMAC-SHA512"
+  | "RSA-SHA1"
+  | "RSA-SHA256"
+  | "RSA-SHA512"
+  | "PLAINTEXT"
+
+export type OAuth1Placement = "header" | "query" | "body"
+
+export interface OAuth1Auth {
+  type: "oauth1"
+  consumer_key: string
+  consumer_secret: string
+  access_token: string
+  access_token_secret: string
+  signature_method: OAuth1SignatureMethod
+  private_key: string
+  private_key_type: "text" | "file"
+  callback_url: string
+  verifier: string
+  timestamp: string
+  nonce: string
+  version: string
+  realm: string
+  placement: OAuth1Placement
+  include_body_hash: boolean
+}
+
+export type OAuth2GrantType =
+  "authorization_code" | "client_credentials" | "implicit" | "password"
+
+export type OAuth2ClientAuthentication = "client_secret" | "client_assertion"
+
+export type OAuth2ClientAssertionAlgorithm =
+  | "HS256"
+  | "HS384"
+  | "HS512"
+  | "RS256"
+  | "RS384"
+  | "RS512"
+  | "PS256"
+  | "PS384"
+  | "PS512"
+  | "ES256"
+  | "ES384"
+  | "ES512"
+
+export interface OAuth2AdditionalParameter extends ParamEntry {
+  placement: "query" | "header" | "body"
+}
+
+export interface OAuth2AdditionalParameters {
+  authorization: OAuth2AdditionalParameter[]
+  token: OAuth2AdditionalParameter[]
+  refresh: OAuth2AdditionalParameter[]
+}
+
+export interface OAuth2Auth {
+  type: "oauth2"
+  grant_type: OAuth2GrantType
+  authorization_url: string
+  access_token_url: string
+  refresh_token_url: string
+  client_id: string
+  client_secret: string
+  username: string
+  password: string
+  scope: string
+  audience: string
+  redirect_uri: string
+  credentials_id: string
+  auto_fetch_token: boolean
+  auto_refresh_token: boolean
+  pkce: boolean
+  pkce_method: "S256" | "plain"
+  implicit_response_type: "token" | "id_token" | "token id_token"
+  credentials_placement: "body" | "basic"
+  client_authentication: OAuth2ClientAuthentication
+  client_assertion_algorithm: OAuth2ClientAssertionAlgorithm
+  client_assertion_key: string
+  client_assertion_key_type: "text" | "file"
+  client_assertion_issuer: string
+  client_assertion_subject: string
+  client_assertion_audience: string
+  client_assertion_lifetime: number
+  token_source: "access_token" | "id_token"
+  token_placement: "header" | "query"
+  token_header: string
+  token_prefix: string
+  token_query_key: string
+  additional_parameters: OAuth2AdditionalParameters
+}
+
 export type Auth =
   | { type: "none" }
   | { type: "inherit" }
@@ -69,6 +164,8 @@ export type Auth =
       service: string
       session_token?: string
     }
+  | OAuth1Auth
+  | OAuth2Auth
 
 export interface Request {
   id: string
@@ -121,6 +218,7 @@ export type NetworkEventType =
   | "error"
   | "proxy"
   | "tls"
+  | "auth"
 
 export interface NetworkEvent {
   timeMs: number

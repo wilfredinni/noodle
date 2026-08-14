@@ -1,6 +1,5 @@
 import yaml from "js-yaml"
 import type {
-  Auth,
   BodyType,
   FormEntry,
   KvEntry,
@@ -9,6 +8,7 @@ import type {
   Request,
   RequestTlsSettings,
 } from "../schema"
+import { parseAuth } from "./auth"
 
 const METHODS: readonly Method[] = [
   "GET",
@@ -32,36 +32,6 @@ function isBodyType(s: string): s is BodyType {
   return (BODY_TYPES as readonly string[]).includes(s as BodyType)
 }
 
-type RawAuth =
-  | { type: "none"; [k: string]: unknown }
-  | { type: "bearer"; token: string; [k: string]: unknown }
-  | { type: "basic"; user: string; pass: string; [k: string]: unknown }
-  | {
-      type: "ntlm"
-      username: string
-      password: string
-      domain?: string
-      workstation?: string
-      [k: string]: unknown
-    }
-  | {
-      type: "api_key"
-      key: string
-      value: string
-      placement?: string
-      [k: string]: unknown
-    }
-  | {
-      type: "aws_sigv4"
-      access_key: string
-      secret_key: string
-      region: string
-      service: string
-      session_token?: string
-      [k: string]: unknown
-    }
-  | { type: string; [k: string]: unknown }
-
 interface RawRequest {
   name?: unknown
   method?: unknown
@@ -69,7 +39,7 @@ interface RawRequest {
   headers?: unknown
   params?: unknown
   body?: unknown
-  auth?: RawAuth
+  auth?: unknown
   [k: string]: unknown
 }
 
@@ -194,7 +164,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     filePath = raw.file_path
   }
 
-  const auth = parseAuth(raw.auth)
+  const auth = parseAuth(raw.auth, "lang.parseRequest", true)
   const tls = parseRequestTls(raw.tls)
 
   let timeout = 0
@@ -382,80 +352,4 @@ function parsePathParams(value: unknown): ParamEntry[] {
   }
 
   return parseParams(value, "path_params")
-}
-
-function parseAuth(value: unknown): Auth {
-  if (value === undefined) return { type: "none" }
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error('lang.parseRequest: "auth" must be a mapping')
-  }
-  const a = value as RawAuth
-  if (a.type === "none") return { type: "none" }
-  if (a.type === "inherit") return { type: "inherit" }
-  if (a.type === "bearer") {
-    if (typeof a.token !== "string") {
-      throw new Error('lang.parseRequest: auth.bearer requires "token"')
-    }
-    return { type: "bearer", token: a.token }
-  }
-  if (a.type === "basic") {
-    if (typeof a.user !== "string" || typeof a.pass !== "string") {
-      throw new Error(
-        'lang.parseRequest: auth.basic requires "user" and "pass"',
-      )
-    }
-    return { type: "basic", user: a.user, pass: a.pass }
-  }
-  if (a.type === "ntlm") {
-    if (
-      typeof a.username !== "string" ||
-      typeof a.password !== "string" ||
-      (a.domain !== undefined && typeof a.domain !== "string") ||
-      (a.workstation !== undefined && typeof a.workstation !== "string")
-    ) {
-      throw new Error(
-        'lang.parseRequest: auth.ntlm requires "username" and "password"; "domain" and "workstation" must be strings when present',
-      )
-    }
-    return {
-      type: "ntlm",
-      username: a.username,
-      password: a.password,
-      domain: a.domain ?? "",
-      workstation: a.workstation ?? "",
-    }
-  }
-  if (a.type === "api_key") {
-    if (typeof a.key !== "string" || typeof a.value !== "string") {
-      throw new Error(
-        'lang.parseRequest: auth.api_key requires "key" and "value"',
-      )
-    }
-    const placement = a.placement === "query" ? "query" : "header"
-    return { type: "api_key", key: a.key, value: a.value, placement }
-  }
-  if (a.type === "aws_sigv4") {
-    if (
-      typeof a.access_key !== "string" ||
-      typeof a.secret_key !== "string" ||
-      typeof a.region !== "string" ||
-      typeof a.service !== "string" ||
-      (a.session_token !== undefined && typeof a.session_token !== "string")
-    ) {
-      throw new Error(
-        'lang.parseRequest: auth.aws_sigv4 requires "access_key", "secret_key", "region", and "service"; "session_token" must be a string when present',
-      )
-    }
-    return {
-      type: "aws_sigv4",
-      access_key: a.access_key,
-      secret_key: a.secret_key,
-      region: a.region,
-      service: a.service,
-      ...(a.session_token ? { session_token: a.session_token } : {}),
-    }
-  }
-  throw new Error(
-    `lang.parseRequest: invalid auth.type "${String(a.type)}", expected none|inherit|bearer|basic|ntlm|api_key|aws_sigv4`,
-  )
 }
