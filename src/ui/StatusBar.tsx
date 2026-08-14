@@ -1,5 +1,6 @@
 import { MouseButton } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/react"
+import { stringWidth } from "bun"
 import { useState } from "react"
 import { useTheme } from "./theme"
 import type { Keybinds } from "./keybind"
@@ -154,6 +155,7 @@ export function StatusBar(input: {
   overlayActive?: boolean
   globalHints: HintSegment[]
   footerHints: HintSegment[]
+  collectionPath?: string
   sendCommand?: string
   cookieStatus?: CookieJarStatus
   onHintActivate?: (command: string) => void
@@ -168,6 +170,18 @@ export function StatusBar(input: {
 
   const { width: termWidth = 100 } = useTerminalDimensions()
   const transient = jumpMode || overlayActive
+  const showCollectionPath =
+    view === "main" &&
+    !transient &&
+    (collectionMode === "browse" || collectionMode === "empty") &&
+    input.collectionPath !== undefined
+  const collectionPath = showCollectionPath ? input.collectionPath! : ""
+  const collectionPathWidth = collectionPath
+    ? Math.min(
+        stringWidth(collectionPath),
+        Math.floor(Math.max(0, termWidth - 2) / 2),
+      )
+    : 0
   const showHintLabels = termWidth >= 100 || transient
   const displayHints = (segments: HintSegment[]) =>
     showHintLabels
@@ -215,7 +229,8 @@ export function StatusBar(input: {
         expandWidth -
         cookieIndicatorWidth -
         (cookieIndicator ? HINT_ITEM_GAP : 0) -
-        (expandSegment.length > 0 ? HINT_ITEM_GAP : 0),
+        (expandSegment.length > 0 ? HINT_ITEM_GAP : 0) -
+        (collectionPathWidth > 0 ? collectionPathWidth + HINT_ITEM_GAP : 0),
     )
       ? sendSegment
       : []
@@ -240,7 +255,12 @@ export function StatusBar(input: {
       cookieIndicatorWidth -
       (cookieIndicator ? HINT_ITEM_GAP : 0) -
       (expandSegment.length > 0 ? HINT_ITEM_GAP : 0) -
-      (visibleSendSegment.length > 0 ? HINT_ITEM_GAP : 0),
+      (visibleSendSegment.length > 0 ? HINT_ITEM_GAP : 0) -
+      collectionPathWidth -
+      (collectionPathWidth > 0 &&
+      (cookieIndicator !== "" || visibleSendSegment.length > 0)
+        ? HINT_ITEM_GAP
+        : 0),
   )
 
   let showCommands =
@@ -337,6 +357,7 @@ export function StatusBar(input: {
           flexDirection: "row",
           alignItems: "center",
           gap: HINT_ITEM_GAP,
+          minWidth: 0,
         }}
       >
         {cookieIndicator && (
@@ -352,6 +373,20 @@ export function StatusBar(input: {
         )}
         {visibleSendSegment.map((seg, i) =>
           renderSegment(seg, `send-${seg.command ?? seg.key}-${i}`),
+        )}
+        {collectionPathWidth > 0 && (
+          <text
+            fg={theme.textMuted}
+            wrapMode="none"
+            truncate
+            style={{
+              width: collectionPathWidth,
+              minWidth: 0,
+              flexShrink: 1,
+            }}
+          >
+            {collectionPath}
+          </text>
         )}
       </box>
     </box>

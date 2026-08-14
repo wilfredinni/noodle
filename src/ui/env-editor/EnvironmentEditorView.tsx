@@ -5,6 +5,8 @@ import { useEffect, type RefObject } from "react"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
 import type { Environment } from "../../schema"
 import type { Focus } from "../focus"
+import { EmptyState } from "../EmptyState"
+import { FullBorder } from "../borders"
 
 interface EnvironmentEditorViewProps {
   envEditor: UseEnvironmentEditorResult
@@ -15,6 +17,7 @@ interface EnvironmentEditorViewProps {
   jumpMode?: boolean
   onHeaderFieldFocus?: (field: "name" | "color") => void
   onPaneFocus?: (focus: Focus) => void
+  onCreateEnvironment: () => void
   onEnvironmentContextMenu?: (name: string) => void
   setEnvDeletePending: (name: string | null) => void
 }
@@ -28,6 +31,7 @@ export function EnvironmentEditorView({
   jumpMode = false,
   onHeaderFieldFocus,
   onPaneFocus = () => {},
+  onCreateEnvironment,
   onEnvironmentContextMenu,
   setEnvDeletePending,
 }: EnvironmentEditorViewProps) {
@@ -35,6 +39,18 @@ export function EnvironmentEditorView({
   useEffect(() => {
     if (focus !== "env-vars") remaskSecrets()
   }, [focus, remaskSecrets])
+
+  if (envEditor.envNames.length === 0) {
+    return (
+      <EmptyState
+        border={FullBorder}
+        actionActive
+        subtitle="No environments in this collection"
+        message="Create environment"
+        onAction={onCreateEnvironment}
+      />
+    )
+  }
 
   return (
     <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>

@@ -381,6 +381,42 @@ describe("StatusBar component", () => {
     expect(activated).toEqual(["app.command-palette", "app.command-palette"])
   })
 
+  it("shows the non-initialized collection path responsively on the right", async () => {
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          view="main"
+          collectionMode="empty"
+          collectionPath="/tmp/noodle/empty-folder"
+          globalHints={emptyHints}
+          footerHints={emptyHints}
+        />
+      </ThemeProvider>,
+      { width: 80, height: 1 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("/tmp/noodle/empty-folder")
+
+    const narrow = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          view="main"
+          collectionMode="empty"
+          collectionPath="/Users/carlosmontecinos/Projects/noodle/empty-folder"
+          globalHints={emptyHints}
+          footerHints={emptyHints}
+        />
+      </ThemeProvider>,
+      { width: 30, height: 1 },
+    )
+    await narrow.renderOnce()
+    const narrowFrame = narrow.captureCharFrame()
+    expect(narrowFrame).toContain("...")
+    expect(narrowFrame.split("\n")[0]!.length).toBeLessThanOrEqual(30)
+  })
+
   it("adds Commands when width fitting hides one of three actions", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
