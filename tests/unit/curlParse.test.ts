@@ -38,6 +38,13 @@ describe("parseCurl", () => {
     expect(request.headers.Authorization).toBeUndefined()
   })
 
+  it("keeps curl --oauth2-bearer as ordinary bearer auth", () => {
+    const request = parseCurl(
+      "curl --oauth2-bearer token_123 https://api.example.com/users",
+    )
+    expect(request.auth).toEqual({ type: "bearer", token: "token_123" })
+  })
+
   it("keeps JSON bodies with equals signs as JSON", () => {
     const request = parseCurl(
       "curl -H 'Content-Type: application/json' -d '{\"token\":\"abc=def\"}' https://api.example.com/users",

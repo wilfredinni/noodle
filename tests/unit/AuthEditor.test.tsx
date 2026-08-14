@@ -9,10 +9,72 @@ import { initialEditState } from "../../src/ui/editMode"
 import { ThemeProvider, THEMES } from "../../src/ui/theme"
 import { setupKeymap } from "./_helpers"
 import type { Auth } from "../../src/schema"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../src/auth/defaults"
 
 const testRender = createTestRender()
 
 describe("AuthEditor", () => {
+  it("renders dynamic OAuth fields, legacy warnings, and masks secrets", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={100} height={100} style={{ flexDirection: "row" }}>
+            <box width={50}>
+              <AuthEditor
+                auth={{
+                  ...defaultOAuth1Auth(),
+                  consumer_secret: "oauth1-secret",
+                  signature_method: "RSA-SHA256",
+                  private_key: "oauth1-private-key",
+                }}
+                editState={initialEditState()}
+                inEdit={false}
+                browseActive={false}
+                editValue=""
+                setEditValue={() => {}}
+                theme={THEMES[0]!}
+                onAuthTypeChange={() => {}}
+                onApiKeyPlacementChange={() => {}}
+              />
+            </box>
+            <box width={50}>
+              <AuthEditor
+                auth={{
+                  ...defaultOAuth2Auth(),
+                  grant_type: "password",
+                  client_secret: "oauth2-secret",
+                  password: "password-secret",
+                }}
+                editState={initialEditState()}
+                inEdit={false}
+                browseActive={false}
+                editValue=""
+                setEditValue={() => {}}
+                theme={THEMES[0]!}
+                onAuthTypeChange={() => {}}
+                onApiKeyPlacementChange={() => {}}
+              />
+            </box>
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 100 },
+    )
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("OAuth 1.0a")
+    expect(frame).toContain("Private Key*")
+    expect(frame).toContain("OAuth 2.0")
+    expect(frame).toContain("Legacy grant")
+    expect(frame).toContain("Refresh Header Parameters")
+    expect(frame).not.toContain("oauth1-secret")
+    expect(frame).not.toContain("oauth1-private-key")
+    expect(frame).not.toContain("oauth2-secret")
+    expect(frame).not.toContain("password-secret")
+    cleanup()
+  })
+
   const autocompleteCases: Array<{ name: string; auth: Auth; row: number }> = [
     {
       name: "NTLM username",

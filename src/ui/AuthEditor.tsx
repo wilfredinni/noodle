@@ -6,6 +6,8 @@ import { Select, type SelectItem } from "./Select"
 import type { Theme } from "./theme"
 import { LeftBar } from "./borders"
 import { VarInput } from "./VarInput"
+import { Checkbox } from "./Checkbox"
+import { authFieldValue, getAuthRows } from "./authRows"
 
 const AUTH_TYPE_ITEMS: SelectItem[] = [
   { id: "none", label: "None" },
@@ -15,222 +17,13 @@ const AUTH_TYPE_ITEMS: SelectItem[] = [
   { id: "ntlm", label: "NTLMv2" },
   { id: "api_key", label: "API Key" },
   { id: "aws_sigv4", label: "AWS Signature v4" },
+  { id: "oauth1", label: "OAuth 1.0a" },
+  { id: "oauth2", label: "OAuth 2.0" },
 ]
-
-const PLACEMENT_ITEMS: SelectItem[] = [
-  { id: "header", label: "Header" },
-  { id: "query", label: "Query Params" },
-]
-
-interface FieldDef {
-  row: number
-  label: string
-  field: string
-  isSecret: boolean
-  isPlacement?: boolean
-  description?: string
-  required?: boolean
-}
-
-interface AuthRows {
-  type: string
-  fieldDefs: FieldDef[]
-}
 
 function maskIfSecret(value: string, isSecret: boolean): string {
   if (!isSecret || value === "") return value
-  return "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
-}
-
-function getAuthRows(auth: Auth | undefined): AuthRows {
-  if (!auth || auth.type === "none") {
-    return { type: "none", fieldDefs: [] }
-  }
-  if (auth.type === "inherit") {
-    return { type: "inherit", fieldDefs: [] }
-  }
-  if (auth.type === "bearer") {
-    return {
-      type: "bearer",
-      fieldDefs: [
-        {
-          row: 1,
-          label: "Token",
-          field: "token",
-          isSecret: true,
-          required: true,
-          description: "Bearer token sent in the Authorization header.",
-        },
-      ],
-    }
-  }
-  if (auth.type === "basic") {
-    return {
-      type: "basic",
-      fieldDefs: [
-        {
-          row: 1,
-          label: "Username",
-          field: "user",
-          isSecret: false,
-          required: true,
-          description: "Username used for HTTP Basic authentication.",
-        },
-        {
-          row: 2,
-          label: "Password",
-          field: "pass",
-          isSecret: true,
-          required: true,
-          description: "Password used for HTTP Basic authentication.",
-        },
-      ],
-    }
-  }
-  if (auth.type === "ntlm") {
-    return {
-      type: "ntlm",
-      fieldDefs: [
-        {
-          row: 1,
-          label: "Username",
-          field: "username",
-          isSecret: false,
-          required: true,
-          description: "Username used for NTLMv2 authentication.",
-        },
-        {
-          row: 2,
-          label: "Password",
-          field: "password",
-          isSecret: true,
-          required: true,
-          description: "Password used to derive the NTLMv2 response.",
-        },
-        {
-          row: 3,
-          label: "Domain",
-          field: "domain",
-          isSecret: false,
-          description: "Optional Windows domain.",
-        },
-        {
-          row: 4,
-          label: "Workstation",
-          field: "workstation",
-          isSecret: false,
-          description: "Optional workstation name.",
-        },
-      ],
-    }
-  }
-  if (auth.type === "aws_sigv4") {
-    return {
-      type: "aws_sigv4",
-      fieldDefs: [
-        {
-          row: 1,
-          label: "Access Key",
-          field: "access_key",
-          isSecret: false,
-          required: true,
-          description: "AWS access key ID used to identify the signer.",
-        },
-        {
-          row: 2,
-          label: "Secret Key",
-          field: "secret_key",
-          isSecret: true,
-          required: true,
-          description: "AWS secret access key used to derive the signature.",
-        },
-        {
-          row: 3,
-          label: "Region",
-          field: "region",
-          isSecret: false,
-          required: true,
-          description: "AWS region where the service request is sent.",
-        },
-        {
-          row: 4,
-          label: "Service",
-          field: "service",
-          isSecret: false,
-          required: true,
-          description: "AWS service name, such as execute-api or s3.",
-        },
-        {
-          row: 5,
-          label: "Session Token",
-          field: "session_token",
-          isSecret: true,
-          description: "Optional token for temporary AWS credentials.",
-        },
-      ],
-    }
-  }
-  return {
-    type: "api_key",
-    fieldDefs: [
-      {
-        row: 1,
-        label: "Key",
-        field: "key",
-        isSecret: false,
-        required: true,
-        description: "Header or query parameter name for the API key.",
-      },
-      {
-        row: 2,
-        label: "Value",
-        field: "value",
-        isSecret: true,
-        required: true,
-        description: "API key value sent with the request.",
-      },
-      {
-        row: 3,
-        label: "Add To",
-        field: "placement",
-        isSecret: false,
-        isPlacement: true,
-        description: "Where to send the API key.",
-      },
-    ],
-  }
-}
-
-function getFieldValue(auth: Auth, field: string): string {
-  if (auth.type === "none") return ""
-  if (auth.type === "inherit") return ""
-  if (auth.type === "bearer") return auth.token
-  if (auth.type === "basic") {
-    if (field === "user") return auth.user
-    if (field === "pass") return auth.pass
-    return ""
-  }
-  if (auth.type === "ntlm") {
-    if (field === "username") return auth.username
-    if (field === "password") return auth.password
-    if (field === "domain") return auth.domain
-    if (field === "workstation") return auth.workstation
-    return ""
-  }
-  if (auth.type === "api_key") {
-    if (field === "key") return auth.key
-    if (field === "value") return auth.value
-    if (field === "placement") return auth.placement
-    return ""
-  }
-  if (auth.type === "aws_sigv4") {
-    if (field === "access_key") return auth.access_key
-    if (field === "secret_key") return auth.secret_key
-    if (field === "region") return auth.region
-    if (field === "service") return auth.service
-    if (field === "session_token") return auth.session_token ?? ""
-  }
-  return ""
+  return "••••••••"
 }
 
 export interface AuthEditorProps {
@@ -244,6 +37,11 @@ export interface AuthEditorProps {
   activeEnv?: Environment | null
   onAuthTypeChange: (t: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
+  onAuthFieldChange?: (
+    authType: Auth["type"],
+    field: string,
+    value: string | boolean | number,
+  ) => void
   onSelectOpenChange?: (open: boolean) => void
   onFocusRow?: (row: number) => void
   onActivateRow?: (row: number) => void
@@ -263,6 +61,7 @@ export function AuthEditor({
   activeEnv,
   onAuthTypeChange,
   onApiKeyPlacementChange,
+  onAuthFieldChange,
   onSelectOpenChange,
   onFocusRow,
   onActivateRow,
@@ -271,112 +70,120 @@ export function AuthEditor({
   interactive = true,
 }: AuthEditorProps) {
   const [typeSelectOpen, setTypeSelectOpen] = useState(false)
-  const [placementSelectOpen, setPlacementSelectOpen] = useState(false)
+  const [fieldSelectOpen, setFieldSelectOpen] = useState<string | null>(null)
   const [hoveredField, setHoveredField] = useState<string | null>(null)
-
-  const { type, fieldDefs } = getAuthRows(auth)
+  const fieldDefs = getAuthRows(auth)
   const authItems = showInherit
     ? AUTH_TYPE_ITEMS
     : AUTH_TYPE_ITEMS.filter((item) => item.id !== "inherit")
-
   const isTypeSelectorActive =
     browseActive &&
     editState.cursor.field === "auth" &&
     editState.cursor.row === 0
 
-  const handleTypeSelectOpen = (open: boolean) => {
-    setTypeSelectOpen(open)
+  const setSelectOpen = (field: string, open: boolean) => {
+    setFieldSelectOpen(open ? field : null)
     onSelectOpenChange?.(open)
   }
 
-  const handlePlacementSelectOpen = (open: boolean) => {
-    setPlacementSelectOpen(open)
-    onSelectOpenChange?.(open)
+  const changeField = (field: string, value: string | boolean | number) => {
+    if (auth.type === "api_key" && field === "placement") {
+      onApiKeyPlacementChange(value as "header" | "query")
+    } else {
+      onAuthFieldChange?.(auth.type, field, value)
+    }
   }
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
       <box
         id={`${idPrefix}-field`}
-        style={{
-          zIndex: typeSelectOpen ? 1 : undefined,
-        }}
+        style={{ zIndex: typeSelectOpen ? 1 : undefined }}
       >
         <Select
           items={authItems}
-          value={type}
+          value={auth.type}
           onChange={(id) => {
-            if (id === type) return
-            onAuthTypeChange(id as Auth["type"])
+            if (id !== auth.type) onAuthTypeChange(id as Auth["type"])
           }}
           focused={isTypeSelectorActive}
           badge={false}
-          onOpenChange={handleTypeSelectOpen}
+          onOpenChange={(open) => {
+            setTypeSelectOpen(open)
+            onSelectOpenChange?.(open)
+          }}
           onActivate={() => onFocusRow?.(0)}
           interactive={interactive}
         />
       </box>
 
-      {fieldDefs.map((def) => {
+      {fieldDefs.map((definition) => {
         const isActive =
           browseActive &&
           editState.cursor.field === "auth" &&
-          editState.cursor.row === def.row
+          editState.cursor.row === definition.row
+        const editable =
+          definition.kind === "text" || definition.kind === "parameters"
         const isEditingRow =
+          editable &&
           inEdit &&
           editState.cursor.field === "auth" &&
-          editState.cursor.row === def.row
-        const fieldValue = getFieldValue(auth, def.field)
-        const canHoverField =
-          !isEditingRow && !def.isPlacement && onActivateRow !== undefined
-        const displayValue = def.isSecret
-          ? maskIfSecret(fieldValue, true)
-          : fieldValue
-        const displayLabel = `${def.label}${def.required ? "*" : ""}`
+          editState.cursor.row === definition.row
+        const fieldValue = authFieldValue(auth, definition.field)
+        const displayValue = maskIfSecret(fieldValue, definition.isSecret)
+        const displayLabel = `${definition.label}${definition.required ? "*" : ""}`
+        const canHover =
+          !isEditingRow &&
+          definition.kind !== "select" &&
+          onActivateRow !== undefined
 
         return (
           <box
-            key={def.field}
-            id={`${idPrefix}-${def.row}`}
+            key={definition.field}
+            id={`${idPrefix}-${definition.row}`}
             style={{
               flexDirection: "column",
-              zIndex: def.isPlacement && placementSelectOpen ? 1 : undefined,
+              zIndex: fieldSelectOpen === definition.field ? 1 : undefined,
             }}
           >
             <box
-              id={`${idPrefix}-${def.field}`}
+              id={`${idPrefix}-${definition.field}`}
               border={[...LeftBar.border]}
               customBorderChars={LeftBar.customBorderChars}
               borderColor={
                 isActive || isEditingRow ? theme.primary : theme.borderSubtle
               }
               style={{
-                flexDirection:
-                  isEditingRow && !def.isPlacement ? "row" : undefined,
-                gap: isEditingRow && !def.isPlacement ? 1 : undefined,
+                flexDirection: isEditingRow ? "row" : undefined,
+                gap: isEditingRow ? 1 : undefined,
                 backgroundColor:
-                  isActive || (canHoverField && hoveredField === def.field)
+                  isActive || (canHover && hoveredField === definition.field)
                     ? theme.backgroundElement
                     : undefined,
                 paddingLeft: 1,
               }}
               onMouseDown={
-                !isEditingRow && !def.isPlacement && onActivateRow
+                definition.kind === "boolean" && interactive
                   ? (event) => {
                       if (event.button !== MouseButton.LEFT) return
-                      onActivateRow(def.row)
+                      changeField(definition.field, fieldValue !== "true")
+                      onFocusRow?.(definition.row)
                       event.stopPropagation()
                     }
-                  : undefined
+                  : canHover && onActivateRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onActivateRow(definition.row)
+                        event.stopPropagation()
+                      }
+                    : undefined
               }
               onMouseOver={
-                canHoverField ? () => setHoveredField(def.field) : undefined
+                canHover ? () => setHoveredField(definition.field) : undefined
               }
-              onMouseOut={
-                canHoverField ? () => setHoveredField(null) : undefined
-              }
+              onMouseOut={canHover ? () => setHoveredField(null) : undefined}
             >
-              {isEditingRow && !def.isPlacement ? (
+              {isEditingRow ? (
                 <>
                   <text fg={theme.textMuted}>{displayLabel}: </text>
                   <VarInput
@@ -387,22 +194,27 @@ export function AuthEditor({
                     onChange={setEditValue}
                   />
                 </>
-              ) : def.isPlacement ? (
+              ) : definition.kind === "select" ? (
                 <box style={{ flexDirection: "row", gap: 1 }}>
                   <text fg={theme.text}>{displayLabel}: </text>
                   <Select
-                    items={PLACEMENT_ITEMS}
-                    value={fieldValue || "header"}
-                    width={16}
-                    onChange={(id) =>
-                      onApiKeyPlacementChange(id as "header" | "query")
-                    }
+                    items={definition.items ?? []}
+                    value={fieldValue}
+                    width={22}
+                    onChange={(value) => changeField(definition.field, value)}
                     focused={isActive}
                     badge={false}
-                    onOpenChange={handlePlacementSelectOpen}
-                    onActivate={() => onFocusRow?.(def.row)}
+                    onOpenChange={(open) =>
+                      setSelectOpen(definition.field, open)
+                    }
+                    onActivate={() => onFocusRow?.(definition.row)}
                     interactive={interactive}
                   />
+                </box>
+              ) : definition.kind === "boolean" ? (
+                <box style={{ flexDirection: "row" }}>
+                  <Checkbox checked={fieldValue === "true"} theme={theme} />
+                  <text fg={theme.text}>{displayLabel}</text>
                 </box>
               ) : (
                 <VarInput
@@ -413,13 +225,13 @@ export function AuthEditor({
                 />
               )}
             </box>
-            {def.description && (
+            {definition.description && (
               <text
                 fg={theme.textMuted}
                 wrapMode="word"
                 style={{ paddingLeft: 1 }}
               >
-                {def.description}
+                {definition.description}
               </text>
             )}
           </box>

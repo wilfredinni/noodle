@@ -18,6 +18,7 @@ import {
   type FieldKind,
 } from "../ui/editMode"
 import type { UseFolderDraftResult } from "./useFolderDraft"
+import { authFieldAtRow, authRowCount, authValueAtRow } from "../ui/authRows"
 
 export type { FolderFieldKind }
 
@@ -61,15 +62,7 @@ export interface UseFolderEditBrowseOptions {
 
 function folderRowCount(folder: Folder | null): FolderRowCount {
   if (!folder) return { meta: 1, headers: 0, auth: 1 }
-  let authRows = 1
-  const a = folder.overrides?.auth
-  if (a) {
-    if (a.type === "bearer") authRows = 2
-    else if (a.type === "basic") authRows = 3
-    else if (a.type === "ntlm") authRows = 5
-    else if (a.type === "api_key") authRows = 4
-    else if (a.type === "aws_sigv4") authRows = 6
-  }
+  const authRows = authRowCount(folder.overrides?.auth)
   return {
     meta: 1,
     headers: Object.keys(folder.overrides?.headers ?? {}).length,
@@ -91,37 +84,7 @@ function folderCurrentValueFor(
     return ""
   }
   if (field === "auth") {
-    const a = folder.overrides?.auth
-    if (!a || a.type === "none") return ""
-    if (a.type === "bearer") {
-      if (row === 0) return ""
-      if (row === 1) return a.token
-    }
-    if (a.type === "basic") {
-      if (row === 0) return ""
-      if (row === 1) return a.user
-      if (row === 2) return a.pass
-    }
-    if (a.type === "ntlm") {
-      if (row === 1) return a.username
-      if (row === 2) return a.password
-      if (row === 3) return a.domain
-      if (row === 4) return a.workstation
-    }
-    if (a.type === "api_key") {
-      if (row === 0) return ""
-      if (row === 1) return a.key
-      if (row === 2) return a.value
-      if (row === 3) return a.placement
-    }
-    if (a.type === "aws_sigv4") {
-      if (row === 1) return a.access_key
-      if (row === 2) return a.secret_key
-      if (row === 3) return a.region
-      if (row === 4) return a.service
-      if (row === 5) return a.session_token ?? ""
-    }
-    return ""
+    return authValueAtRow(folder.overrides?.auth, row)
   }
   if (field === "headers") {
     if (addingRow) return ""
@@ -388,6 +351,17 @@ export function useFolderEditBrowse(
     const currentFolder = draftRef.current
     if (field === "auth") {
       if (row === 0) return
+      const auth = currentFolder?.overrides?.auth
+      const definition = authFieldAtRow(auth, row)
+      if (!definition || definition.kind === "select") return
+      if (definition.kind === "boolean" && auth) {
+        draftMutators.setAuthField(
+          auth.type,
+          definition.field,
+          authValueAtRow(auth, row) !== "true",
+        )
+        return
+      }
       const init = folderCurrentValueFor(currentFolder, "auth", row, false)
       setEditValue(init)
       setEditState((prev) => beginEditing(prev))
@@ -415,39 +389,9 @@ export function useFolderEditBrowse(
       draftMutators.setName(val)
     } else if (field === "auth") {
       const currentAuth = draftRef.current?.overrides?.auth
-      if (currentAuth) {
-        if (currentAuth.type === "bearer" && row === 1) {
-          draftMutators.setAuthField("bearer", "token", val)
-        } else if (currentAuth.type === "basic") {
-          if (row === 1) draftMutators.setAuthField("basic", "user", val)
-          else if (row === 2) draftMutators.setAuthField("basic", "pass", val)
-        } else if (currentAuth.type === "api_key") {
-          if (row === 1) draftMutators.setAuthField("api_key", "key", val)
-          else if (row === 2)
-            draftMutators.setAuthField("api_key", "value", val)
-        } else if (currentAuth.type === "ntlm") {
-          const authField = [
-            "",
-            "username",
-            "password",
-            "domain",
-            "workstation",
-          ][row]
-          if (authField) draftMutators.setAuthField("ntlm", authField, val)
-        } else if (currentAuth.type === "aws_sigv4") {
-          const fields = [
-            "",
-            "access_key",
-            "secret_key",
-            "region",
-            "service",
-            "session_token",
-          ]
-          const authField = fields[row]
-          if (authField) {
-            draftMutators.setAuthField("aws_sigv4", authField, val)
-          }
-        }
+      const definition = authFieldAtRow(currentAuth, row)
+      if (currentAuth && definition) {
+        draftMutators.setAuthField(currentAuth.type, definition.field, val)
       }
     } else if (field === "headers") {
       const key = editKeyRef.current.trim()
@@ -497,7 +441,17 @@ export function useFolderEditBrowse(
     if (state.mode !== "browsing") return
     const { field, addingRow, row } = state.cursor
     if (addingRow) return
-    if (field === "headers") draftMutators.toggleHeaderRow(row)
+    if (field === "auth") {
+      const auth = draftRef.current?.overrides?.auth
+      const definition = authFieldAtRow(auth, row)
+      if (auth && definition?.kind === "boolean") {
+        draftMutators.setAuthField(
+          auth.type,
+          definition.field,
+          authValueAtRow(auth, row) !== "true",
+        )
+      }
+    } else if (field === "headers") draftMutators.toggleHeaderRow(row)
   }, [draftMutators])
 
   const cycleInactiveTab = useCallback((delta: 1 | -1) => {

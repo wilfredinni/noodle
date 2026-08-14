@@ -26,6 +26,11 @@ interface FolderPaneProps {
   activeTab: FieldKind
   onAuthTypeChange: (type: Auth["type"]) => void
   onApiKeyPlacementChange: (placement: "header" | "query") => void
+  onAuthFieldChange?: (
+    authType: Auth["type"],
+    field: string,
+    value: string | boolean | number,
+  ) => void
   onSelectOpenChange?: (open: boolean) => void
   activeEnv: Environment | null
   theme: Theme
@@ -56,6 +61,7 @@ export function FolderPane({
   activeTab,
   onAuthTypeChange,
   onApiKeyPlacementChange,
+  onAuthFieldChange,
   onSelectOpenChange,
   activeEnv,
   theme,
@@ -253,6 +259,7 @@ export function FolderPane({
                     onApiKeyPlacementChange={
                       onApiKeyPlacementChange ?? (() => {})
                     }
+                    onAuthFieldChange={onAuthFieldChange}
                     onSelectOpenChange={onSelectOpenChange}
                     interactive={interactive}
                     onFocusRow={(row) => {

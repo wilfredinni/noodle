@@ -49,5 +49,9 @@ export function formatAuth(auth?: Auth): string {
     return `api_key: ${auth.key}:\u2022\u2022\u2022\u2022`
   if (auth.type === "aws_sigv4")
     return `aws_sigv4: ${auth.service}/${auth.region}`
+  if (auth.type === "oauth1")
+    return `oauth1: ${auth.consumer_key || "(no consumer key)"}`
+  if (auth.type === "oauth2")
+    return `oauth2: ${auth.grant_type.replaceAll("_", " ")}`
   return "(none)"
 }
