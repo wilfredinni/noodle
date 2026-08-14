@@ -1,0 +1,32 @@
+name: OAuth 2.0 Authorization Code
+method: GET
+url: https://api.example.com/v1/profile
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body_type: none
+auth:
+  type: oauth2
+  grant_type: authorization_code
+  authorization_url: https://identity.example.com/oauth/authorize
+  access_token_url: https://identity.example.com/oauth/token
+  refresh_token_url: https://identity.example.com/oauth/token
+  client_id: $oauth2_client_id
+  client_secret: $oauth2_client_secret
+  scope: openid profile
+  redirect_uri: http://127.0.0.1:8765/oauth/callback
+  credentials_id: example-api
+  auto_fetch_token: true
+  auto_refresh_token: true
+  pkce: true
+  pkce_method: S256
+  token_source: access_token
+  token_placement: header
+  token_header: Authorization
+  token_prefix: Bearer
+  additional_parameters:
+    authorization:
+      - name: prompt
+        value: consent
+        enabled: true
+        placement: query
