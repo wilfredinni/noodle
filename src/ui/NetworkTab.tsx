@@ -9,7 +9,7 @@ function eventColor(event: NetworkEvent, theme: ReturnType<typeof useTheme>) {
   if (event.type === "response" || event.type === "complete")
     return theme.success
   if (event.type === "request") return theme.primary
-  if (event.type === "proxy") return theme.info
+  if (event.type === "proxy" || event.type === "auth") return theme.info
   return theme.textMuted
 }
 

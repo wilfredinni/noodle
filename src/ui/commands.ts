@@ -13,6 +13,8 @@ import type { UseEnvironmentEditorResult } from "../hooks/useEnvironmentEditor"
 import type { Collection } from "../schema"
 import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
+import type { ProxyPolicy } from "../proxy"
+import type { TlsPolicy } from "../tls"
 import {
   saveRequest,
   saveFolder,
@@ -23,6 +25,10 @@ import {
   deleteRequest,
   deleteFolder,
   canGenerateClientCode,
+  fetchOAuth2Token,
+  copyOAuth2Token,
+  clearCurrentOAuth2Token,
+  hasOAuth2Auth,
   cycleEnvironment,
   openEnvironmentPicker,
   openEnvironmentEditor,
@@ -51,6 +57,8 @@ export interface CommandBuilderContext {
   collectionDir: string
   confirmUndoAll: boolean
   renderer: CliRenderer
+  proxyPolicy?: ProxyPolicy
+  tlsPolicy?: TlsPolicy
   trySendRef: RefObject<(() => void) | undefined>
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
@@ -158,6 +166,8 @@ function toConfig(ctx: CommandBuilderContext): CommandActionsConfig {
     focusedFolderPathRef: ctx.focusedFolderPathRef,
     focusedFolderNameRef: ctx.focusedFolderNameRef,
     folderDeletePathRef: ctx.folderDeletePathRef,
+    proxyPolicy: ctx.proxyPolicy,
+    tlsPolicy: ctx.tlsPolicy,
   }
 }
 
@@ -238,6 +248,24 @@ export function buildCommandPaletteCommands(
       },
     },
     {
+      id: "request.oauth2-fetch-token",
+      label: "Fetch/authorize OAuth 2 token",
+      section: "Request",
+      run: () => (view === "main" ? fetchOAuth2Token(c) : false),
+    },
+    {
+      id: "request.oauth2-copy-token",
+      label: "Copy current OAuth 2 token",
+      section: "Request",
+      run: () => (view === "main" ? copyOAuth2Token(c) : false),
+    },
+    {
+      id: "request.oauth2-clear-token",
+      label: "Clear current OAuth 2 token",
+      section: "Request",
+      run: () => (view === "main" ? clearCurrentOAuth2Token(c) : false),
+    },
+    {
       id: "request.save",
       label: "Save Request",
       section: "Request",
@@ -305,6 +333,14 @@ export function buildCommandPaletteCommands(
       },
     },
   ]
+  const oauth2CommandIds = new Set([
+    "request.oauth2-fetch-token",
+    "request.oauth2-copy-token",
+    "request.oauth2-clear-token",
+  ])
+  const visibleRequestCommands = requestCommands.filter(
+    (command) => !oauth2CommandIds.has(command.id) || hasOAuth2Auth(c),
+  )
 
   const mainEnvCommands: CommandItem[] = [
     {
@@ -597,10 +633,13 @@ export function buildCommandPaletteCommands(
   if (paletteTarget === "request") {
     if (mode !== "collection") return []
     return [
-      ...requestCommands.filter((command) =>
+      ...visibleRequestCommands.filter((command) =>
         [
           "request.generate-client-code",
           "request.send",
+          "request.oauth2-fetch-token",
+          "request.oauth2-copy-token",
+          "request.oauth2-clear-token",
           "request.save",
           "request.edit-overlay",
           "request.clone",
@@ -621,7 +660,7 @@ export function buildCommandPaletteCommands(
     if (mode !== "collection") return []
     return [
       folderSaveCommand,
-      ...requestCommands
+      ...visibleRequestCommands
         .filter((command) =>
           ["request.new", "request.import-curl"].includes(command.id),
         )
@@ -664,7 +703,7 @@ export function buildCommandPaletteCommands(
   if (view === "settings") return systemCommands
 
   return [
-    ...(mode === "collection" ? requestCommands : []),
+    ...(mode === "collection" ? visibleRequestCommands : []),
     ...(mode === "collection" ? mainEnvCommands : []),
     ...(mode === "collection" ? workspaceCommands : readOnlyCommands),
     ...mainOnlyCommands,

@@ -15,6 +15,7 @@ import {
   buildDetailRequestHeaders,
 } from "../src/ui/timeline/formatTimeline"
 import type { Auth, TimelineEntry } from "../src/schema"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
 
 describe("truncateUrl", () => {
   it("returns full URL when shorter than max", () => {
@@ -570,6 +571,76 @@ describe("buildDetailRequestHeaders", () => {
 })
 
 describe("buildTimelineEntry", () => {
+  it("redacts OAuth 1 and OAuth 2 credentials and additional parameter values", () => {
+    const response = {
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "",
+      timeMs: 1,
+    }
+    const base = {
+      id: "oauth",
+      name: "OAuth",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: [],
+      timeout: 0,
+    }
+    const oauth1 = buildTimelineEntry(
+      {
+        ...base,
+        auth: {
+          ...defaultOAuth1Auth(),
+          consumer_key: "public-consumer",
+          consumer_secret: "consumer-secret",
+          access_token: "access-token",
+          access_token_secret: "token-secret",
+          private_key: "private-key",
+          verifier: "secret-verifier-value",
+          nonce: "secret-nonce-value",
+          timestamp: "secret-timestamp-value",
+        },
+      },
+      { status: "done", response },
+    )
+    const oauth2 = buildTimelineEntry(
+      {
+        ...base,
+        auth: {
+          ...defaultOAuth2Auth(),
+          client_id: "public-client",
+          client_secret: "client-secret",
+          username: "username",
+          password: "password-secret",
+          client_assertion_key: "assertion-key",
+          additional_parameters: {
+            authorization: [
+              {
+                name: "prompt",
+                value: "authorization-secret",
+                enabled: true,
+                placement: "query",
+              },
+            ],
+            token: [],
+            refresh: [],
+          },
+        },
+      },
+      { status: "done", response },
+    )
+    expect(JSON.stringify(oauth1.request)).not.toMatch(
+      /consumer-secret|access-token|token-secret|private-key|secret-verifier-value|secret-nonce-value|secret-timestamp-value/,
+    )
+    expect(JSON.stringify(oauth1.request)).toContain("public-consumer")
+    expect(JSON.stringify(oauth2.request)).not.toMatch(
+      /client-secret|password-secret|assertion-key|authorization-secret/,
+    )
+    expect(JSON.stringify(oauth2.request)).toContain("public-client")
+  })
+
   it("builds entry from request and done result", () => {
     const req = {
       id: "req-1",

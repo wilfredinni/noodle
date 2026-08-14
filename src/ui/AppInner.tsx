@@ -605,6 +605,7 @@ export function AppInner({
     proxyPolicy,
     tlsPolicy,
     cookieJar,
+    collectionDir,
   )
 
   const responseStateRef = useRef(responseState)
@@ -1401,6 +1402,8 @@ export function AppInner({
         collectionDir,
         confirmUndoAll,
         renderer,
+        proxyPolicy,
+        tlsPolicy,
         trySendRef,
         draftRef,
         folderDraftRef,
@@ -1466,6 +1469,10 @@ export function AppInner({
       mode,
       paletteTarget,
       triggerUpdateCheck,
+      proxyPolicy,
+      tlsPolicy,
+      draft.draft?.auth,
+      collection,
     ],
   )
 
