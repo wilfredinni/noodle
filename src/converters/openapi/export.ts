@@ -301,6 +301,65 @@ function requestBodyFor(request: Request): OpenApiObject | undefined {
   }
 }
 
+function isOpenApiObject(value: unknown): value is OpenApiObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function sameOAuthFlowConfiguration(
+  existing: unknown,
+  candidate: OpenApiObject,
+): boolean {
+  if (!isOpenApiObject(existing)) return false
+  const existingConfig = { ...existing }
+  const candidateConfig = { ...candidate }
+  delete existingConfig.scopes
+  delete candidateConfig.scopes
+  return JSON.stringify(existingConfig) === JSON.stringify(candidateConfig)
+}
+
+function addOAuth2Flow(
+  schemes: Record<string, OpenApiObject>,
+  flowName: string,
+  flow: OpenApiObject,
+): string {
+  const baseName = "oauth2Auth"
+  let name = baseName
+  let index = 2
+
+  while (true) {
+    const existing = schemes[name]
+    if (!existing) {
+      schemes[name] = { type: "oauth2", flows: { [flowName]: flow } }
+      return name
+    }
+
+    const flows =
+      existing.type === "oauth2" && isOpenApiObject(existing.flows)
+        ? existing.flows
+        : null
+    if (flows) {
+      const existingFlow = flows[flowName]
+      if (existingFlow === undefined) {
+        flows[flowName] = flow
+        return name
+      }
+      if (sameOAuthFlowConfiguration(existingFlow, flow)) {
+        const existingScopes =
+          isOpenApiObject(existingFlow) && isOpenApiObject(existingFlow.scopes)
+            ? existingFlow.scopes
+            : {}
+        flows[flowName] = {
+          ...flow,
+          scopes: { ...existingScopes, ...(flow.scopes as OpenApiObject) },
+        }
+        return name
+      }
+    }
+
+    name = `${baseName}${index++}`
+  }
+}
+
 function securityFor(
   auth: Auth | undefined,
   schemes: Record<string, OpenApiObject>,
@@ -320,6 +379,57 @@ function securityFor(
   } else if (auth.type === "aws_sigv4") {
     name = "awsSigV4"
     schemes[name] ??= { type: "http", scheme: "AWS4-HMAC-SHA256" }
+  } else if (auth.type === "oauth1") {
+    return undefined
+  } else if (auth.type === "oauth2") {
+    const scopes = Object.fromEntries(
+      auth.scope
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((scope) => [scope, ""]),
+    )
+    let flowName: string
+    let flow: OpenApiObject
+    if (auth.grant_type === "authorization_code") {
+      flowName = "authorizationCode"
+      flow = {
+        authorizationUrl: auth.authorization_url,
+        tokenUrl: auth.access_token_url,
+        ...(auth.refresh_token_url
+          ? { refreshUrl: auth.refresh_token_url }
+          : {}),
+        scopes,
+      }
+    } else if (auth.grant_type === "implicit") {
+      flowName = "implicit"
+      flow = {
+        authorizationUrl: auth.authorization_url,
+        ...(auth.refresh_token_url
+          ? { refreshUrl: auth.refresh_token_url }
+          : {}),
+        scopes,
+      }
+    } else if (auth.grant_type === "password") {
+      flowName = "password"
+      flow = {
+        tokenUrl: auth.access_token_url,
+        ...(auth.refresh_token_url
+          ? { refreshUrl: auth.refresh_token_url }
+          : {}),
+        scopes,
+      }
+    } else {
+      flowName = "clientCredentials"
+      flow = {
+        tokenUrl: auth.access_token_url,
+        ...(auth.refresh_token_url
+          ? { refreshUrl: auth.refresh_token_url }
+          : {}),
+        scopes,
+      }
+    }
+    name = addOAuth2Flow(schemes, flowName, flow)
+    return { security: [{ [name]: Object.keys(scopes) }] }
   } else {
     const suffix = auth.key
       .replace(/[^a-zA-Z0-9]+/g, " ")

@@ -8,6 +8,7 @@ import {
   toPostmanTpl,
 } from "../../src/converters/postman"
 import { mapCollection } from "../../src/converters/postman/map"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../src/auth/defaults"
 import type { Collection, Request } from "../../src/schema"
 
 function request(
@@ -28,6 +29,61 @@ function request(
 }
 
 describe("Postman export", () => {
+  it("exports OAuth configuration without cached OAuth 2 tokens", () => {
+    const exported = exportPostman({
+      id: "oauth",
+      name: "OAuth",
+      items: [
+        {
+          type: "request",
+          data: request("oauth1", "OAuth 1", {
+            auth: {
+              ...defaultOAuth1Auth(),
+              consumer_key: "$CONSUMER_KEY",
+              consumer_secret: "$CONSUMER_SECRET",
+              signature_method: "RSA-SHA256",
+              private_key: "$PRIVATE_KEY",
+              private_key_type: "file",
+              placement: "query",
+              include_body_hash: true,
+            },
+          }),
+        },
+        {
+          type: "request",
+          data: request("oauth2", "OAuth 2", {
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: "client_credentials",
+              access_token_url: "https://identity.example/token",
+              client_id: "$CLIENT_ID",
+              client_secret: "$CLIENT_SECRET",
+              token_placement: "query",
+            },
+          }),
+        },
+      ],
+    })
+    const items = exported.document.item as Record<string, unknown>[]
+    expect((items[0]!.request as Record<string, unknown>).auth).toMatchObject({
+      type: "oauth1",
+      oauth1: expect.arrayContaining([
+        { key: "consumerKey", value: "{{CONSUMER_KEY}}", type: "string" },
+        { key: "signatureMethod", value: "RSA-SHA256", type: "string" },
+        { key: "placement", value: "query", type: "string" },
+      ]),
+    })
+    expect((items[1]!.request as Record<string, unknown>).auth).toMatchObject({
+      type: "oauth2",
+      oauth2: expect.arrayContaining([
+        { key: "grant_type", value: "client_credentials", type: "string" },
+        { key: "clientId", value: "{{CLIENT_ID}}", type: "string" },
+        { key: "addTokenTo", value: "queryParams", type: "string" },
+      ]),
+    })
+    expect(JSON.stringify(exported.document)).not.toContain("access_token")
+  })
+
   it("exports NTLM credentials in Postman format", () => {
     const exported = exportPostman({
       id: "ntlm",

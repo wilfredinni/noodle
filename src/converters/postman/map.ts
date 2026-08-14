@@ -22,6 +22,7 @@ import type {
 import type { ImportResult } from "../index"
 import { slugify, METHOD_UPPER } from "../shared"
 import { parsePathToken } from "../../requests/pathParams"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
 
 export function convertTpl(s: string): string {
   return s.replace(/\{\{(\$?[\w.-]+)\}\}/g, "$$$1")
@@ -45,7 +46,7 @@ function extractAuthParams(
       const items = raw.all()
       if (items.length > 0) {
         for (const p of items) {
-          params.set(p.key, p.value)
+          params.set(p.key, String(p.value))
         }
       }
     }
@@ -112,6 +113,85 @@ function mapAuth(
       ...(params?.get("sessionToken")
         ? { session_token: convertTpl(params.get("sessionToken")!) }
         : {}),
+    }
+  }
+  if (type === "oauth1") {
+    const defaults = defaultOAuth1Auth()
+    const signature =
+      params?.get("signatureMethod") ?? defaults.signature_method
+    const placementValue = params?.get("placement")
+    return {
+      ...defaults,
+      consumer_key: convertTpl(params?.get("consumerKey") ?? ""),
+      consumer_secret: convertTpl(params?.get("consumerSecret") ?? ""),
+      access_token: convertTpl(params?.get("token") ?? ""),
+      access_token_secret: convertTpl(params?.get("tokenSecret") ?? ""),
+      signature_method: [
+        "HMAC-SHA1",
+        "HMAC-SHA256",
+        "HMAC-SHA512",
+        "RSA-SHA1",
+        "RSA-SHA256",
+        "RSA-SHA512",
+        "PLAINTEXT",
+      ].includes(signature)
+        ? (signature as typeof defaults.signature_method)
+        : defaults.signature_method,
+      private_key: convertTpl(params?.get("privateKey") ?? ""),
+      private_key_type:
+        params?.get("privateKeyType") === "file" ? "file" : "text",
+      callback_url: convertTpl(params?.get("callbackUrl") ?? ""),
+      verifier: convertTpl(params?.get("verifier") ?? ""),
+      timestamp: convertTpl(params?.get("timestamp") ?? ""),
+      nonce: convertTpl(params?.get("nonce") ?? ""),
+      version: params?.get("version") ?? defaults.version,
+      realm: convertTpl(params?.get("realm") ?? ""),
+      placement:
+        placementValue === "query" || placementValue === "body"
+          ? placementValue
+          : params?.get("addParamsToHeader") === "false"
+            ? "query"
+            : "header",
+      include_body_hash: params?.get("includeBodyHash") === "true",
+    }
+  }
+  if (type === "oauth2") {
+    const defaults = defaultOAuth2Auth()
+    const rawGrant = params?.get("grant_type") ?? params?.get("grantType")
+    const grant_type =
+      rawGrant === "client_credentials" ||
+      rawGrant === "implicit" ||
+      rawGrant === "password"
+        ? rawGrant
+        : "authorization_code"
+    const challenge = params?.get("code_challenge_method")
+    return {
+      ...defaults,
+      grant_type,
+      authorization_url: convertTpl(params?.get("authUrl") ?? ""),
+      access_token_url: convertTpl(params?.get("accessTokenUrl") ?? ""),
+      refresh_token_url: convertTpl(params?.get("refreshTokenUrl") ?? ""),
+      client_id: convertTpl(params?.get("clientId") ?? ""),
+      client_secret: convertTpl(params?.get("clientSecret") ?? ""),
+      username: convertTpl(params?.get("username") ?? ""),
+      password: convertTpl(params?.get("password") ?? ""),
+      scope: convertTpl(params?.get("scope") ?? ""),
+      audience: convertTpl(params?.get("audience") ?? ""),
+      redirect_uri: convertTpl(
+        params?.get("redirect_uri") ??
+          params?.get("redirectUri") ??
+          defaults.redirect_uri,
+      ),
+      pkce: challenge === "S256" || challenge === "plain",
+      pkce_method: challenge === "plain" ? "plain" : "S256",
+      credentials_placement:
+        params?.get("client_authentication") === "basic" ||
+        params?.get("client_authentication") === "header"
+          ? "basic"
+          : "body",
+      token_placement:
+        params?.get("addTokenTo") === "queryParams" ? "query" : "header",
+      token_prefix: params?.get("headerPrefix") ?? defaults.token_prefix,
     }
   }
 

@@ -9,6 +9,7 @@ import type {
 } from "../../schema"
 import type { ImportResult } from "../index"
 import { METHOD_UPPER, slugify } from "../shared"
+import { defaultOAuth1Auth, defaultOAuth2Auth } from "../../auth/defaults"
 
 type RawResource = Record<string, unknown>
 
@@ -86,6 +87,72 @@ function mapAuth(value: unknown): Auth {
       key: stringValue(auth.key),
       value: convertTpl(stringValue(auth.value)),
       placement: auth.addTo === "query" ? "query" : "header",
+    }
+  }
+  if (auth.type === "oauth1") {
+    const defaults = defaultOAuth1Auth()
+    const signature =
+      stringValue(auth.signatureMethod) || defaults.signature_method
+    return {
+      ...defaults,
+      consumer_key: convertTpl(stringValue(auth.consumerKey)),
+      consumer_secret: convertTpl(stringValue(auth.consumerSecret)),
+      access_token: convertTpl(
+        stringValue(auth.tokenKey) || stringValue(auth.accessToken),
+      ),
+      access_token_secret: convertTpl(stringValue(auth.tokenSecret)),
+      signature_method: [
+        "HMAC-SHA1",
+        "HMAC-SHA256",
+        "HMAC-SHA512",
+        "RSA-SHA1",
+        "RSA-SHA256",
+        "RSA-SHA512",
+        "PLAINTEXT",
+      ].includes(signature)
+        ? (signature as typeof defaults.signature_method)
+        : defaults.signature_method,
+      private_key: convertTpl(stringValue(auth.privateKey)),
+      realm: convertTpl(stringValue(auth.realm)),
+      callback_url: convertTpl(stringValue(auth.callbackUrl)),
+      verifier: convertTpl(stringValue(auth.verifier)),
+      nonce: convertTpl(stringValue(auth.nonce)),
+      timestamp: convertTpl(stringValue(auth.timestamp)),
+      placement:
+        auth.addTo === "query" || auth.addTo === "body" ? auth.addTo : "header",
+      include_body_hash: auth.includeBodyHash === true,
+    }
+  }
+  if (auth.type === "oauth2") {
+    const defaults = defaultOAuth2Auth()
+    const rawGrant = stringValue(auth.grantType || auth.grant_type)
+    const grant_type =
+      rawGrant === "client_credentials" ||
+      rawGrant === "implicit" ||
+      rawGrant === "password"
+        ? rawGrant
+        : "authorization_code"
+    return {
+      ...defaults,
+      grant_type,
+      authorization_url: convertTpl(stringValue(auth.authorizationUrl)),
+      access_token_url: convertTpl(stringValue(auth.accessTokenUrl)),
+      refresh_token_url: convertTpl(stringValue(auth.refreshTokenUrl)),
+      client_id: convertTpl(stringValue(auth.clientId)),
+      client_secret: convertTpl(stringValue(auth.clientSecret)),
+      username: convertTpl(stringValue(auth.username)),
+      password: convertTpl(stringValue(auth.password)),
+      scope: convertTpl(stringValue(auth.scope)),
+      audience: convertTpl(stringValue(auth.audience)),
+      redirect_uri:
+        convertTpl(stringValue(auth.redirectUrl || auth.redirectUri)) ||
+        defaults.redirect_uri,
+      pkce: auth.usePkceGrant !== false,
+      pkce_method: auth.pkceMethod === "plain" ? "plain" : "S256",
+      credentials_placement:
+        auth.credentialsInBody === false ? "basic" : "body",
+      token_placement: auth.addTo === "query" ? "query" : "header",
+      token_prefix: stringValue(auth.tokenPrefix) || defaults.token_prefix,
     }
   }
   return { type: "none" }

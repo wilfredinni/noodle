@@ -100,6 +100,122 @@ function postmanAuth(auth: Auth | undefined): PostmanObject | undefined {
     }
     return { type: "awsv4", awsv4 }
   }
+  if (auth.type === "oauth1") {
+    return {
+      type: "oauth1",
+      oauth1: [
+        {
+          key: "consumerKey",
+          value: toPostmanTpl(auth.consumer_key),
+          type: "string",
+        },
+        {
+          key: "consumerSecret",
+          value: toPostmanTpl(auth.consumer_secret),
+          type: "string",
+        },
+        {
+          key: "token",
+          value: toPostmanTpl(auth.access_token),
+          type: "string",
+        },
+        {
+          key: "tokenSecret",
+          value: toPostmanTpl(auth.access_token_secret),
+          type: "string",
+        },
+        {
+          key: "signatureMethod",
+          value: auth.signature_method,
+          type: "string",
+        },
+        {
+          key: "privateKey",
+          value: toPostmanTpl(auth.private_key),
+          type: "string",
+        },
+        { key: "privateKeyType", value: auth.private_key_type, type: "string" },
+        {
+          key: "callbackUrl",
+          value: toPostmanTpl(auth.callback_url),
+          type: "string",
+        },
+        { key: "verifier", value: toPostmanTpl(auth.verifier), type: "string" },
+        {
+          key: "timestamp",
+          value: toPostmanTpl(auth.timestamp),
+          type: "string",
+        },
+        { key: "nonce", value: toPostmanTpl(auth.nonce), type: "string" },
+        { key: "version", value: auth.version, type: "string" },
+        { key: "realm", value: toPostmanTpl(auth.realm), type: "string" },
+        { key: "placement", value: auth.placement, type: "string" },
+        {
+          key: "includeBodyHash",
+          value: auth.include_body_hash,
+          type: "boolean",
+        },
+      ],
+    }
+  }
+  if (auth.type === "oauth2") {
+    return {
+      type: "oauth2",
+      oauth2: [
+        { key: "grant_type", value: auth.grant_type, type: "string" },
+        {
+          key: "authUrl",
+          value: toPostmanTpl(auth.authorization_url),
+          type: "string",
+        },
+        {
+          key: "accessTokenUrl",
+          value: toPostmanTpl(auth.access_token_url),
+          type: "string",
+        },
+        {
+          key: "refreshTokenUrl",
+          value: toPostmanTpl(auth.refresh_token_url),
+          type: "string",
+        },
+        {
+          key: "clientId",
+          value: toPostmanTpl(auth.client_id),
+          type: "string",
+        },
+        {
+          key: "clientSecret",
+          value: toPostmanTpl(auth.client_secret),
+          type: "string",
+        },
+        { key: "username", value: toPostmanTpl(auth.username), type: "string" },
+        { key: "password", value: toPostmanTpl(auth.password), type: "string" },
+        { key: "scope", value: toPostmanTpl(auth.scope), type: "string" },
+        { key: "audience", value: toPostmanTpl(auth.audience), type: "string" },
+        {
+          key: "redirect_uri",
+          value: toPostmanTpl(auth.redirect_uri),
+          type: "string",
+        },
+        {
+          key: "client_authentication",
+          value: auth.credentials_placement,
+          type: "string",
+        },
+        {
+          key: "code_challenge_method",
+          value: auth.pkce ? auth.pkce_method : "",
+          type: "string",
+        },
+        {
+          key: "addTokenTo",
+          value: auth.token_placement === "query" ? "queryParams" : "header",
+          type: "string",
+        },
+        { key: "headerPrefix", value: auth.token_prefix, type: "string" },
+      ],
+    }
+  }
   return {
     type: "apikey",
     apikey: [

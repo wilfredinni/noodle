@@ -183,7 +183,7 @@ describe("insomniaImporter", () => {
       formData: [
         { name: "upload", value: "$file", enabled: true, type: "file" },
       ],
-      auth: { type: "none" },
+      auth: { type: "oauth2", grant_type: "authorization_code" },
     })
     expect(binary).toMatchObject({
       bodyType: "binary",
@@ -218,6 +218,71 @@ describe("insomniaImporter", () => {
       password: "$password",
       domain: "EXAMPLE",
       workstation: "NOODLE",
+    })
+  })
+
+  it("maps known OAuth 1 and OAuth 2 authentication fields", () => {
+    const result = insomniaImporter.import(
+      exportJson([
+        { _id: "wrk", _type: "workspace", name: "OAuth" },
+        {
+          _id: "oauth1",
+          _type: "request",
+          parentId: "wrk",
+          name: "OAuth 1",
+          method: "GET",
+          url: "https://x",
+          authentication: {
+            type: "oauth1",
+            consumerKey: "{{ consumer_key }}",
+            consumerSecret: "{{ consumer_secret }}",
+            tokenKey: "{{ access_token }}",
+            tokenSecret: "{{ token_secret }}",
+            signatureMethod: "HMAC-SHA256",
+            addTo: "query",
+            includeBodyHash: true,
+          },
+        },
+        {
+          _id: "oauth2",
+          _type: "request",
+          parentId: "wrk",
+          name: "OAuth 2",
+          method: "GET",
+          url: "https://x",
+          authentication: {
+            type: "oauth2",
+            grantType: "client_credentials",
+            accessTokenUrl: "https://identity.example/token",
+            clientId: "{{ client_id }}",
+            clientSecret: "{{ client_secret }}",
+            scope: "read write",
+            credentialsInBody: false,
+            addTo: "query",
+          },
+        },
+      ]),
+    )
+    const [oauth1, oauth2] = requests(result.collection.items)
+    expect(oauth1?.auth).toMatchObject({
+      type: "oauth1",
+      consumer_key: "$consumer_key",
+      consumer_secret: "$consumer_secret",
+      access_token: "$access_token",
+      access_token_secret: "$token_secret",
+      signature_method: "HMAC-SHA256",
+      placement: "query",
+      include_body_hash: true,
+    })
+    expect(oauth2?.auth).toMatchObject({
+      type: "oauth2",
+      grant_type: "client_credentials",
+      access_token_url: "https://identity.example/token",
+      client_id: "$client_id",
+      client_secret: "$client_secret",
+      scope: "read write",
+      credentials_placement: "basic",
+      token_placement: "query",
     })
   })
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { exportOpenApi } from "../../src/converters/openapi"
+import { defaultOAuth2Auth } from "../../src/auth/defaults"
 import type { Collection, Request } from "../../src/schema"
 
 type Operation = { requestBody?: unknown; servers?: unknown }
@@ -24,6 +25,109 @@ function collection(items: Collection["items"]): Collection {
 }
 
 describe("exportOpenApi", () => {
+  it("exports and combines all four OAuth 2 flows without credentials", () => {
+    const grants = [
+      "authorization_code",
+      "client_credentials",
+      "implicit",
+      "password",
+    ] as const
+    const result = exportOpenApi(
+      collection(
+        grants.map((grant, index) => ({
+          type: "request" as const,
+          data: request({
+            id: grant,
+            url: `https://api.example.com/oauth-${index}`,
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: grant,
+              authorization_url: `https://identity.example/${grant}/authorize`,
+              access_token_url: `https://identity.example/${grant}/token`,
+              refresh_token_url: `https://identity.example/${grant}/refresh`,
+              client_id: "must-not-export",
+              client_secret: "must-not-export",
+              scope: "read write",
+            },
+          }),
+        })),
+      ),
+    )
+    expect(result.document.components).toMatchObject({
+      securitySchemes: {
+        oauth2Auth: {
+          type: "oauth2",
+          flows: {
+            authorizationCode: {
+              authorizationUrl:
+                "https://identity.example/authorization_code/authorize",
+              tokenUrl: "https://identity.example/authorization_code/token",
+              refreshUrl: "https://identity.example/authorization_code/refresh",
+              scopes: { read: "", write: "" },
+            },
+            clientCredentials: {
+              tokenUrl: "https://identity.example/client_credentials/token",
+            },
+            implicit: {
+              authorizationUrl: "https://identity.example/implicit/authorize",
+            },
+            password: {
+              tokenUrl: "https://identity.example/password/token",
+            },
+          },
+        },
+      },
+    })
+    expect(JSON.stringify(result.document)).not.toContain("must-not-export")
+  })
+
+  it("keeps incompatible OAuth 2 flows in separate security schemes", () => {
+    const result = exportOpenApi(
+      collection(
+        ["one", "two"].map((provider) => ({
+          type: "request" as const,
+          data: request({
+            id: provider,
+            url: `https://api.example.com/${provider}`,
+            auth: {
+              ...defaultOAuth2Auth(),
+              grant_type: "client_credentials",
+              access_token_url: `https://identity.${provider}/token`,
+              scope: provider,
+            },
+          }),
+        })),
+      ),
+    )
+
+    expect(result.document.components).toEqual({
+      securitySchemes: {
+        oauth2Auth: {
+          type: "oauth2",
+          flows: {
+            clientCredentials: {
+              tokenUrl: "https://identity.one/token",
+              scopes: { one: "" },
+            },
+          },
+        },
+        oauth2Auth2: {
+          type: "oauth2",
+          flows: {
+            clientCredentials: {
+              tokenUrl: "https://identity.two/token",
+              scopes: { two: "" },
+            },
+          },
+        },
+      },
+    })
+    expect(result.document.paths).toMatchObject({
+      "/one": { get: { security: [{ oauth2Auth: ["one"] }] } },
+      "/two": { get: { security: [{ oauth2Auth2: ["two"] }] } },
+    })
+  })
+
   it("exports resolved folder settings, enabled parameters, tags, and a server variable", () => {
     const result = exportOpenApi(
       collection([
