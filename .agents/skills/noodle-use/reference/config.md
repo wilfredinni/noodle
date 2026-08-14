@@ -77,6 +77,13 @@ Each entry shows: ID, default key, description, whether it's `fixed` (cannot be 
 | `env_new` | `Ctrl+N` | Create new environment (env editor) | no |
 | `env_clone` | `Ctrl+K` | Clone environment (env editor) | no |
 | `env_delete` | `Ctrl+W` | Delete environment (env editor) | no |
+| `cookie_jar_open` | unbound | Open Cookies | no |
+| `cookie_edit` | `Ctrl+E` | Edit selected cookie | no |
+| `cookie_delete` | `Ctrl+W` | Delete selected domain | no |
+| `cookie_delete_domain` | `Ctrl+D` | Delete selected cookie | no |
+| `cookie_clear` | `Ctrl+Alt+W` | Clear the cookie jar | no |
+| `cookie_new` | `Ctrl+N` | Add a cookie | no |
+| `cookie_copy` | `Ctrl+B` | Copy selected cookie | no |
 
 Browse/edit mode keys (`request_edit`, `browse_up`, `browse_down`, `browse_left`, `browse_right`, `browse_enter`, `browse_escape`, `edit_commit`, `edit_cancel`, `browse_toggle_form_type`) are all `fixed` and cannot be overridden. They are not listed in the table above — only keys usable in `keybinds.yml` are shown.
 

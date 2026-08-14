@@ -45,6 +45,7 @@ const TIPS = [
   "check for updates with {noodle update} or {^P} then Update Noodle",
   "press {e} to search environments; use {F3} to open the editor",
   "open Settings with {F4} to configure proxies, TLS, collections, and shortcuts",
+  "open {^P}, choose Cookies to inspect and manage the collection cookie jar",
   "create an environment with {^N} in the environment editor",
   "mark an environment value secret with {s} in environment browse mode",
   "temporarily disable TLS verification with {noodle --insecure}",

@@ -4,6 +4,33 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-08-14
+
+![Noodle aws sig](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/cookie-tab.png)
+
+Noodle 0.7.3 adds a persistent cookie jar to each collection, including automatic cookie handling across redirects, collection and request controls, a dedicated TUI workspace, and automation commands. Cookie storage prefers OS-vault-backed encryption, exposes clear health warnings, and preserves unreadable state before an explicit reset.
+
+### ✨ Features
+
+- Add a per-collection cookie jar that captures `Set-Cookie` headers, sends matching cookies on later requests and redirect hops, and lets user-authored `Cookie` values override jar values with the same name.
+- Add a **Cookies** workspace for filtering, inspecting, expanding, adding, editing, copying, and deleting cookies by domain, plus storage retry and reset controls. Add configurable cookie shortcuts, a Cookies response tab for sent and received cookies, and a collection Settings toggle.
+- Add `sendCookies: false` for suppressing jar cookies on one request while still capturing its response cookies, and honor the collection and request controls in TUI and automation runs.
+- Add `noodle cookie list` and `noodle cookie clear` for inspecting jar contents and storage health or clearing the jar. Unreadable storage is skipped during runs and backed up before an explicit clear resets it.
+- Store jars under the Noodle config directory with an OS-vault-backed encryption key. When the vault is unavailable, use a mode-`0600` plaintext file and report a persistent warning.
+
+### 🐞 Fixes
+
+- Capture response cookies from every NTLM handshake response and continue capturing them when sending jar cookies is disabled for the request.
+- Keep concurrent jar handles synchronized before sends and writes, flush pending cookie changes during shutdown, and surface persistence failures instead of silently replacing unreadable state.
+- Keep cookie forms, filtering, selection, expansion, and modal keyboard handling aligned with the active cookie and current view.
+
+### 📚 Documentation
+
+- Update the README, `AGENTS.md`, and in-app tips with cookie storage, recovery, request controls, response inspection, and current TUI shortcuts.
+- Update `noodle-dev` with the cookie persistence, request lifecycle, UI, keymap, automation, and test architecture.
+- Update `noodle-use` with cookie settings, request schema, keybindings, automation commands, storage diagnostics, and recovery guidance.
+- Document cookie jar behavior, controls, storage security, CLI commands, and agent workflows on the documentation site.
+
 ## [0.7.2] - 2026-08-12
 
 ![Noodle aws sig](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/aws-auth.png)
@@ -428,7 +455,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/wilfredinni/noodle/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/wilfredinni/noodle/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/wilfredinni/noodle/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/wilfredinni/noodle/compare/v0.6.2...v0.7.0

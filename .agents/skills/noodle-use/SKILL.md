@@ -27,7 +27,7 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode — that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies/auth/headers/params, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies/auth/headers/params, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
 `$VARNAME` (no braces). Regex `/\$(\w+)/g`. Applied to: url, headers, params, body, formData, filePath, auth fields. Unresolved variables cause noodle to throw at runtime — always verify all `$var` references resolve to an env declaration.
@@ -60,8 +60,8 @@ auth:
 
 ### Collection settings
 `settings.yml` at collection root supports generated `collection_id` plus optional
-`name`, multiline `description`, `timeline_max_entries`, `environment`, `proxy`,
-and `tls` fields.
+`name`, multiline `description`, `timeline_max_entries`, `environment`, `cookies`,
+`proxy`, and `tls` fields.
 Timeline retention defaults to 50 responses per request; `0` disables history.
 Collection proxy mode is `inherit`, `off`, or `custom`. A custom proxy uses a
 credential-free HTTP(S) URL plus an optional bypass list. Authentication is
@@ -76,8 +76,11 @@ Collection cookies are enabled by default and stored per collection. Use the
 non-interactive `cookie list` command to inspect cookies plus storage warnings;
 use `cookie clear` for explicit recovery because it backs up unreadable state
 before resetting the jar. Plaintext fallback is mode `0600` and always reported.
-Settings parsing is strict: malformed YAML, unknown keys, wrong types, and invalid
-proxy/TLS blocks fail collection opening, auditing, and execution.
+Request `sendCookies: false` suppresses jar cookies on the outgoing request but
+still captures response cookies. Cookie values are sensitive, and `cookie list`
+includes them in both human and JSON output; never expose that output in logs.
+Settings parsing is strict: malformed YAML, unknown keys, wrong types, and
+invalid proxy/TLS/cookie blocks fail collection opening, auditing, and execution.
 
 ### Path safety
 When creating/deleting files, only operate within the collection directory. Never create files outside the collection root. IDs must not contain `..`, leading `/`, backslashes, empty path segments, or hidden path segments.

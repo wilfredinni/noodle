@@ -12,6 +12,7 @@ export function CookieJarView({
   onPaneFocus = () => {},
   onRetry,
   onReset,
+  resetKey,
 }: {
   view: UseCookieJarViewResult
   status: CookieJarStatus
@@ -20,6 +21,7 @@ export function CookieJarView({
   onPaneFocus?: (focus: Focus) => void
   onRetry?: () => void
   onReset?: () => void
+  resetKey?: string
 }) {
   return (
     <box style={{ flexDirection: "row", flexGrow: 1, gap: 1, minHeight: 0 }}>
@@ -44,6 +46,7 @@ export function CookieJarView({
         onPaneFocus={() => onPaneFocus("cookie-list")}
         onRetry={onRetry}
         onReset={onReset}
+        resetKey={resetKey}
       />
     </box>
   )

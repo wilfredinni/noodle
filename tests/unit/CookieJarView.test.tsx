@@ -431,6 +431,7 @@ describe("CookieJarView", () => {
             ),
           }}
           focus="cookie-list"
+          resetKey="^shift+x"
         />
       </ThemeProvider>,
       { width: 120, height: 12 },
@@ -441,6 +442,6 @@ describe("CookieJarView", () => {
     expect(frame).toContain("Cookie storage is malformed")
     expect(frame).toContain("malformed · /tmp/cookies/demo.json")
     expect(frame).toContain("Retry (r)")
-    expect(frame).toContain("Reset with backup (^K)")
+    expect(frame).toContain("Reset with backup (^shift+x)")
   })
 })

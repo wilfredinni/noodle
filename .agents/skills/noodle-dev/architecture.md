@@ -89,6 +89,8 @@ name: Payments API # Optional display name
 description: Requests for the payments platform. # Optional notes
 timeline_max_entries: 50 # Per-request history retention; 0 disables
 environment: development # Last active environment name
+cookies:
+  enabled: true # Default; disable the jar for this collection with false
 proxy:
   mode: custom # "inherit", "off", or "custom"
   url: http://proxy.example:8080
@@ -111,12 +113,28 @@ evicted large-body sidecars. Collection proxy mode is `inherit`, `off`, or
 Custom URLs reject credentials and variables. `auth: true` records that
 credentials are enabled; the username and optional password live in the OS
 vault. `--noproxy` overrides every saved policy for a single TUI or automation
-run. TLS supports verification, one custom CA bundle, and exact-host/port PEM
+run. `cookies.enabled` defaults to `true`; disabling it prevents both sending
+and capturing collection jar cookies. TLS supports verification, one custom CA
+bundle, and exact-host/port PEM
 client certificates. Encrypted-key passphrases live in the vault and profiles
 retain only a generated `secret_id`; `--insecure` disables verification for one
 run. `collection_id` is generated and persisted so collection-scoped vault
 accounts survive directory moves. Settings load as `{}` when the file is
 missing or empty. Invalid settings throw and terminate bootstrap.
+
+### Cookie jar
+
+`src/cookies/index.ts` owns one `tough-cookie` jar per generated
+`collection_id`. Jars live outside collections at
+`~/.config/noodle/cookies/<collection_id>.json`, use an OS-vault-backed
+AES-GCM key when available, and fall back to a mode-`0600` plaintext file with
+a persistent warning. Lock files plus an append-only mutation journal keep
+concurrent handles from overwriting one another.
+
+Opening malformed, undecryptable, or otherwise unreadable storage returns an
+`unavailable` status. Requests continue without jar cookies and do not replace
+the file. Retry reopens the jar; reset first renames existing storage to a
+timestamped backup. `flushAll()` persists pending mutations before shutdown.
 
 ### User-relative file paths
 
@@ -159,6 +177,7 @@ Follow existing patterns:
 - **New hidden directory**: Add name to `SKIP_DIRS` in `load.ts` so `walk()` skips it
 - **Global user config**: Use `~/.config/noodle/config.yml` via `useConfig` hook
 - **Secrets**: Store values through `src/secrets/index.ts`; persist only declaration or ID metadata and wrap coupled settings/vault changes in `applySettingsSecretTransaction()`
+- **Cookie jars**: Keep runtime jar state under the Noodle config directory and namespace it by `collection_id`; never put cookie values in collection YAML
 
 ## Code editor architecture
 
@@ -317,6 +336,8 @@ filestore/       ← Disk I/O: loadCollection, saveRequest, deleteRequest, timel
   ↓
 env/             ← Dotenv files: loadEnvironment, listEnvironments, save, clone
   ↓
+cookies/         ← Per-collection tough-cookie jar, encrypted persistence, locking, recovery
+  ↓
 requests/        ← HTTP layer: send, substitute, mergeFolderOverrides, authHeader
   ↓
 hooks/           ← React state: useCollection, useRequestDraft, useResponse, useEditBrowse, useEnvironments,
@@ -360,10 +381,12 @@ Each layer only depends on layers above it. UI orchestration hooks and editor ov
      3. Build URL with params
      4. Set auth headers via authHeader()
      5. Resolve proxy and TLS policy from RequestExecutionOptions
-     6. fetch() with proxy/TLS options and AbortSignal.timeout
-     7. Manually follow HTTP(S) redirects; block downgrades and strip cross-origin credentials
+     6. Merge matching jar cookies for this redirect leg unless `sendCookies: false`; explicit request cookies win by name
+     7. fetch() with proxy/TLS options and AbortSignal.timeout
+     8. Capture each response's Set-Cookie headers, including redirect and NTLM handshake responses
+     9. Manually follow HTTP(S) redirects; block downgrades and strip cross-origin credentials
   → useResponse: SendState FSM → idle → sending → done | error
-  → ResponsePane: renders body (JSON highlighting), headers, timeline
+  → ResponsePane: renders body (JSON highlighting), headers, network, timeline, and final-leg sent/received cookies
 ```
 
 ## Component tree
@@ -391,6 +414,9 @@ App (src/ui/App.tsx)
       │   ├── EnvSidebar
       │   ├── EnvHeaderPane
       │   └── EnvEditorPane
+      ├── CookieJarView         ← 2-pane cookie workspace (domain sidebar + cookie list)
+      │   ├── CookieJarSidebar
+      │   └── CookieJarPane
       ├── [overlays] (rendered in AppOverlays.tsx)
       │   ├── PickerOverlay (generic base) → used by command, collection, environment, theme, and request pickers
       │   ├── HelpOverlay, YamlEditorOverlay (CodeEditor for YAML)
@@ -408,6 +434,7 @@ App (src/ui/App.tsx)
 - Main cycle: `sidebar → urlbar → request → response` (4 panes, wraps)
 - Folder cycle: `sidebar → folder` (2 panes, when selected item is a folder)
 - Env editor cycle: `env-sidebar → env-header → env-vars` (3 panes)
+- Cookie jar cycle: `cookie-sidebar → cookie-list` (2 panes)
 - Active pane gets **cyan border** (`theme.primary`) via `borders.ts` FullBorder/LeftBar presets
 - `toggleExpand()` switches between null, `"request"`, `"response"` — F2 expands/collapses focused pane
 - `getContextualSegments()` in `StatusBar.tsx` derives shortcut hints from focus, edit mode, view, collection mode, active tab, and response-filter visibility
@@ -438,7 +465,7 @@ createMain(main) — citty argparse
    │     ├── Caches validated manifest data for one hour, with a seven-day stale fallback
    │     └── Downloads, SHA-256 verifies, and atomically replaces standalone binary
    │
-   └── "workspace" | "collection" | "request" | "environment" | "secret"
+   └── "workspace" | "collection" | "request" | "environment" | "secret" | "cookie"
          └── commands/automation.ts → services.ts → filestore/env/executor
               ├── non-interactive resource operations
               ├── optional --json result envelope via commandResult.ts
@@ -467,13 +494,14 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Update mode** (`src/app/commands/update.ts`): Standalone release binaries read the Noodle update manifest and cache its validated version and checksums in `~/.config/noodle/update-cache.json`. A valid cached manifest avoids repeat checks for one hour and remains available for update fallback for seven days. Downloaded binaries must match the manifest SHA-256 before atomic replacement. Homebrew installs run `brew upgrade noodle`; Bun development runtimes cannot self-update.
 
-**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, and secure value set/list/delete. Run commands support one-shot `--noproxy` and `--insecure` overrides. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. Run commands support one-shot `--noproxy` and `--insecure` overrides and use the same collection jar as the TUI. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
 **Config files** (read during startup):
 
 - `~/.config/noodle/keybinds.yml` — user keybinding overrides
 - `~/.config/noodle/config.yml` — theme, layout, undo confirmation, registered collections, and credential-free global proxy policy
-- `<collection>/settings.yml` — collection ID/metadata, timeline retention, active environment, credential-free proxy policy, and TLS metadata
+- `~/.config/noodle/cookies/<collection_id>.json` stores the encrypted or explicitly warned plaintext cookie jar
+- `<collection>/settings.yml`: collection ID/metadata, timeline retention, active environment, cookie toggle, credential-free proxy policy, and TLS metadata
 - `<collection>/.noodle/ui-state.yml` — last selected item, expanded folders, and per-request tab state
 
 ## State management
@@ -487,6 +515,8 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 | `useEditBrowse`        | `src/hooks/useEditBrowse.ts`        | `EditState` — `{mode, cursor: {field, row, subfield, addingRow}}`                           |
 | `useFolderEditBrowse`  | `src/hooks/useFolderEditBrowse.ts`  | Edit/browse for folder fields (meta/headers/auth/activity)                                  |
 | `useResponse`          | `src/hooks/useResponse.ts`          | `SendState` — `{status, response, error}`                                                   |
+| `useCollectionCookieJar` | `src/hooks/useCollectionCookieJar.ts` | Jar handle, storage status, flush, retry, and reset                                        |
+| `useCookieJarView`     | `src/hooks/useCookieJarView.ts`      | Domain grouping, cookie selection, expansion, filtering, and mutations                     |
 | `useEnvironments`      | `src/hooks/useEnvironments.ts`      | Active environment name/index/data, indicator status, selection, cycling, reload            |
 | `useEnvironmentEditor` | `src/hooks/useEnvironmentEditor.ts` | Full env CRUD state plus validated name/color creation                                      |
 | `useConfig`            | `src/hooks/useConfig.ts`            | `{theme, layout, confirm_undo_all, collections}` persisted to `~/.config/noodle/config.yml` |
@@ -512,6 +542,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 | Env Editor    | `view=env-editor`, `overlay=none`                                  | Save/new/clone/delete environment                                                                                                                 |
 | Env Browse    | `view=env-editor`, `focus=env-vars`, `mode=browse`, `overlay=none` | Arrow nav, enter/escape, toggle, revert                                                                                                           |
 | Env Edit      | `view=env-editor`, `focus=env-vars`, `mode=edit`, `overlay=none`   | Commit, cancel, tab, save                                                                                                                         |
+| Cookie Jar    | `view=cookie-jar`, `overlay=none`                                  | Close, domain/cookie navigation, filter, expand, add/edit/copy/delete, clear, retry                                                           |
 
 State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mode", ...)`, `keymap.setData("app.overlay", ...)`, `keymap.setData("app.view", ...)`.
 
@@ -525,6 +556,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | File I/O                    | `src/filestore/load.ts`, `src/filestore/save.ts`, `src/filestore/timeline.ts`                                                                                                                                                                                                                                                |
 | Environments                | `src/env/load.ts`, `src/env/save.ts`                                                                                                                                                                                                                                                                                         |
 | Secrets and redaction       | `src/secrets/index.ts`, `src/secrets/redact.ts`                                                                                                                                                                                                                                                                              |
+| Cookie storage and UI       | `src/cookies/index.ts`, `src/hooks/useCollectionCookieJar.ts`, `src/hooks/useCookieJarView.ts`, `src/ui/cookie-jar/`, `src/ui/overlays/CookieFormOverlay.tsx`                                                                                                                  |
 | HTTP execution              | `src/requests/send.ts`, `src/requests/substitute.ts`, `src/requests/mergeFolderOverrides.ts`                                                                                                                                                                                                                                 |
 | TLS and proxy policy        | `src/tls.ts`, `src/proxy.ts`                                                                                                                                                                                                                                                                                                 |
 | Hooks                       | `src/hooks/*.ts`                                                                                                                                                                                                                                                                                                             |

@@ -291,6 +291,14 @@ meta:
 
 Timeline history stores ordinary substituted request values and server response fields on disk under `.timeline/`. Noodle redacts declared environment secrets, proxy/TLS settings secrets, sensitive headers, and literal auth credentials from request snapshots before persistence, but public variables and response payloads remain intact. Treat `.timeline/` as sensitive data and avoid committing it.
 
+## Cookie storage security
+
+Collection jars live outside the collection under `~/.config/noodle/cookies/`
+and may contain session tokens. Noodle prefers OS-vault-backed encryption and
+reports when it falls back to a mode-`0600` plaintext file. `noodle cookie list`
+prints cookie values, so redact its output before sharing it and never include
+it in routine audit logs.
+
 ## Environment checks
 
 ### Unused variables

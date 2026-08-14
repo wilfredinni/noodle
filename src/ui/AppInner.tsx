@@ -65,7 +65,7 @@ import { showToast } from "./Toast"
 import { type EnvHeaderPaneHandle } from "./env-editor/EnvHeaderPane"
 
 import type { FinderItem } from "./requestFinder"
-import { type KeybindName, type Keybinds } from "./keybind"
+import { displayKey, type KeybindName, type Keybinds } from "./keybind"
 import { useSaveFile } from "./useSaveFile"
 import { useAppKeymap } from "./useAppKeymap"
 import {
@@ -1610,6 +1610,7 @@ export function AppInner({
             onPaneFocus={focusPane}
             onRetry={retryCookieStorage}
             onReset={requestCookieStorageReset}
+            resetKey={displayKey(keybinds.cookie_clear)}
           />
         ) : view === "settings" ? (
           <SettingsView

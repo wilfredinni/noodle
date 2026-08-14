@@ -21,6 +21,7 @@ export function CookieJarPane({
   onPaneFocus,
   onRetry,
   onReset,
+  resetKey = "^alt+w",
 }: {
   view: UseCookieJarViewResult
   status: CookieJarStatus
@@ -30,6 +31,7 @@ export function CookieJarPane({
   onPaneFocus?: () => void
   onRetry?: () => void
   onReset?: () => void
+  resetKey?: string
 }) {
   const theme = useTheme()
   const cookies = view.cookies
@@ -113,7 +115,7 @@ export function CookieJarPane({
                 event.stopPropagation()
               }}
             >
-              <text fg={theme.error}>Reset with backup (^K)</text>
+              <text fg={theme.error}>Reset with backup ({resetKey})</text>
             </box>
           </box>
         </box>

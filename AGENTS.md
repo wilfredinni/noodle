@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (~2466 across 161 files)
+bun test                              # all tests (~2630 across 169 files)
 bun test tests/lang.test.ts           # single file
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
@@ -349,15 +349,17 @@ In the cookie jar, only these cookie jar targets are available:
 |-----|--------|
 | `↑/↓` | Select domain (sidebar) or cookie (list) |
 | `Ctrl+N` | Add a cookie (modal form: name, value, domain, path, expires, secure, httpOnly, sameSite) |
-| `Enter` | Edit the selected cookie |
+| `Ctrl+E` | Edit the selected cookie |
+| `Enter` | Expand or collapse the selected cookie |
 | `Ctrl+B` | Copy the selected cookie as `name=value` |
 | `/` | Filter the cookie list (`Esc` clears, `Enter` keeps) |
-| `Ctrl+W` | Delete the selected cookie (confirms) |
-| `Ctrl+D` | Delete all cookies for the selected domain (confirms) |
-| `Ctrl+K` | Clear the entire cookie jar (confirms) |
+| `Ctrl+W` | Delete all cookies for the selected domain (confirms) |
+| `Ctrl+D` | Delete the selected cookie (confirms) |
+| `Ctrl+Alt+W` | Clear the entire cookie jar (confirms and backs up unreadable storage) |
+| `r` | Retry unavailable cookie storage |
 | `Esc` | Close the cookie jar view |
 
-The cookie jar is opened from the command palette (**Open Cookie Jar**). It captures `Set-Cookie` response headers and re-sends matching cookies on later requests (per redirect hop; user-authored Cookie headers win on name conflicts). The response pane's Cookies tab lists the final response's `Set-Cookie` entries. One jar per collection, stored encrypted at `~/.config/noodle/cookies/<collection_id>.json` with the key in the OS vault; falls back to plaintext `0600` when the vault is unavailable. Controlled per collection via `cookies.enabled` in `settings.yml` (default on), per request via `sendCookies: false` in request YAML, and honored by `collection run` / `request run`.
+The cookie jar is opened from the command palette (**Cookies**). It captures `Set-Cookie` response headers and re-sends matching cookies on later requests (per redirect hop; user-authored Cookie headers win on name conflicts). The response pane's Cookies tab lists cookies sent on the final request leg and the final response's `Set-Cookie` entries. One jar per collection, stored encrypted at `~/.config/noodle/cookies/<collection_id>.json` with the key in the OS vault; falls back to plaintext `0600` when the vault is unavailable. Controlled per collection via `cookies.enabled` in `settings.yml` (default on), per request via `sendCookies: false` in request YAML, and honored by `collection run` / `request run`. Per-request suppression prevents sending jar cookies but still captures response cookies.
 
 ## Focus model
 

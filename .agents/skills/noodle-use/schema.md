@@ -14,6 +14,7 @@ One request per file. Fields:
 | `timeout` | yes | number | `0` | Request timeout in ms. `0` = no timeout |
 | `followRedirects` | no | boolean | `true` | Whether to follow HTTP redirects |
 | `maxRedirects` | no | number | `5` | Maximum redirect chain length |
+| `sendCookies` | no | boolean | `true` | Send matching cookies from the collection jar. `false` still captures response cookies. |
 | `body_type` | no | string | `"none"` | Body encoding: `none`, `json`, `multipart`, `urlencoded`, `binary` |
 | `headers` | no | map | `{}` | Request headers. Omit if empty |
 | `params` | no | list | `[]` | URL query parameters. Omit if empty. See format below. |
@@ -215,6 +216,8 @@ description: |-
   Requests for the payments platform.
 timeline_max_entries: 50
 environment: development
+cookies:
+  enabled: true
 proxy:
   mode: custom
   url: http://proxy.example:8080
@@ -238,12 +241,13 @@ tls:
 - `description`: optional multiline collection notes
 - `timeline_max_entries`: optional non-negative integer; defaults to 50, and `0` disables history
 - `environment`: default active environment name; must match an env file in `.environments/`
+- `cookies`: optional collection cookie policy with `enabled` (boolean). The jar is enabled by default. `false` prevents both sending and capturing jar cookies for the collection.
 - `proxy`: optional collection proxy policy. Use `inherit` to follow global settings, `off` for direct connections, or `custom` with a credential-free `http` or `https` URL and optional bypass list. Settings persists `auth: true` when proxy authentication is enabled; credentials live in the OS vault. URLs containing credentials or variables are invalid.
 - `tls`: optional collection TLS policy with `verify` (boolean), `ca_bundle` (PEM path), and `client_certificates` (list). Each client certificate requires an exact `host`, optional `port` (default 443), `cert_file`, `key_file`, optional generated UUID `secret_id`, and optional `enabled`. Relative paths resolve from the collection root. Enter encrypted-key passphrases in Settings; do not put them in YAML.
 
 Settings are strict: unknown keys, wrong field types, malformed proxy/TLS
-blocks, and YAML errors fail loading and automation runs. A missing or empty
-file uses defaults.
+blocks, invalid cookie settings, and YAML errors fail loading and automation
+runs. A missing or empty file uses defaults.
 
 ## Variable substitution rules
 
@@ -287,7 +291,7 @@ Each entry has:
 | `envName` | string | Name of the active environment when sent |
 | `request` | object | Snapshot of the request at send time (id, name, method, url, headers, params, auth, body if present) |
 | `id` | string | Unique entry ID, used to name large-body sidecars |
-| `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number — response time in ms), `size` (number — response body size in bytes) |
+| `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number), `size` (number), `sentCookies` (final request-leg name/value pairs), and `cookies` (final response `Set-Cookie` entries) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
 
 The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment secrets, proxy/TLS secrets, sensitive headers, and literal auth credentials are redacted from persisted request fields, but ordinary variables and server response fields remain intact. Agents should read timeline data but should not create, rename, or edit sidecars directly.

@@ -5,7 +5,7 @@
 `bun test` (NOT jest/vitest). Uses `describe`, `it`, `expect` from `bun:test`.
 
 ```bash
-bun test                                    # all ~2466 tests
+bun test                                    # all ~2630 tests
 bun test tests/lang.test.ts                 # single file
 bun test --test-name-pattern "parseFolder"  # by name
 ```
@@ -94,6 +94,9 @@ Mount the visible hard-blocking overlay before pressing keys. Its shield has hig
 | Environment/settings secret storage  | `tests/secrets.test.ts`                                                                                          |
 | Proxy resolution and settings UI     | `tests/unit/proxy.test.ts`, `tests/unit/ProxySettingsForm.test.tsx`                                              |
 | TLS parsing, resolution, and loopback | `tests/unit/tls.test.ts`, `tests/integration/tls-loopback.test.ts`                                               |
+| Cookie storage and recovery           | `tests/cookies.test.ts`, `tests/unit/useCollectionCookieJar.test.tsx`                                           |
+| Cookie request flow and automation    | `tests/integration/cookies-loopback.test.ts`, `tests/integration/automation.test.ts`, `tests/unit/send.test.ts`  |
+| Cookie TUI and keymap                 | `tests/unit/CookieJarView.test.tsx`, `tests/unit/CookieFormOverlay.test.tsx`, `tests/unit/appKeymapLayers.test.ts` |
 | HTTP execution, substitution         | `tests/requests.test.ts`                                                                                         |
 | Folder overrides                     | `tests/unit/mergeFolderOverrides.test.ts`                                                                        |
 | Pure helper function                 | `tests/unit/<name>.test.ts`                                                                                      |
