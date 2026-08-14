@@ -636,10 +636,11 @@ export async function resolveOAuth2Token(
     throw new Error("OAuth 2 resolution is disabled for this request")
   const force = options.force ?? false
   const key = `${memoryKey(context.collectionDir, oauth2CredentialKey(auth))}\0${context.mode}`
-  let pending = force ? undefined : inflight.get(key)
+  const canCoalesce = !force && !context.signal
+  let pending = canCoalesce ? inflight.get(key) : undefined
   if (!pending) {
     pending = resolveUncoalesced(auth, context, force)
-    if (!force) {
+    if (canCoalesce) {
       inflight.set(key, pending)
       const clear = () => {
         if (inflight.get(key) === pending) inflight.delete(key)

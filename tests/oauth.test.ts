@@ -746,6 +746,58 @@ describe("OAuth 2 execution", () => {
     expect(new Set(results.map((result) => result.token)).size).toBe(2)
   })
 
+  it("does not share token acquisition bound to a caller signal", async () => {
+    let tokenCalls = 0
+    let markFirstSeen!: () => void
+    let releaseFirst!: () => void
+    const firstSeen = new Promise<void>((resolve) => {
+      markFirstSeen = resolve
+    })
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    const serverPort = await unusedPort()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: serverPort,
+      async fetch() {
+        const call = ++tokenCalls
+        if (call === 1) {
+          markFirstSeen()
+          await firstGate
+        }
+        return Response.json({ access_token: `signal-token-${call}` })
+      },
+    })
+    servers.push(server)
+    const auth = {
+      ...defaultOAuth2Auth(),
+      grant_type: "client_credentials" as const,
+      access_token_url: `http://127.0.0.1:${server.port}/token`,
+      client_id: "signal-client",
+      credentials_id: `signal-${crypto.randomUUID()}`,
+    }
+    authToClear.push({ auth })
+    const controller = new AbortController()
+
+    const first = resolveOAuth2Token(auth, {
+      mode: "cached-only",
+      signal: controller.signal,
+    })
+    await firstSeen
+    const second = resolveOAuth2Token(auth, { mode: "cached-only" })
+    controller.abort()
+    const firstStatus = await first.then(
+      () => "fulfilled",
+      () => "rejected",
+    )
+    releaseFirst()
+
+    expect(firstStatus).toBe("rejected")
+    expect((await second).token).toBe("signal-token-2")
+    expect(tokenCalls).toBe(2)
+  })
+
   it("does not coalesce cached-only and interactive token acquisition", async () => {
     const callbackPort = await unusedPort()
     const serverPort = await unusedPort()
