@@ -300,6 +300,8 @@ export function AppInner({
   )
   const items = collection?.items ?? []
   const collectionErrorCount = error ? extractFileErrors(error).length : 0
+  const effectiveCollectionMode =
+    collectionErrorCount > 0 ? ("invalid" as const) : mode
 
   const requestIds = useMemo(() => getRequestIds(items), [items])
   const { getTab, setTab } = useUIState(collectionDir, requestIds, isReadOnly)
@@ -1062,8 +1064,10 @@ export function AppInner({
   const collectionRef = useRef(collection)
   collectionRef.current = collection
 
-  const modeRef = useRef<"collection" | "browse" | "empty" | "invalid">(mode)
-  modeRef.current = collectionErrorCount > 0 ? "invalid" : mode
+  const modeRef = useRef(effectiveCollectionMode)
+  useLayoutEffect(() => {
+    modeRef.current = effectiveCollectionMode
+  }, [effectiveCollectionMode])
 
   const folderViewRef = useRef(false)
   folderViewRef.current = focusedFolder !== null || collectionErrorCount > 0
@@ -1463,7 +1467,7 @@ export function AppInner({
         folderDeletePathRef,
         getKeymapFocus: () => keymap.getData("app.focus") as string,
         getView: () => view,
-        getCollectionMode: () => (mode === "invalid" ? "empty" : mode),
+        getCollectionMode: () => effectiveCollectionMode,
         setLayout,
         onLayoutChange,
         setHelpVisible,
@@ -1505,7 +1509,7 @@ export function AppInner({
       setImportCollectionVisible,
       requestReload,
       view,
-      mode,
+      effectiveCollectionMode,
       paletteTarget,
       triggerUpdateCheck,
       proxyPolicy,

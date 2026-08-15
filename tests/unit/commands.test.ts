@@ -775,6 +775,20 @@ describe("buildCommandPaletteCommands", () => {
     expect(envCmds).toHaveLength(0)
   })
 
+  it("excludes collection-only commands when mode is invalid", () => {
+    const ctx = minimalContext()
+    ctx.getCollectionMode = () => "invalid"
+
+    const commandIds = buildCommandPaletteCommands(ctx).map(
+      (command) => command.id,
+    )
+
+    expect(commandIds).not.toContain("request.new")
+    expect(commandIds).not.toContain("request.save")
+    expect(commandIds).not.toContain("folder.new")
+    expect(commandIds).not.toContain("collection.import")
+  })
+
   it("env editor view shows env commands only in collection mode", () => {
     const ctx = minimalContext()
     ctx.getCollectionMode = () => "collection"

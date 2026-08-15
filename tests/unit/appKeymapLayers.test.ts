@@ -540,6 +540,7 @@ describe("app keymap layers", () => {
     const { context, calls } = createContext(keymap)
     context.folder.folderViewRef.current = true
     context.global.focusRef.current = "sidebar"
+    context.global.modeRef.current = "invalid"
     keymap.setData("app.mode", "edit")
     keymap.setData("app.focus", "sidebar")
     const disposers = register(context)

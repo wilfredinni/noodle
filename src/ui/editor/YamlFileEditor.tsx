@@ -67,6 +67,7 @@ export const YamlFileEditor = forwardRef<
   const lineNumberRef = useRef<LineNumberRenderable | null>(null)
   const hoveredFoldLineRef = useRef<number | null>(null)
   const initialDraftRef = useRef(initialDraft)
+  const onDirtyChangeRef = useRef(onDirtyChange)
   const [content, setContent] = useState<string | null>(null)
   const [originalContent, setOriginalContent] = useState<string | null>(null)
   const [draftContent, setDraftContent] = useState<string | null>(null)
@@ -84,6 +85,10 @@ export const YamlFileEditor = forwardRef<
   }, [])
 
   useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange
+  }, [onDirtyChange])
+
+  useEffect(() => {
     setContent(null)
     setOriginalContent(null)
     setDraftContent(null)
@@ -99,7 +104,7 @@ export const YamlFileEditor = forwardRef<
         setOriginalContent(value)
         setContent(next)
         setDraftContent(next)
-        onDirtyChange?.(next !== value)
+        onDirtyChangeRef.current?.(next !== value)
       })
       .catch((error) => {
         if (!mountedRef.current) return
@@ -111,12 +116,12 @@ export const YamlFileEditor = forwardRef<
           setOriginalContent("")
           setContent(next)
           setDraftContent(next)
-          onDirtyChange?.(next !== "")
+          onDirtyChangeRef.current?.(next !== "")
         } else {
           setReadError(error instanceof Error ? error.message : String(error))
         }
       })
-  }, [filePath, kind, onDirtyChange])
+  }, [filePath, kind])
 
   const validateContent = useCallback(
     (value: string): string | null => {

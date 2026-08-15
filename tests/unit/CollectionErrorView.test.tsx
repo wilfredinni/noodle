@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
-import { act } from "react"
+import { act, useState } from "react"
 import { extend } from "@opentui/react"
 import type { BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
@@ -311,6 +311,55 @@ describe("CollectionErrorView", () => {
       )
     })
     await settle(renderOnce)
+    expect(captureCharFrame()).toContain("unknown: true")
+    cleanup()
+  })
+
+  it("keeps a dirty draft when refreshed errors recreate the selected item", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let refreshErrors = () => {}
+
+    function Harness() {
+      const [revision, setRevision] = useState(0)
+      refreshErrors = () => setRevision((current) => current + 1)
+      return (
+        <CollectionErrorView
+          collectionDir={collectionDir}
+          errors={errors.slice(0, 1).map((error) => ({
+            ...error,
+            message: `${error.message} (${revision})`,
+          }))}
+          focus="folder"
+          activeEnv={null}
+          onPaneFocus={() => {}}
+          onSaved={() => {}}
+        />
+      )
+    }
+
+    const { renderOnce, captureCharFrame, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 28 },
+    )
+    await settle(renderOnce)
+
+    const editor = renderer.root.findDescendantById(
+      "collection-error-editor",
+    ) as CodeEditorRenderable
+    await act(async () => {
+      editor.value = "name: first\nmethod: GET\nunknown: true\n"
+      editor.onSourceChange?.()
+    })
+    await renderOnce()
+    expect(captureCharFrame()).toContain("unknown: true")
+
+    await act(async () => refreshErrors())
+    await settle(renderOnce)
+
     expect(captureCharFrame()).toContain("unknown: true")
     cleanup()
   })

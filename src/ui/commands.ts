@@ -15,6 +15,7 @@ import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
 import type { ProxyPolicy } from "../proxy"
 import type { TlsPolicy } from "../tls"
+import type { CollectionMode } from "../collectionPath"
 import {
   saveRequest,
   saveFolder,
@@ -79,7 +80,7 @@ export interface CommandBuilderContext {
   folderDeletePathRef: RefObject<string | null>
   getKeymapFocus: () => string
   getView: () => string
-  getCollectionMode: () => "collection" | "browse" | "empty"
+  getCollectionMode: () => CollectionMode
   setLayout: (
     v:
       | "stacked"
