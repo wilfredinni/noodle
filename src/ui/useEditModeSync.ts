@@ -14,6 +14,7 @@ interface UseEditModeSyncProps {
   eb: UseEditBrowseResult
   folderEb: UseFolderEditBrowseResult
   envEditor: UseEnvironmentEditorResult
+  repairEditor?: boolean
 }
 
 function toPaneMode(mode: "inactive" | "browsing" | "editing"): PaneMode {
@@ -28,9 +29,11 @@ export function useEditModeSync({
   eb,
   folderEb,
   envEditor,
+  repairEditor = false,
 }: UseEditModeSyncProps): PaneMode {
   const keymap = useKeymap()
   const paneMode = useMemo(() => {
+    if (repairEditor) return "edit"
     if (view === "env-editor" && focus === "env-vars") {
       return toPaneMode(envEditor.editState.mode)
     }
@@ -39,6 +42,7 @@ export function useEditModeSync({
   }, [
     view,
     focus,
+    repairEditor,
     envEditor.editState.mode,
     folderEb.editState.mode,
     eb.editState.mode,
@@ -54,7 +58,7 @@ export function useEditModeSync({
       if (state.mode === "editing") eb.cancelEdit()
       else if (state.mode === "browsing") eb.exitBrowse()
     }
-    if (focus !== "folder") {
+    if (focus !== "folder" || repairEditor) {
       const state = folderEb.editState
       if (state.mode === "editing") folderEb.cancelEdit()
       else if (state.mode === "browsing") folderEb.exitBrowse()
@@ -66,6 +70,7 @@ export function useEditModeSync({
     }
   }, [
     focus,
+    repairEditor,
     eb.editState.mode,
     eb.cancelEdit,
     eb.exitBrowse,
@@ -78,7 +83,11 @@ export function useEditModeSync({
   ])
 
   useEffect(() => {
-    if (focus === "folder" && folderEb.editState.mode === "inactive") {
+    if (
+      !repairEditor &&
+      focus === "folder" &&
+      folderEb.editState.mode === "inactive"
+    ) {
       folderEb.enterBrowse()
     }
     if (focus === "env-vars" && envEditor.editState.mode === "inactive") {
@@ -86,6 +95,7 @@ export function useEditModeSync({
     }
   }, [
     focus,
+    repairEditor,
     folderEb.editState.mode,
     folderEb.enterBrowse,
     envEditor.editState.mode,

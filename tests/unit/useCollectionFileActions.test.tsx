@@ -44,6 +44,7 @@ function ActionsHarness({
   onEditSaved,
   onNewReady,
   onCreateFailed,
+  onDeleteReady,
 }: {
   collectionDir: string
   onSaveReady: (save: () => void) => void
@@ -67,6 +68,7 @@ function ActionsHarness({
     ) => void,
   ) => void
   onCreateFailed?: () => void
+  onDeleteReady?: (setFile: (id: string) => void, confirm: () => void) => void
 }) {
   const [collection, updateCollection] = useState<Collection | null>(null)
   const folderDraftRef = useRef<UseFolderDraftResult>({
@@ -75,6 +77,7 @@ function ActionsHarness({
   } as never)
   const savingRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestDeleteFileRef = useRef<string | null>(null)
   const actions = useCollectionFileActions({
     collectionDir,
     collection,
@@ -101,6 +104,7 @@ function ActionsHarness({
     setCloneRequestVisible: () => {},
     setNewFolderVisible: () => {},
     setEditRequestVisible: () => {},
+    requestDeleteFileRef,
     setRequestDeletePending: () => {},
     setFolderDeletePending: () => {},
     onCollectionBootstrapped: () => {},
@@ -121,6 +125,12 @@ function ActionsHarness({
   useEffect(() => {
     onNewReady?.(actions.handleNewRequestConfirm)
   }, [actions.handleNewRequestConfirm, onNewReady])
+
+  useEffect(() => {
+    onDeleteReady?.((id) => {
+      requestDeleteFileRef.current = id
+    }, actions.handleRequestDeleteConfirm)
+  }, [actions.handleRequestDeleteConfirm, onDeleteReady])
 
   return null
 }
@@ -294,5 +304,41 @@ describe("useCollectionFileActions", () => {
     )
     expect(request.name).toBe("Existing request")
     expect(request.method).toBe("GET")
+  })
+
+  it("deletes a request file that failed collection parsing", async () => {
+    const collectionDir = await mkdtemp(join(tmpdir(), "noodle-actions-"))
+    dirs.push(collectionDir)
+    await writeFile(join(collectionDir, "broken.yml"), "collection_id: nope\n")
+
+    let setDeleteFile: ((id: string) => void) | undefined
+    let confirmDelete: (() => void) | undefined
+    let resolveDeleted: (() => void) | undefined
+    const deleted = new Promise<void>((resolve) => {
+      resolveDeleted = resolve
+    })
+    const render = await testRender(
+      <ActionsHarness
+        collectionDir={collectionDir}
+        onSaveReady={() => {}}
+        onMarkSaved={() => {}}
+        onDeleteReady={(setFile, confirm) => {
+          setDeleteFile = setFile
+          confirmDelete = confirm
+        }}
+        onEditSaved={() => resolveDeleted?.()}
+      />,
+      { width: 1, height: 1 },
+    )
+
+    await render.renderOnce()
+    await render.renderOnce()
+    await act(async () => {
+      setDeleteFile?.("broken")
+      confirmDelete?.()
+    })
+    await deleted
+
+    await expect(readFile(join(collectionDir, "broken.yml"))).rejects.toThrow()
   })
 })

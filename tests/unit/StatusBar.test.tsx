@@ -417,6 +417,39 @@ describe("StatusBar component", () => {
     expect(narrowFrame.split("\n")[0]!.length).toBeLessThanOrEqual(30)
   })
 
+  it("shows the collection error count only on the footer right", async () => {
+    const errorHints = getKeybindingHints({
+      view: "main",
+      focus: "sidebar",
+      paneMode: "edit",
+      collectionMode: "collection",
+      collectionError: true,
+      overlayActive: false,
+      jumpMode: false,
+      sendState: { status: "idle" },
+      keybinds: kb,
+    }).footer
+    const { renderOnce, captureCharFrame } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <StatusBar
+          kb={kb}
+          view="main"
+          collectionMode="collection"
+          errorCount={13}
+          globalHints={emptyHints}
+          footerHints={errorHints}
+        />
+      </ThemeProvider>,
+      { width: 60, height: 1 },
+    )
+    await renderOnce()
+
+    const row = captureCharFrame().split("\n")[0]!
+    expect(row).toContain("13 errors")
+    expect(row).toContain("^w")
+    expect(row.indexOf("13 errors")).toBeGreaterThan(40)
+  })
+
   it("adds Commands when width fitting hides one of three actions", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>

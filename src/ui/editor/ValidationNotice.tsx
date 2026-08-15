@@ -1,20 +1,25 @@
 import { LeftBar } from "../borders"
 import { useTheme } from "../theme"
+import type { YamlValidationNotice } from "./yamlValidation"
 
 interface Props {
+  notice?: YamlValidationNotice
   title?: string
   detail?: string | null
 }
 
-function truncateDetail(detail: string): string {
+function truncateText(detail: string): string {
   const max = 180
   if (detail.length <= max) return detail
   return `${detail.slice(0, max - 3)}...`
 }
 
-export function ValidationNotice({ title, detail }: Props) {
+export function ValidationNotice({ notice, title, detail }: Props) {
   const theme = useTheme()
-  const compactDetail = detail ? truncateDetail(detail) : null
+  const resolvedTitle = notice?.title ?? title
+  const resolvedDetail = notice?.detail ?? detail
+  const compactTitle = resolvedTitle ? truncateText(resolvedTitle) : null
+  const compactDetail = resolvedDetail ? truncateText(resolvedDetail) : null
 
   return (
     <box
@@ -24,15 +29,30 @@ export function ValidationNotice({ title, detail }: Props) {
       style={{
         flexDirection: "column",
         flexShrink: 0,
+        minWidth: 0,
         paddingLeft: 1,
         paddingRight: 1,
         backgroundColor: theme.backgroundElement,
       }}
     >
-      {title && <text fg={theme.error}>! {title}</text>}
+      {compactTitle && (
+        <text
+          fg={theme.error}
+          wrapMode="none"
+          truncate
+          style={{ minWidth: 0, width: "100%" }}
+        >
+          ! {compactTitle}
+        </text>
+      )}
       {compactDetail && (
-        <text fg={title ? theme.textMuted : theme.error}>
-          {title ? ` ${compactDetail}` : compactDetail}
+        <text
+          fg={compactTitle ? theme.textMuted : theme.error}
+          wrapMode="none"
+          truncate
+          style={{ minWidth: 0, width: "100%" }}
+        >
+          {compactTitle ? ` ${compactDetail}` : compactDetail}
         </text>
       )}
     </box>

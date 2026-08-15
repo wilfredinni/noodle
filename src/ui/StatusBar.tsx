@@ -156,6 +156,7 @@ export function StatusBar(input: {
   globalHints: HintSegment[]
   footerHints: HintSegment[]
   collectionPath?: string
+  errorCount?: number
   sendCommand?: string
   cookieStatus?: CookieJarStatus
   onHintActivate?: (command: string) => void
@@ -176,9 +177,14 @@ export function StatusBar(input: {
     (collectionMode === "browse" || collectionMode === "empty") &&
     input.collectionPath !== undefined
   const collectionPath = showCollectionPath ? input.collectionPath! : ""
-  const collectionPathWidth = collectionPath
+  const errorLabel =
+    view === "main" && !transient && (input.errorCount ?? 0) > 0
+      ? `${input.errorCount} ${input.errorCount === 1 ? "error" : "errors"}`
+      : ""
+  const rightLabel = errorLabel || collectionPath
+  const rightLabelWidth = rightLabel
     ? Math.min(
-        stringWidth(collectionPath),
+        stringWidth(rightLabel),
         Math.floor(Math.max(0, termWidth - 2) / 2),
       )
     : 0
@@ -230,7 +236,7 @@ export function StatusBar(input: {
         cookieIndicatorWidth -
         (cookieIndicator ? HINT_ITEM_GAP : 0) -
         (expandSegment.length > 0 ? HINT_ITEM_GAP : 0) -
-        (collectionPathWidth > 0 ? collectionPathWidth + HINT_ITEM_GAP : 0),
+        (rightLabelWidth > 0 ? rightLabelWidth + HINT_ITEM_GAP : 0),
     )
       ? sendSegment
       : []
@@ -256,8 +262,8 @@ export function StatusBar(input: {
       (cookieIndicator ? HINT_ITEM_GAP : 0) -
       (expandSegment.length > 0 ? HINT_ITEM_GAP : 0) -
       (visibleSendSegment.length > 0 ? HINT_ITEM_GAP : 0) -
-      collectionPathWidth -
-      (collectionPathWidth > 0 &&
+      rightLabelWidth -
+      (rightLabelWidth > 0 &&
       (cookieIndicator !== "" || visibleSendSegment.length > 0)
         ? HINT_ITEM_GAP
         : 0),
@@ -374,18 +380,18 @@ export function StatusBar(input: {
         {visibleSendSegment.map((seg, i) =>
           renderSegment(seg, `send-${seg.command ?? seg.key}-${i}`),
         )}
-        {collectionPathWidth > 0 && (
+        {rightLabelWidth > 0 && (
           <text
-            fg={theme.textMuted}
+            fg={errorLabel ? theme.error : theme.textMuted}
             wrapMode="none"
             truncate
             style={{
-              width: collectionPathWidth,
+              width: rightLabelWidth,
               minWidth: 0,
               flexShrink: 1,
             }}
           >
-            {collectionPath}
+            {rightLabel}
           </text>
         )}
       </box>
