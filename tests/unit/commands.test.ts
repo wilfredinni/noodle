@@ -784,6 +784,7 @@ describe("buildCommandPaletteCommands", () => {
     )
 
     expect(commandIds).not.toContain("request.new")
+    expect(commandIds).not.toContain("request.send")
     expect(commandIds).not.toContain("request.save")
     expect(commandIds).not.toContain("folder.new")
     expect(commandIds).not.toContain("collection.import")
