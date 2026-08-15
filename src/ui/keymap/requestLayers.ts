@@ -16,8 +16,9 @@ export function createRequestLayers(
 ): [UseBindingsLayer, UseBindingsLayer, UseBindingsLayer, UseBindingsLayer] {
   const { keymap, keybinds, global, request, folder, actions } = context
   const canEdit = () => global.modeRef.current === "collection"
+  const isCollectionError = () => global.modeRef.current === "invalid"
   const isMainBase = () =>
-    keymap.getData("app.mode") === "base" &&
+    (keymap.getData("app.mode") === "base" || isCollectionError()) &&
     keymap.getData("app.focus") !== "folder" &&
     keymap.getData("app.overlay") === "none" &&
     keymap.getData("app.view") === "main"
@@ -79,8 +80,12 @@ export function createRequestLayers(
       },
       {
         name: "request.delete",
-        enabled: canEdit,
+        enabled: () => canEdit() || isCollectionError(),
         run: () => {
+          if (isCollectionError()) {
+            request.collectionErrorDeleteRef.current?.()
+            return
+          }
           const targetFolder = deleteFolder(actions)
           if (targetFolder) {
             folder.folderDeletePathRef.current = targetFolder.folderPath
@@ -214,9 +219,10 @@ export function createRequestLayers(
   const edit: UseBindingsLayer = {
     enabled: () =>
       keymap.getData("app.mode") === "edit" &&
-      keymap.getData("app.focus") !== "folder" &&
+      keymap.getData("app.focus") === "request" &&
       keymap.getData("app.overlay") === "none" &&
-      keymap.getData("app.view") === "main",
+      keymap.getData("app.view") === "main" &&
+      canEdit(),
     commands: [
       {
         name: "edit.commit",

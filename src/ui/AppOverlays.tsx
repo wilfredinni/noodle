@@ -421,6 +421,7 @@ export function AppOverlays({
           visible
           filePath={yamlEditor.filePath}
           requestName={yamlEditor.requestName}
+          saveKey={keybinds.request_save}
           activeEnv={activeEnv}
           kind={yamlEditor.kind}
           onSaved={() => {

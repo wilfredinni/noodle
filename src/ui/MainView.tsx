@@ -15,6 +15,8 @@ import { EmptyState } from "./EmptyState"
 import { FullBorder } from "./borders"
 import type { RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
+import { extractFileErrors } from "../filestore/load"
+import { CollectionErrorView } from "./CollectionErrorView"
 
 interface MainViewProps {
   items: CollectionItem[]
@@ -53,6 +55,11 @@ interface MainViewProps {
   onResponseBodyEditorAvailableChange?: (available: boolean) => void
   onInitialize: () => void
   onCreateRequest: () => void
+  onCollectionErrorDelete?: (file: string) => void
+  onCollectionErrorDirtyChange?: (dirty: boolean) => void
+  collectionErrorDeleteRef?: RefObject<(() => void) | null>
+  collectionErrorSaveRef?: RefObject<(() => void) | null>
+  onCollectionErrorSaved: () => void
   onPaneFocus?: (focus: Focus) => void
   onUrlbarFocus?: (subFocus: UrlBarSubFocus) => void
   onSend?: () => void
@@ -100,6 +107,11 @@ export function MainView({
   onResponseBodyEditorAvailableChange,
   onInitialize,
   onCreateRequest,
+  onCollectionErrorDelete = () => {},
+  onCollectionErrorDirtyChange = () => {},
+  collectionErrorDeleteRef,
+  collectionErrorSaveRef,
+  onCollectionErrorSaved,
   onPaneFocus = () => {},
   onUrlbarFocus,
   onSend,
@@ -118,6 +130,23 @@ export function MainView({
         actionActive
         message="Initialize this collection"
         onAction={onInitialize}
+      />
+    )
+  }
+
+  if (error) {
+    return (
+      <CollectionErrorView
+        collectionDir={collectionDir}
+        errors={extractFileErrors(error)}
+        focus={focus}
+        activeEnv={activeEnv}
+        onPaneFocus={onPaneFocus}
+        onDelete={onCollectionErrorDelete}
+        onDirtyChange={onCollectionErrorDirtyChange}
+        deleteActionRef={collectionErrorDeleteRef}
+        saveActionRef={collectionErrorSaveRef}
+        onSaved={onCollectionErrorSaved}
       />
     )
   }

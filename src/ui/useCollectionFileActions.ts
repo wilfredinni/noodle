@@ -43,6 +43,7 @@ interface UseCollectionFileActionsOptions {
   setCloneRequestVisible: Dispatch<SetStateAction<boolean>>
   setNewFolderVisible: Dispatch<SetStateAction<boolean>>
   setEditRequestVisible: Dispatch<SetStateAction<boolean>>
+  requestDeleteFileRef: MutableRefObject<string | null>
   setRequestDeletePending: Dispatch<SetStateAction<string | null>>
   setFolderDeletePending: Dispatch<SetStateAction<string | null>>
   onCollectionBootstrapped: (dir: string) => void
@@ -70,6 +71,7 @@ export function useCollectionFileActions({
   setCloneRequestVisible,
   setNewFolderVisible,
   setEditRequestVisible,
+  requestDeleteFileRef,
   setRequestDeletePending,
   setFolderDeletePending,
   onCollectionBootstrapped,
@@ -411,6 +413,23 @@ export function useCollectionFileActions({
   )
 
   const handleRequestDeleteConfirm = useCallback(() => {
+    const errorFileId = requestDeleteFileRef.current
+    if (errorFileId) {
+      deleteRequest(collectionDir, errorFileId)
+        .then(() => {
+          requestDeleteFileRef.current = null
+          setCollectionReloadToken((n) => n + 1)
+          setRequestDeletePending(null)
+          setFocus("sidebar")
+          showSaveResult({
+            kind: "success",
+            message: `Successfully deleted ${errorFileId}.yml`,
+          })
+        })
+        .catch(showError)
+      return
+    }
+
     const req = selectedRequest
     if (!req) return
 
@@ -427,6 +446,7 @@ export function useCollectionFileActions({
       .catch(showError)
   }, [
     collectionDir,
+    requestDeleteFileRef,
     selectedRequest,
     setCollectionReloadToken,
     setFocus,

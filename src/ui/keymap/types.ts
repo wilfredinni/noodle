@@ -90,6 +90,8 @@ export interface AppKeymapRequest {
   setRequestDeletePending: (
     s: string | null | ((prev: string | null) => string | null),
   ) => void
+  collectionErrorDeleteRef: RefObject<(() => void) | null>
+  collectionErrorSaveRef: RefObject<(() => void) | null>
 }
 
 export interface AppKeymapFolder {

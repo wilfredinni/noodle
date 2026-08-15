@@ -44,6 +44,8 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     jsonEnter: 0,
     jsonLeave: 0,
     jsonReturnToSelect: 0,
+    collectionErrorDelete: 0,
+    collectionErrorSave: 0,
     focus: "",
     view: "",
     jumpMode: false,
@@ -74,6 +76,12 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
       },
     },
     trySendRef: { current: () => calls.send++ },
+    collectionErrorDeleteRef: {
+      current: () => calls.collectionErrorDelete++,
+    },
+    collectionErrorSaveRef: {
+      current: () => calls.collectionErrorSave++,
+    },
   }
   const folder = {
     folderEbRef: {
@@ -349,6 +357,33 @@ describe("app keymap layers", () => {
     cleanup()
   })
 
+  it("routes collection error delete and save through the existing commands", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.keybinds = { ...context.keybinds, request_save: "ctrl+x" }
+    context.global.modeRef.current = "invalid"
+    keymap.setData("app.mode", "edit")
+    const disposers = register(context)
+
+    host.press("w", { ctrl: true })
+    expect(calls.collectionErrorDelete).toBe(1)
+    expect(keymap.dispatchCommand("request.delete")).toMatchObject({
+      ok: true,
+    })
+    expect(calls.collectionErrorDelete).toBe(2)
+
+    keymap.setData("app.focus", "folder")
+    host.press("s", { ctrl: true })
+    expect(calls.collectionErrorSave).toBe(0)
+    host.press("x", { ctrl: true })
+    expect(calls.collectionErrorSave).toBe(1)
+    expect(keymap.dispatchCommand("folder.save")).toMatchObject({ ok: true })
+    expect(calls.collectionErrorSave).toBe(2)
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
   it("opens the environment picker with e from the sidebar", () => {
     const { keymap, host, cleanup } = setup()
     const { context, calls } = createContext(keymap)
@@ -496,6 +531,23 @@ describe("app keymap layers", () => {
     expect(calls.envSave).toBe(0)
     expect(calls.editorOpened).toBe("")
 
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("moves from the collection error list to its YAML editor", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.folder.folderViewRef.current = true
+    context.global.focusRef.current = "sidebar"
+    context.global.modeRef.current = "invalid"
+    keymap.setData("app.mode", "edit")
+    keymap.setData("app.focus", "sidebar")
+    const disposers = register(context)
+
+    host.press("tab")
+
+    expect(calls.focus).toBe("folder")
     disposers.forEach((dispose) => dispose())
     cleanup()
   })

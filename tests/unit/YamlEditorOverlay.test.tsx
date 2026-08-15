@@ -93,6 +93,7 @@ describe("YamlEditorOverlay", () => {
             visible
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {}}
             onClose={() => {}}
           />
@@ -116,6 +117,7 @@ describe("YamlEditorOverlay", () => {
             visible
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {}}
             onClose={() => {}}
           />
@@ -125,7 +127,7 @@ describe("YamlEditorOverlay", () => {
     )
     await loadEditor(renderOnce)
     const frame = captureCharFrame()
-    expect(frame).toContain("^S")
+    expect(frame).toContain("^s")
     expect(frame).toContain("save")
     expect(frame).toContain("esc")
     expect(frame).toContain("close")
@@ -147,6 +149,7 @@ describe("YamlEditorOverlay", () => {
             visible
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {
               saved++
               resolveSaved?.()
@@ -174,6 +177,40 @@ describe("YamlEditorOverlay", () => {
     cleanup()
   })
 
+  it("uses the configured save key instead of ctrl+s", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    let saved = 0
+    const { renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <YamlEditorOverlay
+            visible
+            filePath={filePath}
+            requestName="get-users"
+            saveKey="ctrl+x"
+            onSaved={() => saved++}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 30 },
+    )
+    await loadEditor(renderOnce)
+
+    await act(async () => {
+      host.press("s", { ctrl: true })
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+    expect(saved).toBe(0)
+
+    await act(async () => {
+      host.press("x", { ctrl: true })
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+    expect(saved).toBe(1)
+    cleanup()
+  })
+
   it("toggles a YAML fold from its gutter icon", async () => {
     await writeFile(
       filePath,
@@ -187,6 +224,7 @@ describe("YamlEditorOverlay", () => {
             visible
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {}}
             onClose={() => {}}
           />
@@ -219,6 +257,7 @@ describe("YamlEditorOverlay", () => {
             visible={false}
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {}}
             onClose={() => {}}
           />
@@ -241,6 +280,7 @@ describe("YamlEditorOverlay", () => {
             visible={false}
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {}}
             onClose={() => {}}
           />
@@ -263,6 +303,7 @@ describe("YamlEditorOverlay", () => {
             visible
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {}}
             onClose={() => {}}
           />
@@ -272,7 +313,7 @@ describe("YamlEditorOverlay", () => {
     )
     await loadEditor(renderOnce)
     const frame = captureCharFrame()
-    expect(frame).toMatch(/\^S.*save.*esc.*close/)
+    expect(frame).toMatch(/\^s.*save.*esc.*close/)
     cleanup()
   })
 
@@ -287,6 +328,7 @@ describe("YamlEditorOverlay", () => {
             visible
             filePath={filePath}
             requestName="get-users"
+            saveKey="ctrl+s"
             onSaved={() => {}}
             onClose={() => {}}
           />
@@ -303,8 +345,69 @@ describe("YamlEditorOverlay", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).toContain("Save error:")
+    expect(frame).toContain("! Invalid request YAML for get-users.yml")
+    expect(frame).toContain("Line 4, Col 1:")
+    expect(frame).not.toContain("Save error:")
     expect(await readFile(filePath, "utf8")).toBe(invalidYaml)
+    cleanup()
+  })
+
+  it("shows the shared request validation notice with the filename", async () => {
+    await writeFile(
+      filePath,
+      "name: test\nmethod: GET\nurl: https://example.com\ntimeout: nope\n",
+    )
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <YamlEditorOverlay
+            visible
+            filePath={filePath}
+            requestName="get-users"
+            saveKey="ctrl+s"
+            onSaved={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 30 },
+    )
+    await loadEditor(renderOnce)
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("! Invalid request YAML for get-users.yml")
+    expect(frame).toContain('Line 4: "timeout" must be a finite number')
+    expect(frame).not.toContain("lang.parseRequest:")
+    cleanup()
+  })
+
+  it("shows the shared folder validation notice", async () => {
+    const folderPath = join(testDir, "folder.yml")
+    await writeFile(folderPath, "unknown: true\n")
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <YamlEditorOverlay
+            visible
+            filePath={folderPath}
+            requestName="auth"
+            kind="folder"
+            saveKey="ctrl+s"
+            onSaved={() => {}}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 30 },
+    )
+    await loadEditor(renderOnce)
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("! Invalid folder YAML for auth/folder.yml")
+    expect(frame).toContain('Line 1: unknown field "unknown"')
+    expect(frame).not.toContain("lang.parseFolder:")
     cleanup()
   })
 })

@@ -113,6 +113,7 @@ import {
   runCollectionImport,
   type CollectionImportValues,
 } from "./collectionImport"
+import { extractFileErrors } from "../filestore/load"
 
 export function AppInner({
   collectionDir,
@@ -273,6 +274,10 @@ export function AppInner({
   const [responseBodyEditorAvailable, setResponseBodyEditorAvailable] =
     useState(false)
   const folderDeletePathRef = useRef<string | null>(null)
+  const requestDeleteFileRef = useRef<string | null>(null)
+  const collectionErrorDeleteRef = useRef<(() => void) | null>(null)
+  const collectionErrorSaveRef = useRef<(() => void) | null>(null)
+  const [collectionErrorDirty, setCollectionErrorDirty] = useState(false)
   const [paletteTarget, setPaletteTarget] =
     useState<CommandPaletteTarget | null>(null)
   const [jumpMode, setJumpMode] = useState(false)
@@ -294,6 +299,9 @@ export function AppInner({
     isBrowse,
   )
   const items = collection?.items ?? []
+  const collectionErrorCount = error ? extractFileErrors(error).length : 0
+  const effectiveCollectionMode =
+    collectionErrorCount > 0 ? ("invalid" as const) : mode
 
   const requestIds = useMemo(() => getRequestIds(items), [items])
   const { getTab, setTab } = useUIState(collectionDir, requestIds, isReadOnly)
@@ -640,7 +648,9 @@ export function AppInner({
       }
       if (next === "urlbar") setUrlbarSubFocus("select")
       if (mode === "collection" && next === "request") eb.enterBrowse()
-      if (mode === "collection" && next === "folder") folderEb.enterBrowse()
+      if (mode === "collection" && !error && next === "folder") {
+        folderEb.enterBrowse()
+      }
       if (next === "env-vars") envEditor.enterBrowse()
       setFocus(next)
     },
@@ -649,6 +659,7 @@ export function AppInner({
       eb.enterBrowse,
       envEditor.commitEdit,
       envEditor.enterBrowse,
+      error,
       focus,
       folderEb.commitEdit,
       folderEb.enterBrowse,
@@ -672,6 +683,7 @@ export function AppInner({
   const hasUnsavedChanges =
     draft.dirtyRequestIds.size > 0 ||
     folderDraft.dirtyPaths.size > 0 ||
+    collectionErrorDirty ||
     envEditor.dirty ||
     eb.editState.mode === "editing" ||
     folderEb.editState.mode === "editing" ||
@@ -819,13 +831,38 @@ export function AppInner({
     setCloneRequestVisible,
     setNewFolderVisible,
     setEditRequestVisible,
+    requestDeleteFileRef,
     setRequestDeletePending,
     setFolderDeletePending,
     onCollectionBootstrapped,
   })
   folderSaveRef.current = handleFolderSave
 
-  const paneMode = useEditModeSync({ focus, view, eb, folderEb, envEditor })
+  const paneMode = useEditModeSync({
+    focus,
+    view,
+    eb,
+    folderEb,
+    envEditor,
+    repairEditor: collectionErrorCount > 0,
+  })
+
+  const deleteCollectionErrorFile = useCallback(
+    (file: string) => {
+      if (!file.endsWith(".yml")) return
+      requestDeleteFileRef.current = file.slice(0, -4)
+      setRequestDeletePending(file)
+    },
+    [setRequestDeletePending],
+  )
+
+  const clearRequestDeletePending = useCallback(
+    (value: string | null) => {
+      if (value === null) requestDeleteFileRef.current = null
+      setRequestDeletePending(value)
+    },
+    [setRequestDeletePending],
+  )
 
   const displayTab = useMemo((): string | undefined => {
     if (focus === "request") return eb.activeTab
@@ -853,6 +890,7 @@ export function AppInner({
         tab: displayTab,
         bodyType: draft.draft?.bodyType,
         sendState: responseState,
+        collectionError: collectionErrorCount > 0,
         queryVisible,
         responseBodyEditorAvailable,
         settingsCategory,
@@ -868,6 +906,7 @@ export function AppInner({
       displayTab,
       draft.draft?.bodyType,
       responseState,
+      collectionErrorCount,
       queryVisible,
       responseBodyEditorAvailable,
       settingsCategory,
@@ -1025,11 +1064,13 @@ export function AppInner({
   const collectionRef = useRef(collection)
   collectionRef.current = collection
 
-  const modeRef = useRef<"collection" | "browse" | "empty" | "invalid">(mode)
-  modeRef.current = mode
+  const modeRef = useRef(effectiveCollectionMode)
+  useLayoutEffect(() => {
+    modeRef.current = effectiveCollectionMode
+  }, [effectiveCollectionMode])
 
   const folderViewRef = useRef(false)
-  folderViewRef.current = focusedFolder !== null
+  folderViewRef.current = focusedFolder !== null || collectionErrorCount > 0
 
   // ── Keymap layers ──────────────────────────────────────────────────
   useAppKeymap({
@@ -1078,6 +1119,8 @@ export function AppInner({
       setEditRequestVisible,
       setCloneRequestVisible,
       setRequestDeletePending,
+      collectionErrorDeleteRef,
+      collectionErrorSaveRef,
     },
     folder: {
       folderEbRef,
@@ -1360,7 +1403,7 @@ export function AppInner({
     setCloneRequestVisible,
     onCloneRequestConfirm: handleCloneRequestConfirm,
     requestDeletePending,
-    setRequestDeletePending,
+    setRequestDeletePending: clearRequestDeletePending,
     onRequestDeleteConfirm: handleRequestDeleteConfirm,
     newFolderVisible,
     newFolderRef,
@@ -1424,7 +1467,7 @@ export function AppInner({
         folderDeletePathRef,
         getKeymapFocus: () => keymap.getData("app.focus") as string,
         getView: () => view,
-        getCollectionMode: () => (mode === "invalid" ? "empty" : mode),
+        getCollectionMode: () => effectiveCollectionMode,
         setLayout,
         onLayoutChange,
         setHelpVisible,
@@ -1466,7 +1509,7 @@ export function AppInner({
       setImportCollectionVisible,
       requestReload,
       view,
-      mode,
+      effectiveCollectionMode,
       paletteTarget,
       triggerUpdateCheck,
       proxyPolicy,
@@ -1555,6 +1598,13 @@ export function AppInner({
             onResponseBodyEditorAvailableChange={setResponseBodyEditorAvailable}
             onInitialize={() => setInitPending(true)}
             onCreateRequest={() => setNewRequestVisible(true)}
+            onCollectionErrorDelete={deleteCollectionErrorFile}
+            onCollectionErrorDirtyChange={setCollectionErrorDirty}
+            collectionErrorDeleteRef={collectionErrorDeleteRef}
+            collectionErrorSaveRef={collectionErrorSaveRef}
+            onCollectionErrorSaved={() =>
+              setCollectionReloadToken((current) => current + 1)
+            }
             mode={mode}
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
@@ -1806,7 +1856,8 @@ export function AppInner({
         globalHints={hints.header}
         footerHints={hints.footer}
         collectionPath={collectionDir}
-        sendCommand={sendCommand}
+        errorCount={collectionErrorCount}
+        sendCommand={collectionErrorCount > 0 ? undefined : sendCommand}
         cookieStatus={cookieStorage.status}
         onHintActivate={handleHintActivate}
       />

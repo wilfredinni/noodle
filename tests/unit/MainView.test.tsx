@@ -144,4 +144,50 @@ describe("MainView", () => {
 
     cleanup()
   })
+
+  it("keeps collection errors in the repair view while reloading", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const error = new Error("collection failed") as Error & {
+      fileErrors: Array<{
+        file: string
+        message: string
+        rawError: string
+      }>
+    }
+    error.fileErrors = [
+      {
+        file: "collection",
+        message: "Could not read collection",
+        rawError: "Could not read collection",
+      },
+    ]
+    const props = {
+      items: [],
+      collectionDir: "/tmp/noodle-errors",
+      loading: true,
+      error,
+      focus: "sidebar" as const,
+      activeEnv: null,
+      mode: "collection" as const,
+      onInitialize: () => {},
+      onCreateRequest: () => {},
+      onCollectionErrorSaved: () => {},
+    } as unknown as Parameters<typeof MainView>[0]
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <MainView {...props} />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+    await renderOnce()
+
+    const frame = captureCharFrame()
+    expect(frame).toContain("Could not read collection")
+    expect(frame).not.toContain("Collection Error")
+    expect(frame).not.toContain("Problems")
+    expect(frame).not.toContain("No collection found")
+    cleanup()
+  })
 })

@@ -29,7 +29,6 @@ export function useCollection(
       return
     }
     setLoading(true)
-    setError(null)
     let cancelled = false
 
     const loader = browse ? loadCollectionBrowse : filestore.loadCollection
@@ -38,6 +37,7 @@ export function useCollection(
       .then((c) => {
         if (!cancelled) {
           setCollection(c)
+          setError(null)
           setLoading(false)
         }
       })

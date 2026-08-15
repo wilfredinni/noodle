@@ -59,6 +59,25 @@ describe("getContextualSegments", () => {
     expect(r.footer).toMatchObject([])
   })
 
+  it("collection errors show delete on the focused sidebar", () => {
+    const r = base({ collectionError: true, focus: "sidebar" })
+    expect(r.footer).toMatchObject([seg("^w", "delete")])
+  })
+
+  it("collection errors show save on the focused YAML editor", () => {
+    const r = base({ collectionError: true, focus: "folder" })
+    expect(r.footer).toMatchObject([seg("^s", "save")])
+  })
+
+  it("collection error hints use configured request actions", () => {
+    const r = base({
+      collectionError: true,
+      focus: "folder",
+      keybinds: { ...kb, request_delete: "ctrl+d", request_save: "ctrl+x" },
+    })
+    expect(r.footer).toMatchObject([seg("^x", "save")])
+  })
+
   // ── urlbar ──────────────────────────────────────
 
   it("urlbar in collection mode", () => {

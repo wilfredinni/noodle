@@ -12,6 +12,7 @@ export interface KeybindingHintsContext {
   focus: Focus
   paneMode: PaneMode
   collectionMode: CollectionMode
+  collectionError?: boolean
   overlayActive: boolean
   jumpMode: boolean
   tab?: string
@@ -61,6 +62,28 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
 
   const { kb } = { kb: ctx.keybinds }
   const col = ctx.collectionMode === "collection"
+
+  if (ctx.collectionError) {
+    if (ctx.focus === "sidebar") {
+      return [
+        {
+          key: displayKey(kb.request_delete),
+          word: "delete",
+          command: "request.delete",
+        },
+      ]
+    }
+    if (ctx.focus === "folder") {
+      return [
+        {
+          key: displayKey(kb.request_save),
+          word: "save",
+          command: "folder.save",
+        },
+      ]
+    }
+    return []
+  }
 
   if (ctx.view === "env-editor") {
     if (!col) return []

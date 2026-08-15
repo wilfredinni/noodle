@@ -7,6 +7,7 @@ export function createFolderLayers(
 ): [UseBindingsLayer, UseBindingsLayer, UseBindingsLayer, UseBindingsLayer] {
   const { keymap, keybinds, global, request, folder, actions } = context
   const canEdit = () => global.modeRef.current === "collection"
+  const isCollectionError = () => global.modeRef.current === "invalid"
   const isFolder = () =>
     keymap.getData("app.focus") === "folder" &&
     keymap.getData("app.overlay") === "none" &&
@@ -64,8 +65,14 @@ export function createFolderLayers(
     commands: [
       {
         name: "folder.save",
-        enabled: canEdit,
-        run: () => saveFolder(actions),
+        enabled: () => canEdit() || isCollectionError(),
+        run: () => {
+          if (isCollectionError()) {
+            request.collectionErrorSaveRef.current?.()
+            return
+          }
+          saveFolder(actions)
+        },
       },
       {
         name: "folder.delete",
@@ -143,7 +150,8 @@ export function createFolderLayers(
   }
 
   const edit: UseBindingsLayer = {
-    enabled: () => isFolder() && keymap.getData("app.mode") === "edit",
+    enabled: () =>
+      isFolder() && keymap.getData("app.mode") === "edit" && canEdit(),
     commands: [
       {
         name: "folder-edit.commit",
