@@ -1,4 +1,5 @@
 import { join } from "node:path"
+import { mkdirSync } from "node:fs"
 import type { RefObject } from "react"
 import type { CliRenderer } from "@opentui/core"
 import type { Focus } from "./focus"
@@ -23,6 +24,7 @@ import type { ProxyPolicy } from "../proxy"
 import type { TlsPolicy } from "../tls"
 import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
+import { launchExternalEditor, type ExternalEditor } from "../externalEditor"
 
 export interface CommandActionsConfig {
   collectionDir: string
@@ -425,6 +427,58 @@ export function openThemePicker(): boolean {
 
 export function openAbout(): boolean {
   return true
+}
+
+type EditorLauncher = typeof launchExternalEditor
+
+function openFolderInEditor(
+  editor: ExternalEditor | undefined,
+  target: string,
+  launch: EditorLauncher,
+): boolean {
+  if (!editor) {
+    showToast("No supported external editor found", "warning")
+    return false
+  }
+  try {
+    void launch(editor, target)
+      .then(() => showToast(`Opened folder in ${editor.label}`, "success"))
+      .catch((error: unknown) =>
+        showToast(
+          error instanceof Error ? error.message : String(error),
+          "error",
+        ),
+      )
+    return true
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : String(error), "error")
+    return false
+  }
+}
+
+export function openCollectionInEditor(
+  editor: ExternalEditor | undefined,
+  collectionDir: string,
+  launch: EditorLauncher = launchExternalEditor,
+): boolean {
+  return openFolderInEditor(editor, collectionDir, launch)
+}
+
+export function openAppSettingsInEditor(
+  editor: ExternalEditor | undefined,
+  configDir: string,
+  launch: EditorLauncher = launchExternalEditor,
+  ensureDir: (path: string) => void = (path) =>
+    mkdirSync(path, { recursive: true }),
+): boolean {
+  if (!editor) return openFolderInEditor(editor, configDir, launch)
+  try {
+    ensureDir(configDir)
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : String(error), "error")
+    return false
+  }
+  return openFolderInEditor(editor, configDir, launch)
 }
 
 export function openCollectionExport(

@@ -3,6 +3,7 @@ import { join, resolve } from "node:path"
 import * as yaml from "js-yaml"
 import type { AppProxySettings } from "../schema"
 import { parseAppProxyStrict } from "../proxy"
+import { isExternalEditorId, type ExternalEditorId } from "../externalEditor"
 
 export const CONFIG_FILE_NAME = "config.yml"
 export interface NoodleConfig {
@@ -10,6 +11,7 @@ export interface NoodleConfig {
   layout: "stacked" | "side-by-side"
   confirm_undo_all: boolean
   collections: string[]
+  external_editor?: ExternalEditorId
   proxy?: AppProxySettings
 }
 export const DEFAULT_CONFIG: NoodleConfig = {
@@ -75,6 +77,9 @@ export function loadConfig(configDir: string): NoodleConfig {
     collections: Array.isArray(obj.collections)
       ? obj.collections.filter((v): v is string => typeof v === "string")
       : [],
+    ...(isExternalEditorId(obj.external_editor)
+      ? { external_editor: obj.external_editor }
+      : {}),
     proxy: obj.proxy === undefined ? undefined : parseAppProxyStrict(obj.proxy),
   })
 }

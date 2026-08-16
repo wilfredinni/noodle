@@ -25,6 +25,7 @@ import {
   type SettingsScope,
 } from "../../src/ui/settings/SettingsView"
 import { SIDEBAR_WIDTH } from "../../src/ui/Sidebar"
+import type { ExternalEditor, ExternalEditorId } from "../../src/externalEditor"
 
 const testRender = createTestRender()
 
@@ -56,6 +57,9 @@ function Harness({
   onKeybindChange = () => true,
   onCollectionSettingsChange = () => true,
   onThemeChange = () => {},
+  externalEditors = [],
+  externalEditor,
+  onExternalEditorChange = () => {},
   appProxy = { mode: "system" },
   initialCollectionSettings = {},
 }: {
@@ -75,6 +79,9 @@ function Harness({
     >,
   ) => boolean
   onThemeChange?: (index: number) => void
+  externalEditors?: ExternalEditor[]
+  externalEditor?: ExternalEditor
+  onExternalEditorChange?: (editor: ExternalEditorId) => void
   appProxy?: AppProxySettings
   initialCollectionSettings?: CollectionSettings
 }) {
@@ -93,6 +100,8 @@ function Harness({
       activeThemeIndex={0}
       layout="stacked"
       confirmUndoAll
+      externalEditors={externalEditors}
+      externalEditor={externalEditor}
       appProxy={appProxy}
       appProxyCredentials={{ username: "alice", password: "secret" }}
       collectionProxy={{ mode: "inherit" }}
@@ -118,6 +127,7 @@ function Harness({
       onThemeChange={onThemeChange}
       onLayoutChange={() => true}
       onConfirmUndoAllChange={() => {}}
+      onExternalEditorChange={onExternalEditorChange}
       onAppProxyChange={() => true}
       onCollectionProxyChange={() => true}
       onCollectionSettingsChange={(patch) => {
@@ -292,6 +302,40 @@ describe("SettingsView", () => {
     await renderOnce()
     await act(async () => host.press("down"))
     expect(captureCharFrame()).toContain("Confirm undo all")
+    expect(captureCharFrame()).toContain("No supported editors found")
+    cleanup()
+  })
+
+  it("selects from installed external editors in Behavior settings", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const editors: ExternalEditor[] = [
+      { id: "zed", label: "Zed", command: ["zed"] },
+      { id: "vscode", label: "Visual Studio Code", command: ["code"] },
+    ]
+    const selected: ExternalEditorId[] = []
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness
+            initialCategory="behavior"
+            initialFocus="settings-content"
+            externalEditors={editors}
+            externalEditor={editors[0]}
+            onExternalEditorChange={(editor) => selected.push(editor)}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 22 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("External editor")
+    expect(captureCharFrame()).toContain("Zed")
+
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    await act(async () => host.press("down"))
+    await act(async () => host.press("return"))
+    expect(selected).toEqual(["vscode"])
     cleanup()
   })
 

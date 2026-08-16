@@ -101,6 +101,18 @@ describe("loadConfig", () => {
     expect(result.confirm_undo_all).toBe(false)
   })
 
+  it("loads supported external editors and ignores unknown values", () => {
+    writeFileSync(join(dir, CONFIG_FILE_NAME), "external_editor: zed\n", "utf8")
+    expect(loadConfig(dir).external_editor).toBe("zed")
+
+    writeFileSync(
+      join(dir, CONFIG_FILE_NAME),
+      "external_editor: arbitrary-command\n",
+      "utf8",
+    )
+    expect(loadConfig(dir).external_editor).toBeUndefined()
+  })
+
   it("normalizes and deduplicates collections", () => {
     writeFileSync(
       join(dir, CONFIG_FILE_NAME),
@@ -185,6 +197,15 @@ describe("saveConfig", () => {
     const input: NoodleConfig = {
       ...DEFAULTS,
       proxy: { mode: "off" },
+    }
+    saveConfig(dir, input)
+    expect(loadConfig(dir)).toEqual(input)
+  })
+
+  it("round-trips the external editor", () => {
+    const input: NoodleConfig = {
+      ...DEFAULTS,
+      external_editor: "vscode",
     }
     saveConfig(dir, input)
     expect(loadConfig(dir)).toEqual(input)

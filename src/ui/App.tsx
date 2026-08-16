@@ -50,6 +50,11 @@ import {
   setCollectionSettingSecret,
   type SecretMutation,
 } from "../secrets"
+import {
+  detectExternalEditors,
+  resolveExternalEditor,
+  type ExternalEditorId,
+} from "../externalEditor"
 
 const CONFIG_DIR = `${process.env.HOME ?? "~"}/.config/noodle`
 
@@ -164,6 +169,11 @@ export function App({
   mode?: CollectionMode
 }) {
   const { config, updateConfig } = useConfig(CONFIG_DIR)
+  const externalEditors = useMemo(() => detectExternalEditors(), [])
+  const externalEditor = resolveExternalEditor(
+    config.external_editor,
+    externalEditors,
+  )
   const collectionPaths = config.collections
   const [liveKeybinds, setLiveKeybinds] = useState(keybinds)
   const switchingRef = useRef(false)
@@ -333,6 +343,16 @@ export function App({
       updateGlobalConfig(
         { confirm_undo_all: value },
         "Failed to save behavior settings",
+      )
+    },
+    [updateGlobalConfig],
+  )
+
+  const handleExternalEditorChange = useCallback(
+    (externalEditor: ExternalEditorId) => {
+      updateGlobalConfig(
+        { external_editor: externalEditor },
+        "Failed to save external editor",
       )
     },
     [updateGlobalConfig],
@@ -994,6 +1014,7 @@ export function App({
     <ThemeProvider activeIndex={activeIndex} previewIndex={previewIndex}>
       <Toast />
       <AppInner
+        appConfigDir={CONFIG_DIR}
         key={`${activeCollectionDir}__${reloadKey}__${mode}`}
         collectionDir={activeCollectionDir}
         environmentsDir={activeEnvironmentsDir}
@@ -1015,6 +1036,9 @@ export function App({
         initialLayout={config.layout}
         confirmUndoAll={config.confirm_undo_all}
         onConfirmUndoAllChange={handleConfirmUndoAllChange}
+        externalEditors={externalEditors}
+        externalEditor={externalEditor}
+        onExternalEditorChange={handleExternalEditorChange}
         onLayoutChange={handleLayoutChange}
         onEnvChange={handleEnvChange}
         onEnvListChanged={handleEnvListChanged}

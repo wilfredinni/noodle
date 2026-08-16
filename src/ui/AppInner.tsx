@@ -114,8 +114,10 @@ import {
   type CollectionImportValues,
 } from "./collectionImport"
 import { extractFileErrors } from "../filestore/load"
+import type { ExternalEditor, ExternalEditorId } from "../externalEditor"
 
 export function AppInner({
+  appConfigDir,
   collectionDir,
   environmentsDir,
   envNames,
@@ -136,6 +138,9 @@ export function AppInner({
   initialLayout,
   confirmUndoAll,
   onConfirmUndoAllChange,
+  externalEditors,
+  externalEditor,
+  onExternalEditorChange,
   onLayoutChange,
   onEnvChange,
   onEnvListChanged,
@@ -173,6 +178,7 @@ export function AppInner({
   onCollectionImported,
   mode = "empty",
 }: {
+  appConfigDir: string
   collectionDir: string
   environmentsDir: string
   envNames: string[]
@@ -195,6 +201,9 @@ export function AppInner({
   initialLayout: "stacked" | "side-by-side"
   confirmUndoAll: boolean
   onConfirmUndoAllChange: (value: boolean) => void
+  externalEditors: ExternalEditor[]
+  externalEditor?: ExternalEditor
+  onExternalEditorChange: (editor: ExternalEditorId) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   onEnvChange: (name: string | null) => void
   onEnvListChanged: () => Promise<void>
@@ -1437,6 +1446,8 @@ export function AppInner({
       buildCommandPaletteCommands({
         keybinds,
         collectionDir,
+        appConfigDir,
+        externalEditor,
         confirmUndoAll,
         renderer,
         proxyPolicy,
@@ -1495,6 +1506,8 @@ export function AppInner({
     [
       keybinds,
       collectionDir,
+      appConfigDir,
+      externalEditor,
       confirmUndoAll,
       onLayoutChange,
       setCollectionSwitcherVisible,
@@ -1677,6 +1690,8 @@ export function AppInner({
             activeThemeIndex={activeIndex}
             layout={layout}
             confirmUndoAll={confirmUndoAll}
+            externalEditors={externalEditors}
+            externalEditor={externalEditor}
             appProxy={appProxy}
             appProxyCredentials={appProxyCredentials}
             collectionProxy={collectionProxy}
@@ -1709,6 +1724,7 @@ export function AppInner({
               return true
             }}
             onConfirmUndoAllChange={onConfirmUndoAllChange}
+            onExternalEditorChange={onExternalEditorChange}
             onAppProxyChange={onAppProxyChange}
             onCollectionProxyChange={onCollectionProxyChange}
             onAppProxyCredentialsChange={onAppProxyCredentialsChange}
