@@ -381,6 +381,14 @@ Active pane gets cyan border + `▸` prefix. Global keys work regardless of focu
 - Pure helpers in `tests/unit/`, integration tests in `tests/integration/`.
 - Tests use real filesystem I/O for filestore, lang, and env modules (write to temp dirs with `mkdtemp`).
 
+## Subagents
+
+Use project-scoped custom agents only for an independent final review of materially relevant changes; do not spawn them for documentation-only work, trivial mechanical edits, or unrelated areas.
+
+- Delegate to `tui_reviewer` after material changes to `src/ui/`, UI hooks, keymaps, focus, overlays, editors, or OpenTUI rendering. Ask it for a read-only regression review after implementation and focused tests are complete.
+- Delegate to `request_security_reviewer` after material changes to request execution, authentication, OAuth, variables, secrets, cookies, TLS, proxy behavior, file/path handling, imports/exports, timeline persistence, HAR/code generation, or redaction. Ask it for a read-only security review after implementation and focused tests are complete.
+- If a change materially spans both areas, the two reviews may run in parallel. Wait for both and assess their evidence before changing code; do not accept findings without verifying them against implementation and tests.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

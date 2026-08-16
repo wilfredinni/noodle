@@ -20,5 +20,8 @@ drafts
 AWS API Gateway.yaml
 api-docs.json
 openapi.yml
-.codex
+.codex/*
+!.codex/agents/
+.codex/agents/*
+!.codex/agents/*.toml
 emptyfolder
