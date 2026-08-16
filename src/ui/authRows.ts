@@ -143,34 +143,79 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
   }
   if (auth.type === "oauth1") {
     const definitions: Omit<AuthFieldDef, "row">[] = [
-      text("Consumer Key", "consumer_key", { required: true }),
-      text("Consumer Secret", "consumer_secret", { isSecret: true }),
-      text("Access Token", "access_token", { isSecret: true }),
-      text("Access Token Secret", "access_token_secret", { isSecret: true }),
-      choice("Signature Method", "signature_method", [
-        "HMAC-SHA1",
-        "HMAC-SHA256",
-        "HMAC-SHA512",
-        "RSA-SHA1",
-        "RSA-SHA256",
-        "RSA-SHA512",
-        "PLAINTEXT",
-      ]),
+      text("Consumer Key", "consumer_key", {
+        required: true,
+        description: "Public identifier for the OAuth client.",
+      }),
+      text("Consumer Secret", "consumer_secret", {
+        isSecret: true,
+        description: "Shared secret used to sign OAuth requests.",
+      }),
+      text("Access Token", "access_token", {
+        isSecret: true,
+        description: "Token identifying the authorized user or resource.",
+      }),
+      text("Access Token Secret", "access_token_secret", {
+        isSecret: true,
+        description: "Secret paired with the access token for signing.",
+      }),
+      choice(
+        "Signature Method",
+        "signature_method",
+        [
+          "HMAC-SHA1",
+          "HMAC-SHA256",
+          "HMAC-SHA512",
+          "RSA-SHA1",
+          "RSA-SHA256",
+          "RSA-SHA512",
+          "PLAINTEXT",
+        ],
+        "Algorithm used to sign the request.",
+      ),
     ]
     if (auth.signature_method.startsWith("RSA-")) {
       definitions.push(
-        text("Private Key", "private_key", { isSecret: true, required: true }),
-        choice("Private Key Type", "private_key_type", ["text", "file"]),
+        text("Private Key", "private_key", {
+          isSecret: true,
+          required: true,
+          description: "RSA private key used for RSA signatures.",
+        }),
+        choice(
+          "Private Key Type",
+          "private_key_type",
+          ["text", "file"],
+          "Whether the RSA private key is text or a file path.",
+        ),
       )
     }
     definitions.push(
-      text("Callback URL", "callback_url"),
-      text("Verifier", "verifier", { isSecret: true }),
-      text("Timestamp", "timestamp"),
-      text("Nonce", "nonce", { isSecret: true }),
-      text("Version", "version"),
-      text("Realm", "realm"),
-      choice("Add To", "placement", ["header", "query", "body"]),
+      text("Callback URL", "callback_url", {
+        description: "URL the provider redirects to during authorization.",
+      }),
+      text("Verifier", "verifier", {
+        isSecret: true,
+        description: "Verifier returned by the provider after authorization.",
+      }),
+      text("Timestamp", "timestamp", {
+        description: "OAuth request timestamp; blank values are generated.",
+      }),
+      text("Nonce", "nonce", {
+        isSecret: true,
+        description: "Unique request value; blank values are generated.",
+      }),
+      text("Version", "version", {
+        description: "OAuth protocol version sent in the signature.",
+      }),
+      text("Realm", "realm", {
+        description: "Optional provider-defined realm value.",
+      }),
+      choice(
+        "Add To",
+        "placement",
+        ["header", "query", "body"],
+        "Where to place OAuth parameters in the request.",
+      ),
       checkbox(
         "Include Body Hash",
         "include_body_hash",
@@ -182,50 +227,101 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
 
   const browserGrant =
     auth.grant_type === "authorization_code" || auth.grant_type === "implicit"
+  const grantDescription =
+    auth.grant_type === "implicit" || auth.grant_type === "password"
+      ? "OAuth flow used to obtain the access token. Legacy grant: prefer Authorization Code with S256 PKCE."
+      : "OAuth flow used to obtain the access token."
   const definitions: Omit<AuthFieldDef, "row">[] = [
     choice(
       "Grant Type",
       "grant_type",
       ["authorization_code", "client_credentials", "implicit", "password"],
-      auth.grant_type === "implicit" || auth.grant_type === "password"
-        ? "Legacy grant: prefer Authorization Code with S256 PKCE."
-        : undefined,
+      grantDescription,
     ),
   ]
   if (browserGrant) {
     definitions.push(
-      text("Authorization URL", "authorization_url", { required: true }),
+      text("Authorization URL", "authorization_url", {
+        required: true,
+        description: "Provider endpoint used to authorize the client.",
+      }),
     )
   }
   if (auth.grant_type !== "implicit") {
     definitions.push(
-      text("Access Token URL", "access_token_url", { required: true }),
+      text("Access Token URL", "access_token_url", {
+        required: true,
+        description:
+          "Endpoint used to exchange credentials or an authorization code for a token.",
+      }),
     )
   }
   definitions.push(
-    text("Refresh Token URL", "refresh_token_url"),
-    text("Client ID", "client_id", { required: true }),
-    text("Client Secret", "client_secret", { isSecret: true }),
+    text("Refresh Token URL", "refresh_token_url", {
+      description:
+        "Endpoint used to exchange a refresh token; blank uses the access token URL.",
+    }),
+    text("Client ID", "client_id", {
+      required: true,
+      description: "Public identifier for the OAuth client.",
+    }),
+    text("Client Secret", "client_secret", {
+      isSecret: true,
+      description: "Secret used to authenticate the OAuth client.",
+    }),
   )
   if (auth.grant_type === "password") {
     definitions.push(
-      text("Username", "username", { required: true }),
-      text("Password", "password", { isSecret: true, required: true }),
+      text("Username", "username", {
+        required: true,
+        description: "Resource-owner username for the password grant.",
+      }),
+      text("Password", "password", {
+        isSecret: true,
+        required: true,
+        description: "Resource-owner password for the password grant.",
+      }),
     )
   }
-  definitions.push(text("Scope", "scope"), text("Audience", "audience"))
+  definitions.push(
+    text("Scope", "scope", {
+      description: "Space-separated permissions requested from the provider.",
+    }),
+    text("Audience", "audience", {
+      description: "Optional API audience requested by the provider.",
+    }),
+  )
   if (browserGrant) {
-    definitions.push(text("Redirect URI", "redirect_uri", { required: true }))
+    definitions.push(
+      text("Redirect URI", "redirect_uri", {
+        required: true,
+        description: "Callback URI registered with the provider.",
+      }),
+    )
   }
   definitions.push(
     text("Credentials ID", "credentials_id", {
       description: "Share a securely cached token across matching requests.",
     }),
-    checkbox("Auto Fetch Token", "auto_fetch_token"),
-    checkbox("Auto Refresh Token", "auto_refresh_token"),
+    checkbox(
+      "Auto Fetch Token",
+      "auto_fetch_token",
+      "Fetch a token automatically before sending when none is cached.",
+    ),
+    checkbox(
+      "Auto Refresh Token",
+      "auto_refresh_token",
+      "Refresh an expired token automatically when possible.",
+    ),
   )
   if (auth.grant_type === "authorization_code") {
-    definitions.push(checkbox("PKCE", "pkce"))
+    definitions.push(
+      checkbox(
+        "PKCE",
+        "pkce",
+        "Protect authorization-code exchanges with a code verifier.",
+      ),
+    )
     if (auth.pkce) {
       definitions.push(
         choice(
@@ -233,78 +329,118 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
           "pkce_method",
           ["S256", "plain"],
           auth.pkce_method === "plain"
-            ? "Plain PKCE is legacy; use S256."
-            : undefined,
+            ? "How the PKCE challenge is derived from the verifier. Plain PKCE is legacy; use S256."
+            : "How the PKCE challenge is derived from the verifier.",
         ),
       )
     }
   }
   if (auth.grant_type === "implicit") {
     definitions.push(
-      choice("Response Type", "implicit_response_type", [
-        "token",
-        "id_token",
-        "token id_token",
-      ]),
+      choice(
+        "Response Type",
+        "implicit_response_type",
+        ["token", "id_token", "token id_token"],
+        "Tokens returned by the implicit grant.",
+      ),
     )
   }
   if (auth.grant_type !== "implicit") {
     definitions.push(
-      choice("Client Authentication", "client_authentication", [
-        "client_secret",
-        "client_assertion",
-      ]),
+      choice(
+        "Client Authentication",
+        "client_authentication",
+        ["client_secret", "client_assertion"],
+        "How the client authenticates at the token endpoint.",
+      ),
     )
     if (auth.client_authentication === "client_secret") {
       definitions.push(
-        choice("Credentials Placement", "credentials_placement", [
-          "body",
-          "basic",
-        ]),
+        choice(
+          "Credentials Placement",
+          "credentials_placement",
+          ["body", "basic"],
+          "Where client credentials are sent to the token endpoint.",
+        ),
       )
     } else {
       definitions.push(
-        choice("Assertion Algorithm", "client_assertion_algorithm", [
-          "HS256",
-          "HS384",
-          "HS512",
-          "RS256",
-          "RS384",
-          "RS512",
-          "PS256",
-          "PS384",
-          "PS512",
-          "ES256",
-          "ES384",
-          "ES512",
-        ]),
+        choice(
+          "Assertion Algorithm",
+          "client_assertion_algorithm",
+          [
+            "HS256",
+            "HS384",
+            "HS512",
+            "RS256",
+            "RS384",
+            "RS512",
+            "PS256",
+            "PS384",
+            "PS512",
+            "ES256",
+            "ES384",
+            "ES512",
+          ],
+          "Algorithm used to sign the client assertion.",
+        ),
         text("Assertion Key", "client_assertion_key", {
           isSecret: true,
           required: true,
+          description: "Key used to sign the client assertion.",
         }),
-        choice("Assertion Key Type", "client_assertion_key_type", [
-          "text",
-          "file",
-        ]),
-        text("Assertion Issuer", "client_assertion_issuer"),
-        text("Assertion Subject", "client_assertion_subject"),
-        text("Assertion Audience", "client_assertion_audience"),
-        text("Assertion Lifetime", "client_assertion_lifetime"),
+        choice(
+          "Assertion Key Type",
+          "client_assertion_key_type",
+          ["text", "file"],
+          "Whether the assertion key is text or a file path.",
+        ),
+        text("Assertion Issuer", "client_assertion_issuer", {
+          description: "Issuer claim included in the client assertion.",
+        }),
+        text("Assertion Subject", "client_assertion_subject", {
+          description: "Subject claim included in the client assertion.",
+        }),
+        text("Assertion Audience", "client_assertion_audience", {
+          description: "Audience claim included in the client assertion.",
+        }),
+        text("Assertion Lifetime", "client_assertion_lifetime", {
+          description: "Lifetime in seconds for the client assertion.",
+        }),
       )
     }
   }
   definitions.push(
-    choice("Token Source", "token_source", ["access_token", "id_token"]),
-    choice("Add Token To", "token_placement", ["header", "query"]),
+    choice(
+      "Token Source",
+      "token_source",
+      ["access_token", "id_token"],
+      "Which token to use when both access and ID tokens are available.",
+    ),
+    choice(
+      "Add Token To",
+      "token_placement",
+      ["header", "query"],
+      "Where to place the selected token on the request.",
+    ),
   )
   if (auth.token_placement === "header") {
     definitions.push(
-      text("Token Header", "token_header", { required: true }),
-      text("Token Prefix", "token_prefix"),
+      text("Token Header", "token_header", {
+        required: true,
+        description: "Header name used when placing the token in a header.",
+      }),
+      text("Token Prefix", "token_prefix", {
+        description: "Prefix added before the token in the header.",
+      }),
     )
   } else {
     definitions.push(
-      text("Token Query Key", "token_query_key", { required: true }),
+      text("Token Query Key", "token_query_key", {
+        required: true,
+        description:
+          "Query parameter name used when placing the token in the URL.",
+      }),
     )
   }
   definitions.push(
@@ -321,36 +457,42 @@ export function getAuthRows(auth: Auth | undefined): AuthFieldDef[] {
       field: "additional_parameters.token.body",
       kind: "parameters",
       isSecret: true,
+      description: "URL-encoded parameters added to token requests.",
     },
     {
       label: "Token Query Parameters",
       field: "additional_parameters.token.query",
       kind: "parameters",
       isSecret: true,
+      description: "Query parameters added to token requests.",
     },
     {
       label: "Token Header Parameters",
       field: "additional_parameters.token.header",
       kind: "parameters",
       isSecret: true,
+      description: "Headers added to token requests.",
     },
     {
       label: "Refresh Body Parameters",
       field: "additional_parameters.refresh.body",
       kind: "parameters",
       isSecret: true,
+      description: "URL-encoded parameters added to refresh requests.",
     },
     {
       label: "Refresh Query Parameters",
       field: "additional_parameters.refresh.query",
       kind: "parameters",
       isSecret: true,
+      description: "Query parameters added to refresh requests.",
     },
     {
       label: "Refresh Header Parameters",
       field: "additional_parameters.refresh.header",
       kind: "parameters",
       isSecret: true,
+      description: "Headers added to refresh requests.",
     },
   )
   return rows(definitions)

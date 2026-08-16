@@ -27,6 +27,7 @@ import {
   CodeEditorScrollBarRenderable,
 } from "../src/ui/editor/CodeEditor"
 import { keyEvent } from "./unit/_helpers"
+import { defaultOAuth2Auth } from "../src/auth/defaults"
 
 const testRender = createTestRender()
 
@@ -1218,6 +1219,61 @@ describe("ResponsePane scrollbox", () => {
 })
 
 describe("RequestPane scrollbox", () => {
+  it("keeps an OAuth select visible when it opens", async () => {
+    const raw = createTestKeymap()
+    const keymap = raw.keymap as unknown as OpenTuiKeymap
+    keymap.setData("app.overlay", "none")
+    const request: Request = {
+      ...makeRequest(1),
+      auth: defaultOAuth2Auth(),
+    }
+    let focusPkceMethod: (() => void) | undefined
+    function OAuthPane() {
+      const [row, setRow] = useState(0)
+      focusPkceMethod = () => setRow(14)
+      return (
+        <RequestPane
+          request={request}
+          editState={{
+            mode: "browsing",
+            cursor: { field: "auth", row, addingRow: false },
+            editingRow: -1,
+          }}
+          editKey=""
+          editValue=""
+          setEditKey={() => {}}
+          setEditValue={() => {}}
+          focused
+          activeTab="auth"
+        />
+      )
+    }
+    const { renderer, renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <OAuthPane />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 14 },
+    )
+
+    await renderOnce()
+    await act(async () => focusPkceMethod?.())
+    await renderOnce()
+    const scrollbox = renderer.root.findDescendantById(
+      "request-tab-scrollbox",
+    ) as ScrollBoxRenderable
+    const scrollTop = scrollbox.scrollTop
+    expect(scrollTop).toBeGreaterThan(0)
+    expect(captureCharFrame()).toContain("PKCE Method")
+
+    await act(async () => raw.host.press("return"))
+    await renderOnce()
+
+    expect(scrollbox.scrollTop).toBe(scrollTop)
+    expect(captureCharFrame()).toContain("PKCE Method")
+  })
+
   it("keeps the active AWS auth row inside the request viewport", async () => {
     const raw = createTestKeymap()
     const keymap = raw.keymap as unknown as OpenTuiKeymap
