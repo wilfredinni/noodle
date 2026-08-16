@@ -7,11 +7,41 @@ import {
   type UpdateAvailableInfo,
   type UpdateDependencies,
 } from "../app/commands/update"
+import { isBunRuntime } from "../app/commands/updateDetect"
 import { showToast } from "./Toast"
 import type { UpdateFlowState } from "./appState"
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function getPreviewFlow(value: string | undefined): UpdateFlowState | null {
+  switch (value) {
+    case "idle":
+      return { phase: "idle" }
+    case "checking":
+      return { phase: "checking" }
+    case "up_to_date":
+      return { phase: "up_to_date" }
+    case "downloading":
+      return {
+        phase: "downloading",
+        version: "v0.7.5",
+        installType: "binary",
+      }
+    case "installing":
+      return {
+        phase: "installing",
+        version: "v0.7.5",
+        installType: "binary",
+      }
+    case "done":
+      return { phase: "done", version: "v0.7.5" }
+    case "failed":
+      return { phase: "failed", message: "Preview failure" }
+    default:
+      return null
+  }
 }
 
 export function useUpdateFlow(
@@ -33,25 +63,38 @@ export function useUpdateFlow(
   const checkSourceRef = useRef<"manual" | "about">("manual")
   const checkInFlightRef = useRef(false)
   const installTokenRef = useRef(0)
+  const previewPhase = isBunRuntime(process.execPath)
+    ? process.env.NOODLE_UPDATE_PREVIEW
+    : undefined
 
   useEffect(() => {
     dependenciesRef.current = dependencies
   }, [dependencies])
 
-  const startCheck = useCallback((source: "manual" | "about") => {
-    const phase = updateFlowRef.current.phase
-    if (
-      checkInFlightRef.current ||
-      phase === "downloading" ||
-      phase === "installing" ||
-      phase === "done"
-    )
-      return
-    checkInFlightRef.current = true
-    checkSourceRef.current = source
-    setUpdateFlow({ phase: "checking" })
-    setCheckToken((token) => token + 1)
-  }, [])
+  const startCheck = useCallback(
+    (source: "manual" | "about") => {
+      const phase = updateFlowRef.current.phase
+      if (
+        checkInFlightRef.current ||
+        phase === "downloading" ||
+        phase === "installing" ||
+        phase === "done"
+      )
+        return
+      if (source === "about") {
+        const previewFlow = getPreviewFlow(previewPhase)
+        if (previewFlow) {
+          setUpdateFlow(previewFlow)
+          return
+        }
+      }
+      checkInFlightRef.current = true
+      checkSourceRef.current = source
+      setUpdateFlow({ phase: "checking" })
+      setCheckToken((token) => token + 1)
+    },
+    [previewPhase],
+  )
 
   const triggerUpdateCheck = useCallback(
     () => startCheck("manual"),

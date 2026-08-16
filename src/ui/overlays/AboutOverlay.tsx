@@ -50,10 +50,12 @@ function AboutVersion({ updateFlow }: { updateFlow: UpdateFlowState }) {
       status = <span fg={theme.success}> ✓</span>
       break
     case "checking":
-      status = <span fg={theme.info}> ⟳ Checking for updates…</span>
+      status = <span fg={theme.secondary}> ⟳ Checking for updates…</span>
       break
     case "downloading":
-      status = <span fg={theme.info}> ↓ Downloading {updateFlow.version}…</span>
+      status = (
+        <span fg={theme.secondary}> ↓ Downloading {updateFlow.version}…</span>
+      )
       break
     case "installing":
       status = (

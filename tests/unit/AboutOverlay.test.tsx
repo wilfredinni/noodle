@@ -48,7 +48,7 @@ describe("AboutOverlay", () => {
         flow: { phase: "checking" },
         line: `Noodle v${pkg.version} ⟳ Checking for updates…`,
         status: "Checking for updates",
-        color: THEMES[0]!.info,
+        color: THEMES[0]!.secondary,
       },
       {
         flow: {
@@ -58,7 +58,7 @@ describe("AboutOverlay", () => {
         },
         line: `Noodle v${pkg.version} ↓ Downloading v0.7.5…`,
         status: "Downloading v0.7.5",
-        color: THEMES[0]!.info,
+        color: THEMES[0]!.secondary,
       },
       {
         flow: {

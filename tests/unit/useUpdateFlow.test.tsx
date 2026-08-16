@@ -229,4 +229,32 @@ describe("useUpdateFlow", () => {
 
     expect(getState().restartVersion).toBeNull()
   })
+
+  it("shows the requested development preview without checking or installing", async () => {
+    const previousPreview = process.env.NOODLE_UPDATE_PREVIEW
+    process.env.NOODLE_UPDATE_PREVIEW = "downloading"
+    let fetches = 0
+    try {
+      const { getState, waitFor } = await renderHook(
+        binaryDependencies(async () => {
+          fetches++
+          throw new Error("preview should not fetch")
+        }),
+      )
+
+      act(() => getState().triggerAboutUpdateCheck())
+      await waitFor(() => getState().updateFlow.phase === "downloading")
+
+      expect(getState().updateFlow).toEqual({
+        phase: "downloading",
+        version: "v0.7.5",
+        installType: "binary",
+      })
+      expect(fetches).toBe(0)
+    } finally {
+      if (previousPreview === undefined)
+        delete process.env.NOODLE_UPDATE_PREVIEW
+      else process.env.NOODLE_UPDATE_PREVIEW = previousPreview
+    }
+  })
 })
