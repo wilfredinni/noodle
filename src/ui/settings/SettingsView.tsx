@@ -45,6 +45,7 @@ import { ProxySettingsForm } from "./ProxySettingsForm"
 import { SettingsField } from "./SettingsField"
 import { TlsSettingsForm } from "./TlsSettingsForm"
 import { moveRegisteredCollection } from "./collectionRegistry"
+import type { ExternalEditor, ExternalEditorId } from "../../externalEditor"
 
 export type SettingsScope = "global" | "collection"
 export type GlobalSettingsCategory =
@@ -107,6 +108,8 @@ export function SettingsView({
   activeThemeIndex,
   layout,
   confirmUndoAll,
+  externalEditors = [],
+  externalEditor,
   appProxy,
   appProxyCredentials = {},
   collectionProxy,
@@ -131,6 +134,7 @@ export function SettingsView({
   onThemeChange,
   onLayoutChange,
   onConfirmUndoAllChange,
+  onExternalEditorChange = () => {},
   onAppProxyChange,
   onCollectionProxyChange,
   onAppProxyCredentialsChange = async () => false,
@@ -153,6 +157,8 @@ export function SettingsView({
   activeThemeIndex: number
   layout: "stacked" | "side-by-side"
   confirmUndoAll: boolean
+  externalEditors?: ExternalEditor[]
+  externalEditor?: ExternalEditor
   appProxy?: AppProxySettings
   appProxyCredentials?: ProxyCredentials
   collectionProxy?: CollectionProxySettings
@@ -177,6 +183,7 @@ export function SettingsView({
   onThemeChange: (index: number) => void
   onLayoutChange: (layout: "stacked" | "side-by-side") => boolean
   onConfirmUndoAllChange: (value: boolean) => void
+  onExternalEditorChange?: (editor: ExternalEditorId) => void
   onAppProxyChange: (proxy: AppProxySettings) => boolean
   onCollectionProxyChange: (proxy: CollectionProxySettings) => boolean
   onAppProxyCredentialsChange?: (
@@ -634,7 +641,8 @@ export function SettingsView({
           return
         }
 
-        const fieldCount = category === "appearance" ? 2 : 1
+        const fieldCount =
+          category === "appearance" || category === "behavior" ? 2 : 1
         if (["up", "down", "home", "end"].includes(event.name)) {
           event.preventDefault()
           event.stopPropagation()
@@ -658,7 +666,11 @@ export function SettingsView({
           } else {
             setContentIndex(next)
           }
-        } else if (event.name === "space" && category === "behavior") {
+        } else if (
+          event.name === "space" &&
+          category === "behavior" &&
+          contentIndex === 0
+        ) {
           event.preventDefault()
           event.stopPropagation()
           onConfirmUndoAllChange(!confirmUndoAll)
@@ -874,7 +886,7 @@ export function SettingsView({
               <>
                 <SettingsSectionHeader
                   title="Behavior"
-                  description="Control confirmation prompts for destructive changes."
+                  description="Control confirmation prompts and external tools."
                 />
                 <SettingLabel
                   title="Confirm undo all"
@@ -886,6 +898,29 @@ export function SettingsView({
                   }}
                 >
                   <Checkbox checked={confirmUndoAll} theme={theme} />
+                </SettingLabel>
+                <SettingLabel
+                  id="settings-behavior-external-editor"
+                  title="External editor"
+                  description="Editor used to open collection and application settings folders."
+                  active={focus === "settings-content" && contentIndex === 1}
+                >
+                  <Select
+                    items={externalEditors.map((editor) => ({
+                      id: editor.id,
+                      label: editor.label,
+                    }))}
+                    value={externalEditor?.id}
+                    placeholder="No supported editors found"
+                    fitContent
+                    interactive={externalEditors.length > 0}
+                    focused={focus === "settings-content" && contentIndex === 1}
+                    onActivate={() => setContentIndex(1)}
+                    onOpenChange={setSelectOpen}
+                    onChange={(value) =>
+                      onExternalEditorChange(value as ExternalEditorId)
+                    }
+                  />
                 </SettingLabel>
               </>
             )}

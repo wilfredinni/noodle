@@ -21,6 +21,7 @@ import type { ResponseQueryController } from "./responseQuery"
 import type { ProxyPolicy } from "../proxy"
 import type { TlsPolicy } from "../tls"
 import type { CollectionMode } from "../collectionPath"
+import type { ExternalEditor } from "../externalEditor"
 import {
   saveRequest,
   saveFolder,
@@ -53,6 +54,8 @@ import {
   openCollectionImport,
   openCollectionSwitcher,
   openSettings,
+  openCollectionInEditor,
+  openAppSettingsInEditor,
   type CommandActionsConfig,
 } from "./commandActions"
 
@@ -61,6 +64,8 @@ export type CommandPaletteTarget = "request" | "folder" | "environment"
 export interface CommandBuilderContext {
   keybinds: Keybinds
   collectionDir: string
+  appConfigDir: string
+  externalEditor?: ExternalEditor
   confirmUndoAll: boolean
   renderer: CliRenderer
   proxyPolicy?: ProxyPolicy
@@ -594,7 +599,22 @@ export function buildCommandPaletteCommands(
     ...(mode === "collection" ? collectionSettingsCommands : []),
   ]
 
+  const externalEditorCommands: CommandItem[] = [
+    {
+      id: "collection.open-in-editor",
+      label: "Open Collection in Editor",
+      section: "Workspace",
+      run: () => openCollectionInEditor(ctx.externalEditor, ctx.collectionDir),
+    },
+  ]
+
   const systemCommands: CommandItem[] = [
+    {
+      id: "app.settings-folder-open-in-editor",
+      label: "Open Settings in Editor",
+      section: "System",
+      run: () => openAppSettingsInEditor(ctx.externalEditor, ctx.appConfigDir),
+    },
     {
       id: "app.settings-open",
       label: "Open Settings",
@@ -720,21 +740,25 @@ export function buildCommandPaletteCommands(
     return [
       ...(mode === "collection" ? editorEnvCommands : readOnlyCommands),
       ...(mode === "collection" ? workspaceCommands : []),
+      ...externalEditorCommands,
       ...settingsCommands,
       ...globalCommands,
       ...systemCommands,
     ]
   }
 
-  if (view === "cookie-jar") return [...settingsCommands, ...systemCommands]
+  if (view === "cookie-jar")
+    return [...externalEditorCommands, ...settingsCommands, ...systemCommands]
 
-  if (view === "settings") return [...settingsCommands, ...systemCommands]
+  if (view === "settings")
+    return [...externalEditorCommands, ...settingsCommands, ...systemCommands]
 
   return [
     ...(mode === "collection" ? visibleRequestCommands : []),
     ...(mode === "collection" ? mainEnvCommands : []),
     ...(mode === "collection" ? workspaceCommands : readOnlyCommands),
     ...mainOnlyCommands,
+    ...externalEditorCommands,
     ...settingsCommands,
     ...globalCommands,
     ...systemCommands,

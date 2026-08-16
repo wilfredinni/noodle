@@ -12,17 +12,21 @@ import {
   copyOAuth2Token,
   fetchOAuth2Token,
   getEditRequestYamlFile,
+  openAppSettingsInEditor,
+  openCollectionInEditor,
   saveFolder,
   saveRequest,
   sendRequest,
   undoAll,
 } from "../../src/ui/commandActions"
+import type { ExternalEditor } from "../../src/externalEditor"
 
 function minimalContext(): CommandBuilderContext {
   const keybinds = bindingDefaults()
   return {
     keybinds,
     collectionDir: "/tmp/collections",
+    appConfigDir: "/tmp/noodle-config",
     confirmUndoAll: false,
     renderer: { copyToClipboardOSC52: () => {} } as unknown as CliRenderer,
     trySendRef: { current: undefined } as never,
@@ -79,6 +83,49 @@ function minimalContext(): CommandBuilderContext {
 }
 
 describe("buildCommandPaletteCommands", () => {
+  it("opens collection and app settings folders in the selected editor", () => {
+    const editor: ExternalEditor = {
+      id: "zed",
+      label: "Zed",
+      command: ["zed"],
+    }
+    const opened: string[] = []
+    const launch = (_editor: ExternalEditor, path: string) => {
+      opened.push(path)
+      return Promise.resolve()
+    }
+
+    expect(openCollectionInEditor(editor, "/tmp/collection", launch)).toBe(true)
+    expect(
+      openAppSettingsInEditor(editor, "/tmp/noodle-config", launch, () => {}),
+    ).toBe(true)
+    expect(opened).toEqual(["/tmp/collection", "/tmp/noodle-config"])
+    expect(
+      openCollectionInEditor(editor, "/tmp/collection", () => {
+        throw new Error("Unable to launch")
+      }),
+    ).toBe(false)
+  })
+
+  it("keeps editor commands visible when no editor is installed", () => {
+    for (const view of ["main", "env-editor", "cookie-jar", "settings"]) {
+      const ctx = minimalContext()
+      ctx.getView = () => view
+      const commands = buildCommandPaletteCommands(ctx)
+      const collection = commands.find(
+        (command) => command.id === "collection.open-in-editor",
+      )
+      const settings = commands.find(
+        (command) => command.id === "app.settings-folder-open-in-editor",
+      )
+
+      expect(collection?.section).toBe("Workspace")
+      expect(settings?.section).toBe("System")
+      expect(collection?.run()).toBe(false)
+      expect(settings?.run()).toBe(false)
+    }
+  })
+
   it("keeps collection export open while an export is pending", () => {
     let visible = true
     const setVisible = (value: boolean) => {
