@@ -202,16 +202,24 @@ export function UrlBar({
               }
               style={{
                 flexShrink: 0,
-                paddingLeft: 1,
-                paddingRight: 1,
-                backgroundColor: sendHovered
-                  ? theme.backgroundElement
-                  : undefined,
+                width: 8,
+                alignItems: "flex-end",
               }}
             >
-              <text fg={theme.primary} selectable={false}>
-                {sending ? `${SPINNER_FRAMES[spinnerIdx]} Send` : "Send"}
-              </text>
+              <box
+                id="urlbar-send-button"
+                style={{
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  backgroundColor: sendHovered
+                    ? theme.backgroundElement
+                    : undefined,
+                }}
+              >
+                <text fg={theme.primary} selectable={false}>
+                  {sending ? `${SPINNER_FRAMES[spinnerIdx]} Send` : "Send"}
+                </text>
+              </box>
             </box>
           )}
         </box>

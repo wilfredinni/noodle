@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
 import { createTestRender } from "../testRender"
 import { MouseButtons } from "@opentui/core/testing"
+import { InputRenderable, type BaseRenderable } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { UrlBar } from "../../src/ui/UrlBar"
@@ -21,6 +22,7 @@ function UrlBarHarness({
   onSubFocus,
   onSend,
   sending = false,
+  initialUrl = "https://example.com",
 }: {
   subFocus?: "select" | "text"
   focused?: boolean
@@ -32,8 +34,9 @@ function UrlBarHarness({
   onSubFocus?: (subFocus: "select" | "text") => void
   onSend?: () => void
   sending?: boolean
+  initialUrl?: string
 }) {
-  const [url, setUrl] = useState("https://example.com")
+  const [url, setUrl] = useState(initialUrl)
   const [method, setMethod] = useState<Method>(initialMethod)
   return (
     <UrlBar
@@ -89,6 +92,55 @@ describe("UrlBar", () => {
     await mockMouse.click(sendX, sendY, MouseButtons.LEFT)
     expect(sends).toBe(1)
     expect(focusCount).toBe(0)
+    cleanup()
+  })
+
+  it("keeps the URL width stable while sending a long URL", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    let startSending = () => {}
+
+    function TestContainer() {
+      const [sending, setSending] = useState(false)
+      startSending = () => setSending(true)
+      return (
+        <UrlBarHarness
+          initialUrl={`https://example.com/${"long-path/".repeat(20)}`}
+          onSend={() => {}}
+          sending={sending}
+        />
+      )
+    }
+
+    const { renderOnce, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <TestContainer />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 40, height: 12 },
+    )
+    await renderOnce()
+
+    const findInput = (node: BaseRenderable): InputRenderable | undefined => {
+      if (node instanceof InputRenderable) return node
+      for (const child of node.getChildren()) {
+        const input = findInput(child)
+        if (input) return input
+      }
+    }
+    const width = findInput(renderer.root)!.width
+    const button = renderer.root.findDescendantById("urlbar-send-button")!
+    const sendSlotWidth = button.parent!.width
+    expect(button.width).toBe(6)
+    expect(sendSlotWidth).toBe(8)
+
+    act(() => startSending())
+    await renderOnce()
+
+    expect(findInput(renderer.root)!.width).toBe(width)
+    expect(
+      renderer.root.findDescendantById("urlbar-send-button")!.parent!.width,
+    ).toBe(sendSlotWidth)
     cleanup()
   })
 
