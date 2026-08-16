@@ -131,6 +131,7 @@ export function useUpdateFlow(
       })
     return () => {
       cancelled = true
+      checkInFlightRef.current = false
     }
   }, [checkToken])
 
