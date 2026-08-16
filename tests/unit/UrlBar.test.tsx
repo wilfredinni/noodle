@@ -129,14 +129,18 @@ describe("UrlBar", () => {
       }
     }
     const width = findInput(renderer.root)!.width
-    expect(renderer.root.findDescendantById("urlbar-send-button")!.width).toBe(
-      6,
-    )
+    const button = renderer.root.findDescendantById("urlbar-send-button")!
+    const sendSlotWidth = button.parent!.width
+    expect(button.width).toBe(6)
+    expect(sendSlotWidth).toBe(8)
 
     act(() => startSending())
     await renderOnce()
 
     expect(findInput(renderer.root)!.width).toBe(width)
+    expect(
+      renderer.root.findDescendantById("urlbar-send-button")!.parent!.width,
+    ).toBe(sendSlotWidth)
     cleanup()
   })
 
