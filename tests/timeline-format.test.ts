@@ -652,9 +652,10 @@ describe("buildTimelineEntry", () => {
       name: "Test",
       method: "POST" as const,
       url: "https://api.example.com",
-      headers: { "content-type": { value: "application/json", enabled: true } },
+      headers: { "content-type": { value: "application/xml", enabled: true } },
       params: [],
-      body: '{"key":"val"}',
+      body: "<key>val</key>",
+      bodyType: "xml" as const,
       auth: undefined,
       timeout: 0,
     }
@@ -673,6 +674,7 @@ describe("buildTimelineEntry", () => {
     const entry = buildTimelineEntry(req, result, "dev")
     expect(entry.request.method).toBe("POST")
     expect(entry.request.url).toBe("https://api.example.com")
+    expect(entry.request.bodyType).toBe("xml")
     expect(entry.response?.status).toBe(201)
     expect(entry.response?.timeMs).toBe(42)
     expect(entry.response?.size).toBe(0)

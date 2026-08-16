@@ -380,6 +380,8 @@ Active pane gets cyan border + `▸` prefix. Global keys work regardless of focu
 - `bun test` runs all tests. No external services needed.
 - Pure helpers in `tests/unit/`, integration tests in `tests/integration/`.
 - Tests use real filesystem I/O for filestore, lang, and env modules (write to temp dirs with `mkdtemp`).
+- Never use fixed delays (`setTimeout`, `Bun.sleep`, or equivalent) to wait for asynchronous test state. Await the real operation or use a state-based wait such as `waitFor`.
+- Before handing off any changed asynchronous test, run its file with `bun test <file> --rerun-each=50` and report the result.
 
 ## Subagents
 

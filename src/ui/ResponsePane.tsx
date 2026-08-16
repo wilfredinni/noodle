@@ -9,13 +9,14 @@ import {
 } from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
-import type {
-  NetworkError,
-  Response,
-  ResponseCookie,
-  TimelineEntry,
-} from "../schema"
-import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
+import type { NetworkError, ResponseCookie, TimelineEntry } from "../schema"
+import {
+  bodyFiletype,
+  formatHeaders,
+  formatBody,
+  formatSize,
+  statusColor,
+} from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
 import { RESPONSE_TAB_HINT_ORDER } from "./useJumpMode"
@@ -49,18 +50,6 @@ const TAB_DEFS: TabDef[] = [
   { id: "timeline", label: "Timeline" },
   { id: "cookies", label: "Cookies" },
 ]
-
-function responseBodyFiletype(response: Response): "json" | "xml" {
-  const contentType = Object.entries(response.headers).find(
-    ([name]) => name.toLowerCase() === "content-type",
-  )?.[1]
-  const mimeType = contentType?.split(";", 1)[0]?.trim().toLowerCase()
-  return mimeType === "application/xml" ||
-    mimeType === "text/xml" ||
-    mimeType?.endsWith("+xml")
-    ? "xml"
-    : "json"
-}
 
 function isDeletedCookie(cookie: ResponseCookie): boolean {
   if (cookie.expires === null) return false
@@ -455,7 +444,7 @@ export function ResponsePane({
     queryResult?.kind === "success"
       ? "json"
       : isDone
-        ? responseBodyFiletype(state.response)
+        ? bodyFiletype(state.response.headers)
         : "json"
 
   useEffect(() => {

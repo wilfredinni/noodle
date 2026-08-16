@@ -8,9 +8,9 @@ import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
 import { Tabs, type TabDef } from "../Tabs"
 import { Badge } from "../Badge"
-import { formatSize, statusColor } from "../format"
+import { bodyFiletype, formatSize, statusColor } from "../format"
 import { methodColor } from "../formatRequest"
-import { JsonBodyViewer } from "../editor/JsonBodyViewer"
+import { CodeEditorRenderable } from "../editor/CodeEditor"
 import { HeaderTable } from "../HeaderTable"
 import { NetworkTab } from "../NetworkTab"
 import {
@@ -106,10 +106,18 @@ export function TimelineDetailOverlay({
     | "export"
     | null
   >(null)
-  const [highlightPriority, setHighlightPriority] = useState<"start" | "end">(
-    "start",
-  )
   const bodyScrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
+  const [bodyEditor, setBodyEditor] = useState<CodeEditorRenderable | null>(
+    null,
+  )
+  const setBodyEditorRef = useCallback(
+    (editor: CodeEditorRenderable | null) => {
+      bodyEditorRef.current = editor
+      setBodyEditor(editor)
+    },
+    [],
+  )
 
   const hasNetwork = (entry?.network?.length ?? 0) > 0
   const tabs = hasNetwork
@@ -174,8 +182,8 @@ export function TimelineDetailOverlay({
     setBodyError(null)
     setLoading(false)
     setShowLargeBody(false)
-    setHighlightPriority("start")
     bodyScrollRef.current?.scrollTo(0)
+    bodyEditorRef.current?.scrollTo(0)
   }, [visible, entry])
 
   useEffect(() => {
@@ -205,8 +213,8 @@ export function TimelineDetailOverlay({
   }, [loadedBody, info?.body, isLarge])
 
   useEffect(() => {
-    setHighlightPriority("start")
     bodyScrollRef.current?.scrollTo(0)
+    bodyEditorRef.current?.scrollTo(0)
   }, [renderedBody])
 
   useEffect(() => {
@@ -229,22 +237,31 @@ export function TimelineDetailOverlay({
         else if (key.name === "h") copyHeaders()
         else if (key.name === "b") copyBody()
         else if (key.name === "e") exportBody()
-        else if (key.name === "up") bodyScrollRef.current?.scrollBy(-1)
-        else if (key.name === "down") bodyScrollRef.current?.scrollBy(1)
-        else if (key.name === "pageup")
-          bodyScrollRef.current?.scrollBy(-1, "viewport")
-        else if (key.name === "pagedown")
-          bodyScrollRef.current?.scrollBy(1, "viewport")
-        else if (key.name === "home") {
-          setHighlightPriority("start")
-          bodyScrollRef.current?.scrollTo(0)
+        else if (key.name === "up") {
+          if (activeTab === "network") bodyScrollRef.current?.scrollBy(-1)
+          else bodyEditorRef.current?.scrollBy(-1)
+        } else if (key.name === "down") {
+          if (activeTab === "network") bodyScrollRef.current?.scrollBy(1)
+          else bodyEditorRef.current?.scrollBy(1)
+        } else if (key.name === "pageup") {
+          if (activeTab === "network")
+            bodyScrollRef.current?.scrollBy(-1, "viewport")
+          else bodyEditorRef.current?.scrollByViewport(-1)
+        } else if (key.name === "pagedown") {
+          if (activeTab === "network")
+            bodyScrollRef.current?.scrollBy(1, "viewport")
+          else bodyEditorRef.current?.scrollByViewport(1)
+        } else if (key.name === "home") {
+          if (activeTab === "network") bodyScrollRef.current?.scrollTo(0)
+          else bodyEditorRef.current?.scrollTo(0)
         } else if (key.name === "end") {
-          setHighlightPriority("end")
-          const bodyScroll = bodyScrollRef.current
-          if (bodyScroll)
-            bodyScroll.scrollTo(
-              Math.max(0, bodyScroll.scrollHeight - bodyScroll.height),
-            )
+          if (activeTab === "network") {
+            const bodyScroll = bodyScrollRef.current
+            if (bodyScroll)
+              bodyScroll.scrollTo(
+                Math.max(0, bodyScroll.scrollHeight - bodyScroll.height),
+              )
+          } else bodyEditorRef.current?.scrollTo(Number.MAX_SAFE_INTEGER)
         }
       },
       { priority: 100 },
@@ -279,6 +296,10 @@ export function TimelineDetailOverlay({
         .map(([key, value]) => ({ key, value }))
     : []
   const headers = activeTab === "request" ? requestHeaders : responseHeaders
+  const renderedBodyFiletype =
+    activeTab === "request"
+      ? bodyFiletype(entry.request.headers, entry.request.bodyType)
+      : bodyFiletype(entry.response?.headers ?? {})
   const headerHeight = 5
 
   return (
@@ -482,33 +503,57 @@ export function TimelineDetailOverlay({
                   </box>
                 </box>
               ) : renderedBody ? (
-                <scrollbox
-                  ref={bodyScrollRef}
-                  scrollY
+                <box
                   onMouseScroll={(event) => {
                     const direction = event.scroll?.direction
                     if (!direction) return
                     const amount = event.scroll?.delta || 1
-                    bodyScrollRef.current?.scrollBy(
+                    bodyEditorRef.current?.scrollBy(
                       (direction === "up" ? -1 : 1) * amount,
                     )
                     event.preventDefault()
                     event.stopPropagation()
                   }}
-                  verticalScrollbarOptions={{
-                    trackOptions: {
+                  style={{
+                    flexDirection: "row",
+                    flexGrow: 1,
+                    flexBasis: 0,
+                    minHeight: 0,
+                  }}
+                >
+                  <line-number
+                    minWidth={3}
+                    paddingRight={1}
+                    fg={theme.textMuted}
+                    bg={theme.backgroundPanel}
+                    style={{ flexGrow: 1, minHeight: 0, minWidth: 0 }}
+                  >
+                    <code-editor
+                      id="timeline-body-editor"
+                      ref={setBodyEditorRef}
+                      filetype={renderedBodyFiletype}
+                      theme={theme}
+                      value={renderedBody}
+                      readOnly
+                      foldable={false}
+                      backgroundColor={theme.backgroundPanel}
+                      focusedBackgroundColor={theme.backgroundPanel}
+                      textColor={theme.text}
+                      focusedTextColor={theme.text}
+                      cursorColor={theme.primary}
+                      scrollMargin={0}
+                      style={{ flexGrow: 1, minHeight: 0 }}
+                    />
+                  </line-number>
+                  <code-editor-scrollbar
+                    target={bodyEditor}
+                    trackOptions={{
                       backgroundColor: theme.background,
                       foregroundColor: theme.borderActive,
-                    },
-                  }}
-                  style={{ flexGrow: 1, flexBasis: 0, minHeight: 0 }}
-                >
-                  <JsonBodyViewer
-                    body={renderedBody}
-                    theme={theme}
-                    highlightPriority={highlightPriority}
+                    }}
+                    style={{ width: 1, flexShrink: 0, zIndex: 1 }}
                   />
-                </scrollbox>
+                </box>
               ) : (
                 <text fg={theme.textMuted}>
                   {entry.response ? "(empty body)" : "No response"}

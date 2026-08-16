@@ -198,6 +198,7 @@ export function buildTimelineEntry(
         req.body === undefined
           ? undefined
           : redact(resolvePublicVars(req.body)),
+      bodyType: req.bodyType,
       auth: redactAuth(req.auth),
     },
     response:
