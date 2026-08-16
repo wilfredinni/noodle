@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { exportOpenApi } from "../../src/converters/openapi"
+import { exportOpenApi, openApiImporter } from "../../src/converters/openapi"
 import { defaultOAuth2Auth } from "../../src/auth/defaults"
 import type { Collection, Request } from "../../src/schema"
 
@@ -389,7 +389,64 @@ describe("exportOpenApi", () => {
       (result.document.paths as Record<string, Record<string, Operation>>)[
         "/xml"
       ].post.requestBody,
-    ).toEqual({ content: { "text/plain": { example: "<root />" } } })
+    ).toEqual({
+      content: {
+        "text/plain": {
+          example: "<root />",
+          "x-noodle-body-type": "xml",
+        },
+      },
+    })
+  })
+
+  it("round-trips XML bodies with explicit non-XML content types", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            id: "plain",
+            method: "POST",
+            url: "https://api.example.com/plain",
+            bodyType: "xml",
+            body: "<plain />",
+            headers: {
+              "Content-Type": { value: "text/plain", enabled: true },
+            },
+          }),
+        },
+        {
+          type: "request",
+          data: request({
+            id: "json",
+            method: "POST",
+            url: "https://api.example.com/json",
+            bodyType: "xml",
+            body: "<json />",
+            headers: {
+              "Content-Type": { value: "application/json", enabled: true },
+            },
+          }),
+        },
+      ]),
+    )
+
+    const imported = openApiImporter
+      .import(JSON.stringify(result.document))
+      .collection.items.flatMap((item) =>
+        item.type === "request" ? [item.data] : [],
+      )
+    expect(imported).toHaveLength(2)
+    expect(imported[0]).toMatchObject({
+      bodyType: "xml",
+      body: "<plain />",
+      headers: { "Content-Type": { value: "text/plain", enabled: true } },
+    })
+    expect(imported[1]).toMatchObject({
+      bodyType: "xml",
+      body: "<json />",
+      headers: { "Content-Type": { value: "application/json", enabled: true } },
+    })
   })
 
   it("uses operation servers for mixed origins and no server for relative URLs", () => {

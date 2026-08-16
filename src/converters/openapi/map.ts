@@ -52,6 +52,7 @@ const SUPPORTED_MEDIA = [
 ] as const
 
 const FILE_FORMATS = new Set(["binary", "base64", "byte"])
+const NOODLE_BODY_TYPE_EXTENSION = "x-noodle-body-type"
 
 function baseMediaType(value: string): string {
   return value.split(";", 1)[0]!.trim().toLowerCase()
@@ -66,6 +67,11 @@ function pickMediaType(content: Record<string, unknown>): string | null {
     baseMediaType(mt).endsWith("+xml"),
   )
   if (xml) return xml
+  const marked = Object.keys(content).find((mt) => {
+    const mediaObj = content[mt]
+    return isMapping(mediaObj) && mediaObj[NOODLE_BODY_TYPE_EXTENSION] === "xml"
+  })
+  if (marked) return marked
   return null
 }
 
@@ -90,6 +96,7 @@ function collectBody(op: Record<string, unknown>): {
   const schema = mediaObj.schema
   const mediaType = baseMediaType(mt)
   if (
+    mediaObj[NOODLE_BODY_TYPE_EXTENSION] === "xml" ||
     mediaType === "application/xml" ||
     mediaType === "text/xml" ||
     mediaType.endsWith("+xml")
