@@ -288,7 +288,7 @@ describe("BodySection — edit mode", () => {
   it("renders XML in the shared editor without changing whitespace", async () => {
     const { keymap, cleanup } = setupKeymap()
     const body = `<root>\n  <value>$token</value>\n</root>`
-    const { renderer, renderOnce, waitFor } = await testRender(
+    const { renderer, renderOnce } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <box width={80} height={20}>
@@ -314,11 +314,8 @@ describe("BodySection — edit mode", () => {
     ) as CodeEditorRenderable
     expect(editor.plainText).toBe(body)
     expect(editor.filetype).toBe("xml")
-    editor.refreshHighlights()
-    await waitFor(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10))
-      return getHighlightCount(editor) > 0
-    })
+    await editor.refreshHighlights()
+    expect(getHighlightCount(editor)).toBeGreaterThan(0)
     cleanup()
   })
 

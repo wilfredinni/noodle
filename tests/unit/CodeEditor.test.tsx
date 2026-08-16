@@ -1384,7 +1384,7 @@ describe("CodeEditorRenderable read-only mode", () => {
   it("highlights XML in read-only mode", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = "<note>\n  <to>Tove</to>\n</note>"
-    const { renderOnce, waitFor } = await testRender(
+    const { renderOnce } = await testRender(
       <box width={40} height={6}>
         <code-editor
           ref={(renderable) => {
@@ -1400,10 +1400,8 @@ describe("CodeEditorRenderable read-only mode", () => {
     )
 
     await renderOnce()
-    await waitFor(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10))
-      return getHighlightCount(editor!) > 0
-    })
+    await editor!.refreshHighlights()
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 
   it("highlights the full final line after becoming read-only", async () => {
