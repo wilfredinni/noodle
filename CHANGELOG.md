@@ -4,6 +4,38 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-08-16
+
+Noodle 0.7.5 adds first-class XML request bodies across editing, execution, history, and conversion workflows. It also makes invalid collection YAML repairable in the TUI, adds direct Settings and external-editor commands, and improves update visibility and empty-state interactions.
+
+### ✨ Features
+
+- Add an XML body type with Tree-sitter highlighting, variable completion, `application/xml` defaults, request history rendering, HAR and client-code support, and unchanged payload delivery after environment substitution.
+- Import XML bodies from cURL, OpenAPI, Swagger, Postman, and Insomnia, and preserve XML examples and explicit MIME types in OpenAPI and Postman exports.
+- Open collections with invalid request or folder YAML in a repair workspace with per-file drafts, inline validation, save and delete actions, and reload after successful repair.
+- Automatically check for and install available updates when the TUI starts, show live update status in the header and About overlay, and make About links clickable.
+- Detect supported desktop editors, select a preferred editor in Settings, and open the active collection or Noodle settings directory from the command palette.
+- Add command-palette entries that open individual application and collection Settings categories directly, and add inline descriptions throughout OAuth 1.0a and OAuth 2.0 editors.
+- Add reusable, keyboard and mouse accessible empty states for uninitialized or empty collections, environments, and cookie jars.
+
+### 🐞 Fixes
+
+- Keep request inspection visible in read-only browse mode and synchronize environment-editor names when environments change outside the editor.
+- Handle MIME types with parameters consistently across imports and exports, preserve XML body intent for non-XML OpenAPI media types, and highlight XML request bodies in timeline details.
+- Keep the command-palette first action visibly highlighted when keyboard navigation selects it.
+
+### 🔧 Refactors
+
+- Share action buttons, empty-state rendering, and the YAML file editor across overlays and invalid-collection repair, while making Tree-sitter highlighting awaitable and cancellation-safe.
+- Remove fixed-delay UI test waits and make the OpenTUI test renderer fail on unexpected React diagnostics.
+
+### 📚 Documentation
+
+- Update the README, `AGENTS.md`, in-app tips, and documentation site for XML bodies, invalid-YAML repair, automatic update status, direct Settings navigation, and external-editor workflows.
+- Update `noodle-dev` with XML editing and conversion, invalid-collection repair, external-editor, and TUI update-flow architecture.
+- Update `noodle-use` with XML body schemas, examples, import and export coverage, and headless Linux secret-storage guidance.
+- Update `noodle-release` with strict version normalization, evidence-backed public-surface review, per-skill audit decisions, release summaries, and complete release validation.
+
 ## [0.7.4] - 2026-08-14
 
 Noodle 0.7.4 adds first-class OAuth 1.0a signing and OAuth 2.0 token workflows to request and folder authentication. It covers interactive browser authorization, secure token storage, converters, timeline safety, and request-specific execution without placing generated OAuth state in collection files.
@@ -484,7 +516,8 @@ theme contrast keep the workflow dependable.
 - Add pre-commit and pre-push quality checks.
 - Expand installation and update coverage, including filesystem isolation for editor tests.
 
-[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.4...HEAD
+[Unreleased]: https://github.com/wilfredinni/noodle/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/wilfredinni/noodle/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/wilfredinni/noodle/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/wilfredinni/noodle/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/wilfredinni/noodle/compare/v0.7.1...v0.7.2
