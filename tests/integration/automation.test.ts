@@ -426,7 +426,7 @@ describe("automation services", () => {
   it("loads credentials only for the selected collection proxy", async () => {
     await writeFile(
       join(dir, "settings.yml"),
-      "collection_id: 11111111-1111-4111-8111-111111111111\nproxy:\n  mode: custom\n  url: http://proxy.test:8080\n  auth: true\n",
+      "collection_id: 11111111-1111-4111-8111-111111111111\ncookies:\n  enabled: false\nproxy:\n  mode: custom\n  url: http://proxy.test:8080\n  auth: true\n",
     )
     await writeFile(
       join(dir, "request.yml"),

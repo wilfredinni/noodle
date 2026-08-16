@@ -35,6 +35,11 @@ export function createTestRender() {
     options: TestRendererOptions,
   ): Promise<TestRendererSetup> {
     const setup = await openTuiTestRender(node, options)
+    const destroy = setup.renderer.destroy.bind(setup.renderer)
+    setup.renderer.destroy = () => {
+      destroy()
+      actEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    }
     renderers.add(setup.renderer)
     return setup
   }

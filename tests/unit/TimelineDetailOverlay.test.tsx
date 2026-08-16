@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
 import { act, useState, type ComponentProps } from "react"
 import { extend } from "@opentui/react"
 import { createTestRender } from "../testRender"
@@ -428,7 +428,8 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
-  it("switches tabs and copies the active body when clicked", async () => {
+  it("switches tabs and copies the active body when clicked without act warnings", async () => {
+    using error = spyOn(console, "error").mockImplementation(() => {})
     const copied: string[] = []
     const { renderOnce, captureCharFrame, mockMouse, cleanup } =
       await renderOverlay(
@@ -460,7 +461,7 @@ describe("TimelineDetailOverlay", () => {
         MouseButtons.LEFT,
       )
     })
-    await renderOnce()
+    await act(async () => renderOnce())
     const updatedRows = captureCharFrame().split("\n")
     const footerY = updatedRows.findIndex((row) => row.includes("copy body"))
     expect(updatedRows[footerY]).not.toContain("·")
@@ -473,6 +474,7 @@ describe("TimelineDetailOverlay", () => {
     })
     expect(copied).toEqual(["response body"])
     cleanup()
+    expect(error).not.toHaveBeenCalled()
   })
 
   it("wraps long request URL onto lines below method", async () => {
