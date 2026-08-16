@@ -3,8 +3,10 @@ import { useTerminalDimensions } from "@opentui/react"
 import { stringWidth } from "bun"
 import { useState } from "react"
 import pkg from "../../package.json" with { type: "json" }
+import type { UpdateFlowState } from "./appState"
 import type { EnvStatus } from "./envIndicator"
 import { useTheme } from "./theme"
+import { getUpdateStatusSegments, UpdateStatusSpans } from "./UpdateStatus"
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
@@ -31,8 +33,7 @@ export function Header({
   onAboutActivate,
   onCollectionActivate,
   onEnvironmentActivate,
-  restartVersion,
-  updateAvailable,
+  updateFlow = { phase: "idle" },
 }: {
   collectionLabel: string
   envLabel: string
@@ -41,8 +42,7 @@ export function Header({
   onAboutActivate?: () => void
   onCollectionActivate?: () => void
   onEnvironmentActivate?: () => void
-  restartVersion?: string | null
-  updateAvailable?: string | null
+  updateFlow?: UpdateFlowState
 }) {
   const theme = useTheme()
   const [hoveringAbout, setHoveringAbout] = useState(false)
@@ -51,16 +51,17 @@ export function Header({
   const { width: termWidth = 100 } = useTerminalDimensions()
 
   const showVersion = termWidth >= 60
-  const showStatus = termWidth >= 80
   const showCollection = termWidth >= 20
   const showEnvironment = termWidth >= 30
-  const status = showStatus
-    ? updateAvailable != null
-      ? " ✨ Update available"
-      : restartVersion
-        ? " ✨ Restart to update"
-        : ""
-    : ""
+  const statusSegments =
+    termWidth >= 80
+      ? getUpdateStatusSegments(updateFlow, true).map((segment, index) =>
+          index === 0
+            ? { ...segment, text: segment.text.trimStart() }
+            : segment,
+        )
+      : []
+  const status = statusSegments.map(({ text }) => text).join("")
   const titleWidth = 8 + (showVersion ? ` v${pkg.version}`.length : 0)
   const availableLabelWidth = Math.max(
     0,
@@ -150,6 +151,11 @@ export function Header({
             </text>
           )}
         </box>
+        {showVersion && statusSegments.length > 0 && (
+          <text selectable={false}>
+            <UpdateStatusSpans segments={statusSegments} />
+          </text>
+        )}
         {showCollection && (
           <>
             <text fg={theme.textMuted} selectable={false}>
@@ -190,7 +196,6 @@ export function Header({
             </box>
           </>
         )}
-        {showVersion && status && <text fg={theme.warning}>{status}</text>}
       </box>
       {showEnvironment && (
         <box

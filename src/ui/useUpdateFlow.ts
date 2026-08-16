@@ -55,12 +55,10 @@ export function useUpdateFlow(
   const [updateFlow, setUpdateFlow] = useState<UpdateFlowState>({
     phase: "idle",
   })
-  const [restartVersion, setRestartVersion] = useState<string | null>(null)
-  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
   const updateFlowRef = useRef(updateFlow)
   updateFlowRef.current = updateFlow
   const dependenciesRef = useRef(dependencies)
-  const checkSourceRef = useRef<"manual" | "about">("manual")
+  const checkSourceRef = useRef<"manual" | "about" | "startup">("startup")
   const checkInFlightRef = useRef(false)
   const installTokenRef = useRef(0)
   const previewPhase = isBunRuntime(process.execPath)
@@ -72,7 +70,7 @@ export function useUpdateFlow(
   }, [dependencies])
 
   const startCheck = useCallback(
-    (source: "manual" | "about") => {
+    (source: "manual" | "about" | "startup") => {
       const phase = updateFlowRef.current.phase
       if (
         checkInFlightRef.current ||
@@ -81,7 +79,7 @@ export function useUpdateFlow(
         phase === "done"
       )
         return
-      if (source === "about") {
+      if (source !== "manual") {
         const previewFlow = getPreviewFlow(previewPhase)
         if (previewFlow) {
           setUpdateFlow(previewFlow)
@@ -105,6 +103,8 @@ export function useUpdateFlow(
     [startCheck],
   )
 
+  useEffect(() => startCheck("startup"), [startCheck])
+
   useEffect(() => {
     if (checkToken === 0) return
     let cancelled = false
@@ -119,7 +119,6 @@ export function useUpdateFlow(
           return
         }
         if (status.kind === "up_to_date") {
-          setUpdateAvailable(null)
           setUpdateFlow({ phase: "up_to_date" })
           if (source === "manual") showToast("Noodle is up to date", "success")
           return
@@ -172,8 +171,6 @@ export function useUpdateFlow(
           if (result.data.status === "homebrew_updated") {
             showToast("Update completed", "success")
             setUpdateFlow({ phase: "done", version: update.version })
-            setRestartVersion(update.version)
-            setUpdateAvailable(null)
           } else {
             const message = result.data.exit_code
               ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
@@ -224,8 +221,6 @@ export function useUpdateFlow(
           const version = result.data.version ?? update.version
           showToast("Update completed", "success")
           setUpdateFlow({ phase: "done", version })
-          setRestartVersion(version)
-          setUpdateAvailable(null)
         } else {
           const message =
             (result.data as Record<string, string>).reason ?? "Update failed"
@@ -239,22 +234,6 @@ export function useUpdateFlow(
         setUpdateFlow({ phase: "failed", message: getErrorMessage(error) })
       })
   }, [updateFlow])
-
-  useEffect(() => {
-    let cancelled = false
-    checkForUpdates(false, dependenciesRef.current)
-      .then((status) => {
-        if (!cancelled && status.kind === "update_available") {
-          setUpdateAvailable(status.latestVersion)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) showToast("Update check failed", "error")
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const confirmInstall = useCallback(() => {
     const update = updateFlowRef.current
@@ -271,8 +250,6 @@ export function useUpdateFlow(
 
   return {
     updateFlow,
-    restartVersion,
-    updateAvailable,
     triggerUpdateCheck,
     triggerAboutUpdateCheck,
     confirmInstall,

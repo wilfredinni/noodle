@@ -32,6 +32,7 @@ export type {
 
 export {
   getPlatformString,
+  getHomebrewExecutable,
   isHomebrewInstall,
   isBunRuntime,
 } from "./updateDetect"

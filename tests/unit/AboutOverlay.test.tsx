@@ -72,8 +72,8 @@ describe("AboutOverlay", () => {
       },
       {
         flow: { phase: "done", version: "v0.7.5" },
-        line: `Noodle v${pkg.version} ✓ v0.7.5 installed ↻ Restart to apply`,
-        status: "Restart to apply",
+        line: `Noodle v${pkg.version} ↻ Restart to apply v0.7.5`,
+        status: "Restart to apply v0.7.5",
         color: THEMES[0]!.warning,
       },
       {
@@ -103,14 +103,6 @@ describe("AboutOverlay", () => {
           span.text.includes(testCase.status!),
         )
         expect(statusSpan?.fg.equals(RGBA.fromHex(testCase.color))).toBe(true)
-        if (testCase.flow.phase === "done") {
-          const installedSpan = spans.find((span) =>
-            span.text.includes("v0.7.5 installed"),
-          )
-          expect(
-            installedSpan?.fg.equals(RGBA.fromHex(THEMES[0]!.success)),
-          ).toBe(true)
-        }
       }
     }
   })

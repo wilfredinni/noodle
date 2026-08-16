@@ -7,6 +7,7 @@ import type { RefObject } from "react"
 import pkg from "../../package.json" with { type: "json" }
 import type { UpdateDependencies } from "../../src/app/commands/update"
 import { sha256 } from "../../src/app/commands/update"
+import type { UpdateFlowState } from "../../src/ui/appState"
 import { useUpdateFlow } from "../../src/ui/useUpdateFlow"
 import { createTestRender } from "../testRender"
 
@@ -105,7 +106,7 @@ describe("useUpdateFlow", () => {
     }
   }
 
-  it("auto-installs a binary from About and suppresses checks after completion", async () => {
+  it("auto-installs a binary on startup and suppresses checks after completion", async () => {
     const binary = new TextEncoder().encode("new")
     let manifestChecks = 0
     const { getState, phases, waitFor } = await renderHook(
@@ -118,14 +119,16 @@ describe("useUpdateFlow", () => {
       }),
     )
 
-    act(() => getState().triggerAboutUpdateCheck())
     await waitFor(() => getState().updateFlow.phase === "done")
 
     expect(phases).toContain("checking")
     expect(phases).toContain("downloading")
     expect(phases).toContain("installing")
     expect(phases).not.toContain("confirm")
-    expect(getState().restartVersion).toBe("v99.0.0")
+    expect(getState().updateFlow).toEqual({
+      phase: "done",
+      version: "v99.0.0",
+    })
     expect(await readFile(execPath, "utf8")).toBe("new")
 
     act(() => getState().triggerAboutUpdateCheck())
@@ -135,14 +138,21 @@ describe("useUpdateFlow", () => {
 
   it("keeps manual confirmation while another overlay is active", async () => {
     const binary = new TextEncoder().encode("new")
+    let checks = 0
     const { getState, overlayActiveRef, waitFor } = await renderHook(
-      binaryDependencies(async (input) =>
-        String(input).endsWith("update.json")
-          ? new Response(manifest("v99.0.0", sha256(binary)))
-          : new Response(binary),
-      ),
+      binaryDependencies(async (input) => {
+        if (!String(input).endsWith("update.json")) return new Response(binary)
+        checks++
+        return new Response(
+          manifest(
+            checks === 1 ? `v${pkg.version}` : "v99.0.0",
+            sha256(binary),
+          ),
+        )
+      }),
     )
 
+    await waitFor(() => getState().updateFlow.phase === "up_to_date")
     overlayActiveRef.current = true
     act(() => getState().triggerUpdateCheck())
     await waitFor(() => getState().updateFlow.phase === "confirm")
@@ -163,7 +173,6 @@ describe("useUpdateFlow", () => {
       }),
     )
 
-    act(() => getState().triggerAboutUpdateCheck())
     await waitFor(() => getState().updateFlow.phase === "failed")
     act(() => getState().triggerAboutUpdateCheck())
     await waitFor(() => getState().updateFlow.phase === "up_to_date")
@@ -172,25 +181,21 @@ describe("useUpdateFlow", () => {
   })
 
   it("auto-installs Homebrew updates without confirmation", async () => {
-    let infoChecks = 0
     const commands: string[] = []
     const { getState, phases, waitFor } = await renderHook({
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: "/opt/homebrew/Cellar/noodle/0.7.4/bin/noodle",
       platform: "darwin",
       arch: "arm64",
       env: {},
       runProcess: async (args) => {
         commands.push(args.join(" "))
         if (args[1] === "info") {
-          infoChecks++
           return {
             exitCode: 0,
             stdout: JSON.stringify({
               formulae: [
                 {
-                  versions: {
-                    stable: infoChecks === 1 ? pkg.version : "99.0.0",
-                  },
+                  versions: { stable: "99.0.0" },
                 },
               ],
             }),
@@ -199,17 +204,13 @@ describe("useUpdateFlow", () => {
         return { exitCode: 0 }
       },
     })
-    await waitFor(() => infoChecks === 1)
-
-    act(() => getState().triggerAboutUpdateCheck())
     await waitFor(() => getState().updateFlow.phase === "done")
 
     expect(phases).toContain("installing")
     expect(phases).not.toContain("confirm")
     expect(commands).toEqual([
-      "brew info --json=v2 noodle",
-      "brew info --json=v2 noodle",
-      "brew upgrade noodle",
+      "/opt/homebrew/bin/brew info --json=v2 noodle",
+      "/opt/homebrew/bin/brew upgrade noodle",
     ])
   })
 
@@ -221,35 +222,53 @@ describe("useUpdateFlow", () => {
       env: {},
     })
 
-    act(() => getState().triggerAboutUpdateCheck())
     await waitFor(
       () =>
         phases.includes("checking") && getState().updateFlow.phase === "idle",
     )
 
-    expect(getState().restartVersion).toBeNull()
+    expect(getState().updateFlow).toEqual({ phase: "idle" })
   })
 
-  it("shows the requested development preview without checking or installing", async () => {
+  it("shows every development preview on startup without checking or installing", async () => {
     const previousPreview = process.env.NOODLE_UPDATE_PREVIEW
-    process.env.NOODLE_UPDATE_PREVIEW = "downloading"
     let fetches = 0
     try {
-      const { getState, waitFor } = await renderHook(
-        binaryDependencies(async () => {
-          fetches++
-          throw new Error("preview should not fetch")
-        }),
-      )
+      const cases: Array<[string, UpdateFlowState]> = [
+        ["idle", { phase: "idle" }],
+        ["checking", { phase: "checking" }],
+        ["up_to_date", { phase: "up_to_date" }],
+        [
+          "downloading",
+          {
+            phase: "downloading",
+            version: "v0.7.5",
+            installType: "binary",
+          },
+        ],
+        [
+          "installing",
+          {
+            phase: "installing",
+            version: "v0.7.5",
+            installType: "binary",
+          },
+        ],
+        ["done", { phase: "done", version: "v0.7.5" }],
+        ["failed", { phase: "failed", message: "Preview failure" }],
+      ]
 
-      act(() => getState().triggerAboutUpdateCheck())
-      await waitFor(() => getState().updateFlow.phase === "downloading")
-
-      expect(getState().updateFlow).toEqual({
-        phase: "downloading",
-        version: "v0.7.5",
-        installType: "binary",
-      })
+      for (const [preview, expected] of cases) {
+        process.env.NOODLE_UPDATE_PREVIEW = preview
+        const { getState, waitFor } = await renderHook(
+          binaryDependencies(async () => {
+            fetches++
+            throw new Error("preview should not fetch")
+          }),
+        )
+        await waitFor(() => getState().updateFlow.phase === expected.phase)
+        expect(getState().updateFlow).toEqual(expected)
+      }
       expect(fetches).toBe(0)
     } finally {
       if (previousPreview === undefined)

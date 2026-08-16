@@ -237,14 +237,18 @@ describe("Header", () => {
     expect(frame).not.toContain("�")
   })
 
-  it("hides version and update messaging before collection context", async () => {
+  it("hides active update status before the wide-header breakpoint", async () => {
     const { renderOnce, captureCharFrame } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <Header
           collectionLabel="jsonplaceholder-collection"
           envLabel="production"
           envStatus="active"
-          updateAvailable="v9.9.9"
+          updateFlow={{
+            phase: "downloading",
+            version: "v9.9.9",
+            installType: "binary",
+          }}
         />
       </ThemeProvider>,
       { width: 40, height: 1 },
@@ -252,29 +256,104 @@ describe("Header", () => {
     await renderOnce()
 
     const frame = captureCharFrame()
-    expect(frame).not.toContain("Update available")
+    expect(frame).not.toContain("Downloading")
     expect(frame).not.toContain(`v${pkg.version}`)
     expect(frame).toContain("jsonplac…")
     expect(frame).toContain("⛁ production")
   })
 
-  it("keeps wide update status text from shrinking header spacing", async () => {
-    const { renderOnce, captureCharFrame } = await testRender(
-      <ThemeProvider activeIndex={0} previewIndex={null}>
-        <Header
-          collectionLabel="a-very-long-collection-name"
-          envLabel="a-very-long-development-environment"
-          envStatus="active"
-          updateAvailable="v9.9.9"
-        />
-      </ThemeProvider>,
-      { width: 80, height: 1 },
-    )
-    await renderOnce()
+  it("renders active update states after the version with shared colors", async () => {
+    const cases = [
+      {
+        flow: {
+          phase: "downloading",
+          version: "v9.9.9",
+          installType: "binary",
+        } as const,
+        suffix: " ↓ Downloading v9.9.9…",
+        status: "Downloading",
+        color: THEMES[0]!.secondary,
+      },
+      {
+        flow: {
+          phase: "installing",
+          version: "v9.9.9",
+          installType: "brew",
+        } as const,
+        suffix: " ⚙ Installing v9.9.9…",
+        status: "Installing",
+        color: THEMES[0]!.warning,
+      },
+      {
+        flow: { phase: "done", version: "v9.9.9" } as const,
+        suffix: " ↻ Restart to apply v9.9.9",
+        status: "Restart to apply v9.9.9",
+        color: THEMES[0]!.warning,
+      },
+      {
+        flow: { phase: "failed", message: "network down" } as const,
+        suffix: " ✕ Update failed",
+        status: "Update failed",
+        color: THEMES[0]!.error,
+      },
+    ]
 
-    const frame = captureCharFrame()
-    expect(frame).toContain(`Noodle v${pkg.version}`)
-    expect(frame).toContain(" ✨ Update available")
-    expect(frame).toContain("⛁ a-very")
+    for (const testCase of cases) {
+      const { renderOnce, captureCharFrame, captureSpans } = await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Header
+            collectionLabel="collection"
+            envLabel="dev"
+            envStatus="active"
+            updateFlow={testCase.flow}
+          />
+        </ThemeProvider>,
+        { width: 120, height: 1 },
+      )
+      await renderOnce()
+
+      const frame = captureCharFrame()
+      const statusStart = frame.indexOf(testCase.suffix.trimStart())
+      expect(frame).toContain(`Noodle v${pkg.version}${testCase.suffix}`)
+      expect(statusStart).toBeLessThan(frame.indexOf("collection"))
+      const statusSpan = captureSpans()
+        .lines.flatMap((line) => line.spans)
+        .find((span) => span.text.includes(testCase.status))
+      expect(statusSpan?.fg.equals(RGBA.fromHex(testCase.color))).toBe(true)
+    }
+  })
+
+  it("keeps quiet update states out of the Header", async () => {
+    const flows = [
+      { phase: "idle" },
+      { phase: "checking" },
+      { phase: "up_to_date" },
+      {
+        phase: "confirm",
+        version: "v9.9.9",
+        installType: "brew",
+      },
+    ] as const
+
+    for (const updateFlow of flows) {
+      const { renderOnce, captureCharFrame } = await testRender(
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Header
+            collectionLabel="collection"
+            envLabel="dev"
+            envStatus="active"
+            updateFlow={updateFlow}
+          />
+        </ThemeProvider>,
+        { width: 100, height: 1 },
+      )
+      await renderOnce()
+
+      const frame = captureCharFrame()
+      expect(frame).toContain(`Noodle v${pkg.version}`)
+      expect(frame).not.toContain("Checking for updates")
+      expect(frame).not.toContain("Update failed")
+      expect(frame).not.toContain("✓")
+    }
   })
 })

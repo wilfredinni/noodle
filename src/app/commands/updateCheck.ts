@@ -3,6 +3,7 @@ import { join } from "node:path"
 import pkg from "../../../package.json" with { type: "json" }
 import {
   getPlatformString,
+  getHomebrewExecutable,
   isHomebrewInstall,
   isBunRuntime,
 } from "./updateDetect"
@@ -144,7 +145,7 @@ export async function checkForUpdates(
   if (isHomebrewInstall(deps.execPath)) {
     try {
       const result = await deps.runProcess(
-        ["brew", "info", "--json=v2", "noodle"],
+        [getHomebrewExecutable(deps.execPath), "info", "--json=v2", "noodle"],
         true,
         {
           signal: AbortSignal.timeout(

@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto"
 import { chmod, mkdtemp, rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { isBunRuntime, getPlatformString } from "./updateDetect"
+import {
+  getHomebrewExecutable,
+  isBunRuntime,
+  getPlatformString,
+} from "./updateDetect"
 import type { UpdateDependencies } from "./updateMetadata"
 import { getAssetName, getUpdateDeps } from "./updateMetadata"
 
@@ -35,7 +39,7 @@ async function runHomebrewUpdate(
   output("Updating noodle via Homebrew...")
   try {
     const result = await deps.runProcess(
-      ["brew", "upgrade", "noodle"],
+      [getHomebrewExecutable(deps.execPath), "upgrade", "noodle"],
       silent,
       {
         env: deps.env,

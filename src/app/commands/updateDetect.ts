@@ -1,4 +1,4 @@
-import { lstatSync, realpathSync } from "node:fs"
+import { realpathSync } from "node:fs"
 
 export function getPlatformString(platform: string, arch: string): string {
   const os =
@@ -8,21 +8,19 @@ export function getPlatformString(platform: string, arch: string): string {
   return `${os}-${cpu}`
 }
 
-function isHomebrewPath(p: string): boolean {
+const HOMEBREW_PREFIXES = [
+  "/opt/homebrew",
+  "/usr/local",
+  "/home/linuxbrew/.linuxbrew",
+]
+
+function getHomebrewPrefix(path: string): string | null {
   return (
-    p.includes("/homebrew/") ||
-    p.includes("/.linuxbrew/") ||
-    p.includes("/usr/local/Cellar/") ||
-    p.includes("/usr/local/Homebrew/") ||
-    p.includes("/brew/bin/")
+    HOMEBREW_PREFIXES.find((prefix) =>
+      path.startsWith(`${prefix}/Cellar/noodle/`),
+    ) ?? null
   )
 }
-
-const HOMEBREW_BIN_PREFIXES = [
-  "/usr/local/bin/",
-  "/opt/homebrew/bin/",
-  "/home/linuxbrew/.linuxbrew/bin/",
-]
 
 export function isBunRuntime(execPath: string): boolean {
   const name = execPath.split("/").pop() ?? ""
@@ -31,20 +29,22 @@ export function isBunRuntime(execPath: string): boolean {
 
 export function isHomebrewInstall(execPath: string): boolean {
   if (isBunRuntime(execPath)) return false
-  if (isHomebrewPath(execPath)) return true
   try {
-    if (isHomebrewPath(realpathSync(execPath))) return true
+    return getHomebrewPrefix(realpathSync(execPath)) !== null
   } catch {
-    try {
-      if (
-        HOMEBREW_BIN_PREFIXES.some((p) => execPath.startsWith(p)) &&
-        lstatSync(execPath).isSymbolicLink()
-      ) {
-        return true
-      }
-    } catch {
-      // stat failed too, file doesn't exist
-    }
+    return getHomebrewPrefix(execPath) !== null
   }
-  return false
+}
+
+export function getHomebrewExecutable(execPath: string): string {
+  let path = execPath
+  try {
+    path = realpathSync(execPath)
+  } catch {
+    // Use the supplied path when it cannot be resolved (for example in tests).
+  }
+
+  const prefix = getHomebrewPrefix(path)
+  if (!prefix) throw new Error("Unable to resolve Homebrew executable")
+  return `${prefix}/bin/brew`
 }

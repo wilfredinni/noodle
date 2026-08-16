@@ -706,8 +706,6 @@ export function AppInner({
   const overlayActiveRef = useRef(false)
   const {
     updateFlow,
-    restartVersion,
-    updateAvailable,
     triggerUpdateCheck,
     triggerAboutUpdateCheck,
     confirmInstall: onConfirmInstall,
@@ -1552,8 +1550,7 @@ export function AppInner({
             ? handleEnvironmentActivate
             : undefined
         }
-        restartVersion={restartVersion}
-        updateAvailable={updateAvailable}
+        updateFlow={updateFlow}
       />
       <VariableCompletionInterceptor />
       <box
