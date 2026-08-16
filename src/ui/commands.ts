@@ -5,7 +5,12 @@ import type { Keybinds } from "./keybind"
 import { displayKey } from "./keybind"
 import type { Focus } from "./focus"
 import type { AppView, YamlEditorState } from "./appState"
-import type { SettingsCategory, SettingsScope } from "./settings/SettingsView"
+import {
+  COLLECTION_CATEGORIES,
+  GLOBAL_CATEGORIES,
+  type SettingsCategory,
+  type SettingsScope,
+} from "./settings/SettingsView"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseFolderDraftResult } from "../hooks/useFolderDraft"
 import type { UseEnvironmentsResult } from "../hooks/useEnvironments"
@@ -557,6 +562,38 @@ export function buildCommandPaletteCommands(
     },
   ]
 
+  const openSettingsCategory = (
+    scope: SettingsScope,
+    category: SettingsCategory,
+  ): boolean => {
+    if (!openSettings(c, view)) return false
+    openSettingsView(scope, category)
+    return true
+  }
+
+  const applicationSettingsCommands: CommandItem[] = GLOBAL_CATEGORIES.map(
+    ({ id, label }) => ({
+      id: `app.settings-${id}`,
+      label,
+      section: "Application Settings",
+      run: () => openSettingsCategory("global", id),
+    }),
+  )
+
+  const collectionSettingsCommands: CommandItem[] = COLLECTION_CATEGORIES.map(
+    ({ id, label }) => ({
+      id: `collection.settings-${id}`,
+      label,
+      section: "Collection Settings",
+      run: () => openSettingsCategory("collection", id),
+    }),
+  )
+
+  const settingsCommands = [
+    ...applicationSettingsCommands,
+    ...(mode === "collection" ? collectionSettingsCommands : []),
+  ]
+
   const systemCommands: CommandItem[] = [
     {
       id: "app.settings-open",
@@ -683,20 +720,22 @@ export function buildCommandPaletteCommands(
     return [
       ...(mode === "collection" ? editorEnvCommands : readOnlyCommands),
       ...(mode === "collection" ? workspaceCommands : []),
+      ...settingsCommands,
       ...globalCommands,
       ...systemCommands,
     ]
   }
 
-  if (view === "cookie-jar") return systemCommands
+  if (view === "cookie-jar") return [...settingsCommands, ...systemCommands]
 
-  if (view === "settings") return systemCommands
+  if (view === "settings") return [...settingsCommands, ...systemCommands]
 
   return [
     ...(mode === "collection" ? visibleRequestCommands : []),
     ...(mode === "collection" ? mainEnvCommands : []),
     ...(mode === "collection" ? workspaceCommands : readOnlyCommands),
     ...mainOnlyCommands,
+    ...settingsCommands,
     ...globalCommands,
     ...systemCommands,
   ]

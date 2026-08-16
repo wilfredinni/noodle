@@ -185,7 +185,14 @@ describe("buildCommandPaletteCommands", () => {
   it("sections appear in correct order", () => {
     const commands = buildCommandPaletteCommands(minimalContext())
     const sections = [...new Set(commands.map((c) => c.section))]
-    expect(sections).toEqual(["Request", "Environment", "Workspace", "System"])
+    expect(sections).toEqual([
+      "Request",
+      "Environment",
+      "Workspace",
+      "Application Settings",
+      "Collection Settings",
+      "System",
+    ])
   })
 
   it("shows only request commands for a request context menu", () => {
@@ -491,7 +498,7 @@ describe("buildCommandPaletteCommands", () => {
     expect(visible).toBe(true)
   })
 
-  it("exposes Open Settings without a duplicate proxy shortcut", () => {
+  it("opens generic and scoped settings commands", () => {
     const ctx = minimalContext()
     const opened: Array<[string | undefined, string | undefined]> = []
     ctx.openSettingsView = (scope, category) => {
@@ -500,13 +507,32 @@ describe("buildCommandPaletteCommands", () => {
 
     const commands = buildCommandPaletteCommands(ctx)
     const settings = commands.find((item) => item.id === "app.settings-open")!
+    const appearance = commands.find(
+      (item) => item.id === "app.settings-appearance",
+    )!
+    const certificates = commands.find(
+      (item) => item.id === "collection.settings-tls",
+    )!
 
     expect(settings.keybinding).toBe("f4")
     expect(settings.run()).toBe(true)
-    expect(commands.find((item) => item.id === "app.proxy-settings")).toBe(
-      undefined,
-    )
-    expect(opened).toEqual([[undefined, undefined]])
+    expect(appearance.section).toBe("Application Settings")
+    expect(appearance.run()).toBe(true)
+    expect(certificates.label).toBe("Certificates")
+    expect(certificates.section).toBe("Collection Settings")
+    expect(certificates.run()).toBe(true)
+    expect(opened).toEqual([
+      [undefined, undefined],
+      ["global", "appearance"],
+      ["collection", "tls"],
+    ])
+
+    ctx.getCollectionMode = () => "browse"
+    expect(
+      buildCommandPaletteCommands(ctx).some(
+        (item) => item.section === "Collection Settings",
+      ),
+    ).toBe(false)
   })
 
   it("blocks Settings from a dirty environment editor", () => {
@@ -763,7 +789,12 @@ describe("buildCommandPaletteCommands", () => {
     const commands = buildCommandPaletteCommands(ctx)
     const sections = [...new Set(commands.map((c) => c.section))]
     expect(sections).not.toContain("Environment")
-    expect(sections).toEqual(["Collection", "Workspace", "System"])
+    expect(sections).toEqual([
+      "Collection",
+      "Workspace",
+      "Application Settings",
+      "System",
+    ])
   })
 
   it("excludes environment commands when mode is empty", () => {

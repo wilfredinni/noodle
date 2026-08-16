@@ -313,6 +313,21 @@ describe("SettingsView", () => {
     cleanup()
   })
 
+  it("labels collection TLS settings as Certificates", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <Harness initialScope="collection" initialCategory="tls" />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 90, height: 24 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("Certificates")
+    cleanup()
+  })
+
   it("commits collection name and multiline description when tabbing", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const patches: Array<Partial<CollectionSettings>> = []
