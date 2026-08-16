@@ -140,7 +140,6 @@ export interface CommandBuilderContext {
     s: string | null | ((prev: string | null) => string | null),
   ) => void
   onReloadCollection: () => void
-  triggerUpdateCheck: () => void
   paletteTarget: CommandPaletteTarget | null
 }
 
@@ -208,7 +207,6 @@ export function buildCommandPaletteCommands(
     setImportCollectionVisible,
     setEnvDeletePending,
     getCollectionMode,
-    triggerUpdateCheck,
     paletteTarget,
   } = ctx
 
@@ -583,7 +581,7 @@ export function buildCommandPaletteCommands(
     },
     {
       id: "app.about",
-      label: "About Noodle",
+      label: "About and Updates",
       section: "System",
       run: () => {
         setAboutVisible(true)
@@ -617,15 +615,6 @@ export function buildCommandPaletteCommands(
       section: "System",
       run: () => {
         ctx.onReloadCollection()
-        return true
-      },
-    },
-    {
-      id: "app.check-updates",
-      label: "Update Noodle",
-      section: "System",
-      run: () => {
-        triggerUpdateCheck()
         return true
       },
     },

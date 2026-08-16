@@ -704,13 +704,8 @@ export function AppInner({
     useReloadGuard(hasUnsavedChanges, onReloadCollection)
 
   const overlayActiveRef = useRef(false)
-  const {
-    updateFlow,
-    triggerUpdateCheck,
-    triggerAboutUpdateCheck,
-    confirmInstall: onConfirmInstall,
-    cancelUpdate: onCancelUpdate,
-  } = useUpdateFlow(overlayActiveRef, updateDependencies)
+  const { updateFlow, triggerAboutUpdateCheck } =
+    useUpdateFlow(updateDependencies)
   const {
     activeOverlay,
     helpVisible,
@@ -782,7 +777,6 @@ export function AppInner({
     collectionSwitcherVisible,
     collectionSwitchPending,
     reloadPending,
-    updatePhase: updateFlow.phase,
   })
 
   useEffect(() => {
@@ -1428,9 +1422,6 @@ export function AppInner({
     onInitConfirm: () => executeInitPending(),
     draftRef,
     folderDraftRef,
-    updateConfirmVisible: updateFlow.phase === "confirm",
-    onConfirmInstall,
-    onCancelUpdate,
   })
 
   const renderer = useRenderer()
@@ -1499,7 +1490,6 @@ export function AppInner({
         setPreviewIndexProp,
         setEnvDeletePending,
         onReloadCollection: requestReload,
-        triggerUpdateCheck,
         paletteTarget,
       }),
     [
@@ -1514,7 +1504,6 @@ export function AppInner({
       view,
       effectiveCollectionMode,
       paletteTarget,
-      triggerUpdateCheck,
       proxyPolicy,
       tlsPolicy,
       draft.draft?.auth,
@@ -1834,14 +1823,6 @@ export function AppInner({
           requestDeletePending={requestDeletePending}
           timelineDetailEntry={timelineDetailEntry}
           setTimelineDetailEntry={setTimelineDetailEntry}
-          updateConfirm={
-            updateFlow.phase === "confirm"
-              ? {
-                  version: updateFlow.version,
-                  installType: updateFlow.installType,
-                }
-              : null
-          }
           updateFlow={updateFlow}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}

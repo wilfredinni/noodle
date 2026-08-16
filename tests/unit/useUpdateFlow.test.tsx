@@ -3,7 +3,6 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act, useEffect } from "react"
-import type { RefObject } from "react"
 import pkg from "../../package.json" with { type: "json" }
 import type { UpdateDependencies } from "../../src/app/commands/update"
 import { sha256 } from "../../src/app/commands/update"
@@ -16,14 +15,12 @@ type UpdateHook = ReturnType<typeof useUpdateFlow>
 
 function Harness({
   dependencies,
-  overlayActiveRef,
   onState,
 }: {
   dependencies: Partial<UpdateDependencies>
-  overlayActiveRef: RefObject<boolean>
   onState: (state: UpdateHook) => void
 }) {
-  const state = useUpdateFlow(overlayActiveRef, dependencies)
+  const state = useUpdateFlow(dependencies)
   useEffect(() => onState(state), [onState, state])
   return null
 }
@@ -62,11 +59,9 @@ describe("useUpdateFlow", () => {
   async function renderHook(dependencies: Partial<UpdateDependencies>) {
     let state: UpdateHook | undefined
     const phases: string[] = []
-    const overlayActiveRef = { current: false }
     const render = await testRender(
       <Harness
         dependencies={dependencies}
-        overlayActiveRef={overlayActiveRef}
         onState={(next) => {
           state = next
           if (phases.at(-1) !== next.updateFlow.phase)
@@ -89,7 +84,7 @@ describe("useUpdateFlow", () => {
     }
 
     await waitFor(() => state !== undefined)
-    return { getState: () => state!, overlayActiveRef, phases, waitFor }
+    return { getState: () => state!, phases, waitFor }
   }
 
   function binaryDependencies(
@@ -134,30 +129,6 @@ describe("useUpdateFlow", () => {
     act(() => getState().triggerAboutUpdateCheck())
     await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
     expect(manifestChecks).toBe(1)
-  })
-
-  it("keeps manual confirmation while another overlay is active", async () => {
-    const binary = new TextEncoder().encode("new")
-    let checks = 0
-    const { getState, overlayActiveRef, waitFor } = await renderHook(
-      binaryDependencies(async (input) => {
-        if (!String(input).endsWith("update.json")) return new Response(binary)
-        checks++
-        return new Response(
-          manifest(
-            checks === 1 ? `v${pkg.version}` : "v99.0.0",
-            sha256(binary),
-          ),
-        )
-      }),
-    )
-
-    await waitFor(() => getState().updateFlow.phase === "up_to_date")
-    overlayActiveRef.current = true
-    act(() => getState().triggerUpdateCheck())
-    await waitFor(() => getState().updateFlow.phase === "confirm")
-
-    expect(await readFile(execPath, "utf8")).toBe("old")
   })
 
   it("retries a failed About check on the next opening", async () => {

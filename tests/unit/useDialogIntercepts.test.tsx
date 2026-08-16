@@ -57,9 +57,6 @@ function DialogHarness({
     initPending: false,
     setInitPending: () => {},
     onInitConfirm: () => {},
-    updateConfirmVisible: false,
-    onConfirmInstall: () => {},
-    onCancelUpdate: () => {},
   })
 
   return null
@@ -168,9 +165,6 @@ function CookieDeleteHarness({
     initPending: false,
     setInitPending: () => {},
     onInitConfirm: () => {},
-    updateConfirmVisible: false,
-    onConfirmInstall: () => {},
-    onCancelUpdate: () => {},
   })
 
   return null

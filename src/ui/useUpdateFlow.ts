@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { RefObject } from "react"
 import {
   checkForUpdates,
   installBinaryUpdate,
@@ -45,7 +44,6 @@ function getPreviewFlow(value: string | undefined): UpdateFlowState | null {
 }
 
 export function useUpdateFlow(
-  _overlayActiveRef: RefObject<boolean>,
   dependencies: Partial<UpdateDependencies> = {
     fetcher: globalThis.fetch,
     env: process.env,
@@ -58,7 +56,6 @@ export function useUpdateFlow(
   const updateFlowRef = useRef(updateFlow)
   updateFlowRef.current = updateFlow
   const dependenciesRef = useRef(dependencies)
-  const checkSourceRef = useRef<"manual" | "about" | "startup">("startup")
   const checkInFlightRef = useRef(false)
   const installTokenRef = useRef(0)
   const previewPhase = isBunRuntime(process.execPath)
@@ -69,58 +66,42 @@ export function useUpdateFlow(
     dependenciesRef.current = dependencies
   }, [dependencies])
 
-  const startCheck = useCallback(
-    (source: "manual" | "about" | "startup") => {
-      const phase = updateFlowRef.current.phase
-      if (
-        checkInFlightRef.current ||
-        phase === "downloading" ||
-        phase === "installing" ||
-        phase === "done"
-      )
-        return
-      if (source !== "manual") {
-        const previewFlow = getPreviewFlow(previewPhase)
-        if (previewFlow) {
-          setUpdateFlow(previewFlow)
-          return
-        }
-      }
-      checkInFlightRef.current = true
-      checkSourceRef.current = source
-      setUpdateFlow({ phase: "checking" })
-      setCheckToken((token) => token + 1)
-    },
-    [previewPhase],
-  )
+  const startCheck = useCallback(() => {
+    const phase = updateFlowRef.current.phase
+    if (
+      checkInFlightRef.current ||
+      phase === "downloading" ||
+      phase === "installing" ||
+      phase === "done"
+    )
+      return
+    const previewFlow = getPreviewFlow(previewPhase)
+    if (previewFlow) {
+      setUpdateFlow(previewFlow)
+      return
+    }
+    checkInFlightRef.current = true
+    setUpdateFlow({ phase: "checking" })
+    setCheckToken((token) => token + 1)
+  }, [previewPhase])
 
-  const triggerUpdateCheck = useCallback(
-    () => startCheck("manual"),
-    [startCheck],
-  )
-  const triggerAboutUpdateCheck = useCallback(
-    () => startCheck("about"),
-    [startCheck],
-  )
+  const triggerAboutUpdateCheck = useCallback(startCheck, [startCheck])
 
-  useEffect(() => startCheck("startup"), [startCheck])
+  useEffect(() => startCheck(), [startCheck])
 
   useEffect(() => {
     if (checkToken === 0) return
     let cancelled = false
-    const source = checkSourceRef.current
     checkForUpdates(true, dependenciesRef.current)
       .then((status) => {
         if (cancelled) return
         checkInFlightRef.current = false
         if (status.kind === "unavailable") {
           setUpdateFlow({ phase: "idle" })
-          if (source === "manual") showToast("Update check failed", "error")
           return
         }
         if (status.kind === "up_to_date") {
           setUpdateFlow({ phase: "up_to_date" })
-          if (source === "manual") showToast("Noodle is up to date", "success")
           return
         }
         if (status.kind === "error") {
@@ -138,12 +119,7 @@ export function useUpdateFlow(
             status.installType === "binary" ? status.expectedSha256 : undefined,
         }
         setUpdateFlow({
-          phase:
-            source === "manual"
-              ? "confirm"
-              : update.installType === "binary"
-                ? "downloading"
-                : "installing",
+          phase: update.installType === "binary" ? "downloading" : "installing",
           ...update,
         })
       })
@@ -235,24 +211,8 @@ export function useUpdateFlow(
       })
   }, [updateFlow])
 
-  const confirmInstall = useCallback(() => {
-    const update = updateFlowRef.current
-    if (update.phase !== "confirm") return
-    setUpdateFlow({
-      phase: update.installType === "binary" ? "downloading" : "installing",
-      version: update.version,
-      installType: update.installType,
-      assetUrl: update.assetUrl,
-      expectedSha256: update.expectedSha256,
-    })
-  }, [])
-  const cancelUpdate = useCallback(() => setUpdateFlow({ phase: "idle" }), [])
-
   return {
     updateFlow,
-    triggerUpdateCheck,
     triggerAboutUpdateCheck,
-    confirmInstall,
-    cancelUpdate,
   }
 }

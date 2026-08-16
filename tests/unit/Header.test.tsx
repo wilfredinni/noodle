@@ -328,11 +328,6 @@ describe("Header", () => {
       { phase: "idle" },
       { phase: "checking" },
       { phase: "up_to_date" },
-      {
-        phase: "confirm",
-        version: "v9.9.9",
-        installType: "brew",
-      },
     ] as const
 
     for (const updateFlow of flows) {

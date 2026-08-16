@@ -33,7 +33,6 @@ export const HARD_BLOCKING_OVERLAYS = new Set([
   "delete-folder",
   "request-delete",
   "cookie-delete",
-  "update-confirm",
   "timeline-detail",
 ])
 

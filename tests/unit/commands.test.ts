@@ -74,7 +74,6 @@ function minimalContext(): CommandBuilderContext {
     setPreviewIndexProp: () => {},
     setEnvDeletePending: () => {},
     onReloadCollection: () => {},
-    triggerUpdateCheck: () => {},
     paletteTarget: null,
   }
 }
@@ -799,17 +798,17 @@ describe("buildCommandPaletteCommands", () => {
     expect(sections).toContain("Environment")
   })
 
-  it("app.check-updates triggers update check", () => {
+  it("app.about opens About and Updates", () => {
     const ctx = minimalContext()
-    let started = false
-    ctx.triggerUpdateCheck = () => {
-      started = true
+    let opened = false
+    ctx.setAboutVisible = () => {
+      opened = true
     }
     const commands = buildCommandPaletteCommands(ctx)
-    const cmd = commands.find((c) => c.id === "app.check-updates")!
-    expect(cmd.label).toBe("Update Noodle")
+    const cmd = commands.find((c) => c.id === "app.about")!
+    expect(cmd.label).toBe("About and Updates")
     expect(cmd.run()).toBe(true)
-    expect(started).toBe(true)
+    expect(opened).toBe(true)
   })
 
   it("env editor view excludes env commands when mode is empty", () => {
