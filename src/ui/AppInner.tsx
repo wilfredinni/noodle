@@ -709,6 +709,7 @@ export function AppInner({
     restartVersion,
     updateAvailable,
     triggerUpdateCheck,
+    triggerAboutUpdateCheck,
     confirmInstall: onConfirmInstall,
     cancelUpdate: onCancelUpdate,
   } = useUpdateFlow(overlayActiveRef, updateDependencies)
@@ -785,6 +786,10 @@ export function AppInner({
     reloadPending,
     updatePhase: updateFlow.phase,
   })
+
+  useEffect(() => {
+    if (aboutVisible) triggerAboutUpdateCheck()
+  }, [aboutVisible, triggerAboutUpdateCheck])
   useEffect(() => {
     if (!commandPaletteVisible) setPaletteTarget(null)
   }, [commandPaletteVisible])
@@ -1840,6 +1845,7 @@ export function AppInner({
                 }
               : null
           }
+          updateFlow={updateFlow}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}
           onCopyTimelineHeaders={onCopyTimelineHeaders}

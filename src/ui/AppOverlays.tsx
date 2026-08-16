@@ -60,7 +60,11 @@ import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
 import { displayKey, type Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
-import { initialYamlEditorState, type YamlEditorState } from "./appState"
+import {
+  initialYamlEditorState,
+  type UpdateFlowState,
+  type YamlEditorState,
+} from "./appState"
 import type { ActiveOverlay } from "./useOverlayState"
 import { buildDisplayUrl } from "./urlParams"
 import { collectionDisplayName } from "./settings/collectionRegistry"
@@ -169,6 +173,7 @@ interface AppOverlaysProps {
     version: string
     installType: "brew" | "binary"
   } | null
+  updateFlow: UpdateFlowState
   envColors: Record<string, string | undefined>
   onLoadTimelineBody: (
     entry: TimelineEntry,
@@ -279,6 +284,7 @@ export function AppOverlays({
   timelineDetailEntry,
   setTimelineDetailEntry,
   updateConfirm,
+  updateFlow,
   envColors,
   onLoadTimelineBody,
   onCopyTimelineHeaders,
@@ -295,7 +301,11 @@ export function AppOverlays({
         />
       )}
       {aboutVisible && (
-        <AboutOverlay visible onClose={() => setAboutVisible(false)} />
+        <AboutOverlay
+          visible
+          updateFlow={updateFlow}
+          onClose={() => setAboutVisible(false)}
+        />
       )}
       {activeOverlay === "env-delete" && envDeletePending !== null && (
         <ConfirmOverlay

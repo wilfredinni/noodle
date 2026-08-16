@@ -25,7 +25,10 @@ export const initialYamlEditorState: YamlEditorState = {
 
 export type UpdateFlowState =
   | { phase: "idle" }
+  | { phase: "checking" }
+  | { phase: "up_to_date" }
   | ({ phase: "confirm" } & UpdateAvailableInfo)
+  | ({ phase: "downloading" } & UpdateAvailableInfo)
   | ({ phase: "installing" } & UpdateAvailableInfo)
   | { phase: "done"; version: string }
   | { phase: "failed"; message: string }

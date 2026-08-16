@@ -4,6 +4,7 @@ import pkg from "../../../package.json" with { type: "json" }
 import { openSystemBrowser } from "../../requests/oauth2Browser"
 import { showToast } from "../Toast"
 import { useTheme } from "../theme"
+import type { UpdateFlowState } from "../appState"
 import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
 
@@ -40,14 +41,56 @@ function AboutLink({
   )
 }
 
+function AboutVersion({ updateFlow }: { updateFlow: UpdateFlowState }) {
+  const theme = useTheme()
+  let status: React.ReactNode = null
+
+  switch (updateFlow.phase) {
+    case "up_to_date":
+      status = <span fg={theme.success}> ✓</span>
+      break
+    case "checking":
+      status = <span fg={theme.info}> ⟳ Checking for updates…</span>
+      break
+    case "downloading":
+      status = <span fg={theme.info}> ↓ Downloading {updateFlow.version}…</span>
+      break
+    case "installing":
+      status = (
+        <span fg={theme.warning}> ⚙ Installing {updateFlow.version}…</span>
+      )
+      break
+    case "done":
+      status = (
+        <>
+          <span fg={theme.success}> ✓ {updateFlow.version} installed</span>
+          <span fg={theme.warning}> ↻ Restart to apply</span>
+        </>
+      )
+      break
+    case "failed":
+      status = <span fg={theme.error}> ✕ Update failed</span>
+      break
+  }
+
+  return (
+    <text id="about-version" fg={theme.text}>
+      Noodle v{pkg.version}
+      {status}
+    </text>
+  )
+}
+
 export function AboutOverlay({
   visible,
   onClose = () => {},
   onOpenLink = openSystemBrowser,
+  updateFlow = { phase: "idle" },
 }: {
   visible: boolean
   onClose?: () => void
   onOpenLink?: (href: string) => Promise<void> | void
+  updateFlow?: UpdateFlowState
 }) {
   const theme = useTheme()
   const openLink = (href: string) => {
@@ -87,7 +130,7 @@ export function AboutOverlay({
           color={theme.primary}
           selectable={false}
         />
-        <text fg={theme.text}>Noodle v{pkg.version}</text>
+        <AboutVersion updateFlow={updateFlow} />
         <text fg={theme.textMuted}>
           Free, open-source REST client that runs entirely in your terminal.
         </text>

@@ -1007,17 +1007,32 @@ describe("checkForUpdates", () => {
     }
   })
 
-  it("returns error when running via bun runtime (dev mode)", async () => {
+  it("returns unavailable when running via bun runtime (dev mode)", async () => {
     const status = await checkForUpdates(false, {
       execPath: "/opt/homebrew/bin/bun",
       platform: "darwin",
       arch: "arm64",
       env: {},
     })
-    expect(status.kind).toBe("error")
-    if (status.kind === "error") {
+    expect(status.kind).toBe("unavailable")
+    if (status.kind === "unavailable") {
       expect(status.message).toContain("standalone binary")
     }
+  })
+
+  it("returns unavailable on an unsupported platform", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/tmp/noodle",
+      platform: "win32",
+      arch: "x64",
+      env: {},
+    })
+    expect(status).toEqual({
+      kind: "unavailable",
+      currentVersion,
+      installType: "binary",
+      message: "Unsupported platform: win32-x64",
+    })
   })
 
   it("falls through to manifest fetch when cache has newer version but no checksum for platform", async () => {
@@ -1060,6 +1075,7 @@ describe("installBinaryUpdate", () => {
     const binary = new TextEncoder().encode("new")
     try {
       await writeFile(executable, "old")
+      const phases: string[] = []
       const result = await installBinaryUpdate(
         "v0.5.5",
         "https://example.com/noodle-binary",
@@ -1076,8 +1092,10 @@ describe("installBinaryUpdate", () => {
             return new Response()
           },
         },
+        (phase) => phases.push(phase),
       )
       expect(result.data).toEqual({ status: "updated", version: "v0.5.5" })
+      expect(phases).toEqual(["downloading", "installing"])
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -1089,6 +1107,7 @@ describe("installBinaryUpdate", () => {
     const executable = join(dir, "noodle")
     try {
       await writeFile(executable, "old")
+      const phases: string[] = []
       const result = await installBinaryUpdate(
         "v0.5.5",
         "https://example.com/noodle-binary",
@@ -1105,8 +1124,10 @@ describe("installBinaryUpdate", () => {
             return new Response()
           },
         },
+        (phase) => phases.push(phase),
       )
       expect(result.data.status).toBe("update_failed")
+      expect(phases).toEqual(["downloading"])
       expect(await readFile(executable, "utf8")).toBe("old")
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -1119,6 +1140,7 @@ describe("installBinaryUpdate", () => {
     const binary = new TextEncoder().encode("new")
     try {
       await writeFile(executable, "old")
+      const phases: string[] = []
       const result = await installBinaryUpdate(
         "v0.5.5",
         "https://example.com/noodle-binary",
@@ -1130,8 +1152,10 @@ describe("installBinaryUpdate", () => {
           env: {},
           fetcher: async () => new Response(null, { status: 404 }),
         },
+        (phase) => phases.push(phase),
       )
       expect(result.data.status).toBe("update_failed")
+      expect(phases).toEqual(["downloading"])
       expect(result.failed).toBe(true)
       expect(result.data.reason).toContain("HTTP 404")
       expect(await readFile(executable, "utf8")).toBe("old")
