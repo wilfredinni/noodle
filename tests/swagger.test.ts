@@ -185,7 +185,7 @@ paths:
     )
   })
 
-  it("omits bodies with unsupported media types", () => {
+  it("imports XML request bodies from consumes", () => {
     const result = swaggerImporter.import(`swagger: "2.0"
 consumes: [application/xml]
 paths:
@@ -195,12 +195,51 @@ paths:
         - name: body
           in: body
           schema:
-            properties:
-              value: { type: string }
+            type: string
+            example: <root><value>$value</value></root>
 `)
 
     const request = requests(result.collection.items)[0]!
-    expect(request.body).toBeUndefined()
-    expect(request.bodyType).toBeUndefined()
+    expect(request.body).toBe("<root><value>$value</value></root>")
+    expect(request.bodyType).toBe("xml")
+    expect(request.headers["Content-Type"]?.value).toBe("application/xml")
+  })
+
+  it("normalizes mixed-case XML consumes media types", () => {
+    const result = swaggerImporter.import(`swagger: "2.0"
+consumes: [Application/XML]
+paths:
+  /xml:
+    post:
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: string
+            example: <root />
+  /soap:
+    post:
+      consumes: [Application/SOAP+XML; charset=utf-8]
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: string
+            example: <Envelope />
+`)
+
+    const imported = requests(result.collection.items)
+    expect(imported[0]).toMatchObject({
+      bodyType: "xml",
+      body: "<root />",
+    })
+    expect(imported[0]?.headers["Content-Type"]?.value).toBe("Application/XML")
+    expect(imported[1]).toMatchObject({
+      bodyType: "xml",
+      body: "<Envelope />",
+    })
+    expect(imported[1]?.headers["Content-Type"]?.value).toBe(
+      "Application/SOAP+XML; charset=utf-8",
+    )
   })
 })

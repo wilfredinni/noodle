@@ -314,6 +314,13 @@ function postmanBody(request: Request): PostmanObject | undefined {
       options: { raw: { language: "json" } },
     }
   }
+  if (type === "xml") {
+    return {
+      mode: "raw",
+      raw: toPostmanTpl(request.body ?? ""),
+      options: { raw: { language: "xml" } },
+    }
+  }
   if (type === "urlencoded") {
     return {
       mode: "urlencoded",

@@ -3,6 +3,7 @@ import {
   parseRow,
   requestEquals,
   applyDraft,
+  clearRequestDraftCaches,
   removeRequestDraftEntry,
 } from "../src/hooks/useRequestDraft"
 import type { Request } from "../src/schema"
@@ -474,6 +475,29 @@ describe("applyDraft", () => {
     expect(next.get("r1")!.body).toBe("orig")
     expect(next.get("r1")!.bodyType).toBe("json")
     expect(next.get("r1")!.filePath).toBeUndefined()
+  })
+  it("caches JSON and XML drafts independently when switching body types", () => {
+    const original = makeReq({ body: '{"json":true}', bodyType: "json" })
+    clearRequestDraftCaches(original.id)
+    let drafts = applyDraft(new Map(), original.id, original, {
+      kind: "setBodyType",
+      bodyType: "xml",
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "setBody",
+      body: "<root>$value</root>",
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "setBodyType",
+      bodyType: "json",
+    })
+    expect(drafts.get(original.id)?.body).toBe('{"json":true}')
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "setBodyType",
+      bodyType: "xml",
+    })
+    expect(drafts.get(original.id)?.body).toBe("<root>$value</root>")
+    clearRequestDraftCaches(original.id)
   })
   it("revertField settings restores timeout, cookies, and TLS from original", () => {
     const original = makeReq({

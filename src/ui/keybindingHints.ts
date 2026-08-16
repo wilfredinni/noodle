@@ -262,7 +262,9 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
     const foldSegments =
       ctx.paneMode === "edit" &&
       ctx.tab === "body" &&
-      (ctx.bodyType ?? "json") === "json"
+      (ctx.bodyType === undefined ||
+        ctx.bodyType === "json" ||
+        ctx.bodyType === "xml")
         ? [{ key: "^g", word: "fold" }]
         : []
     if (ctx.paneMode === "base") {

@@ -460,6 +460,19 @@ describe("lang.parseRequest — body_type, form_data, file_path", () => {
     expect(req.body).toBe('{"id": 1}')
   })
 
+  it("round-trips body_type: xml without changing the source", () => {
+    const source = `<root>\n  <value>$token</value>\n</root>`
+    const request = lang.parseRequest(
+      "xml",
+      `name: XML\nmethod: POST\nurl: https://example.com\nbody_type: xml\nbody: |-\n  <root>\n    <value>$token</value>\n  </root>\n`,
+    )
+    expect(request.bodyType).toBe("xml")
+    expect(request.body).toBe(source)
+    expect(lang.parseRequest("xml", lang.serializeRequest(request))).toEqual(
+      request,
+    )
+  })
+
   it("bodyType defaults to undefined when omitted (backward compat)", () => {
     const yaml = `name: Foo\nmethod: GET\nurl: https://example.com\nbody: hello\n`
     const req = lang.parseRequest("x", yaml)
@@ -478,7 +491,7 @@ describe("lang.parseRequest — body_type, form_data, file_path", () => {
   it("throws on invalid body_type", () => {
     const yaml = `name: X\nmethod: POST\nurl: https://example.com\nbody_type: graphql\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(
-      'lang.parseRequest: "body_type" must be one of none|json|multipart|urlencoded|binary',
+      'lang.parseRequest: "body_type" must be one of none|json|xml|multipart|urlencoded|binary',
     )
   })
 

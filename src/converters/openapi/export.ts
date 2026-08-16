@@ -37,6 +37,7 @@ const PATH_PARAM_RE = /:([\w-]+)(?=\/|\.|$)/g
 const BASE_VAR_URL_RE = /^(\$\w+)(\/[^?#]*)?(\?[^#]*)?(?:#.*)?$/
 const SCHEME_VAR_RE = /^(\$\w+):\/\//
 const PORT_VAR_RE = /:(\$\w+)(?=\/|[?#]|$)/g
+const NOODLE_BODY_TYPE_EXTENSION = "x-noodle-body-type"
 
 interface ParseableUrl {
   value: string
@@ -270,6 +271,23 @@ function requestBodyFor(request: Request): OpenApiObject | undefined {
       )
     }
     return { content: { "application/json": { example } } }
+  }
+
+  if (type === "xml") {
+    const explicit = Object.entries(request.headers).find(
+      ([name, entry]) => entry.enabled && name.toLowerCase() === "content-type",
+    )?.[1].value
+    const mimeType = explicit?.split(";", 1)[0]!.trim() || "application/xml"
+    const media: OpenApiObject = { example: request.body ?? "" }
+    const normalizedMimeType = mimeType.toLowerCase()
+    if (
+      normalizedMimeType !== "application/xml" &&
+      normalizedMimeType !== "text/xml" &&
+      !normalizedMimeType.endsWith("+xml")
+    ) {
+      media[NOODLE_BODY_TYPE_EXTENSION] = "xml"
+    }
+    return { content: { [mimeType]: media } }
   }
 
   if (type === "urlencoded") {

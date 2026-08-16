@@ -23,6 +23,7 @@ const METHODS: readonly Method[] = [
 const BODY_TYPES = [
   "none",
   "json",
+  "xml",
   "multipart",
   "urlencoded",
   "binary",
@@ -115,7 +116,7 @@ export function parseRequest(id: string, yamlText: string): Request {
   if (raw.body_type !== undefined) {
     if (typeof raw.body_type !== "string" || !isBodyType(raw.body_type)) {
       throw new Error(
-        `lang.parseRequest: "body_type" must be one of none|json|multipart|urlencoded|binary`,
+        `lang.parseRequest: "body_type" must be one of none|json|xml|multipart|urlencoded|binary`,
       )
     }
     bodyType = raw.body_type as BodyType

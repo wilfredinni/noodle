@@ -81,9 +81,9 @@ brew install noodle
 
 ### Explore without leaving the terminal
 
-Edit URLs, parameters, headers, authentication, and bodies inline. Jump between
-panes from the keyboard, switch environments in a keystroke, search large
-collections, and choose from more than 30 themes.
+Edit URLs, parameters, headers, authentication, and bodies—including JSON and
+XML—inline. Jump between panes from the keyboard, switch environments in a
+keystroke, search large collections, and choose from more than 30 themes.
 
 ![Variable completion in Noodle](assets/autocomplete.png)
 

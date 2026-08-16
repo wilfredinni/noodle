@@ -915,8 +915,8 @@ export function AppInner({
     view === "main" && mode === "collection" && !overlayActive && !jumpMode
       ? paneMode === "browse" && focus === "request"
         ? "browse.send"
-        : paneMode === "edit" && focus === "request" && eb.isEditingJsonBody
-          ? "edit.json-send"
+        : paneMode === "edit" && focus === "request" && eb.isEditingTextBody
+          ? "edit.text-body-send"
           : paneMode === "base" && focus !== "folder"
             ? "request.send"
             : undefined

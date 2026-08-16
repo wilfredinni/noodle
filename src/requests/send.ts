@@ -717,6 +717,13 @@ export async function bodyForSend(
     return req.body
   }
 
+  if (req.bodyType === "xml" && req.body !== undefined) {
+    if (!headers.has("content-type")) {
+      headers.set("content-type", "application/xml")
+    }
+    return req.body
+  }
+
   if (req.bodyType === "urlencoded" && req.formData) {
     headers.set("content-type", "application/x-www-form-urlencoded")
     const params = new URLSearchParams()

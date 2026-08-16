@@ -58,6 +58,61 @@ describe("ResponsePane status text truncation and layout tests", () => {
     return { keymap, draft, eb }
   }
 
+  it("uses XML highlighting for XML response content types", async () => {
+    const { keymap, draft, eb } = createTestProps()
+    const responseOK: SendState = {
+      status: "done",
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: { "Content-Type": "application/soap+xml; charset=utf-8" },
+        body: "<Envelope><Value>ok</Value></Envelope>",
+        timeMs: 123,
+      },
+    }
+
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider
+        keymap={
+          keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+        }
+      >
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box style={{ width: 100, height: 20 }}>
+            <RequestResponseView
+              draft={
+                draft as unknown as Parameters<
+                  typeof RequestResponseView
+                >[0]["draft"]
+              }
+              eb={
+                eb as unknown as Parameters<typeof RequestResponseView>[0]["eb"]
+              }
+              error={null}
+              focus="response"
+              layout="stacked"
+              expanded={null}
+              activeEnv={null}
+              responseState={responseOK}
+              timelineEntries={[]}
+              onResponseTabChange={() => {}}
+              setSelectOpen={() => {}}
+              urlbarSubFocus="text"
+              urlbarInteractive={true}
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 100, height: 20 },
+    )
+    await renderOnce()
+
+    const editor = renderer.root.findDescendantById(
+      "response-body-editor",
+    ) as CodeEditorRenderable
+    expect(editor.filetype).toBe("xml")
+  })
+
   it("renders short status text (≤5 chars) unchanged", async () => {
     const { keymap, draft, eb } = createTestProps()
     const responseOK: SendState = {

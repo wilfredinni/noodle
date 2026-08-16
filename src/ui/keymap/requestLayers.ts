@@ -191,9 +191,9 @@ export function createRequestLayers(
         },
       },
       {
-        name: "browse.enter-json-body",
-        enabled: () => request.ebRef.current.canEnterJsonBodyEditor,
-        run: () => request.ebRef.current.enterJsonBodyEditor(),
+        name: "browse.enter-text-body",
+        enabled: () => request.ebRef.current.canEnterTextBodyEditor,
+        run: () => request.ebRef.current.enterTextBodyEditor(),
       },
     ],
     bindings: [
@@ -212,7 +212,7 @@ export function createRequestLayers(
       { key: "linefeed", cmd: "browse.send" },
       { key: keybinds.request_save, cmd: "browse.save" },
       { key: keybinds.browse_toggle_form_type, cmd: "browse.toggle-form-type" },
-      { key: "tab", cmd: "browse.enter-json-body" },
+      { key: "tab", cmd: "browse.enter-text-body" },
     ],
   }
 
@@ -226,45 +226,45 @@ export function createRequestLayers(
     commands: [
       {
         name: "edit.commit",
-        enabled: () => !request.ebRef.current.isEditingJsonBody,
+        enabled: () => !request.ebRef.current.isEditingTextBody,
         run: () => request.ebRef.current.commitEdit(),
       },
       {
         name: "edit.cancel",
-        enabled: () => !request.ebRef.current.isEditingJsonBody,
+        enabled: () => !request.ebRef.current.isEditingTextBody,
         run: () => request.ebRef.current.cancelEdit(),
       },
       {
-        name: "edit.json-escape",
-        enabled: () => request.ebRef.current.isEditingJsonBody,
-        run: () => request.ebRef.current.returnToJsonBodyTypeSelect(),
+        name: "edit.text-body-escape",
+        enabled: () => request.ebRef.current.isEditingTextBody,
+        run: () => request.ebRef.current.returnToTextBodyTypeSelect(),
       },
       {
         name: "edit.tab",
         run: () => {
-          if (request.ebRef.current.isEditingJsonBody) return false
+          if (request.ebRef.current.isEditingTextBody) return false
           request.ebRef.current.browseTab()
         },
       },
       {
-        name: "edit.json-shift-tab",
-        enabled: () => request.ebRef.current.isEditingJsonBody,
-        run: () => request.ebRef.current.returnToJsonBodyTypeSelect(),
+        name: "edit.text-body-shift-tab",
+        enabled: () => request.ebRef.current.isEditingTextBody,
+        run: () => request.ebRef.current.returnToTextBodyTypeSelect(),
       },
       {
-        name: "edit.json-send",
-        enabled: () => request.ebRef.current.isEditingJsonBody && canEdit(),
+        name: "edit.text-body-send",
+        enabled: () => request.ebRef.current.isEditingTextBody && canEdit(),
         run: () => sendRequest(actions),
       },
     ],
     bindings: [
       { key: "return", cmd: "edit.commit" },
       { key: "escape", cmd: "edit.cancel" },
-      { key: "escape", cmd: "edit.json-escape" },
+      { key: "escape", cmd: "edit.text-body-escape" },
       { key: "tab", cmd: "edit.tab" },
-      { key: "shift+tab", cmd: "edit.json-shift-tab" },
-      { key: keybinds.request_send, cmd: "edit.json-send" },
-      { key: "linefeed", cmd: "edit.json-send" },
+      { key: "shift+tab", cmd: "edit.text-body-shift-tab" },
+      { key: keybinds.request_send, cmd: "edit.text-body-send" },
+      { key: "linefeed", cmd: "edit.text-body-send" },
     ],
   }
 

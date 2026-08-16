@@ -80,6 +80,9 @@ export class CodeEditorRenderable extends TextareaRenderable {
   private _readOnly: boolean
   private _readonlyHighlightTimer: ReturnType<typeof setTimeout> | null = null
   private _readonlyHighlightedLines = new Set<number>()
+  private _readonlyTreeSitterContent: string | null = null
+  private _readonlyTreeSitterFiletype: string | null = null
+  private _readonlyTreeSitterHighlight: Promise<void> | null = null
   private _readonlyNeedsFolds = true
   private _selectionDragPointer: { x: number; y: number } | null = null
   private _selectionDragScrollAccumulator = 0
@@ -235,7 +238,8 @@ export class CodeEditorRenderable extends TextareaRenderable {
   set filetype(value: string) {
     if (this._filetype === value) return
     this._filetype = value
-    this._highlights.clear()
+    if (this._readOnly) this.clearReadonlyHighlights()
+    else this._highlights.clear()
     if (!this._readOnly) this._validation.setFiletype(value, this.plainText)
     this._readonlyNeedsFolds = true
     this.scheduleHighlight()
@@ -341,24 +345,34 @@ export class CodeEditorRenderable extends TextareaRenderable {
     return this._highlights.envMissingStyleId
   }
 
-  refreshHighlights(): void {
-    if (this._readOnly) this.scheduleHighlight()
-    else void this.highlight()
+  refreshHighlights(): Promise<void> {
+    if (this._readOnly) {
+      if (this._readonlyHighlightTimer) {
+        clearTimeout(this._readonlyHighlightTimer)
+        this._readonlyHighlightTimer = null
+      }
+      return this.highlightReadonly()
+    }
+    if (this._highlightTimer) {
+      clearTimeout(this._highlightTimer)
+      this._highlightTimer = null
+    }
+    return this.highlight()
   }
 
   toggleFold(line: number): void {
     this._foldManager.toggleFold(line)
-    if (this._readOnly) this.scheduleHighlight()
+    if (this._readOnly || this._filetype === "xml") this.scheduleHighlight()
   }
 
   foldAll(): void {
     this._foldManager.foldAll()
-    if (this._readOnly) this.scheduleHighlight()
+    if (this._readOnly || this._filetype === "xml") this.scheduleHighlight()
   }
 
   unfoldAll(): void {
     this._foldManager.unfoldAll()
-    if (this._readOnly) this.scheduleHighlight()
+    if (this._readOnly || this._filetype === "xml") this.scheduleHighlight()
   }
 
   scrollByViewport(delta: number): void {
@@ -708,7 +722,7 @@ export class CodeEditorRenderable extends TextareaRenderable {
       if (this._readonlyHighlightTimer) return
       this._readonlyHighlightTimer = setTimeout(() => {
         this._readonlyHighlightTimer = null
-        this.highlightReadonly()
+        void this.highlightReadonly()
       }, 0)
       return
     }
@@ -722,13 +736,15 @@ export class CodeEditorRenderable extends TextareaRenderable {
 
   private async highlight(): Promise<void> {
     const snapshotId = ++this._highlightSnapshotId
-    const content = this.plainText
+    const foldedXml =
+      this._filetype === "xml" && this._foldManager.isFoldedDisplay
+    const content = foldedXml ? super.plainText : this.plainText
     if (content.length === 0 || content.length > 100_000) {
       this._highlights.clear()
       this._foldManager.clearFolds()
       return
     }
-    if (this._foldManager.isFoldedDisplay) return
+    if (this._foldManager.isFoldedDisplay && !foldedXml) return
 
     await this._highlights.highlight(
       content,
@@ -737,22 +753,27 @@ export class CodeEditorRenderable extends TextareaRenderable {
       () =>
         snapshotId === this._highlightSnapshotId &&
         !this.isDestroyed &&
-        !this._foldManager.isFoldedDisplay,
+        this._foldManager.isFoldedDisplay === foldedXml,
     )
     if (
       snapshotId !== this._highlightSnapshotId ||
       this.isDestroyed ||
-      this._foldManager.isFoldedDisplay
+      this._foldManager.isFoldedDisplay !== foldedXml
     )
       return
+    if (foldedXml) return
     this.computeFoldRanges()
   }
 
-  private highlightReadonly(): void {
+  private async highlightReadonly(): Promise<void> {
     if (this.isDestroyed) return
     if (this._readonlyNeedsFolds) {
       this._readonlyNeedsFolds = false
       this.computeFoldRanges()
+    }
+    if (this._filetype === "xml") {
+      await this.highlightReadonlyTreeSitter()
+      return
     }
     if (this._filetype !== "json") return
     const viewportStart = Math.max(0, this.scrollY - 2)
@@ -795,8 +816,49 @@ export class CodeEditorRenderable extends TextareaRenderable {
     this.requestRender()
   }
 
+  private highlightReadonlyTreeSitter(): Promise<void> {
+    const content = super.plainText
+    if (
+      content === this._readonlyTreeSitterContent &&
+      this._filetype === this._readonlyTreeSitterFiletype
+    )
+      return this._readonlyTreeSitterHighlight ?? Promise.resolve()
+
+    this._readonlyTreeSitterContent = content
+    this._readonlyTreeSitterFiletype = this._filetype
+    const snapshotId = ++this._highlightSnapshotId
+    if (content.length === 0 || content.length > 100_000) {
+      this.clearAllHighlights()
+      return Promise.resolve()
+    }
+
+    const highlight = this._highlights
+      .highlight(content, this._filetype, this._tsClient, () => {
+        return (
+          snapshotId === this._highlightSnapshotId &&
+          !this.isDestroyed &&
+          content === super.plainText
+        )
+      })
+      .then(() => {
+        if (snapshotId === this._highlightSnapshotId && !this.isDestroyed) {
+          this.requestRender()
+        }
+      })
+      .finally(() => {
+        if (this._readonlyTreeSitterHighlight === highlight) {
+          this._readonlyTreeSitterHighlight = null
+        }
+      })
+    this._readonlyTreeSitterHighlight = highlight
+    return highlight
+  }
+
   private clearReadonlyHighlights(): void {
+    this._highlightSnapshotId++
     this._readonlyHighlightedLines.clear()
+    this._readonlyTreeSitterContent = null
+    this._readonlyTreeSitterFiletype = null
     this.clearAllHighlights()
   }
 

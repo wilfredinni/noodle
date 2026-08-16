@@ -44,6 +44,26 @@ body_type: json`
     expect(isSourceLineHiddenByFold(1, folds)).toBe(false)
   })
 
+  it("folds multiline XML elements, comments, and CDATA", () => {
+    const content = `<root>
+  <!--
+    note
+  -->
+  <value>
+    text
+  </value>
+  <![CDATA[
+    raw
+  ]]>
+</root>`
+    const folds = computeFoldRanges(content, "xml", new Map())
+
+    expect(folds.get(0)).toMatchObject({ endLine: 10, startOffset: 0 })
+    expect(folds.get(1)?.summary).toContain("<!-- ... -->")
+    expect(folds.get(4)?.summary).toContain("<value>...</value>")
+    expect(folds.get(7)?.summary).toContain("<![CDATA[ ... ]]>")
+  })
+
   it("builds identity maps for source display", () => {
     const maps = buildSourceDisplayMaps("one\ntwo\nthree")
 

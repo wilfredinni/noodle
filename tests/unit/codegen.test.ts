@@ -161,6 +161,30 @@ describe("buildHar", () => {
     expect(har.postData!.text).toBe('{"name":"Ada"}')
   })
 
+  it("builds XML postData without changing the source or explicit MIME type", () => {
+    const body = "<Envelope>\n  <Name>$NAME</Name>\n</Envelope>"
+    const { har } = buildHar(
+      makeRequest({
+        bodyType: "xml",
+        body,
+        headers: {
+          "Content-Type": {
+            value: "application/soap+xml",
+            enabled: true,
+          },
+        },
+      }),
+    )
+    expect(har.headers).toContainEqual({
+      name: "Content-Type",
+      value: "application/soap+xml",
+    })
+    expect(har.postData).toEqual({
+      mimeType: "application/soap+xml",
+      text: body,
+    })
+  })
+
   it("builds urlencoded postData", () => {
     const { har } = buildHar(
       makeRequest({
@@ -400,6 +424,15 @@ describe("generateCode", () => {
     const result = generateCode(makeRequest(), curlTarget())
     expect(result.code).toContain("curl")
     expect(result.code.length).toBeGreaterThan(0)
+  })
+
+  it("generates code with an XML body", () => {
+    const result = generateCode(
+      makeRequest({ bodyType: "xml", body: "<root><id>$ID</id></root>" }),
+      curlTarget(),
+    )
+    expect(result.code).toContain("application/xml")
+    expect(result.code).toContain("<root><id>$ID</id></root>")
   })
 
   it("generates snippets for common targets", () => {

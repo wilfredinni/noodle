@@ -13,9 +13,16 @@ const HTTP_METHODS = new Set([
 ])
 const SUPPORTED_MEDIA = new Set([
   "application/json",
+  "application/xml",
+  "text/xml",
   "multipart/form-data",
   "application/x-www-form-urlencoded",
 ])
+
+function isSupportedMedia(value: string): boolean {
+  const mediaType = value.split(";", 1)[0]!.trim().toLowerCase()
+  return SUPPORTED_MEDIA.has(mediaType) || mediaType.endsWith("+xml")
+}
 
 function isMapping(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -49,7 +56,7 @@ function requestBody(
 ): Record<string, unknown> | undefined {
   const body = parameters.findLast((parameter) => parameter.in === "body")
   if (body) {
-    const media = consumes.find((value) => SUPPORTED_MEDIA.has(value))
+    const media = consumes.find(isSupportedMedia)
     if (!media) return undefined
     return {
       content: {

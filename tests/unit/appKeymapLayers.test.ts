@@ -68,11 +68,11 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
         },
         toggleFormRowType: () => calls.formType++,
         commitEdit: () => calls.requestCommit++,
-        canEnterJsonBodyEditor: false,
-        isEditingJsonBody: false,
-        enterJsonBodyEditor: () => calls.jsonEnter++,
-        leaveJsonBodyEditor: () => calls.jsonLeave++,
-        returnToJsonBodyTypeSelect: () => calls.jsonReturnToSelect++,
+        canEnterTextBodyEditor: false,
+        isEditingTextBody: false,
+        enterTextBodyEditor: () => calls.jsonEnter++,
+        leaveTextBodyEditor: () => calls.jsonLeave++,
+        returnToTextBodyTypeSelect: () => calls.jsonReturnToSelect++,
       },
     },
     trySendRef: { current: () => calls.send++ },
@@ -713,7 +713,7 @@ describe("app keymap layers", () => {
       row: 0,
       addingRow: false,
     }
-    context.request.ebRef.current.canEnterJsonBodyEditor = true
+    context.request.ebRef.current.canEnterTextBodyEditor = true
     keymap.setData("app.mode", "browse")
     keymap.setData("app.focus", "request")
     const disposers = register(context)
@@ -734,7 +734,7 @@ describe("app keymap layers", () => {
       row: 0,
       addingRow: false,
     }
-    context.request.ebRef.current.canEnterJsonBodyEditor = true
+    context.request.ebRef.current.canEnterTextBodyEditor = true
     context.global.focusRef.current = "request"
     keymap.setData("app.mode", "browse")
     keymap.setData("app.focus", "request")
@@ -757,7 +757,7 @@ describe("app keymap layers", () => {
       row: 1,
       addingRow: false,
     }
-    context.request.ebRef.current.isEditingJsonBody = true
+    context.request.ebRef.current.isEditingTextBody = true
     context.global.focusRef.current = "request"
     keymap.setData("app.mode", "edit")
     keymap.setData("app.focus", "request")
@@ -780,7 +780,7 @@ describe("app keymap layers", () => {
       row: 1,
       addingRow: false,
     }
-    context.request.ebRef.current.isEditingJsonBody = true
+    context.request.ebRef.current.isEditingTextBody = true
     context.global.focusRef.current = "request"
     keymap.setData("app.mode", "edit")
     keymap.setData("app.focus", "request")
@@ -803,7 +803,7 @@ describe("app keymap layers", () => {
       row: 1,
       addingRow: false,
     }
-    context.request.ebRef.current.isEditingJsonBody = true
+    context.request.ebRef.current.isEditingTextBody = true
     keymap.setData("app.mode", "edit")
     keymap.setData("app.focus", "request")
     const disposers = register(context)
@@ -824,7 +824,7 @@ describe("app keymap layers", () => {
       row: 1,
       addingRow: false,
     }
-    context.request.ebRef.current.isEditingJsonBody = true
+    context.request.ebRef.current.isEditingTextBody = true
     keymap.setData("app.mode", "edit")
     keymap.setData("app.focus", "request")
     const disposers = register(context)

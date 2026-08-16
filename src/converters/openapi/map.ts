@@ -45,23 +45,41 @@ function isMapping(v: unknown): v is Record<string, unknown> {
 
 const SUPPORTED_MEDIA = [
   "application/json",
+  "application/xml",
+  "text/xml",
   "multipart/form-data",
   "application/x-www-form-urlencoded",
 ] as const
 
 const FILE_FORMATS = new Set(["binary", "base64", "byte"])
+const NOODLE_BODY_TYPE_EXTENSION = "x-noodle-body-type"
+
+function baseMediaType(value: string): string {
+  return value.split(";", 1)[0]!.trim().toLowerCase()
+}
 
 function pickMediaType(content: Record<string, unknown>): string | null {
   for (const mt of SUPPORTED_MEDIA) {
-    if (mt in content) return mt
+    const match = Object.keys(content).find((key) => baseMediaType(key) === mt)
+    if (match) return match
   }
+  const xml = Object.keys(content).find((mt) =>
+    baseMediaType(mt).endsWith("+xml"),
+  )
+  if (xml) return xml
+  const marked = Object.keys(content).find((mt) => {
+    const mediaObj = content[mt]
+    return isMapping(mediaObj) && mediaObj[NOODLE_BODY_TYPE_EXTENSION] === "xml"
+  })
+  if (marked) return marked
   return null
 }
 
 function collectBody(op: Record<string, unknown>): {
   body?: string
-  bodyType?: Extract<BodyType, "json" | "multipart" | "urlencoded">
+  bodyType?: Extract<BodyType, "json" | "xml" | "multipart" | "urlencoded">
   formData?: FormEntry[]
+  contentType?: string
 } {
   const rb = op.requestBody
   if (!isMapping(rb)) return {}
@@ -76,12 +94,40 @@ function collectBody(op: Record<string, unknown>): {
   if (!isMapping(mediaObj)) return {}
 
   const schema = mediaObj.schema
+  const mediaType = baseMediaType(mt)
+  if (
+    mediaObj[NOODLE_BODY_TYPE_EXTENSION] === "xml" ||
+    mediaType === "application/xml" ||
+    mediaType === "text/xml" ||
+    mediaType.endsWith("+xml")
+  ) {
+    const exampleFromMap = isMapping(mediaObj.examples)
+      ? Object.values(mediaObj.examples).find(
+          (entry) => isMapping(entry) && typeof entry.value === "string",
+        )
+      : undefined
+    const example =
+      typeof mediaObj.example === "string"
+        ? mediaObj.example
+        : isMapping(exampleFromMap)
+          ? exampleFromMap.value
+          : isMapping(schema) && typeof schema.example === "string"
+            ? schema.example
+            : undefined
+    return {
+      body: typeof example === "string" ? example : "",
+      bodyType: "xml",
+      contentType: mt,
+    }
+  }
   if (!isMapping(schema)) {
-    if (mt === "application/json") return { body: "{}", bodyType: "json" }
+    if (mediaType === "application/json") {
+      return { body: "{}", bodyType: "json" }
+    }
     return {}
   }
 
-  if (mt === "application/json") {
+  if (mediaType === "application/json") {
     const example = schema.example
     if (example !== undefined) {
       return { body: JSON.stringify(example), bodyType: "json" }
@@ -97,7 +143,7 @@ function collectBody(op: Record<string, unknown>): {
     return { body: "{}", bodyType: "json" }
   }
 
-  if (mt === "multipart/form-data") {
+  if (mediaType === "multipart/form-data") {
     const props = schema.properties
     if (!isMapping(props)) return { bodyType: "multipart", formData: [] }
 
@@ -130,7 +176,7 @@ function collectBody(op: Record<string, unknown>): {
     return { bodyType: "multipart", formData }
   }
 
-  if (mt === "application/x-www-form-urlencoded") {
+  if (mediaType === "application/x-www-form-urlencoded") {
     const props = schema.properties
     if (!isMapping(props)) return { bodyType: "urlencoded", formData: [] }
 
@@ -431,6 +477,16 @@ export function mapCollection(n: Normalized): ImportResult {
         }
       }
 
+      const { contentType, ...body } = collectBody(op)
+      if (
+        contentType &&
+        !Object.keys(headers).some(
+          (name) => name.toLowerCase() === "content-type",
+        )
+      ) {
+        headers["Content-Type"] = { value: contentType, enabled: true }
+      }
+
       const req: Request = {
         id: reqId,
         name: reqName,
@@ -440,7 +496,7 @@ export function mapCollection(n: Normalized): ImportResult {
         headers,
         params,
         pathParams: pathParams.length > 0 ? pathParams : undefined,
-        ...collectBody(op),
+        ...body,
         auth: resolveAuth(op, n),
       }
       requests.push(req)

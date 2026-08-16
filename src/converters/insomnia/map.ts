@@ -163,7 +163,10 @@ function mapBody(
 ): Pick<Request, "body" | "bodyType" | "formData" | "filePath"> {
   const body = asRecord(value)
   if (!body) return {}
-  const mimeType = stringValue(body.mimeType).toLowerCase()
+  const mimeType = stringValue(body.mimeType)
+    .split(";", 1)[0]!
+    .trim()
+    .toLowerCase()
 
   if (typeof body.fileName === "string") {
     return { bodyType: "binary", filePath: convertTpl(body.fileName) }
@@ -180,6 +183,13 @@ function mapBody(
   if (text === undefined) return {}
   if (mimeType === "application/json" || mimeType.endsWith("+json")) {
     return { body: text, bodyType: "json" }
+  }
+  if (
+    mimeType === "application/xml" ||
+    mimeType === "text/xml" ||
+    mimeType.endsWith("+xml")
+  ) {
+    return { body: text, bodyType: "xml" }
   }
   return { body: text }
 }

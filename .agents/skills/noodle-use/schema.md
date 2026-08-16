@@ -15,7 +15,7 @@ One request per file. Fields:
 | `followRedirects` | no | boolean | `true` | Whether to follow HTTP redirects |
 | `maxRedirects` | no | number | `5` | Maximum redirect chain length |
 | `sendCookies` | no | boolean | `true` | Send matching cookies from the collection jar. `false` still captures response cookies. |
-| `body_type` | no | string | `"none"` | Body encoding: `none`, `json`, `multipart`, `urlencoded`, `binary` |
+| `body_type` | no | string | `"none"` | Body encoding: `none`, `json`, `xml`, `multipart`, `urlencoded`, `binary` |
 | `headers` | no | map | `{}` | Request headers. Omit if empty |
 | `params` | no | list | `[]` | URL query parameters. Omit if empty. See format below. |
 | `path_params` | no | list | `[]` | Values for `:name` URL path tokens. Omit if empty. See format below. |
@@ -240,6 +240,20 @@ When `body_type: binary`, set `file_path` to the file to upload:
 ```yaml
 body_type: binary
 file_path: '@/Documents/photo.png'
+```
+
+### XML body
+
+XML bodies are sent unchanged. Noodle adds `Content-Type: application/xml`
+when no enabled Content-Type header exists; set an explicit header for MIME
+types such as `text/xml` or `application/soap+xml`.
+
+```yaml
+body_type: xml
+body: |-
+  <request>
+    <id>$request_id</id>
+  </request>
 ```
 
 ### Minimal valid request

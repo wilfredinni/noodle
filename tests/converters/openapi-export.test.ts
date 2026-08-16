@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { exportOpenApi } from "../../src/converters/openapi"
+import { exportOpenApi, openApiImporter } from "../../src/converters/openapi"
 import { defaultOAuth2Auth } from "../../src/auth/defaults"
 import type { Collection, Request } from "../../src/schema"
 
@@ -242,9 +242,25 @@ describe("exportOpenApi", () => {
     expect(JSON.stringify(result.document)).not.toContain("$TOKEN")
   })
 
-  it("exports JSON, urlencoded, multipart, and binary request bodies", () => {
+  it("exports JSON, XML, urlencoded, multipart, and binary request bodies", () => {
     const result = exportOpenApi(
       collection([
+        {
+          type: "request",
+          data: request({
+            id: "xml",
+            method: "POST",
+            url: "https://api.example.com/xml",
+            bodyType: "xml",
+            body: "<Envelope>\n  <Id>$ID</Id>\n</Envelope>",
+            headers: {
+              "Content-Type": {
+                value: "application/soap+xml; charset=utf-8",
+                enabled: true,
+              },
+            },
+          }),
+        },
         {
           type: "request",
           data: request({
@@ -306,6 +322,13 @@ describe("exportOpenApi", () => {
     expect(paths["/json"].post.requestBody).toEqual({
       content: { "application/json": { example: { id: "$ID" } } },
     })
+    expect(paths["/xml"].post.requestBody).toEqual({
+      content: {
+        "application/soap+xml": {
+          example: "<Envelope>\n  <Id>$ID</Id>\n</Envelope>",
+        },
+      },
+    })
     expect(paths["/form"].post.requestBody).toEqual({
       content: {
         "application/x-www-form-urlencoded": {
@@ -337,6 +360,92 @@ describe("exportOpenApi", () => {
           schema: { type: "string", format: "binary" },
         },
       },
+    })
+  })
+
+  it("preserves any enabled explicit content type for XML bodies", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            id: "xml",
+            method: "POST",
+            url: "https://api.example.com/xml",
+            bodyType: "xml",
+            body: "<root />",
+            headers: {
+              "Content-Type": {
+                value: "text/plain; charset=utf-8",
+                enabled: true,
+              },
+            },
+          }),
+        },
+      ]),
+    )
+
+    expect(
+      (result.document.paths as Record<string, Record<string, Operation>>)[
+        "/xml"
+      ].post.requestBody,
+    ).toEqual({
+      content: {
+        "text/plain": {
+          example: "<root />",
+          "x-noodle-body-type": "xml",
+        },
+      },
+    })
+  })
+
+  it("round-trips XML bodies with explicit non-XML content types", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            id: "plain",
+            method: "POST",
+            url: "https://api.example.com/plain",
+            bodyType: "xml",
+            body: "<plain />",
+            headers: {
+              "Content-Type": { value: "text/plain", enabled: true },
+            },
+          }),
+        },
+        {
+          type: "request",
+          data: request({
+            id: "json",
+            method: "POST",
+            url: "https://api.example.com/json",
+            bodyType: "xml",
+            body: "<json />",
+            headers: {
+              "Content-Type": { value: "application/json", enabled: true },
+            },
+          }),
+        },
+      ]),
+    )
+
+    const imported = openApiImporter
+      .import(JSON.stringify(result.document))
+      .collection.items.flatMap((item) =>
+        item.type === "request" ? [item.data] : [],
+      )
+    expect(imported).toHaveLength(2)
+    expect(imported[0]).toMatchObject({
+      bodyType: "xml",
+      body: "<plain />",
+      headers: { "Content-Type": { value: "text/plain", enabled: true } },
+    })
+    expect(imported[1]).toMatchObject({
+      bodyType: "xml",
+      body: "<json />",
+      headers: { "Content-Type": { value: "application/json", enabled: true } },
     })
   })
 

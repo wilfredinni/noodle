@@ -29,6 +29,8 @@ export function computeFoldRanges(
     computeJsonFoldRanges(content, folds, previousFolds)
   } else if (filetype === "yaml") {
     computeYamlFoldRanges(content, folds, previousFolds)
+  } else if (filetype === "xml") {
+    computeXmlFoldRanges(content, folds, previousFolds)
   }
 
   return folds
@@ -193,6 +195,98 @@ function computeYamlFoldRanges(
       folded: previousFolds.get(i)?.folded ?? false,
     })
     i = endLine
+  }
+}
+
+function computeXmlFoldRanges(
+  content: string,
+  folds: Map<number, FoldInfo>,
+  previousFolds: ReadonlyMap<number, FoldInfo>,
+): void {
+  const lineOffsets = [0]
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === "\n") lineOffsets.push(i + 1)
+  }
+  const lineAt = (offset: number): number => {
+    let low = 0
+    let high = lineOffsets.length
+    while (low < high) {
+      const middle = (low + high) >>> 1
+      if (lineOffsets[middle]! <= offset) low = middle + 1
+      else high = middle
+    }
+    return Math.max(0, low - 1)
+  }
+  const addFold = (startOffset: number, endOffset: number, summary: string) => {
+    const startLine = lineAt(startOffset)
+    const endLine = lineAt(endOffset)
+    if (startLine >= endLine) return
+    folds.set(startLine, {
+      startLine,
+      endLine,
+      startOffset,
+      endOffset,
+      summary: `${summary} (${endLine - startLine} lines)`,
+      folded: previousFolds.get(startLine)?.folded ?? false,
+    })
+  }
+
+  const stack: { name: string; offset: number }[] = []
+  for (let offset = 0; offset < content.length;) {
+    const start = content.indexOf("<", offset)
+    if (start === -1) break
+    if (content.startsWith("<!--", start)) {
+      const end = content.indexOf("-->", start + 4)
+      if (end === -1) break
+      addFold(start, end + 2, "<!-- ... -->")
+      offset = end + 3
+      continue
+    }
+    if (content.startsWith("<![CDATA[", start)) {
+      const end = content.indexOf("]]>", start + 9)
+      if (end === -1) break
+      addFold(start, end + 2, "<![CDATA[ ... ]]>")
+      offset = end + 3
+      continue
+    }
+
+    let quote: '"' | "'" | null = null
+    let end = start + 1
+    for (; end < content.length; end++) {
+      const char = content[end]
+      if (quote) {
+        if (char === quote) quote = null
+      } else if (char === '"' || char === "'") {
+        quote = char
+      } else if (char === ">") {
+        break
+      }
+    }
+    if (end >= content.length) break
+
+    const tag = content.slice(start + 1, end).trim()
+    offset = end + 1
+    if (
+      tag === "" ||
+      tag.startsWith("?") ||
+      tag.startsWith("!") ||
+      tag.endsWith("/")
+    ) {
+      continue
+    }
+    if (tag.startsWith("/")) {
+      const name = tag.slice(1).trim().split(/\s/, 1)[0] ?? ""
+      for (let i = stack.length - 1; i >= 0; i--) {
+        if (stack[i]!.name !== name) continue
+        const open = stack[i]!
+        stack.length = i
+        addFold(open.offset, end, `<${name}>...</${name}>`)
+        break
+      }
+      continue
+    }
+    const name = tag.split(/\s/, 1)[0]
+    if (name) stack.push({ name, offset: start })
   }
 }
 

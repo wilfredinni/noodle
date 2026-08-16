@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { act } from "react"
 import { createTestRender } from "../testRender"
 import { extend } from "@opentui/react"
-import { LineNumberRenderable } from "@opentui/core"
+import { addDefaultParsers, LineNumberRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import {
   CodeEditorRenderable,
@@ -11,10 +11,12 @@ import {
 import { syncCodeEditorGutter } from "../../src/ui/editor/codeEditorGutter"
 import { opencodeTheme } from "../../src/ui/theme-data"
 import { getHighlightCount, keyEvent } from "./_helpers"
+import { codeEditorParsers } from "../../src/ui/editor/codeEditorParsers"
 
 const testRender = createTestRender()
 
 extend({ "code-editor": CodeEditorRenderable })
+addDefaultParsers([...codeEditorParsers])
 
 describe("CodeEditorRenderable", () => {
   function computeFolds(editor: CodeEditorRenderable): void {
@@ -926,6 +928,36 @@ body:
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 
+  it("keeps XML highlighting when folded", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = "<root>\n  <value>hello</value>\n</root>"
+    const { renderOnce } = await testRender(
+      <box width={40} height={6}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="xml"
+          theme={opencodeTheme}
+          initialValue={content}
+          debounceMs={0}
+        />
+      </box>,
+      { width: 40, height: 6 },
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
+    computeFolds(editor!)
+    editor!.toggleFold(0)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
+
+    expect(editor!.plainText).toBe(content)
+    expect(editor!.lineCount).toBe(1)
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
   it("preserves cursor position when typing on an unfolded line while YAML is folded", async () => {
     let editor: CodeEditorRenderable | null = null
     const content = `name: demo
@@ -1349,6 +1381,29 @@ body:
 })
 
 describe("CodeEditorRenderable read-only mode", () => {
+  it("highlights XML in read-only mode", async () => {
+    let editor: CodeEditorRenderable | null = null
+    const content = "<note>\n  <to>Tove</to>\n</note>"
+    const { renderOnce } = await testRender(
+      <box width={40} height={6}>
+        <code-editor
+          ref={(renderable) => {
+            editor = renderable
+          }}
+          filetype="xml"
+          theme={opencodeTheme}
+          value={content}
+          readOnly
+        />
+      </box>,
+      { width: 40, height: 6 },
+    )
+
+    await renderOnce()
+    await editor!.refreshHighlights()
+    expect(getHighlightCount(editor!)).toBeGreaterThan(0)
+  })
+
   it("highlights the full final line after becoming read-only", async () => {
     let editor: CodeEditorRenderable | null = null
     const { renderOnce } = await testRender(

@@ -54,6 +54,19 @@ describe("parseCurl", () => {
     expect(request.body).toBe('{"token":"abc=def"}')
   })
 
+  it("preserves XML request bodies and their content type", () => {
+    const request = parseCurl(
+      "curl -H 'Content-Type: application/soap+xml' --data '<Envelope><Value>$token</Value></Envelope>' https://api.example.com/soap",
+    )
+
+    expect(request.bodyType).toBe("xml")
+    expect(request.body).toBe("<Envelope><Value>$token</Value></Envelope>")
+    expect(request.headers["Content-Type"]).toEqual({
+      value: "application/soap+xml",
+      enabled: true,
+    })
+  })
+
   it("maps query data, basic auth, timeout, and redirect limits", () => {
     const request = parseCurl(
       "curl -G -u alice:secret --max-time 1.5 --location --max-redirs 3 -d 'page=2&tag=rest' 'https://api.example.com/users?limit=10&tag=api'",

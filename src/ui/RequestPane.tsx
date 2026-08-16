@@ -112,8 +112,11 @@ export function RequestPane({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
   const keymap = useKeymap()
-  const isJsonBody =
-    activeTab === "body" && (request?.bodyType ?? "json") === "json"
+  const isTextBody =
+    activeTab === "body" &&
+    (request?.bodyType === undefined ||
+      request.bodyType === "json" ||
+      request.bodyType === "xml")
 
   const focusedRef = useRef(focused)
   focusedRef.current = focused
@@ -123,10 +126,10 @@ export function RequestPane({
     if (keymap.getData("app.overlay") !== "none") return
     if (editState.mode !== "browsing") return
     if (key.name === "pagedown") {
-      if (isJsonBody) bodyEditorRef.current?.scrollByViewport(1)
+      if (isTextBody) bodyEditorRef.current?.scrollByViewport(1)
       else scrollRef.current?.scrollBy(1, "viewport")
     } else if (key.name === "pageup") {
-      if (isJsonBody) bodyEditorRef.current?.scrollByViewport(-1)
+      if (isTextBody) bodyEditorRef.current?.scrollByViewport(-1)
       else scrollRef.current?.scrollBy(-1, "viewport")
     }
   })
@@ -204,7 +207,7 @@ export function RequestPane({
       onPaneFocus={onPaneFocus}
       onInteraction={onInteraction}
       onMouseDrag={(event) => {
-        if (isJsonBody) {
+        if (isTextBody) {
           bodyEditorRef.current?.handleSelectionDrag(event.x, event.y)
         }
       }}
@@ -246,7 +249,7 @@ export function RequestPane({
                   }}
                 />
               )}
-              {isJsonBody ? (
+              {isTextBody ? (
                 <BodySection
                   request={request}
                   editState={editState}

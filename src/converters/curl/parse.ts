@@ -390,6 +390,11 @@ function applyDataBody(
     request.body = value
     return
   }
+  if (contentType?.includes("xml")) {
+    request.bodyType = "xml"
+    request.body = value
+    return
+  }
   if (
     data.some((part) => part.urlencoded) ||
     contentType?.includes("application/x-www-form-urlencoded") ||
@@ -403,6 +408,6 @@ function applyDataBody(
     return
   }
   throw new Error(
-    "raw request data is unsupported; use JSON, URL-encoded data, multipart form data, or a file",
+    "raw request data is unsupported; use JSON, XML, URL-encoded data, multipart form data, or a file",
   )
 }

@@ -46,6 +46,7 @@ export function BodyTypeSelector({
   const bodyTypeItems: SelectItem[] = [
     { id: "none", label: "None" },
     { id: "json", label: "JSON" },
+    { id: "xml", label: "XML" },
     { id: "multipart", label: "Multipart Form" },
     { id: "urlencoded", label: "Form URL-Encoded" },
     { id: "binary", label: "Binary" },
@@ -133,7 +134,10 @@ export function BodySection({
   const isFormMode = bodyType === "multipart" || bodyType === "urlencoded"
   const isBinaryMode = bodyType === "binary"
 
-  const formattedBody = useMemo(() => formatBody(request.body), [request.body])
+  const formattedBody = useMemo(
+    () => formatBody(request.body, bodyType),
+    [bodyType, request.body],
+  )
   const editorRef = useRef<CodeEditorRenderable | null>(null)
   const [editorInstance, setEditorInstance] =
     useState<CodeEditorRenderable | null>(null)
@@ -157,8 +161,10 @@ export function BodySection({
 
   const validateContent = useCallback(
     (content: string): string | null =>
-      validateJsonContent(content, activeEnv ?? null),
-    [activeEnv],
+      bodyType === "json"
+        ? validateJsonContent(content, activeEnv ?? null)
+        : null,
+    [activeEnv, bodyType],
   )
 
   const editingBody = inEdit && editState.cursor.field === "body"
@@ -376,7 +382,7 @@ export function BodySection({
                   setEditorInstance(editor)
                   onEditorRef?.(editor)
                 }}
-                filetype="json"
+                filetype={bodyType}
                 theme={theme}
                 initialValue={editingBody ? editValue : formattedBody}
                 extraHighlights={activeEnv ? extraHighlights : undefined}

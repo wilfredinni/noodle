@@ -182,12 +182,24 @@ function enabledHeaders(
     .map(([name, entry]) => ({ name, value: entry.value }))
 }
 
+function enabledContentType(req: Request): string | undefined {
+  return Object.entries(req.headers).find(
+    ([name, entry]) => entry.enabled && name.toLowerCase() === "content-type",
+  )?.[1].value
+}
+
 function finalizeHeaders(req: Request): HarHeader[] {
   const headers = enabledHeaders(req.headers)
 
   const bodyType = req.bodyType ?? "json"
   if (bodyType === "json" && req.body !== undefined) {
     setHeader(headers, "Content-Type", "application/json")
+  } else if (
+    bodyType === "xml" &&
+    req.body !== undefined &&
+    enabledContentType(req) === undefined
+  ) {
+    setHeader(headers, "Content-Type", "application/xml")
   } else if (bodyType === "binary" && req.filePath) {
     setHeader(headers, "Content-Type", "application/octet-stream")
   }
@@ -281,6 +293,13 @@ function buildPostData(req: Request): HarPostData | undefined {
     case "json": {
       if (req.body === undefined) return undefined
       return { mimeType: "application/json", text: req.body }
+    }
+    case "xml": {
+      if (req.body === undefined) return undefined
+      return {
+        mimeType: enabledContentType(req) ?? "application/xml",
+        text: req.body,
+      }
     }
     case "urlencoded": {
       const entries = (req.formData ?? []).filter((e) => e.enabled)
