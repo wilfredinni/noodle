@@ -5,11 +5,8 @@ import {
   useRef,
   useState,
 } from "react"
-import {
-  MouseButton,
-  type InputRenderable,
-  type TextareaRenderable,
-} from "@opentui/core"
+import { type InputRenderable, type TextareaRenderable } from "@opentui/core"
+import { ActionButton } from "../ActionButton"
 import type { SelectItem } from "../Select"
 import { Select } from "../Select"
 import { useTheme } from "../theme"
@@ -51,9 +48,6 @@ export const ImportCurlOverlay = forwardRef<
   const [focus, setFocus] = useState<"folder" | "name" | "curl">("folder")
   const [errorText, setErrorText] = useState<string | null>(null)
   const [folderSelectOpen, setFolderSelectOpen] = useState(false)
-  const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
-    null,
-  )
   const curlRef = useRef<TextareaRenderable | null>(null)
   const nameRef = useRef<InputRenderable | null>(null)
 
@@ -184,46 +178,16 @@ export const ImportCurlOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onConfirm?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("save")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "save" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>^S</text>
-          <text fg={theme.textMuted}> save</text>
-        </box>
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onClose?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("close")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "close" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}> close</text>
-        </box>
+        <ActionButton
+          shortcut="^S"
+          label="save"
+          onAction={() => onConfirm?.()}
+        />
+        <ActionButton
+          shortcut="esc"
+          label="close"
+          onAction={() => onClose?.()}
+        />
       </box>
     </Overlay>
   )

@@ -6,6 +6,7 @@ import {
   useState,
 } from "react"
 import { MouseButton } from "@opentui/core"
+import { ActionButton } from "../ActionButton"
 import { Select, type SelectItem } from "../Select"
 import { useTheme } from "../theme"
 import { VarInput, type VarInputHandle } from "../VarInput"
@@ -54,9 +55,6 @@ export const ImportCollectionOverlay = forwardRef<
   const [focus, setFocus] = useState<ImportFocus>("source")
   const [destinationOpen, setDestinationOpen] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [hoveredAction, setHoveredAction] = useState<"import" | "close" | null>(
-    null,
-  )
   const sourceRef = useRef<VarInputHandle | null>(null)
   const parentRef = useRef<VarInputHandle | null>(null)
 
@@ -234,48 +232,18 @@ export const ImportCollectionOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT || pending) return
-            onConfirm?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("import")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "import" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>^S</text>
-          <text fg={theme.textMuted}>
-            {pending ? " importing..." : " import"}
-          </text>
-        </box>
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT || pending) return
-            onClose?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("close")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "close" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}> close</text>
-        </box>
+        <ActionButton
+          shortcut="^S"
+          label={pending ? "importing..." : "import"}
+          disabled={pending}
+          onAction={() => onConfirm?.()}
+        />
+        <ActionButton
+          shortcut="esc"
+          label="close"
+          disabled={pending}
+          onAction={() => onClose?.()}
+        />
       </box>
     </Overlay>
   )

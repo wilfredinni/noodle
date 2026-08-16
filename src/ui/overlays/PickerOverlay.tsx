@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import type { ReactNode } from "react"
 import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
+import { ActionButton } from "../ActionButton"
 import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
 import { useTheme } from "../theme"
@@ -255,38 +256,21 @@ export function PickerOverlay<T>({
   )
 
   const action = firstAction && (
-    <box paddingLeft={1} paddingRight={1}>
-      <box
-        onMouseDown={(event) => {
-          if (event.button !== MouseButton.LEFT) return
-          firstAction.onSelect()
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-        onMouseOver={() => {
+    <box paddingLeft={3} paddingRight={1}>
+      <ActionButton
+        label={firstAction.label}
+        shortcut={firstAction.shortcut}
+        shortcutPosition="right"
+        paddingX={3}
+        gap={1}
+        active={isActionHighlighted}
+        onAction={firstAction.onSelect}
+        onHover={() => {
           actionHighlightedRef.current = true
           setActionHighlighted(true)
           onHighlightChange?.(null)
         }}
-        style={{
-          flexDirection: "row",
-          paddingLeft: 3,
-          paddingRight: 3,
-          gap: 1,
-          backgroundColor: isActionHighlighted ? theme.primary : undefined,
-        }}
-      >
-        <box width={1} />
-        <text fg={isActionHighlighted ? "#1a1a1a" : theme.text}>
-          {firstAction.label}
-        </text>
-        <box flexGrow={1} />
-        {firstAction.shortcut && (
-          <text fg={isActionHighlighted ? "#1a1a1a" : theme.textMuted}>
-            {firstAction.shortcut}
-          </text>
-        )}
-      </box>
+      />
     </box>
   )
 

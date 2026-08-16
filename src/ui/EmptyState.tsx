@@ -1,9 +1,9 @@
-import { MouseButton, type ASCIIFontName } from "@opentui/core"
+import { type ASCIIFontName } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
-import { useState } from "react"
 import type { BorderPreset } from "./borders"
-import { contrastOnSecondary, useTheme } from "./theme"
+import { useTheme } from "./theme"
+import { ActionButton } from "./ActionButton"
 
 export interface EmptyStateProps {
   title?: string
@@ -28,17 +28,6 @@ export function EmptyState({
 }: EmptyStateProps) {
   const theme = useTheme()
   const keymap = useKeymap()
-  const [hovered, setHovered] = useState(false)
-  const actionTextColor = hovered
-    ? contrastOnSecondary(theme)
-    : actionActive
-      ? theme.secondary
-      : theme.text
-  const actionBackgroundColor = hovered
-    ? theme.secondary
-    : actionActive
-      ? theme.backgroundElement
-      : undefined
 
   useKeyboard((key) => {
     if (keymap.getData("app.overlay") !== "none") return
@@ -83,24 +72,12 @@ export function EmptyState({
             {subtitle}
           </text>
         )}
-        <box
+        <ActionButton
           id="empty-state-action"
-          paddingLeft={1}
-          paddingRight={1}
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onAction()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHovered(true)}
-          onMouseOut={() => setHovered(false)}
-          style={{
-            backgroundColor: actionBackgroundColor,
-          }}
-        >
-          <text fg={actionTextColor}>{actionLabel}</text>
-        </box>
+          label={actionLabel}
+          active={actionActive}
+          onAction={onAction}
+        />
       </box>
     </box>
   )

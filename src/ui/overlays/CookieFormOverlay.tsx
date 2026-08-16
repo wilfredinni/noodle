@@ -6,6 +6,7 @@ import {
   useState,
 } from "react"
 import { MouseButton, type InputRenderable } from "@opentui/core"
+import { ActionButton } from "../ActionButton"
 import { Checkbox } from "../Checkbox"
 import { Select } from "../Select"
 import { useTheme } from "../theme"
@@ -93,9 +94,6 @@ export const CookieFormOverlay = forwardRef<
   const [focus, setFocus] = useState<CookieFormFocus>("name")
   const [errorText, setErrorText] = useState<string | null>(null)
   const [selectOpen, setSelectOpen] = useState(false)
-  const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
-    null,
-  )
   const inputRefs = useRef<
     Partial<Record<CookieFormFocus, InputRenderable | null>>
   >({})
@@ -368,46 +366,16 @@ export const CookieFormOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onConfirm?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("save")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "save" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>^S</text>
-          <text fg={theme.textMuted}> save</text>
-        </box>
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onClose?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("close")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "close" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}> close</text>
-        </box>
+        <ActionButton
+          shortcut="^S"
+          label="save"
+          onAction={() => onConfirm?.()}
+        />
+        <ActionButton
+          shortcut="esc"
+          label="close"
+          onAction={() => onClose?.()}
+        />
       </box>
     </Overlay>
   )

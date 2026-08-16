@@ -1,5 +1,4 @@
-import { MouseButton } from "@opentui/core"
-import { useState } from "react"
+import { ActionButton } from "../ActionButton"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
@@ -18,9 +17,6 @@ export function ConfirmOverlay({
   onCancel,
 }: ConfirmOverlayProps) {
   const theme = useTheme()
-  const [hoveredAction, setHoveredAction] = useState<
-    "confirm" | "cancel" | null
-  >(null)
 
   return (
     <Overlay visible={visible} width={50} gap={1} padding={1}>
@@ -46,46 +42,16 @@ export function ConfirmOverlay({
           paddingX: 2,
         }}
       >
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onConfirm?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("confirm")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "confirm" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>y</text>
-          <text fg={theme.textMuted}> confirm</text>
-        </box>
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onCancel?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("cancel")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "cancel" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>n</text>
-          <text fg={theme.textMuted}> cancel</text>
-        </box>
+        <ActionButton
+          shortcut="y"
+          label="confirm"
+          onAction={() => onConfirm?.()}
+        />
+        <ActionButton
+          shortcut="n"
+          label="cancel"
+          onAction={() => onCancel?.()}
+        />
       </box>
     </Overlay>
   )

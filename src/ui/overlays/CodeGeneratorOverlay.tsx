@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import { MouseButton, type ScrollBoxRenderable } from "@opentui/core"
+import { type ScrollBoxRenderable } from "@opentui/core"
 import type { Collection, Environment, Request } from "../../schema"
 import { generateCode, getCodeTarget } from "../../codegen"
 import { CODE_LANGUAGES } from "../../codegen/targets"
 import { copyToClipboard } from "../clipboard"
+import { ActionButton } from "../ActionButton"
 import { useRenderer } from "../RendererContext"
 import { showToast } from "../Toast"
 import { useTheme } from "../theme"
@@ -52,9 +53,6 @@ export function CodeGeneratorOverlay({
   const [clientId, setClientId] = useState(DEFAULT_LANG.defaultClientId)
   const [focus, setFocus] = useState<"language" | "library">("language")
   const [interpolate, setInterpolate] = useState(false)
-  const [hoveredAction, setHoveredAction] = useState<
-    "interpolate" | "copy" | "close" | null
-  >(null)
 
   const clientItems = buildClientItems(languageKey)
   const hasClients = clientItems.length > 0
@@ -255,83 +253,19 @@ export function CodeGeneratorOverlay({
             gap: 1,
           }}
         >
-          <box
-            onMouseDown={(event) => {
-              if (event.button !== MouseButton.LEFT || !env) return
-              toggleInterpolate()
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onMouseOver={
-              env ? () => setHoveredAction("interpolate") : undefined
-            }
-            onMouseOut={() => setHoveredAction(null)}
-            style={{
-              flexDirection: "row",
-              paddingLeft: 1,
-              paddingRight: 1,
-              backgroundColor:
-                hoveredAction === "interpolate"
-                  ? theme.backgroundElement
-                  : undefined,
-            }}
-          >
-            <text fg={theme.text}>i</text>
-            <text
-              fg={
-                !env
-                  ? theme.border
-                  : interpolate
-                    ? theme.primary
-                    : theme.textMuted
-              }
-            >
-              {" "}
-              interpolate{!env ? " (no env)" : ""}{" "}
-            </text>
-          </box>
-          <box
-            onMouseDown={(event) => {
-              if (event.button !== MouseButton.LEFT || !result.generated) return
-              copyCode()
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onMouseOver={
-              result.generated ? () => setHoveredAction("copy") : undefined
-            }
-            onMouseOut={() => setHoveredAction(null)}
-            style={{
-              flexDirection: "row",
-              paddingLeft: 1,
-              paddingRight: 1,
-              backgroundColor:
-                hoveredAction === "copy" ? theme.backgroundElement : undefined,
-            }}
-          >
-            <text fg={theme.text}>c</text>
-            <text fg={theme.textMuted}> copy </text>
-          </box>
-          <box
-            onMouseDown={(event) => {
-              if (event.button !== MouseButton.LEFT) return
-              onClose()
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onMouseOver={() => setHoveredAction("close")}
-            onMouseOut={() => setHoveredAction(null)}
-            style={{
-              flexDirection: "row",
-              paddingLeft: 1,
-              paddingRight: 1,
-              backgroundColor:
-                hoveredAction === "close" ? theme.backgroundElement : undefined,
-            }}
-          >
-            <text fg={theme.text}>esc</text>
-            <text fg={theme.textMuted}> close</text>
-          </box>
+          <ActionButton
+            shortcut="i"
+            label={`interpolate${!env ? " (no env)" : ""}`}
+            disabled={!env}
+            onAction={toggleInterpolate}
+          />
+          <ActionButton
+            shortcut="c"
+            label="copy"
+            disabled={!result.generated}
+            onAction={copyCode}
+          />
+          <ActionButton shortcut="esc" label="close" onAction={onClose} />
         </box>
       </box>
     </Overlay>
