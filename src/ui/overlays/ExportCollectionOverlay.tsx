@@ -6,6 +6,7 @@ import {
   useState,
 } from "react"
 import { MouseButton } from "@opentui/core"
+import { ActionButton } from "../ActionButton"
 import {
   getExportTargetPath,
   type ExportCollectionValues,
@@ -51,9 +52,6 @@ export const ExportCollectionOverlay = forwardRef<
   const [focus, setFocus] = useState<"format" | "output">("format")
   const [errorText, setErrorText] = useState<string | null>(null)
   const [selectOpen, setSelectOpen] = useState(false)
-  const [hoveredAction, setHoveredAction] = useState<"export" | "close" | null>(
-    null,
-  )
   const outputRef = useRef<VarInputHandle | null>(null)
 
   useImperativeHandle(ref, () => ({
@@ -194,46 +192,16 @@ export const ExportCollectionOverlay = forwardRef<
           paddingX: 2,
         }}
       >
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onConfirm?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("export")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "export" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>^S</text>
-          <text fg={theme.textMuted}> export</text>
-        </box>
-        <box
-          onMouseDown={(event) => {
-            if (event.button !== MouseButton.LEFT) return
-            onClose?.()
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onMouseOver={() => setHoveredAction("close")}
-          onMouseOut={() => setHoveredAction(null)}
-          style={{
-            flexDirection: "row",
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor:
-              hoveredAction === "close" ? theme.backgroundElement : undefined,
-          }}
-        >
-          <text fg={theme.text}>esc</text>
-          <text fg={theme.textMuted}> close</text>
-        </box>
+        <ActionButton
+          shortcut="^S"
+          label="export"
+          onAction={() => onConfirm?.()}
+        />
+        <ActionButton
+          shortcut="esc"
+          label="close"
+          onAction={() => onClose?.()}
+        />
       </box>
     </Overlay>
   )

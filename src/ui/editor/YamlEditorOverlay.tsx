@@ -1,6 +1,6 @@
-import { MouseButton } from "@opentui/core"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { useBindings, useKeymap } from "@opentui/keymap/react"
+import { ActionButton } from "../ActionButton"
 import { useTheme } from "../theme"
 import { Overlay } from "../overlays/Overlay"
 import { EscapeClose } from "../overlays/EscapeClose"
@@ -32,9 +32,6 @@ export function YamlEditorOverlay({
   const theme = useTheme()
   const keymap = useKeymap()
   const editorRef = useRef<YamlFileEditorHandle | null>(null)
-  const [hoveredAction, setHoveredAction] = useState<"save" | "close" | null>(
-    null,
-  )
   const handleSave = useCallback(() => {
     editorRef.current?.save()
   }, [])
@@ -113,44 +110,12 @@ export function YamlEditorOverlay({
             gap: 1,
           }}
         >
-          <box
-            onMouseDown={(event) => {
-              if (event.button !== MouseButton.LEFT) return
-              handleSave()
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onMouseOver={() => setHoveredAction("save")}
-            onMouseOut={() => setHoveredAction(null)}
-            style={{
-              flexDirection: "row",
-              paddingX: 1,
-              backgroundColor:
-                hoveredAction === "save" ? theme.backgroundElement : undefined,
-            }}
-          >
-            <text fg={theme.text}>{displayKey(saveKey)}</text>
-            <text fg={theme.textMuted}> save</text>
-          </box>
-          <box
-            onMouseDown={(event) => {
-              if (event.button !== MouseButton.LEFT) return
-              handleClose()
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onMouseOver={() => setHoveredAction("close")}
-            onMouseOut={() => setHoveredAction(null)}
-            style={{
-              flexDirection: "row",
-              paddingX: 1,
-              backgroundColor:
-                hoveredAction === "close" ? theme.backgroundElement : undefined,
-            }}
-          >
-            <text fg={theme.text}>esc</text>
-            <text fg={theme.textMuted}> close</text>
-          </box>
+          <ActionButton
+            shortcut={displayKey(saveKey)}
+            label="save"
+            onAction={handleSave}
+          />
+          <ActionButton shortcut="esc" label="close" onAction={handleClose} />
         </box>
       </box>
     </Overlay>

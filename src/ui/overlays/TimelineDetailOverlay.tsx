@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeymap } from "@opentui/keymap/react"
-import { MouseButton, t, fg, type ScrollBoxRenderable } from "@opentui/core"
+import { t, fg, type ScrollBoxRenderable } from "@opentui/core"
 import type { TimelineBodyRef, TimelineEntry } from "../../schema"
 import { formatJson } from "../../lang/formatJson"
+import { ActionButton } from "../ActionButton"
 import { useTheme } from "../theme"
 import { Overlay } from "./Overlay"
 import { EscapeClose } from "./EscapeClose"
@@ -97,15 +98,6 @@ export function TimelineDetailOverlay({
   const [bodyError, setBodyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showLargeBody, setShowLargeBody] = useState(false)
-  const [hoveredAction, setHoveredAction] = useState<
-    | "view"
-    | "large-copy"
-    | "large-export"
-    | "headers"
-    | "body"
-    | "export"
-    | null
-  >(null)
   const bodyScrollRef = useRef<ScrollBoxRenderable | null>(null)
   const bodyEditorRef = useRef<CodeEditorRenderable | null>(null)
   const [bodyEditor, setBodyEditor] = useState<CodeEditorRenderable | null>(
@@ -434,72 +426,21 @@ export function TimelineDetailOverlay({
                     fg={theme.warning}
                   >{`Body is ${formatSize(info!.size)}. It was not rendered automatically.`}</text>
                   <box style={{ flexDirection: "row", gap: 1 }}>
-                    <box
-                      onMouseDown={(event) => {
-                        if (event.button !== MouseButton.LEFT) return
-                        setShowLargeBody(true)
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }}
-                      onMouseOver={() => setHoveredAction("view")}
-                      onMouseOut={() => setHoveredAction(null)}
-                      style={{
-                        flexDirection: "row",
-                        paddingLeft: 1,
-                        paddingRight: 1,
-                        backgroundColor:
-                          hoveredAction === "view"
-                            ? theme.backgroundElement
-                            : undefined,
-                      }}
-                    >
-                      <text fg={theme.text}>v</text>
-                      <text fg={theme.textMuted}> view raw </text>
-                    </box>
-                    <box
-                      onMouseDown={(event) => {
-                        if (event.button !== MouseButton.LEFT) return
-                        copyBody()
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }}
-                      onMouseOver={() => setHoveredAction("large-copy")}
-                      onMouseOut={() => setHoveredAction(null)}
-                      style={{
-                        flexDirection: "row",
-                        paddingLeft: 1,
-                        paddingRight: 1,
-                        backgroundColor:
-                          hoveredAction === "large-copy"
-                            ? theme.backgroundElement
-                            : undefined,
-                      }}
-                    >
-                      <text fg={theme.text}>b</text>
-                      <text fg={theme.textMuted}> copy </text>
-                    </box>
-                    <box
-                      onMouseDown={(event) => {
-                        if (event.button !== MouseButton.LEFT) return
-                        exportBody()
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }}
-                      onMouseOver={() => setHoveredAction("large-export")}
-                      onMouseOut={() => setHoveredAction(null)}
-                      style={{
-                        flexDirection: "row",
-                        paddingLeft: 1,
-                        paddingRight: 1,
-                        backgroundColor:
-                          hoveredAction === "large-export"
-                            ? theme.backgroundElement
-                            : undefined,
-                      }}
-                    >
-                      <text fg={theme.text}>e</text>
-                      <text fg={theme.textMuted}> export</text>
-                    </box>
+                    <ActionButton
+                      shortcut="v"
+                      label="view raw"
+                      onAction={() => setShowLargeBody(true)}
+                    />
+                    <ActionButton
+                      shortcut="b"
+                      label="copy"
+                      onAction={copyBody}
+                    />
+                    <ActionButton
+                      shortcut="e"
+                      label="export"
+                      onAction={exportBody}
+                    />
                   </box>
                 </box>
               ) : renderedBody ? (
@@ -571,72 +512,13 @@ export function TimelineDetailOverlay({
               gap: 1,
             }}
           >
-            <box
-              onMouseDown={(event) => {
-                if (event.button !== MouseButton.LEFT) return
-                copyHeaders()
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-              onMouseOver={() => setHoveredAction("headers")}
-              onMouseOut={() => setHoveredAction(null)}
-              style={{
-                flexDirection: "row",
-                paddingLeft: 1,
-                paddingRight: 1,
-                backgroundColor:
-                  hoveredAction === "headers"
-                    ? theme.backgroundElement
-                    : undefined,
-              }}
-            >
-              <text fg={theme.text}>h</text>
-              <text fg={theme.textMuted}> copy headers </text>
-            </box>
-            <box
-              onMouseDown={(event) => {
-                if (event.button !== MouseButton.LEFT) return
-                copyBody()
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-              onMouseOver={() => setHoveredAction("body")}
-              onMouseOut={() => setHoveredAction(null)}
-              style={{
-                flexDirection: "row",
-                paddingLeft: 1,
-                paddingRight: 1,
-                backgroundColor:
-                  hoveredAction === "body"
-                    ? theme.backgroundElement
-                    : undefined,
-              }}
-            >
-              <text fg={theme.text}>b</text>
-              <text fg={theme.textMuted}> copy body </text>
-            </box>
-            <box
-              onMouseDown={(event) => {
-                if (event.button !== MouseButton.LEFT) return
-                exportBody()
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-              onMouseOver={() => setHoveredAction("export")}
-              onMouseOut={() => setHoveredAction(null)}
-              style={{
-                flexDirection: "row",
-                paddingLeft: 1,
-                paddingRight: 1,
-                backgroundColor:
-                  hoveredAction === "export"
-                    ? theme.backgroundElement
-                    : undefined,
-              }}
-            >
-              <text fg={theme.text}>e</text>
-              <text fg={theme.textMuted}> export</text>
-            </box>
+            <ActionButton
+              shortcut="h"
+              label="copy headers"
+              onAction={copyHeaders}
+            />
+            <ActionButton shortcut="b" label="copy body" onAction={copyBody} />
+            <ActionButton shortcut="e" label="export" onAction={exportBody} />
           </box>
         )}
       </box>
