@@ -53,7 +53,7 @@ export type CollectionSettingsCategory = "general" | "network" | "tls"
 export type SettingsCategory =
   GlobalSettingsCategory | CollectionSettingsCategory
 
-const GLOBAL_CATEGORIES: readonly {
+export const GLOBAL_CATEGORIES: readonly {
   id: GlobalSettingsCategory
   label: string
 }[] = [
@@ -64,13 +64,13 @@ const GLOBAL_CATEGORIES: readonly {
   { id: "keyboard", label: "Keyboard" },
 ]
 
-const COLLECTION_CATEGORIES: readonly {
+export const COLLECTION_CATEGORIES: readonly {
   id: CollectionSettingsCategory
   label: string
 }[] = [
   { id: "general", label: "General" },
   { id: "network", label: "Proxy" },
-  { id: "tls", label: "TLS" },
+  { id: "tls", label: "Certificates" },
 ]
 
 const KEYBIND_CATEGORIES: readonly KeybindCategory[] = [
@@ -935,7 +935,7 @@ export function SettingsView({
             {scope === "collection" && category === "tls" && (
               <>
                 <SettingsSectionHeader
-                  title="TLS"
+                  title="Certificates"
                   description="Configure certificate verification, trust roots, and mutual TLS for this collection."
                 />
                 <TlsSettingsForm
