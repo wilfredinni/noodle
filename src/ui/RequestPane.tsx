@@ -1,7 +1,7 @@
 import { type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useKeymap } from "@opentui/keymap/react"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import type { Auth, Request, Environment } from "../schema"
 import type { EditState, FieldKind } from "./editMode"
 import type { BodyType } from "../schema"
@@ -157,16 +157,6 @@ export function RequestPane({
       scrollRef.current?.scrollChildIntoView(`${field}-field`)
     }
   }, [editState.cursor, editState.mode, request?.bodyType])
-
-  const handleSelectOpenChange = useCallback(
-    (open: boolean) => {
-      onSelectOpenChange?.(open)
-      if (open) {
-        scrollRef.current?.scrollChildIntoView("auth-field")
-      }
-    },
-    [onSelectOpenChange],
-  )
 
   const tabs = useMemo(() => {
     const labels = computeRequestTabLabels(request)
@@ -476,7 +466,7 @@ export function RequestPane({
                         onApiKeyPlacementChange ?? (() => {})
                       }
                       onAuthFieldChange={onAuthFieldChange}
-                      onSelectOpenChange={handleSelectOpenChange}
+                      onSelectOpenChange={onSelectOpenChange}
                       interactive={interactive}
                       onFocusRow={(row) => {
                         onInteraction?.()
