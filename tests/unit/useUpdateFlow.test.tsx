@@ -56,7 +56,10 @@ describe("useUpdateFlow", () => {
     await rm(dir, { recursive: true, force: true })
   })
 
-  async function renderHook(dependencies: Partial<UpdateDependencies>) {
+  async function renderHook(
+    dependencies: Partial<UpdateDependencies>,
+    waitForInitialState = true,
+  ) {
     let state: UpdateHook | undefined
     const phases: string[] = []
     const render = await testRender(
@@ -83,7 +86,7 @@ describe("useUpdateFlow", () => {
       throw new Error("Timed out waiting for update hook state")
     }
 
-    await waitFor(() => state !== undefined)
+    if (waitForInitialState) await waitFor(() => state !== undefined)
     return { getState: () => state!, phases, waitFor }
   }
 
@@ -159,6 +162,7 @@ describe("useUpdateFlow", () => {
       arch: "arm64",
       env: {},
       runProcess: async (args) => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
         commands.push(args.join(" "))
         if (args[1] === "info") {
           return {
@@ -186,12 +190,19 @@ describe("useUpdateFlow", () => {
   })
 
   it("maps unsupported runtimes back to the version-only idle state", async () => {
-    const { getState, phases, waitFor } = await renderHook({
-      execPath: "/opt/homebrew/bin/bun",
-      platform: "darwin",
-      arch: "arm64",
-      env: {},
+    let hook: Awaited<ReturnType<typeof renderHook>> | undefined
+    await act(async () => {
+      hook = await renderHook(
+        {
+          execPath: "/opt/homebrew/bin/bun",
+          platform: "darwin",
+          arch: "arm64",
+          env: {},
+        },
+        false,
+      )
     })
+    const { getState, phases, waitFor } = hook!
 
     await waitFor(
       () =>
