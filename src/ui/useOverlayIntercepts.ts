@@ -143,9 +143,6 @@ export function useOverlayIntercepts(opts: {
   onInitConfirm: () => void
   draftRef: RefObject<UseRequestDraftResult>
   folderDraftRef: RefObject<UseFolderDraftResult>
-  updateConfirmVisible: boolean
-  onConfirmInstall: () => void
-  onCancelUpdate: () => void
 }) {
   useGlobalIntercepts(opts)
 

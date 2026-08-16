@@ -3,6 +3,7 @@ import { join } from "node:path"
 import pkg from "../../../package.json" with { type: "json" }
 import {
   getPlatformString,
+  getHomebrewExecutable,
   isHomebrewInstall,
   isBunRuntime,
 } from "./updateDetect"
@@ -87,6 +88,12 @@ export function getUpdateDeps(
 
 export type UpdateStatus =
   | {
+      kind: "unavailable"
+      currentVersion: string
+      message: string
+      installType: "binary" | "brew"
+    }
+  | {
       kind: "up_to_date"
       currentVersion: string
       installType: "binary" | "brew"
@@ -127,17 +134,18 @@ export async function checkForUpdates(
 
   if (isBunRuntime(deps.execPath)) {
     return {
-      kind: "error",
+      kind: "unavailable",
+      currentVersion,
+      installType: "binary",
       message:
         "Updates are only available for the standalone binary. Use a release build instead.",
-      installType: "binary",
     }
   }
 
   if (isHomebrewInstall(deps.execPath)) {
     try {
       const result = await deps.runProcess(
-        ["brew", "info", "--json=v2", "noodle"],
+        [getHomebrewExecutable(deps.execPath), "info", "--json=v2", "noodle"],
         true,
         {
           signal: AbortSignal.timeout(
@@ -191,9 +199,10 @@ export async function checkForUpdates(
     getPlatformString(deps.platform, deps.arch)
   } catch {
     return {
-      kind: "error",
-      message: `Unsupported platform: ${deps.platform}-${deps.arch}`,
+      kind: "unavailable",
+      currentVersion,
       installType: "binary",
+      message: `Unsupported platform: ${deps.platform}-${deps.arch}`,
     }
   }
 

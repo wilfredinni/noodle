@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { RefObject } from "react"
 import {
   checkForUpdates,
   installBinaryUpdate,
   installBrewUpdate,
+  type UpdateAvailableInfo,
   type UpdateDependencies,
 } from "../app/commands/update"
+import { isBunRuntime } from "../app/commands/updateDetect"
 import { showToast } from "./Toast"
 import type { UpdateFlowState } from "./appState"
 
@@ -13,9 +14,37 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function getPreviewFlow(value: string | undefined): UpdateFlowState | null {
+  switch (value) {
+    case "idle":
+      return { phase: "idle" }
+    case "checking":
+      return { phase: "checking" }
+    case "up_to_date":
+      return { phase: "up_to_date" }
+    case "downloading":
+      return {
+        phase: "downloading",
+        version: "v0.7.5",
+        installType: "binary",
+      }
+    case "installing":
+      return {
+        phase: "installing",
+        version: "v0.7.5",
+        installType: "binary",
+      }
+    case "done":
+      return { phase: "done", version: "v0.7.5" }
+    case "failed":
+      return { phase: "failed", message: "Preview failure" }
+    default:
+      return null
+  }
+}
+
 export function useUpdateFlow(
-  overlayActiveRef: RefObject<boolean>,
-  dependencies: Pick<UpdateDependencies, "fetcher" | "env"> = {
+  dependencies: Partial<UpdateDependencies> = {
     fetcher: globalThis.fetch,
     env: process.env,
   },
@@ -24,71 +53,101 @@ export function useUpdateFlow(
   const [updateFlow, setUpdateFlow] = useState<UpdateFlowState>({
     phase: "idle",
   })
-  const [restartVersion, setRestartVersion] = useState<string | null>(null)
-  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null)
   const updateFlowRef = useRef(updateFlow)
   updateFlowRef.current = updateFlow
   const dependenciesRef = useRef(dependencies)
+  const checkInFlightRef = useRef(false)
   const installTokenRef = useRef(0)
+  const previewPhase = isBunRuntime(process.execPath)
+    ? process.env.NOODLE_UPDATE_PREVIEW
+    : undefined
 
   useEffect(() => {
     dependenciesRef.current = dependencies
   }, [dependencies])
 
-  const triggerUpdateCheck = useCallback(
-    () => setCheckToken((token) => token + 1),
-    [],
-  )
+  const startCheck = useCallback(() => {
+    const phase = updateFlowRef.current.phase
+    if (
+      checkInFlightRef.current ||
+      phase === "downloading" ||
+      phase === "installing" ||
+      phase === "done"
+    )
+      return
+    const previewFlow = getPreviewFlow(previewPhase)
+    if (previewFlow) {
+      setUpdateFlow(previewFlow)
+      return
+    }
+    checkInFlightRef.current = true
+    setUpdateFlow({ phase: "checking" })
+    setCheckToken((token) => token + 1)
+  }, [previewPhase])
+
+  const triggerAboutUpdateCheck = useCallback(startCheck, [startCheck])
+
+  useEffect(() => startCheck(), [startCheck])
 
   useEffect(() => {
-    if (checkToken === 0 || updateFlowRef.current.phase === "installing") return
+    if (checkToken === 0) return
     let cancelled = false
     checkForUpdates(true, dependenciesRef.current)
       .then((status) => {
-        if (cancelled || overlayActiveRef.current) return
-        if (status.kind === "up_to_date") {
-          setUpdateAvailable(null)
-          showToast("Noodle is up to date", "success")
-        } else if (status.kind === "error") {
-          showToast("Update check failed", "error")
-        } else if (status.kind === "update_available") {
-          setUpdateFlow({
-            phase: "confirm",
-            version: status.latestVersion || "latest",
-            installType: status.installType,
-            assetUrl:
-              status.installType === "binary" ? status.assetUrl : undefined,
-            expectedSha256:
-              status.installType === "binary"
-                ? status.expectedSha256
-                : undefined,
-          })
+        if (cancelled) return
+        checkInFlightRef.current = false
+        if (status.kind === "unavailable") {
+          setUpdateFlow({ phase: "idle" })
+          return
         }
+        if (status.kind === "up_to_date") {
+          setUpdateFlow({ phase: "up_to_date" })
+          return
+        }
+        if (status.kind === "error") {
+          setUpdateFlow({ phase: "failed", message: status.message })
+          showToast("Update check failed", "error")
+          return
+        }
+
+        const update: UpdateAvailableInfo = {
+          version: status.latestVersion || "latest",
+          installType: status.installType,
+          assetUrl:
+            status.installType === "binary" ? status.assetUrl : undefined,
+          expectedSha256:
+            status.installType === "binary" ? status.expectedSha256 : undefined,
+        }
+        setUpdateFlow({
+          phase: update.installType === "binary" ? "downloading" : "installing",
+          ...update,
+        })
       })
-      .catch(() => {
-        if (!cancelled) showToast("Update check failed", "error")
+      .catch((error: unknown) => {
+        if (cancelled) return
+        checkInFlightRef.current = false
+        setUpdateFlow({ phase: "failed", message: getErrorMessage(error) })
+        showToast("Update check failed", "error")
       })
     return () => {
       cancelled = true
+      checkInFlightRef.current = false
     }
   }, [checkToken])
 
   useEffect(() => {
-    if (updateFlow.phase !== "installing") return
-    const update = updateFlow
-    const token = ++installTokenRef.current
-    if (update.installType === "brew") {
+    if (
+      updateFlow.phase === "installing" &&
+      updateFlow.installType === "brew"
+    ) {
+      const update = updateFlow
+      const token = ++installTokenRef.current
       installBrewUpdate(dependenciesRef.current)
         .then((result) => {
           if (token !== installTokenRef.current) return
           if (result.data.status === "homebrew_updated") {
             showToast("Update completed", "success")
-            setUpdateFlow({
-              phase: "done",
-              version: update.version || "latest",
-            })
-            setRestartVersion(update.version || "latest")
-            setUpdateAvailable(null)
+            setUpdateFlow({ phase: "done", version: update.version })
           } else {
             const message = result.data.exit_code
               ? `Homebrew upgrade failed (exit ${result.data.exit_code})`
@@ -99,84 +158,62 @@ export function useUpdateFlow(
         })
         .catch((error: unknown) => {
           if (token !== installTokenRef.current) return
-          const message = getErrorMessage(error)
           showToast("Update failed", "error")
-          setUpdateFlow({ phase: "failed", message })
+          setUpdateFlow({ phase: "failed", message: getErrorMessage(error) })
         })
       return
     }
-    if (
-      update.installType === "binary" &&
-      update.assetUrl &&
-      update.expectedSha256
-    ) {
-      installBinaryUpdate(
-        update.version,
-        update.assetUrl,
-        update.expectedSha256,
-        dependenciesRef.current,
-      )
-        .then((result) => {
-          if (token !== installTokenRef.current) return
-          if (result.data.status === "updated") {
-            const version = result.data.version ?? update.version
-            showToast("Update completed", "success")
-            setUpdateFlow({ phase: "done", version })
-            setRestartVersion(version)
-            setUpdateAvailable(null)
-          } else {
-            const message =
-              (result.data as Record<string, string>).reason ?? "Update failed"
-            showToast("Update failed", "error")
-            setUpdateFlow({ phase: "failed", message })
-          }
-        })
-        .catch((error: unknown) => {
-          if (token !== installTokenRef.current) return
-          const message = getErrorMessage(error)
-          showToast("Update failed", "error")
-          setUpdateFlow({ phase: "failed", message })
-        })
-      return
-    }
-    setUpdateFlow({ phase: "idle" })
-  }, [updateFlow])
 
-  useEffect(() => {
-    let cancelled = false
-    checkForUpdates(false, dependenciesRef.current)
-      .then((status) => {
-        if (!cancelled && status.kind === "update_available") {
-          setUpdateAvailable(status.latestVersion)
+    if (
+      updateFlow.phase !== "downloading" ||
+      updateFlow.installType !== "binary" ||
+      !updateFlow.assetUrl ||
+      !updateFlow.expectedSha256
+    )
+      return
+
+    const assetUrl = updateFlow.assetUrl
+    const expectedSha256 = updateFlow.expectedSha256
+    const update: UpdateAvailableInfo = {
+      version: updateFlow.version,
+      installType: updateFlow.installType,
+      assetUrl,
+      expectedSha256,
+    }
+    const token = ++installTokenRef.current
+    installBinaryUpdate(
+      update.version,
+      assetUrl,
+      expectedSha256,
+      dependenciesRef.current,
+      (phase) => {
+        if (phase === "installing" && token === installTokenRef.current) {
+          setUpdateFlow({ ...update, phase: "installing" })
+        }
+      },
+    )
+      .then((result) => {
+        if (token !== installTokenRef.current) return
+        if (result.data.status === "updated") {
+          const version = result.data.version ?? update.version
+          showToast("Update completed", "success")
+          setUpdateFlow({ phase: "done", version })
+        } else {
+          const message =
+            (result.data as Record<string, string>).reason ?? "Update failed"
+          showToast("Update failed", "error")
+          setUpdateFlow({ phase: "failed", message })
         }
       })
-      .catch(() => {
-        if (!cancelled) showToast("Update check failed", "error")
+      .catch((error: unknown) => {
+        if (token !== installTokenRef.current) return
+        showToast("Update failed", "error")
+        setUpdateFlow({ phase: "failed", message: getErrorMessage(error) })
       })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const confirmInstall = useCallback(() => {
-    const update = updateFlowRef.current
-    if (update.phase !== "confirm") return
-    setUpdateFlow({
-      phase: "installing",
-      version: update.version,
-      installType: update.installType,
-      assetUrl: update.assetUrl,
-      expectedSha256: update.expectedSha256,
-    })
-  }, [])
-  const cancelUpdate = useCallback(() => setUpdateFlow({ phase: "idle" }), [])
+  }, [updateFlow])
 
   return {
     updateFlow,
-    restartVersion,
-    updateAvailable,
-    triggerUpdateCheck,
-    confirmInstall,
-    cancelUpdate,
+    triggerAboutUpdateCheck,
   }
 }

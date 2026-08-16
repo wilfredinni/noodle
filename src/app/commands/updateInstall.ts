@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto"
 import { chmod, mkdtemp, rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { isBunRuntime, getPlatformString } from "./updateDetect"
+import {
+  getHomebrewExecutable,
+  isBunRuntime,
+  getPlatformString,
+} from "./updateDetect"
 import type { UpdateDependencies } from "./updateMetadata"
 import { getAssetName, getUpdateDeps } from "./updateMetadata"
 
@@ -35,7 +39,7 @@ async function runHomebrewUpdate(
   output("Updating noodle via Homebrew...")
   try {
     const result = await deps.runProcess(
-      ["brew", "upgrade", "noodle"],
+      [getHomebrewExecutable(deps.execPath), "upgrade", "noodle"],
       silent,
       {
         env: deps.env,
@@ -70,12 +74,20 @@ export async function installBinaryUpdate(
   downloadUrl: string,
   expectedSha256: string,
   dependencyOverrides: Partial<UpdateDependencies> = {},
+  onPhase?: (phase: "downloading" | "installing") => void,
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
   const deps = getUpdateDeps(dependencyOverrides)
   if (isBunRuntime(deps.execPath)) {
     return { data: { status: "update_failed" }, failed: true }
   }
-  return downloadAndInstall(tag, downloadUrl, expectedSha256, deps, () => {})
+  return downloadAndInstall(
+    tag,
+    downloadUrl,
+    expectedSha256,
+    deps,
+    () => {},
+    onPhase,
+  )
 }
 
 export async function installBrewUpdate(
@@ -97,10 +109,12 @@ async function downloadAndInstall(
   expectedSha256: string,
   deps: UpdateDependencies,
   output: (message: string) => void,
+  onPhase?: (phase: "downloading" | "installing") => void,
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
   const assetName = getAssetName(deps.platform, deps.arch)
   const platform = getPlatformString(deps.platform, deps.arch)
   output(`Downloading ${tag} for ${platform}...`)
+  onPhase?.("downloading")
   let stagingDir: string | undefined
   try {
     const binaryResponse = await deps.fetcher(binaryUrl)
@@ -110,6 +124,7 @@ async function downloadAndInstall(
 
     const binary = new Uint8Array(await binaryResponse.arrayBuffer())
     if (sha256(binary) !== expectedSha256) throw new Error("checksum mismatch")
+    onPhase?.("installing")
 
     const executableDir = dirname(deps.execPath)
     stagingDir = await mkdtemp(join(executableDir, ".noodle-update-"))

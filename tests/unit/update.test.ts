@@ -7,6 +7,7 @@ import {
   getPlatformString,
   compareStableVersions,
   getAssetName,
+  getHomebrewExecutable,
   isNewerVersion,
   isHomebrewInstall,
   parseChecksumManifest,
@@ -25,6 +26,7 @@ import {
 } from "../../src/app/commands/update"
 
 const currentVersion = `v${pkg.version}`
+const homebrewExecPath = "/opt/homebrew/Cellar/noodle/0.7.4/bin/noodle"
 
 function makeManifest(tag: string, checksums: Record<string, string>): string {
   const assets: Record<string, { sha256: string }> = {}
@@ -600,7 +602,7 @@ describe("Homebrew updates", () => {
   ) => ({
     cachePath: "/tmp/noodle-homebrew-cache.json",
     now: () => 1000,
-    execPath: "/opt/homebrew/bin/noodle",
+    execPath: homebrewExecPath,
     platform: "darwin",
     arch: "arm64",
     env: {},
@@ -625,7 +627,11 @@ describe("Homebrew updates", () => {
     expect(result).toEqual({
       data: { status: "homebrew_updated", command: "brew upgrade noodle" },
     })
-    expect(receivedArgs).toEqual(["brew", "upgrade", "noodle"])
+    expect(receivedArgs).toEqual([
+      "/opt/homebrew/bin/brew",
+      "upgrade",
+      "noodle",
+    ])
     expect(captured).toBe(true)
     expect(fetchCalled).toBe(false)
   })
@@ -667,25 +673,25 @@ describe("Homebrew updates", () => {
 })
 
 describe("isHomebrewInstall", () => {
-  it("detects homebrew prefix", () => {
-    expect(isHomebrewInstall("/opt/homebrew/bin/noodle")).toBe(true)
-  })
-
-  it("detects linuxbrew prefix", () => {
-    expect(isHomebrewInstall("/home/linuxbrew/.linuxbrew/bin/noodle")).toBe(
+  it("detects canonical Homebrew Cellar paths", () => {
+    expect(isHomebrewInstall(homebrewExecPath)).toBe(true)
+    expect(isHomebrewInstall("/usr/local/Cellar/noodle/0.7.4/bin/noodle")).toBe(
       true,
     )
   })
 
-  it("detects user-local linuxbrew prefix", () => {
-    expect(isHomebrewInstall("/home/user/.linuxbrew/bin/noodle")).toBe(true)
+  it("detects the canonical Linuxbrew Cellar path", () => {
+    expect(
+      isHomebrewInstall(
+        "/home/linuxbrew/.linuxbrew/Cellar/noodle/0.7.4/bin/noodle",
+      ),
+    ).toBe(true)
   })
 
-  it("detects brew in path", () => {
-    expect(isHomebrewInstall("/usr/local/brew/bin/noodle")).toBe(true)
-  })
-
-  it("does not treat /usr/local/bin as homebrew prefix", () => {
+  it("rejects non-canonical paths containing Homebrew markers", () => {
+    expect(isHomebrewInstall("/tmp/stage/homebrew/bin/noodle")).toBe(false)
+    expect(isHomebrewInstall("/home/user/.linuxbrew/bin/noodle")).toBe(false)
+    expect(isHomebrewInstall("/usr/local/brew/bin/noodle")).toBe(false)
     expect(isHomebrewInstall("/usr/local/bin/noodle")).toBe(false)
   })
 
@@ -698,6 +704,17 @@ describe("isHomebrewInstall", () => {
     expect(isHomebrewInstall("/opt/homebrew/bin/bun")).toBe(false)
     expect(isHomebrewInstall("/opt/homebrew/bin/bunx")).toBe(false)
     expect(isHomebrewInstall("/usr/local/bin/bun")).toBe(false)
+  })
+
+  it("resolves brew from the detected installation instead of PATH", () => {
+    expect(getHomebrewExecutable(homebrewExecPath)).toBe(
+      "/opt/homebrew/bin/brew",
+    )
+    expect(
+      getHomebrewExecutable(
+        "/home/linuxbrew/.linuxbrew/Cellar/noodle/0.7.4/bin/noodle",
+      ),
+    ).toBe("/home/linuxbrew/.linuxbrew/bin/brew")
   })
 })
 
@@ -749,7 +766,7 @@ describe("checkForUpdates", () => {
     let receivedEnv: Record<string, string | undefined> | undefined
     const env = { HTTPS_PROXY: "http://proxy.test:8080" }
     const status = await checkForUpdates(false, {
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: homebrewExecPath,
       platform: "darwin",
       arch: "arm64",
       env,
@@ -771,7 +788,12 @@ describe("checkForUpdates", () => {
     if (status.kind === "up_to_date") {
       expect(typeof status.currentVersion).toBe("string")
     }
-    expect(receivedArgs).toEqual(["brew", "info", "--json=v2", "noodle"])
+    expect(receivedArgs).toEqual([
+      "/opt/homebrew/bin/brew",
+      "info",
+      "--json=v2",
+      "noodle",
+    ])
     expect(captured).toBe(true)
     expect(signal).toBeInstanceOf(AbortSignal)
     expect(receivedEnv).toBe(env)
@@ -780,7 +802,7 @@ describe("checkForUpdates", () => {
   it("returns update_available for brew when outdated finds newer", async () => {
     let receivedArgs: string[] | undefined
     const status = await checkForUpdates(false, {
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: homebrewExecPath,
       platform: "darwin",
       arch: "arm64",
       env: {},
@@ -799,12 +821,17 @@ describe("checkForUpdates", () => {
     if (status.kind === "update_available") {
       expect(status.latestVersion).toBe("v0.11.0")
     }
-    expect(receivedArgs).toEqual(["brew", "info", "--json=v2", "noodle"])
+    expect(receivedArgs).toEqual([
+      "/opt/homebrew/bin/brew",
+      "info",
+      "--json=v2",
+      "noodle",
+    ])
   })
 
   it("rejects a non-string stable version from brew info", async () => {
     const status = await checkForUpdates(false, {
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: homebrewExecPath,
       platform: "darwin",
       arch: "arm64",
       env: {},
@@ -822,7 +849,7 @@ describe("checkForUpdates", () => {
 
   it("aborts a stalled brew info invocation", async () => {
     const status = await checkForUpdates(false, {
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: homebrewExecPath,
       platform: "darwin",
       arch: "arm64",
       env: {},
@@ -845,7 +872,7 @@ describe("checkForUpdates", () => {
 
   it("returns error when brew is unavailable", async () => {
     const status = await checkForUpdates(false, {
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: homebrewExecPath,
       platform: "darwin",
       arch: "arm64",
       env: {},
@@ -1007,17 +1034,32 @@ describe("checkForUpdates", () => {
     }
   })
 
-  it("returns error when running via bun runtime (dev mode)", async () => {
+  it("returns unavailable when running via bun runtime (dev mode)", async () => {
     const status = await checkForUpdates(false, {
       execPath: "/opt/homebrew/bin/bun",
       platform: "darwin",
       arch: "arm64",
       env: {},
     })
-    expect(status.kind).toBe("error")
-    if (status.kind === "error") {
+    expect(status.kind).toBe("unavailable")
+    if (status.kind === "unavailable") {
       expect(status.message).toContain("standalone binary")
     }
+  })
+
+  it("returns unavailable on an unsupported platform", async () => {
+    const status = await checkForUpdates(false, {
+      execPath: "/tmp/noodle",
+      platform: "win32",
+      arch: "x64",
+      env: {},
+    })
+    expect(status).toEqual({
+      kind: "unavailable",
+      currentVersion,
+      installType: "binary",
+      message: "Unsupported platform: win32-x64",
+    })
   })
 
   it("falls through to manifest fetch when cache has newer version but no checksum for platform", async () => {
@@ -1060,6 +1102,7 @@ describe("installBinaryUpdate", () => {
     const binary = new TextEncoder().encode("new")
     try {
       await writeFile(executable, "old")
+      const phases: string[] = []
       const result = await installBinaryUpdate(
         "v0.5.5",
         "https://example.com/noodle-binary",
@@ -1076,8 +1119,10 @@ describe("installBinaryUpdate", () => {
             return new Response()
           },
         },
+        (phase) => phases.push(phase),
       )
       expect(result.data).toEqual({ status: "updated", version: "v0.5.5" })
+      expect(phases).toEqual(["downloading", "installing"])
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -1089,6 +1134,7 @@ describe("installBinaryUpdate", () => {
     const executable = join(dir, "noodle")
     try {
       await writeFile(executable, "old")
+      const phases: string[] = []
       const result = await installBinaryUpdate(
         "v0.5.5",
         "https://example.com/noodle-binary",
@@ -1105,8 +1151,10 @@ describe("installBinaryUpdate", () => {
             return new Response()
           },
         },
+        (phase) => phases.push(phase),
       )
       expect(result.data.status).toBe("update_failed")
+      expect(phases).toEqual(["downloading"])
       expect(await readFile(executable, "utf8")).toBe("old")
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -1119,6 +1167,7 @@ describe("installBinaryUpdate", () => {
     const binary = new TextEncoder().encode("new")
     try {
       await writeFile(executable, "old")
+      const phases: string[] = []
       const result = await installBinaryUpdate(
         "v0.5.5",
         "https://example.com/noodle-binary",
@@ -1130,8 +1179,10 @@ describe("installBinaryUpdate", () => {
           env: {},
           fetcher: async () => new Response(null, { status: 404 }),
         },
+        (phase) => phases.push(phase),
       )
       expect(result.data.status).toBe("update_failed")
+      expect(phases).toEqual(["downloading"])
       expect(result.failed).toBe(true)
       expect(result.data.reason).toContain("HTTP 404")
       expect(await readFile(executable, "utf8")).toBe("old")
@@ -1163,7 +1214,7 @@ describe("installBrewUpdate", () => {
     let receivedEnv: Record<string, string | undefined> | undefined
     const env = { HTTPS_PROXY: "http://proxy.test:8080" }
     const result = await installBrewUpdate({
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: homebrewExecPath,
       platform: "darwin",
       arch: "arm64",
       env,
@@ -1177,13 +1228,17 @@ describe("installBrewUpdate", () => {
     expect(result).toEqual({
       data: { status: "homebrew_updated", command: "brew upgrade noodle" },
     })
-    expect(receivedArgs).toEqual(["brew", "upgrade", "noodle"])
+    expect(receivedArgs).toEqual([
+      "/opt/homebrew/bin/brew",
+      "upgrade",
+      "noodle",
+    ])
     expect(receivedEnv).toBe(env)
   })
 
   it("reports brew upgrade failure", async () => {
     const result = await installBrewUpdate({
-      execPath: "/opt/homebrew/bin/noodle",
+      execPath: homebrewExecPath,
       platform: "darwin",
       arch: "arm64",
       env: {},

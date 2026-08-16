@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { TimelineEntry } from "../schema"
-import type { UpdateFlowState, YamlEditorState } from "./appState"
+import type { YamlEditorState } from "./appState"
 import { initialYamlEditorState } from "./appState"
 import type { NewRequestOverlayHandle } from "./overlays/NewRequestOverlay"
 import type { CloneRequestOverlayHandle } from "./overlays/CloneRequestOverlay"
@@ -52,7 +52,6 @@ export type ActiveOverlay =
   | "request-delete"
   | "cookie-form"
   | "cookie-delete"
-  | "update-confirm"
   | "timeline-detail"
   | "none"
 
@@ -61,7 +60,6 @@ interface UseOverlayStateProps {
   collectionSwitcherVisible: boolean
   collectionSwitchPending: string | null
   reloadPending: boolean
-  updatePhase: UpdateFlowState["phase"]
 }
 
 export function useOverlayState({
@@ -69,7 +67,6 @@ export function useOverlayState({
   collectionSwitcherVisible,
   collectionSwitchPending,
   reloadPending,
-  updatePhase,
 }: UseOverlayStateProps) {
   const [helpVisible, setHelpVisible] = useState(false)
   const [aboutVisible, setAboutVisible] = useState(false)
@@ -160,7 +157,6 @@ export function useOverlayState({
     if (newFolderVisible) return "new-folder"
     if (folderDeletePending !== null) return "delete-folder"
     if (requestDeletePending !== null) return "request-delete"
-    if (updatePhase === "confirm") return "update-confirm"
     if (timelineDetailEntry !== null) return "timeline-detail"
     return "none"
   }, [
@@ -192,7 +188,6 @@ export function useOverlayState({
     newFolderVisible,
     folderDeletePending,
     requestDeletePending,
-    updatePhase,
     timelineDetailEntry,
   ])
 
