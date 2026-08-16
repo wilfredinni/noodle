@@ -116,8 +116,7 @@ describe("TimelineDetailOverlay", () => {
       "timeline-body-editor",
     ) as CodeEditorRenderable
     expect(requestEditor.filetype).toBe("xml")
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    await renderOnce()
+    await requestEditor.refreshHighlights()
     expect(getHighlightCount(requestEditor)).toBeGreaterThan(0)
 
     await act(async () => host.press("right"))
@@ -126,8 +125,7 @@ describe("TimelineDetailOverlay", () => {
       "timeline-body-editor",
     ) as CodeEditorRenderable
     expect(responseEditor.filetype).toBe("xml")
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    await renderOnce()
+    await responseEditor.refreshHighlights()
     expect(getHighlightCount(responseEditor)).toBeGreaterThan(0)
     cleanup()
   })
