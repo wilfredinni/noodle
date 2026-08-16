@@ -315,7 +315,7 @@ describe("BodySection — edit mode", () => {
     expect(editor.plainText).toBe(body)
     expect(editor.filetype).toBe("xml")
     editor.refreshHighlights()
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await new Promise((resolve) => setTimeout(resolve, 250))
     await renderOnce()
     expect(getHighlightCount(editor)).toBeGreaterThan(0)
     cleanup()

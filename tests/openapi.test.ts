@@ -1434,6 +1434,34 @@ describe("mapCollection — requestBody", () => {
     })
   })
 
+  it("uses a string value from an XML examples map", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              requestBody: {
+                content: {
+                  "application/xml": {
+                    examples: {
+                      sample: { value: "<root><value>1</value></root>" },
+                    },
+                    schema: { type: "string", example: "<schema />" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+
+    expect(reqs(c)[0]).toMatchObject({
+      bodyType: "xml",
+      body: "<root><value>1</value></root>",
+    })
+  })
+
   it("uses an empty XML body when a schema has no literal example", () => {
     const c = mapCollection(
       makeNormalized({

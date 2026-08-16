@@ -241,8 +241,15 @@ function mapBody(
   if (mode === "raw") {
     const raw = b.raw ?? ""
     const lang = b.options?.raw?.language
+    const mimeType = contentType
+      ? contentType.split(";", 1)[0]!.trim().toLowerCase()
+      : undefined
+    const isXmlContentType =
+      mimeType === "application/xml" ||
+      mimeType === "text/xml" ||
+      mimeType?.endsWith("+xml") === true
     const bodyType =
-      lang === "xml" || contentType?.toLowerCase().includes("xml")
+      lang === "xml" || isXmlContentType
         ? ("xml" as const)
         : lang === undefined || lang === "json"
           ? ("json" as const)

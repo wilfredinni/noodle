@@ -363,6 +363,35 @@ describe("exportOpenApi", () => {
     })
   })
 
+  it("preserves any enabled explicit content type for XML bodies", () => {
+    const result = exportOpenApi(
+      collection([
+        {
+          type: "request",
+          data: request({
+            id: "xml",
+            method: "POST",
+            url: "https://api.example.com/xml",
+            bodyType: "xml",
+            body: "<root />",
+            headers: {
+              "Content-Type": {
+                value: "text/plain; charset=utf-8",
+                enabled: true,
+              },
+            },
+          }),
+        },
+      ]),
+    )
+
+    expect(
+      (result.document.paths as Record<string, Record<string, Operation>>)[
+        "/xml"
+      ].post.requestBody,
+    ).toEqual({ content: { "text/plain": { example: "<root />" } } })
+  })
+
   it("uses operation servers for mixed origins and no server for relative URLs", () => {
     const result = exportOpenApi(
       collection([

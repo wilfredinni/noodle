@@ -20,7 +20,8 @@ const SUPPORTED_MEDIA = new Set([
 ])
 
 function isSupportedMedia(value: string): boolean {
-  return SUPPORTED_MEDIA.has(value) || value.toLowerCase().endsWith("+xml")
+  const mediaType = value.split(";", 1)[0]!.trim().toLowerCase()
+  return SUPPORTED_MEDIA.has(mediaType) || mediaType.endsWith("+xml")
 }
 
 function isMapping(value: unknown): value is Record<string, unknown> {

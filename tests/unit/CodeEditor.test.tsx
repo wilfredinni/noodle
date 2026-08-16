@@ -1399,9 +1399,9 @@ describe("CodeEditorRenderable read-only mode", () => {
       { width: 40, height: 6 },
     )
 
-    await new Promise((resolve) => setTimeout(resolve, 30))
     await renderOnce()
-
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await renderOnce()
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 

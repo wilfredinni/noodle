@@ -431,6 +431,51 @@ describe("mapCollection — body variants", () => {
     expect(request.headers["Content-Type"]?.value).toBe("application/soap+xml")
   })
 
+  it("maps raw XML from a content type without a language hint", () => {
+    const result = makeCollection({
+      info: { name: "XML" },
+      item: [
+        {
+          name: "SOAP",
+          request: {
+            method: "POST",
+            url: "http://example.com",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/soap+xml; charset=utf-8",
+              },
+            ],
+            body: { mode: "raw", raw: "<Envelope />" },
+          },
+        },
+      ],
+    })
+
+    expect((reqs(result)[0] as Request).bodyType).toBe("xml")
+  })
+
+  it("does not treat an XML-valued JSON media parameter as XML", () => {
+    const result = makeCollection({
+      info: { name: "JSON" },
+      item: [
+        {
+          name: "JSON",
+          request: {
+            method: "POST",
+            url: "http://example.com",
+            header: [
+              { key: "Content-Type", value: "application/json; profile=xml" },
+            ],
+            body: { mode: "raw", raw: '{"ok":true}' },
+          },
+        },
+      ],
+    })
+
+    expect((reqs(result)[0] as Request).bodyType).toBe("json")
+  })
+
   it("maps urlencoded body", () => {
     const result = makeCollection({
       info: { name: "Body" },

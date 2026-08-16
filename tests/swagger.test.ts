@@ -204,4 +204,42 @@ paths:
     expect(request.bodyType).toBe("xml")
     expect(request.headers["Content-Type"]?.value).toBe("application/xml")
   })
+
+  it("normalizes mixed-case XML consumes media types", () => {
+    const result = swaggerImporter.import(`swagger: "2.0"
+consumes: [Application/XML]
+paths:
+  /xml:
+    post:
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: string
+            example: <root />
+  /soap:
+    post:
+      consumes: [Application/SOAP+XML; charset=utf-8]
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: string
+            example: <Envelope />
+`)
+
+    const imported = requests(result.collection.items)
+    expect(imported[0]).toMatchObject({
+      bodyType: "xml",
+      body: "<root />",
+    })
+    expect(imported[0]?.headers["Content-Type"]?.value).toBe("Application/XML")
+    expect(imported[1]).toMatchObject({
+      bodyType: "xml",
+      body: "<Envelope />",
+    })
+    expect(imported[1]?.headers["Content-Type"]?.value).toBe(
+      "Application/SOAP+XML; charset=utf-8",
+    )
+  })
 })

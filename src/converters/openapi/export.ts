@@ -274,10 +274,7 @@ function requestBodyFor(request: Request): OpenApiObject | undefined {
 
   if (type === "xml") {
     const explicit = Object.entries(request.headers).find(
-      ([name, entry]) =>
-        entry.enabled &&
-        name.toLowerCase() === "content-type" &&
-        /(?:^|\/)xml$|\+xml$/i.test(entry.value.split(";", 1)[0]!.trim()),
+      ([name, entry]) => entry.enabled && name.toLowerCase() === "content-type",
     )?.[1].value
     const mimeType = explicit?.split(";", 1)[0]!.trim() || "application/xml"
     return { content: { [mimeType]: { example: request.body ?? "" } } }

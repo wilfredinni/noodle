@@ -53,12 +53,17 @@ const SUPPORTED_MEDIA = [
 
 const FILE_FORMATS = new Set(["binary", "base64", "byte"])
 
+function baseMediaType(value: string): string {
+  return value.split(";", 1)[0]!.trim().toLowerCase()
+}
+
 function pickMediaType(content: Record<string, unknown>): string | null {
   for (const mt of SUPPORTED_MEDIA) {
-    if (mt in content) return mt
+    const match = Object.keys(content).find((key) => baseMediaType(key) === mt)
+    if (match) return match
   }
   const xml = Object.keys(content).find((mt) =>
-    mt.toLowerCase().endsWith("+xml"),
+    baseMediaType(mt).endsWith("+xml"),
   )
   if (xml) return xml
   return null
@@ -83,13 +88,25 @@ function collectBody(op: Record<string, unknown>): {
   if (!isMapping(mediaObj)) return {}
 
   const schema = mediaObj.schema
+  const mediaType = baseMediaType(mt)
   if (
-    mt === "application/xml" ||
-    mt === "text/xml" ||
-    mt.toLowerCase().endsWith("+xml")
+    mediaType === "application/xml" ||
+    mediaType === "text/xml" ||
+    mediaType.endsWith("+xml")
   ) {
+    const exampleFromMap = isMapping(mediaObj.examples)
+      ? Object.values(mediaObj.examples).find(
+          (entry) => isMapping(entry) && typeof entry.value === "string",
+        )
+      : undefined
     const example =
-      mediaObj.example ?? (isMapping(schema) ? schema.example : undefined)
+      typeof mediaObj.example === "string"
+        ? mediaObj.example
+        : isMapping(exampleFromMap)
+          ? exampleFromMap.value
+          : isMapping(schema) && typeof schema.example === "string"
+            ? schema.example
+            : undefined
     return {
       body: typeof example === "string" ? example : "",
       bodyType: "xml",
@@ -97,11 +114,13 @@ function collectBody(op: Record<string, unknown>): {
     }
   }
   if (!isMapping(schema)) {
-    if (mt === "application/json") return { body: "{}", bodyType: "json" }
+    if (mediaType === "application/json") {
+      return { body: "{}", bodyType: "json" }
+    }
     return {}
   }
 
-  if (mt === "application/json") {
+  if (mediaType === "application/json") {
     const example = schema.example
     if (example !== undefined) {
       return { body: JSON.stringify(example), bodyType: "json" }
@@ -117,7 +136,7 @@ function collectBody(op: Record<string, unknown>): {
     return { body: "{}", bodyType: "json" }
   }
 
-  if (mt === "multipart/form-data") {
+  if (mediaType === "multipart/form-data") {
     const props = schema.properties
     if (!isMapping(props)) return { bodyType: "multipart", formData: [] }
 
@@ -150,7 +169,7 @@ function collectBody(op: Record<string, unknown>): {
     return { bodyType: "multipart", formData }
   }
 
-  if (mt === "application/x-www-form-urlencoded") {
+  if (mediaType === "application/x-www-form-urlencoded") {
     const props = schema.properties
     if (!isMapping(props)) return { bodyType: "urlencoded", formData: [] }
 
