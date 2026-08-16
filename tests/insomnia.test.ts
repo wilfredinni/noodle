@@ -191,6 +191,34 @@ describe("insomniaImporter", () => {
     })
   })
 
+  it("maps XML bodies and preserves their MIME header", () => {
+    const result = insomniaImporter.import(
+      exportJson([
+        { _id: "wrk", _type: "workspace", name: "XML" },
+        {
+          _id: "xml",
+          _type: "request",
+          parentId: "wrk",
+          name: "SOAP",
+          method: "POST",
+          url: "https://x",
+          headers: [{ name: "Content-Type", value: "application/soap+xml" }],
+          body: {
+            mimeType: "application/soap+xml; charset=utf-8",
+            text: "<Envelope><Value>{{ value }}</Value></Envelope>",
+          },
+        },
+      ]),
+    )
+    expect(requests(result.collection.items)[0]).toMatchObject({
+      bodyType: "xml",
+      body: "<Envelope><Value>$value</Value></Envelope>",
+      headers: {
+        "Content-Type": { value: "application/soap+xml", enabled: true },
+      },
+    })
+  })
+
   it("maps NTLM authentication", () => {
     const result = insomniaImporter.import(
       exportJson([

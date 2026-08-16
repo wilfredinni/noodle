@@ -1,4 +1,4 @@
-import type { CollectionItem, Folder } from "../../src/schema"
+import type { CollectionItem, Folder, Request } from "../../src/schema"
 import { describe, it, expect } from "bun:test"
 import { Collection as PmCollection } from "postman-collection"
 import { mapCollection, convertTpl } from "../../src/converters/postman/map"
@@ -404,6 +404,31 @@ describe("mapCollection — body variants", () => {
     const r = reqs(result)[0] as Record<string, unknown>
     expect(r.body).toBe('{"key":"value"}')
     expect(r.bodyType).toBe("json")
+  })
+
+  it("maps raw XML body from its language and content type", () => {
+    const result = makeCollection({
+      info: { name: "XML" },
+      item: [
+        {
+          name: "SOAP",
+          request: {
+            method: "POST",
+            url: "http://example.com",
+            header: [{ key: "Content-Type", value: "application/soap+xml" }],
+            body: {
+              mode: "raw",
+              raw: "<Envelope><Value>{{value}}</Value></Envelope>",
+              options: { raw: { language: "xml" } },
+            },
+          },
+        },
+      ],
+    })
+    const request = reqs(result)[0] as Request
+    expect(request.bodyType).toBe("xml")
+    expect(request.body).toBe("<Envelope><Value>$value</Value></Envelope>")
+    expect(request.headers["Content-Type"]?.value).toBe("application/soap+xml")
   })
 
   it("maps urlencoded body", () => {

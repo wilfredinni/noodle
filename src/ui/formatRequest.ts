@@ -1,4 +1,4 @@
-import type { Auth, KvEntry, Method, ParamEntry } from "../schema"
+import type { Auth, BodyType, KvEntry, Method, ParamEntry } from "../schema"
 import { formatJson } from "../lang/formatJson"
 import type { Theme } from "./theme"
 
@@ -29,9 +29,9 @@ export function formatParams(params: ParamEntry[]): string[] {
   return entries.map(([k, v]) => `${k}: ${v}`)
 }
 
-export function formatBody(body?: string): string {
+export function formatBody(body?: string, bodyType: BodyType = "json"): string {
   if (body === undefined || body === "") return ""
-  return formatJson(body)
+  return bodyType === "json" ? formatJson(body) : body
 }
 
 export function formatAuth(auth?: Auth): string {

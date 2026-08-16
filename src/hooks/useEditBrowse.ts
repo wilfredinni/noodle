@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Request } from "../schema"
+import type { BodyType, Request } from "../schema"
 import {
   initialEditState,
   enterEditBrowse,
@@ -22,6 +22,10 @@ import type { UseRequestDraftResult } from "./useRequestDraft"
 import { formatBody } from "../ui/formatRequest"
 import { syncPathParamsWithUrl } from "../ui/urlParams"
 import { authFieldAtRow, authRowCount, authValueAtRow } from "../ui/authRows"
+
+function isTextBodyType(bodyType: BodyType | undefined): boolean {
+  return bodyType === undefined || bodyType === "json" || bodyType === "xml"
+}
 
 function rowCount(req: Request | null): SectionRowCount {
   if (!req)
@@ -221,11 +225,11 @@ export interface UseEditBrowseResult {
   ) => void
   focusSubfield: (subfield: "key" | "value") => void
   toggleAt: (field: FieldKind, row: number) => void
-  canEnterJsonBodyEditor: boolean
-  isEditingJsonBody: boolean
-  enterJsonBodyEditor: () => void
-  leaveJsonBodyEditor: () => void
-  returnToJsonBodyTypeSelect: () => void
+  canEnterTextBodyEditor: boolean
+  isEditingTextBody: boolean
+  enterTextBodyEditor: () => void
+  leaveTextBodyEditor: () => void
+  returnToTextBodyTypeSelect: () => void
 }
 
 export interface UseEditBrowseOptions {
@@ -492,9 +496,11 @@ export function useEditBrowse(
       if (
         prev.cursor.field === "body" &&
         prev.cursor.row === 0 &&
-        (draftRef.current?.bodyType ?? "json") === "json"
+        isTextBodyType(draftRef.current?.bodyType)
       ) {
-        setEditValue(formatBody(draftRef.current?.body))
+        setEditValue(
+          formatBody(draftRef.current?.body, draftRef.current?.bodyType),
+        )
         return beginEditing({
           ...prev,
           cursor: { field: "body", row: 1, addingRow: false },
@@ -511,9 +517,11 @@ export function useEditBrowse(
       if (
         prev.cursor.field === "body" &&
         prev.cursor.row === 0 &&
-        (draftRef.current?.bodyType ?? "json") === "json"
+        isTextBodyType(draftRef.current?.bodyType)
       ) {
-        setEditValue(formatBody(draftRef.current?.body))
+        setEditValue(
+          formatBody(draftRef.current?.body, draftRef.current?.bodyType),
+        )
         return beginEditing({
           ...prev,
           cursor: { field: "body", row: 1, addingRow: false },
@@ -523,16 +531,18 @@ export function useEditBrowse(
     })
   }, [])
 
-  const enterJsonBodyEditor = useCallback(() => {
+  const enterTextBodyEditor = useCallback(() => {
     setEditState((prev) => {
       if (
         prev.mode !== "browsing" ||
         prev.cursor.field !== "body" ||
         prev.cursor.row !== 0 ||
-        (draftRef.current?.bodyType ?? "json") !== "json"
+        !isTextBodyType(draftRef.current?.bodyType)
       )
         return prev
-      setEditValue(formatBody(draftRef.current?.body))
+      setEditValue(
+        formatBody(draftRef.current?.body, draftRef.current?.bodyType),
+      )
       return beginEditing({
         ...prev,
         cursor: { field: "body", row: 1, addingRow: false },
@@ -540,26 +550,26 @@ export function useEditBrowse(
     })
   }, [])
 
-  const leaveJsonBodyEditor = useCallback(() => {
+  const leaveTextBodyEditor = useCallback(() => {
     setEditState((prev) => {
       if (
         prev.mode !== "editing" ||
         prev.cursor.field !== "body" ||
         prev.cursor.row !== 1 ||
-        (draftRef.current?.bodyType ?? "json") !== "json"
+        !isTextBodyType(draftRef.current?.bodyType)
       )
         return prev
       return commitEditing(prev)
     })
   }, [])
 
-  const returnToJsonBodyTypeSelect = useCallback(() => {
+  const returnToTextBodyTypeSelect = useCallback(() => {
     setEditState((prev) => {
       if (
         prev.mode !== "editing" ||
         prev.cursor.field !== "body" ||
         prev.cursor.row !== 1 ||
-        (draftRef.current?.bodyType ?? "json") !== "json"
+        !isTextBodyType(draftRef.current?.bodyType)
       )
         return prev
       return {
@@ -859,16 +869,16 @@ export function useEditBrowse(
     setInactiveTab((prev) => cycleField(prev, delta))
   }, [])
 
-  const canEnterJsonBodyEditor =
+  const canEnterTextBodyEditor =
     editState.mode === "browsing" &&
     editState.cursor.field === "body" &&
     editState.cursor.row === 0 &&
-    (draft?.bodyType ?? "json") === "json"
-  const isEditingJsonBody =
+    isTextBodyType(draft?.bodyType)
+  const isEditingTextBody =
     editState.mode === "editing" &&
     editState.cursor.field === "body" &&
     editState.cursor.row === 1 &&
-    (draft?.bodyType ?? "json") === "json"
+    isTextBodyType(draft?.bodyType)
 
   return useMemo(
     () => ({
@@ -901,11 +911,11 @@ export function useEditBrowse(
       activateAt,
       focusSubfield,
       toggleAt,
-      canEnterJsonBodyEditor,
-      isEditingJsonBody,
-      enterJsonBodyEditor,
-      leaveJsonBodyEditor,
-      returnToJsonBodyTypeSelect,
+      canEnterTextBodyEditor,
+      isEditingTextBody,
+      enterTextBodyEditor,
+      leaveTextBodyEditor,
+      returnToTextBodyTypeSelect,
     }),
     [
       editState,
@@ -934,11 +944,11 @@ export function useEditBrowse(
       toggleRow,
       toggleFormRowType,
       cycleInactiveTab,
-      canEnterJsonBodyEditor,
-      isEditingJsonBody,
-      enterJsonBodyEditor,
-      leaveJsonBodyEditor,
-      returnToJsonBodyTypeSelect,
+      canEnterTextBodyEditor,
+      isEditingTextBody,
+      enterTextBodyEditor,
+      leaveTextBodyEditor,
+      returnToTextBodyTypeSelect,
     ],
   )
 }

@@ -36,6 +36,25 @@ body: |-
 
 JSON body with headers. `body` uses YAML literal block scalar `|-` for multi-line content. Headers include auth key (`$x_api_key`) — the env must declare `x_api_key`. `Content-Type` is per-request (not in folder override).
 
+## POST with XML body
+
+```yaml
+name: SOAP Lookup
+method: POST
+url: $base_url/soap
+body_type: xml
+timeout: 0
+headers:
+  Content-Type: application/soap+xml
+body: |-
+  <Envelope>
+    <Lookup id="$lookup_id" />
+  </Envelope>
+```
+
+XML is not reformatted or schema-validated. It is sent exactly as stored after
+environment-variable substitution.
+
 ## Bearer auth request
 
 ```yaml

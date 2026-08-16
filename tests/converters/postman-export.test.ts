@@ -29,6 +29,40 @@ function request(
 }
 
 describe("Postman export", () => {
+  it("exports XML as a raw XML body", () => {
+    const exported = exportPostman({
+      id: "xml",
+      name: "XML",
+      items: [
+        {
+          type: "request",
+          data: request("soap", "SOAP", {
+            bodyType: "xml",
+            body: "<Envelope><Value>$value</Value></Envelope>",
+            headers: {
+              "Content-Type": {
+                value: "application/soap+xml",
+                enabled: true,
+              },
+            },
+          }),
+        },
+      ],
+    })
+    const item = (exported.document.item as Record<string, unknown>[])[0]!
+    const postmanRequest = item.request as Record<string, unknown>
+    expect(postmanRequest.body).toEqual({
+      mode: "raw",
+      raw: "<Envelope><Value>{{value}}</Value></Envelope>",
+      options: { raw: { language: "xml" } },
+    })
+    expect(postmanRequest.header).toContainEqual({
+      key: "Content-Type",
+      value: "application/soap+xml",
+      disabled: false,
+    })
+  })
+
   it("exports OAuth configuration without cached OAuth 2 tokens", () => {
     const exported = exportPostman({
       id: "oauth",

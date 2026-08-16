@@ -120,7 +120,11 @@ export class CodeEditorHighlightRenderer {
     filetype: string,
   ): void {
     if (filetype === "json") this.applyJson(content)
-    if (filetype === "yaml") this.applyYaml(content)
+    else if (filetype === "yaml") this.applyYaml(content)
+    else {
+      this.host.clear()
+      this.host.setStyle(this._style)
+    }
     this.host.applyRanges(
       buildTreeSitterHighlightRanges(highlights, content, this._style),
     )

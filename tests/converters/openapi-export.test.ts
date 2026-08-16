@@ -242,9 +242,25 @@ describe("exportOpenApi", () => {
     expect(JSON.stringify(result.document)).not.toContain("$TOKEN")
   })
 
-  it("exports JSON, urlencoded, multipart, and binary request bodies", () => {
+  it("exports JSON, XML, urlencoded, multipart, and binary request bodies", () => {
     const result = exportOpenApi(
       collection([
+        {
+          type: "request",
+          data: request({
+            id: "xml",
+            method: "POST",
+            url: "https://api.example.com/xml",
+            bodyType: "xml",
+            body: "<Envelope>\n  <Id>$ID</Id>\n</Envelope>",
+            headers: {
+              "Content-Type": {
+                value: "application/soap+xml; charset=utf-8",
+                enabled: true,
+              },
+            },
+          }),
+        },
         {
           type: "request",
           data: request({
@@ -305,6 +321,13 @@ describe("exportOpenApi", () => {
     >
     expect(paths["/json"].post.requestBody).toEqual({
       content: { "application/json": { example: { id: "$ID" } } },
+    })
+    expect(paths["/xml"].post.requestBody).toEqual({
+      content: {
+        "application/soap+xml": {
+          example: "<Envelope>\n  <Id>$ID</Id>\n</Envelope>",
+        },
+      },
     })
     expect(paths["/form"].post.requestBody).toEqual({
       content: {

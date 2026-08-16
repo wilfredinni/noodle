@@ -433,6 +433,20 @@ describe("bodyForSend — bodyType routing", () => {
     expect(result).toBeUndefined()
   })
 
+  it("sends XML unchanged with a default content type", async () => {
+    const h = new Headers()
+    const body = "<root>\n  <value>  keep  </value>\n</root>"
+    expect(await bodyForSend({ bodyType: "xml", body }, h)).toBe(body)
+    expect(h.get("content-type")).toBe("application/xml")
+  })
+
+  it("preserves an explicit XML content type", async () => {
+    const h = new Headers({ "content-type": "application/soap+xml" })
+    const body = "<Envelope/>"
+    expect(await bodyForSend({ bodyType: "xml", body }, h)).toBe(body)
+    expect(h.get("content-type")).toBe("application/soap+xml")
+  })
+
   it("returns body as-is when bodyType is undefined (backward compat)", async () => {
     const h = new Headers()
     const result = await bodyForSend({ body: "raw text" }, h)

@@ -224,9 +224,12 @@ function mapParams(query: PropertyList<QueryParam> | undefined): ParamEntry[] {
   return out
 }
 
-function mapBody(req: { body?: BodyMember }): {
+function mapBody(
+  req: { body?: BodyMember },
+  contentType?: string,
+): {
   body?: string
-  bodyType?: "json" | "urlencoded" | "multipart" | "binary"
+  bodyType?: "json" | "xml" | "urlencoded" | "multipart" | "binary"
   formData?: FormEntry[]
   filePath?: string
 } {
@@ -239,7 +242,11 @@ function mapBody(req: { body?: BodyMember }): {
     const raw = b.raw ?? ""
     const lang = b.options?.raw?.language
     const bodyType =
-      lang === undefined || lang === "json" ? ("json" as const) : undefined
+      lang === "xml" || contentType?.toLowerCase().includes("xml")
+        ? ("xml" as const)
+        : lang === undefined || lang === "json"
+          ? ("json" as const)
+          : undefined
     return { body: convertTpl(raw), ...(bodyType ? { bodyType } : {}) }
   }
 
@@ -404,7 +411,10 @@ function mapRequest(
   const params = mapParams(
     (req.url as { query?: PropertyList<QueryParam> })?.query,
   )
-  const bodyMapping = mapBody(req as { body?: BodyMember })
+  const contentType = Object.entries(headers).find(
+    ([name, entry]) => entry.enabled && name.toLowerCase() === "content-type",
+  )?.[1].value
+  const bodyMapping = mapBody(req as { body?: BodyMember }, contentType)
   const auth = mapAuth(req.auth as AuthMember | undefined, true)
   const behavior = item.protocolProfileBehavior
   const followRedirects = behavior?.followRedirects

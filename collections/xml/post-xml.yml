@@ -1,0 +1,16 @@
+name: Post XML
+method: POST
+url: https://httpbin.org/post
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+headers:
+  Content-Type: application/xml
+body: |-
+  <note>
+    <to>Tove</to>
+    <from>Jani</from>
+    <heading>Reminder</heading>
+    <body>Don't forget me this weekend!</body>
+  </note>
+body_type: xml

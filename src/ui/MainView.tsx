@@ -268,10 +268,10 @@ export function MainView({
             onRequestBodyEditorFocus={
               mode === "collection"
                 ? (bodyType: BodyType) => {
-                    if (bodyType === "json") {
-                      if (eb.isEditingJsonBody) return
+                    if (bodyType === "json" || bodyType === "xml") {
+                      if (eb.isEditingTextBody) return
                       eb.enterBrowseAt("body")
-                      eb.enterJsonBodyEditor()
+                      eb.enterTextBodyEditor()
                     } else {
                       eb.activateAt("body", 1)
                     }

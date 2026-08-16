@@ -1404,6 +1404,57 @@ describe("mapCollection — requestBody", () => {
     expect(reqs(c)[0].bodyType).toBe("json")
   })
 
+  it("preserves an XML string example and MIME type", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              requestBody: {
+                content: {
+                  "application/soap+xml": {
+                    example: "<Envelope>\n  <Value>$token</Value>\n</Envelope>",
+                    schema: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    const request = reqs(c)[0]
+    expect(request.bodyType).toBe("xml")
+    expect(request.body).toBe(
+      "<Envelope>\n  <Value>$token</Value>\n</Envelope>",
+    )
+    expect(request.headers["Content-Type"]).toEqual({
+      value: "application/soap+xml",
+      enabled: true,
+    })
+  })
+
+  it("uses an empty XML body when a schema has no literal example", () => {
+    const c = mapCollection(
+      makeNormalized({
+        paths: {
+          "/x": {
+            post: {
+              requestBody: {
+                content: {
+                  "application/xml": {
+                    schema: { type: "object", properties: { value: {} } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+    expect(reqs(c)[0]).toMatchObject({ bodyType: "xml", body: "" })
+  })
+
   it("multipart with text and file fields (encoding marks file)", () => {
     const c = mapCollection(
       makeNormalized({

@@ -185,7 +185,7 @@ paths:
     )
   })
 
-  it("omits bodies with unsupported media types", () => {
+  it("imports XML request bodies from consumes", () => {
     const result = swaggerImporter.import(`swagger: "2.0"
 consumes: [application/xml]
 paths:
@@ -195,12 +195,13 @@ paths:
         - name: body
           in: body
           schema:
-            properties:
-              value: { type: string }
+            type: string
+            example: <root><value>$value</value></root>
 `)
 
     const request = requests(result.collection.items)[0]!
-    expect(request.body).toBeUndefined()
-    expect(request.bodyType).toBeUndefined()
+    expect(request.body).toBe("<root><value>$value</value></root>")
+    expect(request.bodyType).toBe("xml")
+    expect(request.headers["Content-Type"]?.value).toBe("application/xml")
   })
 })

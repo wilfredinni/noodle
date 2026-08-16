@@ -26,6 +26,42 @@ function createHost() {
 }
 
 describe("CodeEditorHighlightRenderer", () => {
+  it("applies the syntax style for XML Tree-sitter highlights", async () => {
+    const { host, ranges, getStyle } = createHost()
+    const renderer = new CodeEditorHighlightRenderer(
+      opencodeTheme,
+      undefined,
+      host,
+    )
+    const client = {
+      highlightOnce: async () => ({
+        highlights: [
+          [0, 1, "punctuation.delimiter"],
+          [1, 5, "tag"],
+        ],
+      }),
+    } as unknown as TreeSitterClient
+
+    await renderer.highlight("<note>", "xml", client, () => true)
+
+    const style = getStyle()!
+    expect(style).toBeDefined()
+    expect(ranges).toEqual([
+      {
+        start: 0,
+        end: 1,
+        styleId: style.getStyleId("punctuation.delimiter") ?? 0,
+        priority: 1,
+      },
+      {
+        start: 1,
+        end: 5,
+        styleId: style.getStyleId("tag") ?? 0,
+        priority: 1,
+      },
+    ])
+  })
+
   it("uses Tree-sitter highlights for JSON", async () => {
     const { host, ranges, getStyle } = createHost()
     const renderer = new CodeEditorHighlightRenderer(

@@ -45,6 +45,8 @@ function isMapping(v: unknown): v is Record<string, unknown> {
 
 const SUPPORTED_MEDIA = [
   "application/json",
+  "application/xml",
+  "text/xml",
   "multipart/form-data",
   "application/x-www-form-urlencoded",
 ] as const
@@ -55,13 +57,18 @@ function pickMediaType(content: Record<string, unknown>): string | null {
   for (const mt of SUPPORTED_MEDIA) {
     if (mt in content) return mt
   }
+  const xml = Object.keys(content).find((mt) =>
+    mt.toLowerCase().endsWith("+xml"),
+  )
+  if (xml) return xml
   return null
 }
 
 function collectBody(op: Record<string, unknown>): {
   body?: string
-  bodyType?: Extract<BodyType, "json" | "multipart" | "urlencoded">
+  bodyType?: Extract<BodyType, "json" | "xml" | "multipart" | "urlencoded">
   formData?: FormEntry[]
+  contentType?: string
 } {
   const rb = op.requestBody
   if (!isMapping(rb)) return {}
@@ -76,6 +83,19 @@ function collectBody(op: Record<string, unknown>): {
   if (!isMapping(mediaObj)) return {}
 
   const schema = mediaObj.schema
+  if (
+    mt === "application/xml" ||
+    mt === "text/xml" ||
+    mt.toLowerCase().endsWith("+xml")
+  ) {
+    const example =
+      mediaObj.example ?? (isMapping(schema) ? schema.example : undefined)
+    return {
+      body: typeof example === "string" ? example : "",
+      bodyType: "xml",
+      contentType: mt,
+    }
+  }
   if (!isMapping(schema)) {
     if (mt === "application/json") return { body: "{}", bodyType: "json" }
     return {}
@@ -431,6 +451,16 @@ export function mapCollection(n: Normalized): ImportResult {
         }
       }
 
+      const { contentType, ...body } = collectBody(op)
+      if (
+        contentType &&
+        !Object.keys(headers).some(
+          (name) => name.toLowerCase() === "content-type",
+        )
+      ) {
+        headers["Content-Type"] = { value: contentType, enabled: true }
+      }
+
       const req: Request = {
         id: reqId,
         name: reqName,
@@ -440,7 +470,7 @@ export function mapCollection(n: Normalized): ImportResult {
         headers,
         params,
         pathParams: pathParams.length > 0 ? pathParams : undefined,
-        ...collectBody(op),
+        ...body,
         auth: resolveAuth(op, n),
       }
       requests.push(req)

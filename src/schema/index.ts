@@ -1,7 +1,8 @@
 export type Method =
   "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS"
 
-export type BodyType = "none" | "json" | "multipart" | "urlencoded" | "binary"
+export type BodyType =
+  "none" | "json" | "xml" | "multipart" | "urlencoded" | "binary"
 
 export interface FormEntry {
   name: string

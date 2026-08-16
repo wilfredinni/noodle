@@ -48,6 +48,9 @@ Avoid generic names like `get.yml` or `post.yml` — they're ambiguous when read
 ## Body conventions
 
 - `body_type: json` for JSON APIs. Use `|`-` or `|-` for multi-line strings.
+- `body_type: xml` for XML and SOAP payloads. XML is sent unchanged; add an
+  explicit Content-Type only when the API requires something other than
+  `application/xml`.
 - `body_type: urlencoded` for form submissions.
 - `body_type: multipart` with `form_data` for file uploads.
 - `body_type: binary` with `file_path` for raw binary uploads.

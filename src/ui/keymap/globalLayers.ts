@@ -57,9 +57,9 @@ export function createGlobalLayers(
         run: () => {
           if (
             global.viewRef.current === "main" &&
-            request.ebRef.current.isEditingJsonBody
+            request.ebRef.current.isEditingTextBody
           ) {
-            request.ebRef.current.leaveJsonBodyEditor()
+            request.ebRef.current.leaveTextBodyEditor()
           }
           const next = cycleFocus(
             global.focusRef.current,
@@ -104,9 +104,9 @@ export function createGlobalLayers(
         run: () => {
           if (
             global.viewRef.current === "main" &&
-            request.ebRef.current.isEditingJsonBody
+            request.ebRef.current.isEditingTextBody
           ) {
-            request.ebRef.current.leaveJsonBodyEditor()
+            request.ebRef.current.leaveTextBodyEditor()
           }
           const next = cycleFocus(
             global.focusRef.current,

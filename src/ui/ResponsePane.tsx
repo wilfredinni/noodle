@@ -9,7 +9,12 @@ import {
 } from "@opentui/core"
 import type { RefObject } from "react"
 import type { SendState } from "./sendState"
-import type { NetworkError, ResponseCookie, TimelineEntry } from "../schema"
+import type {
+  NetworkError,
+  Response,
+  ResponseCookie,
+  TimelineEntry,
+} from "../schema"
 import { formatHeaders, formatBody, formatSize, statusColor } from "./format"
 import { Tabs, type TabDef } from "./Tabs"
 import { useTheme } from "./theme"
@@ -44,6 +49,18 @@ const TAB_DEFS: TabDef[] = [
   { id: "timeline", label: "Timeline" },
   { id: "cookies", label: "Cookies" },
 ]
+
+function responseBodyFiletype(response: Response): "json" | "xml" {
+  const contentType = Object.entries(response.headers).find(
+    ([name]) => name.toLowerCase() === "content-type",
+  )?.[1]
+  const mimeType = contentType?.split(";", 1)[0]?.trim().toLowerCase()
+  return mimeType === "application/xml" ||
+    mimeType === "text/xml" ||
+    mimeType?.endsWith("+xml")
+    ? "xml"
+    : "json"
+}
 
 function isDeletedCookie(cookie: ResponseCookie): boolean {
   if (cookie.expires === null) return false
@@ -434,6 +451,12 @@ export function ResponsePane({
 
   const displayedBody =
     queryResult?.kind === "success" ? queryResult.body : formattedBody
+  const displayedBodyFiletype =
+    queryResult?.kind === "success"
+      ? "json"
+      : isDone
+        ? responseBodyFiletype(state.response)
+        : "json"
 
   useEffect(() => {
     if (displayedBody) bodyEditorRef.current?.scrollTo(0)
@@ -734,7 +757,7 @@ export function ResponsePane({
                       <code-editor
                         id="response-body-editor"
                         ref={setBodyEditorRef}
-                        filetype="json"
+                        filetype={displayedBodyFiletype}
                         theme={theme}
                         value={displayedBody}
                         readOnly

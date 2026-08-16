@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { act, useEffect, useState } from "react"
 import { MouseButtons } from "@opentui/core/testing"
+import { addDefaultParsers } from "@opentui/core"
 import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
 import { KeymapProvider } from "@opentui/keymap/react"
@@ -21,7 +22,8 @@ import {
   useEditBrowse,
   type UseEditBrowseResult,
 } from "../src/hooks/useEditBrowse"
-import { setupKeymap } from "./unit/_helpers"
+import { getHighlightCount, setupKeymap } from "./unit/_helpers"
+import { codeEditorParsers } from "../src/ui/editor/codeEditorParsers"
 
 const testRender = createTestRender()
 
@@ -29,6 +31,7 @@ extend({
   "code-editor": CodeEditorRenderable,
   "code-editor-scrollbar": CodeEditorScrollBarRenderable,
 })
+addDefaultParsers([...codeEditorParsers])
 
 const testRequest: Request = {
   id: "test",
@@ -160,9 +163,9 @@ describe("BodySection — edit mode", () => {
 
     await act(async () => editBrowseState!.enterBrowseAt("body", 0))
     await renderOnce()
-    await act(async () => editBrowseState!.enterJsonBodyEditor())
+    await act(async () => editBrowseState!.enterTextBodyEditor())
     await renderOnce()
-    await waitFor(() => editBrowseState!.isEditingJsonBody)
+    await waitFor(() => editBrowseState!.isEditingTextBody)
 
     const editor = renderer.root.findDescendantById(
       "request-body-editor",
@@ -182,7 +185,7 @@ describe("BodySection — edit mode", () => {
     expect(draftState!.draft?.body).toBe("ab")
     expect(editor.logicalCursor).toMatchObject({ row: 0, col: 2 })
 
-    await act(async () => editBrowseState!.returnToJsonBodyTypeSelect())
+    await act(async () => editBrowseState!.returnToTextBodyTypeSelect())
     await renderOnce()
     await act(async () => draftState!.setBody('{"updated":true}'))
     await waitFor(() => editor.plainText === '{\n  "updated": true\n}')
@@ -279,6 +282,42 @@ describe("BodySection — edit mode", () => {
     await renderOnce()
 
     expect(changes).toEqual([])
+    cleanup()
+  })
+
+  it("renders XML in the shared editor without changing whitespace", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const body = `<root>\n  <value>$token</value>\n</root>`
+    const { renderer, renderOnce } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <box width={80} height={20}>
+            <RequestPane
+              request={{ ...testRequest, bodyType: "xml", body }}
+              editState={editStateBrowse}
+              editKey=""
+              editValue=""
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              focused
+              activeTab="body"
+            />
+          </box>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 80, height: 20 },
+    )
+
+    await renderOnce()
+    const editor = renderer.root.findDescendantById(
+      "request-body-editor",
+    ) as CodeEditorRenderable
+    expect(editor.plainText).toBe(body)
+    expect(editor.filetype).toBe("xml")
+    editor.refreshHighlights()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
+    expect(getHighlightCount(editor)).toBeGreaterThan(0)
     cleanup()
   })
 
