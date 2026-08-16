@@ -111,6 +111,13 @@ export function TimelineDetailOverlay({
   const [bodyEditor, setBodyEditor] = useState<CodeEditorRenderable | null>(
     null,
   )
+  const setBodyEditorRef = useCallback(
+    (editor: CodeEditorRenderable | null) => {
+      bodyEditorRef.current = editor
+      setBodyEditor(editor)
+    },
+    [],
+  )
 
   const hasNetwork = (entry?.network?.length ?? 0) > 0
   const tabs = hasNetwork
@@ -523,10 +530,7 @@ export function TimelineDetailOverlay({
                   >
                     <code-editor
                       id="timeline-body-editor"
-                      ref={(editor) => {
-                        bodyEditorRef.current = editor
-                        setBodyEditor(editor)
-                      }}
+                      ref={setBodyEditorRef}
                       filetype={renderedBodyFiletype}
                       theme={theme}
                       value={renderedBody}
