@@ -263,6 +263,7 @@ export function PickerOverlay<T>({
         shortcutPosition="right"
         paddingX={3}
         gap={1}
+        active={isActionHighlighted}
         onAction={firstAction.onSelect}
         onHover={() => {
           actionHighlightedRef.current = true
