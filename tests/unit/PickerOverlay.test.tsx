@@ -521,46 +521,49 @@ describe("PickerOverlay", () => {
 
   it("reflects first-action selection in its active styling", async () => {
     const { keymap, host, cleanup } = setupKeymap()
-    const { renderOnce, captureSpans } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <PickerOverlay
-            visible
-            title="Test"
-            items={testItems}
-            keyExtractor={(item) => item.id}
-            filter={() => true}
-            renderItem={(item) => <text>{item.label}</text>}
-            highlightedItem={testItems[2]}
-            firstAction={{
-              label: "Manage items",
-              shortcut: "f3",
-              onSelect: noop,
-            }}
-            onHighlightChange={noop}
-            onSelect={noop}
-            onClose={noop}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 60, height: 20 },
-    )
-    await renderOnce()
+    try {
+      const { renderOnce, captureSpans } = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <PickerOverlay
+              visible
+              title="Test"
+              items={testItems}
+              keyExtractor={(item) => item.id}
+              filter={() => true}
+              renderItem={(item) => <text>{item.label}</text>}
+              highlightedItem={testItems[2]}
+              firstAction={{
+                label: "Manage items",
+                shortcut: "f3",
+                onSelect: noop,
+              }}
+              onHighlightChange={noop}
+              onSelect={noop}
+              onClose={noop}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 60, height: 20 },
+      )
+      await renderOnce()
 
-    const actionShortcut = () =>
-      captureSpans()
-        .lines.flatMap((line) => line.spans)
-        .find((span) => span.text.includes("f3"))?.fg
+      const actionShortcut = () =>
+        captureSpans()
+          .lines.flatMap((line) => line.spans)
+          .find((span) => span.text.includes("f3"))?.fg
 
-    expect(actionShortcut()?.equals(RGBA.fromHex(THEMES[0]!.text))).toBe(true)
+      expect(actionShortcut()?.equals(RGBA.fromHex(THEMES[0]!.text))).toBe(true)
 
-    act(() => host.press("down"))
-    await renderOnce()
+      act(() => host.press("down"))
+      await renderOnce()
 
-    expect(actionShortcut()?.equals(RGBA.fromHex(THEMES[0]!.secondary))).toBe(
-      true,
-    )
-    cleanup()
+      expect(actionShortcut()?.equals(RGBA.fromHex(THEMES[0]!.secondary))).toBe(
+        true,
+      )
+    } finally {
+      cleanup()
+    }
   })
 
   it("wraps keyboard navigation through the first action", async () => {
