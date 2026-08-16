@@ -1,4 +1,4 @@
-import type { Response } from "../schema"
+import type { BodyType, KvEntry, Response } from "../schema"
 import { formatJson } from "../lang/formatJson"
 import type { Theme } from "./theme"
 
@@ -37,6 +37,28 @@ export function formatBody(res: Response): string {
   const jsonParseError = formatJsonParseErrorBody(res.body)
   if (jsonParseError !== null) return jsonParseError
   return formatJson(res.body)
+}
+
+export function bodyFiletype(
+  headers: Record<string, string | KvEntry>,
+  bodyType?: BodyType,
+): "json" | "xml" {
+  const contentType = Object.entries(headers).find(
+    ([name]) => name.toLowerCase() === "content-type",
+  )?.[1]
+  const value =
+    typeof contentType === "string"
+      ? contentType
+      : contentType?.enabled
+        ? contentType.value
+        : undefined
+  const mimeType = value?.split(";", 1)[0]?.trim().toLowerCase()
+  return bodyType === "xml" ||
+    mimeType === "application/xml" ||
+    mimeType === "text/xml" ||
+    mimeType?.endsWith("+xml")
+    ? "xml"
+    : "json"
 }
 
 function formatJsonParseErrorBody(body: string): string | null {

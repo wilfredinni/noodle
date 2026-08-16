@@ -266,6 +266,7 @@ export interface TimelineEntry {
     params: ParamEntry[]
     pathParams?: ParamEntry[]
     body?: string
+    bodyType?: BodyType
     bodyRef?: TimelineBodyRef
     bodyTruncated?: boolean
     auth?: Auth

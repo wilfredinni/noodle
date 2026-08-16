@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState, type ComponentProps } from "react"
+import { extend } from "@opentui/react"
 import { createTestRender } from "../testRender"
 import { KeymapProvider } from "@opentui/keymap/react"
+import { addDefaultParsers } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { ThemeProvider } from "../../src/ui/theme"
 import {
@@ -9,7 +11,18 @@ import {
   formatHeaderEntries,
 } from "../../src/ui/overlays/TimelineDetailOverlay"
 import type { TimelineEntry } from "../../src/schema"
-import { setupKeymap } from "./_helpers"
+import { getHighlightCount, setupKeymap } from "./_helpers"
+import {
+  CodeEditorRenderable,
+  CodeEditorScrollBarRenderable,
+} from "../../src/ui/editor/CodeEditor"
+import { codeEditorParsers } from "../../src/ui/editor/codeEditorParsers"
+
+extend({
+  "code-editor": CodeEditorRenderable,
+  "code-editor-scrollbar": CodeEditorScrollBarRenderable,
+})
+addDefaultParsers([...codeEditorParsers])
 
 const testRender = createTestRender()
 
@@ -72,6 +85,53 @@ async function renderOverlay(
 }
 
 describe("TimelineDetailOverlay", () => {
+  it("uses XML highlighting for XML request and response bodies", async () => {
+    const { renderer, renderOnce, host, cleanup } = await renderOverlay(
+      makeEntry({
+        request: {
+          id: "request-1",
+          name: "XML request",
+          method: "POST",
+          url: "https://example.com",
+          headers: {
+            "Content-Type": { value: "application/xml", enabled: true },
+          },
+          params: [],
+          body: "<request><value>ok</value></request>",
+        },
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/soap+xml" },
+          body: "<response><value>ok</value></response>",
+          timeMs: 12,
+          size: 39,
+        },
+      }),
+      () => {},
+    )
+
+    await renderOnce()
+    const requestEditor = renderer.root.findDescendantById(
+      "timeline-body-editor",
+    ) as CodeEditorRenderable
+    expect(requestEditor.filetype).toBe("xml")
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
+    expect(getHighlightCount(requestEditor)).toBeGreaterThan(0)
+
+    await act(async () => host.press("right"))
+    await renderOnce()
+    const responseEditor = renderer.root.findDescendantById(
+      "timeline-body-editor",
+    ) as CodeEditorRenderable
+    expect(responseEditor.filetype).toBe("xml")
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
+    expect(getHighlightCount(responseEditor)).toBeGreaterThan(0)
+    cleanup()
+  })
+
   it("renders response details", async () => {
     const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({
