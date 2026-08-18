@@ -58,21 +58,26 @@ export function useAppKeymap(args: UseAppKeymapArgs): void {
     actions: createActionsConfig(args, renderer),
   }
   const layers = createAppKeymapLayers(context)
+  const bindingDeps = [
+    args.runtime.keybinds,
+    args.runtime.collectionDir,
+    args.runtime.confirmUndoAll,
+  ]
 
-  useBindings(() => layers[0])
-  useBindings(() => layers[1])
-  useBindings(() => layers[2])
-  useBindings(() => layers[3])
-  useBindings(() => layers[4])
-  useBindings(() => layers[5])
-  useBindings(() => layers[6])
-  useBindings(() => layers[7])
-  useBindings(() => layers[8])
-  useBindings(() => layers[9])
-  useBindings(() => layers[10])
-  useBindings(() => layers[11])
-  useBindings(() => layers[12])
-  useBindings(() => layers[13])
-  useBindings(() => layers[14])
-  useBindings(() => layers[15])
+  useBindings(() => layers[0], bindingDeps)
+  useBindings(() => layers[1], bindingDeps)
+  useBindings(() => layers[2], bindingDeps)
+  useBindings(() => layers[3], bindingDeps)
+  useBindings(() => layers[4], bindingDeps)
+  useBindings(() => layers[5], bindingDeps)
+  useBindings(() => layers[6], bindingDeps)
+  useBindings(() => layers[7], bindingDeps)
+  useBindings(() => layers[8], bindingDeps)
+  useBindings(() => layers[9], bindingDeps)
+  useBindings(() => layers[10], bindingDeps)
+  useBindings(() => layers[11], bindingDeps)
+  useBindings(() => layers[12], bindingDeps)
+  useBindings(() => layers[13], bindingDeps)
+  useBindings(() => layers[14], bindingDeps)
+  useBindings(() => layers[15], bindingDeps)
 }

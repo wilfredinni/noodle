@@ -1,13 +1,23 @@
 import { describe, expect, it } from "bun:test"
+import { act, createElement, useState } from "react"
+import type { CliRenderer } from "@opentui/core"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
   registerDefaultKeys,
   registerEnabledFields,
 } from "@opentui/keymap/addons"
 import type { UseBindingsLayer } from "@opentui/keymap/react"
+import { KeymapProvider } from "@opentui/keymap/react"
+import type { KeymapProviderProps } from "@opentui/keymap/react"
+import { RendererProvider } from "../../src/ui/RendererContext"
 import { bindingDefaults } from "../../src/ui/keybind"
+import type { Keybinds } from "../../src/ui/keybind"
 import { createAppKeymapLayers } from "../../src/ui/keymap/layers"
 import type { AppKeymapContext } from "../../src/ui/keymap/types"
+import { useAppKeymap } from "../../src/ui/useAppKeymap"
+import { createTestRender } from "../testRender"
+
+const testRender = createTestRender()
 
 function setup() {
   const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
@@ -191,6 +201,30 @@ function register(context: AppKeymapContext) {
   return createAppKeymapLayers(context).map((layer) =>
     context.keymap.registerLayer(layer),
   )
+}
+
+function KeymapHarness({
+  context,
+  onKeybindsChange,
+}: {
+  context: AppKeymapContext
+  onKeybindsChange: (update: (keybinds: Keybinds) => void) => void
+}) {
+  const [keybinds, setKeybinds] = useState(context.keybinds)
+  onKeybindsChange((next) => setKeybinds(next))
+  useAppKeymap({
+    runtime: {
+      keybinds,
+      collectionDir: context.collectionDir,
+      confirmUndoAll: context.confirmUndoAll,
+    },
+    global: context.global,
+    request: context.request,
+    folder: context.folder,
+    environment: context.environment,
+    cookies: context.cookies,
+  })
+  return null
 }
 
 function firstCommandName(layer: UseBindingsLayer): string | undefined {
@@ -455,6 +489,44 @@ describe("app keymap layers", () => {
     expect(calls.settingsOpened).toBe(true)
 
     disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("refreshes settings shortcuts without remounting the keymap", async () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    let updateKeybinds: ((keybinds: Keybinds) => void) | undefined
+    const render = await testRender(
+      createElement(RendererProvider, {
+        renderer: {} as CliRenderer,
+        children: createElement(KeymapProvider, {
+          keymap: keymap as unknown as KeymapProviderProps["keymap"],
+          children: createElement(KeymapHarness, {
+            context,
+            onKeybindsChange: (update) => {
+              updateKeybinds = update
+            },
+          }),
+        }),
+      }),
+      { width: 80, height: 24 },
+    )
+    await render.renderOnce()
+
+    host.press("f4")
+    expect(calls.settingsOpened).toBe(true)
+    calls.settingsOpened = false
+
+    await act(() => {
+      updateKeybinds!({ ...context.keybinds, settings_open: "f5" })
+    })
+    await render.renderOnce()
+
+    host.press("f4")
+    expect(calls.settingsOpened).toBe(false)
+    host.press("f5")
+    expect(calls.settingsOpened).toBe(true)
+
     cleanup()
   })
 
