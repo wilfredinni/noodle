@@ -34,6 +34,7 @@ import {
 } from "../keybind"
 import { THEMES } from "../theme-data"
 import { useTheme } from "../theme"
+import { showToast } from "../Toast"
 import { FullBorder, LeftBar } from "../borders"
 import { Frame } from "../Frame"
 import { Checkbox } from "../Checkbox"
@@ -449,7 +450,8 @@ export function SettingsView({
         }
         if (onKeybindChange(captureName, binding)) {
           setCaptureName(null)
-          setMessage({ text: "Shortcut saved", kind: "success" })
+          setMessage(null)
+          showToast("Shortcut saved", "success")
         }
       },
       { priority: 220 },
@@ -573,17 +575,14 @@ export function SettingsView({
             const name = keybindNames[contentIndex]
             if (!name) return
             setCaptureName(name)
-            setMessage({
-              text: "Press a shortcut · Esc cancels",
-              kind: "success",
-            })
           } else if (keyEventToBinding(event) === keybinds.browse_delete) {
             event.preventDefault()
             event.stopPropagation()
             const name = keybindNames[contentIndex]
             if (name) {
               if (onKeybindChange(name, Definitions[name].default)) {
-                setMessage({ text: "Shortcut reset", kind: "success" })
+                setMessage(null)
+                showToast("Shortcut reset", "success")
               }
             }
           }
@@ -1452,7 +1451,7 @@ function KeyboardRows({
                   : `${displayKey(keybinds[name])}${keybinds[name] === definition.default ? "" : " · custom"}`}
               </text>
             </box>
-            {selected && message && (
+            {captureName === name && message && (
               <text
                 id="settings-key-message"
                 fg={message.kind === "success" ? theme.success : theme.error}

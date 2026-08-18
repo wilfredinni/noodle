@@ -16,6 +16,7 @@ import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
+import { Toast } from "../../src/ui/Toast"
 import type { Focus } from "../../src/ui/focus"
 import type { AppProxySettings, CollectionSettings } from "../../src/schema"
 import {
@@ -817,6 +818,37 @@ describe("SettingsView", () => {
     await renderOnce()
 
     expect(captureCharFrame()).toContain("That key cannot be assigned")
+    cleanup()
+  })
+
+  it("shows successful shortcut changes in a toast", async () => {
+    const { keymap, host, cleanup } = setupKeymap()
+    const { renderOnce, captureCharFrame, renderer } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <>
+            <Harness
+              initialCategory="keyboard"
+              initialFocus="settings-content"
+            />
+            <Toast />
+          </>
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 72, height: 12 },
+    )
+    await renderOnce()
+
+    await act(async () => host.press("return"))
+    await renderOnce()
+    expect(captureCharFrame()).not.toContain("Press a shortcut")
+    await act(async () => host.press("f7"))
+    await renderOnce()
+
+    expect(captureCharFrame()).toContain("Shortcut saved")
+    expect(
+      renderer.root.findDescendantById("settings-key-message"),
+    ).toBeUndefined()
     cleanup()
   })
 
