@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { act, createElement, useState } from "react"
+import { act, createElement, useEffect, useState } from "react"
 import type { CliRenderer } from "@opentui/core"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import {
@@ -211,7 +211,9 @@ function KeymapHarness({
   onKeybindsChange: (update: (keybinds: Keybinds) => void) => void
 }) {
   const [keybinds, setKeybinds] = useState(context.keybinds)
-  onKeybindsChange((next) => setKeybinds(next))
+  useEffect(() => {
+    onKeybindsChange((next) => setKeybinds(next))
+  }, [onKeybindsChange])
   useAppKeymap({
     runtime: {
       keybinds,
