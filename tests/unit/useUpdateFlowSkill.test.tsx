@@ -39,7 +39,8 @@ describe("useUpdateFlow skill refresh", () => {
     })
     const commands: string[][] = []
     const phases: string[] = []
-    const completed = Promise.withResolvers<void>()
+    const skillRefreshStarted = Promise.withResolvers<void>()
+    const skillRefreshFinished = Promise.withResolvers<void>()
     const dependencies: Partial<UpdateDependencies> = {
       execPath: "/opt/homebrew/Cellar/noodle/0.7.5/bin/noodle",
       platform: "darwin",
@@ -47,6 +48,8 @@ describe("useUpdateFlow skill refresh", () => {
       env: { HOME: home },
       runProcess: async (args) => {
         commands.push(args)
+        const skillRefresh = args[0].endsWith("/noodle")
+        if (skillRefresh) skillRefreshStarted.resolve()
         if (args[1] === "info")
           return {
             exitCode: 0,
@@ -54,7 +57,9 @@ describe("useUpdateFlow skill refresh", () => {
               formulae: [{ versions: { stable: "99.0.0" } }],
             }),
           }
-        return { exitCode: args[0].endsWith("/noodle") ? 1 : 0 }
+        const result = { exitCode: skillRefresh ? 1 : 0 }
+        if (skillRefresh) skillRefreshFinished.resolve()
+        return result
       },
     }
 
@@ -67,7 +72,6 @@ describe("useUpdateFlow skill refresh", () => {
             dependencies={dependencies}
             onFlow={(flow) => {
               if (phases.at(-1) !== flow.phase) phases.push(flow.phase)
-              if (flow.phase === "done") completed.resolve()
             }}
           />
         </ThemeProvider>,
@@ -75,12 +79,12 @@ describe("useUpdateFlow skill refresh", () => {
       )
     })
     await act(async () => render.renderOnce())
-    await act(async () => completed.promise)
     await act(async () => {
-      await render.waitForFrame((frame) =>
-        frame.includes("Noodle updated; skill update failed"),
-      )
+      await skillRefreshStarted.promise
+      await skillRefreshFinished.promise
+      await render.renderOnce()
     })
+    await act(async () => render.renderOnce())
 
     expect(phases).toContain("installing")
     expect(phases.at(-1)).toBe("done")
