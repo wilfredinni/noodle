@@ -1,6 +1,6 @@
 ---
 name: noodle-release
-description: Prepare a versioned Noodle release by updating package.json, inspecting changes since the latest tag, auditing every repository-maintained skill, synchronizing affected README, AGENTS.md, tests, CHANGELOG.md, and noodle-site documentation, and running the release validation. Use for release preparation, documentation synchronization, skill updates, and public-surface review; never commit, tag, push, publish, or modify GitHub releases.
+description: Prepare a versioned Noodle release by updating package.json, inspecting changes since the latest tag, auditing every repository-maintained skill, synchronizing affected README, AGENTS.md, tests, CHANGELOG.md, noodle-site documentation, and a release blog post, then running the release validation. Use for release preparation, documentation synchronization, skill updates, and public-surface review; never commit, tag, push, publish, or modify GitHub releases.
 ---
 
 # Noodle release preparation
@@ -18,11 +18,12 @@ Use this skill when the maintainer asks to prepare a Noodle release or synchroni
 7. Audit every repository-maintained skill under `.agents/skills/`, including `noodle-dev`, `noodle-use`, `noodle-release`, and `opentui`. For each skill, record either `changed` with the evidence-backed reason or `unchanged` with a concise reason. Do not edit a skill merely to make the audit show a change.
 8. Audit `src/ui/Tips.tsx` against current keybindings, commands, CLI behavior, and UI modes. Replace stale tips, remove duplicates, and add concise tips for evidence-backed user-facing behavior introduced since the prior release.
 9. If the update mechanism changed (update manifest, cache format, release asset structure), verify `noodle-site/public/update.json` schema, `noodle-site/netlify.toml` cache headers (target: `Cache-Control: s-maxage=300, stale-while-revalidate=600` for `/update.json`), release workflow ordering, and site installation docs are consistent.
-10. Update only the affected README, `AGENTS.md`, skills, site pages, `src/ui/Tips.tsx`, tests, and `CHANGELOG.md`. Preserve each repository's existing voice and examples. Do not modify blog posts or any files under `noodle-site/src/content/docs/blog/`.
+10. Update only the affected README, `AGENTS.md`, skills, site pages, `src/ui/Tips.tsx`, tests, and `CHANGELOG.md`. Preserve each repository's existing voice and examples.
 11. Update `CHANGELOG.md` for the target version. Immediately below the version/date heading, add a concise two- to three-sentence release summary that synthesizes the most important evidence-backed user-facing changes. Then group the detailed changes under these exact headings when applicable: `### ✨ Features`, `### 🐞 Fixes`, and `### 🔧 Refactors`. Use `### 📚 Documentation` for documentation-only changes when applicable. Keep `Unreleased` at the top, include only changes since the previous release tag, and do not invent behavior.
-12. For uncertain behavior, leave a review note instead of guessing.
-13. Run `bun run release:check -- --tag vX.Y.Z` and report failures with their command output. Fix only failures within release-preparation scope, rerun the affected check, and finish with the complete release check passing.
-14. Stop after the verified diff and review summary. Report the target package version and tag, validation commands and results, remaining review notes, and the explicit changed/unchanged decision for every audited skill. Do not commit, tag, push, publish, or modify GitHub releases.
+12. Create a new article under `noodle-site/src/content/blog/` for the target release. Turn the matching `CHANGELOG.md` section into a cohesive, release-reader-oriented article rather than copying its bullets. Follow the existing blog frontmatter and voice, include `release` in `tags` so the site renders `#release`, and do not introduce claims that the changelog does not support.
+13. For uncertain behavior, leave a review note instead of guessing.
+14. Run `bun run release:check -- --tag vX.Y.Z` and report failures with their command output. Fix only failures within release-preparation scope, rerun the affected check, and finish with the complete release check passing.
+15. Stop after the verified diff and review summary. Report the target package version and tag, validation commands and results, remaining review notes, and the explicit changed/unchanged decision for every audited skill. Do not commit, tag, push, publish, or modify GitHub releases.
 
 ## Evidence rules
 
