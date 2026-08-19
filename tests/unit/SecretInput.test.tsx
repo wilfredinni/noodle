@@ -1,31 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
-import {
-  registerDefaultKeys,
-  registerEnabledFields,
-} from "@opentui/keymap/addons"
-import { KeymapProvider, type KeymapProviderProps } from "@opentui/keymap/react"
-import { createTestKeymap } from "@opentui/keymap/testing"
+import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
 import { SecretInput } from "../../src/ui/settings/SecretInput"
 import { ThemeProvider } from "../../src/ui/theme"
+import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
-
-function setupKeymap() {
-  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
-  const disposeEnabled = registerEnabledFields(keymap)
-  const disposeKeys = registerDefaultKeys(keymap)
-  return {
-    keymap: keymap as unknown as KeymapProviderProps["keymap"],
-    host,
-    cleanup: () => {
-      disposeEnabled()
-      disposeKeys()
-      hostCleanup()
-    },
-  }
-}
 
 describe("SecretInput", () => {
   it("commits a dirty draft when directly unmounted", async () => {

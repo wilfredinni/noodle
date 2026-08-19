@@ -6,13 +6,7 @@ import {
   type TextareaRenderable,
 } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
-import { createTestKeymap } from "@opentui/keymap/testing"
-import {
-  registerDefaultKeys,
-  registerEnabledFields,
-} from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { bindingDefaults } from "../../src/ui/keybind"
@@ -27,24 +21,9 @@ import {
 } from "../../src/ui/settings/SettingsView"
 import { SIDEBAR_WIDTH } from "../../src/ui/Sidebar"
 import type { ExternalEditor, ExternalEditorId } from "../../src/externalEditor"
+import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
-
-function setupKeymap() {
-  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
-  const disposeEnabled = registerEnabledFields(keymap)
-  const disposeKeys = registerDefaultKeys(keymap)
-  keymap.setData("app.overlay", "none")
-  return {
-    keymap: keymap as unknown as KeymapProviderProps["keymap"],
-    host,
-    cleanup: () => {
-      disposeEnabled()
-      disposeKeys()
-      hostCleanup()
-    },
-  }
-}
 
 function Harness({
   collectionAvailable = true,

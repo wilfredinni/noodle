@@ -2,34 +2,12 @@ import { describe, it, expect } from "bun:test"
 import { act } from "react"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestRender } from "../testRender"
-import { createTestKeymap } from "@opentui/keymap/testing"
-import {
-  registerEnabledFields,
-  registerDefaultKeys,
-} from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { ThemeProvider } from "../../src/ui/theme"
 import { ConfirmOverlay } from "../../src/ui/overlays/ConfirmOverlay"
+import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
-
-function setupKeymap() {
-  const { keymap, cleanup: hostCleanup } = createTestKeymap()
-  const disposeEnabled = registerEnabledFields(keymap)
-  const disposeKeys = registerDefaultKeys(keymap)
-  keymap.setData("app.mode", "base")
-  keymap.setData("app.focus", "sidebar")
-  keymap.setData("app.overlay", "none")
-  return {
-    keymap: keymap as unknown as KeymapProviderProps["keymap"],
-    cleanup: () => {
-      disposeEnabled()
-      disposeKeys()
-      hostCleanup()
-    },
-  }
-}
 
 describe("Delete confirmation", () => {
   it("ConfirmOverlay shows delete environment message", async () => {

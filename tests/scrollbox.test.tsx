@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { act, useMemo, useState } from "react"
+import { scheduler } from "node:timers/promises"
 import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
 import { RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
@@ -20,7 +21,7 @@ import type { Keymap } from "@opentui/keymap"
 import type { Renderable, KeyEvent } from "@opentui/core"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
-import { MouseButtons } from "@opentui/core/testing"
+import { ManualClock, MouseButtons } from "@opentui/core/testing"
 import { visibleNodes } from "../src/ui/tree"
 import {
   CodeEditorRenderable,
@@ -37,6 +38,21 @@ extend({
 })
 
 type OpenTuiKeymap = Keymap<Renderable, KeyEvent>
+
+async function waitForState(
+  renderOnce: () => Promise<void>,
+  predicate: () => boolean,
+) {
+  const deadline = Date.now() + 2_000
+  while (!predicate()) {
+    if (Date.now() >= deadline)
+      throw new Error("Timed out waiting for UI state")
+    await act(async () => {
+      await scheduler.wait(10)
+      await renderOnce()
+    })
+  }
+}
 
 function makeRequest(i: number): Request {
   return {
@@ -176,10 +192,9 @@ describe("ResponsePane scrollbox", () => {
     expect(captureCharFrame()).toContain("JSONPath")
 
     await act(async () => mockInput.typeText("$.data.group.items[*].id"))
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 175))
-    })
-    await renderOnce()
+    await waitForState(renderOnce, () =>
+      captureCharFrame().includes("2 matches"),
+    )
 
     expect(captureCharFrame()).toContain("2 matches")
     expect(copyBody.current).toBe("[\n  1,\n  2\n]")
@@ -200,10 +215,9 @@ describe("ResponsePane scrollbox", () => {
     await act(async () => raw.host.press("/"))
     expect(queryOpenCount).toBe(0)
     await act(async () => mockInput.typeText("/"))
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 175))
-    })
-    await renderOnce()
+    await waitForState(renderOnce, () =>
+      captureCharFrame().includes("0 matches"),
+    )
 
     expect(captureCharFrame()).toContain("0 matches")
   })
@@ -251,10 +265,7 @@ describe("ResponsePane scrollbox", () => {
     expect(editor.scrollY).toBe(20)
 
     await act(async () => mockInput.typeText("$.items[*].id"))
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 175))
-    })
-    await renderOnce()
+    await waitForState(renderOnce, () => editor.scrollY === 0)
 
     expect(editor.totalVirtualLineCount).toBeGreaterThan(editor.viewport.height)
     expect(editor.scrollY).toBe(0)
@@ -325,7 +336,6 @@ describe("ResponsePane scrollbox", () => {
     expect(captureCharFrame()).toContain("event 0")
     expectThemedScrollbar(renderer.root, "network-tab-scrollbox", true)
     await act(async () => mockInput.pressKey("END"))
-    await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("event 19")
   })
@@ -497,10 +507,9 @@ describe("ResponsePane scrollbox", () => {
     await act(async () => {
       await mockInput.typeText("$.data[?(")
     })
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 175))
-    })
-    await renderOnce()
+    await waitForState(renderOnce, () =>
+      captureCharFrame().includes("Invalid query syntax"),
+    )
 
     expect(captureCharFrame()).toContain("Invalid query syntax")
   })
@@ -637,17 +646,16 @@ describe("ResponsePane scrollbox", () => {
     expect(editor.scrollY).toBeGreaterThan(0)
 
     await act(async () => mockInput.pressKey("END"))
-    await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("item-99")
 
     await act(async () => mockInput.pressKey("HOME"))
-    await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     expect(captureCharFrame()).toContain("item-0")
   })
 
   it("extends response body selections while dragging beyond the viewport", async () => {
+    const clock = new ManualClock()
     const body = Array.from(
       { length: 30 },
       (_, index) => `response line ${index}`,
@@ -672,7 +680,7 @@ describe("ResponsePane scrollbox", () => {
             focused
           />
         </KeymapProvider>,
-        { width: 48, height: 12 },
+        { width: 48, height: 12, clock },
       )
     await renderOnce()
     await renderOnce()
@@ -697,7 +705,7 @@ describe("ResponsePane scrollbox", () => {
     })
     expect(editor.hasSelection()).toBe(true)
     for (let frame = 0; frame < 4; frame++) {
-      await new Promise((resolve) => setTimeout(resolve, 30))
+      clock.setTime(clock.now() + 30)
       await renderOnce()
     }
 
@@ -710,7 +718,7 @@ describe("ResponsePane scrollbox", () => {
       await mockMouse.release(x, editor.y + editor.height)
     })
     const scrollAfterRelease = editor.scrollY
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    clock.setTime(clock.now() + 50)
     await renderOnce()
     expect(editor.scrollY).toBe(scrollAfterRelease)
 
@@ -1071,12 +1079,12 @@ describe("ResponsePane scrollbox", () => {
         </KeymapProvider>,
         { width: 80, height: 12 },
       )
-    await new Promise((resolve) => setTimeout(resolve, 10))
     await renderOnce()
 
     const bodyEditor = renderer.root.findDescendantById("response-body-editor")
     expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)
     const editor = bodyEditor as CodeEditorRenderable
+    await editor.refreshHighlights()
     expect(editor.getFoldSigns().has(0)).toBe(true)
 
     await act(async () => mockInput.pressKey("F5"))
@@ -1150,12 +1158,12 @@ describe("ResponsePane scrollbox", () => {
       </KeymapProvider>,
       { width: 48, height: 20 },
     )
-    await new Promise((resolve) => setTimeout(resolve, 10))
     await renderOnce()
 
     const editor = renderer.root.findDescendantById(
       "response-body-editor",
     ) as CodeEditorRenderable
+    await editor.refreshHighlights()
     for (const line of [12, 1]) editor.toggleFold(line)
     await renderOnce()
 
@@ -1209,7 +1217,6 @@ describe("ResponsePane scrollbox", () => {
     expect(bodyEditorAvailable).toBe(false)
 
     await act(async () => mockInput.pressKey("v"))
-    await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     const bodyEditor = renderer.root.findDescendantById("response-body-editor")
     expect(bodyEditor).toBeInstanceOf(CodeEditorRenderable)

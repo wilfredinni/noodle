@@ -1,3 +1,4 @@
+import { afterEach } from "bun:test"
 import { createTestKeymap } from "@opentui/keymap/testing"
 import type { KeyEvent } from "@opentui/core"
 import {
@@ -6,6 +7,12 @@ import {
 } from "@opentui/keymap/addons"
 import type { KeymapProviderProps } from "@opentui/keymap/react"
 import type { CodeEditorRenderable } from "../../src/ui/editor/CodeEditor"
+
+const keymapCleanups = new Set<() => void>()
+
+afterEach(() => {
+  for (const cleanup of [...keymapCleanups]) cleanup()
+})
 
 export function keyEvent(
   name: string,
@@ -42,13 +49,16 @@ export function setupKeymap() {
   keymap.setData("app.mode", "base")
   keymap.setData("app.focus", "sidebar")
   keymap.setData("app.overlay", "none")
+  const cleanup = () => {
+    if (!keymapCleanups.delete(cleanup)) return
+    disposeEnabled()
+    disposeKeys()
+    hostCleanup()
+  }
+  keymapCleanups.add(cleanup)
   return {
     keymap: keymap as unknown as KeymapProviderProps["keymap"],
     host,
-    cleanup: () => {
-      disposeEnabled()
-      disposeKeys()
-      hostCleanup()
-    },
+    cleanup,
   }
 }

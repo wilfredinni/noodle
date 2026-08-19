@@ -253,7 +253,6 @@ describe("ResponsePane status text truncation and layout tests", () => {
     ).toBe("response footer sentinel")
 
     await act(async () => mockInput.pressKey("END"))
-    await new Promise((resolve) => setTimeout(resolve, 20))
     await renderOnce()
     const tailLines = captureCharFrame().split("\n")
     expect(tailLines.join("\n")).toContain("item-99")
@@ -339,8 +338,6 @@ describe("ResponsePane status text truncation and layout tests", () => {
         { width: 100, height: 24 },
       )
     await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 250))
-    await renderOnce()
 
     const requestEditor = renderer.root.findDescendantById(
       "request-body-editor",
@@ -348,6 +345,10 @@ describe("ResponsePane status text truncation and layout tests", () => {
     const responseEditor = renderer.root.findDescendantById(
       "response-body-editor",
     ) as CodeEditorRenderable
+    await Promise.all([
+      requestEditor.refreshHighlights(),
+      responseEditor.refreshHighlights(),
+    ])
     for (const editor of [requestEditor, responseEditor]) {
       editor.toggleFold(4)
       editor.toggleFold(1)

@@ -3,7 +3,7 @@ import { act } from "react"
 import { createTestRender } from "../testRender"
 import { extend } from "@opentui/react"
 import { addDefaultParsers, LineNumberRenderable } from "@opentui/core"
-import { MouseButtons } from "@opentui/core/testing"
+import { ManualClock, MouseButtons } from "@opentui/core/testing"
 import {
   CodeEditorRenderable,
   CodeEditorScrollBarRenderable,
@@ -946,11 +946,11 @@ body:
       { width: 40, height: 6 },
     )
 
-    await new Promise((resolve) => setTimeout(resolve, 30))
     await renderOnce()
+    await editor!.refreshHighlights()
     computeFolds(editor!)
     editor!.toggleFold(0)
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await editor!.refreshHighlights()
     await renderOnce()
 
     expect(editor!.plainText).toBe(content)
@@ -1043,8 +1043,7 @@ body:
     expect(editor!.lineCount).toBe(originalLineCount)
     expect(editor!.plainText).toBe(content)
 
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    await renderOnce()
+    await editor!.refreshHighlights()
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 
@@ -1091,8 +1090,7 @@ body:
     expect(editor!.lineCount).toBe(originalLineCount)
     expect(editor!.plainText).toBe(content)
 
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    await renderOnce()
+    await editor!.refreshHighlights()
     expect(getHighlightCount(editor!)).toBeGreaterThan(0)
   })
 
@@ -1427,7 +1425,7 @@ describe("CodeEditorRenderable read-only mode", () => {
     readonly.insertText('"updated": true')
     await renderOnce()
     readonly.readOnly = true
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await readonly.refreshHighlights()
     await renderOnce()
 
     const finalLineHighlights = readonly.getLineHighlights(
@@ -1464,11 +1462,11 @@ describe("CodeEditorRenderable read-only mode", () => {
       </box>,
       { width: 48, height: 8 },
     )
-    await new Promise((resolve) => setTimeout(resolve, 10))
     await renderOnce()
 
     expect(editor).toBeDefined()
     const readonly = editor!
+    await readonly.refreshHighlights()
     const cursorBefore = readonly.logicalCursor.col
     expect(readonly.handleKeyPress(keyEvent("x"))).toBe(false)
     expect(readonly.handleKeyPress(keyEvent("z", { ctrl: true }))).toBe(false)
@@ -1485,12 +1483,13 @@ describe("CodeEditorRenderable read-only mode", () => {
     expect(readonly.plainText).toBe(content)
 
     readonly.value = '{\n  "updated": true\n}'
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await readonly.refreshHighlights()
     await renderOnce()
     expect(readonly.plainText).toBe('{\n  "updated": true\n}')
   })
 
   it("keeps read-only mouse selections active while dragging below the viewport", async () => {
+    const clock = new ManualClock()
     let editor: CodeEditorRenderable | null = null
     const content = Array.from(
       { length: 20 },
@@ -1512,7 +1511,7 @@ describe("CodeEditorRenderable read-only mode", () => {
           cursorColor={opencodeTheme.primary}
         />
       </box>,
-      { width: 24, height: 8 },
+      { width: 24, height: 8, clock },
     )
     await renderOnce()
 
@@ -1526,7 +1525,7 @@ describe("CodeEditorRenderable read-only mode", () => {
       })
     })
     for (let frame = 0; frame < 4; frame++) {
-      await new Promise((resolve) => setTimeout(resolve, 30))
+      clock.setTime(clock.now() + 30)
       await renderOnce()
     }
 
@@ -1537,12 +1536,13 @@ describe("CodeEditorRenderable read-only mode", () => {
 
     await mockMouse.release(x, readonly.y + readonly.height + 2)
     const scrollAfterRelease = readonly.scrollY
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    clock.setTime(clock.now() + 50)
     await renderOnce()
     expect(readonly.scrollY).toBe(scrollAfterRelease)
   })
 
   it("keeps reverse mouse selections ordered while dragging above the viewport", async () => {
+    const clock = new ManualClock()
     let editor: CodeEditorRenderable | null = null
     const content = Array.from(
       { length: 20 },
@@ -1578,7 +1578,7 @@ describe("CodeEditorRenderable read-only mode", () => {
           />
         </box>
       </box>,
-      { width: 24, height: 10 },
+      { width: 24, height: 10, clock },
     )
     await renderOnce()
 
@@ -1592,26 +1592,27 @@ describe("CodeEditorRenderable read-only mode", () => {
       await mockMouse.pressDown(x, y, MouseButtons.LEFT)
       await mockMouse.moveTo(x, y - 1)
     })
+    const startBeforeAutoScroll = readonly.getSelection()?.start
     const anchor = readonly.getSelection()?.end
     await act(async () => {
       await mockMouse.moveTo(x, readonly.y - 1, { delayMs: 25 })
     })
     for (let frame = 0; frame < 5; frame++) {
-      await new Promise((resolve) => setTimeout(resolve, 30))
+      clock.setTime(clock.now() + 30)
       await renderOnce()
     }
 
     expect(readonly.scrollY).toBeLessThan(initialScrollY)
     const selection = readonly.getSelection()
     expect(selection?.start).toBeLessThan(selection?.end ?? 0)
+    expect(selection?.start).toBeLessThan(startBeforeAutoScroll ?? 0)
     expect(selection?.end).toBe(anchor)
     const selectedText = renderer.getSelection()?.getSelectedText() ?? ""
-    expect(selectedText).toContain("line 12")
     expect(selectedText).toContain("line 18")
 
     await mockMouse.release(x, readonly.y - 1)
     const scrollAfterRelease = readonly.scrollY
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    clock.setTime(clock.now() + 50)
     await renderOnce()
     expect(readonly.scrollY).toBe(scrollAfterRelease)
   })
@@ -1642,21 +1643,21 @@ describe("CodeEditorRenderable read-only mode", () => {
       </box>,
       { width: 48, height: 8 },
     )
-    await new Promise((resolve) => setTimeout(resolve, 10))
     await renderOnce()
 
     const readonly = editor!
+    await readonly.refreshHighlights()
     const initialHighlights = getHighlightCount(readonly)
     expect(initialHighlights).toBeGreaterThan(0)
     expect(initialHighlights).toBeLessThan(100)
 
     readonly.scrollTo(readonly.totalVirtualLineCount)
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await readonly.refreshHighlights()
     await renderOnce()
     expect(getHighlightCount(readonly)).toBeGreaterThan(initialHighlights)
 
     readonly.value = `{ "payload": "${"x".repeat(100_001)}" }`
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await readonly.refreshHighlights()
     await renderOnce()
     expect(getHighlightCount(readonly)).toBe(0)
   })
