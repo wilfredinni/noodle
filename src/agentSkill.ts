@@ -52,6 +52,16 @@ interface SkillReplacement {
   inode: number
 }
 
+class SkillReplacementError extends Error {
+  constructor(
+    message: string,
+    readonly replacement: SkillReplacement,
+    cause: unknown,
+  ) {
+    super(message, { cause })
+  }
+}
+
 function userHome(home?: string): string {
   return home ?? process.env.HOME ?? homedir()
 }
@@ -144,6 +154,12 @@ async function replacePath(
   const parent = dirname(targetPath)
   const stagedInfo = await lstat(stagedPath)
   let backupPath: string | undefined
+  const replacement = (): SkillReplacement => ({
+    targetPath,
+    backupPath,
+    device: stagedInfo.dev,
+    inode: stagedInfo.ino,
+  })
   if (await exists(targetPath)) {
     await assertReplaceablePath(targetPath, force)
     backupPath = await mkdtemp(join(parent, ".noodle-use-backup-"))
@@ -155,9 +171,11 @@ async function replacePath(
       try {
         await rename(backupPath, targetPath)
       } catch (restoreError) {
-        throw new Error(`Failed to restore ${targetPath}`, {
-          cause: restoreError,
-        })
+        throw new SkillReplacementError(
+          `Failed to restore ${targetPath}`,
+          replacement(),
+          restoreError,
+        )
       }
       throw new Error(`Failed to validate backed-up skill path ${backupPath}`, {
         cause: error,
@@ -168,16 +186,49 @@ async function replacePath(
   try {
     await rename(stagedPath, targetPath)
   } catch (error) {
-    if (backupPath) await rename(backupPath, targetPath)
+    if (backupPath) {
+      try {
+        await rename(backupPath, targetPath)
+      } catch (restoreError) {
+        throw new SkillReplacementError(
+          `Failed to replace and restore ${targetPath}`,
+          replacement(),
+          restoreError,
+        )
+      }
+    }
     throw new Error(`Failed to replace ${targetPath}`, { cause: error })
   }
 
-  return {
-    targetPath,
-    backupPath,
-    device: stagedInfo.dev,
-    inode: stagedInfo.ino,
+  return replacement()
+}
+
+async function withStagingCleanup(
+  stagingRoot: string,
+  operation: () => Promise<SkillReplacement>,
+): Promise<SkillReplacement> {
+  let replacement: SkillReplacement
+  try {
+    replacement = await operation()
+  } catch (error) {
+    try {
+      await rm(stagingRoot, { recursive: true, force: true })
+    } catch {
+      // Preserve the installation error; the staging path is safe to leave.
+    }
+    throw error
   }
+
+  try {
+    await rm(stagingRoot, { recursive: true, force: true })
+  } catch (error) {
+    throw new SkillReplacementError(
+      `Failed to clean up staging path ${stagingRoot}`,
+      replacement,
+      error,
+    )
+  }
+  return replacement
 }
 
 async function discardBackups(replacements: SkillReplacement[]) {
@@ -216,7 +267,7 @@ async function writeCanonicalSkill(path: string, force = false) {
   await mkdir(parent, { recursive: true })
   const stagingRoot = await mkdtemp(join(parent, ".noodle-use-stage-"))
   const stagedPath = join(stagingRoot, "noodle-use")
-  try {
+  return withStagingCleanup(stagingRoot, async () => {
     for (const [relativePath, contents] of Object.entries(NOODLE_SKILL_FILES)) {
       const filePath = join(stagedPath, relativePath)
       await mkdir(dirname(filePath), { recursive: true })
@@ -227,9 +278,7 @@ async function writeCanonicalSkill(path: string, force = false) {
       NOODLE_SKILL_MARKER_CONTENT,
     )
     return await replacePath(stagedPath, path, force)
-  } finally {
-    await rm(stagingRoot, { recursive: true, force: true })
-  }
+  })
 }
 
 async function linkSkill(
@@ -241,12 +290,10 @@ async function linkSkill(
   await mkdir(parent, { recursive: true })
   const stagingRoot = await mkdtemp(join(parent, ".noodle-use-link-"))
   const stagedPath = join(stagingRoot, "noodle-use")
-  try {
+  return withStagingCleanup(stagingRoot, async () => {
     await symlink(canonicalPath, stagedPath, "dir")
     return await replacePath(stagedPath, targetPath, force)
-  } finally {
-    await rm(stagingRoot, { recursive: true, force: true })
-  }
+  })
 }
 
 async function detectedToolLinks(home: string): Promise<string[]> {
@@ -293,6 +340,9 @@ export async function installNoodleSkill(
       replacements.push(await linkSkill(target, canonical, force))
     }
   } catch (error) {
+    if (error instanceof SkillReplacementError) {
+      replacements.push(error.replacement)
+    }
     try {
       await rollbackReplacements(replacements)
     } catch (rollbackError) {
