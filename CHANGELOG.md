@@ -4,6 +4,15 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### ✨ Features
+
+- Add `noodle agent install` and the **Install Noodle skill** command-palette action, with an embedded, network-free `noodle-use` installer for Claude, Cursor, Codex, and OpenCode.
+- Keep existing managed skill installations synchronized after standalone binary, Noodle-managed Homebrew, TUI, and curl-installer updates without failing a successful Noodle update when skill refresh needs a manual retry.
+
+### 📚 Documentation
+
+- Document managed skill installation, automatic synchronization, JSON output, and the `npx skills` fallback across the README and documentation site.
+
 ## [0.7.5] - 2026-08-16
 
 Noodle 0.7.5 adds first-class XML request bodies across editing, execution, history, and conversion workflows. It also makes invalid collection YAML repairable in the TUI, adds direct Settings and external-editor commands, and improves update visibility and empty-state interactions.

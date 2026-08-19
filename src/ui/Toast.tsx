@@ -22,13 +22,15 @@ export function Toast() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
-    showToastFn = (message: string, variant?: ToastVariant) => {
+    const show = (message: string, variant?: ToastVariant) => {
       setState({ message, variant: variant ?? "info" })
       clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => setState(null), 5000)
     }
+    showToastFn = show
     return () => {
-      showToastFn = null
+      if (showToastFn === show) showToastFn = null
+      clearTimeout(timerRef.current)
     }
   }, [])
 

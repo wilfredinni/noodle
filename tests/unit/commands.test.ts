@@ -12,6 +12,7 @@ import {
   copyOAuth2Token,
   fetchOAuth2Token,
   getEditRequestYamlFile,
+  installAgentSkill,
   openAppSettingsInEditor,
   openCollectionInEditor,
   saveFolder,
@@ -83,6 +84,74 @@ function minimalContext(): CommandBuilderContext {
 }
 
 describe("buildCommandPaletteCommands", () => {
+  it("shows Install Noodle skill in the contiguous System section of every full palette", () => {
+    const cases: Array<
+      [string, ReturnType<CommandBuilderContext["getCollectionMode"]>]
+    > = [
+      ["main", "collection"],
+      ["main", "empty"],
+      ["env-editor", "collection"],
+      ["cookie-jar", "collection"],
+      ["settings", "collection"],
+    ]
+
+    for (const [view, mode] of cases) {
+      const ctx = minimalContext()
+      ctx.getView = () => view
+      ctx.getCollectionMode = () => mode
+      const commands = buildCommandPaletteCommands(ctx)
+      const command = commands.find(
+        (item) => item.id === "app.agent-skill-install",
+      )
+      expect(command).toMatchObject({
+        label: "Install Noodle skill",
+        section: "System",
+      })
+      const firstSystem = commands.findIndex(
+        (item) => item.section === "System",
+      )
+      expect(
+        commands.slice(firstSystem).every((item) => item.section === "System"),
+      ).toBe(true)
+    }
+  })
+
+  it("installs the skill asynchronously and reports installed, updated, and error toasts", async () => {
+    for (const outcome of ["installed", "updated"] as const) {
+      const notified = Promise.withResolvers<void>()
+      const messages: Array<[string, string | undefined]> = []
+      const result = installAgentSkill(
+        async () => ({ action: outcome, path: "/tmp/noodle-use", linked: [] }),
+        (message, variant) => {
+          messages.push([message, variant])
+          notified.resolve()
+        },
+      )
+      expect(result).toBe(true)
+      expect(messages).toEqual([])
+      await notified.promise
+      expect(messages).toEqual([[`Noodle skill ${outcome}`, "success"]])
+    }
+
+    const notified = Promise.withResolvers<void>()
+    const messages: Array<[string, string | undefined]> = []
+    expect(
+      installAgentSkill(
+        async () => {
+          throw new Error("no space")
+        },
+        (message, variant) => {
+          messages.push([message, variant])
+          notified.resolve()
+        },
+      ),
+    ).toBe(true)
+    await notified.promise
+    expect(messages).toEqual([
+      ["Failed to install Noodle skill: no space", "error"],
+    ])
+  })
+
   it("opens collection and app settings folders in the selected editor", () => {
     const editor: ExternalEditor = {
       id: "zed",
