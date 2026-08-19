@@ -80,14 +80,37 @@ describe("Noodle agent skill installer", () => {
   })
 
   it("preserves an unmanaged tool skill directory", async () => {
+    const canonical = getNoodleSkillPaths(home).canonical
     const target = join(home, ".claude", "skills", "noodle-use")
+    await mkdir(canonical, { recursive: true })
     await mkdir(target, { recursive: true })
+    await writeFile(join(canonical, "local.md"), "keep me too")
     await writeFile(join(target, "local.md"), "keep me")
 
     await expect(installNoodleSkill(home)).rejects.toThrow(
-      `Refusing to replace unmanaged skill path ${target}`,
+      `Refusing to replace unmanaged skill paths:\n- ${canonical}\n- ${target}\nRetry with: noodle agent install --force`,
+    )
+    expect(await readFile(join(canonical, "local.md"), "utf8")).toBe(
+      "keep me too",
     )
     expect(await readFile(join(target, "local.md"), "utf8")).toBe("keep me")
+  })
+
+  it("replaces unmanaged skill paths with force", async () => {
+    const canonical = getNoodleSkillPaths(home).canonical
+    const target = join(home, ".claude", "skills", "noodle-use")
+    await mkdir(canonical, { recursive: true })
+    await mkdir(target, { recursive: true })
+    await writeFile(join(canonical, "local.md"), "replace me")
+    await writeFile(join(target, "local.md"), "replace me too")
+
+    const result = await installNoodleSkill(home, true)
+
+    expect(await filesBelow(canonical)).toEqual(
+      [...Object.keys(NOODLE_SKILL_FILES), NOODLE_SKILL_MARKER].sort(),
+    )
+    expect((await lstat(target)).isSymbolicLink()).toBe(true)
+    expect(await readlink(target)).toBe(result.path)
   })
 
   it("discovers Claude, Cursor, Codex, and OpenCode and links each one", async () => {
