@@ -1,6 +1,5 @@
-import { describe, it, expect } from "bun:test"
+import { afterEach, describe, it, expect, jest } from "bun:test"
 import { act, useMemo, useState } from "react"
-import { scheduler } from "node:timers/promises"
 import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
 import { RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
@@ -39,20 +38,17 @@ extend({
 
 type OpenTuiKeymap = Keymap<Renderable, KeyEvent>
 
-async function waitForState(
-  renderOnce: () => Promise<void>,
-  predicate: () => boolean,
-) {
-  const deadline = Date.now() + 2_000
-  while (!predicate()) {
-    if (Date.now() >= deadline)
-      throw new Error("Timed out waiting for UI state")
-    await act(async () => {
-      await scheduler.wait(10)
-      await renderOnce()
-    })
-  }
+async function finishQueryDebounce(renderOnce: () => Promise<void>) {
+  await act(async () => {
+    jest.advanceTimersByTime(150)
+  })
+  jest.useRealTimers()
+  await act(async () => {
+    await renderOnce()
+  })
 }
+
+afterEach(() => jest.useRealTimers())
 
 function makeRequest(i: number): Request {
   return {
@@ -191,10 +187,9 @@ describe("ResponsePane scrollbox", () => {
     await renderOnce()
     expect(captureCharFrame()).toContain("JSONPath")
 
+    jest.useFakeTimers()
     await act(async () => mockInput.typeText("$.data.group.items[*].id"))
-    await waitForState(renderOnce, () =>
-      captureCharFrame().includes("2 matches"),
-    )
+    await finishQueryDebounce(renderOnce)
 
     expect(captureCharFrame()).toContain("2 matches")
     expect(copyBody.current).toBe("[\n  1,\n  2\n]")
@@ -214,10 +209,9 @@ describe("ResponsePane scrollbox", () => {
 
     await act(async () => raw.host.press("/"))
     expect(queryOpenCount).toBe(0)
+    jest.useFakeTimers()
     await act(async () => mockInput.typeText("/"))
-    await waitForState(renderOnce, () =>
-      captureCharFrame().includes("0 matches"),
-    )
+    await finishQueryDebounce(renderOnce)
 
     expect(captureCharFrame()).toContain("0 matches")
   })
@@ -264,8 +258,9 @@ describe("ResponsePane scrollbox", () => {
     await renderOnce()
     expect(editor.scrollY).toBe(20)
 
+    jest.useFakeTimers()
     await act(async () => mockInput.typeText("$.items[*].id"))
-    await waitForState(renderOnce, () => editor.scrollY === 0)
+    await finishQueryDebounce(renderOnce)
 
     expect(editor.totalVirtualLineCount).toBeGreaterThan(editor.viewport.height)
     expect(editor.scrollY).toBe(0)
@@ -504,12 +499,11 @@ describe("ResponsePane scrollbox", () => {
       expect(queryController.current?.open()).toBe(true)
     })
     await renderOnce()
+    jest.useFakeTimers()
     await act(async () => {
       await mockInput.typeText("$.data[?(")
     })
-    await waitForState(renderOnce, () =>
-      captureCharFrame().includes("Invalid query syntax"),
-    )
+    await finishQueryDebounce(renderOnce)
 
     expect(captureCharFrame()).toContain("Invalid query syntax")
   })

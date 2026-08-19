@@ -5,8 +5,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react"
-import { describe, expect, it } from "bun:test"
-import { scheduler } from "node:timers/promises"
+import { afterEach, describe, expect, it, jest } from "bun:test"
 import { createTestRender } from "./testRender"
 import { RGBA } from "@opentui/core"
 import type { ScrollBoxRenderable } from "@opentui/core"
@@ -15,20 +14,14 @@ import { JsonBodyViewer } from "../src/ui/editor/JsonBodyViewer"
 
 const testRender = createTestRender()
 
-async function waitForHighlight(
-  renderOnce: () => Promise<void>,
-  isHighlighted: () => boolean,
-) {
-  const deadline = Date.now() + 2_000
-  while (!isHighlighted()) {
-    if (Date.now() >= deadline)
-      throw new Error("Timed out waiting for highlight")
-    await act(async () => {
-      await scheduler.wait(0)
-      await renderOnce()
-    })
-  }
+async function finishHighlighting(renderOnce: () => Promise<void>) {
+  await act(async () => {
+    jest.runAllTimers()
+    await renderOnce()
+  })
 }
+
+afterEach(() => jest.useRealTimers())
 
 describe("JsonBodyViewer", () => {
   it("keeps JSON syntax highlighting when variables make raw JSON invalid", async () => {
@@ -103,6 +96,7 @@ describe("JsonBodyViewer", () => {
   })
 
   it("finishes chunked highlighting for large JSON payloads", async () => {
+    jest.useFakeTimers()
     const theme = THEMES[0]!
     const item = `    {\n      "payload": "${"x".repeat(1024)}",\n      "status": "completed"\n    }`
     const items = new Array(220).fill(item).join(",\n")
@@ -131,7 +125,7 @@ describe("JsonBodyViewer", () => {
             span.text.includes("completed") &&
             span.fg.equals(RGBA.fromHex(theme.success)),
         )
-    await waitForHighlight(renderOnce, tailIsHighlighted)
+    await finishHighlighting(renderOnce)
     expect(tailIsHighlighted()).toBe(true)
   })
 
@@ -187,6 +181,7 @@ describe("JsonBodyViewer", () => {
   })
 
   it("repaints tail-first when highlightPriority flips to end after start", async () => {
+    jest.useFakeTimers()
     const theme = THEMES[0]!
     const body = Array.from({ length: 300 }, (_, i) => `{"line": ${i}}`).join(
       "\n",
@@ -237,9 +232,7 @@ describe("JsonBodyViewer", () => {
       captureSpans()
         .lines.flatMap((line) => line.spans)
         .filter((span) => span.text.includes("299"))
-    await waitForHighlight(renderOnce, () =>
-      tailNumbers().some((span) => span.fg.equals(RGBA.fromHex(theme.warning))),
-    )
+    await finishHighlighting(renderOnce)
     expect(
       tailNumbers().some((span) => span.fg.equals(RGBA.fromHex(theme.warning))),
     ).toBe(true)

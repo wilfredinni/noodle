@@ -41,14 +41,17 @@ async function settle(
   captureCharFrame: () => string,
 ): Promise<void> {
   const deadline = Date.now() + 2_000
-  while (Date.now() < deadline) {
+  await act(async () => {
+    await renderOnce()
+  })
+  while (captureCharFrame().includes("Loading...")) {
+    if (Date.now() >= deadline)
+      throw new Error("Timed out loading collection error editor")
     await act(async () => {
-      await scheduler.wait(0)
+      await scheduler.yield()
       await renderOnce()
     })
-    if (!captureCharFrame().includes("Loading...")) return
   }
-  throw new Error("Timed out loading collection error editor")
 }
 
 beforeEach(async () => {
