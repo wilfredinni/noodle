@@ -14,6 +14,12 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function showUpdateCompleted(skillStatus: string | undefined) {
+  if (skillStatus === "failed")
+    showToast("Noodle updated; skill update failed", "warning")
+  else showToast("Update completed", "success")
+}
+
 function getPreviewFlow(value: string | undefined): UpdateFlowState | null {
   switch (value) {
     case "idle":
@@ -146,7 +152,7 @@ export function useUpdateFlow(
         .then((result) => {
           if (token !== installTokenRef.current) return
           if (result.data.status === "homebrew_updated") {
-            showToast("Update completed", "success")
+            showUpdateCompleted(result.data.skill_status)
             setUpdateFlow({ phase: "done", version: update.version })
           } else {
             const message = result.data.exit_code
@@ -196,7 +202,7 @@ export function useUpdateFlow(
         if (token !== installTokenRef.current) return
         if (result.data.status === "updated") {
           const version = result.data.version ?? update.version
-          showToast("Update completed", "success")
+          showUpdateCompleted(result.data.skill_status)
           setUpdateFlow({ phase: "done", version })
         } else {
           const message =

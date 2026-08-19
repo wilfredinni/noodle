@@ -1,5 +1,13 @@
 import { describe, it, expect } from "bun:test"
-import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises"
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readlink,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import type { CommandMeta, ArgsDef, StringArgDef } from "citty"
@@ -7,6 +15,8 @@ import defaultCommand from "../src/app/commands/default"
 import exportCommand from "../src/app/commands/export"
 import importCommand from "../src/app/commands/import"
 import updateCommand from "../src/app/commands/update"
+import agentCommand from "../src/app/commands/agent"
+import { NOODLE_SKILL_FILES } from "../src/agentSkill"
 import { resolveStartupCollectionDir } from "../src/app/main"
 import { classifyPath } from "../src/collectionPath"
 import { getUserArgsStart } from "../src/app/argv"
@@ -19,6 +29,7 @@ const importArgs = importCommand.args as ArgsDef | undefined
 const exportMeta = exportCommand.meta as CommandMeta | undefined
 const exportArgs = exportCommand.args as ArgsDef | undefined
 const updateMeta = updateCommand.meta as CommandMeta | undefined
+const agentMeta = agentCommand.meta as CommandMeta | undefined
 
 describe("default command (noodle)", () => {
   it("has correct meta name", () => {
@@ -82,6 +93,22 @@ describe("update command", () => {
   })
 })
 
+describe("agent command", () => {
+  it("exposes the nested install command with JSON output", () => {
+    expect(agentMeta?.name).toBe("agent")
+    const subCommands = agentCommand.subCommands as Record<
+      string,
+      { meta?: CommandMeta; args?: ArgsDef }
+    >
+    const install = subCommands.install
+    expect(install?.meta?.name).toBe("install")
+    expect((install?.args as ArgsDef | undefined)?.json).toMatchObject({
+      type: "boolean",
+      default: false,
+    })
+  })
+})
+
 describe("import command", () => {
   it("has correct meta name", () => {
     expect(importMeta?.name).toBe("import")
@@ -139,7 +166,9 @@ describe("CLI integration", () => {
   it("works from a compiled Bun binary", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-cli-compiled-"))
     const binary = join(dir, "noodle")
+    const home = join(dir, "home")
     try {
+      await mkdir(join(home, ".codex"), { recursive: true })
       const build = Bun.spawnSync(
         ["bun", "build", "--compile", CLI, "--outfile", binary],
         { cwd: dir },
@@ -150,6 +179,27 @@ describe("CLI integration", () => {
       expect(proc.exitCode).toBe(0)
       expect(proc.stdout.toString()).toContain("Terminal REST client")
       expect(proc.stderr.toString()).not.toContain("Unknown command")
+
+      const install = Bun.spawnSync([binary, "agent", "install", "--json"], {
+        env: { ...process.env, HOME: home },
+      })
+      expect(install.exitCode).toBe(0)
+      const canonical = join(home, ".agents", "skills", "noodle-use")
+      const codexLink = join(home, ".codex", "skills", "noodle-use")
+      expect(JSON.parse(install.stdout.toString())).toEqual({
+        status: "success",
+        data: {
+          action: "installed",
+          path: canonical,
+          linked: [codexLink],
+        },
+        errors: [],
+      })
+      for (const [path, contents] of Object.entries(NOODLE_SKILL_FILES)) {
+        expect(await readFile(join(canonical, path), "utf8")).toBe(contents)
+      }
+      expect((await lstat(codexLink)).isSymbolicLink()).toBe(true)
+      expect(await readlink(codexLink)).toBe(canonical)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -163,6 +213,7 @@ describe("CLI integration", () => {
     expect(out).toContain("import")
     expect(out).toContain("export")
     expect(out).toContain("update")
+    expect(out).toContain("agent")
   })
 
   it("shows default command flags with noodle --help", () => {
@@ -295,6 +346,16 @@ describe("CLI integration", () => {
     expect(proc.exitCode).toBe(0)
     const out = proc.stdout.toString()
     expect(out).toContain("Update")
+  })
+
+  it("shows nested help for agent skill installation", () => {
+    const agent = Bun.spawnSync(["bun", CLI, "agent", "--help"])
+    expect(agent.exitCode).toBe(0)
+    expect(agent.stdout.toString()).toContain("install")
+
+    const install = Bun.spawnSync(["bun", CLI, "agent", "install", "--help"])
+    expect(install.exitCode).toBe(0)
+    expect(install.stdout.toString()).toContain("json")
   })
 
   it("fails when import is called without source argument", () => {

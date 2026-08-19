@@ -5,6 +5,7 @@ import defaultCommand from "./commands/default"
 import exportCommand from "./commands/export"
 import importCommand from "./commands/import"
 import updateCommand from "./commands/update"
+import agentCommand from "./commands/agent"
 import { getUserArgsStart } from "./argv"
 import {
   workspace,
@@ -25,6 +26,7 @@ const KNOWN_SUBCOMMANDS = new Set([
   "import",
   "export",
   "update",
+  "agent",
   "workspace",
   "collection",
   "request",
@@ -73,6 +75,7 @@ const main = defineCommand({
     import: importCommand,
     export: exportCommand,
     update: updateCommand,
+    agent: agentCommand,
     workspace,
     collection,
     request,

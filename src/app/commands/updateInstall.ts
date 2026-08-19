@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { chmod, mkdtemp, rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
+import { isNoodleSkillInstalled } from "../../agentSkill"
 import {
   getHomebrewExecutable,
   isBunRuntime,
@@ -29,6 +30,39 @@ export function parseChecksumManifest(
   return null
 }
 
+async function refreshInstalledSkill(
+  installed: boolean,
+  executable: string,
+  deps: UpdateDependencies,
+  output: (message: string) => void,
+): Promise<Record<string, string>> {
+  if (!installed) return {}
+  try {
+    const result = await deps.runProcess(
+      [executable, "agent", "install", "--json"],
+      true,
+      { env: deps.env },
+    )
+    if (result.exitCode === 0) {
+      output("Noodle skill updated.")
+      return { skill_status: "updated" }
+    }
+  } catch {
+    // The Noodle update remains successful; the warning below has the retry.
+  }
+  output("Warning: Noodle updated, but its skill could not be refreshed.")
+  output("Retry with: noodle agent install")
+  return {
+    skill_status: "failed",
+    skill_retry: "noodle agent install",
+  }
+}
+
+async function hasInstalledSkill(deps: UpdateDependencies): Promise<boolean> {
+  if (deps.env.HOME === undefined && deps.env !== process.env) return false
+  return isNoodleSkillInstalled(deps.env.HOME)
+}
+
 async function runHomebrewUpdate(
   silent: boolean,
   deps: UpdateDependencies,
@@ -37,6 +71,7 @@ async function runHomebrewUpdate(
     if (!silent) console.log(message)
   }
   output("Updating noodle via Homebrew...")
+  const skillInstalled = await hasInstalledSkill(deps)
   try {
     const result = await deps.runProcess(
       [getHomebrewExecutable(deps.execPath), "upgrade", "noodle"],
@@ -57,8 +92,18 @@ async function runHomebrewUpdate(
       }
     }
     output("Homebrew upgrade completed.")
+    const skill = await refreshInstalledSkill(
+      skillInstalled,
+      join(dirname(getHomebrewExecutable(deps.execPath)), "noodle"),
+      deps,
+      output,
+    )
     return {
-      data: { status: "homebrew_updated", command: "brew upgrade noodle" },
+      data: {
+        status: "homebrew_updated",
+        command: "brew upgrade noodle",
+        ...skill,
+      },
     }
   } catch {
     output("Unable to run Homebrew. Is `brew` installed and available on PATH?")
@@ -113,6 +158,7 @@ async function downloadAndInstall(
 ): Promise<{ data: Record<string, string>; failed?: boolean }> {
   const assetName = getAssetName(deps.platform, deps.arch)
   const platform = getPlatformString(deps.platform, deps.arch)
+  const skillInstalled = await hasInstalledSkill(deps)
   output(`Downloading ${tag} for ${platform}...`)
   onPhase?.("downloading")
   let stagingDir: string | undefined
@@ -133,7 +179,13 @@ async function downloadAndInstall(
     await chmod(stagedPath, 0o755)
     await rename(stagedPath, deps.execPath)
     output(`Updated to ${tag}`)
-    return { data: { status: "updated", version: tag } }
+    const skill = await refreshInstalledSkill(
+      skillInstalled,
+      deps.execPath,
+      deps,
+      output,
+    )
+    return { data: { status: "updated", version: tag, ...skill } }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     output(`Failed to update: ${reason}`)

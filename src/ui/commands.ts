@@ -50,6 +50,7 @@ import {
   undoAll,
   openThemePicker,
   openAbout,
+  installAgentSkill,
   openCollectionExport,
   openCollectionImport,
   openCollectionSwitcher,
@@ -609,6 +610,12 @@ export function buildCommandPaletteCommands(
   ]
 
   const systemCommands: CommandItem[] = [
+    {
+      id: "app.agent-skill-install",
+      label: "Install Noodle skill",
+      section: "System",
+      run: installAgentSkill,
+    },
     {
       id: "app.settings-folder-open-in-editor",
       label: "Open Settings in Editor",

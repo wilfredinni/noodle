@@ -25,6 +25,7 @@ import type { TlsPolicy } from "../tls"
 import type { SendState } from "./sendState"
 import type { ResponseQueryController } from "./responseQuery"
 import { launchExternalEditor, type ExternalEditor } from "../externalEditor"
+import { installNoodleSkill, type AgentSkillInstallResult } from "../agentSkill"
 
 export interface CommandActionsConfig {
   collectionDir: string
@@ -426,6 +427,28 @@ export function openThemePicker(): boolean {
 }
 
 export function openAbout(): boolean {
+  return true
+}
+
+export function installAgentSkill(
+  installer: () => Promise<AgentSkillInstallResult> = installNoodleSkill,
+  notify: typeof showToast = showToast,
+): boolean {
+  void installer()
+    .then(({ action }) =>
+      notify(
+        action === "installed"
+          ? "Noodle skill installed"
+          : "Noodle skill updated",
+        "success",
+      ),
+    )
+    .catch((error: unknown) =>
+      notify(
+        `Failed to install Noodle skill: ${error instanceof Error ? error.message : String(error)}`,
+        "error",
+      ),
+    )
   return true
 }
 

@@ -5,6 +5,20 @@ REPO="wilfredinni/noodle"
 BIN_NAME="noodle"
 INSTALL_DIR="${NOODLE_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${NOODLE_VERSION:-latest}"
+SKILL_INSTALLED=0
+
+for skill_path in \
+  "$HOME/.agents/skills/noodle-use" \
+  "$HOME/.claude/skills/noodle-use" \
+  "$HOME/.cursor/skills/noodle-use" \
+  "$HOME/.codex/skills/noodle-use" \
+  "$HOME/.config/opencode/skills/noodle-use"
+do
+  if [ -e "$skill_path" ] || [ -L "$skill_path" ]; then
+    SKILL_INSTALLED=1
+    break
+  fi
+done
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -101,6 +115,15 @@ mv "$STAGED_FILE" "$INSTALL_DIR/$BIN_NAME"
 STAGED_FILE=""
 
 printf '%b\n' "${GREEN}Installed to $INSTALL_DIR/$BIN_NAME${NC}"
+
+if [ "$SKILL_INSTALLED" -eq 1 ]; then
+  if "$INSTALL_DIR/$BIN_NAME" agent install --json >/dev/null 2>&1; then
+    printf '%b\n' "${GREEN}Updated Noodle skill.${NC}"
+  else
+    printf '%b\n' "${YELLOW}Warning: Noodle was installed, but its skill could not be refreshed.${NC}" >&2
+    echo "Retry with: noodle agent install" >&2
+  fi
+fi
 
 if ! echo "$PATH" | tr ':' '\n' | grep -qxF "$INSTALL_DIR"; then
   printf '%b\n' "${YELLOW}Warning: $INSTALL_DIR is not in your PATH.${NC}"

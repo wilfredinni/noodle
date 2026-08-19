@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import pkg from "../../package.json" with { type: "json" }
@@ -1129,6 +1129,82 @@ describe("installBinaryUpdate", () => {
     }
   })
 
+  it("refreshes a pre-existing skill with the newly installed binary", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-install-skill-"))
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    const commands: string[][] = []
+    try {
+      await writeFile(executable, "old")
+      await mkdir(join(dir, ".agents", "skills", "noodle-use"), {
+        recursive: true,
+      })
+      const result = await installBinaryUpdate(
+        "v0.5.5",
+        "https://example.com/noodle-binary",
+        sha256(binary),
+        {
+          execPath: executable,
+          platform: "darwin",
+          arch: "arm64",
+          env: { HOME: dir },
+          fetcher: async () => new Response(binary),
+          runProcess: async (args) => {
+            commands.push(args)
+            return { exitCode: 0 }
+          },
+        },
+      )
+
+      expect(result).toEqual({
+        data: {
+          status: "updated",
+          version: "v0.5.5",
+          skill_status: "updated",
+        },
+      })
+      expect(commands).toEqual([[executable, "agent", "install", "--json"]])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("keeps a binary update successful when skill refresh fails", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-install-skill-fail-"))
+    const executable = join(dir, "noodle")
+    const binary = new TextEncoder().encode("new")
+    try {
+      await writeFile(executable, "old")
+      await mkdir(join(dir, ".codex", "skills", "noodle-use"), {
+        recursive: true,
+      })
+      const result = await installBinaryUpdate(
+        "v0.5.5",
+        "https://example.com/noodle-binary",
+        sha256(binary),
+        {
+          execPath: executable,
+          platform: "darwin",
+          arch: "arm64",
+          env: { HOME: dir },
+          fetcher: async () => new Response(binary),
+          runProcess: async () => ({ exitCode: 1 }),
+        },
+      )
+
+      expect(result.failed).toBeUndefined()
+      expect(result.data).toEqual({
+        status: "updated",
+        version: "v0.5.5",
+        skill_status: "failed",
+        skill_retry: "noodle agent install",
+      })
+      expect(await readFile(executable, "utf8")).toBe("new")
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("does not replace binary when checksum fails", async () => {
     const dir = await mkdtemp(join(tmpdir(), "noodle-install-checksum-"))
     const executable = join(dir, "noodle")
@@ -1234,6 +1310,68 @@ describe("installBrewUpdate", () => {
       "noodle",
     ])
     expect(receivedEnv).toBe(env)
+  })
+
+  it("refreshes an installed skill from Homebrew's stable bin path", async () => {
+    const home = await mkdtemp(join(tmpdir(), "noodle-brew-skill-"))
+    const commands: string[][] = []
+    try {
+      await mkdir(join(home, ".agents", "skills", "noodle-use"), {
+        recursive: true,
+      })
+      const result = await installBrewUpdate({
+        execPath: homebrewExecPath,
+        platform: "darwin",
+        arch: "arm64",
+        env: { HOME: home },
+        runProcess: async (args) => {
+          commands.push(args)
+          return { exitCode: 0 }
+        },
+      })
+
+      expect(result).toEqual({
+        data: {
+          status: "homebrew_updated",
+          command: "brew upgrade noodle",
+          skill_status: "updated",
+        },
+      })
+      expect(commands).toEqual([
+        ["/opt/homebrew/bin/brew", "upgrade", "noodle"],
+        ["/opt/homebrew/bin/noodle", "agent", "install", "--json"],
+      ])
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  it("keeps a Homebrew update successful when skill refresh fails", async () => {
+    const home = await mkdtemp(join(tmpdir(), "noodle-brew-skill-fail-"))
+    try {
+      await mkdir(join(home, ".cursor", "skills", "noodle-use"), {
+        recursive: true,
+      })
+      const result = await installBrewUpdate({
+        execPath: homebrewExecPath,
+        platform: "darwin",
+        arch: "arm64",
+        env: { HOME: home },
+        runProcess: async (args) => ({
+          exitCode: args[0].endsWith("/noodle") ? 1 : 0,
+        }),
+      })
+
+      expect(result.failed).toBeUndefined()
+      expect(result.data).toEqual({
+        status: "homebrew_updated",
+        command: "brew upgrade noodle",
+        skill_status: "failed",
+        skill_retry: "noodle agent install",
+      })
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
   })
 
   it("reports brew upgrade failure", async () => {

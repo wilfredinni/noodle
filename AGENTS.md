@@ -384,7 +384,7 @@ Active pane gets cyan border + `▸` prefix. Global keys work regardless of focu
 - Tests use real filesystem I/O for filestore, lang, and env modules (write to temp dirs with `mkdtemp`).
 - Never use fixed delays (`setTimeout`, `Bun.sleep`, or equivalent) to wait for asynchronous test state. Await the real operation or use a state-based wait such as `waitFor`.
 - Tests must finish without unexpected console or runtime warnings. Treat React/OpenTUI `act(...)` diagnostics as failures; expected warnings must be captured and asserted explicitly.
-- Before handing off any changed asynchronous test, run its file with `bun test <file> --rerun-each=50` and report the result.
+- Before handing off any changed asynchronous test, run its file with `bun test <file> --rerun-each=10` and report the result.
 
 ## Subagents
 

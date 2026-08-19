@@ -176,6 +176,15 @@ hosted integration.
 Install the `noodle-use` skill:
 
 ```bash
+noodle agent install
+```
+
+Noodle keeps the skill synchronized when it updates. The installer stores the
+managed copy under `~/.agents/skills/noodle-use` and links detected Claude,
+Cursor, Codex, and OpenCode installations to it. For other clients, use the
+skills CLI fallback:
+
+```bash
 npx skills add wilfredinni/noodle --skill noodle-use -g
 ```
 
