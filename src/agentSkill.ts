@@ -73,7 +73,7 @@ async function exists(path: string): Promise<boolean> {
     return true
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return false
-    throw error
+    throw new Error(`Failed to inspect path ${path}`, { cause: error })
   }
 }
 
@@ -85,7 +85,9 @@ async function hasManagedMarker(path: string): Promise<boolean> {
     )
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return false
-    throw error
+    throw new Error(`Failed to read skill marker for ${path}`, {
+      cause: error,
+    })
   }
 }
 
@@ -95,7 +97,9 @@ async function assertReplaceablePath(targetPath: string): Promise<void> {
     info = await lstat(targetPath)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return
-    throw error
+    throw new Error(`Failed to inspect skill path ${targetPath}`, {
+      cause: error,
+    })
   }
 
   if (info.isSymbolicLink()) return
@@ -132,7 +136,9 @@ async function replacePath(stagedPath: string, targetPath: string) {
           cause: restoreError,
         })
       }
-      throw error
+      throw new Error(`Failed to validate backed-up skill path ${backupPath}`, {
+        cause: error,
+      })
     }
   }
 
