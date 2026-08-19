@@ -16,11 +16,16 @@ const install = defineCommand({
       default: false,
       description: "Write one JSON result envelope to stdout",
     },
+    force: {
+      type: "boolean",
+      default: false,
+      description: "Replace all detected unmanaged skill paths",
+    },
   },
   async run({ args }) {
     await emitCommand(
       args.json === true,
-      async () => ({ data: await installNoodleSkill() }),
+      async () => ({ data: await installNoodleSkill(undefined, args.force) }),
       formatInstall,
     )
   },

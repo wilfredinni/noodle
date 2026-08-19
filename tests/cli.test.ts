@@ -94,7 +94,7 @@ describe("update command", () => {
 })
 
 describe("agent command", () => {
-  it("exposes the nested install command with JSON output", () => {
+  it("exposes the nested install command with JSON and force options", () => {
     expect(agentMeta?.name).toBe("agent")
     const subCommands = agentCommand.subCommands as Record<
       string,
@@ -103,6 +103,10 @@ describe("agent command", () => {
     const install = subCommands.install
     expect(install?.meta?.name).toBe("install")
     expect((install?.args as ArgsDef | undefined)?.json).toMatchObject({
+      type: "boolean",
+      default: false,
+    })
+    expect((install?.args as ArgsDef | undefined)?.force).toMatchObject({
       type: "boolean",
       default: false,
     })
@@ -356,6 +360,7 @@ describe("CLI integration", () => {
     const install = Bun.spawnSync(["bun", CLI, "agent", "install", "--help"])
     expect(install.exitCode).toBe(0)
     expect(install.stdout.toString()).toContain("json")
+    expect(install.stdout.toString()).toContain("force")
   })
 
   it("fails when import is called without source argument", () => {
