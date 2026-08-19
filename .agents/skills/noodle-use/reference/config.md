@@ -7,7 +7,7 @@ Noodle's global config lives at `~/.config/noodle/`. Two files.
 User preferences for TUI appearance, workspace management, and undo behavior:
 
 ```yaml
-theme: catppuccin
+theme: noodle
 layout: stacked
 confirm_undo_all: true
 collections:
@@ -24,7 +24,7 @@ All fields are optional; missing fields use defaults.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `theme` | string | `"catppuccin"` | TUI theme name. Controls colors and styling. Noodle does NOT validate this value — it passes the string to OpenTUI, which falls back to its own default if unrecognized. Known theme names: `opencode`, `catppuccin`, `dracula`, `nord`, `tokyonight`, `gruvbox`, `ayu`, `monokai`, `solarized`, `onedark`, `aura`, `everforest`, `kanagawa`, `rosepine`, `material`, `carbonfox`, `synthwave84`, `catppuccin-frappe`, `catppuccin-macchiato`, `cobalt2`, `cursor`, `flexoki`, `github`, `matrix`, `mercury`, `nightowl`, `orng`, `osaka-jade`, `palenight`, `vercel`, `vesper`, `zenburn`. |
+| `theme` | string | `"noodle"` | TUI theme name. Controls colors and styling. Noodle does NOT validate this value; an unrecognized name falls back to the Noodle theme. Known theme names: `opencode`, `catppuccin`, `dracula`, `nord`, `tokyonight`, `gruvbox`, `ayu`, `monokai`, `solarized`, `onedark`, `aura`, `everforest`, `kanagawa`, `rosepine`, `material`, `carbonfox`, `synthwave84`, `catppuccin-frappe`, `catppuccin-macchiato`, `cobalt2`, `cursor`, `flexoki`, `github`, `matrix`, `mercury`, `nightowl`, `noodle`, `orng`, `osaka-jade`, `palenight`, `vercel`, `vesper`, `zenburn`. |
 | `layout` | `"stacked"` \| `"side-by-side"` | `"stacked"` | Pane arrangement. `stacked` = vertical (sidebar top, request middle, response bottom). `side-by-side` = horizontal split. Invalid values fall back to `"stacked"`. |
 | `confirm_undo_all` | boolean | `true` | Whether `Ctrl+R` (revert all request fields) shows a confirmation dialog before reverting. Set to `false` to skip the confirmation. |
 | `collections` | string[] | `[]` | List of absolute paths to noodle collections. These appear in the workspace selector. Paths are resolved and normalized on load/save (duplicates and empty strings removed). Noodle prepends the current collection to this list when switching directories. TUI startup selects the first registered path that still exists, then falls back to `./collections`. |

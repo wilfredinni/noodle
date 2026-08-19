@@ -24,7 +24,7 @@ noodle [<path>] [--collection <dir>] [--env <name>] [--noproxy] [--insecure]
 noodle import <source> [--format <format>] [--output <dir>]
 noodle export <collection> --format <openapi|postman> --output <file|dir>
 noodle update
-noodle agent install [--json]
+noodle agent install [--json] [--force]
 noodle workspace list [--json]
 noodle collection <create|init|list|inspect|format|audit|run> ... [--noproxy] [--insecure] [--json]
 noodle request <create|run> ... [--noproxy] [--insecure] [--json]
@@ -37,7 +37,7 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **Import subcommand**: `source` (positional, required), `--format/-i` (`openapi`, `swagger`, `postman`, or `insomnia`; auto-detected if omitted), `--output/-o` (default: ./collections)
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values except that `@/` file paths expand to absolute home paths, so review exports for secrets and local path disclosure before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
-- **Agent subcommand**: `agent install` writes the embedded `noodle-use` skill to `~/.agents/skills/noodle-use` and links detected Claude, Cursor, Codex, and OpenCode installations to that managed copy. Existing managed installations refresh after successful standalone, Homebrew, TUI, and curl-installer updates; refresh failures do not roll back Noodle and include a retry command.
+- **Agent subcommand**: `agent install` writes the embedded `noodle-use` skill to `~/.agents/skills/noodle-use` and links detected Claude, Cursor, Codex, and OpenCode installations to that managed copy. It preserves unmanaged targets by default and reports every conflict; `--force` deliberately replaces all reported paths with backup-backed rollback if any target fails. Existing managed installations refresh after successful standalone, Homebrew, TUI, and curl-installer updates; refresh failures do not roll back Noodle and include a retry command.
 - **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [--env] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
 - **TUI path modes**: Existing collection roots open in collection mode. Directories containing request YAML but no collection markers open in read-only browse mode; empty directories open in read-only empty mode. Invalid or non-directory paths exit with an error. Initialize browse/empty directories from the command palette before editing or sending.
@@ -144,7 +144,7 @@ src/
     │   └── envHighlight.ts             # splitEnvVars — segments text into plain/resolved $var
     ├── [themes]
     │   ├── theme.tsx                   # ThemeProvider, useTheme, ThemePickerOverlay
-    │   └── theme-data.ts              # 32 themes, Theme interface, THEMES array
+    │   └── theme-data.ts              # 33 themes, Theme interface, THEMES array
     ├── [infrastructure]
     │   ├── keybind.ts                  # Keybinding definitions, CommandMap, parseOverrides
     │   ├── helpTexts.ts                # Help overlay section/keys builder

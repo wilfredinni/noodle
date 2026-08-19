@@ -4,6 +4,26 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-08-19
+
+Noodle 0.7.7 gives the terminal client a Noodle theme drawn from the website palette and makes it the default for configurations without a saved theme. Agent skill installation also gains an explicit `--force` recovery path with backup-backed rollback if any target fails.
+
+### ✨ Features
+
+- Add the Noodle theme alongside the existing 32 themes and use it by default when no theme is saved, while preserving existing theme selections.
+- Add `noodle agent install --force` for deliberately replacing detected unmanaged skill copies. The installer reports every conflict before changing anything, retains backups until the full installation succeeds, and rolls completed replacements back when a later target fails.
+
+### 🔧 Refactors
+
+- Share OpenTUI keymap test setup and cleanup, and replace fixed-delay waits with controlled timers or operation-based synchronization across UI tests.
+
+### 📚 Documentation
+
+- Update the README, `AGENTS.md`, and documentation site for the Noodle theme, 33-theme catalog, default-theme behavior, and explicit unmanaged-skill recovery.
+- Update `noodle-dev` with the current theme catalog and rollback-safe `--force` installation architecture.
+- Update `noodle-use` with the Noodle default theme and complete theme-name reference.
+- Update `noodle-release` to require a release blog post based on the evidence-backed changelog section.
+
 ## [0.7.6] - 2026-08-18
 
 Noodle 0.7.6 adds a built-in, network-free installer for the `noodle-use` agent skill and keeps managed installations synchronized when Noodle updates. It also makes runtime shortcut changes take effect immediately and stabilizes toast feedback.

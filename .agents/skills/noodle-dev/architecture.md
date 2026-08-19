@@ -301,7 +301,7 @@ the application services.
 
 ### Theme data (src/ui/theme-data.ts)
 
-- 32 themes defined in `THEMES[]` array
+- 33 themes defined in `THEMES[]` array; `noodle` is the default when no theme is saved
 - `Theme` interface: `{ name, primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, borderSubtle, borderDimmest }`
 
 ### Theme provider (src/ui/theme.tsx)
@@ -350,7 +350,7 @@ ui/              ← OpenTUI components + pure helpers + keymap layers
   │   ├── editor/CodeEditor.ts — renderable orchestration; highlight, fold, key, style, and validation modules
   │   ├── variable-completion/variableCompletion.ts — $var autocompletion engine
   │   ├── commands.ts / commandActions.ts — command palette infrastructure
-  │   ├── theme.tsx / theme-data.ts — 32 themes with live preview
+  │   ├── theme.tsx / theme-data.ts: 33 themes with live preview
   │   ├── settings/SettingsView.tsx — global and collection Settings workspace
   │   ├── settings/ProxySettingsForm.tsx — proxy policy editor
   │   ├── clipboard.ts — multi-platform clipboard + OSC 52 fallback
@@ -502,7 +502,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Update mode** (`src/app/commands/update.ts`): Standalone release binaries read the Noodle update manifest and cache its validated version and checksums in `~/.config/noodle/update-cache.json`. A valid cached manifest avoids repeat checks for one hour and remains available for update fallback for seven days. Downloaded binaries must match the manifest SHA-256 before atomic replacement. Homebrew installs run `brew upgrade noodle`; Bun development runtimes cannot self-update. When a managed `noodle-use` installation already exists, `updateInstall.ts` refreshes it with the updated executable and reports a retry without rolling back a successful Noodle update if refresh fails.
 
-**Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically; unmanaged paths are rejected.
+**Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json] [--force]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically. Unmanaged paths are rejected and reported together unless `--force` is supplied; forced replacements retain backups until every target succeeds and roll back completed targets on failure.
 
 **Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. Run commands support one-shot `--noproxy` and `--insecure` overrides and use the same collection jar as the TUI. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
