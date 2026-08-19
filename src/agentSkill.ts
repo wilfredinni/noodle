@@ -3,6 +3,7 @@ import {
   lstat,
   mkdir,
   mkdtemp,
+  readFile,
   rename,
   rm,
   symlink,
@@ -34,6 +35,9 @@ export const NOODLE_SKILL_FILES = {
   "reference/conventions.md": conventions,
   "reference/examples.md": examples,
 } as const
+
+export const NOODLE_SKILL_MARKER = ".noodle-managed"
+const NOODLE_SKILL_MARKER_CONTENT = "noodle-use\n"
 
 export interface AgentSkillInstallResult {
   action: "installed" | "updated"
@@ -73,6 +77,32 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+async function hasManagedMarker(path: string): Promise<boolean> {
+  try {
+    return (
+      (await readFile(join(path, NOODLE_SKILL_MARKER), "utf8")) ===
+      NOODLE_SKILL_MARKER_CONTENT
+    )
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false
+    throw error
+  }
+}
+
+async function assertReplaceablePath(targetPath: string): Promise<void> {
+  let info
+  try {
+    info = await lstat(targetPath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return
+    throw error
+  }
+
+  if (info.isSymbolicLink()) return
+  if (info.isDirectory() && (await hasManagedMarker(targetPath))) return
+  throw new Error(`Refusing to replace unmanaged skill path ${targetPath}`)
+}
+
 export async function isNoodleSkillInstalled(home?: string): Promise<boolean> {
   for (const path of getNoodleSkillPaths(home).recognized) {
     try {
@@ -88,9 +118,22 @@ async function replacePath(stagedPath: string, targetPath: string) {
   const parent = dirname(targetPath)
   let backupPath: string | undefined
   if (await exists(targetPath)) {
+    await assertReplaceablePath(targetPath)
     backupPath = await mkdtemp(join(parent, ".noodle-use-backup-"))
     await rm(backupPath, { recursive: true, force: true })
     await rename(targetPath, backupPath)
+    try {
+      await assertReplaceablePath(backupPath)
+    } catch (error) {
+      try {
+        await rename(backupPath, targetPath)
+      } catch (restoreError) {
+        throw new Error(`Failed to restore ${targetPath}`, {
+          cause: restoreError,
+        })
+      }
+      throw error
+    }
   }
 
   try {
@@ -114,6 +157,10 @@ async function writeCanonicalSkill(path: string) {
       await mkdir(dirname(filePath), { recursive: true })
       await writeFile(filePath, contents)
     }
+    await writeFile(
+      join(stagedPath, NOODLE_SKILL_MARKER),
+      NOODLE_SKILL_MARKER_CONTENT,
+    )
     await replacePath(stagedPath, path)
   } finally {
     await rm(stagingRoot, { recursive: true, force: true })
@@ -159,6 +206,9 @@ export async function installNoodleSkill(
   const { canonical } = getNoodleSkillPaths(root)
   const action = (await isNoodleSkillInstalled(root)) ? "updated" : "installed"
   const linked = await detectedToolLinks(root)
+
+  await assertReplaceablePath(canonical)
+  for (const target of linked) await assertReplaceablePath(target)
 
   await writeCanonicalSkill(canonical)
   for (const target of linked) await linkSkill(target, canonical)
