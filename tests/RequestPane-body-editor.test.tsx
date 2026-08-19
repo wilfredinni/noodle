@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { act, useEffect, useState } from "react"
-import { MouseButtons } from "@opentui/core/testing"
+import { ManualClock, MouseButtons } from "@opentui/core/testing"
 import { addDefaultParsers } from "@opentui/core"
 import { createTestRender } from "./testRender"
 import { extend } from "@opentui/react"
@@ -176,7 +176,6 @@ describe("BodySection — edit mode", () => {
     await renderOnce()
     await act(async () => {
       await mockInput.typeText("b")
-      await new Promise((resolve) => setTimeout(resolve, 0))
     })
     await flush()
     await waitFor(() => draftState!.draft?.body === "ab")
@@ -194,6 +193,7 @@ describe("BodySection — edit mode", () => {
   })
 
   it("keeps a request-body selection anchored while dragging beyond the viewport", async () => {
+    const clock = new ManualClock()
     const { keymap, cleanup } = setupKeymap()
     const body = Array.from(
       { length: 30 },
@@ -218,7 +218,7 @@ describe("BodySection — edit mode", () => {
             </box>
           </ThemeProvider>
         </KeymapProvider>,
-        { width: 48, height: 12 },
+        { width: 48, height: 12, clock },
       )
     await renderOnce()
     await renderOnce()
@@ -237,7 +237,7 @@ describe("BodySection — edit mode", () => {
       await mockMouse.moveTo(x, editor.y + editor.height, { delayMs: 25 })
     })
     for (let frame = 0; frame < 4; frame++) {
-      await new Promise((resolve) => setTimeout(resolve, 30))
+      clock.setTime(clock.now() + 30)
       await renderOnce()
     }
 
@@ -249,7 +249,7 @@ describe("BodySection — edit mode", () => {
       await mockMouse.release(x, editor.y + editor.height)
     })
     const scrollAfterRelease = editor.scrollY
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    clock.setTime(clock.now() + 50)
     await renderOnce()
     expect(editor.scrollY).toBe(scrollAfterRelease)
     cleanup()
@@ -741,27 +741,31 @@ describe("BodySection — edit mode", () => {
   it("toggles a JSON fold from its gutter icon", async () => {
     const { keymap, cleanup } = setupKeymap()
     const body = '{\n  "name": "hello",\n  "count": 42\n}'
-    const { renderOnce, captureCharFrame, mockMouse } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <box width={80} height={20}>
-            <RequestPane
-              request={{ ...testRequest, body }}
-              editState={editStateEditing}
-              editKey=""
-              editValue={body}
-              setEditKey={() => {}}
-              setEditValue={() => {}}
-              focused={true}
-              activeTab="body"
-            />
-          </box>
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 80, height: 20 },
-    )
+    const { renderer, renderOnce, captureCharFrame, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <box width={80} height={20}>
+              <RequestPane
+                request={{ ...testRequest, body }}
+                editState={editStateEditing}
+                editKey=""
+                editValue={body}
+                setEditKey={() => {}}
+                setEditValue={() => {}}
+                focused={true}
+                activeTab="body"
+              />
+            </box>
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 20 },
+      )
     await renderOnce()
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    const editor = renderer.root.findDescendantById(
+      "request-body-editor",
+    ) as CodeEditorRenderable
+    await editor.refreshHighlights()
     await renderOnce()
 
     const rows = captureCharFrame().split("\n")

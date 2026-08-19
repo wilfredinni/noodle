@@ -1,5 +1,4 @@
-import { afterEach, describe, it, expect } from "bun:test"
-import { testRender as openTUITestRender } from "@opentui/react/test-utils"
+import { describe, it, expect } from "bun:test"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { act } from "react"
@@ -17,20 +16,10 @@ import {
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { scheduler } from "node:timers/promises"
+import { createTestRender } from "../testRender"
 
-let renderer: Awaited<ReturnType<typeof openTUITestRender>>["renderer"] | null =
-  null
-
-async function testRender(...args: Parameters<typeof openTUITestRender>) {
-  const setup = await openTUITestRender(...args)
-  renderer = setup.renderer
-  return setup
-}
-
-afterEach(() => {
-  act(() => renderer?.destroy())
-  renderer = null
-})
+const testRender = createTestRender()
 
 function env(vars: Record<string, string>): Environment {
   return { name: "test-env", vars }
@@ -93,7 +82,7 @@ async function waitForAsyncFrame(
   const deadline = Date.now() + 2000
   while (true) {
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 5))
+      await scheduler.yield()
       await renderOnce()
     })
     const frame = captureCharFrame()

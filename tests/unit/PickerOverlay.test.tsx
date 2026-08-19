@@ -3,35 +3,12 @@ import { act } from "react"
 import { RGBA } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { createTestRender } from "../testRender"
-import { createTestKeymap } from "@opentui/keymap/testing"
-import {
-  registerEnabledFields,
-  registerDefaultKeys,
-} from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { THEMES, ThemeProvider } from "../../src/ui/theme"
 import { PickerOverlay } from "../../src/ui/overlays/PickerOverlay"
+import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
-
-function setupKeymap() {
-  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
-  const disposeEnabled = registerEnabledFields(keymap)
-  const disposeKeys = registerDefaultKeys(keymap)
-  keymap.setData("app.mode", "base")
-  keymap.setData("app.focus", "sidebar")
-  keymap.setData("app.overlay", "none")
-  return {
-    keymap: keymap as unknown as KeymapProviderProps["keymap"],
-    host,
-    cleanup: () => {
-      disposeEnabled()
-      disposeKeys()
-      hostCleanup()
-    },
-  }
-}
 
 interface TestItem {
   id: string

@@ -1,37 +1,16 @@
 import { describe, expect, it } from "bun:test"
 import { RGBA, type BoxRenderable } from "@opentui/core"
-import { createTestKeymap } from "@opentui/keymap/testing"
-import {
-  registerDefaultKeys,
-  registerEnabledFields,
-} from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { act, useState } from "react"
 import { createTestRender } from "../testRender"
 import type { CollectionTlsSettings } from "../../src/schema"
 import { ThemeProvider } from "../../src/ui/theme"
 import { auraTheme } from "../../src/ui/theme-data"
 import { TlsSettingsForm } from "../../src/ui/settings/TlsSettingsForm"
+import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
 const TLS_SECRET_ID = "123e4567-e89b-42d3-a456-426614174000"
-
-function setupKeymap() {
-  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
-  const disposeEnabled = registerEnabledFields(keymap)
-  const disposeKeys = registerDefaultKeys(keymap)
-  keymap.setData("app.overlay", "none")
-  return {
-    keymap: keymap as unknown as KeymapProviderProps["keymap"],
-    host,
-    cleanup: () => {
-      disposeEnabled()
-      disposeKeys()
-      hostCleanup()
-    },
-  }
-}
 
 describe("TlsSettingsForm", () => {
   it("moves between fields with the arrow keys", async () => {

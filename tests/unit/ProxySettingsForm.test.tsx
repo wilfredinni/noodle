@@ -2,34 +2,14 @@ import { describe, expect, it } from "bun:test"
 import { act, useState } from "react"
 import { type BoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
-import { createTestKeymap } from "@opentui/keymap/testing"
-import {
-  registerDefaultKeys,
-  registerEnabledFields,
-} from "@opentui/keymap/addons"
 import { KeymapProvider } from "@opentui/keymap/react"
-import type { KeymapProviderProps } from "@opentui/keymap/react"
 import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { ProxySettingsForm } from "../../src/ui/settings/ProxySettingsForm"
 import type { AppProxySettings, ProxyCredentials } from "../../src/schema"
+import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
-
-function setupKeymap() {
-  const { keymap, host, cleanup: hostCleanup } = createTestKeymap()
-  const disposeEnabled = registerEnabledFields(keymap)
-  const disposeKeys = registerDefaultKeys(keymap)
-  return {
-    keymap: keymap as unknown as KeymapProviderProps["keymap"],
-    host,
-    cleanup: () => {
-      disposeEnabled()
-      disposeKeys()
-      hostCleanup()
-    },
-  }
-}
 
 describe("ProxySettingsForm", () => {
   it("moves between fields with the arrow keys", async () => {

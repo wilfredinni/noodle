@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { act, useState } from "react"
 import { extend } from "@opentui/react"
 import type { BoxRenderable } from "@opentui/core"
@@ -7,6 +7,7 @@ import { KeymapProvider } from "@opentui/keymap/react"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { scheduler } from "node:timers/promises"
 import { createTestRender } from "../testRender"
 import { setupKeymap } from "./_helpers"
 import { ThemeProvider } from "../../src/ui/theme"
@@ -35,11 +36,22 @@ const errors: CollectionFileError[] = [
   },
 ]
 
-async function settle(renderOnce: () => Promise<void>): Promise<void> {
+async function settle(
+  renderOnce: () => Promise<void>,
+  captureCharFrame: () => string,
+): Promise<void> {
+  const deadline = Date.now() + 2_000
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await renderOnce()
   })
-  await renderOnce()
+  while (captureCharFrame().includes("Loading...")) {
+    if (Date.now() >= deadline)
+      throw new Error("Timed out loading collection error editor")
+    await act(async () => {
+      await scheduler.yield()
+      await renderOnce()
+    })
+  }
 }
 
 beforeEach(async () => {
@@ -76,7 +88,7 @@ describe("CollectionErrorView", () => {
       </KeymapProvider>,
       { width: 100, height: 28 },
     )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     const frame = captureCharFrame()
     const frameLines = frame.split("\n")
@@ -130,7 +142,7 @@ describe("CollectionErrorView", () => {
       </KeymapProvider>,
       { width: 100, height: 12 },
     )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     const frame = captureCharFrame()
     const sidebarFrame = frame.split("\n").slice(0, 3).join("\n")
@@ -159,10 +171,10 @@ describe("CollectionErrorView", () => {
       </KeymapProvider>,
       { width: 100, height: 28 },
     )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     await act(async () => mockInput.pressKey("ARROW_DOWN"))
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
     expect(captureCharFrame()).toContain("name: second")
     cleanup()
   })
@@ -185,7 +197,7 @@ describe("CollectionErrorView", () => {
         </KeymapProvider>,
         { width: 100, height: 28 },
       )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     const row = renderer.root.findDescendantById(
       "collection-error-1",
@@ -193,7 +205,7 @@ describe("CollectionErrorView", () => {
     await act(async () => {
       await mockMouse.click(row.screenX + 1, row.screenY, MouseButtons.LEFT)
     })
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
     expect(captureCharFrame()).toContain("name: second")
     cleanup()
   })
@@ -202,6 +214,10 @@ describe("CollectionErrorView", () => {
     const { keymap, cleanup } = setupKeymap()
     let dirty = false
     let saved = 0
+    let resolveSaved: (() => void) | undefined
+    const savedPromise = new Promise<void>((resolve) => {
+      resolveSaved = resolve
+    })
     const saveActionRef: { current: (() => void) | null } = { current: null }
     const { renderOnce, captureCharFrame, renderer } = await testRender(
       <KeymapProvider keymap={keymap}>
@@ -214,13 +230,16 @@ describe("CollectionErrorView", () => {
             onPaneFocus={() => {}}
             onDirtyChange={(value) => (dirty = value)}
             saveActionRef={saveActionRef}
-            onSaved={() => saved++}
+            onSaved={() => {
+              saved++
+              resolveSaved?.()
+            }}
           />
         </ThemeProvider>
       </KeymapProvider>,
       { width: 100, height: 28 },
     )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     const editor = renderer.root.findDescendantById(
       "collection-error-editor",
@@ -238,7 +257,6 @@ describe("CollectionErrorView", () => {
 
     await act(async () => {
       saveActionRef.current?.()
-      await new Promise((resolve) => setTimeout(resolve, 30))
     })
     await renderOnce()
     expect(dirty).toBe(true)
@@ -248,7 +266,7 @@ describe("CollectionErrorView", () => {
       editor.value = "name: first\nmethod: GET\nurl: https://example.com\n"
       editor.onSourceChange?.()
       saveActionRef.current?.()
-      await new Promise((resolve) => setTimeout(resolve, 30))
+      await savedPromise
     })
     await renderOnce()
 
@@ -259,6 +277,7 @@ describe("CollectionErrorView", () => {
   })
 
   it("keeps dirty drafts and markers when switching error files", async () => {
+    using consoleError = spyOn(console, "error").mockImplementation(() => {})
     const { keymap, cleanup } = setupKeymap()
     const { renderOnce, captureCharFrame, renderer, mockMouse } =
       await testRender(
@@ -276,7 +295,7 @@ describe("CollectionErrorView", () => {
         </KeymapProvider>,
         { width: 100, height: 28 },
       )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     const editor = renderer.root.findDescendantById(
       "collection-error-editor",
@@ -297,7 +316,7 @@ describe("CollectionErrorView", () => {
         MouseButtons.LEFT,
       )
     })
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
     expect(captureCharFrame()).toContain("●")
 
     const firstRow = renderer.root.findDescendantById(
@@ -310,7 +329,8 @@ describe("CollectionErrorView", () => {
         MouseButtons.LEFT,
       )
     })
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
+    expect(consoleError).not.toHaveBeenCalled()
     expect(captureCharFrame()).toContain("unknown: true")
     cleanup()
   })
@@ -345,7 +365,7 @@ describe("CollectionErrorView", () => {
       </KeymapProvider>,
       { width: 100, height: 28 },
     )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     const editor = renderer.root.findDescendantById(
       "collection-error-editor",
@@ -358,7 +378,7 @@ describe("CollectionErrorView", () => {
     expect(captureCharFrame()).toContain("unknown: true")
 
     await act(async () => refreshErrors())
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     expect(captureCharFrame()).toContain("unknown: true")
     cleanup()
@@ -367,7 +387,7 @@ describe("CollectionErrorView", () => {
   it("does not intercept ctrl+s outside the configured command layer", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     let saved = 0
-    const { renderOnce, renderer } = await testRender(
+    const { renderOnce, captureCharFrame, renderer } = await testRender(
       <KeymapProvider keymap={keymap}>
         <ThemeProvider activeIndex={0} previewIndex={null}>
           <CollectionErrorView
@@ -382,7 +402,7 @@ describe("CollectionErrorView", () => {
       </KeymapProvider>,
       { width: 100, height: 28 },
     )
-    await settle(renderOnce)
+    await settle(renderOnce, captureCharFrame)
 
     const editor = renderer.root.findDescendantById(
       "collection-error-editor",
@@ -393,7 +413,6 @@ describe("CollectionErrorView", () => {
     })
     await act(async () => {
       host.press("s", { ctrl: true })
-      await new Promise((resolve) => setTimeout(resolve, 30))
     })
 
     expect(saved).toBe(0)
@@ -403,22 +422,23 @@ describe("CollectionErrorView", () => {
   it("activates the editor pane when the YAML content is clicked", async () => {
     const { keymap, cleanup } = setupKeymap()
     const focused: string[] = []
-    const { renderOnce, renderer, mockMouse } = await testRender(
-      <KeymapProvider keymap={keymap}>
-        <ThemeProvider activeIndex={0} previewIndex={null}>
-          <CollectionErrorView
-            collectionDir={collectionDir}
-            errors={errors.slice(0, 1)}
-            focus="sidebar"
-            activeEnv={null}
-            onPaneFocus={(next) => focused.push(next)}
-            onSaved={() => {}}
-          />
-        </ThemeProvider>
-      </KeymapProvider>,
-      { width: 100, height: 28 },
-    )
-    await settle(renderOnce)
+    const { renderOnce, captureCharFrame, renderer, mockMouse } =
+      await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CollectionErrorView
+              collectionDir={collectionDir}
+              errors={errors.slice(0, 1)}
+              focus="sidebar"
+              activeEnv={null}
+              onPaneFocus={(next) => focused.push(next)}
+              onSaved={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 100, height: 28 },
+      )
+    await settle(renderOnce, captureCharFrame)
 
     const editor = renderer.root.findDescendantById(
       "collection-error-editor",
