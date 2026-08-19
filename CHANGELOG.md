@@ -6,6 +6,8 @@ All notable changes to Noodle are documented in this file.
 
 ## [0.7.7] - 2026-08-19
 
+![Noodle Theme](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/noodle-noodle.png)
+
 Noodle 0.7.7 gives the terminal client a Noodle theme drawn from the website palette and makes it the default for configurations without a saved theme. Agent skill installation also gains an explicit `--force` recovery path with backup-backed rollback if any target fails.
 
 ### ✨ Features
