@@ -92,5 +92,6 @@ describe("useUpdateFlow skill refresh", () => {
     expect(render.captureCharFrame()).toContain(
       "Noodle updated; skill update failed",
     )
+    await act(async () => render.renderer.destroy())
   })
 })
