@@ -24,6 +24,7 @@ noodle [<path>] [--collection <dir>] [--env <name>] [--noproxy] [--insecure]
 noodle import <source> [--format <format>] [--output <dir>]
 noodle export <collection> --format <openapi|postman> --output <file|dir>
 noodle update
+noodle agent install [--json]
 noodle workspace list [--json]
 noodle collection <create|init|list|inspect|format|audit|run> ... [--noproxy] [--insecure] [--json]
 noodle request <create|run> ... [--noproxy] [--insecure] [--json]
@@ -36,6 +37,7 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **Import subcommand**: `source` (positional, required), `--format/-i` (`openapi`, `swagger`, `postman`, or `insomnia`; auto-detected if omitted), `--output/-o` (default: ./collections)
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values except that `@/` file paths expand to absolute home paths, so review exports for secrets and local path disclosure before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
+- **Agent subcommand**: `agent install` writes the embedded `noodle-use` skill to `~/.agents/skills/noodle-use` and links detected Claude, Cursor, Codex, and OpenCode installations to that managed copy. Existing managed installations refresh after successful standalone, Homebrew, TUI, and curl-installer updates; refresh failures do not roll back Noodle and include a retry command.
 - **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [--env] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
 - **TUI path modes**: Existing collection roots open in collection mode. Directories containing request YAML but no collection markers open in read-only browse mode; empty directories open in read-only empty mode. Invalid or non-directory paths exit with an error. Initialize browse/empty directories from the command palette before editing or sending.
@@ -66,6 +68,7 @@ src/
 ├── auth/          # Shared auth defaults for request, folder, UI, and converters
 ├── secrets/       # OS credential-vault storage + redaction helpers
 ├── cookies/       # Per-collection cookie jar (tough-cookie + encrypted persistence)
+├── agentSkill.ts  # Embedded noodle-use installer + supported-agent links
 ├── tls.ts         # TLS/mTLS validation and per-request policy resolution
 ├── requests/      # executor.send, OAuth 1 signing, OAuth 2 tokens, substitution
 ├── hooks/         # React hooks
@@ -253,7 +256,7 @@ command_palette: ctrl+p
 
 In browse or empty mode, collection-only actions above are unavailable. Command palette still exposes inspection, reload, layout, theme, help, and collection initialization actions.
 
-The command palette also provides **Import Collection** (as a new collection or into the current collection), **Export Collection** (OpenAPI or Postman), **Import cURL Request**, **Generate Code**, direct application and collection Settings categories, and actions to open the active collection or Noodle settings directory in a detected external editor. For an effective OAuth 2.0 request it also provides actions to fetch or authorize, copy, and clear the current token. Code generation supports choosing a language and library, and can optionally interpolate the active environment, but is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests. Save pending changes before importing into the current collection.
+The command palette also provides **Import Collection** (as a new collection or into the current collection), **Export Collection** (OpenAPI or Postman), **Import cURL Request**, **Generate Code**, **Install Noodle skill**, direct application and collection Settings categories, and actions to open the active collection or Noodle settings directory in a detected external editor. For an effective OAuth 2.0 request it also provides actions to fetch or authorize, copy, and clear the current token. Code generation supports choosing a language and library, and can optionally interpolate the active environment, but is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests. Save pending changes before importing into the current collection.
 
 ### Jump mode (leader-key focus jumps)
 Activated by `jump_mode` (default `g`). Shows `[letter]` hints on each focusable element; press a letter to focus that element, or `Esc` to cancel. Non-matching keys are swallowed (mode stays active).

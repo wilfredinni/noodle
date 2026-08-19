@@ -4,14 +4,23 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-08-18
+
+Noodle 0.7.6 adds a built-in, network-free installer for the `noodle-use` agent skill and keeps managed installations synchronized when Noodle updates. It also makes runtime shortcut changes take effect immediately and stabilizes toast feedback.
+
 ### ✨ Features
 
 - Add `noodle agent install` and the **Install Noodle skill** command-palette action, with an embedded, network-free `noodle-use` installer for Claude, Cursor, Codex, and OpenCode.
 - Keep existing managed skill installations synchronized after standalone binary, Noodle-managed Homebrew, TUI, and curl-installer updates without failing a successful Noodle update when skill refresh needs a manual retry.
 
+### 🐞 Fixes
+
+- Apply saved shortcut changes immediately across keymap layers, show shortcut save and reset results as toast notifications, and prevent stale toast cleanup from disabling newer notifications.
+
 ### 📚 Documentation
 
-- Document managed skill installation, automatic synchronization, JSON output, and the `npx skills` fallback across the README and documentation site.
+- Document managed skill installation, automatic synchronization, JSON output, and the `npx skills` fallback across the README, `AGENTS.md`, in-app tips, and documentation site.
+- Update `noodle-dev` with agent-skill installation and update-synchronization architecture.
 
 ## [0.7.5] - 2026-08-16
 

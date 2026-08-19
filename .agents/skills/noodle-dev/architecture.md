@@ -467,7 +467,11 @@ createMain(main) — citty argparse
    │     ├── Detects Homebrew install paths and runs `brew upgrade noodle`
    │     ├── Reads `https://noodlerest.dev/update.json`, validates stable version and SHA-256 asset entries
    │     ├── Caches validated manifest data for one hour, with a seven-day stale fallback
-   │     └── Downloads, SHA-256 verifies, and atomically replaces standalone binary
+   │     ├── Downloads, SHA-256 verifies, and atomically replaces standalone binary
+   │     └── Refreshes an existing managed `noodle-use` skill without failing a successful Noodle update
+   │
+   ├── "agent install" → commands/agent.ts → agentSkill.ts
+   │     └── Writes the embedded managed skill and links detected agent skill directories
    │
    └── "workspace" | "collection" | "request" | "environment" | "secret" | "cookie"
          └── commands/automation.ts → services.ts → filestore/env/executor
@@ -496,7 +500,9 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Import mode** (`src/app/import.ts`): Called via `import` subcommand. Lazy-loads importers on first call (reduces startup cost). Detects format, converts, writes output.
 
-**Update mode** (`src/app/commands/update.ts`): Standalone release binaries read the Noodle update manifest and cache its validated version and checksums in `~/.config/noodle/update-cache.json`. A valid cached manifest avoids repeat checks for one hour and remains available for update fallback for seven days. Downloaded binaries must match the manifest SHA-256 before atomic replacement. Homebrew installs run `brew upgrade noodle`; Bun development runtimes cannot self-update.
+**Update mode** (`src/app/commands/update.ts`): Standalone release binaries read the Noodle update manifest and cache its validated version and checksums in `~/.config/noodle/update-cache.json`. A valid cached manifest avoids repeat checks for one hour and remains available for update fallback for seven days. Downloaded binaries must match the manifest SHA-256 before atomic replacement. Homebrew installs run `brew upgrade noodle`; Bun development runtimes cannot self-update. When a managed `noodle-use` installation already exists, `updateInstall.ts` refreshes it with the updated executable and reports a retry without rolling back a successful Noodle update if refresh fails.
+
+**Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically; unmanaged paths are rejected.
 
 **Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. Run commands support one-shot `--noproxy` and `--insecure` overrides and use the same collection jar as the TUI. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
@@ -576,7 +582,7 @@ State data syncs via `keymap.setData("app.focus", ...)`, `keymap.setData("app.mo
 | Jump mode                   | `src/ui/useJumpMode.ts`, `src/ui/JumpBadge.tsx`                                                                                                                                                                                                                                                                              |
 | Themes                      | `src/ui/theme.tsx`, `src/ui/theme-data.ts`                                                                                                                                                                                                                                                                                   |
 | Clipboard                   | `src/ui/clipboard.ts`                                                                                                                                                                                                                                                                                                        |
-| CLI                         | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` and `export.ts` (conversion commands), `src/app/commands/update.ts` (update cmd), `src/app/import.ts` and `export.ts` (conversion logic) |
+| CLI                         | `src/app/cli.ts` (entry), `src/app/main.tsx` (bootstrap), `src/app/commands/default.ts` (TUI cmd), `src/app/commands/import.ts` and `export.ts` (conversion commands), `src/app/commands/update.ts` (update cmd), `src/app/commands/agent.ts` and `src/agentSkill.ts` (agent skill install), `src/app/import.ts` and `export.ts` (conversion logic) |
 | Importers and exporters     | `src/converters/index.ts`, `src/converters/openapi/`, `src/converters/postman/`, `src/converters/swagger/`, `src/converters/insomnia/`                                                                                                                                                                                          |
 | UI entry                    | `src/ui/App.tsx`, `src/ui/AppInner.tsx`, `src/ui/AppOverlays.tsx`, `src/ui/MainView.tsx`                                                                                                                                                                                                                                     |
 | Focus                       | `src/ui/focus.ts`                                                                                                                                                                                                                                                                                                            |

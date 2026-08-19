@@ -48,6 +48,7 @@ const TIPS = [
   "open Settings with {F4} to configure proxies, TLS, collections, and shortcuts",
   "open {^P}, choose Cookies to inspect and manage the collection cookie jar",
   "open {^P} to launch the collection or Noodle settings in your external editor",
+  "open {^P}, choose Install Noodle skill to equip supported coding agents",
   "fix invalid request or folder YAML in the repair view, then save with {^S}",
   "create an environment with {^N} in the environment editor",
   "mark an environment value secret with {s} in environment browse mode",
