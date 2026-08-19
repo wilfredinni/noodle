@@ -78,24 +78,29 @@ describe("useUpdateFlow skill refresh", () => {
         { width: 80, height: 10 },
       )
     })
-    await act(async () => render.renderOnce())
-    await act(async () => {
-      await skillRefreshStarted.promise
-      await skillRefreshFinished.promise
-      await render.renderOnce()
-    })
-    await act(async () => render.renderOnce())
+    try {
+      await act(async () => render.renderOnce())
+      await act(async () => {
+        await skillRefreshStarted.promise
+        await skillRefreshFinished.promise
+        await render.renderOnce()
+      })
+      await act(async () => render.renderOnce())
 
-    expect(phases).toContain("installing")
-    expect(phases.at(-1)).toBe("done")
-    expect(commands).toEqual([
-      ["/opt/homebrew/bin/brew", "info", "--json=v2", "noodle"],
-      ["/opt/homebrew/bin/brew", "upgrade", "noodle"],
-      ["/opt/homebrew/bin/noodle", "agent", "install", "--json"],
-    ])
-    expect(render.captureCharFrame()).toContain(
-      "Noodle updated; skill update failed",
-    )
-    await act(async () => render.renderer.destroy())
+      expect(phases).toContain("installing")
+      expect(phases.at(-1)).toBe("done")
+      expect(commands).toEqual([
+        ["/opt/homebrew/bin/brew", "info", "--json=v2", "noodle"],
+        ["/opt/homebrew/bin/brew", "upgrade", "noodle"],
+        ["/opt/homebrew/bin/noodle", "agent", "install", "--json"],
+      ])
+      expect(render.captureCharFrame()).toContain(
+        "Noodle updated; skill update failed",
+      )
+    } finally {
+      await act(async () => {
+        if (!render.renderer.isDestroyed) render.renderer.destroy()
+      })
+    }
   })
 })
