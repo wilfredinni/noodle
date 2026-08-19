@@ -1,5 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import {
+  DEFAULT_THEME_INDEX,
+  DEFAULT_THEME_NAME,
   THEMES,
   contrastOnPrimary,
   contrastOnSecondary,
@@ -152,6 +154,11 @@ describe("THEMES", () => {
       borderActive: "#59c9be",
       borderSubtle: "#514a42",
     })
+  })
+
+  it("uses Noodle as the default theme", () => {
+    expect(DEFAULT_THEME_NAME).toBe("noodle")
+    expect(THEMES[DEFAULT_THEME_INDEX]).toBe(noodleTheme)
   })
 })
 

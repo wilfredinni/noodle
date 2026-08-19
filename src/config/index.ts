@@ -15,7 +15,7 @@ export interface NoodleConfig {
   proxy?: AppProxySettings
 }
 export const DEFAULT_CONFIG: NoodleConfig = {
-  theme: "catppuccin",
+  theme: "noodle",
   layout: "stacked",
   confirm_undo_all: true,
   collections: [],
