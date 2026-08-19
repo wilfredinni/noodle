@@ -37,6 +37,7 @@ export {
   matrixTheme,
   mercuryTheme,
   nightowlTheme,
+  noodleTheme,
   orngTheme,
   osakaJadeTheme,
   palenightTheme,

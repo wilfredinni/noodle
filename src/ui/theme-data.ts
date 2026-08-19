@@ -538,6 +538,26 @@ export const nightowlTheme: Theme = {
   borderSubtle: "#3d5f7a",
 }
 
+export const noodleTheme: Theme = {
+  name: "noodle",
+  primary: "#59c9be",
+  secondary: "#f2c65a",
+  accent: "#ef7b63",
+  error: "#ef7b63",
+  warning: "#f0a96b",
+  success: "#9dcb82",
+  info: "#89b4fa",
+  text: "#f3efe7",
+  textMuted: "#aaa39a",
+  background: "#181714",
+  backgroundPanel: "#181714",
+  borderDimmest: "#302b26",
+  backgroundElement: "#24211d",
+  border: "#3b3630",
+  borderActive: "#59c9be",
+  borderSubtle: "#514a42",
+}
+
 export const orngTheme: Theme = {
   name: "orng",
   primary: "#ec5b2b",
@@ -678,6 +698,7 @@ export const THEMES: Theme[] = [
   mercuryTheme,
   monokaiTheme,
   nightowlTheme,
+  noodleTheme,
   nordTheme,
   onedarkTheme,
   opencodeTheme,

@@ -3,12 +3,13 @@ import {
   THEMES,
   contrastOnPrimary,
   contrastOnSecondary,
+  noodleTheme,
   palenightTheme,
 } from "../../src/ui/theme"
 
 describe("THEMES", () => {
-  it("has exactly 32 themes", () => {
-    expect(THEMES).toHaveLength(32)
+  it("has exactly 33 themes", () => {
+    expect(THEMES).toHaveLength(33)
   })
 
   const expected = [
@@ -31,6 +32,7 @@ describe("THEMES", () => {
     "mercury",
     "monokai",
     "nightowl",
+    "noodle",
     "nord",
     "onedark",
     "opencode",
@@ -79,6 +81,7 @@ describe("THEMES", () => {
     "thirtieth",
     "thirty-first",
     "thirty-second",
+    "thirty-third",
   ]
   for (let i = 0; i < expected.length; i++) {
     it(`${nth[i]!} theme is named ${expected[i]}`, () => {
@@ -132,6 +135,23 @@ describe("THEMES", () => {
 
   it("keeps Pale Night's inactive pane borders visible against panel backgrounds", () => {
     expect(palenightTheme.borderSubtle).not.toBe(palenightTheme.backgroundPanel)
+  })
+
+  it("maps the Noodle landing palette to terminal theme roles", () => {
+    expect(noodleTheme).toMatchObject({
+      primary: "#59c9be",
+      secondary: "#f2c65a",
+      accent: "#ef7b63",
+      success: "#9dcb82",
+      text: "#f3efe7",
+      textMuted: "#aaa39a",
+      background: "#181714",
+      backgroundPanel: "#181714",
+      backgroundElement: "#24211d",
+      border: "#3b3630",
+      borderActive: "#59c9be",
+      borderSubtle: "#514a42",
+    })
   })
 })
 
