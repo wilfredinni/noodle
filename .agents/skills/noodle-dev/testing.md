@@ -98,6 +98,7 @@ Mount the visible hard-blocking overlay before pressing keys. Its shield has hig
 | Cookie request flow and automation    | `tests/integration/cookies-loopback.test.ts`, `tests/integration/automation.test.ts`, `tests/unit/send.test.ts`  |
 | Cookie TUI and keymap                 | `tests/unit/CookieJarView.test.tsx`, `tests/unit/CookieFormOverlay.test.tsx`, `tests/unit/appKeymapLayers.test.ts` |
 | HTTP execution, substitution         | `tests/requests.test.ts`                                                                                         |
+| Response expressions and assertions  | `tests/unit/responseExpression.test.ts`, `tests/unit/assertions.test.ts`, `tests/lang.test.ts`, `tests/integration/automation.test.ts` |
 | Folder overrides                     | `tests/unit/mergeFolderOverrides.test.ts`                                                                        |
 | Pure helper function                 | `tests/unit/<name>.test.ts`                                                                                      |
 | UI component rendering               | `tests/unit/<ComponentName>.test.tsx`                                                                            |

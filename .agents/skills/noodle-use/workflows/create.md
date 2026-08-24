@@ -6,13 +6,14 @@ Scaffold noodle collections, requests, folders, and environments from scratch.
 
 Before creating a new collection, check if the user already has one that matches.
 
-### Step 1: Read noodle's config
+### Step 1: List registered collections
 
 ```bash
-cat ~/.config/noodle/config.yml
+noodle workspace list --json
 ```
 
-Look for the `collections` field — an array of absolute paths to known collections.
+Read the absolute paths from `data.collections`. Prefer this supported command to
+parsing global config directly.
 
 ### Step 2: Match by name
 
@@ -20,7 +21,9 @@ Extract the directory name from each path. If the user asks for "the stripe coll
 
 ### Step 3: If not found
 
-If no collection matches, use `collection init` for an existing directory or proceed to create a new one below. Both paths register the collection in config so future lookups find it.
+If no collection matches, use `collection init` for an existing directory or
+proceed to create a new one below. Both paths register the collection so future
+lookups find it.
 
 ## Create a new collection
 
@@ -30,7 +33,7 @@ When asked to create a new collection:
 
 Ask the user where to create it. Default: `./collections`. If they say "a collection for the Stripe API", suggest `./stripe-api/`.
 
-### Initialize an existing directory
+### Step 2: Initialize an existing directory
 
 If directory already contains request YAML or other project files, prefer:
 
@@ -40,7 +43,7 @@ noodle collection init <dir> --json
 
 This preserves existing files, creates missing collection markers, and registers absolute path. It refuses missing paths, files, and directories already recognized as collections.
 
-### Step 2: Create the starter collection
+### Step 3: Create a starter collection
 
 Use the automation CLI when a starter collection is sufficient:
 
@@ -48,21 +51,30 @@ Use the automation CLI when a starter collection is sufficient:
 noodle collection create <name> --output <parent-dir> --json
 ```
 
-It creates the collection, `settings.yml`, an empty `development` environment, an example request, and registers the absolute path. For a customized scaffold, create the files directly as described below.
+It creates the collection, `settings.yml`, an empty `development` environment,
+an example request, and registers the absolute path.
 
-### Step 3: Create the directory structure
+### Step 4: Create a customized scaffold
+
+For a customized collection, create the directory first and let Noodle bootstrap
+and register it before editing the generated files:
 
 ```bash
-mkdir -p <dir>/.environments
+mkdir -p <dir>
+noodle collection init <dir> --json
 ```
 
-### Step 4: Create settings.yml
+Then edit `<dir>/settings.yml`,
+`<dir>/.environments/development.env`, and request files as needed. Preserve the
+generated `collection_id`.
+
+Example settings:
 
 ```yaml
 environment: development
 ```
 
-### Step 5: Create a default environment
+Example development environment:
 
 File: `<dir>/.environments/development.env`:
 ```
@@ -72,19 +84,12 @@ base_url=http://localhost:3000
 
 `base_url` is the standard name for the root API URL. Adjust based on the API being scaffolded.
 
-### Step 6: Register in noodle config
+Do not rewrite `~/.config/noodle/config.yml` to register a collection. The
+supported create and init commands preserve unrelated global settings and update
+the registry safely. Read [config.md](../reference/config.md) only when the user
+specifically asks to change global preferences.
 
-Write the absolute path to `~/.config/noodle/config.yml` so the collection appears in noodle's workspace switcher. Read the existing config, prepend the new path to `collections`, write back:
-
-```yaml
-collections:
-  - /Users/me/Projects/stripe-api
-  - /Users/me/Projects/other-api
-```
-
-If `collections` doesn't exist yet, create it with the new path. Paths must be absolute and resolved. See [config.md](reference/config.md) for the full config schema.
-
-### Step 7: Report what was created
+### Step 5: Report what was created
 
 List all files/dirs created so the user can verify.
 
@@ -100,6 +105,7 @@ When asked to add a specific endpoint:
 - Body (if POST/PUT/PATCH)
 - Auth requirements
 - Folder to place it in
+- Expected response behavior when assertions are requested
 
 ### Step 2: Determine file path
 
@@ -155,20 +161,61 @@ body: |-
   }
 ```
 
-`followRedirects` (default `true`) and `maxRedirects` (default `5`) are optional. Omit them to use defaults. `timeout` in ms — `0` = no timeout. Params use the array format: each entry has `name`, `value`, and optional `enabled` (default `true`).
+`followRedirects` (default `true`) and `maxRedirects` (default `5`) are optional. Omit them to use defaults. `timeout` is in ms; `0` means no timeout. Params use the array format: each entry has `name`, `value`, and optional `enabled` (default `true`).
 
-### Step 5: Create parent folder if needed
+For a request with a URL path parameter:
+
+```yaml
+name: Get User
+method: GET
+url: $base_url/users/:userId
+body_type: none
+timeout: 0
+path_params:
+  - name: userId
+    value: $user_id
+```
+
+Every `:name` token must have exactly one matching `path_params` entry. Path
+parameters are always enabled and their names and values support environment
+substitution.
+
+### Step 5: Add response assertions when requested
+
+Use the contract supplied by the user or API specification. Do not infer
+assertions from one live response or invent expected values. Prefer stable
+contract checks over volatile response data.
+
+Add assertions as a top-level `assert` list:
+
+```yaml
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.id
+    operator: isNumber
+  - expression: headers.Content-Type
+    operator: contains
+    value: application/json
+```
+
+Read the [response assertion schema](../schema.md#response-assertions) for the
+supported expressions, operators, and value rules. Expected strings may use
+`$VARNAME`; verify every referenced variable exists in the active environment.
+
+### Step 6: Create parent folder if needed
 
 If the parent directory doesn't exist:
 ```bash
 mkdir -p <dir>/<folder-path>
 ```
 
-### Step 6: Write the file
+### Step 7: Write the file
 
 Write the YAML content to `<dir>/<folder-path>/<file-name>.yml`.
 
-### Step 7: Ensure the env declares needed vars
+### Step 8: Ensure the env declares needed vars
 
 For an existing environment and a single variable, prefer:
 
@@ -177,6 +224,22 @@ noodle environment set <key> <value> --env <environment> --collection <dir> --js
 ```
 
 If the request uses `$base_url` or other env vars, verify they exist in the active environment. If not, add them with placeholder values.
+
+### Step 9: Validate and verify
+
+After editing request YAML, validate the collection:
+
+```bash
+noodle collection audit <dir> --json
+```
+
+When the user has authorized request execution, run the affected request and
+inspect its assertion results. Obtain explicit authorization before sending a
+non-idempotent request such as POST, PUT, PATCH, or DELETE.
+
+```bash
+noodle request run <id> --collection <dir> --env <environment> --json
+```
 
 ## Add a folder with auth override
 
@@ -245,3 +308,19 @@ precedence for CI and other automation.
 - `warning` (yellow) for staging
 - `info` (blue) for development
 - `accent` (purple) for other
+
+## Configure collection settings
+
+When the user asks to change collection metadata or behavior:
+
+1. Inspect the current settings with `noodle collection inspect <dir> --json`.
+2. Read [the collection settings schema](../schema.md#collection-settings-settingsyml).
+3. Edit only the requested fields in `<dir>/settings.yml`. Preserve
+   `collection_id`, verify that `environment` names an existing environment, and
+   keep proxy credentials and encrypted-key passphrases out of YAML.
+4. Run `noodle collection audit <dir> --json` after the edit.
+
+Agents may set collection name, description, timeline retention, cookie policy,
+credential-free proxy policy, and TLS or mTLS file metadata. Proxy credentials
+and encrypted client-key passphrases require the human Settings workflow because
+Noodle stores them in the OS vault rather than in collection files.

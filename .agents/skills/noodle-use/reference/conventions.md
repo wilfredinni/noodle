@@ -16,7 +16,7 @@ users/update-user.yml        → ID: "users/update-user"
 users/delete-user.yml        → ID: "users/delete-user"
 ```
 
-Avoid generic names like `get.yml` or `post.yml` — they're ambiguous when reading a file list.
+Avoid generic names like `get.yml` or `post.yml`; they are ambiguous when reading a file list.
 
 ## Folder structure
 
@@ -30,20 +30,20 @@ Avoid generic names like `get.yml` or `post.yml` — they're ambiguous when read
 - Name env files after deployment stages: `development.env`, `staging.env`, `production.env`
 - Always include `_color` as first line. Use `success` for production, `warning` for staging, `info` for development.
 - Never commit real secrets to env files. Use `# @secret KEY` plus a blank `KEY=` placeholder, then store the value with `noodle secret set` or provide it through the process environment.
-- Keep all env files in sync — every env should declare the same set of variable names (different values).
+- Keep all env files in sync. Every env should declare the same set of variable names with environment-specific values.
 - Comment out (`#`) variables that don't apply to a specific environment, don't delete them.
 
 ## Auth conventions
 
 - **Prefer `inherit`**: Requests should use `type: inherit` and get auth from a parent folder. Don't repeat auth config on every request.
-- **Root folder** is the right place for auth overrides that apply to the whole collection.
+- **Collection-wide auth** cannot use a root `folder.yml` because the loader ignores it. Put requests under a real shared parent folder, or repeat auth on root-level requests.
 - **Only use `type: none`** (omit auth field) for truly unauthenticated endpoints.
 
 ## Headers conventions
 
 - Use folder overrides for repeated headers (`X-API-Key`, `Authorization`).
 - Use per-request headers for content-specific headers (`Content-Type`, `Accept`).
-- Disabled headers have `enabled: false`. Remove them instead of disabling — disabled headers are noise.
+- Disabled headers have `enabled: false`. Remove them instead of disabling them when they are no longer useful.
 
 ## Body conventions
 
@@ -74,7 +74,6 @@ Avoid generic names like `get.yml` or `post.yml` — they're ambiguous when read
 ```
 my-collection/
 ├── settings.yml              # default environment
-├── folder.yml                # (optional) root-level auth/header overrides
 ├── get-health.yml             # ungrouped requests at root (flat)
 ├── users/
 │   ├── folder.yml

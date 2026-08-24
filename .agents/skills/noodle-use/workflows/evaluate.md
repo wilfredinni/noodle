@@ -16,7 +16,10 @@ Use `--fix` only when the user authorizes canonicalizing valid collection files.
 
 ### Step 2: Load the entire collection
 
-Read every `.yml` file in the collection directory (recursively, excluding hidden dirs). Parse each file to extract its fields.
+Read every `.yml` file in the collection directory recursively, excluding hidden
+directories. Classify root `settings.yml`, any root `folder.yml`, nested
+`folder.yml` overrides, and request files separately. Do not parse settings or
+folder metadata as request YAML.
 
 ### Step 3: Load all environments
 
@@ -32,7 +35,24 @@ Each finding gets: **severity** (critical / warning / info), **file**, **issue**
 
 ### Hardcoded tokens/credentials
 
-**Pattern**: Auth fields (`token`, `pass`, `key`, `value`) containing literal strings that are not `$var` references.
+**Pattern**: A secret-bearing auth field contains a literal instead of a `$var`
+reference. Check fields by auth type:
+
+- Bearer: `token`
+- Basic: `pass`
+- NTLM: `password`
+- API key: `value`; `key` is the header or query-parameter name, not the secret
+- AWS SigV4: `access_key`, `secret_key`, `session_token`
+- OAuth 1.0a: `consumer_key`, `consumer_secret`, `access_token`,
+  `access_token_secret`, `private_key`
+- OAuth 2.0: `client_secret`, password-grant `password`, and
+  `client_assertion_key`
+
+Also inspect request and folder headers whose names are `Authorization`,
+`Proxy-Authorization`, `Cookie`, or clearly identify a token, secret, or API key.
+Flag literal private-key blocks and sensitive literal values nested inside
+assertion expectations. Do not flag an API-key `key` such as `X-API-Key` by
+itself.
 
 **Examples of problems**:
 ```yaml
@@ -57,6 +77,23 @@ auth:
 ```
 
 **Severity**: critical
+
+### Broken inherited auth
+
+**Pattern**: A request uses `auth: { type: inherit }`, but none of its real
+ancestor directories defines an auth override in `folder.yml`.
+
+**Why it's bad**: The request resolves to no authentication. A root
+`folder.yml` cannot satisfy inheritance because the loader ignores it. This is
+especially important after importing a Postman collection that relied on
+collection-level auth.
+
+**Fix**: With the user's intended auth configuration, move the request under a
+real shared parent folder with an override or author the auth on the root-level
+request. Keep credentials in secret environment variables.
+
+**Severity**: critical when the endpoint is expected to be authenticated;
+warning when intent is unknown
 
 ### Tokens in URLs
 
@@ -254,7 +291,7 @@ in the OS vault.
 
 **Pattern**: Files at depth 4 or more: `api/v2/enterprise/users/get-users.yml`.
 
-**Why it's bad**: Hard to navigate in sidebar. Extra clicks. Often unnecessary — versioning can be expressed through environment URLs or folder names.
+**Why it's bad**: Hard to navigate in sidebar. Extra clicks. Often unnecessary because versioning can be expressed through environment URLs or folder names.
 
 **Fix**: Flatten to max 3 levels. Options:
 - Remove the `api/v2` prefix if the whole collection is v2
@@ -272,6 +309,20 @@ in the OS vault.
 **Fix**: Move into a folder with `folder.yml`, or define auth and headers directly on each root-level request. Root-level `folder.yml` is ignored.
 
 **Severity**: info
+
+### Root folder.yml
+
+**Pattern**: `folder.yml` exists at the collection root.
+
+**Why it's bad**: The loader ignores it. Metadata, ordering, headers, and auth in
+that file have no effect, even when requests use `type: inherit`.
+
+**Fix**: Move shared behavior into a real child folder and move affected
+requests under it, or place required headers and auth directly on root-level
+requests. Confirm ID changes before moving requests.
+
+**Severity**: critical when ignored auth or security headers are expected;
+warning otherwise
 
 ### Missing folder display names
 
@@ -299,11 +350,27 @@ reports when it falls back to a mode-`0600` plaintext file. `noodle cookie list`
 prints cookie values, so redact its output before sharing it and never include
 it in routine audit logs.
 
+## Assertion checks
+
+Assertions are optional and should reflect a user-provided contract or an
+authoritative API specification. Do not create findings merely because a request
+has no assertions.
+
+- Flag sensitive literal expected values and replace them with secret environment
+  references when the contract truly requires an exact comparison.
+- Flag unresolved environment references nested inside assertion values.
+- Explain that status 400 or higher still makes automation fail even when a
+  status assertion passes. A negative-response assertion may be intentional, but
+  it cannot make the command exit successfully.
+- Treat exact checks against volatile IDs, timestamps, tokens, or one observed
+  response as a review item unless the contract explicitly guarantees them.
+
 ## Environment checks
 
 ### Unused variables
 
-**Pattern**: Env file declares `VAR=value` but no request file references `$VAR`.
+**Pattern**: Env file declares `VAR=value` but no evaluated request field,
+non-root folder override, or assertion expected value references `$VAR`.
 
 **Why it's bad**: Clutter. Makes env files harder to read. Suggests the env was copy-pasted without cleanup.
 
@@ -313,7 +380,9 @@ it in routine audit logs.
 
 ### Missing variables
 
-**Pattern**: Request references `$VAR` but one or more environment files don't declare `VAR`.
+**Pattern**: An evaluated request field, non-root folder override, or assertion
+expected value references `$VAR`, but one or more environment files do not
+declare `VAR`.
 
 **Why it's bad**: Switching to that environment will cause a runtime error ("unresolved variable").
 
@@ -333,7 +402,9 @@ it in routine audit logs.
 
 ### Stale commented-out variables
 
-**Pattern**: Environment files with `# VAR=value` lines that were commented out long ago and no request uses `$VAR`.
+**Pattern**: Environment files with `# VAR=value` lines that were commented out
+long ago and no evaluated request field, nested folder override, or assertion
+expected value uses `$VAR`.
 
 **Why it's bad**: Clutter. Makes the file harder to parse.
 

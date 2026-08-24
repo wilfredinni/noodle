@@ -8,12 +8,13 @@ Restructure, rename, and refactor existing noodle collections.
 - **Always ask before bulk changes**: Restructuring affects all IDs. Confirm the plan before executing.
 - **Preserve folder.yml**: When moving files between folders, the `folder.yml` overrides may change behavior. Warn if auth/headers will change.
 - **Preserve collection identity**: Keep the generated `collection_id` when moving or renaming one collection so OS-vault secrets remain available. Never copy that ID into a different collection.
+- **Preserve assertions**: Keep each request's `assert` block during moves, renames, and unrelated edits. Never weaken or remove a check merely to make a run pass.
 
 ## Rename a request
 
 ### Step 1: Understand the change
 
-Renaming the display name in the `name` field is safe — it doesn't affect the ID.
+Renaming the display name in the `name` field is safe because it does not affect the ID.
 
 Renaming the file changes the ID. Example: `users/get.yml` → `users/get-users.yml` changes ID from `"users/get"` to `"users/get-users"`.
 
@@ -83,7 +84,6 @@ collection/
 ├── posts/
 │   ├── get-posts.yml
 │   └── create-post.yml
-├── folder.yml        (optional: shared auth)
 └── .environments/
 ```
 
@@ -154,15 +154,58 @@ headers:
 
 ### Step 3: Remove from individual requests
 
-Remove the duplicated header from each request file. This is a lossless change — the folder override applies the header.
+Remove the duplicated header from each request file. This is a lossless change because the folder override applies the header.
+
+## Reorder folders
+
+Folder order is controlled by `meta.seq` in each real child folder's
+`folder.yml`. Lower numbers appear first and folders without `seq` appear after
+numbered folders. To apply a requested order, assign a unique sequence in that
+order, preferably `1`, `2`, `3`, and so on. Do not use a root `folder.yml` for
+ordering because the loader ignores it.
+
+After editing, run `noodle collection audit <dir> --json` and inspect the tree
+with `noodle collection list <dir> --json`.
+
+## Clone or delete requests
+
+To clone a request, copy its `.yml` file to a new valid path inside the same
+collection, update the display `name` when appropriate, and preserve its request
+fields and assertions unless the user requested a contract change. The new path
+becomes the new request ID. Validate the collection after writing it.
+
+Deleting a request is destructive. Obtain explicit authorization for the exact
+file, then delete only that request `.yml`. Leave its `.timeline/` history and
+`.noodle/` UI state untouched unless the user separately asks to remove generated
+data. Explain that those records become orphaned after deletion.
+
+## Clone or delete environments
+
+To clone an environment, copy its `.env` declarations to a new valid environment
+name, change public values as requested, and leave secret placeholders blank.
+OS-vault values are scoped to the environment name and are not cloned. Store new
+secret values only when the user supplies them through an authorized secret
+workflow.
+
+Deleting an environment is destructive. Obtain explicit authorization and make
+sure `settings.yml` will still name an existing environment. If the environment
+declares no secrets, delete only its exact `.environments/<name>.env` file. If it
+declares secrets, do not perform a file-only deletion because that would leave
+vault entries behind. Ask the human user to delete it in Noodle's environment
+editor, which removes stored values and rolls them back if file deletion fails.
 
 ## Ensure env consistency
 
-When restructuring, check that all `$var` references in requests have corresponding declarations in every environment file. Missing vars cause runtime errors.
+When restructuring, check that all evaluated `$var` references in requests and
+nested `folder.yml` overrides have corresponding declarations in every
+environment file. Include path parameters and strings nested inside assertion
+expected values. Disabled headers, query parameters, form entries, and OAuth 2
+additional parameters are not substituted until enabled.
 
 ### Step 1: Scan all request files for `$var` patterns
 
-Regex: `/\$(\w+)/g` across all `.yml` files.
+Regex: `/\$(\w+)/g` across request `.yml` files and non-root `folder.yml` files.
+Classify each match by field so disabled entries can be excluded.
 
 ### Step 2: For each environment, check that every var is declared
 
@@ -170,4 +213,31 @@ Read each `.env` file. Flag any missing declarations.
 
 ### Step 3: Add missing vars with placeholder values
 
-Add `missing_var=PLACEHOLDER` to environments that lack it.
+Add public values as `missing_var=PLACEHOLDER`. For credentials, tokens, private
+keys, or other sensitive values, add a blank secure declaration instead:
+
+```dotenv
+# @secret missing_secret
+missing_secret=
+```
+
+## Maintain response assertions
+
+When a request contract changes, review its `assert` block with the rest of the
+request. Use the user's intended contract or an authoritative API specification,
+not one observed response, to decide what should change.
+
+- Update only checks affected by the contract change. Preserve unrelated checks
+  and their order.
+- Keep assertions at the request level when moving files. Folder inheritance does
+  not apply to assertions.
+- Include assertion expected strings when checking `$VARNAME` references across
+  environments.
+- Do not delete, relax, or replace a failing assertion until you determine whether
+  the request, environment, server response, or assertion is wrong.
+
+After an assertion edit, validate the collection with `noodle collection audit
+<dir> --json`. When request execution is authorized, run the affected request
+with `noodle request run <id> --collection <dir> --env <environment> --json`.
+Treat JSON actual values as sensitive response data. An assertion result with
+`evaluated: false` means the request failed before its checks could run.

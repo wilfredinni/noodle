@@ -304,7 +304,7 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 ## Add a new theme
 
 **Locate:**
-- `src/ui/theme-data.ts`: `Theme` interface, `THEMES` array (33 themes)
+- `src/ui/theme-data.ts`: `Theme` interface, `THEMES` array (34 themes)
 - `src/ui/theme.tsx` — `ThemeProvider`, `useTheme()`, `ThemePickerOverlay`
 - `src/ui/editor/yamlSyntax.ts` — `createYamlSyntaxStyle(theme, name)` creates per-theme syntax styles
 

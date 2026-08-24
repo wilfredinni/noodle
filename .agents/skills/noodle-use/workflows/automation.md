@@ -11,6 +11,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Remove invalid registered paths | `noodle workspace audit --fix --json` |
 | Create a starter collection | `noodle collection create <name> --output <parent> --json` |
 | Initialize an existing directory | `noodle collection init <dir> --json` |
+| Print the request and folder tree | `noodle collection list <dir> --json` |
 | Inspect files and environments | `noodle collection inspect <dir> --json` |
 | Canonicalize request YAML and valid JSON bodies | `noodle collection format <dir> --json` |
 | Validate file formats | `noodle collection audit <dir> --json` |
@@ -32,7 +33,16 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - `collection format` rewrites every request file with canonical YAML and pretty-prints valid JSON bodies. It leaves invalid JSON body text unchanged. Obtain user authorization before running it because it modifies collection files.
 - Request IDs are relative paths without `.yml`, such as `users/list`. Do not use traversal, empty segments, or hidden segments.
 - `collection run <dir> [<target>...]` accepts bare request IDs and folder paths ending in `/`. Folders include nested requests. Overlapping targets run once in collection order; omit targets to run the whole collection.
+- Every target is validated before the first request is sent. An HTTP status of
+  400 or higher or a failed response assertion makes the command exit nonzero.
+  A status assertion cannot turn an HTTP error response into a successful run.
+- Requests with an `assert` block return an `assertions` result containing `evaluated` and per-check results. Human output shows pass/fail counts without raw actual values; JSON output includes actual server values, so treat it as sensitive response data.
+- For `request run`, read assertions from `data.result.assertions`; for `collection run`, read each `data.results[].assertions`. Each assertion result contains `expression`, `operator`, optional `expected`, optional `actual`, `passed`, and `message`. `evaluated: false` with an empty `results` array means the request failed before assertions could run; requests without assertions omit the field.
 - `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment; ensure referenced `$vars` exist there.
+- Run commands contact remote servers and may write response timeline entries,
+  cookie-jar state, and refreshed OAuth credentials. Execute them only when the
+  user has authorized the request scope, even when the HTTP method is normally
+  read-only.
 - Treat cookie `data.warnings` as non-fatal diagnostics. Run results can succeed while warning that cookie storage is plaintext or unavailable; unavailable jars are skipped for that run. `cookie list` also reports `data.state`, warnings, and `hostOnly` for every cookie.
 - Treat every `cookie list` value as sensitive. Do not paste human or JSON output into logs, issues, or shared reports without redaction.
 - `cookie clear` is the explicit recovery operation for unreadable cookie storage. It preserves the original file and returns its path in `data.backupPath` before creating a clean jar. Report that backup path to the user.
@@ -42,4 +52,4 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 
 ## Fall back to files
 
-Use direct YAML/dotenv edits when the CLI cannot express the change: folders and inheritance, request headers/params/auth/body/form data, new environment files, and manual conversions. After edits, run `noodle collection audit <dir> --json` and, when appropriate, execute the affected request.
+Use direct YAML/dotenv edits when the CLI cannot express the change: folders and inheritance, request headers, params, auth, bodies, form data, assertions, new environment files, and manual conversions. After edits, run `noodle collection audit <dir> --json` and, when appropriate, execute the affected request.

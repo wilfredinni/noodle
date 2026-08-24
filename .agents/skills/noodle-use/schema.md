@@ -8,9 +8,9 @@ One request per file. Fields:
 
 | Field | Required | Type | Default | Description |
 |-------|----------|------|---------|-------------|
-| `name` | yes | string | — | Display name for the request |
-| `method` | yes | string | — | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` |
-| `url` | yes | string | — | Full URL. May contain `$var` references |
+| `name` | yes | string | n/a | Display name for the request |
+| `method` | yes | string | n/a | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` |
+| `url` | yes | string | n/a | Full URL. May contain `$var` references |
 | `timeout` | yes | number | `0` | Request timeout in ms. `0` = no timeout |
 | `followRedirects` | no | boolean | `true` | Whether to follow HTTP redirects |
 | `maxRedirects` | no | number | `5` | Maximum redirect chain length |
@@ -19,11 +19,12 @@ One request per file. Fields:
 | `headers` | no | map | `{}` | Request headers. Omit if empty |
 | `params` | no | list | `[]` | URL query parameters. Omit if empty. See format below. |
 | `path_params` | no | list | `[]` | Values for `:name` URL path tokens. Omit if empty. See format below. |
-| `body` | no | string | — | Raw request body. Omit if no body |
-| `form_data` | no | list | — | Multipart form entries. Omit if empty |
-| `file_path` | no | string | — | Path to file for binary uploads. `@/` starts at the user's home directory |
-| `auth` | no | map | — | Auth config. Omit for no auth |
-| `tls` | no | map | — | Per-request TLS override. Supports only `verify: true|false` |
+| `body` | no | string | n/a | Raw request body. Omit if no body |
+| `form_data` | no | list | n/a | Multipart form entries. Omit if empty |
+| `file_path` | no | string | n/a | Path to file for binary uploads. `@/` starts at the user's home directory |
+| `auth` | no | map | n/a | Auth config. Omit for no auth |
+| `tls` | no | map | n/a | Per-request TLS override. Supports only `verify: true|false` |
+| `assert` | no | list | None | Response assertions evaluated by non-interactive run commands |
 
 ### Params
 
@@ -40,7 +41,7 @@ params:
     enabled: false
 ```
 
-Legacy map format (key: value) is still accepted on read but not recommended — prefer the array format for multi-value support with the same param name.
+Legacy map format (key: value) is still accepted on read but not recommended. Prefer the array format for multi-value support with the same param name.
 
 ### Path params
 
@@ -57,6 +58,51 @@ path_params:
 
 Noodle synchronizes path-param names with URL tokens. Values can use `$var`
 references and must resolve in the active environment before sending.
+
+### Response assertions
+
+An optional `assert` list validates responses from non-interactive `request run`
+and `collection run` commands. A failed assertion makes the request and command
+fail. An HTTP status of 400 or higher also fails the run even if a status
+assertion passes. TUI sends preserve the declarations but do not evaluate them.
+
+```yaml
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.users[0].id
+    operator: isNumber
+  - expression: headers.Content-Type
+    operator: contains
+    value: application/json
+  - expression: response.time
+    operator: lt
+    value: 500
+```
+
+Expressions are `status`, `response.time`, `headers.<name>` with
+case-insensitive header lookup, or `body` followed by dot properties and array
+indexes. `body` by itself addresses the entire JSON value. Dot-property names
+must start with a letter or underscore and may then contain letters, digits,
+underscores, or hyphens. Brackets accept only non-negative array indexes;
+quoted property access such as `body["user.name"]` is not supported. Body
+expressions require valid JSON.
+
+Operators without `value`: `exists`, `notExists`, `isString`, `isNumber`,
+`isBoolean`, `isArray`, `isObject`, `isNull`, `notNull`.
+
+Operators with a JSON-compatible `value`: `equals`, `notEquals`, `gt`, `gte`,
+`lt`, `lte`, `contains`, `notContains`, `matches`. Numeric comparisons require
+finite numbers. Containment checks string substrings or deeply equal array
+members. `matches` accepts strings and a deliberately restricted JavaScript
+regular-expression subset that rejects backreferences, groups, alternation,
+braced quantifiers, and unsafe repetition.
+
+String values recursively support `$VARNAME` substitution; expressions and
+operators do not. Expected secret values are redacted from run results. JSON
+output includes actual server values, so treat assertion results as sensitive
+response data.
 
 ### Header and param values
 
@@ -107,21 +153,21 @@ directory paths and should be reviewed before sharing.
 | Field | Bearer | Basic | NTLMv2 | API Key | AWS SigV4 |
 |-------|--------|-------|--------|---------|-----------|
 | `type` | `"bearer"` | `"basic"` | `"ntlm"` | `"api_key"` | `"aws_sigv4"` |
-| `token` | yes | — | — | — | — |
-| `user` | — | yes | — | — | — |
-| `pass` | — | yes | — | — | — |
-| `username` | — | — | yes | — | — |
-| `password` | — | — | yes | — | — |
-| `domain` | — | — | optional | — | — |
-| `workstation` | — | — | optional | — | — |
-| `key` | — | — | — | yes | — |
-| `value` | — | — | — | yes | — |
-| `placement` | — | — | — | `"header"` (default) or `"query"` | — |
-| `access_key` | — | — | — | — | yes |
-| `secret_key` | — | — | — | — | yes |
-| `region` | — | — | — | — | yes |
-| `service` | — | — | — | — | yes |
-| `session_token` | — | — | — | — | optional |
+| `token` | yes | n/a | n/a | n/a | n/a |
+| `user` | n/a | yes | n/a | n/a | n/a |
+| `pass` | n/a | yes | n/a | n/a | n/a |
+| `username` | n/a | n/a | yes | n/a | n/a |
+| `password` | n/a | n/a | yes | n/a | n/a |
+| `domain` | n/a | n/a | optional | n/a | n/a |
+| `workstation` | n/a | n/a | optional | n/a | n/a |
+| `key` | n/a | n/a | n/a | yes | n/a |
+| `value` | n/a | n/a | n/a | yes | n/a |
+| `placement` | n/a | n/a | n/a | `"header"` (default) or `"query"` | n/a |
+| `access_key` | n/a | n/a | n/a | n/a | yes |
+| `secret_key` | n/a | n/a | n/a | n/a | yes |
+| `region` | n/a | n/a | n/a | n/a | yes |
+| `service` | n/a | n/a | n/a | n/a | yes |
+| `session_token` | n/a | n/a | n/a | n/a | optional |
 
 NTLM uses the connection-bound NTLMv2 challenge exchange. Proxy NTLM,
 NTLMv1, Kerberos/SPNEGO negotiation, signing, sealing, and channel binding are
@@ -269,6 +315,10 @@ timeout: 0
 
 Optional. Defines display name, sort order, and inheritable headers/auth for requests in that directory.
 
+This file applies only when it is inside a child directory. A `folder.yml` at
+the collection root is ignored and cannot provide collection-wide headers,
+authentication, metadata, or ordering.
+
 ```yaml
 meta:
   name: Display Name
@@ -367,8 +417,14 @@ runs. A missing or empty file uses defaults.
 ## Variable substitution rules
 
 - Syntax: `$VARNAME` (dollar sign + word characters)
-- Applied to: `url`, `headers` values, `params` values, `body`, `form_data` values, `file_path`, `auth` token/user/pass/key/value fields
-- All `$var` references must resolve to a variable declared in the active environment
+- Applied to: `url`; enabled header values; enabled `params` names and values;
+  `path_params` names and values; `body`; enabled `form_data` names and values;
+  `file_path`; supported auth credential, endpoint, identifier, key, path, and
+  enabled OAuth 2 additional-parameter string fields; and string values nested
+  recursively inside assertion expectations
+- Disabled headers, query params, form entries, and OAuth 2 additional parameters
+  are preserved without substitution until enabled
+- Every evaluated `$var` reference must resolve to a declaration in the active environment
 - Unresolved variables cause noodle to throw an error at request send time
 - Multi-level substitution is NOT supported (`$VAR1` that evaluates to `$VAR2` won't be resolved again)
 

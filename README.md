@@ -88,6 +88,9 @@ noodle agent install
 ```
 
 Commands support structured JSON output for scripts, CI, and agent workflows.
+Request YAML can also declare response assertions for status, timing, headers,
+and JSON body paths. `request run` and `collection run` evaluate them and exit
+nonzero when a check fails.
 
 ## Bring your existing work
 

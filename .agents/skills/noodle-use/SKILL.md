@@ -12,11 +12,12 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 | Intent | Read |
 |--------|------|
 | Create new collection, request, folder, or environment | [workflows/create.md](workflows/create.md) |
+| Configure collection metadata, history, cookies, proxy, or TLS | [workflows/create.md](workflows/create.md#configure-collection-settings) |
 | Script collection discovery, validation, execution, or simple mutations | [workflows/automation.md](workflows/automation.md) |
 | Refactor, rename, restructure existing collection | [workflows/organize.md](workflows/organize.md) |
 | Audit collection for REST best practices and security | [workflows/evaluate.md](workflows/evaluate.md) |
 | Import or export OpenAPI, Swagger, Postman, or Insomnia collections via CLI | [workflows/import.md](workflows/import.md) |
-| Convert an unsupported format at file level | [workflows/convert.md](workflows/convert.md) |
+| Convert a cURL command or unsupported format at file level | [workflows/convert.md](workflows/convert.md) |
 | Understand file formats, schemas, field rules | [schema.md](schema.md) |
 | Understand naming conventions, ID rules, variable syntax | [reference/conventions.md](reference/conventions.md) |
 | Read/write ~/.config/noodle/ settings | [reference/config.md](reference/config.md) |
@@ -27,10 +28,10 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies/auth/headers/params, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
-`$VARNAME` (no braces). Regex `/\$(\w+)/g`. Applied to: url, headers, params, body, formData, filePath, auth fields. Unresolved variables cause noodle to throw at runtime — always verify all `$var` references resolve to an env declaration.
+`$VARNAME` (no braces). Regex `/\$(\w+)/g`. In request YAML it applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved without substitution. Every reference that can be evaluated must have an environment declaration before the request runs.
 
 ### File extension
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.

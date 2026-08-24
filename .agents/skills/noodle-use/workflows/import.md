@@ -61,7 +61,6 @@ Expected structure:
 ```
 <data.path>/
 ├── settings.yml
-├── folder.yml                 (if root-level auth/headers were detected)
 ├── <resource>/                (one folder per tag/path group)
 │   ├── folder.yml
 │   ├── <operation>.yml
@@ -74,7 +73,9 @@ Expected structure:
 ### Step 5: Review and organize
 
 After import, the collection may need cleanup:
-- **Check auth**: Source auth is converted when supported; verify correctness, especially after an Insomnia or Swagger import.
+- **Check auth**: Source auth is converted when supported; verify correctness,
+  especially after an Insomnia or Swagger import. Root-level `folder.yml` is
+  never an effective auth source.
 - **Check environments**: Base URL and variables from the spec are extracted to env files. Verify values.
 - **Rename folders**: Imported folder names may be tag names or path segments. Adjust `meta.name` for readability.
 - **Remove unused requests**: The importer may generate endpoints you don't need. Delete `.yml` files manually.
@@ -114,13 +115,21 @@ environments.
 
 Postman imports map:
 - Collection name → collection root name
-- Collection auth → `folder.yml` auth override
 - Folder hierarchy → noodle folder structure
+- Folder auth → the matching nested `folder.yml` override
 - Request auth → inline `auth` on requests (or `inherit` if same as parent)
 - Pre-request scripts → not imported (noodle doesn't support scripts)
 - Tests → not imported
 - Collection variables → environment file
 - Raw XML bodies → `body_type: xml` (from the raw language or XML Content-Type)
+
+Postman collection-level auth is not preserved as an effective Noodle override.
+A request without its own auth may import as `type: inherit`, but a root
+`folder.yml` cannot satisfy that inheritance. When the source relies on
+collection auth, review the imported requests before execution and, with the
+user's intended configuration, either place them under a real shared parent
+folder with an auth override or author auth on each root-level request. Never
+copy literal credentials from the export into request YAML.
 
 Postman `ntlm`, `awsv4`, `oauth1`, and `oauth2` auth map to Noodle NTLMv2, AWS
 SigV4, OAuth 1.0a, and OAuth 2.0. Review signing methods, grant types, endpoint

@@ -301,7 +301,7 @@ the application services.
 
 ### Theme data (src/ui/theme-data.ts)
 
-- 33 themes defined in `THEMES[]` array; `noodle` is the default when no theme is saved
+- 34 themes defined in `THEMES[]` array; `noodle` is the default when no theme is saved
 - `Theme` interface: `{ name, primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, borderSubtle, borderDimmest }`
 
 ### Theme provider (src/ui/theme.tsx)
@@ -350,7 +350,7 @@ ui/              ← OpenTUI components + pure helpers + keymap layers
   │   ├── editor/CodeEditor.ts — renderable orchestration; highlight, fold, key, style, and validation modules
   │   ├── variable-completion/variableCompletion.ts — $var autocompletion engine
   │   ├── commands.ts / commandActions.ts — command palette infrastructure
-  │   ├── theme.tsx / theme-data.ts: 33 themes with live preview
+  │   ├── theme.tsx / theme-data.ts: 34 themes with live preview
   │   ├── settings/SettingsView.tsx — global and collection Settings workspace
   │   ├── settings/ProxySettingsForm.tsx — proxy policy editor
   │   ├── clipboard.ts — multi-platform clipboard + OSC 52 fallback
@@ -477,7 +477,7 @@ createMain(main) — citty argparse
          └── commands/automation.ts → services.ts → filestore/env/executor
               ├── non-interactive resource operations
               ├── optional --json result envelope via commandResult.ts
-              └── collection/request run resolves --env, proxy/TLS vault data, then settings.yml
+              └── collection/request run resolves targets, --env, proxy/TLS vault data, assertions, then settings.yml
 ```
 
 ### TUI path classification
@@ -504,7 +504,7 @@ Browse and empty modes allow global inspection actions such as help, theme, layo
 
 **Agent skill mode** (`src/app/commands/agent.ts` + `src/agentSkill.ts`): `noodle agent install [--json] [--force]` writes the embedded `noodle-use` files to `~/.agents/skills/noodle-use`, marks that directory as Noodle-managed, and links detected Claude, Cursor, Codex, and OpenCode skill directories to it. Existing symlinks or marked managed directories may be replaced atomically. Unmanaged paths are rejected and reported together unless `--force` is supplied; forced replacements retain backups until every target succeeds and roll back completed targets on failure.
 
-**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. Run commands support one-shot `--noproxy` and `--insecure` overrides and use the same collection jar as the TUI. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
+**Automation mode** (`src/app/commands/automation.ts` + `src/app/services.ts`): Provides resource commands for workspace discovery, collection creation/listing/inspection/audit/execution, minimal request creation/execution, environment variables, secure value set/list/delete, and cookie list/clear. `collection run` optionally selects request IDs and folder paths, validates them before sending, deduplicates overlap, and preserves collection order. Run commands evaluate request assertions through `src/response.ts` and `src/assertions.ts`; failed HTTP responses or assertions produce nonzero exit status. They also support one-shot `--noproxy` and `--insecure` overrides and use the same collection jar as the TUI. `commandResult.ts` centralizes JSON envelopes and exit-code handling. Cover service behavior in `tests/integration/automation.test.ts` and command definitions in `tests/cli.test.ts`.
 
 **Config files** (read during startup):
 

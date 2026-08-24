@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (2675 across 171 files)
+bun test                              # all tests (2848 across 186 files)
 bun test tests/lang.test.ts           # single file
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
@@ -26,7 +26,8 @@ noodle export <collection> --format <openapi|postman> --output <file|dir>
 noodle update
 noodle agent install [--json] [--force]
 noodle workspace list [--json]
-noodle collection <create|init|list|inspect|format|audit|run> ... [--noproxy] [--insecure] [--json]
+noodle collection run <path> [<target>...] [--env <name>] [--noproxy] [--insecure] [--json]
+noodle collection <create|init|list|inspect|format|audit> ... [--json]
 noodle request <create|run> ... [--noproxy] [--insecure] [--json]
 noodle cookie <list|clear> --collection <dir> [--json]
 noodle environment set <key> <value> --env <name> [--collection <dir>] [--json]
@@ -38,7 +39,7 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 - **Export subcommand**: `collection` (positional, required), `--format` (`openapi` or `postman`), and `--output/-o` (a file for OpenAPI, or a new/empty directory for Postman). Postman creates `collection.postman_collection.json` plus one redacted environment file per environment; it preserves literal request values except that `@/` file paths expand to absolute home paths, so review exports for secrets and local path disclosure before sharing.
 - **Update subcommand**: Self-update. Reads `https://noodlerest.dev/update.json`, caches verified release metadata for one hour (with a seven-day stale fallback), and SHA-256 verifies standalone binaries before replacement. Detects Homebrew installs and runs `brew upgrade noodle`; unavailable in Bun development runtime.
 - **Agent subcommand**: `agent install` writes the embedded `noodle-use` skill to `~/.agents/skills/noodle-use` and links detected Claude, Cursor, Codex, and OpenCode installations to that managed copy. It preserves unmanaged targets by default and reports every conflict; `--force` deliberately replaces all reported paths with backup-backed rollback if any target fails. Existing managed installations refresh after successful standalone, Homebrew, TUI, and curl-installer updates; refresh failures do not roll back Noodle and include a retry command.
-- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [--env] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input or failed runs. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
+- **Automation commands**: `workspace list`, `workspace audit [--fix]`; `collection create`, `init`, `list`, `inspect`, `format`, `audit [--fix]`, `run [<target>...] [--env] [--noproxy] [--insecure]`; `request create --url --method --collection`, `run [--env] [--noproxy] [--insecure]`; `environment set`; `secret set|list|delete`; and `cookie list|clear --collection`. They are non-interactive and support `--json`, which writes one `{ status, data, errors }` envelope and uses a nonzero exit status for invalid input, failed HTTP responses, or failed assertions. Collection-run targets are request IDs or folder paths ending in `/`; folders include nested requests, overlapping targets run once in collection order, and omitting targets runs the whole collection. `cookie list` prints jar contents grouped by domain (values included); `cookie clear` empties the jar. `secret set` prompts without echo in a TTY or accepts `--stdin`. `collection format` canonicalizes request YAML and pretty-prints valid JSON bodies without lossy numeric conversion; imports run it automatically. `collection init` bootstraps missing collection markers in an existing directory and registers it. `workspace audit --fix` removes invalid registered paths.
 - **Automation environment selection**: `request run` and `collection run` use `--env` when supplied; otherwise they use the collection root's `settings.yml` environment.
 - **TUI path modes**: Existing collection roots open in collection mode. Directories containing request YAML but no collection markers open in read-only browse mode; empty directories open in read-only empty mode. Invalid or non-directory paths exit with an error. Initialize browse/empty directories from the command palette before editing or sending.
 - `--help`, `--version` auto-generated by citty
@@ -57,6 +58,8 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 
 ```
 src/
+├── assertions.ts  # Declarative response assertion evaluation for automation runs
+├── response.ts    # Shared response expression parser and resolver
 ├── schema/        # Types: Method, Auth, Request, Collection, Response, Environment, ParamEntry, FormEntry, KvEntry
 ├── lang/          # YAML request language: parse + serialize
 │   ├── auth.ts     # Shared strict auth parsing and serialization
@@ -144,7 +147,7 @@ src/
     │   └── envHighlight.ts             # splitEnvVars — segments text into plain/resolved $var
     ├── [themes]
     │   ├── theme.tsx                   # ThemeProvider, useTheme, ThemePickerOverlay
-    │   └── theme-data.ts              # 33 themes, Theme interface, THEMES array
+    │   └── theme-data.ts              # 34 themes, Theme interface, THEMES array
     ├── [infrastructure]
     │   ├── keybind.ts                  # Keybinding definitions, CommandMap, parseOverrides
     │   ├── helpTexts.ts                # Help overlay section/keys builder
@@ -198,10 +201,11 @@ tests/integration/ # Integration tests
 - **Do NOT commit** `docs/`, `CONTINUE.md`, `.superpowers/`, `.timeline/` (all gitignored).
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
 - **Requests are `.yml` files**, one per request. Extension is `.yml` not `.yaml`. Optional `sendCookies: false` disables the collection cookie jar for that request (serialized only when set; parsed strictly like `followRedirects`/`maxRedirects`).
+- **Response assertions**: Optional request `assert` blocks are evaluated by non-interactive `request run` and `collection run`. Expressions address `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` paths. Failed assertions make the run fail; assertion expected values support recursive environment substitution, and secret expected values are redacted from results.
 - **Request IDs** are collection-relative paths without `.yml`; reject traversal, absolute paths, backslashes, empty segments, and hidden segments.
 - **Request bodies** support `none`, `json`, `xml`, `multipart`, `urlencoded`, and `binary`. XML bodies use the code editor, default to `application/xml` when no enabled Content-Type exists, and are sent unchanged after variable substitution.
 - **Environments are `.env` files** under `<collection>/.environments/`. Format is `KEY=value` (dotenv-style, not YAML). Lines starting with `#` disable a var. `_color=<name>` sets sidebar badge color. `# @secret NAME` followed by a blank `NAME=` placeholder declares a credential-vault value; process environment wins over the stored value.
-- **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth.
+- **`$VARNAME` template syntax** for variable substitution in url/headers/params/body/auth and assertion expected string values.
 - **Authentication:** Requests and folder overrides support bearer, basic, API key, connection-bound server NTLMv2, AWS SigV4, OAuth 1.0a, and OAuth 2.0. OAuth 1.0a supports HMAC, RSA, and PLAINTEXT signatures with header, query, or URL-encoded body placement. OAuth 2.0 supports authorization code, client credentials, implicit, and password grants; browser grants run interactively in the TUI, while automation only reuses, refreshes, or directly acquires non-browser credentials. Cached tokens live in the OS vault with a session-only memory fallback and are never written to request YAML. Keep all credentials in secret environment variables. Generated client code is unavailable for NTLM, AWS SigV4, OAuth 1.0a, and OAuth 2.0 requests.
 - **`@/path` home syntax** for multipart file values and binary `file_path`; the TUI completes the shorthand from the user home directory, while expansion happens only at output boundaries, including file reads during request sending, HAR generation through `buildHar`, and Postman export.
 - **Error re-throws** must pass `{ cause: e }` as second arg to `new Error(...)`. This is a convention (not an ESLint rule) but is followed project-wide.

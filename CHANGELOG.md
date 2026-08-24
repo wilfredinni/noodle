@@ -4,6 +4,25 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-24
+
+![Noodle Theme](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/noodle-claude.png)
+
+Noodle 0.8.0 adds declarative response assertions to automation runs, with checks for status, timing, headers, and JSON body values stored beside each request. Collection runs can also select request IDs and folders, while the Claude Code palette expands the built-in theme catalog to 34 choices.
+
+### ✨ Features
+
+- Add strict `assert` blocks to request YAML with typed equality, numeric, containment, existence, type, null, and safe regular-expression operators. `request run` and `collection run` evaluate the checks, include structured results in JSON output, summarize them in human output, and fail when any assertion fails.
+- Add optional request IDs and folder paths to `collection run`. Folder targets end in `/`, include nested requests, reject unknown targets before sending, and deduplicate overlapping selections while preserving collection order.
+- Add the `claude-code` theme with the Claude Code dark palette, accessible contrast for status colors, and automatic availability in the theme picker.
+
+### 📚 Documentation
+
+- Refresh the README and project imagery around Noodle's files-first TUI, CLI, automation, and coding-agent workflow.
+- Document response assertions, selective collection targets, and the 34-theme catalog across `AGENTS.md` and the documentation site, and update the current public roadmap now that assertions ship in v0.8.0.
+- Update `noodle-dev` with the response-expression and assertion execution path, selective collection-run behavior, focused tests, and the 34-theme catalog.
+- Update `noodle-use` with assertion authoring, result and secret-handling guidance, selective collection targets, and the `claude-code` configuration value.
+
 ## [0.7.7] - 2026-08-19
 
 ![Noodle Theme](https://raw.githubusercontent.com/wilfredinni/noodle/main/assets/noodle-noodle.png)

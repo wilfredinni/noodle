@@ -13,7 +13,44 @@ timeout: 0
 followRedirects: true
 ```
 
-Minimal valid request. Fields: name, method, url, timeout. `followRedirects` and `maxRedirects` omitted (use defaults: true, 5). `body_type` explicitly `none` since no body. No `headers`, `params`, `auth`, `body` — omitted when not needed.
+Minimal valid request. Fields: name, method, url, timeout. `followRedirects` and `maxRedirects` omitted (use defaults: true, 5). `body_type` explicitly `none` since no body. No `headers`, `params`, `auth`, or `body` fields are needed.
+
+## Request with response assertions
+
+Request (`users/get-user.yml`):
+
+```yaml
+name: Get User
+method: GET
+url: $base_url/users/1
+body_type: none
+timeout: 0
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.id
+    operator: isNumber
+  - expression: headers.Content-Type
+    operator: contains
+    value: application/json
+  - expression: response.time
+    operator: lt
+    value: 500
+```
+
+Assertions are top-level request fields and run only through the non-interactive
+CLI. Validate the YAML, then run the affected request when execution is
+authorized:
+
+```bash
+noodle collection audit ./my-api --json
+noodle request run users/get-user --collection ./my-api --json
+```
+
+A failed assertion makes the command exit nonzero. Read structured results from
+`data.result.assertions`; JSON actual values are raw server data and may be
+sensitive.
 
 ## POST with JSON body
 
@@ -34,7 +71,7 @@ body: |-
   }
 ```
 
-JSON body with headers. `body` uses YAML literal block scalar `|-` for multi-line content. Headers include auth key (`$x_api_key`) — the env must declare `x_api_key`. `Content-Type` is per-request (not in folder override).
+JSON body with headers. `body` uses YAML literal block scalar `|-` for multi-line content. Headers include auth key (`$x_api_key`), so the env must declare `x_api_key`. `Content-Type` is per-request rather than inherited from a folder override.
 
 ## POST with XML body
 
@@ -216,10 +253,9 @@ variable would use `# disabled_key=value`.
 ```
 my-api/
 ├── settings.yml                  # environment: development
-├── folder.yml                    # auth: { type: bearer, token: $TOKEN }
 ├── get-health.yml                # name: Health Check, method: GET
 ├── users/
-│   ├── folder.yml                # meta: { name: "Users", seq: 1 }
+│   ├── folder.yml                # meta plus bearer auth override
 │   ├── get-users.yml             # auth: { type: inherit }
 │   ├── get-user.yml              # auth: { type: inherit }
 │   └── create-user.yml           # auth: { type: inherit }
@@ -232,4 +268,7 @@ my-api/
     └── production.env
 ```
 
-Root `folder.yml` provides bearer auth. `users/` requests use `inherit` — they pick up the root auth. `posts/` requests don't declare auth — defaults to no auth. `settings.yml` points to `development` as the default env.
+`users/folder.yml` provides bearer auth to requests inside `users/`, so those
+requests can use `inherit`. `get-health.yml` and the `posts/` requests omit auth
+and default to no authentication. A root `folder.yml` would be ignored.
+`settings.yml` points to `development` as the default environment.
