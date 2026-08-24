@@ -4,6 +4,48 @@ export type Method =
 export type BodyType =
   "none" | "json" | "xml" | "multipart" | "urlencoded" | "binary"
 
+export type JsonValue =
+  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
+
+export type AssertionValue = JsonValue
+
+export type AssertionWithoutValueOperator =
+  | "exists"
+  | "notExists"
+  | "isString"
+  | "isNumber"
+  | "isBoolean"
+  | "isArray"
+  | "isObject"
+  | "isNull"
+  | "notNull"
+
+export type AssertionWithValueOperator =
+  | "equals"
+  | "notEquals"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "contains"
+  | "notContains"
+  | "matches"
+
+export type AssertionOperator =
+  AssertionWithoutValueOperator | AssertionWithValueOperator
+
+export type ResponseAssertion =
+  | {
+      expression: string
+      operator: AssertionWithoutValueOperator
+      value?: never
+    }
+  | {
+      expression: string
+      operator: AssertionWithValueOperator
+      value: AssertionValue
+    }
+
 export interface FormEntry {
   name: string
   value: string
@@ -186,6 +228,7 @@ export interface Request {
   filePath?: string
   auth?: Auth
   tls?: RequestTlsSettings
+  assertions?: ResponseAssertion[]
 }
 
 export interface Collection {

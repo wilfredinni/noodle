@@ -1,13 +1,10 @@
 import { JSONPath } from "jsonpath-plus"
+import { parseResponseBody } from "../response"
 
 export type ResponseQueryResult =
   | { kind: "success"; body: string; matchCount: number }
   | { kind: "invalid-json"; message: string }
   | { kind: "invalid-expression"; message: string }
-
-export type ParsedResponseBody =
-  | { kind: "success"; value: unknown }
-  | { kind: "invalid-json"; message: string }
 
 export interface ResponseQueryController {
   canOpen: () => boolean
@@ -24,16 +21,7 @@ export function queryResponseBody(
   return queryParsedResponseBody(parsed.value, expression)
 }
 
-export function parseResponseBody(body: string): ParsedResponseBody {
-  try {
-    return { kind: "success", value: JSON.parse(body) }
-  } catch {
-    return {
-      kind: "invalid-json",
-      message: "Response body is not valid JSON",
-    }
-  }
-}
+export { parseResponseBody }
 
 export function queryParsedResponseBody(
   value: unknown,
