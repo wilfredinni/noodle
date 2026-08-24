@@ -83,6 +83,7 @@ collection checks, or give coding agents the supported Noodle skill.
 noodle request run users/get --collection ./my-api --env staging
 noodle collection audit ./my-api --json
 noodle collection run ./my-api --json
+noodle collection run ./my-api auth/ health users/get --json
 noodle agent install
 ```
 

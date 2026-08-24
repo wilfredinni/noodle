@@ -288,6 +288,109 @@ describe("automation services", () => {
     }
   })
 
+  it("runs mixed request and folder targets once in collection order", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await mkdir(join(dir, "alpha", "nested"), { recursive: true })
+    await mkdir(join(dir, "beta"))
+    for (const id of [
+      "alpha/first",
+      "alpha/nested/second",
+      "beta/third",
+      "health",
+      "root",
+      "skip",
+    ]) {
+      await writeFile(
+        join(dir, `${id}.yml`),
+        `name: ${id}\nmethod: GET\nurl: https://example.com/${id}\n`,
+      )
+    }
+
+    const sent: string[] = []
+    const progress: Array<[number, number]> = []
+    const send = executor.send
+    executor.send = async (request) => {
+      sent.push(request.id)
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(
+        dir,
+        undefined,
+        (completed, total) => progress.push([completed, total]),
+        false,
+        undefined,
+        false,
+        ["root", "health", "alpha/", "alpha/nested/second", "beta/"],
+      )
+      expect(result.results.map((item) => item.id)).toEqual([
+        "alpha/nested/second",
+        "alpha/first",
+        "beta/third",
+        "health",
+        "root",
+      ])
+      expect(sent).toEqual(result.results.map((item) => item.id))
+      expect(progress).toEqual([
+        [0, 5],
+        [1, 5],
+        [2, 5],
+        [3, 5],
+        [4, 5],
+        [5, 5],
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("rejects unknown targets before sending any request", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    let sends = 0
+    const send = executor.send
+    executor.send = async () => {
+      sends += 1
+      throw new Error("should not send")
+    }
+    try {
+      await mkdir(join(dir, "folder"))
+      await expect(
+        collectionRun(dir, undefined, undefined, false, undefined, false, [
+          "folder",
+        ]),
+      ).rejects.toThrow('folder target must end in "/": "folder/"')
+      await expect(
+        collectionRun(dir, undefined, undefined, false, undefined, false, [
+          "request",
+          "missing/",
+        ]),
+      ).rejects.toThrow('collection target not found: "missing/"')
+      expect(sends).toBe(0)
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("accepts an empty folder target", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await mkdir(join(dir, "empty"))
+    expect(
+      await collectionRun(dir, undefined, undefined, false, undefined, false, [
+        "empty/",
+      ]),
+    ).toEqual({ results: [], failed: false })
+  })
+
   it("keeps server response fields intact in automation output", async () => {
     const key = "NOODLE_AUTOMATION_RESPONSE_SECRET"
     const originalValue = process.env[key]
