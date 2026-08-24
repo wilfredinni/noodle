@@ -1,0 +1,41 @@
+name: Assert Created Post
+method: POST
+url: $base_url/posts
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+headers:
+  Content-Type: application/json
+body: |-
+  {
+    "title": "Assertion example",
+    "userId": 1,
+    "published": true,
+    "note": null,
+    "tags": ["noodle", "assertions"]
+  }
+body_type: json
+assert:
+  - expression: status
+    operator: equals
+    value: 201
+  - expression: headers.Content-Type
+    operator: contains
+    value: application/json
+  - expression: body
+    operator: isObject
+  - expression: body.id
+    operator: isNumber
+  - expression: body.title
+    operator: equals
+    value: Assertion example
+  - expression: body.published
+    operator: isBoolean
+  - expression: body.note
+    operator: isNull
+  - expression: body.tags
+    operator: contains
+    value: assertions
+  - expression: body.tags
+    operator: notContains
+    value: missing
