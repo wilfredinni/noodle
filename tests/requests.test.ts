@@ -208,6 +208,81 @@ describe("substitute — auth", () => {
   })
 })
 
+describe("substitute — response assertions", () => {
+  it("recursively substitutes assertion string values without coercion", () => {
+    const result = substitute(
+      makeReq({
+        assertions: [
+          {
+            expression: "body.user",
+            operator: "equals",
+            value: {
+              name: "$NAME",
+              roles: ["$ROLE", 2, null],
+              $KEY: "$VALUE",
+            },
+          },
+          { expression: "status", operator: "equals", value: "$STATUS" },
+        ],
+      }),
+      {
+        name: "dev",
+        vars: {
+          NAME: "Noodle",
+          ROLE: "admin",
+          KEY: "ignored-key",
+          VALUE: "resolved",
+          STATUS: "200",
+        },
+      },
+    )
+
+    expect(result.assertions).toEqual([
+      {
+        expression: "body.user",
+        operator: "equals",
+        value: {
+          name: "Noodle",
+          roles: ["admin", 2, null],
+          $KEY: "resolved",
+        },
+      },
+      { expression: "status", operator: "equals", value: "200" },
+    ])
+  })
+
+  it("reports unresolved variables with the assertion value path", () => {
+    expect(() =>
+      substitute(
+        makeReq({
+          assertions: [
+            {
+              expression: "body.user",
+              operator: "equals",
+              value: { roles: ["$MISSING"] },
+            },
+          ],
+        }),
+        { name: "dev", vars: {} },
+      ),
+    ).toThrow(
+      'requests.substitute: unresolved variable "MISSING" in assertions[0].value.roles[0]',
+    )
+  })
+
+  it("does not substitute assertion expressions or operators", () => {
+    const result = substitute(
+      makeReq({
+        assertions: [{ expression: "body.$FIELD", operator: "exists" }],
+      }),
+      { name: "dev", vars: { FIELD: "id" } },
+    )
+    expect(result.assertions).toEqual([
+      { expression: "body.$FIELD", operator: "exists" },
+    ])
+  })
+})
+
 describe("substitute — AWS SigV4", () => {
   it("substitutes every credential and scope field", () => {
     const result = substitute(

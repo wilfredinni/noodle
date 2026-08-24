@@ -324,6 +324,214 @@ describe("automation services", () => {
     }
   })
 
+  it("evaluates passing assertions for request run", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\nassert:\n  - expression: status\n    operator: equals\n    value: 201\n  - expression: body.id\n    operator: isNumber\n  - expression: headers.X-Trace\n    operator: equals\n    value: abc\n  - expression: response.time\n    operator: lt\n    value: 500\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 201,
+      statusText: "Created",
+      headers: { "x-trace": "abc" },
+      body: '{"id":42}',
+      timeMs: 12,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result.failed).toBe(false)
+      expect(result.result.ok).toBe(true)
+      expect(result.result.assertions).toMatchObject({
+        evaluated: true,
+        results: [
+          { expression: "status", passed: true, actual: 201 },
+          { expression: "body.id", passed: true, actual: 42 },
+          { expression: "headers.X-Trace", passed: true, actual: "abc" },
+          { expression: "response.time", passed: true, actual: 12 },
+        ],
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("marks collection run failed when any assertion fails", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "passing.yml"),
+      "name: Passing\nmethod: GET\nurl: https://example.com/pass\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n",
+    )
+    await writeFile(
+      join(dir, "failing.yml"),
+      "name: Failing\nmethod: GET\nurl: https://example.com/fail\nassert:\n  - expression: body.id\n    operator: equals\n    value: 99\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"id":42}',
+      timeMs: 1,
+    })
+    try {
+      const result = await collectionRun(dir)
+      expect(result.failed).toBe(true)
+      expect(
+        result.results.find((item) => item.id === "passing"),
+      ).toMatchObject({ ok: true, assertions: { evaluated: true } })
+      const failed = result.results.find((item) => item.id === "failing")!
+      expect(failed).toMatchObject({
+        ok: false,
+        response: { body: '{"id":42}' },
+        assertions: {
+          evaluated: true,
+          results: [
+            {
+              expected: 99,
+              actual: 42,
+              passed: false,
+              message: "Expected values to be equal",
+            },
+          ],
+        },
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("reports declared assertions as not evaluated when substitution fails", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "environment: development\ncookies:\n  enabled: false\n",
+    )
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: {},
+    })
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\nassert:\n  - expression: body.id\n    operator: equals\n    value: $MISSING\n",
+    )
+    const send = executor.send
+    let calls = 0
+    executor.send = async () => {
+      calls++
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: "{}",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await requestRun("request", dir)
+      expect(calls).toBe(0)
+      expect(result.result).toMatchObject({
+        ok: false,
+        assertions: { evaluated: false, results: [] },
+      })
+      expect(result.result.error).toContain('unresolved variable "MISSING"')
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("omits assertion output for legacy requests", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "{}",
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result.result.ok).toBe(true)
+      expect(result.result).not.toHaveProperty("assertions")
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("keeps HTTP failure in the aggregate result when assertions pass", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\nassert:\n  - expression: status\n    operator: equals\n    value: 500\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 500,
+      statusText: "Error",
+      headers: {},
+      body: "{}",
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result).toMatchObject({
+        failed: true,
+        result: {
+          ok: false,
+          assertions: { evaluated: true, results: [{ passed: true }] },
+        },
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("redacts secret expected values but preserves raw actual response values", async () => {
+    const key = "NOODLE_ASSERTION_SECRET"
+    const originalValue = process.env[key]
+    const send = executor.send
+    try {
+      process.env[key] = "assertion-secret"
+      await writeFile(
+        join(dir, "settings.yml"),
+        "environment: development\ncookies:\n  enabled: false\n",
+      )
+      await env.saveEnvironment(join(dir, ".environments"), {
+        name: "development",
+        vars: {},
+        secretVars: { [key]: "process" },
+      })
+      await writeFile(
+        join(dir, "request.yml"),
+        `name: Request\nmethod: GET\nurl: https://example.com\nassert:\n  - expression: body.token\n    operator: equals\n    value: $${key}\n`,
+      )
+      executor.send = async () => ({
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: '{"token":"assertion-secret"}',
+        timeMs: 1,
+      })
+      const result = await requestRun("request", dir)
+      expect(result.result.assertions?.results[0]).toMatchObject({
+        expected: "[REDACTED]",
+        actual: "assertion-secret",
+        passed: true,
+      })
+      expect(result.result.assertions?.results[0]?.message).not.toContain(
+        "assertion-secret",
+      )
+    } finally {
+      executor.send = send
+      if (originalValue === undefined) delete process.env[key]
+      else process.env[key] = originalValue
+    }
+  })
+
   it("reports run progress before and after each collection request", async () => {
     await writeFile(join(dir, "settings.yml"), "{}\n")
     await writeFile(

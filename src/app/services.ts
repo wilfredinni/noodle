@@ -55,6 +55,8 @@ import {
   setStoredSecret,
 } from "../secrets"
 import { environmentSecretValues, redactKnownSecrets } from "../secrets/redact"
+import { evaluateAssertions, type AssertionResult } from "../assertions"
+import type { AssertionValue } from "../schema"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -532,6 +534,10 @@ export interface RequestRunResult {
   }
   error?: string
   warnings?: string[]
+  assertions?: {
+    evaluated: boolean
+    results: AssertionResult[]
+  }
 }
 export interface CollectionRunResult {
   results: RequestRunResult[]
@@ -558,6 +564,7 @@ async function runRequest(
   ].filter((value): value is string => Boolean(value))
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   try {
+    const effective = environment ? substitute(request, environment) : request
     const response = await executor.send(request, {
       environment,
       collection,
@@ -577,7 +584,15 @@ async function runRequest(
           ),
       )
       .map((event) => event.message)
-    const effective = environment ? substitute(request, environment) : request
+    const assertionResults = effective.assertions?.length
+      ? evaluateAssertions(effective.assertions, response).map((result) => ({
+          ...result,
+          ...(Object.hasOwn(result, "expected")
+            ? { expected: redactAssertionValue(result.expected!, redact) }
+            : {}),
+          message: redact(result.message),
+        }))
+      : undefined
     return {
       id: request.id,
       method: request.method,
@@ -589,7 +604,12 @@ async function runRequest(
         body: response.body,
         timeMs: response.timeMs,
       },
-      ok: response.status < 400,
+      ok:
+        response.status < 400 &&
+        (assertionResults?.every((result) => result.passed) ?? true),
+      ...(assertionResults
+        ? { assertions: { evaluated: true, results: assertionResults } }
+        : {}),
       ...(authWarnings.length > 0
         ? { warnings: [...new Set(authWarnings)] }
         : {}),
@@ -601,8 +621,30 @@ async function runRequest(
       url: redact(request.url),
       error: redact(errorMessage(error)),
       ok: false,
+      ...(request.assertions?.length
+        ? { assertions: { evaluated: false, results: [] } }
+        : {}),
     }
   }
+}
+
+function redactAssertionValue(
+  value: AssertionValue,
+  redact: (value: string) => string,
+): AssertionValue {
+  if (typeof value === "string") return redact(value)
+  if (Array.isArray(value)) {
+    return value.map((item) => redactAssertionValue(item, redact))
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        redactAssertionValue(item, redact),
+      ]),
+    )
+  }
+  return value
 }
 export async function collectionRun(
   path: string,

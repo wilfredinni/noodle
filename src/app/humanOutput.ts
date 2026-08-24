@@ -27,6 +27,22 @@ function statusLabel(result: RequestRunResult): string {
   return color(label, status < 400 ? "green" : "red")
 }
 
+function formatAssertions(result: RequestRunResult): string[] {
+  if (!result.assertions) return []
+  if (!result.assertions.evaluated) return ["  Assertions: not evaluated"]
+  const passed = result.assertions.results.filter(
+    (assertion) => assertion.passed,
+  ).length
+  const failed = result.assertions.results.length - passed
+  return [
+    `  Assertions: ${passed} passed, ${failed} failed`,
+    ...result.assertions.results.map(
+      (assertion) =>
+        `    ${assertion.passed ? color("✓", "green") : color("✗", "red")} ${assertion.expression} ${assertion.operator}${assertion.passed ? "" : `: ${assertion.message}`}`,
+    ),
+  ]
+}
+
 function formatTree(items: CollectionTreeItem[], prefix = ""): string[] {
   return items.flatMap((item, index) => {
     const last = index === items.length - 1
@@ -135,6 +151,7 @@ export function formatRunResult(result: RequestRunResult): string {
   return [
     `${result.ok ? color("✓", "green") : color("✗", "red")} ${color(result.method, "cyan")} ${result.id}  ${statusLabel(result)}${duration}`,
     `  ${result.url}${result.error ? `\n  ${color(result.error, "red")}` : ""}`,
+    ...formatAssertions(result),
     ...(result.warnings ?? []).map(
       (warning) => `  ${color("warning", "yellow")}: ${warning}`,
     ),
