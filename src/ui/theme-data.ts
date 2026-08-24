@@ -398,6 +398,26 @@ export const catppuccinMacchiatoTheme: Theme = {
   borderSubtle: "#5b6078",
 }
 
+export const claudeCodeTheme: Theme = {
+  name: "claude-code",
+  primary: "#da7756",
+  secondary: "#b1b9f9",
+  accent: "#6a9bcc",
+  error: "#ef6f6c",
+  warning: "#e0a458",
+  success: "#7a8f5f",
+  info: "#6a9bcc",
+  text: "#ffffff",
+  textMuted: "#a0a0a0",
+  background: "#1f1f1f",
+  backgroundPanel: "#1f1f1f",
+  borderDimmest: "#292929",
+  backgroundElement: "#373737",
+  border: "#505050",
+  borderActive: "#da7756",
+  borderSubtle: "#3f3f3f",
+}
+
 export const cobalt2Theme: Theme = {
   name: "cobalt2",
   primary: "#0088ff",
@@ -685,6 +705,7 @@ export const THEMES: Theme[] = [
   catppuccinTheme,
   catppuccinFrappeTheme,
   catppuccinMacchiatoTheme,
+  claudeCodeTheme,
   cobalt2Theme,
   cursorTheme,
   draculaTheme,

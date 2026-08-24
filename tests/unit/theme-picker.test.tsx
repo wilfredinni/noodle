@@ -26,7 +26,8 @@ describe("ThemePickerOverlay", () => {
     await renderOnce()
     const frame = captureCharFrame()
     expect(frame).toContain("aura")
-    expect(frame).toContain("matrix")
+    expect(frame).toContain("claude-code")
+    expect(frame).toContain("material")
     cleanup()
   })
 

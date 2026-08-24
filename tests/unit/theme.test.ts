@@ -3,15 +3,32 @@ import {
   DEFAULT_THEME_INDEX,
   DEFAULT_THEME_NAME,
   THEMES,
+  claudeCodeTheme,
   contrastOnPrimary,
   contrastOnSecondary,
   noodleTheme,
   palenightTheme,
 } from "../../src/ui/theme"
 
+function contrastRatio(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, b] = hex
+      .match(/[0-9a-f]{2}/gi)!
+      .map((channel) => parseInt(channel, 16) / 255)
+      .map((channel) =>
+        channel <= 0.03928
+          ? channel / 12.92
+          : ((channel + 0.055) / 1.055) ** 2.4,
+      )
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+  }
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (light! + 0.05) / (dark! + 0.05)
+}
+
 describe("THEMES", () => {
-  it("has exactly 33 themes", () => {
-    expect(THEMES).toHaveLength(33)
+  it("has exactly 34 themes", () => {
+    expect(THEMES).toHaveLength(34)
   })
 
   const expected = [
@@ -21,6 +38,7 @@ describe("THEMES", () => {
     "catppuccin",
     "catppuccin-frappe",
     "catppuccin-macchiato",
+    "claude-code",
     "cobalt2",
     "cursor",
     "dracula",
@@ -84,6 +102,7 @@ describe("THEMES", () => {
     "thirty-first",
     "thirty-second",
     "thirty-third",
+    "thirty-fourth",
   ]
   for (let i = 0; i < expected.length; i++) {
     it(`${nth[i]!} theme is named ${expected[i]}`, () => {
@@ -137,6 +156,26 @@ describe("THEMES", () => {
 
   it("keeps Pale Night's inactive pane borders visible against panel backgrounds", () => {
     expect(palenightTheme.borderSubtle).not.toBe(palenightTheme.backgroundPanel)
+  })
+
+  it("maps Claude Code's dark palette to terminal theme roles", () => {
+    expect(claudeCodeTheme).toMatchObject({
+      primary: "#da7756",
+      secondary: "#b1b9f9",
+      success: "#7a8f5f",
+      text: "#ffffff",
+      background: "#1f1f1f",
+      backgroundPanel: "#1f1f1f",
+      backgroundElement: "#373737",
+      border: "#505050",
+      borderActive: "#da7756",
+    })
+
+    for (const token of ["error", "success", "info"] as const) {
+      expect(
+        contrastRatio(claudeCodeTheme[token], claudeCodeTheme.backgroundPanel),
+      ).toBeGreaterThanOrEqual(4.5)
+    }
   })
 
   it("maps the Noodle landing palette to terminal theme roles", () => {

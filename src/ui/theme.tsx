@@ -30,6 +30,7 @@ export {
   synthwave84Theme,
   catppuccinFrappeTheme,
   catppuccinMacchiatoTheme,
+  claudeCodeTheme,
   cobalt2Theme,
   cursorTheme,
   flexokiTheme,
