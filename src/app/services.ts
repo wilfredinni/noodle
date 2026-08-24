@@ -96,6 +96,54 @@ export function flattenRequests(items: CollectionItem[]): Request[] {
     item.type === "request" ? [item.data] : flattenRequests(item.data.children),
   )
 }
+function folderPaths(items: CollectionItem[]): string[] {
+  return items.flatMap((item) =>
+    item.type === "folder"
+      ? [item.data.path, ...folderPaths(item.data.children)]
+      : [],
+  )
+}
+function requestsForTargets(
+  items: CollectionItem[],
+  targets: string[],
+): Request[] {
+  const requests = flattenRequests(items)
+  if (targets.length === 0) return requests
+
+  const requestIds = new Set(requests.map((request) => request.id))
+  const folders = new Set(folderPaths(items))
+  const selectedRequests = new Set<string>()
+  const selectedFolders = new Set<string>()
+  const missing = new Set<string>()
+
+  for (const target of targets) {
+    if (target.endsWith("/")) {
+      const path = target.slice(0, -1)
+      if (folders.has(path)) selectedFolders.add(path)
+      else missing.add(target)
+    } else if (requestIds.has(target)) {
+      selectedRequests.add(target)
+    } else if (folders.has(target)) {
+      throw new Error(`folder target must end in "/": "${target}/"`)
+    } else {
+      missing.add(target)
+    }
+  }
+
+  if (missing.size > 0) {
+    const label = missing.size === 1 ? "target" : "targets"
+    throw new Error(
+      `collection ${label} not found: ${[...missing].map((target) => `"${target}"`).join(", ")}`,
+    )
+  }
+
+  const folderPrefixes = [...selectedFolders].map((path) => `${path}/`)
+  return requests.filter(
+    (request) =>
+      selectedRequests.has(request.id) ||
+      folderPrefixes.some((prefix) => request.id.startsWith(prefix)),
+  )
+}
 export type CollectionTreeItem =
   | {
       type: "request"
@@ -653,10 +701,12 @@ export async function collectionRun(
   noProxy = false,
   systemProxy?: SystemProxySettings,
   insecure = false,
+  targets: string[] = [],
 ): Promise<CollectionRunResult> {
   const dir = await requireCollectionRoot(path)
   const settings = await loadSettings(dir)
   const collection = await filestore.loadCollection(dir)
+  const requests = requestsForTargets(collection.items, targets)
   const environment = await environmentFor(dir, settings, environmentName)
   const policy = await proxyPolicyFor(
     dir,
@@ -667,7 +717,6 @@ export async function collectionRun(
   const tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
   const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
   const cookies = cookieAccess.jar
-  const requests = flattenRequests(collection.items)
   const results: RequestRunResult[] = []
   onProgress?.(0, requests.length)
   try {

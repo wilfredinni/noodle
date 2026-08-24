@@ -22,7 +22,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 | Delete a local vault value without removing its declaration | `noodle secret delete <key> --env <name> --collection <dir> --json` |
 | Inspect collection cookies and storage health | `noodle cookie list --collection <dir> --json` |
 | Clear cookies or recover unreadable cookie storage | `noodle cookie clear --collection <dir> --json` |
-| Run one request or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> ... --json` |
+| Run one, selected, or all requests | `noodle request run <id> ... --json` or `noodle collection run <dir> [<target>...] ... --json` |
 
 ## Rules
 
@@ -31,6 +31,7 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - `collection init` only accepts an existing, non-collection directory. It creates missing `settings.yml` and `.environments/development.env` bootstrap files, then registers the absolute path. Existing markers are preserved.
 - `collection format` rewrites every request file with canonical YAML and pretty-prints valid JSON bodies. It leaves invalid JSON body text unchanged. Obtain user authorization before running it because it modifies collection files.
 - Request IDs are relative paths without `.yml`, such as `users/list`. Do not use traversal, empty segments, or hidden segments.
+- `collection run <dir> [<target>...]` accepts bare request IDs and folder paths ending in `/`. Folders include nested requests. Overlapping targets run once in collection order; omit targets to run the whole collection.
 - `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment; ensure referenced `$vars` exist there.
 - Treat cookie `data.warnings` as non-fatal diagnostics. Run results can succeed while warning that cookie storage is plaintext or unavailable; unavailable jars are skipped for that run. `cookie list` also reports `data.state`, warnings, and `hostOnly` for every cookie.
 - Treat every `cookie list` value as sensitive. Do not paste human or JSON output into logs, issues, or shared reports without redaction.

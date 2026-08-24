@@ -238,9 +238,17 @@ const collection = defineCommand({
         ),
     }),
     run: defineCommand({
-      meta: { name: "run", description: "Run every request in a collection" },
+      meta: {
+        name: "run",
+        description: "Run selected requests or every request in a collection",
+      },
       args: {
         path: { type: "positional", required: true },
+        "targets...": {
+          type: "positional",
+          required: false,
+          description: "Request IDs or folder paths ending in /",
+        },
         env: { type: "string", alias: "e" },
         noproxy: { type: "boolean", default: false },
         insecure: { type: "boolean", default: false },
@@ -259,6 +267,7 @@ const collection = defineCommand({
                 args.noproxy,
                 takeSystemProxyFromEnv(),
                 args.insecure,
+                args._.slice(1),
               )
               return { data, failed: data.failed }
             } finally {

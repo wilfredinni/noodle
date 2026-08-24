@@ -239,6 +239,45 @@ describe("CLI integration", () => {
     expect(out).toContain("output")
   })
 
+  it("shows variadic targets for collection run", () => {
+    const proc = Bun.spawnSync(["bun", CLI, "collection", "run", "--help"], {})
+    expect(proc.exitCode).toBe(0)
+    const out = proc.stdout.toString()
+    expect(out).toContain("[TARGETS...]")
+    expect(out).toContain("Request IDs or folder paths ending in /")
+  })
+
+  it("runs a folder target with JSON output", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-targets-"))
+    try {
+      await mkdir(join(dir, "empty"))
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      const proc = Bun.spawnSync(
+        ["bun", CLI, "collection", "run", dir, "empty/", "--json"],
+        { env: { ...process.env, HOME: join(dir, "home") } },
+      )
+      expect(proc.exitCode).toBe(0)
+      expect(JSON.parse(proc.stdout.toString())).toEqual({
+        status: "success",
+        data: { results: [], failed: false },
+        errors: [],
+      })
+
+      const invalid = Bun.spawnSync(
+        ["bun", CLI, "collection", "run", dir, "empty/", "missing/", "--json"],
+        { env: { ...process.env, HOME: join(dir, "home") } },
+      )
+      expect(invalid.exitCode).toBe(1)
+      expect(JSON.parse(invalid.stdout.toString())).toEqual({
+        status: "error",
+        data: null,
+        errors: ['collection target not found: "missing/"'],
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it("shows Postman bundle requirements in export help", () => {
     const proc = Bun.spawnSync(["bun", CLI, "export", "--help"])
     expect(proc.exitCode).toBe(0)
