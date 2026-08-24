@@ -1,4 +1,11 @@
-import type { Auth, Environment, ParamEntry, Request } from "../schema"
+import type {
+  AssertionValue,
+  Auth,
+  Environment,
+  ParamEntry,
+  Request,
+  ResponseAssertion,
+} from "../schema"
 
 const VAR_RE = /\$(\w+)/g
 
@@ -62,6 +69,18 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
       ? resolve(req.filePath, "filePath")
       : req.filePath
 
+  const assertions = req.assertions?.map((assertion, index) => {
+    if (assertion.value === undefined) return assertion
+    return {
+      ...assertion,
+      value: substituteAssertionValue(
+        assertion.value,
+        resolve,
+        `assertions[${index}].value`,
+      ),
+    } as ResponseAssertion
+  })
+
   return {
     id: req.id,
     name: req.name,
@@ -80,7 +99,30 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     filePath,
     auth,
     tls: req.tls,
+    assertions,
   }
+}
+
+function substituteAssertionValue(
+  value: AssertionValue,
+  resolve: (value: string, field: string) => string,
+  field: string,
+): AssertionValue {
+  if (typeof value === "string") return resolve(value, field)
+  if (Array.isArray(value)) {
+    return value.map((item, index) =>
+      substituteAssertionValue(item, resolve, `${field}[${index}]`),
+    )
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        substituteAssertionValue(item, resolve, `${field}.${key}`),
+      ]),
+    )
+  }
+  return value
 }
 
 function substituteAuth(

@@ -1115,3 +1115,153 @@ describe("lang.serializeFolder — multiline values", () => {
     })
   })
 })
+
+describe("lang.parseRequest — response assertions", () => {
+  const prefix = "name: Assertions\nmethod: GET\nurl: https://example.com\n"
+
+  it("parses and canonically round-trips typed assertions", () => {
+    const request = lang.parseRequest(
+      "assertions",
+      `${prefix}assert:\n  - expression: status\n    operator: equals\n    value: 201\n  - expression: body.users[0].id\n    operator: isNumber\n  - expression: body\n    operator: equals\n    value:\n      ok: true\n      values: [1, null]\n`,
+    )
+
+    expect(request.assertions).toEqual([
+      { expression: "status", operator: "equals", value: 201 },
+      { expression: "body.users[0].id", operator: "isNumber" },
+      {
+        expression: "body",
+        operator: "equals",
+        value: { ok: true, values: [1, null] },
+      },
+    ])
+    const serialized = lang.serializeRequest(request)
+    expect(serialized).toContain(
+      "assert:\n  - expression: status\n    operator: equals\n    value: 201\n",
+    )
+    expect(lang.parseRequest("assertions", serialized).assertions).toEqual(
+      request.assertions,
+    )
+  })
+
+  it("accepts an empty assertion list as no declarations", () => {
+    const request = lang.parseRequest("assertions", `${prefix}assert: []\n`)
+    expect(request.assertions).toBeUndefined()
+    expect(lang.serializeRequest(request)).not.toContain("assert:")
+  })
+
+  it("rejects malformed assertion containers and items", () => {
+    expect(() =>
+      lang.parseRequest("assertions", `${prefix}assert: {}\n`),
+    ).toThrow('lang.parseRequest: "assert" must be an array')
+    expect(() =>
+      lang.parseRequest("assertions", `${prefix}assert:\n  - nope\n`),
+    ).toThrow("lang.parseRequest: assert[0] must be an object")
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: status\n    operator: exists\n    extra: true\n`,
+      ),
+    ).toThrow('lang.parseRequest: unknown assert[0] field "extra"')
+  })
+
+  it("rejects malformed expressions and invalid operators", () => {
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body..id\n    operator: exists\n`,
+      ),
+    ).toThrow(
+      'lang.parseRequest: assert[0].expression: Invalid response expression "body..id"',
+    )
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: status\n    operator: equalz\n    value: 200\n`,
+      ),
+    ).toThrow('lang.parseRequest: invalid assert[0].operator "equalz"')
+  })
+
+  it("enforces value presence and absence by operator", () => {
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: status\n    operator: equals\n`,
+      ),
+    ).toThrow('assert[0].operator "equals" requires value')
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: status\n    operator: exists\n    value: 200\n`,
+      ),
+    ).toThrow('assert[0].operator "exists" does not accept value')
+  })
+
+  it("rejects incompatible numeric and regex definitions", () => {
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: response.time\n    operator: lt\n    value: $MAX_TIME\n`,
+      ),
+    ).toThrow('operator "lt" requires a finite numeric value')
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.name\n    operator: matches\n    value: 42\n`,
+      ),
+    ).toThrow('operator "matches" requires a string value')
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.name\n    operator: matches\n    value: '['\n`,
+      ),
+    ).toThrow('operator "matches": Invalid regular expression')
+  })
+
+  it("accepts safe regex repetition and rejects backtracking syntax", () => {
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.name\n    operator: matches\n    value: '^user-\\d+$'\n`,
+      ),
+    ).not.toThrow()
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.name\n    operator: matches\n    value: '^(a+)+$'\n`,
+      ),
+    ).toThrow('operator "matches": Regular expression uses unsupported syntax')
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.name\n    operator: matches\n    value: '.*a'\n`,
+      ),
+    ).toThrow('operator "matches": Regular expression uses unsupported syntax')
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.name\n    operator: matches\n    value: '[ab]+c'\n`,
+      ),
+    ).toThrow('operator "matches": Regular expression uses unsupported syntax')
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.name\n    operator: matches\n    value: '^.*a'\n`,
+      ),
+    ).not.toThrow()
+  })
+
+  it("rejects non-JSON-compatible values and non-finite numbers", () => {
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.value\n    operator: equals\n    value: .nan\n`,
+      ),
+    ).toThrow("assert[0].value must contain finite numbers")
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body.value\n    operator: equals\n    value: 2026-08-24\n`,
+      ),
+    ).toThrow("assert[0].value must be a JSON-compatible value")
+  })
+})

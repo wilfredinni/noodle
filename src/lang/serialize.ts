@@ -89,6 +89,15 @@ export function serializeRequest(req: Request): string {
     out += `file_path: ${yamlVal(req.filePath)}\n`
   }
 
+  if (req.assertions && req.assertions.length > 0) {
+    out += yaml.dump(
+      {
+        assert: req.assertions.map((assertion) => ({ ...assertion })),
+      },
+      { lineWidth: -1, noRefs: true },
+    )
+  }
+
   if (req.auth && req.auth.type !== "none") {
     out += yaml.dump(
       { auth: authToObj(req.auth) },

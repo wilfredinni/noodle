@@ -1,0 +1,27 @@
+name: Assert Post Response
+method: GET
+url: $base_url/posts/:postId
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+path_params:
+  - name: postId
+    value: '1'
+body_type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body.id
+    operator: equals
+    value: 1
+  - expression: body.userId
+    operator: isNumber
+  - expression: body.title
+    operator: contains
+    value: sunt
+  - expression: body.deletedAt
+    operator: notExists
+  - expression: response.time
+    operator: lt
+    value: 30000

@@ -1,0 +1,28 @@
+name: Assert Users Response
+method: GET
+url: $base_url/users
+timeout: 0
+followRedirects: true
+maxRedirects: 5
+body_type: none
+assert:
+  - expression: status
+    operator: equals
+    value: 200
+  - expression: body
+    operator: isArray
+  - expression: body[0].id
+    operator: isNumber
+  - expression: body[0].address
+    operator: isObject
+  - expression: body[0].address.geo.lat
+    operator: isString
+  - expression: body[0].name
+    operator: equals
+    value: Leanne Graham
+  - expression: body[0].phone
+    operator: matches
+    value: ^1-
+  - expression: body[0].name
+    operator: notContains
+    value: Noodle

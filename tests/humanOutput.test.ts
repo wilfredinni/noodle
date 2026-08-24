@@ -123,6 +123,68 @@ describe("human CLI output", () => {
     expect(output).not.toContain('{"users":[]}')
   })
 
+  it("summarizes assertions without printing raw actual values", () => {
+    const output = plain(
+      formatRequestRun({
+        result: {
+          id: "users/get",
+          method: "GET",
+          url: "https://example.com/users/1",
+          ok: false,
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: '{"token":"raw-server-secret"}',
+            timeMs: 2,
+          },
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "status",
+                operator: "equals",
+                expected: 200,
+                actual: 200,
+                passed: true,
+                message: "Assertion passed",
+              },
+              {
+                expression: "body.token",
+                operator: "equals",
+                expected: "[REDACTED]",
+                actual: "raw-server-secret",
+                passed: false,
+                message: "Expected values to be equal",
+              },
+            ],
+          },
+        },
+      }),
+    )
+
+    expect(output).toContain("Assertions: 1 passed, 1 failed")
+    expect(output).toContain("✗ body.token equals: Expected values to be equal")
+    expect(output).not.toContain("raw-server-secret")
+  })
+
+  it("reports assertions that could not be evaluated", () => {
+    expect(
+      plain(
+        formatRequestRun({
+          result: {
+            id: "users/get",
+            method: "GET",
+            url: "https://example.com/users/1",
+            ok: false,
+            error: "unresolved variable",
+            assertions: { evaluated: false, results: [] },
+          },
+        }),
+      ),
+    ).toContain("Assertions: not evaluated")
+  })
+
   it("prints cookie warnings, storage state, and recovery backups", () => {
     const listed = plain(
       formatCookieList({
