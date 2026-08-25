@@ -75,6 +75,26 @@ interface MainViewProps {
   onFolderContextMenu?: (path: string) => void
 }
 
+interface ResizeClick {
+  time: number
+  x: number
+  y: number
+}
+
+const DOUBLE_CLICK_INTERVAL = 300
+
+function isDoubleClick(
+  previous: ResizeClick | null,
+  current: ResizeClick,
+): boolean {
+  return (
+    previous !== null &&
+    current.time - previous.time <= DOUBLE_CLICK_INTERVAL &&
+    Math.abs(current.x - previous.x) <= 1 &&
+    Math.abs(current.y - previous.y) <= 1
+  )
+}
+
 function clampSidebarWidth(
   width: number,
   containerWidth: number,
@@ -147,6 +167,12 @@ export function MainView({
   const splitContainerRef = useRef<BoxRenderable | null>(null)
   const resizingSidebarRef = useRef(false)
   const resizingSplitRef = useRef(false)
+  const sidebarDraggedRef = useRef(false)
+  const splitDraggedRef = useRef(false)
+  const lastSidebarClickRef = useRef<ResizeClick | null>(null)
+  const lastSplitClickRef = useRef<
+    (ResizeClick & { layout: "stacked" | "side-by-side" }) | null
+  >(null)
   const workspaceMinimum = layout === "side-by-side" ? 33 : 32
   const effectiveSidebarWidth =
     containerWidth === null
@@ -213,6 +239,7 @@ export function MainView({
       }}
       onMouseDrag={(event) => {
         if (resizingSidebarRef.current && containerRef.current) {
+          sidebarDraggedRef.current = true
           onSidebarWidthChange(
             clampSidebarWidth(
               event.x - containerRef.current.x,
@@ -221,6 +248,7 @@ export function MainView({
             ),
           )
         } else if (resizingSplitRef.current && splitContainerRef.current) {
+          splitDraggedRef.current = true
           const sideBySide = layout === "side-by-side"
           const size =
             (sideBySide
@@ -242,9 +270,32 @@ export function MainView({
         event.stopPropagation()
       }}
       onMouseUp={(event) => {
-        if (resizingSidebarRef.current) stopSidebarResize()
-        else if (resizingSplitRef.current) stopSplitResize()
-        else return
+        const click = { time: Date.now(), x: event.x, y: event.y }
+        if (resizingSidebarRef.current) {
+          stopSidebarResize()
+          if (sidebarDraggedRef.current) {
+            lastSidebarClickRef.current = null
+          } else if (isDoubleClick(lastSidebarClickRef.current, click)) {
+            lastSidebarClickRef.current = null
+            onSidebarWidthChange(SIDEBAR_WIDTH)
+          } else {
+            lastSidebarClickRef.current = click
+          }
+        } else if (resizingSplitRef.current) {
+          stopSplitResize()
+          const previous = lastSplitClickRef.current
+          if (splitDraggedRef.current) {
+            lastSplitClickRef.current = null
+          } else if (
+            previous?.layout === layout &&
+            isDoubleClick(previous, click)
+          ) {
+            lastSplitClickRef.current = null
+            onPaneSplitRatioChange(0.5)
+          } else {
+            lastSplitClickRef.current = { ...click, layout }
+          }
+        } else return
         event.preventDefault()
         event.stopPropagation()
       }}
@@ -286,6 +337,7 @@ export function MainView({
         onMouseDown={(event) => {
           if (event.button !== MouseButton.LEFT) return
           resizingSidebarRef.current = true
+          sidebarDraggedRef.current = false
           event.preventDefault()
           event.stopPropagation()
         }}
@@ -340,6 +392,7 @@ export function MainView({
             splitRatio={paneSplitRatio}
             onSplitResizeStart={() => {
               resizingSplitRef.current = true
+              splitDraggedRef.current = false
             }}
             expanded={expanded}
             activeEnv={activeEnv}

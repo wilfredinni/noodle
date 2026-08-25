@@ -158,7 +158,7 @@ describe("MainView", () => {
     cleanup()
   })
 
-  it("resizes and clamps main panes without changing handle focus", async () => {
+  it("resizes, clamps, and resets main panes without changing handle focus", async () => {
     const { keymap, cleanup } = setupKeymap()
     const request = {
       id: "health",
@@ -337,6 +337,17 @@ describe("MainView", () => {
     })
     await renderOnce()
     expect(handle.screenX - main.screenX).toBe(preferredWidth)
+
+    await act(async () => {
+      await mockMouse.click(handle.screenX, sidebarHandleY, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(handle.screenX - main.screenX).toBe(preferredWidth)
+    await act(async () => {
+      await mockMouse.click(handle.screenX, sidebarHandleY, MouseButtons.LEFT)
+    })
+    await renderOnce()
+    expect(handle.screenX - main.screenX).toBe(SIDEBAR_WIDTH)
     expect(paneFocusCalls).toBe(0)
 
     const split = renderer.root.findDescendantById(
@@ -473,6 +484,39 @@ describe("MainView", () => {
     act(() => changeLayout("stacked"))
     await renderOnce()
     expect(requestSlot.height).toBe(stackedRequestHeight)
+
+    splitHandle = renderer.root.findDescendantById(
+      "request-response-resize-handle",
+    ) as BoxRenderable
+    await act(async () => {
+      await mockMouse.doubleClick(
+        splitHandle.screenX + Math.floor(splitHandle.width / 2),
+        splitHandle.screenY,
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+    expect(
+      Math.abs(requestSlot.height - responseSlot.height),
+    ).toBeLessThanOrEqual(1)
+
+    act(() => changeLayout("side-by-side"))
+    await renderOnce()
+    expect(requestSlot.width).toBe(16)
+    splitHandle = renderer.root.findDescendantById(
+      "request-response-resize-handle",
+    ) as BoxRenderable
+    await act(async () => {
+      await mockMouse.doubleClick(
+        splitHandle.screenX,
+        splitHandle.screenY + Math.floor(splitHandle.height / 2),
+        MouseButtons.LEFT,
+      )
+    })
+    await renderOnce()
+    expect(
+      Math.abs(requestSlot.width - responseSlot.width),
+    ).toBeLessThanOrEqual(1)
 
     act(() => changeExpanded("request"))
     await renderOnce()
