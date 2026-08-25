@@ -5,25 +5,9 @@ import { useState } from "react"
 import pkg from "../../package.json" with { type: "json" }
 import type { UpdateFlowState } from "./appState"
 import type { EnvStatus } from "./envIndicator"
+import { truncateToWidth } from "./format"
 import { useTheme } from "./theme"
 import { getUpdateStatusSegments, UpdateStatusSpans } from "./UpdateStatus"
-
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
-
-function truncate(text: string, maxWidth: number): string {
-  if (stringWidth(text) <= maxWidth) return text
-  if (maxWidth <= 1) return maxWidth === 1 ? "…" : ""
-
-  let result = ""
-  let width = 0
-  for (const { segment } of graphemes.segment(text)) {
-    const segmentWidth = stringWidth(segment)
-    if (width + segmentWidth > maxWidth - 1) break
-    result += segment
-    width += segmentWidth
-  }
-  return `${result}…`
-}
 
 export function Header({
   collectionLabel,
@@ -90,8 +74,8 @@ export function Header({
         availableLabelWidth - collectionTextWidth,
       )
     : 0
-  const collectionText = truncate(rawCollectionText, collectionTextWidth)
-  const envText = truncate(rawEnvText, environmentTextWidth)
+  const collectionText = truncateToWidth(rawCollectionText, collectionTextWidth)
+  const envText = truncateToWidth(rawEnvText, environmentTextWidth)
   const environmentEnabled = onEnvironmentActivate !== undefined
   const envMarkerFg = !environmentEnabled
     ? theme.textMuted

@@ -1,6 +1,7 @@
 import { MouseButton, ScrollBoxRenderable } from "@opentui/core"
 import { useEffect, useRef, useState } from "react"
 import type { CollectionItem, Method } from "../schema"
+import { truncateToWidth } from "./format"
 import { methodColor } from "./formatRequest"
 import { useTheme } from "./theme"
 
@@ -13,10 +14,6 @@ import { extractFileErrors } from "../filestore/load"
 
 function shortMethod(m: string): string {
   return m === "DELETE" ? "DEL" : m
-}
-
-function truncName(name: string, max: number): string {
-  return name.length <= max ? name : name.slice(0, max - 1) + "\u2026"
 }
 
 import { Frame } from "./Frame"
@@ -36,6 +33,7 @@ export function Sidebar({
   dirtyRequestIds,
   dirtyFolderPaths,
   jumpMode = false,
+  width = SIDEBAR_WIDTH,
   onPaneFocus,
   onRequestSelect,
   onFolderSelect,
@@ -55,6 +53,7 @@ export function Sidebar({
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
   jumpMode?: boolean
+  width?: number
   onPaneFocus?: () => void
   onRequestSelect?: (id: string) => void
   onFolderSelect?: (path: string) => void
@@ -79,7 +78,8 @@ export function Sidebar({
   return (
     <Frame
       style={{
-        width: SIDEBAR_WIDTH,
+        width,
+        minWidth: 20,
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,
@@ -198,6 +198,10 @@ export function Sidebar({
             if (node.type === "folder") {
               const chevron = node.expanded ? "\u25BE" : "\u25B8"
               const isFolderDirty = dirtyFolderPaths?.has(node.id)
+              const nameWidth = Math.max(
+                0,
+                width - 8 - node.depth * 2 - (isFolderDirty ? 2 : 0),
+              )
               return (
                 <box
                   key={node.id}
@@ -262,7 +266,7 @@ export function Sidebar({
                       </text>
                     </box>
                     <text fg={theme.textMuted} wrapMode="none">
-                      {truncName(node.name, 18)}
+                      {truncateToWidth(node.name, nameWidth)}
                     </text>
                   </box>
                   {isFolderDirty && <text fg={theme.accent}>{`\u25CF `}</text>}
@@ -270,6 +274,10 @@ export function Sidebar({
               )
             }
             const isDirty = dirtyRequestIds?.has(node.id)
+            const nameWidth = Math.max(
+              0,
+              width - 15 - node.depth * 2 - (isDirty ? 2 : 0),
+            )
             return (
               <box
                 key={node.id}
@@ -309,7 +317,7 @@ export function Sidebar({
                     {shortMethod(node.method ?? "GET").padEnd(7)}
                   </text>
                   <text fg={theme.text} wrapMode="none">
-                    {truncName(node.name, 18)}
+                    {truncateToWidth(node.name, nameWidth)}
                   </text>
                 </box>
                 {isDirty && <text fg={theme.accent}>{`\u25CF `}</text>}

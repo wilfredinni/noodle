@@ -10,6 +10,7 @@ import { basename, dirname } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
+import { SIDEBAR_WIDTH } from "./Sidebar"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
 import { CookieJarView } from "./cookie-jar/CookieJarView"
 import {
@@ -267,6 +268,10 @@ export function AppInner({
   const [layout, setLayout] = useState<"stacked" | "side-by-side">(
     initialLayout,
   )
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH)
+  const [paneSplitRatios, setPaneSplitRatios] = useState<
+    Record<"stacked" | "side-by-side", number>
+  >({ stacked: 0.5, "side-by-side": 0.5 })
   const [expanded, setExpanded] = useState<"request" | "response" | null>(null)
   const expandedRef = useRef(expanded)
   expandedRef.current = expanded
@@ -1584,6 +1589,15 @@ export function AppInner({
             folderEb={folderEb}
             eb={eb}
             layout={layout}
+            sidebarWidth={sidebarWidth}
+            onSidebarWidthChange={setSidebarWidth}
+            paneSplitRatio={paneSplitRatios[layout]}
+            onPaneSplitRatioChange={(ratio) =>
+              setPaneSplitRatios((current) => ({
+                ...current,
+                [layout]: ratio,
+              }))
+            }
             expanded={expanded}
             activeEnv={envState.activeEnv}
             collectionTlsVerify={collectionTls?.verify}

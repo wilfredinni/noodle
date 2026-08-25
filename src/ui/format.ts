@@ -1,6 +1,24 @@
 import type { BodyType, KvEntry, Response } from "../schema"
 import { formatJson } from "../lang/formatJson"
 import type { Theme } from "./theme"
+import { stringWidth } from "bun"
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+
+export function truncateToWidth(text: string, maxWidth: number): string {
+  if (stringWidth(text) <= maxWidth) return text
+  if (maxWidth <= 1) return maxWidth === 1 ? "…" : ""
+
+  let result = ""
+  let width = 0
+  for (const { segment } of graphemes.segment(text)) {
+    const segmentWidth = stringWidth(segment)
+    if (width + segmentWidth > maxWidth - 1) break
+    result += segment
+    width += segmentWidth
+  }
+  return `${result}…`
+}
 
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`
