@@ -18,7 +18,7 @@ Noodle 0.8.1 adds declarative response capture, so one request can pass typed re
 ### 🐞 Fixes
 
 - Fail unresolved variables before sending even when no environment is selected, and preserve existing RunScope values after a failed recapture.
-- Keep capture declarations and RunScope values out of timeline history and persisted configuration, while redacting capture result values that match known environment, proxy, or TLS secrets.
+- Keep capture declarations and runtime capture state out of timeline history without persisting RunScope values or capture results to configuration, while redacting capture result values that match known environment, proxy, or TLS secrets.
 - Preserve legal variable names such as `__proto__` as own capture and RunScope properties instead of silently dropping them.
 
 ### 📚 Documentation
