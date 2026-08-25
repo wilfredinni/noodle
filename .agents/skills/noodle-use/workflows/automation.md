@@ -34,13 +34,16 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 - Request IDs are relative paths without `.yml`, such as `users/list`. Do not use traversal, empty segments, or hidden segments.
 - `collection run <dir> [<target>...]` accepts bare request IDs and folder paths ending in `/`. Folders include nested requests. Overlapping targets run once in collection order; omit targets to run the whole collection.
 - Every target is validated before the first request is sent. An HTTP status of
-  400 or higher or a failed response assertion makes the command exit nonzero.
+  400 or higher, a failed response capture, or a failed response assertion makes the command exit nonzero.
   A status assertion cannot turn an HTTP error response into a successful run.
+- Requests with a `capture` mapping return a `captures` result containing `evaluated` and per-variable results. Human output shows captured and failed counts plus variable and expression names, never values. JSON success results include `variable`, `expression`, `success`, `type`, and typed `value`. Failure results include `failureReason` (`missing` or `resolution_error`) and `message`. `evaluated: false` with an empty `results` array means the request failed before a response was available.
+- A collection run shares one RunScope in collection order. Environment values load first, successful captures override them, and the latest successful capture wins. Failed captures do not remove an earlier value. String captures substitute verbatim; other JSON values use `JSON.stringify()`. Captures are available only to later requests and disappear when the command returns.
+- Successful captures commit before assertions and remain available after an HTTP or assertion failure. A capture failure marks the request and aggregate command failed, but the collection continues. Separate run commands never share captured values.
 - Requests with an `assert` block return an `assertions` result containing `evaluated` and per-check results. Human output shows pass/fail counts without raw actual values; JSON output includes actual server values, so treat it as sensitive response data.
 - For `request run`, read assertions from `data.result.assertions`; for `collection run`, read each `data.results[].assertions`. Each assertion result contains `expression`, `operator`, optional `expected`, optional `actual`, `passed`, and `message`. `evaluated: false` with an empty `results` array means the request failed before assertions could run; requests without assertions omit the field.
-- `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment; ensure referenced `$vars` exist there.
-- Run commands contact remote servers and may write response timeline entries,
-  cookie-jar state, and refreshed OAuth credentials. Execute them only when the
+- `request run` and `collection run` use `--env <name>` when supplied. Otherwise they use `settings.yml`'s environment. Without either an environment or an earlier capture, unresolved variables fail before sending.
+- JSON capture values are raw server data unless they match a known environment, proxy, or TLS secret, in which case Noodle recursively redacts them. Human capture output never includes values. Server response fields retain the existing raw-response policy, so treat all structured run output as sensitive.
+- Run commands contact remote servers and may write cookie-jar state, bootstrap a `collection_id` for that jar, and refresh OAuth credentials. They do not write response timeline entries. Capture evaluation never writes RunScope values into request YAML, environment files, or collection settings. Execute runs only when the
   user has authorized the request scope, even when the HTTP method is normally
   read-only.
 - Treat cookie `data.warnings` as non-fatal diagnostics. Run results can succeed while warning that cookie storage is plaintext or unavailable; unavailable jars are skipped for that run. `cookie list` also reports `data.state`, warnings, and `hostOnly` for every cookie.
@@ -52,4 +55,4 @@ Use Noodle's non-interactive CLI for supported collection operations. Never star
 
 ## Fall back to files
 
-Use direct YAML/dotenv edits when the CLI cannot express the change: folders and inheritance, request headers, params, auth, bodies, form data, assertions, new environment files, and manual conversions. After edits, run `noodle collection audit <dir> --json` and, when appropriate, execute the affected request.
+Use direct YAML/dotenv edits when the CLI cannot express the change: folders and inheritance, request headers, params, auth, bodies, form data, captures, assertions, new environment files, and manual conversions. After edits, run `noodle collection audit <dir> --json` and, when appropriate, execute the affected request sequence.

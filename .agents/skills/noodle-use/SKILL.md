@@ -28,10 +28,21 @@ Terminal REST client. YAML files on disk. Dotenv environments. Prefer supported 
 These apply to ALL operations. Read before any workflow.
 
 ### Non-interactive CLI first
-Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
+Do NOT import noodle's internal modules or run `bun`. Never run `noodle` in TUI mode; that's for humans. Use supported non-interactive commands (`workspace list`, `collection ...`, `request ...`, `environment set`, `secret ...`, `cookie ...`, `import`, and `export`) when they fully express the task. Use direct `.yml` and `.env` edits for folders, request bodies, auth, headers, params, captures, assertions, new environment files, secret declarations, and conversions not supported by the CLI. Pass `--json` when output will be consumed programmatically.
 
 ### Variable syntax
-`$VARNAME` (no braces). Regex `/\$(\w+)/g`. In request YAML it applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved without substitution. Every reference that can be evaluated must have an environment declaration before the request runs.
+`$VARNAME` (no braces). Regex `/\$(\w+)/g`. In request YAML it applies to `url`; enabled header values; enabled query-param names and values; `path_params` names and values; `body`; enabled `form_data` names and values; `file_path`; supported auth string fields and enabled OAuth 2 additional parameters; and string values nested inside assertion expectations. Disabled entries are preserved without substitution. Every evaluated reference must resolve from the selected environment or a successful capture from an earlier request in the same collection run.
+
+### Response capture
+Use a top-level `capture` mapping to pass response values to later requests in one ordered `collection run`:
+
+```yaml
+capture:
+  user_id: body.id
+  request_id: headers.x-request-id
+```
+
+Names use `^\w+$`. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions. Capture expressions are not variable-substituted. Environment values load first, RunScope values override them, and the latest successful capture wins. A missing or invalid traversal fails the capture without creating or replacing a variable. Successful values from the same capture block still commit, and assertion failure does not roll them back. Values exist only until that `request run` or `collection run` returns and never modify collection or environment files. TUI sends preserve captures but do not evaluate them.
 
 ### File extension
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.

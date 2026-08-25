@@ -92,6 +92,19 @@ Request YAML can also declare response assertions for status, timing, headers,
 and JSON body paths. `request run` and `collection run` evaluate them and exit
 nonzero when a check fails.
 
+Collection runs can pass response values forward without writing them to an
+environment file:
+
+```yaml
+capture:
+  user_id: body.id
+  request_id: headers.x-request-id
+```
+
+Later requests use the same `$variable` syntax, such as
+`url: $base_url/users/$user_id`. Captures exist only for that run, override
+same-named environment values, and disappear when the command ends.
+
 ## Bring your existing work
 
 Import OpenAPI 3.0, Swagger 2.0, Postman, or Insomnia collections. Export to

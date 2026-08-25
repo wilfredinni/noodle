@@ -24,6 +24,7 @@ One request per file. Fields:
 | `file_path` | no | string | n/a | Path to file for binary uploads. `@/` starts at the user's home directory |
 | `auth` | no | map | n/a | Auth config. Omit for no auth |
 | `tls` | no | map | n/a | Per-request TLS override. Supports only `verify: true|false` |
+| `capture` | no | map | None | Response expressions captured as run-scoped variables |
 | `assert` | no | list | None | Response assertions evaluated by non-interactive run commands |
 
 ### Params
@@ -58,6 +59,40 @@ path_params:
 
 Noodle synchronizes path-param names with URL tokens. Values can use `$var`
 references and must resolve in the active environment before sending.
+
+### Response captures
+
+An optional `capture` mapping assigns response expressions to temporary
+variables for later requests in the same ordered `collection run`:
+
+```yaml
+capture:
+  user_id: body.user.id
+  request_id: headers.x-request-id
+```
+
+Variable names must match `^\w+$`. Expressions use the same grammar as
+assertions and are validated while loading the request, before it can be sent.
+Duplicate mapping keys are invalid YAML. Capture expressions themselves are
+never variable-substituted.
+
+Environment values and resolved declared secrets load first. RunScope values
+then override same-named values, and the latest successful capture wins. String
+values substitute verbatim. Numbers, booleans, null, arrays, and objects use
+`JSON.stringify()`. Missing is a failed capture that creates no binding;
+explicit JSON null is a successful value that substitutes as `null`.
+
+Captures are evaluated after the response arrives and before assertions. Every
+successful result commits, even when another capture, the HTTP status, or a
+later assertion fails. Failed recaptures leave the prior successful value
+unchanged. Captures only affect later requests, never the request that produced
+them. A capture failure fails the request and command, but a collection run
+continues in collection order.
+
+One scope exists for each top-level `request run` or `collection run`. It is
+discarded when that call returns and never modifies request YAML, environment
+files, collection settings, or timeline history. TUI sends preserve capture
+declarations but do not evaluate them.
 
 ### Response assertions
 
@@ -421,10 +456,11 @@ runs. A missing or empty file uses defaults.
   `path_params` names and values; `body`; enabled `form_data` names and values;
   `file_path`; supported auth credential, endpoint, identifier, key, path, and
   enabled OAuth 2 additional-parameter string fields; and string values nested
-  recursively inside assertion expectations
+  recursively inside assertion expectations. Capture expressions are not
+  substituted
 - Disabled headers, query params, form entries, and OAuth 2 additional parameters
   are preserved without substitution until enabled
-- Every evaluated `$var` reference must resolve to a declaration in the active environment
+- Every evaluated `$var` reference must resolve in the active environment or the current automation RunScope
 - Unresolved variables cause noodle to throw an error at request send time
 - Multi-level substitution is NOT supported (`$VAR1` that evaluates to `$VAR2` won't be resolved again)
 
@@ -465,7 +501,7 @@ Each entry has:
 | `response` | object | Response data: `status` (number), `statusText` (string), `headers` (map), `body` (string when inline), `bodyRef` (object when sidecar-backed), `timeMs` (number), `size` (number), `sentCookies` (final request-leg name/value pairs), and `cookies` (final response `Set-Cookie` entries) |
 | `error` | object | Present instead of `response` if the request failed: `{ message: string }` |
 
-The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment secrets, proxy/TLS secrets, sensitive headers, and literal auth credentials are redacted from persisted request fields, but ordinary variables and server response fields remain intact. Agents should read timeline data but should not create, rename, or edit sidecars directly.
+The request snapshot can likewise contain either `body` or `bodyRef`. A `bodyRef` has `{ file, encoding: "gzip", size }`; its file is relative to the request's `.yml.bodies/` directory. Declared environment secrets, proxy/TLS secrets, sensitive headers, and literal auth credentials are redacted from persisted request fields, but ordinary variables and server response fields remain intact. Capture declarations, capture results, and RunScope values are never stored in timeline entries, and non-interactive run commands do not create timeline history. Agents should read timeline data but should not create, rename, or edit sidecars directly.
 
 **Useful queries agents can answer from timeline data:**
 - Average response time for a request: sum all `response.timeMs` / count
