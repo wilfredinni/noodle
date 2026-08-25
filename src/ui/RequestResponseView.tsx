@@ -1,7 +1,7 @@
 import { UrlBar } from "./UrlBar"
 import { RequestPane } from "./RequestPane"
 import { ResponsePane } from "./ResponsePane"
-import { MouseButton, type BoxRenderable } from "@opentui/core"
+import { MouseButton, type BoxRenderable, type MouseEvent } from "@opentui/core"
 import type { BodyType, Environment, TimelineEntry } from "../schema"
 import type { UseRequestDraftResult } from "../hooks/useRequestDraft"
 import type { UseEditBrowseResult } from "../hooks/useEditBrowse"
@@ -156,6 +156,12 @@ export function RequestResponseView({
       onPaneFocus={() => onPaneFocus("response")}
     />
   )
+  const startSplitResize = (event: MouseEvent) => {
+    if (event.button !== MouseButton.LEFT) return
+    onSplitResizeStart()
+    event.preventDefault()
+    event.stopPropagation()
+  }
   const splitHandle =
     expanded === null ? (
       <box
@@ -170,12 +176,22 @@ export function RequestResponseView({
           flexShrink: 0,
           zIndex: 1,
         }}
-        onMouseDown={(event) => {
-          if (event.button !== MouseButton.LEFT) return
-          onSplitResizeStart()
-          event.preventDefault()
-          event.stopPropagation()
+        onMouseDown={startSplitResize}
+      />
+    ) : null
+  const stackedResponseHandle =
+    expanded === null && layout === "stacked" ? (
+      <box
+        id="request-response-resize-handle-response-edge"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: 1,
+          zIndex: 1,
         }}
+        onMouseDown={startSplitResize}
       />
     ) : null
 
@@ -239,6 +255,7 @@ export function RequestResponseView({
           visible={responseVisible}
           style={{
             flexDirection: "column",
+            position: "relative",
             flexGrow: expanded === null ? 0 : 1,
             flexShrink: 1,
             width:
@@ -254,6 +271,7 @@ export function RequestResponseView({
           }}
         >
           {responsePane}
+          {stackedResponseHandle}
         </box>
       </box>
     </>

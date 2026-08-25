@@ -362,10 +362,20 @@ describe("MainView", () => {
     const responseSlot = renderer.root.findDescendantById(
       "response-pane-slot",
     ) as BoxRenderable
+    let stackedResponseHandle = renderer.root.findDescendantById(
+      "request-response-resize-handle-response-edge",
+    ) as BoxRenderable
     expect(responseSlot.screenY).toBe(requestSlot.screenY + requestSlot.height)
     expect(splitHandle.screenY).toBe(
       requestSlot.screenY + requestSlot.height - 1,
     )
+    expect(splitHandle.height).toBe(1)
+    expect(stackedResponseHandle.screenY).toBe(responseSlot.screenY)
+    expect(stackedResponseHandle.height).toBe(1)
+    expect(stackedResponseHandle.backgroundColor.a).toBe(0)
+    const stackedRows = captureCharFrame().split("\n")
+    expect(stackedRows[splitHandle.screenY]?.[requestSlot.screenX]).toBe("└")
+    expect(stackedRows[responseSlot.screenY]?.[responseSlot.screenX]).toBe("┌")
     const splitHandleX = splitHandle.screenX + Math.floor(splitHandle.width / 2)
     expect(splitHandle.backgroundColor.a).toBe(0)
     await act(async () => {
@@ -394,8 +404,9 @@ describe("MainView", () => {
 
     await act(async () => {
       await mockMouse.pressDown(
-        splitHandle.screenX + Math.floor(splitHandle.width / 2),
-        splitHandle.screenY,
+        stackedResponseHandle.screenX +
+          Math.floor(stackedResponseHandle.width / 2),
+        stackedResponseHandle.screenY,
         MouseButtons.LEFT,
       )
       await mockMouse.moveTo(
@@ -419,6 +430,11 @@ describe("MainView", () => {
     ) as BoxRenderable
     expect(splitHandle.screenX).toBe(requestSlot.screenX + requestSlot.width)
     expect(responseSlot.screenX).toBe(splitHandle.screenX + 1)
+    expect(
+      renderer.root.findDescendantById(
+        "request-response-resize-handle-response-edge",
+      ),
+    ).toBeUndefined()
     const sideBySideRows = captureCharFrame().split("\n")
     const sideBySideContentRow = sideBySideRows[requestSlot.screenY + 1]
     expect(
@@ -484,14 +500,19 @@ describe("MainView", () => {
     act(() => changeLayout("stacked"))
     await renderOnce()
     expect(requestSlot.height).toBe(stackedRequestHeight)
+    const paneFocusBeforeReset = paneFocusCalls
 
     splitHandle = renderer.root.findDescendantById(
       "request-response-resize-handle",
     ) as BoxRenderable
+    stackedResponseHandle = renderer.root.findDescendantById(
+      "request-response-resize-handle-response-edge",
+    ) as BoxRenderable
     await act(async () => {
       await mockMouse.doubleClick(
-        splitHandle.screenX + Math.floor(splitHandle.width / 2),
-        splitHandle.screenY,
+        stackedResponseHandle.screenX +
+          Math.floor(stackedResponseHandle.width / 2),
+        stackedResponseHandle.screenY,
         MouseButtons.LEFT,
       )
     })
@@ -517,11 +538,17 @@ describe("MainView", () => {
     expect(
       Math.abs(requestSlot.width - responseSlot.width),
     ).toBeLessThanOrEqual(1)
+    expect(paneFocusCalls).toBe(paneFocusBeforeReset)
 
     act(() => changeExpanded("request"))
     await renderOnce()
     expect(
       renderer.root.findDescendantById("request-response-resize-handle"),
+    ).toBeUndefined()
+    expect(
+      renderer.root.findDescendantById(
+        "request-response-resize-handle-response-edge",
+      ),
     ).toBeUndefined()
     expect(
       renderer.root.findDescendantById("sidebar-resize-handle"),
