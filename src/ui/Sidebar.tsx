@@ -36,6 +36,7 @@ export function Sidebar({
   dirtyRequestIds,
   dirtyFolderPaths,
   jumpMode = false,
+  width = SIDEBAR_WIDTH,
   onPaneFocus,
   onRequestSelect,
   onFolderSelect,
@@ -55,6 +56,7 @@ export function Sidebar({
   dirtyRequestIds?: Set<string>
   dirtyFolderPaths?: Set<string>
   jumpMode?: boolean
+  width?: number
   onPaneFocus?: () => void
   onRequestSelect?: (id: string) => void
   onFolderSelect?: (path: string) => void
@@ -79,7 +81,8 @@ export function Sidebar({
   return (
     <Frame
       style={{
-        width: SIDEBAR_WIDTH,
+        width,
+        minWidth: 20,
         flexDirection: "column",
         flexShrink: 0,
         backgroundColor: theme.backgroundPanel,

@@ -1,4 +1,5 @@
-import { Sidebar } from "./Sidebar"
+import { MouseButton, type BoxRenderable } from "@opentui/core"
+import { Sidebar, SIDEBAR_WIDTH } from "./Sidebar"
 import { FolderPane } from "./FolderPane"
 import { useTheme } from "./theme"
 import type { BodyType, CollectionItem, Environment } from "../schema"
@@ -13,7 +14,7 @@ import type { VisibleNode } from "./tree"
 import { RequestResponseView } from "./RequestResponseView"
 import { EmptyState } from "./EmptyState"
 import { FullBorder } from "./borders"
-import type { RefObject } from "react"
+import { useRef, useState, type RefObject } from "react"
 import type { ResponseQueryController } from "./responseQuery"
 import { extractFileErrors } from "../filestore/load"
 import { CollectionErrorView } from "./CollectionErrorView"
@@ -35,6 +36,10 @@ interface MainViewProps {
   folderEb: UseFolderEditBrowseResult
   eb: UseEditBrowseResult
   layout: "stacked" | "side-by-side"
+  sidebarWidth?: number
+  onSidebarWidthChange?: (width: number) => void
+  paneSplitRatio?: number
+  onPaneSplitRatioChange?: (ratio: number) => void
   expanded: "request" | "response" | null
   activeEnv: Environment | null
   collectionTlsVerify?: boolean
@@ -70,6 +75,17 @@ interface MainViewProps {
   onFolderContextMenu?: (path: string) => void
 }
 
+function clampSidebarWidth(
+  width: number,
+  containerWidth: number,
+  workspaceMinimum: number,
+) {
+  return Math.max(
+    20,
+    Math.min(Math.max(20, containerWidth - 1 - workspaceMinimum), width),
+  )
+}
+
 export function MainView({
   items,
   collectionDir,
@@ -87,6 +103,10 @@ export function MainView({
   folderEb,
   eb,
   layout,
+  sidebarWidth = SIDEBAR_WIDTH,
+  onSidebarWidthChange = () => {},
+  paneSplitRatio = 0.5,
+  onPaneSplitRatioChange = () => {},
   expanded,
   activeEnv,
   collectionTlsVerify,
@@ -122,6 +142,26 @@ export function MainView({
   onFolderContextMenu,
 }: MainViewProps) {
   const theme = useTheme()
+  const containerRef = useRef<BoxRenderable | null>(null)
+  const [containerWidth, setContainerWidth] = useState<number | null>(null)
+  const splitContainerRef = useRef<BoxRenderable | null>(null)
+  const resizingSidebarRef = useRef(false)
+  const resizingSplitRef = useRef(false)
+  const workspaceMinimum = layout === "side-by-side" ? 33 : 32
+  const effectiveSidebarWidth =
+    containerWidth === null
+      ? sidebarWidth
+      : clampSidebarWidth(sidebarWidth, containerWidth, workspaceMinimum)
+
+  const stopSidebarResize = () => {
+    if (!resizingSidebarRef.current) return
+    resizingSidebarRef.current = false
+  }
+
+  const stopSplitResize = () => {
+    if (!resizingSplitRef.current) return
+    resizingSplitRef.current = false
+  }
 
   if (mode === "empty") {
     return (
@@ -165,10 +205,53 @@ export function MainView({
 
   return (
     <box
+      id="main-view"
+      ref={containerRef}
+      onSizeChange={() => {
+        if (!containerRef.current) return
+        setContainerWidth(containerRef.current.width)
+      }}
+      onMouseDrag={(event) => {
+        if (resizingSidebarRef.current && containerRef.current) {
+          onSidebarWidthChange(
+            clampSidebarWidth(
+              event.x - containerRef.current.x,
+              containerRef.current.width,
+              workspaceMinimum,
+            ),
+          )
+        } else if (resizingSplitRef.current && splitContainerRef.current) {
+          const sideBySide = layout === "side-by-side"
+          const size =
+            (sideBySide
+              ? splitContainerRef.current.width
+              : splitContainerRef.current.height) - (sideBySide ? 1 : 0)
+          const minimum = sideBySide ? 16 : 6
+          const position = sideBySide
+            ? event.x - splitContainerRef.current.x
+            : event.y - splitContainerRef.current.y
+          onPaneSplitRatioChange(
+            size <= minimum * 2
+              ? 0.5
+              : Math.max(minimum, Math.min(size - minimum, position)) / size,
+          )
+        } else {
+          return
+        }
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      onMouseUp={(event) => {
+        if (resizingSidebarRef.current) stopSidebarResize()
+        else if (resizingSplitRef.current) stopSplitResize()
+        else return
+        event.preventDefault()
+        event.stopPropagation()
+      }}
       style={{
         flexDirection: "row",
         flexGrow: 1,
-        gap: 1,
+        gap: 0,
         minHeight: 0,
         backgroundColor: theme.backgroundPanel,
       }}
@@ -186,6 +269,7 @@ export function MainView({
         dirtyRequestIds={draft.dirtyRequestIds}
         dirtyFolderPaths={folderDraft.dirtyPaths}
         jumpMode={jumpMode}
+        width={effectiveSidebarWidth}
         onPaneFocus={() => onPaneFocus("sidebar")}
         onRequestSelect={onRequestSelect}
         onFolderSelect={onFolderSelect}
@@ -194,9 +278,23 @@ export function MainView({
         onFolderContextMenu={onFolderContextMenu}
       />
       <box
+        id="sidebar-resize-handle"
+        style={{
+          width: 1,
+          flexShrink: 0,
+        }}
+        onMouseDown={(event) => {
+          if (event.button !== MouseButton.LEFT) return
+          resizingSidebarRef.current = true
+          event.preventDefault()
+          event.stopPropagation()
+        }}
+      />
+      <box
         style={{
           flexDirection: "column",
           flexGrow: 1,
+          minWidth: workspaceMinimum,
           gap: 0,
           minHeight: 0,
         }}
@@ -238,6 +336,11 @@ export function MainView({
             error={error}
             focus={focus}
             layout={layout}
+            splitContainerRef={splitContainerRef}
+            splitRatio={paneSplitRatio}
+            onSplitResizeStart={() => {
+              resizingSplitRef.current = true
+            }}
             expanded={expanded}
             activeEnv={activeEnv}
             collectionTlsVerify={collectionTlsVerify}
