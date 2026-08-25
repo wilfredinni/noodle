@@ -283,6 +283,18 @@ describe("substitute — response assertions", () => {
   })
 })
 
+describe("substitute: response captures", () => {
+  it("preserves capture expressions without substituting them", () => {
+    const captures = { user_id: "body.$path" }
+    const result = substitute(makeReq({ captures }), {
+      name: "test",
+      vars: { path: "id" },
+    })
+
+    expect(result.captures).toEqual(captures)
+  })
+})
+
 describe("substitute — AWS SigV4", () => {
   it("substitutes every credential and scope field", () => {
     const result = substitute(

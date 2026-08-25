@@ -18,6 +18,8 @@ export type ResponseExpressionResult =
   | { kind: "missing" }
   | { kind: "error"; message: string }
 
+export type ResponseResolver = (expression: string) => ResponseExpressionResult
+
 const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/
 const PROPERTY_RE = /^[A-Za-z_][A-Za-z0-9_-]*/
 
@@ -72,7 +74,7 @@ export function parseResponseExpression(
 
 export function createResponseResolver(
   response: Pick<Response, "status" | "headers" | "body" | "timeMs">,
-): (expression: string) => ResponseExpressionResult {
+): ResponseResolver {
   let parsedBody: ParsedResponseBody | undefined
   const headers = new Map(
     Object.entries(response.headers).map(([name, value]) => [

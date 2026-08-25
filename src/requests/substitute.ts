@@ -99,6 +99,7 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
     filePath,
     auth,
     tls: req.tls,
+    captures: req.captures,
     assertions,
   }
 }

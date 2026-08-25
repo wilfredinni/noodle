@@ -1116,6 +1116,69 @@ describe("lang.serializeFolder — multiline values", () => {
   })
 })
 
+describe("lang.parseRequest: response captures", () => {
+  const prefix = "name: Captures\nmethod: GET\nurl: https://example.com\n"
+
+  it("parses and canonically round-trips a capture mapping", () => {
+    const request = lang.parseRequest(
+      "captures",
+      `${prefix}capture:\n  user_id: body.user.id\n  request_id: headers.x-request-id\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n`,
+    )
+
+    expect(request.captures).toEqual({
+      user_id: "body.user.id",
+      request_id: "headers.x-request-id",
+    })
+    const serialized = lang.serializeRequest(request)
+    expect(serialized.indexOf("capture:")).toBeLessThan(
+      serialized.indexOf("assert:"),
+    )
+    expect(lang.parseRequest("captures", serialized).captures).toEqual(
+      request.captures,
+    )
+  })
+
+  it("treats an empty capture mapping as absent", () => {
+    const request = lang.parseRequest("captures", `${prefix}capture: {}\n`)
+    expect(request.captures).toBeUndefined()
+    expect(lang.serializeRequest(request)).not.toContain("capture:")
+  })
+
+  it("rejects invalid names, values, and expressions", () => {
+    expect(() =>
+      lang.parseRequest("captures", `${prefix}capture:\n  user-id: body.id\n`),
+    ).toThrow('lang.parseRequest: invalid capture variable "user-id"')
+    expect(() =>
+      lang.parseRequest("captures", `${prefix}capture:\n  user_id: 42\n`),
+    ).toThrow("lang.parseRequest: capture.user_id must be a string")
+    expect(() =>
+      lang.parseRequest("captures", `${prefix}capture:\n  user_id: body..id\n`),
+    ).toThrow(
+      'lang.parseRequest: capture.user_id: Invalid response expression "body..id"',
+    )
+  })
+
+  it("rejects duplicate capture keys through YAML parsing", () => {
+    expect(() =>
+      lang.parseRequest(
+        "captures",
+        `${prefix}capture:\n  user_id: body.id\n  user_id: body.other_id\n`,
+      ),
+    ).toThrow("duplicated mapping key")
+  })
+
+  it("preserves capture names that shadow object prototype properties", () => {
+    const request = lang.parseRequest(
+      "captures",
+      `${prefix}capture:\n  __proto__: body.meta\n`,
+    )
+
+    expect(Object.hasOwn(request.captures!, "__proto__")).toBe(true)
+    expect(request.captures?.__proto__).toBe("body.meta")
+    expect(lang.serializeRequest(request)).toContain("__proto__: body.meta")
+  })
+})
+
 describe("lang.parseRequest — response assertions", () => {
   const prefix = "name: Assertions\nmethod: GET\nurl: https://example.com\n"
 

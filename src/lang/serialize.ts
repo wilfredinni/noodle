@@ -89,6 +89,10 @@ export function serializeRequest(req: Request): string {
     out += `file_path: ${yamlVal(req.filePath)}\n`
   }
 
+  if (req.captures && Object.keys(req.captures).length > 0) {
+    out += yaml.dump({ capture: req.captures }, { lineWidth: -1, noRefs: true })
+  }
+
   if (req.assertions && req.assertions.length > 0) {
     out += yaml.dump(
       {
