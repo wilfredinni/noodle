@@ -497,7 +497,41 @@ describe("MainView", () => {
     await renderOnce()
     expect(requestSlot.width).toBe(16)
 
+    await act(async () => {
+      resize(40, 30)
+      await renderOnce()
+    })
+    await renderOnce()
+    expect(split.screenX + split.width).toBe(main.screenX + main.width)
+    expect(responseSlot.screenX + responseSlot.width).toBe(
+      split.screenX + split.width,
+    )
+
+    await act(async () => {
+      resize(100, 30)
+      await renderOnce()
+    })
+    await renderOnce()
+    expect(requestSlot.width).toBe(16)
+
     act(() => changeLayout("stacked"))
+    await renderOnce()
+    expect(requestSlot.height).toBe(stackedRequestHeight)
+
+    await act(async () => {
+      resize(40, 30)
+      await renderOnce()
+    })
+    await renderOnce()
+    expect(split.screenX + split.width).toBe(main.screenX + main.width)
+    expect(responseSlot.screenX + responseSlot.width).toBe(
+      split.screenX + split.width,
+    )
+
+    await act(async () => {
+      resize(100, 30)
+      await renderOnce()
+    })
     await renderOnce()
     expect(requestSlot.height).toBe(stackedRequestHeight)
     const paneFocusBeforeReset = paneFocusCalls

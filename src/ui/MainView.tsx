@@ -178,6 +178,11 @@ export function MainView({
     containerWidth === null
       ? sidebarWidth
       : clampSidebarWidth(sidebarWidth, containerWidth, workspaceMinimum)
+  const splitPaneMinimumWidth =
+    containerWidth === null ||
+    containerWidth - effectiveSidebarWidth - 1 >= workspaceMinimum
+      ? 16
+      : 0
 
   const stopSidebarResize = () => {
     if (!resizingSidebarRef.current) return
@@ -346,7 +351,7 @@ export function MainView({
         style={{
           flexDirection: "column",
           flexGrow: 1,
-          minWidth: workspaceMinimum,
+          minWidth: 0,
           gap: 0,
           minHeight: 0,
         }}
@@ -390,6 +395,7 @@ export function MainView({
             layout={layout}
             splitContainerRef={splitContainerRef}
             splitRatio={paneSplitRatio}
+            splitPaneMinimumWidth={splitPaneMinimumWidth}
             onSplitResizeStart={() => {
               resizingSplitRef.current = true
               splitDraggedRef.current = false

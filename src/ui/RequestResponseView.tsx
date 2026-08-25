@@ -21,6 +21,7 @@ interface RequestResponseViewProps {
   layout: "stacked" | "side-by-side"
   splitContainerRef?: RefObject<BoxRenderable | null>
   splitRatio?: number
+  splitPaneMinimumWidth?: number
   onSplitResizeStart?: () => void
   expanded: "request" | "response" | null
   activeEnv: Environment | null
@@ -65,6 +66,7 @@ export function RequestResponseView({
   layout,
   splitContainerRef,
   splitRatio = 0.5,
+  splitPaneMinimumWidth = 16,
   onSplitResizeStart = () => {},
   expanded,
   activeEnv,
@@ -242,7 +244,7 @@ export function RequestResponseView({
               layout === "stacked" && expanded === null
                 ? `${splitRatio * 100}%`
                 : "100%",
-            minWidth: layout === "side-by-side" ? 16 : 0,
+            minWidth: layout === "side-by-side" ? splitPaneMinimumWidth : 0,
             minHeight: layout === "stacked" ? 6 : 0,
           }}
         >
@@ -266,7 +268,7 @@ export function RequestResponseView({
               layout === "stacked" && expanded === null
                 ? `${(1 - splitRatio) * 100}%`
                 : "100%",
-            minWidth: layout === "side-by-side" ? 16 : 0,
+            minWidth: layout === "side-by-side" ? splitPaneMinimumWidth : 0,
             minHeight: layout === "stacked" ? 6 : 0,
           }}
         >
