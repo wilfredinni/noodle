@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { existsSync } from "node:fs"
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -420,6 +421,393 @@ describe("automation services", () => {
         headers: { "x-echo": "response-secret" },
         body: "echo:response-secret",
       })
+    } finally {
+      executor.send = send
+      if (originalValue === undefined) delete process.env[key]
+      else process.env[key] = originalValue
+    }
+  })
+
+  it("captures typed response values for request run", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: body.user.id\n  request_id: headers.x-request-id\n  explicit_null: body.nothing\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: { "X-Request-ID": "req-1" },
+      body: '{"user":{"id":42},"nothing":null}',
+      timeMs: 1,
+    })
+    try {
+      const result = await requestRun("request", dir)
+      expect(result).toMatchObject({
+        failed: false,
+        result: {
+          ok: true,
+          captures: {
+            evaluated: true,
+            results: [
+              { variable: "user_id", success: true, type: "number", value: 42 },
+              {
+                variable: "request_id",
+                success: true,
+                type: "string",
+                value: "req-1",
+              },
+              {
+                variable: "explicit_null",
+                success: true,
+                type: "null",
+                value: null,
+              },
+            ],
+          },
+        },
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("rejects invalid capture expressions before sending", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: body..id\n",
+    )
+    const send = executor.send
+    let sends = 0
+    executor.send = async () => {
+      sends++
+      throw new Error("should not send")
+    }
+    try {
+      await expect(collectionRun(dir)).rejects.toThrow(
+        'capture.user_id: Invalid response expression "body..id"',
+      )
+      expect(sends).toBe(0)
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("reports captures as unevaluated after a network failure", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  user_id: body.id\n",
+    )
+    const send = executor.send
+    executor.send = async () => {
+      throw new Error("network unavailable")
+    }
+    try {
+      expect((await requestRun("request", dir)).result).toMatchObject({
+        ok: false,
+        error: "network unavailable",
+        captures: { evaluated: false, results: [] },
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("chains captures through later requests in collection order", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "environment: development\ncookies:\n  enabled: false\n",
+    )
+    const settingsBefore = await readFile(join(dir, "settings.yml"), "utf8")
+    await env.saveEnvironment(join(dir, ".environments"), {
+      name: "development",
+      vars: { BASE_URL: "https://example.com", user_id: "environment" },
+    })
+    const environmentFile = join(dir, ".environments", "development.env")
+    const before = await readFile(environmentFile, "utf8")
+    await writeFile(
+      join(dir, "01-source.yml"),
+      "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  user_id: body.user.id\n",
+    )
+    await writeFile(
+      join(dir, "02-middle.yml"),
+      "name: 2 Middle\nmethod: GET\nurl: $BASE_URL/users/$user_id\ncapture:\n  next_id: headers.x-next-id\n",
+    )
+    await writeFile(
+      join(dir, "03-last.yml"),
+      "name: 3 Last\nmethod: GET\nurl: $BASE_URL/users/$next_id\n",
+    )
+    const environments: Array<Record<string, string>> = []
+    const send = executor.send
+    executor.send = async (request, options) => {
+      environments.push({ ...(options?.environment?.vars ?? {}) })
+      const headers: Record<string, string> =
+        request.id === "01-source" ? {} : { "x-next-id": "84" }
+      return {
+        status: 200,
+        statusText: "OK",
+        headers,
+        body: request.id === "01-source" ? '{"user":{"id":42}}' : "{}",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        ["03-last", "02-middle", "01-source"],
+      )
+      expect(result.failed).toBe(false)
+      expect(result.results.map((item) => item.url)).toEqual([
+        "https://example.com/source",
+        "https://example.com/users/42",
+        "https://example.com/users/84",
+      ])
+      expect(environments[0]?.user_id).toBe("environment")
+      expect(environments[1]?.user_id).toBe("42")
+      expect(environments[2]?.next_id).toBe("84")
+      expect(await readFile(environmentFile, "utf8")).toBe(before)
+      expect(await readFile(join(dir, "settings.yml"), "utf8")).toBe(
+        settingsBefore,
+      )
+      expect(existsSync(join(dir, ".timeline"))).toBe(false)
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("keeps successful captures when another capture fails and continues", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-seed.yml"),
+      "name: 1 Seed\nmethod: GET\nurl: https://example.com/seed\ncapture:\n  id: body.id\n",
+    )
+    await writeFile(
+      join(dir, "02-recapture.yml"),
+      "name: 2 Recapture\nmethod: GET\nurl: https://example.com/recapture\ncapture:\n  id: body.missing\n  next_id: body.next\n",
+    )
+    await writeFile(
+      join(dir, "03-use.yml"),
+      "name: 3 Use\nmethod: GET\nurl: https://example.com/$id/$next_id\n",
+    )
+    const send = executor.send
+    executor.send = async (request) => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: request.id === "01-seed" ? '{"id":7}' : '{"next":8}',
+      timeMs: 1,
+    })
+    try {
+      const result = await collectionRun(dir)
+      expect(result.failed).toBe(true)
+      expect(result.results[1]).toMatchObject({
+        ok: false,
+        captures: {
+          evaluated: true,
+          results: [
+            { variable: "id", success: false, failureReason: "missing" },
+            { variable: "next_id", success: true, value: 8 },
+          ],
+        },
+      })
+      expect(result.results[2]).toMatchObject({
+        ok: true,
+        url: "https://example.com/7/8",
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("commits captures from HTTP failures for later requests", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "source.yml"),
+      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  error_id: body.id\n",
+    )
+    await writeFile(
+      join(dir, "use.yml"),
+      "name: 2 Use\nmethod: GET\nurl: https://example.com/errors/$error_id\n",
+    )
+    const send = executor.send
+    executor.send = async (request) => ({
+      status: request.id === "source" ? 500 : 200,
+      statusText: request.id === "source" ? "Error" : "OK",
+      headers: {},
+      body: '{"id":"err-1"}',
+      timeMs: 1,
+    })
+    try {
+      const result = await collectionRun(dir)
+      expect(result.failed).toBe(true)
+      expect(result.results[0]).toMatchObject({
+        ok: false,
+        captures: { results: [{ success: true, value: "err-1" }] },
+      })
+      expect(result.results[1]).toMatchObject({
+        ok: true,
+        url: "https://example.com/errors/err-1",
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("does not roll back captures after an assertion failure", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "source.yml"),
+      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  user_id: body.id\nassert:\n  - expression: status\n    operator: equals\n    value: 201\n",
+    )
+    await writeFile(
+      join(dir, "use.yml"),
+      "name: 2 Use\nmethod: GET\nurl: https://example.com/users/$user_id\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"id":42}',
+      timeMs: 1,
+    })
+    try {
+      const result = await collectionRun(dir)
+      expect(result.results[0]).toMatchObject({
+        ok: false,
+        captures: { results: [{ success: true, value: 42 }] },
+        assertions: { results: [{ passed: false }] },
+      })
+      expect(result.results[1]).toMatchObject({
+        ok: true,
+        url: "https://example.com/users/42",
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("isolates RunScope values between collection executions", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "source.yml"),
+      "name: 1 Source\nmethod: GET\nurl: https://example.com/source\ncapture:\n  user_id: body.id\n",
+    )
+    await writeFile(
+      join(dir, "use.yml"),
+      "name: 2 Use\nmethod: GET\nurl: https://example.com/users/$user_id\n",
+    )
+    const send = executor.send
+    let sends = 0
+    executor.send = async () => {
+      sends++
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: '{"id":42}',
+        timeMs: 1,
+      }
+    }
+    try {
+      expect((await collectionRun(dir)).failed).toBe(false)
+      const isolated = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        ["use"],
+      )
+      expect(isolated.results[0]).toMatchObject({ ok: false })
+      expect(isolated.results[0]).not.toHaveProperty("captures")
+      expect(isolated.results[0]?.error).toContain(
+        'unresolved variable "user_id"',
+      )
+      expect(sends).toBe(2)
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("fails unresolved variables before sending without an environment", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com/$MISSING\ncapture:\n  id: body.id\n",
+    )
+    const send = executor.send
+    let sends = 0
+    executor.send = async () => {
+      sends++
+      throw new Error("should not send")
+    }
+    try {
+      const result = await requestRun("request", dir)
+      expect(sends).toBe(0)
+      expect(result.result).toMatchObject({
+        ok: false,
+        captures: { evaluated: false, results: [] },
+      })
+      expect(result.result.error).toContain('unresolved variable "MISSING"')
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("redacts known secrets in capture results but keeps raw scope values for sending", async () => {
+    const key = "NOODLE_CAPTURE_SECRET"
+    const originalValue = process.env[key]
+    const send = executor.send
+    try {
+      process.env[key] = "capture-secret"
+      await writeFile(
+        join(dir, "settings.yml"),
+        "environment: development\ncookies:\n  enabled: false\n",
+      )
+      await env.saveEnvironment(join(dir, ".environments"), {
+        name: "development",
+        vars: { BASE_URL: "https://example.com" },
+        secretVars: { [key]: "process" },
+      })
+      await writeFile(
+        join(dir, "source.yml"),
+        "name: 1 Source\nmethod: GET\nurl: $BASE_URL/source\ncapture:\n  captured: body.token\n",
+      )
+      await writeFile(
+        join(dir, "use.yml"),
+        "name: 2 Use\nmethod: GET\nurl: $BASE_URL/$captured\n",
+      )
+      let rawCapturedValue: string | undefined
+      executor.send = async (request, options) => {
+        if (request.id === "use") {
+          rawCapturedValue = options?.environment?.vars.captured
+        }
+        return {
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          body: '{"token":"capture-secret"}',
+          timeMs: 1,
+        }
+      }
+
+      const result = await collectionRun(dir)
+      expect(rawCapturedValue).toBe("capture-secret")
+      expect(result.results[0]).toMatchObject({
+        response: { body: '{"token":"capture-secret"}' },
+        captures: { results: [{ success: true, value: "[REDACTED]" }] },
+      })
+      expect(result.results[1]?.url).toBe("https://example.com/[REDACTED]")
     } finally {
       executor.send = send
       if (originalValue === undefined) delete process.env[key]

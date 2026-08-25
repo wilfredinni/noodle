@@ -43,6 +43,7 @@ import type {
   CollectionItem,
   CollectionSettings,
   Environment,
+  JsonValue,
   Request,
 } from "../schema"
 import {
@@ -56,7 +57,8 @@ import {
 } from "../secrets"
 import { environmentSecretValues, redactKnownSecrets } from "../secrets/redact"
 import { evaluateAssertions, type AssertionResult } from "../assertions"
-import type { AssertionValue } from "../schema"
+import { createResponseResolver } from "../response"
+import { evaluateCaptures, RunScope, type CaptureResult } from "../runScope"
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".config/noodle")
 const SKIP_DIRS = new Set([".noodle", ".timeline", ".git", "node_modules"])
@@ -586,6 +588,10 @@ export interface RequestRunResult {
     evaluated: boolean
     results: AssertionResult[]
   }
+  captures?: {
+    evaluated: boolean
+    results: CaptureResult[]
+  }
 }
 export interface CollectionRunResult {
   results: RequestRunResult[]
@@ -598,13 +604,16 @@ async function runRequest(
   collectionDir: string,
   collection: Collection,
   request: Request,
+  runScope: RunScope,
   environment?: Environment,
   proxyPolicy?: ProxyPolicy,
   tlsPolicy?: TlsPolicy,
   cookies?: CollectionCookieJar,
 ): Promise<RequestRunResult> {
+  const effectiveEnvironment = runScope.environment(environment)
   const secretValues = [
     ...environmentSecretValues(environment),
+    ...environmentSecretValues(effectiveEnvironment),
     ...(proxyPolicy?.kind === "custom"
       ? Object.values(proxyPolicy.credentials ?? {})
       : []),
@@ -612,9 +621,9 @@ async function runRequest(
   ].filter((value): value is string => Boolean(value))
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
   try {
-    const effective = environment ? substitute(request, environment) : request
+    const effective = substitute(request, effectiveEnvironment)
     const response = await executor.send(request, {
-      environment,
+      environment: effectiveEnvironment,
       collection,
       requestPath: request.id,
       proxyPolicy,
@@ -632,14 +641,28 @@ async function runRequest(
           ),
       )
       .map((event) => event.message)
+    const resolve = createResponseResolver(response)
+    const rawCaptureResults = effective.captures
+      ? evaluateCaptures(effective.captures, resolve)
+      : undefined
+    for (const result of rawCaptureResults ?? []) {
+      if (result.success) runScope.set(result.variable, result.value)
+    }
+    const captureResults = rawCaptureResults?.map((result): CaptureResult =>
+      result.success
+        ? { ...result, value: redactJsonValue(result.value, redact) }
+        : { ...result, message: redact(result.message) },
+    )
     const assertionResults = effective.assertions?.length
-      ? evaluateAssertions(effective.assertions, response).map((result) => ({
-          ...result,
-          ...(Object.hasOwn(result, "expected")
-            ? { expected: redactAssertionValue(result.expected!, redact) }
-            : {}),
-          message: redact(result.message),
-        }))
+      ? evaluateAssertions(effective.assertions, response, resolve).map(
+          (result) => ({
+            ...result,
+            ...(Object.hasOwn(result, "expected")
+              ? { expected: redactJsonValue(result.expected!, redact) }
+              : {}),
+            message: redact(result.message),
+          }),
+        )
       : undefined
     return {
       id: request.id,
@@ -654,7 +677,11 @@ async function runRequest(
       },
       ok:
         response.status < 400 &&
+        (captureResults?.every((result) => result.success) ?? true) &&
         (assertionResults?.every((result) => result.passed) ?? true),
+      ...(captureResults
+        ? { captures: { evaluated: true, results: captureResults } }
+        : {}),
       ...(assertionResults
         ? { assertions: { evaluated: true, results: assertionResults } }
         : {}),
@@ -669,6 +696,9 @@ async function runRequest(
       url: redact(request.url),
       error: redact(errorMessage(error)),
       ok: false,
+      ...(request.captures && Object.keys(request.captures).length > 0
+        ? { captures: { evaluated: false, results: [] } }
+        : {}),
       ...(request.assertions?.length
         ? { assertions: { evaluated: false, results: [] } }
         : {}),
@@ -676,19 +706,19 @@ async function runRequest(
   }
 }
 
-function redactAssertionValue(
-  value: AssertionValue,
+function redactJsonValue(
+  value: JsonValue,
   redact: (value: string) => string,
-): AssertionValue {
+): JsonValue {
   if (typeof value === "string") return redact(value)
   if (Array.isArray(value)) {
-    return value.map((item) => redactAssertionValue(item, redact))
+    return value.map((item) => redactJsonValue(item, redact))
   }
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value).map(([key, item]) => [
         key,
-        redactAssertionValue(item, redact),
+        redactJsonValue(item, redact),
       ]),
     )
   }
@@ -718,6 +748,7 @@ export async function collectionRun(
   const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
   const cookies = cookieAccess.jar
   const results: RequestRunResult[] = []
+  const runScope = new RunScope()
   onProgress?.(0, requests.length)
   try {
     for (const request of requests) {
@@ -726,6 +757,7 @@ export async function collectionRun(
           dir,
           collection,
           request,
+          runScope,
           environment,
           policy,
           tlsPolicy,
@@ -793,6 +825,7 @@ export async function requestRun(
       dir,
       collection,
       request,
+      new RunScope(),
       await environmentFor(dir, settings, environmentName),
       await proxyPolicyFor(
         dir,
