@@ -140,4 +140,72 @@ describe("Sidebar", () => {
     })
     expect(contextId).toBe("api")
   })
+
+  it("shows more of folder and request names as the sidebar grows", async () => {
+    const visibleItems = [
+      {
+        type: "folder" as const,
+        id: "folder",
+        name: "Long folder name expands",
+        depth: 1,
+        expanded: false,
+        hasChildren: true,
+      },
+      {
+        type: "request" as const,
+        id: "request",
+        name: "Long request name expands",
+        depth: 1,
+        expanded: false,
+        hasChildren: false,
+        method: "GET",
+      },
+      {
+        type: "request" as const,
+        id: "emoji",
+        name: "A😊BCDEFG",
+        depth: 1,
+        expanded: false,
+        hasChildren: false,
+        method: "GET",
+      },
+    ]
+    const renderSidebar = (width: number) => (
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <Sidebar
+          items={[]}
+          loading={false}
+          error={null}
+          visibleItems={visibleItems}
+          cursorIndex={0}
+          selectedId="request"
+          expanded={new Set()}
+          dirtyFolderPaths={new Set(["folder"])}
+          dirtyRequestIds={new Set(["request", "emoji"])}
+          width={width}
+        />
+      </ThemeProvider>
+    )
+
+    const narrow = await testRender(renderSidebar(24), {
+      width: 50,
+      height: 8,
+    })
+    await narrow.renderOnce()
+    const narrowFrame = narrow.captureCharFrame()
+    expect(narrowFrame).toContain("Long folder…")
+    expect(narrowFrame).toContain("Long…")
+    expect(narrowFrame).toContain("A😊B…")
+    expect(narrowFrame.match(/●/g)).toHaveLength(3)
+
+    const wide = await testRender(renderSidebar(45), {
+      width: 50,
+      height: 8,
+    })
+    await wide.renderOnce()
+    const wideFrame = wide.captureCharFrame()
+    expect(wideFrame).toContain("Long folder name expands")
+    expect(wideFrame).toContain("Long request name expands")
+    expect(wideFrame).toContain("A😊BCDEFG")
+  })
 })
