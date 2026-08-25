@@ -112,6 +112,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "form_data",
     "file_path",
     "tls",
+    "capture",
     "assert",
   ])
   for (const key of Object.keys(raw)) {
@@ -204,6 +205,7 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   const auth = parseAuth(raw.auth, "lang.parseRequest", true)
   const tls = parseRequestTls(raw.tls)
+  const captures = parseCaptures(raw.capture)
   const assertions = parseAssertions(raw.assert)
 
   let timeout = 0
@@ -260,6 +262,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     formData,
     filePath,
     auth,
+    ...(captures ? { captures } : {}),
     ...(assertions ? { assertions } : {}),
   }
   const requestWithTls = tls === undefined ? request : { ...request, tls }
@@ -267,6 +270,40 @@ export function parseRequest(id: string, yamlText: string): Request {
     return { ...requestWithTls, pathParams }
   }
   return requestWithTls as Request
+}
+
+function parseCaptures(value: unknown): Record<string, string> | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error('lang.parseRequest: "capture" must be a mapping')
+  }
+
+  const captures: Record<string, string> = {}
+  for (const [variable, expression] of Object.entries(value)) {
+    if (!/^\w+$/.test(variable)) {
+      throw new Error(
+        `lang.parseRequest: invalid capture variable "${variable}"`,
+      )
+    }
+    if (typeof expression !== "string") {
+      throw new Error(`lang.parseRequest: capture.${variable} must be a string`)
+    }
+    try {
+      parseResponseExpression(expression)
+    } catch (error) {
+      throw new Error(
+        `lang.parseRequest: capture.${variable}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      )
+    }
+    Object.defineProperty(captures, variable, {
+      value: expression,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    })
+  }
+  return Object.keys(captures).length > 0 ? captures : undefined
 }
 
 function parseAssertions(value: unknown): ResponseAssertion[] | undefined {

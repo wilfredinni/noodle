@@ -5,7 +5,7 @@ import type {
   Response,
   ResponseAssertion,
 } from "./schema"
-import { createResponseResolver } from "./response"
+import { createResponseResolver, type ResponseResolver } from "./response"
 
 export interface AssertionResult {
   expression: string
@@ -91,8 +91,8 @@ export function compileAssertionRegex(source: string): CompiledAssertionRegex {
 export function evaluateAssertions(
   assertions: ResponseAssertion[],
   response: Response,
+  resolve: ResponseResolver = createResponseResolver(response),
 ): AssertionResult[] {
-  const resolve = createResponseResolver(response)
   return assertions.map((assertion) => {
     const resolution = resolve(assertion.expression)
     const expected = Object.hasOwn(assertion, "value")

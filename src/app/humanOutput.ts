@@ -43,6 +43,22 @@ function formatAssertions(result: RequestRunResult): string[] {
   ]
 }
 
+function formatCaptures(result: RequestRunResult): string[] {
+  if (!result.captures) return []
+  if (!result.captures.evaluated) return ["  Captures: not evaluated"]
+  const captured = result.captures.results.filter(
+    (capture) => capture.success,
+  ).length
+  const failed = result.captures.results.length - captured
+  return [
+    `  Captures: ${captured} captured, ${failed} failed`,
+    ...result.captures.results.map(
+      (capture) =>
+        `    ${capture.success ? color("✓", "green") : color("✗", "red")} $${capture.variable} <- ${capture.expression}${capture.success ? "" : `: ${capture.message}`}`,
+    ),
+  ]
+}
+
 function formatTree(items: CollectionTreeItem[], prefix = ""): string[] {
   return items.flatMap((item, index) => {
     const last = index === items.length - 1
@@ -151,6 +167,7 @@ export function formatRunResult(result: RequestRunResult): string {
   return [
     `${result.ok ? color("✓", "green") : color("✗", "red")} ${color(result.method, "cyan")} ${result.id}  ${statusLabel(result)}${duration}`,
     `  ${result.url}${result.error ? `\n  ${color(result.error, "red")}` : ""}`,
+    ...formatCaptures(result),
     ...formatAssertions(result),
     ...(result.warnings ?? []).map(
       (warning) => `  ${color("warning", "yellow")}: ${warning}`,

@@ -228,6 +228,7 @@ export interface Request {
   filePath?: string
   auth?: Auth
   tls?: RequestTlsSettings
+  captures?: Record<string, string>
   assertions?: ResponseAssertion[]
 }
 

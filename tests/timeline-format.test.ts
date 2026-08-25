@@ -14,7 +14,7 @@ import {
   maskedAuthHeader,
   buildDetailRequestHeaders,
 } from "../src/ui/timeline/formatTimeline"
-import type { Auth, TimelineEntry } from "../src/schema"
+import type { Auth, Request, TimelineEntry } from "../src/schema"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
 
 describe("truncateUrl", () => {
@@ -679,6 +679,31 @@ describe("buildTimelineEntry", () => {
     expect(entry.response?.timeMs).toBe(42)
     expect(entry.response?.size).toBe(0)
     expect(entry.envName).toBe("dev")
+  })
+
+  it("does not persist capture declarations in timeline request snapshots", () => {
+    const req: Request = {
+      id: "capture",
+      name: "Capture",
+      method: "GET",
+      url: "https://api.example.com",
+      headers: {},
+      params: [],
+      timeout: 0,
+      captures: { token: "body.token" },
+    }
+    const response = {
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"token":"server-value"}',
+      timeMs: 1,
+    }
+
+    const entry = buildTimelineEntry(req, { status: "done", response })
+
+    expect(entry.request).not.toHaveProperty("captures")
+    expect(JSON.stringify(entry)).not.toContain("body.token")
   })
 
   it("redacts request credentials without altering the server response", () => {

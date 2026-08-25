@@ -52,6 +52,42 @@ A failed assertion makes the command exit nonzero. Read structured results from
 `data.result.assertions`; JSON actual values are raw server data and may be
 sensitive.
 
+## Chained requests with response capture
+
+First request (`users/create-user.yml`):
+
+```yaml
+name: Create User
+method: POST
+url: $base_url/users
+body_type: json
+body: '{"name":"Ada"}'
+capture:
+  user_id: body.id
+  request_id: headers.x-request-id
+```
+
+Later request (`users/get-created-user.yml`):
+
+```yaml
+name: Get Created User
+method: GET
+url: $base_url/users/$user_id
+headers:
+  X-Request-ID: $request_id
+```
+
+Run both in collection order. `user_id` and `request_id` exist only for this
+command and never modify environment files:
+
+```bash
+noodle collection run ./my-api users/create-user users/get-created-user --json
+```
+
+Read capture results from `data.results[].captures`. Human output never prints
+captured values. JSON output includes typed server values unless they match a
+known secret, so treat it as sensitive.
+
 ## POST with JSON body
 
 ```yaml

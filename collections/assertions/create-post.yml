@@ -15,6 +15,10 @@ body: |-
     "tags": ["noodle", "assertions"]
   }
 body_type: json
+capture:
+  created_post_id: body.id
+  created_user_id: body.userId
+  response_content_type: headers.content-type
 assert:
   - expression: status
     operator: equals

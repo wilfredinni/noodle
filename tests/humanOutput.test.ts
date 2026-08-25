@@ -185,6 +185,69 @@ describe("human CLI output", () => {
     ).toContain("Assertions: not evaluated")
   })
 
+  it("summarizes captures without printing captured values", () => {
+    const output = plain(
+      formatRequestRun({
+        result: {
+          id: "users/get",
+          method: "GET",
+          url: "https://example.com/users/1",
+          ok: false,
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: '{"token":"raw-captured-value"}',
+            timeMs: 2,
+          },
+          captures: {
+            evaluated: true,
+            results: [
+              {
+                variable: "token",
+                expression: "body.token",
+                success: true,
+                type: "string",
+                value: "raw-captured-value",
+              },
+              {
+                variable: "user_id",
+                expression: "body.user.id",
+                success: false,
+                failureReason: "missing",
+                message: 'Expression "body.user.id" is missing',
+              },
+            ],
+          },
+        },
+      }),
+    )
+
+    expect(output).toContain("Captures: 1 captured, 1 failed")
+    expect(output).toContain("✓ $token <- body.token")
+    expect(output).toContain(
+      '✗ $user_id <- body.user.id: Expression "body.user.id" is missing',
+    )
+    expect(output).not.toContain("raw-captured-value")
+  })
+
+  it("reports captures that could not be evaluated", () => {
+    expect(
+      plain(
+        formatRequestRun({
+          result: {
+            id: "users/get",
+            method: "GET",
+            url: "https://example.com/$user_id",
+            ok: false,
+            error: "unresolved variable",
+            captures: { evaluated: false, results: [] },
+          },
+        }),
+      ),
+    ).toContain("Captures: not evaluated")
+  })
+
   it("prints cookie warnings, storage state, and recovery backups", () => {
     const listed = plain(
       formatCookieList({
