@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (2874 across 187 files)
+bun test                              # all tests (2876 across 187 files)
 bun test tests/lang.test.ts           # single file
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
@@ -215,6 +215,7 @@ tests/integration/ # Integration tests
 - **Settings, proxy, and TLS policy:** `F4` opens Settings. Global Behavior selects a detected external editor for command-palette actions that open the active collection or `~/.config/noodle`. Global proxy mode is `system`, `off`, or `custom`; a collection may `inherit`, use `off`, or define `custom`. Custom URLs reject credentials and variables; authenticated proxies persist only `auth: true`, while credentials live in the OS vault. `--noproxy` takes precedence for one run. Collection `settings.yml` also stores generated `collection_id`, optional `name`, `description`, `timeline_max_entries`, active `environment`, cookie jar toggle (`cookies.enabled`, default on), and TLS verification, CA, and exact-host client-certificate metadata. Encrypted key passphrases live in the OS vault; `--insecure` disables verification for one run. Settings parsing is strict.
 - **Invalid collection repair:** Invalid request or folder YAML opens `CollectionErrorView`, which reuses `YamlFileEditor` for per-file drafts, strict save-time validation, deletion, and reload after repair. Invalid mode must keep send and edit commands unavailable except for repair actions.
 - **Read-only TUI modes**: Browse and empty modes allow inspection plus global UI actions, but block request/folder/environment edits, saves, sends, and collection-only keybindings until initialized.
+- **Resizable main layout:** `AppInner.tsx` owns the current sidebar width plus separate stacked and side-by-side request/response ratios. `MainView.tsx` handles drag state, responsive minimums, and double-click reset; `RequestResponseView.tsx` renders the layout-specific resize handles. Keep sizing session-only unless persistence is explicitly requested.
 - **UI features require loading the `opentui` skill**. The skill lives at `.agents/skills/opentui/SKILL.md`.
 - **Command actions are centralized** in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. Never duplicate command logic.
 - **Command palette commands return boolean**: `run()` returns `true` (close palette) or `false` (stay open).
@@ -386,6 +387,8 @@ The cookie jar is opened from the command palette (**Cookies**). It captures `Se
 - **Cookie jar:** `cookie-sidebar → cookie-list` (2 panes).
 
 Active pane gets cyan border + `▸` prefix. Global keys work regardless of focus. Context-dependent bindings (`Ctrl+S`, `Ctrl+N`, `Ctrl+K`, `Ctrl+W`, `Ctrl+T`) dispatch to the appropriate action based on which pane is focused. Skips hidden panes when expanded mode (F2) collapses request or response.
+
+Drag the divider after the sidebar or between the request and response panes to resize the workspace. Stacked and side-by-side layouts keep separate request/response proportions for the current session; double-click a divider to restore its default.
 
 ## Testing
 

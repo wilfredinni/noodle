@@ -4,9 +4,11 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
-## [0.8.1] - 2026-08-25
+## [0.8.1] - 2026-08-26
 
-Noodle 0.8.1 adds declarative response capture, so one request can pass typed response values to later requests in the same automation run without modifying collection or environment files.
+Noodle 0.8.1 adds declarative response capture, so one request can pass typed response values to later requests in the same automation run without modifying collection or environment files. The TUI also makes the sidebar and request/response split mouse-resizable, with separate proportions for each layout and a double-click reset.
+
+[Read the full release article, including the resize demo.](https://noodlerest.dev/blog/noodle-0-8-1-carry-the-response-forward/)
 
 ### ✨ Features
 
@@ -14,17 +16,19 @@ Noodle 0.8.1 adds declarative response capture, so one request can pass typed re
 - Add one transient RunScope per `request run` or ordered `collection run`. Successful captures override same-named environment values, the latest successful capture wins, and all values disappear when the command returns.
 - Add typed capture results to structured run output, capture summaries without raw values in human output, explicit missing and resolution failures, and continued collection execution after capture failure.
 - Commit successful captures before assertions, including captures from HTTP error responses, so later requests can still use them when the producing request fails an assertion or HTTP status check.
+- Make the sidebar and request/response split mouse-resizable in stacked and side-by-side layouts, remember a separate split for each layout during the session, and reset a divider with a double-click.
 
 ### 🐞 Fixes
 
 - Fail unresolved variables before sending even when no environment is selected, and preserve existing RunScope values after a failed recapture.
 - Keep capture declarations and runtime capture state out of timeline history without persisting RunScope values or capture results to configuration, while redacting capture result values that match known environment, proxy, or TLS secrets.
 - Preserve legal variable names such as `__proto__` as own capture and RunScope properties instead of silently dropping them.
+- Adapt sidebar name truncation and pane minimum widths as the terminal or sidebar changes size, keeping narrow workspaces usable without losing the preferred wider layout.
 
 ### 📚 Documentation
 
-- Document capture syntax, execution order, result shape, failure behavior, typed substitution, precedence, lifetime, selected-request ordering, security policy, and the TUI boundary across the README, `AGENTS.md`, and documentation site.
-- Update `noodle-dev` with the shared response resolver, RunScope execution path, persistence boundary, and focused test locations.
+- Document capture syntax, execution order, result shape, failure behavior, typed substitution, precedence, lifetime, selected-request ordering, security policy, the TUI boundary, and mouse-resizable panes across the README, `AGENTS.md`, and documentation site.
+- Update `noodle-dev` with the shared response resolver, RunScope execution path, persistence boundary, resizable layout state, and focused test locations.
 - Update `noodle-use` with capture authoring, chaining, structured results, ordering, failure, and secret-handling guidance.
 - Correct the public roadmap now that assertions, collection runs, and declarative request chaining have shipped.
 

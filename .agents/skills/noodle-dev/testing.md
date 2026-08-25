@@ -5,7 +5,7 @@
 `bun test` (NOT jest/vitest). Uses `describe`, `it`, `expect` from `bun:test`.
 
 ```bash
-bun test                                    # all 2874 tests across 187 files
+bun test                                    # all 2876 tests across 187 files
 bun test tests/lang.test.ts                 # single file
 bun test --test-name-pattern "parseFolder"  # by name
 ```
@@ -102,6 +102,7 @@ Mount the visible hard-blocking overlay before pressing keys. Its shield has hig
 | Folder overrides                     | `tests/unit/mergeFolderOverrides.test.ts`                                                                        |
 | Pure helper function                 | `tests/unit/<name>.test.ts`                                                                                      |
 | UI component rendering               | `tests/unit/<ComponentName>.test.tsx`                                                                            |
+| Main layout resizing                 | `tests/unit/MainView.test.tsx`, `tests/unit/Sidebar.test.tsx`                                                     |
 | Variable completion                  | `tests/unit/variableCompletion.test.ts`, `tests/unit/UrlBar.test.tsx`                                            |
 | Code Editor                          | `tests/unit/CodeEditor.test.tsx`, `tests/unit/highlightOffsets.test.ts`, `tests/unit/variableHighlight.test.tsx` |
 | Code Editor completion               | `tests/unit/CodeEditorCompletion.test.tsx`                                                                       |

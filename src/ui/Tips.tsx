@@ -18,6 +18,7 @@ const TIPS = [
   "edit request details with {^E}",
   "change the color theme with {^T}",
   "toggle layout between stacked and side-by-side with {^L}",
+  "drag pane dividers to resize; double-click a divider to reset it",
   "switch response tabs with {←}/{→} arrow keys",
   "scroll the response with {↑}/{↓} or {PgUp}/{PgDn}",
   "response body auto-formats JSON when detected",
