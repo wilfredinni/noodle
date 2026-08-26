@@ -362,7 +362,8 @@ export function Select({
             )
 
             const root = renderer?.root as unknown as
-              { add: (...args: unknown[]) => void } | undefined
+              | { add: (...args: unknown[]) => void }
+              | undefined
             if (root && triggerRef.current) {
               const x =
                 dropdownAlign === "right"

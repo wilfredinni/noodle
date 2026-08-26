@@ -2,7 +2,12 @@ import type { Environment, JsonValue } from "./schema"
 import type { ResponseResolver } from "./response"
 
 export type CaptureValueType =
-  "null" | "boolean" | "number" | "string" | "array" | "object"
+  | "null"
+  | "boolean"
+  | "number"
+  | "string"
+  | "array"
+  | "object"
 
 export type CaptureResult =
   | {

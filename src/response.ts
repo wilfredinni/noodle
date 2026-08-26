@@ -5,7 +5,8 @@ export type ParsedResponseBody =
   | { kind: "invalid-json"; message: string }
 
 export type ResponsePathPart =
-  { kind: "property"; name: string } | { kind: "index"; index: number }
+  | { kind: "property"; name: string }
+  | { kind: "index"; index: number }
 
 export type ResponseExpression =
   | { kind: "status" }

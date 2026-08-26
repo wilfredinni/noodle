@@ -2,7 +2,12 @@ import type { BindingCommandMap } from "@opentui/keymap/extras"
 import type { KeyEvent } from "@opentui/core"
 
 export type KeybindCategory =
-  "Navigation" | "Request" | "Environment" | "Cookies" | "Workspace" | "System"
+  | "Navigation"
+  | "Request"
+  | "Environment"
+  | "Cookies"
+  | "Workspace"
+  | "System"
 
 export type KeybindContext =
   | "main"

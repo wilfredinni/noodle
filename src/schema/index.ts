@@ -1,11 +1,27 @@
 export type Method =
-  "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS"
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "PATCH"
+  | "DELETE"
+  | "HEAD"
+  | "OPTIONS"
 
 export type BodyType =
-  "none" | "json" | "xml" | "multipart" | "urlencoded" | "binary"
+  | "none"
+  | "json"
+  | "xml"
+  | "multipart"
+  | "urlencoded"
+  | "binary"
 
 export type JsonValue =
-  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue }
 
 export type AssertionValue = JsonValue
 
@@ -32,7 +48,8 @@ export type AssertionWithValueOperator =
   | "matches"
 
 export type AssertionOperator =
-  AssertionWithoutValueOperator | AssertionWithValueOperator
+  | AssertionWithoutValueOperator
+  | AssertionWithValueOperator
 
 export type ResponseAssertion =
   | {
@@ -85,7 +102,8 @@ export interface Folder {
 }
 
 export type CollectionItem =
-  { type: "request"; data: Request } | { type: "folder"; data: Folder }
+  | { type: "request"; data: Request }
+  | { type: "folder"; data: Folder }
 
 export type OAuth1SignatureMethod =
   | "HMAC-SHA1"
@@ -118,7 +136,10 @@ export interface OAuth1Auth {
 }
 
 export type OAuth2GrantType =
-  "authorization_code" | "client_credentials" | "implicit" | "password"
+  | "authorization_code"
+  | "client_credentials"
+  | "implicit"
+  | "password"
 
 export type OAuth2ClientAuthentication = "client_secret" | "client_assertion"
 
@@ -381,7 +402,11 @@ export interface ProxyCredentials {
 }
 
 export type AppProxySettings =
-  { mode: "system" } | { mode: "off" } | ProxySettings
+  | { mode: "system" }
+  | { mode: "off" }
+  | ProxySettings
 
 export type CollectionProxySettings =
-  { mode: "inherit" } | { mode: "off" } | ProxySettings
+  | { mode: "inherit" }
+  | { mode: "off" }
+  | ProxySettings

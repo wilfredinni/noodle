@@ -5,7 +5,8 @@ import type { CollectionSettings } from "../../schema"
 import { expandUserPath } from "../../userPath"
 
 export type CollectionRegistrationResult =
-  { ok: true; path: string } | { ok: false; error: string }
+  | { ok: true; path: string }
+  | { ok: false; error: string }
 
 export function collectionDisplayName(
   path: string,

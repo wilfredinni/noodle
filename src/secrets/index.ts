@@ -65,9 +65,13 @@ export function secretAccount(
 }
 
 export type AppSettingSecret =
-  "proxy:username" | "proxy:password" | "cookie-jar-key"
+  | "proxy:username"
+  | "proxy:password"
+  | "cookie-jar-key"
 export type CollectionSettingSecret =
-  "proxy:username" | "proxy:password" | `tls:${string}:passphrase`
+  | "proxy:username"
+  | "proxy:password"
+  | `tls:${string}:passphrase`
 
 export function appSettingSecretAccount(secret: AppSettingSecret): string {
   return `app:settings:${secret}`

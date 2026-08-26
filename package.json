@@ -16,7 +16,7 @@
     "prepare": "husky",
     "audit": "bun audit",
     "lint": "oxlint .",
-    "format": "prettier --write .",
+    "format": "oxfmt ./src ./tests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -41,8 +41,8 @@
     "bun-types": "^1.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
+    "oxfmt": "^0.64.0",
     "oxlint": "^1.80.0",
-    "prettier": "^3.9.6",
     "typescript": "^7.0.2"
   },
   "overrides": {
@@ -53,11 +53,11 @@
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
       "oxlint --fix",
-      "prettier --write"
+      "oxfmt"
     ],
     "tests/**/*.{ts,tsx}": [
       "oxlint --fix",
-      "prettier --write"
+      "oxfmt"
     ]
   }
 }

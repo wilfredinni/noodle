@@ -193,7 +193,8 @@ export function ProxySettingsForm({
       if (next.mode !== "custom") {
         setError(null)
         const output = { mode: next.mode } as
-          AppProxySettings | CollectionProxySettings
+          | AppProxySettings
+          | CollectionProxySettings
         if (!onChange(output)) return "failed"
         lastPublishedRef.current = `${scope}:${JSON.stringify(output)}`
         return "saved"

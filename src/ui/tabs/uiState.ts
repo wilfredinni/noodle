@@ -4,7 +4,11 @@ import * as yaml from "../../yaml"
 import type { FieldKind } from "../editMode"
 
 export type ResponseTabKind =
-  "body" | "headers" | "network" | "timeline" | "cookies"
+  | "body"
+  | "headers"
+  | "network"
+  | "timeline"
+  | "cookies"
 
 export interface TabPrefs {
   requestTab: FieldKind

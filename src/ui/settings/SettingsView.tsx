@@ -50,10 +50,15 @@ import type { ExternalEditor, ExternalEditorId } from "../../externalEditor"
 
 export type SettingsScope = "global" | "collection"
 export type GlobalSettingsCategory =
-  "appearance" | "behavior" | "network" | "collections" | "keyboard"
+  | "appearance"
+  | "behavior"
+  | "network"
+  | "collections"
+  | "keyboard"
 export type CollectionSettingsCategory = "general" | "network" | "tls"
 export type SettingsCategory =
-  GlobalSettingsCategory | CollectionSettingsCategory
+  | GlobalSettingsCategory
+  | CollectionSettingsCategory
 
 export const GLOBAL_CATEGORIES: readonly {
   id: GlobalSettingsCategory

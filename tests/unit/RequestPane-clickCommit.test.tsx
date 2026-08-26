@@ -114,7 +114,8 @@ describe("RequestPane blank click commit", () => {
       )
 
       const settingsRow = renderer.root.findDescendantById("settings-3") as
-        BoxRenderable | undefined
+        | BoxRenderable
+        | undefined
       const contentRow = settingsRow?.getChildren()[0]
       const select = contentRow?.getChildren()[1]
       expect(settingsRow?.backgroundColor.a).toBeGreaterThan(0)
