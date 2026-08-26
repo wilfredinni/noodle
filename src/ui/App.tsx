@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { randomUUID } from "node:crypto"
 import { join, resolve } from "node:path"
 import { AppInner } from "./AppInner"
-import { appendCollectionPath, useConfig } from "../hooks/useConfig"
+import {
+  appendCollectionPath,
+  upsertCollectionPath,
+  useConfig,
+} from "../hooks/useConfig"
 import { listEnvironmentsWithColors } from "../env/listWithColors"
 import { ThemeProvider, THEMES, DEFAULT_THEME_INDEX } from "./theme"
 import { stat } from "node:fs/promises"
@@ -251,7 +255,7 @@ export function App({
   useEffect(() => {
     if (shouldRegister && mode === "collection") {
       updateConfig((prev) => ({
-        collections: appendCollectionPath(
+        collections: upsertCollectionPath(
           prev.collections,
           activeCollectionDir,
         ),
@@ -867,7 +871,7 @@ export function App({
       persistedSettingsRef.current = {}
       setSettings({})
       updateConfig((prev) => ({
-        collections: appendCollectionPath(prev.collections, resolved),
+        collections: upsertCollectionPath(prev.collections, resolved),
       }))
       listEnvironmentsWithColors(join(resolved, ".environments"))
         .then((items) => {
@@ -992,7 +996,7 @@ export function App({
         setMode(nextMode)
         if (nextMode === "collection") {
           updateConfig((prev) => ({
-            collections: appendCollectionPath(prev.collections, normalized),
+            collections: upsertCollectionPath(prev.collections, normalized),
           }))
         }
       } finally {

@@ -9,6 +9,7 @@ import {
   appendCollectionPath,
   loadConfig,
   saveConfig,
+  upsertCollectionPath,
   type NoodleConfig,
   CONFIG_FILE_NAME,
 } from "../../src/hooks/useConfig"
@@ -149,6 +150,15 @@ describe("appendCollectionPath", () => {
     expect(appendCollectionPath(["/tmp/a", "/tmp/b"], "/tmp/a")).toEqual([
       "/tmp/a",
       "/tmp/b",
+    ])
+  })
+})
+
+describe("upsertCollectionPath", () => {
+  it("moves the opened collection to the front without duplicating it", () => {
+    expect(upsertCollectionPath(["/tmp/a", "/tmp/b"], "/tmp/b")).toEqual([
+      "/tmp/b",
+      "/tmp/a",
     ])
   })
 })
