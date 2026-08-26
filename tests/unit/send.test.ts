@@ -33,6 +33,13 @@ function makeReq(over: Partial<Request> = {}): Request {
   }
 }
 
+function proxyUrl(proxy: BunFetchRequestInit["proxy"]): string | undefined {
+  if (proxy === undefined) return undefined
+  if (typeof proxy === "string") return proxy
+  if (proxy instanceof URL) return proxy.toString()
+  return proxy.url.toString()
+}
+
 describe("send — param deduplication", () => {
   it("params block replaces inline URL value for same key", async () => {
     let captured: string | undefined
@@ -580,8 +587,7 @@ describe("send — network trace", () => {
     const originalFetch = globalThis.fetch
     let proxy: string | undefined
     globalThis.fetch = mock(async (_url, init) => {
-      const selected = (init as BunFetchRequestInit).proxy
-      proxy = typeof selected === "string" ? selected : selected?.url
+      proxy = proxyUrl((init as BunFetchRequestInit).proxy)
       return new Response("ok", { status: 200 })
     }) as unknown as typeof globalThis.fetch
 
@@ -640,8 +646,7 @@ describe("send — network trace", () => {
     const originalFetch = globalThis.fetch
     let proxy: string | undefined
     globalThis.fetch = mock(async (_url, init) => {
-      const selected = (init as BunFetchRequestInit).proxy
-      proxy = typeof selected === "string" ? selected : selected?.url
+      proxy = proxyUrl((init as BunFetchRequestInit).proxy)
       return new Response("ok", { status: 200 })
     }) as unknown as typeof globalThis.fetch
 
@@ -673,8 +678,7 @@ describe("send — network trace", () => {
     const proxies: Array<string | undefined> = []
     let calls = 0
     globalThis.fetch = mock(async (_url, init) => {
-      const selected = (init as BunFetchRequestInit).proxy
-      proxies.push(typeof selected === "string" ? selected : selected?.url)
+      proxies.push(proxyUrl((init as BunFetchRequestInit).proxy))
       calls++
       return calls === 1
         ? new Response(null, {

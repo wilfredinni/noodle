@@ -23,6 +23,7 @@ function run(check: Check): number {
 
 const checks: Check[] = [
   { label: "tests", command: ["bun", "test"] },
+  { label: "dependency audit", command: ["bun", "run", "audit"] },
   { label: "lint", command: ["bun", "run", "lint"] },
   { label: "typecheck", command: ["bun", "run", "typecheck"] },
   {

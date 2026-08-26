@@ -4,6 +4,10 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+### 🔒 Security
+
+- Update vulnerable `brace-expansion` and `shell-quote` transitive dependencies, enforce `bun audit` in CI and release validation, and enable weekly dependency updates.
+
 ## [0.8.1] - 2026-08-26
 
 Noodle 0.8.1 adds declarative response capture, so one request can pass typed response values to later requests in the same automation run without modifying collection or environment files. The TUI also makes the sidebar and request/response split mouse-resizable, with separate proportions for each layout and a double-click reset.

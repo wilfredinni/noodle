@@ -44,7 +44,8 @@ bun run dev -- --collection ./collections --env development
 ### Run checks before submitting
 
 ```bash
-bun test                              # ~1180 tests across 73 suites
+bun test                              # 2910 tests across 188 files
+bun run audit                         # dependency vulnerability audit
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
 bunx prettier --check ./src ./tests   # format check
@@ -93,6 +94,7 @@ These are not strictly enforced but reflect noodle's conventions:
 ## Before submitting a PR
 
 - `bun test` must pass
+- `bun run audit` must pass
 - `bun run lint` must pass
 - `bun run typecheck` must pass
 - `bunx prettier --check ./src ./tests` must pass
@@ -113,7 +115,7 @@ If you are an AI agent helping someone with this repository:
 - Do not use the GitHub CLI, API, or browser automation to submit issues or PRs for a human. Guide them to do it themselves.
 - For bugs: draft only the template fields. Include a real reproduction. Keep scope small.
 - For feature requests, ideas, and questions: guide the human to GitHub Discussions.
-- Run the documented checks before submitting: `bun test`, `bun run lint`, `bun run typecheck`, `bunx prettier --check ./src ./tests`.
+- Run the documented checks before submitting: `bun test`, `bun run audit`, `bun run lint`, `bun run typecheck`, `bunx prettier --check ./src ./tests`.
 - Make sure the human can explain every change.
 
 ## PR titles

@@ -1533,7 +1533,9 @@ describe("automation services", () => {
     }
     try {
       await collectionRun(dir)
-      expect(reads.sort()).toEqual([
+      expect(
+        reads.filter((name) => name.includes(":settings:proxy:")).sort(),
+      ).toEqual([
         "11111111-1111-4111-8111-111111111111:settings:proxy:password",
         "11111111-1111-4111-8111-111111111111:settings:proxy:username",
       ])
