@@ -11,7 +11,7 @@ export function useFormOverlayIntercept(opts: {
     toggleFocused?: () => void
     confirm: () => unknown
   } | null>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   onConfirm: (result: any) => void
   onCancel: () => void
   passThroughFocuses?: string[]

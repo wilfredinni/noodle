@@ -49,7 +49,7 @@ export function generateCode(
   const { har, unhash } = buildHar(effective, env, interpolate)
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     const snippet = new HTTPSnippet(har as any)
     const raw = snippet.convert(
       target.target as TargetId,

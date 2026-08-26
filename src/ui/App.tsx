@@ -151,7 +151,7 @@ export function App({
   noProxy = false,
   insecure = false,
   systemProxy,
-  keybinds: keybinds,
+  keybinds,
   lastRequestId: initialLastRequestId,
   shouldRegister = false,
   mode: initialMode = "empty",

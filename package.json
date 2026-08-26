@@ -15,7 +15,7 @@
     "release:check": "bun scripts/release-check.ts",
     "prepare": "husky",
     "audit": "bun audit",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit"
   },
@@ -36,16 +36,14 @@
     "tough-cookie": "^6.0.2"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@types/aws4": "^1.11.6",
     "@types/react": "^19.2.18",
     "bun-types": "^1.4.0",
-    "eslint": "^10.9.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
+    "oxlint": "^1.80.0",
     "prettier": "^3.9.6",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.68.0"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "form-data": "^4.0.6",
@@ -54,11 +52,11 @@
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
-      "eslint --fix",
+      "oxlint --fix",
       "prettier --write"
     ],
     "tests/**/*.{ts,tsx}": [
-      "eslint --fix",
+      "oxlint --fix",
       "prettier --write"
     ]
   }
