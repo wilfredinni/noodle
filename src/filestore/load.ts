@@ -157,6 +157,7 @@ async function walk(
 
       let folderMeta: {
         meta?: import("../schema").FolderMeta
+        tags?: string[]
         overrides?: import("../schema").FolderOverrides
       } = {}
       let folderYmlContent = ""
@@ -190,6 +191,7 @@ async function walk(
         name: folderMeta.meta?.name ?? entry.name,
         path: childRel,
         seq: folderMeta.meta?.seq,
+        tags: folderMeta.tags,
         overrides: folderMeta.overrides,
         children,
       }

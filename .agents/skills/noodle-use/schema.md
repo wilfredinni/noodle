@@ -12,6 +12,7 @@ One request per file. Fields:
 | `method` | yes | string | n/a | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` |
 | `url` | yes | string | n/a | Full URL. May contain `$var` references |
 | `timeout` | yes | number | `0` | Request timeout in ms. `0` = no timeout |
+| `tags` | no | list of strings | n/a | Case-sensitive suite tags. Every item must be non-empty and already trimmed. |
 | `followRedirects` | no | boolean | `true` | Whether to follow HTTP redirects |
 | `maxRedirects` | no | number | `5` | Maximum redirect chain length |
 | `sendCookies` | no | boolean | `true` | Send matching cookies from the collection jar. `false` still captures response cookies. |
@@ -348,7 +349,7 @@ timeout: 0
 
 ## Folder file (`folder.yml`)
 
-Optional. Defines display name, sort order, and inheritable headers/auth for requests in that directory.
+Optional. Defines display name, sort order, suite tags, and inheritable headers/auth for requests in that directory.
 
 This file applies only when it is inside a child directory. A `folder.yml` at
 the collection root is ignored and cannot provide collection-wide headers,
@@ -358,6 +359,9 @@ authentication, metadata, or ordering.
 meta:
   name: Display Name
   seq: 5
+tags:
+  - smoke
+  - users
 headers:
   X-Custom: custom-value
 auth:
@@ -365,7 +369,14 @@ auth:
   token: $TOKEN
 ```
 
-All three sections (`meta`, `headers`, `auth`) are optional. Omit `meta` to use the directory name as display name. Omit `seq` to sort alphabetically. Omit `headers`/`auth` for no overrides.
+All four sections (`meta`, `tags`, `headers`, `auth`) are optional. Omit `meta` to use the directory name as display name. Omit `seq` to sort alphabetically. Omit `headers`/`auth` for no overrides.
+
+### Tag inheritance
+
+Tags are case-sensitive, non-empty, trimmed strings. A request's effective tags
+are the set union of its own `tags` and the `tags` from every ancestor folder.
+Duplicates have no additional effect, and a descendant cannot remove an
+inherited tag. A root-level `folder.yml` is ignored, including its tags.
 
 ### Header inheritance
 

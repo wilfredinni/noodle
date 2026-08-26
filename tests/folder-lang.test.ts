@@ -23,6 +23,19 @@ describe("lang.parseFolder", () => {
     expect(result.meta).toEqual({ name: "Auth", seq: 1 })
   })
 
+  it("parses strict folder tags", () => {
+    expect(lang.parseFolder("tags: [smoke, users]\n").tags).toEqual([
+      "smoke",
+      "users",
+    ])
+    expect(() => lang.parseFolder("tags: smoke\n")).toThrow(
+      'lang.parseFolder: "tags" must be an array',
+    )
+    expect(() => lang.parseFolder('tags: [" destructive"]\n')).toThrow(
+      "lang.parseFolder: tags[0] must be a non-empty trimmed string",
+    )
+  })
+
   it("parses headers", () => {
     const result = lang.parseFolder(
       "headers:\n  Authorization: Bearer xxx\n  X-Custom:\n    value: val\n    enabled: false\n",
@@ -171,6 +184,18 @@ describe("lang.serializeFolder", () => {
     expect(result).toContain("seq: 2")
   })
 
+  it("round-trips folder tags", () => {
+    const serialized = lang.serializeFolder({
+      id: "users",
+      name: "users",
+      path: "users",
+      tags: ["smoke", "users"],
+      children: [],
+    })
+    expect(serialized).toBe("tags:\n  - smoke\n  - users\n")
+    expect(lang.parseFolder(serialized).tags).toEqual(["smoke", "users"])
+  })
+
   it("round-trips parse -> serialize -> parse", () => {
     const original = "meta:\n  name: Auth\n  seq: 1\nheaders:\n  X-Test: val\n"
     const parsed = lang.parseFolder(original)
@@ -179,6 +204,7 @@ describe("lang.serializeFolder", () => {
       name: "Auth",
       path: "auth",
       seq: 1,
+      tags: parsed.tags,
       overrides: parsed.overrides,
       children: [],
     })

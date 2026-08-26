@@ -71,7 +71,14 @@ describe("automation services", () => {
       "not a collection root",
     )
     await expect(collectionFormat(dir)).rejects.toThrow("not a collection root")
-    await expect(collectionRun(dir)).rejects.toThrow("not a collection root")
+    expect(await collectionRun(dir)).toMatchObject({
+      failed: true,
+      failure: {
+        category: "configuration",
+        message: expect.stringContaining("not a collection root"),
+      },
+      summary: { failureCategories: ["configuration"] },
+    })
     await expect(
       requestCreate("request", "https://example.com", "GET", dir),
     ).rejects.toThrow("not a collection root")
@@ -231,7 +238,7 @@ describe("automation services", () => {
   it("formats valid JSON request bodies without changing invalid JSON", async () => {
     await writeFile(
       join(dir, "json.yml"),
-      'name: JSON\nmethod: POST\nurl: https://example.com\nbody: \'{"name":"Noodle","id":9007199254740993}\'\nbody_type: json\n',
+      'name: JSON\nmethod: POST\nurl: https://example.com\ntags: [smoke, users]\nbody: \'{"name":"Noodle","id":9007199254740993}\'\nbody_type: json\n',
       "utf8",
     )
     await writeFile(
@@ -249,6 +256,9 @@ describe("automation services", () => {
     })
     expect(await readFile(join(dir, "json.yml"), "utf8")).toContain(
       'body: |-\n  {\n    "name": "Noodle",\n    "id": 9007199254740993\n  }',
+    )
+    expect(await readFile(join(dir, "json.yml"), "utf8")).toContain(
+      "tags:\n  - smoke\n  - users\n",
     )
     expect(await readFile(join(dir, "invalid.yml"), "utf8")).toContain(
       "body: '{not json}'",
@@ -351,6 +361,342 @@ describe("automation services", () => {
     }
   })
 
+  it("filters targets by inherited request and folder tags", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(join(dir, "folder.yml"), "tags: [destructive]\n")
+    await mkdir(join(dir, "admin"))
+    await mkdir(join(dir, "users"))
+    await writeFile(
+      join(dir, "admin", "folder.yml"),
+      "tags: [smoke, destructive]\n",
+    )
+    await writeFile(join(dir, "users", "folder.yml"), "tags: [smoke, users]\n")
+    for (const [id, tags] of [
+      ["admin/drop", ""],
+      ["users/list", "tags: [users]\n"],
+      ["users/remove", "tags: [destructive]\n"],
+      ["root", "tags: [smoke]\n"],
+      ["untagged", ""],
+    ]) {
+      await writeFile(
+        join(dir, `${id}.yml`),
+        `name: ${id}\nmethod: GET\nurl: https://example.com/${id}\n${tags}`,
+      )
+    }
+
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "",
+      timeMs: 1,
+    })
+    try {
+      const include = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        "smoke",
+      )
+      expect(include.results.map((result) => result.id)).toEqual([
+        "admin/drop",
+        "users/list",
+        "users/remove",
+        "root",
+      ])
+      expect(include.summary.selected).toBe(4)
+
+      const exclude = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        undefined,
+        "destructive",
+      )
+      expect(exclude.results.map((result) => result.id)).toEqual([
+        "users/list",
+        "root",
+        "untagged",
+      ])
+
+      const combined = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        "smoke",
+        "destructive",
+      )
+      expect(combined.results.map((result) => result.id)).toEqual([
+        "users/list",
+        "root",
+      ])
+      expect(combined.skipped).toEqual([])
+
+      const targeted = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        ["users/"],
+        "smoke",
+        "destructive",
+      )
+      expect(targeted.results.map((result) => result.id)).toEqual([
+        "users/list",
+      ])
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("returns a configuration failure when tag filters match nothing", async () => {
+    await writeFile(
+      join(dir, "settings.yml"),
+      "tls:\n  client_certifcates: []\n",
+    )
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ntags: [smoke]\n",
+    )
+    const send = executor.send
+    let sends = 0
+    executor.send = async () => {
+      sends++
+      throw new Error("should not send")
+    }
+    try {
+      expect(
+        await collectionRun(
+          dir,
+          undefined,
+          undefined,
+          false,
+          undefined,
+          false,
+          ["missing"],
+          "Smoke",
+        ),
+      ).toMatchObject({
+        failure: { message: 'collection target not found: "missing"' },
+      })
+      const result = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        "Smoke",
+      )
+      expect(result).toMatchObject({
+        failed: true,
+        results: [],
+        skipped: [],
+        failure: {
+          category: "configuration",
+          message: "no requests match the tag filters",
+        },
+        summary: {
+          selected: 0,
+          executed: 0,
+          failureCategories: ["configuration"],
+        },
+      })
+      expect(Number.isInteger(result.summary.durationMs)).toBe(true)
+      expect(sends).toBe(0)
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("propagates captures only through requests selected by tag filters", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-source.yml"),
+      "name: Source\nmethod: GET\nurl: https://example.com/source\ntags: [smoke]\ncapture:\n  user_id: body.id\n",
+    )
+    await writeFile(
+      join(dir, "02-filtered.yml"),
+      "name: Filtered\nmethod: GET\nurl: https://example.com/filtered\ntags: [users]\ncapture:\n  user_id: body.id\n",
+    )
+    await writeFile(
+      join(dir, "03-use.yml"),
+      "name: Use\nmethod: GET\nurl: https://example.com/users/$user_id\ntags: [smoke]\n",
+    )
+    const sent: string[] = []
+    const send = executor.send
+    executor.send = async (request) => {
+      sent.push(request.id)
+      return {
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        body: request.id === "01-source" ? '{"id":1}' : '{"id":2}',
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        "smoke",
+      )
+      expect(sent).toEqual(["01-source", "03-use"])
+      expect(result.results.map((item) => item.url)).toEqual([
+        "https://example.com/source",
+        "https://example.com/users/1",
+      ])
+      expect(result.summary).toMatchObject({
+        selected: 2,
+        executed: 2,
+        skipped: 0,
+        requestSuccesses: 2,
+        requestFailures: 0,
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("aggregates typed failure categories in taxonomy order", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "01-response.yml"),
+      "name: Response failures\nmethod: GET\nurl: https://example.com/response\ncapture:\n  id: body.missing\nassert:\n  - expression: status\n    operator: equals\n    value: 200\n",
+    )
+    await writeFile(
+      join(dir, "02-execution.yml"),
+      "name: Execution failure\nmethod: GET\nurl: https://example.com/$MISSING\n",
+    )
+    await writeFile(
+      join(dir, "03-transport.yml"),
+      "name: Transport failure\nmethod: GET\nurl: https://example.com/transport\n",
+    )
+    await writeFile(
+      join(dir, "04-success.yml"),
+      "name: Success\nmethod: GET\nurl: https://example.com/success\n",
+    )
+    const send = executor.send
+    executor.send = async (request) => {
+      if (request.id === "03-transport") {
+        const error = new Error("network unavailable") as Error & {
+          network: { timeMs: number; type: "error"; message: string }[]
+        }
+        error.network = [
+          { timeMs: 1, type: "error", message: "network unavailable" },
+        ]
+        throw error
+      }
+      return {
+        status: request.id === "01-response" ? 500 : 200,
+        statusText: request.id === "01-response" ? "Error" : "OK",
+        headers: {},
+        body: "{}",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(dir)
+      expect(result.results.map((item) => item.failureCategories)).toEqual([
+        ["http", "capture", "assertion"],
+        ["execution"],
+        ["transport"],
+        [],
+      ])
+      expect(result.summary).toMatchObject({
+        selected: 4,
+        executed: 4,
+        requestSuccesses: 1,
+        requestFailures: 3,
+        assertionPasses: 0,
+        assertionFailures: 1,
+        captureFailures: 1,
+        failureCategories: [
+          "execution",
+          "transport",
+          "http",
+          "capture",
+          "assertion",
+        ],
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
+  it("stops on the first failure and records ordered fail-fast skips", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    for (const id of ["01-fail", "02-skip", "03-skip"]) {
+      await writeFile(
+        join(dir, `${id}.yml`),
+        `name: ${id}\nmethod: GET\nurl: https://example.com/${id}\n`,
+      )
+    }
+    const sent: string[] = []
+    const send = executor.send
+    executor.send = async (request) => {
+      sent.push(request.id)
+      return {
+        status: request.id === "01-fail" ? 500 : 200,
+        statusText: request.id === "01-fail" ? "Error" : "OK",
+        headers: {},
+        body: "",
+        timeMs: 1,
+      }
+    }
+    try {
+      const result = await collectionRun(
+        dir,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        false,
+        [],
+        undefined,
+        undefined,
+        true,
+      )
+      expect(sent).toEqual(["01-fail"])
+      expect(result.results.map((item) => item.id)).toEqual(["01-fail"])
+      expect(result.skipped).toEqual([
+        { id: "02-skip", reason: "fail-fast" },
+        { id: "03-skip", reason: "fail-fast" },
+      ])
+      expect(result.summary).toMatchObject({
+        selected: 3,
+        executed: 1,
+        skipped: 2,
+        requestSuccesses: 0,
+        requestFailures: 1,
+        failureCategories: ["http"],
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
   it("rejects unknown targets before sending any request", async () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(
@@ -365,17 +711,40 @@ describe("automation services", () => {
     }
     try {
       await mkdir(join(dir, "folder"))
-      await expect(
-        collectionRun(dir, undefined, undefined, false, undefined, false, [
-          "folder",
-        ]),
-      ).rejects.toThrow('folder target must end in "/": "folder/"')
-      await expect(
-        collectionRun(dir, undefined, undefined, false, undefined, false, [
-          "request",
-          "missing/",
-        ]),
-      ).rejects.toThrow('collection target not found: "missing/"')
+      expect(
+        await collectionRun(
+          dir,
+          undefined,
+          undefined,
+          false,
+          undefined,
+          false,
+          ["folder"],
+        ),
+      ).toMatchObject({
+        failed: true,
+        failure: {
+          category: "configuration",
+          message: 'folder target must end in "/": "folder/"',
+        },
+      })
+      expect(
+        await collectionRun(
+          dir,
+          undefined,
+          undefined,
+          false,
+          undefined,
+          false,
+          ["request", "missing/"],
+        ),
+      ).toMatchObject({
+        failed: true,
+        failure: {
+          category: "configuration",
+          message: 'collection target not found: "missing/"',
+        },
+      })
       expect(sends).toBe(0)
     } finally {
       executor.send = send
@@ -389,7 +758,17 @@ describe("automation services", () => {
       await collectionRun(dir, undefined, undefined, false, undefined, false, [
         "empty/",
       ]),
-    ).toEqual({ results: [], failed: false })
+    ).toMatchObject({
+      results: [],
+      skipped: [],
+      failed: false,
+      summary: {
+        selected: 0,
+        executed: 0,
+        skipped: 0,
+        failureCategories: [],
+      },
+    })
   })
 
   it("keeps server response fields intact in automation output", async () => {
@@ -486,9 +865,15 @@ describe("automation services", () => {
       throw new Error("should not send")
     }
     try {
-      await expect(collectionRun(dir)).rejects.toThrow(
-        'capture.user_id: Invalid response expression "body..id"',
-      )
+      expect(await collectionRun(dir)).toMatchObject({
+        failed: true,
+        failure: {
+          category: "configuration",
+          message: expect.stringContaining(
+            'capture.user_id: Invalid response expression "body..id"',
+          ),
+        },
+      })
       expect(sends).toBe(0)
     } finally {
       executor.send = send
@@ -1212,9 +1597,16 @@ describe("automation services", () => {
       return { status: 200, statusText: "OK", headers: {}, body: "", timeMs: 1 }
     }
     try {
-      await expect(
-        collectionRun(dir, undefined, undefined, false, undefined, true),
-      ).rejects.toThrow('tls: unknown key "client_certifcates"')
+      expect(
+        await collectionRun(dir, undefined, undefined, false, undefined, true),
+      ).toMatchObject({
+        failed: true,
+        failure: {
+          category: "configuration",
+          message:
+            'filestore.loadSettings: tls: unknown key "client_certifcates"',
+        },
+      })
       expect(calls).toBe(0)
     } finally {
       executor.send = send
@@ -1257,6 +1649,22 @@ describe("automation services", () => {
         environment: "development",
       },
     })
+  })
+
+  it("canonicalizes folders without losing tags", async () => {
+    await writeFile(join(dir, "settings.yml"), "{}\n")
+    await mkdir(join(dir, "users"))
+    await writeFile(
+      join(dir, "users", "folder.yml"),
+      "tags: [smoke, users]\nmeta: { name: Users, seq: 2 }\n",
+    )
+
+    const result = await collectionAudit(dir, true)
+
+    expect(result.valid).toBe(true)
+    expect(await readFile(join(dir, "users", "folder.yml"), "utf8")).toBe(
+      "meta:\n  name: Users\n  seq: 2\ntags:\n  - smoke\n  - users\n",
+    )
   })
 
   it("rejects invalid timeline retention during collection audit", async () => {

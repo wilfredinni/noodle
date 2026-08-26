@@ -79,6 +79,7 @@ export interface Folder {
   name: string
   path: string
   seq?: number
+  tags?: string[]
   overrides?: FolderOverrides
   children: CollectionItem[]
 }
@@ -216,6 +217,7 @@ export interface Request {
   method: Method
   url: string
   timeout: number
+  tags?: string[]
   followRedirects?: boolean
   maxRedirects?: number
   sendCookies?: boolean

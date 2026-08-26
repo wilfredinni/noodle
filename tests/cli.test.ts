@@ -239,12 +239,15 @@ describe("CLI integration", () => {
     expect(out).toContain("output")
   })
 
-  it("shows variadic targets for collection run", () => {
+  it("shows collection suite targets and filters", () => {
     const proc = Bun.spawnSync(["bun", CLI, "collection", "run", "--help"], {})
     expect(proc.exitCode).toBe(0)
     const out = proc.stdout.toString()
     expect(out).toContain("[TARGETS...]")
     expect(out).toContain("Request IDs or folder paths ending in /")
+    expect(out).toContain("--tag=<tag>")
+    expect(out).toContain("--exclude-tag=<exclude_tag>")
+    expect(out).toContain("--fail-fast")
   })
 
   it("runs a folder target with JSON output", async () => {
@@ -257,22 +260,107 @@ describe("CLI integration", () => {
         { env: { ...process.env, HOME: join(dir, "home") } },
       )
       expect(proc.exitCode).toBe(0)
-      expect(JSON.parse(proc.stdout.toString())).toEqual({
+      const success = JSON.parse(proc.stdout.toString())
+      expect(success).toMatchObject({
         status: "success",
-        data: { results: [], failed: false },
+        data: {
+          results: [],
+          skipped: [],
+          failed: false,
+          summary: {
+            selected: 0,
+            executed: 0,
+            skipped: 0,
+            requestSuccesses: 0,
+            requestFailures: 0,
+            assertionPasses: 0,
+            assertionFailures: 0,
+            captureFailures: 0,
+            failureCategories: [],
+          },
+        },
         errors: [],
       })
+      expect(Number.isInteger(success.data.summary.durationMs)).toBe(true)
 
       const invalid = Bun.spawnSync(
         ["bun", CLI, "collection", "run", dir, "empty/", "missing/", "--json"],
         { env: { ...process.env, HOME: join(dir, "home") } },
       )
-      expect(invalid.exitCode).toBe(1)
-      expect(JSON.parse(invalid.stdout.toString())).toEqual({
+      expect(invalid.exitCode).toBe(2)
+      expect(JSON.parse(invalid.stdout.toString())).toMatchObject({
         status: "error",
-        data: null,
+        data: {
+          results: [],
+          skipped: [],
+          failed: true,
+          failure: {
+            category: "configuration",
+            message: 'collection target not found: "missing/"',
+          },
+          summary: { failureCategories: ["configuration"] },
+        },
         errors: ['collection target not found: "missing/"'],
       })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("uses exit 1 for completed failures and preserves fail-fast JSON", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "noodle-cli-fail-fast-"))
+    try {
+      await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+      await writeFile(
+        join(dir, "01-fail.yml"),
+        "name: Fail\nmethod: GET\nurl: https://example.com/$MISSING\ntags: [smoke]\n",
+      )
+      await writeFile(
+        join(dir, "02-skip.yml"),
+        "name: Skip\nmethod: GET\nurl: https://example.com\ntags: [smoke]\n",
+      )
+
+      const proc = Bun.spawnSync(
+        [
+          "bun",
+          CLI,
+          "collection",
+          "run",
+          dir,
+          "--tag",
+          "smoke",
+          "--fail-fast",
+          "--json",
+        ],
+        { env: { ...process.env, HOME: join(dir, "home") } },
+      )
+      expect(proc.exitCode).toBe(1)
+      const output = JSON.parse(proc.stdout.toString())
+      expect(Object.keys(output)).toEqual(["status", "data", "errors"])
+      expect(output).toMatchObject({
+        status: "error",
+        data: {
+          failed: true,
+          results: [
+            {
+              id: "01-fail",
+              ok: false,
+              failureCategories: ["execution"],
+            },
+          ],
+          skipped: [{ id: "02-skip", reason: "fail-fast" }],
+          summary: {
+            selected: 2,
+            executed: 1,
+            skipped: 1,
+            requestSuccesses: 0,
+            requestFailures: 1,
+            failureCategories: ["execution"],
+          },
+        },
+        errors: ["command failed"],
+      })
+      expect(Number.isInteger(output.data.summary.durationMs)).toBe(true)
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

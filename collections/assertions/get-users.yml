@@ -2,6 +2,8 @@ name: Assert Users Response
 method: GET
 url: $base_url/users
 timeout: 0
+tags:
+  - users
 followRedirects: true
 maxRedirects: 5
 body_type: none

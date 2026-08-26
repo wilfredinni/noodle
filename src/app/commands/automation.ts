@@ -250,6 +250,19 @@ const collection = defineCommand({
           description: "Request IDs or folder paths ending in /",
         },
         env: { type: "string", alias: "e" },
+        tag: {
+          type: "string",
+          description: "Run requests with this effective tag",
+        },
+        "exclude-tag": {
+          type: "string",
+          description: "Exclude requests with this effective tag",
+        },
+        "fail-fast": {
+          type: "boolean",
+          default: false,
+          description: "Stop after the first failed request",
+        },
         noproxy: { type: "boolean", default: false },
         insecure: { type: "boolean", default: false },
         json: jsonArg,
@@ -268,8 +281,20 @@ const collection = defineCommand({
                 takeSystemProxyFromEnv(),
                 args.insecure,
                 args._.slice(1),
+                args.tag,
+                args["exclude-tag"],
+                args["fail-fast"],
               )
-              return { data, failed: data.failed }
+              return {
+                data,
+                failed: data.failed,
+                ...(data.failure
+                  ? {
+                      errors: [data.failure.message],
+                      exitCode: 2,
+                    }
+                  : {}),
+              }
             } finally {
               progress?.finish()
             }

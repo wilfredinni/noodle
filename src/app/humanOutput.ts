@@ -180,16 +180,22 @@ export function formatRequestRun(data: { result: RequestRunResult }): string {
 }
 
 export function formatCollectionRun(data: CollectionRunResult): string {
-  const passed = data.results.filter((result) => result.ok).length
-  const failed = data.results.length - passed
-  const totalTime = data.results.reduce(
-    (total, result) => total + (result.response?.timeMs ?? 0),
-    0,
-  )
+  const summary = data.summary
   return [
     ...data.results.flatMap((result) => formatRunResult(result).split("\n")),
+    ...data.skipped.map(
+      (request) => `- ${request.id}  skipped (${request.reason})`,
+    ),
+    ...(data.failure
+      ? [`${color("error", "red")}: ${data.failure.message}`]
+      : []),
     "",
-    `Summary: ${color(`${passed} passed`, "green")}, ${failed ? color(`${failed} failed`, "red") : "0 failed"}, ${totalTime}ms`,
+    `Summary: ${color(`${summary.requestSuccesses} passed`, "green")}, ${summary.requestFailures ? color(`${summary.requestFailures} failed`, "red") : "0 failed"}, ${summary.executed}/${summary.selected} executed, ${summary.skipped} skipped, ${summary.durationMs}ms`,
+    `Assertions: ${summary.assertionPasses} passed, ${summary.assertionFailures} failed`,
+    `Capture failures: ${summary.captureFailures}`,
+    ...(summary.failureCategories.length
+      ? [`Failure categories: ${summary.failureCategories.join(", ")}`]
+      : []),
     ...(data.warnings ?? []).map(
       (warning) => `${color("warning", "yellow")}: ${warning}`,
     ),

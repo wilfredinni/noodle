@@ -19,6 +19,9 @@ export function serializeRequest(req: Request): string {
   out += `method: ${yamlVal(req.method)}\n`
   out += `url: ${yamlVal(req.url)}\n`
   out += `timeout: ${String(req.timeout)}\n`
+  if (req.tags?.length) {
+    out += yaml.dump({ tags: req.tags }, { lineWidth: -1, noRefs: true })
+  }
   out += `followRedirects: ${req.followRedirects ?? true}\n`
   out += `maxRedirects: ${req.maxRedirects ?? 5}\n`
   if (req.sendCookies !== undefined) {

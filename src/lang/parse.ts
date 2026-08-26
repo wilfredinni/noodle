@@ -100,6 +100,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     "method",
     "url",
     "timeout",
+    "tags",
     "followRedirects",
     "maxRedirects",
     "sendCookies",
@@ -205,6 +206,7 @@ export function parseRequest(id: string, yamlText: string): Request {
 
   const auth = parseAuth(raw.auth, "lang.parseRequest", true)
   const tls = parseRequestTls(raw.tls)
+  const tags = parseTags(raw.tags, "lang.parseRequest")
   const captures = parseCaptures(raw.capture)
   const assertions = parseAssertions(raw.assert)
 
@@ -252,6 +254,7 @@ export function parseRequest(id: string, yamlText: string): Request {
     method,
     url: raw.url,
     timeout,
+    ...(tags ? { tags } : {}),
     followRedirects,
     maxRedirects,
     ...(sendCookies !== undefined ? { sendCookies } : {}),
@@ -270,6 +273,28 @@ export function parseRequest(id: string, yamlText: string): Request {
     return { ...requestWithTls, pathParams }
   }
   return requestWithTls as Request
+}
+
+export function parseTags(
+  value: unknown,
+  prefix: "lang.parseRequest" | "lang.parseFolder",
+): string[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) {
+    throw new Error(`${prefix}: "tags" must be an array`)
+  }
+  const tags = value.map((tag, index) => {
+    if (typeof tag !== "string") {
+      throw new Error(`${prefix}: tags[${index}] must be a string`)
+    }
+    if (!tag || tag.trim() !== tag) {
+      throw new Error(
+        `${prefix}: tags[${index}] must be a non-empty trimmed string`,
+      )
+    }
+    return tag
+  })
+  return tags.length > 0 ? tags : undefined
 }
 
 function parseCaptures(value: unknown): Record<string, string> | undefined {
