@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
-import yaml from "js-yaml"
+import { load } from "js-yaml"
 import { runExport } from "../../src/app/export"
 
 type OpenApiDocument = {
@@ -96,7 +96,7 @@ describe("export — integration", () => {
     expect(await readFile(requestPath, "utf8")).toBe(source)
 
     const outputText = await readFile(output, "utf8")
-    const document = yaml.load(outputText) as OpenApiDocument
+    const document = load(outputText) as OpenApiDocument
     expect(document.openapi).toBe("3.0.3")
     expect(document.servers).toEqual([
       {

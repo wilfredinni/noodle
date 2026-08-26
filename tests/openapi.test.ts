@@ -47,7 +47,7 @@ describe("parseSpec — string/object dispatch + validation", () => {
   })
 
   it("throws on a string that is neither valid JSON nor valid YAML", () => {
-    const text = ": : :"
+    const text = "{ broken: : :"
     let err: Error | undefined
     try {
       parseSpec(text)

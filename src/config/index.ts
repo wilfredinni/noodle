@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
-import * as yaml from "js-yaml"
+import * as yaml from "../yaml"
 import type { AppProxySettings } from "../schema"
 import { parseAppProxyStrict } from "../proxy"
 import { isExternalEditorId, type ExternalEditorId } from "../externalEditor"

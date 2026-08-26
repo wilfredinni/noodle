@@ -179,7 +179,7 @@ describe("filestore.loadCollection — file selection and order", () => {
   it("accumulates folder.yml parse errors alongside request parse errors", async () => {
     const { extractFileErrors } = await import("../src/filestore/load")
     await mkdir(join(dir, "sub"))
-    await writeFile(join(dir, "sub", "folder.yml"), "meta:\n  : : :\n")
+    await writeFile(join(dir, "sub", "folder.yml"), "meta:\n  broken: [\n")
     await writeFile(join(dir, "sub", "bad.yml"), "name: Bar\n  : : :\n")
 
     try {

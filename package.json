@@ -27,7 +27,7 @@
     "citty": "^0.2.2",
     "httpsnippet": "^3.0.10",
     "jose": "^6.2.10",
-    "js-yaml": "^4.3.2",
+    "js-yaml": "^5.4.1",
     "jsonc-parser": "^3.3.1",
     "jsonpath-plus": "^10.4.0",
     "oauth-1.0a": "^2.2.6",
@@ -38,7 +38,6 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/aws4": "^1.11.6",
-    "@types/js-yaml": "^4.0.9",
     "@types/react": "^19.2.18",
     "bun-types": "^1.4.0",
     "eslint": "^10.9.1",

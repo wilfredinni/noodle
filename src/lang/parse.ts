@@ -1,4 +1,4 @@
-import yaml from "js-yaml"
+import * as yaml from "../yaml"
 import type {
   AssertionOperator,
   AssertionValue,

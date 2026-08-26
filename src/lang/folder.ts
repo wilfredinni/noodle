@@ -1,4 +1,4 @@
-import yaml from "js-yaml"
+import * as yaml from "../yaml"
 import type { Folder, FolderMeta, FolderOverrides } from "../schema"
 import { authToObj, parseAuth } from "./auth"
 import { parseKvMap, parseTags } from "./parse"

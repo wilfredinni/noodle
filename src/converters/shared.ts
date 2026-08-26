@@ -1,4 +1,4 @@
-import yaml from "js-yaml"
+import * as yaml from "../yaml"
 import type { Method } from "../schema"
 
 export const METHOD_UPPER: Record<string, Method> = {

@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises"
 import { basename, join, relative, resolve } from "node:path"
 import { randomUUID } from "node:crypto"
-import { load as yamlLoad } from "js-yaml"
+import { load as yamlLoad } from "../yaml"
 import { loadConfig, saveConfig, upsertCollectionPath } from "../config"
 import { env } from "../env"
 import {

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import * as yaml from "js-yaml"
+import * as yaml from "../../yaml"
 import type { FieldKind } from "../editMode"
 
 export type ResponseTabKind =

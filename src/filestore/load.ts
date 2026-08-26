@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
-import * as yaml from "js-yaml"
+import * as yaml from "../yaml"
 import { lang } from "../lang"
 import type {
   Collection,
