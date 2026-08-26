@@ -64,6 +64,8 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Follow:** For picker-style overlays, reuse `PickerOverlay<T>`. Add other overlays to `useOverlayState` and `AppOverlays`; do not create a direct OpenTUI modal or local `AppInner` state path. Classify every overlay in `EDITABLE_OVERLAYS` or `HARD_BLOCKING_OVERLAYS` in `useModalKeyboardShield`; add a modal-specific interceptor only when its controls need custom key handling.
 
+`useOverlayState` is the single owner of overlay visibility, pending values, and handles. `AppInner` passes the whole `OverlayState` object to `AppOverlays` and `useOverlayIntercepts`, so a new overlay never widens a mirrored prop list — declare it once in `useOverlayState`, then read it off `overlays` wherever it is needed. Keep behavior callbacks and state owned elsewhere (`useReloadGuard`, `useCollectionSwitcher`) as explicit props.
+
 **Implement (picker-style):**
 1. Define item type and use `PickerOverlay<T>` with `keyExtractor`, `filter`, `renderItem` props
 2. Wire `onSelect`, `onClose`, `onHighlightChange` to parent state
@@ -72,13 +74,13 @@ Each recipe follows: **Locate → Follow → Implement → Test → Verify**
 
 **Implement (modal):**
 1. Create component in `src/ui/YourOverlay.tsx`
-2. Add overlay type and state to `useOverlayState.ts`
-3. Add a render branch in `AppOverlays.tsx`
+2. Add overlay type and state to `useOverlayState.ts`, and its default to `tests/unit/_overlayState.ts`
+3. Add a render branch in `AppOverlays.tsx`, reading state off `overlays`
 4. Sync it with `app.overlay`; add opening/close keys in the owning layer or interceptor
 5. Add the overlay to `EDITABLE_OVERLAYS` or `HARD_BLOCKING_OVERLAYS`; editable overlays install no shield, while hard-blocking overlays prevent and stop background keys
 6. If overlay writes to collection (e.g., new request), call `filestore.saveRequest` then reload collection
 
-**Test:** Component test verifying overlay renders, form submission works, cancel dismisses, and a lower-priority background key handler does not receive an overlay shortcut or an unused printable key.
+**Test:** Component test verifying overlay renders, form submission works, cancel dismisses, and a lower-priority background key handler does not receive an overlay shortcut or an unused printable key. Add a routing case to `tests/unit/AppOverlays.test.tsx` so the overlay is proven to render from its own state field.
 
 **Verify:** `bun test && bun run lint && bun run typecheck`
 

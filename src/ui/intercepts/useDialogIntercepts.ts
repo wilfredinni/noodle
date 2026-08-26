@@ -3,55 +3,38 @@ import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { SaveState } from "../saveState"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
-import type { ActiveOverlay } from "../useOverlayState"
-import type { ImportedCollectionPending } from "../useOverlayState"
 import type { CookieDeletePending } from "../useOverlayState"
+import type { ImportedCollectionPending } from "../useOverlayState"
+import type { OverlayState } from "../useOverlayState"
 
 export function useDialogIntercepts(opts: {
-  activeOverlay: ActiveOverlay
+  overlays: OverlayState
   setSaveState: (s: SaveState) => void
-  envDeletePending: string | null
-  setEnvDeletePending: (s: string | null) => void
-  collectionUnregisterPending: string | null
-  setCollectionUnregisterPending: (s: string | null) => void
   onCollectionUnregisterConfirm: (path: string) => void
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
+  /** Owned by `useCollectionSwitcher`, not by the overlay state. */
   collectionSwitchPending: string | null
   setCollectionSwitchPending: (s: string | null) => void
   onCollectionSwitchConfirm: (collectionDir: string) => void
-  importOpenPending: ImportedCollectionPending | null
-  setImportOpenPending: (pending: ImportedCollectionPending | null) => void
   onImportOpenConfirm: (pending: ImportedCollectionPending) => void
-  reloadPending: boolean
-  setReloadPending: (v: boolean) => void
+  /** Owned by `useReloadGuard`, not by the overlay state. */
   onReloadConfirm: () => void
-  requestDeletePending: string | null
-  setRequestDeletePending: (s: string | null) => void
+  onReloadCancel: () => void
   onRequestDeleteConfirm: () => void
-  folderDeletePending: string | null
-  setFolderDeletePending: (s: string | null) => void
+  /** Clears the pending id and the companion file ref in `AppInner`. */
+  onRequestDeleteCancel: () => void
   onFolderDeleteConfirm: () => void
-  cookieDeletePending: CookieDeletePending | null
-  setCookieDeletePending: (pending: CookieDeletePending | null) => void
   onCookieDeleteConfirm: (pending: CookieDeletePending) => void
-  undoAllPending: boolean
-  setUndoAllPending: (v: boolean) => void
   draftRef: RefObject<{ revertAllRequests: () => void }>
   folderDraftRef: RefObject<{ revertAllFolders: () => void }>
-  initPending: boolean
-  setInitPending: (v: boolean) => void
   onInitConfirm: () => void
 }): { onConfirm: () => void; onCancel: () => void } {
   const keymap = useKeymap()
   const {
-    activeOverlay,
+    overlays,
     setSaveState,
-    envDeletePending,
-    setEnvDeletePending,
-    collectionUnregisterPending,
-    setCollectionUnregisterPending,
     onCollectionUnregisterConfirm,
     envEditorRef,
     clearSaveTimer,
@@ -59,24 +42,31 @@ export function useDialogIntercepts(opts: {
     collectionSwitchPending,
     setCollectionSwitchPending,
     onCollectionSwitchConfirm,
-    importOpenPending,
-    setImportOpenPending,
     onImportOpenConfirm,
-    setReloadPending,
     onReloadConfirm,
-    setRequestDeletePending,
+    onReloadCancel,
     onRequestDeleteConfirm,
-    setFolderDeletePending,
+    onRequestDeleteCancel,
     onFolderDeleteConfirm,
-    cookieDeletePending,
-    setCookieDeletePending,
     onCookieDeleteConfirm,
-    setUndoAllPending,
     draftRef,
     folderDraftRef,
-    setInitPending,
     onInitConfirm,
   } = opts
+  const {
+    activeOverlay,
+    envDeletePending,
+    setEnvDeletePending,
+    collectionUnregisterPending,
+    setCollectionUnregisterPending,
+    importOpenPending,
+    setImportOpenPending,
+    setFolderDeletePending,
+    cookieDeletePending,
+    setCookieDeletePending,
+    setUndoAllPending,
+    setInitPending,
+  } = overlays
 
   const confirmEnvDelete = useCallback(() => {
     if (!envDeletePending) return
@@ -190,9 +180,9 @@ export function useDialogIntercepts(opts: {
     else if (activeOverlay === "collection-switch-confirm")
       setCollectionSwitchPending(null)
     else if (activeOverlay === "import-open-confirm") setImportOpenPending(null)
-    else if (activeOverlay === "reload-confirm") setReloadPending(false)
+    else if (activeOverlay === "reload-confirm") onReloadCancel()
     else if (activeOverlay === "delete-folder") setFolderDeletePending(null)
-    else if (activeOverlay === "request-delete") setRequestDeletePending(null)
+    else if (activeOverlay === "request-delete") onRequestDeleteCancel()
     else if (activeOverlay === "cookie-delete") setCookieDeletePending(null)
   }, [
     activeOverlay,
@@ -202,9 +192,9 @@ export function useDialogIntercepts(opts: {
     setInitPending,
     setCollectionSwitchPending,
     setImportOpenPending,
-    setReloadPending,
+    onReloadCancel,
     setFolderDeletePending,
-    setRequestDeletePending,
+    onRequestDeleteCancel,
     setCookieDeletePending,
   ])
 

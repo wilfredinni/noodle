@@ -1,13 +1,28 @@
 import { describe, expect, it } from "bun:test"
 import { act, useRef } from "react"
+import type { Dispatch, SetStateAction } from "react"
 import { KeymapProvider } from "@opentui/keymap/react"
 import type { UseEnvironmentEditorResult } from "../../src/hooks/useEnvironmentEditor"
 import { useDialogIntercepts } from "../../src/ui/intercepts/useDialogIntercepts"
 import type { CookieDeletePending } from "../../src/ui/useOverlayState"
 import { createTestRender } from "../testRender"
 import { setupKeymap } from "./_helpers"
+import { makeOverlayState } from "./_overlayState"
 
 const testRender = createTestRender()
+
+/**
+ * The dialog intercepts only ever clear pending state with a direct value, so
+ * tests observe plain values instead of `SetStateAction` updaters.
+ */
+function settledValue<T>(
+  observe: (value: T) => void,
+): Dispatch<SetStateAction<T>> {
+  return (value) => {
+    if (typeof value === "function") throw new Error("unexpected updater")
+    observe(value)
+  }
+}
 
 function DialogHarness({
   onPendingChange,
@@ -22,12 +37,12 @@ function DialogHarness({
   const folderDraftRef = useRef({ revertAllFolders: () => {} })
 
   useDialogIntercepts({
-    activeOverlay: "collection-unregister",
+    overlays: makeOverlayState({
+      activeOverlay: "collection-unregister",
+      collectionUnregisterPending: "/tmp/one",
+      setCollectionUnregisterPending: settledValue(onPendingChange),
+    }),
     setSaveState: () => {},
-    envDeletePending: null,
-    setEnvDeletePending: () => {},
-    collectionUnregisterPending: "/tmp/one",
-    setCollectionUnregisterPending: onPendingChange,
     onCollectionUnregisterConfirm: onConfirm,
     envEditorRef,
     clearSaveTimer: () => {},
@@ -35,27 +50,15 @@ function DialogHarness({
     collectionSwitchPending: null,
     setCollectionSwitchPending: () => {},
     onCollectionSwitchConfirm: () => {},
-    importOpenPending: null,
-    setImportOpenPending: () => {},
     onImportOpenConfirm: () => {},
-    reloadPending: false,
-    setReloadPending: () => {},
     onReloadConfirm: () => {},
-    requestDeletePending: null,
-    setRequestDeletePending: () => {},
+    onReloadCancel: () => {},
     onRequestDeleteConfirm: () => {},
-    folderDeletePending: null,
-    setFolderDeletePending: () => {},
+    onRequestDeleteCancel: () => {},
     onFolderDeleteConfirm: () => {},
-    cookieDeletePending: null,
-    setCookieDeletePending: () => {},
     onCookieDeleteConfirm: () => {},
-    undoAllPending: false,
-    setUndoAllPending: () => {},
     draftRef,
     folderDraftRef,
-    initPending: false,
-    setInitPending: () => {},
     onInitConfirm: () => {},
   })
 
@@ -130,12 +133,12 @@ function CookieDeleteHarness({
   const pending: CookieDeletePending = { kind: "all" }
 
   useDialogIntercepts({
-    activeOverlay: "cookie-delete",
+    overlays: makeOverlayState({
+      activeOverlay: "cookie-delete",
+      cookieDeletePending: pending,
+      setCookieDeletePending: settledValue(onPendingChange),
+    }),
     setSaveState: () => {},
-    envDeletePending: null,
-    setEnvDeletePending: () => {},
-    collectionUnregisterPending: null,
-    setCollectionUnregisterPending: () => {},
     onCollectionUnregisterConfirm: () => {},
     envEditorRef,
     clearSaveTimer: () => {},
@@ -143,27 +146,15 @@ function CookieDeleteHarness({
     collectionSwitchPending: null,
     setCollectionSwitchPending: () => {},
     onCollectionSwitchConfirm: () => {},
-    importOpenPending: null,
-    setImportOpenPending: () => {},
     onImportOpenConfirm: () => {},
-    reloadPending: false,
-    setReloadPending: () => {},
     onReloadConfirm: () => {},
-    requestDeletePending: null,
-    setRequestDeletePending: () => {},
+    onReloadCancel: () => {},
     onRequestDeleteConfirm: () => {},
-    folderDeletePending: null,
-    setFolderDeletePending: () => {},
+    onRequestDeleteCancel: () => {},
     onFolderDeleteConfirm: () => {},
-    cookieDeletePending: pending,
-    setCookieDeletePending: onPendingChange,
     onCookieDeleteConfirm: onConfirm,
-    undoAllPending: false,
-    setUndoAllPending: () => {},
     draftRef,
     folderDraftRef,
-    initPending: false,
-    setInitPending: () => {},
     onInitConfirm: () => {},
   })
 

@@ -5,8 +5,10 @@ import type { Focus } from "../focus"
 import type { UseEnvironmentEditorResult } from "../../hooks/useEnvironmentEditor"
 import type { EnvHeaderPaneHandle } from "../env-editor/EnvHeaderPane"
 import type { AppView } from "../appState"
+import type { OverlayState } from "../useOverlayState"
 
 export function useEnvEditorIntercept(opts: {
+  overlays: OverlayState
   view: AppView
   setView: (v: AppView) => void
   focusRef: RefObject<Focus>
@@ -14,10 +16,10 @@ export function useEnvEditorIntercept(opts: {
   envEditorRef: RefObject<UseEnvironmentEditorResult>
   envHeaderRef: RefObject<EnvHeaderPaneHandle | null>
   headerFieldRef: RefObject<"name" | "color">
-  envDeletePendingRef: RefObject<string | null>
 }): void {
   const keymap = useKeymap()
   const {
+    overlays,
     view,
     setView,
     focusRef,
@@ -25,8 +27,8 @@ export function useEnvEditorIntercept(opts: {
     envEditorRef,
     envHeaderRef,
     headerFieldRef,
-    envDeletePendingRef,
   } = opts
+  const { envDeletePendingRef } = overlays
 
   useEffect(() => {
     if (view !== "env-editor") return

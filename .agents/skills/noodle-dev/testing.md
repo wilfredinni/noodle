@@ -5,7 +5,7 @@
 `bun test` (NOT jest/vitest). Uses `describe`, `it`, `expect` from `bun:test`.
 
 ```bash
-bun test                                    # all 2876 tests across 187 files
+bun test                                    # all 2910 tests across 188 files
 bun test tests/lang.test.ts                 # single file
 bun test --test-name-pattern "parseFolder"  # by name
 ```

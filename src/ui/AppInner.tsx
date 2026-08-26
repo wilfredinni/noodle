@@ -348,18 +348,6 @@ export function AppInner({
   )
 
   const requests = useMemo(() => flattenRequests(items), [items])
-  const findRequest = useCallback(
-    (item: FinderItem) => {
-      if (item.type === "request") {
-        revealRequest(item.id)
-      } else {
-        revealFolder(item.id)
-      }
-      setFocus("sidebar")
-      setRequestFinderVisible(false)
-    },
-    [revealRequest, revealFolder],
-  )
 
   const focusedFolder = useMemo(
     () =>
@@ -720,85 +708,22 @@ export function AppInner({
   const overlayActiveRef = useRef(false)
   const { updateFlow, triggerAboutUpdateCheck } =
     useUpdateFlow(updateDependencies)
-  const {
-    activeOverlay,
-    helpVisible,
-    setHelpVisible,
-    aboutVisible,
-    setAboutVisible,
-    environmentPickerVisible,
-    setEnvironmentPickerVisible,
-    yamlEditor,
-    setYamlEditor,
-    envDeletePending,
-    setEnvDeletePending,
-    envDeletePendingRef,
-    collectionUnregisterPending,
-    setCollectionUnregisterPending,
-    newEnvironmentVisible,
-    setNewEnvironmentVisible,
-    newEnvironmentRef,
-    cookieFormVisible,
-    setCookieFormVisible,
-    cookieFormRef,
-    cookieFormInitial,
-    setCookieFormInitial,
-    cookieDeletePending,
-    setCookieDeletePending,
-    newRequestVisible,
-    setNewRequestVisible,
-    newRequestRef,
-    importCurlVisible,
-    setImportCurlVisible,
-    importCurlRef,
-    editRequestVisible,
-    setEditRequestVisible,
-    editRequestRef,
-    cloneRequestVisible,
-    setCloneRequestVisible,
-    cloneRequestRef,
-    requestDeletePending,
-    setRequestDeletePending,
-    newFolderVisible,
-    setNewFolderVisible,
-    newFolderRef,
-    folderDeletePending,
-    setFolderDeletePending,
-    undoAllPending,
-    setUndoAllPending,
-    initPending,
-    setInitPending,
-    commandPaletteVisible,
-    setCommandPaletteVisible,
-    codeGeneratorVisible,
-    setCodeGeneratorVisible,
-    exportCollectionVisible,
-    setExportCollectionVisible,
-    exportCollectionRef,
-    importCollectionVisible,
-    setImportCollectionVisible,
-    importCollectionRef,
-    importCollectionPending,
-    setImportCollectionPending,
-    importOpenPending,
-    setImportOpenPending,
-    requestFinderVisible,
-    setRequestFinderVisible,
-    timelineDetailEntry,
-    setTimelineDetailEntry,
-  } = useOverlayState({
+  // Overlay visibility, pending values, and handles stay in one object so
+  // adding an overlay does not mean re-declaring it at every consumer.
+  const overlays = useOverlayState({
     previewIndex,
     collectionSwitcherVisible,
     collectionSwitchPending,
     reloadPending,
   })
+  const { activeOverlay } = overlays
 
   useEffect(() => {
-    if (aboutVisible) triggerAboutUpdateCheck()
-  }, [aboutVisible, triggerAboutUpdateCheck])
+    if (overlays.aboutVisible) triggerAboutUpdateCheck()
+  }, [overlays.aboutVisible, triggerAboutUpdateCheck])
   useEffect(() => {
-    if (!commandPaletteVisible) setPaletteTarget(null)
-  }, [commandPaletteVisible])
+    if (!overlays.commandPaletteVisible) setPaletteTarget(null)
+  }, [overlays.commandPaletteVisible])
   const overlayActive = useKeymapSync({
     focus,
     view,
@@ -809,6 +734,19 @@ export function AppInner({
     pendingHeaderFieldRef,
     overlayActiveRef,
   })
+
+  const findRequest = useCallback(
+    (item: FinderItem) => {
+      if (item.type === "request") {
+        revealRequest(item.id)
+      } else {
+        revealFolder(item.id)
+      }
+      setFocus("sidebar")
+      overlays.setRequestFinderVisible(false)
+    },
+    [revealRequest, revealFolder, overlays.setRequestFinderVisible],
+  )
 
   const {
     handleFolderSave,
@@ -837,14 +775,14 @@ export function AppInner({
     saveTimerRef,
     setSelectedId,
     expandFolder,
-    setNewRequestVisible,
-    setImportCurlVisible,
-    setCloneRequestVisible,
-    setNewFolderVisible,
-    setEditRequestVisible,
+    setNewRequestVisible: overlays.setNewRequestVisible,
+    setImportCurlVisible: overlays.setImportCurlVisible,
+    setCloneRequestVisible: overlays.setCloneRequestVisible,
+    setNewFolderVisible: overlays.setNewFolderVisible,
+    setEditRequestVisible: overlays.setEditRequestVisible,
     requestDeleteFileRef,
-    setRequestDeletePending,
-    setFolderDeletePending,
+    setRequestDeletePending: overlays.setRequestDeletePending,
+    setFolderDeletePending: overlays.setFolderDeletePending,
     onCollectionBootstrapped,
   })
   folderSaveRef.current = handleFolderSave
@@ -862,18 +800,16 @@ export function AppInner({
     (file: string) => {
       if (!file.endsWith(".yml")) return
       requestDeleteFileRef.current = file.slice(0, -4)
-      setRequestDeletePending(file)
+      overlays.setRequestDeletePending(file)
     },
-    [setRequestDeletePending],
+    [overlays.setRequestDeletePending],
   )
 
-  const clearRequestDeletePending = useCallback(
-    (value: string | null) => {
-      if (value === null) requestDeleteFileRef.current = null
-      setRequestDeletePending(value)
-    },
-    [setRequestDeletePending],
-  )
+  /** Clears the pending id and the repair file it was opened for. */
+  const cancelRequestDelete = useCallback(() => {
+    requestDeleteFileRef.current = null
+    overlays.setRequestDeletePending(null)
+  }, [overlays.setRequestDeletePending])
 
   const displayTab = useMemo((): string | undefined => {
     if (focus === "request") return eb.activeTab
@@ -944,23 +880,23 @@ export function AppInner({
   )
 
   const handleAboutActivate = useCallback(() => {
-    setAboutVisible(true)
-  }, [setAboutVisible])
+    overlays.setAboutVisible(true)
+  }, [overlays.setAboutVisible])
 
   const handleCollectionActivate = useCallback(() => {
     setCollectionSwitcherVisible(true)
   }, [setCollectionSwitcherVisible])
 
   const handleEnvironmentActivate = useCallback(() => {
-    openEnvironmentPicker(setEnvironmentPickerVisible)
-  }, [setEnvironmentPickerVisible])
+    openEnvironmentPicker(overlays.setEnvironmentPickerVisible)
+  }, [overlays.setEnvironmentPickerVisible])
 
   const handleEnvironmentSelect = useCallback(
     (name: string) => {
       envState.select(name)
-      setEnvironmentPickerVisible(false)
+      overlays.setEnvironmentPickerVisible(false)
     },
-    [envState.select, setEnvironmentPickerVisible],
+    [envState.select, overlays.setEnvironmentPickerVisible],
   )
 
   // ── Refs for keymap/intercepts ─────────────────────────────────────
@@ -1034,11 +970,11 @@ export function AppInner({
   )
 
   const handleOpenEnvironmentEditor = useCallback(() => {
-    setEnvironmentPickerVisible(false)
+    overlays.setEnvironmentPickerVisible(false)
     openEnvironmentEditor({ envStateRef, envEditorRef })
     setView("env-editor")
     setFocus("env-sidebar")
-  }, [setEnvironmentPickerVisible, setView, setFocus])
+  }, [overlays.setEnvironmentPickerVisible, setView, setFocus])
 
   const envHeaderRef = useRef<EnvHeaderPaneHandle>(null)
 
@@ -1063,8 +999,8 @@ export function AppInner({
   }, [cookieJar, cookieStorage.flush, cookieStorage.retry])
 
   const requestCookieStorageReset = useCallback(() => {
-    setCookieDeletePending({ kind: "reset" })
-  }, [setCookieDeletePending])
+    overlays.setCookieDeletePending({ kind: "reset" })
+  }, [overlays.setCookieDeletePending])
 
   const activeIndexRef = useRef(activeIndex)
   activeIndexRef.current = activeIndex
@@ -1104,16 +1040,16 @@ export function AppInner({
       setFocus,
       setUrlbarSubFocus,
       setView,
-      setHelpVisible,
+      setHelpVisible: overlays.setHelpVisible,
       setLayout,
       setExpanded,
-      setYamlEditor,
+      setYamlEditor: overlays.setYamlEditor,
       setPreviewIndex: setPreviewIndexProp,
       setCollectionSwitcherVisible,
-      setEnvironmentPickerVisible,
-      setCommandPaletteVisible,
-      setRequestFinderVisible,
-      setUndoAllPending,
+      setEnvironmentPickerVisible: overlays.setEnvironmentPickerVisible,
+      setCommandPaletteVisible: overlays.setCommandPaletteVisible,
+      setRequestFinderVisible: overlays.setRequestFinderVisible,
+      setUndoAllPending: overlays.setUndoAllPending,
       setJumpMode,
       openSettingsView: handleOpenSettings,
       onLayoutChange,
@@ -1126,10 +1062,10 @@ export function AppInner({
       trySendRef,
       doSaveRef,
       savingRef,
-      setNewRequestVisible,
-      setEditRequestVisible,
-      setCloneRequestVisible,
-      setRequestDeletePending,
+      setNewRequestVisible: overlays.setNewRequestVisible,
+      setEditRequestVisible: overlays.setEditRequestVisible,
+      setCloneRequestVisible: overlays.setCloneRequestVisible,
+      setRequestDeletePending: overlays.setRequestDeletePending,
       collectionErrorDeleteRef,
       collectionErrorSaveRef,
     },
@@ -1141,20 +1077,20 @@ export function AppInner({
       focusedFolderPathRef,
       focusedFolderNameRef,
       folderDeletePathRef,
-      setNewFolderVisible,
-      setFolderDeletePending,
+      setNewFolderVisible: overlays.setNewFolderVisible,
+      setFolderDeletePending: overlays.setFolderDeletePending,
     },
     environment: {
       envStateRef,
       envEditorRef,
-      setNewEnvironmentVisible,
-      setEnvDeletePending,
+      setNewEnvironmentVisible: overlays.setNewEnvironmentVisible,
+      setEnvDeletePending: overlays.setEnvDeletePending,
     },
     cookies: {
       cookieJarViewRef,
-      setCookieFormVisible,
-      setCookieFormInitial,
-      setCookieDeletePending,
+      setCookieFormVisible: overlays.setCookieFormVisible,
+      setCookieFormInitial: overlays.setCookieFormInitial,
+      setCookieDeletePending: overlays.setCookieDeletePending,
       retryCookieStorage,
     },
   })
@@ -1178,7 +1114,7 @@ export function AppInner({
   const handleImportCollectionConfirm = useCallback(
     (values: CollectionImportValues) => {
       if (importCollectionPendingRef.current) return
-      setImportCollectionPending(true)
+      overlays.setImportCollectionPending(true)
       void runCollectionImport({
         values,
         collectionDir,
@@ -1189,7 +1125,7 @@ export function AppInner({
           if (!result) return
           if (values.destination === "current") {
             await onEnvListChanged().catch(() => {})
-            setImportCollectionVisible(false)
+            overlays.setImportCollectionVisible(false)
             onReloadCollection()
             showToast("Collection imported", "success")
             return
@@ -1205,15 +1141,18 @@ export function AppInner({
               { cause: error },
             )
           }
-          setImportCollectionVisible(false)
-          setImportOpenPending({ path: result.path, name: result.name })
+          overlays.setImportCollectionVisible(false)
+          overlays.setImportOpenPending({
+            path: result.path,
+            name: result.name,
+          })
         })
         .catch((error: unknown) => {
-          importCollectionRef.current?.setError(
+          overlays.importCollectionRef.current?.setError(
             error instanceof Error ? error.message : String(error),
           )
         })
-        .finally(() => setImportCollectionPending(false))
+        .finally(() => overlays.setImportCollectionPending(false))
     },
     [
       collectionDir,
@@ -1221,22 +1160,17 @@ export function AppInner({
       onCollectionImported,
       onEnvListChanged,
       onReloadCollection,
-      setImportCollectionPending,
-      setImportCollectionVisible,
-      setImportOpenPending,
+      overlays.setImportCollectionPending,
+      overlays.setImportCollectionVisible,
+      overlays.setImportOpenPending,
     ],
   )
 
   // ── Overlay intercepts ────────────────────────────────────────────
   const overlayActions = useOverlayIntercepts({
-    activeOverlay,
+    overlays,
     cancelSendRef,
     setSaveState,
-    envDeletePending,
-    envDeletePendingRef,
-    setEnvDeletePending,
-    collectionUnregisterPending,
-    setCollectionUnregisterPending,
     onCollectionUnregisterConfirm: (path) => {
       const next = unregisterCollection(
         collectionPaths,
@@ -1249,39 +1183,29 @@ export function AppInner({
     envEditorRef,
     clearSaveTimer,
     saveTimerRef,
-    helpVisible,
-    setHelpVisible,
-    aboutVisible,
-    setAboutVisible,
     view,
     setView,
     focusRef,
     setFocus,
     envHeaderRef,
     headerFieldRef,
-    newEnvironmentVisible,
-    newEnvironmentRef,
-    setNewEnvironmentVisible,
     onNewEnvironmentConfirm: (values) => {
       envEditor
         .createEnv(values)
         .then(() => {
-          setNewEnvironmentVisible(false)
+          overlays.setNewEnvironmentVisible(false)
           focusPane("env-vars")
         })
         .catch((e: unknown) => {
-          newEnvironmentRef.current?.setError(
+          overlays.newEnvironmentRef.current?.setError(
             e instanceof Error ? e.message : String(e),
           )
         })
     },
-    cookieFormVisible,
-    cookieFormRef,
-    setCookieFormVisible,
     onCookieFormConfirm: (values) => {
       const jar = cookieJar
       if (!jar) return
-      const initial = cookieFormInitial
+      const initial = overlays.cookieFormInitial
       const expiresText = values.expires.trim()
       const input = {
         name: values.name,
@@ -1297,7 +1221,7 @@ export function AppInner({
       try {
         jar.put(input)
       } catch (error) {
-        cookieFormRef.current?.setError(
+        overlays.cookieFormRef.current?.setError(
           error instanceof Error ? error.message : String(error),
         )
         return
@@ -1317,10 +1241,8 @@ export function AppInner({
             ),
           )
       }
-      setCookieFormVisible(false)
+      overlays.setCookieFormVisible(false)
     },
-    cookieDeletePending,
-    setCookieDeletePending,
     onCookieDeleteConfirm: (pending) => {
       const jar = cookieJar
       void (async () => {
@@ -1354,27 +1276,22 @@ export function AppInner({
         }
       })()
     },
-    newRequestVisible,
-    newRequestRef,
-    setNewRequestVisible,
     onNewRequestConfirm: (v) =>
       handleNewRequestConfirm(v.name, v.method as Method, v.url, v.folderPath),
-    importCurlVisible,
-    importCurlRef,
-    setImportCurlVisible,
     onImportCurlConfirm: (v) => {
       try {
         handleImportCurlConfirm(v.name, v.folderPath, parseCurl(v.command))
       } catch (e: unknown) {
-        importCurlRef.current?.setError(
+        overlays.importCurlRef.current?.setError(
           e instanceof Error ? e.message : String(e),
         )
       }
     },
-    exportCollectionVisible,
-    exportCollectionRef,
     onExportCollectionCancel: () =>
-      closeCollectionExport(exportPendingRef, setExportCollectionVisible),
+      closeCollectionExport(
+        exportPendingRef,
+        overlays.setExportCollectionVisible,
+      ),
     onExportCollectionConfirm: (values) => {
       const collectionName =
         collection?.name ?? (basename(collectionDir) || "collection")
@@ -1387,52 +1304,30 @@ export function AppInner({
       })
         .then((result) => {
           if (!result) return
-          setExportCollectionVisible(false)
+          overlays.setExportCollectionVisible(false)
           showToast("Collection exported", "success")
         })
         .catch((error: unknown) => {
-          exportCollectionRef.current?.setError(
+          overlays.exportCollectionRef.current?.setError(
             error instanceof Error ? error.message : String(error),
           )
         })
     },
-    importCollectionVisible,
-    importCollectionRef,
     importCollectionPendingRef,
-    setImportCollectionVisible,
     onImportCollectionConfirm: handleImportCollectionConfirm,
-    importOpenPending,
-    setImportOpenPending,
     onImportOpenConfirm: (pending) => requestCollectionSwitch(pending.path),
-    editRequestVisible,
-    editRequestRef,
-    setEditRequestVisible,
     onEditRequestConfirm: (v) =>
       handleEditRequestConfirm(v.name, v.method as Method, v.url, v.folderPath),
-    cloneRequestVisible,
-    cloneRequestRef,
-    setCloneRequestVisible,
     onCloneRequestConfirm: handleCloneRequestConfirm,
-    requestDeletePending,
-    setRequestDeletePending: clearRequestDeletePending,
     onRequestDeleteConfirm: handleRequestDeleteConfirm,
-    newFolderVisible,
-    newFolderRef,
-    setNewFolderVisible,
+    onRequestDeleteCancel: cancelRequestDelete,
     onNewFolderConfirm: handleNewFolderConfirm,
-    folderDeletePending,
-    setFolderDeletePending,
     onFolderDeleteConfirm: handleFolderDeleteConfirm,
     collectionSwitchPending,
     setCollectionSwitchPending,
     onCollectionSwitchConfirm: confirmCollectionSwitch,
-    reloadPending,
-    setReloadPending: cancelReload,
     onReloadConfirm: confirmReload,
-    undoAllPending,
-    setUndoAllPending,
-    initPending,
-    setInitPending,
+    onReloadCancel: cancelReload,
     onInitConfirm: () => executeInitPending(),
     draftRef,
     folderDraftRef,
@@ -1480,31 +1375,31 @@ export function AppInner({
         getCollectionMode: () => effectiveCollectionMode,
         setLayout,
         onLayoutChange,
-        setHelpVisible,
-        setAboutVisible,
-        setNewEnvironmentVisible,
-        setEnvironmentPickerVisible,
-        setNewRequestVisible,
-        setImportCurlVisible,
-        setNewFolderVisible,
+        setHelpVisible: overlays.setHelpVisible,
+        setAboutVisible: overlays.setAboutVisible,
+        setNewEnvironmentVisible: overlays.setNewEnvironmentVisible,
+        setEnvironmentPickerVisible: overlays.setEnvironmentPickerVisible,
+        setNewRequestVisible: overlays.setNewRequestVisible,
+        setImportCurlVisible: overlays.setImportCurlVisible,
+        setNewFolderVisible: overlays.setNewFolderVisible,
         openSettingsView: handleOpenSettings,
-        setCloneRequestVisible,
-        setEditRequestVisible,
-        setRequestDeletePending,
-        setFolderDeletePending,
+        setCloneRequestVisible: overlays.setCloneRequestVisible,
+        setEditRequestVisible: overlays.setEditRequestVisible,
+        setRequestDeletePending: overlays.setRequestDeletePending,
+        setFolderDeletePending: overlays.setFolderDeletePending,
         setCollectionSwitcherVisible,
-        setRequestFinderVisible,
-        setCodeGeneratorVisible,
-        setExportCollectionVisible,
-        setImportCollectionVisible,
-        setYamlEditor,
+        setRequestFinderVisible: overlays.setRequestFinderVisible,
+        setCodeGeneratorVisible: overlays.setCodeGeneratorVisible,
+        setExportCollectionVisible: overlays.setExportCollectionVisible,
+        setImportCollectionVisible: overlays.setImportCollectionVisible,
+        setYamlEditor: overlays.setYamlEditor,
         setView,
         setFocus,
-        setUndoAllPending,
-        setInitPending,
+        setUndoAllPending: overlays.setUndoAllPending,
+        setInitPending: overlays.setInitPending,
         setExpanded,
         setPreviewIndexProp,
-        setEnvDeletePending,
+        setEnvDeletePending: overlays.setEnvDeletePending,
         onReloadCollection: requestReload,
         paletteTarget,
       }),
@@ -1517,7 +1412,7 @@ export function AppInner({
       onLayoutChange,
       setCollectionSwitcherVisible,
       handleOpenSettings,
-      setImportCollectionVisible,
+      overlays.setImportCollectionVisible,
       requestReload,
       view,
       effectiveCollectionMode,
@@ -1606,7 +1501,9 @@ export function AppInner({
             timelineEntries={timeline.entries}
             initialResponseTab={initialResponseTab}
             onResponseTabChange={onResponseTabChange}
-            onOpenTimelineEntry={(entry) => setTimelineDetailEntry(entry)}
+            onOpenTimelineEntry={(entry) =>
+              overlays.setTimelineDetailEntry(entry)
+            }
             setSelectOpen={setSelectOpen}
             urlbarSubFocus={urlbarSubFocus}
             urlbarInteractive={activeOverlay === "none" && !isReadOnly}
@@ -1614,8 +1511,8 @@ export function AppInner({
             responseBodyForCopyRef={responseBodyForCopyRef}
             onQueryVisibleChange={setQueryVisible}
             onResponseBodyEditorAvailableChange={setResponseBodyEditorAvailable}
-            onInitialize={() => setInitPending(true)}
-            onCreateRequest={() => setNewRequestVisible(true)}
+            onInitialize={() => overlays.setInitPending(true)}
+            onCreateRequest={() => overlays.setNewRequestVisible(true)}
             onCollectionErrorDelete={deleteCollectionErrorFile}
             onCollectionErrorDirtyChange={setCollectionErrorDirty}
             collectionErrorDeleteRef={collectionErrorDeleteRef}
@@ -1648,14 +1545,14 @@ export function AppInner({
               focusPane("sidebar")
               revealRequest(id)
               setPaletteTarget("request")
-              setCommandPaletteVisible(true)
+              overlays.setCommandPaletteVisible(true)
             }}
             onFolderContextMenu={(path) => {
               if (!isCollection) return
               focusPane("sidebar")
               revealFolder(path)
               setPaletteTarget("folder")
-              setCommandPaletteVisible(true)
+              overlays.setCommandPaletteVisible(true)
             }}
           />
         ) : view === "env-editor" && mode === "collection" ? (
@@ -1670,14 +1567,14 @@ export function AppInner({
               headerFieldRef.current = field
             }}
             onPaneFocus={focusPane}
-            onCreateEnvironment={() => setNewEnvironmentVisible(true)}
+            onCreateEnvironment={() => overlays.setNewEnvironmentVisible(true)}
             onEnvironmentContextMenu={async (name) => {
               focusPane("env-sidebar")
               if (!(await envEditor.selectEnv(name))) return
               setPaletteTarget("environment")
-              setCommandPaletteVisible(true)
+              overlays.setCommandPaletteVisible(true)
             }}
-            setEnvDeletePending={setEnvDeletePending}
+            setEnvDeletePending={overlays.setEnvDeletePending}
           />
         ) : view === "cookie-jar" && mode === "collection" ? (
           <CookieJarView
@@ -1687,8 +1584,8 @@ export function AppInner({
             jumpMode={jumpMode}
             onPaneFocus={focusPane}
             onAddCookie={() => {
-              setCookieFormInitial(null)
-              setCookieFormVisible(true)
+              overlays.setCookieFormInitial(null)
+              overlays.setCookieFormVisible(true)
             }}
             onRetry={retryCookieStorage}
             onReset={requestCookieStorageReset}
@@ -1752,67 +1649,43 @@ export function AppInner({
             onEnvironmentChange={envState.select}
             onKeybindChange={onKeybindChange}
             onCollectionsChange={onCollectionsChange}
-            onCollectionUnregister={setCollectionUnregisterPending}
+            onCollectionUnregister={overlays.setCollectionUnregisterPending}
             onRegisterCollection={onRegisterCollection}
           />
         ) : null}
         <AppOverlays
+          overlays={overlays}
           keybinds={keybinds}
-          activeOverlay={activeOverlay}
-          helpVisible={helpVisible}
-          setHelpVisible={setHelpVisible}
-          aboutVisible={aboutVisible}
-          setAboutVisible={setAboutVisible}
-          envDeletePending={envDeletePending}
-          collectionUnregisterPending={collectionUnregisterPending}
-          undoAllPending={undoAllPending}
           reloadPending={reloadPending}
-          initPending={initPending}
           collectionSwitchPending={collectionSwitchPending}
           onConfirmDialog={overlayActions.onConfirm}
           onCancelDialog={overlayActions.onCancel}
-          commandPaletteVisible={commandPaletteVisible}
           commandPaletteCommands={commandPaletteCommands}
-          setCommandPaletteVisible={setCommandPaletteVisible}
-          codeGeneratorVisible={codeGeneratorVisible}
-          setCodeGeneratorVisible={setCodeGeneratorVisible}
-          exportCollectionVisible={exportCollectionVisible}
-          exportCollectionRef={exportCollectionRef}
           exportCollectionActions={overlayActions.exportCollection}
-          importCollectionVisible={importCollectionVisible}
-          importCollectionRef={importCollectionRef}
-          importCollectionPending={importCollectionPending}
           importCollectionActions={overlayActions.importCollection}
           importCollectionInitialParent={collapseUserPath(
             dirname(collectionDir),
           )}
-          importOpenPending={importOpenPending}
           codeGeneratorRequest={draft.draft}
           codeGeneratorEnv={envState.activeEnv}
           codeGeneratorEnvName={envState.activeEnv?.name}
           collection={collection}
-          requestFinderVisible={requestFinderVisible}
           requests={requests}
           onFindRequest={findRequest}
-          setRequestFinderVisible={setRequestFinderVisible}
           collectionSwitcherVisible={collectionSwitcherVisible}
           collectionPaths={collectionPaths}
           collectionSettingsByPath={collectionSettingsByPath}
           collectionDir={collectionDir}
           requestCollectionSwitch={requestCollectionSwitch}
           setCollectionSwitcherVisible={setCollectionSwitcherVisible}
-          environmentPickerVisible={environmentPickerVisible}
           environmentNames={envState.names}
           activeEnvironmentName={envState.activeName}
           onSelectEnvironment={handleEnvironmentSelect}
           onOpenEnvironmentEditor={handleOpenEnvironmentEditor}
-          setEnvironmentPickerVisible={setEnvironmentPickerVisible}
           previewIndex={previewIndex}
           activeIndex={activeIndex}
           setPreviewIndex={setPreviewIndexProp}
           onThemeChange={onThemeChange}
-          yamlEditor={yamlEditor}
-          setYamlEditor={setYamlEditor}
           setCollectionReloadToken={setCollectionReloadToken}
           resetRequestDraft={draft.resetRequestDraft}
           resetFolderDraftByPath={folderDraft.clearFolderDraft}
@@ -1820,39 +1693,19 @@ export function AppInner({
           setSaveState={setSaveState}
           clearSaveTimer={clearSaveTimer}
           saveTimerRef={saveTimerRef}
-          newEnvironmentVisible={newEnvironmentVisible}
-          newEnvironmentRef={newEnvironmentRef}
           newEnvironmentActions={overlayActions.newEnvironment}
-          cookieFormVisible={cookieFormVisible}
-          cookieFormRef={cookieFormRef}
-          cookieFormInitial={cookieFormInitial}
           cookieFormActions={overlayActions.cookieForm}
-          cookieDeletePending={cookieDeletePending}
-          newRequestVisible={newRequestVisible}
-          newRequestRef={newRequestRef}
           newRequestActions={overlayActions.newRequest}
           newRequestInitialFolder={requestParentFolder ?? ""}
-          importCurlVisible={importCurlVisible}
-          importCurlRef={importCurlRef}
           importCurlActions={overlayActions.importCurl}
           importCurlInitialFolder={requestParentFolder ?? ""}
           activeEnv={envState.activeEnv}
-          editRequestVisible={editRequestVisible}
           selectedRequest={selectedRequest}
           folderPaths={folderPaths}
           editRequestInitialFolder={editRequestInitialFolder}
-          editRequestRef={editRequestRef}
           editRequestActions={overlayActions.editRequest}
-          cloneRequestVisible={cloneRequestVisible}
-          cloneRequestRef={cloneRequestRef}
           cloneRequestActions={overlayActions.cloneRequest}
-          newFolderVisible={newFolderVisible}
-          newFolderRef={newFolderRef}
           newFolderActions={overlayActions.newFolder}
-          folderDeletePending={folderDeletePending}
-          requestDeletePending={requestDeletePending}
-          timelineDetailEntry={timelineDetailEntry}
-          setTimelineDetailEntry={setTimelineDetailEntry}
           updateFlow={updateFlow}
           envColors={envColors}
           onLoadTimelineBody={onLoadTimelineBody}
