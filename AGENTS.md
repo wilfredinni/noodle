@@ -7,7 +7,7 @@ Terminal REST client. Inspect, send, and iterate on HTTP requests from YAML file
 ```bash
 bun install
 bun run dev -- --collection ./collections --env development
-bun test                              # all tests (2876 across 187 files)
+bun test                              # all tests (2910 across 188 files)
 bun test tests/lang.test.ts           # single file
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
@@ -218,6 +218,7 @@ tests/integration/ # Integration tests
 - **Resizable main layout:** `AppInner.tsx` owns the current sidebar width plus separate stacked and side-by-side request/response ratios. `MainView.tsx` handles drag state, responsive minimums, and double-click reset; `RequestResponseView.tsx` renders the layout-specific resize handles. Keep sizing session-only unless persistence is explicitly requested.
 - **UI features require loading the `opentui` skill**. The skill lives at `.agents/skills/opentui/SKILL.md`.
 - **Command actions are centralized** in `commandActions.ts`. Both `useAppKeymap.ts` and `commands.ts` import from it. Never duplicate command logic.
+- **Overlay state travels as one object.** `useOverlayState` owns every overlay's visibility, pending value, and handle, and `AppInner` passes the whole `OverlayState` to `AppOverlays` and `useOverlayIntercepts` rather than re-declaring fields at each consumer. Adding an overlay means declaring it in `useOverlayState` (state, `activeOverlay` branch, return), handling its keys in the intercepts, and rendering it in `AppOverlays` — never widening a mirrored prop list. State owned elsewhere (`useReloadGuard`, `useCollectionSwitcher`) and behavior callbacks stay explicit props. `tests/unit/_overlayState.ts` builds a default `OverlayState` for tests.
 - **Command palette commands return boolean**: `run()` returns `true` (close palette) or `false` (stay open).
 - **PickerOverlay isNavigable**: Pass to skip non-selectable items (section headers) during up/down/return navigation.
 - **Environment controls:** `e` opens the searchable picker from the main view; `F3` opens the full editor. New environments are created through `NewEnvironmentOverlay`, then persisted by `useEnvironmentEditor.createEnv()`. In environment browse mode, configurable `env_secret` (`s`) toggles secure storage and `env_reveal` (`r`) reveals the selected secret for the session.

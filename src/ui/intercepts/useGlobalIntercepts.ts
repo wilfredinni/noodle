@@ -2,26 +2,22 @@ import { useEffect } from "react"
 import type { RefObject } from "react"
 import { useKeymap } from "@opentui/keymap/react"
 import type { AppView } from "../appState"
+import type { OverlayState } from "../useOverlayState"
 
 export function useGlobalIntercepts(opts: {
-  activeOverlay: string
+  overlays: OverlayState
   view: AppView
   cancelSendRef: RefObject<() => void>
-  helpVisible: boolean
-  setHelpVisible: (v: boolean) => void
-  aboutVisible: boolean
-  setAboutVisible: (v: boolean) => void
 }): void {
   const keymap = useKeymap()
+  const { overlays, view, cancelSendRef } = opts
   const {
     activeOverlay,
-    view,
-    cancelSendRef,
     helpVisible,
     setHelpVisible,
     aboutVisible,
     setAboutVisible,
-  } = opts
+  } = overlays
 
   // ── Cancel send on ESC ──────────────────────────────────────────────
   useEffect(() => {

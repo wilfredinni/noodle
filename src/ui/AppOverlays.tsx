@@ -12,40 +12,14 @@ import { EnvironmentPickerOverlay } from "./overlays/EnvironmentPickerOverlay"
 import { RequestFinderOverlay } from "./overlays/RequestFinderOverlay"
 import { ThemePickerOverlay } from "./theme"
 import { YamlEditorOverlay } from "./editor/YamlEditorOverlay"
-import {
-  NewRequestOverlay,
-  type NewRequestOverlayHandle,
-} from "./overlays/NewRequestOverlay"
-import {
-  NewEnvironmentOverlay,
-  type NewEnvironmentOverlayHandle,
-} from "./overlays/NewEnvironmentOverlay"
-import {
-  CookieFormOverlay,
-  type CookieFormOverlayHandle,
-} from "./overlays/CookieFormOverlay"
-import type { CookieDeletePending } from "./useOverlayState"
-import type { JarCookie } from "../cookies"
-import {
-  CloneRequestOverlay,
-  type CloneRequestOverlayHandle,
-} from "./overlays/CloneRequestOverlay"
-import {
-  NewFolderOverlay,
-  type NewFolderOverlayHandle,
-} from "./overlays/NewFolderOverlay"
-import {
-  ImportCurlOverlay,
-  type ImportCurlOverlayHandle,
-} from "./overlays/ImportCurlOverlay"
-import {
-  ExportCollectionOverlay,
-  type ExportCollectionOverlayHandle,
-} from "./overlays/ExportCollectionOverlay"
-import {
-  ImportCollectionOverlay,
-  type ImportCollectionOverlayHandle,
-} from "./overlays/ImportCollectionOverlay"
+import { NewRequestOverlay } from "./overlays/NewRequestOverlay"
+import { NewEnvironmentOverlay } from "./overlays/NewEnvironmentOverlay"
+import { CookieFormOverlay } from "./overlays/CookieFormOverlay"
+import { CloneRequestOverlay } from "./overlays/CloneRequestOverlay"
+import { NewFolderOverlay } from "./overlays/NewFolderOverlay"
+import { ImportCurlOverlay } from "./overlays/ImportCurlOverlay"
+import { ExportCollectionOverlay } from "./overlays/ExportCollectionOverlay"
+import { ImportCollectionOverlay } from "./overlays/ImportCollectionOverlay"
 import type {
   Collection,
   CollectionSettings,
@@ -60,12 +34,8 @@ import { CodeGeneratorOverlay } from "./overlays/CodeGeneratorOverlay"
 import { displayKey, type Keybinds } from "./keybind"
 import type { Focus } from "./focus"
 import type { SaveState } from "./saveState"
-import {
-  initialYamlEditorState,
-  type UpdateFlowState,
-  type YamlEditorState,
-} from "./appState"
-import type { ActiveOverlay } from "./useOverlayState"
+import { initialYamlEditorState, type UpdateFlowState } from "./appState"
+import type { OverlayState } from "./useOverlayState"
 import { buildDisplayUrl } from "./urlParams"
 import { collectionDisplayName } from "./settings/collectionRegistry"
 
@@ -75,51 +45,40 @@ interface FolderPathOption {
 }
 
 interface AppOverlaysProps {
+  /**
+   * Overlay visibility, pending values, and handles owned by
+   * `useOverlayState`. Passed whole so a new overlay only needs declaring
+   * there and rendering here.
+   */
+  overlays: OverlayState
   keybinds: Keybinds
-  helpVisible: boolean
-  setHelpVisible: (visible: boolean) => void
-  aboutVisible: boolean
-  setAboutVisible: (visible: boolean) => void
-  activeOverlay: ActiveOverlay
-  envDeletePending: string | null
-  collectionUnregisterPending: string | null
-  undoAllPending: boolean
+  /** Owned by `useReloadGuard`, not by the overlay state. */
   reloadPending: boolean
-  initPending: boolean
+  /** Owned by `useCollectionSwitcher`, not by the overlay state. */
   collectionSwitchPending: string | null
+  collectionSwitcherVisible: boolean
+  requestCollectionSwitch: (nextDir: string) => void
+  setCollectionSwitcherVisible: (visible: boolean) => void
   onConfirmDialog: () => void
   onCancelDialog: () => void
-  commandPaletteVisible: boolean
   commandPaletteCommands: CommandItem[]
-  setCommandPaletteVisible: (visible: boolean) => void
-  codeGeneratorVisible: boolean
-  setCodeGeneratorVisible: (visible: boolean) => void
   codeGeneratorRequest: NoodleRequest | null
   codeGeneratorEnv?: Environment | null
   codeGeneratorEnvName?: string
   collection: Collection | null
-  requestFinderVisible: boolean
   requests: NoodleRequest[]
   onFindRequest: (item: FinderItem) => void
-  setRequestFinderVisible: (visible: boolean) => void
-  collectionSwitcherVisible: boolean
   collectionPaths: string[]
   collectionSettingsByPath: Record<string, CollectionSettings>
   collectionDir: string
-  requestCollectionSwitch: (nextDir: string) => void
-  setCollectionSwitcherVisible: (visible: boolean) => void
-  environmentPickerVisible: boolean
   environmentNames: string[]
   activeEnvironmentName: string | null
   onSelectEnvironment: (name: string) => void
   onOpenEnvironmentEditor: () => void
-  setEnvironmentPickerVisible: (visible: boolean) => void
   previewIndex: number | null
   activeIndex: number
   setPreviewIndex: (value: number | null) => void
   onThemeChange: (index: number) => void
-  yamlEditor: YamlEditorState
-  setYamlEditor: (state: YamlEditorState) => void
   setCollectionReloadToken: (fn: (n: number) => number) => void
   resetRequestDraft: (id: string) => void
   resetFolderDraftByPath: (path: string) => void
@@ -127,48 +86,22 @@ interface AppOverlaysProps {
   setSaveState: (state: SaveState) => void
   clearSaveTimer: () => void
   saveTimerRef: RefObject<ReturnType<typeof setTimeout> | null>
-  newEnvironmentVisible: boolean
-  newEnvironmentRef: RefObject<NewEnvironmentOverlayHandle | null>
   newEnvironmentActions: { confirm: () => void; cancel: () => void }
-  cookieFormVisible: boolean
-  cookieFormRef: RefObject<CookieFormOverlayHandle | null>
-  cookieFormInitial: JarCookie | null
   cookieFormActions: { confirm: () => void; cancel: () => void }
-  cookieDeletePending: CookieDeletePending | null
-  newRequestVisible: boolean
-  newRequestRef: RefObject<NewRequestOverlayHandle | null>
   newRequestActions: { confirm: () => void; cancel: () => void }
   newRequestInitialFolder: string
-  importCurlVisible: boolean
-  importCurlRef: RefObject<ImportCurlOverlayHandle | null>
   importCurlActions: { confirm: () => void; cancel: () => void }
   importCurlInitialFolder: string
-  exportCollectionVisible: boolean
-  exportCollectionRef: RefObject<ExportCollectionOverlayHandle | null>
   exportCollectionActions: { confirm: () => void; cancel: () => void }
-  importCollectionVisible: boolean
-  importCollectionRef: RefObject<ImportCollectionOverlayHandle | null>
-  importCollectionPending: boolean
   importCollectionActions: { confirm: () => void; cancel: () => void }
   importCollectionInitialParent: string
-  importOpenPending: { path: string; name: string } | null
   activeEnv: Environment | null
-  editRequestVisible: boolean
   selectedRequest: NoodleRequest | null
   folderPaths: FolderPathOption[]
   editRequestInitialFolder: string
-  editRequestRef: RefObject<NewRequestOverlayHandle | null>
   editRequestActions: { confirm: () => void; cancel: () => void }
-  cloneRequestVisible: boolean
-  cloneRequestRef: RefObject<CloneRequestOverlayHandle | null>
   cloneRequestActions: { confirm: () => void; cancel: () => void }
-  newFolderVisible: boolean
-  newFolderRef: RefObject<NewFolderOverlayHandle | null>
   newFolderActions: { confirm: () => void; cancel: () => void }
-  folderDeletePending: string | null
-  requestDeletePending: string | null
-  timelineDetailEntry: TimelineEntry | null
-  setTimelineDetailEntry: (entry: TimelineEntry | null) => void
   updateFlow: UpdateFlowState
   envColors: Record<string, string | undefined>
   onLoadTimelineBody: (
@@ -185,51 +118,33 @@ interface AppOverlaysProps {
 }
 
 export function AppOverlays({
+  overlays,
   keybinds,
-  helpVisible,
-  setHelpVisible,
-  aboutVisible,
-  setAboutVisible,
-  activeOverlay,
-  envDeletePending,
-  collectionUnregisterPending,
-  undoAllPending,
   reloadPending,
-  initPending,
   collectionSwitchPending,
   onConfirmDialog,
   onCancelDialog,
-  commandPaletteVisible,
   commandPaletteCommands,
-  setCommandPaletteVisible,
-  codeGeneratorVisible,
-  setCodeGeneratorVisible,
   codeGeneratorRequest,
   codeGeneratorEnv,
   codeGeneratorEnvName,
   collection,
-  requestFinderVisible,
   requests,
   onFindRequest,
-  setRequestFinderVisible,
   collectionSwitcherVisible,
   collectionPaths,
   collectionSettingsByPath,
   collectionDir,
   requestCollectionSwitch,
   setCollectionSwitcherVisible,
-  environmentPickerVisible,
   environmentNames,
   activeEnvironmentName,
   onSelectEnvironment,
   onOpenEnvironmentEditor,
-  setEnvironmentPickerVisible,
   previewIndex,
   activeIndex,
   setPreviewIndex,
   onThemeChange,
-  yamlEditor,
-  setYamlEditor,
   setCollectionReloadToken,
   resetRequestDraft,
   resetFolderDraftByPath,
@@ -237,48 +152,22 @@ export function AppOverlays({
   setSaveState,
   clearSaveTimer,
   saveTimerRef,
-  newEnvironmentVisible,
-  newEnvironmentRef,
   newEnvironmentActions,
-  cookieFormVisible,
-  cookieFormRef,
-  cookieFormInitial,
   cookieFormActions,
-  cookieDeletePending,
-  newRequestVisible,
-  newRequestRef,
   newRequestActions,
   newRequestInitialFolder,
-  importCurlVisible,
-  importCurlRef,
   importCurlActions,
   importCurlInitialFolder,
-  exportCollectionVisible,
-  exportCollectionRef,
   exportCollectionActions,
-  importCollectionVisible,
-  importCollectionRef,
-  importCollectionPending,
   importCollectionActions,
   importCollectionInitialParent,
-  importOpenPending,
   activeEnv,
-  editRequestVisible,
   selectedRequest,
   folderPaths,
   editRequestInitialFolder,
-  editRequestRef,
   editRequestActions,
-  cloneRequestVisible,
-  cloneRequestRef,
   cloneRequestActions,
-  newFolderVisible,
-  newFolderRef,
   newFolderActions,
-  folderDeletePending,
-  requestDeletePending,
-  timelineDetailEntry,
-  setTimelineDetailEntry,
   updateFlow,
   envColors,
   onLoadTimelineBody,
@@ -286,6 +175,54 @@ export function AppOverlays({
   onCopyTimelineBody,
   onExportTimelineBody,
 }: AppOverlaysProps) {
+  const {
+    activeOverlay,
+    helpVisible,
+    setHelpVisible,
+    aboutVisible,
+    setAboutVisible,
+    envDeletePending,
+    collectionUnregisterPending,
+    undoAllPending,
+    initPending,
+    importOpenPending,
+    commandPaletteVisible,
+    setCommandPaletteVisible,
+    codeGeneratorVisible,
+    setCodeGeneratorVisible,
+    requestFinderVisible,
+    setRequestFinderVisible,
+    environmentPickerVisible,
+    setEnvironmentPickerVisible,
+    yamlEditor,
+    setYamlEditor,
+    newEnvironmentVisible,
+    newEnvironmentRef,
+    cookieFormVisible,
+    cookieFormRef,
+    cookieFormInitial,
+    cookieDeletePending,
+    newRequestVisible,
+    newRequestRef,
+    importCurlVisible,
+    importCurlRef,
+    exportCollectionVisible,
+    exportCollectionRef,
+    importCollectionVisible,
+    importCollectionRef,
+    importCollectionPending,
+    editRequestVisible,
+    editRequestRef,
+    cloneRequestVisible,
+    cloneRequestRef,
+    newFolderVisible,
+    newFolderRef,
+    folderDeletePending,
+    requestDeletePending,
+    timelineDetailEntry,
+    setTimelineDetailEntry,
+  } = overlays
+
   return (
     <>
       {helpVisible && (
