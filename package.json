@@ -14,6 +14,7 @@
     "release:context": "bun scripts/release-context.ts",
     "release:check": "bun scripts/release-check.ts",
     "prepare": "husky",
+    "audit": "bun audit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit"

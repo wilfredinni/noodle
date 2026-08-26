@@ -9,6 +9,7 @@ bun install
 bun run dev -- --collection ./collections --env development
 bun test                              # all tests (2910 across 188 files)
 bun test tests/lang.test.ts           # single file
+bun run audit                         # fail on vulnerable dependencies
 bun run lint                          # eslint
 bun run typecheck                     # tsc --noEmit
 bunx prettier --check ./src ./tests   # format check (prettier 3, --check only src+tests)
