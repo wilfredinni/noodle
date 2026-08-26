@@ -2,6 +2,8 @@ name: Assert Post Response
 method: GET
 url: $base_url/posts/:postId
 timeout: 0
+tags:
+  - posts
 followRedirects: true
 maxRedirects: 5
 path_params:

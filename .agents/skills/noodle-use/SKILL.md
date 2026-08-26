@@ -55,6 +55,7 @@ Dotenv-style `.env` files in `<collection>/.environments/`. `KEY=value` declares
 
 ### Folder inheritance
 - `folder.yml` applies only inside its folder directory. A root-level `folder.yml` is ignored by the loader.
+- Request and non-root folder `tags` are case-sensitive trimmed strings. A request's effective tags are the union of its own tags and all ancestor folder tags. Tags cannot be removed downstream.
 - Headers merge additively: folder header only applies if child request doesn't have the same header key.
 - Auth: request with `type: inherit` uses nearest parent folder's auth override. Walk up the tree until a folder with an auth override is found.
 - `folder.yml` format:
@@ -62,13 +63,16 @@ Dotenv-style `.env` files in `<collection>/.environments/`. `KEY=value` declares
 meta:
   name: Display Name
   seq: 5
+tags:
+  - smoke
+  - users
 headers:
   X-API-Key: $API_KEY
 auth:
   type: bearer
   token: $TOKEN
 ```
-`meta` is optional. `meta.seq` controls sort order (lower = first, undefined = last). `meta.name` overrides display name (defaults to directory name).
+`meta` and `tags` are optional. `meta.seq` controls sort order (lower = first, undefined = last). `meta.name` overrides display name (defaults to directory name).
 
 ### Collection settings
 `settings.yml` at collection root supports generated `collection_id` plus optional

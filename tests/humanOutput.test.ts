@@ -95,6 +95,7 @@ describe("human CLI output", () => {
       method: "GET" as const,
       url: "https://example.com/users",
       ok: true,
+      failureCategories: [],
       response: {
         status: 200,
         statusText: "OK",
@@ -108,6 +109,7 @@ describe("human CLI output", () => {
       method: "POST" as const,
       url: "https://example.com/users",
       ok: false,
+      failureCategories: ["transport" as const],
       error: "connect ECONNREFUSED",
     }
     expect(plain(formatRequestRun({ result: successful }))).toBe(
@@ -116,10 +118,25 @@ describe("human CLI output", () => {
     const output = plain(
       formatCollectionRun({
         results: [successful, failed],
+        skipped: [],
         failed: true,
+        summary: {
+          selected: 2,
+          executed: 2,
+          skipped: 0,
+          requestSuccesses: 1,
+          requestFailures: 1,
+          assertionPasses: 0,
+          assertionFailures: 0,
+          captureFailures: 0,
+          durationMs: 14,
+          failureCategories: ["transport"],
+        },
       }),
     )
-    expect(output).toContain("Summary: 1 passed, 1 failed, 14ms")
+    expect(output).toContain(
+      "Summary: 1 passed, 1 failed, 2/2 executed, 0 skipped, 14ms",
+    )
     expect(output).not.toContain('{"users":[]}')
   })
 
@@ -131,6 +148,7 @@ describe("human CLI output", () => {
           method: "GET",
           url: "https://example.com/users/1",
           ok: false,
+          failureCategories: ["assertion"],
           response: {
             status: 200,
             statusText: "OK",
@@ -177,6 +195,7 @@ describe("human CLI output", () => {
             method: "GET",
             url: "https://example.com/users/1",
             ok: false,
+            failureCategories: ["execution"],
             error: "unresolved variable",
             assertions: { evaluated: false, results: [] },
           },
@@ -193,6 +212,7 @@ describe("human CLI output", () => {
           method: "GET",
           url: "https://example.com/users/1",
           ok: false,
+          failureCategories: ["capture"],
           response: {
             status: 200,
             statusText: "OK",
@@ -240,6 +260,7 @@ describe("human CLI output", () => {
             method: "GET",
             url: "https://example.com/$user_id",
             ok: false,
+            failureCategories: ["execution"],
             error: "unresolved variable",
             captures: { evaluated: false, results: [] },
           },
@@ -290,6 +311,7 @@ describe("human CLI output", () => {
       method: "GET" as const,
       url: "https://example.com/users",
       ok: true,
+      failureCategories: [],
       response: {
         status: 200,
         statusText: "OK",
@@ -304,7 +326,20 @@ describe("human CLI output", () => {
       plain(
         formatCollectionRun({
           results: [result],
+          skipped: [],
           failed: false,
+          summary: {
+            selected: 1,
+            executed: 1,
+            skipped: 0,
+            requestSuccesses: 1,
+            requestFailures: 0,
+            assertionPasses: 0,
+            assertionFailures: 0,
+            captureFailures: 0,
+            durationMs: 1,
+            failureCategories: [],
+          },
           warnings: [warning],
         }),
       ),

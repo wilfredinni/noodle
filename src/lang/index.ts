@@ -8,6 +8,7 @@ export interface Lang {
   serializeRequest(req: Request): string
   parseFolder(yaml: string): {
     meta?: import("../schema").FolderMeta
+    tags?: string[]
     overrides?: import("../schema").FolderOverrides
   }
   serializeFolder(folder: Folder): string

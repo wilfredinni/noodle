@@ -162,6 +162,33 @@ describe("lang.parseRequest — strictness", () => {
     )
   })
 
+  it("parses and round-trips strict request tags", () => {
+    const request = lang.parseRequest(
+      "tagged",
+      "name: Tagged\nmethod: GET\nurl: https://example.com\ntags:\n  - smoke\n  - users\n",
+    )
+    expect(request.tags).toEqual(["smoke", "users"])
+    expect(
+      lang.parseRequest("tagged", lang.serializeRequest(request)).tags,
+    ).toEqual(["smoke", "users"])
+  })
+
+  it("rejects malformed request tags", () => {
+    const base = "name: Tagged\nmethod: GET\nurl: https://example.com\n"
+    expect(() => lang.parseRequest("tagged", `${base}tags: smoke\n`)).toThrow(
+      'lang.parseRequest: "tags" must be an array',
+    )
+    expect(() =>
+      lang.parseRequest("tagged", `${base}tags: [smoke, 1]\n`),
+    ).toThrow("lang.parseRequest: tags[1] must be a string")
+    expect(() =>
+      lang.parseRequest("tagged", `${base}tags: [" smoke"]\n`),
+    ).toThrow("lang.parseRequest: tags[0] must be a non-empty trimmed string")
+    expect(() => lang.parseRequest("tagged", `${base}tags: [""]\n`)).toThrow(
+      "lang.parseRequest: tags[0] must be a non-empty trimmed string",
+    )
+  })
+
   it("throws on invalid method value", () => {
     const yaml = `name: Foo\nmethod: GETT\nurl: https://example.com\n`
     expect(() => lang.parseRequest("x", yaml)).toThrow(

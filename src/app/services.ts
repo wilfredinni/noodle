@@ -44,6 +44,7 @@ import type {
   CollectionSettings,
   Environment,
   JsonValue,
+  NetworkError,
   Request,
 } from "../schema"
 import {
@@ -145,6 +146,60 @@ function requestsForTargets(
       selectedRequests.has(request.id) ||
       folderPrefixes.some((prefix) => request.id.startsWith(prefix)),
   )
+}
+
+function requestTags(
+  items: CollectionItem[],
+  inherited = new Set<string>(),
+  result = new Map<string, Set<string>>(),
+): Map<string, Set<string>> {
+  for (const item of items) {
+    if (item.type === "request") {
+      result.set(
+        item.data.id,
+        new Set([...inherited, ...(item.data.tags ?? [])]),
+      )
+      continue
+    }
+    requestTags(
+      item.data.children,
+      new Set([...inherited, ...(item.data.tags ?? [])]),
+      result,
+    )
+  }
+  return result
+}
+
+function filterRequests(
+  items: CollectionItem[],
+  requests: Request[],
+  tag?: string,
+  excludeTag?: string,
+): Request[] {
+  for (const [name, value] of [
+    ["--tag", tag],
+    ["--exclude-tag", excludeTag],
+  ] as const) {
+    if (value !== undefined && (!value || value.trim() !== value)) {
+      throw new Error(`${name} must be a non-empty trimmed string`)
+    }
+  }
+
+  const tags = requestTags(items)
+  const filtered = requests.filter((request) => {
+    const effective = tags.get(request.id) ?? new Set<string>()
+    return (
+      (!tag || effective.has(tag)) &&
+      (!excludeTag || !effective.has(excludeTag))
+    )
+  })
+  if (
+    (tag !== undefined || excludeTag !== undefined) &&
+    filtered.length === 0
+  ) {
+    throw new Error("no requests match the tag filters")
+  }
+  return filtered
 }
 export type CollectionTreeItem =
   | {
@@ -467,6 +522,7 @@ async function auditFile(
             name: parsed.meta?.name ?? id,
             path: folderPath,
             seq: parsed.meta?.seq,
+            tags: parsed.tags,
             overrides: parsed.overrides,
             children: [],
           }),
@@ -575,6 +631,7 @@ export interface RequestRunResult {
   method: Request["method"]
   url: string
   ok: boolean
+  failureCategories: RunFailureCategory[]
   response?: {
     status: number
     statusText: string
@@ -593,9 +650,35 @@ export interface RequestRunResult {
     results: CaptureResult[]
   }
 }
+
+export const RUN_FAILURE_CATEGORIES = [
+  "configuration",
+  "execution",
+  "transport",
+  "http",
+  "capture",
+  "assertion",
+] as const
+export type RunFailureCategory = (typeof RUN_FAILURE_CATEGORIES)[number]
+
+export interface CollectionRunSummary {
+  selected: number
+  executed: number
+  skipped: number
+  requestSuccesses: number
+  requestFailures: number
+  assertionPasses: number
+  assertionFailures: number
+  captureFailures: number
+  durationMs: number
+  failureCategories: RunFailureCategory[]
+}
 export interface CollectionRunResult {
   results: RequestRunResult[]
+  skipped: { id: string; reason: "fail-fast" }[]
   failed: boolean
+  failure?: { category: "configuration"; message: string }
+  summary: CollectionRunSummary
   warnings?: string[]
 }
 export type RunProgress = (completed: number, total: number) => void
@@ -664,6 +747,14 @@ async function runRequest(
           }),
         )
       : undefined
+    const failureCategories: RunFailureCategory[] = []
+    if (response.status >= 400) failureCategories.push("http")
+    if (captureResults?.some((result) => !result.success)) {
+      failureCategories.push("capture")
+    }
+    if (assertionResults?.some((result) => !result.passed)) {
+      failureCategories.push("assertion")
+    }
     return {
       id: request.id,
       method: request.method,
@@ -679,6 +770,7 @@ async function runRequest(
         response.status < 400 &&
         (captureResults?.every((result) => result.success) ?? true) &&
         (assertionResults?.every((result) => result.passed) ?? true),
+      failureCategories,
       ...(captureResults
         ? { captures: { evaluated: true, results: captureResults } }
         : {}),
@@ -696,6 +788,7 @@ async function runRequest(
       url: redact(request.url),
       error: redact(errorMessage(error)),
       ok: false,
+      failureCategories: [failureCategoryForError(error)],
       ...(request.captures && Object.keys(request.captures).length > 0
         ? { captures: { evaluated: false, results: [] } }
         : {}),
@@ -703,6 +796,64 @@ async function runRequest(
         ? { assertions: { evaluated: false, results: [] } }
         : {}),
     }
+  }
+}
+
+function failureCategoryForError(error: unknown): "execution" | "transport" {
+  return Array.isArray((error as NetworkError | undefined)?.network)
+    ? "transport"
+    : "execution"
+}
+
+function summarizeRun(
+  results: RequestRunResult[],
+  selected: number,
+  skipped: number,
+  startedAt: number,
+  configurationFailure = false,
+): CollectionRunSummary {
+  const assertionResults = results.flatMap(
+    (result) => result.assertions?.results ?? [],
+  )
+  const captureResults = results.flatMap(
+    (result) => result.captures?.results ?? [],
+  )
+  const categories = new Set(
+    results.flatMap((result) => result.failureCategories),
+  )
+  if (configurationFailure) categories.add("configuration")
+  return {
+    selected,
+    executed: results.length,
+    skipped,
+    requestSuccesses: results.filter((result) => result.ok).length,
+    requestFailures: results.filter((result) => !result.ok).length,
+    assertionPasses: assertionResults.filter((result) => result.passed).length,
+    assertionFailures: assertionResults.filter((result) => !result.passed)
+      .length,
+    captureFailures: captureResults.filter((result) => !result.success).length,
+    durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+    failureCategories: RUN_FAILURE_CATEGORIES.filter((category) =>
+      categories.has(category),
+    ),
+  }
+}
+
+function configurationRunResult(
+  error: unknown,
+  selected: number,
+  startedAt: number,
+): CollectionRunResult {
+  const failure = {
+    category: "configuration" as const,
+    message: errorMessage(error),
+  }
+  return {
+    results: [],
+    skipped: [],
+    failed: true,
+    failure,
+    summary: summarizeRun([], selected, 0, startedAt, true),
   }
 }
 
@@ -732,39 +883,67 @@ export async function collectionRun(
   systemProxy?: SystemProxySettings,
   insecure = false,
   targets: string[] = [],
+  tag?: string,
+  excludeTag?: string,
+  failFast = false,
 ): Promise<CollectionRunResult> {
-  const dir = await requireCollectionRoot(path)
-  const settings = await loadSettings(dir)
-  const collection = await filestore.loadCollection(dir)
-  const requests = requestsForTargets(collection.items, targets)
-  const environment = await environmentFor(dir, settings, environmentName)
-  const policy = await proxyPolicyFor(
-    dir,
-    settings,
-    noProxy,
-    systemProxy ?? takeSystemProxyFromEnv(),
-  )
-  const tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
-  const cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
+  const startedAt = performance.now()
+  let selected = 0
+  let dir: string
+  let settings: CollectionSettings
+  let collection: Collection
+  let requests: Request[]
+  let environment: Environment | undefined
+  let policy: ProxyPolicy | undefined
+  let tlsPolicy: TlsPolicy | undefined
+  let cookieAccess: Awaited<ReturnType<typeof cookieJarFor>>
+  try {
+    dir = await requireCollectionRoot(path)
+    collection = await filestore.loadCollection(dir)
+    requests = requestsForTargets(collection.items, targets)
+    requests = filterRequests(collection.items, requests, tag, excludeTag)
+    selected = requests.length
+    settings = await loadSettings(dir)
+    environment = await environmentFor(dir, settings, environmentName)
+    policy = await proxyPolicyFor(
+      dir,
+      settings,
+      noProxy,
+      systemProxy ?? takeSystemProxyFromEnv(),
+    )
+    tlsPolicy = await tlsPolicyFor(dir, settings, insecure)
+    cookieAccess = await cookieJarFor(dir, settings, CONFIG_DIR)
+  } catch (error) {
+    return configurationRunResult(error, selected, startedAt)
+  }
   const cookies = cookieAccess.jar
   const results: RequestRunResult[] = []
+  const skipped: CollectionRunResult["skipped"] = []
   const runScope = new RunScope()
   onProgress?.(0, requests.length)
   try {
-    for (const request of requests) {
-      results.push(
-        await runRequest(
-          dir,
-          collection,
-          request,
-          runScope,
-          environment,
-          policy,
-          tlsPolicy,
-          cookies,
-        ),
+    for (const [index, request] of requests.entries()) {
+      const result = await runRequest(
+        dir,
+        collection,
+        request,
+        runScope,
+        environment,
+        policy,
+        tlsPolicy,
+        cookies,
       )
+      results.push(result)
       onProgress?.(results.length, requests.length)
+      if (failFast && !result.ok) {
+        skipped.push(
+          ...requests.slice(index + 1).map((remaining) => ({
+            id: remaining.id,
+            reason: "fail-fast" as const,
+          })),
+        )
+        break
+      }
     }
   } finally {
     await closeCookieJar(cookies)
@@ -772,7 +951,9 @@ export async function collectionRun(
   const warnings = cookies?.warnings ?? cookieAccess.warnings
   return {
     results,
+    skipped,
     failed: results.some((result) => result.ok === false),
+    summary: summarizeRun(results, requests.length, skipped.length, startedAt),
     ...(warnings.length > 0 ? { warnings } : {}),
   }
 }

@@ -1,4 +1,7 @@
 meta:
   seq: 1
+tags:
+  - smoke
+  - assertions
 auth:
   type: none

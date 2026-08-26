@@ -1,6 +1,8 @@
 export interface CommandResult<T> {
   data: T
   failed?: boolean
+  errors?: string[]
+  exitCode?: number
 }
 
 export type HumanFormatter<T> = (data: T) => string
@@ -15,14 +17,14 @@ export async function emitCommand<T>(
     const status = result.failed ? "error" : "success"
     if (json)
       process.stdout.write(
-        `${JSON.stringify({ status, data: result.data, errors: result.failed ? ["command failed"] : [] })}\n`,
+        `${JSON.stringify({ status, data: result.data, errors: result.failed ? (result.errors ?? ["command failed"]) : [] })}\n`,
       )
     else if (formatHuman) process.stdout.write(`${formatHuman(result.data)}\n`)
     else
       process.stdout.write(
         `${result.failed ? "error: " : ""}${JSON.stringify(result.data, null, 2)}\n`,
       )
-    if (result.failed) process.exitCode = 1
+    if (result.failed) process.exitCode = result.exitCode ?? 1
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (json)

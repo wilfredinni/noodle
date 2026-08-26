@@ -84,13 +84,23 @@ noodle request run users/get --collection ./my-api --env staging
 noodle collection audit ./my-api --json
 noodle collection run ./my-api --json
 noodle collection run ./my-api auth/ health users/get --json
+noodle collection run ./my-api --tag smoke --exclude-tag destructive --json
 noodle agent install
 ```
 
 Commands support structured JSON output for scripts, CI, and agent workflows.
+Requests and non-root folders can declare case-sensitive `tags`. Folder tags
+apply to every descendant request, so `collection run --tag smoke` can execute a
+dynamic suite without a second collection format. Include and exclude filters
+compose, with exclusion winning, and `--fail-fast` records the remaining
+selected request IDs as skipped.
+
 Request YAML can also declare response assertions for status, timing, headers,
 and JSON body paths. `request run` and `collection run` evaluate them and exit
-nonzero when a check fails.
+nonzero when a check fails. Collection runs exit `0` on success, `1` after any
+completed request failure, and `2` for a pre-run configuration failure. JSON
+includes every executed result, fail-fast skips, failure categories, and the
+aggregate run summary.
 
 Collection runs can pass response values forward without writing them to an
 environment file:

@@ -1,7 +1,7 @@
 import yaml from "js-yaml"
 import type { Folder, FolderMeta, FolderOverrides } from "../schema"
 import { authToObj, parseAuth } from "./auth"
-import { parseKvMap } from "./parse"
+import { parseKvMap, parseTags } from "./parse"
 
 interface RawFolderMeta {
   name?: unknown
@@ -10,6 +10,7 @@ interface RawFolderMeta {
 
 interface RawFolder {
   meta?: unknown
+  tags?: unknown
   headers?: unknown
   auth?: unknown
   [k: string]: unknown
@@ -17,6 +18,7 @@ interface RawFolder {
 
 export function parseFolder(yamlText: string): {
   meta?: FolderMeta
+  tags?: string[]
   overrides?: FolderOverrides
 } {
   let doc: unknown
@@ -33,7 +35,7 @@ export function parseFolder(yamlText: string): {
 
   const raw = doc as RawFolder
 
-  const knownKeys = new Set(["meta", "headers", "auth"])
+  const knownKeys = new Set(["meta", "tags", "headers", "auth"])
   for (const key of Object.keys(raw)) {
     if (!knownKeys.has(key)) {
       throw new Error(`lang.parseFolder: unknown field "${key}"`)
@@ -66,7 +68,7 @@ export function parseFolder(yamlText: string): {
     }
   }
 
-  return { meta, overrides }
+  return { meta, tags: parseTags(raw.tags, "lang.parseFolder"), overrides }
 }
 
 function yamlVal(val: string, indent = 0): string {
@@ -90,6 +92,10 @@ export function serializeFolder(folder: Folder): string {
     if (folder.seq !== undefined) {
       out += `  seq: ${String(folder.seq)}\n`
     }
+  }
+
+  if (folder.tags?.length) {
+    out += yaml.dump({ tags: folder.tags }, { lineWidth: -1, noRefs: true })
   }
 
   if (folder.overrides) {
