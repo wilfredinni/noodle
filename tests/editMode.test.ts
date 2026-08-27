@@ -20,7 +20,15 @@ import type { Request } from "../src/schema"
 const inactive: EditState = initialEditState()
 
 function c(headers: number, params: number) {
-  return { headers, params, pathParams: 0, body: 0, auth: 0, settings: 3 }
+  return {
+    headers,
+    params,
+    pathParams: 0,
+    body: 0,
+    auth: 0,
+    automation: 0,
+    settings: 3,
+  }
 }
 
 describe("initialEditState", () => {
@@ -72,7 +80,7 @@ describe("exitEditBrowse", () => {
 })
 
 describe("moveFieldCursor", () => {
-  it("+1 walks headers → params → pathParams → body → auth → settings → headers", () => {
+  it("+1 walks headers → params → pathParams → body → auth → automation → settings → headers", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("params")
@@ -88,16 +96,21 @@ describe("moveFieldCursor", () => {
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
+    expect(s.cursor.field).toBe("automation")
+    expect(s.cursor.row).toBe(0)
+    s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("settings")
     expect(s.cursor.row).toBe(0)
     s = moveFieldCursor(s, +1, c(2, 1))
     expect(s.cursor.field).toBe("headers")
     expect(s.cursor.row).toBe(0)
   })
-  it("-1 walks headers → settings → auth → body → pathParams → params → headers", () => {
+  it("-1 walks headers → settings → automation → auth → body → pathParams → params → headers", () => {
     let s = enterEditBrowse(inactive, c(2, 0))
     s = moveFieldCursor(s, -1, c(2, 1))
     expect(s.cursor.field).toBe("settings")
+    s = moveFieldCursor(s, -1, c(2, 1))
+    expect(s.cursor.field).toBe("automation")
     s = moveFieldCursor(s, -1, c(2, 1))
     expect(s.cursor.field).toBe("auth")
     s = moveFieldCursor(s, -1, c(2, 1))
@@ -292,6 +305,7 @@ describe("moveRowLast", () => {
     let s = enterEditBrowse(inactive, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
     const last = moveRowLast(s, counts)
     expect(last.cursor.row).toBe(3)
@@ -360,6 +374,7 @@ describe("beginEditing", () => {
     let s = enterEditBrowse(inactive, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
     expect(s.cursor.row).toBe(0)
     const e = beginEditing(s)
@@ -376,6 +391,7 @@ describe("beginEditing", () => {
       settings: 3,
     }
     let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")
@@ -399,6 +415,7 @@ describe("beginEditing", () => {
     let s = enterEditBrowse(inactive, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
+    s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.row).toBe(0)
     s = moveRowCursor(s, +1, counts)
     expect(s.cursor.row).toBe(1)
@@ -418,6 +435,7 @@ describe("beginEditing", () => {
       settings: 3,
     }
     let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.row).toBe(0)
@@ -567,6 +585,7 @@ describe("toggleSubfield", () => {
       settings: 3,
     }
     let s = enterEditBrowse(inactive, counts)
+    s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     s = moveFieldCursor(s, -1, counts)
     expect(s.cursor.field).toBe("auth")

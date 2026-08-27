@@ -43,7 +43,7 @@ export function getHelpSections(keybinds: Keybinds): HelpSection[] {
         },
         {
           key: displayKey(keybinds.browse_delete),
-          description: "Revert field",
+          description: "Revert field / delete Automation row",
         },
         { key: "space", description: "Toggle checkboxes" },
         {

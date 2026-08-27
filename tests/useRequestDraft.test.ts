@@ -235,6 +235,68 @@ describe("requestEquals", () => {
     const b = makeReq({ id: "r2", name: "B" })
     expect(requestEquals(a, b)).toBe(true)
   })
+  it("tracks automation fields in equality", () => {
+    expect(
+      requestEquals(makeReq({ tags: ["smoke"] }), makeReq({ tags: ["full"] })),
+    ).toBe(false)
+    expect(
+      requestEquals(
+        makeReq({ captures: { token: "body.token" } }),
+        makeReq({ captures: { token: "headers.x-token" } }),
+      ),
+    ).toBe(false)
+    expect(
+      requestEquals(
+        makeReq({
+          assertions: [
+            { expression: "status", operator: "equals", value: 200 },
+          ],
+        }),
+        makeReq({
+          assertions: [
+            { expression: "status", operator: "equals", value: 201 },
+          ],
+        }),
+      ),
+    ).toBe(false)
+  })
+})
+
+describe("automation drafts", () => {
+  it("adds, edits, removes, and reverts automation declarations", () => {
+    const original = makeReq({
+      tags: ["smoke"],
+      captures: { token: "body.token" },
+      assertions: [{ expression: "status", operator: "equals", value: 200 }],
+    })
+    let drafts = applyDraft(new Map(), original.id, original, {
+      kind: "setTags",
+      tags: ["critical"],
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "setCaptures",
+      captures: { id: "body.id" },
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "setAssertions",
+      assertions: [{ expression: "body.id", operator: "exists" }],
+    })
+    expect(drafts.get(original.id)).toMatchObject({
+      tags: ["critical"],
+      captures: { id: "body.id" },
+      assertions: [{ expression: "body.id", operator: "exists" }],
+    })
+
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "revertField",
+      field: "automation",
+    })
+    expect(drafts.get(original.id)).toMatchObject({
+      tags: ["smoke"],
+      captures: { token: "body.token" },
+      assertions: [{ expression: "status", operator: "equals", value: 200 }],
+    })
+  })
 })
 
 describe("applyDraft", () => {

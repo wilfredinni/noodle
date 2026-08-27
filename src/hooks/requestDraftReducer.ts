@@ -1,4 +1,10 @@
-import type { BodyType, FormEntry, Request, Auth } from "../schema"
+import type {
+  BodyType,
+  FormEntry,
+  Request,
+  Auth,
+  ResponseAssertion,
+} from "../schema"
 import type { FieldKind } from "../ui/editMode"
 import { syncParamsWithUrl, syncPathParamsWithUrl } from "../ui/urlParams"
 import {
@@ -67,6 +73,9 @@ export type DraftOp =
   | { kind: "removeFormRow"; index: number }
   | { kind: "toggleFormRow"; index: number }
   | { kind: "setFilePath"; filePath: string }
+  | { kind: "setTags"; tags: string[] }
+  | { kind: "setCaptures"; captures: Record<string, string> }
+  | { kind: "setAssertions"; assertions: ResponseAssertion[] }
 
 const authTypeCache = new Map<string, Record<string, Auth>>()
 
@@ -172,6 +181,16 @@ export function applyDraft(
       break
     case "setFilePath":
       draft.filePath = op.filePath
+      break
+    case "setTags":
+      draft.tags = op.tags.length > 0 ? op.tags : undefined
+      break
+    case "setCaptures":
+      draft.captures =
+        Object.keys(op.captures).length > 0 ? op.captures : undefined
+      break
+    case "setAssertions":
+      draft.assertions = op.assertions.length > 0 ? op.assertions : undefined
       break
     case "setHeaderRow": {
       const { key, value } = op
@@ -306,6 +325,10 @@ export function applyDraft(
         if (op.row === undefined || op.row === 0) {
           draft.auth = original.auth
         }
+      } else if (op.field === "automation") {
+        draft.tags = original.tags
+        draft.captures = original.captures
+        draft.assertions = original.assertions
       }
       break
     }

@@ -294,7 +294,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
           : []
       const revert = {
         key: displayKey(kb.browse_delete),
-        word: "revert",
+        word: ctx.tab === "automation" ? "delete" : "revert",
         command: "browse.delete",
       }
       const revertAll = {

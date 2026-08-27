@@ -14,6 +14,8 @@ const TIPS = [
   "edit a field — press {Enter} on any header, param, or body in browse mode",
   "toggle header or param on/off with {Space} in browse mode",
   "revert a field to its saved value with {^D}",
+  "edit tags, captures, and assertions in the request {Automation} tab",
+  "inspect assertion and capture outcomes in the response {Results} tab",
   "revert all fields to their saved values with {^R}",
   "edit request details with {^E}",
   "change the color theme with {^T}",

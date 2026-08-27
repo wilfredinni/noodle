@@ -227,7 +227,9 @@ export function createRequestLayers(
       {
         name: "edit.commit",
         enabled: () => !request.ebRef.current.isEditingTextBody,
-        run: () => request.ebRef.current.commitEdit(),
+        run: () => {
+          request.ebRef.current.commitEdit()
+        },
       },
       {
         name: "edit.cancel",

@@ -4,17 +4,20 @@ export type FieldKind =
   | "pathParams"
   | "body"
   | "auth"
+  | "automation"
   | "settings"
   | "meta"
   | "activity"
 export type FolderFieldKind = "activity" | "meta" | "headers" | "auth"
 export type Mode = "inactive" | "browsing" | "editing"
 
+export type FieldSubfield = "key" | "operator" | "value"
+
 export interface FieldCursor {
   field: FieldKind
   row: number
   addingRow: boolean
-  subfield?: "key" | "value"
+  subfield?: FieldSubfield
 }
 
 export interface EditState {
@@ -29,6 +32,7 @@ export interface SectionRowCount {
   pathParams: number
   body: number
   auth: number
+  automation?: number
   settings: number
 }
 
@@ -44,6 +48,7 @@ export const FIELD_ORDER: FieldKind[] = [
   "pathParams",
   "body",
   "auth",
+  "automation",
   "settings",
 ]
 
@@ -78,6 +83,7 @@ export function enterEditBrowse(
     pathParams: 0,
     body: 0,
     auth: 0,
+    automation: 0,
     settings: 0,
   },
   startField: FieldKind = "headers",
@@ -130,6 +136,7 @@ export function cursorForField(
     case "auth":
       return { field, row: 0, addingRow: false }
     case "settings":
+    case "automation":
       return { field, row: 0, addingRow: false }
     case "activity":
       return { field, row: 0, addingRow: false }
@@ -176,10 +183,17 @@ export function toggleSubfield(prev: EditState): EditState {
     field !== "params" &&
     field !== "pathParams" &&
     field !== "body" &&
+    field !== "automation" &&
     field !== "meta"
   )
     return prev
   if (field === "pathParams") return prev
+  if (field === "automation") {
+    const current = prev.cursor.subfield ?? "key"
+    const next: FieldSubfield =
+      current === "key" ? "operator" : current === "operator" ? "value" : "key"
+    return { ...prev, cursor: { ...prev.cursor, subfield: next } }
+  }
   const current = prev.cursor.subfield ?? "key"
   const next: "key" | "value" = current === "key" ? "value" : "key"
   return {
@@ -232,6 +246,7 @@ export function moveRowCursor(
     field !== "pathParams" &&
     field !== "settings" &&
     field !== "auth" &&
+    field !== "automation" &&
     field !== "body"
   )
     return prev
@@ -241,6 +256,7 @@ export function moveRowCursor(
   else if (field === "pathParams") count = counts.pathParams
   else if (field === "settings") count = counts.settings
   else if (field === "auth") count = counts.auth
+  else if (field === "automation") count = counts.automation ?? 0
   else if (field === "body") count = counts.body
 
   if (count === 0) return prev
@@ -255,7 +271,7 @@ export function moveRowCursor(
   const row = prev.cursor.row
   const next = row + delta
 
-  if (field === "settings" || field === "auth") {
+  if (field === "settings" || field === "auth" || field === "automation") {
     // settings has no addingRow state, clamp to bounds
     if (next < 0)
       return { ...prev, cursor: { field, row: 0, addingRow: false } }
@@ -325,6 +341,7 @@ export function moveRowFirst(
     field !== "pathParams" &&
     field !== "settings" &&
     field !== "auth" &&
+    field !== "automation" &&
     field !== "body"
   )
     return prev
@@ -334,6 +351,7 @@ export function moveRowFirst(
   else if (field === "pathParams") count = counts.pathParams
   else if (field === "settings") count = counts.settings
   else if (field === "auth") count = counts.auth
+  else if (field === "automation") count = counts.automation ?? 0
   else if (field === "body") count = counts.body
 
   if (count === 0) {
@@ -361,6 +379,7 @@ export function moveRowLast(
     field !== "pathParams" &&
     field !== "settings" &&
     field !== "auth" &&
+    field !== "automation" &&
     field !== "body"
   )
     return prev
@@ -370,6 +389,7 @@ export function moveRowLast(
   else if (field === "pathParams") count = counts.pathParams
   else if (field === "settings") count = counts.settings
   else if (field === "auth") count = counts.auth
+  else if (field === "automation") count = counts.automation ?? 0
   else if (field === "body") count = counts.body
 
   if (field === "headers" || field === "params") {
@@ -431,7 +451,7 @@ export function beginEditing(prev: EditState): EditState {
   if (prev.cursor.field === "activity") return prev
   if (prev.cursor.field === "settings" && prev.cursor.row === 1) return prev
   if (prev.cursor.field === "pathParams" && prev.cursor.row < 0) return prev
-  const subfield: "key" | "value" | undefined =
+  const subfield: FieldSubfield | undefined =
     prev.cursor.field === "pathParams"
       ? "value"
       : prev.cursor.field === "headers" ||
@@ -440,7 +460,9 @@ export function beginEditing(prev: EditState): EditState {
         ? "key"
         : prev.cursor.field === "body"
           ? "key"
-          : undefined
+          : prev.cursor.field === "automation"
+            ? "key"
+            : undefined
   return {
     ...prev,
     mode: "editing",

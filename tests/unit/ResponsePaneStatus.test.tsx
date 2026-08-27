@@ -820,7 +820,9 @@ describe("getAvailableTargets", () => {
     expect(targets.has("n")).toBe(true)
     expect(targets.has("l")).toBe(true)
     expect(targets.has("k")).toBe(true)
-    expect(targets.size).toBe(14)
+    expect(targets.has("v")).toBe(true)
+    expect(targets.has("i")).toBe(true)
+    expect(targets.size).toBe(16)
   })
 
   it("excludes response targets when expanded=request", () => {
@@ -860,6 +862,7 @@ describe("computeRequestTabLabels", () => {
       "Path",
       "Body",
       "Auth",
+      "Automation",
       "Settings",
     ])
   })
@@ -911,6 +914,18 @@ describe("computeRequestTabLabels", () => {
       auth: { type: "none" },
       timeout: 5000,
     } as unknown as import("../../src/schema").Request)
-    expect(labels[5]).toBe("Settings \u2022")
+    expect(labels[6]).toBe("Settings \u2022")
+  })
+
+  it("appends a bullet when automation declarations are set", () => {
+    const labels = computeRequestTabLabels({
+      headers: {},
+      params: [],
+      url: "",
+      method: "GET",
+      timeout: 0,
+      tags: ["smoke"],
+    } as unknown as import("../../src/schema").Request)
+    expect(labels[5]).toBe("Automation \u2022")
   })
 })

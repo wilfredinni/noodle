@@ -105,12 +105,13 @@ export const Definitions = {
     "env-editor",
     "settings",
   ]),
-  browse_delete: keybind("ctrl+d", "Revert field", false, "Request", [
-    "request-browse",
-    "folder-browse",
-    "env-browse",
-    "settings",
-  ]),
+  browse_delete: keybind(
+    "ctrl+d",
+    "Revert field / delete row",
+    false,
+    "Request",
+    ["request-browse", "folder-browse", "env-browse", "settings"],
+  ),
   browse_revert_all: keybind("ctrl+r", "Revert all fields", false, "Request", [
     "request-browse",
     "folder-browse",

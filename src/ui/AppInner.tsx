@@ -644,7 +644,7 @@ export function AppInner({
     (next: Focus) => {
       setJumpMode(false)
       if (next !== focus) {
-        eb.commitEdit()
+        if (eb.commitEdit() === false) return
         folderEb.commitEdit()
         envEditor.commitEdit()
       }
@@ -673,7 +673,7 @@ export function AppInner({
     (subFocus: UrlBarSubFocus) => {
       setJumpMode(false)
       if (focus !== "urlbar") {
-        eb.commitEdit()
+        if (eb.commitEdit() === false) return
         folderEb.commitEdit()
       }
       setUrlbarSubFocus(subFocus)

@@ -58,6 +58,52 @@ function EditingPane({
 }
 
 describe("RequestPane blank click commit", () => {
+  it("does not change tabs when an automation commit is rejected", async () => {
+    const { keymap, cleanup } = setupKeymap()
+    const changes: FieldKind[] = []
+    try {
+      const render = await testRender(
+        <KeymapProvider keymap={keymap}>
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <RequestPane
+              request={request}
+              editState={{
+                mode: "editing",
+                cursor: {
+                  field: "automation",
+                  row: 1,
+                  addingRow: false,
+                  subfield: "key",
+                },
+                editingRow: 1,
+              }}
+              editKey="bad-name"
+              editValue="body.token"
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              activeTab="automation"
+              onInteraction={() => false}
+              onTabChange={(tab) => changes.push(tab)}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 80, height: 16 },
+      )
+
+      await render.renderOnce()
+      const target = render.renderer.root.findDescendantById(
+        "tab-headers",
+      ) as BoxRenderable
+      await act(async () => {
+        await render.mockMouse.click(target.x + 1, target.y, MouseButtons.LEFT)
+      })
+
+      expect(changes).toEqual([])
+    } finally {
+      cleanup()
+    }
+  })
+
   it("opens the TLS verification select without entering text edit mode", async () => {
     const { keymap, host, cleanup } = setupKeymap()
     const activated: Array<[FieldKind, number]> = []
