@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import type {
   AssertionOperator,
   BodyType,
@@ -315,7 +322,9 @@ export function useEditBrowse(
   editKeyRef.current = editKey
 
   const editOperatorRef = useRef(editOperator)
-  editOperatorRef.current = editOperator
+  useLayoutEffect(() => {
+    editOperatorRef.current = editOperator
+  }, [editOperator])
 
   const onTabChangeRef = useRef(options?.onTabChange)
   onTabChangeRef.current = options?.onTabChange

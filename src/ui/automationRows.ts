@@ -37,7 +37,7 @@ export function automationRows(
 }
 
 export function formatAssertionValue(value: AssertionValue): string {
-  return typeof value === "string" ? value : JSON.stringify(value)
+  return JSON.stringify(value)
 }
 
 export function parseAssertionValue(value: string): AssertionValue {

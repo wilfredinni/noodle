@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it, jest } from "bun:test"
 import { act } from "react"
 import { RGBA, ScrollBoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
@@ -10,6 +10,8 @@ import type { TimelineEntry } from "../../src/schema"
 import { setupKeymap } from "./_helpers"
 
 const testRender = createTestRender()
+
+afterEach(() => jest.useRealTimers())
 
 function makeEntry(id: string): TimelineEntry {
   return {
@@ -34,6 +36,7 @@ async function renderTimeline(
   ;(
     keymap as unknown as { setData: (key: string, value: string) => void }
   ).setData("app.overlay", "none")
+  if (entries.length > 0) jest.useFakeTimers()
   const render = await testRender(
     <KeymapProvider keymap={keymap}>
       <ThemeProvider activeIndex={0} previewIndex={null}>
@@ -50,16 +53,14 @@ async function renderTimeline(
     await render.renderOnce()
   })
   if (entries.length > 0) {
-    await render.waitForFrame(async (frame) => {
-      if (frame.includes("...")) return true
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      })
-      await act(async () => {
-        await render.renderOnce()
-      })
-      return render.captureCharFrame().includes("...")
+    await act(async () => {
+      jest.runAllTimers()
     })
+    jest.useRealTimers()
+    await act(async () => {
+      await render.renderOnce()
+    })
+    await render.waitForFrame((frame) => frame.includes("..."))
   }
   await act(async () => {
     await render.renderOnce()
