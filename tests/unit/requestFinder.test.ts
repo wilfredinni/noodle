@@ -71,6 +71,33 @@ describe("requestFinder", () => {
     expect(searchRequests(items, "healthz")[0]?.id).toBe("health")
   })
 
+  it("searches and exposes direct and inherited request tags", () => {
+    const items = requestFinderItems([
+      {
+        type: "folder",
+        data: {
+          id: "folder",
+          name: "Folder",
+          path: "folder",
+          tags: ["smoke"],
+          children: [
+            {
+              type: "request",
+              data: { ...requests[0]!, tags: ["critical"] },
+            },
+          ],
+        },
+      },
+    ])
+    const request = items.find((item) => item.type === "request")
+    expect(request?.type === "request" && request.tags).toEqual([
+      "smoke",
+      "critical",
+    ])
+    expect(searchRequests(items, "#smoke")[0]?.id).toBe("users/get-user")
+    expect(searchRequests(items, "critical")[0]?.id).toBe("users/get-user")
+  })
+
   it("requires every whitespace-separated token and supports fuzzy matching", () => {
     const items = requestFinderItems(requests)
     expect(searchRequests(items, "g usr")[0]?.id).toBe("users/get-user")

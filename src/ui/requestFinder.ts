@@ -1,5 +1,6 @@
 import type { CollectionItem, Environment, Folder, Request } from "../schema"
 import { flattenRequests } from "./tree"
+import { effectiveRequestTags } from "../tags"
 
 const VAR_RE = /\$(\w+)/g
 
@@ -11,6 +12,7 @@ export type FinderItem =
       folderPath: string
       request: Request
       resolvedUrl: string
+      tags: string[]
     }
   | {
       type: "folder"
@@ -54,6 +56,13 @@ function scoreItem(item: FinderItem, tokens: string[]): number | null {
           { value: item.request.name.toLowerCase(), weight: 0, fuzzy: true },
           { value: item.request.id.toLowerCase(), weight: 100, fuzzy: true },
           { value: item.request.method.toLowerCase(), weight: 200 },
+          {
+            value: item.tags
+              .map((tag) => `#${tag}`)
+              .join(" ")
+              .toLowerCase(),
+            weight: 200,
+          },
           { value: item.request.url.toLowerCase(), weight: 300 },
           { value: item.resolvedUrl.toLowerCase(), weight: 300 },
         ]
@@ -120,6 +129,7 @@ export function requestFinderItems(
   ) {
     const items = input as CollectionItem[]
     const reqs = flattenRequests(items)
+    const tagsByRequest = effectiveRequestTags(items)
     const reqItems: FinderItem[] = reqs.map((request) => ({
       type: "request",
       id: request.id,
@@ -129,6 +139,7 @@ export function requestFinderItems(
         : "(root)",
       request,
       resolvedUrl: resolveFinderUrl(request.url, activeEnv),
+      tags: [...(tagsByRequest.get(request.id) ?? [])],
     }))
     const folderItems = collectFolderFinderItems(items)
     return [...reqItems, ...folderItems]
@@ -144,6 +155,7 @@ export function requestFinderItems(
       : "(root)",
     request,
     resolvedUrl: resolveFinderUrl(request.url, activeEnv),
+    tags: [...(request.tags ?? [])],
   }))
 }
 
