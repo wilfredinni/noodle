@@ -12,7 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { basename, dirname, join, relative } from "node:path"
-import * as yaml from "js-yaml"
+import * as yaml from "../yaml"
 import type { ParamEntry, TimelineBodyRef, TimelineEntry } from "../schema"
 import { redactKnownSecrets } from "../secrets/redact"
 

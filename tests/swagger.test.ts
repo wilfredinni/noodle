@@ -12,7 +12,7 @@ describe("parseSwaggerSpec", () => {
   it("wraps invalid JSON and YAML with the Swagger import error", () => {
     let error: Error | undefined
     try {
-      parseSwaggerSpec(": : :")
+      parseSwaggerSpec("{ broken: : :")
     } catch (e) {
       error = e as Error
     }

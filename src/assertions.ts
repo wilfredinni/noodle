@@ -17,7 +17,8 @@ export interface AssertionResult {
 }
 
 type CompiledAssertionRegex =
-  { kind: "success"; regex: RegExp } | { kind: "error"; message: string }
+  | { kind: "success"; regex: RegExp }
+  | { kind: "error"; message: string }
 
 export function compileAssertionRegex(source: string): CompiledAssertionRegex {
   if (source.length > 1000) {

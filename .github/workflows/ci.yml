@@ -90,7 +90,7 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bunx prettier --check ./src ./tests
+      - run: bunx oxfmt --check ./src ./tests
 
   test:
     runs-on: ubuntu-latest

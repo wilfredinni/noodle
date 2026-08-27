@@ -3,7 +3,11 @@ import { formatJson } from "../lang/formatJson"
 import type { Theme } from "./theme"
 
 export type MethodColorToken =
-  "success" | "warning" | "error" | "info" | "textMuted"
+  | "success"
+  | "warning"
+  | "error"
+  | "info"
+  | "textMuted"
 
 export function methodColorToken(method: Method): MethodColorToken {
   if (method === "GET") return "success"

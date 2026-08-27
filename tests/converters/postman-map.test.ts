@@ -892,7 +892,8 @@ describe("mapCollection — path params", () => {
     const r = reqs(result)[0] as Record<string, unknown>
     expect(r.url).toBe("https://api.example.com/users/:id")
     const pp = r.pathParams as
-      { name: string; value: string; enabled: boolean }[] | undefined
+      | { name: string; value: string; enabled: boolean }[]
+      | undefined
     expect(pp).toBeDefined()
     expect(pp).toHaveLength(1)
     expect(pp![0]).toEqual({ name: "id", value: "$userId", enabled: true })
@@ -924,7 +925,8 @@ describe("mapCollection — path params", () => {
     })
     const r = reqs(result)[0] as Record<string, unknown>
     const pp = r.pathParams as
-      { name: string; value: string; enabled: boolean }[] | undefined
+      | { name: string; value: string; enabled: boolean }[]
+      | undefined
     expect(pp).toBeDefined()
     expect(pp).toHaveLength(2)
     expect(pp![0]).toEqual({ name: "postId", value: "42", enabled: true })
@@ -977,7 +979,8 @@ describe("mapCollection — path params", () => {
     })
     const r = reqs(result)[0] as Record<string, unknown>
     const pp = r.pathParams as
-      { name: string; value: string; enabled: boolean }[] | undefined
+      | { name: string; value: string; enabled: boolean }[]
+      | undefined
     expect(pp).toBeDefined()
     expect(pp).toHaveLength(1)
     expect(pp![0]).toEqual({ name: "id", value: "", enabled: true })

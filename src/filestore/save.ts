@@ -1,7 +1,7 @@
 import { mkdir, writeFile, unlink, rm, rename } from "node:fs/promises"
 import { randomUUID } from "node:crypto"
 import { dirname, join } from "node:path"
-import * as yaml from "js-yaml"
+import * as yaml from "../yaml"
 import { lang } from "../lang"
 import type { CollectionSettings, Folder, Request } from "../schema"
 import { collectionTlsToYaml } from "../tls"

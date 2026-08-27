@@ -28,7 +28,7 @@ const checks: Check[] = [
   { label: "typecheck", command: ["bun", "run", "typecheck"] },
   {
     label: "format",
-    command: ["bunx", "prettier", "--check", "./src", "./tests"],
+    command: ["bunx", "oxfmt", "--check", "./src", "./tests"],
   },
   { label: "binary build", command: ["bun", "run", "build:bin"] },
 ]

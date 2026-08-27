@@ -22,7 +22,8 @@ export function useConfig(configDir: string): {
   config: NoodleConfig
   updateConfig: (
     partial:
-      Partial<NoodleConfig> | ((prev: NoodleConfig) => Partial<NoodleConfig>),
+      | Partial<NoodleConfig>
+      | ((prev: NoodleConfig) => Partial<NoodleConfig>),
     options?: { immediate?: boolean },
   ) => void
 } {
@@ -42,7 +43,8 @@ export function useConfig(configDir: string): {
   const updateConfig = useCallback(
     (
       partial:
-        Partial<NoodleConfig> | ((prev: NoodleConfig) => Partial<NoodleConfig>),
+        | Partial<NoodleConfig>
+        | ((prev: NoodleConfig) => Partial<NoodleConfig>),
       options?: { immediate?: boolean },
     ) => {
       const patch =

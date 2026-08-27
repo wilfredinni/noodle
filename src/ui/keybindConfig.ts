@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import * as yaml from "js-yaml"
+import * as yaml from "../yaml"
 import { keybindOverrides, type Keybinds } from "./keybind"
 
 export const KEYBINDS_FILE_NAME = "keybinds.yml"
