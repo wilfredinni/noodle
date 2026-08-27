@@ -40,6 +40,7 @@ import { NetworkTab } from "./NetworkTab"
 import { Badge } from "./Badge"
 import type { ResponseTabKind } from "./tabs/uiState"
 import { CookieRow, cookieDetails, cookieNameWidth } from "./CookieRow"
+import { ResponseResults } from "./ResponseResults"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const AUTO_RENDER_LIMIT = 5 * 1024 * 1024
@@ -48,6 +49,7 @@ const TAB_DEFS: TabDef[] = [
   { id: "headers", label: "Headers" },
   { id: "network", label: "Network" },
   { id: "timeline", label: "Timeline" },
+  { id: "results", label: "Results" },
   { id: "cookies", label: "Cookies" },
 ]
 
@@ -224,6 +226,7 @@ export function ResponsePane({
           "headers",
           "network",
           "timeline",
+          "results",
           "cookies",
         ] as const
         const idx = ids.indexOf(prev)
@@ -237,6 +240,7 @@ export function ResponsePane({
           "headers",
           "network",
           "timeline",
+          "results",
           "cookies",
         ] as const
         const idx = ids.indexOf(prev)
@@ -596,6 +600,32 @@ export function ResponsePane({
               layout={layout}
               expanded={expanded}
             />
+          ) : activeTab === "results" ? (
+            state.status === "idle" ? (
+              <Tips />
+            ) : (
+              <scrollbox
+                id="response-results-scrollbox"
+                ref={scrollRef}
+                scrollY
+                verticalScrollbarOptions={{
+                  trackOptions: {
+                    backgroundColor: theme.background,
+                    foregroundColor: theme.borderActive,
+                  },
+                }}
+                style={{ flexGrow: 1, minHeight: 0, flexBasis: 0 }}
+              >
+                <ResponseResults
+                  execution={
+                    state.status === "done" || state.status === "error"
+                      ? state.execution
+                      : undefined
+                  }
+                  request={state.status === "error" ? state.request : undefined}
+                />
+              </scrollbox>
+            )
           ) : activeTab === "body" ? (
             state.status === "idle" ? (
               <Tips />

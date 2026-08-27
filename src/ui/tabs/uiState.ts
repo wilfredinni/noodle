@@ -6,6 +6,7 @@ import type { FieldKind } from "../editMode"
 export type ResponseTabKind =
   | "body"
   | "headers"
+  | "results"
   | "network"
   | "timeline"
   | "cookies"
@@ -127,6 +128,7 @@ export async function loadUIState(
         const response =
           v.response === "body" ||
           v.response === "headers" ||
+          v.response === "results" ||
           v.response === "network" ||
           v.response === "timeline" ||
           v.response === "cookies"

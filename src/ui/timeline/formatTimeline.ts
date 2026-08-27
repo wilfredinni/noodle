@@ -10,6 +10,7 @@ import {
   redactKnownSecrets,
   REDACTED,
 } from "../../secrets/redact"
+import { redactExecutionValue } from "../../executionResults"
 
 function responseSize(body: string): number {
   return new TextEncoder().encode(body).length
@@ -35,6 +36,23 @@ export function buildTimelineEntry(
             : token,
         )
       : value
+  const assertions = result.execution?.assertions
+    ? {
+        evaluated: result.execution.assertions.evaluated,
+        results: result.execution.assertions.results.map((assertion) => ({
+          ...assertion,
+          ...(Object.hasOwn(assertion, "expected")
+            ? {
+                expected: redactExecutionValue(assertion.expected!, redact),
+              }
+            : {}),
+          ...(Object.hasOwn(assertion, "actual")
+            ? { actual: redactExecutionValue(assertion.actual!, redact) }
+            : {}),
+          message: redact(assertion.message),
+        })),
+      }
+    : undefined
   let url = req.url
   try {
     url = interpolatePathParams(
@@ -164,6 +182,7 @@ export function buildTimelineEntry(
     id: randomUUID(),
     timestamp: Date.now(),
     envName,
+    assertions,
     network:
       result.status === "done"
         ? result.response.network?.map((event) => ({
@@ -245,6 +264,16 @@ export function entryStatus(entry: TimelineEntry): number | null {
   if (entry.response) return entry.response.status
   if (entry.error) return 0
   return null
+}
+
+export function entryAssertionStatus(
+  entry: TimelineEntry,
+): "passed" | "failed" | "not-evaluated" | null {
+  if (!entry.assertions) return null
+  if (!entry.assertions.evaluated) return "not-evaluated"
+  return entry.assertions.results.every((result) => result.passed)
+    ? "passed"
+    : "failed"
 }
 
 export function entrySize(entry: TimelineEntry): number | null {

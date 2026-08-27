@@ -4,6 +4,7 @@ import {
   relativeTime,
   entryMethod,
   entryStatus,
+  entryAssertionStatus,
   entryTiming,
   entrySize,
   entryIsError,
@@ -704,6 +705,101 @@ describe("buildTimelineEntry", () => {
 
     expect(entry.request).not.toHaveProperty("captures")
     expect(JSON.stringify(entry)).not.toContain("body.token")
+  })
+
+  it("persists redacted assertion results without capture runtime data", () => {
+    const secret = "timeline-assertion-secret"
+    const req = {
+      id: "assertion",
+      name: "Assertion",
+      method: "GET" as const,
+      url: "https://api.example.com",
+      headers: {},
+      params: [],
+      timeout: 0,
+      captures: { token: "body.token" },
+      assertions: [
+        {
+          expression: "body.token",
+          operator: "equals" as const,
+          value: secret,
+        },
+      ],
+    }
+    const response = {
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "{}",
+      timeMs: 1,
+    }
+    const entry = buildTimelineEntry(
+      req,
+      {
+        status: "done",
+        response,
+        execution: {
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "body.token",
+                operator: "equals",
+                expected: secret,
+                actual: secret,
+                passed: false,
+                message: `Expected ${secret}`,
+              },
+            ],
+          },
+          captures: {
+            evaluated: true,
+            results: [
+              {
+                variable: "token",
+                expression: "body.token",
+                success: true,
+                type: "string",
+                value: secret,
+              },
+            ],
+          },
+        },
+      },
+      "dev",
+      {
+        name: "dev",
+        vars: { TOKEN: secret },
+        secretVars: { TOKEN: "keychain" },
+      },
+    )
+    expect(entry.assertions?.results[0]?.expected).toBe("[REDACTED]")
+    expect(entry.assertions?.results[0]?.actual).toBe("[REDACTED]")
+    expect(entry.assertions?.results[0]?.message).toBe("Expected [REDACTED]")
+    expect(entryAssertionStatus(entry)).toBe("failed")
+    expect(JSON.stringify(entry)).not.toContain("captures")
+    expect(JSON.stringify(entry)).not.toContain("timeline-assertion-secret")
+  })
+
+  it("supports assertion not-evaluated state and old entries", () => {
+    const oldEntry: TimelineEntry = {
+      timestamp: 1,
+      request: {
+        id: "old",
+        name: "Old",
+        method: "GET",
+        url: "https://example.com",
+        headers: {},
+        params: [],
+      },
+    }
+    expect(entryAssertionStatus(oldEntry)).toBeNull()
+    expect(
+      entryAssertionStatus({
+        ...oldEntry,
+        assertions: { evaluated: false, results: [] },
+      }),
+    ).toBe("not-evaluated")
   })
 
   it("redacts request credentials without altering the server response", () => {

@@ -13,7 +13,12 @@ import {
 } from "node:fs/promises"
 import { basename, dirname, join, relative } from "node:path"
 import * as yaml from "../yaml"
-import type { ParamEntry, TimelineBodyRef, TimelineEntry } from "../schema"
+import type {
+  JsonValue,
+  ParamEntry,
+  TimelineBodyRef,
+  TimelineEntry,
+} from "../schema"
 import { redactKnownSecrets } from "../secrets/redact"
 
 export const DEFAULT_TIMELINE_MAX_ENTRIES = 50
@@ -77,6 +82,12 @@ function bodyDir(colDir: string, reqId: string): string {
 
 function byteSize(body: string): number {
   return new TextEncoder().encode(body).length
+}
+
+function boundedAssertionValue(value: JsonValue): JsonValue {
+  return byteSize(JSON.stringify(value)) > INLINE_BODY_LIMIT
+    ? "[TRUNCATED]"
+    : value
 }
 
 function bodyFile(entryId: string, kind: "request" | "response"): string {
@@ -195,6 +206,20 @@ async function persistBodies(
   const entry: TimelineEntry = {
     ...source,
     id,
+    assertions: source.assertions
+      ? {
+          ...source.assertions,
+          results: source.assertions.results.map((result) => ({
+            ...result,
+            ...(Object.hasOwn(result, "expected")
+              ? { expected: boundedAssertionValue(result.expected!) }
+              : {}),
+            ...(Object.hasOwn(result, "actual")
+              ? { actual: boundedAssertionValue(result.actual!) }
+              : {}),
+          })),
+        }
+      : undefined,
     request: { ...source.request },
     response: source.response ? { ...source.response } : undefined,
   }
@@ -448,6 +473,7 @@ function redactTimelineEntry(value: unknown, secrets: string[]): unknown {
   return {
     ...entry,
     request: redactValue(entry.request, secrets),
+    assertions: redactValue(entry.assertions, secrets),
     network: redactValue(entry.network, secrets),
     error: redactValue(entry.error, secrets),
   }

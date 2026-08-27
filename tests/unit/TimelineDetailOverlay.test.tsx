@@ -153,6 +153,69 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
+  it("renders persisted assertion details", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        assertions: {
+          evaluated: true,
+          results: [
+            {
+              expression: "status",
+              operator: "equals",
+              expected: 201,
+              actual: 200,
+              passed: false,
+              message: "Expected values to be equal",
+            },
+          ],
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    const frame = captureCharFrame()
+    expect(frame).toContain("Results")
+    expect(frame).toContain("0 passed · 1 failed")
+    expect(frame).toContain("expected: 201")
+    expect(frame).toContain("actual: 200")
+    expect(frame).toContain("Expected values to be equal")
+    expect(frame).not.toContain("Captures")
+    cleanup()
+  })
+
+  it("scrolls persisted assertion details back to the summary", async () => {
+    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
+      makeEntry({
+        assertions: {
+          evaluated: true,
+          results: Array.from({ length: 20 }, (_, index) => ({
+            expression: `body.value${index}`,
+            operator: "exists" as const,
+            actual: index,
+            passed: true,
+            message: "Assertion passed",
+          })),
+        },
+      }),
+      () => {},
+    )
+    await renderOnce()
+    await act(async () => host.press("right"))
+    await act(async () => host.press("right"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("20 passed · 0 failed")
+    await act(async () => host.press("end"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("body.value19")
+    await act(async () => host.press("home"))
+    await renderOnce()
+    expect(captureCharFrame()).toContain("20 passed · 0 failed")
+    cleanup()
+  })
+
   it("scrolls persisted network activity", async () => {
     const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
       makeEntry({

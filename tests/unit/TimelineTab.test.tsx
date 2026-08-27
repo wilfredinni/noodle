@@ -79,6 +79,45 @@ describe("TimelineTab", () => {
     cleanup()
   })
 
+  it("shows assertion status in timeline rows", async () => {
+    const passing = makeEntry("1")
+    passing.assertions = {
+      evaluated: true,
+      results: [
+        {
+          expression: "status",
+          operator: "equals",
+          expected: 200,
+          actual: 200,
+          passed: true,
+          message: "Assertion passed",
+        },
+      ],
+    }
+    const failing = makeEntry("2")
+    failing.assertions = {
+      evaluated: true,
+      results: [
+        {
+          expression: "status",
+          operator: "equals",
+          expected: 200,
+          actual: 500,
+          passed: false,
+          message: "Expected values to be equal",
+        },
+      ],
+    }
+    const { captureCharFrame, cleanup } = await renderTimeline(
+      [passing, failing],
+      true,
+      () => {},
+    )
+    expect(captureCharFrame()).toContain("✓")
+    expect(captureCharFrame()).toContain("✗")
+    cleanup()
+  })
+
   it("opens entry selected after navigation", async () => {
     const entries = [makeEntry("1"), makeEntry("2"), makeEntry("3")]
     let opened: TimelineEntry | undefined
