@@ -44,7 +44,7 @@ bun run dev -- --collection ./collections --env development
 ### Run checks before submitting
 
 ```bash
-bun test                              # 2910 tests across 188 files
+bun test                              # 2913 tests across 189 files
 bun run audit                         # dependency vulnerability audit
 bun run lint                          # oxlint
 bun run typecheck                     # tsc --noEmit

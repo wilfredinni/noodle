@@ -348,7 +348,7 @@ describe("update cache", () => {
     try {
       await writeFile(
         path,
-        makeCache("v0.8.2", 1000, { "macos-arm64": binaryHash }),
+        makeCache("v99.0.0", 1000, { "macos-arm64": binaryHash }),
       )
       await writeFile(executable, "old")
       const result = await runUpdate(true, false, {
@@ -368,7 +368,7 @@ describe("update cache", () => {
           return new Response()
         },
       })
-      expect(result.data).toEqual({ status: "updated", version: "v0.8.2" })
+      expect(result.data).toEqual({ status: "updated", version: "v99.0.0" })
       expect(manifestCalls).toBe(0)
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {
@@ -386,7 +386,7 @@ describe("update cache", () => {
     try {
       await writeFile(
         path,
-        makeCache("v0.8.2", 1000, { "linux-x86_64": binaryHash }),
+        makeCache("v99.0.0", 1000, { "linux-x86_64": binaryHash }),
       )
       await writeFile(executable, "old")
       const result = await runUpdate(true, false, {
@@ -401,7 +401,7 @@ describe("update cache", () => {
           if (url.endsWith("update.json")) {
             manifestCalls += 1
             return new Response(
-              makeManifest("v0.8.2", { "macos-arm64": binaryHash }),
+              makeManifest("v99.0.0", { "macos-arm64": binaryHash }),
               { status: 200 },
             )
           }
@@ -409,7 +409,7 @@ describe("update cache", () => {
           return new Response()
         },
       })
-      expect(result.data).toEqual({ status: "updated", version: "v0.8.2" })
+      expect(result.data).toEqual({ status: "updated", version: "v99.0.0" })
       expect(manifestCalls).toBe(1)
       expect(await readFile(executable, "utf8")).toBe("new")
     } finally {

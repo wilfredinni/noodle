@@ -4,9 +4,37 @@ All notable changes to Noodle are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-27
+
+Noodle 0.8.2 turns request and folder tags into dynamic collection suites, with include and exclude filters, fail-fast execution, and stable summaries for CI. It also preserves established YAML behavior through the `js-yaml` upgrade and strengthens dependency auditing without changing the TUI workflow.
+
+[Read the full release article.](https://noodlerest.dev/blog/noodle-0-8-2-one-collection-many-suites/)
+
+### ✨ Features
+
+- Add strict, case-sensitive `tags` to request YAML and non-root `folder.yml` files, with folder tags inherited by every descendant request.
+- Add `--tag` and `--exclude-tag` filters to `collection run`. Targets resolve first, exclusion wins, and filtered requests neither execute nor change RunScope captures.
+- Add `--fail-fast`, preserving completed results and recording every later selected request as an ordered skip.
+- Add fixed failure categories, aggregate request, assertion, capture, skip, and duration summaries, plus stable collection-run exits: `0` success, `1` completed failure, and `2` pre-run configuration failure.
+
+### 🐞 Fixes
+
+- Preserve existing timestamp, merge-key, and scalar parsing behavior through the `js-yaml` upgrade, and keep large or precise numeric literals intact when serializing OpenAPI YAML.
+
+### 🔧 Refactors
+
+- Pass overlay visibility, pending values, and handles through one shared state object, reducing mirrored TUI wiring without changing interactions.
+- Replace ESLint and Prettier with Oxlint and Oxfmt across local checks, CI, and release validation.
+
 ### 🔒 Security
 
 - Update vulnerable `brace-expansion` and `shell-quote` transitive dependencies, enforce `bun audit` in CI and release validation, and enable weekly dependency updates.
+
+### 📚 Documentation
+
+- Document dynamic suites, tag inheritance, filtering order, fail-fast skips, summaries, failure categories, and exit statuses across the README, `AGENTS.md`, in-app tips, and documentation site.
+- Update `noodle-dev` with collection-suite execution semantics, focused test locations, and the shared overlay-state architecture.
+- Update `noodle-use` with tag authoring, inherited suites, filter precedence, fail-fast behavior, structured results, and stable exit guidance.
 
 ## [0.8.1] - 2026-08-26
 
