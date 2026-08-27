@@ -46,9 +46,9 @@ bun run dev -- --collection ./collections --env development
 ```bash
 bun test                              # 2910 tests across 188 files
 bun run audit                         # dependency vulnerability audit
-bun run lint                          # eslint
+bun run lint                          # oxlint
 bun run typecheck                     # tsc --noEmit
-bunx prettier --check ./src ./tests   # format check
+bunx oxfmt --check ./src ./tests      # format check
 ```
 
 ### Architecture overview
@@ -69,8 +69,8 @@ src/
 Noodle uses [OpenTUI](https://github.com/anomius/opentui) (`@opentui/react`) for terminal rendering. JSX renders to a TUI. This is not standard React DOM. Read `.agents/skills/opentui/SKILL.md` before working on UI code.
 
 Key conventions:
-- TypeScript 6, strict mode, `"type": "module"`
-- ESLint 10 + Prettier 3 (`semi: false`, `singleQuote: false`, with Prettier's default trailing commas)
+- TypeScript 7, strict mode, `"type": "module"`
+- Oxlint 1 + Oxfmt 0.64 (`semi: false`, `singleQuote: false`, `printWidth: 80`)
 - Tests use `bun:test` (not vitest/jest)
 - Error re-throws must pass `{ cause: e }` as second arg
 - Requests are `.yml` files, one per request
@@ -97,7 +97,7 @@ These are not strictly enforced but reflect noodle's conventions:
 - `bun run audit` must pass
 - `bun run lint` must pass
 - `bun run typecheck` must pass
-- `bunx prettier --check ./src ./tests` must pass
+- `bunx oxfmt --check ./src ./tests` must pass
 - Keep PRs small and focused. One concern per PR.
 - Do not update docs/, CONTRIBUTING.md, or AGENTS.md for normal PRs
 - Reference the issue in the PR description with `Closes #<number>`
@@ -115,7 +115,7 @@ If you are an AI agent helping someone with this repository:
 - Do not use the GitHub CLI, API, or browser automation to submit issues or PRs for a human. Guide them to do it themselves.
 - For bugs: draft only the template fields. Include a real reproduction. Keep scope small.
 - For feature requests, ideas, and questions: guide the human to GitHub Discussions.
-- Run the documented checks before submitting: `bun test`, `bun run audit`, `bun run lint`, `bun run typecheck`, `bunx prettier --check ./src ./tests`.
+- Run the documented checks before submitting: `bun test`, `bun run audit`, `bun run lint`, `bun run typecheck`, `bunx oxfmt --check ./src ./tests`.
 - Make sure the human can explain every change.
 
 ## PR titles

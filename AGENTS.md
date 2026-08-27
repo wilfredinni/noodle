@@ -10,9 +10,9 @@ bun run dev -- --collection ./collections --env development
 bun test                              # all tests (2910 across 188 files)
 bun test tests/lang.test.ts           # single file
 bun run audit                         # fail on vulnerable dependencies
-bun run lint                          # eslint
+bun run lint                          # oxlint
 bun run typecheck                     # tsc --noEmit
-bunx prettier --check ./src ./tests   # format check (prettier 3, --check only src+tests)
+bunx oxfmt --check ./src ./tests      # format check (oxfmt, only src+tests)
 bun run build:bin                    # compile standalone binary via bun build --compile
 bun run release:context              # summarize public surfaces changed since the latest tag
 bun run release:check -- --tag vX.Y.Z # validate code, docs site, and release readiness
@@ -50,9 +50,9 @@ noodle secret <set|list|delete> ... --env <name> [--collection <dir>] [--json]
 
 - **Runtime:** Bun (not Node). `bun run`, `bun test`.
 - **UI:** [OpenTUI](https://github.com/anomius/opentui) React binding (`@opentui/react`, `@opentui/core`). `jsxImportSource: "@opentui/react"` — this is NOT standard React DOM. JSX renders to a terminal TUI. Use `useKeyboard`, `createCliRenderer`, `createRoot` from OpenTUI.
-- **Language:** TypeScript 6, strict mode, `"type": "module"`.
-- **Lint:** ESLint 10 with `@eslint/js` + `typescript-eslint` recommended rules. `no-unused-vars` ignores `_`-prefixed args.
-- **Format:** Prettier 3 — `semi: false`, `singleQuote: false`; use Prettier's default trailing commas.
+- **Language:** TypeScript 7, strict mode, `"type": "module"`.
+- **Lint:** Oxlint 1 with ESLint and TypeScript plugins. `no-unused-vars` ignores `_`-prefixed args.
+- **Format:** Oxfmt 0.64 — `semi: false`, `singleQuote: false`, `printWidth: 80`.
 - **Tests:** `bun:test` (not vitest/jest). `describe`, `it`, `expect`.
 - **Package manager:** Bun. `bun.lock` (not `yarn.lock`/`package-lock.json`).
 
@@ -200,7 +200,7 @@ tests/integration/ # Integration tests
 
 ## Key conventions
 
-- **Prettier check excludes** `.agents/` — only `./src ./tests` must be clean.
+- **Oxfmt check covers** only `./src ./tests`; `.agents/` is not included.
 - **Do NOT commit** `docs/`, `CONTINUE.md`, `.superpowers/`, `.timeline/` (all gitignored).
 - **Commit style:** `feat(scope):`, `fix(scope):`, `test(scope):`, `refactor(scope):`, `style:`, `docs:`.
 - **Requests are `.yml` files**, one per request. Extension is `.yml` not `.yaml`. Optional `sendCookies: false` disables the collection cookie jar for that request (serialized only when set; parsed strictly like `followRedirects`/`maxRedirects`).
