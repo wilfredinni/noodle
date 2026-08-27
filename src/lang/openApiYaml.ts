@@ -3,22 +3,33 @@ import { isRawJsonNumber } from "./formatJson"
 
 const RAW_JSON_INT_RE = /^-?(?:0|[1-9]\d*)$/
 
+const intDumpTag = DUMP_SCHEMA.tags.find(
+  (tag) => tag.nodeKind === "scalar" && tag.tagName === intCoreTag.tagName,
+)
+const floatDumpTag = DUMP_SCHEMA.tags.find(
+  (tag) => tag.nodeKind === "scalar" && tag.tagName === floatCoreTag.tagName,
+)
+
+if (intDumpTag?.nodeKind !== "scalar" || floatDumpTag?.nodeKind !== "scalar") {
+  throw new Error("js-yaml DUMP_SCHEMA is missing numeric tags")
+}
+
 const rawJsonIntTag = {
-  ...intCoreTag,
+  ...intDumpTag,
   identify: (value: unknown) =>
-    intCoreTag.identify(value) ||
+    intDumpTag.identify(value) ||
     (isRawJsonNumber(value) && RAW_JSON_INT_RE.test(value.rawJSON)),
   represent: (value: unknown) =>
-    isRawJsonNumber(value) ? value.rawJSON : intCoreTag.represent(value),
+    isRawJsonNumber(value) ? value.rawJSON : intDumpTag.represent(value),
 }
 
 const rawJsonFloatTag = {
-  ...floatCoreTag,
+  ...floatDumpTag,
   identify: (value: unknown) =>
-    floatCoreTag.identify(value) ||
+    floatDumpTag.identify(value) ||
     (isRawJsonNumber(value) && !RAW_JSON_INT_RE.test(value.rawJSON)),
   represent: (value: unknown) =>
-    isRawJsonNumber(value) ? value.rawJSON : floatCoreTag.represent(value),
+    isRawJsonNumber(value) ? value.rawJSON : floatDumpTag.represent(value),
 }
 
 const openApiYamlSchema = DUMP_SCHEMA.withTags(rawJsonIntTag, rawJsonFloatTag)

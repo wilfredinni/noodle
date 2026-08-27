@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { load } from "js-yaml"
+import { load, YAML11_SCHEMA } from "js-yaml"
 import { parseJsonPreservingNumbers } from "../../src/lang/formatJson"
 import { serializeOpenApiYaml } from "../../src/lang/openApiYaml"
 
@@ -29,5 +29,15 @@ describe("serializeOpenApiYaml", () => {
     expect(serializeOpenApiYaml(document)).toContain(
       "integer: 9007199254740993\ndecimal: 0.12345678901234567890\n",
     )
+  })
+
+  it("quotes strings that YAML 1.1 would resolve as numbers", () => {
+    const value = { sexagesimal: "1:23", binary: "+0b10" }
+
+    const serialized = serializeOpenApiYaml(value)
+
+    expect(serialized).toContain("sexagesimal: '1:23'")
+    expect(serialized).toContain("binary: '+0b10'")
+    expect(load(serialized, { schema: YAML11_SCHEMA })).toEqual(value)
   })
 })
