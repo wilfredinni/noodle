@@ -62,6 +62,9 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     settingsOpened: false,
     cookieExpand: 0,
     cookieEdit: 0,
+    runnerClose: 0,
+    runnerCancel: 0,
+    runnerOptionDown: 0,
     cookieDelete: [] as Array<{
       kind: string
       domain?: string
@@ -152,6 +155,22 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     },
     retryCookieStorage: () => {},
   }
+  const runner = {
+    runnerRef: {
+      current: {
+        phase: "configure",
+        editingOption: null,
+        selectOpen: false,
+        result: null,
+        resultRows: [],
+        optionDown: () => calls.runnerOptionDown++,
+        cancelOptionEdit: () => calls.runnerCancel++,
+      },
+    },
+    detailScrollRef: { current: null },
+    close: () => calls.runnerClose++,
+    openRequestTab: () => {},
+  }
   const context = {
     keymap,
     renderer: {},
@@ -187,6 +206,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     folder,
     environment,
     cookies,
+    runner,
     actions: {
       trySendRef: request.trySendRef,
       envStateRef: environment.envStateRef,
@@ -225,6 +245,7 @@ function KeymapHarness({
     folder: context.folder,
     environment: context.environment,
     cookies: context.cookies,
+    runner: context.runner,
   })
   return null
 }
@@ -240,7 +261,7 @@ describe("app keymap layers", () => {
 
     const layers = createAppKeymapLayers(context)
 
-    expect(layers).toHaveLength(16)
+    expect(layers).toHaveLength(17)
     expect(firstCommandName(layers[0])).toBe("focus.next")
     expect(firstCommandName(layers[1])).toBe("urlbar.tab")
     expect(firstCommandName(layers[2])).toBe("env.picker-open")
@@ -250,6 +271,7 @@ describe("app keymap layers", () => {
     expect(firstCommandName(layers[13])).toBe("cookie.close")
     expect(firstCommandName(layers[14])).toBe("cookie.filter.exit")
     expect(firstCommandName(layers[15])).toBe("cookie.up")
+    expect(firstCommandName(layers[16])).toBe("runner.up")
     cleanup()
   })
 
@@ -292,6 +314,74 @@ describe("app keymap layers", () => {
       key: "ctrl+d",
       cmd: "cookie.delete-cookie",
     })
+    cleanup()
+  })
+
+  it("handles Runner navigation and ignores Escape while a run is active", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "runner")
+    keymap.setData("app.focus", "runner-options")
+    context.global.viewRef.current = "runner"
+    context.global.focusRef.current = "runner-options"
+    const disposers = register(context)
+
+    host.press("down")
+    host.press("escape")
+    expect(calls.runnerOptionDown).toBe(1)
+    expect(calls.runnerClose).toBe(1)
+
+    context.runner.runnerRef.current.phase = "running"
+    host.press("escape")
+    expect(calls.runnerClose).toBe(1)
+
+    context.runner.runnerRef.current.phase = "configure"
+    context.runner.runnerRef.current.editingOption = "include"
+    host.press("escape")
+    expect(calls.runnerCancel).toBe(1)
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("keeps Tab inside an active Runner input or select", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "runner")
+    keymap.setData("app.focus", "runner-options")
+    context.global.viewRef.current = "runner"
+    context.global.focusRef.current = "runner-options"
+    context.runner.runnerRef.current.editingOption = "include"
+    const disposers = register(context)
+
+    host.press("tab")
+    host.press("tab", { shift: true })
+    expect(calls.focus).toBe("")
+
+    context.runner.runnerRef.current.editingOption = null
+    context.runner.runnerRef.current.selectOpen = true
+    host.press("tab")
+    host.press("tab", { shift: true })
+    expect(calls.focus).toBe("")
+
+    disposers.forEach((dispose) => dispose())
+    cleanup()
+  })
+
+  it("does not switch Runner pages before results exist", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    keymap.setData("app.view", "runner")
+    keymap.setData("app.focus", "runner-requests")
+    context.global.viewRef.current = "runner"
+    context.global.focusRef.current = "runner-requests"
+    const disposers = register(context)
+
+    host.press("left")
+    host.press("right")
+    expect(calls.focus).toBe("")
+
+    disposers.forEach((dispose) => dispose())
     cleanup()
   })
 

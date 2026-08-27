@@ -8,11 +8,13 @@ import {
 } from "react"
 import { basename, dirname } from "node:path"
 import type { Dispatch, SetStateAction } from "react"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeymap } from "@opentui/keymap/react"
 import { MainView } from "./MainView"
 import { SIDEBAR_WIDTH } from "./Sidebar"
 import { EnvironmentEditorView } from "./env-editor/EnvironmentEditorView"
 import { CookieJarView } from "./cookie-jar/CookieJarView"
+import { CollectionRunnerView } from "./CollectionRunnerView"
 import {
   SettingsView,
   type CollectionSettingsCategory,
@@ -48,6 +50,7 @@ import {
 import type { TlsPolicy } from "../tls"
 import { useRequestDraft } from "../hooks/useRequestDraft"
 import { useEditBrowse } from "../hooks/useEditBrowse"
+import { useCollectionRunner } from "../hooks/useCollectionRunner"
 import { useFolderDraft } from "../hooks/useFolderDraft"
 import { useFolderEditBrowse } from "../hooks/useFolderEditBrowse"
 import { useEnvironments } from "../hooks/useEnvironments"
@@ -102,8 +105,10 @@ import { useKeymapSync } from "./useKeymapSync"
 import { useEditModeSync } from "./useEditModeSync"
 import {
   closeCollectionExport,
+  openCollectionRunner,
   openEnvironmentEditor,
   openEnvironmentPicker,
+  openRunnerRequestTab,
 } from "./commandActions"
 import { runCollectionExport } from "./collectionExport"
 import {
@@ -300,6 +305,10 @@ export function AppInner({
   const pendingHeaderFieldRef = useRef<"name" | "color" | null>(null)
   const exportPendingRef = useRef(false)
   const importCollectionPendingRef = useRef(false)
+  const [runnerScope, setRunnerScope] = useState<string | null>(null)
+  const [runnerResetKey, setRunnerResetKey] = useState(0)
+  const runnerReturnFocusRef = useRef<Focus>("sidebar")
+  const runnerDetailScrollRef = useRef<ScrollBoxRenderable | null>(null)
 
   // ── Collection ──────────────────────────────────────────────────────
   const isCollection = mode === "collection"
@@ -690,6 +699,55 @@ export function AppInner({
     eb.editState.mode === "editing" ||
     folderEb.editState.mode === "editing" ||
     envEditor.editState.mode === "editing"
+  const runner = useCollectionRunner({
+    collection,
+    collectionDir,
+    folderPath: runnerScope,
+    activeEnvironment: envState.activeName,
+    environmentNames: envState.names,
+    hasUnsavedChanges,
+    noProxy,
+    systemProxy,
+    insecure,
+    resetKey: runnerResetKey,
+  })
+  const runnerRef = useRef(runner)
+  runnerRef.current = runner
+  const resetRunner = useCallback((scope: string | null) => {
+    setRunnerScope(scope)
+    setRunnerResetKey((key) => key + 1)
+  }, [])
+  const handleOpenRunner = useCallback(
+    (scope: string | null) => {
+      runnerReturnFocusRef.current = settingsReturnFocus(
+        viewRef.current,
+        focusRef.current,
+      )
+      const opened = openCollectionRunner(scope, resetRunner, setView, setFocus)
+      setJumpMode(false)
+      return opened
+    },
+    [resetRunner],
+  )
+  const closeRunner = useCallback(() => {
+    if (runnerRef.current.phase === "running") return
+    setView("main")
+    setFocus(runnerReturnFocusRef.current)
+  }, [])
+  const handleOpenRunnerRequestTab = useCallback(
+    (requestId: string, tab: FieldKind) => {
+      if (tab !== "assertions" && tab !== "captures") return
+      openRunnerRequestTab(
+        requestId,
+        tab,
+        revealRequest,
+        eb.enterBrowseAt,
+        setView,
+        setFocus,
+      )
+    },
+    [eb.enterBrowseAt, revealRequest],
+  )
   const {
     collectionSwitcherVisible,
     setCollectionSwitcherVisible,
@@ -841,6 +899,7 @@ export function AppInner({
         queryVisible,
         responseBodyEditorAvailable,
         settingsCategory,
+        runnerPhase: runner.phase,
         keybinds,
       }),
     [
@@ -857,6 +916,7 @@ export function AppInner({
       queryVisible,
       responseBodyEditorAvailable,
       settingsCategory,
+      runner.phase,
       keybinds,
     ],
   )
@@ -1092,6 +1152,12 @@ export function AppInner({
       setCookieFormInitial: overlays.setCookieFormInitial,
       setCookieDeletePending: overlays.setCookieDeletePending,
       retryCookieStorage,
+    },
+    runner: {
+      runnerRef,
+      detailScrollRef: runnerDetailScrollRef,
+      close: closeRunner,
+      openRequestTab: handleOpenRunnerRequestTab,
     },
   })
 
@@ -1402,6 +1468,7 @@ export function AppInner({
         setEnvDeletePending: overlays.setEnvDeletePending,
         onReloadCollection: requestReload,
         paletteTarget,
+        openRunner: handleOpenRunner,
       }),
     [
       keybinds,
@@ -1417,6 +1484,7 @@ export function AppInner({
       view,
       effectiveCollectionMode,
       paletteTarget,
+      handleOpenRunner,
       proxyPolicy,
       tlsPolicy,
       draft.draft?.auth,
@@ -1590,6 +1658,15 @@ export function AppInner({
             onRetry={retryCookieStorage}
             onReset={requestCookieStorageReset}
             resetKey={displayKey(keybinds.cookie_clear)}
+          />
+        ) : view === "runner" && mode === "collection" ? (
+          <CollectionRunnerView
+            runner={runner}
+            focus={focus}
+            hasUnsavedChanges={hasUnsavedChanges}
+            detailScrollRef={runnerDetailScrollRef}
+            onPaneFocus={setFocus}
+            onEditRequestTab={handleOpenRunnerRequestTab}
           />
         ) : view === "settings" ? (
           <SettingsView

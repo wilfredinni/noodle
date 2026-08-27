@@ -12,10 +12,12 @@ export function ResponseResults({
   execution,
   request,
   showCaptures = true,
+  captureLifetimeNote,
 }: {
   execution?: ResponseExecutionResults
   request?: Pick<Request, "assertions" | "captures">
   showCaptures?: boolean
+  captureLifetimeNote?: string
 }) {
   const theme = useTheme()
   const assertions = execution?.assertions
@@ -31,7 +33,7 @@ export function ResponseResults({
   )
 
   if (!hasAssertions && !hasCaptures) {
-    return <text fg={theme.textMuted}>No automation results.</text>
+    return <text fg={theme.textMuted}>No execution results.</text>
   }
 
   return (
@@ -89,6 +91,9 @@ export function ResponseResults({
           <text fg={theme.text} attributes={TextAttributes.BOLD}>
             Captures
           </text>
+          {captureLifetimeNote ? (
+            <text fg={theme.textMuted}>{captureLifetimeNote}</text>
+          ) : null}
           {captures?.evaluated === false ? (
             <>
               <text fg={theme.warning}>Not evaluated</text>

@@ -289,10 +289,14 @@ describe("automation drafts", () => {
 
     drafts = applyDraft(drafts, original.id, original, {
       kind: "revertField",
-      field: "automation",
+      field: "captures",
+    })
+    drafts = applyDraft(drafts, original.id, original, {
+      kind: "revertField",
+      field: "assertions",
     })
     expect(drafts.get(original.id)).toMatchObject({
-      tags: ["smoke"],
+      tags: ["critical"],
       captures: { token: "body.token" },
       assertions: [{ expression: "status", operator: "equals", value: 200 }],
     })

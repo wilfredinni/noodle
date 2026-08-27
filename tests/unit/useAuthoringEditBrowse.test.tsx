@@ -4,12 +4,11 @@ import { createTestRender } from "../testRender"
 import { useRequestDraft } from "../../src/hooks/useRequestDraft"
 import { useEditBrowse } from "../../src/hooks/useEditBrowse"
 import type { Request } from "../../src/schema"
-import { automationRows } from "../../src/ui/automationRows"
 
 const testRender = createTestRender()
 const request: Request = {
-  id: "automation",
-  name: "Automation",
+  id: "authoring",
+  name: "Authoring",
   method: "GET",
   url: "https://example.com",
   headers: {},
@@ -17,7 +16,7 @@ const request: Request = {
   timeout: 0,
 }
 
-describe("useEditBrowse automation rows", () => {
+describe("useEditBrowse assertion, capture, and tag rows", () => {
   it("adds a structured assertion and parses its expected value", async () => {
     const result: { value?: Request["assertions"] } = {}
     function Harness() {
@@ -26,7 +25,7 @@ describe("useEditBrowse automation rows", () => {
       const [step, setStep] = useState(0)
       useEffect(() => {
         if (step === 0) {
-          editor.enterBrowseAt("automation", 2)
+          editor.enterBrowseAt("assertions", 0)
           setStep(1)
         } else if (step === 1 && editor.editState.mode === "browsing") {
           editor.enterEdit()
@@ -65,7 +64,7 @@ describe("useEditBrowse automation rows", () => {
       const [step, setStep] = useState(0)
       useEffect(() => {
         if (step === 0) {
-          editor.enterBrowseAt("automation", 1)
+          editor.enterBrowseAt("captures", 0)
           setStep(1)
         } else if (step === 1 && editor.editState.mode === "browsing") {
           editor.enterEdit()
@@ -95,63 +94,33 @@ describe("useEditBrowse automation rows", () => {
     expect(committed).toBe(false)
   })
 
-  it("activates the same row after committing an earlier add row", async () => {
-    const result: {
-      value?: {
-        tags: string[] | undefined
-        row: number
-        kind: string | undefined
-        key: string
-        expression: string
-      }
-    } = {}
+  it("adds tags from the Settings tab through the existing draft operation", async () => {
+    const result: { value?: string[] } = {}
     function Harness() {
-      const draft = useRequestDraft({
-        ...request,
-        captures: { token: "body.token" },
-      })
+      const draft = useRequestDraft(request)
       const editor = useEditBrowse(draft.draft, draft)
       const [step, setStep] = useState(0)
       useEffect(() => {
         if (step === 0) {
-          editor.enterBrowseAt("automation", 0)
+          editor.enterBrowseAt("settings", 5)
           setStep(1)
         } else if (step === 1 && editor.editState.mode === "browsing") {
           editor.enterEdit()
           setStep(2)
         } else if (step === 2 && editor.editState.mode === "editing") {
-          editor.setEditKey("smoke")
+          editor.setEditValue("smoke")
           setStep(3)
-        } else if (step === 3 && editor.editKey === "smoke") {
-          if (editor.commitEdit()) {
-            editor.activateAt("automation", 2, false, "key")
-          }
+        } else if (step === 3 && editor.editValue === "smoke") {
+          editor.commitEdit()
           setStep(4)
-        } else if (
-          step === 4 &&
-          draft.draft?.tags &&
-          editor.editState.mode === "editing"
-        ) {
-          const row = automationRows(draft.draft)[editor.editState.cursor.row]
-          result.value = {
-            tags: draft.draft.tags,
-            row: editor.editState.cursor.row,
-            kind: row?.kind,
-            key: editor.editKey,
-            expression: editor.editValue,
-          }
+        } else if (step === 4 && draft.draft?.tags) {
+          result.value = draft.draft.tags
         }
       }, [draft.draft, editor, step])
       return null
     }
     const render = await testRender(<Harness />, { width: 20, height: 4 })
-    for (let i = 0; i < 8 && !result.value; i++) await render.renderOnce()
-    expect(result.value).toEqual({
-      tags: ["smoke"],
-      row: 2,
-      kind: "capture",
-      key: "token",
-      expression: "body.token",
-    })
+    for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
+    expect(result.value).toEqual(["smoke"])
   })
 })

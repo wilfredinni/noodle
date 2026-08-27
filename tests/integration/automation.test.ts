@@ -15,9 +15,11 @@ import {
   environmentSet,
   requestCreate,
   requestRun,
+  selectCollectionRunRequests,
   validateId,
   workspaceAudit,
 } from "../../src/app/services"
+import { filestore } from "../../src/filestore"
 import { collection as collectionCommand } from "../../src/app/commands/automation"
 import { env } from "../../src/env"
 import { executor } from "../../src/requests"
@@ -459,6 +461,15 @@ describe("automation services", () => {
       expect(targeted.results.map((result) => result.id)).toEqual([
         "users/list",
       ])
+      const loaded = await filestore.loadCollection(dir)
+      expect(
+        selectCollectionRunRequests(
+          loaded.items,
+          ["users/"],
+          "smoke",
+          "destructive",
+        ).map((request) => request.id),
+      ).toEqual(targeted.results.map((result) => result.id))
     } finally {
       executor.send = send
     }

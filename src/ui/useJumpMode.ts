@@ -203,7 +203,8 @@ export function getAvailableTargets(
       targets.set("x", { kind: "request-tab", field: "pathParams" })
       targets.set("b", { kind: "request-tab", field: "body" })
       targets.set("a", { kind: "request-tab", field: "auth" })
-      targets.set("v", { kind: "request-tab", field: "automation" })
+      targets.set("v", { kind: "request-tab", field: "assertions" })
+      targets.set("c", { kind: "request-tab", field: "captures" })
       targets.set("t", { kind: "request-tab", field: "settings" })
     }
     if (expanded !== "request") {
@@ -224,7 +225,8 @@ export const REQUEST_TAB_HINTS: Record<string, string> = {
   pathParams: "x",
   body: "b",
   auth: "a",
-  automation: "v",
+  assertions: "v",
+  captures: "c",
   settings: "t",
 }
 
@@ -234,31 +236,24 @@ export const RESPONSE_TAB_HINTS: Record<string, string> = {
   results: "i",
   network: "n",
   timeline: "l",
+  cookies: "k",
 }
-
-export const REQUEST_TAB_HINT_ORDER: string[] = [
-  "h",
-  "p",
-  "x",
-  "b",
-  "a",
-  "v",
-  "t",
-]
-export const RESPONSE_TAB_HINT_ORDER: string[] = ["r", "e", "n", "l", "i", "k"]
 export const FOLDER_TAB_HINT_ORDER: string[] = ["m", "h", "a", "y"]
 
-export function computeRequestTabLabels(request: Request | null): string[] {
+export function computeRequestTabLabels(
+  request: Request | null,
+): Record<string, string> {
   if (!request)
-    return [
-      "Headers",
-      "Params",
-      "Path",
-      "Body",
-      "Auth",
-      "Automation",
-      "Settings",
-    ]
+    return {
+      headers: "Headers",
+      params: "Params",
+      pathParams: "Path",
+      body: "Body",
+      auth: "Auth",
+      assertions: "Assert",
+      captures: "Capture",
+      settings: "Settings",
+    }
   const headerActive = Object.values(request.headers).some((e) => e.enabled)
   const paramActive = request.params.some((e) => e.enabled)
   const pathParamActive = (request.pathParams ?? []).some((e) => e.enabled)
@@ -268,18 +263,17 @@ export function computeRequestTabLabels(request: Request | null): string[] {
     (request.filePath !== undefined && request.filePath !== "")
   const hasAuth =
     request.auth?.type !== undefined && request.auth.type !== "none"
-  const hasAutomation =
-    (request.tags?.length ?? 0) > 0 ||
-    Object.keys(request.captures ?? {}).length > 0 ||
-    (request.assertions?.length ?? 0) > 0
-  const hasTimeout = request.timeout > 0
-  return [
-    headerActive ? "Headers \u2022" : "Headers",
-    paramActive ? "Params \u2022" : "Params",
-    pathParamActive ? "Path \u2022" : "Path",
-    hasBody ? "Body \u2022" : "Body",
-    hasAuth ? "Auth \u2022" : "Auth",
-    hasAutomation ? "Automation \u2022" : "Automation",
-    hasTimeout ? "Settings \u2022" : "Settings",
-  ]
+  const hasAssertions = (request.assertions?.length ?? 0) > 0
+  const hasCaptures = Object.keys(request.captures ?? {}).length > 0
+  const hasSettings = request.timeout > 0 || (request.tags?.length ?? 0) > 0
+  return {
+    headers: headerActive ? "Headers \u2022" : "Headers",
+    params: paramActive ? "Params \u2022" : "Params",
+    pathParams: pathParamActive ? "Path \u2022" : "Path",
+    body: hasBody ? "Body \u2022" : "Body",
+    auth: hasAuth ? "Auth \u2022" : "Auth",
+    assertions: hasAssertions ? "Assert \u2022" : "Assert",
+    captures: hasCaptures ? "Capture \u2022" : "Capture",
+    settings: hasSettings ? "Settings \u2022" : "Settings",
+  }
 }

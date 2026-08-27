@@ -58,7 +58,7 @@ function EditingPane({
 }
 
 describe("RequestPane blank click commit", () => {
-  it("does not change tabs when an automation commit is rejected", async () => {
+  it("does not change tabs when a capture commit is rejected", async () => {
     const { keymap, cleanup } = setupKeymap()
     const changes: FieldKind[] = []
     try {
@@ -70,8 +70,8 @@ describe("RequestPane blank click commit", () => {
               editState={{
                 mode: "editing",
                 cursor: {
-                  field: "automation",
-                  row: 1,
+                  field: "captures",
+                  row: 0,
                   addingRow: false,
                   subfield: "key",
                 },
@@ -81,7 +81,7 @@ describe("RequestPane blank click commit", () => {
               editValue="body.token"
               setEditKey={() => {}}
               setEditValue={() => {}}
-              activeTab="automation"
+              activeTab="captures"
               onInteraction={() => false}
               onTabChange={(tab) => changes.push(tab)}
             />

@@ -18,14 +18,15 @@ import { useTheme } from "./theme"
 import { FullBorder } from "./borders"
 import { KeyValueSection } from "./KeyValueSection"
 import { AuthEditor } from "./AuthEditor"
-import { computeRequestTabLabels, REQUEST_TAB_HINT_ORDER } from "./useJumpMode"
+import { computeRequestTabLabels, REQUEST_TAB_HINTS } from "./useJumpMode"
 import { Frame } from "./Frame"
 import { Badge } from "./Badge"
 import { BodyTypeSelector, BodySection } from "./request-pane/RequestBodyTab"
 import { SettingsSection } from "./request-pane/RequestSettingsTab"
 import { syncPathParamsWithUrl } from "./urlParams"
 import type { CodeEditorRenderable } from "./editor/CodeEditor"
-import { AutomationTab } from "./request-pane/AutomationTab"
+import { AssertTab } from "./request-pane/AssertTab"
+import { CaptureTab } from "./request-pane/CaptureTab"
 
 interface Props {
   request: Request | null
@@ -80,7 +81,8 @@ const BASE_TAB_DEFS: TabDef[] = [
   { id: "pathParams", label: "Path" },
   { id: "body", label: "Body" },
   { id: "auth", label: "Auth" },
-  { id: "automation", label: "Automation" },
+  { id: "assertions", label: "Assert" },
+  { id: "captures", label: "Capture" },
   { id: "settings", label: "Settings" },
 ]
 
@@ -167,8 +169,8 @@ export function RequestPane({
       (request?.bodyType === "multipart" || request?.bodyType === "urlencoded")
     ) {
       scrollRef.current?.scrollChildIntoView(`body-${row - 1}`)
-    } else if (field === "automation") {
-      scrollRef.current?.scrollChildIntoView(`automation-${row}`)
+    } else if (field === "assertions" || field === "captures") {
+      scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
     } else if ((field === "auth" || field === "settings") && row > 0) {
       scrollRef.current?.scrollChildIntoView(`${field}-${row}`)
     } else {
@@ -178,10 +180,10 @@ export function RequestPane({
 
   const tabs = useMemo(() => {
     const labels = computeRequestTabLabels(request)
-    return BASE_TAB_DEFS.map((tab, i) => ({
+    return BASE_TAB_DEFS.map((tab) => ({
       ...tab,
-      label: labels[i],
-      jumpHint: jumpMode ? REQUEST_TAB_HINT_ORDER[i] : undefined,
+      label: labels[tab.id] ?? tab.label,
+      jumpHint: jumpMode ? REQUEST_TAB_HINTS[tab.id] : undefined,
     }))
   }, [request, jumpMode])
   return (
@@ -503,8 +505,8 @@ export function RequestPane({
                       showInherit={true}
                     />
                   )}
-                  {activeTab === "automation" && (
-                    <AutomationTab
+                  {activeTab === "assertions" && (
+                    <AssertTab
                       request={request}
                       response={response}
                       editState={editState}
@@ -522,7 +524,7 @@ export function RequestPane({
                               if (onInteraction?.() === false) return
                               onPaneFocus?.()
                               onFieldActivate(
-                                "automation",
+                                "assertions",
                                 row,
                                 false,
                                 subfield,
@@ -535,10 +537,36 @@ export function RequestPane({
                       interactive={interactive}
                     />
                   )}
+                  {activeTab === "captures" && (
+                    <CaptureTab
+                      request={request}
+                      response={response}
+                      editState={editState}
+                      editKey={editKey}
+                      editValue={editValue}
+                      editError={editError}
+                      setEditKey={setEditKey}
+                      setEditValue={setEditValue}
+                      activeEnv={activeEnv}
+                      onActivateRow={
+                        onFieldActivate
+                          ? (row, subfield) => {
+                              if (onInteraction?.() === false) return
+                              onPaneFocus?.()
+                              onFieldActivate("captures", row, false, subfield)
+                            }
+                          : undefined
+                      }
+                      onSubfieldFocus={onFieldSubfieldFocus}
+                      interactive={interactive}
+                    />
+                  )}
                   {activeTab === "settings" && (
                     <SettingsSection
                       request={request}
                       editState={editState}
+                      editValue={editValue}
+                      editError={editError}
                       setEditValue={setEditValue}
                       inEdit={inEdit}
                       browseActive={browseActive}

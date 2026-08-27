@@ -62,9 +62,17 @@ Compose URLs, parameters, headers, authentication, and bodies from a
 keyboard-first workspace. Send the request, then inspect the body, headers,
 cookies, status, timing, and network timeline in the same place.
 
-The request Automation tab edits tags, response captures, and assertions as
-structured rows. Manual sends evaluate captures and assertions with a fresh
-scope each time, then show their redacted outcomes in the response Results tab.
+The request Assert and Capture tabs edit response checks and extracted values as
+structured rows, while request tags live in Settings. Manual sends use a fresh
+scope each time. Results stays available and gains a value indicator when the
+send has assertion or capture outcomes.
+
+In jump mode, `v` opens Assert, `c` opens Capture, and `t` opens Settings.
+
+Run Collection from the command palette opens a transient collection runner for
+choosing requests, environment, tag filters, and fail-fast behavior before
+inspecting ordered results. A folder's context palette opens the same runner
+scoped to that folder.
 
 Noodle supports JSON and XML bodies, JSONPath filtering, redirects, proxies,
 TLS, mTLS, and request authentication including OAuth 1.0a and OAuth 2.0.
@@ -100,7 +108,7 @@ compose, with exclusion winning, and `--fail-fast` records the remaining
 selected request IDs as skipped.
 
 Request YAML can also declare response assertions for status, timing, headers,
-and JSON body paths. Edit them in the TUI Automation tab or as YAML. Manual
+and JSON body paths. Edit them in the TUI Assert tab or as YAML. Manual
 sends show results beside the response; `request run` and `collection run` also
 evaluate them and exit nonzero when a check fails. Collection runs exit `0` on
 success, `1` after any completed request failure, and `2` for a pre-run
@@ -120,8 +128,9 @@ Later requests use the same `$variable` syntax, such as
 `url: $base_url/users/$user_id`. Captures exist only for that run, override
 same-named environment values, and disappear when the command ends. A manual
 TUI send uses a fresh scope, so its captures are inspectable in Results but do
-not affect a later manual send. Timeline history stores redacted assertion
-results, never capture results or RunScope values.
+not affect a later manual send. The collection Runner shares captured values
+only across requests in its current run. Timeline history stores redacted
+assertion results, never capture results or RunScope values.
 
 ## Bring your existing work
 

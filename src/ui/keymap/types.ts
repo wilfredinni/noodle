@@ -17,6 +17,9 @@ import type { Focus, UrlBarSubFocus } from "../focus"
 import type { Keybinds } from "../keybind"
 import type { ResponseQueryController } from "../responseQuery"
 import type { SendState } from "../sendState"
+import type { UseCollectionRunnerResult } from "../../hooks/useCollectionRunner"
+import type { FieldKind } from "../editMode"
+import type { ScrollBoxRenderable } from "@opentui/core"
 
 export interface AppKeymapRuntime {
   keymap: KeymapProviderProps["keymap"]
@@ -132,6 +135,13 @@ export interface AppKeymapCookieJar {
   retryCookieStorage: () => void
 }
 
+export interface AppKeymapRunner {
+  runnerRef: RefObject<UseCollectionRunnerResult>
+  detailScrollRef: RefObject<ScrollBoxRenderable | null>
+  close: () => void
+  openRequestTab: (requestId: string, tab: FieldKind) => void
+}
+
 export interface UseAppKeymapArgs {
   runtime: Omit<AppKeymapRuntime, "keymap" | "renderer">
   global: AppKeymapGlobal
@@ -139,6 +149,7 @@ export interface UseAppKeymapArgs {
   folder: AppKeymapFolder
   environment: AppKeymapEnvironment
   cookies: AppKeymapCookieJar
+  runner: AppKeymapRunner
 }
 
 export interface AppKeymapContext extends AppKeymapRuntime {
@@ -147,5 +158,6 @@ export interface AppKeymapContext extends AppKeymapRuntime {
   folder: AppKeymapFolder
   environment: AppKeymapEnvironment
   cookies: AppKeymapCookieJar
+  runner: AppKeymapRunner
   actions: CommandActionsConfig
 }

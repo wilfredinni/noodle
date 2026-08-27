@@ -4,7 +4,8 @@ export type FieldKind =
   | "pathParams"
   | "body"
   | "auth"
-  | "automation"
+  | "assertions"
+  | "captures"
   | "settings"
   | "meta"
   | "activity"
@@ -32,7 +33,8 @@ export interface SectionRowCount {
   pathParams: number
   body: number
   auth: number
-  automation?: number
+  assertions?: number
+  captures?: number
   settings: number
 }
 
@@ -42,13 +44,30 @@ export interface FolderRowCount {
   auth: number
 }
 
+const SETTINGS_FIXED_ROW_COUNT = 5
+
+function settingsRowAt(position: number, count: number): number {
+  const tagRowCount = count - SETTINGS_FIXED_ROW_COUNT
+  return position < tagRowCount
+    ? SETTINGS_FIXED_ROW_COUNT + position
+    : position - tagRowCount
+}
+
+function settingsRowPosition(row: number, count: number): number {
+  const tagRowCount = count - SETTINGS_FIXED_ROW_COUNT
+  return row >= SETTINGS_FIXED_ROW_COUNT
+    ? row - SETTINGS_FIXED_ROW_COUNT
+    : tagRowCount + row
+}
+
 export const FIELD_ORDER: FieldKind[] = [
   "headers",
   "params",
   "pathParams",
   "body",
   "auth",
-  "automation",
+  "assertions",
+  "captures",
   "settings",
 ]
 
@@ -83,7 +102,8 @@ export function enterEditBrowse(
     pathParams: 0,
     body: 0,
     auth: 0,
-    automation: 0,
+    assertions: 0,
+    captures: 0,
     settings: 0,
   },
   startField: FieldKind = "headers",
@@ -136,7 +156,16 @@ export function cursorForField(
     case "auth":
       return { field, row: 0, addingRow: false }
     case "settings":
-    case "automation":
+      return {
+        field,
+        row:
+          counts.settings > SETTINGS_FIXED_ROW_COUNT
+            ? SETTINGS_FIXED_ROW_COUNT
+            : 0,
+        addingRow: false,
+      }
+    case "assertions":
+    case "captures":
       return { field, row: 0, addingRow: false }
     case "activity":
       return { field, row: 0, addingRow: false }
@@ -183,12 +212,13 @@ export function toggleSubfield(prev: EditState): EditState {
     field !== "params" &&
     field !== "pathParams" &&
     field !== "body" &&
-    field !== "automation" &&
+    field !== "assertions" &&
+    field !== "captures" &&
     field !== "meta"
   )
     return prev
   if (field === "pathParams") return prev
-  if (field === "automation") {
+  if (field === "assertions") {
     const current = prev.cursor.subfield ?? "key"
     const next: FieldSubfield =
       current === "key" ? "operator" : current === "operator" ? "value" : "key"
@@ -246,7 +276,8 @@ export function moveRowCursor(
     field !== "pathParams" &&
     field !== "settings" &&
     field !== "auth" &&
-    field !== "automation" &&
+    field !== "assertions" &&
+    field !== "captures" &&
     field !== "body"
   )
     return prev
@@ -256,7 +287,8 @@ export function moveRowCursor(
   else if (field === "pathParams") count = counts.pathParams
   else if (field === "settings") count = counts.settings
   else if (field === "auth") count = counts.auth
-  else if (field === "automation") count = counts.automation ?? 0
+  else if (field === "assertions") count = counts.assertions ?? 0
+  else if (field === "captures") count = counts.captures ?? 0
   else if (field === "body") count = counts.body
 
   if (count === 0) return prev
@@ -271,7 +303,25 @@ export function moveRowCursor(
   const row = prev.cursor.row
   const next = row + delta
 
-  if (field === "settings" || field === "auth" || field === "automation") {
+  if (field === "settings" && count > SETTINGS_FIXED_ROW_COUNT) {
+    const nextPosition = settingsRowPosition(row, count) + delta
+    if (nextPosition < 0 || nextPosition > count - 1) return prev
+    return {
+      ...prev,
+      cursor: {
+        field,
+        row: settingsRowAt(nextPosition, count),
+        addingRow: false,
+      },
+    }
+  }
+
+  if (
+    field === "settings" ||
+    field === "auth" ||
+    field === "assertions" ||
+    field === "captures"
+  ) {
     // settings has no addingRow state, clamp to bounds
     if (next < 0)
       return { ...prev, cursor: { field, row: 0, addingRow: false } }
@@ -341,7 +391,8 @@ export function moveRowFirst(
     field !== "pathParams" &&
     field !== "settings" &&
     field !== "auth" &&
-    field !== "automation" &&
+    field !== "assertions" &&
+    field !== "captures" &&
     field !== "body"
   )
     return prev
@@ -351,7 +402,8 @@ export function moveRowFirst(
   else if (field === "pathParams") count = counts.pathParams
   else if (field === "settings") count = counts.settings
   else if (field === "auth") count = counts.auth
-  else if (field === "automation") count = counts.automation ?? 0
+  else if (field === "assertions") count = counts.assertions ?? 0
+  else if (field === "captures") count = counts.captures ?? 0
   else if (field === "body") count = counts.body
 
   if (count === 0) {
@@ -362,6 +414,13 @@ export function moveRowFirst(
       return prev
     }
     return prev
+  }
+
+  if (field === "settings" && count > SETTINGS_FIXED_ROW_COUNT) {
+    return {
+      ...prev,
+      cursor: { field, row: SETTINGS_FIXED_ROW_COUNT, addingRow: false },
+    }
   }
 
   return { ...prev, cursor: { field, row: 0, addingRow: false } }
@@ -379,7 +438,8 @@ export function moveRowLast(
     field !== "pathParams" &&
     field !== "settings" &&
     field !== "auth" &&
-    field !== "automation" &&
+    field !== "assertions" &&
+    field !== "captures" &&
     field !== "body"
   )
     return prev
@@ -389,7 +449,8 @@ export function moveRowLast(
   else if (field === "pathParams") count = counts.pathParams
   else if (field === "settings") count = counts.settings
   else if (field === "auth") count = counts.auth
-  else if (field === "automation") count = counts.automation ?? 0
+  else if (field === "assertions") count = counts.assertions ?? 0
+  else if (field === "captures") count = counts.captures ?? 0
   else if (field === "body") count = counts.body
 
   if (field === "headers" || field === "params") {
@@ -400,6 +461,16 @@ export function moveRowLast(
     return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
   }
   if (count === 0) return prev
+  if (field === "settings" && count > SETTINGS_FIXED_ROW_COUNT) {
+    return {
+      ...prev,
+      cursor: {
+        field,
+        row: SETTINGS_FIXED_ROW_COUNT - 1,
+        addingRow: false,
+      },
+    }
+  }
   return { ...prev, cursor: { field, row: count - 1, addingRow: false } }
 }
 
@@ -460,7 +531,8 @@ export function beginEditing(prev: EditState): EditState {
         ? "key"
         : prev.cursor.field === "body"
           ? "key"
-          : prev.cursor.field === "automation"
+          : prev.cursor.field === "assertions" ||
+              prev.cursor.field === "captures"
             ? "key"
             : undefined
   return {

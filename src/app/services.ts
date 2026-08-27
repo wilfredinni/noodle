@@ -183,6 +183,20 @@ function filterRequests(
   }
   return filtered
 }
+
+export function selectCollectionRunRequests(
+  items: CollectionItem[],
+  targets: string[] = [],
+  tag?: string,
+  excludeTag?: string,
+): Request[] {
+  return filterRequests(
+    items,
+    requestsForTargets(items, targets),
+    tag,
+    excludeTag,
+  )
+}
 export type CollectionTreeItem =
   | {
       type: "request"
@@ -836,8 +850,12 @@ export async function collectionRun(
   try {
     dir = await requireCollectionRoot(path)
     collection = await filestore.loadCollection(dir)
-    requests = requestsForTargets(collection.items, targets)
-    requests = filterRequests(collection.items, requests, tag, excludeTag)
+    requests = selectCollectionRunRequests(
+      collection.items,
+      targets,
+      tag,
+      excludeTag,
+    )
     selected = requests.length
     settings = await loadSettings(dir)
     environment = await environmentFor(dir, settings, environmentName)

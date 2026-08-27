@@ -42,11 +42,7 @@ import type { UseRequestDraftResult } from "./useRequestDraft"
 import { formatBody } from "../ui/formatRequest"
 import { syncPathParamsWithUrl } from "../ui/urlParams"
 import { authFieldAtRow, authRowCount, authValueAtRow } from "../ui/authRows"
-import {
-  automationRows,
-  formatAssertionValue,
-  parseAssertionValue,
-} from "../ui/automationRows"
+import { formatAssertionValue, parseAssertionValue } from "../ui/assertionValue"
 
 function isTextBodyType(bodyType: BodyType | undefined): boolean {
   return bodyType === undefined || bodyType === "json" || bodyType === "xml"
@@ -60,8 +56,9 @@ function rowCount(req: Request | null): SectionRowCount {
       pathParams: 0,
       body: 0,
       auth: 1,
-      automation: 3,
-      settings: 5,
+      assertions: 1,
+      captures: 1,
+      settings: 6,
     }
   const authRows = authRowCount(req.auth)
   const body =
@@ -76,37 +73,36 @@ function rowCount(req: Request | null): SectionRowCount {
     pathParams: syncPathParamsWithUrl(req.pathParams ?? [], req.url).length,
     body,
     auth: authRows,
-    automation: automationRows(req).length,
-    settings: 5,
+    assertions: (req.assertions?.length ?? 0) + 1,
+    captures: Object.keys(req.captures ?? {}).length + 1,
+    settings: 6 + (req.tags?.length ?? 0),
   }
 }
 
-function automationEditValues(
+function assertionEditValues(
   request: Request | null,
   row: number,
 ): { key: string; operator: AssertionOperator; value: string } {
-  const item = automationRows(request)[row]
-  if (!item) return { key: "", operator: "equals", value: "" }
-  if (item.kind === "tag") {
-    return { key: item.value, operator: "equals", value: "" }
-  }
-  if (item.kind === "capture") {
-    return {
-      key: item.variable,
-      operator: "equals",
-      value: item.expression,
-    }
-  }
-  if (item.kind === "assertion") {
-    return {
-      key: item.assertion.expression,
-      operator: item.assertion.operator,
-      value: Object.hasOwn(item.assertion, "value")
-        ? formatAssertionValue(item.assertion.value!)
-        : "",
-    }
-  }
-  return { key: "", operator: "equals", value: "" }
+  const assertion = request?.assertions?.[row]
+  return assertion
+    ? {
+        key: assertion.expression,
+        operator: assertion.operator,
+        value: Object.hasOwn(assertion, "value")
+          ? formatAssertionValue(assertion.value!)
+          : "",
+      }
+    : { key: "", operator: "equals", value: "" }
+}
+
+function captureEditValues(
+  request: Request | null,
+  row: number,
+): { key: string; value: string } {
+  const capture = Object.entries(request?.captures ?? {})[row]
+  return capture
+    ? { key: capture[0], value: capture[1] }
+    : { key: "", value: "" }
 }
 
 function currentValueFor(
@@ -148,6 +144,7 @@ function currentValueFor(
         ? "inherit"
         : String(draft.tls.verify)
     }
+    if (row >= 5) return draft.tags?.[row - 5] ?? ""
     return ""
   }
   if (field === "headers") {
@@ -205,6 +202,8 @@ function currentKeyValueFor(
       return { key: "", value: String(draft.followRedirects ?? true) }
     if (row === 2) return { key: "", value: String(draft.maxRedirects ?? 5) }
     if (row === 3)
+      return { key: "", value: currentValueFor(draft, field, row, false) }
+    if (row >= 5)
       return { key: "", value: currentValueFor(draft, field, row, false) }
     return { key: "", value: "" }
   }
@@ -388,10 +387,14 @@ export function useEditBrowse(
       const currentDraft = draftRef.current
       setEditError(null)
 
-      if (field === "automation") {
-        const values = automationEditValues(currentDraft, row)
+      if (field === "assertions") {
+        const values = assertionEditValues(currentDraft, row)
         setEditKey(values.key)
         setEditOperator(values.operator)
+        setEditValue(values.value)
+      } else if (field === "captures") {
+        const values = captureEditValues(currentDraft, row)
+        setEditKey(values.key)
         setEditValue(values.value)
       } else if (
         field === "body" &&
@@ -480,10 +483,17 @@ export function useEditBrowse(
 
     const browsed = enterEditBrowse(state, c, tab)
     setEditError(null)
-    if (browsed.cursor.field === "automation") {
-      const values = automationEditValues(currentDraft, browsed.cursor.row)
+    if (browsed.cursor.field === "assertions") {
+      const values = assertionEditValues(currentDraft, browsed.cursor.row)
       setEditKey(values.key)
       setEditOperator(values.operator)
+      setEditValue(values.value)
+      setEditState(beginEditing(browsed))
+      return
+    }
+    if (browsed.cursor.field === "captures") {
+      const values = captureEditValues(currentDraft, browsed.cursor.row)
+      setEditKey(values.key)
       setEditValue(values.value)
       setEditState(beginEditing(browsed))
       return
@@ -712,10 +722,17 @@ export function useEditBrowse(
     }
     if (field === "settings" && row === 3) return
     const currentDraft = draftRef.current
-    if (field === "automation") {
-      const values = automationEditValues(currentDraft, row)
+    if (field === "assertions") {
+      const values = assertionEditValues(currentDraft, row)
       setEditKey(values.key)
       setEditOperator(values.operator)
+      setEditValue(values.value)
+      setEditState((prev) => beginEditing(prev))
+      return
+    }
+    if (field === "captures") {
+      const values = captureEditValues(currentDraft, row)
+      setEditKey(values.key)
       setEditValue(values.value)
       setEditState((prev) => beginEditing(prev))
       return
@@ -782,81 +799,68 @@ export function useEditBrowse(
     const { field } = state.cursor
     const addingRow = state.cursor.addingRow
     const val = editValueRef.current
-    if (field === "automation") {
+    if (field === "captures") {
       const current = draftRef.current
-      const item = automationRows(current)[state.cursor.row]
-      if (!current || !item) return false
+      if (!current) return false
       const key = editKeyRef.current
       const value = editValueRef.current
       const fail = (message: string) => {
         setEditError(message)
         return false
       }
-
-      if (item.kind === "tag" || item.kind === "add-tag") {
-        if (!isValidTag(key))
-          return fail("Tag must be a non-empty trimmed string")
-        const tags = [...(current.tags ?? [])]
-        if (item.kind === "tag") tags[item.index] = key
-        else tags.push(key)
-        draftMutators.setTags(tags)
-        draftRef.current = {
-          ...current,
-          tags: tags.length > 0 ? tags : undefined,
-        }
-      } else if (item.kind === "capture" || item.kind === "add-capture") {
-        if (!isValidVariableName(key)) return fail("Invalid variable name")
-        try {
-          parseResponseExpression(value)
-        } catch (error) {
-          return fail(error instanceof Error ? error.message : String(error))
-        }
-        const entries = Object.entries(current.captures ?? {})
-        const replacedIndex = item.kind === "capture" ? item.index : -1
-        if (
-          entries.some(
-            ([name], index) => name === key && index !== replacedIndex,
-          )
-        ) {
-          return fail(`Capture variable "${key}" already exists`)
-        }
-        if (item.kind === "capture") entries[item.index] = [key, value]
-        else entries.push([key, value])
-        const captures = Object.fromEntries(entries)
-        draftMutators.setCaptures(captures)
-        draftRef.current = {
-          ...current,
-          captures: Object.keys(captures).length > 0 ? captures : undefined,
-        }
-      } else {
-        try {
-          parseResponseExpression(key)
-        } catch (error) {
-          return fail(error instanceof Error ? error.message : String(error))
-        }
-        const operator = editOperatorRef.current
-        let assertion: ResponseAssertion
-        if (assertionOperatorRequiresValue(operator)) {
-          const expected = parseAssertionValue(value)
-          const valueError = assertionValueValidationError(
-            operator,
-            expected,
-            "Expected value",
-          )
-          if (valueError) return fail(valueError)
-          assertion = { expression: key, operator, value: expected }
-        } else {
-          assertion = { expression: key, operator }
-        }
-        const assertions = [...(current.assertions ?? [])]
-        if (item.kind === "assertion") assertions[item.index] = assertion
-        else assertions.push(assertion)
-        draftMutators.setAssertions(assertions)
-        draftRef.current = {
-          ...current,
-          assertions: assertions.length > 0 ? assertions : undefined,
-        }
+      if (!isValidVariableName(key)) return fail("Invalid variable name")
+      try {
+        parseResponseExpression(value)
+      } catch (error) {
+        return fail(error instanceof Error ? error.message : String(error))
       }
+      const entries = Object.entries(current.captures ?? {})
+      const replacedIndex =
+        state.cursor.row < entries.length ? state.cursor.row : -1
+      if (
+        entries.some(([name], index) => name === key && index !== replacedIndex)
+      ) {
+        return fail(`Capture variable "${key}" already exists`)
+      }
+      if (replacedIndex >= 0) entries[replacedIndex] = [key, value]
+      else entries.push([key, value])
+      const captures = Object.fromEntries(entries)
+      draftMutators.setCaptures(captures)
+      draftRef.current = { ...current, captures }
+      setEditError(null)
+    } else if (field === "assertions") {
+      const current = draftRef.current
+      if (!current) return false
+      const key = editKeyRef.current
+      const fail = (message: string) => {
+        setEditError(message)
+        return false
+      }
+      try {
+        parseResponseExpression(key)
+      } catch (error) {
+        return fail(error instanceof Error ? error.message : String(error))
+      }
+      const operator = editOperatorRef.current
+      let assertion: ResponseAssertion
+      if (assertionOperatorRequiresValue(operator)) {
+        const expected = parseAssertionValue(val)
+        const valueError = assertionValueValidationError(
+          operator,
+          expected,
+          "Expected value",
+        )
+        if (valueError) return fail(valueError)
+        assertion = { expression: key, operator, value: expected }
+      } else {
+        assertion = { expression: key, operator }
+      }
+      const assertions = [...(current.assertions ?? [])]
+      if (state.cursor.row < assertions.length)
+        assertions[state.cursor.row] = assertion
+      else assertions.push(assertion)
+      draftMutators.setAssertions(assertions)
+      draftRef.current = { ...current, assertions }
       setEditError(null)
     } else if (field === "body") {
       const currentBody = draftRef.current
@@ -901,6 +905,20 @@ export function useEditBrowse(
         draftMutators.setMaxRedirects(
           Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 5,
         )
+      } else if (row >= 5) {
+        const current = draftRef.current
+        if (!current) return false
+        if (!isValidTag(val)) {
+          setEditError("Tag must be a non-empty trimmed string")
+          return false
+        }
+        const tags = [...(current.tags ?? [])]
+        const tagIndex = row - 5
+        if (tagIndex < tags.length) tags[tagIndex] = val
+        else tags.push(val)
+        draftMutators.setTags(tags)
+        draftRef.current = { ...current, tags }
+        setEditError(null)
       }
     } else if (field === "pathParams") {
       const key = editKeyRef.current.trim()
@@ -939,12 +957,10 @@ export function useEditBrowse(
 
   const browseTab = useCallback(() => {
     setEditState((prev) => {
-      if (prev.mode !== "editing" || prev.cursor.field !== "automation") {
+      if (prev.mode !== "editing") {
         return toggleSubfield(prev)
       }
-      const item = automationRows(draftRef.current)[prev.cursor.row]
-      if (!item || item.kind === "tag" || item.kind === "add-tag") return prev
-      if (item.kind === "capture" || item.kind === "add-capture") {
+      if (prev.cursor.field === "captures") {
         return {
           ...prev,
           cursor: {
@@ -953,6 +969,7 @@ export function useEditBrowse(
           },
         }
       }
+      if (prev.cursor.field !== "assertions") return toggleSubfield(prev)
       const subfield = prev.cursor.subfield ?? "key"
       const next =
         subfield === "key"
@@ -973,28 +990,18 @@ export function useEditBrowse(
       draftMutators.revertField(field, row)
       return
     }
-    if (field === "automation") {
-      const item = automationRows(draftRef.current)[row]
-      if (
-        !item ||
-        item.kind === "add-tag" ||
-        item.kind === "add-capture" ||
-        item.kind === "add-assertion"
-      )
-        return
-      if (item.kind === "tag") {
-        const tags = [...(draftRef.current?.tags ?? [])]
-        tags.splice(item.index, 1)
-        draftMutators.setTags(tags)
-      } else if (item.kind === "capture") {
-        const entries = Object.entries(draftRef.current?.captures ?? {})
-        entries.splice(item.index, 1)
-        draftMutators.setCaptures(Object.fromEntries(entries))
-      } else {
-        const assertions = [...(draftRef.current?.assertions ?? [])]
-        assertions.splice(item.index, 1)
-        draftMutators.setAssertions(assertions)
-      }
+    if (field === "captures") {
+      const entries = Object.entries(draftRef.current?.captures ?? {})
+      if (row >= entries.length) return
+      entries.splice(row, 1)
+      draftMutators.setCaptures(Object.fromEntries(entries))
+      return
+    }
+    if (field === "assertions") {
+      const assertions = [...(draftRef.current?.assertions ?? [])]
+      if (row >= assertions.length) return
+      assertions.splice(row, 1)
+      draftMutators.setAssertions(assertions)
       return
     }
     if (field === "body") {
@@ -1015,7 +1022,15 @@ export function useEditBrowse(
       return
     }
     if (field === "settings") {
-      draftMutators.revertField(field)
+      if (row >= 5) {
+        const tags = [...(draftRef.current?.tags ?? [])]
+        const tagIndex = row - 5
+        if (tagIndex >= tags.length) return
+        tags.splice(tagIndex, 1)
+        draftMutators.setTags(tags)
+      } else {
+        draftMutators.revertField(field)
+      }
     } else if (field === "pathParams") {
       if (addingRow) return
       draftMutators.revertField(field, row)

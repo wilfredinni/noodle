@@ -325,10 +325,10 @@ export function applyDraft(
         if (op.row === undefined || op.row === 0) {
           draft.auth = original.auth
         }
-      } else if (op.field === "automation") {
-        draft.tags = original.tags
-        draft.captures = original.captures
+      } else if (op.field === "assertions") {
         draft.assertions = original.assertions
+      } else if (op.field === "captures") {
+        draft.captures = original.captures
       }
       break
     }
