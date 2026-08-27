@@ -63,6 +63,15 @@ export type ResponseAssertion =
       value: AssertionValue
     }
 
+export interface AssertionResult {
+  expression: string
+  operator: AssertionOperator
+  expected?: AssertionValue
+  actual?: AssertionValue
+  passed: boolean
+  message: string
+}
+
 export interface FormEntry {
   name: string
   value: string
@@ -324,6 +333,10 @@ export interface TimelineEntry {
   timestamp: number
   envName?: string
   network?: NetworkEvent[]
+  assertions?: {
+    evaluated: boolean
+    results: AssertionResult[]
+  }
   request: {
     id: string
     name: string

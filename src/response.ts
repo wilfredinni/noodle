@@ -35,6 +35,48 @@ export function parseResponseBody(body: string): ParsedResponseBody {
   }
 }
 
+export function responseExpressionSuggestions(
+  response?: Pick<Response, "headers" | "body">,
+): string[] {
+  const suggestions = new Set([
+    "status",
+    "body",
+    "body.",
+    "headers.",
+    "response.time",
+  ])
+  if (!response) return [...suggestions]
+
+  for (const name of Object.keys(response.headers)) {
+    const expression = `headers.${name}`
+    try {
+      parseResponseExpression(expression)
+      suggestions.add(expression)
+    } catch {
+      // Ignore invalid server-provided header names.
+    }
+  }
+
+  const parsed = parseResponseBody(response.body)
+  if (
+    parsed.kind === "success" &&
+    parsed.value !== null &&
+    typeof parsed.value === "object" &&
+    !Array.isArray(parsed.value)
+  ) {
+    for (const key of Object.keys(parsed.value)) {
+      const expression = `body.${key}`
+      try {
+        parseResponseExpression(expression)
+        suggestions.add(expression)
+      } catch {
+        // Only parser-supported top-level keys are useful completions.
+      }
+    }
+  }
+  return [...suggestions]
+}
+
 export function parseResponseExpression(
   expression: string,
 ): ResponseExpression {

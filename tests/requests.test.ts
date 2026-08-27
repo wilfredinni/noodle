@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import type { Request, Environment } from "../src/schema"
-import { substitute } from "../src/requests/substitute"
+import { isValidVariableName, substitute } from "../src/requests/substitute"
 import { bodyForSend } from "../src/requests/send"
 import { defaultOAuth1Auth, defaultOAuth2Auth } from "../src/auth/defaults"
 
@@ -152,6 +152,14 @@ describe("substitute — formData", () => {
     const req = makeReq({ bodyType: "binary" })
     const result = substitute(req, env)
     expect(result.filePath).toBeUndefined()
+  })
+})
+
+describe("capture variable names", () => {
+  it("exports the canonical variable-name rule", () => {
+    expect(isValidVariableName("token_2")).toBe(true)
+    expect(isValidVariableName("bad-name")).toBe(false)
+    expect(isValidVariableName("")).toBe(false)
   })
 })
 

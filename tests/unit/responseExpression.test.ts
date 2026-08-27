@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import {
   createResponseResolver,
   parseResponseExpression,
+  responseExpressionSuggestions,
 } from "../../src/response"
 import type { Response } from "../../src/schema"
 
@@ -21,6 +22,21 @@ function response(overrides: Partial<Response> = {}): Response {
 }
 
 describe("response expressions", () => {
+  it("suggests grammar roots and current response fields", () => {
+    expect(responseExpressionSuggestions(response())).toEqual(
+      expect.arrayContaining([
+        "status",
+        "body.",
+        "headers.Content-Type",
+        "headers.X-Trace",
+        "response.time",
+        "body.id",
+        "body.user",
+        "body.users",
+      ]),
+    )
+  })
+
   it("parses the supported grammar", () => {
     expect(parseResponseExpression("status")).toEqual({ kind: "status" })
     expect(parseResponseExpression("response.time")).toEqual({

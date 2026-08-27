@@ -14,7 +14,13 @@ import type {
   RequestTlsSettings,
 } from "../schema"
 import { parseResponseExpression } from "../response"
-import { compileAssertionRegex } from "../assertions"
+import {
+  ASSERTION_OPERATORS,
+  assertionOperatorRequiresValue,
+  assertionValueValidationError,
+} from "../assertions"
+import { isValidVariableName } from "../requests/substitute"
+import { isValidTag } from "../tags"
 import { parseAuth } from "./auth"
 
 const METHODS: readonly Method[] = [
@@ -35,35 +41,6 @@ const BODY_TYPES = [
   "urlencoded",
   "binary",
 ] as const
-
-const ASSERTION_WITHOUT_VALUE_OPERATORS = [
-  "exists",
-  "notExists",
-  "isString",
-  "isNumber",
-  "isBoolean",
-  "isArray",
-  "isObject",
-  "isNull",
-  "notNull",
-] as const satisfies readonly AssertionWithoutValueOperator[]
-
-const ASSERTION_WITH_VALUE_OPERATORS = [
-  "equals",
-  "notEquals",
-  "gt",
-  "gte",
-  "lt",
-  "lte",
-  "contains",
-  "notContains",
-  "matches",
-] as const satisfies readonly AssertionWithValueOperator[]
-
-const ASSERTION_OPERATORS: readonly AssertionOperator[] = [
-  ...ASSERTION_WITHOUT_VALUE_OPERATORS,
-  ...ASSERTION_WITH_VALUE_OPERATORS,
-]
 
 function isBodyType(s: string): s is BodyType {
   return (BODY_TYPES as readonly string[]).includes(s as BodyType)
@@ -287,7 +264,7 @@ export function parseTags(
     if (typeof tag !== "string") {
       throw new Error(`${prefix}: tags[${index}] must be a string`)
     }
-    if (!tag || tag.trim() !== tag) {
+    if (!isValidTag(tag)) {
       throw new Error(
         `${prefix}: tags[${index}] must be a non-empty trimmed string`,
       )
@@ -305,7 +282,7 @@ function parseCaptures(value: unknown): Record<string, string> | undefined {
 
   const captures: Record<string, string> = {}
   for (const [variable, expression] of Object.entries(value)) {
-    if (!/^\w+$/.test(variable)) {
+    if (!isValidVariableName(variable)) {
       throw new Error(
         `lang.parseRequest: invalid capture variable "${variable}"`,
       )
@@ -371,11 +348,7 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
     }
 
     const hasValue = Object.hasOwn(raw, "value")
-    if (
-      ASSERTION_WITHOUT_VALUE_OPERATORS.includes(
-        raw.operator as AssertionWithoutValueOperator,
-      )
-    ) {
+    if (!assertionOperatorRequiresValue(raw.operator as AssertionOperator)) {
       if (hasValue) {
         throw new Error(
           `lang.parseRequest: assert[${index}].operator "${raw.operator}" does not accept value`,
@@ -392,28 +365,12 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
       )
     }
 
-    assertJsonValue(raw.value, `assert[${index}].value`, new Set())
-    if (
-      ["gt", "gte", "lt", "lte"].includes(raw.operator) &&
-      (typeof raw.value !== "number" || !Number.isFinite(raw.value))
-    ) {
-      throw new Error(
-        `lang.parseRequest: assert[${index}].operator "${raw.operator}" requires a finite numeric value`,
-      )
-    }
-    if (raw.operator === "matches") {
-      if (typeof raw.value !== "string") {
-        throw new Error(
-          `lang.parseRequest: assert[${index}].operator "matches" requires a string value`,
-        )
-      }
-      const compiled = compileAssertionRegex(raw.value)
-      if (compiled.kind === "error") {
-        throw new Error(
-          `lang.parseRequest: assert[${index}].operator "matches": ${compiled.message}`,
-        )
-      }
-    }
+    const valueError = assertionValueValidationError(
+      raw.operator as AssertionWithValueOperator,
+      raw.value,
+      `assert[${index}].value`,
+    )
+    if (valueError) throw new Error(`lang.parseRequest: ${valueError}`)
     return {
       expression: raw.expression,
       operator: raw.operator as AssertionWithValueOperator,
@@ -421,49 +378,6 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
     }
   })
   return assertions.length > 0 ? assertions : undefined
-}
-
-function assertJsonValue(
-  value: unknown,
-  path: string,
-  ancestors: Set<object>,
-): asserts value is AssertionValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean"
-  ) {
-    return
-  }
-  if (typeof value === "number") {
-    if (Number.isFinite(value)) return
-    throw new Error(`lang.parseRequest: ${path} must contain finite numbers`)
-  }
-  if (typeof value !== "object") {
-    throw new Error(
-      `lang.parseRequest: ${path} must be a JSON-compatible value`,
-    )
-  }
-  if (ancestors.has(value)) {
-    throw new Error(`lang.parseRequest: ${path} must not contain cycles`)
-  }
-  ancestors.add(value)
-  if (Array.isArray(value)) {
-    value.forEach((item, index) =>
-      assertJsonValue(item, `${path}[${index}]`, ancestors),
-    )
-  } else {
-    const prototype = Object.getPrototypeOf(value)
-    if (prototype !== Object.prototype && prototype !== null) {
-      throw new Error(
-        `lang.parseRequest: ${path} must be a JSON-compatible value`,
-      )
-    }
-    for (const [key, item] of Object.entries(value)) {
-      assertJsonValue(item, `${path}.${key}`, ancestors)
-    }
-  }
-  ancestors.delete(value)
 }
 
 function parseRequestTls(value: unknown): RequestTlsSettings | undefined {

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test"
-import { compileAssertionRegex, evaluateAssertions } from "../../src/assertions"
+import {
+  ASSERTION_OPERATORS,
+  assertionOperatorRequiresValue,
+  assertionValueValidationError,
+  compileAssertionRegex,
+  evaluateAssertions,
+} from "../../src/assertions"
 import type { Response, ResponseAssertion } from "../../src/schema"
 
 function response(body: unknown): Response {
@@ -22,6 +28,26 @@ const body = {
 }
 
 describe("response assertions", () => {
+  it("exposes the canonical operator registry and value requirement", () => {
+    expect(ASSERTION_OPERATORS).toContain("exists")
+    expect(ASSERTION_OPERATORS).toContain("equals")
+    expect(assertionOperatorRequiresValue("equals")).toBe(true)
+    expect(assertionOperatorRequiresValue("exists")).toBe(false)
+  })
+
+  it("shares expected-value compatibility validation", () => {
+    expect(assertionValueValidationError("equals", { ok: true })).toBeNull()
+    expect(assertionValueValidationError("equals", Number.NaN)).toContain(
+      "finite numbers",
+    )
+    expect(assertionValueValidationError("lt", "$MAX_TIME")).toContain(
+      "finite numeric value",
+    )
+    expect(assertionValueValidationError("matches", "[")).toContain(
+      "Invalid regular expression",
+    )
+  })
+
   const cases: Array<{
     operator: ResponseAssertion["operator"]
     passing: ResponseAssertion
