@@ -62,6 +62,10 @@ Compose URLs, parameters, headers, authentication, and bodies from a
 keyboard-first workspace. Send the request, then inspect the body, headers,
 cookies, status, timing, and network timeline in the same place.
 
+The request Automation tab edits tags, response captures, and assertions as
+structured rows. Manual sends evaluate captures and assertions with a fresh
+scope each time, then show their redacted outcomes in the response Results tab.
+
 Noodle supports JSON and XML bodies, JSONPath filtering, redirects, proxies,
 TLS, mTLS, and request authentication including OAuth 1.0a and OAuth 2.0.
 
@@ -96,11 +100,12 @@ compose, with exclusion winning, and `--fail-fast` records the remaining
 selected request IDs as skipped.
 
 Request YAML can also declare response assertions for status, timing, headers,
-and JSON body paths. `request run` and `collection run` evaluate them and exit
-nonzero when a check fails. Collection runs exit `0` on success, `1` after any
-completed request failure, and `2` for a pre-run configuration failure. JSON
-includes every executed result, fail-fast skips, failure categories, and the
-aggregate run summary.
+and JSON body paths. Edit them in the TUI Automation tab or as YAML. Manual
+sends show results beside the response; `request run` and `collection run` also
+evaluate them and exit nonzero when a check fails. Collection runs exit `0` on
+success, `1` after any completed request failure, and `2` for a pre-run
+configuration failure. JSON includes every executed result, fail-fast skips,
+failure categories, and the aggregate run summary.
 
 Collection runs can pass response values forward without writing them to an
 environment file:
@@ -113,7 +118,10 @@ capture:
 
 Later requests use the same `$variable` syntax, such as
 `url: $base_url/users/$user_id`. Captures exist only for that run, override
-same-named environment values, and disappear when the command ends.
+same-named environment values, and disappear when the command ends. A manual
+TUI send uses a fresh scope, so its captures are inspectable in Results but do
+not affect a later manual send. Timeline history stores redacted assertion
+results, never capture results or RunScope values.
 
 ## Bring your existing work
 

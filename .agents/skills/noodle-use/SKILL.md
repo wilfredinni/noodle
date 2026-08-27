@@ -42,7 +42,7 @@ capture:
   request_id: headers.x-request-id
 ```
 
-Names use `^\w+$`. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions. Capture expressions are not variable-substituted. Environment values load first, RunScope values override them, and the latest successful capture wins. A missing or invalid traversal fails the capture without creating or replacing a variable. Successful values from the same capture block still commit, and assertion failure does not roll them back. Values exist only until that `request run` or `collection run` returns and never modify collection or environment files. TUI sends preserve captures but do not evaluate them.
+Names use `^\w+$`. Expressions use the same `status`, `response.time`, case-insensitive `headers.<name>`, and JSON `body` path grammar as assertions. Capture expressions are not variable-substituted. Environment values load first, RunScope values override them, and the latest successful capture wins. A missing or invalid traversal fails the capture without creating or replacing a variable. Successful values from the same capture block still commit, and assertion failure does not roll them back. Values exist only until that `request run` or `collection run` returns and never modify collection or environment files. Human users can edit captures and assertions in the TUI Automation tab. Each manual TUI send evaluates them with a fresh RunScope, shows redacted outcomes in Results, and never carries captured values into a later manual send.
 
 ### File extension
 `.yml` NOT `.yaml`. Requests are one-per-file. Folders use `folder.yml`.
