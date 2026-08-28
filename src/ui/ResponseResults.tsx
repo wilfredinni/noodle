@@ -8,7 +8,10 @@ import { useTheme } from "./theme"
 
 function formatValue(value: JsonValue | undefined): string {
   if (value === undefined) return "—"
-  return typeof value === "string" ? value : JSON.stringify(value)
+  if (typeof value === "string") return value
+  return typeof value === "object" && value !== null
+    ? JSON.stringify(value, null, 2)
+    : JSON.stringify(value)
 }
 
 export function ResponseResults({
@@ -258,7 +261,7 @@ export function ResponseResults({
             <>
               {activeCaptures.map(([variable, capture]) => (
                 <text key={variable} fg={theme.textMuted}>
-                  {`  – ${variable} ← ${capture.value}`}
+                  {`  – ${variable} ${capture.value}`}
                 </text>
               ))}
             </>
@@ -273,7 +276,7 @@ export function ResponseResults({
                     kindLabel={result.success ? "CAPTURED" : "FAILED"}
                     kindColor={result.success ? theme.success : theme.error}
                     name={result.variable}
-                    value={`← ${result.expression}`}
+                    value={result.expression}
                     nameWidth={captureNameWidth}
                     selected={
                       selectedRowIdx === assertionResults.length + index
@@ -283,9 +286,10 @@ export function ResponseResults({
                     details={
                       result.success
                         ? [
+                            { label: "Type", value: result.type },
                             {
                               label: "Value",
-                              value: `(${result.type}: ${formatValue(result.value)})`,
+                              value: formatValue(result.value),
                             },
                           ]
                         : [{ label: "Message", value: result.message }]

@@ -95,6 +95,9 @@ export function CookieRow({
   const displayValue = deleted ? "Deleted" : value || "(empty)"
   const rowValueColor = valueColor ?? theme.textMuted
   const chevron = expanded ? "▾" : "▸"
+  const detailLabelWidth = details
+    ? cookieNameWidth(details.map(({ label }) => ({ name: label })))
+    : 0
 
   return (
     <box
@@ -146,26 +149,57 @@ export function CookieRow({
         </text>
       </box>
       {expanded && details ? (
-        details.map(({ label, value: detailValue }) => (
-          <box
-            key={label}
-            style={{
-              flexDirection: "row",
-              paddingLeft: COOKIE_CHEVRON_WIDTH,
-            }}
-          >
-            <text fg={theme.text} width={nameWidth} wrapMode="none">
-              {label}
-            </text>
-            <text
-              fg={label === "Value" ? rowValueColor : theme.textMuted}
-              wrapMode="char"
-              style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
+        details.map(({ label, value: detailValue }) => {
+          const multiline = detailValue.includes("\n")
+          const detailColor =
+            label === "Value" ? rowValueColor : theme.textMuted
+          return (
+            <box
+              key={label}
+              style={{
+                flexDirection: "column",
+                paddingLeft: COOKIE_CHEVRON_WIDTH,
+                minWidth: 0,
+              }}
             >
-              {detailValue}
-            </text>
-          </box>
-        ))
+              <box style={{ flexDirection: "row", minWidth: 0 }}>
+                <text
+                  fg={theme.textMuted}
+                  width={detailLabelWidth}
+                  wrapMode="none"
+                >
+                  {label}
+                </text>
+                {!multiline ? (
+                  <text
+                    fg={detailColor}
+                    wrapMode="char"
+                    style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
+                  >
+                    {detailValue}
+                  </text>
+                ) : null}
+              </box>
+              {multiline ? (
+                <box
+                  style={{
+                    paddingLeft: detailLabelWidth,
+                    flexGrow: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  <text
+                    fg={detailColor}
+                    wrapMode="char"
+                    style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
+                  >
+                    {detailValue}
+                  </text>
+                </box>
+              ) : null}
+            </box>
+          )
+        })
       ) : expanded ? (
         <box style={{ paddingLeft: COOKIE_CHEVRON_WIDTH }}>
           <text

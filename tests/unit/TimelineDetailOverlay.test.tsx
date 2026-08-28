@@ -230,7 +230,7 @@ describe("TimelineDetailOverlay", () => {
     await act(async () => host.press("return"))
     await renderOnce()
 
-    expect(captureCharFrame()).toContain("Expected 201")
+    expect(captureCharFrame()).toMatch(/Expected[ \t]+201/)
     cleanup()
   })
 
