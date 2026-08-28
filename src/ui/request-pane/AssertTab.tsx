@@ -93,6 +93,7 @@ export function AssertTab({
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
       {rows.map(({ assertion, row, addingRow }, index) => {
         const selected =
+          editState.mode !== "inactive" &&
           cursorHere &&
           editState.cursor.addingRow === addingRow &&
           (addingRow || editState.cursor.row === row)
@@ -158,7 +159,7 @@ export function AssertTab({
                       }
                     : undefined
                 }
-                style={{ flexGrow: 5, flexShrink: 1, flexBasis: 0 }}
+                style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
               >
                 <VarInput
                   value={expression}
@@ -221,7 +222,7 @@ export function AssertTab({
                       }
                     : undefined
                 }
-                style={{ flexGrow: 3, flexShrink: 1, flexBasis: 0 }}
+                style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
               >
                 {showExpected ? (
                   <VarInput

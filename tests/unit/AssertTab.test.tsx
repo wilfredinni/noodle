@@ -115,7 +115,7 @@ describe("AssertTab", () => {
               request={tableRequest}
               editState={{
                 mode: "inactive",
-                cursor: { field: "headers", row: -1, addingRow: false },
+                cursor: { field: "assertions", row: 0, addingRow: false },
                 editingRow: -1,
               }}
               editKey=""
@@ -153,6 +153,18 @@ describe("AssertTab", () => {
       const valueLessCells = valueLess.getChildren() as BoxRenderable[]
       const addCells = add.getChildren() as BoxRenderable[]
 
+      expect(
+        first.backgroundColor.equals(
+          RGBA.fromHex(THEMES[0]!.backgroundElement),
+        ),
+      ).toBe(false)
+      expect(
+        Math.abs(
+          firstCells[1]!.x +
+            firstCells[1]!.width / 2 -
+            (first.x + first.width / 2),
+        ),
+      ).toBeLessThanOrEqual(0.5)
       expect(firstCells[2]!.x).toBe(valueLessCells[2]!.x)
       expect(firstCells[2]!.width).toBe(valueLessCells[2]!.width)
       expect(valueLessCells[2]!.getChildren()).toHaveLength(0)
