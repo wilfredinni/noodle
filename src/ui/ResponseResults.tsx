@@ -40,12 +40,28 @@ export function ResponseResults({
     <box style={{ flexDirection: "column", gap: 1 }}>
       {hasAssertions ? (
         <box style={{ flexDirection: "column" }}>
-          <text fg={theme.text} attributes={TextAttributes.BOLD}>
-            Assertions
-          </text>
+          <box style={{ flexDirection: "row", gap: 1 }}>
+            <text fg={theme.text} attributes={TextAttributes.BOLD}>
+              Assertions
+            </text>
+            {assertions ? (
+              <text
+                fg={
+                  assertions.evaluated
+                    ? assertionPassed === assertions.results.length
+                      ? theme.success
+                      : theme.error
+                    : theme.warning
+                }
+              >
+                {assertions.evaluated
+                  ? `${assertionPassed} passed · ${assertions.results.length - assertionPassed} failed`
+                  : "Not evaluated"}
+              </text>
+            ) : null}
+          </box>
           {assertions?.evaluated === false ? (
             <>
-              <text fg={theme.warning}>Not evaluated</text>
               {(request?.assertions ?? []).map((assertion, index) => (
                 <text key={index} fg={theme.textMuted}>
                   {`  – ${assertion.expression} ${assertion.operator}`}
@@ -54,15 +70,6 @@ export function ResponseResults({
             </>
           ) : assertions ? (
             <>
-              <text
-                fg={
-                  assertionPassed === assertions.results.length
-                    ? theme.success
-                    : theme.error
-                }
-              >
-                {`${assertionPassed} passed · ${assertions.results.length - assertionPassed} failed`}
-              </text>
               {assertions.results.map((result, index) => (
                 <box key={index} style={{ flexDirection: "column" }}>
                   <text fg={result.passed ? theme.success : theme.error}>
@@ -88,15 +95,31 @@ export function ResponseResults({
 
       {hasCaptures ? (
         <box style={{ flexDirection: "column" }}>
-          <text fg={theme.text} attributes={TextAttributes.BOLD}>
-            Captures
-          </text>
+          <box style={{ flexDirection: "row", gap: 1 }}>
+            <text fg={theme.text} attributes={TextAttributes.BOLD}>
+              Captures
+            </text>
+            {captures ? (
+              <text
+                fg={
+                  captures.evaluated
+                    ? capturePassed === captures.results.length
+                      ? theme.success
+                      : theme.error
+                    : theme.warning
+                }
+              >
+                {captures.evaluated
+                  ? `${capturePassed} captured · ${captures.results.length - capturePassed} failed`
+                  : "Not evaluated"}
+              </text>
+            ) : null}
+          </box>
           {captureLifetimeNote ? (
             <text fg={theme.textMuted}>{captureLifetimeNote}</text>
           ) : null}
           {captures?.evaluated === false ? (
             <>
-              <text fg={theme.warning}>Not evaluated</text>
               {Object.entries(request?.captures ?? {}).map(
                 ([variable, expression]) => (
                   <text key={variable} fg={theme.textMuted}>
@@ -107,15 +130,6 @@ export function ResponseResults({
             </>
           ) : captures ? (
             <>
-              <text
-                fg={
-                  capturePassed === captures.results.length
-                    ? theme.success
-                    : theme.error
-                }
-              >
-                {`${capturePassed} captured · ${captures.results.length - capturePassed} failed`}
-              </text>
               {captures.results.map((result, index) => (
                 <box key={index} style={{ flexDirection: "column" }}>
                   <text fg={result.success ? theme.success : theme.error}>

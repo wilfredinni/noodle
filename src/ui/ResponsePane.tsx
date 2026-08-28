@@ -615,7 +615,6 @@ export function ResponsePane({
                       : undefined
                   }
                   request={state.status === "error" ? state.request : undefined}
-                  captureLifetimeNote="This send only."
                 />
               </scrollbox>
             )

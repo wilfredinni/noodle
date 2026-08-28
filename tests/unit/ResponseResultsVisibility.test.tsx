@@ -83,7 +83,7 @@ describe("response Results", () => {
     cleanup()
   })
 
-  it("renders manual capture totals, redacted values, and send-only lifetime copy", async () => {
+  it("renders manual capture totals and redacted values", async () => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")
     const state: SendState = {
@@ -118,9 +118,10 @@ describe("response Results", () => {
     )
     await render.renderOnce()
     const frame = render.captureCharFrame()
+    expect(frame).toMatch(/Captures 1 captured · 0 failed/)
     expect(frame).toContain("1 captured · 0 failed")
     expect(frame).toContain("[REDACTED]")
-    expect(frame).toContain("This send only.")
+    expect(frame).not.toContain("This send only.")
     cleanup()
   })
 

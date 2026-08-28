@@ -45,6 +45,8 @@ describe("ResponseResults", () => {
     )
     await renderOnce()
     const frame = captureCharFrame()
+    expect(frame).toMatch(/Assertions 0 passed · 1 failed/)
+    expect(frame).toMatch(/Captures 1 captured · 0 failed/)
     expect(frame).toContain("0 passed · 1 failed")
     expect(frame).toContain("expected: 201")
     expect(frame).toContain("actual: 200")
