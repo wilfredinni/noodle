@@ -38,6 +38,7 @@ export interface SelectProps {
   interactive?: boolean
   triggerPriority?: number
   triggerBackgroundColor?: string
+  triggerColor?: string
 }
 
 export function Select({
@@ -57,6 +58,7 @@ export function Select({
   interactive = true,
   triggerPriority = 50,
   triggerBackgroundColor,
+  triggerColor,
 }: SelectProps) {
   const theme = useTheme()
   const keymap = useKeymap()
@@ -190,7 +192,7 @@ export function Select({
       : contrastColor
     : open
       ? contrastColor
-      : theme.text
+      : (triggerColor ?? theme.text)
 
   const indicatorColor = selectedBadgeBg
     ? visualFocused
@@ -199,7 +201,7 @@ export function Select({
     : selectedItem
       ? open
         ? contrastColor
-        : theme.text
+        : (triggerColor ?? theme.text)
       : theme.textMuted
 
   const dropdownWidth = useMemo(() => {

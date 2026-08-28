@@ -126,10 +126,15 @@ export function ResponseResults({
     assertions?.results.filter((result) => result.passed).length ?? 0
   const capturePassed =
     captures?.results.filter((result) => result.success).length ?? 0
-  const hasAssertions = Boolean(assertions || request?.assertions?.length)
+  const activeAssertions = (request?.assertions ?? []).filter(
+    (assertion) => assertion.enabled !== false,
+  )
+  const activeCaptures = Object.entries(request?.captures ?? {}).filter(
+    ([, capture]) => capture.enabled,
+  )
+  const hasAssertions = Boolean(assertions || activeAssertions.length)
   const hasCaptures = Boolean(
-    showCaptures &&
-    (captures || Object.keys(request?.captures ?? {}).length > 0),
+    showCaptures && (captures || activeCaptures.length > 0),
   )
 
   if (!hasAssertions && !hasCaptures) {
@@ -162,7 +167,7 @@ export function ResponseResults({
           </box>
           {assertions?.evaluated === false ? (
             <>
-              {(request?.assertions ?? []).map((assertion, index) => (
+              {activeAssertions.map((assertion, index) => (
                 <text key={index} fg={theme.textMuted}>
                   {`  – ${assertion.expression} ${assertion.operator}`}
                 </text>
@@ -241,13 +246,11 @@ export function ResponseResults({
           ) : null}
           {captures?.evaluated === false ? (
             <>
-              {Object.entries(request?.captures ?? {}).map(
-                ([variable, expression]) => (
-                  <text key={variable} fg={theme.textMuted}>
-                    {`  – ${variable} ← ${expression}`}
-                  </text>
-                ),
-              )}
+              {activeCaptures.map(([variable, capture]) => (
+                <text key={variable} fg={theme.textMuted}>
+                  {`  – ${variable} ← ${capture.value}`}
+                </text>
+              ))}
             </>
           ) : captures ? (
             <box style={{ flexDirection: "column" }}>

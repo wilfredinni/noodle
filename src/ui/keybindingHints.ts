@@ -326,6 +326,8 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
       const toggleSegments =
         ctx.tab === "headers" ||
         ctx.tab === "params" ||
+        ctx.tab === "assertions" ||
+        ctx.tab === "captures" ||
         (ctx.tab === "body" &&
           (ctx.bodyType === "urlencoded" || ctx.bodyType === "multipart"))
           ? [{ key: "Space", word: "toggle", command: "browse.toggle" }]

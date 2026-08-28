@@ -53,7 +53,8 @@ export function KeyValueSection({
         : kind === "captures"
           ? "captures"
           : "ppr"
-  const showsToggle = kind === "headers" || kind === "params"
+  const showsToggle =
+    kind === "headers" || kind === "params" || kind === "captures"
   const keyPlaceholder = kind === "captures" ? "Variable..." : "Key..."
   const valuePlaceholder =
     kind === "captures" ? "Response expression..." : "Value..."

@@ -56,11 +56,13 @@ export type ResponseAssertion =
       expression: string
       operator: AssertionWithoutValueOperator
       value?: never
+      enabled?: boolean
     }
   | {
       expression: string
       operator: AssertionWithValueOperator
       value: AssertionValue
+      enabled?: boolean
     }
 
 export interface AssertionResult {
@@ -260,7 +262,7 @@ export interface Request {
   filePath?: string
   auth?: Auth
   tls?: RequestTlsSettings
-  captures?: Record<string, string>
+  captures?: Record<string, KvEntry>
   assertions?: ResponseAssertion[]
 }
 

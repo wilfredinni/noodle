@@ -1153,10 +1153,12 @@ describe("lang.parseRequest: response captures", () => {
     )
 
     expect(request.captures).toEqual({
-      user_id: "body.user.id",
-      request_id: "headers.x-request-id",
+      user_id: { value: "body.user.id", enabled: true },
+      request_id: { value: "headers.x-request-id", enabled: true },
     })
     const serialized = lang.serializeRequest(request)
+    expect(serialized).toContain("  user_id: body.user.id\n")
+    expect(serialized).not.toContain("enabled: true")
     expect(serialized.indexOf("capture:")).toBeLessThan(
       serialized.indexOf("assert:"),
     )
@@ -1177,7 +1179,9 @@ describe("lang.parseRequest: response captures", () => {
     ).toThrow('lang.parseRequest: invalid capture variable "user-id"')
     expect(() =>
       lang.parseRequest("captures", `${prefix}capture:\n  user_id: 42\n`),
-    ).toThrow("lang.parseRequest: capture.user_id must be a string")
+    ).toThrow(
+      "lang.parseRequest: capture.user_id must be a string or {value, enabled} object",
+    )
     expect(() =>
       lang.parseRequest("captures", `${prefix}capture:\n  user_id: body..id\n`),
     ).toThrow(
@@ -1201,8 +1205,52 @@ describe("lang.parseRequest: response captures", () => {
     )
 
     expect(Object.hasOwn(request.captures!, "__proto__")).toBe(true)
-    expect(request.captures?.__proto__).toBe("body.meta")
+    expect(request.captures?.__proto__).toEqual({
+      value: "body.meta",
+      enabled: true,
+    })
     expect(lang.serializeRequest(request)).toContain("__proto__: body.meta")
+  })
+
+  it("persists disabled captures canonically and normalizes enabled objects", () => {
+    const request = lang.parseRequest(
+      "captures",
+      `${prefix}capture:\n  disabled: { value: body.disabled, enabled: false }\n  enabled:\n    value: body.enabled\n    enabled: true\n`,
+    )
+
+    expect(request.captures).toEqual({
+      disabled: { value: "body.disabled", enabled: false },
+      enabled: { value: "body.enabled", enabled: true },
+    })
+    const serialized = lang.serializeRequest(request)
+    expect(serialized).toContain(
+      "disabled: { value: body.disabled, enabled: false }",
+    )
+    expect(serialized).toContain("enabled: body.enabled")
+    expect(lang.parseRequest("captures", serialized).captures).toEqual(
+      request.captures,
+    )
+  })
+
+  it("strictly validates capture objects even when disabled", () => {
+    expect(() =>
+      lang.parseRequest(
+        "captures",
+        `${prefix}capture:\n  token: { value: body.token, enabled: nope }\n`,
+      ),
+    ).toThrow("lang.parseRequest: capture.token.enabled must be a boolean")
+    expect(() =>
+      lang.parseRequest(
+        "captures",
+        `${prefix}capture:\n  token: { value: body.token, enabled: false, extra: true }\n`,
+      ),
+    ).toThrow('lang.parseRequest: unknown capture.token field "extra"')
+    expect(() =>
+      lang.parseRequest(
+        "captures",
+        `${prefix}capture:\n  token: { value: body..token, enabled: false }\n`,
+      ),
+    ).toThrow('Invalid response expression "body..token"')
   })
 })
 
@@ -1239,6 +1287,29 @@ describe("lang.parseRequest — response assertions", () => {
     expect(lang.serializeRequest(request)).not.toContain("assert:")
   })
 
+  it("persists disabled assertions and omits enabled true", () => {
+    const request = lang.parseRequest(
+      "assertions",
+      `${prefix}assert:\n  - expression: status\n    operator: equals\n    value: 200\n    enabled: false\n  - expression: body.id\n    operator: exists\n    enabled: true\n`,
+    )
+
+    expect(request.assertions).toEqual([
+      {
+        expression: "status",
+        operator: "equals",
+        value: 200,
+        enabled: false,
+      },
+      { expression: "body.id", operator: "exists" },
+    ])
+    const serialized = lang.serializeRequest(request)
+    expect(serialized).toContain("    enabled: false\n")
+    expect(serialized).not.toContain("enabled: true")
+    expect(lang.parseRequest("assertions", serialized).assertions).toEqual(
+      request.assertions,
+    )
+  })
+
   it("rejects malformed assertion containers and items", () => {
     expect(() =>
       lang.parseRequest("assertions", `${prefix}assert: {}\n`),
@@ -1269,6 +1340,27 @@ describe("lang.parseRequest — response assertions", () => {
         `${prefix}assert:\n  - expression: status\n    operator: equalz\n    value: 200\n`,
       ),
     ).toThrow('lang.parseRequest: invalid assert[0].operator "equalz"')
+  })
+
+  it("strictly validates enabled and declarations while disabled", () => {
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: status\n    operator: exists\n    enabled: nope\n`,
+      ),
+    ).toThrow("lang.parseRequest: assert[0].enabled must be a boolean")
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: body..id\n    operator: exists\n    enabled: false\n`,
+      ),
+    ).toThrow('Invalid response expression "body..id"')
+    expect(() =>
+      lang.parseRequest(
+        "assertions",
+        `${prefix}assert:\n  - expression: status\n    operator: equals\n    enabled: false\n`,
+      ),
+    ).toThrow('operator "equals" requires value')
   })
 
   it("enforces value presence and absence by operator", () => {

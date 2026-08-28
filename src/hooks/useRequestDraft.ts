@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { Auth, Method, Request, ResponseAssertion } from "../schema"
+import type {
+  Auth,
+  KvEntry,
+  Method,
+  Request,
+  ResponseAssertion,
+} from "../schema"
 import type { BodyType } from "../schema"
 import type { FieldKind } from "../ui/editMode"
 import { requestEquals, removeRequestDraftEntry } from "./draftUtils"
@@ -57,8 +63,10 @@ export interface UseRequestDraftResult {
   toggleFormRow: (index: number) => void
   setFilePath: (path: string) => void
   setTags: (tags: string[]) => void
-  setCaptures: (captures: Record<string, string>) => void
+  setCaptures: (captures: Record<string, KvEntry>) => void
+  toggleCaptureRow: (index: number) => void
   setAssertions: (assertions: ResponseAssertion[]) => void
+  toggleAssertionRow: (index: number) => void
   markSaved: (request: Request) => void
   moveRequestDraft: (oldId: string, request: Request) => void
   resetRequestDraft: (id: string) => void
@@ -233,13 +241,21 @@ export function useRequestDraft(
     [apply],
   )
   const setCaptures = useCallback(
-    (captures: Record<string, string>) =>
+    (captures: Record<string, KvEntry>) =>
       apply({ kind: "setCaptures", captures }),
+    [apply],
+  )
+  const toggleCaptureRow = useCallback(
+    (index: number) => apply({ kind: "toggleCaptureRow", index }),
     [apply],
   )
   const setAssertions = useCallback(
     (assertions: ResponseAssertion[]) =>
       apply({ kind: "setAssertions", assertions }),
+    [apply],
+  )
+  const toggleAssertionRow = useCallback(
+    (index: number) => apply({ kind: "toggleAssertionRow", index }),
     [apply],
   )
   const revertField = useCallback(
@@ -371,7 +387,9 @@ export function useRequestDraft(
       setFilePath: setFilePathCb,
       setTags,
       setCaptures,
+      toggleCaptureRow,
       setAssertions,
+      toggleAssertionRow,
       markSaved,
       moveRequestDraft,
       resetRequestDraft,
@@ -415,7 +433,9 @@ export function useRequestDraft(
       setFilePathCb,
       setTags,
       setCaptures,
+      toggleCaptureRow,
       setAssertions,
+      toggleAssertionRow,
       markSaved,
       moveRequestDraft,
       resetRequestDraft,

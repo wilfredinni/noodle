@@ -35,13 +35,15 @@ export function executionSecretValues(
 export function unevaluatedExecutionResults(
   request: Pick<Request, "assertions" | "captures">,
 ): ResponseExecutionResults {
+  const hasCaptures = Object.values(request.captures ?? {}).some(
+    (capture) => capture.enabled,
+  )
+  const hasAssertions = request.assertions?.some(
+    (assertion) => assertion.enabled !== false,
+  )
   return {
-    ...(request.captures && Object.keys(request.captures).length > 0
-      ? { captures: { evaluated: false, results: [] } }
-      : {}),
-    ...(request.assertions?.length
-      ? { assertions: { evaluated: false, results: [] } }
-      : {}),
+    ...(hasCaptures ? { captures: { evaluated: false, results: [] } } : {}),
+    ...(hasAssertions ? { assertions: { evaluated: false, results: [] } } : {}),
   }
 }
 
@@ -53,8 +55,14 @@ export function evaluateResponseExecution(
 ): ResponseExecutionResults {
   const resolve = createResponseResolver(response)
   const redact = (value: string) => redactKnownSecrets(value, secretValues)
-  const rawCaptures = request.captures
-    ? evaluateCaptures(request.captures, resolve)
+  const hasCaptures = Object.values(request.captures ?? {}).some(
+    (capture) => capture.enabled,
+  )
+  const hasAssertions = request.assertions?.some(
+    (assertion) => assertion.enabled !== false,
+  )
+  const rawCaptures = hasCaptures
+    ? evaluateCaptures(request.captures!, resolve)
     : undefined
   for (const result of rawCaptures ?? []) {
     if (result.success) runScope.set(result.variable, result.value)
@@ -64,8 +72,8 @@ export function evaluateResponseExecution(
       ? { ...result, value: redactExecutionValue(result.value, redact) }
       : { ...result, message: redact(result.message) },
   )
-  const assertions = request.assertions?.length
-    ? evaluateAssertions(request.assertions, response, resolve).map(
+  const assertions = hasAssertions
+    ? evaluateAssertions(request.assertions!, response, resolve).map(
         (result): AssertionResult => ({
           ...result,
           ...(Object.hasOwn(result, "expected")

@@ -67,6 +67,10 @@ structured rows, while request tags live in Settings. Manual sends use a fresh
 scope each time. Results stays available and gains a value indicator when the
 send has assertion or capture outcomes.
 
+Assert and Capture rows use the same per-row checkboxes as Headers and Params.
+Disabled declarations remain in the request but are skipped by manual sends,
+the collection Runner, and CLI runs.
+
 In jump mode, `v` opens Assert, `c` opens Capture, and `t` opens Settings.
 
 Run Collection from the command palette opens a transient collection runner for
@@ -122,7 +126,11 @@ environment file:
 capture:
   user_id: body.id
   request_id: headers.x-request-id
+  optional_trace: { value: headers.x-trace, enabled: false }
 ```
+
+Enabled captures keep the string shorthand. Assertions accept the same optional
+`enabled: false` field on each list item; omitted `enabled` means enabled.
 
 Later requests use the same `$variable` syntax, such as
 `url: $base_url/users/$user_id`. Captures exist only for that run, override

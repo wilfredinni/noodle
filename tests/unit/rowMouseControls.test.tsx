@@ -53,9 +53,10 @@ describe("request row mouse controls", () => {
     expect(toggles).toEqual([0])
   })
 
-  it("uses key/value row interactions for captures without toggles", async () => {
+  it("activates and toggles capture rows independently", async () => {
     const activations: Array<[number, boolean, "key" | "value" | undefined]> =
       []
+    const toggles: number[] = []
     const { renderOnce, captureCharFrame, mockMouse } = await testRender(
       <ThemeProvider activeIndex={0} previewIndex={null}>
         <box width={80} height={4}>
@@ -80,6 +81,7 @@ describe("request row mouse controls", () => {
             onActivateRow={(row, addingRow, subfield) =>
               activations.push([row, addingRow, subfield])
             }
+            onToggleRow={(row) => toggles.push(row)}
           />
         </box>
       </ThemeProvider>,
@@ -92,10 +94,11 @@ describe("request row mouse controls", () => {
     expect(frame).toContain("body.token")
     expect(frame).toContain("Variable...")
     expect(frame).toContain("Response expression...")
-    expect(frame).not.toContain("[x]")
+    expect(frame).toContain("[x]")
     expect(frame).not.toContain("Extract response values")
     expect(frame).not.toContain("←")
 
+    await mockMouse.click(1, 0, MouseButtons.LEFT)
     await mockMouse.click(8, 0, MouseButtons.LEFT)
     await mockMouse.click(60, 0, MouseButtons.LEFT)
     await mockMouse.click(8, 1, MouseButtons.LEFT)
@@ -107,6 +110,7 @@ describe("request row mouse controls", () => {
       [-1, true, "key"],
       [-1, true, "value"],
     ])
+    expect(toggles).toEqual([0])
   })
 
   it("shows capture validation under the active row", async () => {
@@ -144,6 +148,37 @@ describe("request row mouse controls", () => {
     )
     await renderOnce()
     expect(captureCharFrame()).toContain("Invalid variable name")
+  })
+
+  it("mutes disabled capture rows", async () => {
+    const { renderOnce, captureCharFrame, captureSpans } = await testRender(
+      <ThemeProvider activeIndex={0} previewIndex={null}>
+        <box width={80} height={3}>
+          <KeyValueSection
+            kind="captures"
+            entries={[
+              {
+                key: "disabled_token",
+                value: { value: "body.token", enabled: false },
+              },
+            ]}
+            editState={initialEditState()}
+            editKey=""
+            editValue=""
+            setEditKey={() => {}}
+            setEditValue={() => {}}
+            theme={THEMES[0]!}
+          />
+        </box>
+      </ThemeProvider>,
+      { width: 80, height: 3 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("[ ]")
+    const span = captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((candidate) => candidate.text.includes("disabled_token"))
+    expect(span!.fg.equals(RGBA.fromHex(THEMES[0]!.textMuted))).toBe(true)
   })
 
   it("activates and toggles form rows independently", async () => {

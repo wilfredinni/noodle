@@ -118,6 +118,13 @@ describe("getKeybindingHints footer", () => {
       seg("^r", "revert all", "browse.revert-all"),
       seg("f2", "expand", "request.expand-toggle"),
     ])
+
+    for (const tab of ["assertions", "captures"] as const) {
+      expect(
+        getKeybindingHints(ctx({ focus: "request", paneMode: "browse", tab }))
+          .footer,
+      ).toContainEqual(seg("Space", "toggle", "browse.toggle"))
+    }
   })
 
   it("uses folder and environment command variants", () => {

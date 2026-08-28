@@ -1243,6 +1243,37 @@ describe("automation services", () => {
     }
   })
 
+  it("omits disabled-only declarations from run results and summaries", async () => {
+    await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
+    await writeFile(
+      join(dir, "request.yml"),
+      "name: Request\nmethod: GET\nurl: https://example.com\ncapture:\n  id: { value: body.id, enabled: false }\nassert:\n  - expression: body.missing\n    operator: exists\n    enabled: false\n",
+    )
+    const send = executor.send
+    executor.send = async () => ({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: '{"id":42}',
+      timeMs: 1,
+    })
+    try {
+      const result = await collectionRun(dir)
+      expect(result.failed).toBe(false)
+      expect(result.results[0]).not.toHaveProperty("captures")
+      expect(result.results[0]).not.toHaveProperty("assertions")
+      expect(result.results[0]?.failureCategories).toEqual([])
+      expect(result.summary).toMatchObject({
+        assertionPasses: 0,
+        assertionFailures: 0,
+        captureFailures: 0,
+        failureCategories: [],
+      })
+    } finally {
+      executor.send = send
+    }
+  })
+
   it("marks collection run failed when any assertion fails", async () => {
     await writeFile(join(dir, "settings.yml"), "cookies:\n  enabled: false\n")
     await writeFile(

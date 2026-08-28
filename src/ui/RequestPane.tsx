@@ -539,6 +539,15 @@ export function RequestPane({
                           : undefined
                       }
                       onSubfieldFocus={onFieldSubfieldFocus}
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldToggle("assertions", row)
+                            }
+                          : undefined
+                      }
                       onSelectOpenChange={onSelectOpenChange}
                       interactive={interactive}
                     />
@@ -547,10 +556,7 @@ export function RequestPane({
                     <KeyValueSection
                       kind="captures"
                       entries={Object.entries(request.captures ?? {}).map(
-                        ([key, value]) => ({
-                          key,
-                          value: { value, enabled: true },
-                        }),
+                        ([key, value]) => ({ key, value }),
                       )}
                       editState={editState}
                       editKey={editKey}
@@ -572,6 +578,15 @@ export function RequestPane({
                                 addingRow,
                                 subfield,
                               )
+                            }
+                          : undefined
+                      }
+                      onToggleRow={
+                        onFieldToggle
+                          ? (row) => {
+                              onInteraction?.()
+                              onPaneFocus?.()
+                              onFieldToggle("captures", row)
                             }
                           : undefined
                       }

@@ -289,11 +289,37 @@ describe("substitute — response assertions", () => {
       { expression: "body.$FIELD", operator: "exists" },
     ])
   })
+
+  it("does not substitute disabled assertion values", () => {
+    const result = substitute(
+      makeReq({
+        assertions: [
+          {
+            expression: "body.id",
+            operator: "equals",
+            value: "$MISSING",
+            enabled: false,
+          },
+        ],
+      }),
+      { name: "dev", vars: {} },
+    )
+    expect(result.assertions).toEqual([
+      {
+        expression: "body.id",
+        operator: "equals",
+        value: "$MISSING",
+        enabled: false,
+      },
+    ])
+  })
 })
 
 describe("substitute: response captures", () => {
   it("preserves capture expressions without substituting them", () => {
-    const captures = { user_id: "body.$path" }
+    const captures = {
+      user_id: { value: "body.$path", enabled: true },
+    }
     const result = substitute(makeReq({ captures }), {
       name: "test",
       vars: { path: "id" },

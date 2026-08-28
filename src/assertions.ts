@@ -193,7 +193,10 @@ export function evaluateAssertions(
   response: Response,
   resolve: ResponseResolver = createResponseResolver(response),
 ): AssertionResult[] {
-  return assertions.map((assertion) => {
+  const activeAssertions = assertions.filter(
+    (assertion) => assertion.enabled !== false,
+  )
+  return activeAssertions.map((assertion) => {
     const resolution = resolve(assertion.expression)
     const expected = Object.hasOwn(assertion, "value")
       ? { expected: assertion.value }

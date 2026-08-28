@@ -12,6 +12,7 @@ import {
 } from "../../assertions"
 import { responseExpressionSuggestions } from "../../response"
 import type { EditState, FieldSubfield } from "../editMode"
+import { Checkbox } from "../Checkbox"
 import { Select } from "../Select"
 import { useTheme } from "../theme"
 import { VarInput } from "../VarInput"
@@ -40,6 +41,7 @@ interface Props {
     addingRow: boolean,
     subfield?: FieldSubfield,
   ) => void
+  onToggleRow?: (row: number) => void
   onSubfieldFocus?: (subfield: FieldSubfield) => void
   onSelectOpenChange?: (open: boolean) => void
   interactive?: boolean
@@ -58,6 +60,7 @@ export function AssertTab({
   setEditOperator,
   activeEnv,
   onActivateRow,
+  onToggleRow,
   onSubfieldFocus,
   onSelectOpenChange,
   interactive = true,
@@ -98,9 +101,12 @@ export function AssertTab({
           editState.cursor.addingRow === addingRow &&
           (addingRow || editState.cursor.row === row)
         const editing = selected && inEdit
-        const dimmed = inEdit && !editing
+        const dimmed = (inEdit && !editing) || assertion?.enabled === false
         const hoverKey = addingRow ? "add" : row
-        const canHover = !editing && onActivateRow !== undefined
+        const canHover =
+          !editing &&
+          (onActivateRow !== undefined ||
+            (!addingRow && onToggleRow !== undefined))
         const backgroundColor =
           selected || (canHover && hoveredRow === hoverKey)
             ? theme.backgroundElement
@@ -149,6 +155,22 @@ export function AssertTab({
               onMouseOver={canHover ? () => setHoveredRow(hoverKey) : undefined}
               onMouseOut={canHover ? () => setHoveredRow(null) : undefined}
             >
+              <box
+                onMouseDown={
+                  !addingRow && onToggleRow
+                    ? (event) => {
+                        if (event.button !== MouseButton.LEFT) return
+                        onToggleRow(row)
+                        event.stopPropagation()
+                      }
+                    : undefined
+                }
+              >
+                <Checkbox
+                  checked={!addingRow && assertion?.enabled !== false}
+                  theme={theme}
+                />
+              </box>
               <box
                 onMouseDown={
                   !editing
@@ -206,6 +228,7 @@ export function AssertTab({
                   triggerBackgroundColor={
                     backgroundColor ?? theme.backgroundPanel
                   }
+                  triggerColor={dimmed ? theme.textMuted : undefined}
                   width={OPERATOR_WIDTH}
                 />
               </box>

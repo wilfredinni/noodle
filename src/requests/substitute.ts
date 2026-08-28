@@ -75,7 +75,9 @@ export function substitute(req: Request, env: Environment): SubstitutedRequest {
       : req.filePath
 
   const assertions = req.assertions?.map((assertion, index) => {
-    if (assertion.value === undefined) return assertion
+    if (assertion.enabled === false || assertion.value === undefined) {
+      return assertion
+    }
     return {
       ...assertion,
       value: substituteAssertionValue(

@@ -691,7 +691,7 @@ describe("buildTimelineEntry", () => {
       headers: {},
       params: [],
       timeout: 0,
-      captures: { token: "body.token" },
+      captures: { token: { value: "body.token", enabled: true } },
     }
     const response = {
       status: 200,
@@ -707,6 +707,41 @@ describe("buildTimelineEntry", () => {
     expect(JSON.stringify(entry)).not.toContain("body.token")
   })
 
+  it("does not create assertion outcomes for disabled-only declarations", () => {
+    const req: Request = {
+      id: "disabled-assertion",
+      name: "Disabled assertion",
+      method: "GET",
+      url: "https://api.example.com",
+      headers: {},
+      params: [],
+      timeout: 0,
+      assertions: [
+        {
+          expression: "status",
+          operator: "equals",
+          value: 500,
+          enabled: false,
+        },
+      ],
+    }
+    const response = {
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      body: "{}",
+      timeMs: 1,
+    }
+
+    const entry = buildTimelineEntry(req, {
+      status: "done",
+      response,
+      execution: {},
+    })
+    expect(entry.assertions).toBeUndefined()
+    expect(entryAssertionStatus(entry)).toBeNull()
+  })
+
   it("persists redacted assertion results without capture runtime data", () => {
     const secret = "timeline-assertion-secret"
     const req = {
@@ -717,7 +752,7 @@ describe("buildTimelineEntry", () => {
       headers: {},
       params: [],
       timeout: 0,
-      captures: { token: "body.token" },
+      captures: { token: { value: "body.token", enabled: true } },
       assertions: [
         {
           expression: "body.token",

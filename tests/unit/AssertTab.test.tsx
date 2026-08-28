@@ -104,6 +104,7 @@ describe("AssertTab", () => {
     const activations: Array<
       [number, boolean, "key" | "operator" | "value" | undefined]
     > = []
+    const toggles: number[] = []
     try {
       const render = await testRender(
         <KeymapProvider
@@ -129,6 +130,7 @@ describe("AssertTab", () => {
               onActivateRow={(row, addingRow, subfield) =>
                 activations.push([row, addingRow, subfield])
               }
+              onToggleRow={(row) => toggles.push(row)}
             />
           </ThemeProvider>
         </KeymapProvider>,
@@ -140,6 +142,7 @@ describe("AssertTab", () => {
       expect(frame).toContain("Response expression...")
       expect(frame).toContain("Expected...")
       expect(frame).toContain("▼    200")
+      expect(frame).toContain("[x]")
       expect(frame).not.toContain("+ Add assertion")
 
       const first = render.renderer.root.findDescendantById(
@@ -162,14 +165,16 @@ describe("AssertTab", () => {
       ).toBe(false)
       expect(
         Math.abs(
-          firstCells[1]!.x +
-            firstCells[1]!.width / 2 -
-            (first.x + first.width / 2),
+          firstCells[2]!.x +
+            firstCells[2]!.width / 2 -
+            (first.x +
+              firstCells[0]!.width +
+              (first.width - firstCells[0]!.width) / 2),
         ),
       ).toBeLessThanOrEqual(0.5)
-      expect(firstCells[2]!.x).toBe(valueLessCells[2]!.x)
-      expect(firstCells[2]!.width).toBe(valueLessCells[2]!.width)
-      expect(valueLessCells[2]!.getChildren()).toHaveLength(0)
+      expect(firstCells[3]!.x).toBe(valueLessCells[3]!.x)
+      expect(firstCells[3]!.width).toBe(valueLessCells[3]!.width)
+      expect(valueLessCells[3]!.getChildren()).toHaveLength(0)
 
       await act(async () => {
         await render.mockMouse.moveTo(first.x + 1, first.y)
@@ -186,12 +191,19 @@ describe("AssertTab", () => {
         ),
       ).toBe(true)
 
-      for (const cell of firstCells) {
+      await act(async () => {
+        await render.mockMouse.click(
+          firstCells[0]!.x + 1,
+          firstCells[0]!.y,
+          MouseButtons.LEFT,
+        )
+      })
+      for (const cell of firstCells.slice(1)) {
         await act(async () => {
           await render.mockMouse.click(cell.x + 1, cell.y, MouseButtons.LEFT)
         })
       }
-      for (const cell of addCells) {
+      for (const cell of addCells.slice(1)) {
         await act(async () => {
           await render.mockMouse.click(cell.x + 1, cell.y, MouseButtons.LEFT)
         })
@@ -205,6 +217,7 @@ describe("AssertTab", () => {
         [-1, true, "operator"],
         [-1, true, "value"],
       ])
+      expect(toggles).toEqual([0])
     } finally {
       cleanup()
     }
@@ -254,7 +267,7 @@ describe("AssertTab", () => {
       const row = render.renderer.root.findDescendantById(
         "assertions-1",
       ) as BoxRenderable
-      const operatorCell = row.getChildren()[1] as BoxRenderable
+      const operatorCell = row.getChildren()[2] as BoxRenderable
       const select = operatorCell.getChildren()[0] as BoxRenderable
       const relative = select.getChildren()[0] as BoxRenderable
       const trigger = relative.getChildren()[0] as BoxRenderable
@@ -269,6 +282,61 @@ describe("AssertTab", () => {
       })
       await render.renderOnce()
       expect(render.captureCharFrame()).toContain("notEquals")
+    } finally {
+      cleanup()
+    }
+  })
+
+  it("renders disabled assertion rows unchecked and muted", async () => {
+    const { keymap, cleanup } = setup()
+    try {
+      const render = await testRender(
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <AssertTab
+              request={{
+                ...request,
+                assertions: [
+                  {
+                    expression: "body.disabled",
+                    operator: "exists",
+                    enabled: false,
+                  },
+                ],
+              }}
+              editState={{
+                mode: "inactive",
+                cursor: { field: "assertions", row: 0, addingRow: false },
+                editingRow: -1,
+              }}
+              editKey=""
+              editValue=""
+              editOperator="equals"
+              editError={null}
+              setEditKey={() => {}}
+              setEditValue={() => {}}
+              setEditOperator={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>,
+        { width: 70, height: 5 },
+      )
+      await render.renderOnce()
+      expect(render.captureCharFrame()).toContain("[ ]")
+      const muted = RGBA.fromHex(THEMES[0]!.textMuted)
+      const spans = render.captureSpans().lines.flatMap((line) => line.spans)
+      expect(
+        spans
+          .find((span) => span.text.includes("body.disabled"))!
+          .fg.equals(muted),
+      ).toBe(true)
+      expect(
+        spans.find((span) => span.text.includes("exists"))!.fg.equals(muted),
+      ).toBe(true)
     } finally {
       cleanup()
     }

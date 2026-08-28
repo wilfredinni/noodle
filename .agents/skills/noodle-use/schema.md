@@ -70,12 +70,18 @@ variables for later requests in the same ordered `collection run`:
 capture:
   user_id: body.user.id
   request_id: headers.x-request-id
+  optional_trace: { value: headers.x-trace, enabled: false }
 ```
 
 Variable names must match `^\w+$`. Expressions use the same grammar as
 assertions and are validated while loading the request, before it can be sent.
 Duplicate mapping keys are invalid YAML. Capture expressions themselves are
 never variable-substituted.
+
+The string form is shorthand for `{ value: "...", enabled: true }`. Use the
+expanded form with `enabled: false` to keep a capture declaration without
+evaluating it. Disabled declarations are still validated while loading, but
+they produce no result, failure, summary count, or RunScope mutation.
 
 Environment values and resolved declared secrets load first. RunScope values
 then override same-named values, and the latest successful capture wins. String
@@ -117,7 +123,13 @@ assert:
   - expression: response.time
     operator: lt
     value: 500
+    enabled: false
 ```
+
+Each assertion accepts optional boolean `enabled`; omitted means `true` and is
+omitted from canonical YAML. Disabled assertions remain validated and visible
+for authoring, but are not substituted, evaluated, or included in results,
+failures, summaries, or timeline assertion outcomes.
 
 Expressions are `status`, `response.time`, `headers.<name>` with
 case-insensitive header lookup, or `body` followed by dot properties and array

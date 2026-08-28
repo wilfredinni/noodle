@@ -100,7 +100,7 @@ function captureEditValues(
 ): { key: string; value: string } {
   const capture = Object.entries(request?.captures ?? {})[row]
   return capture
-    ? { key: capture[0], value: capture[1] }
+    ? { key: capture[0], value: capture[1].value }
     : { key: "", value: "" }
 }
 
@@ -472,6 +472,8 @@ export function useEditBrowse(
 
       if (field === "headers") draftMutators.toggleHeaderRow(row)
       else if (field === "params") draftMutators.toggleParamRow(row)
+      else if (field === "captures") draftMutators.toggleCaptureRow(row)
+      else if (field === "assertions") draftMutators.toggleAssertionRow(row)
       else if (field === "body") draftMutators.toggleFormRow(row - 1)
       else if (field === "settings" && row === 1) {
         const current = draftRef.current?.followRedirects ?? true
@@ -862,8 +864,13 @@ export function useEditBrowse(
         ) {
           return fail(`Capture variable "${key}" already exists`)
         }
-        if (replacedIndex >= 0) entries[replacedIndex] = [key, value]
-        else entries.push([key, value])
+        const capture = {
+          value,
+          enabled:
+            replacedIndex >= 0 ? entries[replacedIndex]![1].enabled : true,
+        }
+        if (replacedIndex >= 0) entries[replacedIndex] = [key, capture]
+        else entries.push([key, capture])
         const captures = Object.fromEntries(entries)
         draftMutators.setCaptures(captures)
         draftRef.current = { ...current, captures }
@@ -894,6 +901,10 @@ export function useEditBrowse(
           return fail(error instanceof Error ? error.message : String(error))
         }
         const operator = editOperatorRef.current
+        const enabled =
+          !addingRow && assertions[state.cursor.row]?.enabled === false
+            ? { enabled: false as const }
+            : {}
         let assertion: ResponseAssertion
         if (assertionOperatorRequiresValue(operator)) {
           const expected = parseAssertionValue(val)
@@ -903,9 +914,9 @@ export function useEditBrowse(
             "Expected value",
           )
           if (valueError) return fail(valueError)
-          assertion = { expression: key, operator, value: expected }
+          assertion = { expression: key, operator, value: expected, ...enabled }
         } else {
-          assertion = { expression: key, operator }
+          assertion = { expression: key, operator, ...enabled }
         }
         if (!addingRow && state.cursor.row < assertions.length)
           assertions[state.cursor.row] = assertion
@@ -1111,6 +1122,8 @@ export function useEditBrowse(
     if (field === "pathParams") return
     if (field === "headers") draftMutators.toggleHeaderRow(row)
     else if (field === "params") draftMutators.toggleParamRow(row)
+    else if (field === "captures") draftMutators.toggleCaptureRow(row)
+    else if (field === "assertions") draftMutators.toggleAssertionRow(row)
     else if (field === "settings" && row === 1) {
       const current = draftRef.current?.followRedirects ?? true
       draftMutators.setFollowRedirects(!current)

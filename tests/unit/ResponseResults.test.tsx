@@ -99,7 +99,9 @@ describe("ResponseResults", () => {
             }}
             request={{
               assertions: [{ expression: "status", operator: "exists" }],
-              captures: { token: "headers.x-token" },
+              captures: {
+                token: { value: "headers.x-token", enabled: true },
+              },
             }}
           />
         </ThemeProvider>
@@ -111,6 +113,34 @@ describe("ResponseResults", () => {
     expect(frame.match(/Not evaluated/g)).toHaveLength(2)
     expect(frame).toContain("status exists")
     expect(frame).toContain("token ← headers.x-token")
+  })
+
+  it("excludes disabled declarations from unevaluated Results", async () => {
+    const { keymap } = setupKeymap()
+    const { renderOnce, captureCharFrame } = await testRender(
+      <KeymapProvider keymap={keymap}>
+        <ThemeProvider activeIndex={0} previewIndex={null}>
+          <ResponseResults
+            execution={{}}
+            request={{
+              assertions: [
+                {
+                  expression: "body.disabled",
+                  operator: "exists",
+                  enabled: false,
+                },
+              ],
+              captures: {
+                disabled: { value: "body.disabled", enabled: false },
+              },
+            }}
+          />
+        </ThemeProvider>
+      </KeymapProvider>,
+      { width: 50, height: 8 },
+    )
+    await renderOnce()
+    expect(captureCharFrame()).toContain("No execution results.")
   })
 
   it("leaves navigation keys to an open overlay", async () => {

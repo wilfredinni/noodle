@@ -932,7 +932,7 @@ describe("computeRequestTabLabels", () => {
     expect(labels.settings).toBe("Settings \u2022")
   })
 
-  it("marks separate assertion, capture, and tag-owned tabs", () => {
+  it("marks assertion and capture tabs even when declarations are disabled", () => {
     const labels = computeRequestTabLabels({
       headers: {},
       params: [],
@@ -940,8 +940,10 @@ describe("computeRequestTabLabels", () => {
       method: "GET",
       timeout: 0,
       tags: ["smoke"],
-      captures: { token: "body.token" },
-      assertions: [{ expression: "status", operator: "exists" }],
+      captures: { token: { value: "body.token", enabled: false } },
+      assertions: [
+        { expression: "status", operator: "exists", enabled: false },
+      ],
     } as unknown as import("../../src/schema").Request)
     expect(labels.assertions).toBe("Assert \u2022")
     expect(labels.captures).toBe("Capture \u2022")

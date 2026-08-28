@@ -19,7 +19,10 @@ describe("response execution results", () => {
     const scope = new RunScope()
     const results = evaluateResponseExecution(
       {
-        captures: { id: "body.id", token: "body.token" },
+        captures: {
+          id: { value: "body.id", enabled: true },
+          token: { value: "body.token", enabled: true },
+        },
         assertions: [{ expression: "body.id", operator: "equals", value: 7 }],
       },
       response,
@@ -38,12 +41,54 @@ describe("response execution results", () => {
 
   it("marks declared results unevaluated before a response exists", () => {
     const request = {
-      captures: { id: "body.id" },
+      captures: { id: { value: "body.id", enabled: true } },
       assertions: [{ expression: "status", operator: "exists" }],
     } as Pick<Request, "captures" | "assertions">
     expect(unevaluatedExecutionResults(request)).toEqual({
       captures: { evaluated: false, results: [] },
       assertions: { evaluated: false, results: [] },
     })
+  })
+
+  it("omits disabled declarations and leaves prior scope values unchanged", () => {
+    const scope = new RunScope()
+    scope.set("id", "prior")
+    const request: Pick<Request, "captures" | "assertions"> = {
+      captures: {
+        id: { value: "body.id", enabled: false },
+        token: { value: "body.token", enabled: true },
+      },
+      assertions: [
+        {
+          expression: "body.missing",
+          operator: "exists",
+          enabled: false,
+        },
+        { expression: "status", operator: "equals", value: 200 },
+      ],
+    }
+
+    const results = evaluateResponseExecution(request, response, scope)
+    expect(scope.get("id")).toBe("prior")
+    expect(results.captures?.results.map((result) => result.variable)).toEqual([
+      "token",
+    ])
+    expect(
+      results.assertions?.results.map((result) => result.expression),
+    ).toEqual(["status"])
+  })
+
+  it("treats disabled-only declarations as absent", () => {
+    const request: Pick<Request, "captures" | "assertions"> = {
+      captures: { id: { value: "body.id", enabled: false } },
+      assertions: [
+        { expression: "body.id", operator: "exists", enabled: false },
+      ],
+    }
+
+    expect(unevaluatedExecutionResults(request)).toEqual({})
+    expect(
+      evaluateResponseExecution(request, response, new RunScope()),
+    ).toEqual({})
   })
 })

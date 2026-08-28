@@ -274,21 +274,52 @@ export function parseTags(
   return tags.length > 0 ? tags : undefined
 }
 
-function parseCaptures(value: unknown): Record<string, string> | undefined {
+function parseCaptures(value: unknown): Record<string, KvEntry> | undefined {
   if (value === undefined) return undefined
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error('lang.parseRequest: "capture" must be a mapping')
   }
 
-  const captures: Record<string, string> = {}
-  for (const [variable, expression] of Object.entries(value)) {
+  const captures: Record<string, KvEntry> = {}
+  for (const [variable, declaration] of Object.entries(value)) {
     if (!isValidVariableName(variable)) {
       throw new Error(
         `lang.parseRequest: invalid capture variable "${variable}"`,
       )
     }
-    if (typeof expression !== "string") {
-      throw new Error(`lang.parseRequest: capture.${variable} must be a string`)
+    let expression: string
+    let enabled = true
+    if (typeof declaration === "string") {
+      expression = declaration
+    } else if (
+      typeof declaration === "object" &&
+      declaration !== null &&
+      !Array.isArray(declaration)
+    ) {
+      const raw = declaration as Record<string, unknown>
+      for (const key of Object.keys(raw)) {
+        if (key !== "value" && key !== "enabled") {
+          throw new Error(
+            `lang.parseRequest: unknown capture.${variable} field "${key}"`,
+          )
+        }
+      }
+      if (typeof raw.value !== "string") {
+        throw new Error(
+          `lang.parseRequest: capture.${variable}.value must be a string`,
+        )
+      }
+      if (raw.enabled !== undefined && typeof raw.enabled !== "boolean") {
+        throw new Error(
+          `lang.parseRequest: capture.${variable}.enabled must be a boolean`,
+        )
+      }
+      expression = raw.value
+      enabled = raw.enabled ?? true
+    } else {
+      throw new Error(
+        `lang.parseRequest: capture.${variable} must be a string or {value, enabled} object`,
+      )
     }
     try {
       parseResponseExpression(expression)
@@ -299,7 +330,7 @@ function parseCaptures(value: unknown): Record<string, string> | undefined {
       )
     }
     Object.defineProperty(captures, variable, {
-      value: expression,
+      value: { value: expression, enabled },
       enumerable: true,
       configurable: true,
       writable: true,
@@ -319,7 +350,12 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
     }
     const raw = item as Record<string, unknown>
     for (const key of Object.keys(raw)) {
-      if (key !== "expression" && key !== "operator" && key !== "value") {
+      if (
+        key !== "expression" &&
+        key !== "operator" &&
+        key !== "value" &&
+        key !== "enabled"
+      ) {
         throw new Error(
           `lang.parseRequest: unknown assert[${index}] field "${key}"`,
         )
@@ -330,6 +366,12 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
         `lang.parseRequest: assert[${index}].expression must be a string`,
       )
     }
+    if (raw.enabled !== undefined && typeof raw.enabled !== "boolean") {
+      throw new Error(
+        `lang.parseRequest: assert[${index}].enabled must be a boolean`,
+      )
+    }
+    const enabled = raw.enabled === false ? { enabled: false } : {}
     try {
       parseResponseExpression(raw.expression)
     } catch (error) {
@@ -357,6 +399,7 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
       return {
         expression: raw.expression,
         operator: raw.operator as AssertionWithoutValueOperator,
+        ...enabled,
       }
     }
     if (!hasValue) {
@@ -375,6 +418,7 @@ function parseAssertions(value: unknown): ResponseAssertion[] | undefined {
       expression: raw.expression,
       operator: raw.operator as AssertionWithValueOperator,
       value: raw.value as AssertionValue,
+      ...enabled,
     }
   })
   return assertions.length > 0 ? assertions : undefined

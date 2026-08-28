@@ -3,6 +3,7 @@ import type {
   FormEntry,
   Request,
   Auth,
+  KvEntry,
   ResponseAssertion,
 } from "../schema"
 import type { FieldKind } from "../ui/editMode"
@@ -74,8 +75,10 @@ export type DraftOp =
   | { kind: "toggleFormRow"; index: number }
   | { kind: "setFilePath"; filePath: string }
   | { kind: "setTags"; tags: string[] }
-  | { kind: "setCaptures"; captures: Record<string, string> }
+  | { kind: "setCaptures"; captures: Record<string, KvEntry> }
+  | { kind: "toggleCaptureRow"; index: number }
   | { kind: "setAssertions"; assertions: ResponseAssertion[] }
+  | { kind: "toggleAssertionRow"; index: number }
 
 const authTypeCache = new Map<string, Record<string, Auth>>()
 
@@ -189,8 +192,20 @@ export function applyDraft(
       draft.captures =
         Object.keys(op.captures).length > 0 ? op.captures : undefined
       break
+    case "toggleCaptureRow":
+      draft.captures = toggleRow(current.captures ?? {}, op.index)
+      break
     case "setAssertions":
       draft.assertions = op.assertions.length > 0 ? op.assertions : undefined
+      break
+    case "toggleAssertionRow":
+      draft.assertions = (current.assertions ?? []).map((assertion, index) => {
+        if (index !== op.index) return assertion
+        if (assertion.enabled !== false) return { ...assertion, enabled: false }
+        const enabledAssertion = { ...assertion }
+        delete enabledAssertion.enabled
+        return enabledAssertion
+      })
       break
     case "setHeaderRow": {
       const { key, value } = op

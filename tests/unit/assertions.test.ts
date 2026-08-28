@@ -48,6 +48,32 @@ describe("response assertions", () => {
     )
   })
 
+  it("skips disabled assertions before resolution", () => {
+    expect(
+      evaluateAssertions(
+        [
+          {
+            expression: "body..invalid",
+            operator: "equals",
+            value: 1,
+            enabled: false,
+          },
+          { expression: "status", operator: "equals", value: 200 },
+        ],
+        response(body),
+      ),
+    ).toEqual([
+      {
+        expression: "status",
+        operator: "equals",
+        expected: 200,
+        actual: 200,
+        passed: true,
+        message: "Assertion passed",
+      },
+    ])
+  })
+
   const cases: Array<{
     operator: ResponseAssertion["operator"]
     passing: ResponseAssertion

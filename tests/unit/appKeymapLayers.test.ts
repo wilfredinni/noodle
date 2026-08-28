@@ -44,6 +44,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
     send: 0,
     formType: 0,
     requestCommit: 0,
+    requestToggle: 0,
     folderUp: 0,
     folderCommit: 0,
     envSave: 0,
@@ -80,6 +81,7 @@ function createContext(keymap: ReturnType<typeof createTestKeymap>["keymap"]) {
           cursor: { field: "body", row: -1, addingRow: false },
         },
         toggleFormRowType: () => calls.formType++,
+        toggleRow: () => calls.requestToggle++,
         commitEdit: () => calls.requestCommit++,
         canEnterTextBodyEditor: false,
         isEditingTextBody: false,
@@ -314,6 +316,22 @@ describe("app keymap layers", () => {
       key: "ctrl+d",
       cmd: "cookie.delete-cookie",
     })
+    cleanup()
+  })
+
+  it("dispatches browse Space to the active request row toggle", () => {
+    const { keymap, host, cleanup } = setup()
+    const { context, calls } = createContext(keymap)
+    context.request.ebRef.current.editState.mode = "browsing"
+    keymap.setData("app.mode", "browse")
+    keymap.setData("app.focus", "request")
+    context.global.focusRef.current = "request"
+    const disposers = register(context)
+
+    host.press("space")
+    expect(calls.requestToggle).toBe(1)
+
+    disposers.forEach((dispose) => dispose())
     cleanup()
   })
 

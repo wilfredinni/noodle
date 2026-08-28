@@ -34,7 +34,9 @@ describe("useResponse execution results", () => {
     const states: { first?: SendState; final?: SendState } = {}
     function Harness() {
       const [selected, setSelected] = useState(
-        request({ captures: { token: "body.token" } }),
+        request({
+          captures: { token: { value: "body.token", enabled: true } },
+        }),
       )
       const response = useResponse(selected)
       const [step, setStep] = useState(0)
@@ -100,7 +102,7 @@ describe("useResponse execution results", () => {
       const response = useResponse(
         request({
           assertions: [{ expression: "status", operator: "exists" }],
-          captures: { token: "body.token" },
+          captures: { token: { value: "body.token", enabled: true } },
         }),
       )
       useEffect(() => {

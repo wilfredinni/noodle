@@ -218,7 +218,9 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     }
     const render = await testRender(<Harness />, { width: 20, height: 4 })
     for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
-    expect(result.value).toEqual({ token: "body.token" })
+    expect(result.value).toEqual({
+      token: { value: "body.token", enabled: true },
+    })
   })
 
   it("deletes a capture when its key is cleared", async () => {
@@ -226,7 +228,7 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     function Harness() {
       const draft = useRequestDraft({
         ...request,
-        captures: { token: "body.token" },
+        captures: { token: { value: "body.token", enabled: true } },
       })
       const editor = useEditBrowse(draft.draft, draft)
       const [step, setStep] = useState(0)
@@ -261,7 +263,7 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     function Harness() {
       const draft = useRequestDraft({
         ...request,
-        captures: { token: "body.token" },
+        captures: { token: { value: "body.token", enabled: true } },
       })
       const editor = useEditBrowse(draft.draft, draft)
       const [step, setStep] = useState(0)
@@ -281,7 +283,91 @@ describe("useEditBrowse assertion, capture, and tag rows", () => {
     }
     const render = await testRender(<Harness />, { width: 20, height: 4 })
     for (let i = 0; i < 5 && !result.value; i++) await render.renderOnce()
-    expect(result.value).toEqual({ token: "body.token" })
+    expect(result.value).toEqual({
+      token: { value: "body.token", enabled: true },
+    })
+  })
+
+  it("keeps disabled captures disabled while editing", async () => {
+    const result: { value?: Request["captures"] } = {}
+    function Harness() {
+      const draft = useRequestDraft({
+        ...request,
+        captures: { token: { value: "body.token", enabled: false } },
+      })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("captures", 0)
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.enterEdit()
+          setStep(2)
+        } else if (step === 2 && editor.editState.mode === "editing") {
+          editor.setEditValue("body.other")
+          setStep(3)
+        } else if (step === 3 && editor.editValue === "body.other") {
+          editor.commitEdit()
+          setStep(4)
+        } else if (step === 4) {
+          result.value = draft.draft?.captures
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
+    expect(result.value).toEqual({
+      token: { value: "body.other", enabled: false },
+    })
+  })
+
+  it("keeps disabled assertions disabled while editing", async () => {
+    const result: { value?: Request["assertions"] } = {}
+    function Harness() {
+      const draft = useRequestDraft({
+        ...request,
+        assertions: [
+          {
+            expression: "status",
+            operator: "equals",
+            value: 200,
+            enabled: false,
+          },
+        ],
+      })
+      const editor = useEditBrowse(draft.draft, draft)
+      const [step, setStep] = useState(0)
+      useEffect(() => {
+        if (step === 0) {
+          editor.enterBrowseAt("assertions", 0)
+          setStep(1)
+        } else if (step === 1 && editor.editState.mode === "browsing") {
+          editor.enterEdit()
+          setStep(2)
+        } else if (step === 2 && editor.editState.mode === "editing") {
+          editor.setEditValue("201")
+          setStep(3)
+        } else if (step === 3 && editor.editValue === "201") {
+          editor.commitEdit()
+          setStep(4)
+        } else if (step === 4) {
+          result.value = draft.draft?.assertions
+        }
+      }, [draft.draft, editor, step])
+      return null
+    }
+    const render = await testRender(<Harness />, { width: 20, height: 4 })
+    for (let i = 0; i < 7 && !result.value; i++) await render.renderOnce()
+    expect(result.value).toEqual([
+      {
+        expression: "status",
+        operator: "equals",
+        value: 201,
+        enabled: false,
+      },
+    ])
   })
 
   it("routes existing and new tag rows to the overlay", async () => {
