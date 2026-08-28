@@ -334,6 +334,7 @@ export function TimelineDetailOverlay({
               <ResponseResults
                 execution={{ assertions: entry.assertions! }}
                 showCaptures={false}
+                scrollRef={bodyScrollRef}
               />
             </scrollbox>
           ) : (

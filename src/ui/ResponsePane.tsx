@@ -239,7 +239,7 @@ export function ResponsePane({
       })
     } else if (key.name === "v" && activeTab === "body") {
       setShowLargeBody(true)
-    } else if (activeTab === "timeline") {
+    } else if (activeTab === "timeline" || activeTab === "results") {
       return
     } else if (activeTab === "cookies") {
       if (cookieRows.length === 0) return
@@ -615,6 +615,9 @@ export function ResponsePane({
                       : undefined
                   }
                   request={state.status === "error" ? state.request : undefined}
+                  scrollRef={scrollRef}
+                  focused={focused && activeTab === "results"}
+                  onPaneFocus={onPaneFocus}
                 />
               </scrollbox>
             )

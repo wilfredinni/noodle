@@ -504,6 +504,9 @@ export function CollectionRunnerView({
                       execution={activeResult.result}
                       request={activeRequest}
                       captureLifetimeNote="Available to later requests in this collection run."
+                      scrollRef={detailScrollRef}
+                      focused={focus === "runner-detail"}
+                      onPaneFocus={() => onPaneFocus("runner-detail")}
                     />
                   </box>
                 )}

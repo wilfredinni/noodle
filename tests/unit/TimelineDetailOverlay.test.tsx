@@ -153,25 +153,26 @@ describe("TimelineDetailOverlay", () => {
     cleanup()
   })
 
-  it("renders persisted assertion details", async () => {
-    const { renderOnce, captureCharFrame, host, cleanup } = await renderOverlay(
-      makeEntry({
-        assertions: {
-          evaluated: true,
-          results: [
-            {
-              expression: "status",
-              operator: "equals",
-              expected: 201,
-              actual: 200,
-              passed: false,
-              message: "Expected values to be equal",
-            },
-          ],
-        },
-      }),
-      () => {},
-    )
+  it("renders persisted assertion rows and expandable details", async () => {
+    const { renderOnce, captureCharFrame, host, renderer, mockMouse, cleanup } =
+      await renderOverlay(
+        makeEntry({
+          assertions: {
+            evaluated: true,
+            results: [
+              {
+                expression: "status",
+                operator: "equals",
+                expected: 201,
+                actual: 200,
+                passed: false,
+                message: "Expected values to be equal",
+              },
+            ],
+          },
+        }),
+        () => {},
+      )
     await renderOnce()
     await act(async () => host.press("right"))
     await act(async () => host.press("right"))
@@ -179,10 +180,25 @@ describe("TimelineDetailOverlay", () => {
     const frame = captureCharFrame()
     expect(frame).toContain("Results")
     expect(frame).toContain("0 passed · 1 failed")
-    expect(frame).toContain("expected: 201")
-    expect(frame).toContain("actual: 200")
-    expect(frame).toContain("Expected values to be equal")
-    expect(frame).not.toContain("Captures")
+    expect(frame).toContain("FAIL")
+    expect(frame).not.toContain("Expected 201")
+
+    const assertionRow = renderer.root.findDescendantById(
+      "response-assertion-0",
+    )!
+    await act(async () =>
+      mockMouse.click(
+        assertionRow.screenX + 3,
+        assertionRow.screenY,
+        MouseButtons.LEFT,
+      ),
+    )
+    await renderOnce()
+    const expanded = captureCharFrame()
+    expect(expanded).toMatch(/Expected\s+201/)
+    expect(expanded).toMatch(/Actual\s+200/)
+    expect(expanded).toContain("Expected values to be equal")
+    expect(expanded).not.toContain("Captures")
     cleanup()
   })
 

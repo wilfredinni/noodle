@@ -204,9 +204,21 @@ describe("CollectionRunnerView", () => {
     expect(frame).toContain(
       "Available to later requests in this collection run.",
     )
-    expect(frame).toContain("[REDACTED]")
 
-    const rows = frame.split("\n")
+    const captureRow =
+      render.renderer.root.findDescendantById("response-capture-0")!
+    await act(async () =>
+      render.mockMouse.click(
+        captureRow.screenX + 3,
+        captureRow.screenY,
+        MouseButtons.LEFT,
+      ),
+    )
+    await act(async () => render.renderOnce())
+    const expandedFrame = render.captureCharFrame()
+    expect(expandedFrame).toContain("[REDACTED]")
+
+    const rows = expandedFrame.split("\n")
     const actionRow = rows.findIndex((row) => row.includes("Edit Assert"))
     await act(async () => {
       await render.mockMouse.click(

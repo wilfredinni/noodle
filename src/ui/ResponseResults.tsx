@@ -1,6 +1,9 @@
-import { TextAttributes } from "@opentui/core"
+import { useEffect, useState, type RefObject } from "react"
+import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
+import { useKeymap } from "@opentui/keymap/react"
 import type { JsonValue, Request } from "../schema"
 import type { ResponseExecutionResults } from "../executionResults"
+import { CookieRow, cookieNameWidth } from "./CookieRow"
 import { useTheme } from "./theme"
 
 function formatValue(value: JsonValue | undefined): string {
@@ -13,15 +16,112 @@ export function ResponseResults({
   request,
   showCaptures = true,
   captureLifetimeNote,
+  scrollRef,
+  focused = true,
+  onPaneFocus,
 }: {
   execution?: ResponseExecutionResults
   request?: Pick<Request, "assertions" | "captures">
   showCaptures?: boolean
   captureLifetimeNote?: string
+  scrollRef?: RefObject<ScrollBoxRenderable | null>
+  focused?: boolean
+  onPaneFocus?: () => void
 }) {
   const theme = useTheme()
+  const keymap = useKeymap()
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+  const [selectedRowIdx, setSelectedRowIdx] = useState(0)
   const assertions = execution?.assertions
   const captures = execution?.captures
+  const assertionResults = assertions?.evaluated ? assertions.results : []
+  const captureResults = captures?.evaluated ? captures.results : []
+  const rowIds = [
+    ...(assertions?.evaluated
+      ? assertionResults.map((_, index) => `response-assertion-${index}`)
+      : []),
+    ...(showCaptures && captures?.evaluated
+      ? captureResults.map((_, index) => `response-capture-${index}`)
+      : []),
+  ]
+  const rowKey = [
+    ...assertionResults.map((result) => `assertion:${result.expression}`),
+    ...(showCaptures
+      ? captureResults.map((result) => `capture:${result.variable}`)
+      : []),
+  ].join("\0")
+  const selectedRowId = rowIds[selectedRowIdx]
+
+  useEffect(() => {
+    setSelectedRowIdx(0)
+    setExpandedRow(null)
+    setHoveredRow(null)
+  }, [rowKey])
+
+  useEffect(() => {
+    if (!focused || !selectedRowId) return
+    scrollRef?.current?.scrollChildIntoView(selectedRowId)
+  }, [expandedRow, focused, scrollRef, selectedRowId])
+
+  useEffect(() => {
+    return keymap.intercept(
+      "key",
+      ({ event }) => {
+        if (keymap.getData("app.overlay") !== "none") return
+        if (!focused || rowIds.length === 0) return
+        if (event.name === "up" || event.name === "down") {
+          event.preventDefault()
+          event.stopPropagation()
+          setSelectedRowIdx((prev) =>
+            event.name === "up"
+              ? prev <= 0
+                ? rowIds.length - 1
+                : prev - 1
+              : prev >= rowIds.length - 1
+                ? 0
+                : prev + 1,
+          )
+        } else if (event.name === "return") {
+          event.preventDefault()
+          event.stopPropagation()
+          if (!selectedRowId) return
+          setExpandedRow((prev) =>
+            prev === selectedRowId ? null : selectedRowId,
+          )
+        } else if (event.name === "pagedown") {
+          event.preventDefault()
+          event.stopPropagation()
+          scrollRef?.current?.scrollBy(1, "viewport")
+        } else if (event.name === "pageup") {
+          event.preventDefault()
+          event.stopPropagation()
+          scrollRef?.current?.scrollBy(-1, "viewport")
+        } else if (event.name === "home") {
+          event.preventDefault()
+          event.stopPropagation()
+          setSelectedRowIdx(0)
+          scrollRef?.current?.scrollTo(0)
+        } else if (event.name === "end") {
+          event.preventDefault()
+          event.stopPropagation()
+          setSelectedRowIdx(rowIds.length - 1)
+          const scroll = scrollRef?.current
+          scroll?.scrollTo(Math.max(0, scroll.scrollHeight - scroll.height))
+        }
+      },
+      { priority: 110 },
+    )
+  }, [focused, keymap, rowIds.length, scrollRef, selectedRowId])
+  const assertionNameWidth = Math.max(
+    9,
+    cookieNameWidth(
+      assertionResults.map((result) => ({ name: result.expression })),
+    ),
+  )
+  const captureNameWidth = cookieNameWidth(
+    captureResults.map((result) => ({ name: result.variable })),
+  )
   const assertionPassed =
     assertions?.results.filter((result) => result.passed).length ?? 0
   const capturePassed =
@@ -69,26 +169,47 @@ export function ResponseResults({
               ))}
             </>
           ) : assertions ? (
-            <>
-              {assertions.results.map((result, index) => (
-                <box key={index} style={{ flexDirection: "column" }}>
-                  <text fg={result.passed ? theme.success : theme.error}>
-                    {`${result.passed ? "✓" : "✗"} ${result.expression} ${result.operator}`}
-                  </text>
-                  {Object.hasOwn(result, "expected") ? (
-                    <text fg={theme.textMuted}>
-                      {`  expected: ${formatValue(result.expected)}`}
-                    </text>
-                  ) : null}
-                  <text fg={theme.textMuted}>
-                    {`  actual: ${formatValue(result.actual)}`}
-                  </text>
-                  {!result.passed ? (
-                    <text fg={theme.error}>{`  ${result.message}`}</text>
-                  ) : null}
-                </box>
-              ))}
-            </>
+            <box style={{ flexDirection: "column" }}>
+              {assertions.results.map((result, index) => {
+                const id = `response-assertion-${index}`
+                return (
+                  <CookieRow
+                    id={id}
+                    key={id}
+                    kindLabel={result.passed ? "PASS" : "FAIL"}
+                    kindColor={result.passed ? theme.success : theme.error}
+                    name={result.expression}
+                    value={result.operator}
+                    nameWidth={assertionNameWidth}
+                    selected={selectedRowIdx === index}
+                    expanded={expandedRow === id}
+                    hovered={hoveredRow === id}
+                    details={[
+                      ...(Object.hasOwn(result, "expected")
+                        ? [
+                            {
+                              label: "Expected",
+                              value: formatValue(result.expected),
+                            },
+                          ]
+                        : []),
+                      { label: "Actual", value: formatValue(result.actual) },
+                      ...(!result.passed
+                        ? [{ label: "Message", value: result.message }]
+                        : []),
+                    ]}
+                    onSelect={() => setSelectedRowIdx(index)}
+                    onToggleExpanded={() =>
+                      setExpandedRow((prev) => (prev === id ? null : id))
+                    }
+                    onHover={(isHovered) =>
+                      setHoveredRow(isHovered ? id : null)
+                    }
+                    onPaneFocus={onPaneFocus}
+                  />
+                )
+              })}
+            </box>
           ) : null}
         </box>
       ) : null}
@@ -129,20 +250,47 @@ export function ResponseResults({
               )}
             </>
           ) : captures ? (
-            <>
-              {captures.results.map((result, index) => (
-                <box key={index} style={{ flexDirection: "column" }}>
-                  <text fg={result.success ? theme.success : theme.error}>
-                    {`${result.success ? "✓" : "✗"} ${result.variable} ← ${result.expression}`}
-                  </text>
-                  <text fg={theme.textMuted}>
-                    {result.success
-                      ? `  ${result.type}: ${formatValue(result.value)}`
-                      : `  ${result.message}`}
-                  </text>
-                </box>
-              ))}
-            </>
+            <box style={{ flexDirection: "column" }}>
+              {captures.results.map((result, index) => {
+                const id = `response-capture-${index}`
+                return (
+                  <CookieRow
+                    id={id}
+                    key={id}
+                    kindLabel={result.success ? "CAPTURED" : "FAILED"}
+                    kindColor={result.success ? theme.success : theme.error}
+                    name={result.variable}
+                    value={`← ${result.expression}`}
+                    nameWidth={captureNameWidth}
+                    selected={
+                      selectedRowIdx === assertionResults.length + index
+                    }
+                    expanded={expandedRow === id}
+                    hovered={hoveredRow === id}
+                    details={
+                      result.success
+                        ? [
+                            {
+                              label: "Value",
+                              value: `(${result.type}: ${formatValue(result.value)})`,
+                            },
+                          ]
+                        : [{ label: "Message", value: result.message }]
+                    }
+                    onSelect={() =>
+                      setSelectedRowIdx(assertionResults.length + index)
+                    }
+                    onToggleExpanded={() =>
+                      setExpandedRow((prev) => (prev === id ? null : id))
+                    }
+                    onHover={(isHovered) =>
+                      setHoveredRow(isHovered ? id : null)
+                    }
+                    onPaneFocus={onPaneFocus}
+                  />
+                )
+              })}
+            </box>
           ) : null}
         </box>
       ) : null}
