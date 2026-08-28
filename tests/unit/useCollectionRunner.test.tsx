@@ -79,6 +79,10 @@ describe("useCollectionRunner", () => {
       "admin/first",
       "admin/second",
     ])
+    expect(harness.get().requestTags.get("admin/first")).toEqual([
+      "smoke",
+      "destructive",
+    ])
     expect([...harness.get().selectedIds]).toEqual([
       "admin/first",
       "admin/second",

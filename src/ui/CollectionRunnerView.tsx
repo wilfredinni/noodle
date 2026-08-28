@@ -11,6 +11,7 @@ import {
   type InputRenderable,
   type ScrollBoxRenderable,
 } from "@opentui/core"
+import { stringWidth } from "bun"
 import { useTerminalDimensions } from "@opentui/react"
 import type { Focus } from "./focus"
 import type { FieldKind } from "./editMode"
@@ -20,12 +21,13 @@ import type {
 } from "../hooks/useCollectionRunner"
 import { useTheme } from "./theme"
 import { Frame } from "./Frame"
-import { FullBorder } from "./borders"
+import { FullBorder, LeftBar } from "./borders"
 import { Tabs, type TabDef } from "./Tabs"
 import { Checkbox } from "./Checkbox"
 import { Select } from "./Select"
 import { ResponseResults } from "./ResponseResults"
-import { statusColor } from "./format"
+import { methodColor } from "./formatRequest"
+import { statusColor, truncateToWidth } from "./format"
 
 const OPTION_LABELS = [
   "Scope",
@@ -36,12 +38,25 @@ const OPTION_LABELS = [
   "Run",
 ] as const
 
+const OPTION_DESCRIPTIONS = [
+  "Run every request in the collection or selected folder.",
+  "Select the environment used for this run.",
+  "Only run requests with this tag.",
+  "Skip requests with this tag.",
+  "Stop running after the first failed request.",
+  "Run the selected requests with the options above.",
+] as const
+
 function resultLabel(row: RunnerResultRow): string {
   if (row.kind === "skipped") return `- ${row.id}  skipped`
   const status = row.result.response
     ? `${row.result.response.status} ${row.result.response.statusText}`
     : "error"
   return `${row.result.ok ? "✓" : "✗"} ${row.id}  ${status}`
+}
+
+function requestTagLabel(tags: string[]): string {
+  return tags.map((tag) => `#${tag}`).join(" ")
 }
 
 export function CollectionRunnerView({
@@ -99,6 +114,29 @@ export function CollectionRunnerView({
   }, [runner.resultIndex])
 
   const paneDirection = stacked ? "column" : "row"
+  const requestPaneWidth = stacked ? width : Math.floor((width - 1) / 2)
+  const requestContentWidth = Math.max(0, requestPaneWidth - 4)
+  const requestTagLabels = runner.requests.map((request) =>
+    requestTagLabel(runner.requestTags.get(request.id) ?? []),
+  )
+  const requestTagColumnWidth = Math.min(
+    Math.max(0, ...requestTagLabels.map((label) => stringWidth(label))),
+    Math.floor(Math.max(0, requestContentWidth - 14) / 2),
+  )
+  const hasFilteredRequests = runner.requests.some(
+    (request) =>
+      runner.selectedIds.has(request.id) && !runner.matchedIds.has(request.id),
+  )
+  const filteredColumnWidth = hasFilteredRequests
+    ? stringWidth("filtered") + 1
+    : 0
+  const requestLabelWidth = Math.max(
+    0,
+    requestContentWidth -
+      14 -
+      filteredColumnWidth -
+      (requestTagColumnWidth > 0 ? requestTagColumnWidth + 1 : 0),
+  )
   const paneStyle = {
     flexDirection: "column" as const,
     flexGrow: 1,
@@ -153,6 +191,7 @@ export function CollectionRunnerView({
           >
             <Frame
               title="Options"
+              titleAlignment="right"
               border={[...FullBorder.border]}
               customBorderChars={FullBorder.customBorderChars}
               borderColor={
@@ -164,7 +203,12 @@ export function CollectionRunnerView({
               <scrollbox
                 ref={optionScrollRef}
                 scrollY
-                style={{ flexGrow: 1, minHeight: 0 }}
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  minHeight: 0,
+                }}
               >
                 <box style={{ flexDirection: "column", gap: 1 }}>
                   {OPTION_LABELS.map((label, index) => {
@@ -174,92 +218,107 @@ export function CollectionRunnerView({
                       ? theme.backgroundElement
                       : undefined
                     return (
-                      <box
-                        key={label}
-                        id={`runner-option-${index}`}
-                        style={{ flexDirection: "column", backgroundColor }}
-                        onMouseDown={(event) => {
-                          if (event.button !== MouseButton.LEFT) return
-                          if (configurationLocked) {
-                            event.stopPropagation()
-                            return
+                      <box key={label} style={{ flexDirection: "column" }}>
+                        <box
+                          id={`runner-option-${index}`}
+                          border={[...LeftBar.border]}
+                          customBorderChars={LeftBar.customBorderChars}
+                          borderColor={
+                            active ? theme.primary : theme.borderSubtle
                           }
-                          onPaneFocus("runner-options")
-                          runner.setOptionIndex(index)
-                          if (index === 2) runner.beginOptionEdit("include")
-                          else if (index === 3)
-                            runner.beginOptionEdit("exclude")
-                          else if (index === 4) runner.toggleFailFast()
-                          else if (index === 5) void runner.run()
-                          event.stopPropagation()
-                        }}
-                      >
-                        {index === 0 ? (
-                          <>
-                            <text fg={theme.textMuted}>{label}</text>
-                            <text fg={theme.text}>{runner.scopeLabel}</text>
-                          </>
-                        ) : index === 1 ? (
-                          <box style={{ flexDirection: "row", gap: 1 }}>
-                            <text fg={theme.textMuted}>{`${label}:`}</text>
-                            <Select
-                              items={[
-                                { id: "", label: "Collection default" },
-                                ...runner.environmentNames.map((name) => ({
-                                  id: name,
-                                  label: name,
-                                })),
-                              ]}
-                              value={runner.environmentName ?? ""}
-                              focused={active}
-                              visualFocused={active}
-                              interactive={!configurationLocked}
-                              onActivate={() => runner.setOptionIndex(1)}
-                              onOpenChange={runner.setSelectOpen}
-                              onChange={(name) =>
-                                runner.setEnvironmentName(name || null)
-                              }
-                              fitContent
-                            />
-                          </box>
-                        ) : index === 2 || index === 3 ? (
-                          <box style={{ flexDirection: "row", gap: 1 }}>
-                            <text fg={theme.textMuted}>{`${label}:`}</text>
-                            {runner.editingOption ===
-                            (index === 2 ? "include" : "exclude") ? (
-                              <input
-                                ref={inputRef}
-                                value={runner.editValue}
-                                onInput={runner.setEditValue}
-                                placeholder="tag"
-                                backgroundColor={theme.backgroundElement}
-                                focusedBackgroundColor={theme.backgroundElement}
-                                textColor={theme.text}
-                                cursorColor={theme.primary}
-                                style={{ flexGrow: 1 }}
+                          style={{ flexDirection: "column", backgroundColor }}
+                          onMouseDown={(event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            if (configurationLocked) {
+                              event.stopPropagation()
+                              return
+                            }
+                            onPaneFocus("runner-options")
+                            runner.setOptionIndex(index)
+                            if (index === 2) runner.beginOptionEdit("include")
+                            else if (index === 3)
+                              runner.beginOptionEdit("exclude")
+                            else if (index === 4) runner.toggleFailFast()
+                            else if (index === 5) void runner.run()
+                            event.stopPropagation()
+                          }}
+                        >
+                          {index === 0 ? (
+                            <text fg={theme.text}>
+                              {`${label}: ${runner.scopeLabel}`}
+                            </text>
+                          ) : index === 1 ? (
+                            <box style={{ flexDirection: "row", gap: 1 }}>
+                              <text fg={theme.text}>{`${label}:`}</text>
+                              <Select
+                                items={[
+                                  { id: "", label: "Collection default" },
+                                  ...runner.environmentNames.map((name) => ({
+                                    id: name,
+                                    label: name,
+                                  })),
+                                ]}
+                                value={runner.environmentName ?? ""}
+                                focused={active}
+                                visualFocused={active}
+                                interactive={!configurationLocked}
+                                onActivate={() => runner.setOptionIndex(1)}
+                                onOpenChange={runner.setSelectOpen}
+                                onChange={(name) =>
+                                  runner.setEnvironmentName(name || null)
+                                }
+                                fitContent
                               />
-                            ) : (
-                              <text fg={theme.text}>
-                                {(index === 2
-                                  ? runner.includeTag
-                                  : runner.excludeTag) || "Any"}
-                              </text>
-                            )}
-                          </box>
-                        ) : index === 4 ? (
-                          <box style={{ flexDirection: "row", gap: 1 }}>
-                            <text fg={theme.textMuted}>{`${label}:`}</text>
-                            <Checkbox checked={runner.failFast} theme={theme} />
-                          </box>
-                        ) : (
-                          <text
-                            fg={runner.canRun ? theme.primary : theme.textMuted}
-                            attributes={TextAttributes.BOLD}
-                          >
-                            Run {runner.matchedIds.size} request
-                            {runner.matchedIds.size === 1 ? "" : "s"}
-                          </text>
-                        )}
+                            </box>
+                          ) : index === 2 || index === 3 ? (
+                            <box style={{ flexDirection: "row", gap: 1 }}>
+                              <text fg={theme.text}>{`${label}:`}</text>
+                              {runner.editingOption ===
+                              (index === 2 ? "include" : "exclude") ? (
+                                <input
+                                  ref={inputRef}
+                                  value={runner.editValue}
+                                  onInput={runner.setEditValue}
+                                  placeholder="tag"
+                                  backgroundColor={theme.backgroundElement}
+                                  focusedBackgroundColor={
+                                    theme.backgroundElement
+                                  }
+                                  textColor={theme.text}
+                                  cursorColor={theme.primary}
+                                  style={{ flexGrow: 1 }}
+                                />
+                              ) : (
+                                <text fg={theme.text}>
+                                  {(index === 2
+                                    ? runner.includeTag
+                                    : runner.excludeTag) || "Any"}
+                                </text>
+                              )}
+                            </box>
+                          ) : index === 4 ? (
+                            <box style={{ flexDirection: "row", gap: 1 }}>
+                              <text fg={theme.text}>{`${label}:`}</text>
+                              <Checkbox
+                                checked={runner.failFast}
+                                theme={theme}
+                              />
+                            </box>
+                          ) : (
+                            <text
+                              fg={
+                                runner.canRun ? theme.primary : theme.textMuted
+                              }
+                              attributes={TextAttributes.BOLD}
+                            >
+                              Run {runner.matchedIds.size} request
+                              {runner.matchedIds.size === 1 ? "" : "s"}
+                            </text>
+                          )}
+                        </box>
+                        <text fg={theme.textMuted}>
+                          {OPTION_DESCRIPTIONS[index]}
+                        </text>
                       </box>
                     )
                   })}
@@ -288,7 +347,8 @@ export function CollectionRunnerView({
               ) : null}
             </Frame>
             <Frame
-              title={`Requests · ${runner.matchedIds.size} matched`}
+              title="Requests"
+              titleAlignment="right"
               border={[...FullBorder.border]}
               customBorderChars={FullBorder.customBorderChars}
               borderColor={
@@ -302,10 +362,14 @@ export function CollectionRunnerView({
                 scrollY
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
-                <box style={{ flexDirection: "column" }}>
+                <box style={{ flexDirection: "column", gap: 0 }}>
                   {runner.requests.map((request, index) => {
                     const selected = runner.selectedIds.has(request.id)
                     const matched = runner.matchedIds.has(request.id)
+                    const filteredLabel = selected && !matched ? "filtered" : ""
+                    const tagsLabel = requestTagLabel(
+                      runner.requestTags.get(request.id) ?? [],
+                    )
                     const active =
                       focus === "runner-requests" &&
                       runner.requestIndex === index
@@ -316,6 +380,7 @@ export function CollectionRunnerView({
                         style={{
                           flexDirection: "row",
                           gap: 1,
+                          height: 1,
                           backgroundColor: active
                             ? theme.backgroundElement
                             : undefined,
@@ -332,12 +397,54 @@ export function CollectionRunnerView({
                           event.stopPropagation()
                         }}
                       >
-                        <Checkbox checked={selected} theme={theme} />
-                        <text fg={matched ? theme.text : theme.textMuted}>
-                          {request.id}
+                        <box style={{ width: 4, flexShrink: 0 }}>
+                          <Checkbox checked={selected} theme={theme} />
+                        </box>
+                        <text
+                          fg={methodColor(request.method, theme)}
+                          style={{ width: 8, flexShrink: 0 }}
+                          wrapMode="none"
+                        >
+                          {request.method}
                         </text>
-                        {selected && !matched ? (
-                          <text fg={theme.textMuted}>filtered</text>
+                        <text
+                          fg={matched ? theme.text : theme.textMuted}
+                          style={{ width: requestLabelWidth, flexShrink: 0 }}
+                          wrapMode="none"
+                        >
+                          {truncateToWidth(
+                            request.id,
+                            requestLabelWidth,
+                            false,
+                          )}
+                        </text>
+                        {requestTagColumnWidth > 0 ? (
+                          <text
+                            fg={theme.textMuted}
+                            style={{
+                              width: requestTagColumnWidth,
+                              flexShrink: 0,
+                            }}
+                            wrapMode="none"
+                          >
+                            {truncateToWidth(
+                              tagsLabel,
+                              requestTagColumnWidth,
+                              false,
+                            )}
+                          </text>
+                        ) : null}
+                        {filteredColumnWidth > 0 ? (
+                          <text
+                            fg={theme.textMuted}
+                            style={{
+                              width: filteredColumnWidth,
+                              flexShrink: 0,
+                            }}
+                            wrapMode="none"
+                          >
+                            {filteredLabel}
+                          </text>
                         ) : null}
                       </box>
                     )
@@ -357,6 +464,7 @@ export function CollectionRunnerView({
           >
             <Frame
               title="Run Results"
+              titleAlignment="right"
               border={[...FullBorder.border]}
               customBorderChars={FullBorder.customBorderChars}
               borderColor={
@@ -370,7 +478,7 @@ export function CollectionRunnerView({
                 scrollY
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
-                <box style={{ flexDirection: "column", gap: 1 }}>
+                <box style={{ flexDirection: "column", gap: 0 }}>
                   {runner.result ? (
                     <>
                       <text
@@ -436,6 +544,7 @@ export function CollectionRunnerView({
             </Frame>
             <Frame
               title="Request Detail"
+              titleAlignment="right"
               border={[...FullBorder.border]}
               customBorderChars={FullBorder.customBorderChars}
               borderColor={
@@ -539,11 +648,6 @@ export function CollectionRunnerView({
           </box>
         )}
       </Tabs>
-      <text fg={theme.textMuted}>
-        {runner.phase === "running"
-          ? "Run in progress"
-          : "Tab switch pane · ←/→ switch Configure/Results · Esc close"}
-      </text>
     </box>
   )
 }

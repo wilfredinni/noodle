@@ -53,6 +53,13 @@ describe("getKeybindingHints header", () => {
 })
 
 describe("getKeybindingHints footer", () => {
+  it("does not show status text while the runner is executing", () => {
+    expect(
+      getKeybindingHints(ctx({ view: "runner", runnerPhase: "running" }))
+        .footer,
+    ).toEqual([])
+  })
+
   it("uses contextual settings hints", () => {
     expect(
       getKeybindingHints(ctx({ view: "settings", focus: "settings-sidebar" }))

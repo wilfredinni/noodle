@@ -223,9 +223,7 @@ function getFooterHints(ctx: KeybindingHintsContext): HintSegment[] {
   }
 
   if (ctx.view === "runner") {
-    if (ctx.runnerPhase === "running") {
-      return [{ key: "", word: "run in progress" }]
-    }
+    if (ctx.runnerPhase === "running") return []
     if (ctx.focus === "runner-options") {
       return [
         { key: "↑/↓", word: "select" },

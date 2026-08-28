@@ -359,7 +359,7 @@ describe("buildCommandPaletteCommands", () => {
     const collectionCommand = buildCommandPaletteCommands(ctx).find(
       (command) => command.id === "collection.runner",
     )
-    expect(collectionCommand?.label).toBe("Run Collection…")
+    expect(collectionCommand?.label).toBe("Run Collection")
     expect(collectionCommand?.run()).toBe(true)
 
     ctx.paletteTarget = "folder"
@@ -367,7 +367,7 @@ describe("buildCommandPaletteCommands", () => {
     const folderCommand = buildCommandPaletteCommands(ctx).find(
       (command) => command.id === "collection.runner",
     )
-    expect(folderCommand?.label).toBe("Run Folder…")
+    expect(folderCommand?.label).toBe("Run Folder")
     expect(folderCommand?.run()).toBe(true)
     expect(scopes).toEqual([null, "admin"])
   })

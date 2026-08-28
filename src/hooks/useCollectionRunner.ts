@@ -9,6 +9,7 @@ import {
 } from "../app/services"
 import { flattenRequests } from "../ui/tree"
 import { nextIndex } from "../ui/selection"
+import { effectiveRequestTags } from "../tags"
 
 export type RunnerPhase = "configure" | "running" | "results"
 export type RunnerEditingOption = "include" | "exclude" | null
@@ -34,6 +35,7 @@ export interface UseCollectionRunnerResult {
   phase: RunnerPhase
   scopeLabel: string
   requests: Request[]
+  requestTags: Map<string, string[]>
   selectedIds: Set<string>
   matchedIds: Set<string>
   previewError: string | null
@@ -101,6 +103,15 @@ export function useCollectionRunner({
     const prefix = `${folderPath}/`
     return all.filter((request) => request.id.startsWith(prefix))
   }, [collection, folderPath])
+  const requestTags = useMemo(() => {
+    const tags = effectiveRequestTags(collection?.items ?? [])
+    return new Map(
+      requests.map((request) => [
+        request.id,
+        [...(tags.get(request.id) ?? [])],
+      ]),
+    )
+  }, [collection, requests])
   const [phase, setPhase] = useState<RunnerPhase>("configure")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [environmentName, setEnvironmentName] = useState<string | null>(null)
@@ -320,6 +331,7 @@ export function useCollectionRunner({
     phase,
     scopeLabel: folderPath ? `Folder: ${folderPath}` : "Entire collection",
     requests,
+    requestTags,
     selectedIds,
     matchedIds: preview.ids,
     previewError: preview.error,

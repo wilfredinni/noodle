@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { act, useRef, useState } from "react"
-import type { ScrollBoxRenderable } from "@opentui/core"
+import type { BoxRenderable, ScrollBoxRenderable } from "@opentui/core"
 import { MouseButtons } from "@opentui/core/testing"
 import { KeymapProvider } from "@opentui/keymap/react"
 import { createTestKeymap } from "@opentui/keymap/testing"
@@ -8,6 +8,7 @@ import { createTestRender } from "../testRender"
 import { ThemeProvider } from "../../src/ui/theme"
 import { CollectionRunnerView } from "../../src/ui/CollectionRunnerView"
 import { useCollectionRunner } from "../../src/hooks/useCollectionRunner"
+import { LeftBar } from "../../src/ui/borders"
 import type { UseCollectionRunnerResult } from "../../src/hooks/useCollectionRunner"
 import type { Focus } from "../../src/ui/focus"
 import type { Collection } from "../../src/schema"
@@ -33,7 +34,134 @@ const collection: Collection = {
   ],
 }
 
+const multiRequestCollection: Collection = {
+  ...collection,
+  items: ["one", "two", "three"].map((id) => ({
+    type: "request" as const,
+    data: {
+      id,
+      name: id,
+      method: "GET" as const,
+      url: `https://example.com/${id}`,
+      headers: {},
+      params: [],
+      timeout: 0,
+      tags:
+        id === "two"
+          ? undefined
+          : id === "one"
+            ? ["smoke"]
+            : ["smoke", "a-very-long-regression-tag"],
+    },
+  })),
+}
+
 describe("CollectionRunnerView", () => {
+  it("keeps runner and run result rows compact", async () => {
+    const { keymap, cleanup } = createTestKeymap()
+    keymap.setData("app.overlay", "none")
+    let current: UseCollectionRunnerResult | null = null
+    const runCollection = (async () => {
+      const results = multiRequestCollection.items.map((item) => {
+        if (item.type !== "request") throw new Error("expected request")
+        const { data } = item
+        return {
+          id: data.id,
+          method: data.method,
+          url: data.url,
+          ok: true,
+          failureCategories: [],
+          response: {
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            body: "",
+            timeMs: 1,
+          },
+        }
+      })
+      return {
+        results,
+        skipped: [],
+        failed: false,
+        summary: {
+          selected: results.length,
+          executed: results.length,
+          skipped: 0,
+          requestSuccesses: results.length,
+          requestFailures: 0,
+          assertionPasses: 0,
+          assertionFailures: 0,
+          captureFailures: 0,
+          durationMs: 1,
+          failureCategories: [],
+        },
+      }
+    }) as typeof collectionRun
+    function Harness() {
+      const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+      const runner = useCollectionRunner({
+        collection: multiRequestCollection,
+        collectionDir: "/tmp/collection",
+        folderPath: null,
+        activeEnvironment: null,
+        environmentNames: [],
+        hasUnsavedChanges: false,
+        noProxy: false,
+        systemProxy: { bypass: [] },
+        insecure: false,
+        resetKey: 1,
+        runCollection,
+      })
+      current = runner
+      return (
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CollectionRunnerView
+              runner={runner}
+              focus="runner-results"
+              hasUnsavedChanges={false}
+              detailScrollRef={detailScrollRef}
+              onPaneFocus={() => {}}
+              onEditRequestTab={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+
+    const render = await testRender(<Harness />, { width: 120, height: 24 })
+    await render.renderOnce()
+    const firstRequest =
+      render.renderer.root.findDescendantById("runner-request-0")!
+    const secondRequest =
+      render.renderer.root.findDescendantById("runner-request-1")!
+    expect(firstRequest.height).toBe(1)
+    expect(secondRequest.screenY - firstRequest.screenY).toBe(1)
+    const requestRows = render
+      .captureCharFrame()
+      .split("\n")
+      .filter((row) => ["one", "two", "three"].some((id) => row.includes(id)))
+    expect(requestRows).toHaveLength(3)
+    expect(requestRows[0]!.indexOf("GET")).toBe(requestRows[1]!.indexOf("GET"))
+    expect(requestRows[0]!.indexOf("one")).toBe(requestRows[1]!.indexOf("two"))
+    expect(requestRows[0]!.indexOf("#smoke")).toBe(
+      requestRows[2]!.indexOf("#smoke"),
+    )
+    expect(requestRows.join("\n")).not.toContain("…")
+    await act(async () => current!.run())
+    await render.renderOnce()
+    const first = render.renderer.root.findDescendantById("runner-result-0")!
+    const second = render.renderer.root.findDescendantById("runner-result-1")!
+    expect(first.height).toBe(1)
+    expect(second.screenY - first.screenY).toBe(1)
+    cleanup()
+  })
+
   it("preserves every configuration control and dirty warning at 80x24", async () => {
     const { keymap, cleanup } = createTestKeymap()
     keymap.setData("app.overlay", "none")
@@ -83,6 +211,16 @@ describe("CollectionRunnerView", () => {
         render.renderer.root.findDescendantById(`runner-option-${index}`),
       ).not.toBeNull()
     }
+    for (const index of [0, 1, 2, 3, 4, 5]) {
+      const option = render.renderer.root.findDescendantById(
+        `runner-option-${index}`,
+      ) as BoxRenderable
+      expect(option.border).toEqual([...LeftBar.border])
+    }
+    expect(frame).toContain(
+      "Run every request in the collection or selected folder.",
+    )
+    expect(frame).toContain("Select the environment used for this run.")
     await act(async () => current!.setOptionIndex(5))
     await render.renderOnce()
     await render.renderOnce()
@@ -90,9 +228,7 @@ describe("CollectionRunnerView", () => {
     expect(scrolled).toContain("Exclude tag")
     expect(scrolled).toContain("Fail fast")
     expect(scrolled).toContain("Run 1 request")
-    expect(scrolled).toContain(
-      "Save pending changes in the request workspace before",
-    )
+    expect(scrolled).toContain("Save")
     cleanup()
   })
 
