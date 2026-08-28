@@ -89,62 +89,92 @@ export function SettingsSection({
       desc: "Send cookies from the collection cookie jar",
     },
   ]
+  const tagsActive =
+    (inEdit || browseActive) &&
+    editState.cursor.field === "settings" &&
+    editState.cursor.row >= rows.length
 
   return (
     <box style={{ flexDirection: "column", gap: 1 }}>
-      <text fg={theme.textMuted} attributes={1}>
-        Tags
-      </text>
-      <box style={{ flexDirection: "row", flexWrap: "wrap", gap: 1 }}>
-        {[...(request.tags ?? []), null].map((tag, index) => {
-          const row = rows.length + index
-          const editing =
-            inEdit &&
-            editState.cursor.field === "settings" &&
-            editState.cursor.row === row
-          const active =
-            browseActive &&
-            editState.cursor.field === "settings" &&
-            editState.cursor.row === row
+      <box
+        id="settings-tags"
+        border={[...LeftBar.border]}
+        customBorderChars={LeftBar.customBorderChars}
+        borderColor={tagsActive ? theme.primary : theme.borderSubtle}
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 1,
+          width: "100%",
+          minWidth: 0,
+        }}
+      >
+        <text fg={theme.text} style={{ flexShrink: 0 }}>
+          Tags:{" "}
+        </text>
+        <box
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 0,
+            flexGrow: 1,
+            minWidth: 0,
+          }}
+        >
+          {[...(request.tags ?? []), null].map((tag, index) => {
+            const row = rows.length + index
+            const editing =
+              inEdit &&
+              editState.cursor.field === "settings" &&
+              editState.cursor.row === row
+            const active =
+              browseActive &&
+              editState.cursor.field === "settings" &&
+              editState.cursor.row === row
 
-          return (
-            <box
-              key={`tag-${index}`}
-              id={`settings-${row}`}
-              style={{ flexDirection: "column", minHeight: 1 }}
-              onMouseDown={(event) => {
-                if (event.button !== MouseButton.LEFT || !interactive) return
-                onActivateRow?.(row)
-                event.stopPropagation()
-              }}
-            >
-              {editing ? (
-                <VarInput
-                  value={editValue}
-                  placeholder="Tag"
-                  env={null}
-                  isEditing
-                  isFocused
-                  onChange={setEditValue}
-                  baseColor={theme.primary}
-                  backgroundColor={theme.backgroundElement}
-                  paddingX={1}
-                  stopMousePropagation
-                />
-              ) : (
-                <Badge
-                  bg={active ? theme.primary : theme.backgroundElement}
-                  fg={active ? theme.backgroundPanel : theme.textMuted}
-                >
-                  {tag ?? "+ Add tag"}
-                </Badge>
-              )}
-              {editing && editError ? (
-                <text fg={theme.error}> {editError}</text>
-              ) : null}
-            </box>
-          )
-        })}
+            return (
+              <box
+                key={`tag-${index}`}
+                id={`settings-${row}`}
+                style={{
+                  flexDirection: "column",
+                  minHeight: 1,
+                  marginRight: 1,
+                }}
+                onMouseDown={(event) => {
+                  if (event.button !== MouseButton.LEFT || !interactive) return
+                  onActivateRow?.(row)
+                  event.stopPropagation()
+                }}
+              >
+                {editing ? (
+                  <VarInput
+                    value={editValue}
+                    placeholder="Tag"
+                    env={null}
+                    isEditing
+                    isFocused
+                    onChange={setEditValue}
+                    baseColor={theme.primary}
+                    backgroundColor={theme.backgroundElement}
+                    paddingX={1}
+                    stopMousePropagation
+                  />
+                ) : (
+                  <Badge
+                    bg={active ? theme.primary : theme.backgroundElement}
+                    fg={active ? theme.backgroundPanel : theme.textMuted}
+                  >
+                    {tag ?? "+ Add tag"}
+                  </Badge>
+                )}
+                {editing && editError ? (
+                  <text fg={theme.error}> {editError}</text>
+                ) : null}
+              </box>
+            )
+          })}
+        </box>
       </box>
       {rows.map((row, idx) => {
         const editingRow =
