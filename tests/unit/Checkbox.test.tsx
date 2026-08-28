@@ -36,4 +36,17 @@ describe("Checkbox", () => {
     const muted = RGBA.fromHex(theme.textMuted)
     expect(cb!.fg).toEqual(muted)
   })
+
+  it("renders [-] in primary color when indeterminate", async () => {
+    const { renderOnce, captureSpans } = await testRender(
+      <Checkbox checked={false} indeterminate theme={theme} />,
+      { width: 20, height: 3 },
+    )
+    await renderOnce()
+    const spans = captureSpans().lines.flatMap((l) => l.spans)
+    const cb = spans.find((s) => s.text.includes("[-]"))
+    expect(cb).toBeDefined()
+    const primary = RGBA.fromHex(theme.primary)
+    expect(cb!.fg).toEqual(primary)
+  })
 })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Collection, Request } from "../schema"
+import type { Collection, CollectionItem, Request } from "../schema"
 import type { SystemProxySettings } from "../proxy"
 import {
   collectionRun,
@@ -7,7 +7,7 @@ import {
   type CollectionRunResult,
   type RequestRunResult,
 } from "../app/services"
-import { flattenRequests } from "../ui/tree"
+import { findFolderByPath, flattenRequests } from "../ui/tree"
 import { nextIndex } from "../ui/selection"
 import { effectiveRequestTags } from "../tags"
 
@@ -34,6 +34,7 @@ export interface UseCollectionRunnerOptions {
 export interface UseCollectionRunnerResult {
   phase: RunnerPhase
   scopeLabel: string
+  items: CollectionItem[]
   requests: Request[]
   requestTags: Map<string, string[]>
   selectedIds: Set<string>
@@ -46,6 +47,7 @@ export interface UseCollectionRunnerResult {
   failFast: boolean
   optionIndex: number
   requestIndex: number
+  requestRowIndex: number
   resultIndex: number
   editingOption: RunnerEditingOption
   editValue: string
@@ -60,6 +62,7 @@ export interface UseCollectionRunnerResult {
   setEditValue: (value: string) => void
   setOptionIndex: (index: number) => void
   setRequestIndex: (index: number) => void
+  setRequestRowIndex: (index: number) => void
   setResultIndex: (index: number) => void
   optionUp: () => void
   optionDown: () => void
@@ -72,6 +75,7 @@ export interface UseCollectionRunnerResult {
   resultFirst: () => void
   resultLast: () => void
   toggleSelected: (index?: number) => void
+  toggleFolder: (path: string) => void
   toggleFailFast: () => void
   activateOption: () => void
   beginOptionEdit: (option: "include" | "exclude") => void
@@ -83,6 +87,27 @@ export interface UseCollectionRunnerResult {
 }
 
 const OPTION_COUNT = 6
+
+type RunnerNavigationRow =
+  | { kind: "folder"; path: string }
+  | { kind: "request"; index: number }
+
+function flattenRunnerNavigationRows(
+  items: CollectionItem[],
+  requestIndexById: Map<string, number>,
+  rows: RunnerNavigationRow[] = [],
+): RunnerNavigationRow[] {
+  for (const item of items) {
+    if (item.type === "folder") {
+      rows.push({ kind: "folder", path: item.data.path })
+      flattenRunnerNavigationRows(item.data.children, requestIndexById, rows)
+      continue
+    }
+    const index = requestIndexById.get(item.data.id)
+    if (index !== undefined) rows.push({ kind: "request", index })
+  }
+  return rows
+}
 
 export function useCollectionRunner({
   collection,
@@ -97,12 +122,18 @@ export function useCollectionRunner({
   resetKey,
   runCollection = collectionRun,
 }: UseCollectionRunnerOptions): UseCollectionRunnerResult {
-  const requests = useMemo(() => {
-    const all = flattenRequests(collection?.items ?? [])
-    if (!folderPath) return all
-    const prefix = `${folderPath}/`
-    return all.filter((request) => request.id.startsWith(prefix))
+  const items = useMemo(() => {
+    if (!collection) return []
+    if (!folderPath) return collection.items
+    return findFolderByPath(collection.items, folderPath)?.children ?? []
   }, [collection, folderPath])
+  const requests = useMemo(() => flattenRequests(items), [items])
+  const navigationRows = useMemo(() => {
+    const requestIndexById = new Map(
+      requests.map((request, index) => [request.id, index]),
+    )
+    return flattenRunnerNavigationRows(items, requestIndexById)
+  }, [items, requests])
   const requestTags = useMemo(() => {
     const tags = effectiveRequestTags(collection?.items ?? [])
     return new Map(
@@ -119,7 +150,8 @@ export function useCollectionRunner({
   const [excludeTag, setExcludeTag] = useState("")
   const [failFast, setFailFast] = useState(false)
   const [optionIndex, setOptionIndex] = useState(0)
-  const [requestIndex, setRequestIndex] = useState(0)
+  const [requestIndex, setRequestIndexState] = useState(0)
+  const [requestRowIndex, setRequestRowIndex] = useState(0)
   const [resultIndex, setResultIndex] = useState(0)
   const [editingOption, setEditingOption] = useState<RunnerEditingOption>(null)
   const [editValue, setEditValue] = useState("")
@@ -138,7 +170,8 @@ export function useCollectionRunner({
     setExcludeTag("")
     setFailFast(false)
     setOptionIndex(0)
-    setRequestIndex(0)
+    setRequestIndexState(0)
+    setRequestRowIndex(0)
     setResultIndex(0)
     setEditingOption(null)
     setEditValue("")
@@ -201,18 +234,26 @@ export function useCollectionRunner({
     [],
   )
   const requestUp = useCallback(
-    () => setRequestIndex((index) => nextIndex(index, requests.length, -1)),
-    [requests.length],
+    () =>
+      setRequestRowIndex((index) =>
+        nextIndex(index, navigationRows.length, -1),
+      ),
+    [navigationRows.length],
   )
   const requestDown = useCallback(
-    () => setRequestIndex((index) => nextIndex(index, requests.length, 1)),
-    [requests.length],
+    () =>
+      setRequestRowIndex((index) => nextIndex(index, navigationRows.length, 1)),
+    [navigationRows.length],
   )
-  const requestFirst = useCallback(() => setRequestIndex(0), [])
+  const requestFirst = useCallback(() => setRequestRowIndex(0), [])
   const requestLast = useCallback(
-    () => setRequestIndex(Math.max(0, requests.length - 1)),
-    [requests.length],
+    () => setRequestRowIndex(Math.max(0, navigationRows.length - 1)),
+    [navigationRows.length],
   )
+  useEffect(() => {
+    const row = navigationRows[requestRowIndex]
+    if (row?.kind === "request") setRequestIndexState(row.index)
+  }, [navigationRows, requestRowIndex])
   const resultUp = useCallback(
     () => setResultIndex((index) => nextIndex(index, resultRows.length, -1)),
     [resultRows.length],
@@ -227,8 +268,45 @@ export function useCollectionRunner({
     [resultRows.length],
   )
 
+  const toggleFolder = useCallback(
+    (path: string) => {
+      if (phase === "running") return
+      const ids = requests
+        .filter((request) => request.id.startsWith(`${path}/`))
+        .map((request) => request.id)
+      if (ids.length === 0) return
+      setSelectedIds((current) => {
+        const select = !ids.every((id) => current.has(id))
+        const next = new Set(current)
+        for (const id of ids) {
+          if (select) next.add(id)
+          else next.delete(id)
+        }
+        return next
+      })
+    },
+    [phase, requests],
+  )
+  const setRequestIndex = useCallback(
+    (index: number) => {
+      setRequestIndexState(index)
+      const rowIndex = navigationRows.findIndex(
+        (row) => row.kind === "request" && row.index === index,
+      )
+      if (rowIndex >= 0) setRequestRowIndex(rowIndex)
+    },
+    [navigationRows],
+  )
   const toggleSelected = useCallback(
-    (index = requestIndex) => {
+    (index?: number) => {
+      if (index === undefined) {
+        const row = navigationRows[requestRowIndex]
+        if (row?.kind === "folder") {
+          toggleFolder(row.path)
+          return
+        }
+        index = row?.kind === "request" ? row.index : requestIndex
+      }
       const id = requests[index]?.id
       if (!id || phase === "running") return
       setSelectedIds((current) => {
@@ -238,7 +316,14 @@ export function useCollectionRunner({
         return next
       })
     },
-    [phase, requestIndex, requests],
+    [
+      navigationRows,
+      phase,
+      requestIndex,
+      requestRowIndex,
+      requests,
+      toggleFolder,
+    ],
   )
   const toggleFailFast = useCallback(() => {
     if (phase !== "running") setFailFast((value) => !value)
@@ -330,6 +415,7 @@ export function useCollectionRunner({
   return {
     phase,
     scopeLabel: folderPath ? `Folder: ${folderPath}` : "Entire collection",
+    items,
     requests,
     requestTags,
     selectedIds,
@@ -342,6 +428,7 @@ export function useCollectionRunner({
     failFast,
     optionIndex,
     requestIndex,
+    requestRowIndex,
     resultIndex,
     editingOption,
     editValue,
@@ -356,6 +443,7 @@ export function useCollectionRunner({
     setEditValue,
     setOptionIndex,
     setRequestIndex,
+    setRequestRowIndex,
     setResultIndex,
     optionUp,
     optionDown,
@@ -368,6 +456,7 @@ export function useCollectionRunner({
     resultFirst,
     resultLast,
     toggleSelected,
+    toggleFolder,
     toggleFailFast,
     activateOption,
     beginOptionEdit,

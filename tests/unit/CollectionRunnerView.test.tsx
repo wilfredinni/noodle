@@ -56,6 +56,46 @@ const multiRequestCollection: Collection = {
   })),
 }
 
+const folderCollection: Collection = {
+  ...collection,
+  items: [
+    {
+      type: "folder",
+      data: {
+        id: "albums",
+        name: "Albums",
+        path: "albums",
+        children: [
+          {
+            type: "request",
+            data: {
+              id: "albums/create",
+              name: "create-album",
+              method: "POST",
+              url: "https://example.com/albums",
+              headers: {},
+              params: [],
+              timeout: 0,
+            },
+          },
+          {
+            type: "request",
+            data: {
+              id: "albums/list",
+              name: "list-albums",
+              method: "GET",
+              url: "https://example.com/albums",
+              headers: {},
+              params: [],
+              timeout: 0,
+            },
+          },
+        ],
+      },
+    },
+  ],
+}
+
 describe("CollectionRunnerView", () => {
   it("keeps runner and run result rows compact", async () => {
     const { keymap, cleanup } = createTestKeymap()
@@ -137,9 +177,9 @@ describe("CollectionRunnerView", () => {
     const render = await testRender(<Harness />, { width: 120, height: 24 })
     await render.renderOnce()
     const firstRequest =
-      render.renderer.root.findDescendantById("runner-request-0")!
+      render.renderer.root.findDescendantById("runner-row-0")!
     const secondRequest =
-      render.renderer.root.findDescendantById("runner-request-1")!
+      render.renderer.root.findDescendantById("runner-row-1")!
     expect(firstRequest.height).toBe(1)
     expect(secondRequest.screenY - firstRequest.screenY).toBe(1)
     const requestRows = render
@@ -203,7 +243,7 @@ describe("CollectionRunnerView", () => {
     const render = await testRender(<Harness />, { width: 80, height: 24 })
     await render.renderOnce()
     const frame = render.captureCharFrame()
-    for (const label of ["Scope", "Environment", "Include tag", "health"]) {
+    for (const label of ["Scope", "Environment", "Include tag", "Health"]) {
       expect(frame).toContain(label)
     }
     for (const index of [3, 4, 5]) {
@@ -229,6 +269,86 @@ describe("CollectionRunnerView", () => {
     expect(scrolled).toContain("Fail fast")
     expect(scrolled).toContain("Run 1 request")
     expect(scrolled).toContain("Save")
+    cleanup()
+  })
+
+  it("renders folder rows with complete and partial selection states", async () => {
+    const { keymap, cleanup } = createTestKeymap()
+    keymap.setData("app.overlay", "none")
+    let current: UseCollectionRunnerResult | null = null
+    function Harness() {
+      const detailScrollRef = useRef<ScrollBoxRenderable | null>(null)
+      const runner = useCollectionRunner({
+        collection: folderCollection,
+        collectionDir: "/tmp/collection",
+        folderPath: null,
+        activeEnvironment: null,
+        environmentNames: [],
+        hasUnsavedChanges: false,
+        noProxy: false,
+        systemProxy: { bypass: [] },
+        insecure: false,
+        resetKey: 1,
+      })
+      current = runner
+      return (
+        <KeymapProvider
+          keymap={
+            keymap as unknown as Parameters<typeof KeymapProvider>[0]["keymap"]
+          }
+        >
+          <ThemeProvider activeIndex={0} previewIndex={null}>
+            <CollectionRunnerView
+              runner={runner}
+              focus="runner-requests"
+              hasUnsavedChanges={false}
+              detailScrollRef={detailScrollRef}
+              onPaneFocus={() => {}}
+              onEditRequestTab={() => {}}
+            />
+          </ThemeProvider>
+        </KeymapProvider>
+      )
+    }
+
+    const render = await testRender(<Harness />, { width: 120, height: 24 })
+    await render.renderOnce()
+    const folderRow = render.renderer.root.findDescendantById("runner-row-0")!
+    expect(render.captureCharFrame()).toContain("[x] FOLDER Albums")
+
+    await act(async () =>
+      render.mockMouse.click(
+        folderRow.screenX + 1,
+        folderRow.screenY,
+        MouseButtons.LEFT,
+      ),
+    )
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("[ ] FOLDER Albums")
+
+    await act(async () => current!.toggleSelected(0))
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("[-] FOLDER Albums")
+
+    await act(async () =>
+      render.mockMouse.click(
+        folderRow.screenX + 1,
+        folderRow.screenY,
+        MouseButtons.LEFT,
+      ),
+    )
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("[x] FOLDER Albums")
+
+    await act(async () =>
+      render.mockMouse.click(
+        folderRow.screenX + 1,
+        folderRow.screenY,
+        MouseButtons.LEFT,
+      ),
+    )
+    await render.renderOnce()
+    expect(render.captureCharFrame()).toContain("[ ] FOLDER Albums")
     cleanup()
   })
 

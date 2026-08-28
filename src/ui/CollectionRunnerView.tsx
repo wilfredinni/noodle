@@ -19,6 +19,7 @@ import type {
   RunnerResultRow,
   UseCollectionRunnerResult,
 } from "../hooks/useCollectionRunner"
+import type { CollectionItem, Request } from "../schema"
 import { useTheme } from "./theme"
 import { Frame } from "./Frame"
 import { FullBorder, LeftBar } from "./borders"
@@ -28,6 +29,7 @@ import { Select } from "./Select"
 import { ResponseResults } from "./ResponseResults"
 import { methodColor } from "./formatRequest"
 import { statusColor, truncateToWidth } from "./format"
+import { flattenRequests } from "./tree"
 
 const OPTION_LABELS = [
   "Scope",
@@ -57,6 +59,46 @@ function resultLabel(row: RunnerResultRow): string {
 
 function requestTagLabel(tags: string[]): string {
   return tags.map((tag) => `#${tag}`).join(" ")
+}
+
+type RunnerListRow =
+  | {
+      kind: "folder"
+      path: string
+      name: string
+      requestIds: string[]
+      depth: number
+    }
+  | { kind: "request"; request: Request; index: number; depth: number }
+
+function flattenRunnerRows(
+  items: CollectionItem[],
+  requestIndexById: Map<string, number>,
+  depth = 0,
+): RunnerListRow[] {
+  const rows: RunnerListRow[] = []
+  for (const item of items) {
+    if (item.type === "folder") {
+      rows.push({
+        kind: "folder",
+        path: item.data.path,
+        name: item.data.name,
+        requestIds: flattenRequests(item.data.children).map(
+          (request) => request.id,
+        ),
+        depth,
+      })
+      rows.push(
+        ...flattenRunnerRows(item.data.children, requestIndexById, depth + 1),
+      )
+      continue
+    }
+    const index = requestIndexById.get(item.data.id)
+    if (index !== undefined) {
+      rows.push({ kind: "request", request: item.data, index, depth })
+    }
+  }
+  return rows
 }
 
 export function CollectionRunnerView({
@@ -103,9 +145,9 @@ export function CollectionRunnerView({
   }, [runner.editingOption])
   useEffect(() => {
     requestScrollRef.current?.scrollChildIntoView(
-      `runner-request-${runner.requestIndex}`,
+      `runner-row-${runner.requestRowIndex}`,
     )
-  }, [runner.requestIndex])
+  }, [runner.requestRowIndex])
   useEffect(() => {
     resultScrollRef.current?.scrollChildIntoView(
       `runner-result-${runner.resultIndex}`,
@@ -116,12 +158,17 @@ export function CollectionRunnerView({
   const paneDirection = stacked ? "column" : "row"
   const requestPaneWidth = stacked ? width : Math.floor((width - 1) / 2)
   const requestContentWidth = Math.max(0, requestPaneWidth - 4)
+  const requestIndexById = new Map(
+    runner.requests.map((request, index) => [request.id, index]),
+  )
+  const runnerRows = flattenRunnerRows(runner.items, requestIndexById)
+  const requestBaseLabelWidth = Math.max(0, requestContentWidth - 11)
   const requestTagLabels = runner.requests.map((request) =>
     requestTagLabel(runner.requestTags.get(request.id) ?? []),
   )
   const requestTagColumnWidth = Math.min(
     Math.max(0, ...requestTagLabels.map((label) => stringWidth(label))),
-    Math.floor(Math.max(0, requestContentWidth - 14) / 2),
+    Math.floor(requestBaseLabelWidth / 2),
   )
   const hasFilteredRequests = runner.requests.some(
     (request) =>
@@ -132,8 +179,7 @@ export function CollectionRunnerView({
     : 0
   const requestLabelWidth = Math.max(
     0,
-    requestContentWidth -
-      14 -
+    requestBaseLabelWidth -
       filteredColumnWidth -
       (requestTagColumnWidth > 0 ? requestTagColumnWidth + 1 : 0),
   )
@@ -363,24 +409,93 @@ export function CollectionRunnerView({
                 style={{ flexGrow: 1, minHeight: 0 }}
               >
                 <box style={{ flexDirection: "column", gap: 0 }}>
-                  {runner.requests.map((request, index) => {
+                  {runnerRows.map((row, rowIndex) => {
+                    if (row.kind === "folder") {
+                      const selectedCount = row.requestIds.filter((id) =>
+                        runner.selectedIds.has(id),
+                      ).length
+                      const selected =
+                        row.requestIds.length > 0 &&
+                        selectedCount === row.requestIds.length
+                      const indeterminate = selectedCount > 0 && !selected
+                      const nameWidth = Math.max(
+                        0,
+                        requestBaseLabelWidth - row.depth * 2,
+                      )
+                      const active =
+                        focus === "runner-requests" &&
+                        runner.requestRowIndex === rowIndex
+                      return (
+                        <box
+                          key={`folder-${row.path}`}
+                          id={`runner-row-${rowIndex}`}
+                          style={{
+                            flexDirection: "row",
+                            height: 1,
+                            paddingLeft: row.depth * 2,
+                            backgroundColor: active
+                              ? theme.backgroundElement
+                              : undefined,
+                          }}
+                          onMouseDown={(event) => {
+                            if (event.button !== MouseButton.LEFT) return
+                            if (configurationLocked) {
+                              event.stopPropagation()
+                              return
+                            }
+                            onPaneFocus("runner-requests")
+                            runner.setRequestRowIndex(rowIndex)
+                            runner.toggleFolder(row.path)
+                            event.stopPropagation()
+                          }}
+                        >
+                          <box style={{ width: 4, flexShrink: 0 }}>
+                            <Checkbox
+                              checked={selected}
+                              indeterminate={indeterminate}
+                              theme={theme}
+                            />
+                          </box>
+                          <text
+                            fg={theme.textMuted}
+                            style={{ width: 7, flexShrink: 0 }}
+                            wrapMode="none"
+                          >
+                            {"FOLDER".padEnd(7)}
+                          </text>
+                          <text
+                            fg={theme.text}
+                            style={{ width: nameWidth, flexShrink: 0 }}
+                            wrapMode="none"
+                          >
+                            {truncateToWidth(row.name, nameWidth, false)}
+                          </text>
+                        </box>
+                      )
+                    }
+
+                    const { request, index } = row
                     const selected = runner.selectedIds.has(request.id)
                     const matched = runner.matchedIds.has(request.id)
                     const filteredLabel = selected && !matched ? "filtered" : ""
                     const tagsLabel = requestTagLabel(
                       runner.requestTags.get(request.id) ?? [],
                     )
+                    const nameWidth = Math.max(
+                      0,
+                      requestLabelWidth - row.depth * 2,
+                    )
                     const active =
                       focus === "runner-requests" &&
-                      runner.requestIndex === index
+                      runner.requestRowIndex === rowIndex
                     return (
                       <box
                         key={request.id}
-                        id={`runner-request-${index}`}
+                        id={`runner-row-${rowIndex}`}
                         style={{
                           flexDirection: "row",
-                          gap: 1,
                           height: 1,
+                          paddingLeft: row.depth * 2,
                           backgroundColor: active
                             ? theme.backgroundElement
                             : undefined,
@@ -402,21 +517,17 @@ export function CollectionRunnerView({
                         </box>
                         <text
                           fg={methodColor(request.method, theme)}
-                          style={{ width: 8, flexShrink: 0 }}
+                          style={{ width: 7, flexShrink: 0 }}
                           wrapMode="none"
                         >
-                          {request.method}
+                          {request.method.padEnd(7)}
                         </text>
                         <text
                           fg={matched ? theme.text : theme.textMuted}
-                          style={{ width: requestLabelWidth, flexShrink: 0 }}
+                          style={{ width: nameWidth, flexShrink: 0 }}
                           wrapMode="none"
                         >
-                          {truncateToWidth(
-                            request.id,
-                            requestLabelWidth,
-                            false,
-                          )}
+                          {truncateToWidth(request.name, nameWidth, false)}
                         </text>
                         {requestTagColumnWidth > 0 ? (
                           <text
@@ -427,11 +538,13 @@ export function CollectionRunnerView({
                             }}
                             wrapMode="none"
                           >
-                            {truncateToWidth(
-                              tagsLabel,
-                              requestTagColumnWidth,
-                              false,
-                            )}
+                            {tagsLabel
+                              ? ` ${truncateToWidth(
+                                  tagsLabel,
+                                  requestTagColumnWidth,
+                                  false,
+                                )}`
+                              : ""}
                           </text>
                         ) : null}
                         {filteredColumnWidth > 0 ? (
@@ -443,7 +556,7 @@ export function CollectionRunnerView({
                             }}
                             wrapMode="none"
                           >
-                            {filteredLabel}
+                            {filteredLabel ? ` ${filteredLabel}` : ""}
                           </text>
                         ) : null}
                       </box>

@@ -89,6 +89,26 @@ describe("useCollectionRunner", () => {
     ])
   })
 
+  it("navigates folder rows and toggles the focused folder", async () => {
+    const harness = renderHook()
+    const render = await harness.render
+    await render.renderOnce()
+
+    await act(async () => harness.get().requestDown())
+    await render.renderOnce()
+    expect(harness.get().requestRowIndex).toBe(1)
+
+    await act(async () => harness.get().toggleSelected())
+    expect([...harness.get().selectedIds]).toEqual(["root"])
+
+    await act(async () => harness.get().toggleSelected())
+    expect([...harness.get().selectedIds]).toEqual([
+      "root",
+      "admin/first",
+      "admin/second",
+    ])
+  })
+
   it("previews inherited filters with exclusion precedence", async () => {
     const harness = renderHook()
     const render = await harness.render
